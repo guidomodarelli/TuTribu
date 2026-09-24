@@ -1,0 +1,123 @@
+.TribeEventAgendaItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.75rem;
+  align-items: start;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  min-width: 0;
+}
+
+.TribeEventAgendaItem {
+  &--past {
+    color: var(--muted-foreground);
+  }
+
+  &__time {
+    grid-column: 1;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &__localTime {
+    display: block;
+    font-size: 0.78rem;
+    white-space: normal;
+  }
+
+  &__main {
+    grid-column: 1;
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.6rem;
+  }
+
+  &__metaText {
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+  }
+
+  &__actions {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: inline-flex;
+    gap: 0.4rem;
+  }
+
+  &__iconLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: var(--foreground);
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+    }
+  }
+
+  &__liveBadge {
+    gap: 0.35rem;
+    border-color: color-mix(in oklch, var(--destructive) 45%, var(--border));
+    color: var(--destructive);
+  }
+
+  &__liveDot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  &__titleButton {
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    padding: 0;
+    text-align: left;
+    overflow-wrap: anywhere;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+    text-underline-offset: 0.2em;
+  }
+}
+
+@media (min-width: 40rem) {
+  .TribeEventAgendaItem {
+    grid-template-columns: 7.5rem minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 1rem;
+  }
+
+  .TribeEventAgendaItem {
+    &__time {
+      grid-column: 1;
+      font-size: 0.9rem;
+    }
+
+    &__main {
+      grid-column: 2;
+    }
+
+    &__actions {
+      grid-column: 3;
+      grid-row: auto;
+    }
+  }
+}

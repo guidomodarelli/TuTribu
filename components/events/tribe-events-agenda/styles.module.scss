@@ -1,0 +1,10 @@
+.TribeEventsAgenda {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+
+  &__pastToggle {
+    justify-self: start;
+    color: var(--muted-foreground);
+  }
+}

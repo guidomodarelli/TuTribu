@@ -1,6 +1,11 @@
 import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
+import {
+  AppRouterContext,
+  type AppRouterInstance,
+} from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
@@ -46,6 +51,25 @@ function createOccurrence(
   };
 }
 
+/**
+ * Router double provided through Next's own context (the boundary
+ * `useRouter` reads), so navigation calls can be asserted without mocking
+ * the `next/navigation` module.
+ */
+const router = {
+  back: vi.fn(),
+  bfcacheId: "tribe-events-test",
+  forward: vi.fn(),
+  prefetch: vi.fn(),
+  push: vi.fn(),
+  refresh: vi.fn(),
+  replace: vi.fn(),
+} satisfies AppRouterInstance;
+
+function RouterProvider({ children }: { children: ReactNode }) {
+  return <AppRouterContext.Provider value={router}>{children}</AppRouterContext.Provider>;
+}
+
 function renderCalendar(
   props: Partial<React.ComponentProps<typeof TribeEventsCalendar>> = {}
 ) {
@@ -56,7 +80,8 @@ function renderCalendar(
       tribeSlug="matematica-pro"
       viewerPermissions={{ canManageEvents: true }}
       {...props}
-    />
+    />,
+    { wrapper: RouterProvider }
   );
 }
 
@@ -106,7 +131,7 @@ describe("TribeEventsCalendar", () => {
     );
     expect(screen.getByRole("link", { name: "Hoy" })).toHaveAttribute(
       "href",
-      expect.stringMatching(/\/matematica-pro\/eventos\?month=\d{4}-\d{2}/)
+      "/matematica-pro/eventos?month=2026-05"
     );
     expect(
       screen.getByRole("table", { name: "Calendario mensual de eventos" })
@@ -114,6 +139,18 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByRole("columnheader", { name: "Lun" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /15:00\s*Clase abierta/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Crear evento" })).toBeInTheDocument();
+  });
+
+  it("points the today link at the Buenos Aires month of the clock", () => {
+    // 02:00 UTC on June 1st is still May 31st in Buenos Aires.
+    vi.setSystemTime(new Date("2026-06-01T02:00:00.000Z"));
+
+    renderCalendar();
+
+    expect(screen.getByRole("link", { name: "Hoy" })).toHaveAttribute(
+      "href",
+      "/matematica-pro/eventos?month=2026-05"
+    );
   });
 
   it("switches to the event list table with attendance counts", async () => {
@@ -134,6 +171,86 @@ describe("TribeEventsCalendar", () => {
     expect(
       within(agenda).getByRole("link", { name: "Abrir link" })
     ).toHaveAttribute("href", "https://meet.google.com/abc-defg-hij");
+  });
+
+  it("adds the viewer local time when their time zone is not Buenos Aires", async () => {
+    // Emulate a browser in Madrid: only the reported zone changes, formatting
+    // stays real. Fake timers wrap `Intl.DateTimeFormat` and bind the native
+    // methods, so spy on the native prototype that owns `resolvedOptions`.
+    let dateTimeFormatPrototype = Intl.DateTimeFormat.prototype;
+
+    while (!Object.hasOwn(dateTimeFormatPrototype, "resolvedOptions")) {
+      dateTimeFormatPrototype = Object.getPrototypeOf(dateTimeFormatPrototype);
+    }
+
+    const realResolvedOptions = dateTimeFormatPrototype.resolvedOptions;
+    const resolvedOptionsSpy = vi
+      .spyOn(dateTimeFormatPrototype, "resolvedOptions")
+      .mockImplementation(function (this: Intl.DateTimeFormat) {
+        return { ...realResolvedOptions.call(this), timeZone: "Europe/Madrid" };
+      });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    try {
+      renderCalendar();
+
+      const nextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+
+      expect(within(nextEvent).getByText(/20:00 - 21:00 tu hora/)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+      const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+
+      expect(within(agenda).getByText("15:00 - 16:00")).toBeInTheDocument();
+      expect(within(agenda).getByText("20:00 - 21:00 tu hora")).toBeInTheDocument();
+
+      await user.click(within(agenda).getByRole("button", { name: "Clase abierta" }));
+
+      expect(
+        within(screen.getByRole("dialog", { name: "Clase abierta" })).getByText(
+          "20:00 - 21:00 tu hora"
+        )
+      ).toBeInTheDocument();
+    } finally {
+      resolvedOptionsSpy.mockRestore();
+    }
+  });
+
+  it("offers adding each agenda occurrence to Google Calendar", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar();
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+    const calendarLink = within(agenda).getByRole("link", {
+      name: "Agregar a Google Calendar",
+    });
+    const calendarUrl = new URL(calendarLink.getAttribute("href") ?? "");
+
+    expect(calendarUrl.origin).toBe("https://calendar.google.com");
+    expect(calendarUrl.searchParams.get("text")).toBe("Clase abierta");
+    expect(calendarUrl.searchParams.get("dates")).toBe("20260506T180000Z/20260506T190000Z");
+    expect(calendarLink).toHaveAttribute("title", "Agregar a Google Calendar");
+    expect(calendarLink).toHaveAttribute("target", "_blank");
+  });
+
+  it("leaves the Google Calendar shortcut out of finished agenda occurrences", async () => {
+    vi.setSystemTime(new Date("2026-05-07T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar();
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+
+    expect(within(agenda).getByText("Finalizado")).toBeInTheDocument();
+    expect(
+      within(agenda).queryByRole("link", { name: "Agregar a Google Calendar" })
+    ).not.toBeInTheDocument();
   });
 
   it("groups the agenda by day, marks today and shows the viewer answer and recurrence", async () => {
@@ -163,10 +280,39 @@ describe("TribeEventsCalendar", () => {
     expect(within(agenda).getByText("Todas las semanas")).toBeInTheDocument();
   });
 
-  it("shows a quiet empty state when the month has no events", async () => {
+  it("wraps each agenda day heading and its events in their own day block", async () => {
+    vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const laterOccurrence = createOccurrence({
+      endsAt: "2026-05-13T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-13T18:00:00.000Z",
+      title: "Cierre de mes",
+    });
+
+    renderCalendar({ events: [laterOccurrence, occurrence] });
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+    const [firstDayHeading, secondDayHeading] = within(agenda).getAllByRole("heading", {
+      level: 2,
+    });
+    const firstDayBlock = firstDayHeading.closest("section");
+    const secondDayBlock = secondDayHeading.closest("section");
+
+    expect(firstDayBlock).not.toBe(agenda);
+    expect(secondDayBlock).not.toBe(agenda);
+    expect(firstDayBlock).not.toBe(secondDayBlock);
+    expect(within(firstDayBlock as HTMLElement).getByRole("list")).toBeInTheDocument();
+    expect(within(firstDayBlock as HTMLElement).queryByText("Cierre de mes")).not.toBeInTheDocument();
+    expect(within(secondDayBlock as HTMLElement).getByText("Cierre de mes")).toBeInTheDocument();
+  });
+
+  it("shows members a quiet empty state when the month has no events", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ events: [] });
+    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false } });
 
     expect(screen.getByText("No hay eventos este mes.")).toBeInTheDocument();
 
@@ -174,6 +320,191 @@ describe("TribeEventsCalendar", () => {
 
     expect(screen.queryByRole("region", { name: "Lista de eventos" })).not.toBeInTheDocument();
     expect(screen.getByText("No hay eventos este mes.")).toBeInTheDocument();
+  });
+
+  it("keeps the member empty state free of templates", () => {
+    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false } });
+
+    expect(screen.queryByText("Creá tu primer encuentro")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Preguntas y respuestas semanal/ })).not.toBeInTheDocument();
+  });
+
+  it("offers managers templates that prefill the create form", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    expect(screen.getByText("Creá tu primer encuentro")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Preguntas y respuestas semanal/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Taller en vivo/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Encuentro de arranque mensual/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    expect(within(dialog).getByLabelText("Título")).toHaveValue("Encuentro de arranque mensual");
+    expect(within(dialog).getByLabelText("Repetición")).toHaveTextContent("Todos los meses");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "18:00" },
+    });
+
+    // The template duration (90 min) drives the suggested end time.
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("19:30");
+  });
+
+  it("carries a template duration that crosses midnight into the next day", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:00" },
+    });
+
+    // The 120-minute workshop ends at 01:00 of the next Buenos Aires day.
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:00");
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Termina otro día" })
+    ).toBeChecked();
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+    mockJsonResponse({ event: {}, message: "Evento creado.", occurrences: [] });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      endsAt: "2026-05-21T04:00:00.000Z",
+      startsAt: "2026-05-21T02:00:00.000Z",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("fills the next-day end date once the date is picked after a crossing start", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:30" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:30");
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-31" },
+    });
+
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-06-01");
+  });
+
+  it("recomputes the template end every time the start changes", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Encuentro de arranque mensual/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "18:00" },
+    });
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("19:30");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "19:00" },
+    });
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("20:30");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("21:30");
+
+    mockJsonResponse({ event: {}, message: "Evento creado.", occurrences: [] });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    // The saved event keeps the advertised 90 minutes.
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      endsAt: "2026-05-21T00:30:00.000Z",
+      startsAt: "2026-05-20T23:00:00.000Z",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("moves a suggested next-day end back to the start day when the start moves earlier", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:00" },
+    });
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("22:00");
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Termina otro día" })
+    ).not.toBeChecked();
+    expect(within(dialog).queryByLabelText("Fecha de fin")).not.toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:30" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:30");
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+  });
+
+  it("stops recomputing the template end once the manager edits the end date", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:00" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Fecha de fin"), {
+      target: { value: "2026-05-22" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:00");
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-22");
   });
 
   it("updates visible events when the route month changes", () => {
@@ -224,6 +555,283 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByText("Ronda pasada")).toBeInTheDocument();
     expect(screen.getByText("Finalizado")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ocultar finalizados" })).toBeInTheDocument();
+  });
+
+  it("keeps the block and element classes on today, finished, and out-of-month states", async () => {
+    vi.setSystemTime(new Date("2026-05-05T12:00:00.000Z"));
+    const pastOccurrence = createOccurrence({
+      endsAt: "2026-05-03T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-03T18:00:00.000Z",
+      title: "Ronda pasada",
+    });
+
+    const { container } = renderCalendar({ events: [pastOccurrence, occurrence] });
+
+    await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(screen.getByRole("cell", { current: "date" })).toHaveClass(
+      "TribeEventsMonthGrid__dayCell",
+      "TribeEventsMonthGrid__dayCell--today"
+    );
+    expect(screen.getByRole("button", { name: /Ronda pasada/ })).toHaveClass(
+      "TribeEventsMonthGrid__eventPill",
+      "TribeEventsMonthGrid__eventPill--past"
+    );
+
+    const pastDot = container.querySelector(".TribeEventsMonthGrid__dayDot--past");
+    const mutedDayNumber = container.querySelector(".TribeEventsMonthGrid__dayNumber--muted");
+
+    expect(pastDot).toHaveClass("TribeEventsMonthGrid__dayDot");
+    expect(mutedDayNumber).toHaveClass("TribeEventsMonthGrid__dayNumber");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver lista" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver 1 finalizado" }));
+
+    expect(screen.getByText("Ronda pasada").closest("li")).toHaveClass(
+      "TribeEventAgendaItem",
+      "TribeEventAgendaItem--past"
+    );
+  });
+
+  it("shows a running occurrence as live with a join link and a live agenda badge", async () => {
+    vi.setSystemTime(new Date("2026-05-06T18:10:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar();
+
+    const nextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(within(nextEvent).getByText("En vivo ahora")).toBeInTheDocument();
+    expect(within(nextEvent).getByRole("link", { name: "Unirme" })).toHaveAttribute(
+      "href",
+      "https://meet.google.com/abc-defg-hij"
+    );
+    expect(within(nextEvent).getByRole("link", { name: "Unirme" })).toHaveAttribute(
+      "target",
+      "_blank"
+    );
+    expect(within(nextEvent).getByRole("link", { name: "Unirme" })).toHaveAttribute(
+      "rel",
+      "noreferrer"
+    );
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+
+    expect(within(agenda).getByText("En vivo")).toBeInTheDocument();
+    expect(within(agenda).queryByText("Finalizado")).not.toBeInTheDocument();
+  });
+
+  it("counts down to the next occurrence and offers joining 15 minutes before", async () => {
+    vi.setSystemTime(new Date("2026-05-03T18:00:00.000Z"));
+
+    const { unmount } = renderCalendar();
+    const farNextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(within(farNextEvent).getByText("Empieza en 3 días")).toBeInTheDocument();
+    expect(within(farNextEvent).queryByRole("link", { name: "Unirme" })).not.toBeInTheDocument();
+    unmount();
+
+    vi.setSystemTime(new Date("2026-05-06T17:52:00.000Z"));
+    renderCalendar();
+
+    const closeNextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(within(closeNextEvent).getByText("Empieza en 8 min")).toBeInTheDocument();
+    expect(within(closeNextEvent).getByRole("link", { name: "Unirme" })).toBeInTheDocument();
+  });
+
+  it("treats an occurrence without end as running for the default duration", async () => {
+    vi.setSystemTime(new Date("2026-05-06T18:30:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [createOccurrence({ endsAt: null })] });
+
+    const nextEvent = await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(within(nextEvent).getByText("En vivo ahora")).toBeInTheDocument();
+
+    await user.click(within(nextEvent).getByRole("button", { name: "Ver detalle" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
+
+    expect(within(dialog).queryByText("Finalizado")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Voy" })).toBeInTheDocument();
+  });
+
+  describe("occurrence deep links", () => {
+    const eventsRoute = "/matematica-pro/eventos?month=2026-05";
+    const readEventQuery = () => new URL(window.location.href).searchParams.get("event");
+
+    afterEach(() => {
+      window.history.replaceState(null, "", "/");
+      Reflect.deleteProperty(navigator, "clipboard");
+    });
+
+    it("opens the deep-linked occurrence and syncs the URL without navigating", async () => {
+      window.history.replaceState(
+        null,
+        "",
+        eventsRoute + "&event=" + encodeURIComponent(occurrence.occurrenceKey)
+      );
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar({ initialOccurrenceKey: occurrence.occurrenceKey });
+
+      expect(await screen.findByRole("dialog", { name: "Clase abierta" })).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(readEventQuery()).toBeNull();
+      expect(new URL(window.location.href).searchParams.get("month")).toBe("2026-05");
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+
+      expect(readEventQuery()).toBe(occurrence.occurrenceKey);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("keeps the rendered month in the URL when closing a monthless deep link", async () => {
+      window.history.replaceState(
+        null,
+        "",
+        "/matematica-pro/eventos?event=" + encodeURIComponent(occurrence.occurrenceKey)
+      );
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar({ initialOccurrenceKey: occurrence.occurrenceKey });
+
+      expect(await screen.findByRole("dialog", { name: "Clase abierta" })).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(window.location.pathname).toBe("/matematica-pro/eventos");
+      expect(window.location.search).toBe("?month=2026-05");
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+
+      const reopenedUrl = new URL(window.location.href);
+
+      expect(reopenedUrl.searchParams.get("month")).toBe("2026-05");
+      expect(reopenedUrl.searchParams.get("event")).toBe(occurrence.occurrenceKey);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("ignores a deep link to an occurrence that is not on screen", () => {
+      renderCalendar({ initialOccurrenceKey: `${OTHER_EVENT_ID}@2026-05-20T18:00:00.000Z` });
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("copies the occurrence link from the detail", async () => {
+      const { toast } = vi.mocked(await import("beez-ui"), true);
+      const writeText = vi.fn<(text: string) => Promise<void>>(async () => undefined);
+      // user-event installs its own clipboard stub on setup, so define ours after it.
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+
+      renderCalendar();
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+      await user.click(screen.getByRole("button", { name: "Copiar link" }));
+
+      const copiedUrl = new URL(writeText.mock.calls[0]?.[0] ?? "");
+
+      expect(copiedUrl.origin).toBe(window.location.origin);
+      expect(copiedUrl.pathname).toBe("/matematica-pro/eventos");
+      expect(copiedUrl.searchParams.get("month")).toBe("2026-05");
+      expect(copiedUrl.searchParams.get("event")).toBe(occurrence.occurrenceKey);
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Link copiado."));
+    });
+
+    it("reports a copy failure when the browser cannot write to the clipboard", async () => {
+      const { toast } = vi.mocked(await import("beez-ui"), true);
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: vi.fn(async () => Promise.reject(new Error("denied"))) },
+      });
+
+      renderCalendar();
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+      await user.click(screen.getByRole("button", { name: "Copiar link" }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith("No pudimos copiar el link.")
+      );
+    });
+  });
+
+  describe("month swipe and day overflow", () => {
+    const startPoint = { clientX: 200, clientY: 300, identifier: 1 };
+
+    function swipe(target: Element, deltaX: number, deltaY = 0) {
+      fireEvent.touchStart(target, { changedTouches: [startPoint], touches: [startPoint] });
+      fireEvent.touchEnd(target, {
+        changedTouches: [
+          { ...startPoint, clientX: startPoint.clientX + deltaX, clientY: startPoint.clientY + deltaY },
+        ],
+        touches: [],
+      });
+    }
+
+    it("navigates to the next and previous month with horizontal touch swipes", () => {
+      renderCalendar();
+
+      const grid = screen.getByRole("table", { name: "Calendario mensual de eventos" });
+
+      swipe(grid, -120);
+      expect(router.push).toHaveBeenLastCalledWith("/matematica-pro/eventos?month=2026-06");
+
+      swipe(grid, 120);
+      expect(router.push).toHaveBeenLastCalledWith("/matematica-pro/eventos?month=2026-04");
+    });
+
+    it("swipes the agenda too and ignores vertical drags and pinches", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar();
+      await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+      const agenda = screen.getByRole("region", { name: "Lista de eventos" });
+
+      swipe(agenda, -30, 200);
+      fireEvent.touchStart(agenda, {
+        changedTouches: [startPoint],
+        touches: [startPoint, { ...startPoint, identifier: 2 }],
+      });
+      fireEvent.touchEnd(agenda, {
+        changedTouches: [{ ...startPoint, clientX: 20 }],
+        touches: [],
+      });
+      expect(router.push).not.toHaveBeenCalled();
+
+      swipe(agenda, -120);
+      expect(router.push).toHaveBeenCalledWith("/matematica-pro/eventos?month=2026-06");
+    });
+
+    it("shows how many occurrences do not fit as dots", () => {
+      renderCalendar({
+        events: Array.from({ length: 5 }, (_, index) =>
+          createOccurrence({
+            eventId: `${EVENT_ID.slice(0, -1)}${index}`,
+            title: `Encuentro ${index + 1}`,
+          })
+        ),
+      });
+
+      expect(
+        screen.getByRole("button", { name: "Miércoles 6 de mayo: 5 eventos" })
+      ).toHaveTextContent("+2");
+    });
   });
 
   it("keeps every occurrence visible when browsing a month that is entirely past", async () => {
@@ -293,6 +901,34 @@ describe("TribeEventsCalendar", () => {
     expect(within(dialog).queryByRole("button", { name: "Editar" })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "Eliminar" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Crear evento" })).not.toBeInTheDocument();
+  });
+
+  it("exports the whole series from the detail of a later recurring occurrence", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({
+      events: [
+        createOccurrence({
+          endsAt: "2026-05-20T19:00:00.000Z",
+          recurrenceFrequency: "weekly",
+          recurrenceRule: "FREQ=WEEKLY",
+          seriesStartsAt: "2026-05-06T18:00:00.000Z",
+          startsAt: "2026-05-20T18:00:00.000Z",
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
+    const calendarUrl = new URL(
+      within(dialog)
+        .getByRole("link", { name: "Agregar a Google Calendar" })
+        .getAttribute("href") ?? ""
+    );
+
+    expect(calendarUrl.searchParams.get("dates")).toBe("20260506T180000Z/20260506T190000Z");
+    expect(calendarUrl.searchParams.get("recur")).toBe("RRULE:FREQ=WEEKLY");
   });
 
   it("records and clears the viewer attendance from the detail", async () => {
@@ -399,6 +1035,13 @@ describe("TribeEventsCalendar", () => {
     });
 
     expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:00");
+
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "15:30" },
+    });
+
+    // A suggested end keeps following the start until the manager edits it.
+    expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:30");
 
     fireEvent.change(screen.getByLabelText("Hora de fin"), {
       target: { value: "17:30" },
@@ -602,6 +1245,15 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByLabelText("Hora de inicio")).toHaveValue("15:00");
     expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:00");
 
+    // Moving the start never overwrites the saved end of the event.
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "14:00" },
+    });
+    expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:00");
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "15:00" },
+    });
+
     fireEvent.change(screen.getByLabelText("Título"), {
       target: { value: "Clase cerrada" },
     });
@@ -690,16 +1342,62 @@ describe("TribeEventsCalendar server render", () => {
     const { renderToString } = await import("react-dom/server");
 
     const html = renderToString(
-      <TribeEventsCalendar
-        events={[createOccurrence()]}
-        month={MAY}
-        tribeSlug="matematica-pro"
-        viewerPermissions={{ canManageEvents: false }}
-      />
+      <RouterProvider>
+        <TribeEventsCalendar
+          events={[createOccurrence()]}
+          month={MAY}
+          tribeSlug="matematica-pro"
+          viewerPermissions={{ canManageEvents: false }}
+        />
+      </RouterProvider>
     );
 
     expect(html).toContain('aria-label="Calendario mensual de eventos"');
     expect(html).toContain('aria-label="Lista de eventos"');
+    expect(html).toContain(
+      'class="TribeEventsCalendar__autoView TribeEventsCalendar__autoView--calendar"'
+    );
+    expect(html).toContain('class="TribeEventsCalendar__autoView TribeEventsCalendar__autoView--list"');
+  });
+
+  it("links the today shortcut to the bare route before hydration", async () => {
+    const { renderToString } = await import("react-dom/server");
+
+    const html = renderToString(
+      <RouterProvider>
+        <TribeEventsCalendar
+          events={[createOccurrence()]}
+          month={MAY}
+          tribeSlug="matematica-pro"
+          viewerPermissions={{ canManageEvents: false }}
+        />
+      </RouterProvider>
+    );
+
+    // Without a clock the server cannot know the viewer's "today", so the
+    // link leaves the month to the route, which defaults to the current one.
+    expect(html).toMatch(/href="\/matematica-pro\/eventos"[^>]*>Hoy</);
+  });
+
+  it("holds back the Google Calendar shortcut until the occurrence phase is known", async () => {
+    const { renderToString } = await import("react-dom/server");
+
+    const html = renderToString(
+      <RouterProvider>
+        <TribeEventsCalendar
+          events={[createOccurrence()]}
+          month={MAY}
+          tribeSlug="matematica-pro"
+          viewerPermissions={{ canManageEvents: false }}
+        />
+      </RouterProvider>
+    );
+
+    // Without a clock the server cannot tell a finished occurrence apart, so
+    // the shortcut limited to unfinished events must not ship in the HTML.
+    expect(html).toContain("Clase abierta");
+    expect(html).not.toContain("Agregar a Google Calendar");
+    expect(html).not.toContain("calendar.google.com");
   });
 
   it("keeps a single view once hydrated on the client", () => {

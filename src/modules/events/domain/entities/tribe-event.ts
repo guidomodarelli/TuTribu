@@ -1,5 +1,6 @@
 import type {
   TRIBE_EVENT_ATTENDANCE_STATUS,
+  TRIBE_EVENT_RANGE_MATCH,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 
@@ -39,3 +40,10 @@ export type TribeEventDateRange = {
   rangeEnd: string;
   rangeStart: string;
 };
+
+/**
+ * Whether an occurrence belongs to a range because it starts inside it or
+ * because its interval (start to effective end) overlaps it.
+ */
+export type TribeEventRangeMatch =
+  (typeof TRIBE_EVENT_RANGE_MATCH)[keyof typeof TRIBE_EVENT_RANGE_MATCH];

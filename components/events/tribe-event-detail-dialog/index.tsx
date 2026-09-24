@@ -1,16 +1,17 @@
 "use client";
 
-import { CalendarPlusIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } from "lucide-react";
+import { CalendarPlusIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } from "lucide-react";
 
 import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "beez-ui";
 
 
-import { buildGoogleCalendarEventUrl } from "@/lib/calendar/google-calendar-link";
+import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresShortDate,
   formatBuenosAiresTimeRange,
 } from "@/lib/date-time/buenos-aires-format";
+import { formatViewerLocalTimeLabel } from "@/lib/date-time/viewer-local-time-format";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   TribeEventAttendanceStatus,
@@ -22,7 +23,6 @@ import {
 } from "@/src/modules/events/constants/tribe-event-copy";
 import {
   TRIBE_EVENT_ATTENDANCE_STATUS,
-  TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import styles from "./styles.module.scss";
@@ -33,6 +33,7 @@ type TribeEventDetailDialogProps = {
   isSavingAttendance: boolean;
   occurrence: TribeEventOccurrenceResult | null;
   onClose: () => void;
+  onCopyLink: (occurrence: TribeEventOccurrenceResult) => void;
   onDelete: (occurrence: TribeEventOccurrenceResult) => void;
   onEdit: (occurrence: TribeEventOccurrenceResult) => void;
   onSetAttendance: (
@@ -40,6 +41,8 @@ type TribeEventDetailDialogProps = {
     status: TribeEventAttendanceStatus | null
   ) => void;
   tribeSlug: string;
+  /** Browser time zone, null before hydration. */
+  viewerTimeZone: string | null;
 };
 
 const EVENT_ENDPOINT = {
@@ -77,6 +80,7 @@ const COPY = {
   deleteButton: "Eliminar",
   descriptionHeading: "Descripción",
   downloadIcs: "Descargar .ics",
+  copyLink: "Copiar link",
   editButton: "Editar",
   googleCalendar: "Agregar a Google Calendar",
   linkOpen: "Abrir link de reunión",
@@ -138,23 +142,18 @@ export function TribeEventDetailDialog({
   isSavingAttendance,
   occurrence,
   onClose,
+  onCopyLink,
   onDelete,
   onEdit,
   onSetAttendance,
   tribeSlug,
+  viewerTimeZone,
 }: TribeEventDetailDialogProps) {
-  const recurrenceText = occurrence ? formatRecurrence(occurrence) : null;
-  const googleCalendarUrl = occurrence
-    ? buildGoogleCalendarEventUrl({
-        defaultDurationMinutes: TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
-        description: occurrence.description,
-        endsAt: occurrence.endsAt,
-        location: occurrence.meetingUrl,
-        recurrenceRule: occurrence.recurrenceRule,
-        startsAt: occurrence.startsAt,
-        title: occurrence.title,
-      })
+  const localTimeLabel = occurrence
+    ? formatViewerLocalTimeLabel(occurrence.startsAt, occurrence.endsAt, viewerTimeZone)
     : null;
+  const recurrenceText = occurrence ? formatRecurrence(occurrence) : null;
+  const googleCalendarUrl = occurrence ? buildTribeEventGoogleCalendarUrl(occurrence) : null;
 
   return (
     <Dialog
@@ -183,6 +182,9 @@ export function TribeEventDetailDialog({
                 {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
                 {recurrenceText ? COPY.scheduleSeparator + recurrenceText : null}
               </DialogDescription>
+              {localTimeLabel ? (
+                <p className={styles.TribeEventDetailDialog__localTime}>{localTimeLabel}</p>
+              ) : null}
             </DialogHeader>
 
             {occurrence.description ? (
@@ -239,6 +241,15 @@ export function TribeEventDetailDialog({
                   <DownloadIcon aria-hidden />
                   {COPY.downloadIcs}
                 </a>
+              </Button>
+              <Button
+                size={BUTTON_ATTRIBUTE.sizeSmall}
+                type={BUTTON_ATTRIBUTE.typeButton}
+                variant={BUTTON_ATTRIBUTE.variantOutline}
+                onClick={() => onCopyLink(occurrence)}
+              >
+                <CopyIcon aria-hidden />
+                {COPY.copyLink}
               </Button>
             </div>
 

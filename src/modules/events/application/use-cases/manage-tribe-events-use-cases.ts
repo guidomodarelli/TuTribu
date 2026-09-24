@@ -18,10 +18,13 @@ import {
   createBuenosAiresMonthRange,
   normalizeMonthQuery,
   parseMonth,
+  resolveBuenosAiresMonthOf,
 } from "@/src/modules/events/application/services/buenos-aires-month";
 import {
   buildTribeEventOccurrences,
+  parseTribeEventOccurrenceKey,
   toTribeEventResult,
+  type TribeEventOccurrenceKeyParts,
 } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
   TRIBE_EVENT_FIELD_LIMIT,
@@ -73,6 +76,23 @@ const UUID_PATTERN =
 
 export function isValidTribeEventId(eventId: string): boolean {
   return UUID_PATTERN.test(eventId);
+}
+
+/**
+ * Validates the deep-link query value: first value of a repeated param, a
+ * well-formed key, and a uuid event id. Anything else is ignored.
+ */
+function normalizeOccurrenceKeyQuery(
+  occurrenceKey: string | string[] | undefined
+): (TribeEventOccurrenceKeyParts & { key: string }) | null {
+  const occurrenceKeyValue = Array.isArray(occurrenceKey) ? occurrenceKey[0] : occurrenceKey;
+  const parts = occurrenceKeyValue ? parseTribeEventOccurrenceKey(occurrenceKeyValue) : null;
+
+  if (!occurrenceKeyValue || !parts || !isValidTribeEventId(parts.eventId)) {
+    return null;
+  }
+
+  return { ...parts, key: occurrenceKeyValue };
 }
 
 function normalizeOptionalText(value: string): string | null {
@@ -220,20 +240,32 @@ function buildVisibleMonthOccurrences(
 
 export function listTribeEvents({ tribeEventRepository }: TribeEventDependencies) {
   return async (query: ListTribeEventsQuery): Promise<TribeEventListResult> => {
-    const current = normalizeMonthQuery(query.month);
+    const deepLink = normalizeOccurrenceKeyQuery(query.occurrenceKey);
+    const current = normalizeMonthQuery(
+      query.month ||
+        (deepLink
+          ? resolveBuenosAiresMonthOf(new Date(deepLink.occurrenceStartsAt))
+          : undefined)
+    );
     const currentParts = parseMonth(current);
     const range = createBuenosAiresMonthRange(current);
     const listing = await tribeEventRepository.listByTribeRange({
       ...range,
       tribeSlug: query.tribeSlug.trim(),
     });
+    const events = buildTribeEventOccurrences(
+      listing.events,
+      listing.attendances,
+      range
+    );
+    const selectedOccurrenceKey =
+      deepLink && events.some((occurrence) => occurrence.occurrenceKey === deepLink.key)
+        ? deepLink.key
+        : null;
 
     return {
-      events: buildTribeEventOccurrences(
-        listing.events,
-        listing.attendances,
-        range
-      ),
+      events,
+      selectedOccurrenceKey,
       month: {
         current,
         next: currentParts ? addMonths(currentParts, MONTH_OFFSET.next) : current,

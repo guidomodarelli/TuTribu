@@ -53,6 +53,11 @@ export type TribeEventMonthResult = {
 export type TribeEventListResult = {
   events: TribeEventOccurrenceResult[];
   month: TribeEventMonthResult;
+  /**
+   * Deep-linked occurrence to open on load, only when it is a valid key that
+   * belongs to `events`; null otherwise.
+   */
+  selectedOccurrenceKey: string | null;
   viewerPermissions: TribeEventViewerPermissionsResult;
 };
 

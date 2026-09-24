@@ -1,24 +1,24 @@
 import type { ListUpcomingTribeEventsQuery } from "@/src/modules/events/application/commands/tribe-event-command";
 import type { TribeEventUpcomingListResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { buildTribeEventOccurrences } from "@/src/modules/events/application/services/tribe-event-occurrences";
-import { TRIBE_EVENT_UPCOMING } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_RANGE_MATCH,
+  TRIBE_EVENT_UPCOMING,
+} from "@/src/modules/events/constants/tribe-events";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 
 type ListUpcomingTribeEventsDependencies = {
   tribeEventRepository: TribeEventRepository;
 };
 
-const MILLISECONDS_PER_HOUR = 3_600_000;
-const HOURS_PER_DAY = 24;
-/**
- * Occurrences that started shortly before "now" are still relevant while they
- * run, so the query window starts a little in the past and the end time
- * decides whether the slot is still worth showing.
- */
-const IN_PROGRESS_LOOKBACK_HOURS = 6;
+const MILLISECONDS_PER_DAY = 86_400_000;
 
 /**
  * Next few occurrences of the tribe, across every series, for the tribe home.
+ * The range starts at "now" and occurrences are matched by interval overlap,
+ * so an occurrence that is still running (its explicit end, or the default
+ * duration when it has none, is ahead) stays listed no matter how long ago it
+ * started, and finished ones drop out.
  */
 export function listUpcomingTribeEvents({
   tribeEventRepository,
@@ -30,12 +30,9 @@ export function listUpcomingTribeEvents({
     const limit = query.limit ?? TRIBE_EVENT_UPCOMING.defaultLimit;
     const range = {
       rangeEnd: new Date(
-        now +
-          TRIBE_EVENT_UPCOMING.windowDays * HOURS_PER_DAY * MILLISECONDS_PER_HOUR
+        now + TRIBE_EVENT_UPCOMING.windowDays * MILLISECONDS_PER_DAY
       ).toISOString(),
-      rangeStart: new Date(
-        now - IN_PROGRESS_LOOKBACK_HOURS * MILLISECONDS_PER_HOUR
-      ).toISOString(),
+      rangeStart: new Date(now).toISOString(),
     };
     const listing = await tribeEventRepository.listByTribeRange({
       ...range,
@@ -44,8 +41,9 @@ export function listUpcomingTribeEvents({
     const occurrences = buildTribeEventOccurrences(
       listing.events,
       listing.attendances,
-      range
-    ).filter((occurrence) => Date.parse(occurrence.endsAt ?? occurrence.startsAt) >= now);
+      range,
+      TRIBE_EVENT_RANGE_MATCH.overlaps
+    );
 
     return {
       events: occurrences.slice(0, limit),

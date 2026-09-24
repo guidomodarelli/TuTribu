@@ -1,14 +1,17 @@
 import { BUENOS_AIRES_UTC_OFFSET_HOURS } from "@/src/constants/date-time";
 import {
+  TRIBE_EVENT_RANGE_MATCH,
   TRIBE_EVENT_RECURRENCE_EXPANSION_LIMIT,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEventDateRange,
   TribeEventOccurrenceWindow,
+  TribeEventRangeMatch,
   TribeEventRecurrenceFrequency,
   TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
+import { getTribeEventOccurrenceEndTime } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 
 const MILLISECONDS_PER_HOUR = 3_600_000;
 const MILLISECONDS_PER_DAY = 86_400_000;
@@ -130,12 +133,22 @@ function estimateFirstCandidateIndex(
 }
 
 /**
- * Expands an event series into the concrete occurrences whose start falls in
- * `[rangeStart, rangeEnd)`. Single events yield at most one occurrence.
+ * Expands an event series into its concrete occurrences inside a range. Single
+ * events yield at most one occurrence.
+ *
+ * @param schedule - Scheduling facts of the series.
+ * @param range - Half-open `[rangeStart, rangeEnd)` range.
+ * @param rangeMatch - `startsWithin` (default) keeps occurrences whose start
+ *   falls in the range; `overlaps` keeps every occurrence that starts before
+ *   `rangeEnd` and whose effective end (explicit or implied by the default
+ *   duration) is after `rangeStart`, so a running occurrence that began before
+ *   the range is kept no matter how long it lasts.
+ * @returns The matching occurrences sorted by start.
  */
 export function expandTribeEventOccurrences(
   schedule: TribeEventSchedule,
-  range: TribeEventDateRange
+  range: TribeEventDateRange,
+  rangeMatch: TribeEventRangeMatch = TRIBE_EVENT_RANGE_MATCH.startsWithin
 ): TribeEventOccurrenceWindow[] {
   const seriesStartTime = Date.parse(schedule.startsAt);
   const rangeStartTime = Date.parse(range.rangeStart);
@@ -160,11 +173,20 @@ export function expandTribeEventOccurrences(
     isSingleEvent || schedule.recurrenceUntil === null
       ? null
       : Date.parse(schedule.recurrenceUntil);
+  const matchesByOverlap = rangeMatch === TRIBE_EVENT_RANGE_MATCH.overlaps;
+  const effectiveDurationMs = Math.max(
+    0,
+    getTribeEventOccurrenceEndTime(schedule) - seriesStartTime
+  );
+  // An overlapping occurrence may start up to one duration before the range.
+  const earliestCandidateStartTime = matchesByOverlap
+    ? rangeStartTime - effectiveDurationMs
+    : rangeStartTime;
   const occurrences: TribeEventOccurrenceWindow[] = [];
   const firstIndex = estimateFirstCandidateIndex(
     schedule.recurrenceFrequency,
     seriesStartTime,
-    rangeStartTime
+    earliestCandidateStartTime
   );
 
   for (
@@ -194,7 +216,11 @@ export function expandTribeEventOccurrences(
       break;
     }
 
-    if (occurrenceTime >= rangeStartTime) {
+    const isInRange = matchesByOverlap
+      ? occurrenceTime + effectiveDurationMs > rangeStartTime
+      : occurrenceTime >= rangeStartTime;
+
+    if (isInRange) {
       occurrences.push({
         endsAt:
           durationMs === null

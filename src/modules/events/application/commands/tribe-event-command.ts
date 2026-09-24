@@ -1,5 +1,11 @@
+/**
+ * Raw route query of the events page. `occurrenceKey` is the untrusted deep
+ * link (`eventId@startsAt`); when `month` is missing, the month is derived
+ * from it so the linked occurrence is part of the listing.
+ */
 export type ListTribeEventsQuery = {
   month?: string | string[];
+  occurrenceKey?: string | string[];
   tribeSlug: string;
 };
 

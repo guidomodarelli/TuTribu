@@ -16,7 +16,8 @@ export default async function TribeEventsPage({
     slug: string;
   }>;
   searchParams?: Promise<{
-    month?: string;
+    event?: string | string[];
+    month?: string | string[];
   }>;
 }) {
   const [{ slug }, resolvedSearchParams] = await Promise.all([
@@ -34,6 +35,7 @@ export default async function TribeEventsPage({
   const listing = await modules.events.useCases
     .listTribeEvents({
       month: resolvedSearchParams?.month,
+      occurrenceKey: resolvedSearchParams?.event,
       tribeSlug: slug,
     })
     .catch((error: unknown) => {
@@ -58,6 +60,7 @@ export default async function TribeEventsPage({
   return (
     <TribeEventsCalendar
       events={listing.events}
+      initialOccurrenceKey={listing.selectedOccurrenceKey}
       month={listing.month}
       tribeSlug={slug}
       viewerPermissions={listing.viewerPermissions}

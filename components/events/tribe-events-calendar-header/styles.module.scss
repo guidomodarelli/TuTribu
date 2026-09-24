@@ -1,0 +1,124 @@
+.TribeEventsCalendarHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem 1.5rem;
+  align-items: center;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+  padding-bottom: 1rem;
+
+  &__monthNavigation {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: center;
+    min-width: 0;
+  }
+
+  &__title,
+  &__timeLabel {
+    margin: 0;
+  }
+
+  &__title {
+    min-width: 0;
+    color: var(--foreground);
+    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-size: clamp(1.6rem, 4vw, 2.25rem);
+    font-weight: 600;
+    line-height: 1.1;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+
+  &__todayLink,
+  &__iconLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 999rem;
+    color: var(--foreground);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  &__iconLink {
+    width: 2.25rem;
+    height: 2.25rem;
+
+    svg {
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+  }
+
+  &__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  &__todayGroup {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+
+  &__todayLink {
+    min-height: 2.25rem;
+    padding: 0 0.9rem;
+    font-size: 0.9rem;
+  }
+
+  &__timeLabel {
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  &__viewToggle {
+    display: inline-flex;
+    gap: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.2rem;
+  }
+
+  &__srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  @media (min-width: 62rem) {
+    grid-template-columns: auto minmax(0, 1fr);
+
+    &__monthNavigation {
+      grid-template-columns: auto auto auto;
+    }
+
+    &__title {
+      text-align: left;
+      padding-inline: 0.25rem;
+    }
+
+    &__toolbar {
+      justify-content: flex-end;
+    }
+  }
+}

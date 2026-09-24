@@ -85,12 +85,15 @@ export function addMonths(monthParts: MonthParts, offset: number): string {
 }
 
 /**
- * Current calendar month in Buenos Aires, computed with the fixed offset so it
- * needs no Intl time zone data.
+ * Calendar month in Buenos Aires of any instant, computed with the fixed
+ * offset so it needs no Intl time zone data.
+ *
+ * @param instant - Instant to place in a Buenos Aires month.
+ * @returns The `YYYY-MM` month key.
  */
-export function resolveCurrentBuenosAiresMonth(now: Date = new Date()): string {
+export function resolveBuenosAiresMonthOf(instant: Date): string {
   const buenosAiresDate = new Date(
-    now.getTime() +
+    instant.getTime() +
       BUENOS_AIRES_UTC_OFFSET_HOURS * MONTH_PART.millisecondsPerHour
   );
 
@@ -98,6 +101,13 @@ export function resolveCurrentBuenosAiresMonth(now: Date = new Date()): string {
     buenosAiresDate.getUTCFullYear(),
     buenosAiresDate.getUTCMonth() + MONTH_PART.monthIndexOffset
   );
+}
+
+/**
+ * Current calendar month in Buenos Aires.
+ */
+export function resolveCurrentBuenosAiresMonth(now: Date = new Date()): string {
+  return resolveBuenosAiresMonthOf(now);
 }
 
 /**

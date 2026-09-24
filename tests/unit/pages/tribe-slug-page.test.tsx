@@ -339,7 +339,8 @@ describe("TribePage", () => {
     expect(screen.getByRole("heading", { name: "Próximos eventos" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Clase abierta" })).toHaveAttribute(
       "href",
-      "/matematica-pro/eventos?month=2026-05"
+      "/matematica-pro/eventos?month=2026-05&event=" +
+        encodeURIComponent("6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f@2026-05-13T18:00:00.000Z")
     );
     expect(listUpcomingTribeEvents).toHaveBeenCalledWith({ tribeSlug: "matematica-pro" });
   });

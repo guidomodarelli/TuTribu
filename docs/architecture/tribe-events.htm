@@ -38,7 +38,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="doc-label">TuTribu — Arquitectura</div>
   <div class="doc-title">Eventos de la tribu: series, asistencia y exportación a calendario</div>
   <div class="doc-sub">Modelo de datos, autorización, flujo de ocurrencias y contratos HTTP de la sección de eventos.</div>
-  <div class="doc-meta"><span>Fecha: 2026-09-02</span><span>Estado: Vigente</span><span>Módulo: src/modules/events</span></div>
+  <div class="doc-meta"><span>Fecha: 2026-09-23</span><span>Estado: Vigente</span><span>Módulo: src/modules/events</span></div>
 </div>
 
 <div class="section">
@@ -63,8 +63,9 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <li><strong>Mensual</strong>: conserva el día y la hora de Buenos Aires de la primera ocurrencia; los meses que no tienen ese día (31) se omiten, igual que en RFC 5545.</li>
     <li><strong>Hasta</strong>: la última ocurrencia es la que empieza en o antes de <code>recurrence_until</code>. El formulario guarda el fin del día de Buenos Aires elegido.</li>
     <li>La expansión estima el primer índice candidato para no recorrer todo el historial de una serie larga, y tiene un tope de iteraciones de seguridad.</li>
+    <li><strong>Criterio de pertenencia</strong> (<code>TRIBE_EVENT_RANGE_MATCH</code>): <code>startsWithin</code> (por defecto) conserva las ocurrencias cuyo inicio cae en el rango; <code>overlaps</code> conserva las que empiezan antes de <code>rangeEnd</code> y cuyo fin efectivo (<code>ends_at</code> o el fin implícito de 60 minutos) es posterior a <code>rangeStart</code>. El calendario mensual usa <code>startsWithin</code>: un taller que cruza la medianoche entre dos meses se lista solo en el mes en que empieza, igual que el agrupado por día y el deep link, que resuelven el mes desde el inicio. <code>listUpcomingTribeEvents</code> usa <code>overlaps</code> con <code>rangeStart = ahora</code>, así una ocurrencia en curso sigue visible hasta su fin sin importar cuánto hace que empezó (no hay duración máxima implícita).</li>
   </ul>
-  <p>El repositorio trae las series que <strong>intersectan</strong> el rango (<code>starts_at &lt; rangeEnd</code> y, para series, <code>recurrence_until</code> nulo o ≥ <code>rangeStart</code>) y en una segunda consulta las asistencias agregadas del rango (<code>going_count</code> y estado de quien mira). El caso de uso combina ambas en <code>TribeEventOccurrenceResult</code>, cuya <code>occurrenceKey</code> es <code>eventId@startsAt</code>.</p>
+  <p>El repositorio trae las series con alguna ocurrencia que <strong>solapa</strong> el rango (<code>starts_at &lt; rangeEnd</code> y fin efectivo de la primera ocurrencia &gt; <code>rangeStart</code> para eventos únicos; para series, <code>recurrence_until</code> nulo o <code>recurrence_until</code> + duración &gt; <code>rangeStart</code>) y en una segunda consulta las asistencias agregadas de las ocurrencias que solapan el rango (<code>going_count</code> y estado de quien mira). Es un superconjunto de lo que pide <code>startsWithin</code>: cada caso de uso filtra con su criterio en la expansión, sin consultas adicionales por serie. El caso de uso combina ambas en <code>TribeEventOccurrenceResult</code>, cuya <code>occurrenceKey</code> es <code>eventId@startsAt</code>.</p>
   <p>Las respuestas de creación y edición aceptan <code>?month=YYYY-MM</code> y devuelven las <strong>ocurrencias del mes visible</strong>, de modo que el calendario reemplaza las filas de ese evento sin recargar la ruta. El cliente conserva la asistencia de las ocurrencias que ya existían porque editar la serie no toca esas filas.</p>
 </div>
 
@@ -87,7 +88,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-title">Contratos HTTP</div>
   <table>
     <tr><th>Método y ruta</th><th>Uso</th></tr>
-    <tr><td><code>GET /api/tribes/[slug]/events?month=</code></td><td>Ocurrencias del mes con asistencia y permisos del viewer</td></tr>
+    <tr><td><code>GET /api/tribes/[slug]/events?month=</code></td><td>Ocurrencias del mes con asistencia y permisos del viewer (incluye <code>selectedOccurrenceKey: null</code>, ver sección 06)</td></tr>
     <tr><td><code>POST /api/tribes/[slug]/events?month=</code></td><td>Crea la serie; responde <code>event</code> y <code>occurrences</code> del mes</td></tr>
     <tr><td><code>PATCH /api/tribes/[slug]/events/[eventId]?month=</code></td><td>Edita la serie completa; misma respuesta</td></tr>
     <tr><td><code>DELETE /api/tribes/[slug]/events/[eventId]</code></td><td>Borra la serie y sus asistencias</td></tr>
@@ -95,20 +96,50 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><td><code>DELETE /api/tribes/[slug]/events/[eventId]/attendance?occurrence=</code></td><td>Quita la respuesta propia de esa ocurrencia</td></tr>
     <tr><td><code>GET /api/tribes/[slug]/events/[eventId]/calendar</code></td><td>Descarga un <code>.ics</code> con <code>RRULE</code> cuando la serie se repite</td></tr>
   </table>
-  <p>Los mensajes de error y los mapeos de status viven en <code>infrastructure/api/tribe-event-route-responses.ts</code>, compartidos por las cuatro rutas. El link "Agregar a Google Calendar" se construye en el cliente con <code>lib/calendar/google-calendar-link.ts</code> a partir de la <code>recurrenceRule</code> que ya viene en el resultado.</p>
+  <p>Los mensajes de error y los mapeos de status viven en <code>infrastructure/api/tribe-event-route-responses.ts</code>, compartidos por las cuatro rutas. El link "Agregar a Google Calendar" se construye en el cliente con <code>lib/calendar/google-calendar-link.ts</code> a partir de la <code>recurrenceRule</code> que ya viene en el resultado. Para una serie, <code>lib/events/tribe-event-calendar-links.ts</code> ancla el export en <code>seriesStartsAt</code>/<code>seriesEndsAt</code> (no en la ocurrencia elegida) para que Google agregue la serie completa, incluidas las fechas anteriores; los eventos sin repetición usan <code>startsAt</code>/<code>endsAt</code> de la ocurrencia.</p>
 </div>
 
 <div class="section">
   <div class="section-num">05</div>
   <div class="section-title">Superficies de UI</div>
+  <p>La página es un contenedor cliente que orquesta estado de vista y delega todo lo demás en piezas cohesionadas:</p>
+  <table>
+    <tr><th>Pieza</th><th>Responsabilidad</th></tr>
+    <tr><td><code>components/events/tribe-events-calendar</code></td><td>Contenedor cliente: modo de vista, día y ocurrencia seleccionados, sesiones de formulario, deep link, swipe entre meses. No hace fetch directo. En viewports angostos arranca en modo lista.</td></tr>
+    <tr><td><code>hooks/use-tribe-event-mutations.ts</code></td><td>Estado <code>visibleEvents</code> (se reinicia cuando la ruta trae eventos nuevos) y las mutaciones guardar, borrar y asistencia, con guarda por <code>ref</code> contra envíos duplicados, toasts y parche incremental sin refrescar la ruta.</td></tr>
+    <tr><td><code>lib/events/tribe-events-api-client.ts</code></td><td>Adaptador HTTP del navegador para las rutas de eventos; devuelve resultados tipados <code>{ isSuccess, message }</code>.</td></tr>
+    <tr><td><code>lib/events/tribe-events-calendar-grid.ts</code></td><td>Helpers puros: celdas del mes, semanas, agrupado por día de Buenos Aires, agenda y merge de ocurrencias guardadas.</td></tr>
+    <tr><td><code>lib/events/tribe-event-occurrence-timing.ts</code></td><td>Fase de la ocurrencia (<code>upcoming</code> / <code>live</code> / <code>past</code>), ventana de "Unirme" y copy de cuenta regresiva.</td></tr>
+    <tr><td><code>lib/events/tribe-events-routes.ts</code>, <code>lib/events/tribe-event-calendar-links.ts</code></td><td>URLs de la página (<code>month</code>, <code>event</code>) y link de Google Calendar compartido por agenda y detalle.</td></tr>
+    <tr><td><code>tribe-events-calendar-header</code>, <code>tribe-events-month-grid</code>, <code>tribe-events-agenda</code>, <code>tribe-events-agenda-day</code>, <code>tribe-event-agenda-item</code>, <code>tribe-next-event</code>, <code>tribe-events-empty-state</code></td><td>Componentes presentacionales: reciben datos y callbacks por props. Grilla y agenda reciben <code>renderOccurrence</code>, así el contenedor decide qué fila renderizar. Cada componente renderiza su propio elemento raíz con la clase de bloque BEM: <code>tribe-events-agenda-day</code> es el <code>&lt;section&gt;</code> del día (título y lista) y el padre solo le pasa <code>className</code> de ubicación o visibilidad, y <code>aria-label</code> cuando el día debe exponerse como región.</td></tr>
+  </table>
   <ul>
-    <li><code>components/events/tribe-events-calendar</code>: contenedor cliente con grilla mensual, lista, próximo evento, estado vacío y toda la orquestación de fetch. En viewports angostos arranca en modo lista.</li>
-    <li><code>tribe-event-detail-dialog</code>: detalle de solo lectura con descripción, link, respuesta de asistencia, exportaciones y acciones de gestión.</li>
-    <li><code>tribe-event-form-dialog</code>: alta y edición con validación inline; permite fecha de fin en otro día y repetición con fecha límite.</li>
+    <li><code>tribe-event-detail-dialog</code>: detalle de solo lectura con descripción, link, respuesta de asistencia, exportaciones, <strong>Copiar link</strong> (callback <code>onCopyLink</code>), hora local del viewer y acciones de gestión.</li>
+    <li><code>tribe-event-form-dialog</code>: alta y edición con validación inline; permite fecha de fin en otro día y repetición con fecha límite. En alta acepta <code>initialValues</code> (título, repetición y duración sugerida) que usan las plantillas de <code>src/modules/events/constants/tribe-event-templates.ts</code>; en edición se ignora.</li>
     <li><code>tribe-event-delete-dialog</code>: confirmación previa al borrado (shadcn <code>AlertDialog</code>).</li>
     <li><code>upcoming-tribe-events</code>: bloque "Próximos eventos" en el home de la tribu, alimentado por <code>listUpcomingTribeEvents</code> (ventana de 30 días, tres ocurrencias). Su fallo se registra y degrada a lista vacía sin afectar el feed.</li>
   </ul>
-  <p>Toda la hora visible se calcula en Buenos Aires con <code>lib/date-time/buenos-aires-format.ts</code>. Los valores que dependen de "ahora" (hora actual, día de hoy, ocurrencias pasadas) se leen con <code>useMinuteClock</code>, que devuelve <code>null</code> durante la hidratación para evitar diferencias entre servidor y cliente.</p>
+  <p>Toda la hora visible se calcula en Buenos Aires con <code>lib/date-time/buenos-aires-format.ts</code>. Los valores que dependen de "ahora" (hora actual, día de hoy, ocurrencias pasadas, en vivo, cuenta regresiva, href de <strong>Hoy</strong>) se leen con <code>useMinuteClock</code>, que devuelve <code>null</code> durante la hidratación para evitar diferencias entre servidor y cliente. Antes de hidratar, <strong>Hoy</strong> apunta a la ruta sin <code>month</code>, que el caso de uso resuelve al mes actual de Buenos Aires.</p>
+  <p>La hora local del viewer ("18:00 tu hora") usa <code>useViewerTimeZone</code> (snapshot de servidor <code>null</code>) y <code>lib/date-time/viewer-local-time-format.ts</code>, que solo devuelve texto cuando el offset de la zona del navegador difiere del de Buenos Aires al inicio o, si el evento tiene fin, al final: un rango que cruza un cambio de horario de verano en una sola de las zonas muestra la hora local aunque ambas coincidan al empezar.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Fin implícito, en vivo y deep link a una ocurrencia</div>
+  <p><strong>Fin implícito.</strong> Una ocurrencia sin <code>ends_at</code> dura <code>TRIBE_EVENT_DEFAULT_DURATION_MINUTES</code> (60). La regla vive en el servicio de dominio <code>getTribeEventOccurrenceEndTime</code> (<code>domain/services/tribe-event-occurrence-timing.ts</code>) y la usan tanto el caso de uso <code>listUpcomingTribeEvents</code> como la UI, así "finalizado", "en vivo" y la exportación a calendario coinciden. Una ocurrencia está en vivo cuando <code>startsAt &lt;= ahora &lt; fin</code>; "Unirme" se ofrece desde <code>TRIBE_EVENT_JOIN_WINDOW_MINUTES</code> (15) antes del inicio.</p>
+  <p><strong>Deep link.</strong> La página acepta <code>?event=&lt;occurrenceKey&gt;</code> junto al <code>?month=</code> existente (<code>TRIBE_EVENTS_ROUTE_QUERY</code>). El flujo:</p>
+  <div class="code-block"><pre>page.tsx (searchParams.event) -> listTribeEvents({ month, occurrenceKey })
+  -> parseTribeEventOccurrenceKey: eventId@startsAt, startsAt en ISO canónico, eventId uuid
+  -> sin month: month = mes de Buenos Aires de startsAt
+  -> selectedOccurrenceKey = key solo si pertenece a las ocurrencias listadas
+-> TribeEventsCalendar initialOccurrenceKey abre el detalle</pre></div>
+  <ul>
+    <li>Un valor inválido o repetido se ignora (se toma el primero y se valida); con <code>month</code> explícito que no contiene la ocurrencia, el mes se respeta y no se abre nada.</li>
+    <li>Abrir y cerrar el detalle sincroniza <code>event</code> y <code>month</code> en un único <code>history.replaceState</code> (<code>replaceCurrentUrlSearchParams</code> en <code>lib/browser-navigation.ts</code>), que el router de Next.js rastrea sin navegar ni refetchear. Escribir siempre el mes renderizado evita que cerrar un deep link sin <code>month</code> deje una URL pelada que, al recargar o compartir, abriría el mes actual en lugar del mes en pantalla.</li>
+    <li><strong>Copiar link</strong> usa <code>lib/browser-clipboard.ts</code>: Clipboard API con detección de soporte y fallback a <code>execCommand("copy")</code> sobre un textarea temporal para WebKit.</li>
+    <li>El bloque <code>upcoming-tribe-events</code> del home enlaza a <code>?month=&amp;event=</code> de cada ocurrencia.</li>
+  </ul>
+  <p><strong>Swipe entre meses.</strong> <code>hooks/use-horizontal-swipe.ts</code> clasifica gestos con <code>lib/gestures/horizontal-swipe.ts</code> (umbral de 60 px, dominancia horizontal 1.5 y 800 ms como máximo). Usa eventos touch porque los navegadores cancelan los Pointer Events al empezar a scrollear y el soporte de <code>touch-action</code> en WebKit es parcial; nunca llama a <code>preventDefault</code>. Navega con <code>useRouter().push</code> a las mismas rutas que los chevrons.</p>
 </div>
 </body>
 </html>
