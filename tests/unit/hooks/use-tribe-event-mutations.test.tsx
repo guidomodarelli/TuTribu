@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
+import { STREAK_DEADLINE_RETRY_DELAYS_MS } from "@/lib/events/tribe-event-streak-freshness";
 import { buildTribeEventAttendanceApiEndpoint } from "@/lib/events/tribe-events-routes";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 
@@ -370,29 +371,6 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     expect(result.current.attendanceStreak).toEqual({ attendedCount: 3, occurrenceCount: 5 });
   });
 
-  it("reads the streak again once when a read returns a deadline that already passed", async () => {
-    const { result } = renderMutations();
-
-    act(() => {
-      result.current.refreshAttendanceStreak();
-    });
-    await heldStreakReads[0].resolve({
-      attendanceStreak: { attendedCount: 4, occurrenceCount: 5 },
-      attendanceStreakNextRefreshAt: PASSED_DEADLINE,
-    });
-
-    await waitFor(() => expect(getStreakRequests()).toHaveLength(2));
-    // The server still hands the same passed deadline (skewed clocks): no loop.
-    await heldStreakReads[1].resolve({
-      attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
-      attendanceStreakNextRefreshAt: PASSED_DEADLINE,
-    });
-
-    expect(result.current.attendanceStreak).toEqual({ attendedCount: 5, occurrenceCount: 5 });
-    expect(result.current.attendanceStreakNextRefreshAt).toBe(PASSED_DEADLINE);
-    expect(getStreakRequests()).toHaveLength(2);
-  });
-
   it("reads the streak after a series mutation returns a deadline that already passed", async () => {
     const { result } = renderMutations();
     let savePromise: Promise<boolean> = Promise.resolve(false);
@@ -435,5 +413,218 @@ describe("useTribeEventMutations streak refresh serialization", () => {
 
     expect(result.current.attendanceStreakNextRefreshAt).toBe(UPCOMING_DEADLINE);
     expect(getStreakRequests()).toHaveLength(1);
+  });
+  it("retries a passed deadline the server keeps returning with a bounded backoff", async () => {
+    // Timers are faked too: the retries of a repeated passed deadline wait.
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(new Date(CLIENT_NOW));
+    const { result } = renderMutations();
+    const lateStreak = { attendedCount: 4, occurrenceCount: 5 };
+
+    act(() => {
+      result.current.refreshAttendanceStreak();
+    });
+    await heldStreakReads[0].resolve({
+      attendanceStreak: lateStreak,
+      attendanceStreakNextRefreshAt: PASSED_DEADLINE,
+    });
+    // The first passed deadline reads right away.
+    expect(getStreakRequests()).toHaveLength(2);
+
+    // The server clock lags behind: every read repeats the same passed
+    // deadline, so each retry waits for the next delay of the backoff.
+    for (const [retryIndex, delayMs] of STREAK_DEADLINE_RETRY_DELAYS_MS.entries()) {
+      await heldStreakReads[retryIndex + 1].resolve({
+        attendanceStreak: lateStreak,
+        attendanceStreakNextRefreshAt: PASSED_DEADLINE,
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(delayMs - 1);
+      });
+      expect(getStreakRequests()).toHaveLength(retryIndex + 2);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(getStreakRequests()).toHaveLength(retryIndex + 3);
+    }
+
+    await heldStreakReads[STREAK_DEADLINE_RETRY_DELAYS_MS.length + 1].resolve({
+      attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: PASSED_DEADLINE,
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(Math.max(...STREAK_DEADLINE_RETRY_DELAYS_MS) * 2);
+    });
+
+    // The retries are bounded: no loop once they run out.
+    expect(result.current.attendanceStreak).toEqual({ attendedCount: 5, occurrenceCount: 5 });
+    expect(result.current.attendanceStreakNextRefreshAt).toBe(PASSED_DEADLINE);
+    expect(getStreakRequests()).toHaveLength(STREAK_DEADLINE_RETRY_DELAYS_MS.length + 2);
+  });
+
+  it("stops retrying a passed deadline once a read returns one still ahead", async () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(new Date(CLIENT_NOW));
+    const { result } = renderMutations();
+
+    act(() => {
+      result.current.refreshAttendanceStreak();
+    });
+    await heldStreakReads[0].resolve({
+      attendanceStreak: serverStreak,
+      attendanceStreakNextRefreshAt: PASSED_DEADLINE,
+    });
+    await heldStreakReads[1].resolve({
+      attendanceStreak: serverStreak,
+      attendanceStreakNextRefreshAt: PASSED_DEADLINE,
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(STREAK_DEADLINE_RETRY_DELAYS_MS[0]);
+    });
+    await heldStreakReads[2].resolve({
+      attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: UPCOMING_DEADLINE,
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(Math.max(...STREAK_DEADLINE_RETRY_DELAYS_MS) * 2);
+    });
+
+    expect(result.current.attendanceStreakNextRefreshAt).toBe(UPCOMING_DEADLINE);
+    expect(getStreakRequests()).toHaveLength(3);
+  });
+
+  it("keeps a read interrupted by overlapping mutations until the attendance answer settles", async () => {
+    const { result } = renderMutations();
+    let savePromise: Promise<boolean> = Promise.resolve(false);
+    let attendancePromise: Promise<boolean> = Promise.resolve(false);
+
+    // An occurrence finishes and its read is in flight.
+    act(() => {
+      result.current.refreshAttendanceStreak();
+    });
+    const staleSignal = getStreakRequests()[0][1].signal as AbortSignal;
+
+    act(() => {
+      savePromise = result.current.saveEvent(savePayload, attendedOccurrence);
+    });
+    act(() => {
+      attendancePromise = result.current.setAttendance(attendedOccurrence, "going");
+    });
+
+    expect(staleSignal.aborted).toBe(true);
+
+    // The series save settles first with a streak computed before the answer
+    // committed, so it cannot cover the interrupted read.
+    await heldSave.resolve({
+      attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+      event: {},
+      message: "Evento actualizado.",
+      occurrences: [{ ...attendedOccurrence, title: "Clase renovada" }],
+    });
+    await act(async () => {
+      await savePromise;
+    });
+
+    expect(result.current.attendanceStreak).toEqual({ attendedCount: 3, occurrenceCount: 5 });
+    expect(getStreakRequests()).toHaveLength(1);
+
+    await heldAttendance.resolve({ attendance: savedAttendance, message: "Respuesta guardada." });
+    await act(async () => {
+      await attendancePromise;
+    });
+
+    await waitFor(() => expect(getStreakRequests()).toHaveLength(2));
+    await heldStreakReads[1].resolve({
+      attendanceStreak: { attendedCount: 4, occurrenceCount: 5 },
+    });
+
+    expect(result.current.attendanceStreak).toEqual({ attendedCount: 4, occurrenceCount: 5 });
+    expect(getStreakRequests()).toHaveLength(2);
+  });
+});
+
+describe("useTribeEventMutations server render source", () => {
+  const savedOccurrence = createOccurrence();
+  const serverEvents = [savedOccurrence];
+  const FIRST_RENDER_VERSION = "2026-05-20T18:00:00.000Z";
+  const SECOND_RENDER_VERSION = "2026-05-20T18:05:00.000Z";
+  const savePayload = {
+    capacity: "",
+    description: "",
+    endsAt: "",
+    meetingUrl: "",
+    recurrenceFrequency: "none",
+    recurrenceUntil: "",
+    startsAt: "2026-05-20T18:00:00.000Z",
+    title: "Clase renovada",
+  };
+
+  let heldSave: ReturnType<typeof createHeldResponse>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    heldSave = createHeldResponse();
+    global.fetch = vi.fn(() => heldSave.response) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function renderMutations(initialVersion: string) {
+    return renderHook(
+      ({ version }: { version: string }) =>
+        useTribeEventMutations({
+          attendanceStreak: null,
+          attendanceStreakNextRefreshAt: null,
+          attendanceStreakSourceVersion: version,
+          events: serverEvents,
+          month: "2026-05",
+          tribeSlug: TRIBE_SLUG,
+        }),
+      { initialProps: { version: initialVersion } }
+    );
+  }
+
+  async function saveWithStreak(result: { current: ReturnType<typeof useTribeEventMutations> }) {
+    let savePromise: Promise<boolean> = Promise.resolve(false);
+
+    act(() => {
+      savePromise = result.current.saveEvent(savePayload, savedOccurrence);
+    });
+    await heldSave.resolve({
+      attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: "2026-05-27T19:00:00.000Z",
+      event: {},
+      message: "Evento actualizado.",
+      occurrences: [savedOccurrence],
+    });
+    await act(async () => {
+      await savePromise;
+    });
+  }
+
+  it("replaces a locally added streak when a new render repeats a null server streak", async () => {
+    const { rerender, result } = renderMutations(FIRST_RENDER_VERSION);
+
+    await saveWithStreak(result);
+
+    expect(result.current.attendanceStreak).toEqual({ attendedCount: 2, occurrenceCount: 5 });
+
+    rerender({ version: SECOND_RENDER_VERSION });
+
+    expect(result.current.attendanceStreak).toBeNull();
+    expect(result.current.attendanceStreakNextRefreshAt).toBeNull();
+  });
+
+  it("keeps the local streak while the route renders the same source", async () => {
+    const { rerender, result } = renderMutations(FIRST_RENDER_VERSION);
+
+    await saveWithStreak(result);
+    rerender({ version: FIRST_RENDER_VERSION });
+
+    expect(result.current.attendanceStreak).toEqual({ attendedCount: 2, occurrenceCount: 5 });
   });
 });

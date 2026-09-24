@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "beez-ui";
 
-import { readAttendanceStreakNextRefreshTime } from "@/lib/events/tribe-event-attendance-streak-dto";
+import {
+  INITIAL_STREAK_FRESHNESS_STATE,
+  STREAK_FRESHNESS_COMMAND,
+  STREAK_FRESHNESS_EVENT,
+  transitionStreakFreshness,
+  type StreakFreshnessCommand,
+  type StreakFreshnessEvent,
+} from "@/lib/events/tribe-event-streak-freshness";
 import {
   compareOccurrencesByStart,
   mergeSavedOccurrences,
@@ -31,6 +38,13 @@ type UseTribeEventMutationsInput = {
    * as rendered by the route; null when unknown.
    */
   attendanceStreakNextRefreshAt?: string | null;
+  /**
+   * Token of the server render that produced the streak (for example
+   * `attendanceStreakComputedAt`). A new token always replaces the local
+   * streak and its next refresh instant, even when the server values are
+   * equal to the previous render's (for example `null` twice).
+   */
+  attendanceStreakSourceVersion?: string | null;
   /** Occurrences rendered by the server for the visible month. */
   events: TribeEventOccurrenceResult[];
   /** Visible `YYYY-MM` month, sent so saves return that month's occurrences. */
@@ -48,14 +62,29 @@ type VisibleEventsState = {
   sourceEvents: TribeEventOccurrenceResult[];
 };
 
+/**
+ * Server render the local streak state derives from. Local state only applies
+ * while the route keeps rendering the same source.
+ */
+type StreakSource = {
+  nextRefreshAt: string | null;
+  streak: TribeEventAttendanceStreakResult | null;
+  version: string | null;
+};
+
 type AttendanceStreakState = {
-  sourceStreak: TribeEventAttendanceStreakResult | null;
+  source: StreakSource;
   streak: TribeEventAttendanceStreakResult | null;
 };
 
 type StreakNextRefreshState = {
   nextRefreshAt: string | null;
-  sourceNextRefreshAt: string | null;
+  source: StreakSource;
+};
+
+type StreakRequest = {
+  requestSequence: number;
+  source: StreakSource;
 };
 
 type OccurrencesUpdater = (
@@ -108,18 +137,33 @@ const COPY = {
 } as const;
 
 /**
- * Tells whether a returned next refresh instant was already reached by the
- * real clock when its response arrived. Such an instant can no longer wake
- * the minute clock, whose wake-ups only look ahead.
- *
- * @param nextRefreshAt - Instant returned by a streak read or a series
- *   mutation (ISO 8601), or null when nothing ends inside the window.
- * @returns True when the instant is valid and not after `Date.now()`.
+ * Reads the real clock, kept outside render so returned instants are compared
+ * with the time their response arrived.
  */
-function hasStreakNextRefreshPassed(nextRefreshAt: string | null): boolean {
-  const nextRefreshTime = readAttendanceStreakNextRefreshTime(nextRefreshAt);
+function readCurrentTime(): number {
+  return Date.now();
+}
 
-  return nextRefreshTime !== null && nextRefreshTime <= Date.now();
+/**
+ * Clears the timeout stored in a ref, if any, and empties the ref.
+ */
+function clearScheduledTimeout(timeoutRef: { current: ReturnType<typeof setTimeout> | null }) {
+  if (timeoutRef.current !== null) {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  }
+}
+
+/**
+ * Tells whether two streak sources come from the same server render: same
+ * render token and the same server values.
+ */
+function isSameStreakSource(source: StreakSource, otherSource: StreakSource): boolean {
+  return (
+    source.version === otherSource.version &&
+    source.streak === otherSource.streak &&
+    source.nextRefreshAt === otherSource.nextRefreshAt
+  );
 }
 
 /**
@@ -130,37 +174,40 @@ function hasStreakNextRefreshPassed(nextRefreshAt: string | null): boolean {
  *
  * When the route renders a new `events` array (month navigation), local
  * mutations are discarded in favour of the fresh server data. The viewer
- * streak follows the same rule: creations, edits, and deletions replace it
- * with the value the route recomputed after committing, and among mutations
- * the most recently started one whose response carries a streak wins. The
- * next refresh instant follows the same ordering, tracked on its own: a
- * response may carry one field and omit the other. A returned instant that
- * already passed (the response was computed before an occurrence ended but
- * arrived after) can no longer wake the clock, so it triggers one read right
- * away instead; the same passed instant never triggers a second one.
- * Streak mutations are series creations, edits, and deletions plus attendance
- * answers, since an answer committed around an occurrence end changes the
- * streak. Streak reads never race them: starting a mutation aborts a read in
- * flight (it began before the commit), and a read requested while a mutation
- * is uncommitted is deferred until every mutation settles. Once they settle,
- * a deferred read always runs, and an aborted one runs again unless a
- * mutation already returned a post-commit streak, which covers it. Responses
- * without a streak (rejected or failed mutations) keep the one on screen.
+ * streak and its next refresh instant follow the same rule, keyed by the
+ * server render (`attendanceStreakSourceVersion` plus the server values), so
+ * every new render replaces local state even when its values repeat. Among
+ * responses, the most recently started one that carries each field wins.
  *
- * @param input - Server occurrences, streak and its next refresh instant,
- *   visible month, tribe slug, and the callback for answers the server
- *   rejected because the occurrence ended.
+ * When to read the streak again is decided by the pure state machine in
+ * `lib/events/tribe-event-streak-freshness.ts`; this hook only feeds it
+ * events and executes its commands (start or abort the read, schedule or
+ * cancel a delayed retry). Reads never overlap uncommitted creations, edits,
+ * deletions, or attendance answers; an interrupted read is only covered by a
+ * committed streak when no other mutation overlapped; and a returned instant
+ * that already passed reads right away and then retries with a bounded
+ * backoff while the server keeps returning it.
+ *
+ * @param input - Server occurrences, streak, its next refresh instant and
+ *   render token, visible month, tribe slug, and the callback for answers the
+ *   server rejected because the occurrence ended.
  * @returns Visible occurrences and streak, pending flags, and mutation callbacks that
  * resolve to `true` when the change was stored.
  */
 export function useTribeEventMutations({
   attendanceStreak,
   attendanceStreakNextRefreshAt = null,
+  attendanceStreakSourceVersion = null,
   events,
   month,
   onOccurrenceEnded,
   tribeSlug,
 }: UseTribeEventMutationsInput): TribeEventMutations {
+  const streakSource: StreakSource = {
+    nextRefreshAt: attendanceStreakNextRefreshAt,
+    streak: attendanceStreak,
+    version: attendanceStreakSourceVersion,
+  };
   const [visibleEventsState, setVisibleEventsState] = useState<VisibleEventsState>({
     events,
     sourceEvents: events,
@@ -169,13 +216,17 @@ export function useTribeEventMutations({
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isSavingAttendance, setIsSavingAttendance] = useState(false);
   const [attendanceStreakState, setAttendanceStreakState] = useState<AttendanceStreakState>({
-    sourceStreak: attendanceStreak,
+    source: streakSource,
     streak: attendanceStreak,
   });
   const [streakNextRefreshState, setStreakNextRefreshState] = useState<StreakNextRefreshState>({
     nextRefreshAt: attendanceStreakNextRefreshAt,
-    sourceNextRefreshAt: attendanceStreakNextRefreshAt,
+    source: streakSource,
   });
+  // Latest server render and slug, read by reads that start from a deferred
+  // settle or a delayed retry scheduled by an older render.
+  const latestStreakSourceRef = useRef(streakSource);
+  const latestTribeSlugRef = useRef(tribeSlug);
   // Increases on every request that can refresh the streak, ordering them by
   // start time.
   const streakRequestSequenceRef = useRef(0);
@@ -186,21 +237,11 @@ export function useTribeEventMutations({
   // Same guard for the next refresh instant, which advances independently
   // because a response can carry it while omitting the streak (and vice versa).
   const appliedStreakNextRefreshRequestSequenceRef = useRef(0);
-  // Creations, edits, deletions, and attendance answers not settled yet.
-  // While any is pending a streak read could observe pre-commit data, so reads
-  // wait for them.
-  const pendingStreakMutationCountRef = useRef(0);
-  // A read was requested while a mutation was pending. It always runs once
-  // they settle: the mutation may have computed its streak before the
-  // occurrence that asked for the read finished.
-  const isStreakReadDeferredRef = useRef(false);
-  // A read in flight was aborted by a starting mutation. It runs again once
-  // mutations settle unless one of them returned a post-commit streak.
-  const isStreakReadInterruptedRef = useRef(false);
-  // Last returned next refresh instant that had already passed and triggered
-  // a read. A server that keeps handing the same passed instant (clock skew)
-  // triggers that read once, never a loop.
-  const passedStreakNextRefreshAtRef = useRef<string | null>(null);
+  // Freshness state machine (pending mutations, read in flight or needed,
+  // passed deadline retries). Kept in a ref: it drives side effects only.
+  const streakFreshnessStateRef = useRef(INITIAL_STREAK_FRESHNESS_STATE);
+  // Delayed retry of a passed next refresh instant, if any.
+  const scheduledStreakReadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isUnmountedRef = useRef(false);
   const isSavingEventRef = useRef(false);
   const isDeletingEventRef = useRef(false);
@@ -217,29 +258,62 @@ export function useTribeEventMutations({
     [unsortedVisibleEvents]
   );
 
-  const visibleAttendanceStreak =
-    attendanceStreakState.sourceStreak === attendanceStreak
-      ? attendanceStreakState.streak
-      : attendanceStreak;
-  const visibleStreakNextRefreshAt =
-    streakNextRefreshState.sourceNextRefreshAt === attendanceStreakNextRefreshAt
-      ? streakNextRefreshState.nextRefreshAt
-      : attendanceStreakNextRefreshAt;
+  const visibleAttendanceStreak = isSameStreakSource(attendanceStreakState.source, streakSource)
+    ? attendanceStreakState.streak
+    : attendanceStreak;
+  const visibleStreakNextRefreshAt = isSameStreakSource(
+    streakNextRefreshState.source,
+    streakSource
+  )
+    ? streakNextRefreshState.nextRefreshAt
+    : attendanceStreakNextRefreshAt;
 
-  const startStreakRequest = () => {
+  const startStreakRequest = (): StreakRequest => {
     streakRequestSequenceRef.current += 1;
 
     return {
       requestSequence: streakRequestSequenceRef.current,
-      sourceNextRefreshAt: attendanceStreakNextRefreshAt,
-      sourceStreak: attendanceStreak,
+      source: latestStreakSourceRef.current,
     };
   };
 
-  const applyStreakRefresh = (
-    request: ReturnType<typeof startStreakRequest>,
-    refresh: TribeEventStreakRefresh
-  ) => {
+  const abortStreakRead = () => {
+    streakRefreshControllerRef.current?.abort();
+    streakRefreshControllerRef.current = null;
+  };
+
+  /**
+   * Feeds one event to the freshness state machine and executes the commands
+   * it emits, in order.
+   */
+  const dispatchStreakFreshness = (event: StreakFreshnessEvent) => {
+    const transition = transitionStreakFreshness(streakFreshnessStateRef.current, event);
+
+    streakFreshnessStateRef.current = transition.state;
+    transition.commands.forEach(runStreakFreshnessCommand);
+  };
+
+  const runStreakFreshnessCommand = (command: StreakFreshnessCommand) => {
+    switch (command.type) {
+      case STREAK_FRESHNESS_COMMAND.startRead:
+        startStreakRead();
+        return;
+      case STREAK_FRESHNESS_COMMAND.abortRead:
+        abortStreakRead();
+        return;
+      case STREAK_FRESHNESS_COMMAND.scheduleRead:
+        clearScheduledTimeout(scheduledStreakReadTimeoutRef);
+        scheduledStreakReadTimeoutRef.current = setTimeout(() => {
+          scheduledStreakReadTimeoutRef.current = null;
+          refreshAttendanceStreak();
+        }, command.delayMs);
+        return;
+      case STREAK_FRESHNESS_COMMAND.cancelScheduledRead:
+        clearScheduledTimeout(scheduledStreakReadTimeoutRef);
+    }
+  };
+
+  const applyStreakRefresh = (request: StreakRequest, refresh: TribeEventStreakRefresh) => {
     if (
       refresh.attendanceStreak === undefined ||
       request.requestSequence < appliedStreakRequestSequenceRef.current
@@ -249,27 +323,23 @@ export function useTribeEventMutations({
 
     appliedStreakRequestSequenceRef.current = request.requestSequence;
 
-    // Tagged with the server streak seen when the request started: if the
+    // Tagged with the server render seen when the request started: if the
     // route renders a new one meanwhile (navigation), the fresher server
     // value wins, the same way new server events replace local mutations.
     setAttendanceStreakState({
-      sourceStreak: request.sourceStreak,
+      source: request.source,
       streak: refresh.attendanceStreak,
     });
   };
 
   /**
    * Stores the next refresh instant a streak read or a series mutation
-   * returned, tagged with the server value seen when the request started and
+   * returned, tagged with the server render seen when the request started and
    * ordered by request sequence (same rules as the streak). An absent instant
-   * keeps the one already watched. An instant already reached by the real
-   * clock is past the clock wake-ups, so it requests one read through
-   * `refreshAttendanceStreak` (deferred while mutations are pending).
+   * keeps the one already watched. The state machine then decides whether an
+   * instant already reached by the real clock needs a read or a delayed retry.
    */
-  const applyStreakNextRefresh = (
-    request: ReturnType<typeof startStreakRequest>,
-    read: TribeEventStreakReadResult
-  ) => {
+  const applyStreakNextRefresh = (request: StreakRequest, read: TribeEventStreakReadResult) => {
     if (
       read.attendanceStreakNextRefreshAt === undefined ||
       request.requestSequence < appliedStreakNextRefreshRequestSequenceRef.current
@@ -281,19 +351,81 @@ export function useTribeEventMutations({
 
     setStreakNextRefreshState({
       nextRefreshAt: read.attendanceStreakNextRefreshAt,
-      sourceNextRefreshAt: request.sourceNextRefreshAt,
+      source: request.source,
     });
 
-    if (
-      !hasStreakNextRefreshPassed(read.attendanceStreakNextRefreshAt) ||
-      read.attendanceStreakNextRefreshAt === passedStreakNextRefreshAtRef.current
-    ) {
-      return;
+    if (isSameStreakSource(request.source, latestStreakSourceRef.current)) {
+      dispatchStreakFreshness({
+        nextRefreshAt: read.attendanceStreakNextRefreshAt,
+        nowTime: readCurrentTime(),
+        type: STREAK_FRESHNESS_EVENT.deadlineReturned,
+      });
     }
-
-    passedStreakNextRefreshAtRef.current = read.attendanceStreakNextRefreshAt;
-    refreshAttendanceStreak();
   };
+
+  /**
+   * Runs one streak read, replacing the one in flight. Only the current read
+   * reports back to the state machine; an aborted one is ignored.
+   */
+  const startStreakRead = () => {
+    abortStreakRead();
+
+    const controller = new AbortController();
+    const streakRequest = startStreakRequest();
+    const isCurrentRead = () =>
+      streakRefreshControllerRef.current === controller && !controller.signal.aborted;
+
+    streakRefreshControllerRef.current = controller;
+
+    fetchTribeEventAttendanceStreakRequest({
+      signal: controller.signal,
+      tribeSlug: latestTribeSlugRef.current,
+    })
+      .then((refresh) => {
+        if (!isCurrentRead()) {
+          return;
+        }
+
+        streakRefreshControllerRef.current = null;
+        dispatchStreakFreshness({ type: STREAK_FRESHNESS_EVENT.readSettled });
+        applyStreakRefresh(streakRequest, refresh);
+        applyStreakNextRefresh(streakRequest, refresh);
+      })
+      .catch(() => {
+        // Deliberate fallback: an aborted or failed background read keeps the
+        // streak on screen. The route handler logs its own failures, and a
+        // passive refresh the viewer did not trigger must not raise a toast.
+        if (isCurrentRead()) {
+          streakRefreshControllerRef.current = null;
+          dispatchStreakFreshness({ type: STREAK_FRESHNESS_EVENT.readSettled });
+        }
+      });
+  };
+
+  const streakSourceVersion = streakSource.version;
+
+  useEffect(() => {
+    latestTribeSlugRef.current = tribeSlug;
+  }, [tribeSlug]);
+
+  useEffect(() => {
+    // A new server render replaces the local streak, so a retry of a passed
+    // instant from the previous render no longer applies.
+    latestStreakSourceRef.current = {
+      nextRefreshAt: attendanceStreakNextRefreshAt,
+      streak: attendanceStreak,
+      version: streakSourceVersion,
+    };
+    const transition = transitionStreakFreshness(streakFreshnessStateRef.current, {
+      type: STREAK_FRESHNESS_EVENT.sourceChanged,
+    });
+
+    streakFreshnessStateRef.current = transition.state;
+
+    if (transition.commands.length > 0) {
+      clearScheduledTimeout(scheduledStreakReadTimeoutRef);
+    }
+  }, [attendanceStreak, attendanceStreakNextRefreshAt, streakSourceVersion]);
 
   useEffect(() => {
     isUnmountedRef.current = false;
@@ -301,6 +433,7 @@ export function useTribeEventMutations({
     return () => {
       isUnmountedRef.current = true;
       streakRefreshControllerRef.current?.abort();
+      clearScheduledTimeout(scheduledStreakReadTimeoutRef);
     };
   }, []);
 
@@ -309,85 +442,32 @@ export function useTribeEventMutations({
       return;
     }
 
-    if (pendingStreakMutationCountRef.current > 0) {
-      isStreakReadDeferredRef.current = true;
-      return;
-    }
-
-    streakRefreshControllerRef.current?.abort();
-
-    const controller = new AbortController();
-    const streakRequest = startStreakRequest();
-
-    streakRefreshControllerRef.current = controller;
-
-    fetchTribeEventAttendanceStreakRequest({ signal: controller.signal, tribeSlug })
-      .then((refresh) => {
-        if (!controller.signal.aborted) {
-          applyStreakRefresh(streakRequest, refresh);
-          applyStreakNextRefresh(streakRequest, refresh);
-        }
-      })
-      .catch(() => {
-        // Deliberate fallback: an aborted or failed background read keeps the
-        // streak on screen. The route handler logs its own failures, and a
-        // passive refresh the viewer did not trigger must not raise a toast.
-      })
-      .finally(() => {
-        if (streakRefreshControllerRef.current === controller) {
-          streakRefreshControllerRef.current = null;
-        }
-      });
+    dispatchStreakFreshness({ type: STREAK_FRESHNESS_EVENT.readRequested });
   };
 
   /**
    * Registers a creation, edit, deletion, or attendance answer that can change
-   * the streak. A
-   * read in flight started before this mutation commits, so it is aborted and
-   * remembered for `settleStreakMutation`.
+   * the streak. The state machine aborts a read in flight (it started before
+   * this mutation commits) and remembers it.
    */
   const beginStreakMutation = () => {
-    const streakRefreshController = streakRefreshControllerRef.current;
-
-    if (streakRefreshController) {
-      streakRefreshController.abort();
-      streakRefreshControllerRef.current = null;
-      isStreakReadInterruptedRef.current = true;
-    }
-
-    pendingStreakMutationCountRef.current += 1;
+    dispatchStreakFreshness({ type: STREAK_FRESHNESS_EVENT.mutationStarted });
 
     return startStreakRequest();
   };
 
   /**
-   * Marks a mutation as settled. A post-commit streak in its response covers
-   * an interrupted read; once no mutation is pending, a deferred read, or an
-   * interrupted one nobody covered, runs against committed data.
+   * Marks a mutation as settled. Once no mutation is pending, the state
+   * machine runs the read still needed against committed data.
    *
-   * @param refresh - Streak carried by a successful response, or undefined
-   *   when the mutation failed or was rejected.
+   * @param hasCommittedStreak - True when the successful response carried a
+   *   post-commit streak.
    */
-  const settleStreakMutation = (refresh: TribeEventStreakRefresh | undefined) => {
-    if (refresh?.attendanceStreak !== undefined) {
-      isStreakReadInterruptedRef.current = false;
-    }
-
-    pendingStreakMutationCountRef.current -= 1;
-
-    if (pendingStreakMutationCountRef.current > 0) {
-      return;
-    }
-
-    const shouldReadStreak =
-      isStreakReadDeferredRef.current || isStreakReadInterruptedRef.current;
-
-    isStreakReadDeferredRef.current = false;
-    isStreakReadInterruptedRef.current = false;
-
-    if (shouldReadStreak) {
-      refreshAttendanceStreak();
-    }
+  const settleStreakMutation = (hasCommittedStreak: boolean) => {
+    dispatchStreakFreshness({
+      hasCommittedStreak,
+      type: STREAK_FRESHNESS_EVENT.mutationSettled,
+    });
   };
 
   const replaceVisibleEvents = (updater: OccurrencesUpdater) => {
@@ -409,7 +489,7 @@ export function useTribeEventMutations({
     setIsSavingEvent(true);
 
     const streakRequest = beginStreakMutation();
-    let streakRefresh: TribeEventStreakRefresh | undefined;
+    let hasCommittedStreak = false;
 
     try {
       const result = await saveTribeEventRequest({
@@ -435,7 +515,7 @@ export function useTribeEventMutations({
 
       applyStreakRefresh(streakRequest, result);
       applyStreakNextRefresh(streakRequest, result);
-      streakRefresh = result;
+      hasCommittedStreak = result.attendanceStreak !== undefined;
 
       toast.success(result.message ?? COPY.eventSaveFallback);
       return true;
@@ -446,7 +526,7 @@ export function useTribeEventMutations({
     } finally {
       isSavingEventRef.current = false;
       setIsSavingEvent(false);
-      settleStreakMutation(streakRefresh);
+      settleStreakMutation(hasCommittedStreak);
     }
   };
 
@@ -459,7 +539,7 @@ export function useTribeEventMutations({
     setIsDeletingEvent(true);
 
     const streakRequest = beginStreakMutation();
-    let streakRefresh: TribeEventStreakRefresh | undefined;
+    let hasCommittedStreak = false;
 
     try {
       const result = await deleteTribeEventRequest({
@@ -479,7 +559,7 @@ export function useTribeEventMutations({
       );
       applyStreakRefresh(streakRequest, result);
       applyStreakNextRefresh(streakRequest, result);
-      streakRefresh = result;
+      hasCommittedStreak = result.attendanceStreak !== undefined;
       toast.success(result.message ?? COPY.deleteSuccess);
       return true;
     } catch {
@@ -489,7 +569,7 @@ export function useTribeEventMutations({
     } finally {
       isDeletingEventRef.current = false;
       setIsDeletingEvent(false);
-      settleStreakMutation(streakRefresh);
+      settleStreakMutation(hasCommittedStreak);
     }
   };
 
@@ -540,7 +620,7 @@ export function useTribeEventMutations({
     } finally {
       isSavingAttendanceRef.current = false;
       setIsSavingAttendance(false);
-      settleStreakMutation(undefined);
+      settleStreakMutation(false);
     }
   };
 

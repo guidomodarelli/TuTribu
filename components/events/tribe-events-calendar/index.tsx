@@ -158,6 +158,8 @@ export function TribeEventsCalendar({
   } = useTribeEventMutations({
     attendanceStreak: serverAttendanceStreak,
     attendanceStreakNextRefreshAt: serverAttendanceStreakNextRefreshAt,
+    // Every server render stamps a new instant, so it replaces local streak state.
+    attendanceStreakSourceVersion: attendanceStreakComputedAt,
     events,
     month: month.current,
     // The server checks the exact time: when it already considers the
