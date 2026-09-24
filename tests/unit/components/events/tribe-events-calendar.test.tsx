@@ -353,6 +353,61 @@ describe("TribeEventsCalendar", () => {
     expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("19:30");
   });
 
+  it("carries a template duration that crosses midnight into the next day", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:00" },
+    });
+
+    // The 120-minute workshop ends at 01:00 of the next Buenos Aires day.
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:00");
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Termina otro día" })
+    ).toBeChecked();
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+    mockJsonResponse({ event: {}, message: "Evento creado.", occurrences: [] });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      endsAt: "2026-05-21T04:00:00.000Z",
+      startsAt: "2026-05-21T02:00:00.000Z",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("fills the next-day end date once the date is picked after a crossing start", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:30" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:30");
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-31" },
+    });
+
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-06-01");
+  });
+
   it("updates visible events when the route month changes", () => {
     const { rerender } = renderCalendar();
 
