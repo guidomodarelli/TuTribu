@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateTribeEventAttendanceStreak,
   getTribeEventRemainingSpots,
-  getWaitlistRefillLookbackStart,
+  getWaitlistRefillLookbackDurationMs,
   selectRecentPastOccurrences,
   selectRefillableWaitlistOccurrenceStarts,
 } from "@/src/modules/events/domain/services/tribe-event-attendance";
@@ -110,86 +110,60 @@ describe("selectRefillableWaitlistOccurrenceStarts", () => {
     };
 
     expect(
-      selectRefillableWaitlistOccurrenceStarts(
-        movedSeries,
-        ["2026-06-03T18:00:00.000Z", "2026-06-04T18:00:00.000Z"],
-        NOW
-      )
+      selectRefillableWaitlistOccurrenceStarts(movedSeries, [
+        "2026-06-03T18:00:00.000Z",
+        "2026-06-04T18:00:00.000Z",
+      ])
     ).toEqual(["2026-06-04T18:00:00.000Z"]);
   });
 
-  it("keeps an occurrence in progress and drops the ones that already ended", () => {
-    const inProgressNow = Date.parse("2026-05-27T18:30:00.000Z");
-
+  it("keeps every valid slot, ended or not: the database clock decides the end", () => {
+    // No application clock is involved: a slot that looks finished to the
+    // application host may still be in progress for PostgreSQL, and the
+    // locked refill function skips the ones that really ended.
     expect(
-      selectRefillableWaitlistOccurrenceStarts(
-        weeklySeries,
-        [
-          "2026-05-20T18:00:00.000Z",
-          "2026-05-27T18:00:00.000Z",
-          "2026-06-03T18:00:00.000Z",
-        ],
-        inProgressNow
-      )
-    ).toEqual(["2026-05-27T18:00:00.000Z", "2026-06-03T18:00:00.000Z"]);
-  });
-
-  it("uses the implicit duration when the series has no end time", () => {
-    const openEndedSeries = { ...weeklySeries, endsAt: null };
-
-    expect(
-      selectRefillableWaitlistOccurrenceStarts(
-        openEndedSeries,
-        ["2026-05-27T18:00:00.000Z"],
-        Date.parse("2026-05-27T18:59:00.000Z")
-      )
-    ).toEqual(["2026-05-27T18:00:00.000Z"]);
-    expect(
-      selectRefillableWaitlistOccurrenceStarts(
-        openEndedSeries,
-        ["2026-05-27T18:00:00.000Z"],
-        Date.parse("2026-05-27T19:00:00.000Z")
-      )
-    ).toEqual([]);
+      selectRefillableWaitlistOccurrenceStarts(weeklySeries, [
+        "2026-05-20T18:00:00.000Z",
+        "2026-05-27T18:00:00.000Z",
+        "2026-06-03T18:00:00.000Z",
+      ])
+    ).toEqual([
+      "2026-05-20T18:00:00.000Z",
+      "2026-05-27T18:00:00.000Z",
+      "2026-06-03T18:00:00.000Z",
+    ]);
   });
 
   it("normalizes the starts and ignores values that are not dates", () => {
     expect(
-      selectRefillableWaitlistOccurrenceStarts(
-        weeklySeries,
-        ["2026-06-03T15:00:00-03:00", "not-a-date"],
-        NOW
-      )
+      selectRefillableWaitlistOccurrenceStarts(weeklySeries, [
+        "2026-06-03T15:00:00-03:00",
+        "not-a-date",
+      ])
     ).toEqual(["2026-06-03T18:00:00.000Z"]);
   });
 });
 
-describe("getWaitlistRefillLookbackStart", () => {
-  it("reaches back one occurrence duration so occurrences in progress are candidates", () => {
+describe("getWaitlistRefillLookbackDurationMs", () => {
+  it("reaches back one explicit occurrence duration", () => {
     expect(
-      getWaitlistRefillLookbackStart(
-        {
-          endsAt: "2026-05-06T20:30:00.000Z",
-          recurrenceFrequency: "weekly",
-          recurrenceUntil: null,
-          startsAt: "2026-05-06T18:00:00.000Z",
-        },
-        NOW
-      )
-    ).toBe("2026-06-01T09:30:00.000Z");
+      getWaitlistRefillLookbackDurationMs({
+        endsAt: "2026-05-06T20:30:00.000Z",
+        recurrenceFrequency: "weekly",
+        recurrenceUntil: null,
+        startsAt: "2026-05-06T18:00:00.000Z",
+      })
+    ).toBe(9_000_000);
   });
 
   it("uses the implicit duration when the series has no end time", () => {
     expect(
-      getWaitlistRefillLookbackStart(
-        {
-          endsAt: null,
-          recurrenceFrequency: "none",
-          recurrenceUntil: null,
-          startsAt: "2026-05-06T18:00:00.000Z",
-        },
-        NOW
-      )
-    ).toBe("2026-06-01T11:00:00.000Z");
+      getWaitlistRefillLookbackDurationMs({
+        endsAt: null,
+        recurrenceFrequency: "none",
+        recurrenceUntil: null,
+        startsAt: "2026-05-06T18:00:00.000Z",
+      })
+    ).toBe(3_600_000);
   });
 });

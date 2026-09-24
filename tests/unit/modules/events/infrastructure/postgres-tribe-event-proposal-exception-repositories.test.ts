@@ -102,6 +102,10 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
 
     expect(saveSql).toContain("public.can_manage_tribe_events(target_event.tribe_id)");
     expect(saveSql).toContain("on conflict (event_id, original_starts_at) do update");
+    // Answers hold the event row FOR SHARE while they read the exception of
+    // their date, so the write locks it FOR UPDATE to serialize with them.
+    expect(saveSql).toContain("for update of events");
+    expect(saveSql).toContain("inner join locked_event");
   });
 
   it("maps a missing event and a viewer who cannot manage events", async () => {
@@ -128,6 +132,8 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
     await expect(repository.save(command)).resolves.toEqual({ status: "forbidden" });
     await expect(repository.clear(command)).resolves.toEqual({ status: "exception_cleared" });
     await expect(repository.clear(command)).resolves.toEqual({ status: "forbidden" });
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("for update of events");
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("using target_event, locked_event");
   });
 
   it("reads exceptions only for viewers who can read the tribe", async () => {

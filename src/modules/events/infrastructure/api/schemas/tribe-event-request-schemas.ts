@@ -3,6 +3,7 @@ import { z } from "zod";
 import type {
   TribeEventAttendanceInput,
   TribeEventFieldsInput,
+  TribeEventUpdateFieldsInput,
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import {
   TRIBE_EVENT_ATTENDANCE_OPTIONS,
@@ -163,6 +164,20 @@ export const tribeEventMutationBodySchema = z.object(
   },
   { error: TRIBE_EVENT_INPUT_ISSUE.invalidInput }
 ) satisfies z.ZodType<TribeEventFieldsInput>;
+
+/**
+ * Body of the update (PATCH) endpoint: the create body, except that an omitted
+ * `capacity` stays undefined ("keep the stored capacity") instead of meaning
+ * "no limit", so an older client that does not send the field never removes
+ * an existing limit. An explicit empty or null capacity still removes it.
+ */
+export const tribeEventUpdateBodySchema = tribeEventMutationBodySchema.extend({
+  // `.optional()` would still run the inner schema, which maps a missing
+  // value to null; the explicit `undefined` branch keeps "omitted" apart.
+  capacity: z.union([z.undefined(), capacityFieldSchema], {
+    error: TRIBE_EVENT_INPUT_ISSUE.invalidCapacity,
+  }),
+}) satisfies z.ZodType<TribeEventUpdateFieldsInput>;
 
 /**
  * Wire shape the browser sends to the create and update endpoints.

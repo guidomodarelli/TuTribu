@@ -12,6 +12,7 @@ import type {
 } from "@/src/modules/events/application/results/tribe-event-result";
 import { parseMonth } from "@/src/modules/events/application/services/buenos-aires-month";
 import {
+  TRIBE_EVENT_ATTENDANCE_FAILURE_CODE,
   TRIBE_EVENT_ATTENDANCE_STATUS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_PROPOSAL_STATUS,
@@ -113,51 +114,107 @@ export const tribeEventListResponseSchema = z.object({
 }) satisfies z.ZodType<TribeEventListResult>;
 
 /**
- * Safe Spanish message: the whole body of failures and of `DELETE` events.
+ * Safe Spanish message: the body of `DELETE` events and of most failures.
  */
 export const tribeEventMessageResponseSchema = z.object({
   message: z.string(),
 });
 
 /**
- * Viewer streak passed as a prop to the events calendar (null: hidden).
+ * Body of a failed request: the safe Spanish message plus, for attendance
+ * answers the server refused because the occurrence already ended, the stable
+ * `occurrence_ended` code the UI uses to close the answers even when its own
+ * clock lags behind.
  */
-export const tribeEventAttendanceStreakSchema = z
-  .object({
-    attendedCount: nonNegativeCountSchema,
-    occurrenceCount: nonNegativeCountSchema,
-  })
-  .nullable() satisfies z.ZodType<TribeEventAttendanceStreakResult | null>;
-
-/**
- * Streak refresh attached to the bodies of series mutations (POST, PATCH, and
- * DELETE of an event). Absent means "keep the streak on screen": the route
- * could not recompute it. An unusable value is dropped to absent instead of
- * failing the whole mutation body, which already succeeded.
- */
-export const tribeEventAttendanceStreakRefreshSchema = tribeEventAttendanceStreakSchema
-  .optional()
-  .catch(undefined);
-
-/**
- * `GET /events/attendance-streak` body. `null` means the viewer has no streak.
- */
-export const tribeEventAttendanceStreakResponseSchema = z.object({
-  attendanceStreak: tribeEventAttendanceStreakSchema,
+export const tribeEventFailureResponseSchema = tribeEventMessageResponseSchema.extend({
+  code: z.enum(TRIBE_EVENT_ATTENDANCE_FAILURE_CODE).optional(),
 });
 
 /**
- * Instant at which the events page computed the streak it rendered, passed as
- * a prop so the client can tell whether an occurrence finished between that
- * snapshot and its first clock value.
+ * Allowlisted streak counts: non-negative integers only.
+ */
+export const tribeEventAttendanceStreakCountsSchema = z.object({
+  attendedCount: nonNegativeCountSchema,
+  occurrenceCount: nonNegativeCountSchema,
+}) satisfies z.ZodType<TribeEventAttendanceStreakResult>;
+
+/**
+ * Viewer streak passed as a prop to the events calendar (null: hidden).
+ */
+export const tribeEventAttendanceStreakSchema =
+  tribeEventAttendanceStreakCountsSchema.nullable() satisfies z.ZodType<TribeEventAttendanceStreakResult | null>;
+
+/**
+ * Next instant at which the streak can change: the nearest end of a running
+ * or upcoming occurrence of the tribe. `null` means nothing ends inside the
+ * upcoming window.
+ */
+export const tribeEventAttendanceStreakNextRefreshAtSchema = instantSchema.nullable();
+
+/**
+ * Database instant at which the server computed the streak and its next
+ * refresh. The events page, the streak route, and the series mutations send
+ * it next to the streak so the client can tell whether an occurrence finished
+ * between that snapshot and its own clock value.
  */
 export const tribeEventAttendanceStreakComputedAtSchema = instantSchema;
+
+/**
+ * `GET /events/attendance-streak` body. `null` means the viewer has no streak.
+ * The route always sends both instants (they come from one snapshot read);
+ * they stay optional so a body without them keeps what the client already
+ * watches, and the client treats that read as partial and retries it.
+ */
+export const tribeEventAttendanceStreakResponseSchema = z.object({
+  attendanceStreak: tribeEventAttendanceStreakSchema,
+  attendanceStreakComputedAt: tribeEventAttendanceStreakComputedAtSchema.optional(),
+  attendanceStreakNextRefreshAt: tribeEventAttendanceStreakNextRefreshAtSchema.optional(),
+});
+
+/**
+ * Streak snapshot the events page passes as props to the calendar: the
+ * streak (null: hidden), the database instant it was computed at, and the
+ * next instant at which it can change (null: nothing ends soon).
+ */
+export const tribeEventAttendanceStreakPropsSchema = z.object({
+  attendanceStreak: tribeEventAttendanceStreakSchema,
+  attendanceStreakComputedAt: tribeEventAttendanceStreakComputedAtSchema,
+  attendanceStreakNextRefreshAt: tribeEventAttendanceStreakNextRefreshAtSchema,
+});
+
+/**
+ * Streak fragment the series mutations (POST, PATCH, and DELETE of an event)
+ * spread into their body. Each field is validated on its own, so the route
+ * logs and omits only the field that breaks this contract; the client then
+ * applies neither field and reads the streak again once every pending
+ * mutation settles.
+ */
+export const tribeEventAttendanceStreakMutationFragmentSchema = z.object({
+  attendanceStreak: tribeEventAttendanceStreakSchema.optional(),
+  attendanceStreakComputedAt: tribeEventAttendanceStreakComputedAtSchema.optional(),
+  attendanceStreakNextRefreshAt: tribeEventAttendanceStreakNextRefreshAtSchema.optional(),
+});
+
+/**
+ * The same fragment as read inside a mutation body: absent means "could not
+ * be recomputed", and an unusable value is dropped to absent instead of
+ * failing the whole mutation body, which already succeeded.
+ */
+const tribeEventAttendanceStreakRefreshShape = {
+  attendanceStreak: tribeEventAttendanceStreakSchema.optional().catch(undefined),
+  attendanceStreakComputedAt: tribeEventAttendanceStreakComputedAtSchema
+    .optional()
+    .catch(undefined),
+  attendanceStreakNextRefreshAt: tribeEventAttendanceStreakNextRefreshAtSchema
+    .optional()
+    .catch(undefined),
+};
 
 /**
  * `POST /events` and `PATCH /events/[eventId]` body.
  */
 export const tribeEventSaveResponseSchema = z.object({
-  attendanceStreak: tribeEventAttendanceStreakRefreshSchema,
+  ...tribeEventAttendanceStreakRefreshShape,
   event: tribeEventSchema,
   message: z.string(),
   occurrences: z.array(tribeEventOccurrenceSchema),
@@ -166,9 +223,9 @@ export const tribeEventSaveResponseSchema = z.object({
 /**
  * `DELETE /events/[eventId]` body: the safe message plus the streak refresh.
  */
-export const tribeEventDeleteResponseSchema = tribeEventMessageResponseSchema.extend({
-  attendanceStreak: tribeEventAttendanceStreakRefreshSchema,
-});
+export const tribeEventDeleteResponseSchema = tribeEventMessageResponseSchema.extend(
+  tribeEventAttendanceStreakRefreshShape
+);
 
 /**
  * `PUT` and `DELETE /attendance` body: the fresh summary of the occurrence.
@@ -260,6 +317,10 @@ export const tribeEventProposalApprovalResponseSchema = z.object({
 });
 
 export type TribeEventMessageResponse = z.infer<typeof tribeEventMessageResponseSchema>;
+export type TribeEventFailureResponse = z.infer<typeof tribeEventFailureResponseSchema>;
+export type TribeEventAttendanceStreakMutationFragment = z.infer<
+  typeof tribeEventAttendanceStreakMutationFragmentSchema
+>;
 export type TribeEventSaveResponse = z.infer<typeof tribeEventSaveResponseSchema>;
 export type TribeEventDeleteResponse = z.infer<typeof tribeEventDeleteResponseSchema>;
 export type TribeEventAttendanceStreakResponse = z.infer<

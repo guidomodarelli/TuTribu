@@ -1,5 +1,6 @@
-import type { TribeEventMessageResponse } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
+import type { TribeEventFailureResponse } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import {
+  TRIBE_EVENT_ATTENDANCE_FAILURE_CODE,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_PROPOSAL_LIMIT,
 } from "@/src/modules/events/constants/tribe-events";
@@ -60,6 +61,7 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   proposalResolvedMessage: "Esta propuesta ya fue resuelta.",
   proposalReviewForbiddenMessage: "Solo quienes gestionan eventos pueden revisar propuestas.",
   proposalWithdrawnMessage: "Propuesta retirada.",
+  scheduleChangedMessage: "El evento cambió; recargá para ver las fechas actualizadas.",
   tribeNotFoundMessage: "No pudimos encontrar la tribu.",
   unauthorizedMessage: "Iniciá sesión para gestionar eventos.",
   unexpectedAttendanceMessage: "No pudimos guardar tu respuesta. Intentá de nuevo.",
@@ -79,11 +81,12 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
 } as const;
 
 /**
- * Builds a JSON response whose body is a fixed safe message. Success bodies
- * go through `createTribeEventPublicResponse` instead, which validates them.
+ * Builds a JSON response whose body is a fixed safe message (plus the stable
+ * failure `code` when the client needs one). Success bodies go through
+ * `createTribeEventPublicResponse` instead, which validates them.
  */
 export function createJsonResponse(
-  body: TribeEventMessageResponse,
+  body: TribeEventFailureResponse,
   status: number
 ): Response {
   return Response.json(body, { status });
@@ -140,7 +143,15 @@ export function mapTribeEventAttendanceStatusResponse(status: string): Response 
       );
     case TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded:
       return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceEndedMessage },
+        {
+          code: TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
+          message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceEndedMessage,
+        },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.scheduleChanged:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.scheduleChangedMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
     case TRIBE_EVENT_MUTATION_STATUS.notFound:

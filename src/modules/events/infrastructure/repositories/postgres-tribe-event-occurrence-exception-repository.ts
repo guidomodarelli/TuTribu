@@ -31,7 +31,12 @@ function mapFailureStatus(
 
 /**
  * The target event of a write, resolved through the tribe slug so an
- * exception can never be written for another tribe's event.
+ * exception can never be written for another tribe's event. `locked_event`
+ * locks that event row `FOR UPDATE` (only for managers, so a plain member
+ * never blocks anyone): attendance answers hold the same row `FOR SHARE`
+ * while they read the exception of their date, so a date that is cancelled,
+ * moved, or restored concurrently waits for in-flight answers, and answers
+ * that start later see the committed exception.
  */
 function buildTargetEventCte(eventId: string, tribeSlug: string) {
   return sql`
@@ -48,6 +53,14 @@ function buildTargetEventCte(eventId: string, tribeSlug: string) {
         on target_tribe.id = events.tribe_id
       where events.id = ${eventId}
       limit 1
+    ),
+    locked_event as (
+      select events.id
+      from public.events
+      inner join target_event
+        on target_event.id = events.id
+      where public.can_manage_tribe_events(target_event.tribe_id)
+      for update of events
     )
   `;
 }
@@ -145,6 +158,8 @@ export class PostgresTribeEventOccurrenceExceptionRepository
             timezone('utc', now()),
             timezone('utc', now())
           from target_event
+          inner join locked_event
+            on locked_event.id = target_event.id
           where public.can_manage_tribe_events(target_event.tribe_id)
           on conflict (event_id, original_starts_at) do update set
             kind = excluded.kind,
@@ -191,8 +206,9 @@ export class PostgresTribeEventOccurrenceExceptionRepository
         with ${buildTargetEventCte(eventId, tribeSlug)},
         deleted_exception as (
           delete from public.event_occurrence_exceptions
-          using target_event
-          where event_occurrence_exceptions.event_id = target_event.id
+          using target_event, locked_event
+          where locked_event.id = target_event.id
+            and event_occurrence_exceptions.event_id = target_event.id
             and event_occurrence_exceptions.original_starts_at = ${originalStartsAt}::timestamptz
             and public.can_manage_tribe_events(target_event.tribe_id)
           returning event_occurrence_exceptions.id

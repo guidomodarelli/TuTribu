@@ -20,7 +20,7 @@ import type {
 import type {
   TribeEventAttendanceMutationResult,
   TribeEventAttendanceReportLookupResult,
-  TribeEventAttendanceStreakResult,
+  TribeEventAttendanceStreakSnapshotResult,
   TribeEventCalendarResult,
   TribeEventDeleteResult,
   TribeEventListResult,
@@ -33,6 +33,7 @@ import type {
   TribeEventSaveResult,
   TribeEventUpcomingListResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
+import { getTribeEventAttendanceStreakSnapshot } from "@/src/modules/events/application/use-cases/get-tribe-event-attendance-streak-snapshot-use-case";
 import { listUpcomingTribeEvents } from "@/src/modules/events/application/use-cases/list-upcoming-tribe-events-use-case";
 import {
   createTribeEvent,
@@ -45,7 +46,6 @@ import {
 import {
   clearTribeEventAttendance,
   getTribeEventAttendanceReport,
-  getTribeEventAttendanceStreak,
   setTribeEventAttendance,
 } from "@/src/modules/events/application/use-cases/tribe-event-attendance-use-cases";
 import {
@@ -92,9 +92,9 @@ type EventsModule = {
     getTribeEventAttendanceReport: (
       query: GetTribeEventAttendanceReportQuery
     ) => Promise<TribeEventAttendanceReportLookupResult>;
-    getTribeEventAttendanceStreak: (
+    getTribeEventAttendanceStreakSnapshot: (
       query: GetTribeEventAttendanceStreakQuery
-    ) => Promise<TribeEventAttendanceStreakResult | null>;
+    ) => Promise<TribeEventAttendanceStreakSnapshotResult>;
     listTribeEventProposals: (
       query: ListTribeEventProposalsQuery
     ) => Promise<TribeEventProposalListLookupResult>;
@@ -130,7 +130,7 @@ export function buildEventsModule(dependencies: EventsModuleDependencies): Event
       getTribeEvent: getTribeEvent(dependencies),
       getTribeEventAttendanceReport: getTribeEventAttendanceReport(dependencies),
       getTribeEventCalendar: getTribeEventCalendar(dependencies),
-      getTribeEventAttendanceStreak: getTribeEventAttendanceStreak(dependencies),
+      getTribeEventAttendanceStreakSnapshot: getTribeEventAttendanceStreakSnapshot(dependencies),
       listTribeEventProposals: listTribeEventProposals(dependencies),
       listTribeEvents: listTribeEvents(dependencies),
       listUpcomingTribeEvents: listUpcomingTribeEvents(dependencies),
