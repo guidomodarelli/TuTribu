@@ -1060,6 +1060,31 @@ export const eventProposals = pgTable("event_proposals", {
     .where(sql`reviewed_at IS NOT NULL`),
 }));
 
+// Personal calendar feed token (only the SHA-256 hex digest is stored). CHECKs,
+// RLS, and the SECURITY DEFINER resolver live in
+// 20260925120000_create_event_calendar_feed_tokens.sql.
+export const eventCalendarFeedTokens = pgTable("event_calendar_feed_tokens", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+}, (table) => ({
+  tokenHashKey: uniqueIndex("event_calendar_feed_tokens_token_hash_key").on(table.tokenHash),
+  activeMemberKey: uniqueIndex("event_calendar_feed_tokens_active_member_key")
+    .on(table.userId, table.tribeId)
+    .where(sql`revoked_at IS NULL`),
+  tribeIdIndex: index("idx_event_calendar_feed_tokens_tribe_id").on(table.tribeId),
+}));
+
 export const tribePaymentIntegrations = pgTable("tribe_payment_integrations", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")

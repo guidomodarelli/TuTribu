@@ -589,6 +589,13 @@
       "when": 1790252400000,
       "tag": "20260924122000_create_event_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1790256000000,
+      "tag": "20260925120000_create_event_calendar_feed_tokens",
+      "breakpoints": true
     }
   ]
 }
