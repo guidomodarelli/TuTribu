@@ -1085,6 +1085,42 @@ export const eventCalendarFeedTokens = pgTable("event_calendar_feed_tokens", {
   tribeIdIndex: index("idx_event_calendar_feed_tokens_tribe_id").on(table.tribeId),
 }));
 
+// In-app notification inbox. CHECKs, RLS, the recipient update guard, and the
+// SECURITY DEFINER producer triggers live in
+// 20260926120000_create_notifications.sql.
+export const notifications = pgTable("notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  recipientUserId: text("recipient_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+  dedupeKey: text("dedupe_key").notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  recipientDedupeKey: uniqueIndex("notifications_recipient_dedupe_key").on(
+    table.recipientUserId,
+    table.dedupeKey
+  ),
+  recipientCreatedIndex: index("idx_notifications_recipient_created").on(
+    table.recipientUserId,
+    table.createdAt.desc(),
+    table.id.desc()
+  ),
+  recipientUnreadIndex: index("idx_notifications_recipient_unread")
+    .on(table.recipientUserId)
+    .where(sql`read_at IS NULL`),
+  readAtIndex: index("idx_notifications_read_at")
+    .on(table.readAt)
+    .where(sql`read_at IS NOT NULL`),
+}));
+
 export const tribePaymentIntegrations = pgTable("tribe_payment_integrations", {
   id: uuid("id").defaultRandom().primaryKey(),
   tribeId: uuid("tribe_id")

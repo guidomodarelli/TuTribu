@@ -596,6 +596,13 @@
       "when": 1790256000000,
       "tag": "20260925120000_create_event_calendar_feed_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1790259600000,
+      "tag": "20260926120000_create_notifications",
+      "breakpoints": true
     }
   ]
 }
