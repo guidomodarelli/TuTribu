@@ -31,6 +31,16 @@ import {
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 /**
+ * Type filter of the feed series, applied in SQL before the row limit. An
+ * empty selection keeps every type.
+ */
+function buildEventTypePredicate(eventTypes: ReadTribeEventCalendarFeedQuery["eventTypes"]) {
+  return eventTypes.length === 0
+    ? sql``
+    : sql`and events.event_type = any(${sql.param([...eventTypes])}::text[])`;
+}
+
+/**
  * Builds a request-scoped executor whose `app.current_user_id` is `userId`
  * (null: no app user). The feed reader needs one without a user to resolve
  * the token and one bound to the token owner to read the calendar.
@@ -294,6 +304,7 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
             rangeEnd: query.rangeEnd,
             rangeStart: query.rangeStart,
           })}
+          ${buildEventTypePredicate(query.eventTypes)}
         order by events.starts_at desc, events.id asc
         limit ${query.maxSeries}
       `);

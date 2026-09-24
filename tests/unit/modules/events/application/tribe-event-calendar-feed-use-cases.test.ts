@@ -24,6 +24,8 @@ const TOKEN = "a".repeat(43);
 const TOKEN_HASH = "b".repeat(64);
 const NOW = new Date("2026-05-10T12:00:00.000Z");
 const MILLISECONDS_PER_DAY = 86_400_000;
+const HOUR_MILLISECONDS = 3_600_000;
+const WEEK_MILLISECONDS = 7 * MILLISECONDS_PER_DAY;
 
 const owner: TribeEventCalendarFeedTokenOwner = {
   tokenHash: TOKEN_HASH,
@@ -155,6 +157,7 @@ describe("getTribeEventCalendarFeed", () => {
 
     expect(reader.resolveToken).toHaveBeenCalledWith(TOKEN_HASH);
     expect(reader.readAsOwner).toHaveBeenCalledWith({
+      eventTypes: [],
       lastUsedRefreshMinutes: TRIBE_EVENT_CALENDAR_FEED_REFRESH.lastUsedRefreshMinutes,
       maxExceptions: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxExceptions,
       maxSeries: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents,
@@ -219,14 +222,8 @@ describe("getTribeEventCalendarFeed", () => {
     });
   });
 
-  it("builds each series with its valid exceptions, type filter and last change", async () => {
+  it("hands the type filter to the reader and builds each series with its valid exceptions and last change", async () => {
     const weekly = createSeries();
-    const social = createSeries({
-      eventType: "social",
-      id: "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d",
-      recurrenceFrequency: "none",
-      title: "Asado",
-    });
     const reader = createReader({
       readAsOwner: vi.fn(async () => ({
         exceptions: [
@@ -248,10 +245,8 @@ describe("getTribeEventCalendarFeed", () => {
             reason: null,
           },
         ],
-        series: [
-          { event: weekly, updatedAt: "2026-05-01T10:00:00.000Z" },
-          { event: social, updatedAt: "2026-05-02T10:00:00.000Z" },
-        ],
+        // The reader applies the type filter before its row limit.
+        series: [{ event: weekly, updatedAt: "2026-05-01T10:00:00.000Z" }],
         tribeName: "Matemática Pro",
       })),
     });
@@ -262,6 +257,9 @@ describe("getTribeEventCalendarFeed", () => {
       tribeSlug: TRIBE_SLUG,
     });
 
+    expect(reader.readAsOwner).toHaveBeenCalledWith(
+      expect.objectContaining({ eventTypes: ["workshop"] })
+    );
     expect(result).toEqual({
       calendarName: "Matemática Pro",
       ownerUserId: owner.userId,
@@ -305,5 +303,52 @@ describe("getTribeEventCalendarFeed", () => {
     expect(result.status === TRIBE_EVENT_MUTATION_STATUS.found && result.series).toHaveLength(
       budget
     );
+  });
+
+  it("skips a series that does not fit the remaining budget and keeps the later ones", async () => {
+    const budget = TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents;
+    const oversized = createSeries({ id: "00000000-0000-4000-8000-000000000001" });
+    const oneOff = createSeries({
+      endsAt: "2026-05-06T22:00:00.000Z",
+      eventType: "social",
+      id: "00000000-0000-4000-8000-000000000002",
+      recurrenceFrequency: "none",
+      startsAt: "2026-05-06T21:00:00.000Z",
+      title: "Asado",
+    });
+    // One VEVENT per moved date: the weekly series needs budget + 1 components.
+    const movedExceptions = Array.from({ length: budget }, (_, weekIndex) => {
+      const originalStartsAt = Date.parse(oversized.startsAt) + weekIndex * WEEK_MILLISECONDS;
+
+      return {
+        eventId: oversized.id,
+        kind: "moved" as const,
+        newEndsAt: new Date(originalStartsAt + 2 * HOUR_MILLISECONDS).toISOString(),
+        newStartsAt: new Date(originalStartsAt + HOUR_MILLISECONDS).toISOString(),
+        originalStartsAt: new Date(originalStartsAt).toISOString(),
+        reason: null,
+      };
+    });
+    const reader = createReader({
+      readAsOwner: vi.fn(async () => ({
+        exceptions: movedExceptions,
+        series: [
+          { event: oversized, updatedAt: "2026-05-01T10:00:00.000Z" },
+          { event: oneOff, updatedAt: "2026-05-02T10:00:00.000Z" },
+        ],
+        tribeName: "Matemática Pro",
+      })),
+    });
+
+    const result = await getTribeEventCalendarFeed(createDependencies(reader))({
+      eventTypes: [],
+      token: TOKEN,
+      tribeSlug: TRIBE_SLUG,
+    });
+
+    expect(
+      result.status === TRIBE_EVENT_MUTATION_STATUS.found &&
+        result.series.map((series) => series.event.id)
+    ).toEqual([oneOff.id]);
   });
 });
