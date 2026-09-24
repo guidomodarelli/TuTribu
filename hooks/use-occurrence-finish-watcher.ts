@@ -5,7 +5,16 @@ import { useEffect, useEffectEvent, useRef } from "react";
 import { hasOccurrenceFinishedBetween } from "@/lib/events/tribe-event-occurrence-timing";
 import type { TribeEventOccurrenceTimes } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 
+const NO_EXTRA_FINISH_TIMES: readonly number[] = [];
+
 type UseOccurrenceFinishWatcherInput = {
+  /**
+   * Extra instants (epoch ms) that count as a finish even though no
+   * occurrence on screen ends then, such as the end of an occurrence outside
+   * the visible month. They are deduplicated with the occurrence ends: several
+   * instants inside the same clock step still produce a single call.
+   */
+  extraFinishTimes?: readonly number[];
   /** Minute clock (`useMinuteClock`); null before hydration. */
   nowTime: number | null;
   /** Called once per clock step in which at least one occurrence finished. */
@@ -30,10 +39,11 @@ type UseOccurrenceFinishWatcherInput = {
  * occurrence that ended between the server render and hydration is noticed
  * too; without a snapshot instant that first value is only recorded.
  *
- * @param input - Minute clock, visible occurrences, server snapshot instant,
- *   and the finish callback.
+ * @param input - Minute clock, visible occurrences, extra finish instants,
+ *   server snapshot instant, and the finish callback.
  */
 export function useOccurrenceFinishWatcher({
+  extraFinishTimes = NO_EXTRA_FINISH_TIMES,
   nowTime,
   onOccurrenceFinished,
   occurrences,
@@ -57,8 +67,15 @@ export function useOccurrenceFinishWatcher({
       return;
     }
 
-    if (hasOccurrenceFinishedBetween(occurrences, previousNowTime, nowTime)) {
+    const hasExtraFinishPassed = extraFinishTimes.some(
+      (finishTime) => finishTime > previousNowTime && finishTime <= nowTime
+    );
+
+    if (
+      hasExtraFinishPassed ||
+      hasOccurrenceFinishedBetween(occurrences, previousNowTime, nowTime)
+    ) {
       notifyOccurrenceFinished();
     }
-  }, [nowTime, occurrences, serverSnapshotTime]);
+  }, [extraFinishTimes, nowTime, occurrences, serverSnapshotTime]);
 }

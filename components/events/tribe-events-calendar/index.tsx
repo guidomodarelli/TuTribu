@@ -34,7 +34,10 @@ import {
   getBuenosAiresDateKey,
   getBuenosAiresMonthKey,
 } from "@/lib/date-time/buenos-aires-format";
-import { readAttendanceStreakComputedTime } from "@/lib/events/tribe-event-attendance-streak-dto";
+import {
+  readAttendanceStreakComputedTime,
+  readAttendanceStreakNextRefreshTime,
+} from "@/lib/events/tribe-event-attendance-streak-dto";
 import {
   getOccurrencePhaseChangeTimes,
   isOccurrencePast,
@@ -71,6 +74,11 @@ type TribeEventsCalendarProps = {
   attendanceStreak?: TribeEventAttendanceStreakResult | null;
   /** ISO instant at which the server computed `attendanceStreak`. */
   attendanceStreakComputedAt?: string | null;
+  /**
+   * ISO instant at which the streak can change next: the nearest end of a
+   * running or upcoming occurrence of the tribe, even outside this month.
+   */
+  attendanceStreakNextRefreshAt?: string | null;
   events: TribeEventOccurrenceResult[];
   /** Deep-linked occurrence whose detail opens on load (validated server-side). */
   initialOccurrenceKey?: string | null;
@@ -116,6 +124,7 @@ type OccurrenceSelectionState = {
 export function TribeEventsCalendar({
   attendanceStreak: serverAttendanceStreak = null,
   attendanceStreakComputedAt = null,
+  attendanceStreakNextRefreshAt: serverAttendanceStreakNextRefreshAt = null,
   events,
   initialOccurrenceKey = null,
   month,
@@ -137,6 +146,7 @@ export function TribeEventsCalendar({
   const viewerTimeZone = useViewerTimeZone();
   const {
     attendanceStreak,
+    attendanceStreakNextRefreshAt,
     deleteEvent,
     isDeletingEvent,
     isSavingAttendance,
@@ -147,6 +157,7 @@ export function TribeEventsCalendar({
     visibleEvents,
   } = useTribeEventMutations({
     attendanceStreak: serverAttendanceStreak,
+    attendanceStreakNextRefreshAt: serverAttendanceStreakNextRefreshAt,
     events,
     month: month.current,
     // The server checks the exact time: when it already considers the
@@ -159,9 +170,20 @@ export function TribeEventsCalendar({
   // Besides the minute ticks, the clock wakes up exactly when an occurrence on
   // screen opens its join window, starts, or ends, so "Unirme", "En vivo",
   // and the attendance answers change in the same second the server does.
+  // The server also hands the next instant at which the streak can change,
+  // which covers occurrences outside the visible month (one that started last
+  // month and is still running is not listed here, since the month matches
+  // occurrences by start). The clock wakes up then too.
+  const streakNextRefreshTime = readAttendanceStreakNextRefreshTime(
+    attendanceStreakNextRefreshAt
+  );
+  const streakRefreshTimes = useMemo(
+    () => (streakNextRefreshTime === null ? [] : [streakNextRefreshTime]),
+    [streakNextRefreshTime]
+  );
   const phaseChangeTimes = useMemo(
-    () => visibleEvents.flatMap(getOccurrencePhaseChangeTimes),
-    [visibleEvents]
+    () => [...visibleEvents.flatMap(getOccurrencePhaseChangeTimes), ...streakRefreshTimes],
+    [streakRefreshTimes, visibleEvents]
   );
   const nowTime = useMinuteClock(phaseChangeTimes);
   // The streak counts the last finished occurrences, so the one that just
@@ -169,6 +191,7 @@ export function TribeEventsCalendar({
   // An occurrence that ended between the server snapshot and hydration is
   // caught on the first clock value by comparing it with the snapshot instant.
   useOccurrenceFinishWatcher({
+    extraFinishTimes: streakRefreshTimes,
     nowTime,
     occurrences: visibleEvents,
     onOccurrenceFinished: refreshAttendanceStreak,

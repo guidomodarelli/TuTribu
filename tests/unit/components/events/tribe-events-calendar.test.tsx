@@ -1625,6 +1625,214 @@ describe("TribeEventsCalendar", () => {
       expect(getStreakRequests()).toHaveLength(0);
     });
 
+    it("asks for the streak when an occurrence outside the visible month ends", async () => {
+      // The workshop started last month and is still running, so the month
+      // listing (matched by start) leaves it out; the server hands its end.
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: "2026-05-06T19:30:00.000Z",
+      });
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakNextRefreshAt: "2026-05-06T19:00:00.000Z",
+        events: [laterOccurrence],
+      });
+
+      await advanceMinutes(1);
+      expect(getStreakRequests()).toHaveLength(0);
+
+      await advanceMinutes(1);
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 5 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(getStreakRequests()).toHaveLength(1);
+
+      // The refresh returned the following end, which is watched in turn.
+      mockJsonResponse({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+      });
+      await advanceMinutes(30);
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 3 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(getStreakRequests()).toHaveLength(2);
+
+      await advanceMinutes(60);
+
+      expect(getStreakRequests()).toHaveLength(2);
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("asks for the streak once when the next refresh instant is also a visible end", async () => {
+      mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakNextRefreshAt: "2026-05-06T19:00:00.000Z",
+        events: [occurrence, laterOccurrence],
+      });
+
+      await advanceMinutes(2);
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 5 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(getStreakRequests()).toHaveLength(1);
+
+      // The refresh omitted a new instant: the one already passed is kept
+      // and never fires again.
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(1);
+    });
+
+    it("ignores an unusable next refresh instant", async () => {
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakNextRefreshAt: "mañana",
+        events: [laterOccurrence],
+      });
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(0);
+    });
+
+    describe("while a series mutation is in flight", () => {
+      type JsonResponse = { json: () => Promise<Record<string, unknown>>; ok: boolean };
+
+      const staleStreak = { attendedCount: 5, occurrenceCount: 5 };
+      const committedStreak = { attendedCount: 2, occurrenceCount: 5 };
+      const mutatedOccurrence: TribeEventOccurrenceResult = {
+        ...laterOccurrence,
+        seriesEndsAt: laterOccurrence.endsAt,
+      };
+      const closingOccurrence = createOccurrence({
+        endsAt: "2026-05-27T19:00:00.000Z",
+        eventId: "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a",
+        startsAt: "2026-05-27T18:00:00.000Z",
+        title: "Cierre de mes",
+      });
+
+      /**
+       * Models the database behind the routes: a streak read answers with
+       * the pre-mutation streak until the held save commits, and with the
+       * committed one afterwards.
+       */
+      function holdSave() {
+        let isCommitted = false;
+        let resolveSave: (response: JsonResponse) => void = () => undefined;
+        const pendingSave = new Promise<JsonResponse>((resolve) => {
+          resolveSave = resolve;
+        });
+
+        (global.fetch as Mock).mockImplementation(async (url: string) => {
+          if (url === streakEndpoint) {
+            return {
+              json: async () => ({
+                attendanceStreak: isCommitted ? committedStreak : staleStreak,
+              }),
+              ok: true,
+            };
+          }
+
+          return pendingSave;
+        });
+
+        return {
+          commitSave: async () => {
+            isCommitted = true;
+            await act(async () => {
+              resolveSave({
+                json: async () => ({
+                  attendanceStreak: committedStreak,
+                  event: {},
+                  message: "Evento actualizado.",
+                  occurrences: [{ ...mutatedOccurrence, title: "Encuentro renovado" }],
+                }),
+                ok: true,
+              });
+              await pendingSave;
+            });
+          },
+          rejectSave: async () => {
+            await act(async () => {
+              resolveSave({
+                json: async () => ({ message: "No pudimos guardar el evento." }),
+                ok: false,
+              });
+              await pendingSave;
+            });
+          },
+        };
+      }
+
+      async function startSlowSave() {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+        renderCalendar({
+          attendanceStreak: initialStreak,
+          events: [occurrence, mutatedOccurrence, closingOccurrence],
+        });
+        await user.click(screen.getByRole("button", { name: /15:00\s*Encuentro abierto/ }));
+        await user.click(screen.getByRole("button", { name: "Editar" }));
+        fireEvent.change(screen.getByLabelText("Título"), {
+          target: { value: "Encuentro renovado" },
+        });
+        await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+        return user;
+      }
+
+      it("defers a finish refresh until the save commits and keeps the committed streak", async () => {
+        const slowSave = holdSave();
+        await startSlowSave();
+
+        await advanceMinutes(2);
+        expect(getStreakRequests()).toHaveLength(0);
+
+        await slowSave.commitSave();
+
+        await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+        expect(
+          await within(getNextEventRegion()).findByText(
+            "Fuiste a 2 de los últimos 5 encuentros 🔥"
+          )
+        ).toBeInTheDocument();
+        expect(
+          within(getNextEventRegion()).queryByText("Fuiste a 5 de los últimos 5 encuentros 🔥")
+        ).not.toBeInTheDocument();
+        expect(router.refresh).not.toHaveBeenCalled();
+      });
+
+      it("runs the deferred finish refresh when the save is rejected", async () => {
+        const slowSave = holdSave();
+        const user = await startSlowSave();
+
+        await advanceMinutes(2);
+        expect(getStreakRequests()).toHaveLength(0);
+
+        await slowSave.rejectSave();
+        await user.keyboard("{Escape}");
+
+        await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
+        expect(
+          await within(getNextEventRegion()).findByText(
+            "Fuiste a 5 de los últimos 5 encuentros 🔥"
+          )
+        ).toBeInTheDocument();
+      });
+    });
+
     describe("while a finish refresh is in flight", () => {
       type JsonResponse = { json: () => Promise<Record<string, unknown>>; ok: boolean };
 

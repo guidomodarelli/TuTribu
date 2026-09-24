@@ -13,6 +13,7 @@ import {
   saveTribeEventAttendanceRequest,
   saveTribeEventRequest,
   type TribeEventSavePayload,
+  type TribeEventStreakReadResult,
   type TribeEventStreakRefresh,
 } from "@/lib/events/tribe-events-api-client";
 import type {
@@ -24,6 +25,11 @@ import type {
 type UseTribeEventMutationsInput = {
   /** Viewer streak rendered by the server (null when there is none). */
   attendanceStreak: TribeEventAttendanceStreakResult | null;
+  /**
+   * Next instant (ISO 8601) at which the server expects the streak to change,
+   * as rendered by the route; null when unknown.
+   */
+  attendanceStreakNextRefreshAt?: string | null;
   /** Occurrences rendered by the server for the visible month. */
   events: TribeEventOccurrenceResult[];
   /** Visible `YYYY-MM` month, sent so saves return that month's occurrences. */
@@ -46,6 +52,11 @@ type AttendanceStreakState = {
   streak: TribeEventAttendanceStreakResult | null;
 };
 
+type StreakNextRefreshState = {
+  nextRefreshAt: string | null;
+  sourceNextRefreshAt: string | null;
+};
+
 type OccurrencesUpdater = (
   currentEvents: TribeEventOccurrenceResult[]
 ) => TribeEventOccurrenceResult[];
@@ -56,6 +67,12 @@ type OccurrencesUpdater = (
 export type TribeEventMutations = {
   /** Viewer streak, refreshed by creations, edits, and deletions of a series. */
   attendanceStreak: TribeEventAttendanceStreakResult | null;
+  /**
+   * Next instant (ISO 8601) at which the streak can change: the server value,
+   * replaced by the one each streak read returns. Callers validate it before
+   * scheduling a refresh.
+   */
+  attendanceStreakNextRefreshAt: string | null;
   deleteEvent: (occurrence: TribeEventOccurrenceResult) => Promise<boolean>;
   isDeletingEvent: boolean;
   isSavingAttendance: boolean;
@@ -63,6 +80,8 @@ export type TribeEventMutations = {
   /**
    * Reads the streak again (for example when an occurrence on screen
    * finishes). Failures keep the streak on screen without user feedback.
+   * While a creation, edit, or deletion is uncommitted the read is deferred
+   * until every one of them settles, so it never observes pre-commit data.
    */
   refreshAttendanceStreak: () => void;
   saveEvent: (
@@ -95,18 +114,24 @@ const COPY = {
  * When the route renders a new `events` array (month navigation), local
  * mutations are discarded in favour of the fresh server data. The viewer
  * streak follows the same rule: creations, edits, and deletions replace it
- * with the value the route recomputed, only the most recently started
- * request whose response carries a streak wins, and a response without a
- * streak (including rejected or failed mutations) keeps the one on screen and
- * never discards an earlier refresh still in flight.
+ * with the value the route recomputed after committing, and among mutations
+ * the most recently started one whose response carries a streak wins.
+ * Streak reads never race a mutation: starting a mutation aborts a read in
+ * flight (it began before the commit), and a read requested while a mutation
+ * is uncommitted is deferred until every mutation settles. Once they settle,
+ * a deferred read always runs, and an aborted one runs again unless a
+ * mutation already returned a post-commit streak, which covers it. Responses
+ * without a streak (rejected or failed mutations) keep the one on screen.
  *
- * @param input - Server occurrences and streak, visible month, tribe slug, and
- *   the callback for answers the server rejected because the occurrence ended.
+ * @param input - Server occurrences, streak and its next refresh instant,
+ *   visible month, tribe slug, and the callback for answers the server
+ *   rejected because the occurrence ended.
  * @returns Visible occurrences and streak, pending flags, and mutation callbacks that
  * resolve to `true` when the change was stored.
  */
 export function useTribeEventMutations({
   attendanceStreak,
+  attendanceStreakNextRefreshAt = null,
   events,
   month,
   onOccurrenceEnded,
@@ -123,19 +148,33 @@ export function useTribeEventMutations({
     sourceStreak: attendanceStreak,
     streak: attendanceStreak,
   });
+  const [streakNextRefreshState, setStreakNextRefreshState] = useState<StreakNextRefreshState>({
+    nextRefreshAt: attendanceStreakNextRefreshAt,
+    sourceNextRefreshAt: attendanceStreakNextRefreshAt,
+  });
   // Increases on every request that can refresh the streak, ordering them by
-  // start time. Issuing a request never invalidates another one in flight: a
-  // rejected or failed mutation must not discard a valid refresh.
+  // start time.
   const streakRequestSequenceRef = useRef(0);
   // Sequence of the newest request whose streak landed on screen. It only
   // advances when a response actually carries a usable streak, so a slower,
   // older response never overwrites the streak of a newer successful one.
   const appliedStreakRequestSequenceRef = useRef(0);
+  // Creations, edits, and deletions not settled yet. While any is pending a
+  // streak read could observe pre-commit data, so reads wait for them.
+  const pendingStreakMutationCountRef = useRef(0);
+  // A read was requested while a mutation was pending. It always runs once
+  // they settle: the mutation may have computed its streak before the
+  // occurrence that asked for the read finished.
+  const isStreakReadDeferredRef = useRef(false);
+  // A read in flight was aborted by a starting mutation. It runs again once
+  // mutations settle unless one of them returned a post-commit streak.
+  const isStreakReadInterruptedRef = useRef(false);
+  const isUnmountedRef = useRef(false);
   const isSavingEventRef = useRef(false);
   const isDeletingEventRef = useRef(false);
   const isSavingAttendanceRef = useRef(false);
-  // In-flight streak refresh, aborted when a newer refresh starts or the
-  // calendar unmounts so a stale read never lands on screen.
+  // In-flight streak refresh, aborted when a newer refresh or a mutation
+  // starts, or the calendar unmounts, so a stale read never lands on screen.
   const streakRefreshControllerRef = useRef<AbortController | null>(null);
   const unsortedVisibleEvents =
     visibleEventsState.sourceEvents === events ? visibleEventsState.events : events;
@@ -150,6 +189,10 @@ export function useTribeEventMutations({
     attendanceStreakState.sourceStreak === attendanceStreak
       ? attendanceStreakState.streak
       : attendanceStreak;
+  const visibleStreakNextRefreshAt =
+    streakNextRefreshState.sourceNextRefreshAt === attendanceStreakNextRefreshAt
+      ? streakNextRefreshState.nextRefreshAt
+      : attendanceStreakNextRefreshAt;
 
   const startStreakRequest = () => {
     streakRequestSequenceRef.current += 1;
@@ -182,18 +225,48 @@ export function useTribeEventMutations({
     });
   };
 
-  useEffect(
-    () => () => {
+  /**
+   * Stores the next refresh instant a streak read returned, tagged with the
+   * server value seen when the read started (same rule as the streak).
+   */
+  const applyStreakNextRefresh = (
+    sourceNextRefreshAt: string | null,
+    read: TribeEventStreakReadResult
+  ) => {
+    if (read.attendanceStreakNextRefreshAt === undefined) {
+      return;
+    }
+
+    setStreakNextRefreshState({
+      nextRefreshAt: read.attendanceStreakNextRefreshAt,
+      sourceNextRefreshAt,
+    });
+  };
+
+  useEffect(() => {
+    isUnmountedRef.current = false;
+
+    return () => {
+      isUnmountedRef.current = true;
       streakRefreshControllerRef.current?.abort();
-    },
-    []
-  );
+    };
+  }, []);
 
   const refreshAttendanceStreak: TribeEventMutations["refreshAttendanceStreak"] = () => {
+    if (isUnmountedRef.current) {
+      return;
+    }
+
+    if (pendingStreakMutationCountRef.current > 0) {
+      isStreakReadDeferredRef.current = true;
+      return;
+    }
+
     streakRefreshControllerRef.current?.abort();
 
     const controller = new AbortController();
     const streakRequest = startStreakRequest();
+    const sourceNextRefreshAt = attendanceStreakNextRefreshAt;
 
     streakRefreshControllerRef.current = controller;
 
@@ -201,6 +274,7 @@ export function useTribeEventMutations({
       .then((refresh) => {
         if (!controller.signal.aborted) {
           applyStreakRefresh(streakRequest, refresh);
+          applyStreakNextRefresh(sourceNextRefreshAt, refresh);
         }
       })
       .catch(() => {
@@ -213,6 +287,55 @@ export function useTribeEventMutations({
           streakRefreshControllerRef.current = null;
         }
       });
+  };
+
+  /**
+   * Registers a creation, edit, or deletion that can change the streak. A
+   * read in flight started before this mutation commits, so it is aborted and
+   * remembered for `settleStreakMutation`.
+   */
+  const beginStreakMutation = () => {
+    const streakRefreshController = streakRefreshControllerRef.current;
+
+    if (streakRefreshController) {
+      streakRefreshController.abort();
+      streakRefreshControllerRef.current = null;
+      isStreakReadInterruptedRef.current = true;
+    }
+
+    pendingStreakMutationCountRef.current += 1;
+
+    return startStreakRequest();
+  };
+
+  /**
+   * Marks a mutation as settled. A post-commit streak in its response covers
+   * an interrupted read; once no mutation is pending, a deferred read, or an
+   * interrupted one nobody covered, runs against committed data.
+   *
+   * @param refresh - Streak carried by a successful response, or undefined
+   *   when the mutation failed or was rejected.
+   */
+  const settleStreakMutation = (refresh: TribeEventStreakRefresh | undefined) => {
+    if (refresh?.attendanceStreak !== undefined) {
+      isStreakReadInterruptedRef.current = false;
+    }
+
+    pendingStreakMutationCountRef.current -= 1;
+
+    if (pendingStreakMutationCountRef.current > 0) {
+      return;
+    }
+
+    const shouldReadStreak =
+      isStreakReadDeferredRef.current || isStreakReadInterruptedRef.current;
+
+    isStreakReadDeferredRef.current = false;
+    isStreakReadInterruptedRef.current = false;
+
+    if (shouldReadStreak) {
+      refreshAttendanceStreak();
+    }
   };
 
   const replaceVisibleEvents = (updater: OccurrencesUpdater) => {
@@ -233,7 +356,8 @@ export function useTribeEventMutations({
     isSavingEventRef.current = true;
     setIsSavingEvent(true);
 
-    const streakRequest = startStreakRequest();
+    const streakRequest = beginStreakMutation();
+    let streakRefresh: TribeEventStreakRefresh | undefined;
 
     try {
       const result = await saveTribeEventRequest({
@@ -258,6 +382,7 @@ export function useTribeEventMutations({
       }
 
       applyStreakRefresh(streakRequest, result);
+      streakRefresh = result;
 
       toast.success(result.message ?? COPY.eventSaveFallback);
       return true;
@@ -268,6 +393,7 @@ export function useTribeEventMutations({
     } finally {
       isSavingEventRef.current = false;
       setIsSavingEvent(false);
+      settleStreakMutation(streakRefresh);
     }
   };
 
@@ -279,7 +405,8 @@ export function useTribeEventMutations({
     isDeletingEventRef.current = true;
     setIsDeletingEvent(true);
 
-    const streakRequest = startStreakRequest();
+    const streakRequest = beginStreakMutation();
+    let streakRefresh: TribeEventStreakRefresh | undefined;
 
     try {
       const result = await deleteTribeEventRequest({
@@ -298,6 +425,7 @@ export function useTribeEventMutations({
         )
       );
       applyStreakRefresh(streakRequest, result);
+      streakRefresh = result;
       toast.success(result.message ?? COPY.deleteSuccess);
       return true;
     } catch {
@@ -307,6 +435,7 @@ export function useTribeEventMutations({
     } finally {
       isDeletingEventRef.current = false;
       setIsDeletingEvent(false);
+      settleStreakMutation(streakRefresh);
     }
   };
 
@@ -359,6 +488,7 @@ export function useTribeEventMutations({
 
   return {
     attendanceStreak: visibleAttendanceStreak,
+    attendanceStreakNextRefreshAt: visibleStreakNextRefreshAt,
     deleteEvent,
     isDeletingEvent,
     isSavingAttendance,
