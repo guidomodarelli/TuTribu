@@ -142,7 +142,7 @@ describe("tribe events API client", () => {
           payload: savePayload,
           tribeSlug: "matematica-pro",
         })
-      ).resolves.toEqual({ isSuccess: false, message: null });
+      ).resolves.toEqual({ isOutcomeAmbiguous: true, isSuccess: false, message: null });
     });
 
     it("returns the safe message of a failed request", async () => {
@@ -156,6 +156,7 @@ describe("tribe events API client", () => {
           tribeSlug: "matematica-pro",
         })
       ).resolves.toEqual({
+        isOutcomeAmbiguous: false,
         isSuccess: false,
         message: "No tenés permisos para gestionar eventos.",
       });
@@ -176,7 +177,7 @@ describe("tribe events API client", () => {
             payload: savePayload,
             tribeSlug: "matematica-pro",
           })
-        ).resolves.toEqual({ isSuccess: false, message: null });
+        ).resolves.toEqual({ isOutcomeAmbiguous: true, isSuccess: false, message: null });
       }
     });
   });
@@ -203,7 +204,35 @@ describe("tribe events API client", () => {
           status: null,
           tribeSlug: "matematica-pro",
         })
-      ).resolves.toEqual({ isSuccess: false, message: null });
+      ).resolves.toEqual({
+        isOccurrenceEnded: false,
+        isOutcomeAmbiguous: true,
+        isSuccess: false,
+        message: null,
+      });
+    });
+
+    it("flags an answer the server refused because the occurrence ended", async () => {
+      respondWith(
+        {
+          code: "occurrence_ended",
+          message: "Este evento ya terminó; no se pueden cambiar las respuestas.",
+        },
+        409
+      );
+
+      await expect(
+        saveTribeEventAttendanceRequest({
+          occurrence: { eventId: EVENT_ID, originalStartsAt: STARTS_AT },
+          status: "going",
+          tribeSlug: "matematica-pro",
+        })
+      ).resolves.toEqual({
+        isOccurrenceEnded: true,
+        isOutcomeAmbiguous: false,
+        isSuccess: false,
+        message: "Este evento ya terminó; no se pueden cambiar las respuestas.",
+      });
     });
   });
 
@@ -259,7 +288,7 @@ describe("tribe events API client", () => {
 
       await expect(
         deleteTribeEventRequest({ eventId: EVENT_ID, tribeSlug: "matematica-pro" })
-      ).resolves.toEqual({ isSuccess: false, message: null });
+      ).resolves.toEqual({ isOutcomeAmbiguous: true, isSuccess: false, message: null });
     });
 
     it("returns the refreshed streak, including null for no streak", async () => {
@@ -314,20 +343,28 @@ describe("tribe events API client", () => {
       expect(result).not.toHaveProperty("attendanceStreak");
     });
 
-    it("reads the streak endpoint and ignores unusable bodies or failures", async () => {
-      respondWith({ attendanceStreak: { attendedCount: 3, occurrenceCount: 5 } });
+    it("reads the streak endpoint and flags unusable bodies or failures", async () => {
+      respondWith({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+      });
       respondWith({ attendanceStreak: { attendedCount: -1, occurrenceCount: 5 } });
       respondWith({ message: "No pudimos actualizar tu racha." }, 500);
 
       await expect(
         fetchTribeEventAttendanceStreakRequest({ tribeSlug: "matematica-pro" })
-      ).resolves.toEqual({ attendanceStreak: { attendedCount: 3, occurrenceCount: 5 } });
+      ).resolves.toEqual({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
+        isPartial: false,
+        isSuccess: true,
+      });
       await expect(
         fetchTribeEventAttendanceStreakRequest({ tribeSlug: "matematica-pro" })
-      ).resolves.toEqual({});
+      ).resolves.toEqual({ isSuccess: false });
       await expect(
         fetchTribeEventAttendanceStreakRequest({ tribeSlug: "matematica-pro" })
-      ).resolves.toEqual({});
+      ).resolves.toEqual({ isSuccess: false });
     });
   });
 });

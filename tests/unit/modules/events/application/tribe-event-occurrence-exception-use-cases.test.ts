@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { getTribeEventAttendanceStreakSnapshot } from "@/src/modules/events/application/use-cases/get-tribe-event-attendance-streak-snapshot-use-case";
 import {
   getTribeEventCalendar,
   listTribeEvents,
@@ -7,7 +8,6 @@ import {
 import { listUpcomingTribeEvents } from "@/src/modules/events/application/use-cases/list-upcoming-tribe-events-use-case";
 import {
   getTribeEventAttendanceReport,
-  getTribeEventAttendanceStreak,
   setTribeEventAttendance,
 } from "@/src/modules/events/application/use-cases/tribe-event-attendance-use-cases";
 import {
@@ -441,7 +441,6 @@ describe("attendance with exceptions", () => {
   it("rejects answers for a cancelled date without touching attendance", async () => {
     const setAttendance = vi.fn();
     const execute = setTribeEventAttendance({
-      now: BEFORE_MAY_SLOTS,
       tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({
         find: vi.fn(async () => createException()),
       }),
@@ -462,7 +461,9 @@ describe("attendance with exceptions", () => {
     expect(setAttendance).not.toHaveBeenCalled();
   });
 
-  it("decides whether a moved date ended with its new time, keyed by the original start", async () => {
+  // Whether a moved date ended is decided by the locked SQL function with its
+  // effective (new) end and the database clock, not by the application clock.
+  it("forwards answers of a moved date keyed by its original start", async () => {
     const setAttendance = vi.fn(async () => ({
       attendance: {
         goingCount: 1,
@@ -476,7 +477,6 @@ describe("attendance with exceptions", () => {
     }));
     const createExecute = (newStartsAt: string) =>
       setTribeEventAttendance({
-        now: AFTER_MAY_14_SLOT,
         tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({
           find: vi.fn(async () => createException({ kind: "moved", newStartsAt })),
         }),
@@ -499,11 +499,14 @@ describe("attendance with exceptions", () => {
     expect(setAttendance).toHaveBeenCalledWith(
       expect.objectContaining({ occurrenceStartsAt: "2026-05-14T21:00:00.000Z" })
     );
-    // Moved earlier and already over: frozen.
-    await expect(createExecute("2026-05-12T21:00:00.000Z")(answer)).resolves.toEqual({
-      status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded,
+    // Moved earlier: the database refuses it once its new end passed.
+    await expect(createExecute("2026-05-12T21:00:00.000Z")(answer)).resolves.toMatchObject({
+      status: TRIBE_EVENT_MUTATION_STATUS.attendanceSaved,
     });
-    expect(setAttendance).toHaveBeenCalledTimes(1);
+    expect(setAttendance).toHaveBeenCalledTimes(2);
+    expect(setAttendance).toHaveBeenLastCalledWith(
+      expect.objectContaining({ occurrenceStartsAt: "2026-05-14T21:00:00.000Z" })
+    );
   });
 
   it("keeps cancelled dates out of the manager trend", async () => {
@@ -541,13 +544,12 @@ describe("attendance with exceptions", () => {
   });
 
   it("does not count a cancelled date in the viewer streak", async () => {
-    vi.useFakeTimers().setSystemTime(new Date("2026-06-01T12:00:00.000Z"));
-    const execute = getTribeEventAttendanceStreak({
-      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+    const execute = getTribeEventAttendanceStreakSnapshot({
       tribeEventRepository: createTribeEventRepositoryDouble({
-        listViewerAttendanceHistory: vi.fn(async () => ({
+        readViewerAttendanceStreakSnapshot: vi.fn(async () => ({
           events: [weeklySeries],
           exceptions: [createException()],
+          referenceTime: "2026-06-01T12:00:00.000Z",
           viewerAttendances: [
             {
               eventId: EVENT_ID,
@@ -565,7 +567,9 @@ describe("attendance with exceptions", () => {
     });
 
     // Only 21 May counts: 14 May was cancelled, so the streak stays below 2.
-    await expect(execute({ tribeSlug: TRIBE_SLUG })).resolves.toBeNull();
+    await expect(
+      execute({ now: new Date("2026-06-01T12:00:00.000Z"), tribeSlug: TRIBE_SLUG })
+    ).resolves.toMatchObject({ attendanceStreak: null });
   });
 });
 

@@ -12,7 +12,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 const getAuthenticatedMember = vi.fn();
 const getTribePageAccess = vi.fn();
 const listTribeEvents = vi.fn();
-const getTribeEventAttendanceStreak = vi.fn();
+const getTribeEventAttendanceStreakSnapshot = vi.fn();
 const infoMock = vi.fn();
 const errorMock = vi.fn();
 
@@ -107,8 +107,12 @@ describe("tribe coming soon pages", () => {
     getAuthenticatedMember.mockReset();
     getTribePageAccess.mockReset();
     listTribeEvents.mockReset();
-    getTribeEventAttendanceStreak.mockReset();
-    getTribeEventAttendanceStreak.mockResolvedValue(null);
+    getTribeEventAttendanceStreakSnapshot.mockReset();
+    getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+      attendanceStreak: null,
+      computedAt: "2026-06-01T12:00:03.000Z",
+      nextRefreshAt: null,
+    });
     infoMock.mockReset();
     errorMock.mockReset();
 
@@ -125,7 +129,7 @@ describe("tribe coming soon pages", () => {
       },
       events: {
         useCases: {
-          getTribeEventAttendanceStreak,
+          getTribeEventAttendanceStreakSnapshot,
           listTribeEvents,
         },
       },
@@ -239,7 +243,11 @@ describe("tribe coming soon pages", () => {
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
     listTribeEvents.mockResolvedValue(mayListing);
-    getTribeEventAttendanceStreak.mockResolvedValue({ attendedCount: "4", occurrenceCount: 5 });
+    getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+      attendanceStreak: { attendedCount: "4", occurrenceCount: 5 },
+      computedAt: "2026-06-01T12:00:03.000Z",
+      nextRefreshAt: null,
+    });
 
     render(
       await TribeEventsPage({
@@ -286,6 +294,34 @@ describe("tribe coming soon pages", () => {
     expect(screen.getByRole("heading", { name: "Junio 2026", level: 1 })).toBeInTheDocument();
   });
 
+  it("reads the streak and its next refresh through one snapshot read", async () => {
+    getAuthenticatedMember.mockResolvedValue(authenticatedMember);
+    getTribePageAccess.mockResolvedValue(visibleTribeAccess);
+    listTribeEvents.mockResolvedValue({
+      events: [],
+      month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
+      pendingProposalCount: 0,
+      selectedOccurrenceKey: null,
+      viewerPermissions: { canManageEvents: false, canProposeEvents: true },
+    });
+
+    const page = await TribeEventsPage({
+      params: Promise.resolve({ slug: "matematica-pro" }),
+      searchParams: Promise.resolve({ month: "2026-06" }),
+    });
+
+    render(page);
+
+    // One snapshot read returns both values for the same instant, and the
+    // calendar receives that database instant as attendanceStreakComputedAt.
+    expect(page.props.attendanceStreakComputedAt).toBe("2026-06-01T12:00:03.000Z");
+    expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledTimes(1);
+    expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledWith({
+      now: expect.any(Date),
+      tribeSlug: "matematica-pro",
+    });
+  });
+
   it("still renders the calendar when the attendance streak cannot be computed", async () => {
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
@@ -296,17 +332,26 @@ describe("tribe coming soon pages", () => {
       selectedOccurrenceKey: null,
       viewerPermissions: { canManageEvents: false, canProposeEvents: true },
     });
-    getTribeEventAttendanceStreak.mockRejectedValue(new Error("connection reset"));
+    getTribeEventAttendanceStreakSnapshot.mockRejectedValue(new Error("connection reset"));
 
-    render(
-      await TribeEventsPage({
-        params: Promise.resolve({ slug: "matematica-pro" }),
-        searchParams: Promise.resolve({ month: "2026-06" }),
-      })
-    );
+    const page = await TribeEventsPage({
+      params: Promise.resolve({ slug: "matematica-pro" }),
+      searchParams: Promise.resolve({ month: "2026-06" }),
+    });
+
+    render(page);
+
+    // Without a snapshot the read instant is the fallback computedAt.
+    const { now: readTime } = getTribeEventAttendanceStreakSnapshot.mock.calls[0][0] as {
+      now: Date;
+    };
+    expect(page.props.attendanceStreakComputedAt).toBe(readTime.toISOString());
 
     expect(screen.getByRole("heading", { name: "Junio 2026", level: 1 })).toBeInTheDocument();
-    expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({ tribeSlug: "matematica-pro" });
+    expect(getTribeEventAttendanceStreakSnapshot).toHaveBeenCalledWith({
+      now: expect.any(Date),
+      tribeSlug: "matematica-pro",
+    });
     expect(errorMock).toHaveBeenCalledWith(
       expect.objectContaining({
         message: "Failed to compute tribe event attendance streak",

@@ -942,7 +942,8 @@ export const eventAttendances = pgTable("event_attendances", {
   respondedAt: timestamp("responded_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
-  // Set when a waitlisted answer was promoted to going (for notifications).
+  // Audit/display mark set when a waitlisted answer was promoted to going.
+  // Not a sweep cursor: consumers must hook into the promotion transaction.
   promotedAt: timestamp("promoted_at", { withTimezone: true }),
 }, (table) => ({
   eventOccurrenceUserKey: uniqueIndex(

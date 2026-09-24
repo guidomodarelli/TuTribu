@@ -1,23 +1,17 @@
 import type {
   ClearTribeEventAttendanceCommand,
   GetTribeEventAttendanceReportQuery,
-  GetTribeEventAttendanceStreakQuery,
   SetTribeEventAttendanceCommand,
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
   TribeEventAttendanceMutationResult,
   TribeEventAttendanceReportLookupResult,
   TribeEventAttendanceReportResult,
-  TribeEventAttendanceStreakResult,
   TribeEventAttendeeResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
-import {
-  buildTribeEventOccurrenceKey,
-  groupTribeEventExceptionsByEvent,
-} from "@/src/modules/events/application/services/tribe-event-occurrences";
+import { createPastTribeEventRange } from "@/src/modules/events/application/services/tribe-event-time-ranges";
 import {
   TRIBE_EVENT_ATTENDANCE_STATUS,
-  TRIBE_EVENT_ATTENDANCE_STREAK,
   TRIBE_EVENT_ATTENDANCE_TREND,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
@@ -27,17 +21,14 @@ import type {
   TribeEvent,
   TribeEventAttendee,
   TribeEventOccurrenceException,
+  TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventOccurrenceExceptionRepository } from "@/src/modules/events/domain/repositories/tribe-event-occurrence-exception-repository";
 import type {
   TribeEventAttendanceKey,
   TribeEventRepository,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
-import {
-  calculateTribeEventAttendanceStreak,
-  selectRecentPastOccurrences,
-} from "@/src/modules/events/domain/services/tribe-event-attendance";
-import { hasTribeEventOccurrenceEnded } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
+import { selectRecentPastOccurrences } from "@/src/modules/events/domain/services/tribe-event-attendance";
 import {
   expandTribeEventOccurrencesWithExceptions,
   resolveTribeEventOccurrenceByOriginalStart,
@@ -47,14 +38,6 @@ import {
 type TribeEventAttendanceDependencies = {
   tribeEventOccurrenceExceptionRepository: TribeEventOccurrenceExceptionRepository;
   tribeEventRepository: TribeEventRepository;
-};
-
-type TribeEventAttendanceMutationDependencies = TribeEventAttendanceDependencies & {
-  /**
-   * Current time source (epoch ms), injectable for deterministic tests. Used
-   * to reject answers once the occurrence ended; defaults to the system clock.
-   */
-  now?: () => number;
 };
 
 type ResolvedAttendanceKey =
@@ -74,7 +57,6 @@ type ResolvedAttendanceKey =
 const RESOLVED_KEY_STATUS = {
   valid: "valid",
 } as const;
-const MILLISECONDS_PER_DAY = 86_400_000;
 
 /**
  * Proves the occurrence is a real slot of the series before touching
@@ -119,12 +101,16 @@ async function resolveAttendanceKey(
 }
 
 /**
- * Window `[now - lookbackDays, now)` used to look at finished occurrences.
+ * Schedule fields the occurrence was validated against. The repository sends
+ * them with the write so the database refuses it if a manager changed the
+ * schedule after this validation (it runs in an earlier transaction).
  */
-function createPastRange(nowTime: number, lookbackDays: number) {
+function pickValidatedSchedule(event: TribeEvent): TribeEventSchedule {
   return {
-    rangeEnd: new Date(nowTime).toISOString(),
-    rangeStart: new Date(nowTime - lookbackDays * MILLISECONDS_PER_DAY).toISOString(),
+    endsAt: event.endsAt,
+    recurrenceFrequency: event.recurrenceFrequency,
+    recurrenceUntil: event.recurrenceUntil,
+    startsAt: event.startsAt,
   };
 }
 
@@ -153,7 +139,7 @@ function listTrendOccurrenceStarts(
   const pastOccurrences = expandTribeEventOccurrencesWithExceptions(
     event,
     exceptions,
-    createPastRange(nowTime, TRIBE_EVENT_ATTENDANCE_TREND.lookbackDays)
+    createPastTribeEventRange(nowTime, TRIBE_EVENT_ATTENDANCE_TREND.lookbackDays)
   ).filter(isHeldOccurrence);
 
   return selectRecentPastOccurrences(
@@ -179,16 +165,17 @@ function groupAttendees(
 
 /**
  * Records the viewer answer for one occurrence, identified by its original
- * start (a moved date keeps its answers). A cancelled date takes no answers,
- * and answers are accepted only until the occurrence ends: its effective end
- * (a moved date ends at its new time, see `getTribeEventOccurrenceEndTime`),
- * so finished occurrences cannot be rewritten through the API.
+ * start (a moved date keeps its answers). A cancelled date takes no answers
+ * (a rule of the date, not of the clock). Answers are accepted only until the
+ * occurrence ends, but that boundary is decided by the database clock inside
+ * the locked SQL function (`occurrenceEnded`, at the effective end of a moved
+ * date), never by the application host clock, which can drift ahead of
+ * PostgreSQL and reject valid answers.
  */
 export function setTribeEventAttendance({
-  now = Date.now,
   tribeEventOccurrenceExceptionRepository,
   tribeEventRepository,
-}: TribeEventAttendanceMutationDependencies) {
+}: TribeEventAttendanceDependencies) {
   return async (
     command: SetTribeEventAttendanceCommand
   ): Promise<TribeEventAttendanceMutationResult> => {
@@ -207,26 +194,23 @@ export function setTribeEventAttendance({
       return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled };
     }
 
-    if (hasTribeEventOccurrenceEnded(resolvedKey.occurrence, now())) {
-      return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded };
-    }
-
     return tribeEventRepository.setAttendance({
       ...resolvedKey.key,
+      schedule: pickValidatedSchedule(resolvedKey.event),
       status: command.status,
     });
   };
 }
 
 /**
- * Removes the viewer answer of an occurrence. Like saving an answer, it is
- * rejected once the occurrence ended so past attendance stays frozen.
+ * Removes the viewer answer of an occurrence. Like saving an answer, the
+ * database rejects it (`occurrenceEnded`) once the occurrence ended, so past
+ * attendance stays frozen without trusting the application clock.
  */
 export function clearTribeEventAttendance({
-  now = Date.now,
   tribeEventOccurrenceExceptionRepository,
   tribeEventRepository,
-}: TribeEventAttendanceMutationDependencies) {
+}: TribeEventAttendanceDependencies) {
   return async (
     command: ClearTribeEventAttendanceCommand
   ): Promise<TribeEventAttendanceMutationResult> => {
@@ -239,11 +223,10 @@ export function clearTribeEventAttendance({
       return { status: resolvedKey.status };
     }
 
-    if (hasTribeEventOccurrenceEnded(resolvedKey.occurrence, now())) {
-      return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded };
-    }
-
-    return tribeEventRepository.clearAttendance(resolvedKey.key);
+    return tribeEventRepository.clearAttendance({
+      ...resolvedKey.key,
+      schedule: pickValidatedSchedule(resolvedKey.event),
+    });
   };
 }
 
@@ -308,54 +291,5 @@ export function getTribeEventAttendanceReport({
       },
       status: TRIBE_EVENT_MUTATION_STATUS.found,
     };
-  };
-}
-
-/**
- * Viewer-only streak over the last finished occurrences of the tribe, across
- * every series, looking back a bounded window.
- */
-export function getTribeEventAttendanceStreak({
-  tribeEventRepository,
-}: TribeEventAttendanceDependencies) {
-  return async (
-    query: GetTribeEventAttendanceStreakQuery
-  ): Promise<TribeEventAttendanceStreakResult | null> => {
-    const nowTime = Date.now();
-    const range = createPastRange(nowTime, TRIBE_EVENT_ATTENDANCE_STREAK.lookbackDays);
-    const history = await tribeEventRepository.listViewerAttendanceHistory({
-      ...range,
-      tribeSlug: query.tribeSlug.trim(),
-    });
-    const viewerStatusByKey = new Map(
-      history.viewerAttendances.map((attendance) => [
-        buildTribeEventOccurrenceKey(
-          attendance.eventId,
-          new Date(attendance.occurrenceStartsAt).toISOString()
-        ),
-        attendance.status,
-      ])
-    );
-    const exceptionsByEvent = groupTribeEventExceptionsByEvent(history.exceptions);
-    const occurrences = history.events.flatMap((event) =>
-      expandTribeEventOccurrencesWithExceptions(
-        event,
-        exceptionsByEvent.get(event.id) ?? [],
-        range
-      )
-        .filter(isHeldOccurrence)
-        .map((occurrence) => ({
-          ...occurrence,
-          viewerStatus:
-            viewerStatusByKey.get(
-              buildTribeEventOccurrenceKey(event.id, occurrence.originalStartsAt)
-            ) ?? null,
-        }))
-    );
-
-    return calculateTribeEventAttendanceStreak(occurrences, nowTime, {
-      minimumAttended: TRIBE_EVENT_ATTENDANCE_STREAK.minimumAttended,
-      windowSize: TRIBE_EVENT_ATTENDANCE_STREAK.windowSize,
-    });
   };
 }

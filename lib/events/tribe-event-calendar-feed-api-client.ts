@@ -1,9 +1,9 @@
 import {
   TRIBE_EVENT_HTTP_REQUEST,
-  buildEventsEndpoint,
   readTribeEventResponse,
   type TribeEventRequestResult,
 } from "@/lib/events/tribe-events-api-client";
+import { buildTribeEventsApiEndpoint } from "@/lib/events/tribe-events-routes";
 import {
   tribeEventCalendarFeedIssueResponseSchema,
   tribeEventCalendarFeedRevokeResponseSchema,
@@ -21,7 +21,7 @@ const CALENDAR_FEED_ENDPOINT_PATH = "/calendar-feed";
 const NO_STORE_CACHE: RequestCache = "no-store";
 
 function buildCalendarFeedEndpoint(tribeSlug: string): string {
-  return buildEventsEndpoint(tribeSlug) + CALENDAR_FEED_ENDPOINT_PATH;
+  return buildTribeEventsApiEndpoint(tribeSlug) + CALENDAR_FEED_ENDPOINT_PATH;
 }
 
 /**
