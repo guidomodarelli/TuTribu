@@ -415,7 +415,7 @@ describe("TribeEventsCalendar", () => {
     ).toBeChecked();
     expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
 
-    mockJsonResponse({ event: {}, message: "Evento creado.", occurrences: [] });
+    mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
     await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
 
     expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
@@ -474,7 +474,7 @@ describe("TribeEventsCalendar", () => {
     });
     expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("21:30");
 
-    mockJsonResponse({ event: {}, message: "Evento creado.", occurrences: [] });
+    mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
     await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
 
     // The saved event keeps the advertised 90 minutes.
@@ -1375,7 +1375,7 @@ describe("TribeEventsCalendar", () => {
         target: { value: "Clase cerrada" },
       });
       mockJsonResponse({
-        event: {},
+        event: createEventDto(),
         message: "Evento actualizado.",
         occurrences: [createOccurrence({ title: "Clase cerrada" })],
         ...responseBody,
@@ -1435,7 +1435,7 @@ describe("TribeEventsCalendar", () => {
       });
       mockJsonResponse({
         attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
-        event: {},
+        event: createEventDto(),
         message: "Evento creado.",
         occurrences: [laterOccurrence],
       });

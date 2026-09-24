@@ -168,11 +168,34 @@ describe("tribe event request schemas", () => {
     });
 
     it("rejects capacities that are not whole numbers between 1 and 10000", () => {
-      for (const capacity of ["0", "-3", "2.5", "1e3", "10001", "diez", 25]) {
+      for (const capacity of [
+        "0",
+        "-3",
+        "2.5",
+        "1e3",
+        "10001",
+        "diez",
+        0,
+        10001,
+        12.5,
+        Number.POSITIVE_INFINITY,
+        true,
+        { value: 12 },
+        [12],
+      ]) {
         expect(
           readFirstIssue(tribeEventMutationBodySchema.safeParse({ ...VALID_MUTATION_BODY, capacity }))
         ).toBe("invalid_capacity");
       }
+    });
+
+    it("accepts a JSON integer capacity with the same range as the form text", () => {
+      expect(
+        tribeEventMutationBodySchema.parse({ ...VALID_MUTATION_BODY, capacity: 25 }).capacity
+      ).toBe(25);
+      expect(
+        tribeEventMutationBodySchema.parse({ ...VALID_MUTATION_BODY, capacity: "25" }).capacity
+      ).toBe(25);
     });
   });
 

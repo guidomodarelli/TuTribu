@@ -143,8 +143,16 @@ describe("tribe event use cases", () => {
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
 
-    const may = await execute({ month: "2026-05", tribeSlug: "matematica-pro" });
-    const june = await execute({ month: "2026-06", tribeSlug: "matematica-pro" });
+    const may = await execute({
+      month: "2026-05",
+      occurrence: null,
+      tribeSlug: "matematica-pro",
+    });
+    const june = await execute({
+      month: "2026-06",
+      occurrence: null,
+      tribeSlug: "matematica-pro",
+    });
 
     expect(may.events.map((occurrence) => occurrence.title)).toEqual(["Taller de cierre"]);
     expect(june.events).toEqual([]);
