@@ -20,17 +20,28 @@
 -- lack it skipped, recurrence_until inclusive), so both rules stay in one
 -- place.
 --
--- Cost stays bounded by the window, never by the age of the series:
+-- Cost stays constant, never proportional to the age of the series or to
+-- its duration (validation only asks endsAt to be after startsAt, so a
+-- mistaken distant end date is accepted):
 --   * none: the single start.
 --   * weekly/biweekly: only the first two slots at or after the earliest
 --     start that can still overlap (range_start minus the duration). The
 --     first one either overlaps, ends exactly at range_start (then the second
 --     one is the next candidate), or already starts at or after range_end;
 --     any later slot is also later than recurrence_until if the first is.
---   * monthly: one candidate per local month the window touches, starting
---     one month early like the domain estimate. Adding months to the local
---     anchor clamps to the month end (January 31 + 1 month = February 28),
---     and is_tribe_event_series_occurrence rejects that clamped day.
+--   * monthly: only the three local months that end at the last month that
+--     can hold a slot (the month of range_end, or of recurrence_until when it
+--     is earlier). Every slot lasts the same duration, so a series overlaps
+--     the window exactly when its latest slot before range_end (and within
+--     recurrence_until) ends after range_start. That slot is in the last
+--     month or, when that month's slot is too late or the month lacks the
+--     anchor day, in one of the two previous ones: no two consecutive months
+--     lack a day from 1 to 31. Adding months to the local anchor clamps to
+--     the month end (January 31 + 1 month = February 28), and
+--     is_tribe_event_series_occurrence rejects that clamped day.
+-- The earliest overlapping start is computed in epoch seconds: range_start
+-- minus a duration of millennia (an end date in year 9999) falls before the
+-- timestamptz range and a timestamp subtraction would fail the whole feed.
 -- Weekly steps are added as seconds so no session time zone or DST rule can
 -- shift them.
 --
@@ -63,15 +74,22 @@ AS $$
         WHEN 'weekly' THEN 604800
         WHEN 'biweekly' THEN 1209600
       END AS weekly_period_seconds,
+      -- Months walked back from the last month that can hold a slot: the
+      -- latest slot before range_end is in that month or, when that month's
+      -- slot is too late or the month lacks the anchor day, in one of the two
+      -- previous months (no two consecutive months lack a day from 1 to 31).
+      2 AS monthly_lookback_months,
       (event_starts_at AT TIME ZONE 'UTC') + interval '-3 hours' AS series_local
   ),
   window_bounds AS (
     SELECT
       schedule.*,
-      range_start - schedule.occurrence_duration AS earliest_start,
-      ((range_start - schedule.occurrence_duration) AT TIME ZONE 'UTC')
-        + interval '-3 hours' AS earliest_local,
-      (range_end AT TIME ZONE 'UTC') + interval '-3 hours' AS range_end_local
+      -- Epoch arithmetic: range_start minus a very long duration can fall
+      -- before the timestamptz range, and a timestamp subtraction would fail.
+      extract(epoch FROM range_start) - extract(epoch FROM schedule.occurrence_duration)
+        AS earliest_start_epoch,
+      (least(range_end, coalesce(event_recurrence_until, range_end)) AT TIME ZONE 'UTC')
+        + interval '-3 hours' AS last_slot_bound_local
     FROM schedule
   ),
   candidate_slots AS (
@@ -87,7 +105,7 @@ AS $$
       SELECT greatest(
         0,
         ceil(
-          (extract(epoch FROM window_bounds.earliest_start) - extract(epoch FROM event_starts_at))
+          (window_bounds.earliest_start_epoch - extract(epoch FROM event_starts_at))
             / window_bounds.weekly_period_seconds
         )
       )::bigint AS slot_index
@@ -100,17 +118,15 @@ AS $$
     SELECT ((window_bounds.series_local + make_interval(months => month_offset::integer))
         + interval '3 hours') AT TIME ZONE 'UTC'
     FROM window_bounds
+    CROSS JOIN LATERAL (
+      SELECT (
+        (extract(year FROM window_bounds.last_slot_bound_local) - extract(year FROM window_bounds.series_local)) * 12
+          + extract(month FROM window_bounds.last_slot_bound_local) - extract(month FROM window_bounds.series_local)
+      )::bigint AS last_month_offset
+    ) AS last_month
     CROSS JOIN LATERAL generate_series(
-      greatest(
-        0,
-        (extract(year FROM window_bounds.earliest_local) - extract(year FROM window_bounds.series_local)) * 12
-          + extract(month FROM window_bounds.earliest_local) - extract(month FROM window_bounds.series_local)
-          - 1
-      )::bigint,
-      (
-        (extract(year FROM window_bounds.range_end_local) - extract(year FROM window_bounds.series_local)) * 12
-          + extract(month FROM window_bounds.range_end_local) - extract(month FROM window_bounds.series_local)
-      )::bigint
+      greatest(0, last_month.last_month_offset - window_bounds.monthly_lookback_months),
+      last_month.last_month_offset
     ) AS month_offset
     WHERE event_recurrence_frequency = 'monthly'
   )
