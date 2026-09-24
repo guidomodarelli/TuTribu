@@ -51,6 +51,19 @@ export const TRIBE_EVENTS_ROUTE_QUERY = {
   month: "month",
 } as const;
 
+/**
+ * How an occurrence is matched against a queried range. The month calendar
+ * files each occurrence under the range where it starts (a workshop crossing
+ * midnight between two months belongs to the month it began), while the
+ * upcoming list keeps every occurrence whose interval still overlaps the range,
+ * so an in-progress event stays visible until its effective end regardless of
+ * how long ago it started.
+ */
+export const TRIBE_EVENT_RANGE_MATCH = {
+  overlaps: "overlaps",
+  startsWithin: "starts_within",
+} as const;
+
 export const TRIBE_EVENT_UPCOMING = {
   defaultLimit: 3,
   windowDays: 30,
