@@ -403,6 +403,43 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByRole("button", { name: "Ocultar finalizados" })).toBeInTheDocument();
   });
 
+  it("keeps the block and element classes on today, finished, and out-of-month states", async () => {
+    vi.setSystemTime(new Date("2026-05-05T12:00:00.000Z"));
+    const pastOccurrence = createOccurrence({
+      endsAt: "2026-05-03T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-03T18:00:00.000Z",
+      title: "Ronda pasada",
+    });
+
+    const { container } = renderCalendar({ events: [pastOccurrence, occurrence] });
+
+    await screen.findByRole("region", { name: "Próximo evento" });
+
+    expect(screen.getByRole("cell", { current: "date" })).toHaveClass(
+      "TribeEventsMonthGrid__dayCell",
+      "TribeEventsMonthGrid__dayCell--today"
+    );
+    expect(screen.getByRole("button", { name: /Ronda pasada/ })).toHaveClass(
+      "TribeEventsMonthGrid__eventPill",
+      "TribeEventsMonthGrid__eventPill--past"
+    );
+
+    const pastDot = container.querySelector(".TribeEventsMonthGrid__dayDot--past");
+    const mutedDayNumber = container.querySelector(".TribeEventsMonthGrid__dayNumber--muted");
+
+    expect(pastDot).toHaveClass("TribeEventsMonthGrid__dayDot");
+    expect(mutedDayNumber).toHaveClass("TribeEventsMonthGrid__dayNumber");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver lista" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver 1 finalizado" }));
+
+    expect(screen.getByText("Ronda pasada").closest("li")).toHaveClass(
+      "TribeEventAgendaItem",
+      "TribeEventAgendaItem--past"
+    );
+  });
+
   it("shows a running occurrence as live with a join link and a live agenda badge", async () => {
     vi.setSystemTime(new Date("2026-05-06T18:10:00.000Z"));
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -1147,6 +1184,10 @@ describe("TribeEventsCalendar server render", () => {
 
     expect(html).toContain('aria-label="Calendario mensual de eventos"');
     expect(html).toContain('aria-label="Lista de eventos"');
+    expect(html).toContain(
+      'class="TribeEventsCalendar__autoView TribeEventsCalendar__autoView--calendar"'
+    );
+    expect(html).toContain('class="TribeEventsCalendar__autoView TribeEventsCalendar__autoView--list"');
   });
 
   it("links the today shortcut to the bare route before hydration", async () => {
