@@ -34,6 +34,7 @@ import {
   getBuenosAiresDateKey,
   getBuenosAiresMonthKey,
 } from "@/lib/date-time/buenos-aires-format";
+import { readAttendanceStreakComputedTime } from "@/lib/events/tribe-event-attendance-streak-dto";
 import { isOccurrencePast } from "@/lib/events/tribe-event-occurrence-timing";
 import { buildTribeEventAttendanceExportUrl } from "@/lib/events/tribe-events-api-client";
 import {
@@ -62,6 +63,8 @@ import styles from "./styles.module.scss";
 type TribeEventsCalendarProps = {
   /** Viewer-only attendance streak, computed on the server (null if none). */
   attendanceStreak?: TribeEventAttendanceStreakResult | null;
+  /** ISO instant at which the server computed `attendanceStreak`. */
+  attendanceStreakComputedAt?: string | null;
   events: TribeEventOccurrenceResult[];
   /** Deep-linked occurrence whose detail opens on load (validated server-side). */
   initialOccurrenceKey?: string | null;
@@ -106,6 +109,7 @@ type OccurrenceSelectionState = {
  */
 export function TribeEventsCalendar({
   attendanceStreak: serverAttendanceStreak = null,
+  attendanceStreakComputedAt = null,
   events,
   initialOccurrenceKey = null,
   month,
@@ -144,10 +148,13 @@ export function TribeEventsCalendar({
   });
   // The streak counts the last finished occurrences, so the one that just
   // ended may change it: read it again once, without reloading the route.
+  // An occurrence that ended between the server snapshot and hydration is
+  // caught on the first clock value by comparing it with the snapshot instant.
   useOccurrenceFinishWatcher({
     nowTime,
     occurrences: visibleEvents,
     onOccurrenceFinished: refreshAttendanceStreak,
+    serverSnapshotTime: readAttendanceStreakComputedTime(attendanceStreakComputedAt),
   });
   const [formSession, setFormSession] = useState<EventFormSession>({
     mode: FORM_MODE.closed,

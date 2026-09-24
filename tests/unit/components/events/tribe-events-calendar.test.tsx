@@ -1260,6 +1260,56 @@ describe("TribeEventsCalendar", () => {
       expect(signal.aborted).toBe(true);
     });
 
+    it("asks for the streak once when the occurrence ended between the server snapshot and the first client tick", async () => {
+      // The server computed the streak at 18:58; the occurrence ended at
+      // 19:00 and the client clock starts at 19:01.
+      vi.setSystemTime(new Date("2026-05-06T19:01:00.000Z"));
+      mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakComputedAt: "2026-05-06T18:58:00.000Z",
+        events: [occurrence, laterOccurrence],
+      });
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 5 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(getStreakRequests()).toHaveLength(1);
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(1);
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the streak when the occurrence ended before the server snapshot", async () => {
+      vi.setSystemTime(new Date("2026-05-06T19:03:00.000Z"));
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakComputedAt: "2026-05-06T19:01:00.000Z",
+        events: [occurrence, laterOccurrence],
+      });
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(0);
+    });
+
+    it("does not ask for the streak on the first client tick without a usable server snapshot", async () => {
+      vi.setSystemTime(new Date("2026-05-06T19:01:00.000Z"));
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        attendanceStreakComputedAt: "no es una fecha",
+        events: [occurrence, laterOccurrence],
+      });
+
+      await advanceMinutes(5);
+
+      expect(getStreakRequests()).toHaveLength(0);
+    });
+
     it("does not ask for the streak when no occurrence ends", async () => {
       renderCalendar({ attendanceStreak: initialStreak, events: [laterOccurrence] });
 

@@ -31,6 +31,10 @@ export default async function TribeEventsPage({
       slug,
     });
 
+  // Taken before the streak read starts, so an occurrence that ends while the
+  // query runs still falls after the snapshot and the client re-reads it.
+  const attendanceStreakComputedAt = new Date().toISOString();
+
   // Failures are logged here, where the user-facing response is owned, and
   // degrade to a safe fallback instead of breaking the whole route. The
   // streak is optional: without it the page simply omits that line.
@@ -79,6 +83,7 @@ export default async function TribeEventsPage({
   return (
     <TribeEventsCalendar
       attendanceStreak={attendanceStreak}
+      attendanceStreakComputedAt={attendanceStreakComputedAt}
       events={listing.events}
       initialOccurrenceKey={listing.selectedOccurrenceKey}
       month={listing.month}
