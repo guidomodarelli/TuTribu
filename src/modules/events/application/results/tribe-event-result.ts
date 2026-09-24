@@ -328,10 +328,12 @@ export type TribeEventCalendarFeedTokenRevokeResult = {
 };
 
 /**
- * One series of the feed and the instant it last changed (drives SEQUENCE,
- * LAST-MODIFIED, and DTSTAMP so the file is stable between changes).
+ * One series of the feed with its revision: the instant it last changed
+ * (LAST-MODIFIED and DTSTAMP, so the file is stable between changes) and its
+ * strictly increasing revision counter (SEQUENCE).
  */
 export type TribeEventCalendarFeedSeriesResult = TribeEventCalendarResult & {
+  calendarSequence: number;
   lastModifiedAt: string;
 };
 

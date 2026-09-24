@@ -37,11 +37,13 @@ const MILLISECONDS_PER_MINUTE = 60_000;
 const textEncoder = new TextEncoder();
 
 /**
- * Change metadata of a series in a feed: LAST-MODIFIED, a SEQUENCE derived
- * from it, and a stable DTSTAMP so identical data yields identical bytes.
+ * Change metadata of a series in a feed: LAST-MODIFIED (also the stable
+ * DTSTAMP, so identical data yields identical bytes) and the SEQUENCE, a
+ * persisted counter that grows by one on every saved change of the series.
  */
 export type IcsSeriesRevision = {
   lastModifiedAt: string;
+  sequence: number;
 };
 
 /**
@@ -121,8 +123,11 @@ function buildOptionalLines(event: TribeEventResult): string[] {
 }
 
 /**
- * SEQUENCE must grow when a component changes. Minutes since the epoch of the
- * last change grow monotonically and fit a 32-bit integer for millennia.
+ * SEQUENCE must strictly grow on every change of a component (RFC 5545
+ * §3.8.7.4). A value derived from the change instant (minutes or seconds
+ * since the epoch) repeats for two edits within the same bucket, and
+ * milliseconds overflow the 32-bit INTEGER, so it comes from the persisted
+ * `events.calendar_sequence` counter the database raises on every update.
  */
 function buildRevisionLines(revision: IcsSeriesRevision | null): string[] {
   if (!revision) {
@@ -131,7 +136,7 @@ function buildRevisionLines(revision: IcsSeriesRevision | null): string[] {
 
   return [
     `LAST-MODIFIED:${formatCalendarUtcDateTime(revision.lastModifiedAt)}`,
-    `SEQUENCE:${Math.floor(Date.parse(revision.lastModifiedAt) / MILLISECONDS_PER_MINUTE)}`,
+    `SEQUENCE:${revision.sequence}`,
   ];
 }
 

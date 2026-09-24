@@ -603,6 +603,13 @@
       "when": 1790256000000,
       "tag": "20260925120000_create_event_calendar_feed_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1790256600000,
+      "tag": "20260925121000_add_tribe_event_calendar_sequence",
+      "breakpoints": true
     }
   ]
 }

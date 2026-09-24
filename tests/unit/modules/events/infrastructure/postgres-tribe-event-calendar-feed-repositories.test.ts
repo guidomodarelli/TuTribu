@@ -194,6 +194,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       .mockResolvedValueOnce({
         rows: [
           {
+            calendar_sequence: 7,
             capacity: null,
             description: null,
             ends_at: "2026-05-07T22:00:00.000Z",
@@ -245,6 +246,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       ],
       series: [
         {
+          calendarSequence: 7,
           event: {
             capacity: null,
             description: null,
@@ -274,6 +276,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     expect(touchSql).toContain("make_interval(mins =>");
     expect(seriesSql).toContain("public.can_read_tribe_content(events.tribe_id)");
     expect(seriesSql).toContain("limit");
+    expect(seriesSql).toContain("events.calendar_sequence");
     expect(exceptionsSql).toContain("event_occurrence_exceptions.event_id = any(");
   });
 

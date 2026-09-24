@@ -122,7 +122,7 @@ function buildFeedSeries(
   const feedSeries: TribeEventCalendarFeedSeriesResult[] = [];
   let remainingComponents: number = TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents;
 
-  for (const { event, updatedAt } of snapshot.series) {
+  for (const { calendarSequence, event, updatedAt } of snapshot.series) {
     if (eventTypes.length > 0 && !eventTypes.includes(event.eventType)) {
       continue;
     }
@@ -138,7 +138,7 @@ function buildFeedSeries(
     }
 
     remainingComponents -= componentCount;
-    feedSeries.push({ ...calendar, lastModifiedAt: updatedAt });
+    feedSeries.push({ ...calendar, calendarSequence, lastModifiedAt: updatedAt });
   }
 
   return feedSeries;

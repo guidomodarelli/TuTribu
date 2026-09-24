@@ -249,8 +249,8 @@ describe("getTribeEventCalendarFeed", () => {
           },
         ],
         series: [
-          { event: weekly, updatedAt: "2026-05-01T10:00:00.000Z" },
-          { event: social, updatedAt: "2026-05-02T10:00:00.000Z" },
+          { calendarSequence: 4, event: weekly, updatedAt: "2026-05-01T10:00:00.000Z" },
+          { calendarSequence: 0, event: social, updatedAt: "2026-05-02T10:00:00.000Z" },
         ],
         tribeName: "Matemática Pro",
       })),
@@ -267,6 +267,7 @@ describe("getTribeEventCalendarFeed", () => {
       ownerUserId: owner.userId,
       series: [
         {
+          calendarSequence: 4,
           event: { ...weekly, recurrenceRule: "FREQ=WEEKLY" },
           lastModifiedAt: "2026-05-01T10:00:00.000Z",
           occurrenceExceptions: [
@@ -286,6 +287,7 @@ describe("getTribeEventCalendarFeed", () => {
   it("stops adding series once the VEVENT budget is spent", async () => {
     const budget = TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents;
     const series = Array.from({ length: budget + 1 }, (_, index) => ({
+      calendarSequence: 0,
       event: createSeries({
         id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
         recurrenceFrequency: "none",
