@@ -20,11 +20,11 @@ import {
 } from "beez-ui";
 
 import {
+  addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
   formatBuenosAiresTime,
   getBuenosAiresDateKey,
 } from "@/lib/date-time/buenos-aires-format";
-import { MILLISECONDS_PER_SECOND, SECONDS_PER_MINUTE } from "@/src/constants/time";
 import type {
   TribeEventOccurrenceResult,
   TribeEventType,
@@ -195,6 +195,7 @@ const COPY = {
   invalidRecurrenceUntil: "La repetición debe terminar después de la fecha de inicio.",
   meetingUrlLabel: "Link de reunión",
   meetingUrlPlaceholder: "https://meet.google.com/…",
+  missingEndDate: "Elegí la fecha de fin o destildá «Termina otro día».",
   missingEndTime: "Indicá la hora de fin o dejá vacía la fecha de fin.",
   recurrenceFrequencyLabel: "Repetición",
   recurrenceUntilLabel: "Repetir hasta (opcional)",
@@ -213,13 +214,8 @@ const TIME_FORMAT = {
   separator: ":",
 } as const;
 
-const MILLISECONDS_PER_DAY =
-  TIME_FORMAT.hoursPerDay *
-  TIME_FORMAT.minutesPerHour *
-  SECONDS_PER_MINUTE *
-  MILLISECONDS_PER_SECOND;
-const START_OF_DAY_TIME = "00:00";
 const SAME_DAY_OFFSET = 0;
+const NEXT_DAY_OFFSET = 1;
 
 /**
  * Wall-clock end suggested for a start: the «HH:mm» time and how many days
@@ -260,22 +256,6 @@ function suggestEndSchedule(
       TIME_FORMAT.separator +
       String(resultMinutes).padStart(TIME_FORMAT.padLength, TIME_FORMAT.padCharacter),
   };
-}
-
-/**
- * Moves a Buenos Aires `YYYY-MM-DD` date key a number of days forward. Returns
- * an empty value while the start date is still unknown.
- */
-function addDaysToBuenosAiresDateKey(dateKey: string, days: number): string {
-  const startOfDay = buildBuenosAiresInstant(dateKey, START_OF_DAY_TIME);
-
-  if (!startOfDay) {
-    return EMPTY_VALUE;
-  }
-
-  return getBuenosAiresDateKey(
-    new Date(Date.parse(startOfDay) + days * MILLISECONDS_PER_DAY)
-  );
 }
 
 function createInitialValues(
@@ -357,13 +337,20 @@ function isValidCapacity(capacity: string): boolean {
 }
 
 function buildPayload(
-  values: EventFormValues
+  values: EventFormValues,
+  endsOnAnotherDay: boolean
 ): { error: string } | { payload: TribeEventFormPayload } {
   if (!isValidCapacity(values.capacity)) {
     return { error: COPY.invalidCapacity };
   }
 
   const startsAt = buildBuenosAiresInstant(values.date, values.startsTime);
+
+  // A checked «Termina otro día» with no date would silently save a same-day
+  // end, so the chosen next-day end must be explicit.
+  if (endsOnAnotherDay && !values.endsDate) {
+    return { error: COPY.missingEndDate };
+  }
 
   if (values.endsDate && !values.endsTime) {
     return { error: COPY.missingEndTime };
@@ -535,9 +522,15 @@ export function TribeEventFormDialog({
     setEndsOnAnotherDay(isChecked);
     setSuggestedEndDayOffset(SAME_DAY_OFFSET);
 
-    if (!isChecked) {
-      updateField("endsDate", EMPTY_VALUE);
-    }
+    setValidationError(null);
+    // Checking it starts from the day after the start date; the manager can
+    // still pick another day. Unchecking withdraws the end date.
+    setValues((currentValues) => ({
+      ...currentValues,
+      endsDate: isChecked
+        ? currentValues.endsDate || addDaysToBuenosAiresDateKey(currentValues.date, NEXT_DAY_OFFSET)
+        : EMPTY_VALUE,
+    }));
   };
 
   const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
@@ -547,7 +540,7 @@ export function TribeEventFormDialog({
       return;
     }
 
-    const result = buildPayload(values);
+    const result = buildPayload(values, endsOnAnotherDay);
 
     if ("error" in result) {
       setValidationError(result.error);

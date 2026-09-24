@@ -155,9 +155,36 @@ async function readProposal(
 }
 
 /**
+ * Locks the reviewer's own membership in the tribe `FOR SHARE` before a
+ * review. A concurrent demotion, block, or removal of the reviewer (any write
+ * on that row) waits until the review commits, and a demotion that committed
+ * while this statement waited is visible to the next statement, so the
+ * `can_manage_tribe_events` read by `lockProposal` cannot go stale before the
+ * approval or rejection is written. It runs before the proposal lock to keep
+ * the membership → other rows order that attendance answers also follow.
+ * No row (not a member) is fine: `lockProposal` then reports `forbidden`.
+ */
+async function lockReviewerMembership(
+  database: RequestDatabase,
+  tribeSlug: string
+): Promise<void> {
+  await database.execute(sql`
+    select tribe_members.id
+    from public.tribe_members
+    inner join public.tribes
+      on tribes.id = tribe_members.tribe_id
+    where tribes.slug = ${tribeSlug}
+      and tribe_members.user_id = public.current_app_user_id()
+    for share of tribe_members
+  `);
+}
+
+/**
  * Locks the proposal row (FOR UPDATE) inside the request transaction. A
  * concurrent review of the same proposal waits here and then sees the
- * resolved status, which is what makes approval idempotent.
+ * resolved status, which is what makes approval idempotent. Reviews call
+ * `lockReviewerMembership` first so the `can_manage` read here stays valid
+ * until the review commits.
  */
 async function lockProposal(
   database: RequestDatabase,
@@ -351,6 +378,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
     command: ApproveTribeEventProposalRepositoryCommand
   ): Promise<TribeEventProposalApprovalResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockReviewerMembership(database, command.tribeSlug);
       const lockedProposal = await lockProposal(database, command);
       const failure = resolveReviewFailure(lockedProposal);
 
@@ -418,6 +446,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
     command: RejectTribeEventProposalRepositoryCommand
   ): Promise<TribeEventProposalReviewResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockReviewerMembership(database, command.tribeSlug);
       const failure = resolveReviewFailure(await lockProposal(database, command));
 
       if (failure !== null) {

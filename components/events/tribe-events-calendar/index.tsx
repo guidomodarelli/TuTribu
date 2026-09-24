@@ -769,6 +769,7 @@ export function TribeEventsCalendar({
 
       {canManageEvents || canProposeEvents ? (
         <TribeEventProposalsPanel
+          canManageEvents={canManageEvents}
           isOpen={isProposalsPanelOpen}
           isSubmitting={proposals.isSubmitting}
           loadState={proposals.loadState}
