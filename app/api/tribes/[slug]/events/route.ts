@@ -87,8 +87,14 @@ export async function POST(request: Request, context: TribeRouteContext) {
 
   try {
     const body = await request.json().catch(() => null);
+    const mutationBody = readTribeEventMutationBody(body);
+
+    if (mutationBody.status === TRIBE_EVENT_MUTATION_STATUS.invalidCapacity) {
+      return mapTribeEventMutationStatusResponse(mutationBody.status);
+    }
+
     const result = await modules.events.useCases.createTribeEvent({
-      ...readTribeEventMutationBody(body),
+      ...mutationBody.body,
       tribeSlug: slug,
       visibleMonth: readSearchParam(request, TRIBE_EVENT_ROUTE_QUERY_PARAM.month),
     });

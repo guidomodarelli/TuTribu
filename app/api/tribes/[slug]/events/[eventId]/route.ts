@@ -46,8 +46,14 @@ export async function PATCH(request: Request, context: TribeEventRouteContext) {
 
   try {
     const body = await request.json().catch(() => null);
+    const mutationBody = readTribeEventMutationBody(body);
+
+    if (mutationBody.status === TRIBE_EVENT_MUTATION_STATUS.invalidCapacity) {
+      return mapTribeEventMutationStatusResponse(mutationBody.status);
+    }
+
     const result = await modules.events.useCases.updateTribeEvent({
-      ...readTribeEventMutationBody(body),
+      ...mutationBody.body,
       eventId,
       tribeSlug: slug,
       visibleMonth: readSearchParam(request, TRIBE_EVENT_ROUTE_QUERY_PARAM.month),

@@ -90,9 +90,83 @@ export function readStringField(body: unknown, field: string): string {
   return typeof value === "string" ? value : "";
 }
 
-export function readTribeEventMutationBody(body: unknown): TribeEventMutationBody {
+const TRIBE_EVENT_BODY_READ_STATUS = {
+  ok: "ok",
+} as const;
+
+/**
+ * Outcome of reading the event mutation body: either the normalized text
+ * fields or a rejection because a present field has an unsupported JSON type.
+ */
+export type TribeEventMutationBodyReadResult =
+  | { body: TribeEventMutationBody; status: typeof TRIBE_EVENT_BODY_READ_STATUS.ok }
+  | { status: typeof TRIBE_EVENT_MUTATION_STATUS.invalidCapacity };
+
+const UNSUPPORTED_CAPACITY = Symbol("unsupported-capacity");
+
+/**
+ * Reads the raw capacity field without deciding the business range.
+ *
+ * Absent, `null`, and string values keep their text form (empty means
+ * unlimited). A JSON integer such as `12` is accepted as its decimal text so
+ * the use case still owns the capacity limits. Any other present value
+ * (fractions, non-finite numbers, booleans, objects, arrays) is unsupported and
+ * must be rejected instead of silently becoming "no limit".
+ *
+ * @param body - Untrusted parsed JSON request body.
+ * @returns The capacity text or `UNSUPPORTED_CAPACITY`.
+ */
+function readCapacityField(body: unknown): string | typeof UNSUPPORTED_CAPACITY {
+  if (!body || typeof body !== "object" || !(TRIBE_EVENT_BODY_FIELD.capacity in body)) {
+    return "";
+  }
+
+  const value = (body as Record<string, unknown>)[TRIBE_EVENT_BODY_FIELD.capacity];
+
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    return String(value);
+  }
+
+  return UNSUPPORTED_CAPACITY;
+}
+
+/**
+ * Reads the create/update event body. A present capacity with an unsupported
+ * type yields `invalid_capacity` so POST and PATCH answer 400 instead of
+ * creating an uncapped event or removing an existing limit.
+ *
+ * @param body - Untrusted parsed JSON request body.
+ * @returns The normalized body or an `invalid_capacity` rejection.
+ */
+export function readTribeEventMutationBody(
+  body: unknown
+): TribeEventMutationBodyReadResult {
+  const capacity = readCapacityField(body);
+
+  if (capacity === UNSUPPORTED_CAPACITY) {
+    return { status: TRIBE_EVENT_MUTATION_STATUS.invalidCapacity };
+  }
+
   return {
-    capacity: readStringField(body, TRIBE_EVENT_BODY_FIELD.capacity),
+    body: readTribeEventMutationTextFields(body, capacity),
+    status: TRIBE_EVENT_BODY_READ_STATUS.ok,
+  };
+}
+
+function readTribeEventMutationTextFields(
+  body: unknown,
+  capacity: string
+): TribeEventMutationBody {
+  return {
+    capacity,
     description: readStringField(body, TRIBE_EVENT_BODY_FIELD.description),
     endsAt: readStringField(body, TRIBE_EVENT_BODY_FIELD.endsAt),
     meetingUrl: readStringField(body, TRIBE_EVENT_BODY_FIELD.meetingUrl),

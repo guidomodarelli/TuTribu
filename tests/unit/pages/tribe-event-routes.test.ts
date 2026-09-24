@@ -442,6 +442,85 @@ describe("Tribe event routes", () => {
     expect(createTribeEvent).toHaveBeenCalledWith(expect.objectContaining({ capacity: "0" }));
   });
 
+  describe("capacity body field", () => {
+    const INVALID_CAPACITY_MESSAGE =
+      "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.";
+    const EVENT_URL = `${BASE_URL}/${EVENT_ID}?month=2026-05`;
+    const UNSUPPORTED_CAPACITY_VALUES: Array<[string, unknown]> = [
+      ["a fractional number", 12.5],
+      ["a boolean", true],
+      ["an object", { value: 12 }],
+      ["an array", [12]],
+      ["a non-finite number", Number.POSITIVE_INFINITY],
+    ];
+
+    // Decision: a JSON integer (the natural form `"capacity": 12`) is accepted
+    // and forwarded as its decimal text, so the use case keeps owning the
+    // 1..10000 business range. Absent, null, and "" keep meaning "no limit".
+    it("forwards a JSON integer capacity to the use case on POST and PATCH", async () => {
+      createTribeEvent.mockResolvedValueOnce({
+        event,
+        occurrences: [occurrence],
+        status: "created" as const,
+      });
+      updateTribeEvent.mockResolvedValueOnce({
+        event,
+        occurrences: [occurrence],
+        status: "updated" as const,
+      });
+
+      const createResponse = await POST(buildRequest({ capacity: 12 }), buildTribeContext());
+      const updateResponse = await PATCH(
+        buildRequest({ capacity: 30 }, EVENT_URL),
+        buildEventContext()
+      );
+
+      expect(createResponse.status).toBe(201);
+      expect(updateResponse.status).toBe(200);
+      expect(createTribeEvent).toHaveBeenCalledWith(expect.objectContaining({ capacity: "12" }));
+      expect(updateTribeEvent).toHaveBeenCalledWith(expect.objectContaining({ capacity: "30" }));
+    });
+
+    it("keeps null and absent capacity as unlimited", async () => {
+      createTribeEvent.mockResolvedValue({
+        event,
+        occurrences: [occurrence],
+        status: "created" as const,
+      });
+
+      await POST(buildRequest({ capacity: null }), buildTribeContext());
+      await POST(buildRequest({}), buildTribeContext());
+
+      expect(createTribeEvent).toHaveBeenNthCalledWith(1, expect.objectContaining({ capacity: "" }));
+      expect(createTribeEvent).toHaveBeenNthCalledWith(2, expect.objectContaining({ capacity: "" }));
+    });
+
+    it.each(UNSUPPORTED_CAPACITY_VALUES)(
+      "rejects %s capacity on POST instead of creating an unlimited event",
+      async (_label, capacity) => {
+        const response = await POST(buildRequest({ capacity }), buildTribeContext());
+
+        expect(response.status).toBe(400);
+        await expect(response.json()).resolves.toEqual({ message: INVALID_CAPACITY_MESSAGE });
+        expect(createTribeEvent).not.toHaveBeenCalled();
+      }
+    );
+
+    it.each(UNSUPPORTED_CAPACITY_VALUES)(
+      "rejects %s capacity on PATCH instead of removing the existing limit",
+      async (_label, capacity) => {
+        const response = await PATCH(
+          buildRequest({ capacity }, EVENT_URL),
+          buildEventContext()
+        );
+
+        expect(response.status).toBe(400);
+        await expect(response.json()).resolves.toEqual({ message: INVALID_CAPACITY_MESSAGE });
+        expect(updateTribeEvent).not.toHaveBeenCalled();
+      }
+    );
+  });
+
   it("tells the viewer when a going answer landed on the waitlist", async () => {
     const attendance = {
       goingCount: 10,
