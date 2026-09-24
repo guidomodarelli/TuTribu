@@ -236,7 +236,11 @@ describe("tribe coming soon pages", () => {
     getAuthenticatedMember.mockResolvedValue(authenticatedMember);
     getTribePageAccess.mockResolvedValue(visibleTribeAccess);
     listTribeEvents.mockResolvedValue(mayListing);
-    getTribeEventAttendanceStreak.mockResolvedValue({ attendedCount: "4", occurrenceCount: 5 });
+    getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+      attendanceStreak: { attendedCount: "4", occurrenceCount: 5 },
+      computedAt: "2026-06-01T12:00:03.000Z",
+      nextRefreshAt: null,
+    });
 
     render(
       await TribeEventsPage({

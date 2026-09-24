@@ -8,7 +8,10 @@ import {
 } from "@/src/modules/events/application/use-cases/manage-tribe-events-use-cases";
 import { listUpcomingTribeEvents } from "@/src/modules/events/application/use-cases/list-upcoming-tribe-events-use-case";
 import type { TribeEventFieldsInput } from "@/src/modules/events/application/commands/tribe-event-command";
-import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_MUTATION_STATUS,
+  TRIBE_EVENT_RECURRENCE_FREQUENCY,
+} from "@/src/modules/events/constants/tribe-events";
 import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 
@@ -476,21 +479,22 @@ describe("tribe event use cases", () => {
       tribeEventRepository: createRepository({ update }),
     });
     const baseCommand = {
-      description: "",
-      endsAt: "",
+      description: null,
+      endsAt: null,
       eventId: EVENT_ID,
-      meetingUrl: "",
-      recurrenceFrequency: "",
-      recurrenceUntil: "",
+      meetingUrl: null,
+      recurrenceFrequency: TRIBE_EVENT_RECURRENCE_FREQUENCY.none,
+      recurrenceUntil: null,
       startsAt: "2026-05-06T18:00:00.000Z",
       title: "Clase abierta",
       tribeSlug: "matematica-pro",
+      visibleMonth: null,
     };
 
     // A legacy body without the field must not remove the existing limit.
     await execute(baseCommand);
-    await execute({ ...baseCommand, capacity: "" });
-    await execute({ ...baseCommand, capacity: " 15 " });
+    await execute({ ...baseCommand, capacity: null });
+    await execute({ ...baseCommand, capacity: 15 });
 
     expect(
       update.mock.calls.map((call) => ((call as unknown[])[0] as { capacity: unknown }).capacity)
@@ -499,29 +503,6 @@ describe("tribe event use cases", () => {
       { capacity: null, kind: "set" },
       { capacity: 15, kind: "set" },
     ]);
-  });
-
-  it("rejects an invalid explicit capacity on update before calling the repository", async () => {
-    const update = vi.fn();
-    const execute = updateTribeEvent({
-      tribeEventRepository: createRepository({ update }),
-    });
-
-    await expect(
-      execute({
-        capacity: "0",
-        description: "",
-        endsAt: "",
-        eventId: EVENT_ID,
-        meetingUrl: "",
-        recurrenceFrequency: "",
-        recurrenceUntil: "",
-        startsAt: "2026-05-06T18:00:00.000Z",
-        title: "Clase abierta",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.invalidCapacity });
-    expect(update).not.toHaveBeenCalled();
   });
 
   it("returns the visible month occurrences with the summaries read after the waitlist refill", async () => {

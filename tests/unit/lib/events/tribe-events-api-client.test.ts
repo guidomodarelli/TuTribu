@@ -136,7 +136,31 @@ describe("fetchTribeEventOccurrencesRequest", () => {
   });
 
   it("reads the occurrences of the visible month without caching", async () => {
-    const occurrences = [{ occurrenceKey: "event@2026-05-20T18:00:00.000Z" }];
+    const occurrences = [
+      {
+        attendance: {
+          goingCount: 0,
+          goingPreview: [],
+          maybeCount: 0,
+          viewerStatus: null,
+          viewerWaitlistPosition: null,
+          waitlistedCount: 0,
+        },
+        capacity: null,
+        description: null,
+        endsAt: null,
+        eventId: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
+        meetingUrl: null,
+        occurrenceKey: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f@2026-05-20T18:00:00.000Z",
+        recurrenceFrequency: "none",
+        recurrenceRule: null,
+        recurrenceUntil: null,
+        seriesEndsAt: null,
+        seriesStartsAt: "2026-05-20T18:00:00.000Z",
+        startsAt: "2026-05-20T18:00:00.000Z",
+        title: "Clase abierta",
+      },
+    ];
 
     answerRequest({ events: occurrences, month: { current: month } });
 
@@ -151,6 +175,14 @@ describe("fetchTribeEventOccurrencesRequest", () => {
 
   it("returns a failed read when the route answers with an error status", async () => {
     answerRequest({ message: "No pudimos cargar los eventos." }, false);
+
+    await expect(
+      fetchTribeEventOccurrencesRequest({ month, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({ isSuccess: false });
+  });
+
+  it("returns a failed read when an occurrence breaks the public DTO", async () => {
+    answerRequest({ events: [{ occurrenceKey: "event@2026-05-20T18:00:00.000Z" }] });
 
     await expect(
       fetchTribeEventOccurrencesRequest({ month, tribeSlug: TRIBE_SLUG })
