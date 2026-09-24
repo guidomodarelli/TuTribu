@@ -31,6 +31,12 @@ ALTER TABLE public.event_attendances
 ALTER TABLE public.event_attendances
   ALTER COLUMN responded_at SET NOT NULL;
 
+-- promoted_at is an audit/display mark of when a waitlisted answer was
+-- promoted to going. It is NOT a sweep cursor: now() is the transaction start,
+-- so a promotion that commits after a reader's cutoff can carry an earlier
+-- timestamp. Consumers (for example notifications) must hook into the same
+-- promotion transaction (trigger/outbox) or use an overlapping cursor with
+-- idempotent dedupe, never a strict timestamp cutoff.
 ALTER TABLE public.event_attendances
   ADD COLUMN IF NOT EXISTS promoted_at timestamptz;
 
@@ -51,7 +57,8 @@ ALTER TABLE public.event_attendances
   );
 
 -- 3. Indexes for the range summary, the viewer streak, the FIFO waitlist,
--- the going preview, and the future promotion notifications.
+-- the going preview, and lookups of promoted answers (audit/display; not a
+-- notification sweep cursor, see promoted_at above).
 CREATE INDEX IF NOT EXISTS idx_event_attendances_tribe_occurrence
 ON public.event_attendances(tribe_id, occurrence_starts_at);
 
@@ -215,6 +222,7 @@ BEGIN
   UPDATE public.event_attendances
   SET
     status = 'going',
+    -- Audit/display mark (transaction start), not a consumer cursor.
     promoted_at = now(),
     updated_at = now()
   FROM next_in_line
