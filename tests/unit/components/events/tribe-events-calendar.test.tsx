@@ -787,7 +787,7 @@ describe("TribeEventsCalendar", () => {
       expect(correctedUrl.pathname).toBe("/matematica-pro/eventos");
       expect(correctedUrl.searchParams.get("month")).toBe("2026-05");
       expect(correctedUrl.searchParams.get("event")).toBe(occurrence.occurrenceKey);
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(apiFetch).not.toHaveBeenCalled();
     });
 
     it("ignores a deep link to an occurrence that is not on screen", () => {

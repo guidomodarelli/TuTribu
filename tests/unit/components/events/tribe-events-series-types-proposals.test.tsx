@@ -374,7 +374,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     mockJsonResponse({ message: "Fecha movida.", occurrences: [overnight] });
     await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       kind: "moved",
       newEndsAt: "2026-05-15T04:00:00.000Z",
       newStartsAt: "2026-05-15T02:00:00.000Z",
@@ -411,7 +411,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     expect(within(moveDialog).getByRole("alert")).toHaveTextContent(
       "La hora de fin debe ser posterior al inicio."
     );
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
 
     await user.click(within(moveDialog).getByRole("checkbox", { name: "Termina otro día" }));
 
@@ -421,7 +421,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     mockJsonResponse({ message: "Fecha movida.", occurrences: [overnight] });
     await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       newEndsAt: "2026-05-18T02:30:00.000Z",
       newStartsAt: "2026-05-18T02:00:00.000Z",
     });
