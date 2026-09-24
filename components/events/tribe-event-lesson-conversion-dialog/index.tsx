@@ -141,8 +141,8 @@ export function TribeEventLessonConversionDialog({
   const renderBody = () => {
     if (convertedLesson) {
       return (
-        <div className={styles.TribeEventLessonConversionDialog__result} role="status">
-          <p className={styles.TribeEventLessonConversionDialog__resultText}>
+        <div className={styles.TribeEventLessonConversionDialog__result}>
+          <p className={styles.TribeEventLessonConversionDialog__resultText} role="status">
             {convertedLesson.isExisting ? COPY.existing : COPY.success}
           </p>
           <div className={styles.TribeEventLessonConversionDialog__actions}>
