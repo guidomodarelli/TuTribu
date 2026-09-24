@@ -301,12 +301,20 @@ export function TribeEventFormDialog({
   onClose,
   onSubmit,
 }: TribeEventFormDialogProps) {
-  const [values, setValues] = useState<EventFormValues>(() =>
+  const [initialFormValues] = useState<EventFormValues>(() =>
     createInitialValues(editingOccurrence, initialValues)
   );
+  const [values, setValues] = useState<EventFormValues>(initialFormValues);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [endsOnAnotherDay, setEndsOnAnotherDay] = useState(
-    () => createInitialValues(editingOccurrence, initialValues).endsDate !== EMPTY_VALUE
+    initialFormValues.endsDate !== EMPTY_VALUE
+  );
+  // Whether the end still holds a generated suggestion (or nothing). While it
+  // does, every start change recomputes it; the first explicit edit of an end
+  // field hands the end over to the manager. A saved end (edit mode) is never
+  // a suggestion, so it is never overwritten.
+  const [isEndSuggested, setIsEndSuggested] = useState(
+    initialFormValues.endsTime === EMPTY_VALUE
   );
   // Days between the start date and a suggested end that crossed midnight.
   // It keeps the end date in sync while the date changes, until the manager
@@ -324,8 +332,9 @@ export function TribeEventFormDialog({
     setValues((currentValues) => ({ ...currentValues, [field]: value }));
   };
 
-  // An explicit end choice stops the suggested end date from following the date.
+  // An explicit end choice stops the end from following the start and date.
   const updateEndField = (field: "endsDate" | "endsTime", value: string) => {
+    setIsEndSuggested(false);
     setSuggestedEndDayOffset(SAME_DAY_OFFSET);
     updateField(field, value);
   };
@@ -342,43 +351,58 @@ export function TribeEventFormDialog({
     }));
   };
 
-  // Picking a start suggests an end one duration later (the template's or the
-  // default), but only while the end is still empty so an explicit choice is
-  // never overwritten. A template duration that crosses midnight also fills
-  // the next-day end date so the saved event keeps the advertised length; the
-  // default duration is left to the manager because an empty end already
-  // means a default-length occurrence.
+  // While the end is still a suggestion, every start change recomputes it one
+  // duration later (the template's or the default). A template duration that
+  // crosses midnight also fills the next-day end date so the saved event keeps
+  // the advertised length; the default duration is left empty in that case
+  // because an empty end already means a default-length occurrence. A
+  // previously suggested next-day end date is withdrawn when the new
+  // suggestion no longer crosses midnight.
   const updateStartsTime = (startsTime: string) => {
     setValidationError(null);
 
-    const suggestedEnd =
-      values.endsTime === EMPTY_VALUE && startsTime
-        ? suggestEndSchedule(startsTime, suggestedDurationMinutes)
-        : null;
-    const endsOnLaterDay =
-      suggestedEnd !== null && suggestedEnd.dayOffset > SAME_DAY_OFFSET;
-
-    if (suggestedEnd === null || (endsOnLaterDay && templateDurationMinutes === undefined)) {
+    if (!isEndSuggested) {
       setValues((currentValues) => ({ ...currentValues, startsTime }));
       return;
     }
 
-    if (endsOnLaterDay) {
+    const suggestedEnd = startsTime
+      ? suggestEndSchedule(startsTime, suggestedDurationMinutes)
+      : null;
+    const endsOnLaterDay =
+      suggestedEnd !== null && suggestedEnd.dayOffset > SAME_DAY_OFFSET;
+    const leavesEndEmpty =
+      suggestedEnd === null || (endsOnLaterDay && templateDurationMinutes === undefined);
+    const nextEnd =
+      leavesEndEmpty || suggestedEnd === null
+        ? { dayOffset: SAME_DAY_OFFSET, endsTime: EMPTY_VALUE }
+        : suggestedEnd;
+    const nextDayOffset = nextEnd.dayOffset;
+    const hadSuggestedEndDate = suggestedEndDayOffset > SAME_DAY_OFFSET;
+
+    setSuggestedEndDayOffset(nextDayOffset);
+
+    if (nextDayOffset > SAME_DAY_OFFSET) {
       setEndsOnAnotherDay(true);
-      setSuggestedEndDayOffset(suggestedEnd.dayOffset);
+    } else if (hadSuggestedEndDate) {
+      setEndsOnAnotherDay(false);
     }
 
     setValues((currentValues) => ({
       ...currentValues,
-      endsDate: endsOnLaterDay
-        ? addDaysToBuenosAiresDateKey(currentValues.date, suggestedEnd.dayOffset)
-        : currentValues.endsDate,
-      endsTime: suggestedEnd.endsTime,
+      endsDate:
+        nextDayOffset > SAME_DAY_OFFSET
+          ? addDaysToBuenosAiresDateKey(currentValues.date, nextDayOffset)
+          : hadSuggestedEndDate
+            ? EMPTY_VALUE
+            : currentValues.endsDate,
+      endsTime: nextEnd.endsTime,
       startsTime,
     }));
   };
 
   const toggleEndsOnAnotherDay = (isChecked: boolean) => {
+    setIsEndSuggested(false);
     setEndsOnAnotherDay(isChecked);
     setSuggestedEndDayOffset(SAME_DAY_OFFSET);
 

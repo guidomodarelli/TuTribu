@@ -408,6 +408,105 @@ describe("TribeEventsCalendar", () => {
     expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-06-01");
   });
 
+  it("recomputes the template end every time the start changes", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Encuentro de arranque mensual/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "18:00" },
+    });
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("19:30");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "19:00" },
+    });
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("20:30");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("21:30");
+
+    mockJsonResponse({ event: {}, message: "Evento creado.", occurrences: [] });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    // The saved event keeps the advertised 90 minutes.
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      endsAt: "2026-05-21T00:30:00.000Z",
+      startsAt: "2026-05-20T23:00:00.000Z",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("moves a suggested next-day end back to the start day when the start moves earlier", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:00" },
+    });
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("22:00");
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Termina otro día" })
+    ).not.toBeChecked();
+    expect(within(dialog).queryByLabelText("Fecha de fin")).not.toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:30" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:30");
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+  });
+
+  it("stops recomputing the template end once the manager edits the end date", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "23:00" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Fecha de fin"), {
+      target: { value: "2026-05-22" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+
+    expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:00");
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-22");
+  });
+
   it("updates visible events when the route month changes", () => {
     const { rerender } = renderCalendar();
 
@@ -937,6 +1036,13 @@ describe("TribeEventsCalendar", () => {
 
     expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:00");
 
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "15:30" },
+    });
+
+    // A suggested end keeps following the start until the manager edits it.
+    expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:30");
+
     fireEvent.change(screen.getByLabelText("Hora de fin"), {
       target: { value: "17:30" },
     });
@@ -1138,6 +1244,15 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByLabelText("Fecha")).toHaveValue("2026-05-06");
     expect(screen.getByLabelText("Hora de inicio")).toHaveValue("15:00");
     expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:00");
+
+    // Moving the start never overwrites the saved end of the event.
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "14:00" },
+    });
+    expect(screen.getByLabelText("Hora de fin")).toHaveValue("16:00");
+    fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+      target: { value: "15:00" },
+    });
 
     fireEvent.change(screen.getByLabelText("Título"), {
       target: { value: "Clase cerrada" },
