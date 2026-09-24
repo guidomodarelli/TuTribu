@@ -36,6 +36,10 @@ import type {
   TribeEventUpdateResult,
   TribeEventViewerAttendanceHistory,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import {
+  getWaitlistRefillLookbackStart,
+  selectRefillableWaitlistOccurrenceStarts,
+} from "@/src/modules/events/domain/services/tribe-event-attendance";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -76,6 +80,10 @@ type AttendanceSummaryRow = {
   viewer_status: string | null;
   viewer_waitlist_position: number | string | null;
   waitlisted_count: number | string | null;
+};
+
+type WaitlistedOccurrenceRow = {
+  occurrence_starts_at: Date | string;
 };
 
 type ViewerAttendanceRow = {
@@ -140,6 +148,8 @@ const ATTENDEE_STATUS_ORDER = [
   TRIBE_EVENT_ATTENDANCE_STATUS.notGoing,
 ] as const;
 const SINGLE_OCCURRENCE_RANGE_MS = 1;
+/** Separator of the SQL value lists built with `sql.join`. */
+const SQL_LIST_SEPARATOR = sql`, `;
 const EVENT_COLUMNS = sql`
   events.id,
   events.capacity,
@@ -712,12 +722,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         return updateResult;
       }
 
-      // A raised (or removed) capacity frees seats: promote the waitlists of
-      // upcoming occurrences in the same transaction, which already holds the
-      // event row lock taken by the UPDATE above.
-      await database.execute(
-        sql`select public.refill_tribe_event_waitlists(${command.eventId}::uuid) as promoted_count`
-      );
+      await this.refillWaitlists(database, command.eventId, updateResult.event);
 
       if (!command.attendanceRange) {
         return { ...updateResult, attendances: [] };
@@ -815,7 +820,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
 
       const statusOrder = sql.join(
         ATTENDEE_STATUS_ORDER.map((status) => sql`${status}`),
-        sql`, `
+        SQL_LIST_SEPARATOR
       );
       const attendeesResult = await database.execute(sql`
         select
@@ -845,7 +850,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
 
       const trendStarts = sql.join(
         trendOccurrenceStartsAts.map((trendStart) => sql`${trendStart}::timestamptz`),
-        sql`, `
+        SQL_LIST_SEPARATOR
       );
       const trendResult = await database.execute(sql`
         select
@@ -869,6 +874,58 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         })),
       };
     });
+  }
+
+  /**
+   * A raised (or removed) capacity frees seats: promotes the waitlists of the
+   * occurrences that are still valid under the UPDATED schedule and have not
+   * ended (in progress included), in the same transaction, which already
+   * holds the event row lock taken by the UPDATE. Rows of dates removed by a
+   * schedule edit stay as history and are never promoted. The recurrence
+   * rules live only in the domain, so the valid starts are computed here and
+   * passed to the SECURITY DEFINER function, which only intersects them with
+   * the rows that are actually waitlisted.
+   */
+  private async refillWaitlists(
+    database: RequestDatabase,
+    eventId: string,
+    updatedEvent: TribeEvent
+  ): Promise<void> {
+    const nowTime = Date.now();
+    const candidateResult = await database.execute(sql`
+      select distinct event_attendances.occurrence_starts_at
+      from public.event_attendances
+      where event_attendances.event_id = ${eventId}
+        and event_attendances.status = ${TRIBE_EVENT_ATTENDANCE_STATUS.waitlisted}
+        and event_attendances.occurrence_starts_at >= ${getWaitlistRefillLookbackStart(
+          updatedEvent,
+          nowTime
+        )}::timestamptz
+    `);
+    const candidateStarts = ((candidateResult.rows ?? []) as WaitlistedOccurrenceRow[]).map(
+      (row) => mapDateValue(row.occurrence_starts_at)
+    );
+    const refillableStarts = selectRefillableWaitlistOccurrenceStarts(
+      updatedEvent,
+      candidateStarts,
+      nowTime
+    );
+
+    if (refillableStarts.length === 0) {
+      return;
+    }
+
+    const refillableStartsArray = sql.join(
+      refillableStarts.map((startsAt) => sql`${startsAt}::timestamptz`),
+      SQL_LIST_SEPARATOR
+    );
+
+    await database.execute(sql`
+      select public.refill_tribe_event_waitlists(
+        ${eventId}::uuid,
+        array[${refillableStartsArray}]::timestamptz[]
+      ) as promoted_count
+    `);
   }
 
   /**

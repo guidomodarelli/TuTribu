@@ -1,13 +1,18 @@
 import { TRIBE_EVENT_ATTENDANCE_STATUS } from "@/src/modules/events/constants/tribe-events";
+import type { TribeEventSchedule } from "@/src/modules/events/domain/entities/tribe-event";
 import {
   getTribeEventOccurrenceEndTime,
   type TribeEventOccurrenceTimes,
 } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
+import { expandTribeEventOccurrences } from "@/src/modules/events/domain/services/tribe-event-recurrence";
 
 /**
  * Attendance rules shared by the use cases and the UI: free seats of an
- * occurrence, the most recent finished occurrences, and the viewer streak.
+ * occurrence, the most recent finished occurrences, the viewer streak, and
+ * which waitlists a capacity edit may refill.
  */
+
+const SINGLE_OCCURRENCE_RANGE_MS = 1;
 
 export type TribeEventAttendanceStreakRule = {
   minimumAttended: number;
@@ -92,4 +97,63 @@ export function calculateTribeEventAttendanceStreak(
   }
 
   return { attendedCount, occurrenceCount: recentOccurrences.length };
+}
+
+/**
+ * Earliest occurrence start that can still be in progress at `nowTime`: one
+ * occurrence duration (explicit, or the implicit one without `endsAt`) before
+ * now. Used to bound the candidate read of a waitlist refill.
+ *
+ * @param schedule - Updated schedule of the series.
+ * @param nowTime - Current time (epoch ms).
+ * @returns The lower bound as an ISO 8601 instant.
+ */
+export function getWaitlistRefillLookbackStart(
+  schedule: TribeEventSchedule,
+  nowTime: number
+): string {
+  const durationMs =
+    getTribeEventOccurrenceEndTime(schedule) - Date.parse(schedule.startsAt);
+
+  return new Date(nowTime - durationMs).toISOString();
+}
+
+/**
+ * Waitlisted occurrence starts that a capacity edit may refill: exact slots
+ * of the UPDATED schedule that have not ended at `nowTime` (occurrences in
+ * progress included). Starts of dates removed by a schedule edit are dropped,
+ * so their rows stay as history and are never promoted.
+ *
+ * @param schedule - Updated schedule of the series.
+ * @param candidateStarts - Starts that currently have a waitlist, any order.
+ * @param nowTime - Current time (epoch ms).
+ * @returns Canonical ISO starts that may be refilled, in the input order.
+ */
+export function selectRefillableWaitlistOccurrenceStarts(
+  schedule: TribeEventSchedule,
+  candidateStarts: string[],
+  nowTime: number
+): string[] {
+  return candidateStarts.flatMap((candidateStart) => {
+    const candidateTime = Date.parse(candidateStart);
+
+    if (!Number.isFinite(candidateTime)) {
+      return [];
+    }
+
+    const [occurrence] = expandTribeEventOccurrences(schedule, {
+      rangeEnd: new Date(candidateTime + SINGLE_OCCURRENCE_RANGE_MS).toISOString(),
+      rangeStart: new Date(candidateTime).toISOString(),
+    });
+
+    if (
+      !occurrence ||
+      Date.parse(occurrence.startsAt) !== candidateTime ||
+      getTribeEventOccurrenceEndTime(occurrence) <= nowTime
+    ) {
+      return [];
+    }
+
+    return [occurrence.startsAt];
+  });
 }
