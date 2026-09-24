@@ -18,24 +18,17 @@
 -- promote_tribe_event_waitlist, unchanged), and the promoted_at contract that
 -- later phases hook into are all preserved.
 
--- 1. Owner exception on event_occurrence_exceptions (SELECT only). The
--- SECURITY DEFINER functions below run as the table owner and read the
--- exceptions of any tribe, also from the membership trigger, where no request
--- user may be set (webhooks, maintenance). Under FORCE RLS an owner without
--- BYPASSRLS would see no exception and treat a cancelled date as a normal one.
--- It authorizes only the owner; request roles keep the tribemate policy.
+-- 1. Owner exception on event_occurrence_exceptions. The SECURITY DEFINER
+-- functions below run as the table owner and read the exceptions of any
+-- tribe, also from the membership trigger, where no request user may be set
+-- (webhooks, maintenance). Under FORCE RLS an owner without BYPASSRLS would
+-- see no exception and treat a cancelled date as a normal one. That read is
+-- covered by "Table owner manages event occurrence exceptions" (FOR ALL,
+-- created with the table in 20260924121000), which authorizes only the
+-- owner; request roles keep the tribemate read policy. The narrower
+-- SELECT-only owner policy is dropped so a single owner policy remains.
 DROP POLICY IF EXISTS "Table owner reads event occurrence exceptions"
 ON public.event_occurrence_exceptions;
-CREATE POLICY "Table owner reads event occurrence exceptions"
-ON public.event_occurrence_exceptions
-FOR SELECT
-USING (
-  current_user = (
-    SELECT pg_get_userbyid(pg_class.relowner)
-    FROM pg_class
-    WHERE pg_class.oid = 'public.event_occurrence_exceptions'::regclass
-  )
-);
 
 -- 2. Internal helper: state of one occurrence (identified by its original
 -- start) under its exception. is_cancelled tells whether the date was

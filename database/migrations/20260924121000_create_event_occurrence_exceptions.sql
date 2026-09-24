@@ -69,41 +69,51 @@ USING (
   public.can_read_tribe_content(tribe_id)
 );
 
+-- No direct writes for request roles. A valid exception depends on more than
+-- the row itself: original_starts_at must be a slot the series really
+-- generates, the occurrence must not have ended yet (re-checked with
+-- clock_timestamp()), the schedule the manager saw must still be the current
+-- one, and the event row is locked FOR UPDATE so concurrent attendance
+-- answers see a consistent schedule. RLS cannot express those checks, so the
+-- only writer is the events repository (runtime role, which enforces them in
+-- its statements). Granting INSERT/UPDATE/DELETE to a request role would let
+-- a manager cancel or move an occurrence that already ended and rewrite
+-- attendance history and streaks.
 DROP POLICY IF EXISTS "Event managers can create occurrence exceptions"
 ON public.event_occurrence_exceptions;
-CREATE POLICY "Event managers can create occurrence exceptions"
-ON public.event_occurrence_exceptions
-FOR INSERT
-WITH CHECK (
-  public.can_manage_tribe_events(tribe_id)
-  AND created_by = public.current_app_user_id()
-);
-
 DROP POLICY IF EXISTS "Event managers can update occurrence exceptions"
 ON public.event_occurrence_exceptions;
-CREATE POLICY "Event managers can update occurrence exceptions"
-ON public.event_occurrence_exceptions
-FOR UPDATE
-USING (
-  public.can_manage_tribe_events(tribe_id)
-)
-WITH CHECK (
-  public.can_manage_tribe_events(tribe_id)
-);
-
 DROP POLICY IF EXISTS "Event managers can delete occurrence exceptions"
 ON public.event_occurrence_exceptions;
-CREATE POLICY "Event managers can delete occurrence exceptions"
+
+-- Owner exception: the table is under FORCE RLS, so without it a table owner
+-- without BYPASSRLS (migration or runtime role) could not write at all once
+-- the manager write policies are gone. Request roles never own the table.
+DROP POLICY IF EXISTS "Table owner manages event occurrence exceptions"
+ON public.event_occurrence_exceptions;
+CREATE POLICY "Table owner manages event occurrence exceptions"
 ON public.event_occurrence_exceptions
-FOR DELETE
+FOR ALL
 USING (
-  public.can_manage_tribe_events(tribe_id)
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.event_occurrence_exceptions'::regclass
+  )
+)
+WITH CHECK (
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.event_occurrence_exceptions'::regclass
+  )
 );
 
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-    GRANT SELECT, INSERT, UPDATE, DELETE
-      ON public.event_occurrence_exceptions TO authenticated;
+    REVOKE INSERT, UPDATE, DELETE
+      ON public.event_occurrence_exceptions FROM authenticated;
+    GRANT SELECT ON public.event_occurrence_exceptions TO authenticated;
   END IF;
 END $$;

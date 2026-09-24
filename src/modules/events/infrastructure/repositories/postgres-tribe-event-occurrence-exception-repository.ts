@@ -153,7 +153,9 @@ async function refillOccurrenceWaitlist(
 /**
  * Postgres adapter of the per-occurrence exceptions. Reads repeat
  * `can_read_tribe_content`; writes repeat `can_manage_tribe_events` (the
- * runtime role bypasses RLS, the policies protect every other role).
+ * runtime role bypasses RLS). This adapter is the only writer: request roles
+ * may only read the table, because RLS cannot enforce the slot, end, and
+ * schedule checks these statements run under the event lock.
  */
 export class PostgresTribeEventOccurrenceExceptionRepository
   implements TribeEventOccurrenceExceptionRepository

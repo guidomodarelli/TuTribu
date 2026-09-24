@@ -209,8 +209,9 @@ function resolveReviewFailure(
 /**
  * Postgres adapter of member proposals. Every statement runs in the request
  * transaction (`withRequestContext`) and repeats the authorization in SQL
- * because the runtime role bypasses RLS; the policies of
- * `event_proposals` protect every other role.
+ * because the runtime role bypasses RLS. This adapter is the only writer of
+ * `event_proposals`: request roles may only read it, because RLS cannot
+ * enforce the pending-proposal cap or the event created on approval.
  */
 export class PostgresTribeEventProposalRepository implements TribeEventProposalRepository {
   constructor(private readonly executeWithDatabase: TribeEventDatabaseExecutor) {}
