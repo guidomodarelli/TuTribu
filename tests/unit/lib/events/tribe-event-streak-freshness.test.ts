@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   INITIAL_STREAK_FRESHNESS_STATE,
-  STREAK_READ_RETRY_DELAYS_MS,
   transitionStreakFreshness,
   type StreakFreshnessEvent,
   type StreakMutationOutcome,
   type StreakFreshnessState,
   type StreakFreshnessTransition,
 } from "@/lib/events/tribe-event-streak-freshness";
+import { FRESHNESS_READ_RETRY_DELAYS_MS } from "@/lib/events/tribe-event-read-retry";
 
 const NOW_TIME = Date.parse("2026-05-20T19:05:00.000Z");
 const PASSED_DEADLINE = "2026-05-20T19:00:00.000Z";
@@ -199,19 +199,19 @@ describe("transitionStreakFreshness passed deadlines", () => {
   it("retries a repeated passed deadline with a bounded backoff", () => {
     const transition = run([
       deadlineReturned(PASSED_DEADLINE),
-      ...STREAK_READ_RETRY_DELAYS_MS.map(() => deadlineReturned(PASSED_DEADLINE)),
+      ...FRESHNESS_READ_RETRY_DELAYS_MS.map(() => deadlineReturned(PASSED_DEADLINE)),
       deadlineReturned(PASSED_DEADLINE),
     ]);
 
     expect(transition.commands).toEqual([
       { type: "start-read" },
-      ...STREAK_READ_RETRY_DELAYS_MS.map((delayMs) => ({
+      ...FRESHNESS_READ_RETRY_DELAYS_MS.map((delayMs) => ({
         delayMs,
         type: "schedule-read",
       })),
     ]);
     expect(transition.state.passedDeadline?.retryCount).toBe(
-      STREAK_READ_RETRY_DELAYS_MS.length
+      FRESHNESS_READ_RETRY_DELAYS_MS.length
     );
   });
 
@@ -224,7 +224,7 @@ describe("transitionStreakFreshness passed deadlines", () => {
 
     expect(transition.commands).toEqual([
       { type: "start-read" },
-      { delayMs: STREAK_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
+      { delayMs: FRESHNESS_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
       { type: "cancel-scheduled-read" },
       { type: "start-read" },
     ]);
@@ -274,12 +274,12 @@ describe("transitionStreakFreshness passed deadlines", () => {
 
 describe("transitionStreakFreshness failed reads", () => {
   it("retries a read that keeps failing with a bounded backoff and then stops", () => {
-    const failedReads = STREAK_READ_RETRY_DELAYS_MS.flatMap(() => [READ_FAILED, READ_REQUESTED]);
+    const failedReads = FRESHNESS_READ_RETRY_DELAYS_MS.flatMap(() => [READ_FAILED, READ_REQUESTED]);
     const transition = run([READ_REQUESTED, ...failedReads, READ_FAILED]);
 
     expect(transition.commands).toEqual([
       { type: "start-read" },
-      ...STREAK_READ_RETRY_DELAYS_MS.flatMap((delayMs) => [
+      ...FRESHNESS_READ_RETRY_DELAYS_MS.flatMap((delayMs) => [
         { delayMs, type: "schedule-read" },
         { type: "start-read" },
       ]),
@@ -293,7 +293,7 @@ describe("transitionStreakFreshness failed reads", () => {
 
     expect(transition.commands).toEqual([
       { type: "start-read" },
-      { delayMs: STREAK_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
+      { delayMs: FRESHNESS_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
       { type: "start-read" },
       { type: "cancel-scheduled-read" },
     ]);
@@ -311,7 +311,7 @@ describe("transitionStreakFreshness failed reads", () => {
     ]);
 
     expect(transition.commands.at(-1)).toEqual({
-      delayMs: STREAK_READ_RETRY_DELAYS_MS[0],
+      delayMs: FRESHNESS_READ_RETRY_DELAYS_MS[0],
       type: "schedule-read",
     });
   });
@@ -334,7 +334,7 @@ describe("transitionStreakFreshness failed reads", () => {
 
     expect(transition.commands).toEqual([
       { type: "start-read" },
-      { delayMs: STREAK_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
+      { delayMs: FRESHNESS_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
       { type: "start-read" },
     ]);
   });
@@ -342,12 +342,12 @@ describe("transitionStreakFreshness failed reads", () => {
 
 describe("transitionStreakFreshness partial reads", () => {
   it("retries a read that keeps omitting the next refresh instant with a bounded backoff", () => {
-    const partialReads = STREAK_READ_RETRY_DELAYS_MS.flatMap(() => [READ_PARTIAL, READ_REQUESTED]);
+    const partialReads = FRESHNESS_READ_RETRY_DELAYS_MS.flatMap(() => [READ_PARTIAL, READ_REQUESTED]);
     const transition = run([READ_REQUESTED, ...partialReads, READ_PARTIAL]);
 
     expect(transition.commands).toEqual([
       { type: "start-read" },
-      ...STREAK_READ_RETRY_DELAYS_MS.flatMap((delayMs) => [
+      ...FRESHNESS_READ_RETRY_DELAYS_MS.flatMap((delayMs) => [
         { delayMs, type: "schedule-read" },
         { type: "start-read" },
       ]),
@@ -360,7 +360,7 @@ describe("transitionStreakFreshness partial reads", () => {
 
     expect(transition.commands).toEqual([
       { type: "start-read" },
-      { delayMs: STREAK_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
+      { delayMs: FRESHNESS_READ_RETRY_DELAYS_MS[0], type: "schedule-read" },
       { type: "start-read" },
       { type: "cancel-scheduled-read" },
     ]);

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
-import { STREAK_READ_RETRY_DELAYS_MS } from "@/lib/events/tribe-event-streak-freshness";
+import { FRESHNESS_READ_RETRY_DELAYS_MS } from "@/lib/events/tribe-event-read-retry";
 import { buildTribeEventAttendanceApiEndpoint } from "@/lib/events/tribe-events-routes";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 
@@ -527,7 +527,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
 
     // The server clock lags behind: every read repeats the same passed
     // deadline, so each retry waits for the next delay of the backoff.
-    for (const [retryIndex, delayMs] of STREAK_READ_RETRY_DELAYS_MS.entries()) {
+    for (const [retryIndex, delayMs] of FRESHNESS_READ_RETRY_DELAYS_MS.entries()) {
       await heldStreakReads[retryIndex + 1].resolve({
         attendanceStreak: lateStreak,
         attendanceStreakNextRefreshAt: PASSED_DEADLINE,
@@ -542,18 +542,18 @@ describe("useTribeEventMutations streak refresh serialization", () => {
       expect(getStreakRequests()).toHaveLength(retryIndex + 3);
     }
 
-    await heldStreakReads[STREAK_READ_RETRY_DELAYS_MS.length + 1].resolve({
+    await heldStreakReads[FRESHNESS_READ_RETRY_DELAYS_MS.length + 1].resolve({
       attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
       attendanceStreakNextRefreshAt: PASSED_DEADLINE,
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+      await vi.advanceTimersByTimeAsync(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
     });
 
     // The retries are bounded: no loop once they run out.
     expect(result.current.attendanceStreak).toEqual({ attendedCount: 5, occurrenceCount: 5 });
     expect(result.current.attendanceStreakNextRefreshAt).toBe(PASSED_DEADLINE);
-    expect(getStreakRequests()).toHaveLength(STREAK_READ_RETRY_DELAYS_MS.length + 2);
+    expect(getStreakRequests()).toHaveLength(FRESHNESS_READ_RETRY_DELAYS_MS.length + 2);
   });
 
   it("stops retrying a passed deadline once a read returns one still ahead", async () => {
@@ -574,14 +574,14 @@ describe("useTribeEventMutations streak refresh serialization", () => {
       attendanceStreakNextRefreshAt: PASSED_DEADLINE,
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(STREAK_READ_RETRY_DELAYS_MS[0]);
+      await vi.advanceTimersByTimeAsync(FRESHNESS_READ_RETRY_DELAYS_MS[0]);
     });
     await heldStreakReads[2].resolve({
       attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
       attendanceStreakNextRefreshAt: UPCOMING_DEADLINE,
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+      await vi.advanceTimersByTimeAsync(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
     });
 
     expect(result.current.attendanceStreakNextRefreshAt).toBe(UPCOMING_DEADLINE);
@@ -612,7 +612,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
       result.current.refreshAttendanceStreak();
     });
 
-    for (const [retryIndex, delayMs] of STREAK_READ_RETRY_DELAYS_MS.entries()) {
+    for (const [retryIndex, delayMs] of FRESHNESS_READ_RETRY_DELAYS_MS.entries()) {
       await heldStreakReads[retryIndex].resolve({ message: "No pudimos leer tu racha." }, false);
       await advanceTime(delayMs - 1);
       expect(getStreakRequests()).toHaveLength(retryIndex + 1);
@@ -620,11 +620,11 @@ describe("useTribeEventMutations streak refresh serialization", () => {
       expect(getStreakRequests()).toHaveLength(retryIndex + 2);
     }
 
-    await heldStreakReads[STREAK_READ_RETRY_DELAYS_MS.length].resolve({}, false);
-    await advanceTime(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+    await heldStreakReads[FRESHNESS_READ_RETRY_DELAYS_MS.length].resolve({}, false);
+    await advanceTime(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
 
     // The retries are bounded, the streak on screen stays, and no toast shows.
-    expect(getStreakRequests()).toHaveLength(STREAK_READ_RETRY_DELAYS_MS.length + 1);
+    expect(getStreakRequests()).toHaveLength(FRESHNESS_READ_RETRY_DELAYS_MS.length + 1);
     expect(result.current.attendanceStreak).toEqual(serverStreak);
     expect(toast.error).not.toHaveBeenCalled();
   });
@@ -644,7 +644,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     expect(result.current.attendanceStreak).toEqual({ attendedCount: 5, occurrenceCount: 5 });
     expect(result.current.attendanceStreakNextRefreshAt).toBeNull();
 
-    await advanceTime(STREAK_READ_RETRY_DELAYS_MS[0] - 1);
+    await advanceTime(FRESHNESS_READ_RETRY_DELAYS_MS[0] - 1);
     expect(getStreakRequests()).toHaveLength(1);
     await advanceTime(1);
     expect(getStreakRequests()).toHaveLength(2);
@@ -653,7 +653,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
       attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
       attendanceStreakNextRefreshAt: UPCOMING_DEADLINE,
     });
-    await advanceTime(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+    await advanceTime(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
 
     expect(result.current.attendanceStreakNextRefreshAt).toBe(UPCOMING_DEADLINE);
     expect(getStreakRequests()).toHaveLength(2);
@@ -667,17 +667,17 @@ describe("useTribeEventMutations streak refresh serialization", () => {
       result.current.refreshAttendanceStreak();
     });
 
-    for (const [retryIndex, delayMs] of STREAK_READ_RETRY_DELAYS_MS.entries()) {
+    for (const [retryIndex, delayMs] of FRESHNESS_READ_RETRY_DELAYS_MS.entries()) {
       await heldStreakReads[retryIndex].resolve({ attendanceStreak: serverStreak });
       await advanceTime(delayMs);
     }
 
-    await heldStreakReads[STREAK_READ_RETRY_DELAYS_MS.length].resolve({
+    await heldStreakReads[FRESHNESS_READ_RETRY_DELAYS_MS.length].resolve({
       attendanceStreak: serverStreak,
     });
-    await advanceTime(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+    await advanceTime(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
 
-    expect(getStreakRequests()).toHaveLength(STREAK_READ_RETRY_DELAYS_MS.length + 1);
+    expect(getStreakRequests()).toHaveLength(FRESHNESS_READ_RETRY_DELAYS_MS.length + 1);
   });
 
   it("retries a read that returns an unusable body until one is usable", async () => {
@@ -688,7 +688,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
       result.current.refreshAttendanceStreak();
     });
     await heldStreakReads[0].resolve({ attendanceStreak: { attendedCount: -1, occurrenceCount: 5 } });
-    await advanceTime(STREAK_READ_RETRY_DELAYS_MS[0]);
+    await advanceTime(FRESHNESS_READ_RETRY_DELAYS_MS[0]);
 
     expect(getStreakRequests()).toHaveLength(2);
 
@@ -696,7 +696,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
       attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
       attendanceStreakNextRefreshAt: UPCOMING_DEADLINE,
     });
-    await advanceTime(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+    await advanceTime(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
 
     expect(result.current.attendanceStreak).toEqual({ attendedCount: 5, occurrenceCount: 5 });
     expect(getStreakRequests()).toHaveLength(2);
@@ -725,7 +725,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     await act(async () => {
       await savePromise;
     });
-    await advanceTime(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+    await advanceTime(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
 
     expect(result.current.attendanceStreak).toEqual({ attendedCount: 3, occurrenceCount: 5 });
     expect(getStreakRequests()).toHaveLength(1);
@@ -750,7 +750,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     await act(async () => {
       await savePromise;
     });
-    await advanceTime(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+    await advanceTime(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
 
     // Neither the failed mutation nor the retry scheduled before the unmount
     // reads the streak again.
@@ -778,7 +778,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     await act(async () => {
       await savePromise;
     });
-    await advanceTime(Math.max(...STREAK_READ_RETRY_DELAYS_MS) * 2);
+    await advanceTime(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
 
     expect(getStreakRequests()).toHaveLength(0);
     expect(result.current.attendanceStreak).toEqual(serverStreak);
@@ -978,6 +978,7 @@ describe("useTribeEventMutations overlapping mutations and new server renders", 
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -1082,6 +1083,101 @@ describe("useTribeEventMutations overlapping mutations and new server renders", 
     expect(result.current.visibleEvents).toEqual([
       { ...renamedOccurrence, attendance: goingAttendance },
     ]);
+  });
+
+  /**
+   * Overlaps an edit and an attendance answer, settles both, and waits for
+   * the reconciliation read of the visible month they require.
+   */
+  async function overlapEditAndAttendance() {
+    const rendered = renderMutations({
+      events: [editedOccurrence],
+      streak: serverStreak,
+      version: FIRST_RENDER_VERSION,
+    });
+    let savePromise: Promise<boolean> = Promise.resolve(false);
+    let attendancePromise: Promise<boolean> = Promise.resolve(false);
+
+    act(() => {
+      savePromise = rendered.result.current.saveEvent(savePayload, editedOccurrence);
+    });
+    act(() => {
+      attendancePromise = rendered.result.current.setAttendance(editedOccurrence, "going");
+    });
+    await resolveEdit(savePromise);
+    await heldAttendance.resolve({ attendance: goingAttendance, message: "Respuesta guardada." });
+    await act(async () => {
+      await attendancePromise;
+    });
+    await waitFor(() => expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(1));
+
+    return rendered;
+  }
+
+  /**
+   * Fakes the timers once the reconciliation read started, so the tests can
+   * drive its bounded retries.
+   */
+  function useFakeRetryTimers() {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  }
+
+  async function advanceTime(delayMs: number) {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(delayMs);
+    });
+  }
+
+  it("retries a failed month read with the bounded backoff and trusts the first usable one", async () => {
+    const { result } = await overlapEditAndAttendance();
+    const committedOccurrence = { ...renamedOccurrence, attendance: goingAttendance, capacity: 15 };
+
+    useFakeRetryTimers();
+    await heldMonthReads[0].resolve({ message: "No pudimos cargar los eventos." }, false);
+    await advanceTime(FRESHNESS_READ_RETRY_DELAYS_MS[0] - 1);
+    expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(1);
+    await advanceTime(1);
+    expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(2);
+
+    await heldMonthReads[1].resolve({ events: [committedOccurrence] });
+    await advanceTime(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
+
+    expect(result.current.visibleEvents).toEqual([committedOccurrence]);
+    expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(2);
+  });
+
+  it("stops retrying a month read that keeps failing and keeps the responses on screen", async () => {
+    const { toast } = vi.mocked(await import("beez-ui"), true);
+    const { result } = await overlapEditAndAttendance();
+
+    useFakeRetryTimers();
+
+    for (const [retryIndex, delayMs] of FRESHNESS_READ_RETRY_DELAYS_MS.entries()) {
+      // An unusable body counts as a failed read, the same as an error status.
+      await heldMonthReads[retryIndex].resolve({ unexpected: true });
+      await advanceTime(delayMs);
+      expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(retryIndex + 2);
+    }
+
+    await heldMonthReads[FRESHNESS_READ_RETRY_DELAYS_MS.length].resolve({}, false);
+    await advanceTime(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
+
+    expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(FRESHNESS_READ_RETRY_DELAYS_MS.length + 1);
+    expect(result.current.visibleEvents).toEqual([
+      { ...renamedOccurrence, attendance: goingAttendance },
+    ]);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("cancels the scheduled month read retry when the calendar unmounts", async () => {
+    const { unmount } = await overlapEditAndAttendance();
+
+    useFakeRetryTimers();
+    await heldMonthReads[0].resolve({ message: "No pudimos cargar los eventos." }, false);
+    unmount();
+    await advanceTime(Math.max(...FRESHNESS_READ_RETRY_DELAYS_MS) * 2);
+
+    expect(getRequests(EVENTS_LIST_ENDPOINT)).toHaveLength(1);
   });
 
   it("does not read the month after a lone attendance answer", async () => {

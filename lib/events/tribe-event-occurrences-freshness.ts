@@ -1,8 +1,11 @@
+import { planFreshnessReadRetry } from "@/lib/events/tribe-event-read-retry";
+
 /**
  * Pure state machine that decides when the calendar reads the occurrences of
  * the visible month again. `useTribeEventMutations` feeds it every creation,
  * edit, deletion, attendance answer, month read, and new server render, and
- * executes the commands it emits (start or abort the read).
+ * executes the commands it emits (start or abort the read, schedule or cancel
+ * a delayed retry).
  *
  * Each mutation still applies its own minimal response right away. Those
  * responses carry attendance summaries read inside their own transaction, so
@@ -22,10 +25,20 @@
  *   its commit, and the pending response is applied on top of the previous
  *   render (so the new one discards it): the read becomes required. A render
  *   that arrives while a read is in flight restarts it against the new render.
- * - A failed read keeps the occurrences on screen; it is not retried, because
- *   every occurrence already shows the response of its own last mutation.
- * - Once disposed (the calendar unmounted) it aborts the read in flight and
- *   ignores every later event.
+ * - A read that settles without usable data (an error status, an unusable
+ *   body, or a network failure) keeps the occurrences on screen, which may
+ *   still show an overlapped response that is out of date, so it retries with
+ *   the bounded `FRESHNESS_READ_RETRY_DELAYS_MS` backoff (the same one the
+ *   streak uses) and then stops. A successful read resets it and any read that
+ *   starts earlier (another overlap) cancels the scheduled retry. An aborted
+ *   read is never reported, so it never counts as a failure: the mutation
+ *   that aborted it makes the read required again.
+ * - A retry that comes due while a mutation is pending waits for every
+ *   pending mutation to settle, so it never overlaps an uncommitted one.
+ * - A new server render replaces the local occurrences, so it forgets the
+ *   failed read retries of the previous render and cancels the scheduled one.
+ * - Once disposed (the calendar unmounted) it aborts the read in flight,
+ *   cancels the scheduled retry, and ignores every later event.
  */
 
 /** Inputs of the state machine. */
@@ -33,6 +46,7 @@ export const OCCURRENCES_FRESHNESS_EVENT = {
   disposed: "disposed",
   mutationSettled: "mutation-settled",
   mutationStarted: "mutation-started",
+  readRetryDue: "read-retry-due",
   readSettled: "read-settled",
   sourceChanged: "source-changed",
 } as const;
@@ -40,11 +54,33 @@ export const OCCURRENCES_FRESHNESS_EVENT = {
 /** Side effects the hook executes. */
 export const OCCURRENCES_FRESHNESS_COMMAND = {
   abortRead: "abort-read",
+  cancelScheduledRead: "cancel-scheduled-read",
+  scheduleRead: "schedule-read",
   startRead: "start-read",
 } as const;
 
+/**
+ * How a read that was not aborted settled: `succeeded` when it returned usable
+ * occurrences, `failed` when it returned an error status, an unusable body, or
+ * never got an answer.
+ */
+export const OCCURRENCES_READ_OUTCOME = {
+  failed: "failed",
+  succeeded: "succeeded",
+} as const;
+
+/** How a read that was not aborted settled. */
+export type OccurrencesReadOutcome =
+  (typeof OCCURRENCES_READ_OUTCOME)[keyof typeof OCCURRENCES_READ_OUTCOME];
+
 /** Freshness state of the occurrences on screen. */
 export type OccurrencesFreshnessState = {
+  /**
+   * Retries already scheduled for reads that settled without usable data in
+   * a row. It resets on a successful read, a new server render, and once the
+   * retries run out.
+   */
+  failedReadRetryCount: number;
   /** True once the calendar unmounted: every later event is ignored. */
   isDisposed: boolean;
   /**
@@ -55,18 +91,26 @@ export type OccurrencesFreshnessState = {
   isReadInFlight: boolean;
   /** True when a read must run once every pending mutation settles. */
   isReadRequired: boolean;
+  /** True while the hook holds a delayed retry of a failed read. */
+  isReadRetryScheduled: boolean;
   pendingMutationCount: number;
 };
 
 /** Input of the state machine. */
-export type OccurrencesFreshnessEvent = {
-  type: (typeof OCCURRENCES_FRESHNESS_EVENT)[keyof typeof OCCURRENCES_FRESHNESS_EVENT];
-};
+export type OccurrencesFreshnessEvent =
+  | { type: typeof OCCURRENCES_FRESHNESS_EVENT.disposed }
+  | { type: typeof OCCURRENCES_FRESHNESS_EVENT.mutationSettled }
+  | { type: typeof OCCURRENCES_FRESHNESS_EVENT.mutationStarted }
+  | { type: typeof OCCURRENCES_FRESHNESS_EVENT.readRetryDue }
+  | { outcome: OccurrencesReadOutcome; type: typeof OCCURRENCES_FRESHNESS_EVENT.readSettled }
+  | { type: typeof OCCURRENCES_FRESHNESS_EVENT.sourceChanged };
 
 /** Side effect the hook executes, in emission order. */
-export type OccurrencesFreshnessCommand = {
-  type: (typeof OCCURRENCES_FRESHNESS_COMMAND)[keyof typeof OCCURRENCES_FRESHNESS_COMMAND];
-};
+export type OccurrencesFreshnessCommand =
+  | { type: typeof OCCURRENCES_FRESHNESS_COMMAND.abortRead }
+  | { type: typeof OCCURRENCES_FRESHNESS_COMMAND.cancelScheduledRead }
+  | { delayMs: number; type: typeof OCCURRENCES_FRESHNESS_COMMAND.scheduleRead }
+  | { type: typeof OCCURRENCES_FRESHNESS_COMMAND.startRead };
 
 /** Next state plus the commands a transition emitted. */
 export type OccurrencesFreshnessTransition = {
@@ -75,16 +119,29 @@ export type OccurrencesFreshnessTransition = {
 };
 
 export const INITIAL_OCCURRENCES_FRESHNESS_STATE: OccurrencesFreshnessState = {
+  failedReadRetryCount: 0,
   isDisposed: false,
   isMutationBatchOverlapped: false,
   isReadInFlight: false,
   isReadRequired: false,
+  isReadRetryScheduled: false,
   pendingMutationCount: 0,
 };
 
-const START_READ: OccurrencesFreshnessTransition["commands"] = [
-  { type: OCCURRENCES_FRESHNESS_COMMAND.startRead },
-];
+/**
+ * Starts the read of the visible month, cancelling the scheduled retry first
+ * because this read supersedes it.
+ */
+function startRead(state: OccurrencesFreshnessState): OccurrencesFreshnessTransition {
+  const commands: OccurrencesFreshnessCommand[] = state.isReadRetryScheduled
+    ? [{ type: OCCURRENCES_FRESHNESS_COMMAND.cancelScheduledRead }]
+    : [];
+
+  return {
+    commands: [...commands, { type: OCCURRENCES_FRESHNESS_COMMAND.startRead }],
+    state: { ...state, isReadInFlight: true, isReadRetryScheduled: false },
+  };
+}
 
 function startMutation(state: OccurrencesFreshnessState): OccurrencesFreshnessTransition {
   const nextState: OccurrencesFreshnessState = {
@@ -119,34 +176,97 @@ function settleMutation(state: OccurrencesFreshnessState): OccurrencesFreshnessT
     pendingMutationCount,
   };
 
-  return isReadRequired
-    ? { commands: START_READ, state: { ...settledState, isReadInFlight: true } }
-    : { commands: [], state: settledState };
+  return isReadRequired ? startRead(settledState) : { commands: [], state: settledState };
 }
 
 /**
- * Handles a new server render: with a mutation pending the read becomes
- * required; with a read in flight (it belongs to the previous render) it
- * restarts against the new one.
+ * Settles the read in flight. A successful one resets the failed read
+ * retries; a failed one schedules the next delay of the bounded backoff, or
+ * stops (and resets the count) once the retries run out.
+ */
+function settleRead(
+  state: OccurrencesFreshnessState,
+  outcome: OccurrencesReadOutcome
+): OccurrencesFreshnessTransition {
+  const settledState: OccurrencesFreshnessState = { ...state, isReadInFlight: false };
+
+  if (outcome === OCCURRENCES_READ_OUTCOME.succeeded) {
+    return { commands: [], state: { ...settledState, failedReadRetryCount: 0 } };
+  }
+
+  const retry = planFreshnessReadRetry(state.failedReadRetryCount);
+
+  if (retry === null) {
+    return { commands: [], state: { ...settledState, failedReadRetryCount: 0 } };
+  }
+
+  return {
+    commands: [{ delayMs: retry.delayMs, type: OCCURRENCES_FRESHNESS_COMMAND.scheduleRead }],
+    state: {
+      ...settledState,
+      failedReadRetryCount: retry.retryCount,
+      isReadRetryScheduled: true,
+    },
+  };
+}
+
+/**
+ * Runs the retry the hook held: it starts now when no mutation is pending,
+ * and otherwise becomes a required read that runs once every mutation
+ * settles. A retry that is no longer scheduled (superseded, or cancelled by a
+ * new server render) is ignored.
+ */
+function runDueRetry(state: OccurrencesFreshnessState): OccurrencesFreshnessTransition {
+  if (!state.isReadRetryScheduled) {
+    return { commands: [], state };
+  }
+
+  const dueState: OccurrencesFreshnessState = { ...state, isReadRetryScheduled: false };
+
+  if (state.pendingMutationCount > 0) {
+    return { commands: [], state: { ...dueState, isReadRequired: true } };
+  }
+
+  return startRead(dueState);
+}
+
+/**
+ * Handles a new server render: it forgets the failed read retries of the
+ * previous render (cancelling the scheduled one); with a mutation pending the
+ * read becomes required; with a read in flight (it belongs to the previous
+ * render) it restarts against the new one.
  */
 function changeSource(state: OccurrencesFreshnessState): OccurrencesFreshnessTransition {
+  const commands: OccurrencesFreshnessCommand[] = state.isReadRetryScheduled
+    ? [{ type: OCCURRENCES_FRESHNESS_COMMAND.cancelScheduledRead }]
+    : [];
+  const sourceState: OccurrencesFreshnessState = {
+    ...state,
+    failedReadRetryCount: 0,
+    isReadRetryScheduled: false,
+  };
+
   if (state.pendingMutationCount > 0) {
-    return { commands: [], state: { ...state, isReadRequired: true } };
+    return { commands, state: { ...sourceState, isReadRequired: true } };
   }
 
   return state.isReadInFlight
     ? {
-        commands: [{ type: OCCURRENCES_FRESHNESS_COMMAND.abortRead }, ...START_READ],
-        state,
+        commands: [
+          ...commands,
+          { type: OCCURRENCES_FRESHNESS_COMMAND.abortRead },
+          { type: OCCURRENCES_FRESHNESS_COMMAND.startRead },
+        ],
+        state: sourceState,
       }
-    : { commands: [], state };
+    : { commands, state: sourceState };
 }
 
 /**
  * Computes the next freshness state of the occurrences and the commands to run.
  *
  * @param state - Current state.
- * @param event - Mutation, read, new server render, or unmount.
+ * @param event - Mutation, read, due retry, new server render, or unmount.
  * @returns The next state and the ordered commands for the hook; no command
  * once the state machine was disposed.
  */
@@ -164,13 +284,25 @@ export function transitionOccurrencesFreshness(
     case OCCURRENCES_FRESHNESS_EVENT.mutationSettled:
       return settleMutation(state);
     case OCCURRENCES_FRESHNESS_EVENT.readSettled:
-      return { commands: [], state: { ...state, isReadInFlight: false } };
+      return settleRead(state, event.outcome);
+    case OCCURRENCES_FRESHNESS_EVENT.readRetryDue:
+      return runDueRetry(state);
     case OCCURRENCES_FRESHNESS_EVENT.sourceChanged:
       return changeSource(state);
     case OCCURRENCES_FRESHNESS_EVENT.disposed:
       return {
-        commands: [{ type: OCCURRENCES_FRESHNESS_COMMAND.abortRead }],
-        state: { ...state, isDisposed: true, isReadInFlight: false, isReadRequired: false },
+        commands: [
+          { type: OCCURRENCES_FRESHNESS_COMMAND.abortRead },
+          { type: OCCURRENCES_FRESHNESS_COMMAND.cancelScheduledRead },
+        ],
+        state: {
+          ...state,
+          failedReadRetryCount: 0,
+          isDisposed: true,
+          isReadInFlight: false,
+          isReadRequired: false,
+          isReadRetryScheduled: false,
+        },
       };
   }
 }

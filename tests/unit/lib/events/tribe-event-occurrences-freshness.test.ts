@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   INITIAL_OCCURRENCES_FRESHNESS_STATE,
+  OCCURRENCES_READ_OUTCOME,
   transitionOccurrencesFreshness,
   type OccurrencesFreshnessEvent,
   type OccurrencesFreshnessState,
   type OccurrencesFreshnessTransition,
 } from "@/lib/events/tribe-event-occurrences-freshness";
+import { FRESHNESS_READ_RETRY_DELAYS_MS } from "@/lib/events/tribe-event-read-retry";
 
 /**
  * Applies a sequence of events and collects every command they emitted.
@@ -27,7 +29,21 @@ function run(
 
 const MUTATION_STARTED: OccurrencesFreshnessEvent = { type: "mutation-started" };
 const MUTATION_SETTLED: OccurrencesFreshnessEvent = { type: "mutation-settled" };
-const READ_SETTLED: OccurrencesFreshnessEvent = { type: "read-settled" };
+const READ_SETTLED: OccurrencesFreshnessEvent = {
+  outcome: OCCURRENCES_READ_OUTCOME.succeeded,
+  type: "read-settled",
+};
+const READ_FAILED: OccurrencesFreshnessEvent = {
+  outcome: OCCURRENCES_READ_OUTCOME.failed,
+  type: "read-settled",
+};
+const READ_RETRY_DUE: OccurrencesFreshnessEvent = { type: "read-retry-due" };
+const OVERLAPPED_BATCH: OccurrencesFreshnessEvent[] = [
+  MUTATION_STARTED,
+  MUTATION_STARTED,
+  MUTATION_SETTLED,
+  MUTATION_SETTLED,
+];
 const SOURCE_CHANGED: OccurrencesFreshnessEvent = { type: "source-changed" };
 const DISPOSED: OccurrencesFreshnessEvent = { type: "disposed" };
 
@@ -122,6 +138,76 @@ describe("transitionOccurrencesFreshness", () => {
       MUTATION_SETTLED,
     ]);
 
-    expect(transition.commands).toEqual([{ type: "start-read" }, { type: "abort-read" }]);
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      { type: "abort-read" },
+      { type: "cancel-scheduled-read" },
+    ]);
+  });
+
+  it("retries a failed reconciliation read with the bounded backoff and then stops", () => {
+    const retryEvents = FRESHNESS_READ_RETRY_DELAYS_MS.flatMap(() => [READ_FAILED, READ_RETRY_DUE]);
+    const transition = run([...OVERLAPPED_BATCH, ...retryEvents, READ_FAILED]);
+
+    expect(transition.commands).toEqual([
+      { type: "start-read" },
+      ...FRESHNESS_READ_RETRY_DELAYS_MS.flatMap((delayMs) => [
+        { delayMs, type: "schedule-read" },
+        { type: "start-read" },
+      ]),
+    ]);
+    expect(transition.state.failedReadRetryCount).toBe(0);
+    expect(transition.state.isReadRetryScheduled).toBe(false);
+  });
+
+  it("stops retrying once a reconciliation read succeeds", () => {
+    const transition = run([...OVERLAPPED_BATCH, READ_FAILED, READ_RETRY_DUE, READ_SETTLED]);
+
+    expect(transition.state.failedReadRetryCount).toBe(0);
+    expect(run([READ_RETRY_DUE], transition.state).commands).toEqual([]);
+  });
+
+  it("does not retry a read a mutation aborted", () => {
+    const transition = run([...OVERLAPPED_BATCH, MUTATION_STARTED]);
+
+    expect(transition.commands.at(-1)).toEqual({ type: "abort-read" });
+    expect(transition.state.isReadRetryScheduled).toBe(false);
+  });
+
+  it("waits for pending mutations when a retry comes due", () => {
+    const transition = run([...OVERLAPPED_BATCH, READ_FAILED, MUTATION_STARTED, READ_RETRY_DUE]);
+
+    expect(transition.commands.at(-1)).toEqual({ delayMs: FRESHNESS_READ_RETRY_DELAYS_MS[0], type: "schedule-read" });
+
+    const settled = run([MUTATION_SETTLED], transition.state);
+
+    expect(settled.commands).toEqual([{ type: "start-read" }]);
+  });
+
+  it("cancels the scheduled retry when a read starts earlier", () => {
+    const transition = run([...OVERLAPPED_BATCH, READ_FAILED, ...OVERLAPPED_BATCH]);
+
+    expect(transition.commands.slice(-2)).toEqual([
+      { type: "cancel-scheduled-read" },
+      { type: "start-read" },
+    ]);
+    expect(transition.state.isReadRetryScheduled).toBe(false);
+  });
+
+  it("cancels the scheduled retry on a new server render", () => {
+    const transition = run([...OVERLAPPED_BATCH, READ_FAILED, SOURCE_CHANGED]);
+
+    expect(transition.commands.at(-1)).toEqual({ type: "cancel-scheduled-read" });
+    expect(transition.state.failedReadRetryCount).toBe(0);
+    expect(run([READ_RETRY_DUE], transition.state).commands).toEqual([]);
+  });
+
+  it("cancels the scheduled retry when disposed", () => {
+    const transition = run([...OVERLAPPED_BATCH, READ_FAILED, DISPOSED, READ_RETRY_DUE]);
+
+    expect(transition.commands.slice(-2)).toEqual([
+      { type: "abort-read" },
+      { type: "cancel-scheduled-read" },
+    ]);
   });
 });

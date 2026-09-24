@@ -1,4 +1,5 @@
 import { readAttendanceStreakNextRefreshTime } from "@/lib/events/tribe-event-attendance-streak-dto";
+import { planFreshnessReadRetry } from "@/lib/events/tribe-event-read-retry";
 
 /**
  * Pure state machine that decides when the calendar reads the viewer streak
@@ -20,7 +21,7 @@ import { readAttendanceStreakNextRefreshTime } from "@/lib/events/tribe-event-at
  * - A lone mutation that interrupted a read in flight covers it when its
  *   response is applied, because it committed after the read started.
  * - A returned next refresh instant that already passed reads right away the
- *   first time, then retries with the bounded `STREAK_READ_RETRY_DELAYS_MS`
+ *   first time, then retries with the bounded `FRESHNESS_READ_RETRY_DELAYS_MS`
  *   backoff while the server keeps returning it (its clock may lag behind the
  *   browser), and finally stops, so it never loops.
  * - A read that settles without usable data (an error status, an unusable
@@ -40,21 +41,6 @@ import { readAttendanceStreakNextRefreshTime } from "@/lib/events/tribe-event-at
  *   cancels the scheduled one, and ignores every later event, so a mutation
  *   that settles after the unmount never starts or schedules a read.
  */
-
-/**
- * Delays, in order, of the retries of a passed next refresh instant that the
- * server keeps returning and of a read that settled without usable data.
- * Their length bounds each chain of retries.
- */
-const FIRST_READ_RETRY_DELAY_MS = 5_000;
-const SECOND_READ_RETRY_DELAY_MS = 15_000;
-const THIRD_READ_RETRY_DELAY_MS = 45_000;
-
-export const STREAK_READ_RETRY_DELAYS_MS = [
-  FIRST_READ_RETRY_DELAY_MS,
-  SECOND_READ_RETRY_DELAY_MS,
-  THIRD_READ_RETRY_DELAY_MS,
-] as const;
 
 /** Read that must run once every pending mutation settles. */
 export const STREAK_PENDING_READ = {
@@ -279,17 +265,17 @@ function handleReturnedDeadline(
   }
 
   if (trackedDeadline?.nextRefreshAt === nextRefreshAt) {
-    const delayMs = STREAK_READ_RETRY_DELAYS_MS[trackedDeadline.retryCount];
+    const retry = planFreshnessReadRetry(trackedDeadline.retryCount);
 
-    if (delayMs === undefined) {
+    if (retry === null) {
       return { commands: [], state };
     }
 
     return {
-      commands: [{ delayMs, type: STREAK_FRESHNESS_COMMAND.scheduleRead }],
+      commands: [{ delayMs: retry.delayMs, type: STREAK_FRESHNESS_COMMAND.scheduleRead }],
       state: {
         ...state,
-        passedDeadline: { nextRefreshAt, retryCount: trackedDeadline.retryCount + 1 },
+        passedDeadline: { nextRefreshAt, retryCount: retry.retryCount },
       },
     };
   }
@@ -321,15 +307,15 @@ function settleRead(
         };
   }
 
-  const delayMs = STREAK_READ_RETRY_DELAYS_MS[state.failedReadRetryCount];
+  const retry = planFreshnessReadRetry(state.failedReadRetryCount);
 
-  if (delayMs === undefined) {
+  if (retry === null) {
     return { commands: [], state: { ...settledState, failedReadRetryCount: 0 } };
   }
 
   return {
-    commands: [{ delayMs, type: STREAK_FRESHNESS_COMMAND.scheduleRead }],
-    state: { ...settledState, failedReadRetryCount: state.failedReadRetryCount + 1 },
+    commands: [{ delayMs: retry.delayMs, type: STREAK_FRESHNESS_COMMAND.scheduleRead }],
+    state: { ...settledState, failedReadRetryCount: retry.retryCount },
   };
 }
 
