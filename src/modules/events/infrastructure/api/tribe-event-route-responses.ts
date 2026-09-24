@@ -38,6 +38,7 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
     "Elegí una repetición válida y una fecha de fin posterior al inicio.",
   memberForbiddenMessage: "Solo los miembros activos pueden responder a un evento.",
   occurrenceEndedMessage: "Este evento ya terminó; no se pueden cambiar las respuestas.",
+  scheduleChangedMessage: "El evento cambió; recargá para ver las fechas actualizadas.",
   tribeNotFoundMessage: "No pudimos encontrar la tribu.",
   unauthorizedMessage: "Iniciá sesión para gestionar eventos.",
   unexpectedAttendanceMessage: "No pudimos guardar tu respuesta. Intentá de nuevo.",
@@ -259,6 +260,11 @@ export function mapTribeEventAttendanceStatusResponse(status: string): Response 
     case TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.occurrenceEndedMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.scheduleChanged:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.scheduleChangedMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
     case TRIBE_EVENT_MUTATION_STATUS.notFound:

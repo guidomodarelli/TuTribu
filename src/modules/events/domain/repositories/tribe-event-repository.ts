@@ -6,6 +6,7 @@ import type {
   TribeEventAttendeePreview,
   TribeEventDateRange,
   TribeEventRecurrenceFrequency,
+  TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   TRIBE_EVENT_MUTATION_STATUS,
@@ -56,14 +57,28 @@ export type TribeEventAttendanceKey = {
   tribeSlug: string;
 };
 
-export type SetTribeEventAttendanceRepositoryCommand = TribeEventAttendanceKey & {
+/**
+ * Attendance write of one occurrence. `schedule` is the series schedule the
+ * application used to prove the occurrence is a real slot; the write is
+ * refused with `scheduleChanged` when the stored schedule no longer matches
+ * it once the event row is locked, so validation and write see one schedule.
+ */
+export type TribeEventAttendanceWriteCommand = TribeEventAttendanceKey & {
+  schedule: TribeEventSchedule;
+};
+
+export type SetTribeEventAttendanceRepositoryCommand = TribeEventAttendanceWriteCommand & {
   status: TribeEventAttendanceOption;
 };
 
 /**
  * Aggregated attendance of one occurrence as seen by the current viewer.
- * `goingPreview` holds the first people who answered "going" (bounded by
- * `TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT`); `goingCount` is the full total.
+ * Totals, the going preview, and the waitlist position count only answers of
+ * active tribe members, the same rule the database uses to assign seats, so
+ * a member blocked or removed after answering never shows the occurrence as
+ * full. `goingPreview` holds the first active people who answered "going"
+ * (bounded by `TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT`); `goingCount` is the full
+ * active total. `viewerStatus` is always the viewer's own stored answer.
  */
 export type TribeEventAttendanceSummary = {
   goingCount: number;
@@ -173,16 +188,19 @@ export type TribeEventAttendanceResult =
   | {
       /**
        * `occurrenceEnded` comes from the definer function guard (defense in
-       * depth behind the use case check) when the occurrence already ended.
+       * depth behind the use case check) when the occurrence already ended,
+       * also after waiting on the occurrence lock. `scheduleChanged` means a
+       * manager edited the schedule after the occurrence was validated.
        */
       status:
         | TribeEventMutationFailureStatus
-        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded
+        | typeof TRIBE_EVENT_MUTATION_STATUS.scheduleChanged;
     };
 
 export type TribeEventRepository = {
   clearAttendance: (
-    command: TribeEventAttendanceKey
+    command: TribeEventAttendanceWriteCommand
   ) => Promise<TribeEventAttendanceResult>;
   create: (command: PersistTribeEventCommand) => Promise<TribeEventCreationResult>;
   delete: (

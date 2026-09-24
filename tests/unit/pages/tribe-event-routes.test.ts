@@ -668,6 +668,35 @@ describe("Tribe event routes", () => {
     }
   });
 
+  it("answers 409 asking to reload when the schedule changed during the answer", async () => {
+    setTribeEventAttendance.mockResolvedValueOnce({ status: "schedule_changed" as const });
+    clearTribeEventAttendance.mockResolvedValueOnce({ status: "schedule_changed" as const });
+
+    const putResponse = await PUT_ATTENDANCE(
+      buildRequest(
+        { occurrenceStartsAt: "2026-05-13T18:00:00.000Z", status: "going" as const },
+        `${BASE_URL}/${EVENT_ID}/attendance`
+      ),
+      buildEventContext()
+    );
+    const deleteResponse = await DELETE_ATTENDANCE(
+      buildRequest(
+        {},
+        `${BASE_URL}/${EVENT_ID}/attendance?occurrence=${encodeURIComponent(
+          "2026-05-13T18:00:00.000Z"
+        )}`
+      ),
+      buildEventContext()
+    );
+
+    for (const response of [putResponse, deleteResponse]) {
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        message: "El evento cambió; recargá para ver las fechas actualizadas.",
+      });
+    }
+  });
+
   it("clears the viewer attendance for the occurrence in the query", async () => {
     clearTribeEventAttendance.mockResolvedValue({
       attendance: { goingCount: 2, viewerStatus: null },

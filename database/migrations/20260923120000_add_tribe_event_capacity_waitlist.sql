@@ -229,15 +229,26 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.promote_tribe_event_waitlist(uuid, timestamptz)
 FROM PUBLIC;
 
+-- Earlier drafts of this migration exposed a 4-argument signature; drop it
+-- so no overload without the schedule check survives on dev branches.
+DROP FUNCTION IF EXISTS public.respond_to_tribe_event_occurrence(text, uuid, timestamptz, text);
+
 -- 6. Records, changes, or clears (requested_status NULL) the caller's answer
 -- for one occurrence. Refuses with outcome 'ended' once the occurrence's
 -- effective end (its own ends_at offset, or 60 minutes) passed. Concurrency
 -- contract:
 --   * the event row is locked FOR SHARE first, so a capacity edit waits for
 --     in-flight answers and answers see the committed capacity;
+--   * the application proved that target_occurrence_starts_at is a slot of
+--     the series in an earlier transaction, so it sends the schedule it
+--     validated (expected_*); if the locked row carries another schedule (a
+--     manager edited it in between) the answer is refused with outcome
+--     'schedule_changed' and nothing is written. Comparing the schedule, not
+--     updated_at, keeps title or capacity edits from refusing valid answers;
 --   * then a transaction advisory lock per occurrence serializes seat
 --     assignment and promotion, so two members can never both take the last
---     seat;
+--     seat. The end check is repeated after that lock: a caller that waited
+--     behind another answer until the occurrence ended must not write;
 --   * repeating the same answer is a no-op (keeps the seat or the waitlist
 --     position), so client retries are idempotent;
 --   * a new "going" first promotes whoever is already waiting (FIFO), and
@@ -246,7 +257,11 @@ CREATE OR REPLACE FUNCTION public.respond_to_tribe_event_occurrence(
   target_slug text,
   target_event_id uuid,
   target_occurrence_starts_at timestamptz,
-  requested_status text
+  requested_status text,
+  expected_starts_at timestamptz,
+  expected_ends_at timestamptz,
+  expected_recurrence_frequency text,
+  expected_recurrence_until timestamptz
 )
 RETURNS TABLE (
   outcome text,
@@ -262,6 +277,7 @@ DECLARE
   target_tribe_id uuid;
   event_capacity integer;
   event_duration interval;
+  schedule_changed boolean;
   previous_status text;
   resolved_status text;
   going_total integer;
@@ -282,8 +298,20 @@ BEGIN
     events.tribe_id,
     events.capacity,
     -- Implicit duration without ends_at: TRIBE_EVENT_DEFAULT_DURATION_MINUTES.
-    coalesce(events.ends_at - events.starts_at, interval '60 minutes')
-  INTO target_tribe_id, event_capacity, event_duration
+    coalesce(events.ends_at - events.starts_at, interval '60 minutes'),
+    -- Milliseconds: the application parses the schedule with JS dates.
+    (
+      date_trunc('milliseconds', events.starts_at),
+      date_trunc('milliseconds', events.ends_at),
+      events.recurrence_frequency,
+      date_trunc('milliseconds', events.recurrence_until)
+    ) IS DISTINCT FROM (
+      expected_starts_at,
+      expected_ends_at,
+      expected_recurrence_frequency,
+      expected_recurrence_until
+    )
+  INTO target_tribe_id, event_capacity, event_duration, schedule_changed
   FROM public.events
   INNER JOIN public.tribes
     ON tribes.id = events.tribe_id
@@ -298,6 +326,14 @@ BEGIN
 
   IF NOT public.is_active_tribe_member(target_tribe_id) THEN
     RETURN QUERY SELECT 'forbidden'::text, NULL::text, 0;
+    RETURN;
+  END IF;
+
+  -- The occurrence was validated against the schedule read before this
+  -- lock; under the lock the schedule can no longer change, so an equal
+  -- schedule proves the occurrence is still a slot of the series.
+  IF schedule_changed THEN
+    RETURN QUERY SELECT 'schedule_changed'::text, NULL::text, 0;
     RETURN;
   END IF;
 
@@ -316,6 +352,13 @@ BEGIN
       0
     )
   );
+
+  -- Same check again: this call may have waited on the advisory lock behind
+  -- another answer until after the effective end.
+  IF target_occurrence_starts_at + event_duration <= clock_timestamp() THEN
+    RETURN QUERY SELECT 'ended'::text, NULL::text, 0;
+    RETURN;
+  END IF;
 
   SELECT event_attendances.status
   INTO previous_status
@@ -411,7 +454,9 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.respond_to_tribe_event_occurrence(text, uuid, timestamptz, text)
+REVOKE EXECUTE ON FUNCTION public.respond_to_tribe_event_occurrence(
+  text, uuid, timestamptz, text, timestamptz, timestamptz, text, timestamptz
+)
 FROM PUBLIC;
 
 -- 7. After an edit (capacity raised or removed), promotes the waitlists of
@@ -490,11 +535,149 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.refill_tribe_event_waitlists(uuid, timestamptz[])
 FROM PUBLIC;
 
+-- 8. Attendance summaries of the occurrences of one tribe inside a range
+-- (optionally of one event) in a single call, so a month never runs one
+-- query per occurrence. Seats follow count_tribe_event_occupied_seats: only
+-- answers of active tribe members count, so a member blocked or removed after
+-- answering neither fills the capacity ("Completo") nor appears in the going
+-- preview, and waitlist totals and positions skip inactive members exactly
+-- like promote_tribe_event_waitlist. The viewer's own answer is always
+-- returned. It must be SECURITY DEFINER because a request role can only read
+-- its own tribe_members row; it authorizes the caller itself with
+-- can_read_tribe_content and returns no rows otherwise. Read-only.
+--   * match_overlapping = true keeps occurrences whose interval (start to
+--     effective end) overlaps [range_start, range_end); false keeps the ones
+--     starting inside it.
+--   * preview_limit bounds the going preview
+--     (TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT in the application).
+CREATE OR REPLACE FUNCTION public.summarize_tribe_event_attendances(
+  target_slug text,
+  range_start timestamptz,
+  range_end timestamptz,
+  match_overlapping boolean,
+  preview_limit integer,
+  target_event_id uuid DEFAULT NULL
+)
+RETURNS TABLE (
+  event_id uuid,
+  occurrence_starts_at timestamptz,
+  going_count integer,
+  maybe_count integer,
+  waitlisted_count integer,
+  viewer_status text,
+  viewer_waitlist_position integer,
+  going_preview jsonb
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  WITH target_tribe AS (
+    SELECT tribes.id
+    FROM public.tribes
+    WHERE tribes.slug = lower(trim(target_slug))
+    LIMIT 1
+  ),
+  readable_attendances AS (
+    SELECT
+      event_attendances.id,
+      event_attendances.event_id,
+      event_attendances.occurrence_starts_at,
+      event_attendances.user_id,
+      event_attendances.status,
+      event_attendances.responded_at,
+      coalesce(tribe_members.status = 'active', false) AS is_active_member
+    FROM public.event_attendances
+    INNER JOIN target_tribe
+      ON target_tribe.id = event_attendances.tribe_id
+    INNER JOIN public.events
+      ON events.id = event_attendances.event_id
+    LEFT JOIN public.tribe_members
+      ON tribe_members.tribe_id = event_attendances.tribe_id
+      AND tribe_members.user_id = event_attendances.user_id
+    WHERE public.current_app_user_id() IS NOT NULL
+      AND public.can_read_tribe_content(target_tribe.id)
+      AND (target_event_id IS NULL OR event_attendances.event_id = target_event_id)
+      AND event_attendances.occurrence_starts_at < range_end
+      AND CASE
+        WHEN match_overlapping THEN
+          event_attendances.occurrence_starts_at
+            -- Implicit duration without ends_at: TRIBE_EVENT_DEFAULT_DURATION_MINUTES.
+            + coalesce(events.ends_at - events.starts_at, interval '60 minutes')
+            > range_start
+        ELSE event_attendances.occurrence_starts_at >= range_start
+      END
+  ),
+  ranked_attendances AS (
+    SELECT
+      readable_attendances.*,
+      -- Ranked per membership state, so positions of active members ignore
+      -- inactive ones; only active ranks are read below.
+      row_number() OVER (
+        PARTITION BY
+          readable_attendances.event_id,
+          readable_attendances.occurrence_starts_at,
+          readable_attendances.status,
+          readable_attendances.is_active_member
+        ORDER BY readable_attendances.responded_at ASC, readable_attendances.id ASC
+      ) AS status_rank
+    FROM readable_attendances
+  )
+  SELECT
+    ranked_attendances.event_id,
+    ranked_attendances.occurrence_starts_at,
+    (count(*) FILTER (
+      WHERE ranked_attendances.is_active_member AND ranked_attendances.status = 'going'
+    ))::integer,
+    (count(*) FILTER (
+      WHERE ranked_attendances.is_active_member AND ranked_attendances.status = 'maybe'
+    ))::integer,
+    (count(*) FILTER (
+      WHERE ranked_attendances.is_active_member AND ranked_attendances.status = 'waitlisted'
+    ))::integer,
+    max(ranked_attendances.status) FILTER (
+      WHERE ranked_attendances.user_id = public.current_app_user_id()
+    ),
+    (max(ranked_attendances.status_rank) FILTER (
+      WHERE ranked_attendances.user_id = public.current_app_user_id()
+        AND ranked_attendances.is_active_member
+        AND ranked_attendances.status = 'waitlisted'
+    ))::integer,
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'id', preview_users.id,
+          'name', preview_users.name,
+          'image', preview_users.image
+        )
+        ORDER BY ranked_attendances.status_rank
+      ) FILTER (WHERE preview_users.id IS NOT NULL),
+      '[]'::jsonb
+    )
+  FROM ranked_attendances
+  LEFT JOIN public."user" preview_users
+    ON preview_users.id = ranked_attendances.user_id
+    AND ranked_attendances.is_active_member
+    AND ranked_attendances.status = 'going'
+    AND ranked_attendances.status_rank <= preview_limit
+  GROUP BY ranked_attendances.event_id, ranked_attendances.occurrence_starts_at;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.summarize_tribe_event_attendances(
+  text, timestamptz, timestamptz, boolean, integer, uuid
+)
+FROM PUBLIC;
+
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-    GRANT EXECUTE ON FUNCTION public.respond_to_tribe_event_occurrence(text, uuid, timestamptz, text)
-      TO authenticated;
+    GRANT EXECUTE ON FUNCTION public.respond_to_tribe_event_occurrence(
+      text, uuid, timestamptz, text, timestamptz, timestamptz, text, timestamptz
+    ) TO authenticated;
+    GRANT EXECUTE ON FUNCTION public.summarize_tribe_event_attendances(
+      text, timestamptz, timestamptz, boolean, integer, uuid
+    ) TO authenticated;
     GRANT EXECUTE ON FUNCTION public.refill_tribe_event_waitlists(uuid, timestamptz[])
       TO authenticated;
   END IF;

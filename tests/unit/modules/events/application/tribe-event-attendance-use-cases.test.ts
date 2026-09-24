@@ -23,6 +23,14 @@ const weeklyEvent: TribeEvent = {
   title: "Clase abierta",
 };
 
+// Schedule the use case validated; the repository must receive exactly it.
+const weeklySchedule = {
+  endsAt: weeklyEvent.endsAt,
+  recurrenceFrequency: weeklyEvent.recurrenceFrequency,
+  recurrenceUntil: weeklyEvent.recurrenceUntil,
+  startsAt: weeklyEvent.startsAt,
+};
+
 const savedAttendance = {
   goingCount: 3,
   goingPreview: [{ id: "user-ana", image: null, name: "Ana" }],
@@ -83,6 +91,7 @@ describe("tribe event attendance use cases", () => {
     expect(repository.setAttendance).toHaveBeenCalledWith({
       eventId: EVENT_ID,
       occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      schedule: weeklySchedule,
       status: "going",
       tribeSlug: "matematica-pro",
     });
@@ -191,8 +200,34 @@ describe("tribe event attendance use cases", () => {
     expect(repository.clearAttendance).toHaveBeenCalledWith({
       eventId: EVENT_ID,
       occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      schedule: weeklySchedule,
       tribeSlug: "matematica-pro",
     });
+  });
+
+  it("returns schedule_changed when the schedule changed after the occurrence was validated", async () => {
+    const scheduleChanged = { status: TRIBE_EVENT_MUTATION_STATUS.scheduleChanged };
+    const repository = createRepository({
+      clearAttendance: vi.fn(async () => scheduleChanged),
+      setAttendance: vi.fn(async () => scheduleChanged),
+    });
+    const occurrenceKey = {
+      eventId: EVENT_ID,
+      occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      tribeSlug: "matematica-pro",
+    };
+
+    await expect(
+      setTribeEventAttendance({ now: beforeOccurrence, tribeEventRepository: repository })({
+        ...occurrenceKey,
+        status: "going",
+      })
+    ).resolves.toEqual(scheduleChanged);
+    await expect(
+      clearTribeEventAttendance({ now: beforeOccurrence, tribeEventRepository: repository })(
+        occurrenceKey
+      )
+    ).resolves.toEqual(scheduleChanged);
   });
 
   describe("finished occurrences", () => {

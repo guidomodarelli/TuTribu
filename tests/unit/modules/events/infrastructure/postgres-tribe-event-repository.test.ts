@@ -34,6 +34,34 @@ function createRepository(execute: Mock) {
   );
 }
 
+const weeklySchedule = {
+  endsAt: "2026-05-06T19:00:00.000Z",
+  recurrenceFrequency: "weekly" as const,
+  recurrenceUntil: null,
+  startsAt: "2026-05-06T18:00:00.000Z",
+};
+
+function getSqlParams(statement: unknown): unknown[] {
+  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? []).flatMap((chunk) => {
+    if (chunk && typeof chunk === "object" && "queryChunks" in chunk) {
+      return getSqlParams(chunk);
+    }
+
+    if (
+      chunk &&
+      typeof chunk === "object" &&
+      "value" in chunk &&
+      Array.isArray((chunk as { value: unknown }).value)
+    ) {
+      return [];
+    }
+
+    // Template text is a StringChunk (handled above); anything else is a
+    // bound parameter value.
+    return [chunk];
+  });
+}
+
 const eventRow = {
   can_manage_events: true,
   capacity: null,
@@ -110,8 +138,16 @@ describe("PostgresTribeEventRepository", () => {
     expect(eventsSql).toContain("public.can_read_tribe_content(target_tribe.id)");
     expect(eventsSql).toContain("events.recurrence_until is null");
     expect(eventsSql).toContain("order by event_rows.starts_at asc");
-    expect(attendanceSql).toContain("from public.event_attendances");
-    expect(attendanceSql).toContain("public.current_app_user_id()");
+    // Active-member totals come from the definer function, one call per range.
+    expect(attendanceSql).toContain("public.summarize_tribe_event_attendances(");
+    expect(getSqlParams(execute.mock.calls[1]?.[0])).toEqual([
+      "matematica-pro",
+      "2026-05-01T03:00:00.000Z",
+      "2026-06-01T03:00:00.000Z",
+      true,
+      expect.any(Number),
+      null,
+    ]);
   });
 
   it("keeps viewer permissions and skips the attendance query when the range has no events", async () => {
@@ -252,6 +288,7 @@ describe("PostgresTribeEventRepository", () => {
       repository.setAttendance({
         eventId: EVENT_ID,
         occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+        schedule: weeklySchedule,
         status: "going",
         tribeSlug: "matematica-pro",
       })
@@ -272,6 +309,26 @@ describe("PostgresTribeEventRepository", () => {
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
       "public.respond_to_tribe_event_occurrence("
     );
+    // The validated schedule travels with the write so the function can
+    // refuse it when a manager changed the schedule in between.
+    expect(getSqlParams(execute.mock.calls[0]?.[0])).toEqual([
+      "matematica-pro",
+      EVENT_ID,
+      "2026-05-13T18:00:00.000Z",
+      "going",
+      "2026-05-06T18:00:00.000Z",
+      "2026-05-06T19:00:00.000Z",
+      "weekly",
+      null,
+    ]);
+    expect(getSqlParams(execute.mock.calls[1]?.[0])).toEqual([
+      "matematica-pro",
+      "2026-05-13T18:00:00.000Z",
+      "2026-05-13T18:00:00.001Z",
+      false,
+      expect.any(Number),
+      EVENT_ID,
+    ]);
   });
 
   it("clears the answer and reports an empty summary when nobody else answered", async () => {
@@ -287,6 +344,7 @@ describe("PostgresTribeEventRepository", () => {
       repository.clearAttendance({
         eventId: EVENT_ID,
         occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+        schedule: weeklySchedule,
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({
@@ -316,11 +374,18 @@ describe("PostgresTribeEventRepository", () => {
       })
       .mockResolvedValueOnce({
         rows: [{ attendance_status: null, outcome: "ended", promoted_count: 0 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ attendance_status: null, outcome: "schedule_changed", promoted_count: 0 }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ attendance_status: null, outcome: "schedule_changed", promoted_count: 0 }],
       });
     const repository = createRepository(execute);
     const key = {
       eventId: EVENT_ID,
       occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      schedule: weeklySchedule,
       tribeSlug: "matematica-pro",
     };
 
@@ -335,7 +400,14 @@ describe("PostgresTribeEventRepository", () => {
     await expect(repository.clearAttendance(key)).resolves.toEqual({
       status: "occurrence_ended",
     });
-    expect(execute).toHaveBeenCalledTimes(4);
+    // A manager edited the schedule between validation and write.
+    await expect(repository.setAttendance({ ...key, status: "going" })).resolves.toEqual({
+      status: "schedule_changed",
+    });
+    await expect(repository.clearAttendance(key)).resolves.toEqual({
+      status: "schedule_changed",
+    });
+    expect(execute).toHaveBeenCalledTimes(6);
   });
 
   describe("waitlist refill after an update", () => {
@@ -470,8 +542,9 @@ describe("PostgresTribeEventRepository", () => {
     // Update, waitlist candidates (none), then the range summary.
     expect(execute).toHaveBeenCalledTimes(3);
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
-      "and event_attendances.event_id ="
+      "public.summarize_tribe_event_attendances("
     );
+    expect(getSqlParams(execute.mock.calls[2]?.[0])).toContain(EVENT_ID);
   });
 
   it("skips the refill and the summary read when the update is rejected", async () => {

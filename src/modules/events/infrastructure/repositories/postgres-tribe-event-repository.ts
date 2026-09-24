@@ -27,10 +27,10 @@ import type {
   PersistTribeEventCommand,
   PersistTribeEventUpdateCommand,
   SetTribeEventAttendanceRepositoryCommand,
-  TribeEventAttendanceKey,
   TribeEventAttendanceReportLookup,
   TribeEventAttendanceResult,
   TribeEventAttendanceSummary,
+  TribeEventAttendanceWriteCommand,
   TribeEventCreationResult,
   TribeEventDeletionResult,
   TribeEventOccurrenceAttendance,
@@ -140,6 +140,7 @@ const ATTENDANCE_RESPONSE_OUTCOME = {
   invalid: "invalid",
   notFound: "not_found",
   saved: "saved",
+  scheduleChanged: "schedule_changed",
 } as const;
 /**
  * Status order of the manager attendee list: who goes first, the waitlist in
@@ -334,9 +335,14 @@ function mapResponseFailureStatus(
 ):
   | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
   | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
-  | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded {
+  | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded
+  | typeof TRIBE_EVENT_MUTATION_STATUS.scheduleChanged {
   if (outcome === ATTENDANCE_RESPONSE_OUTCOME.notFound) {
     return TRIBE_EVENT_MUTATION_STATUS.notFound;
+  }
+
+  if (outcome === ATTENDANCE_RESPONSE_OUTCOME.scheduleChanged) {
+    return TRIBE_EVENT_MUTATION_STATUS.scheduleChanged;
   }
 
   if (outcome === ATTENDANCE_RESPONSE_OUTCOME.ended) {
@@ -442,10 +448,13 @@ function buildEventsInRangeQuery({
 
 /**
  * One aggregated row per answered occurrence in the range (optionally of a
- * single event): totals per status, the viewer answer and waitlist position,
- * and a bounded JSON preview of who is going. A single statement for the
- * whole range avoids one query per occurrence; the "user" join only touches
- * preview rows and never selects the email.
+ * single event) through `public.summarize_tribe_event_attendances`: totals
+ * per status, the viewer answer and waitlist position, and a bounded JSON
+ * preview of who is going. Totals, preview, and positions count only active
+ * tribe members (the same rule as the seat assignment), which the request
+ * role cannot read by itself, so the SECURITY DEFINER function aggregates
+ * them after checking `can_read_tribe_content`. One call covers the whole
+ * range; the preview never selects the email.
  */
 function buildAttendanceSummaryQuery({
   eventId,
@@ -458,73 +467,24 @@ function buildAttendanceSummaryQuery({
   rangeMatch?: TribeEventRangeMatch;
   tribeSlug: string;
 }) {
-  const eventFilter = eventId ? sql`and event_attendances.event_id = ${eventId}` : sql``;
-  const rangeFilter =
-    rangeMatch === TRIBE_EVENT_RANGE_MATCH.overlaps
-      ? sql`and event_attendances.occurrence_starts_at + ${EVENT_OCCURRENCE_DURATION} > ${rangeStart}`
-      : sql`and event_attendances.occurrence_starts_at >= ${rangeStart}`;
-
   return sql`
-    with ranked_attendances as (
-      select
-        event_attendances.event_id,
-        event_attendances.occurrence_starts_at,
-        event_attendances.user_id,
-        event_attendances.status,
-        row_number() over (
-          partition by
-            event_attendances.event_id,
-            event_attendances.occurrence_starts_at,
-            event_attendances.status
-          order by event_attendances.responded_at asc, event_attendances.id asc
-        ) as status_rank
-      from public.event_attendances
-      inner join public.tribes
-        on tribes.id = event_attendances.tribe_id
-      inner join public.events
-        on events.id = event_attendances.event_id
-      where tribes.slug = ${tribeSlug}
-        and public.can_read_tribe_content(tribes.id)
-        and event_attendances.occurrence_starts_at < ${rangeEnd}
-        ${rangeFilter}
-        ${eventFilter}
-    )
     select
-      ranked_attendances.event_id,
-      ranked_attendances.occurrence_starts_at,
-      count(*) filter (
-        where ranked_attendances.status = ${TRIBE_EVENT_ATTENDANCE_STATUS.going}
-      ) as going_count,
-      count(*) filter (
-        where ranked_attendances.status = ${TRIBE_EVENT_ATTENDANCE_STATUS.maybe}
-      ) as maybe_count,
-      count(*) filter (
-        where ranked_attendances.status = ${TRIBE_EVENT_ATTENDANCE_STATUS.waitlisted}
-      ) as waitlisted_count,
-      max(ranked_attendances.status) filter (
-        where ranked_attendances.user_id = public.current_app_user_id()
-      ) as viewer_status,
-      max(ranked_attendances.status_rank) filter (
-        where ranked_attendances.user_id = public.current_app_user_id()
-          and ranked_attendances.status = ${TRIBE_EVENT_ATTENDANCE_STATUS.waitlisted}
-      ) as viewer_waitlist_position,
-      coalesce(
-        jsonb_agg(
-          jsonb_build_object(
-            'id', preview_users.id,
-            'name', preview_users.name,
-            'image', preview_users.image
-          )
-          order by ranked_attendances.status_rank
-        ) filter (where preview_users.id is not null),
-        '[]'::jsonb
-      ) as going_preview
-    from ranked_attendances
-    left join public."user" preview_users
-      on preview_users.id = ranked_attendances.user_id
-      and ranked_attendances.status = ${TRIBE_EVENT_ATTENDANCE_STATUS.going}
-      and ranked_attendances.status_rank <= ${TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT}
-    group by ranked_attendances.event_id, ranked_attendances.occurrence_starts_at
+      attendance_summaries.event_id,
+      attendance_summaries.occurrence_starts_at,
+      attendance_summaries.going_count,
+      attendance_summaries.maybe_count,
+      attendance_summaries.waitlisted_count,
+      attendance_summaries.viewer_status,
+      attendance_summaries.viewer_waitlist_position,
+      attendance_summaries.going_preview
+    from public.summarize_tribe_event_attendances(
+      ${tribeSlug},
+      ${rangeStart}::timestamptz,
+      ${rangeEnd}::timestamptz,
+      ${rangeMatch === TRIBE_EVENT_RANGE_MATCH.overlaps}::boolean,
+      ${TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT}::integer,
+      ${eventId ?? null}::uuid
+    ) attendance_summaries
   `;
 }
 
@@ -823,7 +783,9 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
     return this.respondToOccurrence(command, command.status);
   }
 
-  async clearAttendance(command: TribeEventAttendanceKey): Promise<TribeEventAttendanceResult> {
+  async clearAttendance(
+    command: TribeEventAttendanceWriteCommand
+  ): Promise<TribeEventAttendanceResult> {
     return this.respondToOccurrence(command, null);
   }
 
@@ -970,9 +932,12 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
    * DEFINER function that assigns going/waitlisted and promotes the waitlist
    * atomically, then reads the fresh summary of that occurrence in the same
    * transaction so the response already reflects the promotions it caused.
+   * The validated schedule travels with the write: the function compares it
+   * with the locked event row and refuses (`schedule_changed`) when a manager
+   * edited the schedule after the occurrence was validated.
    */
   private async respondToOccurrence(
-    key: TribeEventAttendanceKey,
+    { schedule, ...key }: TribeEventAttendanceWriteCommand,
     requestedStatus: TribeEventAttendanceOption | null
   ): Promise<TribeEventAttendanceResult> {
     return this.executeWithDatabase(async (database) => {
@@ -982,7 +947,11 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           ${key.tribeSlug},
           ${key.eventId}::uuid,
           ${key.occurrenceStartsAt}::timestamptz,
-          ${requestedStatus}::text
+          ${requestedStatus}::text,
+          ${schedule.startsAt}::timestamptz,
+          ${schedule.endsAt}::timestamptz,
+          ${schedule.recurrenceFrequency}::text,
+          ${schedule.recurrenceUntil}::timestamptz
         )
       `);
       const response = (responseResult.rows?.[0] ?? null) as AttendanceResponseRow | null;

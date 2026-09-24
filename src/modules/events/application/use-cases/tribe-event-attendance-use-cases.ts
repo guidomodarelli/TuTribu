@@ -26,6 +26,7 @@ import type {
   TribeEventAttendanceOption,
   TribeEventAttendee,
   TribeEventOccurrenceWindow,
+  TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   TribeEventAttendanceKey,
@@ -114,6 +115,20 @@ async function resolveAttendanceKey(
   };
 }
 
+/**
+ * Schedule fields the occurrence was validated against. The repository sends
+ * them with the write so the database refuses it if a manager changed the
+ * schedule after this validation (it runs in an earlier transaction).
+ */
+function pickValidatedSchedule(event: TribeEvent): TribeEventSchedule {
+  return {
+    endsAt: event.endsAt,
+    recurrenceFrequency: event.recurrenceFrequency,
+    recurrenceUntil: event.recurrenceUntil,
+    startsAt: event.startsAt,
+  };
+}
+
 function isAttendanceOption(status: string): status is TribeEventAttendanceOption {
   return ATTENDANCE_OPTIONS.has(status);
 }
@@ -193,7 +208,11 @@ export function setTribeEventAttendance({
       return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded };
     }
 
-    return tribeEventRepository.setAttendance({ ...resolvedKey.key, status });
+    return tribeEventRepository.setAttendance({
+      ...resolvedKey.key,
+      schedule: pickValidatedSchedule(resolvedKey.event),
+      status,
+    });
   };
 }
 
@@ -218,7 +237,10 @@ export function clearTribeEventAttendance({
       return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded };
     }
 
-    return tribeEventRepository.clearAttendance(resolvedKey.key);
+    return tribeEventRepository.clearAttendance({
+      ...resolvedKey.key,
+      schedule: pickValidatedSchedule(resolvedKey.event),
+    });
   };
 }
 
