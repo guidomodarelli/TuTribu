@@ -36,6 +36,21 @@ export const tribeEventAttendanceStreakResponseDtoSchema = z.object({
   attendanceStreakNextRefreshAt: tribeEventAttendanceStreakNextRefreshAtDtoSchema.optional(),
 });
 
+/**
+ * Streak fragment spread into the bodies of `POST`, `PATCH`, and `DELETE`
+ * series mutations. Each field is omitted when the route could not recompute
+ * it, so the client keeps the value it already has: the streak on screen, or
+ * the next refresh instant it already watches.
+ */
+export const tribeEventAttendanceStreakMutationFragmentDtoSchema = z.object({
+  attendanceStreak: tribeEventAttendanceStreakDtoSchema.nullable().optional(),
+  attendanceStreakNextRefreshAt: tribeEventAttendanceStreakNextRefreshAtDtoSchema.optional(),
+});
+
+export type TribeEventAttendanceStreakMutationFragmentDto = z.infer<
+  typeof tribeEventAttendanceStreakMutationFragmentDtoSchema
+>;
+
 export type TribeEventAttendanceStreakResponseDto = z.infer<
   typeof tribeEventAttendanceStreakResponseDtoSchema
 >;

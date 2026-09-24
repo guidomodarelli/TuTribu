@@ -1,5 +1,6 @@
 import {
   tribeEventAttendanceStreakDtoSchema,
+  tribeEventAttendanceStreakNextRefreshAtDtoSchema,
   tribeEventAttendanceStreakResponseDtoSchema,
 } from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
 import {
@@ -38,12 +39,14 @@ export type TribeEventRequestResult<TData> =
 
 type SaveEventResponseBody = {
   attendanceStreak?: unknown;
+  attendanceStreakNextRefreshAt?: unknown;
   message?: string;
   occurrences?: TribeEventOccurrenceResult[];
 };
 
 type DeleteEventResponseBody = {
   attendanceStreak?: unknown;
+  attendanceStreakNextRefreshAt?: unknown;
   message?: string;
 };
 
@@ -57,9 +60,10 @@ export type TribeEventStreakRefresh = {
 };
 
 /**
- * Streak read by `GET /api/tribes/[slug]/events/attendance-streak`, plus the
- * next instant at which it can change. Absent `attendanceStreakNextRefreshAt`
- * means the route could not compute it, so the caller keeps the instant it
+ * Streak read by `GET /api/tribes/[slug]/events/attendance-streak`, or
+ * refreshed by a series mutation, plus the next instant at which it can
+ * change. Absent `attendanceStreakNextRefreshAt` means the route could not
+ * compute it (or the value was unusable), so the caller keeps the instant it
  * already watches; `null` means nothing ends inside the upcoming window.
  */
 export type TribeEventStreakReadResult = TribeEventStreakRefresh & {
@@ -118,6 +122,37 @@ function readStreakRefresh(attendanceStreak: unknown): TribeEventStreakRefresh {
 }
 
 /**
+ * Guards the next refresh instant of a mutation response: only an ISO 8601
+ * UTC instant or `null` is applied; anything else (or an absent field) is
+ * ignored so the UI keeps the instant it already watches. It is read apart
+ * from the streak, so an unusable value in one field never drops the other.
+ */
+function readStreakNextRefresh(
+  attendanceStreakNextRefreshAt: unknown
+): Pick<TribeEventStreakReadResult, "attendanceStreakNextRefreshAt"> {
+  const parsedNextRefreshAt = tribeEventAttendanceStreakNextRefreshAtDtoSchema.safeParse(
+    attendanceStreakNextRefreshAt
+  );
+
+  return parsedNextRefreshAt.success
+    ? { attendanceStreakNextRefreshAt: parsedNextRefreshAt.data }
+    : {};
+}
+
+/**
+ * Reads the streak fragment the series mutations spread into their body.
+ */
+function readMutationStreakFragment(body: {
+  attendanceStreak?: unknown;
+  attendanceStreakNextRefreshAt?: unknown;
+}): TribeEventStreakReadResult {
+  return {
+    ...readStreakRefresh(body.attendanceStreak),
+    ...readStreakNextRefresh(body.attendanceStreakNextRefreshAt),
+  };
+}
+
+/**
  * Reads a JSON body, degrading to an empty object when the response has no
  * parseable body so callers fall back to their own safe copy.
  */
@@ -130,8 +165,8 @@ async function readJsonBody<TBody>(response: Response): Promise<TBody> {
  * the occurrences of the saved event inside the visible `month`.
  *
  * @param input - Tribe, optional event id, visible month, and form payload.
- * @returns The saved occurrences (plus the refreshed viewer streak when the
- * route returns it) or the failure message.
+ * @returns The saved occurrences (plus the refreshed viewer streak and its
+ * next refresh instant when the route returns them) or the failure message.
  */
 export async function saveTribeEventRequest(input: {
   eventId: string | null;
@@ -139,7 +174,7 @@ export async function saveTribeEventRequest(input: {
   payload: TribeEventSavePayload;
   tribeSlug: string;
 }): Promise<
-  TribeEventRequestResult<{ occurrences: TribeEventOccurrenceResult[] } & TribeEventStreakRefresh>
+  TribeEventRequestResult<{ occurrences: TribeEventOccurrenceResult[] } & TribeEventStreakReadResult>
 > {
   const endpoint = input.eventId
     ? buildTribeEventApiEndpoint(input.tribeSlug, input.eventId, input.month)
@@ -156,7 +191,7 @@ export async function saveTribeEventRequest(input: {
   }
 
   return {
-    ...readStreakRefresh(body.attendanceStreak),
+    ...readMutationStreakFragment(body),
     isSuccess: true,
     message: body.message ?? null,
     occurrences: body.occurrences,
@@ -168,19 +203,20 @@ export async function saveTribeEventRequest(input: {
  *
  * @param input - Tribe and event identifiers.
  * @returns Whether the deletion succeeded, with the route message and the
- * refreshed viewer streak when the route could recompute it.
+ * refreshed viewer streak and next refresh instant when the route could
+ * recompute them.
  */
 export async function deleteTribeEventRequest(input: {
   eventId: string;
   tribeSlug: string;
-}): Promise<TribeEventRequestResult<TribeEventStreakRefresh>> {
+}): Promise<TribeEventRequestResult<TribeEventStreakReadResult>> {
   const response = await fetch(buildTribeEventApiEndpoint(input.tribeSlug, input.eventId), {
     method: HTTP_REQUEST.methodDelete,
   });
   const body = await readJsonBody<DeleteEventResponseBody>(response);
 
   return response.ok
-    ? { ...readStreakRefresh(body.attendanceStreak), isSuccess: true, message: body.message ?? null }
+    ? { ...readMutationStreakFragment(body), isSuccess: true, message: body.message ?? null }
     : { isSuccess: false, message: body.message ?? null };
 }
 

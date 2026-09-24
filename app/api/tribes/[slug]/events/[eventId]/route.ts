@@ -64,6 +64,8 @@ export async function PATCH(request: Request, context: TribeEventRouteContext) {
       const streakFragment = await readAttendanceStreakResponseFragment({
         eventId,
         getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
+        getTribeEventAttendanceStreakNextRefreshAt:
+          modules.events.useCases.getTribeEventAttendanceStreakNextRefreshAt,
         logger,
         tribeSlug: slug,
         viewerId: authenticatedMember.id,
@@ -127,6 +129,8 @@ export async function DELETE(request: Request, context: TribeEventRouteContext) 
       const streakFragment = await readAttendanceStreakResponseFragment({
         eventId,
         getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
+        getTribeEventAttendanceStreakNextRefreshAt:
+          modules.events.useCases.getTribeEventAttendanceStreakNextRefreshAt,
         logger,
         tribeSlug: slug,
         viewerId: authenticatedMember.id,

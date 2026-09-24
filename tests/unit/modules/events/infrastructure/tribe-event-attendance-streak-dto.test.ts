@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { tribeEventAttendanceStreakResponseDtoSchema } from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
+import {
+  tribeEventAttendanceStreakMutationFragmentDtoSchema,
+  tribeEventAttendanceStreakResponseDtoSchema,
+} from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
 
 describe("tribeEventAttendanceStreakResponseDtoSchema", () => {
   it("keeps only the allowlisted streak counts", () => {
@@ -45,5 +48,41 @@ describe("tribeEventAttendanceStreakResponseDtoSchema", () => {
     {},
   ])("rejects an unusable streak body (%j)", (body) => {
     expect(tribeEventAttendanceStreakResponseDtoSchema.safeParse(body).success).toBe(false);
+  });
+});
+
+describe("tribeEventAttendanceStreakMutationFragmentDtoSchema", () => {
+  it("keeps only the allowlisted streak counts and next refresh instant", () => {
+    expect(
+      tribeEventAttendanceStreakMutationFragmentDtoSchema.parse({
+        attendanceStreak: { attendedCount: 3, occurrenceCount: 5, viewerId: "member-1" },
+        attendanceStreakNextRefreshAt: "2026-05-06T19:30:00.000Z",
+        internalDiagnostics: "hidden",
+      })
+    ).toEqual({
+      attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+      attendanceStreakNextRefreshAt: "2026-05-06T19:30:00.000Z",
+    });
+  });
+
+  it("accepts each field on its own, so a failed one can be omitted", () => {
+    expect(
+      tribeEventAttendanceStreakMutationFragmentDtoSchema.parse({ attendanceStreak: null })
+    ).toEqual({ attendanceStreak: null });
+    expect(
+      tribeEventAttendanceStreakMutationFragmentDtoSchema.parse({
+        attendanceStreakNextRefreshAt: null,
+      })
+    ).toEqual({ attendanceStreakNextRefreshAt: null });
+  });
+
+  it.each([
+    { attendanceStreakNextRefreshAt: "mañana" },
+    { attendanceStreakNextRefreshAt: 1_780_000_000_000 },
+    { attendanceStreak: { attendedCount: -1, occurrenceCount: 5 } },
+  ])("rejects an unusable fragment (%j)", (fragment) => {
+    expect(tribeEventAttendanceStreakMutationFragmentDtoSchema.safeParse(fragment).success).toBe(
+      false
+    );
   });
 });

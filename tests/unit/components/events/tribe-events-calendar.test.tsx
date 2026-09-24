@@ -1706,6 +1706,102 @@ describe("TribeEventsCalendar", () => {
       expect(getStreakRequests()).toHaveLength(0);
     });
 
+    describe("next refresh instant returned by a series mutation", () => {
+      const renewedStreakText = "Fuiste a 5 de los últimos 5 encuentros 🔥";
+
+      /**
+       * Creates a workshop that started last month and ends today, so the
+       * visible month (matched by start) does not list it and only the
+       * instant returned by the creation can make the calendar watch its end.
+       */
+      async function createRunningWorkshop(responseBody: Record<string, unknown>) {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+        await user.click(screen.getByRole("button", { name: "Crear evento" }));
+        fireEvent.change(screen.getByLabelText("Título"), {
+          target: { value: "Taller intensivo" },
+        });
+        fireEvent.change(screen.getByLabelText("Fecha"), {
+          target: { value: "2026-04-29" },
+        });
+        fireEvent.change(screen.getByLabelText("Hora de inicio"), {
+          target: { value: "15:00" },
+        });
+        mockJsonResponse({
+          event: {},
+          message: "Evento creado.",
+          occurrences: [],
+          ...responseBody,
+        });
+        await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+        await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      }
+
+      it("adopts the recomputed instant and asks for the streak when it arrives", async () => {
+        renderCalendar({
+          attendanceStreak: initialStreak,
+          attendanceStreakNextRefreshAt: laterOccurrence.endsAt,
+          events: [laterOccurrence],
+        });
+
+        await createRunningWorkshop({
+          attendanceStreak: initialStreak,
+          attendanceStreakNextRefreshAt: "2026-05-06T19:30:00.000Z",
+        });
+        mockJsonResponse({
+          attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
+          attendanceStreakNextRefreshAt: laterOccurrence.endsAt,
+        });
+
+        await advanceMinutes(20);
+        expect(getStreakRequests()).toHaveLength(0);
+
+        await advanceMinutes(15);
+
+        expect(
+          await within(getNextEventRegion()).findByText(renewedStreakText)
+        ).toBeInTheDocument();
+        expect(getStreakRequests()).toHaveLength(1);
+        expect(router.refresh).not.toHaveBeenCalled();
+      });
+
+      it("keeps the watched instant when the mutation response omits it", async () => {
+        renderCalendar({
+          attendanceStreak: initialStreak,
+          attendanceStreakNextRefreshAt: "2026-05-06T19:30:00.000Z",
+          events: [laterOccurrence],
+        });
+
+        await createRunningWorkshop({ attendanceStreak: initialStreak });
+        mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+
+        await advanceMinutes(35);
+
+        expect(
+          await within(getNextEventRegion()).findByText(renewedStreakText)
+        ).toBeInTheDocument();
+        expect(getStreakRequests()).toHaveLength(1);
+      });
+
+      it("ignores an unusable instant in the mutation response", async () => {
+        renderCalendar({
+          attendanceStreak: initialStreak,
+          attendanceStreakNextRefreshAt: "2026-05-06T19:30:00.000Z",
+          events: [laterOccurrence],
+        });
+
+        await createRunningWorkshop({
+          attendanceStreak: initialStreak,
+          attendanceStreakNextRefreshAt: "mañana",
+        });
+        mockJsonResponse({ attendanceStreak: { attendedCount: 5, occurrenceCount: 5 } });
+
+        await advanceMinutes(35);
+
+        expect(getStreakRequests()).toHaveLength(1);
+      });
+    });
+
     describe("while a series mutation is in flight", () => {
       type JsonResponse = { json: () => Promise<Record<string, unknown>>; ok: boolean };
 

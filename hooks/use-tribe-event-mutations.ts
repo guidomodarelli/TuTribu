@@ -69,8 +69,8 @@ export type TribeEventMutations = {
   attendanceStreak: TribeEventAttendanceStreakResult | null;
   /**
    * Next instant (ISO 8601) at which the streak can change: the server value,
-   * replaced by the one each streak read returns. Callers validate it before
-   * scheduling a refresh.
+   * replaced by the one each streak read, creation, edit, or deletion
+   * returns. Callers validate it before scheduling a refresh.
    */
   attendanceStreakNextRefreshAt: string | null;
   deleteEvent: (occurrence: TribeEventOccurrenceResult) => Promise<boolean>;
@@ -115,7 +115,9 @@ const COPY = {
  * mutations are discarded in favour of the fresh server data. The viewer
  * streak follows the same rule: creations, edits, and deletions replace it
  * with the value the route recomputed after committing, and among mutations
- * the most recently started one whose response carries a streak wins.
+ * the most recently started one whose response carries a streak wins. The
+ * next refresh instant follows the same ordering, tracked on its own: a
+ * response may carry one field and omit the other.
  * Streak reads never race a mutation: starting a mutation aborts a read in
  * flight (it began before the commit), and a read requested while a mutation
  * is uncommitted is deferred until every mutation settles. Once they settle,
@@ -159,6 +161,9 @@ export function useTribeEventMutations({
   // advances when a response actually carries a usable streak, so a slower,
   // older response never overwrites the streak of a newer successful one.
   const appliedStreakRequestSequenceRef = useRef(0);
+  // Same guard for the next refresh instant, which advances independently
+  // because a response can carry it while omitting the streak (and vice versa).
+  const appliedStreakNextRefreshRequestSequenceRef = useRef(0);
   // Creations, edits, and deletions not settled yet. While any is pending a
   // streak read could observe pre-commit data, so reads wait for them.
   const pendingStreakMutationCountRef = useRef(0);
@@ -199,6 +204,7 @@ export function useTribeEventMutations({
 
     return {
       requestSequence: streakRequestSequenceRef.current,
+      sourceNextRefreshAt: attendanceStreakNextRefreshAt,
       sourceStreak: attendanceStreak,
     };
   };
@@ -226,20 +232,27 @@ export function useTribeEventMutations({
   };
 
   /**
-   * Stores the next refresh instant a streak read returned, tagged with the
-   * server value seen when the read started (same rule as the streak).
+   * Stores the next refresh instant a streak read or a series mutation
+   * returned, tagged with the server value seen when the request started and
+   * ordered by request sequence (same rules as the streak). An absent instant
+   * keeps the one already watched.
    */
   const applyStreakNextRefresh = (
-    sourceNextRefreshAt: string | null,
+    request: ReturnType<typeof startStreakRequest>,
     read: TribeEventStreakReadResult
   ) => {
-    if (read.attendanceStreakNextRefreshAt === undefined) {
+    if (
+      read.attendanceStreakNextRefreshAt === undefined ||
+      request.requestSequence < appliedStreakNextRefreshRequestSequenceRef.current
+    ) {
       return;
     }
 
+    appliedStreakNextRefreshRequestSequenceRef.current = request.requestSequence;
+
     setStreakNextRefreshState({
       nextRefreshAt: read.attendanceStreakNextRefreshAt,
-      sourceNextRefreshAt,
+      sourceNextRefreshAt: request.sourceNextRefreshAt,
     });
   };
 
@@ -266,7 +279,6 @@ export function useTribeEventMutations({
 
     const controller = new AbortController();
     const streakRequest = startStreakRequest();
-    const sourceNextRefreshAt = attendanceStreakNextRefreshAt;
 
     streakRefreshControllerRef.current = controller;
 
@@ -274,7 +286,7 @@ export function useTribeEventMutations({
       .then((refresh) => {
         if (!controller.signal.aborted) {
           applyStreakRefresh(streakRequest, refresh);
-          applyStreakNextRefresh(sourceNextRefreshAt, refresh);
+          applyStreakNextRefresh(streakRequest, refresh);
         }
       })
       .catch(() => {
@@ -382,6 +394,7 @@ export function useTribeEventMutations({
       }
 
       applyStreakRefresh(streakRequest, result);
+      applyStreakNextRefresh(streakRequest, result);
       streakRefresh = result;
 
       toast.success(result.message ?? COPY.eventSaveFallback);
@@ -425,6 +438,7 @@ export function useTribeEventMutations({
         )
       );
       applyStreakRefresh(streakRequest, result);
+      applyStreakNextRefresh(streakRequest, result);
       streakRefresh = result;
       toast.success(result.message ?? COPY.deleteSuccess);
       return true;
