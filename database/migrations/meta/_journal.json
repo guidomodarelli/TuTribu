@@ -603,6 +603,34 @@
       "when": 1790259600000,
       "tag": "20260926120000_create_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1790263200000,
+      "tag": "20260927120000_create_event_occurrence_recordings",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1790266800000,
+      "tag": "20260927121000_create_event_occurrence_reactions",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1790270400000,
+      "tag": "20260927122000_create_event_occurrence_comments",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1790274000000,
+      "tag": "20260927123000_add_course_lesson_event_source",
+      "breakpoints": true
     }
   ]
 }
