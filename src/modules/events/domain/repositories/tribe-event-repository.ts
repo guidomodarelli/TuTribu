@@ -187,9 +187,9 @@ export type TribeEventAttendanceResult =
     }
   | {
       /**
-       * `occurrenceEnded` comes from the definer function guard (defense in
-       * depth behind the use case check) when the occurrence already ended,
-       * also after waiting on the occurrence lock. `scheduleChanged` means a
+       * `occurrenceEnded` comes from the definer function guard, the only
+       * source of truth for the end (database clock under the occurrence
+       * lock), also after waiting on that lock. `scheduleChanged` means a
        * manager edited the schedule after the occurrence was validated.
        */
       status:
