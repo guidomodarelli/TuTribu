@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast, useIsMobile } from "beez-ui";
 
 import { TribeEventAgendaItem } from "@/components/events/tribe-event-agenda-item";
+import { TribeEventCalendarFeedDialog } from "@/components/events/tribe-event-calendar-feed-dialog";
 import { TribeEventAttendeesPanel } from "@/components/events/tribe-event-attendees-panel";
 import { TribeEventDeleteDialog } from "@/components/events/tribe-event-delete-dialog";
 import { TribeEventDetailDialog } from "@/components/events/tribe-event-detail-dialog";
@@ -35,6 +36,7 @@ import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { useMinuteClock } from "@/hooks/use-minute-clock";
 import { useTribeEventAttendanceReport } from "@/hooks/use-tribe-event-attendance-report";
+import { useTribeEventCalendarFeed } from "@/hooks/use-tribe-event-calendar-feed";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
 import { useTribeEventProposals } from "@/hooks/use-tribe-event-proposals";
 import { useViewerTimeZone } from "@/hooks/use-viewer-time-zone";
@@ -194,6 +196,8 @@ export function TribeEventsCalendar({
     onEventCreated: applyEventOccurrences,
     tribeSlug,
   });
+  const calendarFeed = useTribeEventCalendarFeed({ tribeSlug });
+  const [isCalendarFeedOpen, setIsCalendarFeedOpen] = useState(false);
   const [isProposalFormOpen, setIsProposalFormOpen] = useState(false);
   const [proposalFormSession, setProposalFormSession] = useState(0);
   const [isProposalsPanelOpen, setIsProposalsPanelOpen] = useState(false);
@@ -360,6 +364,17 @@ export function TribeEventsCalendar({
   const openProposalForm = () => {
     setProposalFormSession((currentSession) => currentSession + 1);
     setIsProposalFormOpen(true);
+  };
+
+  const openCalendarFeed = () => {
+    setIsCalendarFeedOpen(true);
+    calendarFeed.loadSubscription();
+  };
+
+  // The issued link is shown once: closing the dialog forgets it.
+  const closeCalendarFeed = () => {
+    setIsCalendarFeedOpen(false);
+    calendarFeed.reset();
   };
 
   const openProposalsPanel = () => {
@@ -544,6 +559,7 @@ export function TribeEventsCalendar({
         onCreateEvent={() => openCreateForm()}
         onOpenProposals={openProposalsPanel}
         onProposeEvent={openProposalForm}
+        onSubscribeCalendar={openCalendarFeed}
       />
 
       {nextOccurrence && nowTime !== null ? (
@@ -682,6 +698,24 @@ export function TribeEventsCalendar({
           }}
         />
       ) : null}
+
+      <TribeEventCalendarFeedDialog
+        feedUrl={calendarFeed.feedUrl}
+        isOpen={isCalendarFeedOpen}
+        isSubmitting={calendarFeed.isSubmitting}
+        loadState={calendarFeed.loadState}
+        onClose={closeCalendarFeed}
+        onCopyLink={() => {
+          void calendarFeed.copyFeedUrl();
+        }}
+        onGenerate={() => {
+          void calendarFeed.generateLink();
+        }}
+        onRetry={calendarFeed.loadSubscription}
+        onRevoke={() => {
+          void calendarFeed.revokeLink();
+        }}
+      />
 
       <TribeEventDeleteDialog
         isDeleting={isDeletingEvent}

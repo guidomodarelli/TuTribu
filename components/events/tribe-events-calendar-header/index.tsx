@@ -8,6 +8,7 @@ import {
   InboxIcon,
   LightbulbIcon,
   ListIcon,
+  RssIcon,
 } from "lucide-react";
 import { Button } from "beez-ui";
 
@@ -38,6 +39,8 @@ type TribeEventsCalendarHeaderProps = {
   /** Opens the proposals panel (manager queue or the member's own list). */
   onOpenProposals?: () => void;
   onProposeEvent?: () => void;
+  /** Opens the personal calendar subscription (webcal feed) dialog. */
+  onSubscribeCalendar?: () => void;
   /** Pending proposals waiting for review (managers). */
   pendingProposalCount?: number;
   previousMonthHref: string;
@@ -61,6 +64,7 @@ const COPY = {
   myProposalsButton: "Mis propuestas",
   pendingProposalsButton: (count: number) => `Propuestas (${count})`,
   proposeButton: "Proponer un encuentro",
+  subscribeCalendarButton: "Suscribirme al calendario",
   nextMonth: "Mes siguiente",
   previousMonth: "Mes anterior",
   today: "Hoy",
@@ -72,7 +76,8 @@ const COPY = {
 /**
  * Month navigation, "Hoy" shortcut with the Buenos Aires clock, view toggle,
  * the type filter, the create action and "Propuestas (N)" for managers, and
- * "Proponer un encuentro" for members.
+ * "Proponer un encuentro" for members, and "Suscribirme al calendario" for
+ * every viewer.
  */
 export function TribeEventsCalendarHeader({
   canManageEvents,
@@ -83,6 +88,7 @@ export function TribeEventsCalendarHeader({
   onCreateEvent,
   onOpenProposals,
   onProposeEvent,
+  onSubscribeCalendar,
   pendingProposalCount = 0,
   previousMonthHref,
   timeLabel,
@@ -178,6 +184,16 @@ export function TribeEventsCalendarHeader({
               onClick={onOpenProposals}
             >
               {COPY.myProposalsButton}
+            </Button>
+          ) : null}
+          {onSubscribeCalendar ? (
+            <Button
+              type={BUTTON_ATTRIBUTE.typeButton}
+              variant={BUTTON_ATTRIBUTE.variantGhost}
+              onClick={onSubscribeCalendar}
+            >
+              <RssIcon aria-hidden />
+              {COPY.subscribeCalendarButton}
             </Button>
           ) : null}
           {canProposeEvents && onProposeEvent ? (
