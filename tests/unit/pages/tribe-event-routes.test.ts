@@ -22,6 +22,8 @@ const getTribeEvent = vi.fn();
 const setTribeEventAttendance = vi.fn();
 const clearTribeEventAttendance = vi.fn();
 const getTribeEventAttendanceReport = vi.fn();
+const getTribeEventAttendanceStreak = vi.fn();
+const { logError } = vi.hoisted(() => ({ logError: vi.fn() }));
 
 vi.mock("@/src/modules/setup", () => ({
   createRequestModules: vi.fn(),
@@ -31,7 +33,7 @@ vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
     createServerLogger: vi.fn(() => ({
-      error: vi.fn(),
+      error: logError,
       info: vi.fn(),
     })),
   })
@@ -135,6 +137,7 @@ describe("Tribe event routes", () => {
       name: "Grace Hopper",
       role: "tribemate",
     });
+    getTribeEventAttendanceStreak.mockResolvedValue(null);
     (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
@@ -148,6 +151,7 @@ describe("Tribe event routes", () => {
           deleteTribeEvent,
           getTribeEvent,
           getTribeEventAttendanceReport,
+          getTribeEventAttendanceStreak,
           listTribeEvents,
           setTribeEventAttendance,
           updateTribeEvent,
@@ -301,6 +305,7 @@ describe("Tribe event routes", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
+      attendanceStreak: null,
       message: "Evento eliminado.",
     });
     expect(deleteTribeEvent).toHaveBeenCalledWith({
@@ -313,6 +318,99 @@ describe("Tribe event routes", () => {
     const forbiddenResponse = await DELETE(buildRequest(), buildEventContext());
 
     expect(forbiddenResponse.status).toBe(403);
+  });
+
+  describe("attendance streak after series mutations", () => {
+    const streak = { attendedCount: 3, occurrenceCount: 5 };
+
+    function buildPatchRequest() {
+      return buildRequest(
+        {
+          startsAt: "2026-05-06T18:00:00.000Z",
+          title: "Clase abierta",
+        },
+        `${BASE_URL}/${EVENT_ID}?month=2026-05`
+      );
+    }
+
+    it("returns the recomputed viewer streak with the updated occurrences", async () => {
+      updateTribeEvent.mockResolvedValue({
+        event,
+        occurrences: [occurrence],
+        status: "updated" as const,
+      });
+      getTribeEventAttendanceStreak.mockResolvedValue(streak);
+
+      const response = await PATCH(buildPatchRequest(), buildEventContext());
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        attendanceStreak: streak,
+        occurrences: [occurrence],
+      });
+      expect(getTribeEventAttendanceStreak).toHaveBeenCalledTimes(1);
+      expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
+        tribeSlug: "matematica-pro",
+      });
+    });
+
+    it("returns the recomputed viewer streak after deleting a series", async () => {
+      deleteTribeEvent.mockResolvedValue({ status: "deleted" as const });
+      getTribeEventAttendanceStreak.mockResolvedValue(streak);
+
+      const response = await DELETE(buildRequest(), buildEventContext());
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        attendanceStreak: streak,
+        message: "Evento eliminado.",
+      });
+      expect(getTribeEventAttendanceStreak).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the mutation successful and omits the streak when recomputing it fails", async () => {
+      const streakError = new Error("history query failed");
+      updateTribeEvent.mockResolvedValue({
+        event,
+        occurrences: [occurrence],
+        status: "updated" as const,
+      });
+      deleteTribeEvent.mockResolvedValue({ status: "deleted" as const });
+      getTribeEventAttendanceStreak.mockRejectedValue(streakError);
+
+      const updateResponse = await PATCH(buildPatchRequest(), buildEventContext());
+      const deleteResponse = await DELETE(buildRequest(), buildEventContext());
+
+      expect(updateResponse.status).toBe(200);
+      expect(deleteResponse.status).toBe(200);
+      const updateBody = await updateResponse.json();
+      const deleteBody = await deleteResponse.json();
+      expect(updateBody).toMatchObject({ occurrences: [occurrence] });
+      expect(updateBody).not.toHaveProperty("attendanceStreak");
+      expect(deleteBody).toEqual({ message: "Evento eliminado." });
+      expect(logError).toHaveBeenCalledTimes(2);
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: streakError,
+          message: "Failed to recompute tribe event attendance streak after mutation",
+          metadata: expect.objectContaining({
+            eventId: EVENT_ID,
+            slug: "matematica-pro",
+            viewerId: "member-1",
+          }),
+        })
+      );
+    });
+
+    it("does not recompute the streak when the mutation is rejected", async () => {
+      updateTribeEvent.mockResolvedValue({ status: "forbidden" as const });
+      deleteTribeEvent.mockResolvedValue({ status: "not_found" as const });
+
+      await PATCH(buildPatchRequest(), buildEventContext());
+      await DELETE(buildRequest(), buildEventContext());
+
+      expect(getTribeEventAttendanceStreak).not.toHaveBeenCalled();
+    });
   });
 
   it("records the viewer attendance for an occurrence", async () => {

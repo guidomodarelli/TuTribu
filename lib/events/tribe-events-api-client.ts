@@ -3,6 +3,7 @@ import type { CreateTribeEventCommand } from "@/src/modules/events/application/c
 import type {
   TribeEventAttendanceOption,
   TribeEventAttendanceReportResult,
+  TribeEventAttendanceStreakResult,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 
@@ -26,8 +27,23 @@ export type TribeEventRequestResult<TData> =
   | { isSuccess: false; message: string | null };
 
 type SaveEventResponseBody = {
+  attendanceStreak?: unknown;
   message?: string;
   occurrences?: TribeEventOccurrenceResult[];
+};
+
+type DeleteEventResponseBody = {
+  attendanceStreak?: unknown;
+  message?: string;
+};
+
+/**
+ * Streak refreshed by a series mutation. Absent means "keep the streak on
+ * screen" (the route could not recompute it or the value was unusable);
+ * `null` means the viewer no longer has a streak.
+ */
+export type TribeEventStreakRefresh = {
+  attendanceStreak?: TribeEventAttendanceStreakResult | null;
 };
 
 type AttendanceResponseBody = {
@@ -38,10 +54,6 @@ type AttendanceResponseBody = {
 type AttendanceReportResponseBody = {
   message?: string;
   report?: TribeEventAttendanceReportResult;
-};
-
-type MessageResponseBody = {
-  message?: string;
 };
 
 const HTTP_REQUEST = {
@@ -89,6 +101,31 @@ function buildAttendanceEndpoint(
     : base;
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * Guards the public streak DTO of a mutation response: only `null` or an
+ * object with integer counts is applied; anything else is dropped so the UI
+ * keeps the streak it already shows.
+ */
+function readStreakRefresh(attendanceStreak: unknown): TribeEventStreakRefresh {
+  if (attendanceStreak === null) {
+    return { attendanceStreak: null };
+  }
+
+  if (typeof attendanceStreak !== "object") {
+    return {};
+  }
+
+  const { attendedCount, occurrenceCount } = attendanceStreak as Record<string, unknown>;
+
+  return isNonNegativeInteger(attendedCount) && isNonNegativeInteger(occurrenceCount)
+    ? { attendanceStreak: { attendedCount, occurrenceCount } }
+    : {};
+}
+
 /**
  * Reads a JSON body, degrading to an empty object when the response has no
  * parseable body so callers fall back to their own safe copy.
@@ -102,14 +139,17 @@ async function readJsonBody<TBody>(response: Response): Promise<TBody> {
  * the occurrences of the saved event inside the visible `month`.
  *
  * @param input - Tribe, optional event id, visible month, and form payload.
- * @returns The saved occurrences or the failure message.
+ * @returns The saved occurrences (plus the refreshed viewer streak when the
+ * route returns it) or the failure message.
  */
 export async function saveTribeEventRequest(input: {
   eventId: string | null;
   month: string;
   payload: TribeEventSavePayload;
   tribeSlug: string;
-}): Promise<TribeEventRequestResult<{ occurrences: TribeEventOccurrenceResult[] }>> {
+}): Promise<
+  TribeEventRequestResult<{ occurrences: TribeEventOccurrenceResult[] } & TribeEventStreakRefresh>
+> {
   const endpoint = input.eventId
     ? buildEventEndpoint(input.tribeSlug, input.eventId, input.month)
     : buildEventsEndpoint(input.tribeSlug, input.month);
@@ -124,26 +164,32 @@ export async function saveTribeEventRequest(input: {
     return { isSuccess: false, message: body.message ?? null };
   }
 
-  return { isSuccess: true, message: body.message ?? null, occurrences: body.occurrences };
+  return {
+    ...readStreakRefresh(body.attendanceStreak),
+    isSuccess: true,
+    message: body.message ?? null,
+    occurrences: body.occurrences,
+  };
 }
 
 /**
  * Deletes the whole series and its attendance answers.
  *
  * @param input - Tribe and event identifiers.
- * @returns Whether the deletion succeeded, with the route message.
+ * @returns Whether the deletion succeeded, with the route message and the
+ * refreshed viewer streak when the route could recompute it.
  */
 export async function deleteTribeEventRequest(input: {
   eventId: string;
   tribeSlug: string;
-}): Promise<TribeEventRequestResult<Record<never, never>>> {
+}): Promise<TribeEventRequestResult<TribeEventStreakRefresh>> {
   const response = await fetch(buildEventEndpoint(input.tribeSlug, input.eventId), {
     method: HTTP_REQUEST.methodDelete,
   });
-  const body = await readJsonBody<MessageResponseBody>(response);
+  const body = await readJsonBody<DeleteEventResponseBody>(response);
 
   return response.ok
-    ? { isSuccess: true, message: body.message ?? null }
+    ? { ...readStreakRefresh(body.attendanceStreak), isSuccess: true, message: body.message ?? null }
     : { isSuccess: false, message: body.message ?? null };
 }
 

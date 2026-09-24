@@ -1,4 +1,5 @@
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import { readAttendanceStreakResponseFragment } from "@/src/modules/events/infrastructure/api/tribe-event-attendance-streak-response";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_QUERY_PARAM,
@@ -60,8 +61,17 @@ export async function PATCH(request: Request, context: TribeEventRouteContext) {
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.updated) {
+      const streakFragment = await readAttendanceStreakResponseFragment({
+        eventId,
+        getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
+        logger,
+        tribeSlug: slug,
+        viewerId: authenticatedMember.id,
+      });
+
       return createJsonResponse(
         {
+          ...streakFragment,
           event: result.event,
           message: TRIBE_EVENT_ROUTE_RESPONSE.updateSuccessMessage,
           occurrences: result.occurrences,
@@ -114,8 +124,16 @@ export async function DELETE(request: Request, context: TribeEventRouteContext) 
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.deleted) {
+      const streakFragment = await readAttendanceStreakResponseFragment({
+        eventId,
+        getTribeEventAttendanceStreak: modules.events.useCases.getTribeEventAttendanceStreak,
+        logger,
+        tribeSlug: slug,
+        viewerId: authenticatedMember.id,
+      });
+
       return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.deleteSuccessMessage },
+        { ...streakFragment, message: TRIBE_EVENT_ROUTE_RESPONSE.deleteSuccessMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
       );
     }

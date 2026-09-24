@@ -1022,6 +1022,109 @@ describe("TribeEventsCalendar", () => {
     );
   });
 
+  describe("attendance streak after series mutations", () => {
+    const initialStreak = { attendedCount: 4, occurrenceCount: 5 };
+    const laterOccurrence = createOccurrence({
+      endsAt: "2026-05-20T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-20T18:00:00.000Z",
+      title: "Encuentro abierto",
+    });
+
+    async function editFirstOccurrence(responseBody: Record<string, unknown>) {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+      await user.click(screen.getByRole("button", { name: "Editar" }));
+      fireEvent.change(screen.getByLabelText("Título"), {
+        target: { value: "Clase cerrada" },
+      });
+      mockJsonResponse({
+        event: {},
+        message: "Evento actualizado.",
+        occurrences: [createOccurrence({ title: "Clase cerrada" })],
+        ...responseBody,
+      });
+      await user.click(screen.getByRole("button", { name: "Guardar evento" }));
+      await screen.findByRole("button", { name: /15:00\s*Clase cerrada/ });
+    }
+
+    async function deleteFirstOccurrence(responseBody: Record<string, unknown>) {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
+      await user.click(screen.getByRole("button", { name: "Eliminar" }));
+      mockJsonResponse({ message: "Evento eliminado.", ...responseBody });
+      await user.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Eliminar" })
+      );
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: /15:00\s*Clase abierta/ })
+        ).not.toBeInTheDocument()
+      );
+    }
+
+    function getNextEventRegion() {
+      return screen.getByRole("region", { name: "Próximo evento" });
+    }
+
+    it("shows the streak returned by an edit without reloading the route", async () => {
+      renderCalendar({ attendanceStreak: initialStreak });
+
+      await editFirstOccurrence({
+        attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
+      });
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 2 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("hides the streak when a deletion leaves the viewer without one", async () => {
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+
+      await deleteFirstOccurrence({ attendanceStreak: null });
+
+      expect(
+        await within(getNextEventRegion()).findByText("Encuentro abierto")
+      ).toBeInTheDocument();
+      expect(within(getNextEventRegion()).queryByText(/Fuiste a/)).not.toBeInTheDocument();
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("keeps the previous streak when the mutation response omits it", async () => {
+      renderCalendar({
+        attendanceStreak: initialStreak,
+        events: [occurrence, laterOccurrence],
+      });
+
+      await deleteFirstOccurrence({});
+
+      expect(
+        await within(getNextEventRegion()).findByText(
+          "Fuiste a 4 de los últimos 5 encuentros 🔥"
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("ignores an unusable streak in the mutation response", async () => {
+      renderCalendar({ attendanceStreak: initialStreak });
+
+      await editFirstOccurrence({ attendanceStreak: { attendedCount: "2" } });
+
+      expect(
+        within(getNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
+      ).toBeInTheDocument();
+    });
+  });
+
   it("shows the endpoint message when saving fails", async () => {
     const { toast } = vi.mocked(await import("beez-ui"), true);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

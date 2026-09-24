@@ -104,7 +104,7 @@ type OccurrenceSelectionState = {
  * `useTribeEventMutations`; every visual block is a presentational component.
  */
 export function TribeEventsCalendar({
-  attendanceStreak = null,
+  attendanceStreak: serverAttendanceStreak = null,
   events,
   initialOccurrenceKey = null,
   month,
@@ -126,6 +126,7 @@ export function TribeEventsCalendar({
   const router = useRouter();
   const viewerTimeZone = useViewerTimeZone();
   const {
+    attendanceStreak,
     deleteEvent,
     isDeletingEvent,
     isSavingAttendance,
@@ -133,7 +134,12 @@ export function TribeEventsCalendar({
     saveEvent,
     setAttendance,
     visibleEvents,
-  } = useTribeEventMutations({ events, month: month.current, tribeSlug });
+  } = useTribeEventMutations({
+    attendanceStreak: serverAttendanceStreak,
+    events,
+    month: month.current,
+    tribeSlug,
+  });
   const [formSession, setFormSession] = useState<EventFormSession>({
     mode: FORM_MODE.closed,
   });
