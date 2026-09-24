@@ -302,7 +302,7 @@ describe("TribeEventsCalendar attendance", () => {
   it("does not reload the attendees when the detail reopens on the default tab", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ viewerPermissions: { canManageEvents: true } });
+    renderCalendar({ viewerPermissions: { canManageEvents: true, canProposeEvents: false } });
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });

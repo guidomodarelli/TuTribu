@@ -198,7 +198,8 @@ export function TribeEventDetailDialog({
           {COPY.occurrenceActionsHeading}
         </p>
         <div className={styles.TribeEventDetailDialog__actionGroupButtons}>
-          {currentOccurrence.exception ? (
+          {/* An ended date is frozen: the server refuses changing it (409). */}
+          {currentOccurrence.exception && !isPast ? (
             <Button
               disabled={isSavingException}
               size={BUTTON_ATTRIBUTE.sizeSmall}

@@ -194,6 +194,7 @@ describe("tribe event attendance use cases", () => {
       const repository = createRepository();
       const execute = setTribeEventAttendance({
         now: afterOccurrence,
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
         tribeEventRepository: repository,
       });
 
@@ -207,6 +208,7 @@ describe("tribe event attendance use cases", () => {
       const repository = createRepository();
       const execute = clearTribeEventAttendance({
         now: afterOccurrence,
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
         tribeEventRepository: repository,
       });
 
@@ -222,6 +224,7 @@ describe("tribe event attendance use cases", () => {
       });
       const execute = setTribeEventAttendance({
         now: afterOccurrence,
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
         tribeEventRepository: repository,
       });
 
@@ -240,10 +243,12 @@ describe("tribe event attendance use cases", () => {
       });
       const setAttendance = setTribeEventAttendance({
         now: duringOccurrence,
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
         tribeEventRepository: repository,
       });
       const clearAttendance = clearTribeEventAttendance({
         now: duringOccurrence,
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
         tribeEventRepository: repository,
       });
 

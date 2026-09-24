@@ -152,15 +152,18 @@ describe("tribe event use cases", () => {
     });
     const listByTribeRange = vi.fn(async () => createListing([crossMonthWorkshop]));
     const execute = listTribeEvents({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
       tribeEventRepository: createRepository({ listByTribeRange }),
     });
 
     const may = await execute({
+      eventTypes: [],
       month: "2026-05",
       occurrence: null,
       tribeSlug: "matematica-pro",
     });
     const june = await execute({
+      eventTypes: [],
       month: "2026-06",
       occurrence: null,
       tribeSlug: "matematica-pro",
@@ -514,7 +517,15 @@ describe("tribe event use cases", () => {
       goingCount: 2,
       viewerStatus: "going" as const,
     };
+    const updatedEvent = createEvent({ capacity: 2, recurrenceFrequency: "weekly" });
     const update = vi.fn(async () => ({
+      attendances: [],
+      event: updatedEvent,
+      status: TRIBE_EVENT_MUTATION_STATUS.updated,
+    }));
+    // Read after the update (and its waitlist refill) committed, so the
+    // summaries already include the promotions.
+    const listEventOccurrences = vi.fn(async () => ({
       attendances: [
         {
           ...promotedAttendance,
@@ -522,11 +533,12 @@ describe("tribe event use cases", () => {
           occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
         },
       ],
-      event: createEvent({ capacity: 2, recurrenceFrequency: "weekly" }),
-      status: TRIBE_EVENT_MUTATION_STATUS.updated,
+      event: updatedEvent,
+      exceptions: [],
     }));
     const execute = updateTribeEvent({
-      tribeEventRepository: createRepository({ update }),
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: createRepository({ listEventOccurrences, update }),
     });
 
     const result = await execute({
@@ -536,14 +548,7 @@ describe("tribe event use cases", () => {
       visibleMonth: "2026-05",
     });
 
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        attendanceRange: {
-          rangeEnd: "2026-06-01T03:00:00.000Z",
-          rangeStart: "2026-05-01T03:00:00.000Z",
-        },
-      })
-    );
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ attendanceRange: null }));
     expect(result).toMatchObject({ status: TRIBE_EVENT_MUTATION_STATUS.updated });
     const occurrences = "occurrences" in result ? result.occurrences : [];
     expect(
@@ -562,9 +567,13 @@ describe("tribe event use cases", () => {
       event: createEvent(),
       status: TRIBE_EVENT_MUTATION_STATUS.updated,
     }));
+    const listEventOccurrences = vi.fn();
 
     await expect(
-      updateTribeEvent({ tribeEventRepository: createRepository({ update }) })({
+      updateTribeEvent({
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+        tribeEventRepository: createRepository({ listEventOccurrences, update }),
+      })({
         ...createFields(),
         eventId: EVENT_ID,
         tribeSlug: "matematica-pro",
@@ -572,6 +581,7 @@ describe("tribe event use cases", () => {
       })
     ).resolves.toMatchObject({ occurrences: [] });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ attendanceRange: null }));
+    expect(listEventOccurrences).not.toHaveBeenCalled();
   });
 
   it("forwards the not found outcome of the repository", async () => {

@@ -359,6 +359,7 @@ describe("PostgresTribeEventRepository", () => {
       description: null,
       endsAt: "2026-05-06T19:00:00.000Z",
       eventId: EVENT_ID,
+      eventType: "live" as const,
       meetingUrl: null,
       recurrenceFrequency: "weekly" as const,
       recurrenceUntil: null,
@@ -391,6 +392,8 @@ describe("PostgresTribeEventRepository", () => {
             { occurrence_starts_at: new Date("2026-05-19T18:00:00.000Z") },
           ],
         })
+        // Exceptions of the series: none.
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ promoted_count: 2 }] });
       const repository = createRepository(execute);
 
@@ -401,7 +404,7 @@ describe("PostgresTribeEventRepository", () => {
       });
 
       const candidateSql = getSqlText(execute.mock.calls[1]?.[0]);
-      const refillSql = getSqlText(execute.mock.calls[2]?.[0]);
+      const refillSql = getSqlText(execute.mock.calls[3]?.[0]);
 
       expect(candidateSql).toContain("event_attendances.status =");
       // Lower bound = now minus one occurrence duration (one hour).
@@ -410,7 +413,66 @@ describe("PostgresTribeEventRepository", () => {
       expect(refillSql).toContain("2026-05-13T18:00:00.000Z");
       expect(refillSql).toContain("2026-05-20T18:00:00.000Z");
       expect(refillSql).not.toContain("2026-05-19T18:00:00.000Z");
-      expect(execute).toHaveBeenCalledTimes(3);
+      expect(execute).toHaveBeenCalledTimes(4);
+    });
+
+    it("keys moved dates by their original start and skips cancelled dates", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
+        .mockResolvedValueOnce({
+          rows: [
+            // Original slot already over, moved to the future: refilled
+            // under its original start (the attendance key).
+            { occurrence_starts_at: "2026-05-06T18:00:00.000Z" },
+            // Future slot that was cancelled: takes no answers, not refilled.
+            { occurrence_starts_at: "2026-05-20T18:00:00.000Z" },
+            // Future slot moved to a time that already ended: not refilled.
+            { occurrence_starts_at: "2026-05-27T18:00:00.000Z" },
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              event_id: EVENT_ID,
+              kind: "moved",
+              new_ends_at: null,
+              new_starts_at: "2026-05-14T18:00:00.000Z",
+              original_starts_at: "2026-05-06T18:00:00.000Z",
+              reason: null,
+            },
+            {
+              event_id: EVENT_ID,
+              kind: "cancelled",
+              new_ends_at: null,
+              new_starts_at: null,
+              original_starts_at: "2026-05-20T18:00:00.000Z",
+              reason: null,
+            },
+            {
+              event_id: EVENT_ID,
+              kind: "moved",
+              new_ends_at: null,
+              new_starts_at: "2026-05-12T18:00:00.000Z",
+              original_starts_at: "2026-05-27T18:00:00.000Z",
+              reason: null,
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ promoted_count: 1 }] });
+      const repository = createRepository(execute);
+
+      await repository.update(updateCommand);
+
+      const candidateSql = getSqlText(execute.mock.calls[1]?.[0]);
+      const refillSql = getSqlText(execute.mock.calls[3]?.[0]);
+
+      // Waitlists of moved dates are candidates even before the lookback.
+      expect(candidateSql).toContain("public.event_occurrence_exceptions moved_exceptions");
+      expect(refillSql).toContain("2026-05-06T18:00:00.000Z");
+      expect(refillSql).not.toContain("2026-05-20T18:00:00.000Z");
+      expect(refillSql).not.toContain("2026-05-27T18:00:00.000Z");
+      expect(execute).toHaveBeenCalledTimes(4);
     });
 
     it("skips the refill call when no waitlisted occurrence is still valid", async () => {
@@ -419,14 +481,16 @@ describe("PostgresTribeEventRepository", () => {
         .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
         .mockResolvedValueOnce({
           rows: [{ occurrence_starts_at: "2026-05-19T18:00:00.000Z" }],
-        });
+        })
+        .mockResolvedValueOnce({ rows: [] });
       const repository = createRepository(execute);
 
       await expect(repository.update(updateCommand)).resolves.toMatchObject({
         attendances: [],
         status: "updated",
       });
-      expect(execute).toHaveBeenCalledTimes(2);
+      // Update, waitlist candidates, and the exceptions of the series.
+      expect(execute).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -503,6 +567,7 @@ describe("PostgresTribeEventRepository", () => {
         description: null,
         endsAt: null,
         eventId: EVENT_ID,
+        eventType: "live",
         meetingUrl: null,
         recurrenceFrequency: "weekly",
         recurrenceUntil: null,

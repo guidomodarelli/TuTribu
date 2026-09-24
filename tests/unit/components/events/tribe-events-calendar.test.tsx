@@ -1790,7 +1790,7 @@ describe("TribeEventsCalendar server render", () => {
           events={[createOccurrence()]}
           month={MAY}
           tribeSlug="matematica-pro"
-          viewerPermissions={{ canManageEvents: false }}
+          viewerPermissions={{ canManageEvents: false, canProposeEvents: false }}
         />
       </RouterProvider>
     );
