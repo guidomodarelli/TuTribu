@@ -92,6 +92,7 @@ describe("tribe event proposal use cases", () => {
   it("lists the panel with bounded sizes", async () => {
     const list = vi.fn(async () => ({
       canReviewProposals: true,
+      pendingCount: 73,
       proposals: [proposal],
       status: TRIBE_EVENT_MUTATION_STATUS.found,
     }));
@@ -101,6 +102,7 @@ describe("tribe event proposal use cases", () => {
 
     await expect(execute({ tribeSlug: TRIBE_SLUG })).resolves.toMatchObject({
       canReviewProposals: true,
+      pendingCount: 73,
       proposals: [proposal],
     });
     expect(list).toHaveBeenCalledWith({

@@ -246,7 +246,14 @@ describe("tribe events API client", () => {
       },
       eventTitle: "Clase abierta",
       occurrenceStartsAt: STARTS_AT,
-      trend: [{ goingCount: 4, occurrenceStartsAt: "2026-04-29T18:00:00.000Z" }],
+      originalOccurrenceStartsAt: STARTS_AT,
+      trend: [
+        {
+          goingCount: 4,
+          occurrenceStartsAt: "2026-04-29T18:00:00.000Z",
+          originalOccurrenceStartsAt: "2026-04-29T18:00:00.000Z",
+        },
+      ],
     };
 
     it("returns a valid report", async () => {

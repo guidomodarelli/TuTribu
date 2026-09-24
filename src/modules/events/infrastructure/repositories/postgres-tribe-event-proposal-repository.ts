@@ -47,6 +47,15 @@ type ProposalRow = {
   title: string;
 };
 
+/**
+ * Proposals panel row. Only the manager queue selects `pending_count`: a
+ * window count evaluated before the `limit`, so it carries the uncapped
+ * pending total of the tribe.
+ */
+type ProposalListRow = ProposalRow & {
+  pending_count?: number | string | null;
+};
+
 type TribeAccessRow = {
   can_manage: boolean | null;
   can_read: boolean | null;
@@ -298,7 +307,8 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
       const result = await database.execute(
         canReviewProposals
           ? sql`
-              select ${PROPOSAL_COLUMNS}
+              select ${PROPOSAL_COLUMNS},
+                count(*) over () as pending_count
               from public.event_proposals
               left join public."user" proposer
                 on proposer.id = event_proposals.proposed_by
@@ -320,9 +330,12 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
             `
       );
 
+      const rows = (result.rows ?? []) as ProposalListRow[];
+
       return {
         canReviewProposals,
-        proposals: ((result.rows ?? []) as ProposalRow[]).map(mapProposal),
+        pendingCount: canReviewProposals ? mapCount(rows[0]?.pending_count ?? null) : 0,
+        proposals: rows.map(mapProposal),
         status: TRIBE_EVENT_MUTATION_STATUS.found,
       };
     });

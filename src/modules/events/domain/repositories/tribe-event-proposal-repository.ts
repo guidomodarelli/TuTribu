@@ -67,10 +67,14 @@ export type TribeEventProposalCreationResult =
 /**
  * `canReviewProposals` tells whether the list is the manager queue (every
  * pending proposal of the tribe) or the author's own proposals.
+ * `pendingCount` is the uncapped number of pending proposals of the tribe for
+ * managers (the queue itself is bounded by `managerListSize`) and 0 for
+ * members.
  */
 export type TribeEventProposalListing =
   | {
       canReviewProposals: boolean;
+      pendingCount: number;
       proposals: TribeEventProposal[];
       status: typeof TRIBE_EVENT_MUTATION_STATUS.found;
     }

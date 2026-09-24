@@ -1125,6 +1125,7 @@ describe("Tribe event routes", () => {
       },
       eventTitle: "Clase abierta",
       occurrenceStartsAt: OCCURRENCE_STARTS_AT,
+      originalOccurrenceStartsAt: OCCURRENCE_STARTS_AT,
       trend: [],
     };
     const reportUrl = `${BASE_URL}/${EVENT_ID}/attendance${OCCURRENCE_QUERY}`;
