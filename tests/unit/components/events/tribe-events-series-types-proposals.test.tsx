@@ -548,7 +548,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
-  it("keeps the uncapped pending total on the badge when the queue is capped and decrements it on approval", async () => {
+  it("keeps the uncapped pending total on the badge when the queue is capped, decrements it on approval, and refills the queue", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const pendingTotal = 73;
     const cappedQueueSize = 50;
@@ -607,11 +607,29 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
         status: "approved",
       },
     });
+    // The next oldest pending proposal refills the capped queue.
+    mockJsonResponse({
+      canReviewProposals: true,
+      pendingCount: pendingTotal - 1,
+      proposals: [
+        ...queue.slice(1),
+        { ...firstProposal, id: "3c4d5e6f-7a8b-4c9d-8e0f-999999999999", title: "Propuesta 51" },
+      ],
+    });
     await user.click(within(form).getByRole("button", { name: "Aprobar y publicar" }));
 
     expect(
       await screen.findByRole("button", { hidden: true, name: `Propuestas (${pendingTotal - 1})` })
     ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        (global.fetch as Mock).mock.calls.filter(
+          ([url, init]) =>
+            url === "/api/tribes/matematica-pro/events/proposals" &&
+            ((init as RequestInit | undefined)?.method ?? "GET") === "GET"
+        )
+      ).toHaveLength(2)
+    );
   });
 
   it("lets managers reject a proposal with a note", async () => {
@@ -898,6 +916,76 @@ describe("TribeEventsCalendar proposal reconciliation", () => {
     ).toBeInTheDocument();
     expect(countRequests(`GET ${streakEndpoint}`)).toBe(1);
     expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("refills a capped queue after a successful rejection so the panel never empties while proposals remain", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const nextPendingProposal = {
+      ...pendingProposal,
+      id: "4d5e6f7a-8b9c-4d0e-8f1a-2b3c4d5e6f70",
+      title: "Picnic",
+    };
+
+    routeRequests({
+      // The server capped the queue: one row loaded out of two pending.
+      [`GET ${proposalsEndpoint}`]: [
+        { body: { canReviewProposals: true, pendingCount: 2, proposals: [pendingProposal] } },
+        { body: { canReviewProposals: true, pendingCount: 1, proposals: [nextPendingProposal] } },
+      ],
+      [`PATCH ${decisionEndpoint}`]: {
+        body: {
+          message: "Propuesta rechazada.",
+          proposal: {
+            ...pendingProposal,
+            reviewedAt: "2026-05-01T12:00:00.000Z",
+            status: "rejected",
+          },
+        },
+      },
+    });
+    renderCalendar({ pendingProposalCount: 2 });
+
+    await user.click(screen.getByRole("button", { name: "Propuestas (2)" }));
+
+    const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
+
+    await user.click(await within(panel).findByRole("button", { name: "Rechazar" }));
+    await user.click(within(panel).getByRole("button", { name: "Confirmar rechazo" }));
+
+    expect(await within(panel).findByText("Picnic")).toBeInTheDocument();
+    expect(within(panel).queryByText("After")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("No hay propuestas pendientes.")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { hidden: true, name: "Propuestas (1)" })
+    ).toBeInTheDocument();
+    expect(countRequests(`GET ${proposalsEndpoint}`)).toBe(2);
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("does not reload the queue after a successful rejection when every pending proposal is loaded", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    routeRequests({
+      [`GET ${proposalsEndpoint}`]: {
+        body: { canReviewProposals: true, pendingCount: 1, proposals: [pendingProposal] },
+      },
+      [`PATCH ${decisionEndpoint}`]: {
+        body: {
+          message: "Propuesta rechazada.",
+          proposal: {
+            ...pendingProposal,
+            reviewedAt: "2026-05-01T12:00:00.000Z",
+            status: "rejected",
+          },
+        },
+      },
+    });
+    renderCalendar({ pendingProposalCount: 1 });
+
+    const panel = await rejectPendingProposal(user);
+
+    expect(await within(panel).findByText("No hay propuestas pendientes.")).toBeInTheDocument();
+    expect(countRequests(`GET ${proposalsEndpoint}`)).toBe(1);
   });
 
   it("shows the pending count of a new server render even when it repeats the previous value", async () => {
