@@ -52,6 +52,33 @@ function buildTargetEventCte(eventId: string, tribeSlug: string) {
   `;
 }
 
+const CHANGED_EXCEPTION_CTE = {
+  deleted: "deleted_exception",
+  saved: "saved_exception",
+} as const;
+
+/**
+ * Bumps `events.updated_at` when the statement changed an exception, so the
+ * calendar feed raises the series SEQUENCE/LAST-MODIFIED (and its ETag) even
+ * when a date is restored and its exception row disappears.
+ *
+ * @param changedExceptionCte - CTE holding the saved or deleted exception.
+ */
+function buildTouchedEventCte(
+  changedExceptionCte: (typeof CHANGED_EXCEPTION_CTE)[keyof typeof CHANGED_EXCEPTION_CTE]
+) {
+  return sql`
+    touched_event as (
+      update public.events
+      set updated_at = timezone('utc', now())
+      from target_event
+      where events.id = target_event.id
+        and exists (select 1 from ${sql.raw(changedExceptionCte)})
+      returning events.id
+    )
+  `;
+}
+
 /**
  * Postgres adapter of the per-occurrence exceptions. Reads repeat
  * `can_read_tribe_content`; writes repeat `can_manage_tribe_events` (the
@@ -153,7 +180,8 @@ export class PostgresTribeEventOccurrenceExceptionRepository
             reason = excluded.reason,
             updated_at = excluded.updated_at
           returning ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS}
-        )
+        ),
+        ${buildTouchedEventCte(CHANGED_EXCEPTION_CTE.saved)}
         select
           case
             when exists (select 1 from saved_exception) then ${TRIBE_EVENT_MUTATION_STATUS.exceptionSaved}
@@ -196,7 +224,8 @@ export class PostgresTribeEventOccurrenceExceptionRepository
             and event_occurrence_exceptions.original_starts_at = ${originalStartsAt}::timestamptz
             and public.can_manage_tribe_events(target_event.tribe_id)
           returning event_occurrence_exceptions.id
-        )
+        ),
+        ${buildTouchedEventCte(CHANGED_EXCEPTION_CTE.deleted)}
         select
           case
             when not exists (select 1 from target_event) then ${TRIBE_EVENT_MUTATION_STATUS.notFound}

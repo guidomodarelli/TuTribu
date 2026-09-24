@@ -6,7 +6,6 @@ import {
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_PROPOSAL_STATUS,
-  TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEvent,
@@ -42,6 +41,7 @@ import type {
 import {
   RETURNING_TRIBE_EVENT_COLUMNS,
   TRIBE_EVENT_COLUMNS,
+  buildSeriesInRangePredicate,
   buildTribeEventExceptionsInRangeQuery,
   mapCount,
   mapDateValue,
@@ -273,24 +273,6 @@ function mapDeletionResult(row: EventDeletionRow | null): TribeEventDeletionResu
 }
 
 /**
- * Moved dates whose new start falls in the range, as a SQL predicate on an
- * `events` row: they bring their series into the listing even when the
- * series itself ended before the range (the last date moved later).
- */
-function buildMovedIntoRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
-  return sql`
-    exists (
-      select 1
-      from public.event_occurrence_exceptions moved_exceptions
-      where moved_exceptions.event_id = events.id
-        and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
-        and moved_exceptions.new_starts_at >= ${rangeStart}
-        and moved_exceptions.new_starts_at < ${rangeEnd}
-    )
-  `;
-}
-
-/**
  * Series of the tribe whose occurrences can fall in `[rangeStart, rangeEnd)`,
  * including series with a date moved into the range, guarded by
  * `can_read_tribe_content` because the runtime role bypasses RLS. Always
@@ -321,25 +303,7 @@ function buildEventsInRangeQuery({
       inner join target_tribe
         on target_tribe.id = events.tribe_id
       where public.can_read_tribe_content(target_tribe.id)
-        and (
-          (
-            events.starts_at < ${rangeEnd}
-            and (
-              (
-                events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-                and events.starts_at >= ${rangeStart}
-              )
-              or (
-                events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-                and (
-                  events.recurrence_until is null
-                  or events.recurrence_until >= ${rangeStart}
-                )
-              )
-            )
-          )
-          or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart })}
-        )
+        and ${buildSeriesInRangePredicate({ rangeEnd, rangeStart })}
     )
     select
       event_rows.id,

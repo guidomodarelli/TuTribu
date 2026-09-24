@@ -26,6 +26,11 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   attendanceReportForbiddenMessage: "Solo quienes gestionan eventos pueden ver la asistencia.",
   attendanceSavedMessage: "Respuesta guardada.",
   attendanceWaitlistedMessage: "El evento está completo: quedaste en la lista de espera.",
+  calendarFeedForbiddenMessage: "Solo los miembros de la tribu pueden suscribirse a su calendario.",
+  calendarFeedIssuedMessage:
+    "Tu link de calendario está listo. Copialo ahora: no lo vamos a volver a mostrar.",
+  calendarFeedNotFoundMessage: "No encontramos este calendario.",
+  calendarFeedRevokedMessage: "Suscripción desactivada. El link anterior ya no funciona.",
   createSuccessMessage: "Evento creado.",
   deleteSuccessMessage: "Evento eliminado.",
   eventNotFoundMessage: "No pudimos encontrar el evento.",
@@ -62,6 +67,11 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   unexpectedAttendanceMessage: "No pudimos guardar tu respuesta. Intentá de nuevo.",
   unexpectedAttendanceReportMessage: "No pudimos cargar la asistencia. Intentá de nuevo.",
   unexpectedAttendanceExportMessage: "No pudimos generar el archivo de asistencia.",
+  unexpectedCalendarFeedMessage: "No pudimos generar el calendario.",
+  unexpectedCalendarFeedSubscriptionMessage:
+    "No pudimos actualizar tu suscripción al calendario. Intentá de nuevo.",
+  unexpectedCalendarFeedSubscriptionStatusMessage:
+    "No pudimos cargar tu suscripción al calendario. Intentá de nuevo.",
   unexpectedCalendarMessage: "No pudimos generar el archivo de calendario.",
   unexpectedCreateMessage: "No pudimos guardar el evento. Intentá de nuevo.",
   unexpectedDeleteMessage: "No pudimos eliminar el evento. Intentá de nuevo.",

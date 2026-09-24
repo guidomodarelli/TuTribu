@@ -1,3 +1,4 @@
+import type { TRIBE_EVENT_CALENDAR_FEED_MISS_REASON } from "@/src/modules/events/constants/tribe-event-calendar-feed";
 import type { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEvent,
@@ -9,6 +10,7 @@ import type {
   TribeEventRecurrenceFrequency,
   TribeEventType,
 } from "@/src/modules/events/domain/entities/tribe-event";
+import type { TribeEventCalendarFeedSubscription } from "@/src/modules/events/domain/entities/tribe-event-calendar-feed";
 import type { TribeEventOccurrenceExceptionSummary } from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
 import type { TribeEventAttendanceStreak } from "@/src/modules/events/domain/services/tribe-event-attendance";
 import type {
@@ -267,3 +269,66 @@ export type TribeEventCalendarResult = {
   event: TribeEventResult;
   occurrenceExceptions: TribeEventCalendarExceptionResult[];
 };
+
+export type TribeEventCalendarFeedSubscriptionResult = TribeEventCalendarFeedSubscription;
+
+/**
+ * Whether the signed-in member has an active feed token for the tribe (the
+ * token itself is never returned again after it was issued).
+ */
+export type TribeEventCalendarFeedSubscriptionLookupResult =
+  | {
+      status: typeof TRIBE_EVENT_MUTATION_STATUS.found;
+      subscription: TribeEventCalendarFeedSubscriptionResult | null;
+    }
+  | {
+      status:
+        | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
+        | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+    };
+
+/**
+ * A freshly issued token: `token` is the only moment the plain value exists
+ * outside the member's calendar app.
+ */
+export type TribeEventCalendarFeedTokenIssueResult =
+  | {
+      status: typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenIssued;
+      subscription: TribeEventCalendarFeedSubscriptionResult;
+      token: string;
+    }
+  | {
+      status:
+        | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
+        | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+    };
+
+export type TribeEventCalendarFeedTokenRevokeResult = {
+  status:
+    | typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked
+    | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+};
+
+/**
+ * One series of the feed and the instant it last changed (drives SEQUENCE,
+ * LAST-MODIFIED, and DTSTAMP so the file is stable between changes).
+ */
+export type TribeEventCalendarFeedSeriesResult = TribeEventCalendarResult & {
+  lastModifiedAt: string;
+};
+
+export type TribeEventCalendarFeedMissReason =
+  (typeof TRIBE_EVENT_CALENDAR_FEED_MISS_REASON)[keyof typeof TRIBE_EVENT_CALENDAR_FEED_MISS_REASON];
+
+export type TribeEventCalendarFeedResult =
+  | {
+      calendarName: string;
+      ownerUserId: string;
+      series: TribeEventCalendarFeedSeriesResult[];
+      status: typeof TRIBE_EVENT_MUTATION_STATUS.found;
+    }
+  | {
+      ownerUserId: string | null;
+      reason: TribeEventCalendarFeedMissReason;
+      status: typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+    };

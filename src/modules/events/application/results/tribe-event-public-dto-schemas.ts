@@ -4,6 +4,7 @@ import type {
   TribeEventAttendanceReportResult,
   TribeEventAttendanceStreakResult,
   TribeEventAttendanceSummaryResult,
+  TribeEventCalendarFeedSubscriptionResult,
   TribeEventListResult,
   TribeEventOccurrenceResult,
   TribeEventProposalListResult,
@@ -232,4 +233,47 @@ export type TribeEventSaveResponse = z.infer<typeof tribeEventSaveResponseSchema
 export type TribeEventAttendanceResponse = z.infer<typeof tribeEventAttendanceResponseSchema>;
 export type TribeEventAttendanceReportResponse = z.infer<
   typeof tribeEventAttendanceReportResponseSchema
+>;
+
+/**
+ * URL protocols of the personal feed link: https everywhere, http only when
+ * the public base URL is a local development host.
+ */
+const FEED_URL_PROTOCOL_PATTERN = /^https?$/;
+
+export const tribeEventCalendarFeedSubscriptionSchema = z.object({
+  createdAt: instantSchema,
+  lastUsedAt: instantSchema.nullable(),
+}) satisfies z.ZodType<TribeEventCalendarFeedSubscriptionResult>;
+
+/**
+ * `GET .../events/calendar-feed`: whether the member has an active link
+ * (never the token or its hash).
+ */
+export const tribeEventCalendarFeedStatusResponseSchema = z.object({
+  subscription: tribeEventCalendarFeedSubscriptionSchema.nullable(),
+});
+
+/**
+ * `POST .../events/calendar-feed`: the personal https feed URL, shown once.
+ */
+export const tribeEventCalendarFeedIssueResponseSchema = z.object({
+  feedUrl: z.url({ protocol: FEED_URL_PROTOCOL_PATTERN }),
+  message: z.string(),
+  subscription: tribeEventCalendarFeedSubscriptionSchema,
+});
+
+/**
+ * `DELETE .../events/calendar-feed`: the subscription is off.
+ */
+export const tribeEventCalendarFeedRevokeResponseSchema = z.object({
+  message: z.string(),
+  subscription: z.null(),
+});
+
+export type TribeEventCalendarFeedStatusResponse = z.infer<
+  typeof tribeEventCalendarFeedStatusResponseSchema
+>;
+export type TribeEventCalendarFeedIssueResponse = z.infer<
+  typeof tribeEventCalendarFeedIssueResponseSchema
 >;

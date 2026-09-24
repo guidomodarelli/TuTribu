@@ -102,6 +102,27 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
 
     expect(saveSql).toContain("public.can_manage_tribe_events(target_event.tribe_id)");
     expect(saveSql).toContain("on conflict (event_id, original_starts_at) do update");
+    // The series revision moves forward so calendar feeds pick the change up.
+    expect(saveSql).toMatch(/update public\.events\s+set updated_at[\s\S]*from saved_exception/);
+  });
+
+  it("bumps the series revision when a date is restored", async () => {
+    const execute = vi.fn(async (..._statements: unknown[]) => ({
+      rows: [{ status: "exception_cleared" }],
+    }));
+    const repository = new PostgresTribeEventOccurrenceExceptionRepository(
+      createExecutor(execute)
+    );
+
+    await repository.clear({
+      eventId: EVENT_ID,
+      originalStartsAt: "2026-05-14T21:00:00.000Z",
+      tribeSlug: TRIBE_SLUG,
+    });
+
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
+      /update public\.events\s+set updated_at[\s\S]*from deleted_exception/
+    );
   });
 
   it("maps a missing event and a viewer who cannot manage events", async () => {

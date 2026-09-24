@@ -6,6 +6,8 @@ export const TRIBE_EVENT_MUTATION_STATUS = {
   forbidden: "forbidden",
   exceptionCleared: "exception_cleared",
   exceptionSaved: "exception_saved",
+  feedTokenIssued: "feed_token_issued",
+  feedTokenRevoked: "feed_token_revoked",
   found: "found",
   invalidAttendance: "invalid_attendance",
   invalidDate: "invalid_date",

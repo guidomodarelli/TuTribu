@@ -214,3 +214,51 @@ export function buildTribeEventExceptionsInRangeQuery({
     order by event_occurrence_exceptions.original_starts_at asc
   `;
 }
+
+/**
+ * Moved dates whose new start falls in the range, as a SQL predicate on an
+ * `events` row: they bring their series into the listing even when the
+ * series itself ended before the range (the last date moved later).
+ */
+function buildMovedIntoRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
+  return sql`
+    exists (
+      select 1
+      from public.event_occurrence_exceptions moved_exceptions
+      where moved_exceptions.event_id = events.id
+        and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
+        and moved_exceptions.new_starts_at >= ${rangeStart}
+        and moved_exceptions.new_starts_at < ${rangeEnd}
+    )
+  `;
+}
+
+/**
+ * Predicate on an `events` row: a single event that starts in
+ * `[rangeStart, rangeEnd)`, a series that starts before the range end and has
+ * not finished before its start, or a series with a date moved into the
+ * range. Shared by the calendar listing and the calendar feed.
+ */
+export function buildSeriesInRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
+  return sql`
+    (
+      (
+        events.starts_at < ${rangeEnd}
+        and (
+          (
+            events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
+            and events.starts_at >= ${rangeStart}
+          )
+          or (
+            events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
+            and (
+              events.recurrence_until is null
+              or events.recurrence_until >= ${rangeStart}
+            )
+          )
+        )
+      )
+      or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart })}
+    )
+  `;
+}

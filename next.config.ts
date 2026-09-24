@@ -33,6 +33,13 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   allowedDevOrigins: ["127.0.0.1", "dev-tutribu.app"],
   cacheComponents: true,
+  // The personal calendar feed URL carries a credential (the token is a path
+  // segment), so the dev server must not print it in its request log.
+  logging: {
+    incomingRequests: {
+      ignore: [/\/api\/calendar\/tribes\/[^/]+\/feed\//],
+    },
+  },
   // Type-check the same product scope as `pnpm run typecheck`. Since 16.3 the
   // build checks every file `tsconfig.json` includes, which would pull in the
   // Vitest suites that run through Vite and are not part of the type-check gate.

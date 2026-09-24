@@ -5,6 +5,7 @@
  */
 export const TRIBE_EVENT_INPUT_ISSUE = {
   invalidAttendance: "invalid_attendance",
+  invalidCalendarFeed: "invalid_calendar_feed",
   invalidCapacity: "invalid_capacity",
   invalidDate: "invalid_date",
   invalidEventReference: "invalid_event_reference",

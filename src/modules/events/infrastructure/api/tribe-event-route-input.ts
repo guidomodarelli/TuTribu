@@ -56,6 +56,7 @@ type TribeEventRouteInputPart =
 
 const TRIBE_EVENT_INPUT_ISSUE_MESSAGE: Record<TribeEventInputIssue, string> = {
   [TRIBE_EVENT_INPUT_ISSUE.invalidAttendance]: TRIBE_EVENT_ROUTE_RESPONSE.invalidAttendanceMessage,
+  [TRIBE_EVENT_INPUT_ISSUE.invalidCalendarFeed]: TRIBE_EVENT_ROUTE_RESPONSE.calendarFeedNotFoundMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidCapacity]: TRIBE_EVENT_ROUTE_RESPONSE.invalidCapacityMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidDate]: TRIBE_EVENT_ROUTE_RESPONSE.invalidDateMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidEventReference]: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage,
