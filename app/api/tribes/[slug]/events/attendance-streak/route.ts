@@ -1,4 +1,4 @@
-import { tribeEventAttendanceStreakResponseDtoSchema } from "@/lib/events/tribe-event-attendance-streak-dto";
+import { tribeEventAttendanceStreakResponseDtoSchema } from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
 import { tribeEventAttendanceStreakRouteParamsSchema } from "@/src/modules/events/infrastructure/api/tribe-event-attendance-streak-route-params";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
