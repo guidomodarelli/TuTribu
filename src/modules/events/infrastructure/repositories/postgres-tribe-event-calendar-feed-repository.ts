@@ -22,7 +22,7 @@ import type {
 import {
   TRIBE_EVENT_COLUMNS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS,
-  buildSeriesInRangePredicate,
+  buildSeriesWithOccurrenceInRangePredicate,
   mapDateValue,
   mapNullableDateValue,
   mapTribeEvent,
@@ -132,9 +132,11 @@ async function revokeActiveMemberFeedToken(
  * Reads, in ONE statement (one snapshot), the feed series that fit both
  * budgets together with their complete set of still-valid exceptions:
  *
- * 1. `candidate_series`: every series of the window and requested types, in
- *    feed order (most recent first). No row limit: a limit applied before
- *    the budgets could hide later series that still fit.
+ * 1. `candidate_series`: every series of the requested types with at least
+ *    one occurrence overlapping the window (its cadence is checked in SQL,
+ *    since nothing expands the series before the budgets) or a date moved
+ *    into it, in feed order (most recent first). No row limit: a limit
+ *    applied before the budgets could hide later series that still fit.
  * 2. `valid_exceptions`: the exceptions whose original start is still a
  *    slot of the current schedule (`is_tribe_event_series_occurrence`, the
  *    SQL mirror of the domain rule `buildTribeEventCalendarResult` applies).
@@ -161,7 +163,7 @@ function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalend
       from public.events
       where events.tribe_id = ${tribeId}
         and public.can_read_tribe_content(events.tribe_id)
-        and ${buildSeriesInRangePredicate({
+        and ${buildSeriesWithOccurrenceInRangePredicate({
           rangeEnd: query.rangeEnd,
           rangeStart: query.rangeStart,
         })}

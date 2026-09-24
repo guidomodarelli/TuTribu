@@ -393,6 +393,27 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     );
   });
 
+  it("budgets only series whose schedule produces an occurrence overlapping the window", async () => {
+    const ownerExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
+
+    await reader.readAsOwner(FEED_QUERY);
+
+    // A series whose `recurrence_until` reaches the window but whose cadence
+    // has no date in it (monthly on the 31st ending mid-February) must not
+    // enter the candidates, or it would consume the budgets of real series.
+    const feedSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
+    const candidateSql = feedSql.slice(0, feedSql.indexOf("valid_exceptions as materialized"));
+
+    expect(candidateSql).toMatch(
+      /public\.tribe_event_series_has_occurrence_in_range\(\s*events\.starts_at,\s*events\.ends_at,\s*events\.recurrence_frequency,\s*events\.recurrence_until,/
+    );
+  });
+
   it("returns null and reads nothing else when the owner lost access", async () => {
     const ownerExecute = vi.fn(async (..._statements: unknown[]) => ({ rows: [] }));
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));

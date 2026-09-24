@@ -298,30 +298,77 @@ export function buildMovedIntoRangePredicate(
 }
 
 /**
- * Predicate on an `events` row: a series with at least one occurrence whose
- * interval (start to effective end, see `TRIBE_EVENT_OCCURRENCE_DURATION`)
- * overlaps `[rangeStart, rangeEnd)`, or a series with a date moved into the
- * range. It is a superset of "starts within the range", so callers pick
- * their own matching through the occurrence expansion. Shared by the
- * calendar listing and the calendar feed.
+ * Predicate on an `events` row: a series whose schedule bounds can reach
+ * `[rangeStart, rangeEnd)` (start to effective end, see
+ * `TRIBE_EVENT_OCCURRENCE_DURATION`), or a series with a date moved into the
+ * range. It ignores the cadence, so it is a superset: callers that use it
+ * (the calendar listing) must narrow the rows through the occurrence
+ * expansion. Readers that cannot expand before selecting use
+ * `buildSeriesWithOccurrenceInRangePredicate`.
  */
 export function buildSeriesInRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
   return sql`
     (
+      ${buildScheduleReachesRangePredicate({ rangeEnd, rangeStart })}
+      or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart }, TRIBE_EVENT_RANGE_MATCH.overlaps)}
+    )
+  `;
+}
+
+/**
+ * Cheap schedule bounds on an `events` row: the series starts before the
+ * range end and its last possible occurrence (single start, or
+ * `recurrence_until`) can still overlap the range start. It does not look at
+ * the cadence, so a series can pass it without any occurrence in the range.
+ */
+function buildScheduleReachesRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
+  return sql`
+    (
+      events.starts_at < ${rangeEnd}
+      and (
+        (
+          events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
+          and events.starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
+        )
+        or (
+          events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
+          and (
+            events.recurrence_until is null
+            or events.recurrence_until + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
+          )
+        )
+      )
+    )
+  `;
+}
+
+/**
+ * Exact variant of `buildSeriesInRangePredicate` for readers that select
+ * series in SQL without expanding them first (the calendar feed applies its
+ * budgets inside the statement): a series matches only when its cadence
+ * produces at least one occurrence overlapping `[rangeStart, rangeEnd)`
+ * (`tribe_event_series_has_occurrence_in_range`, which confirms each slot
+ * with `is_tribe_event_series_occurrence`, the SQL mirror of the domain
+ * expansion), or when it has a date moved into the range. The cheap schedule
+ * bounds run first so the per-row check only sees plausible series. A
+ * monthly series anchored on the 31st that ends mid-February therefore never
+ * matches a February window.
+ */
+export function buildSeriesWithOccurrenceInRangePredicate({
+  rangeEnd,
+  rangeStart,
+}: TribeEventDateRange) {
+  return sql`
+    (
       (
-        events.starts_at < ${rangeEnd}
-        and (
-          (
-            events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-            and events.starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
-          )
-          or (
-            events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-            and (
-              events.recurrence_until is null
-              or events.recurrence_until + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
-            )
-          )
+        ${buildScheduleReachesRangePredicate({ rangeEnd, rangeStart })}
+        and public.tribe_event_series_has_occurrence_in_range(
+          events.starts_at,
+          events.ends_at,
+          events.recurrence_frequency,
+          events.recurrence_until,
+          ${rangeStart}::timestamptz,
+          ${rangeEnd}::timestamptz
         )
       )
       or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart }, TRIBE_EVENT_RANGE_MATCH.overlaps)}
