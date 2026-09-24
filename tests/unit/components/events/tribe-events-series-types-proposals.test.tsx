@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { toast } from "beez-ui";
 import {
   AppRouterContext,
   type AppRouterInstance,
@@ -16,6 +17,7 @@ vi.mock("beez-ui", async () => ({
   toast: {
     error: vi.fn(),
     success: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -1034,6 +1036,90 @@ describe("TribeEventsCalendar proposal reconciliation", () => {
       screen.getByRole("button", { hidden: true, name: "Propuestas (1)" })
     ).toBeInTheDocument();
     expect(countRequests(`GET ${proposalsEndpoint}`)).toBe(2);
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("keeps the loaded queue actionable and warns the manager when the background refill fails", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const remainingProposal = {
+      ...pendingProposal,
+      id: "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a81",
+      title: "Picnic",
+    };
+    const refilledProposal = {
+      ...pendingProposal,
+      id: "6f7a8b9c-0d1e-4f2a-8b3c-4d5e6f7a8b92",
+      title: "Karaoke",
+    };
+
+    routeRequests({
+      [`GET ${proposalsEndpoint}`]: [
+        // The server capped the queue: two rows loaded out of three pending.
+        {
+          body: {
+            canReviewProposals: true,
+            pendingCount: 3,
+            proposals: [pendingProposal, remainingProposal],
+          },
+        },
+        // The background refill after the rejection fails.
+        { isNetworkFailure: true },
+        // The manager retries from the warning.
+        {
+          body: {
+            canReviewProposals: true,
+            pendingCount: 2,
+            proposals: [remainingProposal, refilledProposal],
+          },
+        },
+      ],
+      [`PATCH ${decisionEndpoint}`]: {
+        body: {
+          message: "Propuesta rechazada.",
+          proposal: {
+            ...pendingProposal,
+            reviewedAt: "2026-05-01T12:00:00.000Z",
+            status: "rejected",
+          },
+        },
+      },
+    });
+    renderCalendar({ pendingProposalCount: 3 });
+
+    await user.click(screen.getByRole("button", { name: "Propuestas (3)" }));
+
+    const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
+
+    await within(panel).findByText("Picnic");
+    await user.click(within(panel).getAllByRole("button", { name: "Rechazar" })[0]);
+    await user.click(within(panel).getByRole("button", { name: "Confirmar rechazo" }));
+
+    await waitFor(() => expect(toast.warning).toHaveBeenCalledTimes(1));
+    expect(countRequests(`GET ${proposalsEndpoint}`)).toBe(2);
+    // The remaining loaded proposal stays visible and actionable.
+    expect(within(panel).getByText("Picnic")).toBeInTheDocument();
+    expect(within(panel).queryByText("After")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("No pudimos cargar las propuestas.")).not.toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Rechazar" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { hidden: true, name: "Propuestas (2)" })
+    ).toBeInTheDocument();
+
+    const [warningMessage, warningOptions] = (toast.warning as Mock).mock.calls[0] as [
+      string,
+      { action: { label: string; onClick: () => void } },
+    ];
+
+    expect(warningMessage).toBe(
+      "No pudimos actualizar la lista de propuestas: puede haber más pendientes."
+    );
+    expect(warningOptions.action.label).toBe("Reintentar");
+
+    warningOptions.action.onClick();
+
+    expect(await within(panel).findByText("Karaoke")).toBeInTheDocument();
+    expect(within(panel).getByText("Picnic")).toBeInTheDocument();
+    expect(countRequests(`GET ${proposalsEndpoint}`)).toBe(3);
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
