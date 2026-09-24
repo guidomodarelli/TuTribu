@@ -412,6 +412,28 @@ describe("PostgresTribeEventProposalRepository", () => {
     );
   });
 
+  it("ranks the author's pending proposals ahead of the capped resolved history", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [memberAccess] })
+      .mockResolvedValueOnce({ rows: [proposalRow] });
+    const repository = new PostgresTribeEventProposalRepository(createExecutor(execute));
+    const query = { authorListSize: 20, managerListSize: 50, tribeSlug: TRIBE_SLUG };
+
+    await expect(repository.list(query)).resolves.toMatchObject({
+      canReviewProposals: false,
+      proposals: [expect.objectContaining({ id: PROPOSAL_ID, status: "pending" })],
+    });
+
+    const authorQuery = getSqlText(execute.mock.calls[1]?.[0]).replace(/\s+/g, " ");
+
+    // Older pending rows must survive the author cap: they still count toward
+    // the anti-spam limit and "Mis propuestas" is the only place to withdraw them.
+    expect(authorQuery).toMatch(
+      /order by \(event_proposals\.status = pending\) desc, event_proposals\.created_at desc, event_proposals\.id desc limit/
+    );
+  });
+
   it("returns the uncapped pending total with the bounded manager queue in one query", async () => {
     const execute = vi
       .fn()
