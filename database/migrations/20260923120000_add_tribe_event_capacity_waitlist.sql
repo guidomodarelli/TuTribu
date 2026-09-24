@@ -145,6 +145,34 @@ USING (
   )
 );
 
+-- Owner exception on tribe_members (row locks): respond_to_tribe_event_occurrence
+-- locks the caller's membership FOR SHARE, and under FORCE RLS a row lock
+-- also requires an UPDATE policy whose USING accepts the row. Without it an
+-- owner without BYPASSRLS would find no row to lock and refuse every answer.
+-- WITH CHECK mirrors USING (like the event_attendances owner exception), so
+-- owner-run definer functions that already update memberships (for example
+-- touch_tribe_member_presence) keep working under such an owner. It
+-- authorizes only the owner; request roles stay unaffected.
+DROP POLICY IF EXISTS "Table owner locks tribe memberships"
+ON public.tribe_members;
+CREATE POLICY "Table owner locks tribe memberships"
+ON public.tribe_members
+FOR UPDATE
+USING (
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.tribe_members'::regclass
+  )
+)
+WITH CHECK (
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.tribe_members'::regclass
+  )
+);
+
 -- 5a. Internal helper: seats taken in one occurrence. Only answers of active
 -- tribe members count, so a member blocked or removed after answering never
 -- holds a seat. Their row is kept: if they become active again, a "going"
@@ -180,7 +208,13 @@ FROM PUBLIC;
 -- free seats. Waitlisted answers of inactive members are skipped (never
 -- promoted, never marked with promoted_at). With no capacity every eligible
 -- waitlisted answer is promoted. Callers must hold the occurrence advisory
--- lock. Owner-only: it performs no authorization.
+-- lock. It reads memberships without locking them: locking them here would
+-- invert the global lock order (membership before advisory lock) and could
+-- deadlock with the membership trigger. A member that stops being active
+-- while being promoted is healed by that trigger (7c), which also scans
+-- their "waitlisted" answers and re-runs this promotion under the same
+-- advisory lock after the concurrent promotion commits. Owner-only: it
+-- performs no authorization.
 CREATE OR REPLACE FUNCTION public.promote_tribe_event_waitlist(
   target_event_id uuid,
   target_occurrence_starts_at timestamptz
@@ -277,8 +311,16 @@ DROP FUNCTION IF EXISTS public.respond_to_tribe_event_occurrence(text, uuid, tim
 -- 6. Records, changes, or clears (requested_status NULL) the caller's answer
 -- for one occurrence. Refuses with outcome 'ended' once the occurrence's
 -- effective end (its own ends_at offset, or 60 minutes) passed. Concurrency
--- contract:
---   * the event row is locked FOR SHARE first, so a capacity edit waits for
+-- contract. Global lock order, shared by 6, 7 and 7c: membership row, then
+-- event row, then occurrence advisory locks (ascending):
+--   * the caller's active membership row is locked FOR SHARE first, so a
+--     status change and an answer of the same member are serialized: the
+--     answer is refused if the member became inactive while it waited, and
+--     the membership trigger (7c) always sees an answer committed before the
+--     status change. The trigger follows the same order because it runs
+--     inside the UPDATE/DELETE of tribe_members, which already holds that
+--     row exclusively;
+--   * then the event row is locked FOR SHARE, so a capacity edit waits for
 --     in-flight answers and answers see the committed capacity;
 --   * the application proved that target_occurrence_starts_at is a slot of
 --     the series in an earlier transaction, so it sends the schedule it
@@ -289,7 +331,8 @@ DROP FUNCTION IF EXISTS public.respond_to_tribe_event_occurrence(text, uuid, tim
 --   * then a transaction advisory lock per occurrence serializes seat
 --     assignment and promotion, so two members can never both take the last
 --     seat. The end check is repeated after that lock: a caller that waited
---     behind another answer until the occurrence ended must not write;
+--     behind another answer until the occurrence ended must not write; the
+--     active membership is re-checked there too (defense in depth);
 --   * repeating the same answer is a no-op (keeps the seat or the waitlist
 --     position), so client retries are idempotent;
 --   * a new "going" first promotes whoever is already waiting (FIFO), and
@@ -335,8 +378,45 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Unlocked lookup of the tribe, only to know which membership row to lock
+  -- first; the locked read of the event below re-checks it.
+  SELECT events.tribe_id
+  INTO target_tribe_id
+  FROM public.events
+  INNER JOIN public.tribes
+    ON tribes.id = events.tribe_id
+  WHERE events.id = target_event_id
+    AND tribes.slug = lower(trim(target_slug));
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'not_found'::text, NULL::text, 0;
+    RETURN;
+  END IF;
+
+  -- Global lock order, step 1: the caller's membership row. FOR SHARE makes
+  -- a concurrent status change (block, mute, removal, deletion) wait for
+  -- this answer, and makes this answer wait for a status change already in
+  -- flight. In READ COMMITTED a row updated while waiting is re-checked
+  -- against status = 'active' on its committed version, so an answer that
+  -- waited behind a block finds no row and is refused. Without this lock an
+  -- answer could read the old active membership, wait on the advisory lock
+  -- the membership trigger holds, and store a late answer for an inactive
+  -- member; or write after the trigger already looked for its answers,
+  -- leaving a waiter unpromoted.
+  PERFORM 1
+  FROM public.tribe_members
+  WHERE tribe_members.tribe_id = target_tribe_id
+    AND tribe_members.user_id = viewer_id
+    AND tribe_members.status = 'active'
+  FOR SHARE;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'forbidden'::text, NULL::text, 0;
+    RETURN;
+  END IF;
+
+  -- Global lock order, step 2: the event row.
   SELECT
-    events.tribe_id,
     events.capacity,
     public.tribe_event_occurrence_ends_at(
       target_occurrence_starts_at,
@@ -355,21 +435,17 @@ BEGIN
       expected_recurrence_frequency,
       expected_recurrence_until
     )
-  INTO target_tribe_id, event_capacity, occurrence_ends_at, schedule_changed
+  INTO event_capacity, occurrence_ends_at, schedule_changed
   FROM public.events
   INNER JOIN public.tribes
     ON tribes.id = events.tribe_id
   WHERE events.id = target_event_id
+    AND events.tribe_id = target_tribe_id
     AND tribes.slug = lower(trim(target_slug))
   FOR SHARE OF events;
 
   IF NOT FOUND THEN
     RETURN QUERY SELECT 'not_found'::text, NULL::text, 0;
-    RETURN;
-  END IF;
-
-  IF NOT public.is_active_tribe_member(target_tribe_id) THEN
-    RETURN QUERY SELECT 'forbidden'::text, NULL::text, 0;
     RETURN;
   END IF;
 
@@ -389,6 +465,7 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Global lock order, step 3: the occurrence advisory lock.
   PERFORM pg_advisory_xact_lock(
     hashtextextended(
       'tribe_event_occurrence:' || target_event_id::text || '@'
@@ -401,6 +478,21 @@ BEGIN
   -- another answer until after the effective end.
   IF occurrence_ends_at <= clock_timestamp() THEN
     RETURN QUERY SELECT 'ended'::text, NULL::text, 0;
+    RETURN;
+  END IF;
+
+  -- Authoritative re-check after the advisory lock, with this statement's
+  -- fresh READ COMMITTED snapshot. The FOR SHARE above already keeps the
+  -- status from changing until commit; this keeps the answer safe even if
+  -- that lock is ever weakened.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.tribe_members
+    WHERE tribe_members.tribe_id = target_tribe_id
+      AND tribe_members.user_id = viewer_id
+      AND tribe_members.status = 'active'
+  ) THEN
+    RETURN QUERY SELECT 'forbidden'::text, NULL::text, 0;
     RETURN;
   END IF;
 
@@ -517,7 +609,11 @@ FROM PUBLIC;
 -- list with the rows that are actually waitlisted.
 -- Runs in the same transaction as the event UPDATE, which already holds the
 -- event row lock; advisory locks are then taken in ascending date order
--- (same lock order as 6, so no deadlocks).
+-- (same lock order as 6, so no deadlocks). It locks no tribe_members row
+-- (promotion only reads memberships), so it can never wait on a membership
+-- while holding an occurrence lock: whoever holds an occurrence lock of this
+-- event (6 or 7c) already holds this event row FOR SHARE, which conflicts
+-- with the edit's FOR UPDATE before any advisory lock is requested.
 -- The application filter is not trusted as the last word on "not ended": the
 -- edit can start just before an occurrence ends, the application clock can lag
 -- the database clock, and this call can wait on an occurrence advisory lock
@@ -677,9 +773,16 @@ FROM PUBLIC;
 -- membership transaction, so the promotion (and its promoted_at, which later
 -- consumers hook into) commits or rolls back with it.
 --   * A status update that leaves "active" promotes the occurrences where
---     the member was "going"; one that becomes "active" promotes the
---     occurrences where they were "waitlisted". Other status changes do not
---     change any count.
+--     the member was "going" or "waitlisted"; one that becomes "active"
+--     promotes the occurrences where they were "waitlisted". Other status
+--     changes do not change any count. "waitlisted" is scanned when leaving
+--     too because promotion (5b) never locks the memberships it reads: a
+--     promotion running concurrently (another answer, a refill, another
+--     member's trigger) still sees this member as active, can turn their
+--     "waitlisted" into "going" after this scan, and commits a seat that
+--     frees itself when this change commits. Taking that occurrence's
+--     advisory lock here waits for such a promotion and re-runs promotion
+--     with a fresh snapshot, so the next waiter is not left behind.
 --   * A deleted active membership promotes every occurrence of the tribe that
 --     has a waitlist: when the whole account is deleted, the ON DELETE CASCADE
 --     of event_attendances already removed the member's "going" rows before
@@ -688,9 +791,20 @@ FROM PUBLIC;
 --   * Only exact slots of the current schedule (7b) that have not ended are
 --     touched: rows of dates removed by a schedule edit stay as history, and
 --     ended occurrences stay frozen.
---   * Same lock order as 6 and 7: the event row FOR SHARE, then the
---     occurrence advisory lock; occurrences are visited in ascending
---     (event_id, occurrence_starts_at) order. The end and the slot are checked
+--   * Same global lock order as 6 and 7: the membership row (already held
+--     exclusively by the UPDATE/DELETE that fires this AFTER trigger; a
+--     multi-row statement locks all its rows before any AFTER ROW trigger
+--     runs), then the event row FOR SHARE, then the occurrence advisory
+--     lock; occurrences are visited in ascending (event_id,
+--     occurrence_starts_at) order. An answer of the same member holds that
+--     membership FOR SHARE before its own event and advisory locks, so the
+--     two serialize on the membership row and this trigger's scan sees any
+--     answer committed before it. A transaction that changes the status of
+--     one member and later, in another statement, of a second member who is
+--     answering concurrently could still form a cycle (advisory lock held,
+--     membership row awaited); the application changes memberships in a
+--     single statement per transaction, and PostgreSQL would abort one side
+--     with a deadlock error, never corrupt seats. The end and the slot are checked
 --     again after the advisory lock with the schedule read under FOR SHARE and
 --     clock_timestamp(), because this call may have waited behind an answer.
 --   * An event row that is gone (deleted in the same transaction, for example
@@ -706,7 +820,7 @@ AS $$
 DECLARE
   affected_tribe_id uuid;
   affected_user_id text;
-  freed_attendance_status text;
+  scanned_attendance_statuses text[];
   promotes_every_tribe_waitlist boolean := false;
   affected_occurrence record;
   locked_starts_at timestamptz;
@@ -729,9 +843,9 @@ BEGIN
 
     affected_tribe_id := NEW.tribe_id;
     affected_user_id := NEW.user_id;
-    freed_attendance_status := CASE
-      WHEN NEW.status = 'active' THEN 'waitlisted'
-      ELSE 'going'
+    scanned_attendance_statuses := CASE
+      WHEN NEW.status = 'active' THEN ARRAY['waitlisted']
+      ELSE ARRAY['going', 'waitlisted']
     END;
   END IF;
 
@@ -748,7 +862,7 @@ BEGIN
           event_attendances.status = 'waitlisted'
         ELSE
           event_attendances.user_id = affected_user_id
-          AND event_attendances.status = freed_attendance_status
+          AND event_attendances.status = ANY(scanned_attendance_statuses)
       END
       AND public.tribe_event_occurrence_ends_at(
         event_attendances.occurrence_starts_at,
