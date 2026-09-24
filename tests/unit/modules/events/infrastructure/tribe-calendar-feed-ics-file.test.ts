@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import type { TribeEventCalendarFeedSeriesResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { buildTribeEventIcsFile } from "@/src/modules/events/infrastructure/calendar/ics-calendar-file";
-import { escapeIcsText, foldIcsLine } from "@/src/modules/events/infrastructure/calendar/ics-content-lines";
+import {
+  escapeIcsText,
+  foldIcsLine,
+  formatIcsUri,
+} from "@/src/modules/events/infrastructure/calendar/ics-content-lines";
 import { buildTribeCalendarFeedIcsFile } from "@/src/modules/events/infrastructure/calendar/tribe-calendar-feed-ics-file";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
@@ -85,6 +89,20 @@ describe("escapeIcsText", () => {
 
   it("never leaves a raw carriage return or line feed in the escaped value", () => {
     expect(escapeIcsText("Tribu\rSUMMARY:inyectado\r\n\n\r")).not.toMatch(/[\r\n]/);
+  });
+});
+
+describe("formatIcsUri", () => {
+  it("keeps commas, semicolons, and backslashes of a URI untouched", () => {
+    expect(formatIcsUri("https://meet.example.com/sala;tipo=a,b?x=1,2;y=3\\z")).toBe(
+      "https://meet.example.com/sala;tipo=a,b?x=1,2;y=3\\z"
+    );
+  });
+
+  it("percent-encodes line breaks and other control characters so they never open a content line", () => {
+    expect(formatIcsUri("https://meet.example.com/a\r\nX-INJECTED:1\u0000\t\u007F")).toBe(
+      "https://meet.example.com/a%0D%0AX-INJECTED:1%00%09%7F"
+    );
   });
 });
 
@@ -231,6 +249,55 @@ describe("buildTribeCalendarFeedIcsFile", () => {
     const vevent = new ICAL.Component(ICAL.parse(content)).getFirstSubcomponent("vevent");
 
     expect(vevent?.getFirstPropertyValue("summary")).toBe("Asado\nUID:otro");
+  });
+
+  it("serializes the meeting URL as a URI and keeps LOCATION escaped as TEXT", () => {
+    const meetingUrl =
+      "https://meet.example.com/sala;tipo=taller,avanzado?participantes=ana,beto;rol=invitado&extra=" +
+      "x".repeat(40);
+    const content = buildTribeCalendarFeedIcsFile({
+      calendarName: "Tribu",
+      series: [{ ...singleEvent, event: { ...singleEvent.event, meetingUrl } }],
+    }).content;
+    const unfoldedLines = content.replace(/\r\n /g, "").split("\r\n");
+
+    expect(unfoldedLines).toEqual(
+      expect.arrayContaining([
+        `URL:${meetingUrl}`,
+        `LOCATION:${meetingUrl.replace(/[;,]/g, (character) => "\\" + character)}`,
+      ])
+    );
+    expect(
+      content.split("\r\n").every((line) => octetLength(line) <= ICS_LINE_OCTET_LIMIT)
+    ).toBe(true);
+
+    const vevent = new ICAL.Component(ICAL.parse(content)).getFirstSubcomponent("vevent");
+
+    expect(vevent?.getFirstPropertyValue("url")).toBe(meetingUrl);
+    expect(vevent?.getFirstPropertyValue("location")).toBe(meetingUrl);
+  });
+
+  it("never lets line breaks in a stored meeting URL open a new content line", () => {
+    const content = buildTribeCalendarFeedIcsFile({
+      calendarName: "Tribu",
+      series: [
+        {
+          ...singleEvent,
+          event: {
+            ...singleEvent.event,
+            meetingUrl: "https://meet.example.com/a\r\nX-INJECTED:1\nUID:otro",
+          },
+        },
+      ],
+    }).content;
+
+    expect(content.replace(/\r\n/g, "")).not.toMatch(/[\r\n]/);
+    expect(content).toContain("URL:https://meet.example.com/a%0D%0AX-INJECTED:1%0AUID:otro");
+    expect(content.split("\r\n").some((line) => line.startsWith("X-INJECTED"))).toBe(false);
+
+    const vevent = new ICAL.Component(ICAL.parse(content)).getFirstSubcomponent("vevent");
+
+    expect(vevent?.getAllProperties("uid")).toHaveLength(1);
   });
 
   it("produces an empty but valid calendar when there is nothing to show", () => {
