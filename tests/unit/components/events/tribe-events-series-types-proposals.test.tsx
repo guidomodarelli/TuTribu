@@ -536,7 +536,8 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     });
     await user.click(within(form).getByRole("button", { name: "Aprobar y publicar" }));
 
-    expect(global.fetch).toHaveBeenLastCalledWith(
+    // The approval creates an event, so the calendar reads the streak after it.
+    expect(global.fetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/proposals/${PROPOSAL_ID}/approval?month=2026-05`,
       expect.objectContaining({ method: "POST" })
     );
@@ -653,5 +654,294 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
       reviewNote: "Ya hay un after",
     });
     expect(await within(panel).findByText("No hay propuestas pendientes.")).toBeInTheDocument();
+  });
+});
+
+describe("TribeEventsCalendar proposal reconciliation", () => {
+  const proposalsEndpoint = "/api/tribes/matematica-pro/events/proposals";
+  const approvalEndpoint = `${proposalsEndpoint}/${PROPOSAL_ID}/approval?month=2026-05`;
+  const decisionEndpoint = `${proposalsEndpoint}/${PROPOSAL_ID}`;
+  const streakEndpoint = "/api/tribes/matematica-pro/events/attendance-streak";
+  const monthEndpoint = "/api/tribes/matematica-pro/events?month=2026-05";
+  const pendingProposal = {
+    createdAt: "2026-05-01T12:00:00.000Z",
+    description: null,
+    durationMinutes: 60,
+    eventId: null,
+    eventType: "social",
+    id: PROPOSAL_ID,
+    proposerName: "Ana",
+    reviewNote: null,
+    reviewedAt: null,
+    startsAt: "2026-05-20T21:00:00.000Z",
+    status: "pending",
+    title: "After",
+  };
+  const approvedOccurrence = createOccurrence({
+    endsAt: "2026-05-20T22:00:00.000Z",
+    eventId: SOCIAL_EVENT_ID,
+    eventType: "social",
+    recurrenceFrequency: "none",
+    recurrenceRule: null,
+    startsAt: "2026-05-20T21:00:00.000Z",
+    title: "After",
+  });
+  const approvalResponse = {
+    event: {
+      capacity: null,
+      description: null,
+      endsAt: "2026-05-20T22:00:00.000Z",
+      eventType: "social",
+      id: SOCIAL_EVENT_ID,
+      meetingUrl: null,
+      recurrenceFrequency: "none",
+      recurrenceRule: null,
+      recurrenceUntil: null,
+      startsAt: "2026-05-20T21:00:00.000Z",
+      title: "After",
+    },
+    message: "Propuesta aprobada: el evento ya está en el calendario.",
+    occurrences: [approvedOccurrence],
+    proposal: {
+      ...pendingProposal,
+      eventId: SOCIAL_EVENT_ID,
+      reviewedAt: "2026-05-01T12:00:00.000Z",
+      status: "approved",
+    },
+  };
+
+  type RouteAnswer = { body?: unknown; isNetworkFailure?: boolean };
+
+  /**
+   * Answers each request by `METHOD url` (the last answer of a list repeats);
+   * any request outside the table fails, so a missing or extra
+   * reconciliation read is visible.
+   */
+  function routeRequests(routes: Record<string, RouteAnswer | RouteAnswer[]>) {
+    const queues = new Map(
+      Object.entries(routes).map(([routeKey, answer]) => [
+        routeKey,
+        Array.isArray(answer) ? [...answer] : [answer],
+      ])
+    );
+
+    (global.fetch as Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+      const routeKey = `${init?.method ?? "GET"} ${url}`;
+      const queue = queues.get(routeKey);
+
+      if (!queue || queue.length === 0) {
+        throw new Error(`Unexpected request to ${routeKey}`);
+      }
+
+      const answer = queue.length > 1 ? (queue.shift() as RouteAnswer) : queue[0];
+
+      if (answer.isNetworkFailure) {
+        throw new TypeError("Failed to fetch");
+      }
+
+      return { json: async () => answer.body, ok: true, status: 200 };
+    });
+  }
+
+  function countRequests(routeKey: string) {
+    return (global.fetch as Mock).mock.calls.filter(
+      ([url, init]) => `${(init as RequestInit | undefined)?.method ?? "GET"} ${url}` === routeKey
+    ).length;
+  }
+
+  function queryPendingProposalsButton() {
+    return screen.queryByRole("button", { hidden: true, name: /Propuestas \(/ });
+  }
+
+  async function openApprovalForm(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: "Propuestas (1)" }));
+
+    const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
+
+    await user.click(await within(panel).findByRole("button", { name: "Revisar y aprobar" }));
+
+    return screen.getByRole("dialog", { name: "Aprobar propuesta" });
+  }
+
+  async function rejectPendingProposal(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: "Propuestas (1)" }));
+
+    const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
+
+    await user.click(await within(panel).findByRole("button", { name: "Rechazar" }));
+    await user.click(within(panel).getByRole("button", { name: "Confirmar rechazo" }));
+
+    return panel;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    global.fetch = vi.fn();
+    window.history.replaceState(null, "", "/matematica-pro/eventos");
+    vi.useFakeTimers({ shouldAdvanceTime: true }).setSystemTime(
+      new Date("2026-05-01T12:00:00.000Z")
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reloads the proposals after a rejection whose response never arrived", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    routeRequests({
+      [`GET ${proposalsEndpoint}`]: [
+        { body: { canReviewProposals: true, pendingCount: 1, proposals: [pendingProposal] } },
+        { body: { canReviewProposals: true, pendingCount: 0, proposals: [] } },
+      ],
+      [`PATCH ${decisionEndpoint}`]: { isNetworkFailure: true },
+    });
+    renderCalendar({ pendingProposalCount: 1 });
+
+    const panel = await rejectPendingProposal(user);
+
+    expect(await within(panel).findByText("No hay propuestas pendientes.")).toBeInTheDocument();
+    expect(countRequests(`GET ${proposalsEndpoint}`)).toBe(2);
+    expect(queryPendingProposalsButton()).not.toBeInTheDocument();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("reloads the proposals after a creation whose response never arrived", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    routeRequests({
+      [`GET ${proposalsEndpoint}`]: {
+        body: { canReviewProposals: false, pendingCount: 0, proposals: [pendingProposal] },
+      },
+      [`POST ${proposalsEndpoint}`]: { isNetworkFailure: true },
+    });
+    renderCalendar({ events: [], viewerPermissions: MEMBER });
+
+    await user.click(screen.getAllByRole("button", { name: "Proponer un encuentro" })[0]);
+
+    const form = screen.getByRole("dialog", { name: "Proponer un encuentro" });
+
+    await user.type(within(form).getByLabelText("Título"), "After");
+    await user.type(within(form).getByLabelText("Fecha"), "2026-05-20");
+    await user.type(within(form).getByLabelText("Hora de inicio"), "18:00");
+    await user.click(within(form).getByRole("button", { name: "Enviar propuesta" }));
+
+    await waitFor(() => expect(countRequests(`GET ${proposalsEndpoint}`)).toBe(1));
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("reads the visible month, the proposals, and the streak after an approval whose response never arrived", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    routeRequests({
+      [`GET ${monthEndpoint}`]: { body: { events: [approvedOccurrence] } },
+      [`GET ${proposalsEndpoint}`]: [
+        { body: { canReviewProposals: true, pendingCount: 1, proposals: [pendingProposal] } },
+        { body: { canReviewProposals: true, pendingCount: 0, proposals: [] } },
+      ],
+      [`GET ${streakEndpoint}`]: {
+        body: { attendanceStreak: null, attendanceStreakNextRefreshAt: null },
+      },
+      [`POST ${approvalEndpoint}`]: { isNetworkFailure: true },
+    });
+    renderCalendar({ events: [], pendingProposalCount: 1 });
+
+    const form = await openApprovalForm(user);
+
+    await user.click(within(form).getByRole("button", { name: "Aprobar y publicar" }));
+
+    expect(
+      await screen.findByRole("button", { hidden: true, name: /18:00\s*After/ })
+    ).toBeInTheDocument();
+    await waitFor(() => expect(countRequests(`GET ${proposalsEndpoint}`)).toBe(2));
+    await waitFor(() => expect(queryPendingProposalsButton()).not.toBeInTheDocument());
+    await waitFor(() => expect(countRequests(`GET ${streakEndpoint}`)).toBe(1));
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("reads the streak again after a successful approval", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const nextOccurrence = createOccurrence({
+      endsAt: "2026-05-14T22:00:00.000Z",
+      recurrenceFrequency: "none",
+      recurrenceRule: null,
+    });
+
+    routeRequests({
+      [`GET ${proposalsEndpoint}`]: {
+        body: { canReviewProposals: true, pendingCount: 1, proposals: [pendingProposal] },
+      },
+      [`GET ${streakEndpoint}`]: {
+        body: {
+          attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+          attendanceStreakNextRefreshAt: "2026-05-14T22:00:00.000Z",
+        },
+      },
+      [`POST ${approvalEndpoint}`]: { body: approvalResponse },
+    });
+    renderCalendar({
+      attendanceStreak: { attendedCount: 2, occurrenceCount: 4 },
+      attendanceStreakComputedAt: "2026-05-01T12:00:00.000Z",
+      events: [nextOccurrence],
+      pendingProposalCount: 1,
+    });
+
+    const form = await openApprovalForm(user);
+
+    await user.click(within(form).getByRole("button", { name: "Aprobar y publicar" }));
+
+    const nextEventRegion = screen.getByRole("region", { hidden: true, name: "Próximo evento" });
+
+    expect(
+      await within(nextEventRegion).findByText("Fuiste a 3 de los últimos 5 encuentros 🔥")
+    ).toBeInTheDocument();
+    expect(countRequests(`GET ${streakEndpoint}`)).toBe(1);
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("shows the pending count of a new server render even when it repeats the previous value", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    routeRequests({
+      [`GET ${proposalsEndpoint}`]: {
+        body: { canReviewProposals: true, pendingCount: 1, proposals: [pendingProposal] },
+      },
+      [`PATCH ${decisionEndpoint}`]: {
+        body: {
+          message: "Propuesta rechazada.",
+          proposal: {
+            ...pendingProposal,
+            reviewedAt: "2026-05-01T12:00:00.000Z",
+            status: "rejected",
+          },
+        },
+      },
+    });
+
+    const { rerender } = renderCalendar({
+      attendanceStreakComputedAt: "2026-05-01T12:00:00.000Z",
+      pendingProposalCount: 1,
+    });
+    const panel = await rejectPendingProposal(user);
+
+    expect(await within(panel).findByText("No hay propuestas pendientes.")).toBeInTheDocument();
+    expect(queryPendingProposalsButton()).not.toBeInTheDocument();
+
+    // A later server render (month navigation) counts a replacement proposal.
+    rerender(
+      <TribeEventsCalendar
+        attendanceStreakComputedAt="2026-05-01T12:05:00.000Z"
+        events={[createOccurrence()]}
+        month={MAY}
+        pendingProposalCount={1}
+        tribeSlug="matematica-pro"
+        viewerPermissions={MANAGER}
+      />
+    );
+
+    expect(
+      await screen.findByRole("button", { hidden: true, name: "Propuestas (1)" })
+    ).toBeInTheDocument();
   });
 });

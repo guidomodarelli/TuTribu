@@ -376,6 +376,14 @@ describe("saveTribeEventOccurrenceException", () => {
       newStartsAt: null,
       originalStartsAt: "2026-05-14T21:00:00.000Z",
       reason: "Feriado",
+      // The schedule the slot was validated against: the repository compares
+      // it with the locked event row so a concurrent edit refuses the write.
+      schedule: {
+        endsAt: weeklySeries.endsAt,
+        recurrenceFrequency: weeklySeries.recurrenceFrequency,
+        recurrenceUntil: weeklySeries.recurrenceUntil,
+        startsAt: weeklySeries.startsAt,
+      },
       tribeSlug: TRIBE_SLUG,
     });
     expect(listEventOccurrences).toHaveBeenCalledWith({
@@ -419,11 +427,19 @@ describe("saveTribeEventOccurrenceException", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it("forwards the not found and forbidden outcomes", async () => {
+  it("forwards the not found, forbidden, and schedule changed outcomes", async () => {
     const missing = createUseCase({ findById: null });
     const forbidden = createUseCase({
       save: vi.fn(async () => ({ status: TRIBE_EVENT_MUTATION_STATUS.forbidden })),
     });
+    const scheduleChanged = createUseCase({
+      save: vi.fn(async () => ({ status: TRIBE_EVENT_MUTATION_STATUS.scheduleChanged })),
+    });
+
+    await expect(scheduleChanged.execute(cancelCommand)).resolves.toEqual({
+      status: TRIBE_EVENT_MUTATION_STATUS.scheduleChanged,
+    });
+    expect(scheduleChanged.listEventOccurrences).not.toHaveBeenCalled();
 
     await expect(missing.execute(cancelCommand)).resolves.toEqual({
       status: TRIBE_EVENT_MUTATION_STATUS.notFound,

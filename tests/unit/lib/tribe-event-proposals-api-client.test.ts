@@ -77,7 +77,7 @@ describe("proposal and exception browser adapters", () => {
     );
   });
 
-  it("treats an unusable proposal body as a failure without message", async () => {
+  it("treats an unusable proposal body as an ambiguous failure without message", async () => {
     respondWith({ message: "ok", proposal: { ...proposal, status: "accepted" } }, 201);
 
     await expect(
@@ -89,7 +89,7 @@ describe("proposal and exception browser adapters", () => {
         },
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ isSuccess: false, message: null });
+    ).resolves.toEqual({ isOutcomeAmbiguous: true, isSuccess: false, message: null });
   });
 
   it("returns the safe message of a failed approval and the new slots of a successful one", async () => {
@@ -112,7 +112,11 @@ describe("proposal and exception browser adapters", () => {
         proposalId: PROPOSAL_ID,
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ isSuccess: false, message: "Esta propuesta ya fue resuelta." });
+    ).resolves.toEqual({
+      isOutcomeAmbiguous: false,
+      isSuccess: false,
+      message: "Esta propuesta ya fue resuelta.",
+    });
     expect(globalThis.fetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/proposals/${PROPOSAL_ID}/approval?month=2026-05`,
       expect.objectContaining({ method: "POST" })
@@ -133,6 +137,22 @@ describe("proposal and exception browser adapters", () => {
       `/api/tribes/matematica-pro/events/proposals/${PROPOSAL_ID}`,
       expect.objectContaining({ method: "PATCH" })
     );
+  });
+
+  it("classifies a server error on a decision as an ambiguous outcome", async () => {
+    respondWith({ message: "No pudimos actualizar la propuesta." }, 503);
+
+    await expect(
+      decideTribeEventProposalRequest({
+        body: { decision: "rejected", reviewNote: "" },
+        proposalId: PROPOSAL_ID,
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      isOutcomeAmbiguous: true,
+      isSuccess: false,
+      message: "No pudimos actualizar la propuesta.",
+    });
   });
 
   it("cancels and restores a date against the exceptions endpoint", async () => {

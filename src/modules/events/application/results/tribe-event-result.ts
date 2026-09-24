@@ -128,7 +128,8 @@ export type TribeEventOccurrenceExceptionMutationResult =
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidOccurrence
         | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
-        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded
+        | typeof TRIBE_EVENT_MUTATION_STATUS.scheduleChanged;
     };
 
 export type TribeEventProposalResult = TribeEventProposal;

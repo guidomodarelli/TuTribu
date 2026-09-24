@@ -228,7 +228,7 @@ export async function readTribeEventResponse<TDto>(
  * an unreadable body, or a success status with an unusable body may hide a
  * committed mutation, so the outcome is ambiguous.
  */
-function buildMutationFailure(
+export function buildTribeEventMutationFailure(
   response: Response,
   read: { isBodyReadable: boolean; message: string | null }
 ): TribeEventMutationFailure {
@@ -268,7 +268,7 @@ export async function saveTribeEventRequest(input: {
   const result = await readTribeEventResponse(response, tribeEventSaveResponseSchema);
 
   if (!result.isUsable) {
-    return buildMutationFailure(response, result);
+    return buildTribeEventMutationFailure(response, result);
   }
 
   return {
@@ -302,7 +302,7 @@ export async function deleteTribeEventRequest(input: {
         isSuccess: true,
         message: result.dto.message,
       }
-    : buildMutationFailure(response, result);
+    : buildTribeEventMutationFailure(response, result);
 }
 
 /**
@@ -415,7 +415,7 @@ export async function saveTribeEventAttendanceRequest(input: {
 
   if (!result.isUsable) {
     return {
-      ...buildMutationFailure(response, result),
+      ...buildTribeEventMutationFailure(response, result),
       isOccurrenceEnded: result.code === TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
     };
   }
@@ -470,7 +470,7 @@ async function sendTribeEventExceptionRequest(
 
   return result.isUsable
     ? { isSuccess: true, message: result.dto.message, occurrences: result.dto.occurrences }
-    : buildMutationFailure(response, result);
+    : buildTribeEventMutationFailure(response, result);
 }
 
 /**

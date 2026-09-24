@@ -196,6 +196,7 @@ export function TribeEventsCalendar({
   const viewerTimeZone = useViewerTimeZone();
   const {
     applyEventOccurrences,
+    beginSeriesMutation,
     clearOccurrenceException,
     attendanceStreak,
     attendanceStreakNextRefreshAt,
@@ -254,9 +255,12 @@ export function TribeEventsCalendar({
     serverSnapshotTime: readAttendanceStreakComputedTime(attendanceStreakComputedAt),
   });
   const proposals = useTribeEventProposals({
+    beginSeriesMutation,
     initialPendingCount: pendingProposalCount,
     month: month.current,
     onEventCreated: applyEventOccurrences,
+    // Every server render stamps a new instant, so it replaces the local count.
+    pendingCountSourceVersion: attendanceStreakComputedAt,
     tribeSlug,
   });
   const [isProposalFormOpen, setIsProposalFormOpen] = useState(false);
