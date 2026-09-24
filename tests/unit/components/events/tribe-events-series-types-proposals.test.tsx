@@ -423,6 +423,45 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     });
   });
 
+  it("requires the end date of a moved date once «Termina otro día» is checked", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const occurrence = createOccurrence();
+
+    renderCalendar({ events: [occurrence] });
+
+    await user.click(screen.getByRole("button", { name: /Taller semanal/ }));
+    await user.click(screen.getByRole("button", { name: "Mover esta fecha" }));
+
+    const moveDialog = screen.getByRole("dialog", { name: "Mover esta fecha" });
+    const dateInput = within(moveDialog).getByLabelText("Nueva fecha");
+
+    await user.clear(dateInput);
+    await user.type(dateInput, "2026-05-20");
+    await user.click(within(moveDialog).getByRole("checkbox", { name: "Termina otro día" }));
+
+    // Checking it starts from the day after the new date.
+    expect(within(moveDialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+    await user.clear(within(moveDialog).getByLabelText("Fecha de fin"));
+    await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
+
+    expect(within(moveDialog).getByRole("alert")).toHaveTextContent(
+      "Elegí la fecha de fin o destildá «Termina otro día»."
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    await user.type(within(moveDialog).getByLabelText("Fecha de fin"), "2026-05-22");
+    await user.clear(within(moveDialog).getByLabelText("Hora de fin (opcional)"));
+    await user.type(within(moveDialog).getByLabelText("Hora de fin (opcional)"), "01:00");
+    mockJsonResponse({ message: "Fecha movida.", occurrences: [occurrence] });
+    await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
+
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      kind: "moved",
+      newEndsAt: "2026-05-22T04:00:00.000Z",
+    });
+  });
+
   it("lets a member propose a meeting from the toolbar and from the empty month", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
