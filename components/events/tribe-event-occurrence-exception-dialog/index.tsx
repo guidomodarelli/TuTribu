@@ -21,21 +21,13 @@ import {
   formatBuenosAiresWeekdayDay,
   getBuenosAiresDateKey,
 } from "@/lib/date-time/buenos-aires-format";
+import type { TribeEventOccurrenceExceptionSubmission } from "@/lib/events/tribe-event-form-submissions";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import {
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_REASON_MAX_LENGTH,
 } from "@/src/modules/events/constants/tribe-events";
-import type { TribeEventOccurrenceExceptionRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-exception-request-schemas";
 import styles from "./styles.module.scss";
-
-/**
- * Change requested for one date (the container adds the original start).
- */
-export type TribeEventOccurrenceExceptionPayload = Omit<
-  TribeEventOccurrenceExceptionRequestBody,
-  "originalStartsAt"
->;
 
 export type TribeEventOccurrenceExceptionMode =
   (typeof TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND)[keyof typeof TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND];
@@ -47,7 +39,7 @@ type TribeEventOccurrenceExceptionDialogProps = {
   /** Date being changed; null closes the dialog. */
   occurrence: TribeEventOccurrenceResult | null;
   onClose: () => void;
-  onSubmit: (payload: TribeEventOccurrenceExceptionPayload) => void;
+  onSubmit: (submission: TribeEventOccurrenceExceptionSubmission) => void;
 };
 
 type ExceptionFormValues = {
@@ -164,13 +156,13 @@ function suggestEnd(
 }
 
 /**
- * Validates the move form and builds the payload, or returns the Spanish
+ * Validates the move form and builds the submission, or returns the Spanish
  * error to show next to the form.
  */
 function buildMovePayload(
   values: ExceptionFormValues,
   endsOnAnotherDay: boolean
-): { error: string } | { payload: TribeEventOccurrenceExceptionPayload } {
+): { error: string } | { submission: TribeEventOccurrenceExceptionSubmission } {
   const newStartsAt = buildBuenosAiresInstant(values.date, values.startsTime);
 
   if (!newStartsAt) {
@@ -196,7 +188,7 @@ function buildMovePayload(
   }
 
   return {
-    payload: {
+    submission: {
       kind: TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved,
       newEndsAt,
       newStartsAt,
@@ -293,7 +285,7 @@ export function TribeEventOccurrenceExceptionDialog({
       return;
     }
 
-    onSubmit(result.payload);
+    onSubmit(result.submission);
   };
 
   return (

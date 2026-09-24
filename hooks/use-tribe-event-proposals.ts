@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "beez-ui";
 
 import type { TribeEventSeriesMutationSettler } from "@/hooks/use-tribe-event-mutations";
+import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";
 import {
   OCCURRENCES_MUTATION_OUTCOME,
   type OccurrencesMutationOutcome,
@@ -13,7 +14,7 @@ import {
   createTribeEventProposalRequest,
   decideTribeEventProposalRequest,
   fetchTribeEventProposalsRequest,
-  type TribeEventProposalPayload,
+  toTribeEventProposalRequestBody,
 } from "@/lib/events/tribe-event-proposals-api-client";
 import type {
   TribeEventMutationFailure,
@@ -72,7 +73,8 @@ export type TribeEventProposals = {
     proposal: TribeEventProposalResult,
     payload: TribeEventSavePayload
   ) => Promise<boolean>;
-  createProposal: (payload: TribeEventProposalPayload) => Promise<boolean>;
+  /** Sends the proposal form submission, translated to the route body. */
+  createProposal: (submission: TribeEventProposalSubmission) => Promise<boolean>;
   isSubmitting: boolean;
   loadProposals: () => void;
   loadState: TribeEventProposalsLoadState;
@@ -381,13 +383,17 @@ export function useTribeEventProposals({
     return true;
   };
 
-  const createProposal: TribeEventProposals["createProposal"] = async (payload) => {
+  const createProposal: TribeEventProposals["createProposal"] = async (submission) => {
     if (!acquireSubmitGuard()) {
       return false;
     }
 
     return runMutation(
-      () => createTribeEventProposalRequest({ payload, tribeSlug }),
+      () =>
+        createTribeEventProposalRequest({
+          payload: toTribeEventProposalRequestBody(submission),
+          tribeSlug,
+        }),
       COPY.createFailure,
       (result) => {
         updateLoadedProposals((proposals) => [result.proposal, ...proposals]);
