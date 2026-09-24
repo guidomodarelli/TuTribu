@@ -610,6 +610,13 @@
       "when": 1790256600000,
       "tag": "20260925121000_add_tribe_event_calendar_sequence",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1790257200000,
+      "tag": "20260925122000_grant_tribe_event_series_occurrence_to_request_role",
+      "breakpoints": true
     }
   ]
 }
