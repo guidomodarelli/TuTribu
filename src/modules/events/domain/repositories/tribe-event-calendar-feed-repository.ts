@@ -4,7 +4,10 @@ import type {
   TribeEventCalendarFeedSubscription,
   TribeEventCalendarFeedTokenOwner,
 } from "@/src/modules/events/domain/entities/tribe-event-calendar-feed";
-import type { TribeEventDateRange } from "@/src/modules/events/domain/entities/tribe-event";
+import type {
+  TribeEventDateRange,
+  TribeEventType,
+} from "@/src/modules/events/domain/entities/tribe-event";
 
 /**
  * Ports of the personal calendar feed. The token repository acts as the
@@ -66,6 +69,11 @@ export type TribeEventCalendarFeedTokenRepository = {
 };
 
 export type ReadTribeEventCalendarFeedQuery = TribeEventDateRange & {
+  /**
+   * Types to include (empty: every type). Applied before `maxSeries`, so the
+   * row limit never hides matching series behind unrequested ones.
+   */
+  eventTypes: readonly TribeEventType[];
   /** `last_used_at` is refreshed only when older than this many minutes. */
   lastUsedRefreshMinutes: number;
   maxExceptions: number;

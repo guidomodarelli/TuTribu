@@ -335,6 +335,94 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     );
   });
 
+  it("moves an overnight date keeping its next-day end and duration", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    // 23:00–01:00 in Buenos Aires: it starts on May 13 and ends on May 14.
+    const overnight = createOccurrence({
+      endsAt: "2026-05-14T04:00:00.000Z",
+      originalStartsAt: "2026-05-14T02:00:00.000Z",
+      seriesEndsAt: "2026-05-07T04:00:00.000Z",
+      seriesStartsAt: "2026-05-07T02:00:00.000Z",
+      startsAt: "2026-05-14T02:00:00.000Z",
+    });
+
+    renderCalendar({ events: [overnight] });
+
+    await user.click(screen.getByRole("button", { name: /23:00\s*Taller semanal/ }));
+    await user.click(screen.getByRole("button", { name: "Mover esta fecha" }));
+
+    const moveDialog = screen.getByRole("dialog", { name: "Mover esta fecha" });
+    const dateInput = within(moveDialog).getByLabelText("Nueva fecha");
+
+    expect(dateInput).toHaveValue("2026-05-13");
+    expect(within(moveDialog).getByLabelText("Hora de inicio")).toHaveValue("23:00");
+    expect(within(moveDialog).getByLabelText("Hora de fin (opcional)")).toHaveValue("01:00");
+    expect(within(moveDialog).getByRole("checkbox", { name: "Termina otro día" })).toBeChecked();
+    expect(within(moveDialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-14");
+
+    // Moving the start carries the suggested end along, one duration later.
+    await user.clear(dateInput);
+    await user.type(dateInput, "2026-05-14");
+
+    expect(within(moveDialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-15");
+    expect(within(moveDialog).getByLabelText("Hora de fin (opcional)")).toHaveValue("01:00");
+
+    mockJsonResponse({ message: "Fecha movida.", occurrences: [overnight] });
+    await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
+
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      kind: "moved",
+      newEndsAt: "2026-05-15T04:00:00.000Z",
+      newStartsAt: "2026-05-15T02:00:00.000Z",
+      originalStartsAt: "2026-05-14T02:00:00.000Z",
+    });
+  });
+
+  it("keeps a manually edited end and shows an error when it falls before the new start", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const overnight = createOccurrence({
+      endsAt: "2026-05-14T04:00:00.000Z",
+      originalStartsAt: "2026-05-14T02:00:00.000Z",
+      startsAt: "2026-05-14T02:00:00.000Z",
+    });
+
+    renderCalendar({ events: [overnight] });
+
+    await user.click(screen.getByRole("button", { name: /23:00\s*Taller semanal/ }));
+    await user.click(screen.getByRole("button", { name: "Mover esta fecha" }));
+
+    const moveDialog = screen.getByRole("dialog", { name: "Mover esta fecha" });
+    const endDateInput = within(moveDialog).getByLabelText("Fecha de fin");
+
+    await user.clear(endDateInput);
+    await user.type(endDateInput, "2026-05-16");
+    await user.clear(within(moveDialog).getByLabelText("Nueva fecha"));
+    await user.type(within(moveDialog).getByLabelText("Nueva fecha"), "2026-05-17");
+
+    // The manager chose the end, so it no longer follows the start.
+    expect(within(moveDialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-16");
+
+    await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
+
+    expect(within(moveDialog).getByRole("alert")).toHaveTextContent(
+      "La hora de fin debe ser posterior al inicio."
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    await user.click(within(moveDialog).getByRole("checkbox", { name: "Termina otro día" }));
+
+    expect(within(moveDialog).queryByLabelText("Fecha de fin")).not.toBeInTheDocument();
+    await user.clear(within(moveDialog).getByLabelText("Hora de fin (opcional)"));
+    await user.type(within(moveDialog).getByLabelText("Hora de fin (opcional)"), "23:30");
+    mockJsonResponse({ message: "Fecha movida.", occurrences: [overnight] });
+    await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
+
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      newEndsAt: "2026-05-18T02:30:00.000Z",
+      newStartsAt: "2026-05-18T02:00:00.000Z",
+    });
+  });
+
   it("lets a member propose a meeting from the toolbar and from the empty month", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
@@ -403,7 +491,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
 
     renderCalendar({ events: [], pendingProposalCount: 1 });
 
-    mockJsonResponse({ canReviewProposals: true, proposals: [proposal] });
+    mockJsonResponse({ canReviewProposals: true, pendingCount: 1, proposals: [proposal] });
     await user.click(screen.getByRole("button", { name: "Propuestas (1)" }));
 
     const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
@@ -459,6 +547,72 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("keeps the uncapped pending total on the badge when the queue is capped and decrements it on approval", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const pendingTotal = 73;
+    const cappedQueueSize = 50;
+    const queue = Array.from({ length: cappedQueueSize }, (_, index) => ({
+      createdAt: "2026-05-01T12:00:00.000Z",
+      description: null,
+      durationMinutes: 60,
+      eventId: null,
+      eventType: "social",
+      id: `3c4d5e6f-7a8b-4c9d-8e0f-${String(index).padStart(12, "0")}`,
+      proposerName: "Ana",
+      reviewNote: null,
+      reviewedAt: null,
+      startsAt: "2026-05-20T21:00:00.000Z",
+      status: "pending",
+      title: `Propuesta ${index + 1}`,
+    }));
+    const [firstProposal] = queue;
+
+    renderCalendar({ events: [], pendingProposalCount: pendingTotal });
+
+    mockJsonResponse({ canReviewProposals: true, pendingCount: pendingTotal, proposals: queue });
+    await user.click(screen.getByRole("button", { name: `Propuestas (${pendingTotal})` }));
+
+    const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
+
+    expect(await within(panel).findByText("Propuesta 1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { hidden: true, name: `Propuestas (${pendingTotal})` })
+    ).toBeInTheDocument();
+
+    await user.click(within(panel).getAllByRole("button", { name: "Revisar y aprobar" })[0]);
+
+    const form = screen.getByRole("dialog", { name: "Aprobar propuesta" });
+
+    mockJsonResponse({
+      event: {
+        capacity: null,
+        description: null,
+        endsAt: "2026-05-20T22:00:00.000Z",
+        eventType: "social",
+        id: SOCIAL_EVENT_ID,
+        meetingUrl: null,
+        recurrenceFrequency: "none",
+        recurrenceRule: null,
+        recurrenceUntil: null,
+        startsAt: "2026-05-20T21:00:00.000Z",
+        title: "Propuesta 1",
+      },
+      message: "Propuesta aprobada: el evento ya está en el calendario.",
+      occurrences: [],
+      proposal: {
+        ...firstProposal,
+        eventId: SOCIAL_EVENT_ID,
+        reviewedAt: "2026-05-01T12:00:00.000Z",
+        status: "approved",
+      },
+    });
+    await user.click(within(form).getByRole("button", { name: "Aprobar y publicar" }));
+
+    expect(
+      await screen.findByRole("button", { hidden: true, name: `Propuestas (${pendingTotal - 1})` })
+    ).toBeInTheDocument();
+  });
+
   it("lets managers reject a proposal with a note", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const proposal = {
@@ -478,7 +632,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
 
     renderCalendar({ pendingProposalCount: 1 });
 
-    mockJsonResponse({ canReviewProposals: true, proposals: [proposal] });
+    mockJsonResponse({ canReviewProposals: true, pendingCount: 1, proposals: [proposal] });
     await user.click(screen.getByRole("button", { name: "Propuestas (1)" }));
 
     const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });

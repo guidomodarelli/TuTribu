@@ -224,6 +224,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
     const snapshot = await reader.readAsOwner({
+      eventTypes: [],
       lastUsedRefreshMinutes: 60,
       maxExceptions: 2000,
       maxSeries: 500,
@@ -277,7 +278,35 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     expect(seriesSql).toContain("public.can_read_tribe_content(events.tribe_id)");
     expect(seriesSql).toContain("limit");
     expect(seriesSql).toContain("events.calendar_sequence");
+    expect(seriesSql).not.toContain("events.event_type = any(");
     expect(exceptionsSql).toContain("event_occurrence_exceptions.event_id = any(");
+  });
+
+  it("filters the series by the requested types before the row limit", async () => {
+    const ownerExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
+
+    await reader.readAsOwner({
+      eventTypes: ["workshop", "qa"],
+      lastUsedRefreshMinutes: 60,
+      maxExceptions: 2000,
+      maxSeries: 500,
+      owner: { tokenHash: TOKEN_HASH, tokenId: TOKEN_ID, tribeId: TRIBE_ID, userId: OWNER_ID },
+      rangeEnd: "2027-05-10T12:00:00.000Z",
+      rangeStart: "2026-02-09T12:00:00.000Z",
+      tribeSlug: TRIBE_SLUG,
+    });
+
+    const seriesSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
+    const typePredicateIndex = seriesSql.indexOf("events.event_type = any(");
+
+    expect(typePredicateIndex).toBeGreaterThan(-1);
+    expect(seriesSql.slice(typePredicateIndex)).toMatch(/workshop.*qa.*::text\[\]/s);
+    expect(typePredicateIndex).toBeLessThan(seriesSql.lastIndexOf("limit"));
   });
 
   it("returns null and reads nothing else when the owner lost access", async () => {
@@ -286,6 +315,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
 
     await expect(
       reader.readAsOwner({
+        eventTypes: [],
         lastUsedRefreshMinutes: 60,
         maxExceptions: 2000,
         maxSeries: 500,
