@@ -56,6 +56,16 @@ export type TribeEventStreakRefresh = {
   attendanceStreak?: TribeEventAttendanceStreakResult | null;
 };
 
+/**
+ * Streak read by `GET /api/tribes/[slug]/events/attendance-streak`, plus the
+ * next instant at which it can change. Absent `attendanceStreakNextRefreshAt`
+ * means the route could not compute it, so the caller keeps the instant it
+ * already watches; `null` means nothing ends inside the upcoming window.
+ */
+export type TribeEventStreakReadResult = TribeEventStreakRefresh & {
+  attendanceStreakNextRefreshAt?: string | null;
+};
+
 type AttendanceResponseBody = {
   attendance?: TribeEventOccurrenceResult["attendance"];
   code?: unknown;
@@ -180,13 +190,14 @@ export async function deleteTribeEventRequest(input: {
  * refresh, so the caller keeps the streak it already shows.
  *
  * @param input - Tribe slug and an abort signal that cancels a stale read.
- * @returns The refreshed streak (`null` when there is none) or an empty refresh.
+ * @returns The refreshed streak (`null` when there is none) and the next
+ * refresh instant when the route sent it, or an empty refresh.
  * @throws The fetch rejection (network failure or abort) for the caller to classify.
  */
 export async function fetchTribeEventAttendanceStreakRequest(input: {
   signal?: AbortSignal;
   tribeSlug: string;
-}): Promise<TribeEventStreakRefresh> {
+}): Promise<TribeEventStreakReadResult> {
   const response = await fetch(
     buildTribeEventAttendanceStreakApiEndpoint(input.tribeSlug),
     { cache: "no-store", signal: input.signal }
@@ -200,7 +211,15 @@ export async function fetchTribeEventAttendanceStreakRequest(input: {
     await readJsonBody<unknown>(response)
   );
 
-  return parsedBody.success ? { attendanceStreak: parsedBody.data.attendanceStreak } : {};
+  if (!parsedBody.success) {
+    return {};
+  }
+
+  const { attendanceStreak, attendanceStreakNextRefreshAt } = parsedBody.data;
+
+  return attendanceStreakNextRefreshAt === undefined
+    ? { attendanceStreak }
+    : { attendanceStreak, attendanceStreakNextRefreshAt };
 }
 
 /**

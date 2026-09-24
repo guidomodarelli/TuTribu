@@ -24,6 +24,7 @@ const setTribeEventAttendance = vi.fn();
 const clearTribeEventAttendance = vi.fn();
 const getTribeEventAttendanceReport = vi.fn();
 const getTribeEventAttendanceStreak = vi.fn();
+const getTribeEventAttendanceStreakNextRefreshAt = vi.fn();
 const { logError } = vi.hoisted(() => ({ logError: vi.fn() }));
 
 vi.mock("@/src/modules/setup", () => ({
@@ -139,6 +140,7 @@ describe("Tribe event routes", () => {
       role: "tribemate",
     });
     getTribeEventAttendanceStreak.mockResolvedValue(null);
+    getTribeEventAttendanceStreakNextRefreshAt.mockResolvedValue(null);
     (createRequestModules as Mock).mockResolvedValue({
       auth: {
         useCases: {
@@ -153,6 +155,7 @@ describe("Tribe event routes", () => {
           getTribeEvent,
           getTribeEventAttendanceReport,
           getTribeEventAttendanceStreak,
+          getTribeEventAttendanceStreakNextRefreshAt,
           listTribeEvents,
           setTribeEventAttendance,
           updateTribeEvent,
@@ -513,10 +516,55 @@ describe("Tribe event routes", () => {
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
         attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
+        attendanceStreakNextRefreshAt: null,
       });
       expect(getTribeEventAttendanceStreak).toHaveBeenCalledWith({
         tribeSlug: "matematica-pro",
       });
+    });
+
+    it("returns the next instant at which the streak can change", async () => {
+      getTribeEventAttendanceStreakNextRefreshAt.mockResolvedValue("2026-06-01T05:00:00.000Z");
+
+      const response = await GET_ATTENDANCE_STREAK(
+        buildRequest({}, streakUrl),
+        buildStreakContext("matematica-pro")
+      );
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        attendanceStreak: null,
+        attendanceStreakNextRefreshAt: "2026-06-01T05:00:00.000Z",
+      });
+      expect(getTribeEventAttendanceStreakNextRefreshAt).toHaveBeenCalledWith({
+        tribeSlug: "matematica-pro",
+      });
+    });
+
+    it("still returns the streak when the next refresh instant cannot be computed", async () => {
+      const nextRefreshError = new Error("upcoming query failed");
+      getTribeEventAttendanceStreak.mockResolvedValue({ attendedCount: 3, occurrenceCount: 5 });
+      getTribeEventAttendanceStreakNextRefreshAt.mockRejectedValue(nextRefreshError);
+
+      const response = await GET_ATTENDANCE_STREAK(
+        buildRequest({}, streakUrl),
+        buildStreakContext("matematica-pro")
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body).toEqual({ attendanceStreak: { attendedCount: 3, occurrenceCount: 5 } });
+      expect(body).not.toHaveProperty("attendanceStreakNextRefreshAt");
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: nextRefreshError,
+          message: "Tribe event attendance streak next refresh lookup failed",
+          metadata: expect.objectContaining({
+            slug: "matematica-pro",
+            viewerId: "member-1",
+          }),
+        })
+      );
     });
 
     it("returns null when the viewer has no streak", async () => {
@@ -528,7 +576,10 @@ describe("Tribe event routes", () => {
       );
 
       expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toEqual({ attendanceStreak: null });
+      await expect(response.json()).resolves.toEqual({
+        attendanceStreak: null,
+        attendanceStreakNextRefreshAt: null,
+      });
     });
 
     it("requires a session", async () => {

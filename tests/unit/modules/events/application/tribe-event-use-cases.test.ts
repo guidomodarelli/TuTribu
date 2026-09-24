@@ -6,7 +6,10 @@ import {
   listTribeEvents,
   updateTribeEvent,
 } from "@/src/modules/events/application/use-cases/manage-tribe-events-use-cases";
-import { listUpcomingTribeEvents } from "@/src/modules/events/application/use-cases/list-upcoming-tribe-events-use-case";
+import {
+  getTribeEventAttendanceStreakNextRefreshAt,
+  listUpcomingTribeEvents,
+} from "@/src/modules/events/application/use-cases/list-upcoming-tribe-events-use-case";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
@@ -835,5 +838,82 @@ describe("tribe event use cases", () => {
     const result = await execute({ tribeSlug: "matematica-pro" });
 
     expect(result.events.map((occurrence) => occurrence.title)).toEqual(["En curso"]);
+  });
+
+  describe("attendance streak next refresh", () => {
+    it("returns the end of an occurrence that started last month and is still running", async () => {
+      vi.useFakeTimers().setSystemTime(new Date("2026-06-01T01:00:00.000Z"));
+      const listByTribeRange = vi.fn(async () =>
+        createListing([
+          createEvent({
+            endsAt: "2026-06-01T05:00:00.000Z",
+            startsAt: "2026-05-31T23:00:00.000Z",
+            title: "Taller de cierre",
+          }),
+          createEvent({
+            endsAt: "2026-06-03T19:00:00.000Z",
+            id: OTHER_EVENT_ID,
+            startsAt: "2026-06-03T18:00:00.000Z",
+            title: "Clase de junio",
+          }),
+        ])
+      );
+      const execute = getTribeEventAttendanceStreakNextRefreshAt({
+        tribeEventRepository: createRepository({ listByTribeRange }),
+      });
+
+      await expect(execute({ tribeSlug: " matematica-pro " })).resolves.toBe(
+        "2026-06-01T05:00:00.000Z"
+      );
+      expect(listByTribeRange).toHaveBeenCalledWith({
+        rangeEnd: "2026-07-01T01:00:00.000Z",
+        rangeStart: "2026-06-01T01:00:00.000Z",
+        tribeSlug: "matematica-pro",
+      });
+    });
+
+    it("picks the nearest effective end, even when a later start ends first", async () => {
+      vi.useFakeTimers().setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
+      const listByTribeRange = vi.fn(async () =>
+        createListing([
+          createEvent({
+            endsAt: "2026-05-10T20:00:00.000Z",
+            startsAt: "2026-05-10T11:00:00.000Z",
+            title: "Jornada larga",
+          }),
+          createEvent({
+            endsAt: null,
+            id: OTHER_EVENT_ID,
+            startsAt: "2026-05-10T13:00:00.000Z",
+            title: "Sin fin explícito",
+          }),
+        ])
+      );
+      const execute = getTribeEventAttendanceStreakNextRefreshAt({
+        tribeEventRepository: createRepository({ listByTribeRange }),
+      });
+
+      await expect(execute({ tribeSlug: "matematica-pro" })).resolves.toBe(
+        "2026-05-10T14:00:00.000Z"
+      );
+    });
+
+    it("returns null when no occurrence ends inside the window", async () => {
+      vi.useFakeTimers().setSystemTime(new Date("2026-05-10T12:00:00.000Z"));
+      const listByTribeRange = vi.fn(async () =>
+        createListing([
+          createEvent({
+            endsAt: "2026-05-09T11:00:00.000Z",
+            startsAt: "2026-05-09T10:00:00.000Z",
+            title: "Ya pasó",
+          }),
+        ])
+      );
+      const execute = getTribeEventAttendanceStreakNextRefreshAt({
+        tribeEventRepository: createRepository({ listByTribeRange }),
+      });
+
+      await expect(execute({ tribeSlug: "matematica-pro" })).resolves.toBeNull();
+    });
   });
 });

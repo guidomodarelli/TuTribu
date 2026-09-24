@@ -20,7 +20,10 @@ import type {
   TribeEventSaveResult,
   TribeEventUpcomingListResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
-import { listUpcomingTribeEvents } from "@/src/modules/events/application/use-cases/list-upcoming-tribe-events-use-case";
+import {
+  getTribeEventAttendanceStreakNextRefreshAt,
+  listUpcomingTribeEvents,
+} from "@/src/modules/events/application/use-cases/list-upcoming-tribe-events-use-case";
 import {
   createTribeEvent,
   deleteTribeEvent,
@@ -56,6 +59,9 @@ type EventsModule = {
     getTribeEventAttendanceStreak: (
       query: GetTribeEventAttendanceStreakQuery
     ) => Promise<TribeEventAttendanceStreakResult | null>;
+    getTribeEventAttendanceStreakNextRefreshAt: (
+      query: GetTribeEventAttendanceStreakQuery
+    ) => Promise<string | null>;
     listTribeEvents: (query: ListTribeEventsQuery) => Promise<TribeEventListResult>;
     listUpcomingTribeEvents: (
       query: ListUpcomingTribeEventsQuery
@@ -78,6 +84,9 @@ export function buildEventsModule({
       getTribeEvent: getTribeEvent({ tribeEventRepository }),
       getTribeEventAttendanceReport: getTribeEventAttendanceReport({ tribeEventRepository }),
       getTribeEventAttendanceStreak: getTribeEventAttendanceStreak({ tribeEventRepository }),
+      getTribeEventAttendanceStreakNextRefreshAt: getTribeEventAttendanceStreakNextRefreshAt({
+        tribeEventRepository,
+      }),
       listTribeEvents: listTribeEvents({ tribeEventRepository }),
       listUpcomingTribeEvents: listUpcomingTribeEvents({ tribeEventRepository }),
       setTribeEventAttendance: setTribeEventAttendance({ tribeEventRepository }),

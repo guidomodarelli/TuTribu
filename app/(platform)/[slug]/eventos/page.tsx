@@ -7,6 +7,8 @@ const TRIBE_EVENTS_PAGE = {
   listFailureReason: "unexpected_event_repository_error",
   operation: "tribe-events-page",
   streakFailureMessage: "Failed to compute tribe event attendance streak",
+  streakNextRefreshFailureMessage:
+    "Failed to compute tribe event attendance streak next refresh",
 } as const;
 
 export default async function TribeEventsPage({
@@ -38,7 +40,10 @@ export default async function TribeEventsPage({
   // Failures are logged here, where the user-facing response is owned, and
   // degrade to a safe fallback instead of breaking the whole route. The
   // streak is optional: without it the page simply omits that line.
-  const [listing, attendanceStreak] = await Promise.all([
+  // The next refresh instant covers occurrences outside the visible month
+  // (for example one that started last month and is still running), whose
+  // end would otherwise never refresh the streak on screen.
+  const [listing, attendanceStreak, attendanceStreakNextRefreshAt] = await Promise.all([
     modules.events.useCases
       .listTribeEvents({
         month: resolvedSearchParams?.month,
@@ -74,6 +79,21 @@ export default async function TribeEventsPage({
 
         return null;
       }),
+    modules.events.useCases
+      .getTribeEventAttendanceStreakNextRefreshAt({ tribeSlug: slug })
+      .catch((error: unknown) => {
+        logger.error({
+          message: TRIBE_EVENTS_PAGE.streakNextRefreshFailureMessage,
+          error,
+          metadata: {
+            reason: TRIBE_EVENTS_PAGE.listFailureReason,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+        });
+
+        return null;
+      }),
   ]);
 
   if (!listing) {
@@ -84,6 +104,7 @@ export default async function TribeEventsPage({
     <TribeEventsCalendar
       attendanceStreak={attendanceStreak}
       attendanceStreakComputedAt={attendanceStreakComputedAt}
+      attendanceStreakNextRefreshAt={attendanceStreakNextRefreshAt}
       events={listing.events}
       initialOccurrenceKey={listing.selectedOccurrenceKey}
       month={listing.month}
