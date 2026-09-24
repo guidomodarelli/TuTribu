@@ -205,7 +205,11 @@ export function TribeEventsCalendar({
 
   // The open detail is mirrored in the `event` query so the URL can be shared;
   // replaceState keeps it out of the history stack and never refetches.
+  // Changing or closing the detail also forgets the "Asistentes" tab: closing
+  // unmounts the tabs without reporting a tab change, and the dialog always
+  // reopens on "Detalle", so the report must stay user-triggered.
   const setSelectedOccurrenceKey = (occurrenceKey: string | null) => {
+    setAttendeesOccurrenceKey(null);
     setOccurrenceSelection({
       occurrenceKey,
       sourceOccurrenceKey: initialOccurrenceKey,
