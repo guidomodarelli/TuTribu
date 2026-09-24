@@ -25,6 +25,7 @@ const MILLISECONDS_PER_MINUTE = 60_000;
 const MONTH_INDEX_OFFSET = 1;
 const TIME_RANGE_SEPARATOR = " - ";
 const DATE_TIME_SEPARATOR = " ";
+const DATE_KEY_SEPARATOR = "-";
 const VIEWER_TIME_SUFFIX = " tu hora";
 const TRAILING_PERIOD_PATTERN = /\.$/;
 
@@ -119,20 +120,47 @@ function formatShortDate(formatters: ZoneFormatters, instant: Date): string {
   return day + DATE_TIME_SEPARATOR + month;
 }
 
+/**
+ * Calendar day of `instant` in the formatter zone as `YYYY-M-D`. The year is
+ * part of the key so ranges ending on the same day and month of a later year
+ * are still recognized as ending on another day.
+ */
 function formatDateKey(formatters: ZoneFormatters, instant: Date): string {
-  return formatters.date.format(instant);
+  const parts = formatters.offsetParts.formatToParts(instant);
+
+  return [
+    readPart(parts, DATE_PART.year),
+    readPart(parts, DATE_PART.month),
+    readPart(parts, DATE_PART.day),
+  ].join(DATE_KEY_SEPARATOR);
+}
+
+/**
+ * End of a viewer-local range: its clock time, prefixed by the local short
+ * date when it falls on a later local day than the start ("07 may 03:00"),
+ * mirroring `formatBuenosAiresTimeRange` in the viewer zone.
+ */
+function formatViewerEndLabel(formatters: ZoneFormatters, start: Date, end: Date): string {
+  const endsOnOtherDay = formatDateKey(formatters, end) !== formatDateKey(formatters, start);
+
+  return (
+    (endsOnOtherDay ? formatShortDate(formatters, end) + DATE_TIME_SEPARATOR : "") +
+    formatters.time.format(end)
+  );
 }
 
 /**
  * Viewer-local label for an occurrence: "18:00 - 19:00 tu hora", prefixed by
  * the local short date ("07 may 03:00 tu hora") when the local day differs
- * from the Buenos Aires day.
+ * from the Buenos Aires day. When the range crosses local midnight, the end
+ * carries its own local date ("23:00 - 07 may 03:00 tu hora").
  *
  * @param startsAt - ISO start instant.
  * @param endsAt - ISO end instant, or null for open-ended occurrences.
  * @param viewerTimeZone - IANA zone of the browser, null before hydration.
  * @returns The label, or null when there is no zone, it is unknown, or its
- * offset matches Buenos Aires at the start instant.
+ * offset matches Buenos Aires at the start instant and, when present, at the
+ * end instant.
  */
 export function formatViewerLocalTimeLabel(
   startsAt: string,
@@ -146,13 +174,19 @@ export function formatViewerLocalTimeLabel(
   const viewerFormatters = getZoneFormatters(viewerTimeZone);
   const buenosAiresFormatters = getZoneFormatters(BUENOS_AIRES_TIME_ZONE);
   const start = new Date(startsAt);
+  const end = endsAt ? new Date(endsAt) : null;
 
-  if (
-    !viewerFormatters ||
-    !buenosAiresFormatters ||
-    getTimeZoneOffsetMinutes(viewerFormatters, start) ===
-      getTimeZoneOffsetMinutes(buenosAiresFormatters, start)
-  ) {
+  if (!viewerFormatters || !buenosAiresFormatters) {
+    return null;
+  }
+
+  // A range can straddle a daylight-saving transition in only one zone, so
+  // both ends must match before the Buenos Aires label alone is accurate.
+  const offsetsMatchAt = (instant: Date) =>
+    getTimeZoneOffsetMinutes(viewerFormatters, instant) ===
+    getTimeZoneOffsetMinutes(buenosAiresFormatters, instant);
+
+  if (offsetsMatchAt(start) && (!end || offsetsMatchAt(end))) {
     return null;
   }
 
@@ -161,7 +195,7 @@ export function formatViewerLocalTimeLabel(
   const startLabel =
     (isOtherDay ? formatShortDate(viewerFormatters, start) + DATE_TIME_SEPARATOR : "") +
     viewerFormatters.time.format(start);
-  const endLabel = endsAt ? viewerFormatters.time.format(new Date(endsAt)) : null;
+  const endLabel = end ? formatViewerEndLabel(viewerFormatters, start, end) : null;
 
   return (
     startLabel + (endLabel ? TIME_RANGE_SEPARATOR + endLabel : "") + VIEWER_TIME_SUFFIX

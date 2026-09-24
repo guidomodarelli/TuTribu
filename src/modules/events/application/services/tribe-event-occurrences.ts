@@ -5,6 +5,7 @@ import type {
 import type {
   TribeEvent,
   TribeEventDateRange,
+  TribeEventRangeMatch,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   TribeEventAttendanceSummary,
@@ -95,11 +96,19 @@ function sortByStart(
 /**
  * Expands every event into its occurrences inside the range, attaching the
  * attendance summary that belongs to each slot, sorted by start time.
+ *
+ * @param events - Series returned for the range.
+ * @param attendances - Attendance summaries per occurrence.
+ * @param range - Queried range.
+ * @param rangeMatch - How occurrences are matched against the range; see
+ *   `expandTribeEventOccurrences`. Defaults to matching by start.
+ * @returns Occurrence results sorted by start and title.
  */
 export function buildTribeEventOccurrences(
   events: TribeEvent[],
   attendances: TribeEventOccurrenceAttendance[],
-  range: TribeEventDateRange
+  range: TribeEventDateRange,
+  rangeMatch?: TribeEventRangeMatch
 ): TribeEventOccurrenceResult[] {
   const attendanceByKey = new Map(
     attendances.map((attendance) => [
@@ -122,7 +131,7 @@ export function buildTribeEventOccurrences(
     .flatMap((event) => {
       const eventResult = toTribeEventResult(event);
 
-      return expandTribeEventOccurrences(event, range).map((occurrence) => {
+      return expandTribeEventOccurrences(event, range, rangeMatch).map((occurrence) => {
         const occurrenceKey = buildTribeEventOccurrenceKey(
           event.id,
           occurrence.startsAt

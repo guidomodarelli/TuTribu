@@ -111,6 +111,25 @@ describe("tribe event use cases", () => {
     });
   });
 
+  it("files a workshop that crosses midnight between months under the month where it starts", async () => {
+    // 22:00 on May 31st to 02:00 on June 1st, Buenos Aires time.
+    const crossMonthWorkshop = createEvent({
+      endsAt: "2026-06-01T05:00:00.000Z",
+      startsAt: "2026-06-01T01:00:00.000Z",
+      title: "Taller de cierre",
+    });
+    const listByTribeRange = vi.fn(async () => createListing([crossMonthWorkshop]));
+    const execute = listTribeEvents({
+      tribeEventRepository: createRepository({ listByTribeRange }),
+    });
+
+    const may = await execute({ month: "2026-05", tribeSlug: "matematica-pro" });
+    const june = await execute({ month: "2026-06", tribeSlug: "matematica-pro" });
+
+    expect(may.events.map((occurrence) => occurrence.title)).toEqual(["Taller de cierre"]);
+    expect(june.events).toEqual([]);
+  });
+
   it("resolves the month of a deep-linked occurrence when no month is given", async () => {
     const lateNightStart = "2026-07-01T02:00:00.000Z";
     const listByTribeRange = vi.fn(async () =>
@@ -756,9 +775,40 @@ describe("tribe event use cases", () => {
     expect(result.events[1]?.startsAt).toBe("2026-05-13T18:00:00.000Z");
     expect(listByTribeRange).toHaveBeenCalledWith({
       rangeEnd: "2026-06-09T12:00:00.000Z",
-      rangeStart: "2026-05-10T06:00:00.000Z",
+      rangeStart: "2026-05-10T12:00:00.000Z",
       tribeSlug: "matematica-pro",
     });
+  });
+
+  it("keeps a cross-day workshop that started hours ago while its explicit end is ahead", async () => {
+    vi.useFakeTimers().setSystemTime(new Date("2026-05-10T22:00:00.000Z"));
+    const listByTribeRange = vi.fn(async () =>
+      createListing([
+        createEvent({
+          endsAt: "2026-05-11T02:00:00.000Z",
+          startsAt: "2026-05-10T15:00:00.000Z",
+          title: "Taller intensivo",
+        }),
+        createEvent({
+          endsAt: "2026-05-10T21:00:00.000Z",
+          id: OTHER_EVENT_ID,
+          startsAt: "2026-05-10T14:00:00.000Z",
+          title: "Terminado",
+        }),
+      ])
+    );
+    const execute = listUpcomingTribeEvents({
+      tribeEventRepository: createRepository({ listByTribeRange }),
+    });
+
+    const result = await execute({ tribeSlug: "matematica-pro" });
+
+    expect(result.events.map((occurrence) => occurrence.title)).toEqual([
+      "Taller intensivo",
+    ]);
+    expect(listByTribeRange).toHaveBeenCalledWith(
+      expect.objectContaining({ rangeStart: "2026-05-10T22:00:00.000Z" })
+    );
   });
 
   it("keeps an occurrence without end while it runs its default duration", async () => {

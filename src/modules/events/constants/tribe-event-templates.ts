@@ -17,13 +17,13 @@ export const TRIBE_EVENT_TEMPLATES: readonly TribeEventTemplate[] = [
     durationMinutes: 60,
     id: "weekly-qa",
     recurrenceFrequency: TRIBE_EVENT_RECURRENCE_FREQUENCY.weekly,
-    title: "Q&A semanal",
+    title: "Preguntas y respuestas semanal",
   },
   {
     durationMinutes: 90,
     id: "monthly-kickoff",
     recurrenceFrequency: TRIBE_EVENT_RECURRENCE_FREQUENCY.monthly,
-    title: "Kickoff mensual",
+    title: "Encuentro de arranque mensual",
   },
   {
     durationMinutes: 120,

@@ -3,7 +3,9 @@ import { sql } from "drizzle-orm";
 import {
   TRIBE_EVENT_ATTENDANCE_STATUS,
   TRIBE_EVENT_ATTENDEE_PREVIEW_LIMIT,
+  TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
   TRIBE_EVENT_MUTATION_STATUS,
+  TRIBE_EVENT_RANGE_MATCH,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type {
@@ -13,6 +15,7 @@ import type {
   TribeEventAttendee,
   TribeEventAttendeePreview,
   TribeEventDateRange,
+  TribeEventRangeMatch,
   TribeEventRecurrenceFrequency,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
@@ -173,6 +176,19 @@ const RETURNING_EVENT_COLUMNS = sql`
     events.ends_at,
     events.recurrence_frequency,
     events.recurrence_until
+`;
+/**
+ * Duration of every occurrence of a series: its explicit end minus its start,
+ * or the default duration when it has no end (same rule as
+ * `getTribeEventOccurrenceEndTime`). Used to match occurrences by overlap.
+ */
+const EVENT_OCCURRENCE_DURATION = sql`
+  (
+    coalesce(
+      events.ends_at,
+      events.starts_at + make_interval(mins => ${TRIBE_EVENT_DEFAULT_DURATION_MINUTES}::integer)
+    ) - events.starts_at
+  )
 `;
 const COUNT_BASE = 10;
 
@@ -366,8 +382,8 @@ function mapDeletionResult(row: EventDeletionRow | null): TribeEventDeletionResu
 }
 
 /**
- * Series of the tribe whose occurrences can fall in `[rangeStart, rangeEnd)`,
- * guarded by `can_read_tribe_content` because the runtime role bypasses RLS.
+ * Series of the tribe with at least one occurrence whose interval (start to
+ * effective end) overlaps `[rangeStart, rangeEnd)`, guarded by `can_read_tribe_content` because the runtime role bypasses RLS.
  * Always returns at least one row carrying the viewer permissions.
  */
 function buildEventsInRangeQuery({
@@ -395,13 +411,13 @@ function buildEventsInRangeQuery({
         and (
           (
             events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-            and events.starts_at >= ${rangeStart}
+            and events.starts_at + ${EVENT_OCCURRENCE_DURATION} > ${rangeStart}
           )
           or (
             events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
             and (
               events.recurrence_until is null
-              or events.recurrence_until >= ${rangeStart}
+              or events.recurrence_until + ${EVENT_OCCURRENCE_DURATION} > ${rangeStart}
             )
           )
         )
@@ -434,10 +450,19 @@ function buildEventsInRangeQuery({
 function buildAttendanceSummaryQuery({
   eventId,
   rangeEnd,
+  rangeMatch = TRIBE_EVENT_RANGE_MATCH.overlaps,
   rangeStart,
   tribeSlug,
-}: TribeEventDateRange & { eventId?: string; tribeSlug: string }) {
+}: TribeEventDateRange & {
+  eventId?: string;
+  rangeMatch?: TribeEventRangeMatch;
+  tribeSlug: string;
+}) {
   const eventFilter = eventId ? sql`and event_attendances.event_id = ${eventId}` : sql``;
+  const rangeFilter =
+    rangeMatch === TRIBE_EVENT_RANGE_MATCH.overlaps
+      ? sql`and event_attendances.occurrence_starts_at + ${EVENT_OCCURRENCE_DURATION} > ${rangeStart}`
+      : sql`and event_attendances.occurrence_starts_at >= ${rangeStart}`;
 
   return sql`
     with ranked_attendances as (
@@ -456,10 +481,12 @@ function buildAttendanceSummaryQuery({
       from public.event_attendances
       inner join public.tribes
         on tribes.id = event_attendances.tribe_id
+      inner join public.events
+        on events.id = event_attendances.event_id
       where tribes.slug = ${tribeSlug}
         and public.can_read_tribe_content(tribes.id)
-        and event_attendances.occurrence_starts_at >= ${rangeStart}
         and event_attendances.occurrence_starts_at < ${rangeEnd}
+        ${rangeFilter}
         ${eventFilter}
     )
     select
@@ -974,6 +1001,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           rangeEnd: new Date(
             Date.parse(key.occurrenceStartsAt) + SINGLE_OCCURRENCE_RANGE_MS
           ).toISOString(),
+          rangeMatch: TRIBE_EVENT_RANGE_MATCH.startsWithin,
           rangeStart: key.occurrenceStartsAt,
           tribeSlug: key.tribeSlug,
         })

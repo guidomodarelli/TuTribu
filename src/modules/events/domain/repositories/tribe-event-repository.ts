@@ -192,6 +192,12 @@ export type TribeEventRepository = {
   getOccurrenceAttendanceReport: (
     query: GetTribeEventAttendanceReportQuery
   ) => Promise<TribeEventAttendanceReportLookup>;
+  /**
+   * Series with at least one occurrence whose interval (start to effective
+   * end) overlaps the range, plus the attendance of those occurrences. This is
+   * a superset of the series with an occurrence starting inside the range, so
+   * callers pick their own matching through the occurrence expansion.
+   */
   listByTribeRange: (
     query: ListTribeEventsByRangeQuery
   ) => Promise<TribeEventRangeListing>;

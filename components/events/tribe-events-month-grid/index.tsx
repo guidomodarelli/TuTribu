@@ -68,8 +68,11 @@ export function TribeEventsMonthGrid({
     : NO_OCCURRENCES;
 
   return (
-    <>
-      <Table aria-label={COPY.calendarTableLabel} className={styles.TribeEventsMonthGrid}>
+    <div className={styles.TribeEventsMonthGrid}>
+      <Table
+        aria-label={COPY.calendarTableLabel}
+        className={styles.TribeEventsMonthGrid__table}
+      >
         <TableHeader>
           <TableRow>
             {CALENDAR_DAY_LABELS.map((dayLabel) => (
@@ -167,19 +170,16 @@ export function TribeEventsMonthGrid({
         </TableBody>
       </Table>
       {activeDayKey && activeDayEvents.length > 0 ? (
-        <section
+        <TribeEventsAgendaDay
           aria-label={COPY.dayEventsLabel}
           className={styles.TribeEventsMonthGrid__daySummary}
+          dayKey={activeDayKey}
+          firstOccurrence={activeDayEvents[0]}
+          todayKey={todayKey}
         >
-          <TribeEventsAgendaDay
-            dayKey={activeDayKey}
-            firstOccurrence={activeDayEvents[0]}
-            todayKey={todayKey}
-          >
-            {activeDayEvents.map(renderOccurrence)}
-          </TribeEventsAgendaDay>
-        </section>
+          {activeDayEvents.map(renderOccurrence)}
+        </TribeEventsAgendaDay>
       ) : null}
-    </>
+    </div>
   );
 }

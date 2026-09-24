@@ -7,6 +7,7 @@ import {
   formatCalendarUtcDateTime,
   isTribeEventOccurrence,
 } from "@/src/modules/events/domain/services/tribe-event-recurrence";
+import { TRIBE_EVENT_RANGE_MATCH } from "@/src/modules/events/constants/tribe-events";
 
 const MAY_2026 = {
   rangeEnd: "2026-06-01T03:00:00.000Z",
@@ -108,6 +109,98 @@ describe("tribe event recurrence", () => {
       "2026-05-13T18:00:00.000Z",
       "2026-05-20T18:00:00.000Z",
       "2026-05-27T18:00:00.000Z",
+    ]);
+  });
+
+  it("keeps a still-running occurrence that started before the range when matching by overlap", () => {
+    const crossDayWorkshop = createSchedule({
+      endsAt: "2026-05-07T02:00:00.000Z",
+      startsAt: "2026-05-06T15:00:00.000Z",
+    });
+    const range = {
+      rangeEnd: "2026-06-05T22:00:00.000Z",
+      rangeStart: "2026-05-06T22:00:00.000Z",
+    };
+
+    expect(
+      expandTribeEventOccurrences(crossDayWorkshop, range, TRIBE_EVENT_RANGE_MATCH.overlaps)
+    ).toEqual([
+      {
+        endsAt: "2026-05-07T02:00:00.000Z",
+        startsAt: "2026-05-06T15:00:00.000Z",
+      },
+    ]);
+    expect(expandTribeEventOccurrences(crossDayWorkshop, range)).toEqual([]);
+  });
+
+  it("drops occurrences that already finished when matching by overlap", () => {
+    const range = {
+      rangeEnd: "2026-06-06T12:00:00.000Z",
+      rangeStart: "2026-05-07T12:00:00.000Z",
+    };
+
+    expect(
+      expandTribeEventOccurrences(createSchedule(), range, TRIBE_EVENT_RANGE_MATCH.overlaps)
+    ).toEqual([]);
+    expect(
+      expandTribeEventOccurrences(
+        createSchedule({ endsAt: null, startsAt: "2026-05-07T10:30:00.000Z" }),
+        range,
+        TRIBE_EVENT_RANGE_MATCH.overlaps
+      )
+    ).toEqual([]);
+    expect(
+      expandTribeEventOccurrences(
+        createSchedule({ endsAt: null, startsAt: "2026-05-07T11:30:00.000Z" }),
+        range,
+        TRIBE_EVENT_RANGE_MATCH.overlaps
+      )
+    ).toEqual([{ endsAt: null, startsAt: "2026-05-07T11:30:00.000Z" }]);
+  });
+
+  it("finds the running slot of a long weekly series whose occurrences last several days", () => {
+    const occurrences = expandTribeEventOccurrences(
+      createSchedule({
+        endsAt: "2020-05-09T18:00:00.000Z",
+        recurrenceFrequency: "weekly",
+        startsAt: "2020-05-06T18:00:00.000Z",
+      }),
+      {
+        rangeEnd: "2026-05-16T00:00:00.000Z",
+        rangeStart: "2026-05-08T00:00:00.000Z",
+      },
+      TRIBE_EVENT_RANGE_MATCH.overlaps
+    );
+
+    expect(occurrences).toEqual([
+      {
+        endsAt: "2026-05-09T18:00:00.000Z",
+        startsAt: "2026-05-06T18:00:00.000Z",
+      },
+      {
+        endsAt: "2026-05-16T18:00:00.000Z",
+        startsAt: "2026-05-13T18:00:00.000Z",
+      },
+    ]);
+  });
+
+  it("keeps the last slot of a finished series while it still runs past the until date", () => {
+    const occurrences = expandTribeEventOccurrences(
+      createSchedule({
+        endsAt: "2026-05-07T02:00:00.000Z",
+        recurrenceFrequency: "weekly",
+        recurrenceUntil: "2026-05-13T18:00:00.000Z",
+        startsAt: "2026-05-06T18:00:00.000Z",
+      }),
+      {
+        rangeEnd: "2026-06-13T23:00:00.000Z",
+        rangeStart: "2026-05-13T23:00:00.000Z",
+      },
+      TRIBE_EVENT_RANGE_MATCH.overlaps
+    );
+
+    expect(occurrences.map((occurrence) => occurrence.startsAt)).toEqual([
+      "2026-05-13T18:00:00.000Z",
     ]);
   });
 
