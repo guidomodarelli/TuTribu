@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "beez-ui";
 
+import type { TribeEventSeriesMutationSettler } from "@/hooks/use-tribe-event-mutations";
+import {
+  OCCURRENCES_MUTATION_OUTCOME,
+  type OccurrencesMutationOutcome,
+} from "@/lib/events/tribe-event-occurrences-freshness";
 import {
   approveTribeEventProposalRequest,
   createTribeEventProposalRequest,
@@ -10,7 +15,10 @@ import {
   fetchTribeEventProposalsRequest,
   type TribeEventProposalPayload,
 } from "@/lib/events/tribe-event-proposals-api-client";
-import type { TribeEventSavePayload } from "@/lib/events/tribe-events-api-client";
+import type {
+  TribeEventMutationFailure,
+  TribeEventSavePayload,
+} from "@/lib/events/tribe-events-api-client";
 import type {
   TribeEventOccurrenceResult,
   TribeEventProposalResult,
@@ -38,12 +46,24 @@ export type TribeEventProposalsLoadState =
     };
 
 type UseTribeEventProposalsInput = {
+  /**
+   * Registers an approval (it creates an event) in the calendar freshness
+   * state machines, so the streak, and the visible month when the outcome is
+   * ambiguous, are read again once it settles.
+   */
+  beginSeriesMutation: () => TribeEventSeriesMutationSettler;
   /** Pending proposals counted by the server for managers (0 otherwise). */
   initialPendingCount: number;
   /** Visible `YYYY-MM` month, sent so an approval returns its occurrences. */
   month: string;
   /** Patches the calendar with the slots of the event an approval created. */
   onEventCreated: (eventId: string, occurrences: TribeEventOccurrenceResult[]) => void;
+  /**
+   * Token of the server render that counted `initialPendingCount` (for
+   * example `attendanceStreakComputedAt`). A new token always replaces the
+   * local count, even when the server count repeats the previous render's.
+   */
+  pendingCountSourceVersion: string | null;
   tribeSlug: string;
 };
 
@@ -59,6 +79,32 @@ export type TribeEventProposals = {
   pendingCount: number;
   rejectProposal: (proposal: TribeEventProposalResult, reviewNote: string) => Promise<boolean>;
   withdrawProposal: (proposal: TribeEventProposalResult) => Promise<boolean>;
+};
+
+/** Server render the local pending count derives from. */
+type PendingCountSource = {
+  count: number;
+  version: string | null;
+};
+
+type PendingCountState = {
+  count: number;
+  source: PendingCountSource;
+};
+
+/** Response every proposal mutation request resolves to. */
+type ProposalMutationResult =
+  | { isSuccess: true; message: string | null }
+  | TribeEventMutationFailure;
+
+type ProposalMutationOptions = {
+  /**
+   * Receives how the mutation ended, exactly once, after the duplicate guard
+   * is released.
+   */
+  onSettled?: (outcome: OccurrencesMutationOutcome) => void;
+  /** Reloads the list when the route cleanly rejected the mutation. */
+  shouldReloadOnRejection: boolean;
 };
 
 const COPY = {
@@ -79,41 +125,70 @@ function isAbortError(error: unknown): boolean {
 }
 
 /**
+ * Tells whether two pending count sources come from the same server render:
+ * same render token and the same server count.
+ */
+function isSamePendingCountSource(
+  source: PendingCountSource,
+  otherSource: PendingCountSource
+): boolean {
+  return source.count === otherSource.count && source.version === otherSource.version;
+}
+
+/**
  * Client state of member proposals: the panel list (loaded on demand with an
  * AbortController so a stale load never overwrites a newer one), the
  * manager pending counter, and the create/approve/reject/withdraw mutations
  * with a ref guard against double submits. Mutations patch local state from
- * the route response instead of refreshing the route; when a review fails
- * (for example another manager resolved the proposal first) the list is
- * reloaded so it never shows a stale pending proposal.
+ * the route response instead of refreshing the route; when a review is
+ * rejected (for example another manager resolved the proposal first) the list
+ * is reloaded so it never shows a stale pending proposal.
  *
- * @param input - Tribe, visible month, server pending count, and the calendar
- * patch callback.
+ * A mutation whose outcome is ambiguous (network failure, timeout, 5xx, or an
+ * unusable body) may have committed without its response landing, so the
+ * list (and, for managers, the pending counter) is always reloaded; retrying
+ * a committed creation from a stale list could duplicate the proposal. Every
+ * approval creates an event, so it settles in the calendar freshness state
+ * machines too: the streak is read again once it settles, and an ambiguous
+ * approval also reads the visible month again.
+ *
+ * The pending counter is keyed by the server render (render token plus
+ * count): a new render replaces the local count even when it repeats the
+ * previous render's value.
+ *
+ * @param input - Tribe, visible month, server pending count and its render
+ * token, the calendar patch callback, and the series mutation registration.
  * @returns List state, pending count, and mutation callbacks resolving to
  * `true` when the change was stored.
  */
 export function useTribeEventProposals({
+  beginSeriesMutation,
   initialPendingCount,
   month,
   onEventCreated,
+  pendingCountSourceVersion,
   tribeSlug,
 }: UseTribeEventProposalsInput): TribeEventProposals {
+  const pendingCountSource: PendingCountSource = {
+    count: initialPendingCount,
+    version: pendingCountSourceVersion,
+  };
   const [loadState, setLoadState] = useState<TribeEventProposalsLoadState>({
     status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.idle,
   });
-  const [pendingCountState, setPendingCountState] = useState({
+  const [pendingCountState, setPendingCountState] = useState<PendingCountState>({
     count: initialPendingCount,
-    source: initialPendingCount,
+    source: pendingCountSource,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const loadControllerRef = useRef<AbortController | null>(null);
   const visibleMonthRef = useRef(month);
-  // A new server count (month navigation) replaces the local one.
-  const pendingCount =
-    pendingCountState.source === initialPendingCount
-      ? pendingCountState.count
-      : initialPendingCount;
+  // A new server render (month navigation) replaces the local count, even
+  // when it counts the same number as the previous render.
+  const pendingCount = isSamePendingCountSource(pendingCountState.source, pendingCountSource)
+    ? pendingCountState.count
+    : initialPendingCount;
 
   useEffect(() => {
     visibleMonthRef.current = month;
@@ -124,9 +199,11 @@ export function useTribeEventProposals({
   const updatePendingCount = (updater: (count: number) => number) => {
     setPendingCountState((currentState) => ({
       count: updater(
-        currentState.source === initialPendingCount ? currentState.count : initialPendingCount
+        isSamePendingCountSource(currentState.source, pendingCountSource)
+          ? currentState.count
+          : initialPendingCount
       ),
-      source: initialPendingCount,
+      source: pendingCountSource,
     }));
   };
 
@@ -185,60 +262,94 @@ export function useTribeEventProposals({
 
   /**
    * Shared guard, toasts, and failure recovery of every proposal mutation.
+   * An ambiguous outcome always reloads the list, since the mutation may have
+   * committed; a clean rejection reloads it only when asked. The caller must
+   * hold the duplicate-submit guard (`acquireSubmitGuard`); it is released
+   * here once the request settles.
    */
-  const runMutation = async <TResult extends { isSuccess: boolean; message: string | null }>(
+  const runMutation = async <TResult extends ProposalMutationResult>(
     request: () => Promise<TResult>,
     failureCopy: string,
-    onSuccess: (result: TResult) => void,
-    shouldReloadOnFailure: boolean
+    onSuccess: (result: Extract<TResult, { isSuccess: true }>) => void,
+    options: ProposalMutationOptions
   ): Promise<boolean> => {
+    // Stays ambiguous unless the route answers: a network failure or timeout
+    // may still have committed the mutation.
+    let outcome: OccurrencesMutationOutcome = OCCURRENCES_MUTATION_OUTCOME.ambiguous;
+
+    try {
+      const result = await request();
+
+      if (!result.isSuccess) {
+        outcome = result.isOutcomeAmbiguous
+          ? OCCURRENCES_MUTATION_OUTCOME.ambiguous
+          : OCCURRENCES_MUTATION_OUTCOME.rejected;
+        toast.error(result.message ?? failureCopy);
+        return false;
+      }
+
+      onSuccess(result as Extract<TResult, { isSuccess: true }>);
+      outcome = OCCURRENCES_MUTATION_OUTCOME.applied;
+      toast.success(result.message ?? COPY.saved);
+      return true;
+    } catch {
+      // Network failure: the route never answered, so show the safe fallback;
+      // the outcome stays ambiguous and the list is reconciled below.
+      toast.error(failureCopy);
+      return false;
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+
+      if (
+        outcome === OCCURRENCES_MUTATION_OUTCOME.ambiguous ||
+        (outcome === OCCURRENCES_MUTATION_OUTCOME.rejected && options.shouldReloadOnRejection)
+      ) {
+        loadProposals();
+      }
+
+      options.onSettled?.(outcome);
+    }
+  };
+
+  /**
+   * Takes the duplicate-submit guard. Returns false when a mutation is
+   * already in flight, so the caller drops this one.
+   */
+  const acquireSubmitGuard = (): boolean => {
     if (isSubmittingRef.current) {
       return false;
     }
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
-
-    try {
-      const result = await request();
-
-      if (!result.isSuccess) {
-        toast.error(result.message ?? failureCopy);
-
-        if (shouldReloadOnFailure) {
-          loadProposals();
-        }
-
-        return false;
-      }
-
-      onSuccess(result);
-      toast.success(result.message ?? COPY.saved);
-      return true;
-    } catch {
-      // Network failure: the route never answered, so show the safe fallback.
-      toast.error(failureCopy);
-      return false;
-    } finally {
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
-    }
+    return true;
   };
 
-  const createProposal: TribeEventProposals["createProposal"] = (payload) =>
-    runMutation(
+  const createProposal: TribeEventProposals["createProposal"] = async (payload) => {
+    if (!acquireSubmitGuard()) {
+      return false;
+    }
+
+    return runMutation(
       () => createTribeEventProposalRequest({ payload, tribeSlug }),
       COPY.createFailure,
       (result) => {
-        if (result.isSuccess) {
-          updateLoadedProposals((proposals) => [result.proposal, ...proposals]);
-        }
+        updateLoadedProposals((proposals) => [result.proposal, ...proposals]);
       },
-      false
+      { shouldReloadOnRejection: false }
     );
+  };
 
-  const approveProposal: TribeEventProposals["approveProposal"] = (proposal, payload) => {
+  const approveProposal: TribeEventProposals["approveProposal"] = async (proposal, payload) => {
+    if (!acquireSubmitGuard()) {
+      return false;
+    }
+
     const requestMonth = month;
+    // The approval creates an event, so it takes part in the calendar
+    // freshness state machines like any creation.
+    const settleSeriesMutation = beginSeriesMutation();
 
     return runMutation(
       () =>
@@ -250,10 +361,6 @@ export function useTribeEventProposals({
         }),
       COPY.approveFailure,
       (result) => {
-        if (!result.isSuccess) {
-          return;
-        }
-
         updateLoadedProposals((proposals) =>
           proposals.filter((currentProposal) => currentProposal.id !== proposal.id)
         );
@@ -263,12 +370,16 @@ export function useTribeEventProposals({
           onEventCreated(result.eventId, result.occurrences);
         }
       },
-      true
+      { onSettled: settleSeriesMutation, shouldReloadOnRejection: true }
     );
   };
 
-  const rejectProposal: TribeEventProposals["rejectProposal"] = (proposal, reviewNote) =>
-    runMutation(
+  const rejectProposal: TribeEventProposals["rejectProposal"] = async (proposal, reviewNote) => {
+    if (!acquireSubmitGuard()) {
+      return false;
+    }
+
+    return runMutation(
       () =>
         decideTribeEventProposalRequest({
           body: { decision: PROPOSAL_DECISION.rejected, reviewNote },
@@ -282,11 +393,16 @@ export function useTribeEventProposals({
         );
         updatePendingCount((count) => Math.max(count - 1, 0));
       },
-      true
+      { shouldReloadOnRejection: true }
     );
+  };
 
-  const withdrawProposal: TribeEventProposals["withdrawProposal"] = (proposal) =>
-    runMutation(
+  const withdrawProposal: TribeEventProposals["withdrawProposal"] = async (proposal) => {
+    if (!acquireSubmitGuard()) {
+      return false;
+    }
+
+    return runMutation(
       () =>
         decideTribeEventProposalRequest({
           body: { decision: PROPOSAL_DECISION.withdrawn },
@@ -295,16 +411,15 @@ export function useTribeEventProposals({
         }),
       COPY.decisionFailure,
       (result) => {
-        if (result.isSuccess) {
-          updateLoadedProposals((proposals) =>
-            proposals.map((currentProposal) =>
-              currentProposal.id === proposal.id ? result.proposal : currentProposal
-            )
-          );
-        }
+        updateLoadedProposals((proposals) =>
+          proposals.map((currentProposal) =>
+            currentProposal.id === proposal.id ? result.proposal : currentProposal
+          )
+        );
       },
-      true
+      { shouldReloadOnRejection: true }
     );
+  };
 
   return {
     approveProposal,
