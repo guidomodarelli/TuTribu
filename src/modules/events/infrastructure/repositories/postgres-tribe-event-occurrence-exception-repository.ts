@@ -75,6 +75,12 @@ const CHANGED_EXCEPTION_CTE = {
  * calendar feed raises the series SEQUENCE/LAST-MODIFIED (and its ETag) even
  * when a date is restored and its exception row disappears.
  *
+ * The stamp uses `clock_timestamp()`, not `now()`: this UPDATE runs after
+ * `locked_event` waited for any concurrent writer of the same series, and
+ * `now()` is the start of this transaction. A writer that began first but
+ * got the lock last would raise `calendar_sequence` while moving
+ * `updated_at` (DTSTAMP/LAST-MODIFIED) backward.
+ *
  * @param changedExceptionCte - CTE holding the saved or deleted exception.
  */
 function buildTouchedEventCte(
@@ -83,7 +89,7 @@ function buildTouchedEventCte(
   return sql`
     touched_event as (
       update public.events
-      set updated_at = timezone('utc', now())
+      set updated_at = timezone('utc', clock_timestamp())
       from target_event
       where events.id = target_event.id
         and exists (select 1 from ${sql.raw(changedExceptionCte)})

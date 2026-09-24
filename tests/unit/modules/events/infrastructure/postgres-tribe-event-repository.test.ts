@@ -643,6 +643,9 @@ describe("PostgresTribeEventRepository", () => {
       // The previous values come from the locked row, not from a CTE that
       // keeps the statement snapshot.
       expect(updateSql).not.toContain("target_event.capacity");
+      // The UPDATE runs after waiting for the lock, so the revision uses the
+      // statement clock instead of the older transaction start.
+      expect(updateSql).toContain("updated_at = timezone('utc', clock_timestamp())");
       expect(getSqlParams(execute.mock.calls[1]?.[0])).toEqual(
         expect.arrayContaining([
           "5",

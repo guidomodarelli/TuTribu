@@ -906,7 +906,10 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
             recurrence_frequency = ${command.recurrenceFrequency},
             recurrence_until = ${command.recurrenceUntil},
             event_type = ${command.eventType},
-            updated_at = timezone('utc', now())
+            -- Stamped after lockEventForUpdate waited: now() is the older
+            -- transaction start and would move the calendar revision
+            -- (LAST-MODIFIED) backward while calendar_sequence moves forward.
+            updated_at = timezone('utc', clock_timestamp())
           from target_tribe
           where events.id = ${command.eventId}
             and events.tribe_id = target_tribe.id

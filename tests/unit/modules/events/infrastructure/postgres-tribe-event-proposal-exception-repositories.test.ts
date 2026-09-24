@@ -104,6 +104,12 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
     expect(saveSql).toContain("on conflict (event_id, original_starts_at) do update");
     // The series revision moves forward so calendar feeds pick the change up.
     expect(saveSql).toMatch(/update public\.events\s+set updated_at[\s\S]*from saved_exception/);
+    // The revision is stamped after waiting for the event lock: the statement
+    // clock keeps a writer that waited from moving LAST-MODIFIED backward
+    // while its SEQUENCE moves forward.
+    expect(saveSql).toMatch(
+      /update public\.events\s+set updated_at = timezone\('utc', clock_timestamp\(\)\)/
+    );
     // Answers hold the event row FOR SHARE while they read the exception of
     // their date, so the write locks it FOR UPDATE to serialize with them.
     expect(saveSql).toContain("for update of events");
@@ -124,8 +130,11 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
       tribeSlug: TRIBE_SLUG,
     });
 
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
-      /update public\.events\s+set updated_at[\s\S]*from deleted_exception/
+    const clearSql = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(clearSql).toMatch(/update public\.events\s+set updated_at[\s\S]*from deleted_exception/);
+    expect(clearSql).toMatch(
+      /update public\.events\s+set updated_at = timezone\('utc', clock_timestamp\(\)\)/
     );
   });
 
