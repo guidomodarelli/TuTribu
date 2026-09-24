@@ -156,6 +156,12 @@ function isSamePendingCountSource(
  * count): a new render replaces the local count even when it repeats the
  * previous render's value.
  *
+ * The manager queue is capped by the server, so a successful review of a
+ * truncated queue (the last load counted more pending proposals than it
+ * returned) reloads it in the background, keeping the visible list, so the
+ * next oldest pending proposal replaces the reviewed one and the panel never
+ * runs empty while the counter still reports pending proposals.
+ *
  * @param input - Tribe, visible month, server pending count and its render
  * token, the calendar patch callback, and the series mutation registration.
  * @returns List state, pending count, and mutation callbacks resolving to
@@ -183,6 +189,8 @@ export function useTribeEventProposals({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const loadControllerRef = useRef<AbortController | null>(null);
+  // Whether the last load left pending proposals out of the capped queue.
+  const hasUnloadedPendingProposalsRef = useRef(false);
   const visibleMonthRef = useRef(month);
   // A new server render (month navigation) replaces the local count, even
   // when it counts the same number as the previous render.
@@ -207,13 +215,21 @@ export function useTribeEventProposals({
     }));
   };
 
-  const loadProposals = () => {
+  /**
+   * Reads the proposals, aborting any older read so a stale response never
+   * overwrites a newer one. A background read keeps the current list visible
+   * until the response lands.
+   */
+  const requestProposals = (isBackgroundRefresh: boolean) => {
     loadControllerRef.current?.abort();
 
     const controller = new AbortController();
 
     loadControllerRef.current = controller;
-    setLoadState({ status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.loading });
+
+    if (!isBackgroundRefresh) {
+      setLoadState({ status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.loading });
+    }
 
     fetchTribeEventProposalsRequest({ signal: controller.signal, tribeSlug })
       .then((result) => {
@@ -229,6 +245,8 @@ export function useTribeEventProposals({
           return;
         }
 
+        hasUnloadedPendingProposalsRef.current =
+          result.canReviewProposals && result.pendingCount > result.proposals.length;
         setLoadState({
           canReviewProposals: result.canReviewProposals,
           proposals: result.proposals,
@@ -250,6 +268,10 @@ export function useTribeEventProposals({
       });
   };
 
+  const loadProposals = () => {
+    requestProposals(false);
+  };
+
   const updateLoadedProposals = (
     updater: (proposals: TribeEventProposalResult[]) => TribeEventProposalResult[]
   ) => {
@@ -258,6 +280,22 @@ export function useTribeEventProposals({
         ? { ...currentState, proposals: updater(currentState.proposals) }
         : currentState
     );
+  };
+
+  /**
+   * Removes a reviewed proposal from the queue and decrements the counter.
+   * When the capped queue left pending proposals out, it is read again in the
+   * background so the next oldest one takes the reviewed one's place.
+   */
+  const removeReviewedProposal = (proposalId: string) => {
+    updateLoadedProposals((proposals) =>
+      proposals.filter((currentProposal) => currentProposal.id !== proposalId)
+    );
+    updatePendingCount((count) => Math.max(count - 1, 0));
+
+    if (hasUnloadedPendingProposalsRef.current) {
+      requestProposals(true);
+    }
   };
 
   /**
@@ -361,10 +399,7 @@ export function useTribeEventProposals({
         }),
       COPY.approveFailure,
       (result) => {
-        updateLoadedProposals((proposals) =>
-          proposals.filter((currentProposal) => currentProposal.id !== proposal.id)
-        );
-        updatePendingCount((count) => Math.max(count - 1, 0));
+        removeReviewedProposal(proposal.id);
 
         if (visibleMonthRef.current === requestMonth) {
           onEventCreated(result.eventId, result.occurrences);
@@ -388,10 +423,7 @@ export function useTribeEventProposals({
         }),
       COPY.decisionFailure,
       () => {
-        updateLoadedProposals((proposals) =>
-          proposals.filter((currentProposal) => currentProposal.id !== proposal.id)
-        );
-        updatePendingCount((count) => Math.max(count - 1, 0));
+        removeReviewedProposal(proposal.id);
       },
       { shouldReloadOnRejection: true }
     );
