@@ -443,8 +443,10 @@ FROM PUBLIC;
 -- exceptions. Occurrences are still identified by their original start (the
 -- attendance key and the advisory lock), is_tribe_event_series_occurrence
 -- still checks that original start against the current schedule, and both
--- the pre-lock scan and the post-lock re-check skip cancelled dates and use
--- the effective end of moved dates. The lock order (membership row, event row
+-- the pre-lock scan and the post-lock re-check use the effective end of moved
+-- dates. Only the post-lock re-check skips cancelled dates: the pre-lock scan
+-- keeps them because a concurrent restore may be deleting the exception (see
+-- the comment in the scan). The lock order (membership row, event row
 -- FOR SHARE, occurrence advisory locks in ascending order) is unchanged.
 CREATE OR REPLACE FUNCTION public.promote_tribe_event_waitlists_after_membership_change()
 RETURNS trigger
@@ -507,7 +509,13 @@ BEGIN
           event_attendances.user_id = affected_user_id
           AND event_attendances.status = ANY(scanned_attendance_statuses)
       END
-      AND NOT occurrence_state.is_cancelled
+      -- No cancellation filter here: this scan takes no lock, so a restore
+      -- (or a move of a cancelled date) still in flight shows the old
+      -- 'cancelled' exception, while that restore refills against a snapshot
+      -- where this membership is still active. Keeping cancelled candidates
+      -- makes this trigger wait on the event row and re-check the exception
+      -- under the locks below. The end filter stays: restoring or moving a
+      -- date is refused once its current effective end passed.
       AND occurrence_state.effective_ends_at > clock_timestamp()
     ORDER BY event_attendances.event_id ASC, event_attendances.occurrence_starts_at ASC
   LOOP
