@@ -113,7 +113,7 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
     // Answers hold the event row FOR SHARE while they read the exception of
     // their date, so the write locks it FOR UPDATE to serialize with them.
     expect(saveSql).toContain("for update of events");
-    expect(saveSql).toContain("inner join validated_event");
+    expect(saveSql).toContain("inner join open_occurrence");
   });
 
   it("maps a missing event and a viewer who cannot manage events", async () => {
@@ -142,7 +142,7 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
     await expect(repository.clear(command)).resolves.toEqual({ status: "exception_cleared" });
     await expect(repository.clear(command)).resolves.toEqual({ status: "forbidden" });
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("for update of events");
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("using target_event, locked_event");
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("using target_event, restorable_occurrence");
   });
 
   it("refuses the write when the locked event no longer has the validated schedule", async () => {
@@ -186,6 +186,80 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
 
     // Restoring a date without exception (a retry) has nothing to refill.
     await expect(repository.clear(reference)).resolves.toEqual({ status: "exception_cleared" });
+    expect(execute).toHaveBeenCalledTimes(3);
+  });
+
+  it("refuses the write and the restore when the database sees the occurrence ended", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ status: "occurrence_ended" }] })
+      .mockResolvedValueOnce({ rows: [{ restored: false, status: "occurrence_ended" }] });
+    const repository = new PostgresTribeEventOccurrenceExceptionRepository(
+      createExecutor(execute)
+    );
+
+    await expect(
+      repository.save({
+        eventId: EVENT_ID,
+        kind: "cancelled",
+        newEndsAt: null,
+        newStartsAt: null,
+        originalStartsAt: "2026-05-14T21:00:00.000Z",
+        reason: null,
+        schedule: WEEKLY_SCHEDULE,
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({ status: "occurrence_ended" });
+    await expect(
+      repository.clear({
+        eventId: EVENT_ID,
+        originalStartsAt: "2026-05-14T21:00:00.000Z",
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({ status: "occurrence_ended" });
+    // Nothing was written, so there is nothing to refill.
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it("refills the waitlist when a cancelled date is moved in the same transaction", async () => {
+    const savedRow = {
+      event_id: EVENT_ID,
+      kind: "moved",
+      new_ends_at: null,
+      new_starts_at: new Date("2026-05-20T21:00:00.000Z"),
+      original_starts_at: new Date("2026-05-14T21:00:00.000Z"),
+      reason: null,
+      status: "exception_saved",
+    };
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ ...savedRow, reactivated: true }] })
+      .mockResolvedValueOnce({ rows: [{ promoted_count: 2 }] })
+      .mockResolvedValueOnce({ rows: [{ ...savedRow, reactivated: false }] });
+    const repository = new PostgresTribeEventOccurrenceExceptionRepository(
+      createExecutor(execute)
+    );
+    const moveCommand = {
+      eventId: EVENT_ID,
+      kind: "moved" as const,
+      newEndsAt: null,
+      newStartsAt: "2026-05-20T21:00:00.000Z",
+      originalStartsAt: "2026-05-14T21:00:00.000Z",
+      reason: null,
+      schedule: WEEKLY_SCHEDULE,
+      tribeSlug: TRIBE_SLUG,
+    };
+
+    await expect(repository.save(moveCommand)).resolves.toMatchObject({
+      exception: { kind: "moved", originalStartsAt: "2026-05-14T21:00:00.000Z" },
+      status: "exception_saved",
+    });
+    expect(execute).toHaveBeenCalledTimes(2);
+
+    // Moving a date that was not cancelled keeps its waitlist as it was.
+    await expect(repository.save(moveCommand)).resolves.toMatchObject({
+      status: "exception_saved",
+    });
     expect(execute).toHaveBeenCalledTimes(3);
   });
 

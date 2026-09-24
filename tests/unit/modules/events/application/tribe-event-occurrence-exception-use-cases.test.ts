@@ -501,6 +501,62 @@ describe("saveTribeEventOccurrenceException", () => {
     expect(clear).not.toHaveBeenCalled();
   });
 
+  it("refuses restoring a moved date whose original slot already ended", async () => {
+    // The 14 May slot was moved to 20 May: it is still ahead at 14 May 22:30,
+    // but restoring it would bring it back to a slot that already ended.
+    const clear = vi.fn();
+    const restore = clearTribeEventOccurrenceException({
+      now: AFTER_MAY_14_SLOT,
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({
+        clear,
+        find: vi.fn(async () =>
+          createException({ kind: "moved", newStartsAt: "2026-05-20T21:00:00.000Z" })
+        ),
+      }),
+      tribeEventRepository: createTribeEventRepositoryDouble({
+        findById: vi.fn(async () => weeklySeries),
+      }),
+    });
+
+    await expect(
+      restore({
+        eventId: EVENT_ID,
+        originalStartsAt: "2026-05-14T21:00:00.000Z",
+        tribeSlug: TRIBE_SLUG,
+        visibleMonth: "2026-05",
+      })
+    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded });
+    expect(clear).not.toHaveBeenCalled();
+  });
+
+  it("forwards an ended occurrence detected by the database under the event lock", async () => {
+    const endedWhileWaiting = createUseCase({
+      save: vi.fn(async () => ({ status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded })),
+    });
+    const restore = clearTribeEventOccurrenceException({
+      now: BEFORE_MAY_SLOTS,
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({
+        clear: vi.fn(async () => ({ status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded })),
+      }),
+      tribeEventRepository: createTribeEventRepositoryDouble({
+        findById: vi.fn(async () => weeklySeries),
+      }),
+    });
+
+    await expect(endedWhileWaiting.execute(cancelCommand)).resolves.toEqual({
+      status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded,
+    });
+    expect(endedWhileWaiting.listEventOccurrences).not.toHaveBeenCalled();
+    await expect(
+      restore({
+        eventId: EVENT_ID,
+        originalStartsAt: "2026-05-14T21:00:00.000Z",
+        tribeSlug: TRIBE_SLUG,
+        visibleMonth: "2026-05",
+      })
+    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded });
+  });
+
   it("uses the effective time of a moved date and refuses moving a date into the past", async () => {
     // The 14 May slot was moved to 20 May, so it is still ahead at 14 May 22:30.
     const movedLater = createUseCase({

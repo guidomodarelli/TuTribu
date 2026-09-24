@@ -29,7 +29,8 @@ export type ListTribeEventExceptionsQuery = {
  * series, new end after the new start). `schedule` is the series schedule
  * that validation used; the write is refused with `scheduleChanged` when the
  * stored schedule no longer matches it once the event row is locked, so
- * validation and write see one schedule.
+ * validation and write see one schedule. Moving a cancelled date refills its
+ * waitlist in the same transaction.
  */
 export type SaveTribeEventOccurrenceExceptionCommand = TribeEventOccurrenceReferenceQuery & {
   kind: TribeEventOccurrenceExceptionKind;
@@ -39,9 +40,15 @@ export type SaveTribeEventOccurrenceExceptionCommand = TribeEventOccurrenceRefer
   schedule: TribeEventSchedule;
 };
 
+/**
+ * `occurrenceEnded` comes from the database re-check under the event row lock
+ * (`clock_timestamp()`), for a write that waited past the end of the date or
+ * whose host clock lags behind the database.
+ */
 type ExceptionFailureStatus =
   | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
-  | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+  | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
+  | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
 
 export type TribeEventOccurrenceExceptionSaveResult =
   | {
@@ -56,7 +63,8 @@ export type TribeEventOccurrenceExceptionSaveResult =
  * Deleting an exception that does not exist is still `exceptionCleared`, so
  * "Restaurar fecha" is idempotent under retries. Restoring a date that is
  * still a slot of the series also refills its waitlist in the same
- * transaction.
+ * transaction. A restore is refused (`occurrenceEnded`) when the date ended
+ * at its current times or when its original slot already ended.
  */
 export type TribeEventOccurrenceExceptionClearResult = {
   status: typeof TRIBE_EVENT_MUTATION_STATUS.exceptionCleared | ExceptionFailureStatus;
