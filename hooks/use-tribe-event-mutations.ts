@@ -7,8 +7,11 @@ import {
   INITIAL_OCCURRENCES_FRESHNESS_STATE,
   OCCURRENCES_FRESHNESS_COMMAND,
   OCCURRENCES_FRESHNESS_EVENT,
+  OCCURRENCES_READ_OUTCOME,
   transitionOccurrencesFreshness,
+  type OccurrencesFreshnessCommand,
   type OccurrencesFreshnessEvent,
+  type OccurrencesReadOutcome,
 } from "@/lib/events/tribe-event-occurrences-freshness";
 import {
   INITIAL_STREAK_FRESHNESS_STATE,
@@ -224,7 +227,10 @@ function isSameStreakSource(source: StreakSource, otherSource: StreakSource): bo
  * attendance answer read their summaries in separate transactions, so their
  * responses cannot be ordered) or a new server render arrives while one is
  * pending, the visible month is read once every mutation settles and that
- * read replaces the occurrences on screen.
+ * read replaces the occurrences on screen. A month read that fails (error
+ * status, unusable body, or network failure) retries with the same bounded
+ * backoff as the streak and then stops; on unmount the scheduled retry is
+ * cancelled.
  *
  * @param input - Server occurrences, streak, its next refresh instant and
  *   render token, visible month, tribe slug, and the callback for answers the
@@ -281,6 +287,8 @@ export function useTribeEventMutations({
   // server occurrences and month that a read starting later must target.
   const occurrencesFreshnessStateRef = useRef(INITIAL_OCCURRENCES_FRESHNESS_STATE);
   const occurrencesReadControllerRef = useRef<AbortController | null>(null);
+  // Delayed retry of a month read that settled without usable data, if any.
+  const scheduledOccurrencesReadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestSourceEventsRef = useRef(events);
   const latestMonthRef = useRef(month);
   const unsortedVisibleEvents =
@@ -472,7 +480,7 @@ export function useTribeEventMutations({
    * Reads the visible month again, replacing the read in flight. Its
    * occurrences only land while the route keeps rendering the server
    * occurrences seen when it started; a failure keeps the occurrences on
-   * screen, which already show each mutation response.
+   * screen and the state machine schedules a bounded retry.
    */
   const startOccurrencesRead = () => {
     abortOccurrencesRead();
@@ -481,9 +489,9 @@ export function useTribeEventMutations({
     const sourceEvents = latestSourceEventsRef.current;
     const isCurrentRead = () =>
       occurrencesReadControllerRef.current === controller && !controller.signal.aborted;
-    const settleOccurrencesRead = () => {
+    const settleOccurrencesRead = (outcome: OccurrencesReadOutcome) => {
       occurrencesReadControllerRef.current = null;
-      dispatchOccurrencesFreshness({ type: OCCURRENCES_FRESHNESS_EVENT.readSettled });
+      dispatchOccurrencesFreshness({ outcome, type: OCCURRENCES_FRESHNESS_EVENT.readSettled });
     };
 
     occurrencesReadControllerRef.current = controller;
@@ -498,7 +506,9 @@ export function useTribeEventMutations({
           return;
         }
 
-        settleOccurrencesRead();
+        settleOccurrencesRead(
+          read.isSuccess ? OCCURRENCES_READ_OUTCOME.succeeded : OCCURRENCES_READ_OUTCOME.failed
+        );
 
         if (read.isSuccess && latestSourceEventsRef.current === sourceEvents) {
           setVisibleEventsState({ events: read.occurrences, sourceEvents });
@@ -506,10 +516,10 @@ export function useTribeEventMutations({
       })
       .catch(() => {
         // Deliberate fallback: an aborted read is stale and is ignored; a
-        // network failure keeps the occurrences on screen, which already show
-        // each mutation response. A passive refresh must not raise a toast.
+        // network failure keeps the occurrences on screen and retries with the
+        // bounded backoff. A passive refresh must not raise a toast.
         if (isCurrentRead()) {
-          settleOccurrencesRead();
+          settleOccurrencesRead(OCCURRENCES_READ_OUTCOME.failed);
         }
       });
   };
@@ -522,13 +532,27 @@ export function useTribeEventMutations({
     const transition = transitionOccurrencesFreshness(occurrencesFreshnessStateRef.current, event);
 
     occurrencesFreshnessStateRef.current = transition.state;
-    transition.commands.forEach((command) => {
-      if (command.type === OCCURRENCES_FRESHNESS_COMMAND.startRead) {
+    transition.commands.forEach(runOccurrencesFreshnessCommand);
+  };
+
+  const runOccurrencesFreshnessCommand = (command: OccurrencesFreshnessCommand) => {
+    switch (command.type) {
+      case OCCURRENCES_FRESHNESS_COMMAND.startRead:
         startOccurrencesRead();
-      } else {
+        return;
+      case OCCURRENCES_FRESHNESS_COMMAND.abortRead:
         abortOccurrencesRead();
-      }
-    });
+        return;
+      case OCCURRENCES_FRESHNESS_COMMAND.scheduleRead:
+        clearScheduledTimeout(scheduledOccurrencesReadTimeoutRef);
+        scheduledOccurrencesReadTimeoutRef.current = setTimeout(() => {
+          scheduledOccurrencesReadTimeoutRef.current = null;
+          dispatchOccurrencesFreshness({ type: OCCURRENCES_FRESHNESS_EVENT.readRetryDue });
+        }, command.delayMs);
+        return;
+      case OCCURRENCES_FRESHNESS_COMMAND.cancelScheduledRead:
+        clearScheduledTimeout(scheduledOccurrencesReadTimeoutRef);
+    }
   };
 
   const streakSourceVersion = streakSource.version;
@@ -602,14 +626,15 @@ export function useTribeEventMutations({
         clearScheduledTimeout(scheduledStreakReadTimeoutRef);
       }
 
-      // The occurrences state machine is disposed the same way: its only
-      // command aborts the month read in flight.
+      // The occurrences state machine is disposed the same way: its commands
+      // abort the month read in flight and cancel the scheduled retry.
       occurrencesFreshnessStateRef.current = transitionOccurrencesFreshness(
         occurrencesFreshnessStateRef.current,
         { type: OCCURRENCES_FRESHNESS_EVENT.disposed }
       ).state;
       occurrencesReadControllerRef.current?.abort();
       occurrencesReadControllerRef.current = null;
+      clearScheduledTimeout(scheduledOccurrencesReadTimeoutRef);
     };
   }, []);
 
