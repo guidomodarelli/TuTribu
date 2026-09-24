@@ -1,11 +1,14 @@
+import type { TribeEventFailureResponse } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import {
   TRIBE_EVENT_ATTENDANCE_FAILURE_CODE,
   TRIBE_EVENT_MUTATION_STATUS,
 } from "@/src/modules/events/constants/tribe-events";
 
 /**
- * Shared HTTP wiring for the tribe event route handlers: body readers, safe
- * Spanish responses, and the mapping from use-case statuses to HTTP codes.
+ * Shared HTTP wiring for the tribe event route handlers: safe Spanish
+ * responses and the mapping from use-case statuses to HTTP codes. Input
+ * validation lives in `tribe-event-route-input.ts`; public DTO validation in
+ * `tribe-event-public-response.ts`.
  */
 export const TRIBE_EVENT_ROUTE_HTTP_STATUS = {
   badRequest: 400,
@@ -16,11 +19,6 @@ export const TRIBE_EVENT_ROUTE_HTTP_STATUS = {
   ok: 200,
   serverError: 500,
   unauthorized: 401,
-} as const;
-
-export const TRIBE_EVENT_ROUTE_QUERY_PARAM = {
-  month: "month",
-  occurrence: "occurrence",
 } as const;
 
 export const TRIBE_EVENT_ROUTE_RESPONSE = {
@@ -37,6 +35,7 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   invalidDateMessage: "La fecha de fin debe ser posterior al inicio.",
   invalidInputMessage: "Completá el título y la fecha de inicio del evento.",
   invalidMeetingUrlMessage: "Usá un link digital válido que empiece con http o https.",
+  invalidMonthMessage: "Elegí un mes válido del calendario.",
   invalidRecurrenceMessage:
     "Elegí una repetición válida y una fecha de fin posterior al inicio.",
   memberForbiddenMessage: "Solo los miembros activos pueden responder a un evento.",
@@ -56,162 +55,16 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   updateSuccessMessage: "Evento actualizado.",
 } as const;
 
-const TRIBE_EVENT_BODY_FIELD = {
-  capacity: "capacity",
-  description: "description",
-  endsAt: "endsAt",
-  meetingUrl: "meetingUrl",
-  occurrenceStartsAt: "occurrenceStartsAt",
-  recurrenceFrequency: "recurrenceFrequency",
-  recurrenceUntil: "recurrenceUntil",
-  startsAt: "startsAt",
-  status: "status",
-  title: "title",
-} as const;
-
-export type TribeEventMutationBody = {
-  /**
-   * Raw capacity text; undefined when the body omits the field. POST treats
-   * that as unlimited and PATCH as "keep the stored capacity".
-   */
-  capacity?: string;
-  description: string;
-  endsAt: string;
-  meetingUrl: string;
-  recurrenceFrequency: string;
-  recurrenceUntil: string;
-  startsAt: string;
-  title: string;
-};
-
+/**
+ * Builds a JSON response whose body is a fixed safe message (plus the stable
+ * failure `code` when the client needs one). Success bodies go through
+ * `createTribeEventPublicResponse` instead, which validates them.
+ */
 export function createJsonResponse(
-  body: Record<string, unknown>,
+  body: TribeEventFailureResponse,
   status: number
 ): Response {
   return Response.json(body, { status });
-}
-
-export function readStringField(body: unknown, field: string): string {
-  if (!body || typeof body !== "object" || !(field in body)) {
-    return "";
-  }
-
-  const value = (body as Record<string, unknown>)[field];
-
-  return typeof value === "string" ? value : "";
-}
-
-const TRIBE_EVENT_BODY_READ_STATUS = {
-  ok: "ok",
-} as const;
-
-/**
- * Outcome of reading the event mutation body: either the normalized text
- * fields or a rejection because a present field has an unsupported JSON type.
- */
-export type TribeEventMutationBodyReadResult =
-  | { body: TribeEventMutationBody; status: typeof TRIBE_EVENT_BODY_READ_STATUS.ok }
-  | { status: typeof TRIBE_EVENT_MUTATION_STATUS.invalidCapacity };
-
-const UNSUPPORTED_CAPACITY = Symbol("unsupported-capacity");
-
-/**
- * Reads the raw capacity field without deciding the business range.
- *
- * An absent field stays undefined so each use case decides what omission
- * means (unlimited on create, unchanged on update). `null` and string values
- * keep their text form (empty means "no limit"). A JSON integer such as `12`
- * is accepted as its decimal text so the use case still owns the capacity
- * limits. Any other present value (fractions, non-finite numbers, booleans,
- * objects, arrays) is unsupported and must be rejected instead of silently
- * becoming "no limit".
- *
- * @param body - Untrusted parsed JSON request body.
- * @returns The capacity text, undefined when absent, or `UNSUPPORTED_CAPACITY`.
- */
-function readCapacityField(
-  body: unknown
-): string | undefined | typeof UNSUPPORTED_CAPACITY {
-  if (!body || typeof body !== "object" || !(TRIBE_EVENT_BODY_FIELD.capacity in body)) {
-    return undefined;
-  }
-
-  const value = (body as Record<string, unknown>)[TRIBE_EVENT_BODY_FIELD.capacity];
-
-  if (value === null || value === undefined) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    return String(value);
-  }
-
-  return UNSUPPORTED_CAPACITY;
-}
-
-/**
- * Reads the create/update event body. A present capacity with an unsupported
- * type yields `invalid_capacity` so POST and PATCH answer 400 instead of
- * creating an uncapped event or removing an existing limit.
- *
- * @param body - Untrusted parsed JSON request body.
- * @returns The normalized body or an `invalid_capacity` rejection.
- */
-export function readTribeEventMutationBody(
-  body: unknown
-): TribeEventMutationBodyReadResult {
-  const capacity = readCapacityField(body);
-
-  if (capacity === UNSUPPORTED_CAPACITY) {
-    return { status: TRIBE_EVENT_MUTATION_STATUS.invalidCapacity };
-  }
-
-  return {
-    body: readTribeEventMutationTextFields(body, capacity),
-    status: TRIBE_EVENT_BODY_READ_STATUS.ok,
-  };
-}
-
-function readTribeEventMutationTextFields(
-  body: unknown,
-  capacity: string | undefined
-): TribeEventMutationBody {
-  return {
-    capacity,
-    description: readStringField(body, TRIBE_EVENT_BODY_FIELD.description),
-    endsAt: readStringField(body, TRIBE_EVENT_BODY_FIELD.endsAt),
-    meetingUrl: readStringField(body, TRIBE_EVENT_BODY_FIELD.meetingUrl),
-    recurrenceFrequency: readStringField(
-      body,
-      TRIBE_EVENT_BODY_FIELD.recurrenceFrequency
-    ),
-    recurrenceUntil: readStringField(body, TRIBE_EVENT_BODY_FIELD.recurrenceUntil),
-    startsAt: readStringField(body, TRIBE_EVENT_BODY_FIELD.startsAt),
-    title: readStringField(body, TRIBE_EVENT_BODY_FIELD.title),
-  };
-}
-
-export function readTribeEventAttendanceBody(body: unknown): {
-  occurrenceStartsAt: string;
-  status: string;
-} {
-  return {
-    occurrenceStartsAt: readStringField(
-      body,
-      TRIBE_EVENT_BODY_FIELD.occurrenceStartsAt
-    ),
-    status: readStringField(body, TRIBE_EVENT_BODY_FIELD.status),
-  };
-}
-
-export function readSearchParam(request: Request, name: string): string | undefined {
-  const { searchParams } = new URL(request.url);
-
-  return searchParams.get(name) ?? undefined;
 }
 
 /**
@@ -219,16 +72,6 @@ export function readSearchParam(request: Request, name: string): string | undefi
  */
 export function mapTribeEventMutationStatusResponse(status: string): Response {
   switch (status) {
-    case TRIBE_EVENT_MUTATION_STATUS.invalidInput:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidInputMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
-      );
-    case TRIBE_EVENT_MUTATION_STATUS.invalidCapacity:
-      return createJsonResponse(
-        { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidCapacityMessage },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
-      );
     case TRIBE_EVENT_MUTATION_STATUS.invalidDate:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidDateMessage },

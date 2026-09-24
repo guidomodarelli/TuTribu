@@ -26,18 +26,22 @@ const setTribeEventAttendance = vi.fn();
 const clearTribeEventAttendance = vi.fn();
 const getTribeEventAttendanceReport = vi.fn();
 const getTribeEventAttendanceStreakSnapshot = vi.fn();
-const { logError } = vi.hoisted(() => ({ logError: vi.fn() }));
+const logError = vi.fn();
+const logWarn = vi.fn();
 
 vi.mock("@/src/modules/setup", () => ({
   createRequestModules: vi.fn(),
 }));
 
+// The logger writes to the console; the double lets the tests assert what is
+// logged (issue paths and codes, never the rejected values).
 vi.mock(
   "@/src/modules/shared/infrastructure/observability/server-logger",
   () => ({
     createServerLogger: vi.fn(() => ({
       error: logError,
       info: vi.fn(),
+      warn: logWarn,
     })),
   })
 );
@@ -68,10 +72,13 @@ class MockResponse {
 }
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
-const BASE_URL = "https://tutribu.example.com/api/tribes/matematica-pro/events";
+const TRIBE_SLUG = "matematica-pro";
+const BASE_URL = `https://tutribu.example.com/api/tribes/${TRIBE_SLUG}/events`;
+const OCCURRENCE_STARTS_AT = "2026-05-13T18:00:00.000Z";
+const OCCURRENCE_QUERY = `?occurrence=${encodeURIComponent(OCCURRENCE_STARTS_AT)}`;
 
 function buildRequest(
-  body: Record<string, unknown> = {},
+  body: unknown = {},
   url: string = `${BASE_URL}?month=2026-05`
 ): Request {
   return {
@@ -84,25 +91,51 @@ function buildRequest(
   } as unknown as Request;
 }
 
-function buildTribeContext() {
+function buildTribeContext(slug: string = TRIBE_SLUG) {
   return {
-    params: Promise.resolve({
-      slug: "matematica-pro",
-    }),
+    params: Promise.resolve({ slug }),
   };
 }
 
-function buildEventContext() {
+function buildEventContext(eventId: string = EVENT_ID, slug: string = TRIBE_SLUG) {
   return {
-    params: Promise.resolve({
-      eventId: EVENT_ID,
-      slug: "matematica-pro",
-    }),
+    params: Promise.resolve({ eventId, slug }),
   };
+}
+
+const EMPTY_ATTENDANCE = {
+  goingCount: 0,
+  goingPreview: [],
+  maybeCount: 0,
+  viewerStatus: null,
+  viewerWaitlistPosition: null,
+  waitlistedCount: 0,
+};
+
+const VALID_EVENT_BODY = {
+  description: "Repaso mensual",
+  endsAt: "2026-05-06T19:00:00.000Z",
+  meetingUrl: "https://meet.google.com/abc-defg-hij",
+  recurrenceFrequency: "weekly",
+  recurrenceUntil: "",
+  startsAt: "2026-05-06T18:00:00.000Z",
+  title: "Clase abierta",
+};
+
+/**
+ * Asserts a public error body: only the safe message, no Zod diagnostics,
+ * issue codes, or echoed input.
+ */
+async function expectSafeErrorBody(response: Response, message: string) {
+  const body = await response.json();
+
+  expect(body).toEqual({ message });
+  expect(JSON.stringify(body)).not.toMatch(/issues|invalid_|expected|received|zod/i);
 }
 
 describe("Tribe event routes", () => {
   const event = {
+    capacity: null,
     description: "Repaso mensual",
     endsAt: "2026-05-06T19:00:00.000Z",
     id: EVENT_ID,
@@ -114,7 +147,8 @@ describe("Tribe event routes", () => {
     title: "Clase abierta",
   };
   const occurrence = {
-    attendance: { goingCount: 0, viewerStatus: null },
+    attendance: EMPTY_ATTENDANCE,
+    capacity: null,
     description: event.description,
     endsAt: event.endsAt,
     eventId: EVENT_ID,
@@ -127,6 +161,18 @@ describe("Tribe event routes", () => {
     seriesStartsAt: event.startsAt,
     startsAt: event.startsAt,
     title: event.title,
+  };
+  const listing = {
+    events: [occurrence],
+    month: {
+      current: "2026-05",
+      next: "2026-06",
+      previous: "2026-04",
+    },
+    selectedOccurrenceKey: null,
+    viewerPermissions: {
+      canManageEvents: true,
+    },
   };
 
   beforeEach(() => {
@@ -168,28 +214,28 @@ describe("Tribe event routes", () => {
   });
 
   it("lists events for a tribe month", async () => {
-    listTribeEvents.mockResolvedValue({
-      events: [occurrence],
-      month: {
-        current: "2026-05",
-        next: "2026-06",
-        previous: "2026-04",
-      },
-      viewerPermissions: {
-        canManageEvents: true,
-      },
-    });
+    listTribeEvents.mockResolvedValue(listing);
 
     const response = await GET(buildRequest(), buildTribeContext());
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      events: [occurrence],
-      month: { current: "2026-05" },
-    });
+    await expect(response.json()).resolves.toEqual(listing);
     expect(listTribeEvents).toHaveBeenCalledWith({
       month: "2026-05",
-      tribeSlug: "matematica-pro",
+      occurrence: null,
+      tribeSlug: TRIBE_SLUG,
+    });
+  });
+
+  it("lists the current month when no month is requested", async () => {
+    listTribeEvents.mockResolvedValue(listing);
+
+    await GET(buildRequest({}, BASE_URL), buildTribeContext());
+
+    expect(listTribeEvents).toHaveBeenCalledWith({
+      month: null,
+      occurrence: null,
+      tribeSlug: TRIBE_SLUG,
     });
   });
 
@@ -204,7 +250,7 @@ describe("Tribe event routes", () => {
     });
   });
 
-  it("creates an event from request body fields and returns the month occurrences", async () => {
+  it("creates an event from the validated body and returns the month occurrences", async () => {
     createTribeEvent.mockResolvedValue({
       event,
       occurrences: [occurrence],
@@ -212,16 +258,7 @@ describe("Tribe event routes", () => {
     });
 
     const response = await POST(
-      buildRequest({
-        capacity: "",
-        description: "Repaso mensual",
-        endsAt: "2026-05-06T19:00:00.000Z",
-        meetingUrl: "https://meet.google.com/abc-defg-hij",
-        recurrenceFrequency: "weekly",
-        recurrenceUntil: "",
-        startsAt: "2026-05-06T18:00:00.000Z",
-        title: "Clase abierta",
-      }),
+      buildRequest({ ...VALID_EVENT_BODY, capacity: " 12 ", title: " Clase abierta " }),
       buildTribeContext()
     );
 
@@ -234,41 +271,47 @@ describe("Tribe event routes", () => {
       message: "Evento creado.",
       occurrences: [occurrence],
     });
+    // The use case receives the schema output: no raw strings left to re-read.
     expect(createTribeEvent).toHaveBeenCalledWith({
-      capacity: "",
+      capacity: 12,
       description: "Repaso mensual",
       endsAt: "2026-05-06T19:00:00.000Z",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
       recurrenceFrequency: "weekly",
-      recurrenceUntil: "",
+      recurrenceUntil: null,
       startsAt: "2026-05-06T18:00:00.000Z",
       title: "Clase abierta",
-      tribeSlug: "matematica-pro",
+      tribeSlug: TRIBE_SLUG,
       visibleMonth: "2026-05",
     });
   });
 
-  it("returns safe validation messages when event input is invalid", async () => {
-    createTribeEvent.mockResolvedValueOnce({ status: "invalid_input" as const });
-
-    const invalidInputResponse = await POST(buildRequest({ title: "" }), buildTribeContext());
-
-    expect(invalidInputResponse.status).toBe(400);
-    await expect(invalidInputResponse.json()).resolves.toEqual({
-      message: "Completá el título y la fecha de inicio del evento.",
-    });
-
+  it("maps business rule failures of the use case to safe messages", async () => {
     createTribeEvent.mockResolvedValueOnce({ status: "invalid_recurrence" as const });
 
-    const invalidRecurrenceResponse = await POST(buildRequest(), buildTribeContext());
+    const invalidRecurrenceResponse = await POST(
+      buildRequest(VALID_EVENT_BODY),
+      buildTribeContext()
+    );
 
     expect(invalidRecurrenceResponse.status).toBe(400);
-    await expect(invalidRecurrenceResponse.json()).resolves.toEqual({
-      message: "Elegí una repetición válida y una fecha de fin posterior al inicio.",
-    });
+    await expectSafeErrorBody(
+      invalidRecurrenceResponse,
+      "Elegí una repetición válida y una fecha de fin posterior al inicio."
+    );
+
+    createTribeEvent.mockResolvedValueOnce({ status: "invalid_date" as const });
+
+    const invalidDateResponse = await POST(buildRequest(VALID_EVENT_BODY), buildTribeContext());
+
+    expect(invalidDateResponse.status).toBe(400);
+    await expectSafeErrorBody(
+      invalidDateResponse,
+      "La fecha de fin debe ser posterior al inicio."
+    );
   });
 
-  it("updates an event from request body fields", async () => {
+  it("updates an event from the validated body", async () => {
     updateTribeEvent.mockResolvedValue({
       event,
       occurrences: [occurrence],
@@ -296,16 +339,16 @@ describe("Tribe event routes", () => {
       occurrences: [occurrence],
     });
     expect(updateTribeEvent).toHaveBeenCalledWith({
-      capacity: "",
+      capacity: null,
       description: "Repaso mensual",
       endsAt: "2026-05-06T19:00:00.000Z",
       eventId: EVENT_ID,
       meetingUrl: "https://meet.google.com/abc-defg-hij",
-      recurrenceFrequency: "",
-      recurrenceUntil: "",
+      recurrenceFrequency: "none",
+      recurrenceUntil: null,
       startsAt: "2026-05-06T18:00:00.000Z",
       title: "Clase abierta",
-      tribeSlug: "matematica-pro",
+      tribeSlug: TRIBE_SLUG,
       visibleMonth: "2026-05",
     });
   });
@@ -324,7 +367,7 @@ describe("Tribe event routes", () => {
     });
     expect(deleteTribeEvent).toHaveBeenCalledWith({
       eventId: EVENT_ID,
-      tribeSlug: "matematica-pro",
+      tribeSlug: TRIBE_SLUG,
     });
 
     deleteTribeEvent.mockResolvedValueOnce({ status: "forbidden" as const });
@@ -505,6 +548,24 @@ describe("Tribe event routes", () => {
       );
     });
 
+    it("drops an unusable recomputed streak without failing the mutation", async () => {
+      deleteTribeEvent.mockResolvedValue({ status: "deleted" as const });
+      getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+        attendanceStreak: { attendedCount: 1.5, occurrenceCount: 5 },
+        computedAt: STREAK_COMPUTED_AT,
+        nextRefreshAt: null,
+      });
+
+      const response = await DELETE(buildRequest(), buildEventContext());
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        attendanceStreakComputedAt: STREAK_COMPUTED_AT,
+        attendanceStreakNextRefreshAt: null,
+        message: "Evento eliminado.",
+      });
+    });
+
     it("does not recompute the streak when the mutation is rejected", async () => {
       updateTribeEvent.mockResolvedValue({ status: "forbidden" as const });
       deleteTribeEvent.mockResolvedValue({ status: "not_found" as const });
@@ -669,18 +730,36 @@ describe("Tribe event routes", () => {
       expect(getTribeEventAttendanceStreakSnapshot).not.toHaveBeenCalled();
     });
 
-    it("rejects a malformed tribe slug as not found before touching the session", async () => {
+    it("rejects a malformed tribe slug at the boundary without reading the streak", async () => {
       const response = await GET_ATTENDANCE_STREAK(
         buildRequest({}, streakUrl),
         buildStreakContext("Matemática Pro!")
       );
 
-      expect(response.status).toBe(404);
-      await expect(response.json()).resolves.toEqual({
-        message: "No pudimos encontrar la tribu.",
-      });
-      expect(createRequestModules).not.toHaveBeenCalled();
+      expect(response.status).toBe(400);
+      await expectSafeErrorBody(response, "No pudimos encontrar la tribu.");
       expect(getTribeEventAttendanceStreakSnapshot).not.toHaveBeenCalled();
+    });
+
+    it("answers a safe error when the streak DTO is not usable", async () => {
+      getTribeEventAttendanceStreakSnapshot.mockResolvedValue({
+        attendanceStreak: { attendedCount: -1, occurrenceCount: 5 },
+        computedAt: STREAK_COMPUTED_AT,
+        nextRefreshAt: null,
+      });
+
+      const response = await GET_ATTENDANCE_STREAK(
+        buildRequest({}, streakUrl),
+        buildStreakContext("matematica-pro")
+      );
+
+      expect(response.status).toBe(500);
+      await expectSafeErrorBody(response, "No pudimos actualizar tu racha.");
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({ reason: "public_dto_rejected" }),
+        })
+      );
     });
 
     it("logs failures and answers with a safe Spanish message", async () => {
@@ -710,15 +789,16 @@ describe("Tribe event routes", () => {
   });
 
   it("records the viewer attendance for an occurrence", async () => {
+    const attendance = { ...EMPTY_ATTENDANCE, goingCount: 3, viewerStatus: "going" };
     setTribeEventAttendance.mockResolvedValue({
-      attendance: { goingCount: 3, viewerStatus: "going" },
+      attendance,
       status: "attendance_saved" as const,
     });
 
     const response = await PUT_ATTENDANCE(
       buildRequest(
         {
-          occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+          occurrenceStartsAt: "2026-05-13T15:00:00-03:00",
           status: "going" as const,
         },
         `${BASE_URL}/${EVENT_ID}/attendance`
@@ -728,34 +808,36 @@ describe("Tribe event routes", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      attendance: { goingCount: 3, viewerStatus: "going" },
+      attendance,
       message: "Respuesta guardada.",
     });
     expect(setTribeEventAttendance).toHaveBeenCalledWith({
       eventId: EVENT_ID,
-      occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      occurrenceStartsAt: OCCURRENCE_STARTS_AT,
       status: "going" as const,
-      tribeSlug: "matematica-pro",
+      tribeSlug: TRIBE_SLUG,
     });
   });
 
-  it("maps attendance failures to safe responses", async () => {
+  it("maps attendance failures of the use case to safe responses", async () => {
+    const validBody = { occurrenceStartsAt: OCCURRENCE_STARTS_AT, status: "going" };
     setTribeEventAttendance.mockResolvedValueOnce({ status: "forbidden" as const });
 
     const forbiddenResponse = await PUT_ATTENDANCE(
-      buildRequest({}, `${BASE_URL}/${EVENT_ID}/attendance`),
+      buildRequest(validBody, `${BASE_URL}/${EVENT_ID}/attendance`),
       buildEventContext()
     );
 
     expect(forbiddenResponse.status).toBe(403);
-    await expect(forbiddenResponse.json()).resolves.toEqual({
-      message: "Solo los miembros activos pueden responder a un evento.",
-    });
+    await expectSafeErrorBody(
+      forbiddenResponse,
+      "Solo los miembros activos pueden responder a un evento."
+    );
 
     setTribeEventAttendance.mockResolvedValueOnce({ status: "invalid_attendance" as const });
 
     const invalidResponse = await PUT_ATTENDANCE(
-      buildRequest({}, `${BASE_URL}/${EVENT_ID}/attendance`),
+      buildRequest(validBody, `${BASE_URL}/${EVENT_ID}/attendance`),
       buildEventContext()
     );
 
@@ -822,30 +904,26 @@ describe("Tribe event routes", () => {
   });
 
   it("clears the viewer attendance for the occurrence in the query", async () => {
+    const attendance = { ...EMPTY_ATTENDANCE, goingCount: 2 };
     clearTribeEventAttendance.mockResolvedValue({
-      attendance: { goingCount: 2, viewerStatus: null },
+      attendance,
       status: "attendance_cleared" as const,
     });
 
     const response = await DELETE_ATTENDANCE(
-      buildRequest(
-        {},
-        `${BASE_URL}/${EVENT_ID}/attendance?occurrence=${encodeURIComponent(
-          "2026-05-13T18:00:00.000Z"
-        )}`
-      ),
+      buildRequest({}, `${BASE_URL}/${EVENT_ID}/attendance${OCCURRENCE_QUERY}`),
       buildEventContext()
     );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      attendance: { goingCount: 2, viewerStatus: null },
+      attendance,
       message: "Respuesta eliminada.",
     });
     expect(clearTribeEventAttendance).toHaveBeenCalledWith({
       eventId: EVENT_ID,
-      occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-      tribeSlug: "matematica-pro",
+      occurrenceStartsAt: OCCURRENCE_STARTS_AT,
+      tribeSlug: TRIBE_SLUG,
     });
   });
 
@@ -865,7 +943,7 @@ describe("Tribe event routes", () => {
     await expect(response.text()).resolves.toContain("BEGIN:VCALENDAR");
     expect(getTribeEvent).toHaveBeenCalledWith({
       eventId: EVENT_ID,
-      tribeSlug: "matematica-pro",
+      tribeSlug: TRIBE_SLUG,
     });
   });
 
@@ -883,23 +961,12 @@ describe("Tribe event routes", () => {
     });
   });
 
-  it("rejects an invalid capacity with a safe Spanish message", async () => {
-    createTribeEvent.mockResolvedValueOnce({ status: "invalid_capacity" as const });
-
-    const response = await POST(buildRequest({ capacity: "0" }), buildTribeContext());
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      message: "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.",
-    });
-    expect(createTribeEvent).toHaveBeenCalledWith(expect.objectContaining({ capacity: "0" }));
-  });
-
   describe("capacity body field", () => {
     const INVALID_CAPACITY_MESSAGE =
       "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.";
     const EVENT_URL = `${BASE_URL}/${EVENT_ID}?month=2026-05`;
     const UNSUPPORTED_CAPACITY_VALUES: Array<[string, unknown]> = [
+      ["an out of range JSON integer", 0],
       ["a fractional number", 12.5],
       ["a boolean", true],
       ["an object", { value: 12 }],
@@ -908,8 +975,8 @@ describe("Tribe event routes", () => {
     ];
 
     // Decision: a JSON integer (the natural form `"capacity": 12`) is accepted
-    // and forwarded as its decimal text, so the use case keeps owning the
-    // 1..10000 business range. Absent, null, and "" keep meaning "no limit".
+    // by the body schema with the same 1..10000 range as the form text.
+    // Absent, null, and "" keep meaning "no limit".
     it("forwards a JSON integer capacity to the use case on POST and PATCH", async () => {
       createTribeEvent.mockResolvedValueOnce({
         event,
@@ -922,16 +989,19 @@ describe("Tribe event routes", () => {
         status: "updated" as const,
       });
 
-      const createResponse = await POST(buildRequest({ capacity: 12 }), buildTribeContext());
+      const createResponse = await POST(
+        buildRequest({ ...VALID_EVENT_BODY, capacity: 12 }),
+        buildTribeContext()
+      );
       const updateResponse = await PATCH(
-        buildRequest({ capacity: 30 }, EVENT_URL),
+        buildRequest({ ...VALID_EVENT_BODY, capacity: 30 }, EVENT_URL),
         buildEventContext()
       );
 
       expect(createResponse.status).toBe(201);
       expect(updateResponse.status).toBe(200);
-      expect(createTribeEvent).toHaveBeenCalledWith(expect.objectContaining({ capacity: "12" }));
-      expect(updateTribeEvent).toHaveBeenCalledWith(expect.objectContaining({ capacity: "30" }));
+      expect(createTribeEvent).toHaveBeenCalledWith(expect.objectContaining({ capacity: 12 }));
+      expect(updateTribeEvent).toHaveBeenCalledWith(expect.objectContaining({ capacity: 30 }));
     });
 
     it("forwards null capacity as an explicit removal and leaves an absent one unset on POST", async () => {
@@ -941,12 +1011,17 @@ describe("Tribe event routes", () => {
         status: "created" as const,
       });
 
-      await POST(buildRequest({ capacity: null }), buildTribeContext());
-      await POST(buildRequest({}), buildTribeContext());
+      await POST(buildRequest({ ...VALID_EVENT_BODY, capacity: null }), buildTribeContext());
+      await POST(buildRequest(VALID_EVENT_BODY), buildTribeContext());
 
-      expect(createTribeEvent).toHaveBeenNthCalledWith(1, expect.objectContaining({ capacity: "" }));
-      // The create use case treats an absent capacity as unlimited.
-      expect(createTribeEvent.mock.calls[1]?.[0]).toHaveProperty("capacity", undefined);
+      expect(createTribeEvent).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ capacity: null })
+      );
+      expect(createTribeEvent).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ capacity: null })
+      );
     });
 
     it("keeps the stored capacity when a legacy PATCH body omits the field", async () => {
@@ -956,21 +1031,30 @@ describe("Tribe event routes", () => {
         status: "updated" as const,
       });
 
-      await PATCH(buildRequest({}, EVENT_URL), buildEventContext());
-      await PATCH(buildRequest({ capacity: null }, EVENT_URL), buildEventContext());
+      await PATCH(buildRequest(VALID_EVENT_BODY, EVENT_URL), buildEventContext());
+      await PATCH(
+        buildRequest({ ...VALID_EVENT_BODY, capacity: null }, EVENT_URL),
+        buildEventContext()
+      );
 
       // Absent = unchanged; null = explicit removal of the limit.
-      expect(updateTribeEvent.mock.calls[0]?.[0]).toHaveProperty("capacity", undefined);
-      expect(updateTribeEvent).toHaveBeenNthCalledWith(2, expect.objectContaining({ capacity: "" }));
+      expect(updateTribeEvent.mock.calls[0]?.[0]?.capacity).toBeUndefined();
+      expect(updateTribeEvent).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ capacity: null })
+      );
     });
 
     it.each(UNSUPPORTED_CAPACITY_VALUES)(
       "rejects %s capacity on POST instead of creating an unlimited event",
       async (_label, capacity) => {
-        const response = await POST(buildRequest({ capacity }), buildTribeContext());
+        const response = await POST(
+          buildRequest({ ...VALID_EVENT_BODY, capacity }),
+          buildTribeContext()
+        );
 
         expect(response.status).toBe(400);
-        await expect(response.json()).resolves.toEqual({ message: INVALID_CAPACITY_MESSAGE });
+        await expectSafeErrorBody(response, INVALID_CAPACITY_MESSAGE);
         expect(createTribeEvent).not.toHaveBeenCalled();
       }
     );
@@ -979,12 +1063,12 @@ describe("Tribe event routes", () => {
       "rejects %s capacity on PATCH instead of removing the existing limit",
       async (_label, capacity) => {
         const response = await PATCH(
-          buildRequest({ capacity }, EVENT_URL),
+          buildRequest({ ...VALID_EVENT_BODY, capacity }, EVENT_URL),
           buildEventContext()
         );
 
         expect(response.status).toBe(400);
-        await expect(response.json()).resolves.toEqual({ message: INVALID_CAPACITY_MESSAGE });
+        await expectSafeErrorBody(response, INVALID_CAPACITY_MESSAGE);
         expect(updateTribeEvent).not.toHaveBeenCalled();
       }
     );
@@ -1006,7 +1090,7 @@ describe("Tribe event routes", () => {
 
     const response = await PUT_ATTENDANCE(
       buildRequest(
-        { occurrenceStartsAt: "2026-05-13T18:00:00.000Z", status: "going" },
+        { occurrenceStartsAt: OCCURRENCE_STARTS_AT, status: "going" },
         `${BASE_URL}/${EVENT_ID}/attendance`
       ),
       buildEventContext()
@@ -1028,15 +1112,11 @@ describe("Tribe event routes", () => {
         waitlisted: [],
       },
       eventTitle: "Clase abierta",
-      occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+      occurrenceStartsAt: OCCURRENCE_STARTS_AT,
       trend: [],
     };
-    const reportUrl = `${BASE_URL}/${EVENT_ID}/attendance?occurrence=${encodeURIComponent(
-      "2026-05-13T18:00:00.000Z"
-    )}`;
-    const exportUrl = `${BASE_URL}/${EVENT_ID}/attendance/export?occurrence=${encodeURIComponent(
-      "2026-05-13T18:00:00.000Z"
-    )}`;
+    const reportUrl = `${BASE_URL}/${EVENT_ID}/attendance${OCCURRENCE_QUERY}`;
+    const exportUrl = `${BASE_URL}/${EVENT_ID}/attendance/export${OCCURRENCE_QUERY}`;
 
     it("returns the manager report as JSON", async () => {
       getTribeEventAttendanceReport.mockResolvedValue({ report, status: "found" as const });
@@ -1047,8 +1127,8 @@ describe("Tribe event routes", () => {
       await expect(response.json()).resolves.toEqual({ report });
       expect(getTribeEventAttendanceReport).toHaveBeenCalledWith({
         eventId: EVENT_ID,
-        occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
-        tribeSlug: "matematica-pro",
+        occurrenceStartsAt: OCCURRENCE_STARTS_AT,
+        tribeSlug: TRIBE_SLUG,
       });
     });
 
@@ -1110,6 +1190,346 @@ describe("Tribe event routes", () => {
       await expect(response.json()).resolves.toEqual({
         message: "No pudimos generar el archivo de asistencia.",
       });
+    });
+  });
+
+  describe("input boundary", () => {
+    const useCases = [
+      listTribeEvents,
+      createTribeEvent,
+      updateTribeEvent,
+      deleteTribeEvent,
+      getTribeEvent,
+      setTribeEventAttendance,
+      clearTribeEventAttendance,
+      getTribeEventAttendanceReport,
+    ];
+    const invalidSlug = "Mate Pro";
+    const invalidEventId = "not-a-uuid";
+    const eventUrl = `${BASE_URL}/${EVENT_ID}`;
+    const attendanceUrl = `${eventUrl}/attendance`;
+    const validAttendanceBody = { occurrenceStartsAt: OCCURRENCE_STARTS_AT, status: "going" };
+
+    it.each([
+      ["GET /events", () => GET(buildRequest(), buildTribeContext(invalidSlug)), "No pudimos encontrar la tribu."],
+      [
+        "POST /events",
+        () => POST(buildRequest(VALID_EVENT_BODY), buildTribeContext(invalidSlug)),
+        "No pudimos encontrar la tribu.",
+      ],
+      [
+        "PATCH /events/[eventId]",
+        () => PATCH(buildRequest(VALID_EVENT_BODY, eventUrl), buildEventContext(invalidEventId)),
+        "No pudimos encontrar el evento.",
+      ],
+      [
+        "DELETE /events/[eventId]",
+        () => DELETE(buildRequest({}, eventUrl), buildEventContext(EVENT_ID, invalidSlug)),
+        "No pudimos encontrar la tribu.",
+      ],
+      [
+        "GET /attendance",
+        () =>
+          GET_ATTENDANCE(
+            buildRequest({}, `${attendanceUrl}${OCCURRENCE_QUERY}`),
+            buildEventContext(invalidEventId)
+          ),
+        "No pudimos encontrar el evento.",
+      ],
+      [
+        "PUT /attendance",
+        () =>
+          PUT_ATTENDANCE(
+            buildRequest(validAttendanceBody, attendanceUrl),
+            buildEventContext(invalidEventId)
+          ),
+        "No pudimos encontrar el evento.",
+      ],
+      [
+        "DELETE /attendance",
+        () =>
+          DELETE_ATTENDANCE(
+            buildRequest({}, `${attendanceUrl}${OCCURRENCE_QUERY}`),
+            buildEventContext(invalidEventId)
+          ),
+        "No pudimos encontrar el evento.",
+      ],
+      [
+        "GET /attendance/export",
+        () =>
+          GET_ATTENDANCE_EXPORT(
+            buildRequest({}, `${attendanceUrl}/export${OCCURRENCE_QUERY}`),
+            buildEventContext(invalidEventId)
+          ),
+        "No pudimos encontrar el evento.",
+      ],
+      [
+        "GET /calendar",
+        () => GET_CALENDAR(buildRequest({}, `${eventUrl}/calendar`), buildEventContext(invalidEventId)),
+        "No pudimos encontrar el evento.",
+      ],
+    ])("rejects invalid params of %s before any use case runs", async (_route, callRoute, message) => {
+      const response = await callRoute();
+
+      expect(response.status).toBe(400);
+      await expectSafeErrorBody(response, message);
+      for (const useCase of useCases) {
+        expect(useCase).not.toHaveBeenCalled();
+      }
+      expect(logWarn).toHaveBeenCalledWith({
+        message: "Tribe event route input rejected",
+        metadata: { issues: [expect.objectContaining({ path: expect.any(String) })], part: "params" },
+      });
+      expect(JSON.stringify(logWarn.mock.calls)).not.toContain(invalidEventId);
+      expect(JSON.stringify(logWarn.mock.calls)).not.toContain(invalidSlug);
+    });
+
+    it.each([
+      [
+        "GET /events",
+        () => GET(buildRequest({}, `${BASE_URL}?month=2026-13`), buildTribeContext()),
+        "Elegí un mes válido del calendario.",
+      ],
+      [
+        "POST /events",
+        () => POST(buildRequest(VALID_EVENT_BODY, `${BASE_URL}?month=mayo`), buildTribeContext()),
+        "Elegí un mes válido del calendario.",
+      ],
+      [
+        "PATCH /events/[eventId]",
+        () =>
+          PATCH(
+            buildRequest(VALID_EVENT_BODY, `${eventUrl}?month=2026-05&month=2026-06`),
+            buildEventContext()
+          ),
+        "Elegí un mes válido del calendario.",
+      ],
+      [
+        "GET /attendance",
+        () => GET_ATTENDANCE(buildRequest({}, attendanceUrl), buildEventContext()),
+        "Elegí una fecha válida del evento para responder.",
+      ],
+      [
+        "DELETE /attendance",
+        () =>
+          DELETE_ATTENDANCE(
+            buildRequest({}, `${attendanceUrl}?occurrence=yesterday`),
+            buildEventContext()
+          ),
+        "Elegí una fecha válida del evento para responder.",
+      ],
+      [
+        "GET /attendance/export",
+        () =>
+          GET_ATTENDANCE_EXPORT(
+            buildRequest({}, `${attendanceUrl}/export?occurrence=2026-05-13`),
+            buildEventContext()
+          ),
+        "Elegí una fecha válida del evento para responder.",
+      ],
+    ])("rejects an invalid query of %s before any use case runs", async (_route, callRoute, message) => {
+      const response = await callRoute();
+
+      expect(response.status).toBe(400);
+      await expectSafeErrorBody(response, message);
+      for (const useCase of useCases) {
+        expect(useCase).not.toHaveBeenCalled();
+      }
+      expect(logWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ part: "query" }) })
+      );
+    });
+
+    it.each([
+      [
+        "POST /events without title",
+        () => POST(buildRequest({ ...VALID_EVENT_BODY, title: "   " }), buildTribeContext()),
+        "Completá el título y la fecha de inicio del evento.",
+      ],
+      [
+        "POST /events with a non-JSON body",
+        () => POST(buildRequest(undefined), buildTribeContext()),
+        "Completá el título y la fecha de inicio del evento.",
+      ],
+      [
+        "POST /events with an invalid capacity",
+        () => POST(buildRequest({ ...VALID_EVENT_BODY, capacity: "0" }), buildTribeContext()),
+        "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo.",
+      ],
+      [
+        "PATCH /events/[eventId] with an unknown frequency",
+        () =>
+          PATCH(
+            buildRequest({ ...VALID_EVENT_BODY, recurrenceFrequency: "daily" }, eventUrl),
+            buildEventContext()
+          ),
+        "Elegí una repetición válida y una fecha de fin posterior al inicio.",
+      ],
+      [
+        "PATCH /events/[eventId] with a malformed start",
+        () =>
+          PATCH(
+            buildRequest({ ...VALID_EVENT_BODY, startsAt: "mañana" }, eventUrl),
+            buildEventContext()
+          ),
+        "La fecha de fin debe ser posterior al inicio.",
+      ],
+      [
+        "PUT /attendance with waitlisted",
+        () =>
+          PUT_ATTENDANCE(
+            buildRequest({ ...validAttendanceBody, status: "waitlisted" }, attendanceUrl),
+            buildEventContext()
+          ),
+        "Elegí una fecha válida del evento para responder.",
+      ],
+      [
+        "PUT /attendance with an empty body",
+        () => PUT_ATTENDANCE(buildRequest({}, attendanceUrl), buildEventContext()),
+        "Elegí una fecha válida del evento para responder.",
+      ],
+    ])("rejects an invalid body: %s", async (_route, callRoute, message) => {
+      const response = await callRoute();
+
+      expect(response.status).toBe(400);
+      await expectSafeErrorBody(response, message);
+      for (const useCase of useCases) {
+        expect(useCase).not.toHaveBeenCalled();
+      }
+      expect(logWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: expect.objectContaining({ part: "body" }) })
+      );
+    });
+
+    it("never echoes the rejected body in the response or the log", async () => {
+      const secretLikeTitle = "x".repeat(121) + "<script>token-123</script>";
+
+      const response = await POST(
+        buildRequest({ ...VALID_EVENT_BODY, title: secretLikeTitle }),
+        buildTribeContext()
+      );
+
+      expect(response.status).toBe(400);
+      expect(JSON.stringify(await response.json())).not.toContain("token-123");
+      expect(JSON.stringify(logWarn.mock.calls)).not.toContain("token-123");
+    });
+  });
+
+  describe("public DTO boundary", () => {
+    it("drops fields outside the public contract", async () => {
+      listTribeEvents.mockResolvedValue({
+        ...listing,
+        events: [{ ...occurrence, createdBy: "user-secret-id" }],
+        internalCursor: "db-cursor",
+      });
+
+      const response = await GET(buildRequest(), buildTribeContext());
+      const body = JSON.stringify(await response.json());
+
+      expect(response.status).toBe(200);
+      expect(body).not.toContain("user-secret-id");
+      expect(body).not.toContain("db-cursor");
+    });
+
+    it.each([
+      [
+        "GET /events",
+        () => {
+          listTribeEvents.mockResolvedValue({ ...listing, viewerPermissions: null });
+
+          return GET(buildRequest(), buildTribeContext());
+        },
+        "No pudimos cargar los eventos. Intentá de nuevo.",
+      ],
+      [
+        "POST /events",
+        () => {
+          createTribeEvent.mockResolvedValue({
+            event: { ...event, recurrenceFrequency: "daily" },
+            occurrences: [],
+            status: "created" as const,
+          });
+
+          return POST(buildRequest(VALID_EVENT_BODY), buildTribeContext());
+        },
+        "No pudimos guardar el evento. Intentá de nuevo.",
+      ],
+      [
+        "PATCH /events/[eventId]",
+        () => {
+          updateTribeEvent.mockResolvedValue({
+            event,
+            occurrences: [{ ...occurrence, startsAt: "raw-db-value" }],
+            status: "updated" as const,
+          });
+
+          return PATCH(buildRequest(VALID_EVENT_BODY, `${BASE_URL}/${EVENT_ID}`), buildEventContext());
+        },
+        "No pudimos actualizar el evento. Intentá de nuevo.",
+      ],
+      [
+        "PUT /attendance",
+        () => {
+          setTribeEventAttendance.mockResolvedValue({
+            attendance: { ...EMPTY_ATTENDANCE, goingCount: -1 },
+            status: "attendance_saved" as const,
+          });
+
+          return PUT_ATTENDANCE(
+            buildRequest(
+              { occurrenceStartsAt: OCCURRENCE_STARTS_AT, status: "going" },
+              `${BASE_URL}/${EVENT_ID}/attendance`
+            ),
+            buildEventContext()
+          );
+        },
+        "No pudimos guardar tu respuesta. Intentá de nuevo.",
+      ],
+      [
+        "DELETE /attendance",
+        () => {
+          clearTribeEventAttendance.mockResolvedValue({
+            attendance: { goingCount: 2 },
+            status: "attendance_cleared" as const,
+          });
+
+          return DELETE_ATTENDANCE(
+            buildRequest({}, `${BASE_URL}/${EVENT_ID}/attendance${OCCURRENCE_QUERY}`),
+            buildEventContext()
+          );
+        },
+        "No pudimos guardar tu respuesta. Intentá de nuevo.",
+      ],
+      [
+        "GET /attendance",
+        () => {
+          getTribeEventAttendanceReport.mockResolvedValue({
+            report: { eventTitle: "Clase abierta" },
+            status: "found" as const,
+          });
+
+          return GET_ATTENDANCE(
+            buildRequest({}, `${BASE_URL}/${EVENT_ID}/attendance${OCCURRENCE_QUERY}`),
+            buildEventContext()
+          );
+        },
+        "No pudimos cargar la asistencia. Intentá de nuevo.",
+      ],
+    ])("turns an unusable DTO of %s into a safe 500", async (_route, callRoute, message) => {
+      const response = await callRoute();
+
+      expect(response.status).toBe(500);
+      await expectSafeErrorBody(response, message);
+      expect(logError).toHaveBeenCalledWith({
+        message: "Tribe event public DTO rejected",
+        metadata: expect.objectContaining({
+          issues: expect.arrayContaining([
+            expect.objectContaining({ code: expect.any(String), path: expect.any(String) }),
+          ]),
+          reason: "public_dto_rejected",
+        }),
+      });
+      expect(JSON.stringify(logError.mock.calls)).not.toContain("raw-db-value");
     });
   });
 });

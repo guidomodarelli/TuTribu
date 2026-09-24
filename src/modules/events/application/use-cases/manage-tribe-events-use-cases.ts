@@ -3,6 +3,7 @@ import type {
   DeleteTribeEventCommand,
   GetTribeEventQuery,
   ListTribeEventsQuery,
+  TribeEventFieldsInput,
   UpdateTribeEventCommand,
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
@@ -16,27 +17,22 @@ import {
   MONTH_OFFSET,
   addMonths,
   createBuenosAiresMonthRange,
-  normalizeMonthQuery,
   parseMonth,
   resolveBuenosAiresMonthOf,
+  resolveCurrentBuenosAiresMonth,
 } from "@/src/modules/events/application/services/buenos-aires-month";
 import {
   buildTribeEventOccurrences,
-  parseTribeEventOccurrenceKey,
   toTribeEventResult,
-  type TribeEventOccurrenceKeyParts,
 } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
-  TRIBE_EVENT_CAPACITY_LIMIT,
   TRIBE_EVENT_CAPACITY_UPDATE_KIND,
-  TRIBE_EVENT_FIELD_LIMIT,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEvent,
   TribeEventDateRange,
-  TribeEventRecurrenceFrequency,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   PersistTribeEventCommand,
@@ -60,9 +56,7 @@ type NormalizedEventInput =
     }
   | {
       status:
-        | typeof TRIBE_EVENT_MUTATION_STATUS.invalidCapacity
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
-        | typeof TRIBE_EVENT_MUTATION_STATUS.invalidInput
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidRecurrence;
     };
@@ -70,169 +64,57 @@ type NormalizedEventInput =
 const NORMALIZED_EVENT_STATUS = {
   valid: "valid",
 } as const;
-const RECURRENCE_FREQUENCIES: ReadonlySet<string> = new Set(
-  Object.values(TRIBE_EVENT_RECURRENCE_FREQUENCY)
-);
-/**
- * Event ids are Postgres uuids; anything else is rejected before querying so a
- * malformed route param never turns into a cast error at the database.
- */
-/**
- * Whole positive number as typed in the "Cupo máximo" field (no sign, no
- * decimals, no exponent), checked before `Number` can accept "1e3" or "2.0".
- */
-const CAPACITY_PATTERN = /^\d+$/;
-const INVALID_CAPACITY = Symbol("invalid-capacity");
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function isValidTribeEventId(eventId: string): boolean {
-  return UUID_PATTERN.test(eventId);
-}
 
 /**
- * Validates the deep-link query value: first value of a repeated param, a
- * well-formed key, and a uuid event id. Anything else is ignored.
- */
-function normalizeOccurrenceKeyQuery(
-  occurrenceKey: string | string[] | undefined
-): (TribeEventOccurrenceKeyParts & { key: string }) | null {
-  const occurrenceKeyValue = Array.isArray(occurrenceKey) ? occurrenceKey[0] : occurrenceKey;
-  const parts = occurrenceKeyValue ? parseTribeEventOccurrenceKey(occurrenceKeyValue) : null;
-
-  if (!occurrenceKeyValue || !parts || !isValidTribeEventId(parts.eventId)) {
-    return null;
-  }
-
-  return { ...parts, key: occurrenceKeyValue };
-}
-
-function normalizeOptionalText(value: string): string | null {
-  const normalizedValue = value.trim();
-
-  return normalizedValue.length > 0 ? normalizedValue : null;
-}
-
-/**
- * Normalizes the raw capacity field: empty or missing means unlimited (null).
+ * Capacity change of an update: a capacity the body omitted keeps the stored
+ * one (legacy bodies without the field must not remove the limit); a present
+ * value, already validated at the route boundary, is written as is (null
+ * removes the limit).
  *
- * @param rawCapacity - Untrusted form value.
- * @returns The capacity, null for unlimited, or `INVALID_CAPACITY`.
- */
-function normalizeCapacity(
-  rawCapacity: string | undefined
-): number | null | typeof INVALID_CAPACITY {
-  const capacityValue = rawCapacity?.trim() ?? "";
-
-  if (capacityValue.length === 0) {
-    return null;
-  }
-
-  if (!CAPACITY_PATTERN.test(capacityValue)) {
-    return INVALID_CAPACITY;
-  }
-
-  const capacity = Number(capacityValue);
-
-  return capacity >= TRIBE_EVENT_CAPACITY_LIMIT.min &&
-    capacity <= TRIBE_EVENT_CAPACITY_LIMIT.max
-    ? capacity
-    : INVALID_CAPACITY;
-}
-
-/**
- * Capacity change of an update: a missing raw field keeps the stored capacity
- * (legacy bodies without the field must not remove the limit); any present
- * value, already validated by `normalizeCapacity`, is written as is.
- *
- * @param rawCapacity - Raw capacity of the update command, undefined when absent.
- * @param normalizedCapacity - Capacity normalized from that raw value.
+ * @param capacity - Validated capacity of the update, undefined when omitted.
  * @returns The capacity change to persist.
  */
-function resolveCapacityUpdate(
-  rawCapacity: string | undefined,
-  normalizedCapacity: number | null
-): TribeEventCapacityUpdate {
-  return rawCapacity === undefined
+function resolveCapacityUpdate(capacity: number | null | undefined): TribeEventCapacityUpdate {
+  return capacity === undefined
     ? { kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.unchanged }
-    : { capacity: normalizedCapacity, kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.set };
+    : { capacity, kind: TRIBE_EVENT_CAPACITY_UPDATE_KIND.set };
 }
 
+/**
+ * The end, when present, must come after the start.
+ */
 function isInvalidDateRange(startsAt: string, endsAt: string | null): boolean {
-  const startsAtTime = Date.parse(startsAt);
-
-  if (!Number.isFinite(startsAtTime)) {
-    return true;
-  }
-
-  if (!endsAt) {
-    return false;
-  }
-
-  const endsAtTime = Date.parse(endsAt);
-
-  return !Number.isFinite(endsAtTime) || endsAtTime <= startsAtTime;
+  return endsAt !== null && Date.parse(endsAt) <= Date.parse(startsAt);
 }
 
-function normalizeRecurrence(
-  rawFrequency: string,
-  rawUntil: string,
-  startsAt: string
-):
-  | {
-      recurrenceFrequency: TribeEventRecurrenceFrequency;
-      recurrenceUntil: string | null;
-    }
-  | null {
-  const frequency = rawFrequency.trim() || TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
-
-  if (!RECURRENCE_FREQUENCIES.has(frequency)) {
-    return null;
+/**
+ * Single events never keep an "until" date; a series may end on or after its
+ * first occurrence.
+ */
+function resolveRecurrenceUntil(
+  fields: TribeEventFieldsInput
+): { recurrenceUntil: string | null } | null {
+  if (fields.recurrenceFrequency === TRIBE_EVENT_RECURRENCE_FREQUENCY.none) {
+    return { recurrenceUntil: null };
   }
-
-  const recurrenceFrequency = frequency as TribeEventRecurrenceFrequency;
-
-  if (recurrenceFrequency === TRIBE_EVENT_RECURRENCE_FREQUENCY.none) {
-    return { recurrenceFrequency, recurrenceUntil: null };
-  }
-
-  const until = normalizeOptionalText(rawUntil);
-
-  if (until === null) {
-    return { recurrenceFrequency, recurrenceUntil: null };
-  }
-
-  const untilTime = Date.parse(until);
-
-  if (!Number.isFinite(untilTime) || untilTime < Date.parse(startsAt)) {
-    return null;
-  }
-
-  return {
-    recurrenceFrequency,
-    recurrenceUntil: new Date(untilTime).toISOString(),
-  };
-}
-
-function normalizeEventInput(
-  command: CreateTribeEventCommand
-): NormalizedEventInput {
-  const title = command.title.trim();
-  const startsAt = command.startsAt.trim();
-  const endsAt = normalizeOptionalText(command.endsAt);
-  const description = normalizeOptionalText(command.description);
 
   if (
-    title.length === 0 ||
-    title.length > TRIBE_EVENT_FIELD_LIMIT.titleMaxLength ||
-    startsAt.length === 0 ||
-    (description !== null &&
-      description.length > TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength)
+    fields.recurrenceUntil !== null &&
+    Date.parse(fields.recurrenceUntil) < Date.parse(fields.startsAt)
   ) {
-    return { status: TRIBE_EVENT_MUTATION_STATUS.invalidInput };
+    return null;
   }
 
-  if (isInvalidDateRange(startsAt, endsAt)) {
+  return { recurrenceUntil: fields.recurrenceUntil };
+}
+
+/**
+ * Applies the business rules the input schema cannot express: the relation
+ * between the dates of the series and the meeting link invariant. Format,
+ * presence, and ranges were already validated at the route boundary.
+ */
+function normalizeEventInput(command: CreateTribeEventCommand): NormalizedEventInput {
+  if (isInvalidDateRange(command.startsAt, command.endsAt)) {
     return { status: TRIBE_EVENT_MUTATION_STATUS.invalidDate };
   }
 
@@ -248,18 +130,7 @@ function normalizeEventInput(
     throw error;
   }
 
-  const capacity = normalizeCapacity(command.capacity);
-
-  if (capacity === INVALID_CAPACITY) {
-    return { status: TRIBE_EVENT_MUTATION_STATUS.invalidCapacity };
-  }
-
-  const normalizedStartsAt = new Date(startsAt).toISOString();
-  const recurrence = normalizeRecurrence(
-    command.recurrenceFrequency,
-    command.recurrenceUntil,
-    normalizedStartsAt
-  );
+  const recurrence = resolveRecurrenceUntil(command);
 
   if (recurrence === null) {
     return { status: TRIBE_EVENT_MUTATION_STATUS.invalidRecurrence };
@@ -267,15 +138,15 @@ function normalizeEventInput(
 
   return {
     input: {
-      capacity,
-      description,
-      endsAt: endsAt === null ? null : new Date(endsAt).toISOString(),
+      capacity: command.capacity,
+      description: command.description,
+      endsAt: command.endsAt,
       meetingUrl,
-      recurrenceFrequency: recurrence.recurrenceFrequency,
+      recurrenceFrequency: command.recurrenceFrequency,
       recurrenceUntil: recurrence.recurrenceUntil,
-      startsAt: normalizedStartsAt,
-      title,
-      tribeSlug: command.tribeSlug.trim(),
+      startsAt: command.startsAt,
+      title: command.title,
+      tribeSlug: command.tribeSlug,
     },
     status: NORMALIZED_EVENT_STATUS.valid,
   };
@@ -283,12 +154,11 @@ function normalizeEventInput(
 
 /**
  * Range of the month the caller is looking at, or null when the `month`
- * query is missing or malformed (the save then returns no occurrences).
+ * query is missing (the save then returns no occurrences). The format was
+ * already validated at the route boundary.
  */
-function resolveVisibleMonthRange(visibleMonth: string | undefined): TribeEventDateRange | null {
-  const monthValue = visibleMonth?.trim() ?? "";
-
-  return monthValue && parseMonth(monthValue) ? createBuenosAiresMonthRange(monthValue) : null;
+function resolveVisibleMonthRange(visibleMonth: string | null): TribeEventDateRange | null {
+  return visibleMonth === null ? null : createBuenosAiresMonthRange(visibleMonth);
 }
 
 /**
@@ -307,20 +177,28 @@ function buildVisibleMonthOccurrences(
     : [];
 }
 
+/**
+ * Month to list: the explicit one, else the month of the deep-linked
+ * occurrence, else the current Buenos Aires month.
+ */
+function resolveListingMonth(query: ListTribeEventsQuery): string {
+  if (query.month !== null) {
+    return query.month;
+  }
+
+  return query.occurrence
+    ? resolveBuenosAiresMonthOf(new Date(query.occurrence.occurrenceStartsAt))
+    : resolveCurrentBuenosAiresMonth();
+}
+
 export function listTribeEvents({ tribeEventRepository }: TribeEventDependencies) {
   return async (query: ListTribeEventsQuery): Promise<TribeEventListResult> => {
-    const deepLink = normalizeOccurrenceKeyQuery(query.occurrenceKey);
-    const current = normalizeMonthQuery(
-      query.month ||
-        (deepLink
-          ? resolveBuenosAiresMonthOf(new Date(deepLink.occurrenceStartsAt))
-          : undefined)
-    );
+    const current = resolveListingMonth(query);
     const currentParts = parseMonth(current);
     const range = createBuenosAiresMonthRange(current);
     const listing = await tribeEventRepository.listByTribeRange({
       ...range,
-      tribeSlug: query.tribeSlug.trim(),
+      tribeSlug: query.tribeSlug,
     });
     const events = buildTribeEventOccurrences(
       listing.events,
@@ -328,8 +206,9 @@ export function listTribeEvents({ tribeEventRepository }: TribeEventDependencies
       range
     );
     const selectedOccurrenceKey =
-      deepLink && events.some((occurrence) => occurrence.occurrenceKey === deepLink.key)
-        ? deepLink.key
+      query.occurrence &&
+      events.some((occurrence) => occurrence.occurrenceKey === query.occurrence?.key)
+        ? query.occurrence.key
         : null;
 
     return {
@@ -349,15 +228,9 @@ export function listTribeEvents({ tribeEventRepository }: TribeEventDependencies
 
 export function getTribeEvent({ tribeEventRepository }: TribeEventDependencies) {
   return async (query: GetTribeEventQuery): Promise<TribeEventResult | null> => {
-    const eventId = query.eventId.trim();
-
-    if (!isValidTribeEventId(eventId)) {
-      return null;
-    }
-
     const event = await tribeEventRepository.findById({
-      eventId,
-      tribeSlug: query.tribeSlug.trim(),
+      eventId: query.eventId,
+      tribeSlug: query.tribeSlug,
     });
 
     return event ? toTribeEventResult(event) : null;
@@ -396,13 +269,10 @@ export function updateTribeEvent({
   tribeEventRepository,
 }: TribeEventDependencies) {
   return async (command: UpdateTribeEventCommand): Promise<TribeEventSaveResult> => {
-    const eventId = command.eventId.trim();
-
-    if (!isValidTribeEventId(eventId)) {
-      return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
-    }
-
-    const normalizedInput = normalizeEventInput(command);
+    const normalizedInput = normalizeEventInput({
+      ...command,
+      capacity: command.capacity ?? null,
+    });
 
     if (normalizedInput.status !== NORMALIZED_EVENT_STATUS.valid) {
       return { status: normalizedInput.status };
@@ -412,8 +282,8 @@ export function updateTribeEvent({
     const result = await tribeEventRepository.update({
       ...normalizedInput.input,
       attendanceRange: visibleMonthRange,
-      capacity: resolveCapacityUpdate(command.capacity, normalizedInput.input.capacity),
-      eventId,
+      capacity: resolveCapacityUpdate(command.capacity),
+      eventId: command.eventId,
     });
 
     if (result.status !== TRIBE_EVENT_MUTATION_STATUS.updated) {
@@ -435,16 +305,9 @@ export function updateTribeEvent({
 export function deleteTribeEvent({
   tribeEventRepository,
 }: TribeEventDependencies) {
-  return async (command: DeleteTribeEventCommand): Promise<TribeEventDeleteResult> => {
-    const eventId = command.eventId.trim();
-
-    if (!isValidTribeEventId(eventId)) {
-      return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
-    }
-
-    return tribeEventRepository.delete({
-      eventId,
-      tribeSlug: command.tribeSlug.trim(),
+  return async (command: DeleteTribeEventCommand): Promise<TribeEventDeleteResult> =>
+    tribeEventRepository.delete({
+      eventId: command.eventId,
+      tribeSlug: command.tribeSlug,
     });
-  };
 }

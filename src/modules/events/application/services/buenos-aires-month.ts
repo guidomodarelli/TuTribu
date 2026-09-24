@@ -111,22 +111,6 @@ export function resolveCurrentBuenosAiresMonth(now: Date = new Date()): string {
 }
 
 /**
- * Picks a valid month from a route query value, falling back to the current
- * Buenos Aires month when the value is missing, repeated, or malformed.
- */
-export function normalizeMonthQuery(
-  month: string | string[] | undefined
-): string {
-  const monthValue = Array.isArray(month) ? month[0] : month;
-
-  if (!monthValue || !parseMonth(monthValue)) {
-    return resolveCurrentBuenosAiresMonth();
-  }
-
-  return monthValue;
-}
-
-/**
  * UTC range `[monthStart, nextMonthStart)` covering the Buenos Aires month.
  */
 export function createBuenosAiresMonthRange(month: string): TribeEventDateRange {

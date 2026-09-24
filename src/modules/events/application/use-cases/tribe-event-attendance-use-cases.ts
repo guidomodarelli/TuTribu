@@ -10,9 +10,7 @@ import type {
   TribeEventAttendeeResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 import { createPastTribeEventRange } from "@/src/modules/events/application/services/tribe-event-time-ranges";
-import { isValidTribeEventId } from "@/src/modules/events/application/use-cases/manage-tribe-events-use-cases";
 import {
-  TRIBE_EVENT_ATTENDANCE_OPTIONS,
   TRIBE_EVENT_ATTENDANCE_STATUS,
   TRIBE_EVENT_ATTENDANCE_TREND,
   TRIBE_EVENT_MUTATION_STATUS,
@@ -20,7 +18,6 @@ import {
 } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEvent,
-  TribeEventAttendanceOption,
   TribeEventAttendee,
   TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
@@ -53,35 +50,22 @@ type ResolvedAttendanceKey =
 const RESOLVED_KEY_STATUS = {
   valid: "valid",
 } as const;
-const ATTENDANCE_OPTIONS: ReadonlySet<string> = new Set(TRIBE_EVENT_ATTENDANCE_OPTIONS);
 
 /**
- * Validates the identifiers and proves the occurrence is a real slot of the
- * series before touching attendance rows.
+ * Proves the occurrence is a real slot of the series before touching
+ * attendance rows. Identifiers and the instant format were already validated
+ * at the route boundary; this is the business rule a schema cannot express.
  */
 async function resolveAttendanceKey(
   tribeEventRepository: TribeEventRepository,
   command: ClearTribeEventAttendanceCommand
 ): Promise<ResolvedAttendanceKey> {
-  const eventId = command.eventId.trim();
-  const tribeSlug = command.tribeSlug.trim();
-  const occurrenceTime = Date.parse(command.occurrenceStartsAt.trim());
-
-  if (!Number.isFinite(occurrenceTime)) {
-    return { status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance };
-  }
-
-  if (!isValidTribeEventId(eventId)) {
-    return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
-  }
-
+  const { eventId, occurrenceStartsAt, tribeSlug } = command;
   const event = await tribeEventRepository.findById({ eventId, tribeSlug });
 
   if (!event) {
     return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
   }
-
-  const occurrenceStartsAt = new Date(occurrenceTime).toISOString();
 
   if (!findTribeEventOccurrence(event, occurrenceStartsAt)) {
     return { status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance };
@@ -106,10 +90,6 @@ function pickValidatedSchedule(event: TribeEvent): TribeEventSchedule {
     recurrenceUntil: event.recurrenceUntil,
     startsAt: event.startsAt,
   };
-}
-
-function isAttendanceOption(status: string): status is TribeEventAttendanceOption {
-  return ATTENDANCE_OPTIONS.has(status);
 }
 
 /**
@@ -159,14 +139,6 @@ export function setTribeEventAttendance({
   return async (
     command: SetTribeEventAttendanceCommand
   ): Promise<TribeEventAttendanceMutationResult> => {
-    const status = command.status.trim();
-
-    // `waitlisted` is never requested: the database assigns it when a
-    // "going" answer finds the occurrence full.
-    if (!isAttendanceOption(status)) {
-      return { status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance };
-    }
-
     const resolvedKey = await resolveAttendanceKey(tribeEventRepository, command);
 
     if (resolvedKey.status !== RESOLVED_KEY_STATUS.valid) {
@@ -176,7 +148,7 @@ export function setTribeEventAttendance({
     return tribeEventRepository.setAttendance({
       ...resolvedKey.key,
       schedule: pickValidatedSchedule(resolvedKey.event),
-      status,
+      status: command.status,
     });
   };
 }

@@ -1,13 +1,21 @@
+import {
+  tribeEventListResponseSchema,
+  tribeEventSaveResponseSchema,
+} from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import { readAttendanceStreakResponseFragment } from "@/src/modules/events/infrastructure/api/tribe-event-attendance-streak-response";
 import {
+  tribeEventMonthQuerySchema,
+  tribeEventMutationBodySchema,
+  tribeEventsRouteParamsSchema,
+} from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
+import { createTribeEventPublicResponse } from "@/src/modules/events/infrastructure/api/tribe-event-public-response";
+import { parseTribeEventRouteInput } from "@/src/modules/events/infrastructure/api/tribe-event-route-input";
+import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
-  TRIBE_EVENT_ROUTE_QUERY_PARAM,
   TRIBE_EVENT_ROUTE_RESPONSE,
   createJsonResponse,
   mapTribeEventMutationStatusResponse,
-  readSearchParam,
-  readTribeEventMutationBody,
 } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -27,7 +35,6 @@ type TribeRouteContext = {
 };
 
 export async function GET(request: Request, context: TribeRouteContext) {
-  const { slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: EVENT_ROUTE_LOG.feature,
@@ -44,21 +51,43 @@ export async function GET(request: Request, context: TribeRouteContext) {
     );
   }
 
+  const input = await parseTribeEventRouteInput({
+    logger,
+    params: context.params,
+    request,
+    schemas: {
+      params: tribeEventsRouteParamsSchema,
+      query: tribeEventMonthQuerySchema,
+    },
+  });
+
+  if (!input.isValid) {
+    return input.response;
+  }
+
+  const { slug } = input.params;
+  const logMetadata = { slug, viewerId: authenticatedMember.id };
+
   try {
     const result = await modules.events.useCases.listTribeEvents({
-      month: readSearchParam(request, TRIBE_EVENT_ROUTE_QUERY_PARAM.month),
+      month: input.query.month ?? null,
+      occurrence: null,
       tribeSlug: slug,
     });
 
-    return createJsonResponse(result, TRIBE_EVENT_ROUTE_HTTP_STATUS.ok);
+    return createTribeEventPublicResponse({
+      body: result,
+      failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedListMessage,
+      logger,
+      metadata: logMetadata,
+      schema: tribeEventListResponseSchema,
+      status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
+    });
   } catch (error) {
     logger.error({
       message: EVENT_ROUTE_LOG.listFailureMessage,
       error,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
+      metadata: logMetadata,
     });
 
     return createJsonResponse(
@@ -69,7 +98,6 @@ export async function GET(request: Request, context: TribeRouteContext) {
 }
 
 export async function POST(request: Request, context: TribeRouteContext) {
-  const { slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: EVENT_ROUTE_LOG.feature,
@@ -86,18 +114,29 @@ export async function POST(request: Request, context: TribeRouteContext) {
     );
   }
 
+  const input = await parseTribeEventRouteInput({
+    logger,
+    params: context.params,
+    request,
+    schemas: {
+      body: tribeEventMutationBodySchema,
+      params: tribeEventsRouteParamsSchema,
+      query: tribeEventMonthQuerySchema,
+    },
+  });
+
+  if (!input.isValid) {
+    return input.response;
+  }
+
+  const { slug } = input.params;
+  const logMetadata = { slug, viewerId: authenticatedMember.id };
+
   try {
-    const body = await request.json().catch(() => null);
-    const mutationBody = readTribeEventMutationBody(body);
-
-    if (mutationBody.status === TRIBE_EVENT_MUTATION_STATUS.invalidCapacity) {
-      return mapTribeEventMutationStatusResponse(mutationBody.status);
-    }
-
     const result = await modules.events.useCases.createTribeEvent({
-      ...mutationBody.body,
+      ...input.body,
       tribeSlug: slug,
-      visibleMonth: readSearchParam(request, TRIBE_EVENT_ROUTE_QUERY_PARAM.month),
+      visibleMonth: input.query.month ?? null,
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.created) {
@@ -113,15 +152,19 @@ export async function POST(request: Request, context: TribeRouteContext) {
         viewerId: authenticatedMember.id,
       });
 
-      return createJsonResponse(
-        {
+      return createTribeEventPublicResponse({
+        body: {
           ...streakFragment,
           event: result.event,
           message: TRIBE_EVENT_ROUTE_RESPONSE.createSuccessMessage,
           occurrences: result.occurrences,
         },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.created
-      );
+        failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCreateMessage,
+        logger,
+        metadata: logMetadata,
+        schema: tribeEventSaveResponseSchema,
+        status: TRIBE_EVENT_ROUTE_HTTP_STATUS.created,
+      });
     }
 
     return mapTribeEventMutationStatusResponse(result.status);
@@ -129,10 +172,7 @@ export async function POST(request: Request, context: TribeRouteContext) {
     logger.error({
       message: EVENT_ROUTE_LOG.createFailureMessage,
       error,
-      metadata: {
-        slug,
-        viewerId: authenticatedMember.id,
-      },
+      metadata: logMetadata,
     });
 
     return createJsonResponse(

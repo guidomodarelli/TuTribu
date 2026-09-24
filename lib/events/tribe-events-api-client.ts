@@ -1,33 +1,43 @@
-import {
-  tribeEventAttendanceStreakDtoSchema,
-  tribeEventAttendanceStreakNextRefreshAtDtoSchema,
-  tribeEventAttendanceStreakResponseDtoSchema,
-} from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
+import type { z } from "zod";
+
 import {
   buildTribeEventApiEndpoint,
   buildTribeEventAttendanceApiEndpoint,
   buildTribeEventAttendanceStreakApiEndpoint,
   buildTribeEventsApiEndpoint,
 } from "@/lib/events/tribe-events-routes";
-import { TRIBE_EVENT_ATTENDANCE_FAILURE_CODE } from "@/src/modules/events/constants/tribe-events";
-import type { CreateTribeEventCommand } from "@/src/modules/events/application/commands/tribe-event-command";
+import {
+  tribeEventAttendanceReportResponseSchema,
+  tribeEventAttendanceResponseSchema,
+  tribeEventAttendanceStreakNextRefreshAtSchema,
+  tribeEventAttendanceStreakResponseSchema,
+  tribeEventDeleteResponseSchema,
+  tribeEventFailureResponseSchema,
+  tribeEventListResponseSchema,
+  tribeEventSaveResponseSchema,
+} from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import type {
   TribeEventAttendanceOption,
   TribeEventAttendanceReportResult,
   TribeEventAttendanceStreakResult,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
+import { TRIBE_EVENT_ATTENDANCE_FAILURE_CODE } from "@/src/modules/events/constants/tribe-events";
+import type { TribeEventMutationRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
 
 /**
  * Browser adapter for the tribe event route handlers. It only knows URLs,
  * HTTP verbs, and response bodies; UI feedback and state belong to callers.
+ * Every body is checked with the public DTO schema before it is returned: a
+ * response that does not match is treated as a failure with no message, so
+ * callers fall back to their own safe copy.
  */
 
 /**
- * Body sent to the create/update event endpoints. Optional fields travel as
- * empty strings so the application layer normalizes them in one place.
+ * Body sent to the create/update event endpoints (the wire contract validated
+ * by the route). Optional fields may travel as empty strings.
  */
-export type TribeEventSavePayload = Omit<CreateTribeEventCommand, "tribeSlug" | "visibleMonth">;
+export type TribeEventSavePayload = TribeEventMutationRequestBody;
 
 /**
  * Outcome of a request. `message` is the safe Spanish copy returned by the
@@ -43,9 +53,9 @@ export type TribeEventRequestResult<TData> =
  * mutation with a non-success status below 500 and a readable JSON body, so
  * nothing was stored. `isOutcomeAmbiguous: true` means the mutation may have
  * committed anyway: the route answered with a 5xx status, a body that could
- * not be read, or a success status whose body is unusable. A network failure
- * or timeout never resolves here; the request rejects and callers treat it as
- * ambiguous too.
+ * not be read, or a success status whose body is not the public DTO. A
+ * network failure or timeout never resolves here; the request rejects and
+ * callers treat it as ambiguous too.
  */
 export type TribeEventMutationFailure = {
   isOutcomeAmbiguous: boolean;
@@ -57,23 +67,6 @@ export type TribeEventMutationFailure = {
 export type TribeEventMutationResult<TData> =
   | ({ isSuccess: true; message: string | null } & TData)
   | TribeEventMutationFailure;
-
-type SaveEventResponseBody = {
-  attendanceStreak?: unknown;
-  attendanceStreakNextRefreshAt?: unknown;
-  message?: string;
-  occurrences?: TribeEventOccurrenceResult[];
-};
-
-type ListEventsResponseBody = {
-  events?: unknown;
-};
-
-type DeleteEventResponseBody = {
-  attendanceStreak?: unknown;
-  attendanceStreakNextRefreshAt?: unknown;
-  message?: string;
-};
 
 /**
  * Streak refreshed by a series mutation or a streak read. Absent means the
@@ -120,12 +113,6 @@ export type TribeEventStreakReadOutcome =
     }
   | { isSuccess: false };
 
-type AttendanceResponseBody = {
-  attendance?: TribeEventOccurrenceResult["attendance"];
-  code?: unknown;
-  message?: string;
-};
-
 /**
  * Outcome of an attendance request. A rejection carries
  * `isOccurrenceEnded` when the server already considers the occurrence
@@ -138,11 +125,6 @@ export type TribeEventAttendanceRequestResult =
       message: string | null;
     }
   | (TribeEventMutationFailure & { isOccurrenceEnded: boolean });
-
-type AttendanceReportResponseBody = {
-  message?: string;
-  report?: TribeEventAttendanceReportResult;
-};
 
 const HTTP_REQUEST = {
   contentTypeHeader: "Content-Type",
@@ -162,76 +144,74 @@ const HTTP_SERVER_ERROR_MIN_STATUS = 500;
  * Streak part of the streak read body; its next refresh instant is guarded
  * apart so an unusable instant never drops a usable streak.
  */
-const tribeEventAttendanceStreakReadDtoSchema = tribeEventAttendanceStreakResponseDtoSchema.pick({
+const tribeEventAttendanceStreakReadSchema = tribeEventAttendanceStreakResponseSchema.pick({
   attendanceStreak: true,
 });
 
 /**
- * Guards the public streak DTO of a mutation response: only `null` or an
- * object with non-negative integer counts is applied (extra keys are
- * dropped); anything else is ignored so the UI keeps the streak it shows.
+ * Occurrence part of the month listing, the only field a month re-read uses.
  */
-function readStreakRefresh(attendanceStreak: unknown): TribeEventStreakRefresh {
-  if (attendanceStreak === null) {
-    return { attendanceStreak: null };
-  }
+const tribeEventOccurrencesReadSchema = tribeEventListResponseSchema.pick({ events: true });
 
-  const parsedStreak = tribeEventAttendanceStreakDtoSchema.safeParse(attendanceStreak);
-
-  return parsedStreak.success ? { attendanceStreak: parsedStreak.data } : {};
-}
+type TribeEventResponseRead<TDto> =
+  | { dto: TDto; isUsable: true }
+  | {
+      code: string | null;
+      isBodyReadable: boolean;
+      isUsable: false;
+      message: string | null;
+    };
 
 /**
- * Guards the next refresh instant of a mutation response: only an ISO 8601
- * UTC instant or `null` is applied; anything else (or an absent field) is
- * ignored so the UI keeps the instant it already watches. It is read apart
- * from the streak, so an unusable value in one field never drops the other.
+ * Keeps the "absent means keep the streak on screen" contract: the validated
+ * body carries `undefined` when the route omitted the streak or sent an
+ * unusable one, and the refresh object then has no `attendanceStreak` key.
+ * The next refresh instant follows the same rule, apart from the streak, so
+ * an unusable value in one field never drops the other.
  */
-function readStreakNextRefresh(
-  attendanceStreakNextRefreshAt: unknown
-): Pick<TribeEventStreakReadResult, "attendanceStreakNextRefreshAt"> {
-  const parsedNextRefreshAt = tribeEventAttendanceStreakNextRefreshAtDtoSchema.safeParse(
-    attendanceStreakNextRefreshAt
-  );
-
-  return parsedNextRefreshAt.success
-    ? { attendanceStreakNextRefreshAt: parsedNextRefreshAt.data }
-    : {};
-}
-
-/**
- * Reads the streak fragment the series mutations spread into their body.
- */
-function readMutationStreakFragment(body: {
-  attendanceStreak?: unknown;
-  attendanceStreakNextRefreshAt?: unknown;
+function readMutationStreakFragment(dto: {
+  attendanceStreak?: TribeEventAttendanceStreakResult | null;
+  attendanceStreakNextRefreshAt?: string | null;
 }): TribeEventStreakReadResult {
   return {
-    ...readStreakRefresh(body.attendanceStreak),
-    ...readStreakNextRefresh(body.attendanceStreakNextRefreshAt),
+    ...(dto.attendanceStreak === undefined ? {} : { attendanceStreak: dto.attendanceStreak }),
+    ...(dto.attendanceStreakNextRefreshAt === undefined
+      ? {}
+      : { attendanceStreakNextRefreshAt: dto.attendanceStreakNextRefreshAt }),
   };
 }
 
 /**
- * Reads a JSON body, degrading to an empty object when the response has no
- * parseable body so callers fall back to their own safe copy.
+ * Reads a response body and validates it: the success DTO when the status is
+ * OK and the body matches `schema`, otherwise the route's safe message (and
+ * stable failure code) when the body is a failure DTO. A missing, non-JSON, or
+ * unexpected body yields no message so callers show their own fallback copy.
+ * `isBodyReadable` tells whether the body was a JSON object at all, which
+ * mutations use to tell a clean rejection from an ambiguous outcome.
  */
-async function readJsonBody<TBody>(response: Response): Promise<TBody> {
-  return (await response.json().catch(() => ({}))) as TBody;
-}
-
-/**
- * Reads the JSON body of a mutation response and tells whether it was
- * readable: a parseable JSON object. Unreadable bodies degrade to an empty
- * object so callers fall back to their own safe copy.
- */
-async function readMutationJsonBody<TBody>(
-  response: Response
-): Promise<{ body: TBody; isReadable: boolean }> {
+async function readTribeEventResponse<TDto>(
+  response: Response,
+  schema: z.ZodType<TDto>
+): Promise<TribeEventResponseRead<TDto>> {
   const body: unknown = await response.json().catch(() => undefined);
-  const isReadable = typeof body === "object" && body !== null && !Array.isArray(body);
 
-  return { body: (isReadable ? body : {}) as TBody, isReadable };
+  if (response.ok) {
+    const dto = schema.safeParse(body);
+
+    if (dto.success) {
+      return { dto: dto.data, isUsable: true };
+    }
+  }
+
+  const failure = tribeEventFailureResponseSchema.safeParse(body);
+  const isFailureDto = !response.ok && failure.success;
+
+  return {
+    code: isFailureDto ? (failure.data.code ?? null) : null,
+    isBodyReadable: typeof body === "object" && body !== null && !Array.isArray(body),
+    isUsable: false,
+    message: isFailureDto ? failure.data.message : null,
+  };
 }
 
 /**
@@ -242,13 +222,12 @@ async function readMutationJsonBody<TBody>(
  */
 function buildMutationFailure(
   response: Response,
-  isBodyReadable: boolean,
-  message: string | undefined
+  read: { isBodyReadable: boolean; message: string | null }
 ): TribeEventMutationFailure {
   const isServerError = response.status >= HTTP_SERVER_ERROR_MIN_STATUS;
-  const isRejected = !response.ok && !isServerError && isBodyReadable;
+  const isRejected = !response.ok && !isServerError && read.isBodyReadable;
 
-  return { isOutcomeAmbiguous: !isRejected, isSuccess: false, message: message ?? null };
+  return { isOutcomeAmbiguous: !isRejected, isSuccess: false, message: read.message };
 }
 
 /**
@@ -278,17 +257,17 @@ export async function saveTribeEventRequest(input: {
     headers: JSON_HEADERS,
     method: input.eventId ? HTTP_REQUEST.methodPatch : HTTP_REQUEST.methodPost,
   });
-  const { body, isReadable } = await readMutationJsonBody<SaveEventResponseBody>(response);
+  const result = await readTribeEventResponse(response, tribeEventSaveResponseSchema);
 
-  if (!response.ok || !body.occurrences) {
-    return buildMutationFailure(response, isReadable, body.message);
+  if (!result.isUsable) {
+    return buildMutationFailure(response, result);
   }
 
   return {
-    ...readMutationStreakFragment(body),
+    ...readMutationStreakFragment(result.dto),
     isSuccess: true,
-    message: body.message ?? null,
-    occurrences: body.occurrences,
+    message: result.dto.message,
+    occurrences: result.dto.occurrences,
   };
 }
 
@@ -307,11 +286,15 @@ export async function deleteTribeEventRequest(input: {
   const response = await fetch(buildTribeEventApiEndpoint(input.tribeSlug, input.eventId), {
     method: HTTP_REQUEST.methodDelete,
   });
-  const { body, isReadable } = await readMutationJsonBody<DeleteEventResponseBody>(response);
+  const result = await readTribeEventResponse(response, tribeEventDeleteResponseSchema);
 
-  return response.ok
-    ? { ...readMutationStreakFragment(body), isSuccess: true, message: body.message ?? null }
-    : buildMutationFailure(response, isReadable, body.message);
+  return result.isUsable
+    ? {
+        ...readMutationStreakFragment(result.dto),
+        isSuccess: true,
+        message: result.dto.message,
+      }
+    : buildMutationFailure(response, result);
 }
 
 /**
@@ -329,17 +312,17 @@ export async function fetchTribeEventAttendanceStreakRequest(input: {
   signal?: AbortSignal;
   tribeSlug: string;
 }): Promise<TribeEventStreakReadOutcome> {
-  const response = await fetch(
-    buildTribeEventAttendanceStreakApiEndpoint(input.tribeSlug),
-    { cache: "no-store", signal: input.signal }
-  );
+  const response = await fetch(buildTribeEventAttendanceStreakApiEndpoint(input.tribeSlug), {
+    cache: "no-store",
+    signal: input.signal,
+  });
 
   if (!response.ok) {
     return { isSuccess: false };
   }
 
-  const body = await readJsonBody<unknown>(response);
-  const parsedStreak = tribeEventAttendanceStreakReadDtoSchema.safeParse(body);
+  const body: unknown = await response.json().catch(() => undefined);
+  const parsedStreak = tribeEventAttendanceStreakReadSchema.safeParse(body);
 
   if (!parsedStreak.success) {
     return { isSuccess: false };
@@ -348,20 +331,25 @@ export async function fetchTribeEventAttendanceStreakRequest(input: {
   // The instant is read apart from the streak: an absent or unusable one
   // keeps the streak usable but turns the read into a partial one.
   const { attendanceStreak } = parsedStreak.data;
-  const { attendanceStreakNextRefreshAt } = readStreakNextRefresh(
+  const parsedNextRefreshAt = tribeEventAttendanceStreakNextRefreshAtSchema.safeParse(
     (body as { attendanceStreakNextRefreshAt?: unknown }).attendanceStreakNextRefreshAt
   );
 
-  return attendanceStreakNextRefreshAt === undefined
-    ? { attendanceStreak, isPartial: true, isSuccess: true }
-    : { attendanceStreak, attendanceStreakNextRefreshAt, isPartial: false, isSuccess: true };
+  return parsedNextRefreshAt.success
+    ? {
+        attendanceStreak,
+        attendanceStreakNextRefreshAt: parsedNextRefreshAt.data,
+        isPartial: false,
+        isSuccess: true,
+      }
+    : { attendanceStreak, isPartial: true, isSuccess: true };
 }
 
 /**
  * Reads the occurrences of the visible month again, for example after an
  * edit and an attendance answer overlapped and nothing tells which summary is
- * the committed one. An error status or a body without an occurrence list
- * resolves to a failed read.
+ * the committed one. An error status or a body whose occurrences are not the
+ * public DTO resolves to a failed read.
  *
  * @param input - Tribe slug, visible `YYYY-MM` month, and an abort signal that
  * cancels a stale read.
@@ -379,15 +367,10 @@ export async function fetchTribeEventOccurrencesRequest(input: {
     cache: "no-store",
     signal: input.signal,
   });
+  const result = await readTribeEventResponse(response, tribeEventOccurrencesReadSchema);
 
-  if (!response.ok) {
-    return { isSuccess: false };
-  }
-
-  const body = await readJsonBody<ListEventsResponseBody>(response);
-
-  return Array.isArray(body.events)
-    ? { isSuccess: true, occurrences: body.events as TribeEventOccurrenceResult[] }
+  return result.isUsable
+    ? { isSuccess: true, occurrences: result.dto.events }
     : { isSuccess: false };
 }
 
@@ -415,17 +398,20 @@ export async function saveTribeEventAttendanceRequest(input: {
         buildTribeEventAttendanceApiEndpoint(tribeSlug, occurrence.eventId, occurrence.startsAt),
         { method: HTTP_REQUEST.methodDelete }
       );
-  const { body, isReadable } = await readMutationJsonBody<AttendanceResponseBody>(response);
+  const result = await readTribeEventResponse(response, tribeEventAttendanceResponseSchema);
 
-  if (!response.ok || !body.attendance) {
+  if (!result.isUsable) {
     return {
-      ...buildMutationFailure(response, isReadable, body.message),
-      isOccurrenceEnded:
-        !response.ok && body.code === TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
+      ...buildMutationFailure(response, result),
+      isOccurrenceEnded: result.code === TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
     };
   }
 
-  return { attendance: body.attendance, isSuccess: true, message: body.message ?? null };
+  return {
+    attendance: result.dto.attendance,
+    isSuccess: true,
+    message: result.dto.message,
+  };
 }
 
 /**
@@ -445,11 +431,14 @@ export async function fetchTribeEventAttendanceReportRequest(input: {
     buildTribeEventAttendanceApiEndpoint(input.tribeSlug, input.eventId, input.occurrenceStartsAt),
     { signal: input.signal }
   );
-  const body = await readJsonBody<AttendanceReportResponseBody>(response);
+  const result = await readTribeEventResponse(
+    response,
+    tribeEventAttendanceReportResponseSchema
+  );
 
-  if (!response.ok || !body.report) {
-    return { isSuccess: false, message: body.message ?? null };
+  if (!result.isUsable) {
+    return { isSuccess: false, message: result.message };
   }
 
-  return { isSuccess: true, message: null, report: body.report };
+  return { isSuccess: true, message: null, report: result.dto.report };
 }

@@ -62,6 +62,22 @@ function createOccurrence(
 }
 
 /**
+ * Saved series as the create/update routes return it (public event DTO).
+ */
+const SAVED_EVENT_DTO = {
+  capacity: null,
+  description: null,
+  endsAt: "2026-05-20T19:00:00.000Z",
+  id: SAVED_EVENT_ID,
+  meetingUrl: null,
+  recurrenceFrequency: "none",
+  recurrenceRule: null,
+  recurrenceUntil: null,
+  startsAt: "2026-05-20T18:00:00.000Z",
+  title: "Clase abierta",
+};
+
+/**
  * Promise the test settles by hand, standing in for a slow route response.
  */
 function createHeldResponse() {
@@ -167,7 +183,7 @@ describe("useTribeEventMutations streak ordering", () => {
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
       attendanceStreakNextRefreshAt: LATER_FUTURE_DEADLINE,
-      event: {},
+      event: SAVED_EVENT_DTO,
       message: "Evento actualizado.",
       occurrences: [{ ...savedOccurrence, title: "Clase renovada" }],
     });
@@ -221,7 +237,7 @@ describe("useTribeEventMutations streak ordering", () => {
     // The route could not recompute the streak, so it omitted the field.
     await heldSave.resolve({
       attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
-      event: {},
+      event: SAVED_EVENT_DTO,
       message: "Evento actualizado.",
       occurrences: [{ ...savedOccurrence, title: "Clase renovada" }],
     });
@@ -291,7 +307,7 @@ describe("useTribeEventMutations streak ordering", () => {
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
       attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
-      event: {},
+      event: SAVED_EVENT_DTO,
       message: "Evento actualizado.",
       occurrences: [{ ...savedOccurrence, title: "Clase renovada" }],
     });
@@ -474,7 +490,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
       attendanceStreakNextRefreshAt: PASSED_DEADLINE,
-      event: {},
+      event: SAVED_EVENT_DTO,
       message: "Evento actualizado.",
       occurrences: [{ ...attendedOccurrence, title: "Clase renovada" }],
     });
@@ -718,7 +734,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
       attendanceStreakNextRefreshAt: UPCOMING_DEADLINE,
-      event: {},
+      event: SAVED_EVENT_DTO,
       message: "Evento actualizado.",
       occurrences: [{ ...attendedOccurrence, title: "Clase renovada" }],
     });
@@ -771,7 +787,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     // The response omits the next refresh instant, which would require a read.
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
-      event: {},
+      event: SAVED_EVENT_DTO,
       message: "Evento actualizado.",
       occurrences: [{ ...attendedOccurrence, title: "Clase renovada" }],
     });
@@ -810,7 +826,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 3, occurrenceCount: 5 },
       attendanceStreakNextRefreshAt: UPCOMING_DEADLINE,
-      event: {},
+      event: SAVED_EVENT_DTO,
       message: "Evento actualizado.",
       occurrences: [{ ...attendedOccurrence, title: "Clase renovada" }],
     });
@@ -889,7 +905,7 @@ describe("useTribeEventMutations server render source", () => {
     await heldSave.resolve({
       attendanceStreak: { attendedCount: 2, occurrenceCount: 5 },
       attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
-      event: {},
+      event: SAVED_EVENT_DTO,
       message: "Evento actualizado.",
       occurrences: [savedOccurrence],
     });
@@ -1007,7 +1023,7 @@ describe("useTribeEventMutations overlapping mutations and new server renders", 
     await heldSave.resolve({
       attendanceStreak: committedStreak,
       attendanceStreakNextRefreshAt: FUTURE_DEADLINE,
-      event: {},
+      event: SAVED_EVENT_DTO,
       message: "Evento actualizado.",
       occurrences: [renamedOccurrence],
     });

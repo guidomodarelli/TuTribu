@@ -1,8 +1,8 @@
 import type { TribeEventAttendanceStreakSnapshotResult } from "@/src/modules/events/application/results/tribe-event-result";
 import {
-  tribeEventAttendanceStreakMutationFragmentDtoSchema,
-  type TribeEventAttendanceStreakMutationFragmentDto,
-} from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
+  tribeEventAttendanceStreakMutationFragmentSchema,
+  type TribeEventAttendanceStreakMutationFragment,
+} from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 
 /**
  * Streak refresh attached to the responses of series mutations (POST, PATCH,
@@ -54,7 +54,7 @@ type AttendanceStreakRefreshInput = {
  * window; an omitted field could not be recomputed and the client reads the
  * streak again instead of applying the fragment.
  */
-export type AttendanceStreakResponseFragment = TribeEventAttendanceStreakMutationFragmentDto;
+export type AttendanceStreakResponseFragment = TribeEventAttendanceStreakMutationFragment;
 
 /**
  * Recomputes the viewer streak, its next refresh instant, and the database
@@ -97,7 +97,7 @@ export async function readAttendanceStreakResponseFragment({
     field: Record<string, unknown>,
     failureMessage: string
   ): AttendanceStreakResponseFragment => {
-    const parsedField = tribeEventAttendanceStreakMutationFragmentDtoSchema.safeParse(field);
+    const parsedField = tribeEventAttendanceStreakMutationFragmentSchema.safeParse(field);
 
     if (!parsedField.success) {
       logFailure(failureMessage, parsedField.error);

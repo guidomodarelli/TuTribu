@@ -1,5 +1,10 @@
-import { tribeEventAttendanceStreakResponseDtoSchema } from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
-import { tribeEventAttendanceStreakRouteParamsSchema } from "@/src/modules/events/infrastructure/api/tribe-event-attendance-streak-route-params";
+import { tribeEventAttendanceStreakResponseSchema } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
+import {
+  tribeEventEmptyQuerySchema,
+  tribeEventsRouteParamsSchema,
+} from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
+import { createTribeEventPublicResponse } from "@/src/modules/events/infrastructure/api/tribe-event-public-response";
+import { parseTribeEventRouteInput } from "@/src/modules/events/infrastructure/api/tribe-event-route-input";
 import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
   TRIBE_EVENT_ROUTE_RESPONSE,
@@ -30,18 +35,6 @@ type TribeRouteContext = {
  * calendar keeps scheduling refreshes for occurrences outside the visible month.
  */
 export async function GET(request: Request, context: TribeRouteContext) {
-  const parsedParams = tribeEventAttendanceStreakRouteParamsSchema.safeParse(
-    await context.params
-  );
-
-  if (!parsedParams.success) {
-    return createJsonResponse(
-      { message: TRIBE_EVENT_ROUTE_RESPONSE.tribeNotFoundMessage },
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
-    );
-  }
-
-  const { slug } = parsedParams.data;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: ATTENDANCE_STREAK_ROUTE_LOG.feature,
@@ -58,6 +51,23 @@ export async function GET(request: Request, context: TribeRouteContext) {
     );
   }
 
+  const input = await parseTribeEventRouteInput({
+    logger,
+    params: context.params,
+    request,
+    schemas: {
+      params: tribeEventsRouteParamsSchema,
+      query: tribeEventEmptyQuerySchema,
+    },
+  });
+
+  if (!input.isValid) {
+    return input.response;
+  }
+
+  const { slug } = input.params;
+  const logMetadata = { slug, viewerId: authenticatedMember.id };
+
   // The streak and its next refresh come from one read (a single database
   // snapshot) at one reference instant, the database clock of that read, so a
   // schedule change committed while the route runs can never show up in one
@@ -69,22 +79,25 @@ export async function GET(request: Request, context: TribeRouteContext) {
         tribeSlug: slug,
       });
 
-    return createJsonResponse(
-      tribeEventAttendanceStreakResponseDtoSchema.parse({
+    return createTribeEventPublicResponse({
+      body: {
         attendanceStreak,
         attendanceStreakComputedAt: computedAt,
         attendanceStreakNextRefreshAt: nextRefreshAt,
-      }),
-      TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
-    );
+      },
+      failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedAttendanceStreakMessage,
+      logger,
+      metadata: logMetadata,
+      schema: tribeEventAttendanceStreakResponseSchema,
+      status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
+    });
   } catch (error) {
     logger.error({
       message: ATTENDANCE_STREAK_ROUTE_LOG.failureMessage,
       error,
       metadata: {
+        ...logMetadata,
         reason: ATTENDANCE_STREAK_ROUTE_LOG.failureReason,
-        slug,
-        viewerId: authenticatedMember.id,
       },
     });
 

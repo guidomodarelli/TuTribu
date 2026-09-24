@@ -1,12 +1,13 @@
 import {
-  tribeEventAttendanceStreakComputedAtDtoSchema,
-  tribeEventAttendanceStreakNextRefreshAtDtoSchema,
-} from "@/src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto";
+  tribeEventAttendanceStreakComputedAtSchema,
+  tribeEventAttendanceStreakNextRefreshAtSchema,
+} from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 
 /**
- * Browser-side readers of the attendance streak snapshot and refresh instants. The public
- * response contract of the streak route lives in the events module
- * (`src/modules/events/infrastructure/api/dto/tribe-event-attendance-streak-dto.ts`).
+ * Browser-side readers of the attendance streak snapshot and refresh instants
+ * the events page sends as props. The contracts themselves live with the
+ * other public DTO schemas in
+ * `application/results/tribe-event-public-dto-schemas.ts`.
  */
 
 /**
@@ -16,7 +17,7 @@ import {
  * @returns Epoch milliseconds, or null when the value is missing or unusable.
  */
 export function readAttendanceStreakComputedTime(computedAt: unknown): number | null {
-  const parsedComputedAt = tribeEventAttendanceStreakComputedAtDtoSchema.safeParse(computedAt);
+  const parsedComputedAt = tribeEventAttendanceStreakComputedAtSchema.safeParse(computedAt);
 
   return parsedComputedAt.success ? Date.parse(parsedComputedAt.data) : null;
 }
@@ -31,7 +32,7 @@ export function readAttendanceStreakComputedTime(computedAt: unknown): number | 
  */
 export function readAttendanceStreakNextRefreshTime(nextRefreshAt: unknown): number | null {
   const parsedNextRefreshAt =
-    tribeEventAttendanceStreakNextRefreshAtDtoSchema.safeParse(nextRefreshAt);
+    tribeEventAttendanceStreakNextRefreshAtSchema.safeParse(nextRefreshAt);
 
   return parsedNextRefreshAt.success && parsedNextRefreshAt.data !== null
     ? Date.parse(parsedNextRefreshAt.data)

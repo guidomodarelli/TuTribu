@@ -1,16 +1,25 @@
 import {
+  tribeEventAttendanceReportResponseSchema,
+  tribeEventAttendanceResponseSchema,
+} from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
+import {
   TRIBE_EVENT_ATTENDANCE_STATUS,
   TRIBE_EVENT_MUTATION_STATUS,
 } from "@/src/modules/events/constants/tribe-events";
 import {
+  tribeEventAttendanceBodySchema,
+  tribeEventEmptyQuerySchema,
+  tribeEventOccurrenceQuerySchema,
+  tribeEventRouteParamsSchema,
+} from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
+import { createTribeEventPublicResponse } from "@/src/modules/events/infrastructure/api/tribe-event-public-response";
+import { parseTribeEventRouteInput } from "@/src/modules/events/infrastructure/api/tribe-event-route-input";
+import {
   TRIBE_EVENT_ROUTE_HTTP_STATUS,
-  TRIBE_EVENT_ROUTE_QUERY_PARAM,
   TRIBE_EVENT_ROUTE_RESPONSE,
   createJsonResponse,
   mapTribeEventAttendanceReportStatusResponse,
   mapTribeEventAttendanceStatusResponse,
-  readSearchParam,
-  readTribeEventAttendanceBody,
 } from "@/src/modules/events/infrastructure/api/tribe-event-route-responses";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -37,7 +46,6 @@ type TribeEventRouteContext = {
  * Authorization is enforced by the use case (403 for everyone else).
  */
 export async function GET(request: Request, context: TribeEventRouteContext) {
-  const { eventId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: ATTENDANCE_ROUTE_LOG.feature,
@@ -54,8 +62,28 @@ export async function GET(request: Request, context: TribeEventRouteContext) {
     );
   }
 
-  const occurrenceStartsAt =
-    readSearchParam(request, TRIBE_EVENT_ROUTE_QUERY_PARAM.occurrence) ?? "";
+  const input = await parseTribeEventRouteInput({
+    logger,
+    params: context.params,
+    request,
+    schemas: {
+      params: tribeEventRouteParamsSchema,
+      query: tribeEventOccurrenceQuerySchema,
+    },
+  });
+
+  if (!input.isValid) {
+    return input.response;
+  }
+
+  const { eventId, slug } = input.params;
+  const occurrenceStartsAt = input.query.occurrence;
+  const logMetadata = {
+    eventId,
+    occurrenceStartsAt,
+    slug,
+    viewerId: authenticatedMember.id,
+  };
 
   try {
     const result = await modules.events.useCases.getTribeEventAttendanceReport({
@@ -65,7 +93,14 @@ export async function GET(request: Request, context: TribeEventRouteContext) {
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.found) {
-      return createJsonResponse({ report: result.report }, TRIBE_EVENT_ROUTE_HTTP_STATUS.ok);
+      return createTribeEventPublicResponse({
+        body: { report: result.report },
+        failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedAttendanceReportMessage,
+        logger,
+        metadata: logMetadata,
+        schema: tribeEventAttendanceReportResponseSchema,
+        status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
+      });
     }
 
     return mapTribeEventAttendanceReportStatusResponse(result.status);
@@ -73,12 +108,7 @@ export async function GET(request: Request, context: TribeEventRouteContext) {
     logger.error({
       message: ATTENDANCE_ROUTE_LOG.reportFailureMessage,
       error,
-      metadata: {
-        eventId,
-        occurrenceStartsAt,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
+      metadata: logMetadata,
     });
 
     return createJsonResponse(
@@ -93,7 +123,6 @@ export async function GET(request: Request, context: TribeEventRouteContext) {
  * occurrence. A "going" answer on a full occurrence is stored as waitlisted.
  */
 export async function PUT(request: Request, context: TribeEventRouteContext) {
-  const { eventId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: ATTENDANCE_ROUTE_LOG.feature,
@@ -110,25 +139,46 @@ export async function PUT(request: Request, context: TribeEventRouteContext) {
     );
   }
 
+  const input = await parseTribeEventRouteInput({
+    logger,
+    params: context.params,
+    request,
+    schemas: {
+      body: tribeEventAttendanceBodySchema,
+      params: tribeEventRouteParamsSchema,
+      query: tribeEventEmptyQuerySchema,
+    },
+  });
+
+  if (!input.isValid) {
+    return input.response;
+  }
+
+  const { eventId, slug } = input.params;
+  const logMetadata = { eventId, slug, viewerId: authenticatedMember.id };
+
   try {
-    const body = await request.json().catch(() => null);
     const result = await modules.events.useCases.setTribeEventAttendance({
-      ...readTribeEventAttendanceBody(body),
+      ...input.body,
       eventId,
       tribeSlug: slug,
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.attendanceSaved) {
-      return createJsonResponse(
-        {
+      return createTribeEventPublicResponse({
+        body: {
           attendance: result.attendance,
           message:
             result.attendance.viewerStatus === TRIBE_EVENT_ATTENDANCE_STATUS.waitlisted
               ? TRIBE_EVENT_ROUTE_RESPONSE.attendanceWaitlistedMessage
               : TRIBE_EVENT_ROUTE_RESPONSE.attendanceSavedMessage,
         },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
-      );
+        failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedAttendanceMessage,
+        logger,
+        metadata: logMetadata,
+        schema: tribeEventAttendanceResponseSchema,
+        status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
+      });
     }
 
     return mapTribeEventAttendanceStatusResponse(result.status);
@@ -136,11 +186,7 @@ export async function PUT(request: Request, context: TribeEventRouteContext) {
     logger.error({
       message: ATTENDANCE_ROUTE_LOG.setFailureMessage,
       error,
-      metadata: {
-        eventId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
+      metadata: logMetadata,
     });
 
     return createJsonResponse(
@@ -155,7 +201,6 @@ export async function PUT(request: Request, context: TribeEventRouteContext) {
  * query param. Freeing a seat promotes the first person on the waitlist.
  */
 export async function DELETE(request: Request, context: TribeEventRouteContext) {
-  const { eventId, slug } = await context.params;
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: ATTENDANCE_ROUTE_LOG.feature,
@@ -172,22 +217,42 @@ export async function DELETE(request: Request, context: TribeEventRouteContext) 
     );
   }
 
+  const input = await parseTribeEventRouteInput({
+    logger,
+    params: context.params,
+    request,
+    schemas: {
+      params: tribeEventRouteParamsSchema,
+      query: tribeEventOccurrenceQuerySchema,
+    },
+  });
+
+  if (!input.isValid) {
+    return input.response;
+  }
+
+  const { eventId, slug } = input.params;
+  const logMetadata = { eventId, slug, viewerId: authenticatedMember.id };
+
   try {
     const result = await modules.events.useCases.clearTribeEventAttendance({
       eventId,
-      occurrenceStartsAt:
-        readSearchParam(request, TRIBE_EVENT_ROUTE_QUERY_PARAM.occurrence) ?? "",
+      occurrenceStartsAt: input.query.occurrence,
       tribeSlug: slug,
     });
 
     if (result.status === TRIBE_EVENT_MUTATION_STATUS.attendanceCleared) {
-      return createJsonResponse(
-        {
+      return createTribeEventPublicResponse({
+        body: {
           attendance: result.attendance,
           message: TRIBE_EVENT_ROUTE_RESPONSE.attendanceClearedMessage,
         },
-        TRIBE_EVENT_ROUTE_HTTP_STATUS.ok
-      );
+        failureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedAttendanceMessage,
+        logger,
+        metadata: logMetadata,
+        schema: tribeEventAttendanceResponseSchema,
+        status: TRIBE_EVENT_ROUTE_HTTP_STATUS.ok,
+      });
     }
 
     return mapTribeEventAttendanceStatusResponse(result.status);
@@ -195,11 +260,7 @@ export async function DELETE(request: Request, context: TribeEventRouteContext) 
     logger.error({
       message: ATTENDANCE_ROUTE_LOG.clearFailureMessage,
       error,
-      metadata: {
-        eventId,
-        slug,
-        viewerId: authenticatedMember.id,
-      },
+      metadata: logMetadata,
     });
 
     return createJsonResponse(
