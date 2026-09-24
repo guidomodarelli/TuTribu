@@ -25,7 +25,6 @@ import type {
   TribeEvent,
   TribeEventAttendanceOption,
   TribeEventAttendee,
-  TribeEventOccurrenceWindow,
   TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
@@ -36,7 +35,6 @@ import {
   calculateTribeEventAttendanceStreak,
   selectRecentPastOccurrences,
 } from "@/src/modules/events/domain/services/tribe-event-attendance";
-import { hasTribeEventOccurrenceEnded } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
 import {
   expandTribeEventOccurrences,
   findTribeEventOccurrence,
@@ -46,19 +44,10 @@ type TribeEventAttendanceDependencies = {
   tribeEventRepository: TribeEventRepository;
 };
 
-type TribeEventAttendanceMutationDependencies = TribeEventAttendanceDependencies & {
-  /**
-   * Current time source (epoch ms), injectable for deterministic tests. Used
-   * to reject answers once the occurrence ended; defaults to the system clock.
-   */
-  now?: () => number;
-};
-
 type ResolvedAttendanceKey =
   | {
       event: TribeEvent;
       key: TribeEventAttendanceKey;
-      occurrence: TribeEventOccurrenceWindow;
       status: typeof RESOLVED_KEY_STATUS.valid;
     }
   | {
@@ -101,16 +90,13 @@ async function resolveAttendanceKey(
 
   const occurrenceStartsAt = new Date(occurrenceTime).toISOString();
 
-  const occurrence = findTribeEventOccurrence(event, occurrenceStartsAt);
-
-  if (!occurrence) {
+  if (!findTribeEventOccurrence(event, occurrenceStartsAt)) {
     return { status: TRIBE_EVENT_MUTATION_STATUS.invalidAttendance };
   }
 
   return {
     event,
     key: { eventId, occurrenceStartsAt, tribeSlug },
-    occurrence,
     status: RESOLVED_KEY_STATUS.valid,
   };
 }
@@ -180,13 +166,13 @@ function groupAttendees(
 
 /**
  * Saves the viewer answer for an occurrence. Answers are accepted only until
- * the occurrence ends (its effective end, see `getTribeEventOccurrenceEndTime`),
- * so finished occurrences cannot be rewritten through the API.
+ * the occurrence ends, but that boundary is decided by the database clock
+ * inside the locked SQL function (`occurrenceEnded`), never by the application
+ * host clock, which can drift ahead of PostgreSQL and reject valid answers.
  */
 export function setTribeEventAttendance({
-  now = Date.now,
   tribeEventRepository,
-}: TribeEventAttendanceMutationDependencies) {
+}: TribeEventAttendanceDependencies) {
   return async (
     command: SetTribeEventAttendanceCommand
   ): Promise<TribeEventAttendanceMutationResult> => {
@@ -204,10 +190,6 @@ export function setTribeEventAttendance({
       return { status: resolvedKey.status };
     }
 
-    if (hasTribeEventOccurrenceEnded(resolvedKey.occurrence, now())) {
-      return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded };
-    }
-
     return tribeEventRepository.setAttendance({
       ...resolvedKey.key,
       schedule: pickValidatedSchedule(resolvedKey.event),
@@ -217,13 +199,13 @@ export function setTribeEventAttendance({
 }
 
 /**
- * Removes the viewer answer of an occurrence. Like saving an answer, it is
- * rejected once the occurrence ended so past attendance stays frozen.
+ * Removes the viewer answer of an occurrence. Like saving an answer, the
+ * database rejects it (`occurrenceEnded`) once the occurrence ended, so past
+ * attendance stays frozen without trusting the application clock.
  */
 export function clearTribeEventAttendance({
-  now = Date.now,
   tribeEventRepository,
-}: TribeEventAttendanceMutationDependencies) {
+}: TribeEventAttendanceDependencies) {
   return async (
     command: ClearTribeEventAttendanceCommand
   ): Promise<TribeEventAttendanceMutationResult> => {
@@ -231,10 +213,6 @@ export function clearTribeEventAttendance({
 
     if (resolvedKey.status !== RESOLVED_KEY_STATUS.valid) {
       return { status: resolvedKey.status };
-    }
-
-    if (hasTribeEventOccurrenceEnded(resolvedKey.occurrence, now())) {
-      return { status: TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded };
     }
 
     return tribeEventRepository.clearAttendance({
