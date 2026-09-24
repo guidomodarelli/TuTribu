@@ -347,7 +347,10 @@ describe("PostgresTribeEventProposalRepository", () => {
   });
 
   it("locks the proposal and never creates an event for a resolved one", async () => {
-    const execute = vi.fn().mockResolvedValueOnce({
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{}] })
+      .mockResolvedValueOnce({
       rows: [
         {
           can_manage: true,
@@ -377,13 +380,14 @@ describe("PostgresTribeEventProposalRepository", () => {
         tribeSlug: TRIBE_SLUG,
       })
     ).resolves.toEqual({ status: "proposal_resolved" });
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("for update of event_proposals");
-    expect(execute).toHaveBeenCalledTimes(1);
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("for update of event_proposals");
+    expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("creates the event and resolves the proposal in the same transaction", async () => {
     const execute = vi
       .fn()
+      .mockResolvedValueOnce({ rows: [{}] })
       .mockResolvedValueOnce({
         rows: [
           {
@@ -438,8 +442,60 @@ describe("PostgresTribeEventProposalRepository", () => {
       proposal: { eventId: EVENT_ID, status: "approved" },
       status: "proposal_approved",
     });
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("insert into public.events");
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("update public.event_proposals");
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("insert into public.events");
+    expect(getSqlText(execute.mock.calls[3]?.[0])).toContain("update public.event_proposals");
+  });
+
+  it("locks the reviewer membership before rechecking the manager authorization", async () => {
+    const demotedReviewerProposal = {
+      can_manage: false,
+      proposed_by: "member-1",
+      status: "pending",
+      tribe_id: TRIBE_ID,
+      viewer_id: "leader-1",
+    };
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [demotedReviewerProposal] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [demotedReviewerProposal] });
+    const repository = new PostgresTribeEventProposalRepository(createExecutor(execute));
+
+    await expect(
+      repository.approve({
+        event: {
+          capacity: null,
+          description: null,
+          endsAt: null,
+          eventType: "workshop",
+          meetingUrl: null,
+          recurrenceFrequency: "none",
+          recurrenceUntil: null,
+          startsAt: "2026-05-20T21:00:00.000Z",
+          title: "Taller de repaso",
+        },
+        proposalId: PROPOSAL_ID,
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+    await expect(
+      repository.reject({ proposalId: PROPOSAL_ID, reviewNote: null, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({ status: "forbidden" });
+
+    // A demotion or block of the reviewer waits for the FOR SHARE lock, and the
+    // proposal lock reads can_manage_tribe_events in a later statement, so the
+    // authorization it sees can no longer change before the review commits.
+    for (const callIndex of [0, 2]) {
+      const membershipLockSql = getSqlText(execute.mock.calls[callIndex]?.[0]);
+
+      expect(membershipLockSql).toContain("tribe_members.user_id = public.current_app_user_id()");
+      expect(membershipLockSql).toContain("for share of tribe_members");
+      expect(getSqlText(execute.mock.calls[callIndex + 1]?.[0])).toContain(
+        "for update of event_proposals"
+      );
+    }
+    expect(execute).toHaveBeenCalledTimes(4);
   });
 
   it("hides someone else's proposal from a member who tries to withdraw it", async () => {
