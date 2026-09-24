@@ -112,6 +112,8 @@ const COPY = {
   createFailure: "No pudimos enviar la propuesta.",
   decisionFailure: "No pudimos actualizar la propuesta.",
   loadFailure: "No pudimos cargar las propuestas.",
+  refillFailure: "No pudimos actualizar la lista de propuestas: puede haber más pendientes.",
+  retry: "Reintentar",
   saved: "Listo.",
 } as const;
 const ABORT_ERROR_NAME = "AbortError";
@@ -160,7 +162,9 @@ function isSamePendingCountSource(
  * truncated queue (the last load counted more pending proposals than it
  * returned) reloads it in the background, keeping the visible list, so the
  * next oldest pending proposal replaces the reviewed one and the panel never
- * runs empty while the counter still reports pending proposals.
+ * runs empty while the counter still reports pending proposals. If that
+ * background read fails, the loaded queue stays visible and actionable and a
+ * warning toast offers a retry, since the queue may be incomplete.
  *
  * @param input - Tribe, visible month, server pending count and its render
  * token, the calendar patch callback, and the series mutation registration.
@@ -231,6 +235,22 @@ export function useTribeEventProposals({
       setLoadState({ status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.loading });
     }
 
+    /**
+     * A failed background refill keeps the loaded queue, whose proposals are
+     * still actionable, and warns with a retry instead of hiding them behind
+     * the error state; a foreground load has nothing to keep and shows it.
+     */
+    const handleLoadFailure = (message: string) => {
+      if (isBackgroundRefresh) {
+        toast.warning(COPY.refillFailure, {
+          action: { label: COPY.retry, onClick: () => requestProposals(true) },
+        });
+        return;
+      }
+
+      setLoadState({ message, status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error });
+    };
+
     fetchTribeEventProposalsRequest({ signal: controller.signal, tribeSlug })
       .then((result) => {
         if (controller.signal.aborted) {
@@ -238,10 +258,7 @@ export function useTribeEventProposals({
         }
 
         if (!result.isSuccess) {
-          setLoadState({
-            message: result.message ?? COPY.loadFailure,
-            status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error,
-          });
+          handleLoadFailure(result.message ?? COPY.loadFailure);
           return;
         }
 
@@ -264,7 +281,7 @@ export function useTribeEventProposals({
           return;
         }
 
-        setLoadState({ message: COPY.loadFailure, status: TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error });
+        handleLoadFailure(COPY.loadFailure);
       });
   };
 
