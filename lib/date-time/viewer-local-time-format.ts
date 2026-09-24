@@ -25,6 +25,7 @@ const MILLISECONDS_PER_MINUTE = 60_000;
 const MONTH_INDEX_OFFSET = 1;
 const TIME_RANGE_SEPARATOR = " - ";
 const DATE_TIME_SEPARATOR = " ";
+const DATE_KEY_SEPARATOR = "-";
 const VIEWER_TIME_SUFFIX = " tu hora";
 const TRAILING_PERIOD_PATTERN = /\.$/;
 
@@ -119,8 +120,19 @@ function formatShortDate(formatters: ZoneFormatters, instant: Date): string {
   return day + DATE_TIME_SEPARATOR + month;
 }
 
+/**
+ * Calendar day of `instant` in the formatter zone as `YYYY-M-D`. The year is
+ * part of the key so ranges ending on the same day and month of a later year
+ * are still recognized as ending on another day.
+ */
 function formatDateKey(formatters: ZoneFormatters, instant: Date): string {
-  return formatters.date.format(instant);
+  const parts = formatters.offsetParts.formatToParts(instant);
+
+  return [
+    readPart(parts, DATE_PART.year),
+    readPart(parts, DATE_PART.month),
+    readPart(parts, DATE_PART.day),
+  ].join(DATE_KEY_SEPARATOR);
 }
 
 /**
