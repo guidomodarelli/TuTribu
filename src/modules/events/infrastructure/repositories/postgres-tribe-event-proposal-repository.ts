@@ -155,16 +155,20 @@ async function readProposal(
 }
 
 /**
- * Locks the reviewer's own membership in the tribe `FOR SHARE` before a
- * review. A concurrent demotion, block, or removal of the reviewer (any write
- * on that row) waits until the review commits, and a demotion that committed
- * while this statement waited is visible to the next statement, so the
- * `can_manage_tribe_events` read by `lockProposal` cannot go stale before the
- * approval or rejection is written. It runs before the proposal lock to keep
- * the membership → other rows order that attendance answers also follow.
- * No row (not a member) is fine: `lockProposal` then reports `forbidden`.
+ * Locks the viewer's own membership in the tribe `FOR SHARE` before any
+ * proposal write (create, withdraw, approve, reject). A concurrent demotion,
+ * block, or removal of the viewer (any write on that row) waits until the
+ * request commits, and a change that committed while this statement waited
+ * is visible to the next statement, so the authorization read afterwards
+ * (`is_active_tribe_member` by `readTribeAccess`, `can_manage_tribe_events`
+ * and `can_read_tribe_content` by `lockProposal`) cannot go stale before
+ * the write. The runtime role bypasses RLS, so without this lock a member
+ * blocked after the access read could still insert a pending proposal. It
+ * runs before the advisory and proposal locks to keep the membership → other
+ * rows order that attendance answers also follow. No row (not a member) is
+ * fine: the later read reports `forbidden` or `notFound`.
  */
-async function lockReviewerMembership(
+async function lockViewerMembership(
   database: RequestDatabase,
   tribeSlug: string
 ): Promise<void> {
@@ -182,9 +186,9 @@ async function lockReviewerMembership(
 /**
  * Locks the proposal row (FOR UPDATE) inside the request transaction. A
  * concurrent review of the same proposal waits here and then sees the
- * resolved status, which is what makes approval idempotent. Reviews call
- * `lockReviewerMembership` first so the `can_manage` read here stays valid
- * until the review commits.
+ * resolved status, which is what makes approval idempotent. Every write
+ * calls `lockViewerMembership` first so the authorization read here stays
+ * valid until the write commits.
  */
 async function lockProposal(
   database: RequestDatabase,
@@ -247,6 +251,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
     command: CreateTribeEventProposalRepositoryCommand
   ): Promise<TribeEventProposalCreationResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, command.tribeSlug);
       const access = await readTribeAccess(database, command.tribeSlug);
 
       if (!access) {
@@ -378,7 +383,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
     command: ApproveTribeEventProposalRepositoryCommand
   ): Promise<TribeEventProposalApprovalResult> {
     return this.executeWithDatabase(async (database) => {
-      await lockReviewerMembership(database, command.tribeSlug);
+      await lockViewerMembership(database, command.tribeSlug);
       const lockedProposal = await lockProposal(database, command);
       const failure = resolveReviewFailure(lockedProposal);
 
@@ -446,7 +451,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
     command: RejectTribeEventProposalRepositoryCommand
   ): Promise<TribeEventProposalReviewResult> {
     return this.executeWithDatabase(async (database) => {
-      await lockReviewerMembership(database, command.tribeSlug);
+      await lockViewerMembership(database, command.tribeSlug);
       const failure = resolveReviewFailure(await lockProposal(database, command));
 
       if (failure !== null) {
@@ -478,6 +483,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
    */
   async withdraw(command: TribeEventProposalReference): Promise<TribeEventProposalReviewResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, command.tribeSlug);
       const lockedProposal = await lockProposal(database, command);
 
       if (!lockedProposal || lockedProposal.proposed_by !== lockedProposal.viewer_id) {

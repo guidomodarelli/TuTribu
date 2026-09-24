@@ -307,6 +307,7 @@ describe("PostgresTribeEventProposalRepository", () => {
   it("serializes the pending count per member and refuses a proposal over the cap", async () => {
     const execute = vi
       .fn()
+      .mockResolvedValueOnce({ rows: [{}] })
       .mockResolvedValueOnce({ rows: [memberAccess] })
       .mockResolvedValueOnce({ rows: [{}] })
       .mockResolvedValueOnce({ rows: [{ pending_count: "3" }] });
@@ -315,13 +316,34 @@ describe("PostgresTribeEventProposalRepository", () => {
     await expect(repository.create(createCommand)).resolves.toEqual({
       status: "proposal_limit_reached",
     });
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("pg_advisory_xact_lock");
-    expect(execute).toHaveBeenCalledTimes(3);
+    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("pg_advisory_xact_lock");
+    expect(execute).toHaveBeenCalledTimes(4);
+  });
+
+  it("locks the author membership before reading the active membership that allows proposing", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{}] })
+      .mockResolvedValueOnce({ rows: [{ ...memberAccess, is_active_member: false }] });
+    const repository = new PostgresTribeEventProposalRepository(createExecutor(execute));
+
+    await expect(repository.create(createCommand)).resolves.toEqual({ status: "forbidden" });
+
+    // A block or removal of the author waits for the FOR SHARE lock, and the
+    // active membership is read in a later statement, so it can no longer
+    // change before the advisory lock, the pending count, and the insert.
+    const membershipLockSql = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(membershipLockSql).toContain("tribe_members.user_id = public.current_app_user_id()");
+    expect(membershipLockSql).toContain("for share of tribe_members");
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("public.is_active_tribe_member");
+    expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("creates a proposal under the cap and reads it back with the author name", async () => {
     const execute = vi
       .fn()
+      .mockResolvedValueOnce({ rows: [{}] })
       .mockResolvedValueOnce({ rows: [memberAccess] })
       .mockResolvedValueOnce({ rows: [{}] })
       .mockResolvedValueOnce({ rows: [{ pending_count: "1" }] })
@@ -338,12 +360,15 @@ describe("PostgresTribeEventProposalRepository", () => {
   it("rejects proposals from viewers who are not active members", async () => {
     const execute = vi
       .fn()
+      .mockResolvedValueOnce({ rows: [{}] })
       .mockResolvedValueOnce({ rows: [{ ...memberAccess, is_active_member: false }] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
     const repository = new PostgresTribeEventProposalRepository(createExecutor(execute));
 
     await expect(repository.create(createCommand)).resolves.toEqual({ status: "forbidden" });
     await expect(repository.create(createCommand)).resolves.toEqual({ status: "not_found" });
+    expect(execute).toHaveBeenCalledTimes(4);
   });
 
   it("locks the proposal and never creates an event for a resolved one", async () => {
@@ -499,23 +524,30 @@ describe("PostgresTribeEventProposalRepository", () => {
   });
 
   it("hides someone else's proposal from a member who tries to withdraw it", async () => {
-    const execute = vi.fn().mockResolvedValueOnce({
-      rows: [
-        {
-          can_manage: false,
-          proposed_by: "member-2",
-          status: "pending",
-          tribe_id: TRIBE_ID,
-          viewer_id: "member-1",
-        },
-      ],
-    });
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{}] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            can_manage: false,
+            proposed_by: "member-2",
+            status: "pending",
+            tribe_id: TRIBE_ID,
+            viewer_id: "member-1",
+          },
+        ],
+      });
     const repository = new PostgresTribeEventProposalRepository(createExecutor(execute));
 
     await expect(
       repository.withdraw({ proposalId: PROPOSAL_ID, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ status: "not_found" });
-    expect(execute).toHaveBeenCalledTimes(1);
+    // The author's membership is locked before the proposal, keeping the
+    // membership -> other rows order of every proposal write.
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("for share of tribe_members");
+    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("for update of event_proposals");
+    expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("lists the pending queue for managers and the own proposals for members", async () => {
