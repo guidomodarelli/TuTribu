@@ -63,27 +63,37 @@ type NotificationInboxRow = {
   type: string;
 };
 
+type NotificationInboxListedRow = NotificationInboxRow & { unread_count: unknown };
+
+/**
+ * Row of the single inbox statement: a listed notification plus the unread
+ * count of the same snapshot, or only the count (all inbox columns null)
+ * when the list is empty.
+ */
+type NotificationInboxStatementRow = NotificationInboxListedRow | { id: null; unread_count: unknown };
+
 /**
  * Payload ids are cast to uuid/timestamptz only when they have the exact
  * shape the producers write, so one malformed row can never fail the whole
  * inbox with a cast error. The instant regex also matches impossible dates
  * (`2026-99-99T12:00:00Z`), so the timestamptz cast is additionally guarded
  * by `pg_input_is_valid` (PostgreSQL 16+), which reports castability without
- * throwing; the row then reaches the mapper, which skips and logs it. The
- * regex stays because it keeps out inputs PostgreSQL does accept but the
- * producers never write, such as `now` or `today`.
+ * throwing. The regex stays because it keeps out inputs PostgreSQL does
+ * accept but the producers never write, such as `now` or `today`.
  */
 const PAYLOAD_UUID_PATTERN = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
 const PAYLOAD_INSTANT_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$";
 /**
  * UUID shape the public inbox DTO accepts (`z.uuid()`: RFC 9562 version and
- * variant nibbles, plus the nil and max UUIDs). Payload ids are narrowed to
- * it before they reach the domain notification, so a malformed id skips only
- * its row instead of making the public inbox schema reject every item. This
- * is minimal structural narrowing of stored data, not a schema validation.
+ * variant nibbles, plus the nil and max UUIDs). The same pattern drives the
+ * SQL displayability predicate (PostgreSQL AREs support `(?:...)`) and the
+ * mapper, so a malformed id skips only its row instead of making the public
+ * inbox schema reject every item. This is minimal structural narrowing of
+ * stored data, not a schema validation.
  */
-const PUBLIC_UUID_SHAPE =
-  /^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
+const PUBLIC_UUID_PATTERN =
+  "^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$";
+const PUBLIC_UUID_SHAPE = new RegExp(PUBLIC_UUID_PATTERN);
 const COUNT_BASE = 10;
 
 function mapInstant(value: Date | string): string {
@@ -290,6 +300,75 @@ const VISIBLE_NOTIFICATION_PREDICATE = sql`
   and public.can_read_tribe_content(notifications.tribe_id)
 `;
 
+const EVENT_NOTIFICATION_TYPES = NOTIFICATION_TYPES.filter(
+  (type) => type !== NOTIFICATION_TYPE.eventProposalReviewed
+);
+
+/**
+ * True when the payload string at `key` is an instant PostgreSQL can cast
+ * (`pg_input_is_valid` never throws, so evaluation order does not matter).
+ * `key` is always one of the fixed `PAYLOAD_KEY` literals.
+ */
+function castablePayloadInstant(key: InvalidPayloadInstantField) {
+  const payloadInstant = sql.raw(`notifications.payload ->> '${key}'`);
+
+  return sql`(
+    ${payloadInstant} ~ ${PAYLOAD_INSTANT_PATTERN}
+    and pg_input_is_valid(${payloadInstant}, 'timestamptz')
+  )`;
+}
+
+/**
+ * Structural shape a row needs for the inbox to show it: a known type, the
+ * required payload ids in the public UUID shape and castable instants (an
+ * optional `startsAt` is checked only when it is a JSON string, like the
+ * mapper). It is applied before the list limit and in the unread count, so
+ * malformed rows can neither push valid notifications out of the only inbox
+ * page nor raise a badge without an item. The mapper keeps its own defensive
+ * checks (and `warn` logs) for anything this predicate cannot see.
+ */
+const DISPLAYABLE_NOTIFICATION_PREDICATE = sql`
+  (
+    (
+      notifications.type = ${NOTIFICATION_TYPE.eventProposalReviewed}
+      and notifications.payload ->> 'proposalId' ~ ${PUBLIC_UUID_PATTERN}
+      and notifications.payload ->> 'decision' in (
+        ${NOTIFICATION_PROPOSAL_DECISION.approved},
+        ${NOTIFICATION_PROPOSAL_DECISION.rejected}
+      )
+    )
+    or (
+      notifications.type in (${sql.join(
+        EVENT_NOTIFICATION_TYPES.map((type) => sql`${type}`),
+        sql`, `
+      )})
+      and notifications.payload ->> 'eventId' ~ ${PUBLIC_UUID_PATTERN}
+      and ${castablePayloadInstant(PAYLOAD_KEY.occurrenceStartsAt)}
+      and (
+        jsonb_typeof(notifications.payload -> 'startsAt') is distinct from 'string'
+        or ${castablePayloadInstant(PAYLOAD_KEY.startsAt)}
+      )
+    )
+  )
+`;
+
+/**
+ * Unread rows the inbox can show, bounded by `cap` (the badge shows "9+").
+ */
+function unreadCountQuery(cap: number) {
+  return sql`
+    select count(*)::integer as unread_count
+    from (
+      select 1
+      from public.notifications
+      where ${VISIBLE_NOTIFICATION_PREDICATE}
+        and ${DISPLAYABLE_NOTIFICATION_PREDICATE}
+        and notifications.read_at is null
+      limit ${cap}
+    ) as capped_unread_notifications
+  `;
+}
+
 /**
  * Inbox reads, marks, and the retention purge of `public.notifications`.
  * Display facts (event and proposal titles, the new time of a moved date)
@@ -310,7 +389,11 @@ export class PostgresNotificationRepository implements NotificationRepository {
     unreadCountCap,
   }: GetNotificationInboxRepositoryQuery): Promise<NotificationInbox> {
     return this.executeWithDatabase(async (database) => {
+      // One statement, one snapshot: the unread count and the listed rows can
+      // never disagree about a notification committed between two reads.
       const result = await database.execute(sql`
+        with unread_notifications as (${unreadCountQuery(unreadCountCap)}),
+        inbox_notifications as (
         select
           notifications.id,
           notifications.type,
@@ -355,11 +438,21 @@ export class PostgresNotificationRepository implements NotificationRepository {
           and event_proposals.tribe_id = notifications.tribe_id
           and event_proposals.proposed_by = notifications.recipient_user_id
         where ${VISIBLE_NOTIFICATION_PREDICATE}
+          and ${DISPLAYABLE_NOTIFICATION_PREDICATE}
         order by notifications.created_at desc, notifications.id desc
         limit ${limit}
+        )
+        select unread_notifications.unread_count, inbox_notifications.*
+        from unread_notifications
+        left join inbox_notifications on true
+        order by inbox_notifications.created_at desc, inbox_notifications.id desc
       `);
-      const unreadCount = await this.countUnreadWith(database, unreadCountCap);
-      const notifications = ((result.rows ?? []) as NotificationInboxRow[]).flatMap((row) => {
+      const statementRows = (result.rows ?? []) as NotificationInboxStatementRow[];
+      const unreadCount = mapCount(statementRows[0]?.unread_count);
+      const listedRows = statementRows.filter(
+        (row): row is NotificationInboxListedRow => row.id !== null
+      );
+      const notifications = listedRows.flatMap((row) => {
         const notification = mapInboxNotification(row, (skippedRow, field) => {
           this.logger?.warn({
             message: INVALID_PAYLOAD_FIELD_LOG_MESSAGE[field],
@@ -464,16 +557,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
    * transaction so it reflects a mark done just before.
    */
   private async countUnreadWith(database: RequestDatabase, cap: number): Promise<number> {
-    const result = await database.execute(sql`
-      select count(*)::integer as unread_count
-      from (
-        select 1
-        from public.notifications
-        where ${VISIBLE_NOTIFICATION_PREDICATE}
-          and notifications.read_at is null
-        limit ${cap}
-      ) as unread_notifications
-    `);
+    const result = await database.execute(unreadCountQuery(cap));
 
     return mapCount((result.rows?.[0] as { unread_count?: unknown } | undefined)?.unread_count);
   }
