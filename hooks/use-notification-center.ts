@@ -81,10 +81,18 @@ function markItemRead(
  * refresh is deferred until the last pending mark settles. A failed read
  * mark that a newer mutation superseded reconciles from the server (through
  * the same deferred refresh) instead of rolling back over the newer state.
+ * Overlapping marks can commit out of order, so a mark's count may still
+ * include an older uncommitted mark; when a successful mark's count is
+ * discarded because a newer mutation superseded it, the unread count is read
+ * again once the last pending mark settles.
  * Reads also race each other (a count poll and a list refresh can observe
  * different server snapshots and resolve out of order), so every read takes a
  * shared, increasing read generation and adopts its unread count only when no
  * newer read already applied one; an older list still renders its items.
+ * The list status only matters when there are no rows (the panel keeps
+ * rendering cached rows), so it always reflects the latest refresh: an empty
+ * cached inbox shows the loading and error states instead of a definitive
+ * empty state.
  *
  * @param initialInbox - Inbox rendered by the layout, or null when it could
  * not be loaded (the bell then loads on open and polls the count).
@@ -106,6 +114,8 @@ export function useNotificationCenter(
   const mutationVersionRef = useRef(0);
   const pendingMutationCountRef = useRef(0);
   const hasDeferredListRefreshRef = useRef(false);
+  const hasDiscardedMutationCountRef = useRef(false);
+  const reconcileCountControllerRef = useRef<AbortController | null>(null);
   const readGenerationRef = useRef(0);
   const appliedCountReadGenerationRef = useRef(0);
 
@@ -181,15 +191,30 @@ export function useNotificationCenter(
     };
   }, [refreshUnreadCount]);
 
-  useEffect(() => () => listControllerRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      listControllerRef.current?.abort();
+      reconcileCountControllerRef.current?.abort();
+    },
+    []
+  );
+
+  /** Reads the unread count again after overlapping marks settled. */
+  const reconcileUnreadCount = useCallback(() => {
+    reconcileCountControllerRef.current?.abort();
+
+    const controller = new AbortController();
+
+    reconcileCountControllerRef.current = controller;
+    refreshUnreadCount(controller.signal);
+  }, [refreshUnreadCount]);
 
   const refreshList = useCallback(() => {
     listControllerRef.current?.abort();
-    setListStatus((currentStatus) =>
-      currentStatus === NOTIFICATION_LIST_STATUS.loaded
-        ? currentStatus
-        : NOTIFICATION_LIST_STATUS.loading
-    );
+    // The panel renders cached rows whatever the status, so the status only
+    // shows when there are none: it must never claim a definitive empty inbox
+    // while a refresh is in flight or after it failed.
+    setListStatus(NOTIFICATION_LIST_STATUS.loading);
 
     if (pendingMutationCountRef.current > 0) {
       // Deferred: a list read now could observe the server before the pending
@@ -212,11 +237,7 @@ export function useNotificationCenter(
         }
 
         if (!result.isSuccess) {
-          setListStatus((currentStatus) =>
-            currentStatus === NOTIFICATION_LIST_STATUS.loaded
-              ? currentStatus
-              : NOTIFICATION_LIST_STATUS.error
-          );
+          setListStatus(NOTIFICATION_LIST_STATUS.error);
           return;
         }
 
@@ -232,11 +253,7 @@ export function useNotificationCenter(
           return;
         }
 
-        setListStatus((currentStatus) =>
-          currentStatus === NOTIFICATION_LIST_STATUS.loaded
-            ? currentStatus
-            : NOTIFICATION_LIST_STATUS.error
-        );
+        setListStatus(NOTIFICATION_LIST_STATUS.error);
       });
   }, [adoptReadUnreadCount, beginRead]);
 
@@ -254,17 +271,41 @@ export function useNotificationCenter(
   }, []);
 
   /**
+   * Adopts the unread count returned by a successful mutation, or records
+   * that it was discarded because a newer mutation superseded it (the newer
+   * response may have committed first and still count this mark).
+   */
+  const adoptMutationUnreadCount = useCallback((version: number, mutationUnreadCount: number) => {
+    if (version !== mutationVersionRef.current) {
+      hasDiscardedMutationCountRef.current = true;
+      return;
+    }
+
+    setUnreadCount(mutationUnreadCount);
+  }, []);
+
+  /**
    * Settles a local mutation and, once no mutation is pending, issues the
-   * list refresh deferred while they were in flight.
+   * list refresh deferred while they were in flight and reconciles the count
+   * when a superseded mutation's count was discarded.
    */
   const settleMutation = useCallback(() => {
     pendingMutationCountRef.current = Math.max(pendingMutationCountRef.current - 1, 0);
 
-    if (pendingMutationCountRef.current === 0 && hasDeferredListRefreshRef.current) {
+    if (pendingMutationCountRef.current > 0) {
+      return;
+    }
+
+    if (hasDeferredListRefreshRef.current) {
       hasDeferredListRefreshRef.current = false;
       refreshList();
     }
-  }, [refreshList]);
+
+    if (hasDiscardedMutationCountRef.current) {
+      hasDiscardedMutationCountRef.current = false;
+      reconcileUnreadCount();
+    }
+  }, [reconcileUnreadCount, refreshList]);
 
   const markRead = useCallback(
     (notificationId: string) => {
@@ -302,14 +343,12 @@ export function useNotificationCenter(
             return;
           }
 
-          if (version === mutationVersionRef.current) {
-            setUnreadCount(result.unreadCount);
-          }
+          adoptMutationUnreadCount(version, result.unreadCount);
         })
         .catch(revert)
         .finally(settleMutation);
     },
-    [beginMutation, notifications, settleMutation]
+    [adoptMutationUnreadCount, beginMutation, notifications, settleMutation]
   );
 
   const markAllRead = useCallback(async () => {
@@ -349,9 +388,7 @@ export function useNotificationCenter(
     try {
       const result = await pendingRequest;
 
-      if (version === mutationVersionRef.current) {
-        setUnreadCount(result.unreadCount);
-      }
+      adoptMutationUnreadCount(version, result.unreadCount);
     } catch {
       // The error toast is shown by `toast.promise`; restore the inbox.
       if (version === mutationVersionRef.current) {
@@ -363,7 +400,7 @@ export function useNotificationCenter(
       setIsMarkingAll(false);
       settleMutation();
     }
-  }, [beginMutation, notifications, settleMutation, unreadCount]);
+  }, [adoptMutationUnreadCount, beginMutation, notifications, settleMutation, unreadCount]);
 
   return {
     isMarkingAll,

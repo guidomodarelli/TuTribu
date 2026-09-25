@@ -66,7 +66,12 @@ type NotificationInboxRow = {
 /**
  * Payload ids are cast to uuid/timestamptz only when they have the exact
  * shape the producers write, so one malformed row can never fail the whole
- * inbox with a cast error.
+ * inbox with a cast error. The instant regex also matches impossible dates
+ * (`2026-99-99T12:00:00Z`), so the timestamptz cast is additionally guarded
+ * by `pg_input_is_valid` (PostgreSQL 16+), which reports castability without
+ * throwing; the row then reaches the mapper, which skips and logs it. The
+ * regex stays because it keeps out inputs PostgreSQL does accept but the
+ * producers never write, such as `now` or `today`.
  */
 const PAYLOAD_UUID_PATTERN = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
 const PAYLOAD_INSTANT_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$";
@@ -334,6 +339,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
             end as proposal_id,
             case
               when notifications.payload ->> 'occurrenceStartsAt' ~ ${PAYLOAD_INSTANT_PATTERN}
+                and pg_input_is_valid(notifications.payload ->> 'occurrenceStartsAt', 'timestamptz')
                 then (notifications.payload ->> 'occurrenceStartsAt')::timestamptz
             end as occurrence_starts_at
         ) as subject
