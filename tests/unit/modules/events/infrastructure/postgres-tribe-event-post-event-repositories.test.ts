@@ -147,7 +147,7 @@ describe("PostgresTribeEventPostEventRepository", () => {
     await expect(repository.getResources(key)).resolves.toBeNull();
   });
 
-  it("locks membership and the event row, reads the guard, then locks the occurrence", async () => {
+  it("locks membership, the event row, and the occurrence, and rereads the guard after the last lock", async () => {
     const { execute, statements } = createGuardedExecute([openGuard]);
     const repository = new PostgresTribeEventPostEventRepository(createExecutor(execute));
 
@@ -166,6 +166,7 @@ describe("PostgresTribeEventPostEventRepository", () => {
     expect(statements[1]).toContain("for share of events");
     expect(statements[2]).toContain("is_tribe_event_series_occurrence");
     expect(statements[3]).toContain("pg_advisory_xact_lock");
+    expect(statements[4]).toContain("is_tribe_event_series_occurrence");
     expect(hasStatement(statements, "on conflict (event_id, original_starts_at)")).toBe(true);
     expect(hasStatement(statements, "jsonb_to_recordset")).toBe(true);
   });
@@ -178,6 +179,21 @@ describe("PostgresTribeEventPostEventRepository", () => {
       repository.saveResources({ ...key, materials: [], recording: null })
     ).resolves.toEqual({ status: "forbidden" });
     expect(hasStatement(statements, "pg_advisory_xact_lock")).toBe(false);
+    expect(hasResourceWrite(statements)).toBe(false);
+  });
+
+  it("rechecks the management permission after waiting on the occurrence lock", async () => {
+    // Demoted while another save held the advisory lock.
+    const { execute, statements } = createGuardedExecute([
+      openGuard,
+      { ...openGuard, can_manage: false },
+    ]);
+    const repository = new PostgresTribeEventPostEventRepository(createExecutor(execute));
+
+    await expect(
+      repository.saveResources({ ...key, materials: [], recording: null })
+    ).resolves.toEqual({ status: "forbidden" });
+    expect(hasStatement(statements, "pg_advisory_xact_lock")).toBe(true);
     expect(hasResourceWrite(statements)).toBe(false);
   });
 

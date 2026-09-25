@@ -264,9 +264,11 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
    * orders). Each lock is its own statement, so the following statements get
    * a snapshot that already sees what committed while they waited.
    *
-   * The guard is read after the event row lock: the slot must still be a
-   * finished, non-cancelled date of the current schedule and the viewer must
-   * manage events.
+   * The guard is read after the event row lock (fail fast before queueing on
+   * the advisory lock) and again after the advisory lock: the slot must
+   * still be a finished, non-cancelled date of the current schedule and the
+   * viewer must still manage events when the writes run, even if they waited
+   * behind another save.
    *
    * Only the INSERT of a recording enqueues "event_recording_available"
    * (database trigger, same transaction); replacing the link is an UPDATE.
@@ -277,10 +279,10 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
     return this.executeWithDatabase(async (database) => {
       await lockTribeEventOccurrenceForWrite(database, command);
 
-      const target = await readManagedOccurrence(database, command);
+      const lockedTarget = await readManagedOccurrence(database, command);
 
-      if (!target.isAccepted) {
-        return { status: target.status };
+      if (!lockedTarget.isAccepted) {
+        return { status: lockedTarget.status };
       }
 
       await database.execute(sql`
@@ -292,6 +294,12 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
           )
         )
       `);
+
+      const target = await readManagedOccurrence(database, command);
+
+      if (!target.isAccepted) {
+        return { status: target.status };
+      }
 
       if (command.recording) {
         await database.execute(sql`
