@@ -52,7 +52,8 @@ const PANEL_TITLE_ID = "notification-panel-title";
  * while the page is open. It opens a popover on desktop and a bottom sheet on
  * mobile; both trap focus while open and return it to the bell on close
  * (Radix). Each surface keeps a fixed slot in the tree, so dropping the
- * inactive one after hydration never remounts the active one.
+ * inactive one after hydration never remounts the active one. The root block
+ * uses `display: contents` so the triggers stay direct header items.
  * Presentational: all state and callbacks come from the container.
  */
 export function NotificationBell({
@@ -89,7 +90,7 @@ export function NotificationBell({
   );
 
   return (
-    <>
+    <span className={styles.NotificationBell}>
       {liveRegion}
       {showsPopover ? (
         <span
@@ -143,6 +144,6 @@ export function NotificationBell({
           </Sheet>
         </span>
       ) : null}
-    </>
+    </span>
   );
 }

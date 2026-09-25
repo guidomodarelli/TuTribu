@@ -723,6 +723,21 @@ describe("NotificationCenter hydration", () => {
     );
   });
 
+  it("groups the live region and every surface under one NotificationBell root block", async () => {
+    const container = document.createElement("div");
+
+    container.innerHTML = await renderServerMarkup();
+
+    const rootBlocks = container.querySelectorAll(".NotificationBell");
+
+    expect(rootBlocks).toHaveLength(1);
+    const [rootBlock] = rootBlocks;
+
+    expect(rootBlock.querySelector('[role="status"]')).not.toBeNull();
+    expect(rootBlock.querySelector('[data-slot="popover-trigger"]')).not.toBeNull();
+    expect(rootBlock.querySelector('[data-slot="sheet-trigger"]')).not.toBeNull();
+  });
+
   it("keeps the server sheet trigger mounted when a mobile first load hydrates", async () => {
     const { hydrateRoot } = await import("react-dom/client");
     const user = userEvent.setup();
