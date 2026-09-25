@@ -179,17 +179,35 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
    * in its own statement, so the lookup that follows gets a snapshot that
    * already sees a lesson committed by a concurrent request. With the lock
    * held, an existing lesson of that occurrence anywhere in the course is
-   * returned (`existing`) instead of inserting a duplicate. After that lock
-   * the viewer's `can_manage_tribe_courses` is re-evaluated (a manager
-   * demoted or blocked meanwhile answers `forbidden`, never `existing` or
-   * `created`) and the module is re-resolved and share-locked, so a course or
-   * module deleted meanwhile answers `not_found` instead of a foreign key
-   * failure.
+   * returned (`existing`) instead of inserting a duplicate. Before any other
+   * lock the viewer's `tribe_members` row is share-locked, so a concurrent
+   * demotion, block, or removal waits for this transaction to commit and the
+   * `can_manage_tribe_courses` reads that follow (before the conversion lock
+   * and after it) cannot be revoked before the `existing` or `created`
+   * answer. After the conversion lock the permission is re-evaluated and the
+   * module is re-resolved and share-locked, so a course or module deleted
+   * meanwhile answers `not_found` instead of a foreign key failure. Lock
+   * order is membership → conversion advisory lock → module, the same
+   * membership-first order the events writes follow.
    */
   async createFromEventRecording(
     command: CreateLessonFromEventRecordingRepositoryCommand
   ): Promise<LessonFromEventRecordingResult> {
     return this.executeWithDatabase(async (database) => {
+      // Holds the viewer's membership until commit: a demotion, block, or
+      // removal committed while this statement waited is visible to the next
+      // statement, and one issued later waits for this conversion. No row
+      // (not a member) is fine: the permission read below answers forbidden.
+      await database.execute(sql`
+        select tribe_members.id
+        from public.tribe_members
+        inner join public.tribes
+          on tribes.id = tribe_members.tribe_id
+        where tribes.slug = ${command.tribeSlug}
+          and tribe_members.user_id = public.current_app_user_id()
+        for share of tribe_members
+      `);
+
       const targetResult = await database.execute(sql`
         with target_tribe as (
           select tribes.id
@@ -243,14 +261,13 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
         )
       `);
 
-      // The viewer may have been demoted or blocked, and the course or module
-      // deleted, while this request waited on the conversion lock. This read
-      // runs in a fresh snapshot: it re-evaluates `can_manage_tribe_courses`
-      // (the only fresh permission check before an `existing` answer, since
-      // the runtime role bypasses RLS) and share-locks the module so a
-      // concurrent delete waits for this insert instead of failing its
-      // foreign key. Only the module is locked (never the membership or the
-      // course), so the course's cascading delete cannot deadlock with it.
+      // The course or module may have been deleted while this request waited
+      // on the conversion lock. This read runs in a fresh snapshot: it
+      // re-evaluates `can_manage_tribe_courses` (the membership row is already
+      // share-locked, so the answer holds until commit) and share-locks the
+      // module so a concurrent delete waits for this insert instead of
+      // failing its foreign key. The course row is never locked, so the
+      // course's cascading delete cannot deadlock with it.
       const lockedTargetResult = await database.execute(sql`
         with locked_module as (
           select course_modules.id

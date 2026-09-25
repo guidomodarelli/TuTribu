@@ -108,6 +108,27 @@ describe("PostgresLessonEventSourceRepository.createFromEventRecording", () => {
     expect(insertIndex).toBeGreaterThan(moduleLockIndex);
   });
 
+  it("share-locks the viewer's membership before the conversion lock so a demotion or block waits for the commit", async () => {
+    const { repository, statements } = createConversionDatabase(
+      { can_manage: true, module_id: MODULE_ID },
+      [{ course_module_id: MODULE_ID, id: LESSON_ID, title: command.title }]
+    );
+
+    await expect(repository.createFromEventRecording(command)).resolves.toMatchObject({
+      status: "existing",
+    });
+
+    const membershipLockIndex = statements.findIndex((text) =>
+      text.includes("for share of tribe_members")
+    );
+    const targetReadIndex = statements.findIndex((text) => text.includes("as module_in_course"));
+    const advisoryIndex = statements.findIndex((text) => text.includes("pg_advisory_xact_lock"));
+
+    expect(membershipLockIndex).toBe(0);
+    expect(targetReadIndex).toBeGreaterThan(membershipLockIndex);
+    expect(advisoryIndex).toBeGreaterThan(targetReadIndex);
+  });
+
   it("answers not found without inserting when the course or module vanished while waiting on the lock", async () => {
     const { repository, statements } = createConversionDatabase({
       can_manage: true,
