@@ -124,9 +124,8 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
     expect(revokeSql).toContain("user_id = public.current_app_user_id()");
     // The optimistic precondition shares the revocation statement.
     expect(revokeSql).toContain("is not distinct from");
-    expect(execute.mock.calls[3]?.[0]).toMatchObject({
-      queryChunks: expect.arrayContaining([PREVIOUS_TOKEN_ID]),
-    });
+    // The expected id is bound as a parameter of that same statement.
+    expect(revokeSql).toContain(PREVIOUS_TOKEN_ID);
     expect(insertSql).toContain("insert into public.event_calendar_feed_tokens");
     expect(insertSql).toContain("public.current_app_user_id()");
   });
@@ -193,21 +192,56 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       .fn()
       .mockResolvedValueOnce({ rows: [{ can_read: false, created_at: null, tribe_id: TRIBE_ID }] })
       .mockResolvedValueOnce({ rows: [{}] })
-      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ precondition_holds: true }] })
       .mockResolvedValueOnce({ rows: [] });
     const repository = new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(execute));
 
     // Revoking the own link does not require read access to the tribe content.
-    await expect(repository.revoke({ tribeSlug: TRIBE_SLUG })).resolves.toEqual({
-      status: "feed_token_revoked",
-    });
+    await expect(
+      repository.revoke({ expectedSubscriptionId: TOKEN_ID, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({ status: "feed_token_revoked" });
     expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
       "user_id = public.current_app_user_id()"
     );
-    await expect(repository.revoke({ tribeSlug: TRIBE_SLUG })).resolves.toEqual({
-      status: "not_found",
-    });
+    await expect(
+      repository.revoke({ expectedSubscriptionId: null, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({ status: "not_found" });
   });
+
+  it("revokes only while the active token is the one the client expected, in one statement", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
+      .mockResolvedValueOnce({ rows: [{}] })
+      .mockResolvedValueOnce({ rows: [{ precondition_holds: true }] });
+    const repository = new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(execute));
+
+    await expect(
+      repository.revoke({ expectedSubscriptionId: PREVIOUS_TOKEN_ID, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({ status: "feed_token_revoked" });
+
+    const revokeSql = getSqlText(execute.mock.calls[2]?.[0]);
+
+    // The precondition and the UPDATE share one statement (one snapshot)
+    // taken after the token lock.
+    expect(revokeSql).toContain("is not distinct from");
+    expect(revokeSql).toContain("update public.event_calendar_feed_tokens");
+    expect(revokeSql).toContain(PREVIOUS_TOKEN_ID);
+  });
+
+  it("revokes nothing when another tab already replaced the expected token", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
+      .mockResolvedValueOnce({ rows: [{}] })
+      .mockResolvedValueOnce({ rows: [{ precondition_holds: false }] });
+    const repository = new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(execute));
+
+    await expect(
+      repository.revoke({ expectedSubscriptionId: PREVIOUS_TOKEN_ID, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({ status: "feed_token_changed" });
+  });
+
   it("takes the regeneration lock before revoking, so a concurrent regeneration is revoked too", async () => {
     const issueExecute = vi
       .fn()
@@ -222,7 +256,7 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       .fn()
       .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
       .mockResolvedValueOnce({ rows: [{}] })
-      .mockResolvedValueOnce({ rows: [] });
+      .mockResolvedValueOnce({ rows: [{ precondition_holds: true }] });
 
     await new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(issueExecute)).issue({
       expectedSubscriptionId: null,
@@ -230,6 +264,7 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       tribeSlug: TRIBE_SLUG,
     });
     await new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(revokeExecute)).revoke({
+      expectedSubscriptionId: TOKEN_ID,
       tribeSlug: TRIBE_SLUG,
     });
 

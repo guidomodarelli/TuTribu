@@ -340,6 +340,7 @@ export type TribeEventCalendarFeedTokenIssueResult =
 
 export type TribeEventCalendarFeedTokenRevokeResult = {
   status:
+    | typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged
     | typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked
     | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
 };

@@ -12,6 +12,7 @@ import type {
 import type {
   IssueTribeEventCalendarFeedTokenCommand,
   ReadTribeEventCalendarFeedQuery,
+  RevokeTribeEventCalendarFeedTokenCommand,
   TribeEventCalendarFeedReader,
   TribeEventCalendarFeedSubscriptionLookup,
   TribeEventCalendarFeedTokenIssueResult,
@@ -141,19 +142,67 @@ function buildRevokeActiveMemberFeedTokenStatement(tribeId: string, condition: S
 }
 
 /**
- * Revokes the signed-in member's active token in the tribe without checking
- * read access: removing one's own link is always safe.
+ * Whether the id of the signed-in member's active token in the tribe is still
+ * `expectedSubscriptionId` (null: no active token). Shared by the guarded
+ * regeneration and the guarded revocation so both apply the same optimistic
+ * precondition inside their single statement.
  */
-async function revokeActiveMemberFeedToken(
-  database: RequestDatabase,
-  tribeId: string
-): Promise<void> {
-  await database.execute(buildRevokeActiveMemberFeedTokenStatement(tribeId, sql`true`));
+function buildExpectedActiveMemberFeedTokenPredicate(
+  tribeId: string,
+  expectedSubscriptionId: string | null
+) {
+  return sql`(
+    select event_calendar_feed_tokens.id
+    from public.event_calendar_feed_tokens
+    where event_calendar_feed_tokens.tribe_id = ${tribeId}
+      and event_calendar_feed_tokens.user_id = public.current_app_user_id()
+      and event_calendar_feed_tokens.revoked_at is null
+    limit 1
+  ) is not distinct from ${expectedSubscriptionId}::uuid`;
 }
 
-type FeedTokenRotationRow = {
-  can_read: boolean | null;
+type FeedTokenPreconditionRow = {
   precondition_holds: boolean | null;
+};
+
+/**
+ * Revokes the signed-in member's active token in the tribe only while its id
+ * is still `expectedSubscriptionId`, reading the precondition and revoking in
+ * ONE statement (one snapshot) taken after the token lock. It does not check
+ * read access: removing one's own link is always safe. A stale tab whose
+ * link another tab already replaced revokes nothing, so it can never turn
+ * off the newer link. No active token while none was expected holds, and
+ * revokes nothing (idempotent).
+ */
+async function revokeExpectedMemberFeedToken(
+  database: RequestDatabase,
+  tribeId: string,
+  expectedSubscriptionId: string | null
+): Promise<boolean> {
+  const result = await database.execute(sql`
+    with feed_precondition as materialized (
+      select ${buildExpectedActiveMemberFeedTokenPredicate(
+        tribeId,
+        expectedSubscriptionId
+      )} as precondition_holds
+    ),
+    revoked_token as (
+      ${buildRevokeActiveMemberFeedTokenStatement(
+        tribeId,
+        sql`(select feed_precondition.precondition_holds from feed_precondition)`
+      )}
+      returning event_calendar_feed_tokens.id
+    )
+    select feed_precondition.precondition_holds
+    from feed_precondition
+  `);
+  const row = ((result.rows ?? [])[0] as FeedTokenPreconditionRow | undefined) ?? null;
+
+  return row?.precondition_holds === true;
+}
+
+type FeedTokenRotationRow = FeedTokenPreconditionRow & {
+  can_read: boolean | null;
 };
 
 /**
@@ -190,14 +239,10 @@ async function revokeExpectedMemberFeedTokenIfReadable(
       select coalesce(public.can_read_tribe_content(${tribeId}), false) as can_read
     ),
     feed_precondition as materialized (
-      select (
-        select event_calendar_feed_tokens.id
-        from public.event_calendar_feed_tokens
-        where event_calendar_feed_tokens.tribe_id = ${tribeId}
-          and event_calendar_feed_tokens.user_id = public.current_app_user_id()
-          and event_calendar_feed_tokens.revoked_at is null
-        limit 1
-      ) is not distinct from ${expectedSubscriptionId}::uuid as precondition_holds
+      select ${buildExpectedActiveMemberFeedTokenPredicate(
+        tribeId,
+        expectedSubscriptionId
+      )} as precondition_holds
     ),
     revoked_token as (
       ${buildRevokeActiveMemberFeedTokenStatement(
@@ -533,11 +578,16 @@ export class PostgresTribeEventCalendarFeedTokenRepository
    * It takes the same lock as `issue`: without it, a revocation racing a
    * regeneration could snapshot only the old token, find it already revoked
    * after waiting for its row, and report success while the new token stays
-   * active. With the lock, the operation that runs last decides the outcome.
+   * active. After the lock, the precondition (the active token is still the
+   * one the client showed) is read in the same statement that revokes: a
+   * stale tab racing a regeneration from another tab sees the replacement
+   * token and answers `feedTokenChanged` without revoking it, so the link
+   * the regeneration returned keeps working.
    */
   async revoke({
+    expectedSubscriptionId,
     tribeSlug,
-  }: TribeEventCalendarFeedTokenQuery): Promise<TribeEventCalendarFeedTokenRevokeResult> {
+  }: RevokeTribeEventCalendarFeedTokenCommand): Promise<TribeEventCalendarFeedTokenRevokeResult> {
     return this.executeWithDatabase(async (database) => {
       const access = await readTokenAccess(database, tribeSlug);
 
@@ -546,9 +596,18 @@ export class PostgresTribeEventCalendarFeedTokenRepository
       }
 
       await lockMemberFeedToken(database, access.tribe_id);
-      await revokeActiveMemberFeedToken(database, access.tribe_id);
 
-      return { status: TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked };
+      const isRevoked = await revokeExpectedMemberFeedToken(
+        database,
+        access.tribe_id,
+        expectedSubscriptionId
+      );
+
+      return {
+        status: isRevoked
+          ? TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked
+          : TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged,
+      };
     });
   }
 }

@@ -214,6 +214,14 @@ export type TribeEventCalendarFeedTokenIssueCommand = TribeEventCalendarFeedToke
 };
 
 /**
+ * Revocation of the personal link, conditioned like the generation on the
+ * active subscription the client knows (null: none).
+ */
+export type TribeEventCalendarFeedTokenRevokeCommand = TribeEventCalendarFeedTokenCommand & {
+  expectedSubscriptionId: string | null;
+};
+
+/**
  * Public feed request: the token (already checked to be well-formed by the
  * route) is the only credential; there is no session.
  */

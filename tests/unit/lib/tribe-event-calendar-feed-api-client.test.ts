@@ -147,15 +147,51 @@ describe("calendar feed browser adapter", () => {
     });
   });
 
-  it("revokes with DELETE and surfaces the safe route message on failure", async () => {
+  it("revokes with DELETE, sending the shown subscription as precondition in the query", async () => {
     respondWith({ message: "Suscripción desactivada.", subscription: null });
-    respondWith({ message: "Iniciá sesión para gestionar eventos." }, 401);
+    respondWith({ message: "Suscripción desactivada.", subscription: null });
 
-    await expect(revokeTribeEventCalendarFeedRequest({ tribeSlug: TRIBE_SLUG })).resolves.toEqual({
+    await expect(
+      revokeTribeEventCalendarFeedRequest({
+        expectedSubscriptionId: SUBSCRIPTION_ID,
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({
       isSuccess: true,
       message: "Suscripción desactivada.",
     });
-    await expect(revokeTribeEventCalendarFeedRequest({ tribeSlug: TRIBE_SLUG })).resolves.toEqual({
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      1,
+      `${ENDPOINT}?expectedSubscriptionId=${SUBSCRIPTION_ID}`,
+      { cache: "no-store", method: "DELETE" }
+    );
+
+    // No subscription on screen: the precondition is the absent parameter.
+    await revokeTribeEventCalendarFeedRequest({ expectedSubscriptionId: null, tribeSlug: TRIBE_SLUG });
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(2, ENDPOINT, {
+      cache: "no-store",
+      method: "DELETE",
+    });
+  });
+
+  it("flags a revocation 409 as a stale subscription state and keeps the safe route message", async () => {
+    respondWith({ message: "Tu link de calendario cambió." }, 409);
+    respondWith({ message: "Iniciá sesión para gestionar eventos." }, 401);
+
+    await expect(
+      revokeTribeEventCalendarFeedRequest({
+        expectedSubscriptionId: PREVIOUS_SUBSCRIPTION_ID,
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({
+      isSubscriptionChanged: true,
+      isSuccess: false,
+      message: "Tu link de calendario cambió.",
+    });
+    await expect(
+      revokeTribeEventCalendarFeedRequest({ expectedSubscriptionId: null, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({
+      isSubscriptionChanged: false,
       isSuccess: false,
       message: "Iniciá sesión para gestionar eventos.",
     });

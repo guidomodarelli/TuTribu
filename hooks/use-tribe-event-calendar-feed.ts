@@ -207,15 +207,30 @@ export function useTribeEventCalendarFeed({
   };
 
   /**
-   * Sends the subscription on screen as the precondition. When the server
-   * answers that it changed (another tab or a retry won), the state is
-   * reloaded so the next attempt starts from the active link.
+   * Id of the subscription on screen (null: none), the precondition both
+   * mutations send.
+   */
+  const readExpectedSubscriptionId = () =>
+    loadState.status === TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded
+      ? (loadState.subscription?.id ?? null)
+      : null;
+
+  /**
+   * When the server answers that the subscription changed (another tab or a
+   * retry won), the state is reloaded so the next attempt starts from the
+   * active link.
+   */
+  const reloadWhenSubscriptionChanged = (result: { isSubscriptionChanged: boolean }) => {
+    if (result.isSubscriptionChanged) {
+      loadSubscription();
+    }
+  };
+
+  /**
+   * Sends the subscription on screen as the precondition.
    */
   const generateLink = () => {
-    const expectedSubscriptionId =
-      loadState.status === TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded
-        ? (loadState.subscription?.id ?? null)
-        : null;
+    const expectedSubscriptionId = readExpectedSubscriptionId();
 
     return runMutation(
       () => issueTribeEventCalendarFeedRequest({ expectedSubscriptionId, tribeSlug }),
@@ -232,23 +247,27 @@ export function useTribeEventCalendarFeed({
           subscription: result.subscription,
         });
       },
-      (result) => {
-        if (result.isSubscriptionChanged) {
-          loadSubscription();
-        }
-      }
+      reloadWhenSubscriptionChanged
     );
   };
 
-  const revokeLink = () =>
-    runMutation(
-      () => revokeTribeEventCalendarFeedRequest({ tribeSlug }),
+  /**
+   * Sends the subscription on screen as the precondition, so a stale dialog
+   * never turns off a link another tab has just regenerated.
+   */
+  const revokeLink = () => {
+    const expectedSubscriptionId = readExpectedSubscriptionId();
+
+    return runMutation(
+      () => revokeTribeEventCalendarFeedRequest({ expectedSubscriptionId, tribeSlug }),
       { failure: COPY.revokeFailure, loading: COPY.revoking, success: COPY.revokeSuccess },
       () => {
         setFeedUrl(null);
         setLoadState({ status: TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded, subscription: null });
-      }
+      },
+      reloadWhenSubscriptionChanged
     );
+  };
 
   const copyFeedUrl = async () => {
     if (!feedUrl) {

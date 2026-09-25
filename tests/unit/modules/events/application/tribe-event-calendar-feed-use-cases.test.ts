@@ -153,9 +153,31 @@ describe("getTribeEventCalendarFeedSubscription and revokeTribeEventCalendarFeed
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.found, subscription: null });
     await expect(
       revokeTribeEventCalendarFeedToken({ tribeEventCalendarFeedTokenRepository: repository })({
+        expectedSubscriptionId: null,
         tribeSlug: TRIBE_SLUG,
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked });
+    expect(repository.revoke).toHaveBeenCalledWith({
+      expectedSubscriptionId: null,
+      tribeSlug: TRIBE_SLUG,
+    });
+  });
+
+  it("forwards the expected subscription and reports a revocation that lost the race", async () => {
+    const repository = createTokenRepository({
+      revoke: vi.fn(async () => ({ status: TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged })),
+    });
+
+    await expect(
+      revokeTribeEventCalendarFeedToken({ tribeEventCalendarFeedTokenRepository: repository })({
+        expectedSubscriptionId: PREVIOUS_SUBSCRIPTION_ID,
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged });
+    expect(repository.revoke).toHaveBeenCalledWith({
+      expectedSubscriptionId: PREVIOUS_SUBSCRIPTION_ID,
+      tribeSlug: TRIBE_SLUG,
+    });
   });
 });
 

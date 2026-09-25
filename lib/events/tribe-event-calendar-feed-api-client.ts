@@ -11,7 +11,10 @@ import {
   tribeEventCalendarFeedStatusResponseSchema,
 } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import type { TribeEventCalendarFeedSubscriptionResult } from "@/src/modules/events/application/results/tribe-event-result";
-import type { TribeEventCalendarFeedIssueRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-calendar-feed-schemas";
+import type {
+  TribeEventCalendarFeedIssueRequestBody,
+  TribeEventCalendarFeedRevokeRequestQuery,
+} from "@/src/modules/events/infrastructure/api/schemas/tribe-event-calendar-feed-schemas";
 
 /**
  * Browser adapter of `/api/tribes/[slug]/events/calendar-feed`. Every body is
@@ -37,8 +40,39 @@ export type TribeEventCalendarFeedIssueRequestResult =
     }
   | { isSubscriptionChanged: boolean; isSuccess: false; message: string | null };
 
+/**
+ * Outcome of turning the link off. `isSubscriptionChanged` tells the caller
+ * that nothing was revoked because its view of the subscription is stale.
+ */
+export type TribeEventCalendarFeedRevokeRequestResult =
+  | { isSuccess: true; message: string | null }
+  | { isSubscriptionChanged: boolean; isSuccess: false; message: string | null };
+
+/** Query key of the revocation precondition, typed by the route contract. */
+const EXPECTED_SUBSCRIPTION_QUERY_KEY: keyof TribeEventCalendarFeedRevokeRequestQuery =
+  "expectedSubscriptionId";
+
 function buildCalendarFeedEndpoint(tribeSlug: string): string {
   return buildTribeEventsApiEndpoint(tribeSlug) + CALENDAR_FEED_ENDPOINT_PATH;
+}
+
+/**
+ * Revocation endpoint with the subscription the caller shows as precondition;
+ * without one the parameter is omitted (the route reads it as null).
+ */
+function buildCalendarFeedRevokeEndpoint(
+  tribeSlug: string,
+  expectedSubscriptionId: string | null
+): string {
+  const endpoint = buildCalendarFeedEndpoint(tribeSlug);
+
+  if (expectedSubscriptionId === null) {
+    return endpoint;
+  }
+
+  const query = new URLSearchParams({ [EXPECTED_SUBSCRIPTION_QUERY_KEY]: expectedSubscriptionId });
+
+  return `${endpoint}?${query.toString()}`;
 }
 
 /**
@@ -106,21 +140,33 @@ export async function issueTribeEventCalendarFeedRequest(input: {
 }
 
 /**
- * Turns the subscription off (idempotent).
+ * Turns the subscription off. It sends the id of the subscription the caller
+ * shows (null: none) so the server revokes nothing when another tab already
+ * replaced it; without an active link, while the caller shows none, it is
+ * idempotent.
  *
- * @param input - Tribe of the calendar.
- * @returns Whether the link was revoked, with the route message.
+ * @param input - Tribe of the calendar and the subscription the caller knows.
+ * @returns Whether the link was revoked, with the route message, and whether
+ * the caller's subscription state is stale.
  */
 export async function revokeTribeEventCalendarFeedRequest(input: {
+  expectedSubscriptionId: string | null;
   tribeSlug: string;
-}): Promise<TribeEventRequestResult<Record<never, never>>> {
-  const response = await fetch(buildCalendarFeedEndpoint(input.tribeSlug), {
-    cache: NO_STORE_CACHE,
-    method: TRIBE_EVENT_HTTP_REQUEST.methodDelete,
-  });
+}): Promise<TribeEventCalendarFeedRevokeRequestResult> {
+  const response = await fetch(
+    buildCalendarFeedRevokeEndpoint(input.tribeSlug, input.expectedSubscriptionId),
+    {
+      cache: NO_STORE_CACHE,
+      method: TRIBE_EVENT_HTTP_REQUEST.methodDelete,
+    }
+  );
   const result = await readTribeEventResponse(response, tribeEventCalendarFeedRevokeResponseSchema);
 
   return result.isUsable
     ? { isSuccess: true, message: result.dto.message }
-    : { isSuccess: false, message: result.message };
+    : {
+        isSubscriptionChanged: response.status === SUBSCRIPTION_CHANGED_HTTP_STATUS,
+        isSuccess: false,
+        message: result.message,
+      };
 }

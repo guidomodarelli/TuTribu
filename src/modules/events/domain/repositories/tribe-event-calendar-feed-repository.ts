@@ -24,12 +24,19 @@ export type TribeEventCalendarFeedTokenQuery = {
   tribeSlug: string;
 };
 
-export type IssueTribeEventCalendarFeedTokenCommand = TribeEventCalendarFeedTokenQuery & {
+/**
+ * Mutation of the member's token conditioned on the subscription the client
+ * shows as active (optimistic precondition shared by `issue` and `revoke`).
+ */
+export type RevokeTribeEventCalendarFeedTokenCommand = TribeEventCalendarFeedTokenQuery & {
   /**
    * Id of the subscription the client knows as active (null: it knows none).
-   * The token is issued only while that is still the active one.
+   * The mutation applies only while that is still the active one.
    */
   expectedSubscriptionId: string | null;
+};
+
+export type IssueTribeEventCalendarFeedTokenCommand = RevokeTribeEventCalendarFeedTokenCommand & {
   /** SHA-256 hex digest of the new token; the plain token never reaches SQL. */
   tokenHash: string;
 };
@@ -51,10 +58,13 @@ export type TribeEventCalendarFeedTokenIssueResult =
     };
 
 /**
- * Revoking is idempotent: no active token is still `feedTokenRevoked`.
+ * Revoking is idempotent: no active token while the client expected none is
+ * still `feedTokenRevoked`. `feedTokenChanged`: the active token is not the
+ * expected one, and nothing was revoked.
  */
 export type TribeEventCalendarFeedTokenRevokeResult = {
   status:
+    | typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged
     | typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked
     | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
 };
@@ -76,10 +86,13 @@ export type TribeEventCalendarFeedTokenRepository = {
   ) => Promise<TribeEventCalendarFeedTokenIssueResult>;
   /**
    * Revokes the active token of the member for the tribe (if any), serialized
-   * with `issue` per member and tribe.
+   * with `issue` per member and tribe. Same optimistic precondition as
+   * `issue`: when the active token is no longer `expectedSubscriptionId`
+   * (another tab regenerated it) nothing is revoked and it answers
+   * `feedTokenChanged`, so a stale tab never turns off a newer link.
    */
   revoke: (
-    command: TribeEventCalendarFeedTokenQuery
+    command: RevokeTribeEventCalendarFeedTokenCommand
   ) => Promise<TribeEventCalendarFeedTokenRevokeResult>;
 };
 

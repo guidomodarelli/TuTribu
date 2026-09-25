@@ -2,6 +2,7 @@ import type {
   GetTribeEventCalendarFeedQuery,
   TribeEventCalendarFeedTokenCommand,
   TribeEventCalendarFeedTokenIssueCommand,
+  TribeEventCalendarFeedTokenRevokeCommand,
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
   TribeEventCalendarFeedResult,
@@ -93,16 +94,23 @@ export function issueTribeEventCalendarFeedToken({
 }
 
 /**
- * Turns the subscription off. Idempotent: without an active token it still
- * reports the token as revoked.
+ * Turns the subscription off, conditioned on the subscription the client
+ * shows (the same optimistic precondition as the generation): a stale tab
+ * whose link was already replaced revokes nothing and gets
+ * `feedTokenChanged`, so it can never turn off the newer link. Idempotent:
+ * without an active token, while the client expected none, it still reports
+ * the token as revoked.
  */
 export function revokeTribeEventCalendarFeedToken({
   tribeEventCalendarFeedTokenRepository,
 }: TokenManagementDependencies) {
   return (
-    command: TribeEventCalendarFeedTokenCommand
+    command: TribeEventCalendarFeedTokenRevokeCommand
   ): Promise<TribeEventCalendarFeedTokenRevokeResult> =>
-    tribeEventCalendarFeedTokenRepository.revoke(command);
+    tribeEventCalendarFeedTokenRepository.revoke({
+      expectedSubscriptionId: command.expectedSubscriptionId,
+      tribeSlug: command.tribeSlug,
+    });
 }
 
 function groupExceptionsByEvent(

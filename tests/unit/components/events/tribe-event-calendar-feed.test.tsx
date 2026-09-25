@@ -286,11 +286,45 @@ describe("TribeEventsCalendar calendar subscription", () => {
 
     expect(await within(dialog).findByRole("button", { name: "Generar link" })).toBeInTheDocument();
     expect(global.fetch).toHaveBeenLastCalledWith(
-      ENDPOINT,
+      `${ENDPOINT}?expectedSubscriptionId=${SUBSCRIPTION_ID}`,
       expect.objectContaining({ method: "DELETE" })
     );
     expect(router.refresh).not.toHaveBeenCalled();
     await expect(resolvedSuccessToastCopy()).resolves.toBe("Suscripción desactivada.");
+  });
+
+  it("reloads the state instead of turning off a link another tab already replaced", async () => {
+    const user = userEvent.setup();
+    const changedMessage =
+      "Tu link de calendario cambió desde otra pestaña o dispositivo. Revisalo y volvé a intentarlo.";
+    respondWith({ subscription: issuedBody.subscription });
+    respondWith({ message: changedMessage }, 409);
+    respondWith({
+      subscription: { ...issuedBody.subscription, id: OTHER_TAB_SUBSCRIPTION_ID },
+    });
+    respondWith({
+      message: "Suscripción desactivada. El link anterior ya no funciona.",
+      subscription: null,
+    });
+
+    const dialog = await openDialog(user);
+
+    await user.click(await within(dialog).findByRole("button", { name: "Desactivar suscripción" }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+    const [pendingRequest] = (toast.promise as Mock).mock.calls[0] ?? [];
+
+    await expect(pendingRequest).rejects.toThrow(changedMessage);
+    expect(router.refresh).not.toHaveBeenCalled();
+
+    // The active link is still on: the retry targets the one active now.
+    await user.click(await within(dialog).findByRole("button", { name: "Desactivar suscripción" }));
+
+    expect(await within(dialog).findByRole("button", { name: "Generar link" })).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenLastCalledWith(
+      `${ENDPOINT}?expectedSubscriptionId=${OTHER_TAB_SUBSCRIPTION_ID}`,
+      expect.objectContaining({ method: "DELETE" })
+    );
   });
 
   it("shows a safe error with a retry when the state cannot be loaded", async () => {

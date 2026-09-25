@@ -6,7 +6,10 @@ import {
   tribeEventCalendarFeedStatusResponseSchema,
 } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
-import { tribeEventCalendarFeedIssueBodySchema } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-calendar-feed-schemas";
+import {
+  tribeEventCalendarFeedIssueBodySchema,
+  tribeEventCalendarFeedRevokeQuerySchema,
+} from "@/src/modules/events/infrastructure/api/schemas/tribe-event-calendar-feed-schemas";
 import {
   tribeEventEmptyQuerySchema,
   tribeEventsRouteParamsSchema,
@@ -72,13 +75,13 @@ function mapFailureStatusResponse(status: string): Response {
 }
 
 /**
- * Session, boundary input (slug and, for POST, the body; no query), and the
- * request logger shared by the three verbs.
+ * Session, boundary input (slug; for POST the body, for DELETE the query;
+ * GET takes no query), and the request logger shared by the three verbs.
  */
-async function resolveSubscriptionRequest<TBody = undefined>(
+async function resolveSubscriptionRequest<TQuery, TBody = undefined>(
   request: Request,
   context: TribeEventsRouteContext,
-  bodySchema?: z.ZodType<TBody>
+  schemas: { body?: z.ZodType<TBody>; query: z.ZodType<TQuery> }
 ) {
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
@@ -104,9 +107,9 @@ async function resolveSubscriptionRequest<TBody = undefined>(
     params: context.params,
     request,
     schemas: {
-      body: bodySchema,
+      body: schemas.body,
       params: tribeEventsRouteParamsSchema,
-      query: tribeEventEmptyQuerySchema,
+      query: schemas.query,
     },
   });
 
@@ -120,6 +123,7 @@ async function resolveSubscriptionRequest<TBody = undefined>(
     logger,
     metadata: { tribeSlug: input.params.slug, userId: authenticatedMember.id },
     modules,
+    query: input.query,
     tribeSlug: input.params.slug,
   } as const;
 }
@@ -131,7 +135,9 @@ export async function GET(
   request: Request,
   context: TribeEventsRouteContext
 ): Promise<Response> {
-  const resolved = await resolveSubscriptionRequest(request, context);
+  const resolved = await resolveSubscriptionRequest(request, context, {
+    query: tribeEventEmptyQuerySchema,
+  });
 
   if (!resolved.isResolved) {
     return resolved.response;
@@ -182,11 +188,10 @@ export async function POST(
   request: Request,
   context: TribeEventsRouteContext
 ): Promise<Response> {
-  const resolved = await resolveSubscriptionRequest(
-    request,
-    context,
-    tribeEventCalendarFeedIssueBodySchema
-  );
+  const resolved = await resolveSubscriptionRequest(request, context, {
+    body: tribeEventCalendarFeedIssueBodySchema,
+    query: tribeEventEmptyQuerySchema,
+  });
 
   if (!resolved.isResolved) {
     return resolved.response;
@@ -245,22 +250,32 @@ export async function POST(
 }
 
 /**
- * "Desactivar suscripción": revokes the active link (idempotent).
+ * "Desactivar suscripción": revokes the active link. The query carries the id
+ * of the subscription the client shows (`expectedSubscriptionId`, absent when
+ * it shows none), the same optimistic precondition as POST: when another tab
+ * already regenerated the link, it answers 409 and revokes nothing, so a
+ * stale tab never turns off the link another response just returned.
+ * Without an active link, while the client expected none, it is idempotent.
  */
 export async function DELETE(
   request: Request,
   context: TribeEventsRouteContext
 ): Promise<Response> {
-  const resolved = await resolveSubscriptionRequest(request, context);
+  const resolved = await resolveSubscriptionRequest(request, context, {
+    query: tribeEventCalendarFeedRevokeQuerySchema,
+  });
 
   if (!resolved.isResolved) {
     return resolved.response;
   }
 
-  const { logger, metadata, modules, tribeSlug } = resolved;
+  const { logger, metadata, modules, query, tribeSlug } = resolved;
 
   try {
-    const result = await modules.events.useCases.revokeTribeEventCalendarFeedToken({ tribeSlug });
+    const result = await modules.events.useCases.revokeTribeEventCalendarFeedToken({
+      expectedSubscriptionId: query.expectedSubscriptionId,
+      tribeSlug,
+    });
 
     if (result.status !== TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked) {
       return mapFailureStatusResponse(result.status);

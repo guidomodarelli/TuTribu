@@ -49,6 +49,14 @@ function issueRequest(body: unknown = { expectedSubscriptionId: null }) {
   });
 }
 
+function revokeRequest(expectedSubscriptionId: string) {
+  const url = new URL(MANAGEMENT_URL);
+
+  url.searchParams.set("expectedSubscriptionId", expectedSubscriptionId);
+
+  return new Request(url, { method: "DELETE" });
+}
+
 const foundFeed = {
   calendarName: "Matemática Pro",
   ownerUserId: OWNER_ID,
@@ -372,7 +380,7 @@ describe("/api/tribes/[slug]/events/calendar-feed", () => {
     expect(managementUseCases.issueTribeEventCalendarFeedToken).not.toHaveBeenCalled();
   });
 
-  it("revokes the subscription idempotently", async () => {
+  it("revokes the subscription idempotently when the client shows none", async () => {
     managementUseCases.revokeTribeEventCalendarFeedToken.mockResolvedValue({
       status: "feed_token_revoked",
     });
@@ -387,6 +395,60 @@ describe("/api/tribes/[slug]/events/calendar-feed", () => {
       message: "Suscripción desactivada. El link anterior ya no funciona.",
       subscription: null,
     });
+    expect(managementUseCases.revokeTribeEventCalendarFeedToken).toHaveBeenCalledWith({
+      expectedSubscriptionId: null,
+      tribeSlug: TRIBE_SLUG,
+    });
+  });
+
+  it("revokes only the subscription the client shows, sent in the query", async () => {
+    managementUseCases.revokeTribeEventCalendarFeedToken.mockResolvedValue({
+      status: "feed_token_revoked",
+    });
+
+    const response = await DELETE_SUBSCRIPTION(
+      revokeRequest(SUBSCRIPTION_ID),
+      managementContext()
+    );
+
+    expect(response.status).toBe(200);
+    expect(managementUseCases.revokeTribeEventCalendarFeedToken).toHaveBeenCalledWith({
+      expectedSubscriptionId: SUBSCRIPTION_ID,
+      tribeSlug: TRIBE_SLUG,
+    });
+  });
+
+  it("answers 409 without revoking when another tab already replaced the link", async () => {
+    managementUseCases.revokeTribeEventCalendarFeedToken.mockResolvedValue({
+      status: "feed_token_changed",
+    });
+
+    const response = await DELETE_SUBSCRIPTION(
+      revokeRequest(PREVIOUS_SUBSCRIPTION_ID),
+      managementContext()
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      message:
+        "Tu link de calendario cambió desde otra pestaña o dispositivo. Revisalo y volvé a intentarlo.",
+    });
+  });
+
+  it.each([
+    ["a malformed subscription id", "?expectedSubscriptionId=not-a-uuid"],
+    [
+      "a repeated subscription id",
+      `?expectedSubscriptionId=${SUBSCRIPTION_ID}&expectedSubscriptionId=${PREVIOUS_SUBSCRIPTION_ID}`,
+    ],
+  ])("rejects %s with a safe 400 before revoking", async (_label, search) => {
+    const response = await DELETE_SUBSCRIPTION(
+      new Request(MANAGEMENT_URL + search, { method: "DELETE" }),
+      managementContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(managementUseCases.revokeTribeEventCalendarFeedToken).not.toHaveBeenCalled();
   });
 
   it("answers a safe 500 when the issued DTO is unusable", async () => {
