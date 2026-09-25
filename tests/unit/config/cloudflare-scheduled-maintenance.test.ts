@@ -2,6 +2,7 @@
 
 import { vi, describe, it, expect } from "vitest";
 import {
+  EVENT_REMINDERS_MAINTENANCE_PATH,
   FILE_CLEANUP_MAINTENANCE_PATH,
   IMAGE_CLEANUP_MAINTENANCE_PATH,
   MAINTENANCE_CRON_SCHEDULE,
@@ -57,6 +58,9 @@ describe("resolveMaintenancePathForCron", () => {
     expect(
       resolveMaintenancePathForCron(MAINTENANCE_CRON_SCHEDULE.fileCleanup)
     ).toBe(FILE_CLEANUP_MAINTENANCE_PATH);
+    expect(
+      resolveMaintenancePathForCron(MAINTENANCE_CRON_SCHEDULE.eventReminders)
+    ).toBe(EVENT_REMINDERS_MAINTENANCE_PATH);
   });
 
   it("falls back to the image cleanup route for unknown expressions", () => {
@@ -86,6 +90,27 @@ describe("runScheduledMaintenanceCleanup", () => {
       authorization: `Bearer ${CRON_SECRET}`,
       method: "GET",
       pathname: FILE_CLEANUP_MAINTENANCE_PATH,
+    });
+  });
+
+  it("re-enters the event reminders route every time the 5-minute cron fires", async () => {
+    let captured: CapturedRequest | undefined;
+    const fetchHandler = vi.fn((request: Request) => {
+      captured = captureRequest(request);
+      return new Response(null, { status: 200 });
+    });
+
+    await runScheduledMaintenanceCleanup({
+      context: createExecutionContextStub(),
+      cron: MAINTENANCE_CRON_SCHEDULE.eventReminders,
+      env: { CRON_SECRET },
+      fetchHandler,
+    });
+
+    expect(captured).toEqual({
+      authorization: `Bearer ${CRON_SECRET}`,
+      method: "GET",
+      pathname: EVENT_REMINDERS_MAINTENANCE_PATH,
     });
   });
 

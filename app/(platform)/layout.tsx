@@ -1,8 +1,9 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { Suspense } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
+import { NotificationCenter } from "./notification-center";
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { TribeSupportButton } from "@/components/tribes/tribe-support-button";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
@@ -10,8 +11,72 @@ import { SidebarInset, SidebarProvider, SidebarTrigger, TooltipProvider, SIDEBAR
 
 import { ROUTES } from "@/src/constants/routes";
 
+import {
+  notificationInboxSchema,
+  type NotificationInboxResponse,
+} from "@/src/modules/notifications/application/results/notification-public-dto-schemas";
 import { createRequestModules } from "@/src/modules/setup";
+import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { summarizeValidationIssues } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 import styles from "./layout.module.scss";
+
+const PLATFORM_LAYOUT_NOTIFICATIONS_LOG = {
+  dtoRejectedMessage: "Notification inbox public DTO rejected",
+  dtoRejectedReason: "public_dto_rejected",
+  failureMessage: "Notification inbox lookup failed in the platform layout",
+  feature: "notifications",
+  operation: "platform-layout-notification-inbox",
+} as const;
+
+type PlatformModules = Awaited<ReturnType<typeof createRequestModules>>;
+
+/**
+ * Server-first inbox for the header bell. A failure never breaks the layout:
+ * it is logged and the bell starts empty, loading on open and polling the
+ * count. The inbox is a prop of a client component, so it goes through its
+ * public DTO allowlist first. Logs carry the request's correlation id.
+ */
+async function loadInitialNotificationInbox(
+  modules: PlatformModules,
+  userId: string,
+  requestId: string
+): Promise<NotificationInboxResponse | null> {
+  const logger = createServerLogger({
+    feature: PLATFORM_LAYOUT_NOTIFICATIONS_LOG.feature,
+    operation: PLATFORM_LAYOUT_NOTIFICATIONS_LOG.operation,
+    requestId,
+  });
+
+  try {
+    const inbox = notificationInboxSchema.safeParse(
+      await modules.notifications.useCases.getNotificationInbox()
+    );
+
+    if (!inbox.success) {
+      logger.error({
+        message: PLATFORM_LAYOUT_NOTIFICATIONS_LOG.dtoRejectedMessage,
+        metadata: {
+          issues: summarizeValidationIssues(inbox.error.issues),
+          reason: PLATFORM_LAYOUT_NOTIFICATIONS_LOG.dtoRejectedReason,
+          userId,
+        },
+      });
+
+      return null;
+    }
+
+    return inbox.data;
+  } catch (error) {
+    logger.error({
+      error,
+      message: PLATFORM_LAYOUT_NOTIFICATIONS_LOG.failureMessage,
+      metadata: { userId },
+    });
+
+    return null;
+  }
+}
 
 type PlatformLayoutShellProps = Readonly<{
   authenticatedMember: React.ComponentProps<
@@ -20,6 +85,7 @@ type PlatformLayoutShellProps = Readonly<{
   children: React.ReactNode;
   defaultSidebarOpen?: boolean;
   memberTribes: React.ComponentProps<typeof AppSidebar>["memberTribes"];
+  notificationInbox: NotificationInboxResponse | null;
 }>;
 
 function PlatformLayoutFallback() {
@@ -39,6 +105,7 @@ function PlatformLayoutShell({
   children,
   defaultSidebarOpen,
   memberTribes,
+  notificationInbox,
 }: PlatformLayoutShellProps) {
   return (
     <TooltipProvider>
@@ -56,6 +123,9 @@ function PlatformLayoutShell({
               showPrivateBadge
             />
             <div className={styles.PlatformLayout__accountMenu}>
+              {authenticatedMember ? (
+                <NotificationCenter initialInbox={notificationInbox} />
+              ) : null}
               <TribeSupportButton memberTribes={memberTribes} />
               <ThemeModeDropdown />
               <AvatarSessionMenuClient
@@ -77,10 +147,10 @@ export async function PlatformLayoutContent({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [cookieStore, modules] = await Promise.all([
-    cookies(),
-    createRequestModules(),
-  ]);
+  // Runtime request data resolves inside the layout's own Suspense boundary.
+  const [cookieStore, requestHeaders] = await Promise.all([cookies(), headers()]);
+  const { requestId } = resolveRequestContext(requestHeaders);
+  const modules = await createRequestModules({ requestId });
   const sidebarCookieValue = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value;
   const defaultSidebarOpen =
     sidebarCookieValue !== undefined
@@ -88,15 +158,19 @@ export async function PlatformLayoutContent({
       : undefined;
   const authenticatedMember =
     await modules.auth.useCases.getAuthenticatedMember();
-  const memberTribes = authenticatedMember
-    ? await modules.tribes.useCases.getMemberTribes()
-    : [];
+  const [memberTribes, notificationInbox] = authenticatedMember
+    ? await Promise.all([
+        modules.tribes.useCases.getMemberTribes(),
+        loadInitialNotificationInbox(modules, authenticatedMember.id, requestId),
+      ])
+    : [[], null];
 
   return (
     <PlatformLayoutShell
       authenticatedMember={authenticatedMember}
       defaultSidebarOpen={defaultSidebarOpen}
       memberTribes={memberTribes}
+      notificationInbox={notificationInbox}
     >
       {children}
     </PlatformLayoutShell>

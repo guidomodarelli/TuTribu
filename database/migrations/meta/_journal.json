@@ -624,6 +624,13 @@
       "when": 1790257800000,
       "tag": "20260925123000_add_tribe_event_series_has_occurrence_in_range",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1790259600000,
+      "tag": "20260926120000_create_notifications",
+      "breakpoints": true
     }
   ]
 }

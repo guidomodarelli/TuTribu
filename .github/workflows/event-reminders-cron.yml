@@ -1,0 +1,66 @@
+# Triggers the event reminders maintenance route every 5 minutes on the Vercel
+# deployment target. Vercel Hobby only allows daily crons, so this schedule
+# replaces the `*/5 * * * *` Vercel cron; the Cloudflare target keeps its own
+# trigger in `wrangler.jsonc`.
+#
+# GitHub may delay (or, under load, skip) scheduled runs by several minutes.
+# The route is safe for that: reminders are selected as "due and not sent
+# yet" and deduplicated per recipient, so a late run catches them up.
+#
+# Configuration (Settings > Secrets and variables > Actions):
+#   - Secret `CRON_SECRET`: the same value as the `CRON_SECRET` of the Vercel
+#     production deployment.
+#   - Variable `EVENT_REMINDERS_BASE_URL`: production origin, for example
+#     `https://example.com` (no trailing path).
+# Until both exist the job ends successfully with a notice, so forks and
+# unconfigured repositories do not fail.
+name: Event reminders cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: event-reminders-cron
+  cancel-in-progress: false
+
+jobs:
+  trigger-event-reminders:
+    name: Trigger event reminders
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the event reminders maintenance route
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          EVENT_REMINDERS_BASE_URL: ${{ vars.EVENT_REMINDERS_BASE_URL }}
+          EVENT_REMINDERS_PATH: /api/maintenance/event-reminders
+        run: |
+          set -euo pipefail
+
+          if [ -z "${EVENT_REMINDERS_BASE_URL}" ] || [ -z "${CRON_SECRET}" ]; then
+            echo "::notice title=Event reminders cron skipped::Configure the repository secret CRON_SECRET and the variable EVENT_REMINDERS_BASE_URL to trigger ${EVENT_REMINDERS_PATH}."
+            exit 0
+          fi
+
+          echo "::add-mask::${CRON_SECRET}"
+          target_url="${EVENT_REMINDERS_BASE_URL%/}${EVENT_REMINDERS_PATH}"
+
+          # The authorization header is read from stdin so the secret never
+          # appears in the process arguments.
+          printf 'Authorization: Bearer %s\n' "${CRON_SECRET}" | curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --request GET \
+            --header @- \
+            --retry 2 \
+            --retry-all-errors \
+            --retry-delay 10 \
+            --connect-timeout 10 \
+            --max-time 60 \
+            "${target_url}"
+          echo

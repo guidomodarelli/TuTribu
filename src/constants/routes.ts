@@ -21,6 +21,7 @@ function buildTribeSectionRoute(slug: string, section: string): string {
 
 export const ROUTES = {
   api: {
+    notifications: "/api/notifications",
     tribes: "/api/tribes",
   },
   auth: {

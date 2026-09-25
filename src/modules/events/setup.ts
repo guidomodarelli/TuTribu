@@ -73,6 +73,11 @@ import {
   rejectTribeEventProposal,
   withdrawTribeEventProposal,
 } from "@/src/modules/events/application/use-cases/tribe-event-proposal-use-cases";
+import {
+  sendTribeEventReminders,
+  type SendTribeEventRemindersCommand,
+  type SendTribeEventRemindersResult,
+} from "@/src/modules/events/application/use-cases/send-tribe-event-reminders-use-case";
 import type {
   TribeEventCalendarFeedReader,
   TribeEventCalendarFeedTokenCodec,
@@ -80,6 +85,7 @@ import type {
 } from "@/src/modules/events/domain/repositories/tribe-event-calendar-feed-repository";
 import type { TribeEventOccurrenceExceptionRepository } from "@/src/modules/events/domain/repositories/tribe-event-occurrence-exception-repository";
 import type { TribeEventProposalRepository } from "@/src/modules/events/domain/repositories/tribe-event-proposal-repository";
+import type { TribeEventReminderRepository } from "@/src/modules/events/domain/repositories/tribe-event-reminder-repository";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 
 type EventsModuleDependencies = {
@@ -87,6 +93,7 @@ type EventsModuleDependencies = {
   tribeEventCalendarFeedTokenRepository: TribeEventCalendarFeedTokenRepository;
   tribeEventOccurrenceExceptionRepository: TribeEventOccurrenceExceptionRepository;
   tribeEventProposalRepository: TribeEventProposalRepository;
+  tribeEventReminderRepository: TribeEventReminderRepository;
   tribeEventRepository: TribeEventRepository;
 };
 
@@ -138,6 +145,9 @@ type EventsModule = {
     saveTribeEventOccurrenceException: (
       command: SaveTribeEventOccurrenceExceptionCommand
     ) => Promise<TribeEventOccurrenceExceptionMutationResult>;
+    sendTribeEventReminders: (
+      command?: SendTribeEventRemindersCommand
+    ) => Promise<SendTribeEventRemindersResult>;
     setTribeEventAttendance: (
       command: SetTribeEventAttendanceCommand
     ) => Promise<TribeEventAttendanceMutationResult>;
@@ -169,6 +179,7 @@ export function buildEventsModule(dependencies: EventsModuleDependencies): Event
       rejectTribeEventProposal: rejectTribeEventProposal(dependencies),
       revokeTribeEventCalendarFeedToken: revokeTribeEventCalendarFeedToken(dependencies),
       saveTribeEventOccurrenceException: saveTribeEventOccurrenceException(dependencies),
+      sendTribeEventReminders: sendTribeEventReminders(dependencies),
       setTribeEventAttendance: setTribeEventAttendance(dependencies),
       updateTribeEvent: updateTribeEvent(dependencies),
       withdrawTribeEventProposal: withdrawTribeEventProposal(dependencies),
