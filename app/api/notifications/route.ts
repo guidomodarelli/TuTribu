@@ -22,7 +22,10 @@ const NOTIFICATION_INBOX_ROUTE_LOG = {
  * Called when the bell opens, so the list is fresh without polling it.
  */
 export async function GET(request: Request): Promise<Response> {
-  const session = await resolveNotificationRouteSession(request, NOTIFICATION_INBOX_ROUTE_LOG.operation);
+  const session = await resolveNotificationRouteSession(request, {
+    operation: NOTIFICATION_INBOX_ROUTE_LOG.operation,
+    unexpectedFailureMessage: NOTIFICATION_ROUTE_RESPONSE.unexpectedInboxMessage,
+  });
 
   if (!session.isResolved) {
     return session.response;

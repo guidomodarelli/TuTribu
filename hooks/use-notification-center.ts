@@ -74,7 +74,9 @@ function markItemRead(
  * ignored), unread polling, and incremental read marks. Every mutation
  * patches the local state and adopts the unread count returned by the
  * server; no route refresh happens. A counter of local mutations makes a poll
- * that started before a mark discard its (older) count.
+ * that started before a mark discard its (older) count, and a failed read
+ * mark that a newer mutation superseded reconciles from the server instead
+ * of rolling back over the newer state.
  *
  * @param initialInbox - Inbox rendered by the layout, or null when it could
  * not be loaded (the bell then loads on open and polls the count).
@@ -94,6 +96,7 @@ export function useNotificationCenter(
   const isMarkingAllRef = useRef(false);
   const listControllerRef = useRef<AbortController | null>(null);
   const mutationVersionRef = useRef(0);
+  const hasPendingReconcileRef = useRef(false);
 
   const refreshUnreadCount = useCallback((signal: AbortSignal) => {
     const versionAtStart = mutationVersionRef.current;
@@ -202,6 +205,21 @@ export function useNotificationCenter(
       setUnreadCount((current) => Math.max(current - 1, 0));
 
       const revert = () => {
+        if (version !== mutationVersionRef.current) {
+          // A newer mutation (another read or "mark all") already rewrote this
+          // state, so rolling back would undo it (e.g. an item the server
+          // already marked read would turn unread again). Reconcile from the
+          // server instead; while a "mark all" is in flight, defer until it
+          // settles so its own outcome is not overwritten by an older list.
+          if (isMarkingAllRef.current) {
+            hasPendingReconcileRef.current = true;
+          } else {
+            refreshList();
+          }
+
+          return;
+        }
+
         setNotifications((current) => markItemRead(current, notificationId, null));
         setUnreadCount((current) => current + 1);
         toast.error(COPY.markReadFailure);
@@ -220,7 +238,7 @@ export function useNotificationCenter(
         })
         .catch(revert);
     },
-    [notifications]
+    [notifications, refreshList]
   );
 
   const markAllRead = useCallback(async () => {
@@ -273,8 +291,13 @@ export function useNotificationCenter(
     } finally {
       isMarkingAllRef.current = false;
       setIsMarkingAll(false);
+
+      if (hasPendingReconcileRef.current) {
+        hasPendingReconcileRef.current = false;
+        refreshList();
+      }
     }
-  }, [notifications, unreadCount]);
+  }, [notifications, refreshList, unreadCount]);
 
   return {
     isMarkingAll,
