@@ -27,6 +27,29 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
+/**
+ * Bound values of a drizzle statement, in order (nested fragments included).
+ */
+function getSqlParams(statement: unknown): unknown[] {
+  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? []).flatMap((chunk) => {
+    if (chunk && typeof chunk === "object") {
+      if ("queryChunks" in chunk) {
+        return getSqlParams(chunk);
+      }
+
+      if (chunk.constructor.name === "StringChunk") {
+        return [];
+      }
+
+      if ("value" in chunk) {
+        return [(chunk as { value: unknown }).value];
+      }
+    }
+
+    return [chunk];
+  });
+}
+
 function createExecutor(execute: Mock) {
   return async <T,>(callback: (database: never) => Promise<T>) => callback({ execute } as never);
 }
@@ -105,6 +128,24 @@ describe("PostgresTribeEventReminderRepository", () => {
     expect(seriesSql).not.toContain("from public.events");
     expect(exceptionsSql).toContain("from public.list_tribe_event_reminder_exceptions(");
     expect(exceptionsSql).not.toContain("from public.event_occurrence_exceptions");
+  });
+
+  it("bounds the exceptions read to the reminder range instead of the whole history", async () => {
+    const rangeStart = "2026-05-06T12:10:00.000Z";
+    const rangeEnd = "2026-05-07T12:10:00.000Z";
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [seriesRow(FIRST_EVENT_ID), seriesRow(SECOND_EVENT_ID)] })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = new PostgresTribeEventReminderRepository(createExecutor(execute));
+
+    await repository.listSeriesInRange({ afterEventId: null, limit: 200, rangeEnd, rangeStart });
+
+    expect(getSqlParams(execute.mock.calls[1]?.[0])).toEqual([
+      [FIRST_EVENT_ID, SECOND_EVENT_ID],
+      rangeStart,
+      rangeEnd,
+    ]);
   });
 
   it("returns an empty last page without querying exceptions", async () => {

@@ -85,7 +85,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <table>
     <tr><th>Función</th><th>Uso</th></tr>
     <tr><td><code>list_tribe_event_reminder_series(range_start, range_end, after_event_id, batch_limit)</code></td><td>Página keyset de series con al menos una fecha efectiva en el rango (espejo SQL de <code>buildSeriesWithOccurrenceInRangePredicate</code>, vía <code>tribe_event_series_has_occurrence_in_range</code>; deben cambiar juntos)</td></tr>
-    <tr><td><code>list_tribe_event_reminder_exceptions(target_event_ids)</code></td><td>Excepciones de esa página en una sola consulta</td></tr>
+    <tr><td><code>list_tribe_event_reminder_exceptions(target_event_ids, range_start, range_end)</code></td><td>Excepciones de esa página en una sola consulta, <strong>acotadas al rango</strong>: solo las filas cuyo slot original puede solapar el rango (empieza antes de <code>range_end</code> y su duración de serie, 60 min sin <code>ends_at</code>, alcanza <code>range_start</code>; índice único <code>(event_id, original_starts_at)</code>) más las movidas cuyo inicio nuevo cae en el rango (índice parcial <code>idx_event_occurrence_exceptions_event_new_start</code>). Una serie con años de historial no carga sus cancelaciones y movidas pasadas en cada corrida</td></tr>
     <tr><td><code>enqueue_tribe_event_reminders(reminder_candidates)</code></td><td>Revalida cada fecha y encola los avisos (ver abajo)</td></tr>
     <tr><td><code>purge_read_notifications(batch_limit, read_before)</code></td><td>Un lote de la purga de retención</td></tr>
   </table>
@@ -94,7 +94,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   → página de series por keyset (events.id), 200 por página, máx. 10 páginas
       → list_tribe_event_reminder_series (solo series con fecha efectiva en el rango,
                                          filtradas ANTES del LIMIT de la página)
-      → list_tribe_event_reminder_exceptions (segunda consulta, sin N+1)
+      → list_tribe_event_reminder_exceptions (segunda consulta, sin N+1, acotada al rango)
   → expandTribeEventOccurrencesWithExceptions (como listUpcomingTribeEvents)
       → descarta canceladas; una movida usa su hora nueva
   → ventana 24 h: inicio efectivo ∈ (now + 60 min, now + 24 h]  → going + maybe

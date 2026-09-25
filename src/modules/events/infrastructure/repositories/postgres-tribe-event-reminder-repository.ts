@@ -35,8 +35,12 @@ export class PostgresTribeEventReminderRepository implements TribeEventReminderR
 
   /**
    * One keyset page of series (ordered by id) that can have a date in the
-   * range, plus their exceptions in a second query (no N+1). It reads one
-   * row past the limit to know whether another page exists.
+   * range, plus their exceptions in a second query (no N+1). The exceptions
+   * read is bounded by the same range (`list_tribe_event_reminder_exceptions`
+   * returns only the rows whose original slot can overlap it, or whose moved
+   * date lands in it), so a long-lived series with years of history never
+   * loads its past cancellations and moves on every run. It reads one row
+   * past the limit to know whether another page exists.
    */
   async listSeriesInRange({
     afterEventId,
@@ -65,9 +69,11 @@ export class PostgresTribeEventReminderRepository implements TribeEventReminderR
 
       const exceptionsResult = await database.execute(sql`
         select ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS}
-        from public.list_tribe_event_reminder_exceptions(${sql.param(
-          pageRows.map((row) => row.id)
-        )}::uuid[]) as event_occurrence_exceptions
+        from public.list_tribe_event_reminder_exceptions(
+          ${sql.param(pageRows.map((row) => row.id))}::uuid[],
+          ${rangeStart}::timestamptz,
+          ${rangeEnd}::timestamptz
+        ) as event_occurrence_exceptions
       `);
       const exceptions = mapTribeEventOccurrenceExceptions(
         (exceptionsResult.rows ?? []) as TribeEventOccurrenceExceptionRow[]

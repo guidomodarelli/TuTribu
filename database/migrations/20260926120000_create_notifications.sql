@@ -602,9 +602,32 @@ REVOKE EXECUTE ON FUNCTION public.list_tribe_event_reminder_series(
 )
 FROM PUBLIC;
 
--- 8b. The exceptions of one page of series (one query per page, no N+1).
+-- 8b. The exceptions of one page of series (one query per page, no N+1),
+-- bounded by the reminder range [range_start, range_end). A long-lived
+-- series accumulates years of cancellations and moves that can never affect
+-- the next day, so the function returns only:
+--   * the rows whose ORIGINAL slot can overlap the range (it starts before
+--     range_end and its series duration, 60 minutes without ends_at, reaches
+--     range_start): they remove that slot from the plain expansion. The lower
+--     bound is written as range_start - least(duration, range_start -
+--     starts_at), like the excepted slots of 8a, so a duration of millennia
+--     never falls below the timestamptz range, and both bounds use the
+--     (event_id, original_starts_at) unique index;
+--   * the MOVED rows whose new start lands in the range: the reminder
+--     expansion matches a moved date by its effective start
+--     (selectDueTribeEventReminders, "starts within"), and range_start is the
+--     earliest start a reminder can be due for. They are read through
+--     idx_event_occurrence_exceptions_event_new_start.
+-- Rows kept after a schedule edit are not filtered here; the domain
+-- expansion ignores an original start that is no longer a slot.
+CREATE INDEX IF NOT EXISTS idx_event_occurrence_exceptions_event_new_start
+ON public.event_occurrence_exceptions(event_id, new_starts_at)
+WHERE kind = 'moved';
+
 CREATE OR REPLACE FUNCTION public.list_tribe_event_reminder_exceptions(
-  target_event_ids uuid[]
+  target_event_ids uuid[],
+  range_start timestamptz,
+  range_end timestamptz
 )
 RETURNS SETOF public.event_occurrence_exceptions
 LANGUAGE sql
@@ -613,12 +636,29 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
   SELECT event_occurrence_exceptions.*
-  FROM public.event_occurrence_exceptions
+  FROM public.events
+  INNER JOIN public.event_occurrence_exceptions
+    ON event_occurrence_exceptions.event_id = events.id
   WHERE nullif(current_setting('app.current_user_id', true), '') IS NULL
-    AND event_occurrence_exceptions.event_id = ANY(target_event_ids);
+    AND events.id = ANY(target_event_ids)
+    AND event_occurrence_exceptions.original_starts_at < range_end
+    AND event_occurrence_exceptions.original_starts_at >= range_start - least(
+      coalesce(events.ends_at - events.starts_at, interval '60 minutes'),
+      range_start - events.starts_at
+    )
+  UNION
+  SELECT moved_exceptions.*
+  FROM public.event_occurrence_exceptions AS moved_exceptions
+  WHERE nullif(current_setting('app.current_user_id', true), '') IS NULL
+    AND moved_exceptions.event_id = ANY(target_event_ids)
+    AND moved_exceptions.kind = 'moved'
+    AND moved_exceptions.new_starts_at >= range_start
+    AND moved_exceptions.new_starts_at < range_end;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.list_tribe_event_reminder_exceptions(uuid[])
+REVOKE EXECUTE ON FUNCTION public.list_tribe_event_reminder_exceptions(
+  uuid[], timestamptz, timestamptz
+)
 FROM PUBLIC;
 
 -- 8c. Enqueues due reminders. reminder_candidates is a JSON array of
