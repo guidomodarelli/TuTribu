@@ -230,6 +230,14 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     tribeSlug: TRIBE_SLUG,
   } as const;
 
+  const FEED_TRIBE_NAME = "Matemática Pro";
+
+  /**
+   * Row the snapshot returns when the token and its owner still pass the
+   * guard but no series fits: the feed is legitimately empty.
+   */
+  const ACCESS_ONLY_ROW = { feed_tribe_name: FEED_TRIBE_NAME, id: null };
+
   function buildSeriesRow(id: string, exceptions: unknown) {
     return {
       calendar_sequence: 7,
@@ -238,6 +246,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       ends_at: "2026-05-07T22:00:00.000Z",
       event_type: "workshop",
       exceptions,
+      feed_tribe_name: FEED_TRIBE_NAME,
       id,
       meeting_url: null,
       recurrence_frequency: "weekly",
@@ -337,6 +346,60 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     expect(feedSql).not.toContain("events.event_type = any(");
   });
 
+  it("rechecks the active token and the owner's access inside the snapshot statement", async () => {
+    const ownerExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [ACCESS_ONLY_ROW] });
+    const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
+
+    await reader.readAsOwner(FEED_QUERY);
+
+    // Under READ COMMITTED every statement takes a new snapshot: the guard
+    // must live in the same statement that reads the series, so a revocation
+    // or a block committed after the access check is seen by the read itself.
+    const feedSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
+    const guardSql = feedSql.slice(
+      feedSql.indexOf("feed_access as materialized"),
+      feedSql.indexOf("candidate_series as materialized")
+    );
+
+    expect(guardSql).toContain("event_calendar_feed_tokens.id =");
+    expect(guardSql).toContain("event_calendar_feed_tokens.token_hash =");
+    expect(guardSql).toContain("event_calendar_feed_tokens.user_id = public.current_app_user_id()");
+    expect(guardSql).toContain("event_calendar_feed_tokens.revoked_at is null");
+    expect(guardSql).toContain("public.can_read_tribe_content(tribes.id)");
+  });
+
+  it("returns null when the token was revoked or the owner blocked after the access check", async () => {
+    const ownerExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
+
+    // Same answer as an invalid token, never an empty feed that would make
+    // the calendar app delete the events it already has.
+    await expect(reader.readAsOwner(FEED_QUERY)).resolves.toBeNull();
+  });
+
+  it("returns an empty feed for an active token of a member whose tribe has no series", async () => {
+    const ownerExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [ACCESS_ONLY_ROW] });
+    const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
+
+    await expect(reader.readAsOwner(FEED_QUERY)).resolves.toEqual({
+      exceptions: [],
+      series: [],
+      tribeName: FEED_TRIBE_NAME,
+    });
+  });
+
   it("maps a series whose exception aggregate is empty or null", async () => {
     const secondEventId = "7a4d8b2f-3c5e-4d9f-8a21-2b3c4d5e6f70";
     const ownerExecute = vi
@@ -359,7 +422,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       .fn()
       .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] });
+      .mockResolvedValueOnce({ rows: [ACCESS_ONLY_ROW] });
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
     await expect(
@@ -378,7 +441,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       .fn()
       .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] });
+      .mockResolvedValueOnce({ rows: [ACCESS_ONLY_ROW] });
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
     await reader.readAsOwner(FEED_QUERY);
@@ -398,7 +461,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       .fn()
       .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] });
+      .mockResolvedValueOnce({ rows: [ACCESS_ONLY_ROW] });
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
     await reader.readAsOwner(FEED_QUERY);

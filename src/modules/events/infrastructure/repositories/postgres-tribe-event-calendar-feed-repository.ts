@@ -73,7 +73,6 @@ type ResolvedTokenRow = {
 
 type FeedTribeRow = {
   id: string;
-  name: string;
 };
 
 type FeedSeriesRow = TribeEventRow & {
@@ -85,6 +84,17 @@ type FeedSeriesRow = TribeEventRow & {
   exceptions: TribeEventOccurrenceExceptionRow[] | null;
   updated_at: Date | string;
 };
+
+/**
+ * Row of the feed snapshot. Every row carries the tribe name read by the
+ * access guard; when the guard passes but no series fits, the snapshot
+ * returns a single row whose series columns are null (`id: null`).
+ */
+type FeedSnapshotRow = { feed_tribe_name: string } & (FeedSeriesRow | { id: null });
+
+function isFeedSeriesRow(row: FeedSnapshotRow): row is FeedSnapshotRow & FeedSeriesRow {
+  return row.id !== null;
+}
 
 /**
  * Serializes regenerations and revocations of one member's token in one tribe.
@@ -151,10 +161,32 @@ async function revokeActiveMemberFeedToken(
  * Reading series and exceptions in the same statement guarantees that a
  * concurrent exception change is seen together with the `calendar_sequence`
  * and `updated_at` it bumped, never paired with the previous ones.
+ *
+ * `feed_access` repeats, in that same snapshot, the token and access guard of
+ * `readAccessibleTribe`: the token is still active (same id and hash, not
+ * revoked) and its owner can read the tribe. Under READ COMMITTED every
+ * statement takes a new snapshot, so a revocation or a block committed after
+ * the earlier check is seen here without locking the token row. When the
+ * guard fails the statement returns no row at all (the caller answers as for
+ * an invalid token); when it passes it returns at least one row, so an empty
+ * feed of a member with access stays distinguishable.
  */
 function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalendarFeedQuery) {
   return sql`
-    with recursive candidate_series as materialized (
+    with recursive feed_access as materialized (
+      select tribes.name as tribe_name
+      from public.tribes
+      inner join public.event_calendar_feed_tokens
+        on event_calendar_feed_tokens.tribe_id = tribes.id
+      where tribes.id = ${tribeId}
+        and event_calendar_feed_tokens.id = ${query.owner.tokenId}
+        and event_calendar_feed_tokens.token_hash = ${query.owner.tokenHash}
+        and event_calendar_feed_tokens.user_id = public.current_app_user_id()
+        and event_calendar_feed_tokens.revoked_at is null
+        and public.can_read_tribe_content(tribes.id)
+      limit 1
+    ),
+    candidate_series as materialized (
       select
         ${TRIBE_EVENT_COLUMNS},
         events.updated_at,
@@ -162,6 +194,7 @@ function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalend
         row_number() over (order by events.starts_at desc, events.id asc) as feed_position
       from public.events
       where events.tribe_id = ${tribeId}
+        and exists (select 1 from feed_access)
         and public.can_read_tribe_content(events.tribe_id)
         and ${buildSeriesWithOccurrenceInRangePredicate({
           rangeEnd: query.rangeEnd,
@@ -234,20 +267,27 @@ function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalend
         and budget_walk.remaining_components > 0
     )
     select
-      candidate_series.*,
-      (
-        select jsonb_agg(
-          to_jsonb(valid_exceptions)
-          order by valid_exceptions.original_starts_at desc
-        )
-        from valid_exceptions
-        where valid_exceptions.event_id = candidate_series.id
-      ) as exceptions
-    from budget_walk
-    inner join candidate_series
-      on candidate_series.feed_position = budget_walk.feed_position
-    where budget_walk.is_selected
-    order by candidate_series.feed_position
+      feed_access.tribe_name as feed_tribe_name,
+      selected_series.*
+    from feed_access
+    left join (
+      select
+        candidate_series.*,
+        (
+          select jsonb_agg(
+            to_jsonb(valid_exceptions)
+            order by valid_exceptions.original_starts_at desc
+          )
+          from valid_exceptions
+          where valid_exceptions.event_id = candidate_series.id
+        ) as exceptions
+      from budget_walk
+      inner join candidate_series
+        on candidate_series.feed_position = budget_walk.feed_position
+      where budget_walk.is_selected
+    ) as selected_series
+      on true
+    order by selected_series.feed_position
   `;
 }
 
@@ -448,7 +488,16 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
       `);
 
       const feedResult = await database.execute(buildFeedSnapshotStatement(tribe.id, query));
-      const seriesRows = (feedResult.rows ?? []) as FeedSeriesRow[];
+      const snapshotRows = (feedResult.rows ?? []) as FeedSnapshotRow[];
+      const [accessRow] = snapshotRows;
+
+      // No row: the token was revoked or its owner lost access after the
+      // check above. Same answer as an invalid token, never an empty feed.
+      if (!accessRow) {
+        return null;
+      }
+
+      const seriesRows = snapshotRows.filter(isFeedSeriesRow);
 
       return {
         exceptions: mapTribeEventOccurrenceExceptions(
@@ -459,21 +508,22 @@ export class PostgresTribeEventCalendarFeedReader implements TribeEventCalendarF
           event: mapTribeEvent(row),
           updatedAt: mapDateValue(row.updated_at),
         })),
-        tribeName: tribe.name,
+        tribeName: accessRow.feed_tribe_name,
       };
     });
   }
 
   /**
    * The tribe of the slug, only when the token still belongs to it, is still
-   * active, and its owner can read the tribe right now.
+   * active, and its owner can read the tribe right now. It gates the
+   * `last_used_at` touch; the snapshot statement repeats the same guard.
    */
   private async readAccessibleTribe(
     database: RequestDatabase,
     query: ReadTribeEventCalendarFeedQuery
   ): Promise<FeedTribeRow | null> {
     const result = await database.execute(sql`
-      select tribes.id, tribes.name
+      select tribes.id
       from public.tribes
       inner join public.event_calendar_feed_tokens
         on event_calendar_feed_tokens.tribe_id = tribes.id
