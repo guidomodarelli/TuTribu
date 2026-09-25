@@ -13,10 +13,14 @@
  * - when the oid is `HEAD` and the working tree has no tracked, staged or
  *   untracked changes, the gate runs in place (the checkout already matches
  *   the commit);
- * - otherwise the oid is checked out in a detached temporary worktree, the
- *   local `.env*` files are copied into it, and the same steps run there
- *   reusing the pnpm store. The worktree is always removed, including on
- *   failure or interruption.
+ * - otherwise the oid is checked out in a detached temporary worktree and the
+ *   same steps run there reusing the pnpm store. That commit may come from an
+ *   untrusted ref, so no local `.env*` file is copied and both steps run with
+ *   an allowlisted environment plus non-secret placeholders. The worktree is
+ *   always removed, including on failure or interruption.
+ *
+ * Before any ref is validated the running Node.js is checked against
+ * `engines.node` (blocking) and `.nvmrc` (warning only).
  *
  * Usage (from `.husky/pre-push`):
  *   node scripts/pre-push-gate.mjs < <git pre-push stdin>
@@ -26,11 +30,8 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import {
-  constants as fsConstants,
-  copyFileSync,
   existsSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
 } from "node:fs";
@@ -43,8 +44,69 @@ const ZERO_OID_PATTERN = /^0+$/;
 /** Number of whitespace-separated fields in a pre-push stdin line. */
 const PUSH_LINE_FIELD_COUNT = 4;
 
-/** Local environment files copied into the temporary worktree. */
-const ENVIRONMENT_FILE_PATTERN = /^\.env(\..+)?$/;
+/**
+ * Non-secret values for the application variables `next build` and the test
+ * suite read, used when validating a commit in a temporary worktree. They
+ * match the placeholders the former GitHub Actions gate used.
+ */
+export const WORKTREE_ENVIRONMENT_PLACEHOLDERS = Object.freeze({
+  BETTER_AUTH_SECRET: "pre-push-gate-build-secret-with-32-characters",
+  BETTER_AUTH_URL: "http://localhost:3000",
+  DATABASE_URL: "postgresql://ci:ci@localhost:5432/tutribu",
+  GOOGLE_CLIENT_ID: "pre-push-gate-google-client-id",
+  GOOGLE_CLIENT_SECRET: "pre-push-gate-google-client-secret",
+});
+
+/**
+ * Operating-system, locale and tooling variables (upper-cased, because
+ * Windows names are case-insensitive) that the worktree gate may inherit.
+ * Anything else, including credentials exported in the shell, is dropped.
+ */
+const INHERITED_ENVIRONMENT_VARIABLES = new Set([
+  "PATH",
+  "PATHEXT",
+  "HOME",
+  "USER",
+  "USERNAME",
+  "LOGNAME",
+  "SHELL",
+  "LANG",
+  "LANGUAGE",
+  "TZ",
+  "TERM",
+  "COLORTERM",
+  "FORCE_COLOR",
+  "NO_COLOR",
+  "CI",
+  "TMPDIR",
+  "TEMP",
+  "TMP",
+  "SYSTEMROOT",
+  "SYSTEMDRIVE",
+  "WINDIR",
+  "COMSPEC",
+  "OS",
+  "USERPROFILE",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "APPDATA",
+  "LOCALAPPDATA",
+  "PROGRAMDATA",
+  "PROGRAMFILES",
+  "PROGRAMFILES(X86)",
+  "PROGRAMW6432",
+  "COMMONPROGRAMFILES",
+  "COMMONPROGRAMFILES(X86)",
+  "COMMONPROGRAMW6432",
+  "NUMBER_OF_PROCESSORS",
+  "PROCESSOR_ARCHITECTURE",
+  "PNPM_HOME",
+  "COREPACK_HOME",
+  "NODE_EXTRA_CA_CERTS",
+]);
+
+/** Variable families inherited by the worktree gate (locale and XDG dirs). */
+const INHERITED_ENVIRONMENT_PREFIXES = ["LC_", "XDG_"];
 
 /** Prefix of the temporary worktree directories created by the gate. */
 const WORKTREE_DIRECTORY_PREFIX = "tutribu-pre-push-";
@@ -461,40 +523,37 @@ export function removeValidationWorktree(repositoryRoot, worktreePath) {
 }
 
 /**
- * Copies the local `.env*` files into the worktree without overwriting.
+ * Builds the environment for validating a commit in a temporary worktree.
+ * That commit may come from a fetched, untrusted ref and its install lifecycle
+ * scripts and tests run with this environment, so only the operating-system,
+ * locale and tooling variables in {@link INHERITED_ENVIRONMENT_VARIABLES}
+ * (plus the `LC_*`/`XDG_*` families) are kept, and the application variables
+ * that `next build` and the tests need are replaced with the non-secret
+ * {@link WORKTREE_ENVIRONMENT_PLACEHOLDERS}. Local `.env*` files are never
+ * copied into the worktree.
  *
- * @param {string} repositoryRoot - Source directory holding the env files.
- * @param {string} worktreePath - Destination worktree.
- * @returns {string[]} Names of the copied files.
+ * @param {NodeJS.ProcessEnv} [environment] - Source environment.
+ * @returns {NodeJS.ProcessEnv} Allowlisted environment with placeholders.
  */
-export function copyEnvironmentFiles(repositoryRoot, worktreePath) {
-  const copiedFileNames = [];
+export function buildWorktreeValidationEnvironment(environment = process.env) {
+  const allowlistedEntries = Object.entries(environment).filter(
+    ([variableName, value]) => {
+      const normalizedName = variableName.toUpperCase();
 
-  for (const directoryEntry of readdirSync(repositoryRoot, {
-    withFileTypes: true,
-  })) {
-    if (
-      !directoryEntry.isFile() ||
-      !ENVIRONMENT_FILE_PATTERN.test(directoryEntry.name)
-    ) {
-      continue;
-    }
-
-    try {
-      copyFileSync(
-        path.join(repositoryRoot, directoryEntry.name),
-        path.join(worktreePath, directoryEntry.name),
-        fsConstants.COPYFILE_EXCL
+      return (
+        value !== undefined &&
+        (INHERITED_ENVIRONMENT_VARIABLES.has(normalizedName) ||
+          INHERITED_ENVIRONMENT_PREFIXES.some((prefix) =>
+            normalizedName.startsWith(prefix)
+          ))
       );
-      copiedFileNames.push(directoryEntry.name);
-    } catch (copyError) {
-      if (copyError?.code !== "EEXIST") {
-        throw copyError;
-      }
     }
-  }
+  );
 
-  return copiedFileNames;
+  return {
+    ...Object.fromEntries(allowlistedEntries),
+    ...WORKTREE_ENVIRONMENT_PLACEHOLDERS,
+  };
 }
 
 /**
@@ -527,11 +586,15 @@ function runPnpm(pnpmArguments, workingDirectory, environment = process.env) {
  * `HUSKY=0` keeps the `prepare` script from rewriting the hooks config.
  *
  * @param {string} workingDirectory - Checkout or worktree to install in.
+ * @param {NodeJS.ProcessEnv} [environment] - Environment for pnpm.
  * @returns {Promise<number>} pnpm exit code.
  */
-export function installFrozenDependencies(workingDirectory) {
+export function installFrozenDependencies(
+  workingDirectory,
+  environment = process.env
+) {
   return runPnpm(GATE_COMMANDS.install, workingDirectory, {
-    ...process.env,
+    ...environment,
     HUSKY: "0",
   });
 }
@@ -541,10 +604,14 @@ export function installFrozenDependencies(workingDirectory) {
  *
  * @param {string} oid - Commit being validated, used in the failure log.
  * @param {string} workingDirectory - Checkout or worktree at that commit.
+ * @param {NodeJS.ProcessEnv} [environment] - Environment for both steps.
  * @returns {Promise<boolean>} `true` when both steps passed.
  */
-async function runGateSteps(oid, workingDirectory) {
-  const installExitCode = await installFrozenDependencies(workingDirectory);
+async function runGateSteps(oid, workingDirectory, environment = process.env) {
+  const installExitCode = await installFrozenDependencies(
+    workingDirectory,
+    environment
+  );
 
   if (installExitCode !== 0) {
     console.error(
@@ -553,7 +620,7 @@ async function runGateSteps(oid, workingDirectory) {
     return false;
   }
 
-  return (await runPnpm(GATE_COMMANDS.ci, workingDirectory)) === 0;
+  return (await runPnpm(GATE_COMMANDS.ci, workingDirectory, environment)) === 0;
 }
 
 /**
@@ -588,8 +655,11 @@ async function validateCommit(commit, context) {
   context.registerWorktree(worktreePath);
 
   try {
-    copyEnvironmentFiles(context.repositoryRoot, worktreePath);
-    return await runGateSteps(commit.oid, worktreePath);
+    return await runGateSteps(
+      commit.oid,
+      worktreePath,
+      buildWorktreeValidationEnvironment()
+    );
   } finally {
     removeValidationWorktree(context.repositoryRoot, worktreePath);
     context.registerWorktree(null);
