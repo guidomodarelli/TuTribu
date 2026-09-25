@@ -41,12 +41,21 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
+type PostLockTarget = {
+  can_manage: boolean;
+  module_id: string | null;
+};
+
 /**
- * Fake conversion transaction: the target read sees the course and module,
- * the post-lock target lock answers `lockedTargetRows`, no lesson exists yet,
- * and the insert returns the new lesson.
+ * Fake conversion transaction: the target read sees the course and module
+ * with a manager viewer, the post-lock read answers `postLockTarget` (fresh
+ * permission and share-locked module), the existing-lesson lookup answers
+ * `existingLessonRows`, and the insert returns the new lesson.
  */
-function createConversionDatabase(lockedTargetRows: Record<string, unknown>[]) {
+function createConversionDatabase(
+  postLockTarget: PostLockTarget,
+  existingLessonRows: Record<string, unknown>[] = []
+) {
   const statements: string[] = [];
   const execute = vi.fn(async (statement: unknown) => {
     const text = getSqlText(statement);
@@ -58,7 +67,11 @@ function createConversionDatabase(lockedTargetRows: Record<string, unknown>[]) {
     }
 
     if (text.includes("for share of course_modules")) {
-      return { rows: lockedTargetRows };
+      return { rows: [postLockTarget] };
+    }
+
+    if (text.includes("course_lessons.source_event_id =")) {
+      return { rows: existingLessonRows };
     }
 
     if (text.includes("insert into public.course_lessons")) {
@@ -76,7 +89,10 @@ function createConversionDatabase(lockedTargetRows: Record<string, unknown>[]) {
 
 describe("PostgresLessonEventSourceRepository.createFromEventRecording", () => {
   it("locks the course module after the conversion lock and before inserting the lesson", async () => {
-    const { repository, statements } = createConversionDatabase([{ id: MODULE_ID }]);
+    const { repository, statements } = createConversionDatabase({
+      can_manage: true,
+      module_id: MODULE_ID,
+    });
 
     await expect(repository.createFromEventRecording(command)).resolves.toEqual({
       lesson: { courseId: COURSE_ID, courseModuleId: MODULE_ID, id: LESSON_ID, title: command.title },
@@ -93,10 +109,50 @@ describe("PostgresLessonEventSourceRepository.createFromEventRecording", () => {
   });
 
   it("answers not found without inserting when the course or module vanished while waiting on the lock", async () => {
-    const { repository, statements } = createConversionDatabase([]);
+    const { repository, statements } = createConversionDatabase({
+      can_manage: true,
+      module_id: null,
+    });
 
     await expect(repository.createFromEventRecording(command)).resolves.toEqual({
       status: "not_found",
+    });
+    expect(statements.some((text) => text.includes("insert into public.course_lessons"))).toBe(false);
+  });
+
+  it("answers forbidden instead of the existing lesson when the viewer lost course management while waiting on the lock", async () => {
+    const { repository, statements } = createConversionDatabase(
+      { can_manage: false, module_id: MODULE_ID },
+      [{ course_module_id: MODULE_ID, id: LESSON_ID, title: command.title }]
+    );
+
+    await expect(repository.createFromEventRecording(command)).resolves.toEqual({
+      status: "forbidden",
+    });
+    expect(statements.some((text) => text.includes("insert into public.course_lessons"))).toBe(false);
+  });
+
+  it("answers forbidden without inserting when the viewer lost course management while waiting on the lock", async () => {
+    const { repository, statements } = createConversionDatabase({
+      can_manage: false,
+      module_id: MODULE_ID,
+    });
+
+    await expect(repository.createFromEventRecording(command)).resolves.toEqual({
+      status: "forbidden",
+    });
+    expect(statements.some((text) => text.includes("insert into public.course_lessons"))).toBe(false);
+  });
+
+  it("returns the existing lesson when the viewer still manages courses after the lock", async () => {
+    const { repository, statements } = createConversionDatabase(
+      { can_manage: true, module_id: MODULE_ID },
+      [{ course_module_id: MODULE_ID, id: LESSON_ID, title: command.title }]
+    );
+
+    await expect(repository.createFromEventRecording(command)).resolves.toEqual({
+      lesson: { courseId: COURSE_ID, courseModuleId: MODULE_ID, id: LESSON_ID, title: command.title },
+      status: "existing",
     });
     expect(statements.some((text) => text.includes("insert into public.course_lessons"))).toBe(false);
   });

@@ -26,6 +26,11 @@ type ConversionTargetRow = {
   tribe_id: string | null;
 };
 
+type LockedTargetRow = {
+  can_manage: boolean | null;
+  module_id: string | null;
+};
+
 type LessonRow = {
   course_module_id: string;
   id: string;
@@ -174,9 +179,12 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
    * in its own statement, so the lookup that follows gets a snapshot that
    * already sees a lesson committed by a concurrent request. With the lock
    * held, an existing lesson of that occurrence anywhere in the course is
-   * returned (`existing`) instead of inserting a duplicate. The module is
-   * re-resolved and share-locked after that lock, so a course or module
-   * deleted meanwhile answers `not_found` instead of a foreign key failure.
+   * returned (`existing`) instead of inserting a duplicate. After that lock
+   * the viewer's `can_manage_tribe_courses` is re-evaluated (a manager
+   * demoted or blocked meanwhile answers `forbidden`, never `existing` or
+   * `created`) and the module is re-resolved and share-locked, so a course or
+   * module deleted meanwhile answers `not_found` instead of a foreign key
+   * failure.
    */
   async createFromEventRecording(
     command: CreateLessonFromEventRecordingRepositoryCommand
@@ -235,23 +243,37 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
         )
       `);
 
-      // The course or module may have been deleted while this request waited
-      // on the conversion lock. Re-read the module in a fresh snapshot and
-      // share-lock it so a concurrent delete waits for this insert instead of
-      // failing its foreign key; a vanished target is the regular not found.
+      // The viewer may have been demoted or blocked, and the course or module
+      // deleted, while this request waited on the conversion lock. This read
+      // runs in a fresh snapshot: it re-evaluates `can_manage_tribe_courses`
+      // (the only fresh permission check before an `existing` answer, since
+      // the runtime role bypasses RLS) and share-locks the module so a
+      // concurrent delete waits for this insert instead of failing its
+      // foreign key. Only the module is locked (never the membership or the
+      // course), so the course's cascading delete cannot deadlock with it.
       const lockedTargetResult = await database.execute(sql`
-        select course_modules.id
-        from public.course_modules
-        inner join public.courses
-          on courses.id = course_modules.course_id
-        where course_modules.id = ${command.courseModuleId}
-          and course_modules.course_id = ${command.courseId}
-          and course_modules.tribe_id = ${target.tribe_id}::uuid
-          and courses.tribe_id = ${target.tribe_id}::uuid
-        for share of course_modules
+        with locked_module as (
+          select course_modules.id
+          from public.course_modules
+          inner join public.courses
+            on courses.id = course_modules.course_id
+          where course_modules.id = ${command.courseModuleId}
+            and course_modules.course_id = ${command.courseId}
+            and course_modules.tribe_id = ${target.tribe_id}::uuid
+            and courses.tribe_id = ${target.tribe_id}::uuid
+          for share of course_modules
+        )
+        select
+          coalesce(public.can_manage_tribe_courses(${target.tribe_id}::uuid), false) as can_manage,
+          (select locked_module.id from locked_module) as module_id
       `);
+      const lockedTarget = (lockedTargetResult.rows?.[0] ?? null) as LockedTargetRow | null;
 
-      if (!lockedTargetResult.rows?.[0]) {
+      if (!lockedTarget?.can_manage) {
+        return { status: LESSON_EVENT_SOURCE_STATUS.forbidden };
+      }
+
+      if (!lockedTarget.module_id) {
         return { status: LESSON_EVENT_SOURCE_STATUS.notFound };
       }
 
