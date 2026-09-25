@@ -148,6 +148,45 @@ describe("notification routes", () => {
     await expect(response.json()).resolves.toEqual({ unreadCount: 0 });
   });
 
+  it.each([
+    ["module composition", () => (createRequestModules as Mock).mockRejectedValue(new Error("pool exhausted"))],
+    ["session lookup", () => getAuthenticatedMember.mockRejectedValue(new Error("better-auth secret mismatch"))],
+  ])(
+    "answers the safe no-store 500 contract when %s fails while resolving the session",
+    async (_failure, arrangeFailure) => {
+      arrangeFailure();
+
+      const responses = await Promise.all([
+        GET_INBOX(new Request(BASE_URL)),
+        GET_UNREAD_COUNT(new Request(`${BASE_URL}/unread-count`)),
+        POST_READ_ALL(new Request(`${BASE_URL}/read-all`, { method: "POST" })),
+        PATCH(patchRequest({ isRead: true }), markContext()),
+      ]);
+      const bodies = await Promise.all(responses.map((response) => response.json()));
+
+      expect(responses.map((response) => response.status)).toEqual([500, 500, 500, 500]);
+      expect(responses.map((response) => response.headers.get("Cache-Control"))).toEqual(
+        Array(4).fill("private, no-store")
+      );
+      expect(bodies).toEqual([
+        { message: "No pudimos cargar tus notificaciones. Intentá de nuevo." },
+        { message: "No pudimos cargar tus notificaciones. Intentá de nuevo." },
+        { message: "No pudimos marcar la notificación como leída. Intentá de nuevo." },
+        { message: "No pudimos marcar la notificación como leída. Intentá de nuevo." },
+      ]);
+      expect(JSON.stringify(bodies)).not.toMatch(/pool exhausted|better-auth/);
+      expect(logError).toHaveBeenCalledTimes(4);
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.any(Error),
+          message: "Notification route session resolution failed",
+        })
+      );
+      expect(useCases.getNotificationInbox).not.toHaveBeenCalled();
+      expect(useCases.markNotificationRead).not.toHaveBeenCalled();
+    }
+  );
+
   it("hides an unexpected failure behind safe Spanish copy", async () => {
     useCases.markAllNotificationsRead.mockRejectedValue(new Error("deadlock detected on notifications"));
 
