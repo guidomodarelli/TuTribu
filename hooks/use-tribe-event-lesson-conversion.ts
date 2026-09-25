@@ -37,7 +37,8 @@ const IDLE_STATE = { status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.idle } as const;
  * "Convertir en lección": loads the courses and modules on demand (when the
  * dialog opens, with an AbortController) and sends the conversion once at a
  * time. The result carries the lesson link, also when the occurrence already
- * had a lesson in that course (`isExisting`).
+ * had a lesson in that course (`isExisting`), and is shown only while the
+ * dialog session that submitted it is still the current one.
  *
  * @param input - Tribe and occurrence of the recording.
  * @returns Targets state, submitting flag, the converted lesson, and actions.
@@ -52,9 +53,14 @@ export function useTribeEventLessonConversion(input: {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Dialog session generation. It only grows (opening or closing starts a new
+  // session), so a conversion that finishes after its dialog was closed never
+  // matches the session of a dialog reopened meanwhile.
+  const dialogSessionRef = useRef(0);
 
   const loadTargets = () => {
     abortControllerRef.current?.abort();
+    dialogSessionRef.current += 1;
 
     const abortController = new AbortController();
 
@@ -89,6 +95,7 @@ export function useTribeEventLessonConversion(input: {
 
   const reset = () => {
     abortControllerRef.current?.abort();
+    dialogSessionRef.current += 1;
     abortControllerRef.current = null;
     setTargetsState(IDLE_STATE);
     setConvertedLesson(null);
@@ -98,6 +105,8 @@ export function useTribeEventLessonConversion(input: {
     if (isSubmittingRef.current) {
       return false;
     }
+
+    const submittingDialogSession = dialogSessionRef.current;
 
     isSubmittingRef.current = true;
     setIsSubmitting(true);
@@ -114,7 +123,12 @@ export function useTribeEventLessonConversion(input: {
         return false;
       }
 
-      setConvertedLesson(result);
+      // Only the dialog session that submitted shows the result: a dialog
+      // reopened while the request was pending keeps its own form. The toast
+      // still reports the lesson that was created.
+      if (dialogSessionRef.current === submittingDialogSession) {
+        setConvertedLesson(result);
+      }
 
       if (result.isExisting) {
         toast.info(result.message);

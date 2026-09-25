@@ -631,6 +631,71 @@ describe("TribeEventOccurrenceActivity", () => {
     ]);
   });
 
+  it("keeps a reopened lesson conversion form when an earlier conversion finishes", async () => {
+    let settleConversion: (response: RouteResponse) => void = () => undefined;
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      "GET /courses/lesson-targets": () => ({
+        body: {
+          courses: [{ id: COURSE_ID, modules: [{ id: MODULE_ID, title: "Talleres" }], title: "Grabaciones" }],
+        },
+      }),
+      "POST /courses/lessons/from-event": () =>
+        new Promise<RouteResponse>((resolve) => {
+          settleConversion = resolve;
+        }),
+    });
+
+    const user = userEvent.setup();
+
+    renderActivity();
+    await user.click(await screen.findByRole("button", { name: "Convertir en lección" }));
+
+    const submittedDialog = await screen.findByRole("dialog", { name: "Convertir en lección" });
+
+    await user.click(within(submittedDialog).getByRole("combobox", { name: "Curso" }));
+    await user.click(await screen.findByRole("option", { name: "Grabaciones" }));
+    await user.click(within(submittedDialog).getByRole("button", { name: "Crear lección" }));
+    await user.click(within(submittedDialog).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Convertir en lección", hidden: true })
+      ).not.toBeInTheDocument()
+    );
+
+    await user.click(screen.getByRole("button", { name: "Convertir en lección" }));
+
+    const reopenedDialog = await screen.findByRole("dialog", { name: "Convertir en lección" });
+    const titleInput = await within(reopenedDialog).findByLabelText("Título de la lección");
+
+    await user.clear(titleInput);
+    await user.type(titleInput, "Clase nueva");
+
+    await act(async () => {
+      settleConversion({
+        body: {
+          isExisting: false,
+          lesson: {
+            courseId: COURSE_ID,
+            href: `/${TRIBE_SLUG}/cursos?curso=${COURSE_ID}&leccion=${LESSON_ID}`,
+            id: LESSON_ID,
+            title: "Taller semanal · 14 may",
+          },
+          message: "Lección creada.",
+        },
+        status: 201,
+      });
+    });
+
+    await waitFor(() =>
+      expect(within(reopenedDialog).getByRole("button", { name: "Crear lección" })).toBeEnabled()
+    );
+    expect(within(reopenedDialog).queryByRole("link", { name: "Ver lección" })).not.toBeInTheDocument();
+    expect(within(reopenedDialog).getByLabelText("Título de la lección")).toHaveValue("Clase nueva");
+  });
+
   it("publishes and deletes conversation comments without reloading", async () => {
     mockApi({
       [`DELETE /events/comments/${COMMENT_ID}`]: () => ({ body: { message: "Comentario eliminado." } }),
