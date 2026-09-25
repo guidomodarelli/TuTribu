@@ -4,6 +4,10 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { toast } from "beez-ui";
 
 import {
+  trackTribeEventOccurrenceMutation,
+  waitForTribeEventOccurrenceMutations,
+} from "@/lib/events/tribe-event-occurrence-pending-mutations";
+import {
   fetchTribeEventPostEventRequest,
   saveTribeEventPostEventRequest,
   setTribeEventReactionRequest,
@@ -47,6 +51,14 @@ type PendingReactionIntent = {
   intendedReaction: TribeEventOccurrenceReaction | null;
 };
 
+type SetReactionResult = Awaited<ReturnType<typeof setTribeEventReactionRequest>>;
+
+/** Reaction request on the wire and the intent it sends. */
+type InFlightReactionRequest = {
+  intent: PendingReactionIntent;
+  request: Promise<SetReactionResult | { isSuccess: false; message: null }>;
+};
+
 const COPY = {
   loadFailure: "No pudimos cargar la grabación y los materiales.",
   reactionFailure: "No pudimos guardar tu reacción. Intentá de nuevo.",
@@ -56,12 +68,59 @@ const COPY = {
 } as const;
 
 /**
+ * Sends the reaction the viewer still wants when the block unmounts (the
+ * detail closed) before the debounce flushed it, without touching state. It
+ * goes after the request already in flight so the server applies the intents
+ * in order, and it is registered so a reopened detail loads after it commits.
+ * A failure is still reported, because the tap looked applied.
+ *
+ * @param teardown - Intent left by the unmounting block, the request it may
+ * still have in flight, and the occurrence it belonged to.
+ */
+function persistReactionIntentOnTeardown({
+  inFlightReaction,
+  occurrenceTarget,
+  pendingIntent,
+}: {
+  inFlightReaction: InFlightReactionRequest | null;
+  occurrenceTarget: TribeEventOccurrenceTarget;
+  pendingIntent: PendingReactionIntent | null;
+}): void {
+  // Already on the wire: the in-flight request is sending this exact intent.
+  if (!pendingIntent || pendingIntent === inFlightReaction?.intent) {
+    return;
+  }
+
+  // Nothing in flight and back to the persisted reaction: nothing to send.
+  if (!inFlightReaction && pendingIntent.intendedReaction === pendingIntent.baseline.viewerReaction) {
+    return;
+  }
+
+  const teardownRequest = (inFlightReaction?.request ?? Promise.resolve())
+    .then(() => setTribeEventReactionRequest(occurrenceTarget, pendingIntent.intendedReaction))
+    .then(
+      (result) => {
+        if (!result.isSuccess) {
+          toast.error(result.message ?? COPY.reactionFailure);
+        }
+      },
+      () => {
+        toast.error(COPY.reactionFailure);
+      }
+    );
+
+  trackTribeEventOccurrenceMutation(occurrenceTarget, teardownRequest);
+}
+
+/**
  * Container logic of the post-event block of one occurrence: loads the
  * resources once per mount (the container remounts per occurrence), saves
  * them incrementally (no route refresh), reports the recording availability
  * of every successful load or save to the parent, and applies reactions
  * optimistically with debounce, coalescing, and rollback to the persisted
- * baseline.
+ * baseline. Saves and reaction requests are registered per occurrence and a
+ * load waits for them, so reopening the detail while one is pending shows its
+ * outcome; a reaction still waiting for the debounce is sent on unmount.
  *
  * @param input - Occurrence target and the recording availability callback.
  * @returns Load state, visible reactions, and the mutations.
@@ -81,6 +140,7 @@ export function useTribeEventPostEvent({
   const reactionIntentRef = useRef<PendingReactionIntent | null>(null);
   const reactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isReactionRequestInFlightRef = useRef(false);
+  const inFlightReactionRef = useRef<InFlightReactionRequest | null>(null);
   // Bumped whenever a load (or a save with no pending reaction) replaces the
   // reactions, so an older reaction answer never overwrites them. A save that
   // races a pending reaction keeps the scope: that reaction answer is newer.
@@ -101,19 +161,44 @@ export function useTribeEventPostEvent({
 
     return () => {
       isMountedRef.current = false;
-
-      if (reactionTimerRef.current) {
-        clearTimeout(reactionTimerRef.current);
-      }
     };
   }, []);
 
   useEffect(() => {
-    const abortController = new AbortController();
+    const occurrenceTarget = { eventId, originalStartsAt, tribeSlug };
 
-    fetchTribeEventPostEventRequest({ eventId, originalStartsAt, tribeSlug }, abortController.signal)
+    return () => {
+      if (reactionTimerRef.current) {
+        clearTimeout(reactionTimerRef.current);
+        reactionTimerRef.current = null;
+      }
+
+      const pendingIntent = reactionIntentRef.current;
+
+      reactionIntentRef.current = null;
+      persistReactionIntentOnTeardown({
+        inFlightReaction: inFlightReactionRef.current,
+        occurrenceTarget,
+        pendingIntent,
+      });
+    };
+  }, [eventId, originalStartsAt, tribeSlug]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+    const occurrenceTarget = { eventId, originalStartsAt, tribeSlug };
+
+    // A save or reaction started by a previous opening of this occurrence may
+    // still be committing: load after it so the detail never shows the state
+    // it is about to replace.
+    waitForTribeEventOccurrenceMutations(occurrenceTarget)
+      .then(() =>
+        abortController.signal.aborted
+          ? null
+          : fetchTribeEventPostEventRequest(occurrenceTarget, abortController.signal)
+      )
       .then((result) => {
-        if (abortController.signal.aborted) {
+        if (!result || abortController.signal.aborted) {
           return;
         }
 
@@ -214,6 +299,8 @@ export function useTribeEventPostEvent({
       return result;
     });
 
+    trackTribeEventOccurrenceMutation({ eventId, originalStartsAt, tribeSlug }, request);
+
     toast.promise(request, {
       error: (error: unknown) => (error instanceof Error ? error.message : COPY.saveFailure),
       loading: COPY.saveLoading,
@@ -261,12 +348,18 @@ export function useTribeEventPostEvent({
 
     isReactionRequestInFlightRef.current = true;
 
-    const result = await setTribeEventReactionRequest(
-      { eventId, originalStartsAt, tribeSlug },
-      intent.intendedReaction
-    ).catch(() => ({ isSuccess: false as const, message: null }));
+    const occurrenceTarget = { eventId, originalStartsAt, tribeSlug };
+    const request = setTribeEventReactionRequest(occurrenceTarget, intent.intendedReaction).catch(
+      () => ({ isSuccess: false as const, message: null })
+    );
+
+    inFlightReactionRef.current = { intent, request };
+    trackTribeEventOccurrenceMutation(occurrenceTarget, request);
+
+    const result = await request;
 
     isReactionRequestInFlightRef.current = false;
+    inFlightReactionRef.current = null;
 
     // A reload replaced the reactions meanwhile: this answer is stale.
     if (!isMountedRef.current || reactionScopeRef.current !== scope) {
