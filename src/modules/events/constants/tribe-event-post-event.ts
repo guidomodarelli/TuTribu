@@ -37,11 +37,16 @@ export const TRIBE_EVENT_OCCURRENCE_REACTION_DISPLAY = {
 /**
  * Limits of the post-event resources. `materialsMax` bounds the list a
  * manager saves at once; lengths mirror the SQL CHECKs.
+ * `recordingExternalIdMaxLength` mirrors
+ * `event_occurrence_recordings_valid_external_id`: the shared video parser
+ * accepts unbounded Wistia and Vimeo ids, so a longer parsed id is an
+ * invalid recording instead of a constraint violation.
  */
 export const TRIBE_EVENT_POST_EVENT_LIMIT = {
   commentListSize: 200,
   commentMaxLength: 2000,
   materialTitleMaxLength: 120,
   materialsMax: 10,
+  recordingExternalIdMaxLength: 200,
   urlMaxLength: 2048,
 } as const;

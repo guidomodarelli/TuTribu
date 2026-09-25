@@ -8,6 +8,7 @@ import {
   saveTribeEventPostEvent,
   setTribeEventOccurrenceReaction,
 } from "@/src/modules/events/application/use-cases/tribe-event-post-event-use-cases";
+import { TRIBE_EVENT_POST_EVENT_LIMIT } from "@/src/modules/events/constants/tribe-event-post-event";
 import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventPostEventResources } from "@/src/modules/events/domain/repositories/tribe-event-post-event-repository";
 import {
@@ -168,6 +169,52 @@ describe("saveTribeEventPostEvent", () => {
       })
     ).resolves.toEqual({ status: "invalid_recording_url" });
     expect(dependencies.tribeEventPostEventRepository.saveResources).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "Wistia",
+      `https://fast.wistia.com/medias/${"a".repeat(TRIBE_EVENT_POST_EVENT_LIMIT.recordingExternalIdMaxLength + 1)}`,
+    ],
+    [
+      "Vimeo",
+      `https://vimeo.com/${"1".repeat(TRIBE_EVENT_POST_EVENT_LIMIT.recordingExternalIdMaxLength + 1)}`,
+    ],
+  ])(
+    "rejects a %s recording whose parsed video id exceeds the stored id limit",
+    async (_providerName, recordingUrl) => {
+      const dependencies = buildDependencies(AFTER_END, null);
+
+      await expect(
+        saveTribeEventPostEvent(dependencies)({
+          ...occurrenceQuery,
+          materials: [],
+          recordingUrl,
+        })
+      ).resolves.toEqual({ status: "invalid_recording_url" });
+      expect(dependencies.tribeEventPostEventRepository.saveResources).not.toHaveBeenCalled();
+    }
+  );
+
+  it("accepts a recording whose parsed video id has exactly the stored id limit", async () => {
+    const dependencies = buildDependencies(AFTER_END, null);
+    const externalVideoId = "a".repeat(TRIBE_EVENT_POST_EVENT_LIMIT.recordingExternalIdMaxLength);
+
+    vi.mocked(dependencies.tribeEventPostEventRepository.saveResources).mockResolvedValue({
+      status: "forbidden",
+    });
+
+    await saveTribeEventPostEvent(dependencies)({
+      ...occurrenceQuery,
+      materials: [],
+      recordingUrl: `https://fast.wistia.com/medias/${externalVideoId}`,
+    });
+
+    expect(dependencies.tribeEventPostEventRepository.saveResources).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recording: expect.objectContaining({ externalVideoId, provider: "wistia" }),
+      })
+    );
   });
 
   it("rejects an occurrence that did not finish yet", async () => {

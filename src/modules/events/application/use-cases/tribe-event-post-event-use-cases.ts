@@ -16,6 +16,7 @@ import type {
   TribeEventRecordingLessonSourceLookupResult,
   TribeEventRecordingResult,
 } from "@/src/modules/events/application/results/tribe-event-post-event-result";
+import { TRIBE_EVENT_POST_EVENT_LIMIT } from "@/src/modules/events/constants/tribe-event-post-event";
 import {
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
@@ -182,7 +183,8 @@ export function getTribeEventPostEvent(dependencies: PostEventDependencies) {
  * "Agregar grabación y materiales" (event managers): replaces the recording
  * and the materials of a finished, non-cancelled occurrence. The recording
  * URL must be a supported provider (YouTube, Vimeo, Wistia, Loom), the same
- * parser course lessons use. Publishing the first recording notifies the
+ * parser course lessons use, and its parsed id must fit the stored id limit
+ * (`recordingExternalIdMaxLength`). Publishing the first recording notifies the
  * attendees in the same transaction (database trigger).
  */
 export function saveTribeEventPostEvent(dependencies: PostEventDependencies) {
@@ -207,6 +209,14 @@ export function saveTribeEventPostEvent(dependencies: PostEventDependencies) {
     if (command.recordingUrl !== null) {
       try {
         const parsedVideo = parseExternalVideoUrl(command.recordingUrl);
+
+        // The shared parser accepts unbounded Wistia and Vimeo ids; the
+        // recording table stores at most this many characters.
+        if (
+          parsedVideo.externalId.length > TRIBE_EVENT_POST_EVENT_LIMIT.recordingExternalIdMaxLength
+        ) {
+          return { status: TRIBE_EVENT_MUTATION_STATUS.invalidRecordingUrl };
+        }
 
         recording = {
           externalVideoId: parsedVideo.externalId,
