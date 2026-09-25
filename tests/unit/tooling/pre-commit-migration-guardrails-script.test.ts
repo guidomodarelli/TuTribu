@@ -2,7 +2,14 @@
 
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -18,6 +25,11 @@ type PreCommitMigrationGuardrailsScript = {
     environment?: NodeJS.ProcessEnv
   ) => StagedMigrationChanges;
   shouldRunGuardrailsForDeletions: (changes: StagedMigrationChanges) => boolean;
+  createStagedSnapshot: (
+    repositoryRoot: string,
+    environment?: NodeJS.ProcessEnv
+  ) => string;
+  removeStagedSnapshot: (snapshotPath: string) => void;
 };
 
 type PrePushGateScript = {
@@ -58,6 +70,7 @@ function createRepositoryWithMigrations(): string {
   runGit(["config", "user.email", "gate@example.test"], repositoryRoot);
   runGit(["config", "user.name", "Gate Test"], repositoryRoot);
   runGit(["config", "commit.gpgsign", "false"], repositoryRoot);
+  runGit(["config", "core.autocrlf", "false"], repositoryRoot);
   runGit(["config", "core.hooksPath", "no-hooks"], repositoryRoot);
   mkdirSync(path.join(repositoryRoot, "database", "migrations"), {
     recursive: true,
@@ -139,14 +152,80 @@ describe("pre-commit migration guardrails script", () => {
     expect(guardrailsScript.shouldRunGuardrailsForDeletions(changes)).toBe(false);
   });
 
+  it("should snapshot the staged index instead of the live working tree", () => {
+    const repositoryRoot = createRepositoryWithMigrations();
+    runGit(["rm", "--quiet", FIRST_MIGRATION_PATH], repositoryRoot);
+    // The deleted migration comes back as an untracked file and README gets an
+    // unstaged edit; neither is part of the commit being validated.
+    writeFileSync(path.join(repositoryRoot, FIRST_MIGRATION_PATH), "SELECT 1;\n");
+    writeFileSync(path.join(repositoryRoot, "README.md"), "unstaged edit\n");
+
+    const snapshotPath = guardrailsScript.createStagedSnapshot(
+      repositoryRoot,
+      repositoryIndependentEnvironment
+    );
+
+    try {
+      expect(existsSync(path.join(snapshotPath, FIRST_MIGRATION_PATH))).toBe(false);
+      expect(
+        readFileSync(path.join(snapshotPath, SECOND_MIGRATION_PATH), "utf8")
+      ).toBe("SELECT 2;\n");
+      expect(readFileSync(path.join(snapshotPath, "README.md"), "utf8")).toBe(
+        "fixture\n"
+      );
+    } finally {
+      guardrailsScript.removeStagedSnapshot(snapshotPath);
+    }
+
+    expect(existsSync(snapshotPath)).toBe(false);
+  });
+
+  it("should reuse the installed node_modules without deleting them on cleanup", () => {
+    const repositoryRoot = createRepositoryWithMigrations();
+    const installedPackageFile = path.join(
+      repositoryRoot,
+      "node_modules",
+      "fixture-package",
+      "index.js"
+    );
+    mkdirSync(path.dirname(installedPackageFile), { recursive: true });
+    writeFileSync(installedPackageFile, "module.exports = 1;\n");
+    runGit(["rm", "--quiet", FIRST_MIGRATION_PATH], repositoryRoot);
+
+    const snapshotPath = guardrailsScript.createStagedSnapshot(
+      repositoryRoot,
+      repositoryIndependentEnvironment
+    );
+
+    try {
+      expect(
+        readFileSync(
+          path.join(snapshotPath, "node_modules", "fixture-package", "index.js"),
+          "utf8"
+        )
+      ).toBe("module.exports = 1;\n");
+    } finally {
+      guardrailsScript.removeStagedSnapshot(snapshotPath);
+    }
+
+    expect(existsSync(snapshotPath)).toBe(false);
+    expect(readFileSync(installedPackageFile, "utf8")).toBe("module.exports = 1;\n");
+  });
+
   it("should expose guardrail filters that match existing test suites", () => {
+    // This suite also runs inside the staged snapshot, where `pnpm exec` would
+    // reinstall into the linked node_modules; call the Vitest CLI directly.
     const listedTests = spawnSync(
-      "pnpm",
-      ["exec", "vitest", "list", "--filesOnly", ...guardrailsScript.MIGRATION_GUARDRAIL_TEST_FILTERS],
+      process.execPath,
+      [
+        path.join("node_modules", "vitest", "vitest.mjs"),
+        "list",
+        "--filesOnly",
+        ...guardrailsScript.MIGRATION_GUARDRAIL_TEST_FILTERS,
+      ],
       {
         encoding: "utf8",
         env: repositoryIndependentEnvironment,
-        shell: process.platform === "win32",
       }
     );
 
