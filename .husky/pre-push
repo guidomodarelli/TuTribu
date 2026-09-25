@@ -1,1 +1,2 @@
-pnpm run ci
+# Validates the exact commits being pushed (read from stdin), not the working tree.
+node scripts/pre-push-gate.mjs
