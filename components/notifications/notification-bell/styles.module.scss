@@ -2,6 +2,9 @@
 $notification-bell-mobile-max: 767px;
 
 .NotificationBell {
+  // Root block; `contents` keeps the header layout as if it were a fragment.
+  display: contents;
+
   // Slot of one surface; `contents` keeps the trigger a direct header item.
   &__surface {
     display: contents;
