@@ -40,12 +40,16 @@ const ICS_NEWLINE_PATTERN = /\r\n|\r|\n/g;
  */
 const ICS_FORBIDDEN_CONTROL_PATTERN = /[\u0000-\u0008\u000A-\u001F\u007F]/g;
 /**
- * Every character outside the RFC 3986 URI alphabet (unreserved, reserved
- * gen-delims and sub-delims, and `%`). The WHATWG serialization still leaves
- * some of them literal (for example `\`, `^`, `|`, `{`, `}` in a query) and
- * keeps any C0 control or DEL it did not strip, so they are percent-encoded.
+ * Matches either a valid percent-encoded triplet (`%` plus two hexadecimal
+ * digits, kept as is) or one character RFC 3986 does not allow literally:
+ * anything outside the unreserved, gen-delims, and sub-delims alphabet, and
+ * a stray `%` that does not start a triplet (for example `?q=100%` or `%zz`).
+ * The WHATWG serialization still leaves some of them literal (`\`, `^`, `|`,
+ * `{`, `}` in a query, and stray `%`) and keeps any C0 control or DEL it did
+ * not strip, so they are percent-encoded.
  */
-const ICS_URI_DISALLOWED_CHARACTER_PATTERN = /[^A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=%]/gu;
+const ICS_URI_TRIPLET_OR_DISALLOWED_CHARACTER_PATTERN =
+  /%[0-9A-Fa-f]{2}|[^A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=]/gu;
 const HEXADECIMAL_RADIX = 16;
 const PERCENT_ENCODED_OCTET_DIGITS = 2;
 const PERCENT_ENCODING_PREFIX = "%";
@@ -77,10 +81,17 @@ export function escapeIcsText(value: string): string {
     .replace(ICS_FORBIDDEN_CONTROL_PATTERN, "");
 }
 
-/** Percent-encodes one character as its UTF-8 octets (`\` -> `%5C`). */
-function percentEncodeUriCharacter(character: string): string {
+/**
+ * Percent-encodes one character as its UTF-8 octets (`\` -> `%5C`, a stray
+ * `%` -> `%25`) and leaves an already valid percent-encoded triplet intact.
+ */
+function percentEncodeUriMatch(matchedText: string): string {
+  if (matchedText.length > 1 && matchedText.startsWith(PERCENT_ENCODING_PREFIX)) {
+    return matchedText;
+  }
+
   return Array.from(
-    textEncoder.encode(character),
+    textEncoder.encode(matchedText),
     (octet) =>
       PERCENT_ENCODING_PREFIX +
       octet
@@ -97,9 +108,10 @@ function percentEncodeUriCharacter(character: string): string {
  * the path of an http(s) URL becomes `/`, and tabs and line breaks are
  * dropped. TEXT escaping does not apply to URIs: a backslash before `,` or `;`
  * would change the address, so every valid URI character (including `,` and
- * `;`) is kept as is, and any character still outside the RFC 3986 alphabet
- * is percent-encoded as UTF-8 octets, so the value can never open a new
- * content line; folding still applies.
+ * `;`) and every valid percent-encoded triplet are kept as is, a stray `%`
+ * becomes `%25`, and any character still outside the RFC 3986 alphabet is
+ * percent-encoded as UTF-8 octets, so the value can never open a new content
+ * line; folding still applies.
  *
  * @param value - Stored URI, validated as http(s) when it was saved.
  * @returns The serialized URI, or `null` when the value cannot be parsed as a
@@ -111,8 +123,8 @@ export function formatIcsUri(value: string): string | null {
   }
 
   return new URL(value).href.replace(
-    ICS_URI_DISALLOWED_CHARACTER_PATTERN,
-    percentEncodeUriCharacter
+    ICS_URI_TRIPLET_OR_DISALLOWED_CHARACTER_PATTERN,
+    percentEncodeUriMatch
   );
 }
 

@@ -127,6 +127,18 @@ describe("formatIcsUri", () => {
     );
   });
 
+  it("encodes a stray percent sign that does not start a percent-encoded triplet", () => {
+    expect(formatIcsUri("https://example.com/?q=100%")).toBe("https://example.com/?q=100%25");
+    expect(formatIcsUri("https://example.com/%zz")).toBe("https://example.com/%25zz");
+    expect(formatIcsUri("https://example.com/?q=5%2")).toBe("https://example.com/?q=5%252");
+  });
+
+  it("preserves valid percent-encoded triplets next to commas and semicolons", () => {
+    expect(formatIcsUri("https://example.com/a%2Fb?x=1%20,2;y=%e2%82%ac")).toBe(
+      "https://example.com/a%2Fb?x=1%20,2;y=%e2%82%ac"
+    );
+  });
+
   it("returns null when the value is not a parseable URL", () => {
     expect(formatIcsUri("not a url")).toBeNull();
   });
@@ -313,6 +325,20 @@ describe("buildTribeCalendarFeedIcsFile", () => {
 
     expect(vevent?.getFirstPropertyValue("url")).toBe(
       "https://example.com/sala%20de%20reuni%C3%B3n/taller;tipo=a,b"
+    );
+    expect(vevent?.getFirstPropertyValue("location")).toBe(meetingUrl);
+  });
+
+  it("emits a meeting URL with a stray percent sign that ical.js reads back encoded", () => {
+    const meetingUrl = "https://example.com/sala;tipo=a,b?q=100%&r=%2F";
+    const content = buildTribeCalendarFeedIcsFile({
+      calendarName: "Tribu",
+      series: [{ ...singleEvent, event: { ...singleEvent.event, meetingUrl } }],
+    }).content;
+    const vevent = new ICAL.Component(ICAL.parse(content)).getFirstSubcomponent("vevent");
+
+    expect(vevent?.getFirstPropertyValue("url")).toBe(
+      "https://example.com/sala;tipo=a,b?q=100%25&r=%2F"
     );
     expect(vevent?.getFirstPropertyValue("location")).toBe(meetingUrl);
   });
