@@ -1,6 +1,7 @@
 import type {
   GetTribeEventCalendarFeedQuery,
   TribeEventCalendarFeedTokenCommand,
+  TribeEventCalendarFeedTokenIssueCommand,
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
   TribeEventCalendarFeedResult,
@@ -60,16 +61,25 @@ export function getTribeEventCalendarFeedSubscription({
  * Generates (or regenerates) the member's personal token. Only its hash is
  * stored; the previous token of the same member and tribe is revoked in the
  * same transaction. The plain token is returned once, to be shown once.
+ *
+ * Duplicate requests (a retry, two tabs) are made safe by an optimistic
+ * precondition instead of an idempotency key: the client sends the id of the
+ * subscription it knows, and a request whose expectation no longer holds
+ * issues nothing (`feedTokenChanged`). An idempotency key would have to store
+ * the plain token to replay the response, which is never persisted; the
+ * precondition needs no extra state and still guarantees that the token of
+ * every successful response is the active one when it is returned.
  */
 export function issueTribeEventCalendarFeedToken({
   tribeEventCalendarFeedTokenCodec,
   tribeEventCalendarFeedTokenRepository,
 }: TokenIssueDependencies) {
   return async (
-    command: TribeEventCalendarFeedTokenCommand
+    command: TribeEventCalendarFeedTokenIssueCommand
   ): Promise<TribeEventCalendarFeedTokenIssueResult> => {
     const { token, tokenHash } = tribeEventCalendarFeedTokenCodec.generate();
     const result = await tribeEventCalendarFeedTokenRepository.issue({
+      expectedSubscriptionId: command.expectedSubscriptionId,
       tokenHash,
       tribeSlug: command.tribeSlug,
     });

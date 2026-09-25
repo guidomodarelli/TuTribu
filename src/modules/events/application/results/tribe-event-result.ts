@@ -332,6 +332,7 @@ export type TribeEventCalendarFeedTokenIssueResult =
     }
   | {
       status:
+        | typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged
         | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
         | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
     };

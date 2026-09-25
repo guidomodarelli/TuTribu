@@ -146,7 +146,8 @@ export function useTribeEventCalendarFeed({
   const runMutation = async <TResult extends { isSuccess: boolean; message: string | null }>(
     request: () => Promise<TResult>,
     copy: { failure: string; loading: string; success: string },
-    onSuccess: (result: Extract<TResult, { isSuccess: true }>) => void
+    onSuccess: (result: Extract<TResult, { isSuccess: true }>) => void,
+    onRejected?: (result: Extract<TResult, { isSuccess: false }>) => void
   ): Promise<boolean> => {
     if (isSubmittingRef.current) {
       return false;
@@ -159,6 +160,10 @@ export function useTribeEventCalendarFeed({
 
     const pendingRequest = request().then((result) => {
       if (!result.isSuccess) {
+        if (dialogSession === dialogSessionRef.current) {
+          onRejected?.(result as Extract<TResult, { isSuccess: false }>);
+        }
+
         throw toRequestError(result.message, copy.failure);
       }
 
@@ -191,9 +196,19 @@ export function useTribeEventCalendarFeed({
     }
   };
 
-  const generateLink = () =>
-    runMutation(
-      () => issueTribeEventCalendarFeedRequest({ tribeSlug }),
+  /**
+   * Sends the subscription on screen as the precondition. When the server
+   * answers that it changed (another tab or a retry won), the state is
+   * reloaded so the next attempt starts from the active link.
+   */
+  const generateLink = () => {
+    const expectedSubscriptionId =
+      loadState.status === TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded
+        ? (loadState.subscription?.id ?? null)
+        : null;
+
+    return runMutation(
+      () => issueTribeEventCalendarFeedRequest({ expectedSubscriptionId, tribeSlug }),
       { failure: COPY.generateFailure, loading: COPY.generating, success: COPY.generateSuccess },
       (result) => {
         setFeedUrl(result.feedUrl);
@@ -201,8 +216,14 @@ export function useTribeEventCalendarFeed({
           status: TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded,
           subscription: result.subscription,
         });
+      },
+      (result) => {
+        if (result.isSubscriptionChanged) {
+          loadSubscription();
+        }
       }
     );
+  };
 
   const revokeLink = () =>
     runMutation(

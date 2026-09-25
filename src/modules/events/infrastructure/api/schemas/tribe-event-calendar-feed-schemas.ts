@@ -46,3 +46,22 @@ export const tribeEventCalendarFeedParamsSchema = z
  * some event types only.
  */
 export const tribeEventCalendarFeedQuerySchema = tribeEventListQuerySchema.pick({ type: true });
+
+/**
+ * Body of `POST /api/tribes/[slug]/events/calendar-feed`: the id of the
+ * subscription the client shows as active (null: none), the optimistic
+ * precondition that makes duplicate regenerations safe. A missing or
+ * malformed id means the client state is unusable, so it is asked to reload.
+ */
+export const tribeEventCalendarFeedIssueBodySchema = z.object(
+  {
+    expectedSubscriptionId: z
+      .guid({ error: TRIBE_EVENT_INPUT_ISSUE.invalidCalendarFeedSubscription })
+      .nullable(),
+  },
+  { error: TRIBE_EVENT_INPUT_ISSUE.invalidCalendarFeedSubscription }
+);
+
+export type TribeEventCalendarFeedIssueRequestBody = z.input<
+  typeof tribeEventCalendarFeedIssueBodySchema
+>;

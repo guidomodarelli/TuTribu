@@ -57,11 +57,13 @@ type TokenAccessRow = {
   can_read: boolean | null;
   created_at: Date | string | null;
   last_used_at?: Date | string | null;
+  subscription_id?: string | null;
   tribe_id: string;
 };
 
 type SubscriptionRow = {
   created_at: Date | string;
+  id: string;
   last_used_at: Date | string | null;
 };
 
@@ -149,40 +151,75 @@ async function revokeActiveMemberFeedToken(
   await database.execute(buildRevokeActiveMemberFeedTokenStatement(tribeId, sql`true`));
 }
 
-type FeedAccessRecheckRow = {
+type FeedTokenRotationRow = {
   can_read: boolean | null;
+  precondition_holds: boolean | null;
 };
 
 /**
- * Rereads the member's read access and, only when it still holds, revokes
- * their active token, in ONE statement (one snapshot) taken after the token
- * lock. A block or removal that committed while the
+ * Outcome of the guarded revocation that precedes issuing a new token.
+ */
+const FEED_TOKEN_ROTATION_OUTCOME = {
+  changed: "changed",
+  forbidden: "forbidden",
+  rotated: "rotated",
+} as const;
+
+type FeedTokenRotationOutcome =
+  (typeof FEED_TOKEN_ROTATION_OUTCOME)[keyof typeof FEED_TOKEN_ROTATION_OUTCOME];
+
+/**
+ * Rereads the member's read access and the id of their active token and,
+ * only when access still holds and that id is still `expectedSubscriptionId`
+ * (null: no active token), revokes it, in ONE statement (one snapshot) taken
+ * after the token lock. A block or removal that committed while the
  * regeneration waited for that lock is seen here, so no token is revoked or
  * issued for a member who already lost access (the runtime role bypasses
- * RLS, and under a non-bypass role the insert would fail instead). Returns
- * whether the member can still read the tribe.
+ * RLS, and under a non-bypass role the insert would fail instead). The
+ * precondition makes duplicate regenerations (a retry, two tabs) safe: the
+ * one that runs second sees the token of the first and issues nothing, so a
+ * response can never carry a token that another request already revoked.
  */
-async function revokeActiveMemberFeedTokenIfReadable(
+async function revokeExpectedMemberFeedTokenIfReadable(
   database: RequestDatabase,
-  tribeId: string
-): Promise<boolean> {
+  tribeId: string,
+  expectedSubscriptionId: string | null
+): Promise<FeedTokenRotationOutcome> {
   const result = await database.execute(sql`
     with feed_access as materialized (
       select coalesce(public.can_read_tribe_content(${tribeId}), false) as can_read
     ),
+    feed_precondition as materialized (
+      select (
+        select event_calendar_feed_tokens.id
+        from public.event_calendar_feed_tokens
+        where event_calendar_feed_tokens.tribe_id = ${tribeId}
+          and event_calendar_feed_tokens.user_id = public.current_app_user_id()
+          and event_calendar_feed_tokens.revoked_at is null
+        limit 1
+      ) is not distinct from ${expectedSubscriptionId}::uuid as precondition_holds
+    ),
     revoked_token as (
       ${buildRevokeActiveMemberFeedTokenStatement(
         tribeId,
-        sql`(select feed_access.can_read from feed_access)`
+        sql`(select feed_access.can_read from feed_access)
+          and (select feed_precondition.precondition_holds from feed_precondition)`
       )}
       returning event_calendar_feed_tokens.id
     )
-    select feed_access.can_read
+    select feed_access.can_read, feed_precondition.precondition_holds
     from feed_access
+    cross join feed_precondition
   `);
-  const row = ((result.rows ?? [])[0] as FeedAccessRecheckRow | undefined) ?? null;
+  const row = ((result.rows ?? [])[0] as FeedTokenRotationRow | undefined) ?? null;
 
-  return row?.can_read === true;
+  if (row?.can_read !== true) {
+    return FEED_TOKEN_ROTATION_OUTCOME.forbidden;
+  }
+
+  return row.precondition_holds === true
+    ? FEED_TOKEN_ROTATION_OUTCOME.rotated
+    : FEED_TOKEN_ROTATION_OUTCOME.changed;
 }
 
 /**
@@ -341,6 +378,7 @@ function buildFeedSnapshotStatement(tribeId: string, query: ReadTribeEventCalend
 function mapSubscription(row: SubscriptionRow): TribeEventCalendarFeedSubscription {
   return {
     createdAt: mapDateValue(row.created_at),
+    id: row.id,
     lastUsedAt: mapNullableDateValue(row.last_used_at),
   };
 }
@@ -358,10 +396,12 @@ async function readTokenAccess(
       tribes.id as tribe_id,
       coalesce(public.can_read_tribe_content(tribes.id), false) as can_read,
       active_token.created_at,
-      active_token.last_used_at
+      active_token.last_used_at,
+      active_token.id as subscription_id
     from public.tribes
     left join lateral (
       select
+        event_calendar_feed_tokens.id,
         event_calendar_feed_tokens.created_at,
         event_calendar_feed_tokens.last_used_at
       from public.event_calendar_feed_tokens
@@ -404,17 +444,20 @@ export class PostgresTribeEventCalendarFeedTokenRepository
 
       return {
         status: TRIBE_EVENT_MUTATION_STATUS.found,
-        subscription: access.created_at
-          ? mapSubscription({
-              created_at: access.created_at,
-              last_used_at: access.last_used_at ?? null,
-            })
-          : null,
+        subscription:
+          access.created_at && access.subscription_id
+            ? mapSubscription({
+                created_at: access.created_at,
+                id: access.subscription_id,
+                last_used_at: access.last_used_at ?? null,
+              })
+            : null,
       };
     });
   }
 
   async issue({
+    expectedSubscriptionId,
     tokenHash,
     tribeSlug,
   }: IssueTribeEventCalendarFeedTokenCommand): Promise<TribeEventCalendarFeedTokenIssueResult> {
@@ -434,22 +477,34 @@ export class PostgresTribeEventCalendarFeedTokenRepository
         return { status: TRIBE_EVENT_MUTATION_STATUS.forbidden };
       }
 
-      // Two regenerations at once (double click, two tabs) run one after the
-      // other: each revokes the previous token before inserting its own, so
-      // the partial unique index of active tokens is never hit.
+      // Two regenerations at once (double click, two tabs, a retry) run one
+      // after the other, so the partial unique index of active tokens is
+      // never hit, and the second one finds the token of the first instead
+      // of the one it expected.
       await lockMemberFeedToken(database, access.tribe_id);
 
-      // Access is read again after waiting for the token lock, in the same
-      // statement that revokes the previous token: losing it meanwhile
-      // answers as a denied access, with the previous token left untouched.
-      if (!(await revokeActiveMemberFeedTokenIfReadable(database, access.tribe_id))) {
+      // Access and the precondition are read again after waiting for the
+      // token lock, in the same statement that revokes the previous token:
+      // losing access answers as a denied access and a changed active token
+      // as a conflict, both with the current token left untouched.
+      const rotation = await revokeExpectedMemberFeedTokenIfReadable(
+        database,
+        access.tribe_id,
+        expectedSubscriptionId
+      );
+
+      if (rotation === FEED_TOKEN_ROTATION_OUTCOME.forbidden) {
         return { status: TRIBE_EVENT_MUTATION_STATUS.forbidden };
+      }
+
+      if (rotation === FEED_TOKEN_ROTATION_OUTCOME.changed) {
+        return { status: TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged };
       }
 
       const inserted = await database.execute(sql`
         insert into public.event_calendar_feed_tokens (user_id, tribe_id, token_hash)
         values (public.current_app_user_id(), ${access.tribe_id}, ${tokenHash})
-        returning created_at, last_used_at
+        returning id, created_at, last_used_at
       `);
       const row = ((inserted.rows ?? [])[0] as SubscriptionRow | undefined) ?? null;
 

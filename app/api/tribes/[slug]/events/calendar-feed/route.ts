@@ -1,9 +1,12 @@
+import type { z } from "zod";
+
 import {
   tribeEventCalendarFeedIssueResponseSchema,
   tribeEventCalendarFeedRevokeResponseSchema,
   tribeEventCalendarFeedStatusResponseSchema,
 } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import { tribeEventCalendarFeedIssueBodySchema } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-calendar-feed-schemas";
 import {
   tribeEventEmptyQuerySchema,
   tribeEventsRouteParamsSchema,
@@ -47,22 +50,36 @@ function withNoStore(response: Response): Response {
 }
 
 function mapFailureStatusResponse(status: string): Response {
-  return status === TRIBE_EVENT_MUTATION_STATUS.notFound
-    ? createJsonResponse(
+  switch (status) {
+    case TRIBE_EVENT_MUTATION_STATUS.notFound:
+      return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.tribeNotFoundMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
-      )
-    : createJsonResponse(
+      );
+    // The active link is no longer the one the client showed: nothing was
+    // issued nor revoked.
+    case TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.calendarFeedChangedMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
+    default:
+      return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.calendarFeedForbiddenMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
       );
+  }
 }
 
 /**
- * Session, boundary input (slug; no query nor body), and the request logger
- * shared by the three verbs.
+ * Session, boundary input (slug and, for POST, the body; no query), and the
+ * request logger shared by the three verbs.
  */
-async function resolveSubscriptionRequest(request: Request, context: TribeEventsRouteContext) {
+async function resolveSubscriptionRequest<TBody = undefined>(
+  request: Request,
+  context: TribeEventsRouteContext,
+  bodySchema?: z.ZodType<TBody>
+) {
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: CALENDAR_FEED_SUBSCRIPTION_LOG.feature,
@@ -87,6 +104,7 @@ async function resolveSubscriptionRequest(request: Request, context: TribeEvents
     params: context.params,
     request,
     schemas: {
+      body: bodySchema,
       params: tribeEventsRouteParamsSchema,
       query: tribeEventEmptyQuerySchema,
     },
@@ -97,6 +115,7 @@ async function resolveSubscriptionRequest(request: Request, context: TribeEvents
   }
 
   return {
+    body: input.body,
     isResolved: true,
     logger,
     metadata: { tribeSlug: input.params.slug, userId: authenticatedMember.id },
@@ -154,19 +173,26 @@ export async function GET(
  * returns it once. The response is never cached and the token never logged.
  * The public base URL is resolved before issuing: issuing commits the
  * rotation, so failing afterwards would revoke the member's current link
- * without ever revealing the replacement.
+ * without ever revealing the replacement. The body carries the id of the
+ * subscription the client knows (optimistic precondition): when another tab
+ * or a retry already changed the active link, it answers 409 and issues no
+ * credential, so a response never carries an already revoked token.
  */
 export async function POST(
   request: Request,
   context: TribeEventsRouteContext
 ): Promise<Response> {
-  const resolved = await resolveSubscriptionRequest(request, context);
+  const resolved = await resolveSubscriptionRequest(
+    request,
+    context,
+    tribeEventCalendarFeedIssueBodySchema
+  );
 
   if (!resolved.isResolved) {
     return resolved.response;
   }
 
-  const { logger, metadata, modules, tribeSlug } = resolved;
+  const { body, logger, metadata, modules, tribeSlug } = resolved;
   let publicAppBaseUrl: string;
 
   try {
@@ -181,7 +207,10 @@ export async function POST(
   }
 
   try {
-    const result = await modules.events.useCases.issueTribeEventCalendarFeedToken({ tribeSlug });
+    const result = await modules.events.useCases.issueTribeEventCalendarFeedToken({
+      expectedSubscriptionId: body.expectedSubscriptionId,
+      tribeSlug,
+    });
 
     if (result.status !== TRIBE_EVENT_MUTATION_STATUS.feedTokenIssued) {
       return mapFailureStatusResponse(result.status);
