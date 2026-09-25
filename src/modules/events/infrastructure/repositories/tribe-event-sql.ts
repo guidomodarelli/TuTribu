@@ -34,6 +34,38 @@ export type TribeEventDatabaseExecutor = <T>(
 ) => Promise<T>;
 
 /**
+ * Locks the viewer's own membership in the tribe `FOR SHARE`, as its own
+ * statement, before any write whose authorization depends on it: proposal
+ * writes (create, withdraw, approve, reject) and manager writes on a series
+ * or on an occurrence exception (update, delete, save, clear). A concurrent
+ * demotion, block, or removal of the viewer (any write on that row) waits
+ * until the request commits, and a change that committed while this
+ * statement waited is visible to the next statement, so the authorization
+ * read afterwards (`is_active_tribe_member`, `can_manage_tribe_events`,
+ * `can_read_tribe_content`) cannot be revoked before the write commits. The
+ * runtime role bypasses RLS, so without this lock a manager demoted while
+ * the write waited on the event row would still write with the stale
+ * snapshot. It runs before the event, proposal, and advisory locks to keep
+ * the membership → other rows order that attendance answers also follow.
+ * No row (not a member) is fine: the later statement reports `forbidden` or
+ * `notFound`.
+ */
+export async function lockViewerMembership(
+  database: RequestDatabase,
+  tribeSlug: string
+): Promise<void> {
+  await database.execute(sql`
+    select tribe_members.id
+    from public.tribe_members
+    inner join public.tribes
+      on tribes.id = tribe_members.tribe_id
+    where tribes.slug = ${tribeSlug}
+      and tribe_members.user_id = public.current_app_user_id()
+    for share of tribe_members
+  `);
+}
+
+/**
  * Duration of every occurrence of a series (needs an `events` row in scope):
  * its explicit end minus its start, or the default duration when it has no
  * end (same rule as `getTribeEventOccurrenceEndTime`). Used to match

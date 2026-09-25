@@ -91,9 +91,10 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
   it("serializes regeneration per member, revokes the previous token, and stores the hash", async () => {
     const execute = vi
       .fn()
+      .mockResolvedValueOnce({ rows: [{ id: "membership-ana" }] })
       .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
       .mockResolvedValueOnce({ rows: [{}] })
-      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ can_read: true }] })
       .mockResolvedValueOnce({
         rows: [{ created_at: "2026-05-02T12:00:00.000Z", last_used_at: null }],
       });
@@ -106,10 +107,12 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       subscription: { createdAt: "2026-05-02T12:00:00.000Z", lastUsedAt: null },
     });
 
-    const [lockSql, revokeSql, insertSql] = execute.mock.calls
-      .slice(1)
-      .map(([statement]) => getSqlText(statement));
+    const [membershipLockSql, , lockSql, revokeSql, insertSql] = execute.mock.calls.map(
+      ([statement]) => getSqlText(statement)
+    );
 
+    // Lock order: own membership FOR SHARE first, then the token lock.
+    expect(membershipLockSql).toContain("for share of tribe_members");
     expect(lockSql).toContain("pg_advisory_xact_lock");
     expect(revokeSql).toContain("set revoked_at = timezone('utc', clock_timestamp())");
     expect(revokeSql).toContain("user_id = public.current_app_user_id()");
@@ -120,13 +123,37 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
   it("never issues a token for a viewer who cannot read the tribe", async () => {
     const execute = vi
       .fn()
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ can_read: false, created_at: null, tribe_id: TRIBE_ID }] });
     const repository = new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(execute));
 
     await expect(
       repository.issue({ tokenHash: TOKEN_HASH, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ status: "forbidden" });
-    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it("answers forbidden without revoking nor inserting when access is lost while waiting for the token lock", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: "membership-ana" }] })
+      .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
+      .mockResolvedValueOnce({ rows: [{}] })
+      .mockResolvedValueOnce({ rows: [{ can_read: false }] });
+    const repository = new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(execute));
+
+    await expect(
+      repository.issue({ tokenHash: TOKEN_HASH, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({ status: "forbidden" });
+    // No insert after the recheck: the member keeps no new link.
+    expect(execute).toHaveBeenCalledTimes(4);
+
+    // The recheck and the revocation share one statement snapshot, taken
+    // after the token lock, so a block that committed meanwhile is seen.
+    const recheckSql = getSqlText(execute.mock.calls[3]?.[0]);
+
+    expect(recheckSql).toContain("public.can_read_tribe_content(");
+    expect(recheckSql).toContain("update public.event_calendar_feed_tokens");
   });
 
   it("revokes idempotently only the member's own token", async () => {
@@ -152,9 +179,10 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
   it("takes the regeneration lock before revoking, so a concurrent regeneration is revoked too", async () => {
     const issueExecute = vi
       .fn()
+      .mockResolvedValueOnce({ rows: [{ id: "membership-ana" }] })
       .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
       .mockResolvedValueOnce({ rows: [{}] })
-      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ can_read: true }] })
       .mockResolvedValueOnce({
         rows: [{ created_at: "2026-05-02T12:00:00.000Z", last_used_at: null }],
       });
@@ -172,7 +200,7 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       tribeSlug: TRIBE_SLUG,
     });
 
-    const issueLockSql = getSqlText(issueExecute.mock.calls[1]?.[0]);
+    const issueLockSql = getSqlText(issueExecute.mock.calls[2]?.[0]);
     const [revokeLockSql, revokeSql] = revokeExecute.mock.calls
       .slice(1)
       .map(([statement]) => getSqlText(statement));

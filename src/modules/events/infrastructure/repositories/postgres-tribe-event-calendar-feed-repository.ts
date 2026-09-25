@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import {
   TRIBE_EVENT_MUTATION_STATUS,
@@ -23,6 +23,7 @@ import {
   TRIBE_EVENT_COLUMNS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS,
   buildSeriesWithOccurrenceInRangePredicate,
+  lockViewerMembership,
   mapDateValue,
   mapNullableDateValue,
   mapTribeEvent,
@@ -120,22 +121,68 @@ async function lockMemberFeedToken(database: RequestDatabase, tribeId: string): 
 }
 
 /**
- * Revokes the signed-in member's active token in the tribe. `revoked_at` uses
- * clock_timestamp(): now() is the start of this transaction, which can be
- * older than a token another writer committed while this one waited for the
- * lock (revoked_at >= created_at is a CHECK).
+ * UPDATE that revokes the signed-in member's active token in the tribe, only
+ * when `condition` holds. `revoked_at` uses clock_timestamp(): now() is the
+ * start of this transaction, which can be older than a token another writer
+ * committed while this one waited for the lock (revoked_at >= created_at is
+ * a CHECK).
  */
-async function revokeActiveMemberFeedToken(
-  database: RequestDatabase,
-  tribeId: string
-): Promise<void> {
-  await database.execute(sql`
+function buildRevokeActiveMemberFeedTokenStatement(tribeId: string, condition: SQL) {
+  return sql`
     update public.event_calendar_feed_tokens
     set revoked_at = timezone('utc', clock_timestamp())
     where event_calendar_feed_tokens.tribe_id = ${tribeId}
       and event_calendar_feed_tokens.user_id = public.current_app_user_id()
       and event_calendar_feed_tokens.revoked_at is null
+      and ${condition}
+  `;
+}
+
+/**
+ * Revokes the signed-in member's active token in the tribe without checking
+ * read access: removing one's own link is always safe.
+ */
+async function revokeActiveMemberFeedToken(
+  database: RequestDatabase,
+  tribeId: string
+): Promise<void> {
+  await database.execute(buildRevokeActiveMemberFeedTokenStatement(tribeId, sql`true`));
+}
+
+type FeedAccessRecheckRow = {
+  can_read: boolean | null;
+};
+
+/**
+ * Rereads the member's read access and, only when it still holds, revokes
+ * their active token, in ONE statement (one snapshot) taken after the token
+ * lock. A block or removal that committed while the
+ * regeneration waited for that lock is seen here, so no token is revoked or
+ * issued for a member who already lost access (the runtime role bypasses
+ * RLS, and under a non-bypass role the insert would fail instead). Returns
+ * whether the member can still read the tribe.
+ */
+async function revokeActiveMemberFeedTokenIfReadable(
+  database: RequestDatabase,
+  tribeId: string
+): Promise<boolean> {
+  const result = await database.execute(sql`
+    with feed_access as materialized (
+      select coalesce(public.can_read_tribe_content(${tribeId}), false) as can_read
+    ),
+    revoked_token as (
+      ${buildRevokeActiveMemberFeedTokenStatement(
+        tribeId,
+        sql`(select feed_access.can_read from feed_access)`
+      )}
+      returning event_calendar_feed_tokens.id
+    )
+    select feed_access.can_read
+    from feed_access
   `);
+  const row = ((result.rows ?? [])[0] as FeedAccessRecheckRow | undefined) ?? null;
+
+  return row?.can_read === true;
 }
 
 /**
@@ -372,6 +419,11 @@ export class PostgresTribeEventCalendarFeedTokenRepository
     tribeSlug,
   }: IssueTribeEventCalendarFeedTokenCommand): Promise<TribeEventCalendarFeedTokenIssueResult> {
     return this.executeWithDatabase(async (database) => {
+      // Lock order membership → token lock: a block or removal of the member
+      // waits until this regeneration commits, and one that committed before
+      // is seen by the reads below.
+      await lockViewerMembership(database, tribeSlug);
+
       const access = await readTokenAccess(database, tribeSlug);
 
       if (!access) {
@@ -386,7 +438,13 @@ export class PostgresTribeEventCalendarFeedTokenRepository
       // other: each revokes the previous token before inserting its own, so
       // the partial unique index of active tokens is never hit.
       await lockMemberFeedToken(database, access.tribe_id);
-      await revokeActiveMemberFeedToken(database, access.tribe_id);
+
+      // Access is read again after waiting for the token lock, in the same
+      // statement that revokes the previous token: losing it meanwhile
+      // answers as a denied access, with the previous token left untouched.
+      if (!(await revokeActiveMemberFeedTokenIfReadable(database, access.tribe_id))) {
+        return { status: TRIBE_EVENT_MUTATION_STATUS.forbidden };
+      }
 
       const inserted = await database.execute(sql`
         insert into public.event_calendar_feed_tokens (user_id, tribe_id, token_hash)
@@ -409,6 +467,11 @@ export class PostgresTribeEventCalendarFeedTokenRepository
    * content (only the slug must resolve). A member who was blocked may no
    * longer see the tribe under strict RLS and then gets "not found"; their
    * link is already refused by the feed in that state.
+   *
+   * It does not lock the membership: it never depends on read access, so a
+   * block racing it cannot make it unsafe, and it only takes the token lock
+   * (a regeneration holds the membership first and then this lock, so the
+   * order membership → token lock is never inverted).
    *
    * It takes the same lock as `issue`: without it, a revocation racing a
    * regeneration could snapshot only the old token, find it already revoked
