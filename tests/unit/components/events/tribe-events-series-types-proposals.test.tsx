@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { toast } from "beez-ui";
@@ -587,6 +587,88 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Propuestas \(/ })).not.toBeInTheDocument();
     expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  describe("approval end suggestion", () => {
+    async function openApprovalForm(proposalOverrides: Record<string, unknown>) {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const proposal = {
+        createdAt: "2026-05-01T12:00:00.000Z",
+        description: null,
+        durationMinutes: 90,
+        eventId: null,
+        eventType: "workshop",
+        id: PROPOSAL_ID,
+        proposerName: "Ana",
+        reviewNote: null,
+        reviewedAt: null,
+        startsAt: "2026-05-20T21:00:00.000Z",
+        status: "pending",
+        title: "Taller de repaso",
+        ...proposalOverrides,
+      };
+
+      renderCalendar({ events: [], pendingProposalCount: 1 });
+      mockJsonResponse({ canReviewProposals: true, pendingCount: 1, proposals: [proposal] });
+      await user.click(screen.getByRole("button", { name: "Propuestas (1)" }));
+
+      const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });
+
+      await user.click(await within(panel).findByRole("button", { name: "Revisar y aprobar" }));
+
+      return screen.getByRole("dialog", { name: "Aprobar propuesta" });
+    }
+
+    it("keeps the proposed duration when the manager moves the start", async () => {
+      const form = await openApprovalForm({});
+
+      expect(within(form).getByLabelText("Hora de fin")).toHaveValue("19:30");
+
+      fireEvent.change(within(form).getByLabelText("Hora de inicio"), {
+        target: { value: "19:00" },
+      });
+
+      expect(within(form).getByLabelText("Hora de fin")).toHaveValue("20:30");
+    });
+
+    it("keeps the next-day end of an overnight proposal while the start moves", async () => {
+      // 23:00 in Buenos Aires for two hours ends at 01:00 of the next day.
+      const form = await openApprovalForm({
+        durationMinutes: 120,
+        startsAt: "2026-05-21T02:00:00.000Z",
+      });
+
+      expect(within(form).getByLabelText("Fecha")).toHaveValue("2026-05-20");
+      expect(within(form).getByLabelText("Hora de fin")).toHaveValue("01:00");
+      expect(within(form).getByRole("checkbox", { name: "Termina otro día" })).toBeChecked();
+      expect(within(form).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+      fireEvent.change(within(form).getByLabelText("Hora de inicio"), {
+        target: { value: "23:30" },
+      });
+
+      expect(within(form).getByLabelText("Hora de fin")).toHaveValue("01:30");
+      expect(within(form).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+      fireEvent.change(within(form).getByLabelText("Fecha"), {
+        target: { value: "2026-05-22" },
+      });
+
+      expect(within(form).getByLabelText("Fecha de fin")).toHaveValue("2026-05-23");
+    });
+
+    it("stops following the start once the manager edits the proposed end", async () => {
+      const form = await openApprovalForm({});
+
+      fireEvent.change(within(form).getByLabelText("Hora de fin"), {
+        target: { value: "21:00" },
+      });
+      fireEvent.change(within(form).getByLabelText("Hora de inicio"), {
+        target: { value: "19:00" },
+      });
+
+      expect(within(form).getByLabelText("Hora de fin")).toHaveValue("21:00");
+    });
   });
 
   it("keeps the uncapped pending total on the badge when the queue is capped, decrements it on approval, and refills the queue", async () => {
