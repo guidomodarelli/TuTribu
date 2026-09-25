@@ -56,7 +56,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | Script | Description |
 | --- | --- |
 | `pnpm run dev` | Start the Next.js dev server through portless at `https://dev-tutribu.app` (proxy restart, hosts entry, CA trust, `next dev` with hot reload). Accepts `--dry-run`. |
-| `pnpm run dev:next` | Bare `next dev` on a plain port. Reserved for the Playwright web server and CI; use `pnpm run dev` for manual work. |
+| `pnpm run dev:next` | Bare `next dev` on a plain port. Reserved for the Playwright web server of the e2e suite; use `pnpm run dev` for manual work. |
 | `pnpm run build` | Build the production bundle. |
 | `pnpm run build:cloudflare` | Build the Cloudflare Workers bundle with OpenNext. |
 | `pnpm run preview:cloudflare` | Build and preview the app locally in the Cloudflare Workers runtime. |

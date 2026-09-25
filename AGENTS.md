@@ -58,7 +58,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Any change that touches a route entrypoint importing from `src/features` must migrate that entrypoint to `src/modules` in the same work item.
 - `src/features` cannot be used as an integration layer for new adapters; dependency composition must happen in `src/modules/<feature>/setup.ts`.
 - Route entrypoints must consume use cases from `application` and must not import repository implementations directly.
-- Add and keep a CI/static check that fails on imports matching `@/src/features/`.
+- Add and keep a lint/static check (run by the Husky hooks and `pnpm run ci`) that fails on imports matching `@/src/features/`.
 
 ### Dependency rule
 
@@ -489,7 +489,7 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 
 ### Local verification with portless (mandatory)
 
-- Whenever you want to try changes in the running app (manual checks, browser previews, screenshots, Playwright audits, or any request against the local server), run the dev server through `portless`. `pnpm run dev` already does that; never start `next dev` bare and never target `http://localhost:3000`. The only exception is `pnpm run dev:next`, which exists so the Playwright `webServer` (and CI, where portless is not installed) can boot a bare `next dev` on port 3000 for the e2e suite; do not use it for manual checks.
+- Whenever you want to try changes in the running app (manual checks, browser previews, screenshots, Playwright audits, or any request against the local server), run the dev server through `portless`. `pnpm run dev` already does that; never start `next dev` bare and never target `http://localhost:3000`. The only exception is `pnpm run dev:next`, which exists so the Playwright `webServer` (and any environment where portless is not installed) can boot a bare `next dev` on port 3000 for the e2e suite; do not use it for manual checks.
 - Start the dev server with the project script, which performs the whole sequence idempotently:
 
 ```bash
@@ -553,7 +553,7 @@ A server render or an `after()` callback can be aborted mid-flight (Next.js dev 
 
 ## Runtime and compiler
 
-- Use Node.js 24.21.0 from `.nvmrc` locally and in CI; `engines.node` permits only Node 24.
+- Use Node.js 24.21.0 from `.nvmrc` locally and in the Husky `pre-push` gate; `engines.node` permits only Node 24.
 - TypeScript 7 is the project compiler for application tests and Next builds. Keep the separate `tsconfig.test.json` and run `pnpm typecheck:tests`.
 - `.pnpmfile.cjs` supplies the official TypeScript 6 compatibility API privately to ESLint packages. Keep the root `typescript` dependency on version 7 and do not disable Next build type checking. Review the hook when ESLint supports the new compiler API.
-- CI reads `.nvmrc` and installs pnpm 12.3.4 explicitly. Update runtime pins, Node types and lockfiles together.
+- There is no GitHub Actions workflow; the local runtime must match `.nvmrc` and `packageManager` (pnpm 12.3.4) before the hooks run. Update runtime pins, Node types and lockfiles together.
