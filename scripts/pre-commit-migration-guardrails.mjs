@@ -15,7 +15,9 @@
  * instead of the live checkout, so an untracked file recreating a deleted
  * migration or an unstaged edit cannot make the check pass for content that is
  * not being committed. The snapshot reuses `node_modules` through a link and is
- * always removed, including on failure or interruption.
+ * always removed, including on failure or interruption. The staged-diff and
+ * snapshot helpers live in `scripts/staged-index.mjs`, shared with
+ * `scripts/pre-commit-typescript-deletions.mjs`.
  *
  * Usage (from `.husky/pre-commit`, after lint-staged):
  *   node scripts/pre-commit-migration-guardrails.mjs
@@ -23,19 +25,20 @@
  * @module pre-commit-migration-guardrails
  */
 
-import { spawn, spawnSync } from "node:child_process";
-import {
-  existsSync,
-  lstatSync,
-  mkdtempSync,
-  rmSync,
-  symlinkSync,
-  unlinkSync,
-} from "node:fs";
-import os from "node:os";
+import { spawn } from "node:child_process";
 import path from "node:path";
 
 import { buildRepositoryIndependentEnvironment } from "./pre-push-gate.mjs";
+import {
+  DIFF_FILTER,
+  NODE_MODULES_DIRECTORY,
+  createStagedSnapshot,
+  listStagedPaths,
+  removeStagedSnapshot,
+  runInStagedSnapshot,
+} from "./staged-index.mjs";
+
+export { createStagedSnapshot, removeStagedSnapshot };
 
 /** Directory that holds the versioned SQL migrations. */
 export const MIGRATION_DIRECTORY = "database/migrations";
@@ -49,67 +52,11 @@ export const MIGRATION_GUARDRAIL_TEST_FILTERS = [
   "dropped-column-references",
 ];
 
-/** Git diff filters for staged deletions and for every other staged change. */
-const DIFF_FILTER = {
-  deleted: "D",
-  nonDeleted: "ACMRT",
-};
-
 /** Log prefix that identifies the script output inside the commit transcript. */
 const LOG_PREFIX = "[pre-commit-migration-guardrails]";
 
-/** Prefix of the temporary directories that hold the staged snapshot. */
-const SNAPSHOT_DIRECTORY_PREFIX = "tutribu-pre-commit-";
-
-/** Dependency directory reused by the snapshot through a link. */
-const NODE_MODULES_DIRECTORY = "node_modules";
-
 /** Vitest CLI entry point inside the linked `node_modules`. */
 const VITEST_ENTRY_SEGMENTS = [NODE_MODULES_DIRECTORY, "vitest", "vitest.mjs"];
-
-/** Junctions need no elevated privileges on Windows; `dir` is ignored elsewhere. */
-const DIRECTORY_LINK_TYPE = process.platform === "win32" ? "junction" : "dir";
-
-/** Exit code reported when the hook is interrupted by a signal. */
-const INTERRUPTED_EXIT_CODE = 130;
-
-/**
- * Lists staged paths under the migration directory for one diff filter.
- *
- * @param {string} repositoryRoot - Repository top-level directory.
- * @param {string} diffFilter - Value for `git diff --diff-filter`.
- * @param {NodeJS.ProcessEnv} environment - Environment for Git.
- * @returns {string[]} Repository-relative paths.
- * @throws {Error} When Git exits with a non-zero status.
- */
-function listStagedPaths(repositoryRoot, diffFilter, environment) {
-  const diffArguments = [
-    "diff",
-    "--cached",
-    "--name-only",
-    "--no-renames",
-    `--diff-filter=${diffFilter}`,
-    "--",
-    MIGRATION_DIRECTORY,
-  ];
-  const result = spawnSync("git", diffArguments, {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-    env: environment,
-  });
-
-  if (result.status !== 0) {
-    throw new Error(
-      `pre-commit-migration-guardrails:listStagedPaths failed for "git ${diffArguments.join(" ")}" with status ${result.status}: ${(result.stderr ?? "").trim()}`,
-      { cause: result.error }
-    );
-  }
-
-  return result.stdout
-    .split(/\r?\n/)
-    .map((stagedPath) => stagedPath.trim())
-    .filter((stagedPath) => stagedPath.length > 0);
-}
 
 /**
  * Splits the staged migration changes into deletions and other changes.
@@ -124,10 +71,16 @@ export function listStagedMigrationChanges(
   environment = process.env
 ) {
   return {
-    deletedPaths: listStagedPaths(repositoryRoot, DIFF_FILTER.deleted, environment),
+    deletedPaths: listStagedPaths(
+      repositoryRoot,
+      DIFF_FILTER.deleted,
+      [MIGRATION_DIRECTORY],
+      environment
+    ),
     nonDeletedPaths: listStagedPaths(
       repositoryRoot,
       DIFF_FILTER.nonDeleted,
+      [MIGRATION_DIRECTORY],
       environment
     ),
   };
@@ -143,76 +96,6 @@ export function listStagedMigrationChanges(
  */
 export function shouldRunMigrationGuardrails({ deletedPaths, nonDeletedPaths }) {
   return deletedPaths.length > 0 || nonDeletedPaths.length > 0;
-}
-
-/**
- * Exports the index Git is committing into a new temporary directory, so the
- * guardrails see exactly the committed tree: untracked files that recreate a
- * deleted path and unstaged edits stay out of the snapshot. The installed
- * `node_modules` is linked (a junction on Windows) instead of reinstalled.
- *
- * @param {string} repositoryRoot - Repository top-level directory.
- * @param {NodeJS.ProcessEnv} [environment] - Environment for Git; defaults to
- *   the hook environment so `GIT_INDEX_FILE` still selects the commit index.
- * @returns {string} Absolute path of the snapshot directory.
- * @throws {Error} When Git cannot export the index; the partial snapshot is removed.
- */
-export function createStagedSnapshot(repositoryRoot, environment = process.env) {
-  const snapshotPath = mkdtempSync(path.join(os.tmpdir(), SNAPSHOT_DIRECTORY_PREFIX));
-
-  try {
-    const exportArguments = [
-      "checkout-index",
-      "--all",
-      "--force",
-      `--prefix=${snapshotPath}${path.sep}`,
-    ];
-    const exportResult = spawnSync("git", exportArguments, {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-      env: environment,
-    });
-
-    if (exportResult.status !== 0) {
-      throw new Error(
-        `pre-commit-migration-guardrails:createStagedSnapshot failed for "git ${exportArguments.join(" ")}" with status ${exportResult.status}: ${(exportResult.stderr ?? "").trim()}`,
-        { cause: exportResult.error }
-      );
-    }
-
-    const installedModulesPath = path.join(repositoryRoot, NODE_MODULES_DIRECTORY);
-
-    if (existsSync(installedModulesPath)) {
-      symlinkSync(
-        installedModulesPath,
-        path.join(snapshotPath, NODE_MODULES_DIRECTORY),
-        DIRECTORY_LINK_TYPE
-      );
-    }
-  } catch (snapshotError) {
-    removeStagedSnapshot(snapshotPath);
-    throw snapshotError;
-  }
-
-  return snapshotPath;
-}
-
-/**
- * Removes a snapshot created by {@link createStagedSnapshot}. The
- * `node_modules` link is unlinked first so the recursive removal never walks
- * into the real installation it points to.
- *
- * @param {string} snapshotPath - Snapshot directory to delete.
- * @returns {void}
- */
-export function removeStagedSnapshot(snapshotPath) {
-  const linkedModulesPath = path.join(snapshotPath, NODE_MODULES_DIRECTORY);
-
-  if (lstatSync(linkedModulesPath, { throwIfNoEntry: false })?.isSymbolicLink()) {
-    unlinkSync(linkedModulesPath);
-  }
-
-  rmSync(snapshotPath, { recursive: true, force: true });
 }
 
 /**
@@ -261,23 +144,7 @@ async function main() {
   console.log(
     `${LOG_PREFIX} ${changes.deletedPaths.length} staged migration deletion(s) and ${changes.nonDeletedPaths.length} other staged migration change(s); running the migration guardrail suites against the staged snapshot`
   );
-  const snapshotPath = createStagedSnapshot(repositoryRoot);
-  const handleInterruption = () => {
-    removeStagedSnapshot(snapshotPath);
-    process.exit(INTERRUPTED_EXIT_CODE);
-  };
-  process.on("SIGINT", handleInterruption);
-  process.on("SIGTERM", handleInterruption);
-
-  let exitCode;
-
-  try {
-    exitCode = await runGuardrailSuites(snapshotPath);
-  } finally {
-    removeStagedSnapshot(snapshotPath);
-    process.off("SIGINT", handleInterruption);
-    process.off("SIGTERM", handleInterruption);
-  }
+  const exitCode = await runInStagedSnapshot(repositoryRoot, runGuardrailSuites);
 
   if (exitCode !== 0) {
     console.error(

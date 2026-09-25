@@ -1,3 +1,5 @@
 pnpm exec lint-staged
 # Migration guardrails run against the staged snapshot for any staged migration change.
 node scripts/pre-commit-migration-guardrails.mjs
+# lint-staged never sees deleted files: type-check commits that only delete TypeScript files.
+node scripts/pre-commit-typescript-deletions.mjs
