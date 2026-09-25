@@ -186,6 +186,147 @@ describe("NotificationCenter", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("reconciles from the server instead of rolling back a read superseded by mark-all", async () => {
+    const user = userEvent.setup();
+    const readAt = "2026-05-06T13:00:00.000Z";
+    let serverInbox: NotificationInboxResponse = inbox;
+    let failPendingMarkRead: (response: Response) => void = () => {};
+
+    (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+      const json = (body: unknown, status = 200) =>
+        Promise.resolve(
+          new Response(JSON.stringify(body), {
+            headers: { "Content-Type": "application/json" },
+            status,
+          })
+        );
+
+      if (url === "/api/notifications") {
+        return json(serverInbox);
+      }
+
+      if (url === "/api/notifications/read-all") {
+        serverInbox = {
+          notifications: inbox.notifications.map((notification) => ({ ...notification, readAt })),
+          unreadCount: 0,
+        };
+
+        return json({ unreadCount: 0 });
+      }
+
+      if (url === `/api/notifications/${FIRST_ID}` && init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          failPendingMarkRead = resolve;
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected request ${url}`));
+    });
+    renderCenter();
+    await user.click(screen.getByRole("button", { name: "Notificaciones, 2 sin leer" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "Notificaciones" })).getByRole("link", {
+        name: /Taller de álgebra/,
+      })
+    );
+    await user.click(screen.getByRole("button", { name: "Notificaciones, 1 sin leer" }));
+    await user.click(await screen.findByRole("button", { name: "Marcar todas como leídas" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Notificaciones" })).toBeInTheDocument()
+    );
+
+    const inboxLoadsBeforeFailure = (global.fetch as Mock).mock.calls.filter(
+      ([url]) => url === "/api/notifications"
+    ).length;
+
+    await act(async () => {
+      failPendingMarkRead(
+        new Response(
+          JSON.stringify({ message: "No pudimos marcar la notificación como leída. Intentá de nuevo." }),
+          { headers: { "Content-Type": "application/json" }, status: 500 }
+        )
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        (global.fetch as Mock).mock.calls.filter(([url]) => url === "/api/notifications").length
+      ).toBe(inboxLoadsBeforeFailure + 1)
+    );
+    expect(screen.getByRole("button", { name: "Notificaciones" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sin leer/ })).not.toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("defers the reconcile of a superseded read until an in-flight mark-all settles", async () => {
+    const user = userEvent.setup();
+    const readAt = "2026-05-06T13:00:00.000Z";
+    const inboxRequestUrls: string[] = [];
+    let serverInbox: NotificationInboxResponse = inbox;
+    let failPendingMarkRead: (response: Response) => void = () => {};
+    let settlePendingMarkAll: () => void = () => {};
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        headers: { "Content-Type": "application/json" },
+        status,
+      });
+
+    (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/notifications") {
+        inboxRequestUrls.push(url);
+
+        return Promise.resolve(json(serverInbox));
+      }
+
+      if (url === "/api/notifications/read-all") {
+        return new Promise<Response>((resolve) => {
+          settlePendingMarkAll = () => {
+            serverInbox = {
+              notifications: inbox.notifications.map((notification) => ({ ...notification, readAt })),
+              unreadCount: 0,
+            };
+            resolve(json({ unreadCount: 0 }));
+          };
+        });
+      }
+
+      if (url === `/api/notifications/${FIRST_ID}` && init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          failPendingMarkRead = resolve;
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected request ${url}`));
+    });
+    renderCenter();
+    await user.click(screen.getByRole("button", { name: "Notificaciones, 2 sin leer" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "Notificaciones" })).getByRole("link", {
+        name: /Taller de álgebra/,
+      })
+    );
+    await user.click(screen.getByRole("button", { name: "Notificaciones, 1 sin leer" }));
+    await user.click(await screen.findByRole("button", { name: "Marcar todas como leídas" }));
+
+    const inboxLoadsBeforeFailure = inboxRequestUrls.length;
+
+    await act(async () => {
+      failPendingMarkRead(json({ message: "No pudimos marcar la notificación como leída." }, 500));
+    });
+
+    expect(inboxRequestUrls).toHaveLength(inboxLoadsBeforeFailure);
+
+    await act(async () => {
+      settlePendingMarkAll();
+    });
+
+    await waitFor(() => expect(inboxRequestUrls).toHaveLength(inboxLoadsBeforeFailure + 1));
+    expect(screen.getByRole("button", { name: "Notificaciones" })).toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   it("returns focus to the bell when the panel closes", async () => {
     const user = userEvent.setup();
 

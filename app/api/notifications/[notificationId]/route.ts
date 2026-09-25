@@ -29,10 +29,10 @@ type NotificationRouteContext = {
  * unknown) notification answers 404 without revealing whether it exists.
  */
 export async function PATCH(request: Request, context: NotificationRouteContext): Promise<Response> {
-  const session = await resolveNotificationRouteSession(
-    request,
-    NOTIFICATION_MARK_READ_ROUTE_LOG.operation
-  );
+  const session = await resolveNotificationRouteSession(request, {
+    operation: NOTIFICATION_MARK_READ_ROUTE_LOG.operation,
+    unexpectedFailureMessage: NOTIFICATION_ROUTE_RESPONSE.unexpectedMarkMessage,
+  });
 
   if (!session.isResolved) {
     return session.response;
