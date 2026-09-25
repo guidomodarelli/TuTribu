@@ -137,6 +137,39 @@ function buildTargetEventCte(eventId: string, tribeSlug: string) {
   `;
 }
 
+const CHANGED_EXCEPTION_CTE = {
+  deleted: "deleted_exception",
+  saved: "saved_exception",
+} as const;
+
+/**
+ * Bumps `events.updated_at` when the statement changed an exception, so the
+ * calendar feed raises the series SEQUENCE/LAST-MODIFIED (and its ETag) even
+ * when a date is restored and its exception row disappears.
+ *
+ * The stamp uses `clock_timestamp()`, not `now()`: this UPDATE runs after
+ * `locked_event` waited for any concurrent writer of the same series, and
+ * `now()` is the start of this transaction. A writer that began first but
+ * got the lock last would raise `calendar_sequence` while moving
+ * `updated_at` (DTSTAMP/LAST-MODIFIED) backward.
+ *
+ * @param changedExceptionCte - CTE holding the saved or deleted exception.
+ */
+function buildTouchedEventCte(
+  changedExceptionCte: (typeof CHANGED_EXCEPTION_CTE)[keyof typeof CHANGED_EXCEPTION_CTE]
+) {
+  return sql`
+    touched_event as (
+      update public.events
+      set updated_at = timezone('utc', clock_timestamp())
+      from target_event
+      where events.id = target_event.id
+        and exists (select 1 from ${sql.raw(changedExceptionCte)})
+      returning events.id
+    )
+  `;
+}
+
 /**
  * Refills the waitlist of one date through `refill_tribe_event_waitlists`,
  * which keeps the lock order (event row, already held by the caller's
@@ -314,7 +347,8 @@ export class PostgresTribeEventOccurrenceExceptionRepository
             reason = excluded.reason,
             updated_at = excluded.updated_at
           returning ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS}
-        )
+        ),
+        ${buildTouchedEventCte(CHANGED_EXCEPTION_CTE.saved)}
         select
           case
             when exists (select 1 from saved_exception) then ${TRIBE_EVENT_MUTATION_STATUS.exceptionSaved}
@@ -437,7 +471,8 @@ export class PostgresTribeEventOccurrenceExceptionRepository
             and event_occurrence_exceptions.original_starts_at = ${originalStartsAt}::timestamptz
             and public.can_manage_tribe_events(target_event.tribe_id)
           returning event_occurrence_exceptions.id
-        )
+        ),
+        ${buildTouchedEventCte(CHANGED_EXCEPTION_CTE.deleted)}
         select
           case
             when not exists (select 1 from target_event) then ${TRIBE_EVENT_MUTATION_STATUS.notFound}

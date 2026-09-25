@@ -125,6 +125,14 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
 
     expect(saveSql).toContain("public.can_manage_tribe_events(target_event.tribe_id)");
     expect(saveSql).toContain("on conflict (event_id, original_starts_at) do update");
+    // The series revision moves forward so calendar feeds pick the change up.
+    expect(saveSql).toMatch(/update public\.events\s+set updated_at[\s\S]*from saved_exception/);
+    // The revision is stamped after waiting for the event lock: the statement
+    // clock keeps a writer that waited from moving LAST-MODIFIED backward
+    // while its SEQUENCE moves forward.
+    expect(saveSql).toMatch(
+      /update public\.events\s+set updated_at = timezone\('utc', clock_timestamp\(\)\)/
+    );
     // Answers hold the event row FOR SHARE while they read the exception of
     // their date, so the write locks it FOR UPDATE to serialize with them.
     expect(saveSql).toContain("for update of events");
@@ -173,6 +181,28 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
       expect(getSqlText(execute.mock.calls[callIndex + 1]?.[0])).toContain("for update of events");
     }
     expect(execute).toHaveBeenCalledTimes(4);
+  });
+
+  it("bumps the series revision when a date is restored", async () => {
+    const execute = vi.fn(async (..._statements: unknown[]) => ({
+      rows: [{ status: "exception_cleared" }],
+    }));
+    const repository = new PostgresTribeEventOccurrenceExceptionRepository(
+      createExecutorAnsweringMembershipLock(execute)
+    );
+
+    await repository.clear({
+      eventId: EVENT_ID,
+      originalStartsAt: "2026-05-14T21:00:00.000Z",
+      tribeSlug: TRIBE_SLUG,
+    });
+
+    const clearSql = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(clearSql).toMatch(/update public\.events\s+set updated_at[\s\S]*from deleted_exception/);
+    expect(clearSql).toMatch(
+      /update public\.events\s+set updated_at = timezone\('utc', clock_timestamp\(\)\)/
+    );
   });
 
   it("maps a missing event and a viewer who cannot manage events", async () => {

@@ -21,6 +21,7 @@ import {
   resolveBuenosAiresMonthOf,
   resolveCurrentBuenosAiresMonth,
 } from "@/src/modules/events/application/services/buenos-aires-month";
+import { buildTribeEventCalendarResult } from "@/src/modules/events/application/services/tribe-event-calendar-export";
 import {
   NORMALIZED_EVENT_STATUS,
   listVisibleMonthOccurrences,
@@ -43,7 +44,6 @@ import type {
   TribeEventCapacityUpdate,
   TribeEventRepository,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
-import { resolveTribeEventOccurrenceException } from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
 
 type TribeEventDependencies = {
   tribeEventOccurrenceExceptionRepository: TribeEventOccurrenceExceptionRepository;
@@ -274,13 +274,6 @@ export function getTribeEventCalendar({
         ? []
         : await tribeEventOccurrenceExceptionRepository.listByEvent(query);
 
-    return {
-      event: toTribeEventResult(event),
-      occurrenceExceptions: exceptions.flatMap((exception) => {
-        const occurrence = resolveTribeEventOccurrenceException(event, exception);
-
-        return occurrence?.exception ? [{ ...occurrence, exception: occurrence.exception }] : [];
-      }),
-    };
+    return buildTribeEventCalendarResult(event, exceptions);
   };
 }

@@ -35,7 +35,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="doc-label">TuTribu — Manual de usuario</div>
   <div class="doc-title">Eventos: calendario, asistencia, cupos y repeticiones</div>
   <div class="doc-sub">Cómo ver los encuentros de la tribu, confirmar tu asistencia (con cupos y lista de espera) y, si liderás, programarlos y ver quiénes van.</div>
-  <div class="doc-meta"><span>Fecha: 2026-09-24</span><span>Audiencia: miembros y líderes</span></div>
+  <div class="doc-meta"><span>Fecha: 2026-09-25</span><span>Audiencia: miembros y líderes</span></div>
 </div>
 
 <div class="section">
@@ -173,6 +173,34 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <li><strong>Rechazar</strong> pide una nota opcional para quien la propuso y la saca de la lista.</li>
     <li>Si otra persona ya la resolvió (o tocaste dos veces), se lee <em>Esta propuesta ya fue resuelta.</em> y la lista se actualiza. Nunca se crean dos eventos por la misma propuesta.</li>
   </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Suscribirte al calendario de la tribu</div>
+  <p>En lugar de agregar los eventos uno por uno, podés <strong>suscribir tu calendario</strong> a la tribu. Tu app de calendario va a mostrar todos los eventos y se actualiza sola cuando se crea, cambia, mueve o cancela uno. Es solo lectura: tu respuesta de asistencia se sigue dando en TuTribu.</p>
+  <ol>
+    <li>En la página de eventos, tocá <strong>Suscribirme al calendario</strong>.</li>
+    <li>Tocá <strong>Generar link</strong>. Aparece tu link personal. <strong>Se muestra una sola vez</strong>: copialo o agregalo a tu calendario en ese momento.</li>
+    <li>Elegí tu app:
+      <ul>
+        <li><strong>Google Calendar</strong>: tocá <strong>Agregar a Google Calendar</strong> y confirmá en Google. También podés ir a <em>Otros calendarios → + → Desde URL</em> y pegar el link.</li>
+        <li><strong>Apple Calendar</strong> (iPhone, iPad y Mac): tocá <strong>Abrir en Apple Calendar</strong> y confirmá la suscripción.</li>
+        <li><strong>Outlook</strong>: tocá <strong>Copiar</strong> y en Outlook elegí <em>Agregar calendario → Suscribirse desde la web</em> y pegá el link.</li>
+      </ul>
+    </li>
+  </ol>
+  <div class="callout c-warn"><strong>El link es personal: no lo compartas.</strong> Cualquiera que lo tenga puede ver los eventos de la tribu sin iniciar sesión. Si lo compartiste por error o lo perdiste, regeneralo.</div>
+  <p><strong>¿Cada cuánto se actualiza?</strong> TuTribu le pide a tu app que revise el calendario cada hora, pero cada app decide su propio ritmo: Apple Calendar y Outlook suelen actualizar en minutos u horas, y Google Calendar puede tardar hasta un día. Los eventos cancelados desaparecen y las fechas movidas se muestran en su nuevo horario. El calendario incluye los eventos desde unos 3 meses atrás; las series que se repiten siguen apareciendo hacia adelante.</p>
+  <p><strong>Elegir solo algunos tipos.</strong> Si querés, agregá al final del link <code>?type=</code> con los tipos que te interesan (por ejemplo <code>?type=workshop,qa</code> para talleres y preguntas y respuestas).</p>
+  <p><strong>Cambiar o desactivar la suscripción.</strong> Volvé a <strong>Suscribirme al calendario</strong>:</p>
+  <ul>
+    <li>Vas a ver cuándo la creaste y la última vez que tu calendario la consultó.</li>
+    <li><strong>Regenerar link</strong> te pide confirmar: el link anterior deja de funcionar y tenés que agregar el nuevo en tu calendario.</li>
+    <li>Si generaste o desactivaste el link desde otra pestaña o dispositivo mientras tenías esta ventana abierta, vas a ver el aviso <em>Tu link de calendario cambió desde otra pestaña o dispositivo. Revisalo y volvé a intentarlo.</em> y el estado se actualiza solo; no se genera ni se desactiva ningún link hasta que vuelvas a tocar el botón. Así, el link que ves siempre es el que funciona, y una ventana vieja no puede apagar un link que acabás de generar en otra.</li>
+    <li><strong>Desactivar suscripción</strong> apaga el link. Tu app deja de recibir cambios; para quitar el calendario vacío, borralo también desde la app.</li>
+  </ul>
+  <p>Si dejás la tribu o te bloquean, tu link deja de funcionar automáticamente.</p>
 </div>
 </body>
 </html>

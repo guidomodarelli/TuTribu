@@ -3,34 +3,17 @@ import type {
   TribeEventResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 import {
-  TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
-  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
-} from "@/src/modules/events/constants/tribe-events";
-import { formatCalendarUtcDateTime } from "@/src/modules/events/domain/services/tribe-event-recurrence";
+  ICS_DOCUMENT,
+  buildIcsCalendarHeaderLines,
+  buildTribeEventSeriesIcsLines,
+  serializeIcsLines,
+} from "@/src/modules/events/infrastructure/calendar/ics-content-lines";
 import { slugifyDownloadFileName } from "@/src/modules/events/infrastructure/export/download-file-name";
 
-const ICS = {
-  calendarScale: "GREGORIAN",
-  contentType: "text/calendar; charset=utf-8",
-  fileExtension: ".ics",
-  fileNamePrefix: "evento-",
-  lineBreak: "\r\n",
-  method: "PUBLISH",
-  productId: "-//TuTribu//Eventos//ES",
-  uidDomain: "@tutribu",
-  version: "2.0",
+const ICS_FILE_NAME = {
+  extension: ".ics",
+  prefix: "evento-",
 } as const;
-const MILLISECONDS_PER_MINUTE = 60_000;
-const ICS_ESCAPE_PATTERN = /[\\;,]/g;
-const ICS_NEWLINE_PATTERN = /\r?\n/g;
-const ICS_ESCAPED_NEWLINE = "\\n";
-const ICS_ESCAPE_PREFIX = "\\";
-/**
- * RFC 5545 folds content lines longer than 75 octets; a conservative character
- * limit keeps multi-byte Spanish text within the octet budget.
- */
-const ICS_LINE_FOLD_LENGTH = 70;
-const ICS_LINE_FOLD_CONTINUATION = "\r\n ";
 
 export type TribeEventIcsFile = {
   content: string;
@@ -38,72 +21,8 @@ export type TribeEventIcsFile = {
   fileName: string;
 };
 
-function escapeIcsText(value: string): string {
-  return value
-    .replace(ICS_ESCAPE_PATTERN, (character) => ICS_ESCAPE_PREFIX + character)
-    .replace(ICS_NEWLINE_PATTERN, ICS_ESCAPED_NEWLINE);
-}
-
-function foldIcsLine(line: string): string {
-  const segments: string[] = [];
-
-  for (let index = 0; index < line.length; index += ICS_LINE_FOLD_LENGTH) {
-    segments.push(line.slice(index, index + ICS_LINE_FOLD_LENGTH));
-  }
-
-  return segments.join(ICS_LINE_FOLD_CONTINUATION);
-}
-
-function resolveEndsAt(occurrence: { endsAt: string | null; startsAt: string }): string {
-  if (occurrence.endsAt) {
-    return occurrence.endsAt;
-  }
-
-  return new Date(
-    Date.parse(occurrence.startsAt) +
-      TRIBE_EVENT_DEFAULT_DURATION_MINUTES * MILLISECONDS_PER_MINUTE
-  ).toISOString();
-}
-
-function buildOptionalLines(event: TribeEventResult): string[] {
-  const lines: string[] = [];
-
-  if (event.description) {
-    lines.push(`DESCRIPTION:${escapeIcsText(event.description)}`);
-  }
-
-  if (event.meetingUrl) {
-    lines.push(`URL:${escapeIcsText(event.meetingUrl)}`);
-    lines.push(`LOCATION:${escapeIcsText(event.meetingUrl)}`);
-  }
-
-  return lines;
-}
-
-/**
- * Override of one moved date: same UID as the series and a RECURRENCE-ID
- * with the original slot, so calendar apps replace that instance.
- */
-function buildMovedOccurrenceLines(
-  event: TribeEventResult,
-  movedOccurrence: TribeEventCalendarExceptionResult,
-  dateStamp: string
-): string[] {
-  return [
-    "BEGIN:VEVENT",
-    `UID:${event.id}${ICS.uidDomain}`,
-    `DTSTAMP:${dateStamp}`,
-    `RECURRENCE-ID:${formatCalendarUtcDateTime(movedOccurrence.originalStartsAt)}`,
-    `DTSTART:${formatCalendarUtcDateTime(movedOccurrence.startsAt)}`,
-    `DTEND:${formatCalendarUtcDateTime(resolveEndsAt(movedOccurrence))}`,
-    `SUMMARY:${escapeIcsText(event.title)}`,
-    ...buildOptionalLines(event),
-    "END:VEVENT",
-  ];
-}
-
 function buildFileName(event: TribeEventResult): string {
-  return ICS.fileNamePrefix + (slugifyDownloadFileName(event.title) || event.id) + ICS.fileExtension;
+  return ICS_FILE_NAME.prefix + (slugifyDownloadFileName(event.title) || event.id) + ICS_FILE_NAME.extension;
 }
 
 /**
@@ -121,52 +40,20 @@ export function buildTribeEventIcsFile(
   now: Date = new Date(),
   occurrenceExceptions: readonly TribeEventCalendarExceptionResult[] = []
 ): TribeEventIcsFile {
-  const dateStamp = formatCalendarUtcDateTime(now.toISOString());
-  const hasRecurrence = Boolean(event.recurrenceRule);
-  const cancelledStarts = hasRecurrence
-    ? occurrenceExceptions.filter(
-        (occurrence) =>
-          occurrence.exception.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled
-      )
-    : [];
-  const movedOccurrences = hasRecurrence
-    ? occurrenceExceptions.filter(
-        (occurrence) => occurrence.exception.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved
-      )
-    : [];
   const lines = [
-    "BEGIN:VCALENDAR",
-    `VERSION:${ICS.version}`,
-    `PRODID:${ICS.productId}`,
-    `CALSCALE:${ICS.calendarScale}`,
-    `METHOD:${ICS.method}`,
-    "BEGIN:VEVENT",
-    `UID:${event.id}${ICS.uidDomain}`,
-    `DTSTAMP:${dateStamp}`,
-    `DTSTART:${formatCalendarUtcDateTime(event.startsAt)}`,
-    `DTEND:${formatCalendarUtcDateTime(resolveEndsAt(event))}`,
-    `SUMMARY:${escapeIcsText(event.title)}`,
+    ...buildIcsCalendarHeaderLines(),
+    ...buildTribeEventSeriesIcsLines({
+      dateStamp: now.toISOString(),
+      event,
+      occurrenceExceptions,
+      revision: null,
+    }),
+    "END:VCALENDAR",
   ];
 
-  if (event.recurrenceRule) {
-    lines.push(`RRULE:${event.recurrenceRule}`);
-  }
-
-  for (const cancelledOccurrence of cancelledStarts) {
-    lines.push(`EXDATE:${formatCalendarUtcDateTime(cancelledOccurrence.originalStartsAt)}`);
-  }
-
-  lines.push(...buildOptionalLines(event), "END:VEVENT");
-
-  for (const movedOccurrence of movedOccurrences) {
-    lines.push(...buildMovedOccurrenceLines(event, movedOccurrence, dateStamp));
-  }
-
-  lines.push("END:VCALENDAR");
-
   return {
-    content: lines.map(foldIcsLine).join(ICS.lineBreak) + ICS.lineBreak,
-    contentType: ICS.contentType,
+    content: serializeIcsLines(lines),
+    contentType: ICS_DOCUMENT.contentType,
     fileName: buildFileName(event),
   };
 }

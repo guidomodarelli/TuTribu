@@ -6,6 +6,10 @@ export const TRIBE_EVENT_MUTATION_STATUS = {
   forbidden: "forbidden",
   exceptionCleared: "exception_cleared",
   exceptionSaved: "exception_saved",
+  /** The active feed token is no longer the one the client knew. */
+  feedTokenChanged: "feed_token_changed",
+  feedTokenIssued: "feed_token_issued",
+  feedTokenRevoked: "feed_token_revoked",
   found: "found",
   invalidAttendance: "invalid_attendance",
   invalidDate: "invalid_date",

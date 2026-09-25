@@ -901,6 +901,10 @@ export const events = pgTable("events", {
   // live | workshop | qa | in_person | social. CHECK in
   // 20260924120000_add_tribe_event_type.sql.
   eventType: text("event_type").notNull().default("live"),
+  // iCalendar SEQUENCE of the series. Owned by the BEFORE INSERT OR UPDATE
+  // trigger of 20260925121000_add_tribe_event_calendar_sequence.sql: +1 on
+  // every UPDATE, app-supplied values are ignored.
+  calendarSequence: integer("calendar_sequence").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
@@ -1059,6 +1063,31 @@ export const eventProposals = pgTable("event_proposals", {
   reviewedAtIndex: index("idx_event_proposals_reviewed_at")
     .on(table.reviewedAt)
     .where(sql`reviewed_at IS NOT NULL`),
+}));
+
+// Personal calendar feed token (only the SHA-256 hex digest is stored). CHECKs,
+// RLS, and the SECURITY DEFINER resolver live in
+// 20260925120000_create_event_calendar_feed_tokens.sql.
+export const eventCalendarFeedTokens = pgTable("event_calendar_feed_tokens", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+}, (table) => ({
+  tokenHashKey: uniqueIndex("event_calendar_feed_tokens_token_hash_key").on(table.tokenHash),
+  activeMemberKey: uniqueIndex("event_calendar_feed_tokens_active_member_key")
+    .on(table.userId, table.tribeId)
+    .where(sql`revoked_at IS NULL`),
+  tribeIdIndex: index("idx_event_calendar_feed_tokens_tribe_id").on(table.tribeId),
 }));
 
 export const tribePaymentIntegrations = pgTable("tribe_payment_integrations", {

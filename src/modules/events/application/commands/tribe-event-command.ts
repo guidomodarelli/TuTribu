@@ -197,3 +197,37 @@ export type WithdrawTribeEventProposalCommand = {
   proposalId: string;
   tribeSlug: string;
 };
+
+/**
+ * Management of the signed-in member's own calendar feed token.
+ */
+export type TribeEventCalendarFeedTokenCommand = {
+  tribeSlug: string;
+};
+
+/**
+ * Generation or regeneration of the personal link, conditioned on the active
+ * subscription the client knows (null: none).
+ */
+export type TribeEventCalendarFeedTokenIssueCommand = TribeEventCalendarFeedTokenCommand & {
+  expectedSubscriptionId: string | null;
+};
+
+/**
+ * Revocation of the personal link, conditioned like the generation on the
+ * active subscription the client knows (null: none).
+ */
+export type TribeEventCalendarFeedTokenRevokeCommand = TribeEventCalendarFeedTokenCommand & {
+  expectedSubscriptionId: string | null;
+};
+
+/**
+ * Public feed request: the token (already checked to be well-formed by the
+ * route) is the only credential; there is no session.
+ */
+export type GetTribeEventCalendarFeedQuery = {
+  /** Types to keep; empty keeps every type. */
+  eventTypes: readonly TribeEventType[];
+  token: string;
+  tribeSlug: string;
+};

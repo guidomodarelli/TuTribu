@@ -7,6 +7,7 @@ import type {
   DeleteTribeEventCommand,
   GetTribeEventAttendanceReportQuery,
   GetTribeEventAttendanceStreakQuery,
+  GetTribeEventCalendarFeedQuery,
   GetTribeEventQuery,
   ListTribeEventProposalsQuery,
   ListTribeEventsQuery,
@@ -14,6 +15,9 @@ import type {
   RejectTribeEventProposalCommand,
   SaveTribeEventOccurrenceExceptionCommand,
   SetTribeEventAttendanceCommand,
+  TribeEventCalendarFeedTokenCommand,
+  TribeEventCalendarFeedTokenIssueCommand,
+  TribeEventCalendarFeedTokenRevokeCommand,
   UpdateTribeEventCommand,
   WithdrawTribeEventProposalCommand,
 } from "@/src/modules/events/application/commands/tribe-event-command";
@@ -21,6 +25,10 @@ import type {
   TribeEventAttendanceMutationResult,
   TribeEventAttendanceReportLookupResult,
   TribeEventAttendanceStreakSnapshotResult,
+  TribeEventCalendarFeedResult,
+  TribeEventCalendarFeedSubscriptionLookupResult,
+  TribeEventCalendarFeedTokenIssueResult,
+  TribeEventCalendarFeedTokenRevokeResult,
   TribeEventCalendarResult,
   TribeEventDeleteResult,
   TribeEventListResult,
@@ -49,6 +57,12 @@ import {
   setTribeEventAttendance,
 } from "@/src/modules/events/application/use-cases/tribe-event-attendance-use-cases";
 import {
+  getTribeEventCalendarFeed,
+  getTribeEventCalendarFeedSubscription,
+  issueTribeEventCalendarFeedToken,
+  revokeTribeEventCalendarFeedToken,
+} from "@/src/modules/events/application/use-cases/tribe-event-calendar-feed-use-cases";
+import {
   clearTribeEventOccurrenceException,
   saveTribeEventOccurrenceException,
 } from "@/src/modules/events/application/use-cases/tribe-event-occurrence-exception-use-cases";
@@ -59,11 +73,18 @@ import {
   rejectTribeEventProposal,
   withdrawTribeEventProposal,
 } from "@/src/modules/events/application/use-cases/tribe-event-proposal-use-cases";
+import type {
+  TribeEventCalendarFeedReader,
+  TribeEventCalendarFeedTokenCodec,
+  TribeEventCalendarFeedTokenRepository,
+} from "@/src/modules/events/domain/repositories/tribe-event-calendar-feed-repository";
 import type { TribeEventOccurrenceExceptionRepository } from "@/src/modules/events/domain/repositories/tribe-event-occurrence-exception-repository";
 import type { TribeEventProposalRepository } from "@/src/modules/events/domain/repositories/tribe-event-proposal-repository";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 
 type EventsModuleDependencies = {
+  tribeEventCalendarFeedTokenCodec: TribeEventCalendarFeedTokenCodec;
+  tribeEventCalendarFeedTokenRepository: TribeEventCalendarFeedTokenRepository;
   tribeEventOccurrenceExceptionRepository: TribeEventOccurrenceExceptionRepository;
   tribeEventProposalRepository: TribeEventProposalRepository;
   tribeEventRepository: TribeEventRepository;
@@ -89,6 +110,12 @@ type EventsModule = {
     ) => Promise<TribeEventDeleteResult>;
     getTribeEvent: (query: GetTribeEventQuery) => Promise<TribeEventResult | null>;
     getTribeEventCalendar: (query: GetTribeEventQuery) => Promise<TribeEventCalendarResult | null>;
+    getTribeEventCalendarFeedSubscription: (
+      command: TribeEventCalendarFeedTokenCommand
+    ) => Promise<TribeEventCalendarFeedSubscriptionLookupResult>;
+    issueTribeEventCalendarFeedToken: (
+      command: TribeEventCalendarFeedTokenIssueCommand
+    ) => Promise<TribeEventCalendarFeedTokenIssueResult>;
     getTribeEventAttendanceReport: (
       query: GetTribeEventAttendanceReportQuery
     ) => Promise<TribeEventAttendanceReportLookupResult>;
@@ -105,6 +132,9 @@ type EventsModule = {
     rejectTribeEventProposal: (
       command: RejectTribeEventProposalCommand
     ) => Promise<TribeEventProposalReviewMutationResult>;
+    revokeTribeEventCalendarFeedToken: (
+      command: TribeEventCalendarFeedTokenRevokeCommand
+    ) => Promise<TribeEventCalendarFeedTokenRevokeResult>;
     saveTribeEventOccurrenceException: (
       command: SaveTribeEventOccurrenceExceptionCommand
     ) => Promise<TribeEventOccurrenceExceptionMutationResult>;
@@ -130,15 +160,45 @@ export function buildEventsModule(dependencies: EventsModuleDependencies): Event
       getTribeEvent: getTribeEvent(dependencies),
       getTribeEventAttendanceReport: getTribeEventAttendanceReport(dependencies),
       getTribeEventCalendar: getTribeEventCalendar(dependencies),
+      getTribeEventCalendarFeedSubscription: getTribeEventCalendarFeedSubscription(dependencies),
+      issueTribeEventCalendarFeedToken: issueTribeEventCalendarFeedToken(dependencies),
       getTribeEventAttendanceStreakSnapshot: getTribeEventAttendanceStreakSnapshot(dependencies),
       listTribeEventProposals: listTribeEventProposals(dependencies),
       listTribeEvents: listTribeEvents(dependencies),
       listUpcomingTribeEvents: listUpcomingTribeEvents(dependencies),
       rejectTribeEventProposal: rejectTribeEventProposal(dependencies),
+      revokeTribeEventCalendarFeedToken: revokeTribeEventCalendarFeedToken(dependencies),
       saveTribeEventOccurrenceException: saveTribeEventOccurrenceException(dependencies),
       setTribeEventAttendance: setTribeEventAttendance(dependencies),
       updateTribeEvent: updateTribeEvent(dependencies),
       withdrawTribeEventProposal: withdrawTribeEventProposal(dependencies),
+    },
+  };
+}
+
+type EventsCalendarFeedModuleDependencies = {
+  tribeEventCalendarFeedReader: TribeEventCalendarFeedReader;
+  tribeEventCalendarFeedTokenCodec: TribeEventCalendarFeedTokenCodec;
+};
+
+type EventsCalendarFeedModule = {
+  useCases: {
+    getTribeEventCalendarFeed: (
+      query: GetTribeEventCalendarFeedQuery
+    ) => Promise<TribeEventCalendarFeedResult>;
+  };
+};
+
+/**
+ * Session-less slice of the events module used by the public calendar feed:
+ * the token is the credential, so it is composed without any auth context.
+ */
+export function buildEventsCalendarFeedModule(
+  dependencies: EventsCalendarFeedModuleDependencies
+): EventsCalendarFeedModule {
+  return {
+    useCases: {
+      getTribeEventCalendarFeed: getTribeEventCalendarFeed(dependencies),
     },
   };
 }

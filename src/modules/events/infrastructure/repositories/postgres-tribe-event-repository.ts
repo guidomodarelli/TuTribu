@@ -8,7 +8,6 @@ import {
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_PROPOSAL_STATUS,
   TRIBE_EVENT_RANGE_MATCH,
-  TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import type {
   TribeEvent,
@@ -53,6 +52,8 @@ import {
   TRIBE_EVENT_COLUMNS,
   TRIBE_EVENT_OCCURRENCE_DURATION,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS,
+  buildMovedIntoRangePredicate,
+  buildSeriesInRangePredicate,
   buildTribeEventExceptionsInRangeQuery,
   lockViewerMembership,
   mapCount,
@@ -407,49 +408,6 @@ function mapDeletionResult(row: EventDeletionRow | null): TribeEventDeletionResu
 }
 
 /**
-/**
- * Moved dates that belong to the range, as a SQL predicate that needs an
- * `events` row in scope (for the series duration). With `overlaps` a moved
- * date matches while its effective interval (its new end, or its new start
- * plus the series duration) overlaps the range; with `startsWithin` its new
- * start must fall inside the range. `originalStartsAtColumn` narrows the
- * predicate to one answered slot (attendance rows keep the original start).
- */
-function buildMovedIntoRangePredicate(
-  { rangeEnd, rangeStart }: TribeEventDateRange,
-  rangeMatch: TribeEventRangeMatch,
-  originalStartsAtColumn?: ReturnType<typeof sql>
-) {
-  const slotFilter = originalStartsAtColumn
-    ? sql`and moved_exceptions.original_starts_at = ${originalStartsAtColumn}`
-    : sql``;
-  const rangeFilter =
-    rangeMatch === TRIBE_EVENT_RANGE_MATCH.overlaps
-      ? sql`
-          and moved_exceptions.new_starts_at < ${rangeEnd}
-          and coalesce(
-            moved_exceptions.new_ends_at,
-            moved_exceptions.new_starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION}
-          ) > ${rangeStart}
-        `
-      : sql`
-          and moved_exceptions.new_starts_at >= ${rangeStart}
-          and moved_exceptions.new_starts_at < ${rangeEnd}
-        `;
-
-  return sql`
-    exists (
-      select 1
-      from public.event_occurrence_exceptions moved_exceptions
-      where moved_exceptions.event_id = events.id
-        and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
-        ${slotFilter}
-        ${rangeFilter}
-    )
-  `;
-}
-
-/**
  * Series of the tribe with at least one occurrence whose interval (start to
  * effective end) overlaps `[rangeStart, rangeEnd)`, including series with a
  * date moved into the range, guarded by `can_read_tribe_content` because the
@@ -554,28 +512,7 @@ function buildEventsInRangeQuery({
       inner join target_tribe
         on target_tribe.id = events.tribe_id
       where public.can_read_tribe_content(target_tribe.id)
-        and (
-          (
-            events.starts_at < ${rangeEnd}
-            and (
-              (
-                events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-                and events.starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
-              )
-              or (
-                events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-                and (
-                  events.recurrence_until is null
-                  or events.recurrence_until + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
-                )
-              )
-            )
-          )
-          or ${buildMovedIntoRangePredicate(
-            { rangeEnd, rangeStart },
-            TRIBE_EVENT_RANGE_MATCH.overlaps
-          )}
-        )
+        and ${buildSeriesInRangePredicate({ rangeEnd, rangeStart })}
     )
     select
       event_rows.id,
@@ -977,7 +914,10 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
             ends_at = ${command.endsAt},
             recurrence_frequency = ${command.recurrenceFrequency},
             recurrence_until = ${command.recurrenceUntil},
-            updated_at = timezone('utc', now())
+            -- Stamped after lockEventForUpdate waited: now() is the older
+            -- transaction start and would move the calendar revision
+            -- (LAST-MODIFIED) backward while calendar_sequence moves forward.
+            updated_at = timezone('utc', clock_timestamp())
           from target_tribe
           where events.id = ${command.eventId}
             and events.tribe_id = target_tribe.id
