@@ -361,20 +361,32 @@ export function useTribeEventPostEvent({
     isReactionRequestInFlightRef.current = false;
     inFlightReactionRef.current = null;
 
-    // A reload replaced the reactions meanwhile: this answer is stale.
-    if (!isMountedRef.current || reactionScopeRef.current !== scope) {
+    const isCurrentScope = isMountedRef.current && reactionScopeRef.current === scope;
+
+    if (!result.isSuccess) {
+      // The tap looked applied, so its failure is reported even when the
+      // detail closed or a reload replaced the reactions meanwhile; the global
+      // toast does not depend on this instance.
+      toast.error(result.message ?? COPY.reactionFailure);
+
+      if (isCurrentScope) {
+        // Roll back to the persisted baseline, never to an inferred value.
+        const { baseline } = reactionIntentRef.current ?? intent;
+
+        reactionIntentRef.current = null;
+        setVisibleReactions(baseline);
+      }
+
+      return;
+    }
+
+    // A reload replaced the reactions meanwhile (or the block unmounted): the
+    // successful answer is stale for this instance.
+    if (!isCurrentScope) {
       return;
     }
 
     const latestIntent = reactionIntentRef.current ?? intent;
-
-    if (!result.isSuccess) {
-      // Roll back to the persisted baseline, never to an inferred value.
-      reactionIntentRef.current = null;
-      setVisibleReactions(latestIntent.baseline);
-      toast.error(result.message ?? COPY.reactionFailure);
-      return;
-    }
 
     completedReactionGenerationRef.current += 1;
 

@@ -617,6 +617,45 @@ describe("TribeEventOccurrenceActivity", () => {
     expect(reactionBodies).toHaveLength(1);
   });
 
+  it("reports a reaction that fails after the detail closed while it was in flight", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { toast } = await import("beez-ui");
+    const reactionBodies: unknown[] = [];
+    let settleReaction: (response: RouteResponse) => void = () => undefined;
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      [`PUT /events/${EVENT_ID}/reaction`]: (init) => {
+        reactionBodies.push(JSON.parse(String(init?.body)));
+
+        return new Promise<RouteResponse>((resolve) => {
+          settleReaction = resolve;
+        });
+      },
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { rerender } = render(<KeyedActivity detailSession={1} />);
+
+    await user.click(await screen.findByRole("button", { name: "Estuvo genial: 2 personas" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TRIBE_EVENT_REACTION_FLUSH_DELAY_MS);
+    });
+    await waitFor(() => expect(reactionBodies).toHaveLength(1));
+
+    // Close the detail while the debounced reaction is on the wire.
+    rerender(<KeyedActivity detailSession={null} />);
+
+    await act(async () => {
+      settleReaction({ body: { message: "Esta fecha todavía no terminó." }, ok: false, status: 409 });
+    });
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Esta fecha todavía no terminó."));
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(reactionBodies).toHaveLength(1);
+  });
+
   it("saves the recording and materials and reports the new availability", async () => {
     const onRecordingAvailabilityChange = vi.fn();
     const savedBodies: unknown[] = [];
