@@ -5,6 +5,7 @@ import { PostgresTribeEventPostEventRepository } from "@/src/modules/events/infr
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const COMMENT_ID = "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f";
+const CLIENT_REQUEST_ID = "0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e";
 const TRIBE_ID = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 const TRIBE_SLUG = "matematica-pro";
 const ORIGINAL_STARTS_AT = "2026-05-14T21:00:00.000Z";
@@ -316,7 +317,7 @@ describe("PostgresTribeEventOccurrenceCommentRepository", () => {
     const { execute, statements } = createGuardedExecute([{ ...openGuard, is_occurrence: false }]);
     const repository = new PostgresTribeEventOccurrenceCommentRepository(createExecutor(execute));
 
-    await expect(repository.create({ ...key, content: "Hola" })).resolves.toEqual({
+    await expect(repository.create({ ...key, clientRequestId: CLIENT_REQUEST_ID, content: "Hola" })).resolves.toEqual({
       status: "invalid_occurrence",
     });
     expect(statements[0]).toContain("for share of tribe_members");
@@ -331,8 +332,74 @@ describe("PostgresTribeEventOccurrenceCommentRepository", () => {
     const { execute, statements } = createGuardedExecute([guard]);
     const repository = new PostgresTribeEventOccurrenceCommentRepository(createExecutor(execute));
 
-    await expect(repository.create({ ...key, content: "Hola" })).resolves.toEqual({ status });
+    await expect(repository.create({ ...key, clientRequestId: CLIENT_REQUEST_ID, content: "Hola" })).resolves.toEqual({ status });
     expect(hasStatement(statements, "insert into public.event_occurrence_comments")).toBe(false);
+  });
+
+  it("answers a replayed client request with the comment it already created", async () => {
+    const statements: string[] = [];
+    const existingCommentRow = {
+      author_image_url: null,
+      author_name: "Ana",
+      can_delete: true,
+      content: "Hola",
+      created_at: "2026-05-14T23:00:00+00:00",
+      id: COMMENT_ID,
+    };
+    const execute = vi.fn(async (statement: unknown) => {
+      const text = getSqlText(statement);
+
+      statements.push(text);
+
+      if (text.includes("is_tribe_event_series_occurrence")) {
+        return { rows: [openGuard] };
+      }
+
+      if (text.includes("insert into public.event_occurrence_comments")) {
+        return { rows: [{ status: "comment_replayed" }] };
+      }
+
+      if (text.includes("client_request_id =")) {
+        return { rows: [existingCommentRow] };
+      }
+
+      return { rows: [] };
+    });
+    const repository = new PostgresTribeEventOccurrenceCommentRepository(createExecutor(execute));
+
+    await expect(
+      repository.create({ ...key, clientRequestId: CLIENT_REQUEST_ID, content: "Hola" })
+    ).resolves.toEqual({
+      comment: {
+        authorImageUrl: null,
+        authorName: "Ana",
+        canDelete: true,
+        content: "Hola",
+        createdAt: "2026-05-14T23:00:00.000Z",
+        id: COMMENT_ID,
+      },
+      status: "comment_created",
+    });
+    expect(hasStatement(statements, "on conflict")).toBe(true);
+  });
+
+  it("reports not found when the replayed comment is already gone", async () => {
+    const execute = vi.fn(async (statement: unknown) => {
+      const text = getSqlText(statement);
+
+      if (text.includes("is_tribe_event_series_occurrence")) {
+        return { rows: [openGuard] };
+      }
+
+      return text.includes("insert into public.event_occurrence_comments")
+        ? { rows: [{ status: "comment_replayed" }] }
+        : { rows: [] };
+    });
+    const repository = new PostgresTribeEventOccurrenceCommentRepository(createExecutor(execute));
+
+    await expect(
+      repository.create({ ...key, clientRequestId: CLIENT_REQUEST_ID, content: "Hola" })
+    ).resolves.toEqual({ status: "not_found" });
   });
 
   it("reports forbidden and not found writes from the SQL status", async () => {
@@ -349,7 +416,7 @@ describe("PostgresTribeEventOccurrenceCommentRepository", () => {
       createExecutor(vi.fn(async () => ({ rows: [{ status: "not_found" }] })))
     );
 
-    await expect(forbidden.create({ ...key, content: "Hola" })).resolves.toEqual({
+    await expect(forbidden.create({ ...key, clientRequestId: CLIENT_REQUEST_ID, content: "Hola" })).resolves.toEqual({
       status: "forbidden",
     });
     await expect(missing.delete({ commentId: COMMENT_ID, tribeSlug: TRIBE_SLUG })).resolves.toEqual({

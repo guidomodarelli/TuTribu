@@ -1211,10 +1211,14 @@ export const eventOccurrenceComments = pgTable("event_occurrence_comments", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
+  clientRequestId: uuid("client_request_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
 }, (table) => ({
+  clientRequestKey: uniqueIndex("event_occurrence_comments_client_request_key")
+    .on(table.eventId, table.originalStartsAt, table.authorId, table.clientRequestId)
+    .where(sql`${table.clientRequestId} IS NOT NULL`),
   eventTribeForeignKey: foreignKey({
     columns: [table.eventId, table.tribeId],
     foreignColumns: [events.id, events.tribeId],

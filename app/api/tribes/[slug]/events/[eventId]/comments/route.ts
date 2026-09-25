@@ -144,6 +144,7 @@ export async function POST(request: Request, context: TribeEventRouteContext) {
 
   try {
     const result = await modules.events.useCases.createTribeEventOccurrenceComment({
+      clientRequestId: input.body.clientRequestId,
       content: input.body.content,
       eventId,
       originalStartsAt: input.body.occurrenceStartsAt,

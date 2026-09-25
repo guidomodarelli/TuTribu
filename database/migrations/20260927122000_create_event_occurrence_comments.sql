@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS public.event_occurrence_comments (
   original_starts_at timestamptz NOT NULL,
   author_id text NOT NULL REFERENCES public."user"(id) ON DELETE CASCADE,
   content text NOT NULL,
+  -- Client operation key: the browser generates it once per send and reuses
+  -- it on every retry of the same text, so a retry after a lost or
+  -- unreadable response answers the comment already created instead of
+  -- writing a duplicate. Nullable so rows written without a key stay valid.
+  client_request_id uuid,
   created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
   CONSTRAINT event_occurrence_comments_valid_content CHECK (
     length(btrim(content)) BETWEEN 1 AND 2000
@@ -34,6 +39,13 @@ CREATE TABLE IF NOT EXISTS public.event_occurrence_comments (
 -- Thread of one occurrence, oldest first (keyset-friendly).
 CREATE INDEX IF NOT EXISTS idx_event_occurrence_comments_thread
 ON public.event_occurrence_comments(event_id, original_starts_at, created_at, id);
+
+-- One comment per client operation, scoped to its author and occurrence. The
+-- insert targets this index with ON CONFLICT DO NOTHING and a replay reads
+-- the existing row back.
+CREATE UNIQUE INDEX IF NOT EXISTS event_occurrence_comments_client_request_key
+ON public.event_occurrence_comments(event_id, original_starts_at, author_id, client_request_id)
+WHERE client_request_id IS NOT NULL;
 
 ALTER TABLE public.event_occurrence_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.event_occurrence_comments FORCE ROW LEVEL SECURITY;

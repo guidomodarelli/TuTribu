@@ -20,6 +20,7 @@ import {
   mapDateValue,
   type TribeEventDatabaseExecutor,
 } from "@/src/modules/events/infrastructure/repositories/tribe-event-sql";
+import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 /**
  * Postgres adapter of the occurrence conversation. Reads repeat
@@ -45,6 +46,12 @@ type CommentListRow = {
 type CommentMutationRow = Partial<CommentRow> & {
   status: string | null;
 };
+
+/**
+ * Internal status of an insert whose client request id already has a comment
+ * of the same author on the same occurrence: the replay reads it back.
+ */
+const COMMENT_REPLAYED_STATUS = "comment_replayed";
 
 function mapComment(row: CommentRow): TribeEventOccurrenceComment {
   return {
@@ -152,7 +159,10 @@ export class PostgresTribeEventOccurrenceCommentRepository
    * schedule; cancelled dates keep their conversation) and the membership
    * are revalidated under the membership and event row locks, so a schedule
    * edit or a block that committed after the use case resolved the
-   * occurrence is honored.
+   * occurrence is honored. The insert is idempotent per client request id:
+   * a replay (sequential or racing) finds the unique key taken and answers
+   * the comment it already created. The replay is read in its own statement
+   * so it sees a row a racing request committed while this insert waited.
    */
   async create(
     command: CreateTribeEventOccurrenceCommentCommand
@@ -187,16 +197,21 @@ export class PostgresTribeEventOccurrenceCommentRepository
             tribe_id,
             original_starts_at,
             author_id,
-            content
+            content,
+            client_request_id
           )
           select
             target_event.id,
             target_event.tribe_id,
             ${command.originalStartsAt}::timestamptz,
             public.current_app_user_id(),
-            ${command.content}
+            ${command.content},
+            ${command.clientRequestId}::uuid
           from target_event
           where public.is_active_tribe_member(target_event.tribe_id)
+          on conflict (event_id, original_starts_at, author_id, client_request_id)
+            where client_request_id is not null
+            do nothing
           returning
             event_occurrence_comments.id,
             event_occurrence_comments.content,
@@ -207,6 +222,11 @@ export class PostgresTribeEventOccurrenceCommentRepository
           case
             when exists (select 1 from inserted_comment) then ${TRIBE_EVENT_MUTATION_STATUS.commentCreated}
             when not exists (select 1 from target_event) then ${TRIBE_EVENT_MUTATION_STATUS.notFound}
+            when exists (
+              select 1
+              from target_event
+              where public.is_active_tribe_member(target_event.tribe_id)
+            ) then ${COMMENT_REPLAYED_STATUS}
             else ${TRIBE_EVENT_MUTATION_STATUS.forbidden}
           end as status,
           inserted_comment.id,
@@ -223,6 +243,10 @@ export class PostgresTribeEventOccurrenceCommentRepository
       `);
       const row = (result.rows?.[0] ?? null) as CommentMutationRow | null;
 
+      if (row?.status === COMMENT_REPLAYED_STATUS) {
+        return this.readReplayedComment(database, command);
+      }
+
       if (row?.status !== TRIBE_EVENT_MUTATION_STATUS.commentCreated || !row.id) {
         return { status: mapFailureStatus(row?.status) };
       }
@@ -232,6 +256,38 @@ export class PostgresTribeEventOccurrenceCommentRepository
         status: TRIBE_EVENT_MUTATION_STATUS.commentCreated,
       };
     });
+  }
+
+  /**
+   * Comment an earlier request with the same client request id created. A
+   * replay whose comment was deleted meanwhile answers not found.
+   */
+  private async readReplayedComment(
+    database: RequestDatabase,
+    command: CreateTribeEventOccurrenceCommentCommand
+  ): Promise<TribeEventOccurrenceCommentCreateResult> {
+    const result = await database.execute(sql`
+      select
+        event_occurrence_comments.id,
+        event_occurrence_comments.content,
+        event_occurrence_comments.created_at,
+        comment_author.name as author_name,
+        comment_author.image as author_image_url,
+        true as can_delete
+      from public.event_occurrence_comments
+      inner join public."user" comment_author
+        on comment_author.id = event_occurrence_comments.author_id
+      where event_occurrence_comments.event_id = ${command.eventId}
+        and event_occurrence_comments.original_starts_at = ${command.originalStartsAt}::timestamptz
+        and event_occurrence_comments.author_id = public.current_app_user_id()
+        and event_occurrence_comments.client_request_id = ${command.clientRequestId}::uuid
+      limit 1
+    `);
+    const row = (result.rows?.[0] ?? null) as CommentRow | null;
+
+    return row
+      ? { comment: mapComment(row), status: TRIBE_EVENT_MUTATION_STATUS.commentCreated }
+      : { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
   }
 
   /**

@@ -9,6 +9,7 @@ import {
   fetchTribeEventConversationRequest,
   type TribeEventOccurrenceTarget,
 } from "@/lib/events/tribe-event-post-event-api-client";
+import { createTribeEventClientRequestId } from "@/lib/events/tribe-event-client-request-id";
 import {
   TRIBE_EVENT_POST_EVENT_LOAD_STATUS,
   type TribeEventLoadState,
@@ -29,10 +30,22 @@ type ConversationData = {
 };
 
 /**
+ * Send attempt whose outcome is not confirmed yet: its text and the client
+ * request id every retry of that same text reuses.
+ */
+type PendingCommentAttempt = {
+  clientRequestId: string;
+  content: string;
+};
+
+/**
  * Conversation of one occurrence: loads once per mount (the container
  * remounts per occurrence) with an AbortController, appends a new comment
  * from the route answer, and removes a deleted one, never refreshing the
- * route. A ref guards against duplicate submits.
+ * route. A ref guards against duplicate submits. Each send carries a client
+ * request id generated once per attempt and reused while the same text is
+ * retried after a failure, so a retry after a lost or unreadable response
+ * answers the comment already created instead of duplicating it.
  *
  * @param target - Occurrence addressed by the conversation.
  * @returns Load state, submitting flags, and the mutations.
@@ -47,6 +60,7 @@ export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
     () => new Set()
   );
   const isSubmittingRef = useRef(false);
+  const pendingCommentAttemptRef = useRef<PendingCommentAttempt | null>(null);
   const { eventId, originalStartsAt, tribeSlug } = target;
 
   useEffect(() => {
@@ -101,10 +115,18 @@ export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
     isSubmittingRef.current = true;
     setIsSubmitting(true);
 
+    const normalizedContent = content.trim();
+    const pendingAttempt =
+      pendingCommentAttemptRef.current?.content === normalizedContent
+        ? pendingCommentAttemptRef.current
+        : { clientRequestId: createTribeEventClientRequestId(), content: normalizedContent };
+
+    pendingCommentAttemptRef.current = pendingAttempt;
+
     try {
       const result = await createTribeEventCommentRequest(
         { eventId, originalStartsAt, tribeSlug },
-        content
+        pendingAttempt
       );
 
       if (!result.isSuccess) {
@@ -112,8 +134,13 @@ export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
         return false;
       }
 
+      pendingCommentAttemptRef.current = null;
+
+      // A replayed request answers a comment the thread may already show
+      // (for example after a reload), so it is appended only once.
       setLoadState((currentState) =>
-        currentState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded
+        currentState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded &&
+        !currentState.comments.some((comment) => comment.id === result.comment.id)
           ? { ...currentState, comments: [...currentState.comments, result.comment] }
           : currentState
       );

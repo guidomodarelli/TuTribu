@@ -268,7 +268,13 @@ export type SetTribeEventOccurrenceReactionCommand = TribeEventOccurrenceQuery &
   reaction: TribeEventOccurrenceReaction | null;
 };
 
+/**
+ * Adds a comment. `clientRequestId` is generated once per send and reused on
+ * retries of the same text, so a retry after an ambiguous failure answers the
+ * comment already created.
+ */
 export type CreateTribeEventOccurrenceCommentCommand = TribeEventOccurrenceQuery & {
+  clientRequestId: string;
   content: string;
 };
 

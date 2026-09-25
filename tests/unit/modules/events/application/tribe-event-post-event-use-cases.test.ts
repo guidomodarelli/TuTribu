@@ -37,6 +37,7 @@ const weeklySeries: TribeEvent = {
   title: "Taller semanal",
 };
 
+const CLIENT_REQUEST_ID = "0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e";
 const occurrenceQuery = {
   eventId: EVENT_ID,
   originalStartsAt: ORIGINAL_STARTS_AT,
@@ -378,9 +379,15 @@ describe("occurrence conversation", () => {
     await expect(
       createTribeEventOccurrenceComment(dependencies)({
         ...occurrenceQuery,
+        clientRequestId: CLIENT_REQUEST_ID,
         content: comment.content,
       })
     ).resolves.toEqual({ comment, status: "comment_created" });
+    expect(dependencies.tribeEventOccurrenceCommentRepository.create).toHaveBeenCalledWith({
+      ...occurrenceQuery,
+      clientRequestId: CLIENT_REQUEST_ID,
+      content: comment.content,
+    });
   });
 
   it("rejects comments on an instant that is not a slot", async () => {
@@ -389,6 +396,7 @@ describe("occurrence conversation", () => {
     await expect(
       createTribeEventOccurrenceComment(dependencies)({
         ...occurrenceQuery,
+        clientRequestId: CLIENT_REQUEST_ID,
         content: "Hola",
         originalStartsAt: "2026-05-15T21:00:00.000Z",
       })

@@ -17,7 +17,10 @@ import {
   type TribeEventPostEventView,
 } from "@/src/modules/events/application/results/tribe-event-post-event-public-dto-schemas";
 import type { TribeEventOccurrenceReaction } from "@/src/modules/events/domain/entities/tribe-event-post-event";
-import type { TribeEventPostEventRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-post-event-request-schemas";
+import type {
+  TribeEventCommentRequestBody,
+  TribeEventPostEventRequestBody,
+} from "@/src/modules/events/infrastructure/api/schemas/tribe-event-post-event-request-schemas";
 import {
   TRIBE_EVENT_HTTP_REQUEST,
   TRIBE_EVENT_JSON_HEADERS,
@@ -148,12 +151,21 @@ export async function fetchTribeEventConversationRequest(
     : { isSuccess: false, message: read.message };
 }
 
+/**
+ * Publishes a comment. `clientRequestId` is the client operation key: a retry
+ * with the same key answers the comment already created instead of writing a
+ * duplicate.
+ */
 export async function createTribeEventCommentRequest(
   target: TribeEventOccurrenceTarget,
-  content: string
+  comment: Pick<TribeEventCommentRequestBody, "clientRequestId" | "content">
 ): Promise<TribeEventRequestResult<{ comment: TribeEventComment }>> {
   const response = await fetch(buildEventPath(target, POST_EVENT_ENDPOINT.commentsPath), {
-    body: JSON.stringify({ content, occurrenceStartsAt: target.originalStartsAt }),
+    body: JSON.stringify({
+      clientRequestId: comment.clientRequestId,
+      content: comment.content,
+      occurrenceStartsAt: target.originalStartsAt,
+    }),
     headers: TRIBE_EVENT_JSON_HEADERS,
     method: TRIBE_EVENT_HTTP_REQUEST.methodPost,
   });

@@ -340,6 +340,7 @@ export function createTribeEventOccurrenceComment(dependencies: ConversationDepe
     }
 
     return dependencies.tribeEventOccurrenceCommentRepository.create({
+      clientRequestId: command.clientRequestId,
       content: command.content,
       eventId: command.eventId,
       originalStartsAt: occurrence.slot.originalStartsAt,

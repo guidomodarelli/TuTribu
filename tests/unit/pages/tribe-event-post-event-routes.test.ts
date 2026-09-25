@@ -47,6 +47,7 @@ vi.mock("@/src/modules/shared/infrastructure/observability/server-logger", () =>
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const COMMENT_ID = "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f";
+const CLIENT_REQUEST_ID = "0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e";
 const COURSE_ID = "66666666-cccc-4666-8666-666666666601";
 const MODULE_ID = "66666666-dddd-4666-8666-666666666601";
 const LESSON_ID = "66666666-eeee-4666-8666-666666666601";
@@ -293,6 +294,7 @@ describe("post-event routes", () => {
     );
     const created = await POST_COMMENT(
       buildRequest(`${BASE_URL}/comments`, {
+        clientRequestId: CLIENT_REQUEST_ID,
         content: "  ¿Suben las slides?  ",
         occurrenceStartsAt: ORIGINAL_STARTS_AT,
       }),
@@ -306,14 +308,35 @@ describe("post-event routes", () => {
     expect(await listed.json()).toEqual({ canComment: true, comments: [comment] });
     expect(created.status).toBe(201);
     expect(eventUseCases.createTribeEventOccurrenceComment).toHaveBeenCalledWith(
-      expect.objectContaining({ content: "¿Suben las slides?" })
+      expect.objectContaining({ clientRequestId: CLIENT_REQUEST_ID, content: "¿Suben las slides?" })
     );
     expect(deleted.status).toBe(404);
   });
 
   it("rejects an empty comment", async () => {
     const response = await POST_COMMENT(
-      buildRequest(`${BASE_URL}/comments`, { content: "   ", occurrenceStartsAt: ORIGINAL_STARTS_AT }),
+      buildRequest(`${BASE_URL}/comments`, {
+        clientRequestId: CLIENT_REQUEST_ID,
+        content: "   ",
+        occurrenceStartsAt: ORIGINAL_STARTS_AT,
+      }),
+      eventContext()
+    );
+
+    expect(response.status).toBe(400);
+    expect(eventUseCases.createTribeEventOccurrenceComment).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["not a uuid", "retry-1"],
+  ])("rejects a comment whose client request id is %s", async (_case, clientRequestId) => {
+    const response = await POST_COMMENT(
+      buildRequest(`${BASE_URL}/comments`, {
+        clientRequestId,
+        content: "¿Suben las slides?",
+        occurrenceStartsAt: ORIGINAL_STARTS_AT,
+      }),
       eventContext()
     );
 

@@ -104,7 +104,13 @@ export type TribeEventPostEventRepository = {
   ) => Promise<TribeEventOccurrenceReactionResult>;
 };
 
+/**
+ * `clientRequestId` is the client operation key: a replay of the same key by
+ * the same author on the same occurrence answers the comment it already
+ * created instead of writing a duplicate.
+ */
 export type CreateTribeEventOccurrenceCommentCommand = TribeEventOccurrenceKeyQuery & {
+  clientRequestId: string;
   content: string;
 };
 

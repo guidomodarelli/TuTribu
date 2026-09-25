@@ -430,6 +430,93 @@ describe("TribeEventOccurrenceActivity", () => {
 
     await waitFor(() => expect(screen.queryByText("¿Suben las slides?")).not.toBeInTheDocument());
   });
+
+  it("does not repeat a replayed comment the thread already shows", async () => {
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      [`POST /events/${EVENT_ID}/comments`]: () => ({
+        body: {
+          comment: {
+            authorImageUrl: null,
+            authorName: "Ana",
+            canDelete: true,
+            content: "¿Suben las slides?",
+            createdAt: "2026-05-14T23:00:00.000Z",
+            id: COMMENT_ID,
+          },
+          message: "Comentario publicado.",
+        },
+        status: 201,
+      }),
+    });
+
+    const user = userEvent.setup();
+
+    renderActivity();
+    await user.type(await screen.findByLabelText("Escribí un comentario"), "¿Suben las slides?");
+    await user.click(screen.getByRole("button", { name: "Publicar" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Escribí un comentario")).toHaveValue(""));
+    expect(screen.getAllByText("¿Suben las slides?", { selector: "p" })).toHaveLength(1);
+  });
+
+  it("retries a failed comment with the same client request id and uses a new one afterwards", async () => {
+    const sentClientRequestIds: string[] = [];
+    let createAttempts = 0;
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      [`POST /events/${EVENT_ID}/comments`]: (init) => {
+        const body = JSON.parse(String(init?.body)) as { clientRequestId: string; content: string };
+
+        sentClientRequestIds.push(body.clientRequestId);
+        createAttempts += 1;
+
+        return createAttempts === 1
+          ? { body: { message: "No pudimos publicar el comentario." }, ok: false, status: 500 }
+          : {
+              body: {
+                comment: {
+                  authorImageUrl: null,
+                  authorName: "Beto",
+                  canDelete: true,
+                  content: body.content,
+                  createdAt: "2026-05-15T10:00:00.000Z",
+                  id: `7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0${createAttempts}`,
+                },
+                message: "Comentario publicado.",
+              },
+              status: 201,
+            };
+      },
+    });
+
+    const user = userEvent.setup();
+
+    renderActivity();
+    const commentInput = await screen.findByLabelText("Escribí un comentario");
+
+    await user.type(commentInput, "¡Gracias!");
+    await user.click(screen.getByRole("button", { name: "Publicar" }));
+    await waitFor(() => expect(sentClientRequestIds).toHaveLength(1));
+    expect(commentInput).toHaveValue("¡Gracias!");
+
+    await user.click(screen.getByRole("button", { name: "Publicar" }));
+    expect(await screen.findByText("¡Gracias!", { selector: "p" })).toBeInTheDocument();
+
+    await user.type(commentInput, "Otra consulta");
+    await user.click(screen.getByRole("button", { name: "Publicar" }));
+    expect(await screen.findByText("Otra consulta", { selector: "p" })).toBeInTheDocument();
+
+    expect(sentClientRequestIds).toHaveLength(3);
+    expect(sentClientRequestIds[1]).toBe(sentClientRequestIds[0]);
+    expect(sentClientRequestIds[2]).not.toBe(sentClientRequestIds[0]);
+    expect(sentClientRequestIds[0]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    );
+  });
 });
 
 describe("TribeEventsCalendar recording badge", () => {
