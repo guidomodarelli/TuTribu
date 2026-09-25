@@ -94,6 +94,12 @@ function TribeEventPostEventSection({
   };
 
   const openResourcesForm = () => {
+    // A form opened while a save is pending would start from the pre-save
+    // resources and its submission would overwrite that save, so it waits.
+    if (postEvent.isSaving) {
+      return;
+    }
+
     lastResourcesFormSessionRef.current += 1;
     setResourcesFormSession(lastResourcesFormSessionRef.current);
   };
@@ -106,6 +112,7 @@ function TribeEventPostEventSection({
   return (
     <>
       <TribeEventPostEventPanel
+        isSavingResources={postEvent.isSaving}
         loadState={postEvent.loadState}
         occurrenceTitle={occurrence.title}
         reactions={postEvent.visibleReactions}

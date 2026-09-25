@@ -480,7 +480,7 @@ describe("TribeEventOccurrenceActivity", () => {
     );
   });
 
-  it("keeps a reopened resources form open when an earlier submission finishes", async () => {
+  it("keeps the resources form closed until a pending save settles and reopens it with the saved values", async () => {
     let settleSave: (response: RouteResponse) => void = () => undefined;
 
     mockApi({
@@ -507,27 +507,34 @@ describe("TribeEventOccurrenceActivity", () => {
       ).not.toBeInTheDocument()
     );
 
-    await user.click(screen.getByRole("button", { name: "Editar grabación y materiales" }));
+    // A form reopened now would start from the pre-save values and its next
+    // submission would overwrite the pending save, so it cannot open yet.
+    const editButton = screen.getByRole("button", { name: "Editar grabación y materiales" });
 
-    const reopenedDialog = await screen.findByRole("dialog", { name: "Grabación y materiales" });
-    const materialTitleInput = within(reopenedDialog).getByLabelText("Nombre del material 1");
-
-    await user.clear(materialTitleInput);
-    await user.type(materialTitleInput, "Slides editadas");
+    expect(editButton).toBeDisabled();
+    expect(editButton).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Guardando la grabación y los materiales. Vas a poder editarlos cuando termine."
+    );
 
     await act(async () => {
       settleSave({
-        body: { message: "Grabación y materiales guardados.", postEvent: buildPostEvent() },
+        body: {
+          message: "Grabación y materiales guardados.",
+          postEvent: buildPostEvent({ materials: [{ title: "Guía", url: "https://example.com/guia" }] }),
+        },
       });
     });
 
-    await waitFor(() =>
-      expect(within(reopenedDialog).getByRole("button", { name: "Guardar" })).toBeEnabled()
-    );
-    expect(screen.getByRole("dialog", { name: "Grabación y materiales" })).toBeInTheDocument();
-    expect(within(reopenedDialog).getByLabelText("Nombre del material 1")).toHaveValue(
-      "Slides editadas"
-    );
+    await waitFor(() => expect(editButton).toBeEnabled());
+    expect(editButton).not.toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+    await user.click(editButton);
+
+    const reopenedDialog = await screen.findByRole("dialog", { name: "Grabación y materiales" });
+
+    expect(within(reopenedDialog).getByLabelText("Nombre del material 1")).toHaveValue("Guía");
   });
 
   it("shows a save that finishes after the detail was closed and reopened", async () => {

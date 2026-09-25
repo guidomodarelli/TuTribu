@@ -19,6 +19,11 @@ import type { TribeEventOccurrenceReaction } from "@/src/modules/events/domain/e
 import styles from "./styles.module.scss";
 
 type TribeEventPostEventPanelProps = {
+  /**
+   * True while a resources save is pending: the form cannot reopen until it
+   * settles, because a reopened form would start from the pre-save values.
+   */
+  isSavingResources: boolean;
   loadState: TribeEventLoadState<{ postEvent: TribeEventPostEventView }>;
   occurrenceTitle: string;
   onConvertToLesson: () => void;
@@ -56,6 +61,7 @@ const COPY = {
   recordingHeading: "Grabación",
   recordingTitle: (title: string) => `Grabación de ${title}`,
   retry: "Reintentar",
+  savingResources: "Guardando la grabación y los materiales. Vas a poder editarlos cuando termine.",
 } as const;
 
 /**
@@ -65,6 +71,7 @@ const COPY = {
  * requests and passes state and callbacks.
  */
 export function TribeEventPostEventPanel({
+  isSavingResources,
   loadState,
   occurrenceTitle,
   onConvertToLesson,
@@ -170,6 +177,8 @@ export function TribeEventPostEventPanel({
         <div className={styles.TribeEventPostEventPanel__actions}>
           {viewerPermissions.canManageResources ? (
             <Button
+              aria-busy={isSavingResources}
+              disabled={isSavingResources}
               size={BUTTON_ATTRIBUTE.sizeSmall}
               type={BUTTON_ATTRIBUTE.typeButton}
               variant={BUTTON_ATTRIBUTE.variantSecondary}
@@ -190,6 +199,12 @@ export function TribeEventPostEventPanel({
             </Button>
           ) : null}
         </div>
+      ) : null}
+
+      {viewerPermissions.canManageResources && isSavingResources ? (
+        <p className={styles.TribeEventPostEventPanel__muted} role="status">
+          {COPY.savingResources}
+        </p>
       ) : null}
 
       <div
