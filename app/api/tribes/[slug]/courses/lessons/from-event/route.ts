@@ -22,6 +22,7 @@ const LESSON_FROM_EVENT_ROUTE_LOG = {
   failureMessage: "Lesson conversion from event recording failed",
   feature: "courses",
   operation: "lesson-from-event-recording",
+  recordingChangedMessage: "Lesson conversion rejected: the recording changed before the commit",
 } as const;
 
 /**
@@ -31,7 +32,10 @@ const LESSON_FROM_EVENT_ROUTE_LOG = {
  * hands plain values to the courses use case, which applies course
  * permissions and creates the lesson idempotently (one per occurrence and
  * course). An existing lesson answers 200 with `isExisting: true` and its
- * link instead of a duplicate.
+ * link instead of a duplicate. The two reads are separate transactions, so
+ * the courses transaction holds the recording again before committing: a
+ * recording replaced or removed in between answers 409 (`recording_changed`)
+ * instead of a lesson with the superseded video.
  */
 export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
   const { requestId } = resolveRequestContext(request.headers);
@@ -139,6 +143,16 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
         return createLessonEventSourceJsonResponse(
           { message: LESSON_EVENT_SOURCE_RESPONSE.notFoundMessage },
           LESSON_EVENT_SOURCE_HTTP_STATUS.notFound
+        );
+      case LESSON_EVENT_SOURCE_STATUS.recordingChanged:
+        logger.warn({
+          message: LESSON_FROM_EVENT_ROUTE_LOG.recordingChangedMessage,
+          metadata: { ...logMetadata, result: result.status },
+        });
+
+        return createLessonEventSourceJsonResponse(
+          { message: LESSON_EVENT_SOURCE_RESPONSE.recordingChangedMessage },
+          LESSON_EVENT_SOURCE_HTTP_STATUS.conflict
         );
       default:
         return createLessonEventSourceJsonResponse(

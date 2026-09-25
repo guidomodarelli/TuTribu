@@ -2,6 +2,7 @@ import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { PostgresTribeEventOccurrenceCommentRepository } from "@/src/modules/events/infrastructure/repositories/postgres-tribe-event-occurrence-comment-repository";
 import { PostgresTribeEventPostEventRepository } from "@/src/modules/events/infrastructure/repositories/postgres-tribe-event-post-event-repository";
+import { lockTribeEventOccurrenceRecordingForShare } from "@/src/modules/events/infrastructure/repositories/tribe-event-occurrence-recording-lock";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const COMMENT_ID = "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f";
@@ -444,5 +445,34 @@ describe("PostgresTribeEventOccurrenceCommentRepository", () => {
     await expect(missing.delete({ commentId: COMMENT_ID, tribeSlug: TRIBE_SLUG })).resolves.toEqual({
       status: "not_found",
     });
+  });
+});
+
+describe("lockTribeEventOccurrenceRecordingForShare", () => {
+  const recordingKey = { eventId: EVENT_ID, originalStartsAt: ORIGINAL_STARTS_AT, tribeId: TRIBE_ID };
+
+  it("share-locks the occurrence recording of the tribe and answers its current video", async () => {
+    const statements: string[] = [];
+    const execute = vi.fn(async (statement: unknown) => {
+      statements.push(getSqlText(statement));
+
+      return { rows: [{ external_video_id: "dQw4w9WgXcQ", video_provider: "youtube" }] };
+    });
+
+    await expect(
+      lockTribeEventOccurrenceRecordingForShare({ execute } as never, recordingKey)
+    ).resolves.toEqual({ externalVideoId: "dQw4w9WgXcQ", provider: "youtube" });
+
+    expect(statements).toHaveLength(1);
+    expect(statements[0]).toContain("for share of event_occurrence_recordings");
+    expect(statements[0]).toContain("event_occurrence_recordings.tribe_id =");
+  });
+
+  it("answers null when the occurrence no longer has a recording", async () => {
+    const execute = vi.fn(async () => ({ rows: [] }));
+
+    await expect(
+      lockTribeEventOccurrenceRecordingForShare({ execute } as never, recordingKey)
+    ).resolves.toBeNull();
   });
 });

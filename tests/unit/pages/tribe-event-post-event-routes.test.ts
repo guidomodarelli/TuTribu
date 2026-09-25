@@ -442,6 +442,34 @@ describe("lesson conversion routes", () => {
     });
   });
 
+  it("answers 409 when the recording changed before the lesson was created", async () => {
+    eventUseCases.getTribeEventRecordingLessonSource.mockResolvedValue({
+      source: {
+        description: null,
+        eventId: EVENT_ID,
+        externalVideoId: "dQw4w9WgXcQ",
+        occurrenceStartsAt: ORIGINAL_STARTS_AT,
+        provider: "youtube",
+        startsAt: ORIGINAL_STARTS_AT,
+        title: "Taller",
+      },
+      status: "found",
+    });
+    courseUseCases.createLessonFromEventRecording.mockResolvedValue({
+      status: "recording_changed",
+    });
+
+    const response = await POST_LESSON_FROM_EVENT(
+      buildRequest("https://tutribu.example.com/api", conversionBody),
+      tribeContext()
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      message: "La grabación cambió mientras creábamos la lección. Revisala y volvé a intentarlo.",
+    });
+  });
+
   it("answers 404 without a recording and never calls courses", async () => {
     eventUseCases.getTribeEventRecordingLessonSource.mockResolvedValue({ status: "not_found" });
 

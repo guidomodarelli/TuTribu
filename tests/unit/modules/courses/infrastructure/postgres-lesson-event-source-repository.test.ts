@@ -41,6 +41,12 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
+/**
+ * Entry recorded in the statement log when the conversion holds the
+ * occurrence recording through the injected events lock.
+ */
+const RECORDING_LOCK_MARKER = "event recording source lock";
+
 type PostLockTarget = {
   can_manage: boolean;
   module_id: string | null;
@@ -54,7 +60,11 @@ type PostLockTarget = {
  */
 function createConversionDatabase(
   postLockTarget: PostLockTarget,
-  existingLessonRows: Record<string, unknown>[] = []
+  existingLessonRows: Record<string, unknown>[] = [],
+  heldRecording: { externalVideoId: string; provider: string } | null = {
+    externalVideoId: command.externalVideoId,
+    provider: command.videoProvider,
+  }
 ) {
   const statements: string[] = [];
   const execute = vi.fn(async (statement: unknown) => {
@@ -80,11 +90,17 @@ function createConversionDatabase(
 
     return { rows: [] };
   });
-  const repository = new PostgresLessonEventSourceRepository(async (callback) =>
-    callback({ execute } as never)
+  const lockEventRecordingSource = vi.fn(async () => {
+    statements.push(RECORDING_LOCK_MARKER);
+
+    return heldRecording;
+  });
+  const repository = new PostgresLessonEventSourceRepository(
+    async (callback) => callback({ execute } as never),
+    lockEventRecordingSource as never
   );
 
-  return { repository, statements };
+  return { lockEventRecordingSource, repository, statements };
 }
 
 describe("PostgresLessonEventSourceRepository.createFromEventRecording", () => {
@@ -176,5 +192,67 @@ describe("PostgresLessonEventSourceRepository.createFromEventRecording", () => {
       status: "existing",
     });
     expect(statements.some((text) => text.includes("insert into public.course_lessons"))).toBe(false);
+  });
+
+  it("holds the occurrence recording after the module lock and before inserting the lesson", async () => {
+    const { lockEventRecordingSource, repository, statements } = createConversionDatabase({
+      can_manage: true,
+      module_id: MODULE_ID,
+    });
+
+    await expect(repository.createFromEventRecording(command)).resolves.toMatchObject({
+      status: "created",
+    });
+
+    const moduleLockIndex = statements.findIndex((text) => text.includes("for share of course_modules"));
+    const recordingLockIndex = statements.indexOf(RECORDING_LOCK_MARKER);
+    const insertIndex = statements.findIndex((text) => text.includes("insert into public.course_lessons"));
+
+    expect(lockEventRecordingSource).toHaveBeenCalledWith(expect.anything(), {
+      eventId: command.sourceEventId,
+      originalStartsAt: command.sourceOccurrenceStartsAt,
+      tribeId: TRIBE_ID,
+    });
+    expect(recordingLockIndex).toBeGreaterThan(moduleLockIndex);
+    expect(insertIndex).toBeGreaterThan(recordingLockIndex);
+  });
+
+  it("answers recording changed without inserting when the recording was removed before the conversion held it", async () => {
+    const { repository, statements } = createConversionDatabase(
+      { can_manage: true, module_id: MODULE_ID },
+      [],
+      null
+    );
+
+    await expect(repository.createFromEventRecording(command)).resolves.toEqual({
+      status: "recording_changed",
+    });
+    expect(statements.some((text) => text.includes("insert into public.course_lessons"))).toBe(false);
+  });
+
+  it("answers recording changed without inserting when another manager replaced the video", async () => {
+    const { repository, statements } = createConversionDatabase(
+      { can_manage: true, module_id: MODULE_ID },
+      [],
+      { externalVideoId: "76979871", provider: "vimeo" }
+    );
+
+    await expect(repository.createFromEventRecording(command)).resolves.toEqual({
+      status: "recording_changed",
+    });
+    expect(statements.some((text) => text.includes("insert into public.course_lessons"))).toBe(false);
+  });
+
+  it("still links the existing lesson without holding the recording", async () => {
+    const { lockEventRecordingSource, repository } = createConversionDatabase(
+      { can_manage: true, module_id: MODULE_ID },
+      [{ course_module_id: MODULE_ID, id: LESSON_ID, title: command.title }],
+      null
+    );
+
+    await expect(repository.createFromEventRecording(command)).resolves.toMatchObject({
+      status: "existing",
+    });
+    expect(lockEventRecordingSource).not.toHaveBeenCalled();
   });
 });

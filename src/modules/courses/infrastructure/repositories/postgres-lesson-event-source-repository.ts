@@ -9,11 +9,23 @@ import type {
   LessonFromEventRecording,
   LessonFromEventRecordingResult,
 } from "@/src/modules/courses/domain/repositories/lesson-event-source-repository";
+import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
+
+/**
+ * Collaborator that share-locks the source occurrence recording inside the
+ * conversion transaction and answers its current video (null when it was
+ * removed). Owned by the events module and injected by the composition root,
+ * so this adapter never reads the events schema itself.
+ */
+export type LessonEventRecordingSourceLock = (
+  database: RequestDatabase,
+  key: { eventId: string; originalStartsAt: string; tribeId: string }
+) => Promise<{ externalVideoId: string; provider: VideoProvider } | null>;
 
 type TargetsRow = {
   can_manage: boolean | null;
@@ -96,7 +108,10 @@ function mapLesson(courseId: string, row: LessonRow): LessonFromEventRecording {
  * can never land in another tribe's course.
  */
 export class PostgresLessonEventSourceRepository implements LessonEventSourceRepository {
-  constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+  constructor(
+    private readonly executeWithDatabase: DatabaseExecutor,
+    private readonly lockEventRecordingSource: LessonEventRecordingSourceLock
+  ) {}
 
   async canManageCourses({ tribeSlug }: { tribeSlug: string }): Promise<boolean> {
     return this.executeWithDatabase(async (database) => {
@@ -186,9 +201,20 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
    * and after it) cannot be revoked before the `existing` or `created`
    * answer. After the conversion lock the permission is re-evaluated and the
    * module is re-resolved and share-locked, so a course or module deleted
-   * meanwhile answers `not_found` instead of a foreign key failure. Lock
-   * order is membership → conversion advisory lock → module, the same
-   * membership-first order the events writes follow.
+   * meanwhile answers `not_found` instead of a foreign key failure.
+   *
+   * The route read the recording in an earlier transaction, so right before
+   * the insert the source recording is share-locked again through the
+   * injected events lock and compared with the copied video: a recording
+   * replaced or removed in between answers `recording_changed` instead of a
+   * lesson with the superseded video, and a replacement issued later waits
+   * for this commit. Lock order is membership → conversion advisory lock →
+   * module → recording, the same membership-first order the events writes
+   * follow. The recording is the last lock and nothing of events is locked
+   * after it, so it cannot cycle with `saveResources` (membership → event →
+   * occurrence advisory → recording row). An existing lesson is answered
+   * without holding the recording: it is the idempotent result, not a new
+   * copy of the video.
    */
   async createFromEventRecording(
     command: CreateLessonFromEventRecordingRepositoryCommand
@@ -313,6 +339,19 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
           lesson: mapLesson(command.courseId, existingLesson),
           status: LESSON_EVENT_SOURCE_STATUS.existing,
         };
+      }
+
+      const heldRecording = await this.lockEventRecordingSource(database, {
+        eventId: command.sourceEventId,
+        originalStartsAt: command.sourceOccurrenceStartsAt,
+        tribeId: target.tribe_id,
+      });
+
+      if (
+        heldRecording?.provider !== command.videoProvider ||
+        heldRecording.externalVideoId !== command.externalVideoId
+      ) {
+        return { status: LESSON_EVENT_SOURCE_STATUS.recordingChanged };
       }
 
       const insertedResult = await database.execute(sql`

@@ -61,6 +61,11 @@ export type LessonFromEventRecording = {
   title: string;
 };
 
+/**
+ * `recording_changed`: the occurrence recording was replaced or removed
+ * after the route read it and before the lesson was committed, so no lesson
+ * was created with the superseded video.
+ */
 export type LessonFromEventRecordingResult =
   | {
       lesson: LessonFromEventRecording;
@@ -71,7 +76,8 @@ export type LessonFromEventRecordingResult =
   | {
       status:
         | typeof LESSON_EVENT_SOURCE_STATUS.forbidden
-        | typeof LESSON_EVENT_SOURCE_STATUS.notFound;
+        | typeof LESSON_EVENT_SOURCE_STATUS.notFound
+        | typeof LESSON_EVENT_SOURCE_STATUS.recordingChanged;
     };
 
 export type LessonEventSourceRepository = {

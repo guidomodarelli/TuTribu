@@ -16,6 +16,7 @@ type ServerLogger = ReturnType<typeof createServerLogger>;
 
 export const LESSON_EVENT_SOURCE_HTTP_STATUS = {
   badRequest: 400,
+  conflict: 409,
   created: 201,
   forbidden: 403,
   notFound: 404,
@@ -30,6 +31,8 @@ export const LESSON_EVENT_SOURCE_RESPONSE = {
   forbiddenMessage: "Solo quienes gestionan los cursos pueden convertir la grabación en lección.",
   invalidLessonMessage: "Completá el título de la lección (hasta 160 caracteres).",
   notFoundMessage: "No encontramos el curso, el módulo o la grabación.",
+  recordingChangedMessage:
+    "La grabación cambió mientras creábamos la lección. Revisala y volvé a intentarlo.",
   unauthorizedMessage: "Iniciá sesión para gestionar los cursos.",
   unexpectedConversionMessage: "No pudimos crear la lección. Intentá de nuevo.",
   unexpectedTargetsMessage: "No pudimos cargar los cursos. Intentá de nuevo.",
