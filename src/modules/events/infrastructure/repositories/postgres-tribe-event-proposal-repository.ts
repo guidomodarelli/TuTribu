@@ -22,6 +22,7 @@ import type {
 } from "@/src/modules/events/domain/repositories/tribe-event-proposal-repository";
 import {
   RETURNING_TRIBE_EVENT_COLUMNS,
+  lockViewerMembership,
   mapCount,
   mapDateValue,
   mapNullableDateValue,
@@ -152,35 +153,6 @@ async function readProposal(
   `);
 
   return mapProposal(result.rows?.[0] as ProposalRow);
-}
-
-/**
- * Locks the viewer's own membership in the tribe `FOR SHARE` before any
- * proposal write (create, withdraw, approve, reject). A concurrent demotion,
- * block, or removal of the viewer (any write on that row) waits until the
- * request commits, and a change that committed while this statement waited
- * is visible to the next statement, so the authorization read afterwards
- * (`is_active_tribe_member` by `readTribeAccess`, `can_manage_tribe_events`
- * and `can_read_tribe_content` by `lockProposal`) cannot go stale before
- * the write. The runtime role bypasses RLS, so without this lock a member
- * blocked after the access read could still insert a pending proposal. It
- * runs before the advisory and proposal locks to keep the membership → other
- * rows order that attendance answers also follow. No row (not a member) is
- * fine: the later read reports `forbidden` or `notFound`.
- */
-async function lockViewerMembership(
-  database: RequestDatabase,
-  tribeSlug: string
-): Promise<void> {
-  await database.execute(sql`
-    select tribe_members.id
-    from public.tribe_members
-    inner join public.tribes
-      on tribes.id = tribe_members.tribe_id
-    where tribes.slug = ${tribeSlug}
-      and tribe_members.user_id = public.current_app_user_id()
-    for share of tribe_members
-  `);
 }
 
 /**

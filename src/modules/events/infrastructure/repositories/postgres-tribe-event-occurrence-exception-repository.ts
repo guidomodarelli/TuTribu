@@ -18,6 +18,7 @@ import type {
 } from "@/src/modules/events/domain/repositories/tribe-event-occurrence-exception-repository";
 import {
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS,
+  lockViewerMembership,
   mapTribeEventOccurrenceExceptions,
   type TribeEventDatabaseExecutor,
   type TribeEventOccurrenceExceptionRow,
@@ -97,6 +98,12 @@ function buildLockedScheduleMatchCondition(schedule: TribeEventSchedule) {
  * that start later see the committed exception. It also exposes the schedule
  * of the locked row (the latest committed version under READ COMMITTED), the
  * only one writes may trust.
+ *
+ * Every write runs `lockViewerMembership` in a previous statement: the
+ * `can_manage_tribe_events` checks here keep the statement snapshot even
+ * after waiting on the event row, so without that lock a manager demoted,
+ * blocked, or removed meanwhile would still write. Lock order stays
+ * membership → event row → occurrence advisory lock (refill).
  */
 function buildTargetEventCte(eventId: string, tribeSlug: string) {
   return sql`
@@ -231,6 +238,7 @@ export class PostgresTribeEventOccurrenceExceptionRepository
     const isMoved = command.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved;
 
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, command.tribeSlug);
       const result = await database.execute(sql`
         with ${buildTargetEventCte(command.eventId, command.tribeSlug)},
         validated_event as (
@@ -368,6 +376,7 @@ export class PostgresTribeEventOccurrenceExceptionRepository
     tribeSlug,
   }: TribeEventOccurrenceReferenceQuery): Promise<TribeEventOccurrenceExceptionClearResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, tribeSlug);
       const result = await database.execute(sql`
         with ${buildTargetEventCte(eventId, tribeSlug)},
         occurrence_slot as (
