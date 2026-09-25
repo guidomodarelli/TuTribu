@@ -398,6 +398,122 @@ describe("TribeEventOccurrenceActivity", () => {
     );
   });
 
+  it("keeps a completed reaction when an older resources save answers after it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onRecordingAvailabilityChange = vi.fn();
+    let settleReaction: (response: RouteResponse) => void = () => undefined;
+    let settleSave: (response: RouteResponse) => void = () => undefined;
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({
+        body: { postEvent: buildPostEvent({ recording: null }) },
+      }),
+      [`PUT /events/${EVENT_ID}/post-event`]: () =>
+        new Promise<RouteResponse>((resolve) => {
+          settleSave = resolve;
+        }),
+      [`PUT /events/${EVENT_ID}/reaction`]: () =>
+        new Promise<RouteResponse>((resolve) => {
+          settleReaction = resolve;
+        }),
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    render(
+      <TribeEventOccurrenceActivity
+        isFinished
+        occurrence={occurrence}
+        tribeSlug={TRIBE_SLUG}
+        onRecordingAvailabilityChange={onRecordingAvailabilityChange}
+      />
+    );
+    await user.click(await screen.findByRole("button", { name: "Estuvo bien: 1 persona" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TRIBE_EVENT_REACTION_FLUSH_DELAY_MS);
+    });
+    await user.click(screen.getByRole("button", { name: "Editar grabación y materiales" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Grabación y materiales" });
+
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    // The reaction commits and answers first; the save read the old counts.
+    await act(async () => {
+      settleReaction({
+        body: { reactions: { counts: { fire: 2, neutral: 0, thumbs_up: 2 }, viewerReaction: "thumbs_up" } },
+      });
+    });
+    await act(async () => {
+      settleSave({
+        body: {
+          message: "Grabación y materiales guardados.",
+          postEvent: buildPostEvent({
+            materials: [{ title: "Guía", url: "https://example.com/guia" }],
+          }),
+        },
+      });
+    });
+
+    await waitFor(() => expect(onRecordingAvailabilityChange).toHaveBeenLastCalledWith(OCCURRENCE_KEY, true));
+    expect(await screen.findByRole("link", { name: "Guía" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Estuvo bien: 2 personas" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+  });
+
+  it("keeps a reopened resources form open when an earlier submission finishes", async () => {
+    let settleSave: (response: RouteResponse) => void = () => undefined;
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      [`PUT /events/${EVENT_ID}/post-event`]: () =>
+        new Promise<RouteResponse>((resolve) => {
+          settleSave = resolve;
+        }),
+    });
+
+    const user = userEvent.setup();
+
+    renderActivity();
+    await user.click(await screen.findByRole("button", { name: "Editar grabación y materiales" }));
+
+    const submittedDialog = await screen.findByRole("dialog", { name: "Grabación y materiales" });
+
+    await user.click(within(submittedDialog).getByRole("button", { name: "Guardar" }));
+    await user.click(within(submittedDialog).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Grabación y materiales", hidden: true })
+      ).not.toBeInTheDocument()
+    );
+
+    await user.click(screen.getByRole("button", { name: "Editar grabación y materiales" }));
+
+    const reopenedDialog = await screen.findByRole("dialog", { name: "Grabación y materiales" });
+    const materialTitleInput = within(reopenedDialog).getByLabelText("Nombre del material 1");
+
+    await user.clear(materialTitleInput);
+    await user.type(materialTitleInput, "Slides editadas");
+
+    await act(async () => {
+      settleSave({
+        body: { message: "Grabación y materiales guardados.", postEvent: buildPostEvent() },
+      });
+    });
+
+    await waitFor(() =>
+      expect(within(reopenedDialog).getByRole("button", { name: "Guardar" })).toBeEnabled()
+    );
+    expect(screen.getByRole("dialog", { name: "Grabación y materiales" })).toBeInTheDocument();
+    expect(within(reopenedDialog).getByLabelText("Nombre del material 1")).toHaveValue(
+      "Slides editadas"
+    );
+  });
+
   it("saves the recording and materials and reports the new availability", async () => {
     const onRecordingAvailabilityChange = vi.fn();
     const savedBodies: unknown[] = [];
