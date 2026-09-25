@@ -369,13 +369,24 @@ export function useTribeEventPostEvent({
       // toast does not depend on this instance.
       toast.error(result.message ?? COPY.reactionFailure);
 
-      if (isCurrentScope) {
-        // Roll back to the persisted baseline, never to an inferred value.
-        const { baseline } = reactionIntentRef.current ?? intent;
-
-        reactionIntentRef.current = null;
-        setVisibleReactions(baseline);
+      if (!isCurrentScope) {
+        return;
       }
+
+      const latestIntent = reactionIntentRef.current;
+
+      // The viewer tapped again while the failed request was on the wire: that
+      // newer intent was never sent, so only the failed request rolls back.
+      // The newer intent keeps the persisted baseline and is sent now (a
+      // debounce that is still pending finds it on the wire and waits).
+      if (latestIntent && latestIntent !== intent) {
+        void flushReactionIntent();
+        return;
+      }
+
+      // Roll back to the persisted baseline, never to an inferred value.
+      reactionIntentRef.current = null;
+      setVisibleReactions(intent.baseline);
 
       return;
     }

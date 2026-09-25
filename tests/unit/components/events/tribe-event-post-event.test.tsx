@@ -663,6 +663,77 @@ describe("TribeEventOccurrenceActivity", () => {
     expect(reactionBodies).toHaveLength(1);
   });
 
+  it("sends a newer reaction tapped while the previous request was in flight when that request fails", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { toast } = await import("beez-ui");
+    const reactionBodies: unknown[] = [];
+    const reactionSettlers: Array<(response: RouteResponse) => void> = [];
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      [`PUT /events/${EVENT_ID}/reaction`]: (init) => {
+        reactionBodies.push(JSON.parse(String(init?.body)));
+
+        return new Promise<RouteResponse>((resolve) => {
+          reactionSettlers.push(resolve);
+        });
+      },
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderActivity();
+    await user.click(await screen.findByRole("button", { name: "Estuvo genial: 2 personas" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TRIBE_EVENT_REACTION_FLUSH_DELAY_MS);
+    });
+    await waitFor(() => expect(reactionBodies).toHaveLength(1));
+
+    // The viewer changes their mind while the first request is on the wire.
+    await user.click(screen.getByRole("button", { name: "Estuvo bien: 1 persona" }));
+
+    await act(async () => {
+      reactionSettlers[0]({ body: { message: "No pudimos guardar tu reacción." }, ok: false, status: 500 });
+    });
+
+    expect(toast.error).toHaveBeenCalledWith("No pudimos guardar tu reacción.");
+    // Only the failed request rolls back: the newer intent stays visible.
+    expect(screen.getByRole("button", { name: "Estuvo bien: 2 personas" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByRole("button", { name: "Estuvo genial: 2 personas" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TRIBE_EVENT_REACTION_FLUSH_DELAY_MS);
+    });
+    await waitFor(() =>
+      expect(reactionBodies).toEqual([
+        { occurrenceStartsAt: ORIGINAL_STARTS_AT, reaction: "fire" },
+        { occurrenceStartsAt: ORIGINAL_STARTS_AT, reaction: "thumbs_up" },
+      ])
+    );
+
+    await act(async () => {
+      reactionSettlers[1]({
+        body: { reactions: { counts: { fire: 2, neutral: 0, thumbs_up: 2 }, viewerReaction: "thumbs_up" } },
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Estuvo bien: 2 personas" })).toHaveAttribute(
+        "aria-pressed",
+        "true"
+      )
+    );
+    expect(reactionBodies).toHaveLength(2);
+    expect(toast.error).toHaveBeenCalledTimes(1);
+  });
+
   it("saves the recording and materials and reports the new availability", async () => {
     const onRecordingAvailabilityChange = vi.fn();
     const savedBodies: unknown[] = [];
