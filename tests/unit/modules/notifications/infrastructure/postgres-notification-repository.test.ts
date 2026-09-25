@@ -188,6 +188,46 @@ describe("PostgresNotificationRepository", () => {
     });
   });
 
+  it("skips a shaped but impossible occurrence instant instead of letting its SQL cast fail the inbox", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...baseRow,
+            id: "impossible-occurrence",
+            payload: { eventId: EVENT_ID, occurrenceStartsAt: "2026-99-99T12:00:00Z" },
+            type: "event_waitlist_promoted",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ unread_count: 1 }] });
+    const logger = { warn: vi.fn() };
+    const repository = new PostgresNotificationRepository(createExecutor(execute), { logger });
+
+    const inbox = await repository.getInbox({ limit: 30, unreadCountCap: 100 });
+
+    expect(inbox.notifications).toEqual([]);
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid instant"),
+      metadata: {
+        field: "occurrenceStartsAt",
+        notificationId: "impossible-occurrence",
+        type: "event_waitlist_promoted",
+      },
+    });
+
+    // The regex alone also matches impossible dates such as 2026-99-99, so the
+    // occurrence is joined only when PostgreSQL proves it castable
+    // (pg_input_is_valid never throws); otherwise the cast would raise a
+    // 22008 error and turn the whole inbox request into a 500.
+    const listSql = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(listSql).toContain(
+      "pg_input_is_valid(notifications.payload ->> 'occurrenceStartsAt', 'timestamptz')"
+    );
+  });
+
   it("skips and logs notifications whose payload ids are not UUIDs so the public inbox still parses", async () => {
     const execute = vi
       .fn()
