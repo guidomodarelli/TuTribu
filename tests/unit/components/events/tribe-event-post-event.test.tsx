@@ -464,6 +464,56 @@ describe("TribeEventOccurrenceActivity", () => {
     );
   });
 
+  it("keeps a reopened resources form open when an earlier submission finishes", async () => {
+    let settleSave: (response: RouteResponse) => void = () => undefined;
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      [`PUT /events/${EVENT_ID}/post-event`]: () =>
+        new Promise<RouteResponse>((resolve) => {
+          settleSave = resolve;
+        }),
+    });
+
+    const user = userEvent.setup();
+
+    renderActivity();
+    await user.click(await screen.findByRole("button", { name: "Editar grabación y materiales" }));
+
+    const submittedDialog = await screen.findByRole("dialog", { name: "Grabación y materiales" });
+
+    await user.click(within(submittedDialog).getByRole("button", { name: "Guardar" }));
+    await user.click(within(submittedDialog).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Grabación y materiales", hidden: true })
+      ).not.toBeInTheDocument()
+    );
+
+    await user.click(screen.getByRole("button", { name: "Editar grabación y materiales" }));
+
+    const reopenedDialog = await screen.findByRole("dialog", { name: "Grabación y materiales" });
+    const materialTitleInput = within(reopenedDialog).getByLabelText("Nombre del material 1");
+
+    await user.clear(materialTitleInput);
+    await user.type(materialTitleInput, "Slides editadas");
+
+    await act(async () => {
+      settleSave({
+        body: { message: "Grabación y materiales guardados.", postEvent: buildPostEvent() },
+      });
+    });
+
+    await waitFor(() =>
+      expect(within(reopenedDialog).getByRole("button", { name: "Guardar" })).toBeEnabled()
+    );
+    expect(screen.getByRole("dialog", { name: "Grabación y materiales" })).toBeInTheDocument();
+    expect(within(reopenedDialog).getByLabelText("Nombre del material 1")).toHaveValue(
+      "Slides editadas"
+    );
+  });
+
   it("saves the recording and materials and reports the new availability", async () => {
     const onRecordingAvailabilityChange = vi.fn();
     const savedBodies: unknown[] = [];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { TribeEventConversation } from "@/components/events/tribe-event-conversation";
 import { TribeEventLessonConversionDialog } from "@/components/events/tribe-event-lesson-conversion-dialog";
@@ -75,7 +75,11 @@ function TribeEventPostEventSection({
     target,
   });
   const lessonConversion = useTribeEventLessonConversion(target);
+  // Session of the open resources form (null when closed). Sessions only
+  // grow, so a form reopened while a save is pending never reuses the id of
+  // the form that submitted it.
   const [resourcesFormSession, setResourcesFormSession] = useState<number | null>(null);
+  const lastResourcesFormSessionRef = useRef(0);
   const [isLessonDialogOpen, setIsLessonDialogOpen] = useState(false);
   const [lessonDialogSession, setLessonDialogSession] = useState(0);
   const loadedPostEvent =
@@ -87,6 +91,11 @@ function TribeEventPostEventSection({
     setLessonDialogSession((currentSession) => currentSession + 1);
     setIsLessonDialogOpen(true);
     lessonConversion.loadTargets();
+  };
+
+  const openResourcesForm = () => {
+    lastResourcesFormSessionRef.current += 1;
+    setResourcesFormSession(lastResourcesFormSessionRef.current);
   };
 
   const closeLessonDialog = () => {
@@ -101,7 +110,7 @@ function TribeEventPostEventSection({
         occurrenceTitle={occurrence.title}
         reactions={postEvent.visibleReactions}
         onConvertToLesson={openLessonDialog}
-        onEditResources={() => setResourcesFormSession((currentSession) => (currentSession ?? 0) + 1)}
+        onEditResources={openResourcesForm}
         onReact={postEvent.react}
         onRetry={postEvent.reload}
       />
@@ -113,9 +122,15 @@ function TribeEventPostEventSection({
           key={resourcesFormSession}
           onClose={() => setResourcesFormSession(null)}
           onSubmit={(payload) => {
+            const submittingFormSession = resourcesFormSession;
+
             void postEvent.saveResources(payload).then((isSaved) => {
               if (isSaved) {
-                setResourcesFormSession(null);
+                // Close only the form that submitted: a form reopened while
+                // the save was pending is a new session with its own edits.
+                setResourcesFormSession((currentSession) =>
+                  currentSession === submittingFormSession ? null : currentSession
+                );
               }
             });
           }}
