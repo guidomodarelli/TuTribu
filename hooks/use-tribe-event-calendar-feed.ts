@@ -51,6 +51,10 @@ const COPY = {
   copyFailure: "No pudimos copiar el link.",
   generateFailure: "No pudimos generar tu link. Intentá de nuevo.",
   generateSuccess: "Link listo.",
+  // The link was issued (and any previous one revoked) after the dialog closed:
+  // its plain value is forgotten, so the only way to copy one is regenerating.
+  generateSuccessAfterClose:
+    "Generamos un link nuevo, pero cerraste la ventana antes de copiarlo y cualquier link anterior ya no funciona. Volvé a abrir la suscripción y regeneralo para copiarlo.",
   generating: "Generando tu link…",
   loadFailure: "No pudimos cargar tu suscripción al calendario.",
   revokeFailure: "No pudimos desactivar la suscripción. Intentá de nuevo.",
@@ -142,10 +146,13 @@ export function useTribeEventCalendarFeed({
   /**
    * Shared guard and `toast.promise` lifecycle of both mutations. The request
    * promise rejects on a failed response so the toast shows the error copy.
+   * The success copy is chosen when the request resolves: if the dialog
+   * session changed meanwhile, `successAfterClose` (when given) replaces the
+   * regular copy so the toast never promises a result the dialog discarded.
    */
   const runMutation = async <TResult extends { isSuccess: boolean; message: string | null }>(
     request: () => Promise<TResult>,
-    copy: { failure: string; loading: string; success: string },
+    copy: { failure: string; loading: string; success: string; successAfterClose?: string },
     onSuccess: (result: Extract<TResult, { isSuccess: true }>) => void
   ): Promise<boolean> => {
     if (isSubmittingRef.current) {
@@ -168,7 +175,10 @@ export function useTribeEventCalendarFeed({
     toast.promise(pendingRequest, {
       error: (error: unknown) => (error instanceof Error ? error.message : copy.failure),
       loading: copy.loading,
-      success: copy.success,
+      success: () =>
+        dialogSession === dialogSessionRef.current
+          ? copy.success
+          : (copy.successAfterClose ?? copy.success),
     });
 
     try {
@@ -194,7 +204,12 @@ export function useTribeEventCalendarFeed({
   const generateLink = () =>
     runMutation(
       () => issueTribeEventCalendarFeedRequest({ tribeSlug }),
-      { failure: COPY.generateFailure, loading: COPY.generating, success: COPY.generateSuccess },
+      {
+        failure: COPY.generateFailure,
+        loading: COPY.generating,
+        success: COPY.generateSuccess,
+        successAfterClose: COPY.generateSuccessAfterClose,
+      },
       (result) => {
         setFeedUrl(result.feedUrl);
         setLoadState({

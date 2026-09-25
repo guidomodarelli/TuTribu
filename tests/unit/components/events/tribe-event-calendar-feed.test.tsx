@@ -69,6 +69,25 @@ const issuedBody = {
   subscription: { createdAt: "2026-05-01T12:00:00.000Z", lastUsedAt: null },
 };
 
+const GENERATE_SUCCESS_AFTER_CLOSE =
+  "Generamos un link nuevo, pero cerraste la ventana antes de copiarlo y cualquier link anterior ya no funciona. Volvé a abrir la suscripción y regeneralo para copiarlo.";
+
+type ToastPromiseOptions = { success: string | ((result: unknown) => string) };
+
+/**
+ * Success copy the recorded `toast.promise` call would show once its request
+ * resolves, evaluated at that moment like Sonner does.
+ */
+async function resolvedSuccessToastCopy(callIndex = 0): Promise<string> {
+  const [pendingRequest, options] = ((toast.promise as Mock).mock.calls[callIndex] ?? []) as [
+    Promise<unknown>,
+    ToastPromiseOptions,
+  ];
+  const result = await pendingRequest;
+
+  return typeof options.success === "function" ? options.success(result) : options.success;
+}
+
 async function openDialog(user: ReturnType<typeof userEvent.setup>) {
   if (!screen.queryByRole("button", { name: "Suscribirme al calendario" })) {
     renderCalendar();
@@ -112,6 +131,7 @@ describe("TribeEventsCalendar calendar subscription", () => {
       expect.any(Promise),
       expect.objectContaining({ loading: "Generando tu link…" })
     );
+    await expect(resolvedSuccessToastCopy()).resolves.toBe("Link listo.");
     expect(within(dialog).getByRole("link", { name: "Abrir en Apple Calendar" })).toHaveAttribute(
       "href",
       FEED_URL.replace("https://", "webcal://")
@@ -175,6 +195,8 @@ describe("TribeEventsCalendar calendar subscription", () => {
     await waitFor(() => expect(within(dialog).getByRole("button", { name: "Generar link" })).toBeEnabled());
     expect(within(dialog).queryByRole("textbox", { name: "Tu link de calendario" })).toBeNull();
     expect(within(dialog).getByText(/Todavía no tenés un link de calendario/)).toBeInTheDocument();
+    // The toast must not claim the discarded link is ready to copy.
+    await expect(resolvedSuccessToastCopy()).resolves.toBe(GENERATE_SUCCESS_AFTER_CLOSE);
   });
 
   it("asks for confirmation before regenerating because the old link stops working", async () => {
@@ -216,6 +238,7 @@ describe("TribeEventsCalendar calendar subscription", () => {
       expect.objectContaining({ method: "DELETE" })
     );
     expect(router.refresh).not.toHaveBeenCalled();
+    await expect(resolvedSuccessToastCopy()).resolves.toBe("Suscripción desactivada.");
   });
 
   it("shows a safe error with a retry when the state cannot be loaded", async () => {
