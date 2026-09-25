@@ -77,10 +77,12 @@ export type CreateTribeEventCommand = TribeEventFieldsInput & {
  * an omitted `capacity` stays undefined and means "keep the stored capacity":
  * an older client or API consumer that does not know the field must not
  * remove an existing limit. `null` removes it explicitly and a positive
- * integer sets it.
+ * integer sets it. An omitted `eventType` likewise stays undefined and keeps
+ * the stored type instead of resetting it to the default one.
  */
-export type TribeEventUpdateFieldsInput = Omit<TribeEventFieldsInput, "capacity"> & {
+export type TribeEventUpdateFieldsInput = Omit<TribeEventFieldsInput, "capacity" | "eventType"> & {
   capacity?: number | null;
+  eventType?: TribeEventType;
 };
 
 export type UpdateTribeEventCommand = TribeEventUpdateFieldsInput & {
@@ -202,6 +204,22 @@ export type WithdrawTribeEventProposalCommand = {
  */
 export type TribeEventCalendarFeedTokenCommand = {
   tribeSlug: string;
+};
+
+/**
+ * Generation or regeneration of the personal link, conditioned on the active
+ * subscription the client knows (null: none).
+ */
+export type TribeEventCalendarFeedTokenIssueCommand = TribeEventCalendarFeedTokenCommand & {
+  expectedSubscriptionId: string | null;
+};
+
+/**
+ * Revocation of the personal link, conditioned like the generation on the
+ * active subscription the client knows (null: none).
+ */
+export type TribeEventCalendarFeedTokenRevokeCommand = TribeEventCalendarFeedTokenCommand & {
+  expectedSubscriptionId: string | null;
 };
 
 /**

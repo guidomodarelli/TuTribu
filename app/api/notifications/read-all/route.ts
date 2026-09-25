@@ -22,10 +22,10 @@ const NOTIFICATION_MARK_ALL_READ_ROUTE_LOG = {
  * count so the client updates without reloading the list.
  */
 export async function POST(request: Request): Promise<Response> {
-  const session = await resolveNotificationRouteSession(
-    request,
-    NOTIFICATION_MARK_ALL_READ_ROUTE_LOG.operation
-  );
+  const session = await resolveNotificationRouteSession(request, {
+    operation: NOTIFICATION_MARK_ALL_READ_ROUTE_LOG.operation,
+    unexpectedFailureMessage: NOTIFICATION_ROUTE_RESPONSE.unexpectedMarkMessage,
+  });
 
   if (!session.isResolved) {
     return session.response;

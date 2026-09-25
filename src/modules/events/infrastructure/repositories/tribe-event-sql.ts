@@ -34,6 +34,38 @@ export type TribeEventDatabaseExecutor = <T>(
 ) => Promise<T>;
 
 /**
+ * Locks the viewer's own membership in the tribe `FOR SHARE`, as its own
+ * statement, before any write whose authorization depends on it: proposal
+ * writes (create, withdraw, approve, reject) and manager writes on a series
+ * or on an occurrence exception (update, delete, save, clear). A concurrent
+ * demotion, block, or removal of the viewer (any write on that row) waits
+ * until the request commits, and a change that committed while this
+ * statement waited is visible to the next statement, so the authorization
+ * read afterwards (`is_active_tribe_member`, `can_manage_tribe_events`,
+ * `can_read_tribe_content`) cannot be revoked before the write commits. The
+ * runtime role bypasses RLS, so without this lock a manager demoted while
+ * the write waited on the event row would still write with the stale
+ * snapshot. It runs before the event, proposal, and advisory locks to keep
+ * the membership → other rows order that attendance answers also follow.
+ * No row (not a member) is fine: the later statement reports `forbidden` or
+ * `notFound`.
+ */
+export async function lockViewerMembership(
+  database: RequestDatabase,
+  tribeSlug: string
+): Promise<void> {
+  await database.execute(sql`
+    select tribe_members.id
+    from public.tribe_members
+    inner join public.tribes
+      on tribes.id = tribe_members.tribe_id
+    where tribes.slug = ${tribeSlug}
+      and tribe_members.user_id = public.current_app_user_id()
+    for share of tribe_members
+  `);
+}
+
+/**
  * Duration of every occurrence of a series (needs an `events` row in scope):
  * its explicit end minus its start, or the default duration when it has no
  * end (same rule as `getTribeEventOccurrenceEndTime`). Used to match
@@ -251,7 +283,11 @@ export function buildTribeEventExceptionsInRangeQuery({
  * start must fall inside the range. `originalStartsAtColumn` narrows the
  * predicate to one answered slot (attendance rows keep the original start).
  * Moved dates bring their series into a listing even when the series itself
- * ended before the range (the last date moved later).
+ * ended before the range (the last date moved later). Only a moved row whose
+ * original start is still a slot of the current schedule counts
+ * (`is_tribe_event_series_occurrence`, the SQL mirror of the domain rule): a
+ * row kept after a schedule edit is stale, the domain ignores it, and it must
+ * not pull an otherwise out-of-range series into the listing or the feed.
  */
 export function buildMovedIntoRangePredicate(
   { rangeEnd, rangeStart }: TribeEventDateRange,
@@ -283,35 +319,125 @@ export function buildMovedIntoRangePredicate(
         and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
         ${slotFilter}
         ${rangeFilter}
+        and public.is_tribe_event_series_occurrence(
+          moved_exceptions.original_starts_at,
+          events.starts_at,
+          events.recurrence_frequency,
+          events.recurrence_until
+        )
     )
   `;
 }
 
 /**
- * Predicate on an `events` row: a series with at least one occurrence whose
- * interval (start to effective end, see `TRIBE_EVENT_OCCURRENCE_DURATION`)
- * overlaps `[rangeStart, rangeEnd)`, or a series with a date moved into the
- * range. It is a superset of "starts within the range", so callers pick
- * their own matching through the occurrence expansion. Shared by the
- * calendar listing and the calendar feed.
+ * Predicate on an `events` row: a series whose schedule bounds can reach
+ * `[rangeStart, rangeEnd)` (start to effective end, see
+ * `TRIBE_EVENT_OCCURRENCE_DURATION`), or a series with a date moved into the
+ * range. It ignores the cadence, so it is a superset: callers that use it
+ * (the calendar listing) must narrow the rows through the occurrence
+ * expansion. Readers that cannot expand before selecting use
+ * `buildSeriesWithOccurrenceInRangePredicate`.
  */
 export function buildSeriesInRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
   return sql`
     (
+      ${buildScheduleReachesRangePredicate({ rangeEnd, rangeStart })}
+      or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart }, TRIBE_EVENT_RANGE_MATCH.overlaps)}
+    )
+  `;
+}
+
+/**
+ * Cheap schedule bounds on an `events` row: the series starts before the
+ * range end and its last possible occurrence (single start, or
+ * `recurrence_until`) can still overlap the range start. It does not look at
+ * the cadence, so a series can pass it without any occurrence in the range.
+ */
+function buildScheduleReachesRangePredicate({ rangeEnd, rangeStart }: TribeEventDateRange) {
+  return sql`
+    (
+      events.starts_at < ${rangeEnd}
+      and (
+        (
+          events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
+          and events.starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
+        )
+        or (
+          events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
+          and (
+            events.recurrence_until is null
+            or events.recurrence_until + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
+          )
+        )
+      )
+    )
+  `;
+}
+
+/**
+ * Original starts of the exceptions (cancelled or moved) of the `events` row
+ * in scope whose slot can overlap `[rangeStart, rangeEnd)`, as a SQL array.
+ * Every exception removes its original slot from the plain schedule (a moved
+ * date that lands in the range is matched by `buildMovedIntoRangePredicate`
+ * instead). It is a superset: rows kept after a schedule edit are not
+ * filtered here, because a start that is no longer a slot can never match
+ * one. The lower bound is the later of the series start and the range start
+ * minus the series duration, written as `rangeStart - least(duration,
+ * rangeStart - starts_at)` so a duration of millennia never falls below the
+ * timestamptz range; both bounds use the `(event_id, original_starts_at)`
+ * unique index, so the array only holds rows of the window.
+ */
+function buildExceptedSlotStartsInRangeArray({ rangeEnd, rangeStart }: TribeEventDateRange) {
+  return sql`
+    array(
+      select excepted_slots.original_starts_at
+      from public.event_occurrence_exceptions excepted_slots
+      where excepted_slots.event_id = events.id
+        and excepted_slots.original_starts_at < ${rangeEnd}::timestamptz
+        and excepted_slots.original_starts_at >= ${rangeStart}::timestamptz - least(
+          ${TRIBE_EVENT_OCCURRENCE_DURATION},
+          ${rangeStart}::timestamptz - events.starts_at
+        )
+    )
+  `;
+}
+
+/**
+ * Exact variant of `buildSeriesInRangePredicate` for readers that select
+ * series in SQL without expanding them first (the calendar feed applies its
+ * budgets inside the statement): a series matches only when it has at least
+ * one EFFECTIVE occurrence overlapping `[rangeStart, rangeEnd)`, that is a
+ * slot of its cadence without a cancellation or move
+ * (`tribe_event_series_has_occurrence_in_range` with the excepted original
+ * starts of the window, confirming each slot with
+ * `is_tribe_event_series_occurrence`, the SQL mirror of the domain
+ * expansion), or a date moved into the range. The cheap schedule bounds run
+ * first so the per-row check only sees plausible series. A monthly series
+ * anchored on the 31st that ends mid-February, or a bounded series whose
+ * only slot in the window is cancelled or moved out of it, therefore never
+ * matches. `list_tribe_event_reminder_series` (migration 20260926120000,
+ * section 8a) is its "starts within" counterpart for the reminder cron, which
+ * pages series under a per-run cap and only reminds dates that START in the
+ * range (`tribe_event_series_has_occurrence_starting_in_range` delegates to
+ * the same helper with a one-microsecond occurrence): a change to the
+ * schedule bounds or the excepted-slot rules must be applied to both.
+ */
+export function buildSeriesWithOccurrenceInRangePredicate({
+  rangeEnd,
+  rangeStart,
+}: TribeEventDateRange) {
+  return sql`
+    (
       (
-        events.starts_at < ${rangeEnd}
-        and (
-          (
-            events.recurrence_frequency = ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-            and events.starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
-          )
-          or (
-            events.recurrence_frequency <> ${TRIBE_EVENT_RECURRENCE_FREQUENCY.none}
-            and (
-              events.recurrence_until is null
-              or events.recurrence_until + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
-            )
-          )
+        ${buildScheduleReachesRangePredicate({ rangeEnd, rangeStart })}
+        and public.tribe_event_series_has_occurrence_in_range(
+          events.starts_at,
+          events.ends_at,
+          events.recurrence_frequency,
+          events.recurrence_until,
+          ${rangeStart}::timestamptz,
+          ${rangeEnd}::timestamptz,
+          ${buildExceptedSlotStartsInRangeArray({ rangeEnd, rangeStart })}
         )
       )
       or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart }, TRIBE_EVENT_RANGE_MATCH.overlaps)}

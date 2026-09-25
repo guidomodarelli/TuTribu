@@ -46,3 +46,44 @@ export const tribeEventCalendarFeedParamsSchema = z
  * some event types only.
  */
 export const tribeEventCalendarFeedQuerySchema = tribeEventListQuerySchema.pick({ type: true });
+
+/**
+ * Body of `POST /api/tribes/[slug]/events/calendar-feed`: the id of the
+ * subscription the client shows as active (null: none), the optimistic
+ * precondition that makes duplicate regenerations safe. A missing or
+ * malformed id means the client state is unusable, so it is asked to reload.
+ */
+const expectedSubscriptionIdSchema = z.guid({
+  error: TRIBE_EVENT_INPUT_ISSUE.invalidCalendarFeedSubscription,
+});
+
+export const tribeEventCalendarFeedIssueBodySchema = z.object(
+  {
+    expectedSubscriptionId: expectedSubscriptionIdSchema.nullable(),
+  },
+  { error: TRIBE_EVENT_INPUT_ISSUE.invalidCalendarFeedSubscription }
+);
+
+/**
+ * Query of `DELETE /api/tribes/[slug]/events/calendar-feed`: the id of the
+ * subscription the client shows (`?expectedSubscriptionId=`), the same
+ * optimistic precondition as the POST body. The parameter is absent when the
+ * client shows no active link (null), so turning off an already inactive
+ * subscription stays idempotent. A malformed or repeated id means the client
+ * state is unusable, so it is asked to reload.
+ */
+export const tribeEventCalendarFeedRevokeQuerySchema = z
+  .object({
+    expectedSubscriptionId: expectedSubscriptionIdSchema.optional(),
+  })
+  .transform(({ expectedSubscriptionId }) => ({
+    expectedSubscriptionId: expectedSubscriptionId ?? null,
+  }));
+
+export type TribeEventCalendarFeedRevokeRequestQuery = z.input<
+  typeof tribeEventCalendarFeedRevokeQuerySchema
+>;
+
+export type TribeEventCalendarFeedIssueRequestBody = z.input<
+  typeof tribeEventCalendarFeedIssueBodySchema
+>;

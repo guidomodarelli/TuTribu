@@ -1,6 +1,8 @@
 import type {
   GetTribeEventCalendarFeedQuery,
   TribeEventCalendarFeedTokenCommand,
+  TribeEventCalendarFeedTokenIssueCommand,
+  TribeEventCalendarFeedTokenRevokeCommand,
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
   TribeEventCalendarFeedResult,
@@ -60,16 +62,25 @@ export function getTribeEventCalendarFeedSubscription({
  * Generates (or regenerates) the member's personal token. Only its hash is
  * stored; the previous token of the same member and tribe is revoked in the
  * same transaction. The plain token is returned once, to be shown once.
+ *
+ * Duplicate requests (a retry, two tabs) are made safe by an optimistic
+ * precondition instead of an idempotency key: the client sends the id of the
+ * subscription it knows, and a request whose expectation no longer holds
+ * issues nothing (`feedTokenChanged`). An idempotency key would have to store
+ * the plain token to replay the response, which is never persisted; the
+ * precondition needs no extra state and still guarantees that the token of
+ * every successful response is the active one when it is returned.
  */
 export function issueTribeEventCalendarFeedToken({
   tribeEventCalendarFeedTokenCodec,
   tribeEventCalendarFeedTokenRepository,
 }: TokenIssueDependencies) {
   return async (
-    command: TribeEventCalendarFeedTokenCommand
+    command: TribeEventCalendarFeedTokenIssueCommand
   ): Promise<TribeEventCalendarFeedTokenIssueResult> => {
     const { token, tokenHash } = tribeEventCalendarFeedTokenCodec.generate();
     const result = await tribeEventCalendarFeedTokenRepository.issue({
+      expectedSubscriptionId: command.expectedSubscriptionId,
       tokenHash,
       tribeSlug: command.tribeSlug,
     });
@@ -83,16 +94,23 @@ export function issueTribeEventCalendarFeedToken({
 }
 
 /**
- * Turns the subscription off. Idempotent: without an active token it still
- * reports the token as revoked.
+ * Turns the subscription off, conditioned on the subscription the client
+ * shows (the same optimistic precondition as the generation): a stale tab
+ * whose link was already replaced revokes nothing and gets
+ * `feedTokenChanged`, so it can never turn off the newer link. Idempotent:
+ * without an active token, while the client expected none, it still reports
+ * the token as revoked.
  */
 export function revokeTribeEventCalendarFeedToken({
   tribeEventCalendarFeedTokenRepository,
 }: TokenManagementDependencies) {
   return (
-    command: TribeEventCalendarFeedTokenCommand
+    command: TribeEventCalendarFeedTokenRevokeCommand
   ): Promise<TribeEventCalendarFeedTokenRevokeResult> =>
-    tribeEventCalendarFeedTokenRepository.revoke(command);
+    tribeEventCalendarFeedTokenRepository.revoke({
+      expectedSubscriptionId: command.expectedSubscriptionId,
+      tribeSlug: command.tribeSlug,
+    });
 }
 
 function groupExceptionsByEvent(
@@ -111,10 +129,11 @@ function groupExceptionsByEvent(
 }
 
 /**
- * Series of the snapshot (already filtered by type by the reader) as calendar
- * results, bounded by the VEVENT budget (one per series plus one per moved
- * date). A series that does not fit the remaining budget is skipped, not a
- * reason to stop: later, smaller series may still fit.
+ * Series of the snapshot (already filtered by type and bounded by both
+ * budgets by the reader) as calendar results. The VEVENT budget (one per
+ * series plus one per moved date) is enforced again here as defense in
+ * depth: a series that does not fit the remaining budget is skipped, not a
+ * reason to stop, because later, smaller series may still fit.
  */
 function buildFeedSeries(
   snapshot: TribeEventCalendarFeedSnapshot
@@ -123,7 +142,7 @@ function buildFeedSeries(
   const feedSeries: TribeEventCalendarFeedSeriesResult[] = [];
   let remainingComponents: number = TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents;
 
-  for (const { event, updatedAt } of snapshot.series) {
+  for (const { calendarSequence, event, updatedAt } of snapshot.series) {
     if (remainingComponents === 0) {
       break;
     }
@@ -139,7 +158,7 @@ function buildFeedSeries(
     }
 
     remainingComponents -= componentCount;
-    feedSeries.push({ ...calendar, lastModifiedAt: updatedAt });
+    feedSeries.push({ ...calendar, calendarSequence, lastModifiedAt: updatedAt });
   }
 
   return feedSeries;
@@ -173,8 +192,8 @@ export function getTribeEventCalendarFeed({
     const snapshot = await tribeEventCalendarFeedReader.readAsOwner({
       eventTypes: query.eventTypes,
       lastUsedRefreshMinutes: TRIBE_EVENT_CALENDAR_FEED_REFRESH.lastUsedRefreshMinutes,
+      maxComponents: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents,
       maxExceptions: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxExceptions,
-      maxSeries: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents,
       owner,
       rangeEnd: new Date(
         nowTime + TRIBE_EVENT_CALENDAR_FEED_WINDOW.futureWindowDays * MILLISECONDS_PER_DAY

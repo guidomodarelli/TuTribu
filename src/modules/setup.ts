@@ -270,7 +270,13 @@ export async function createRequestModules(
       ),
     }),
     notifications: buildNotificationsModule({
-      notificationRepository: new PostgresNotificationRepository(executeWithRequestContext),
+      notificationRepository: new PostgresNotificationRepository(executeWithRequestContext, {
+        logger: createServerLogger({
+          feature: "notifications",
+          operation: "notification_inbox",
+          requestId: requestId ?? FALLBACK_REQUEST_ID,
+        }),
+      }),
     }),
     siteping: buildSitepingModule({
       githubIssuePublisher: new FetchGitHubIssuePublisher(),

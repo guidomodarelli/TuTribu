@@ -10,6 +10,12 @@ import type {
  */
 export type TribeEventCalendarFeedSubscription = {
   createdAt: string;
+  /**
+   * Opaque id of the active token row (never the token nor its hash). The
+   * client echoes it when regenerating, as the optimistic precondition that
+   * the link it sees is still the active one.
+   */
+  id: string;
   /** Last feed request served with the token (throttled); null if never used. */
   lastUsedAt: string | null;
 };
@@ -26,11 +32,14 @@ export type TribeEventCalendarFeedTokenOwner = {
 };
 
 /**
- * Series included in a feed with the instant it last changed. Saving or
- * restoring a date exception also bumps the series `updatedAt`, so this one
- * value drives SEQUENCE, LAST-MODIFIED, and the ETag of the feed.
+ * Series included in a feed with its revision. Saving or restoring a date
+ * exception also updates the series row, so `updatedAt` drives LAST-MODIFIED
+ * and DTSTAMP, and `calendarSequence` (raised by the database on every update
+ * of the row, strictly increasing even for edits within the same second)
+ * drives SEQUENCE. Both feed the ETag through the serialized body.
  */
 export type TribeEventCalendarFeedSeries = {
+  calendarSequence: number;
   event: TribeEvent;
   updatedAt: string;
 };

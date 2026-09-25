@@ -7,8 +7,9 @@ import type { NewNotification, NotificationEventOccurrenceType } from "@/src/mod
 
 /**
  * Persistence of the reminder job. It runs without an app user, through the
- * maintenance connection (table owner): it reads the series of every tribe
- * and enqueues reminders for the members who answered.
+ * maintenance connection (the table owner or a dedicated maintenance role):
+ * it reads the series of every tribe and enqueues reminders for the members
+ * who answered, skipping a date that was cancelled or moved after the read.
  */
 
 export type ListTribeEventReminderSeriesQuery = TribeEventDateRange & {
@@ -33,6 +34,14 @@ export type TribeEventReminderCandidate = {
     NewNotification<NotificationEventOccurrenceType>,
     "dedupeKey" | "payload" | "type"
   >;
+  /**
+   * Exclusive lower bound of the window that selected the reminder (minutes
+   * before the effective start). The adapter rechecks it against the database
+   * clock after locking the event, so a candidate that became late while the
+   * run waited (a manager transaction holding the event row, a slow page) is
+   * not enqueued after its cutoff.
+   */
+  minimumLeadMinutes: number;
   originalStartsAt: string;
   statuses: readonly TribeEventAttendanceStatus[];
   tribeId: string;

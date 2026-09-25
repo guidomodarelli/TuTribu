@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { useIsMobile } from "beez-ui";
 
-import { NotificationBell } from "@/components/notifications/notification-bell";
+import {
+  NOTIFICATION_BELL_SURFACE,
+  NotificationBell,
+  type NotificationBellSurface,
+} from "@/components/notifications/notification-bell";
+import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { useNotificationCenter } from "@/hooks/use-notification-center";
 import type { NotificationInboxResponse } from "@/src/modules/notifications/application/results/notification-public-dto-schemas";
 
@@ -20,6 +25,14 @@ type NotificationCenterProps = {
  */
 export function NotificationCenter({ initialInbox }: NotificationCenterProps) {
   const isMobile = useIsMobile();
+  const isHydrated = useIsHydrated();
+  // `useIsMobile` is `false` on the server: ship both surfaces until hydration
+  // (CSS picks one) so a mobile first load never swaps Popover for Sheet.
+  const surface: NotificationBellSurface = !isHydrated
+    ? NOTIFICATION_BELL_SURFACE.responsive
+    : isMobile
+      ? NOTIFICATION_BELL_SURFACE.sheet
+      : NOTIFICATION_BELL_SURFACE.popover;
   const [isOpen, setIsOpen] = useState(false);
   const center = useNotificationCenter(initialInbox);
 
@@ -39,7 +52,6 @@ export function NotificationCenter({ initialInbox }: NotificationCenterProps) {
   return (
     <NotificationBell
       isMarkingAll={center.isMarkingAll}
-      isMobile={isMobile}
       isOpen={isOpen}
       listStatus={center.listStatus}
       notifications={center.notifications}
@@ -47,6 +59,7 @@ export function NotificationCenter({ initialInbox }: NotificationCenterProps) {
       onOpenChange={handleOpenChange}
       onRetry={center.refreshList}
       onSelectNotification={handleSelectNotification}
+      surface={surface}
       unreadCount={center.unreadCount}
     />
   );

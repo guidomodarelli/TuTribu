@@ -58,7 +58,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Any change that touches a route entrypoint importing from `src/features` must migrate that entrypoint to `src/modules` in the same work item.
 - `src/features` cannot be used as an integration layer for new adapters; dependency composition must happen in `src/modules/<feature>/setup.ts`.
 - Route entrypoints must consume use cases from `application` and must not import repository implementations directly.
-- Add and keep a CI/static check that fails on imports matching `@/src/features/`.
+- Add and keep a lint/static check (run by the Husky hooks and `pnpm run ci`) that fails on imports matching `@/src/features/`.
 
 ### Dependency rule
 
@@ -489,7 +489,7 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 
 ### Local verification with portless (mandatory)
 
-- Whenever you want to try changes in the running app (manual checks, browser previews, screenshots, Playwright audits, or any request against the local server), run the dev server through `portless`. `pnpm run dev` already does that; never start `next dev` bare and never target `http://localhost:3000`. The only exception is `pnpm run dev:next`, which exists so the Playwright `webServer` (and CI, where portless is not installed) can boot a bare `next dev` on port 3000 for the e2e suite; do not use it for manual checks.
+- Whenever you want to try changes in the running app (manual checks, browser previews, screenshots, Playwright audits, or any request against the local server), run the dev server through `portless`. `pnpm run dev` already does that; never start `next dev` bare and never target `http://localhost:3000`. The only exception is `pnpm run dev:next`, which exists so the Playwright `webServer` (and any environment where portless is not installed) can boot a bare `next dev` on port 3000 for the e2e suite; do not use it for manual checks.
 - Start the dev server with the project script, which performs the whole sequence idempotently:
 
 ```bash
@@ -501,16 +501,17 @@ pnpm run dev
 - `.app` is a real TLD, so unlike `.localhost` it does not resolve to loopback by itself: without the hosts entry the browser reports that the domain does not exist even though the proxy is listening on port 443. The script covers this; if it cannot write the hosts file, add the line it prints by hand from an elevated terminal.
 - Before starting a new server, run `portless list`; if the `dev-tutribu` route is already active on `https://dev-tutribu.app`, reuse it instead of starting another instance.
 - Automation that hits the local server (Playwright scripts, `curl`) must use the `https://dev-tutribu.app` base URL.
-- This is a local verification rule only; it does not replace the tests, lint, typecheck, or the GitHub Actions gate.
+- This is a local verification rule only; it does not replace the tests, lint, typecheck, the pre-commit hook, or the full `pnpm run ci` gate.
 
 ### Quality gate workflow
 
-- The full repository gate runs in GitHub Actions through `.github/workflows/quality-gate.yml`.
-- The shared contract is `pnpm run ci`, which runs `lint`, `typecheck`, `typecheck:tests`, `test`, and `build`.
+- There is no GitHub Actions gate. Every commit runs a Husky `pre-commit` hook (`.husky/pre-commit` → `pnpm exec lint-staged`, configured in `lint-staged.config.mjs`): ESLint and `vitest related --run` on staged scripts, `typecheck` and `typecheck:tests` when TypeScript files are staged, and the SQL guardrail suites when `database/migrations/**` changes. lint-staged has no migration task, because it ignores deleted files and runs in the live checkout; the hook then runs `scripts/pre-commit-migration-guardrails.mjs`, which reads the staged index and runs those suites once whenever a commit adds, modifies or deletes migrations (including mixed commits). It runs them against a temporary `git checkout-index` export of that index (reusing `node_modules` through a link, a junction on Windows), not against the live checkout, so untracked files and unstaged edits cannot make the check pass; the export is always removed. Because lint-staged also never sees a deleted TypeScript file, the hook then runs `scripts/pre-commit-typescript-deletions.mjs`: when the commit deletes `.ts`/`.tsx`/`.mts`/`.cts` files (`git diff --cached --diff-filter=D`) and stages no other TypeScript change, it runs `typecheck` and `typecheck:tests` against the same kind of staged snapshot; mixed commits rely on the lint-staged type checks, which run on the live checkout, and the clean-tree `pre-push` gate covers what that misses. Both scripts share `scripts/staged-index.mjs`. The hook is installed by the `prepare` script on `pnpm install`.
+- Do not bypass the hooks with `--no-verify` to get past a real failure; fix the cause and commit or push again.
+- Every push runs a Husky `pre-push` hook with the full contract, `pnpm run ci`, which runs `lint`, `typecheck`, `typecheck:tests`, `test`, and `build`. A push that fails the hook is not sent. The hook (`.husky/pre-push` → `scripts/pre-push-gate.mjs`) validates only the clean checked-out `HEAD` and never checks out or executes code from another commit. Before reading any ref it checks the running Node.js, because `.nvmrc` and `engines.node` do not switch the `node` already running the hook: a runtime outside `engines.node` rejects the push, and a runtime inside it that differs from the exact `.nvmrc` pin only warns (a minor or patch drift inside Node 24 must not block every push); a prerelease runtime such as `24.21.0-rc.1` never satisfies `engines.node` nor matches `.nvmrc`. Then it reads the `<local ref> <local oid> <remote ref> <remote oid>` lines from stdin and allows ref deletions. Every other pushed oid is peeled to its commit (`<oid>^{commit}`), so an annotated tag pushed with `--follow-tags` or `git push origin <tag>` is compared by the commit it points at, and that commit must be `HEAD` with an empty `git status --porcelain` and no tracked file flagged `skip-worktree` or `assume-unchanged` (`git ls-files -v`), because `git status` hides whether those differ from `HEAD`; otherwise the push fails with a Spanish message asking to check out that branch or commit with a clean working tree and push again (to push another branch, check it out first). This keeps code from fetched or untrusted refs from running under the developer account and makes the `.nvmrc`/`engines.node` pins it reads always belong to the pushed commit. For the clean `HEAD` it first runs `pnpm install --frozen-lockfile --prefer-offline` with `HUSKY=0` in place, so a `package.json` that drifted from `pnpm-lock.yaml` fails the push even when `node_modules` is already installed. After the install and again after `pnpm run ci` it rechecks that `HEAD` is still the pushed commit and the working tree is still clean (including no `skip-worktree`/`assume-unchanged` flags), because Git uploads the oid captured on stdin: a commit, edit or checkout made in another terminal during the run fails the push with a Spanish message asking to push again without touching the checkout. Push over HTTPS (or set an SSH `ServerAliveInterval` for `github.com`): over a plain SSH remote GitHub closes the idle connection during the ~10 minute hook and the push fails with exit code 141 even when the gate passes. The pre-push hook replaces the former GitHub Actions gate: do not wait for or require GitHub Actions checks before merging.
 - `typecheck` and the `build` type check share the same scope (`tsconfig.typecheck.json`, wired through `typescript.tsconfigPath` in `next.config.ts`): product code under `app`, `components`, `hooks`, `lib`, `src` and the framework entrypoints. Vitest 5 suites run through Vite and are type-checked separately with `pnpm run typecheck:tests` and `tsconfig.test.json`. Product configurations must not include Vitest globals.
-- Agents must not duplicate this heavy gate in local Stop hooks; during a task, run only validations relevant to the change.
+- Agents must not duplicate the full gate in local Stop hooks; during a task, run only validations relevant to the change and rely on the pre-commit hook for each commit.
 - The package manager is pnpm 12, pinned through `packageManager` (plus `engines.pnpm`). pnpm 12 enforces `minimumReleaseAge` (24 hours) by default and validates every lockfile entry, so a freshly published version is rejected until it is a day old: prefer versions older than 24 hours and always confirm with `pnpm install --frozen-lockfile`. Never regenerate the lockfile with `pnpm clean --lockfile` to get past that check; it re-resolves every caret range and drifts unrelated dependencies.
-- Vercel validates the deployment build and does not replace the GitHub Actions gate.
+- Vercel validates the deployment build and does not replace the full `pnpm run ci` gate.
 
 ## 7. Concurrency, Observability, and Performance
 
@@ -552,7 +553,7 @@ A server render or an `after()` callback can be aborted mid-flight (Next.js dev 
 
 ## Runtime and compiler
 
-- Use Node.js 24.21.0 from `.nvmrc` locally and in CI; `engines.node` permits only Node 24.
+- Use Node.js 24.21.0 from `.nvmrc` locally and in the Husky `pre-push` gate; `engines.node` permits only Node 24. The `pre-push` gate rejects a runtime outside `engines.node` and warns when it differs from `.nvmrc`.
 - TypeScript 7 is the project compiler for application tests and Next builds. Keep the separate `tsconfig.test.json` and run `pnpm typecheck:tests`.
 - `.pnpmfile.cjs` supplies the official TypeScript 6 compatibility API privately to ESLint packages. Keep the root `typescript` dependency on version 7 and do not disable Next build type checking. Review the hook when ESLint supports the new compiler API.
-- CI reads `.nvmrc` and installs pnpm 12.3.4 explicitly. Update runtime pins, Node types and lockfiles together.
+- There is no GitHub Actions workflow; the local runtime must match `.nvmrc` and `packageManager` (pnpm 12.3.4) before the hooks run. Update runtime pins, Node types and lockfiles together.

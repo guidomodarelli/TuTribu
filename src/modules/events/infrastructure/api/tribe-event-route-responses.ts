@@ -28,6 +28,8 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   attendanceReportForbiddenMessage: "Solo quienes gestionan eventos pueden ver la asistencia.",
   attendanceSavedMessage: "Respuesta guardada.",
   attendanceWaitlistedMessage: "El evento está completo: quedaste en la lista de espera.",
+  calendarFeedChangedMessage:
+    "Tu link de calendario cambió desde otra pestaña o dispositivo. Revisalo y volvé a intentarlo.",
   calendarFeedForbiddenMessage: "Solo los miembros de la tribu pueden suscribirse a su calendario.",
   calendarFeedIssuedMessage:
     "Tu link de calendario está listo. Copialo ahora: no lo vamos a volver a mostrar.",
@@ -240,6 +242,11 @@ export function mapTribeEventExceptionStatusResponse(status: string): Response {
     case TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded:
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.exceptionOccurrenceEndedMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.scheduleChanged:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.scheduleChangedMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
     case TRIBE_EVENT_MUTATION_STATUS.invalidDate:

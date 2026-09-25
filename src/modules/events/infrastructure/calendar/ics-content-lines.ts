@@ -10,7 +10,8 @@ import { formatCalendarUtcDateTime } from "@/src/modules/events/domain/services/
 
 /**
  * RFC 5545 content-line primitives shared by the single-event `.ics` download
- * and the tribe calendar feed: text escaping, octet-aware line folding, and
+ * and the tribe calendar feed: TEXT escaping, URI serialization, octet-aware
+ * line folding, and
  * the VEVENT lines of one series (master plus moved-date overrides).
  */
 
@@ -30,28 +31,101 @@ const ICS_LINE_OCTET_LIMIT = 75;
 const ICS_LINE_FOLD_CONTINUATION = "\r\n ";
 const ICS_CONTINUATION_PREFIX_OCTETS = 1;
 const ICS_ESCAPE_PATTERN = /[\\;,]/g;
-const ICS_NEWLINE_PATTERN = /\r?\n/g;
+/** CRLF, bare LF, and bare CR: parsers may treat any of them as a line boundary. */
+const ICS_NEWLINE_PATTERN = /\r\n|\r|\n/g;
+/**
+ * RFC 5545 §3.3.11 excludes CONTROL characters from TEXT except HTAB; line
+ * breaks are escaped before this runs, so the remaining C0 controls and DEL
+ * have no valid representation and are dropped.
+ */
+const ICS_FORBIDDEN_CONTROL_PATTERN = /[\u0000-\u0008\u000A-\u001F\u007F]/g;
+/**
+ * Matches either a valid percent-encoded triplet (`%` plus two hexadecimal
+ * digits, kept as is) or one character RFC 3986 does not allow literally:
+ * anything outside the unreserved, gen-delims, and sub-delims alphabet, and
+ * a stray `%` that does not start a triplet (for example `?q=100%` or `%zz`).
+ * The WHATWG serialization still leaves some of them literal (`\`, `^`, `|`,
+ * `{`, `}` in a query, and stray `%`) and keeps any C0 control or DEL it did
+ * not strip, so they are percent-encoded.
+ */
+const ICS_URI_TRIPLET_OR_DISALLOWED_CHARACTER_PATTERN =
+  /%[0-9A-Fa-f]{2}|[^A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=]/gu;
+const HEXADECIMAL_RADIX = 16;
+const PERCENT_ENCODED_OCTET_DIGITS = 2;
+const PERCENT_ENCODING_PREFIX = "%";
 const ICS_ESCAPED_NEWLINE = "\\n";
 const ICS_ESCAPE_PREFIX = "\\";
 const MILLISECONDS_PER_MINUTE = 60_000;
 const textEncoder = new TextEncoder();
 
 /**
- * Change metadata of a series in a feed: LAST-MODIFIED, a SEQUENCE derived
- * from it, and a stable DTSTAMP so identical data yields identical bytes.
+ * Change metadata of a series in a feed: LAST-MODIFIED (also the stable
+ * DTSTAMP, so identical data yields identical bytes) and the SEQUENCE, a
+ * persisted counter that grows by one on every saved change of the series.
  */
 export type IcsSeriesRevision = {
   lastModifiedAt: string;
+  sequence: number;
 };
 
 /**
  * Escapes a TEXT value (RFC 5545 §3.3.11): backslash, semicolon, comma, and
- * line breaks.
+ * line breaks (CRLF, bare LF, and bare CR become `\n`), and drops the other
+ * control characters TEXT does not allow, so user text can never open a new
+ * content line or make strict parsers reject the document.
  */
 export function escapeIcsText(value: string): string {
   return value
     .replace(ICS_ESCAPE_PATTERN, (character) => ICS_ESCAPE_PREFIX + character)
-    .replace(ICS_NEWLINE_PATTERN, ICS_ESCAPED_NEWLINE);
+    .replace(ICS_NEWLINE_PATTERN, ICS_ESCAPED_NEWLINE)
+    .replace(ICS_FORBIDDEN_CONTROL_PATTERN, "");
+}
+
+/**
+ * Percent-encodes one character as its UTF-8 octets (`\` -> `%5C`, a stray
+ * `%` -> `%25`) and leaves an already valid percent-encoded triplet intact.
+ */
+function percentEncodeUriMatch(matchedText: string): string {
+  if (matchedText.length > 1 && matchedText.startsWith(PERCENT_ENCODING_PREFIX)) {
+    return matchedText;
+  }
+
+  return Array.from(
+    textEncoder.encode(matchedText),
+    (octet) =>
+      PERCENT_ENCODING_PREFIX +
+      octet
+        .toString(HEXADECIMAL_RADIX)
+        .toUpperCase()
+        .padStart(PERCENT_ENCODED_OCTET_DIGITS, "0")
+  ).join("");
+}
+
+/**
+ * Serializes a URI value (RFC 5545 §3.3.13, e.g. the `URL` property) from its
+ * canonical WHATWG form (`new URL(value).href`), the same address a browser
+ * opens: spaces and non-ASCII characters are percent-encoded, a backslash in
+ * the path of an http(s) URL becomes `/`, and tabs and line breaks are
+ * dropped. TEXT escaping does not apply to URIs: a backslash before `,` or `;`
+ * would change the address, so every valid URI character (including `,` and
+ * `;`) and every valid percent-encoded triplet are kept as is, a stray `%`
+ * becomes `%25`, and any character still outside the RFC 3986 alphabet is
+ * percent-encoded as UTF-8 octets, so the value can never open a new content
+ * line; folding still applies.
+ *
+ * @param value - Stored URI, validated as http(s) when it was saved.
+ * @returns The serialized URI, or `null` when the value cannot be parsed as a
+ * URL (the caller then omits the property).
+ */
+export function formatIcsUri(value: string): string | null {
+  if (!URL.canParse(value)) {
+    return null;
+  }
+
+  return new URL(value).href.replace(
+    ICS_URI_TRIPLET_OR_DISALLOWED_CHARACTER_PATTERN,
+    percentEncodeUriMatch
+  );
 }
 
 /**
@@ -113,7 +187,12 @@ function buildOptionalLines(event: TribeEventResult): string[] {
   }
 
   if (event.meetingUrl) {
-    lines.push(`URL:${escapeIcsText(event.meetingUrl)}`);
+    const meetingUri = formatIcsUri(event.meetingUrl);
+
+    if (meetingUri) {
+      lines.push(`URL:${meetingUri}`);
+    }
+
     lines.push(`LOCATION:${escapeIcsText(event.meetingUrl)}`);
   }
 
@@ -121,8 +200,11 @@ function buildOptionalLines(event: TribeEventResult): string[] {
 }
 
 /**
- * SEQUENCE must grow when a component changes. Minutes since the epoch of the
- * last change grow monotonically and fit a 32-bit integer for millennia.
+ * SEQUENCE must strictly grow on every change of a component (RFC 5545
+ * §3.8.7.4). A value derived from the change instant (minutes or seconds
+ * since the epoch) repeats for two edits within the same bucket, and
+ * milliseconds overflow the 32-bit INTEGER, so it comes from the persisted
+ * `events.calendar_sequence` counter the database raises on every update.
  */
 function buildRevisionLines(revision: IcsSeriesRevision | null): string[] {
   if (!revision) {
@@ -131,7 +213,7 @@ function buildRevisionLines(revision: IcsSeriesRevision | null): string[] {
 
   return [
     `LAST-MODIFIED:${formatCalendarUtcDateTime(revision.lastModifiedAt)}`,
-    `SEQUENCE:${Math.floor(Date.parse(revision.lastModifiedAt) / MILLISECONDS_PER_MINUTE)}`,
+    `SEQUENCE:${revision.sequence}`,
   ];
 }
 

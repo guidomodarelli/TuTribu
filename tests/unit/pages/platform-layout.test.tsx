@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { useSidebar } from "beez-ui";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { PlatformLayoutContent } from "@/app/(platform)/layout";
 import { createRequestModules } from "@/src/modules/setup";
@@ -13,7 +13,10 @@ const getNotificationInbox = vi.fn();
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
+  headers: vi.fn(),
 }));
+
+const INCOMING_REQUEST_ID = "req-platform-layout-42";
 
 vi.mock("@/components/app-sidebar", () => ({
   AppSidebar: ({
@@ -77,6 +80,9 @@ describe("PlatformLayout", () => {
     (cookies as Mock).mockResolvedValue({
       get: vi.fn(() => undefined),
     });
+    (headers as Mock).mockResolvedValue(
+      new Headers({ "x-request-id": INCOMING_REQUEST_ID })
+    );
 
     (createRequestModules as Mock).mockResolvedValue({
       auth: {
@@ -265,6 +271,29 @@ describe("PlatformLayout", () => {
     });
     getMemberTribes.mockResolvedValue([]);
     getNotificationInbox.mockRejectedValue(new Error("pool timeout"));
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      render(
+        await PlatformLayoutContent({
+          children: <div>Contenido<SidebarState /></div>,
+        })
+      );
+
+      expect(screen.getByText("Contenido")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Notificaciones" })).toBeInTheDocument();
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(String(consoleErrorSpy.mock.calls[0]?.[0]))).toMatchObject({
+        operation: "platform-layout-notification-inbox",
+        requestId: INCOMING_REQUEST_ID,
+      });
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("composes the request modules with the incoming correlation id", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
 
     render(
       await PlatformLayoutContent({
@@ -272,8 +301,7 @@ describe("PlatformLayout", () => {
       })
     );
 
-    expect(screen.getByText("Contenido")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Notificaciones" })).toBeInTheDocument();
+    expect(createRequestModules).toHaveBeenCalledWith({ requestId: INCOMING_REQUEST_ID });
   });
 
 

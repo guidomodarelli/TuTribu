@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 
+import { notificationInboxSchema } from "@/src/modules/notifications/application/results/notification-public-dto-schemas";
 import { PostgresNotificationRepository } from "@/src/modules/notifications/infrastructure/repositories/postgres-notification-repository";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
@@ -31,6 +32,19 @@ function createExecutor(execute: Mock) {
   return async <T,>(callback: (database: never) => Promise<T>) => callback({ execute } as never);
 }
 
+/**
+ * Shapes the single inbox statement result: every listed row carries the
+ * unread count read in the same snapshot, and an empty inbox still returns
+ * one row (all inbox columns null) so the count arrives.
+ */
+function createInboxResult(rows: Record<string, unknown>[], unreadCount: unknown) {
+  if (rows.length === 0) {
+    return { rows: [{ id: null, unread_count: unreadCount }] };
+  }
+
+  return { rows: rows.map((row) => ({ ...row, unread_count: unreadCount })) };
+}
+
 const baseRow = {
   created_at: new Date("2026-05-06T12:00:00.000Z"),
   event_starts_at: null,
@@ -47,31 +61,33 @@ describe("PostgresNotificationRepository", () => {
   it("reads only own notifications of readable tribes and resolves the display facts", async () => {
     const execute = vi
       .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            ...baseRow,
-            id: NOTIFICATION_ID,
-            moved_starts_at: new Date("2026-05-08T21:00:00.000Z"),
-            payload: { eventId: EVENT_ID, occurrenceStartsAt: OCCURRENCE },
-            type: "event_waitlist_promoted",
-          },
-          {
-            ...baseRow,
-            event_starts_at: "2026-05-20T21:00:00.000Z",
-            event_title: null,
-            id: PROPOSAL_ID,
-            payload: { decision: "approved", eventId: EVENT_ID, proposalId: PROPOSAL_ID },
-            proposal_review_note: "¡Buena idea!",
-            proposal_title: "Club de lectura",
-            read_at: "2026-05-06T13:00:00.000Z",
-            type: "event_proposal_reviewed",
-          },
-          { ...baseRow, id: "x", payload: {}, type: "unknown_type" },
-          { ...baseRow, id: "y", payload: { eventId: EVENT_ID }, type: "event_occurrence_cancelled" },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [{ unread_count: "1" }] });
+      .mockResolvedValueOnce(
+        createInboxResult(
+          [
+            {
+              ...baseRow,
+              id: NOTIFICATION_ID,
+              moved_starts_at: new Date("2026-05-08T21:00:00.000Z"),
+              payload: { eventId: EVENT_ID, occurrenceStartsAt: OCCURRENCE },
+              type: "event_waitlist_promoted",
+            },
+            {
+              ...baseRow,
+              event_starts_at: "2026-05-20T21:00:00.000Z",
+              event_title: null,
+              id: PROPOSAL_ID,
+              payload: { decision: "approved", eventId: EVENT_ID, proposalId: PROPOSAL_ID },
+              proposal_review_note: "¡Buena idea!",
+              proposal_title: "Club de lectura",
+              read_at: "2026-05-06T13:00:00.000Z",
+              type: "event_proposal_reviewed",
+            },
+            { ...baseRow, id: "x", payload: {}, type: "unknown_type" },
+            { ...baseRow, id: "y", payload: { eventId: EVENT_ID }, type: "event_occurrence_cancelled" },
+          ],
+          "1"
+        )
+      );
     const repository = new PostgresNotificationRepository(createExecutor(execute));
 
     const inbox = await repository.getInbox({ limit: 30, unreadCountCap: 100 });
@@ -110,12 +126,229 @@ describe("PostgresNotificationRepository", () => {
       unreadCount: 1,
     });
 
-    const listSql = getSqlText(execute.mock.calls[0]?.[0]);
-    const countSql = getSqlText(execute.mock.calls[1]?.[0]);
+    // List and unread count come from one statement, so they share one
+    // snapshot: a notification committed in between cannot bump the badge
+    // without its row.
+    expect(execute).toHaveBeenCalledTimes(1);
 
-    expect(listSql).toContain("notifications.recipient_user_id = public.current_app_user_id()");
-    expect(listSql).toContain("public.can_read_tribe_content(notifications.tribe_id)");
+    const inboxSql = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(inboxSql).toContain("notifications.recipient_user_id = public.current_app_user_id()");
+    expect(inboxSql).toContain("public.can_read_tribe_content(notifications.tribe_id)");
+    expect(inboxSql).toContain("notifications.read_at is null");
+  });
+
+  it("keeps the cancelled time on a cancellation notice even after the date is moved", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createInboxResult(
+          [
+            {
+              ...baseRow,
+              id: NOTIFICATION_ID,
+              moved_starts_at: new Date("2026-05-09T21:00:00.000Z"),
+              payload: { eventId: EVENT_ID, occurrenceStartsAt: OCCURRENCE },
+              type: "event_occurrence_cancelled",
+            },
+          ],
+          1
+        )
+      );
+    const repository = new PostgresNotificationRepository(createExecutor(execute));
+
+    const inbox = await repository.getInbox({ limit: 30, unreadCountCap: 100 });
+
+    expect(inbox.notifications[0]).toMatchObject({
+      event: { occurrenceStartsAt: OCCURRENCE, startsAt: OCCURRENCE },
+      type: "event_occurrence_cancelled",
+    });
+  });
+
+  it("skips and logs notifications whose stored instants are not valid dates", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createInboxResult(
+          [
+            {
+              ...baseRow,
+              id: "bad-occurrence",
+              payload: { eventId: EVENT_ID, occurrenceStartsAt: "not-a-date" },
+              type: "event_reminder_24h",
+            },
+            {
+              ...baseRow,
+              id: "bad-starts-at",
+              payload: { eventId: EVENT_ID, occurrenceStartsAt: OCCURRENCE, startsAt: "2026-13-45" },
+              type: "event_occurrence_moved",
+            },
+            {
+              ...baseRow,
+              id: NOTIFICATION_ID,
+              payload: { eventId: EVENT_ID, occurrenceStartsAt: OCCURRENCE, startsAt: OCCURRENCE },
+              type: "event_reminder_15m",
+            },
+          ],
+          3
+        )
+      );
+    const logger = { warn: vi.fn() };
+    const repository = new PostgresNotificationRepository(createExecutor(execute), { logger });
+
+    const inbox = await repository.getInbox({ limit: 30, unreadCountCap: 100 });
+
+    expect(inbox.notifications.map((notification) => notification.id)).toEqual([NOTIFICATION_ID]);
+    expect(inbox.unreadCount).toBe(3);
+    expect(logger.warn).toHaveBeenCalledTimes(2);
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid instant"),
+      metadata: { field: "occurrenceStartsAt", notificationId: "bad-occurrence", type: "event_reminder_24h" },
+    });
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid instant"),
+      metadata: { field: "startsAt", notificationId: "bad-starts-at", type: "event_occurrence_moved" },
+    });
+  });
+
+  it("skips a shaped but impossible occurrence instant instead of letting its SQL cast fail the inbox", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createInboxResult(
+          [
+            {
+              ...baseRow,
+              id: "impossible-occurrence",
+              payload: { eventId: EVENT_ID, occurrenceStartsAt: "2026-99-99T12:00:00Z" },
+              type: "event_waitlist_promoted",
+            },
+          ],
+          1
+        )
+      );
+    const logger = { warn: vi.fn() };
+    const repository = new PostgresNotificationRepository(createExecutor(execute), { logger });
+
+    const inbox = await repository.getInbox({ limit: 30, unreadCountCap: 100 });
+
+    expect(inbox.notifications).toEqual([]);
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid instant"),
+      metadata: {
+        field: "occurrenceStartsAt",
+        notificationId: "impossible-occurrence",
+        type: "event_waitlist_promoted",
+      },
+    });
+
+    // The regex alone also matches impossible dates such as 2026-99-99, so the
+    // occurrence is joined only when PostgreSQL proves it castable
+    // (pg_input_is_valid never throws); otherwise the cast would raise a
+    // 22008 error and turn the whole inbox request into a 500.
+    const listSql = getSqlText(execute.mock.calls[0]?.[0]);
+
+    expect(listSql).toContain(
+      "pg_input_is_valid(notifications.payload ->> 'occurrenceStartsAt', 'timestamptz')"
+    );
+  });
+
+  it("skips and logs notifications whose payload ids are not UUIDs so the public inbox still parses", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createInboxResult(
+          [
+            {
+              ...baseRow,
+              id: "5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+              payload: { eventId: "not-a-uuid", occurrenceStartsAt: OCCURRENCE },
+              type: "event_reminder_24h",
+            },
+            {
+              ...baseRow,
+              id: "7e8f9a0b-1c2d-4e3f-8a4b-5c6d7e8f9a0b",
+              payload: { decision: "rejected", proposalId: "11111111-1111-1111-1111-111111111111" },
+              type: "event_proposal_reviewed",
+            },
+            {
+              ...baseRow,
+              event_starts_at: "2026-05-20T21:00:00.000Z",
+              id: PROPOSAL_ID,
+              payload: { decision: "approved", eventId: "event-42", proposalId: PROPOSAL_ID },
+              type: "event_proposal_reviewed",
+            },
+            {
+              ...baseRow,
+              id: NOTIFICATION_ID,
+              payload: { eventId: EVENT_ID, occurrenceStartsAt: OCCURRENCE },
+              type: "event_reminder_15m",
+            },
+          ],
+          4
+        )
+      );
+    const logger = { warn: vi.fn() };
+    const repository = new PostgresNotificationRepository(createExecutor(execute), { logger });
+
+    const inbox = await repository.getInbox({ limit: 30, unreadCountCap: 100 });
+
+    expect(inbox.notifications.map((notification) => notification.id)).toEqual([
+      PROPOSAL_ID,
+      NOTIFICATION_ID,
+    ]);
+    expect(inbox.notifications[0]).toMatchObject({
+      proposal: { eventId: null, eventStartsAt: null, proposalId: PROPOSAL_ID },
+    });
+    expect(notificationInboxSchema.safeParse(inbox).success).toBe(true);
+    expect(logger.warn).toHaveBeenCalledTimes(3);
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid id"),
+      metadata: {
+        field: "eventId",
+        notificationId: "5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+        type: "event_reminder_24h",
+      },
+    });
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid id"),
+      metadata: {
+        field: "proposalId",
+        notificationId: "7e8f9a0b-1c2d-4e3f-8a4b-5c6d7e8f9a0b",
+        type: "event_proposal_reviewed",
+      },
+    });
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid id"),
+      metadata: { field: "eventId", notificationId: PROPOSAL_ID, type: "event_proposal_reviewed" },
+    });
+  });
+
+  it("returns the unread count of an inbox whose list is empty", async () => {
+    const execute = vi.fn().mockResolvedValueOnce(createInboxResult([], "0"));
+    const repository = new PostgresNotificationRepository(createExecutor(execute));
+
+    await expect(repository.getInbox({ limit: 30, unreadCountCap: 100 })).resolves.toEqual({
+      notifications: [],
+      unreadCount: 0,
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("excludes rows the inbox cannot show from the unread count", async () => {
+    const execute = vi.fn().mockResolvedValueOnce({ rows: [{ unread_count: 2 }] });
+    const repository = new PostgresNotificationRepository(createExecutor(execute));
+
+    await expect(repository.countUnread({ unreadCountCap: 100 })).resolves.toBe(2);
+
+    // The badge counts only rows that pass the same displayability predicate
+    // the list applies before its limit (castable instants, UUID ids), so a
+    // malformed unread row never produces a badge without an item.
+    const countSql = getSqlText(execute.mock.calls[0]?.[0]);
+
     expect(countSql).toContain("notifications.read_at is null");
+    expect(countSql).toContain("pg_input_is_valid(notifications.payload ->> 'occurrenceStartsAt', 'timestamptz')");
+    expect(countSql).toContain("pg_input_is_valid(notifications.payload ->> 'startsAt', 'timestamptz')");
   });
 
   it("marks an own notification and reports not found for anyone else's", async () => {
@@ -162,7 +395,7 @@ describe("PostgresNotificationRepository", () => {
 
     const purgeSql = getSqlText(execute.mock.calls[0]?.[0]);
 
-    expect(purgeSql).toContain("notifications.read_at is not null");
-    expect(purgeSql).toContain("for update skip locked");
+    expect(purgeSql).toContain("public.purge_read_notifications(");
+    expect(purgeSql).not.toContain("delete from public.notifications");
   });
 });

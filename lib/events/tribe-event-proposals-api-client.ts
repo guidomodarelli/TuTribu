@@ -1,10 +1,13 @@
 import {
   TRIBE_EVENT_HTTP_REQUEST,
   TRIBE_EVENT_JSON_HEADERS,
+  buildTribeEventMutationFailure,
   readTribeEventResponse,
+  type TribeEventMutationResult,
   type TribeEventRequestResult,
   type TribeEventSavePayload,
 } from "@/lib/events/tribe-events-api-client";
+import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";
 import { buildTribeEventsApiEndpoint } from "@/lib/events/tribe-events-routes";
 import {
   tribeEventProposalApprovalResponseSchema,
@@ -23,10 +26,32 @@ import type {
 
 /**
  * Browser adapter for the member proposal endpoints. Like the events client,
- * every body is validated with its public DTO schema before it is returned.
+ * every body is validated with its public DTO schema before it is returned,
+ * and mutation failures tell a clean rejection (4xx with a readable body,
+ * nothing stored) from an ambiguous outcome (5xx, unreadable or unusable
+ * body) that may hide a committed mutation.
  */
 
 export type TribeEventProposalPayload = TribeEventProposalRequestBody;
+
+/**
+ * Translates what the member chose in the proposal form into the body of
+ * `POST .../events/proposals`, so the form never depends on the wire shape.
+ *
+ * @param submission - Values emitted by the proposal form dialog.
+ * @returns The request body the proposal route validates.
+ */
+export function toTribeEventProposalRequestBody(
+  submission: TribeEventProposalSubmission
+): TribeEventProposalPayload {
+  return {
+    description: submission.description,
+    durationMinutes: submission.durationMinutes,
+    eventType: submission.eventType,
+    startsAt: submission.startsAt,
+    title: submission.title,
+  };
+}
 
 const PROPOSAL_ENDPOINT = {
   approvalPath: "/approval",
@@ -67,12 +92,13 @@ export async function fetchTribeEventProposalsRequest(input: {
  * Sends a meeting proposal.
  *
  * @param input - Tribe and the reduced form payload.
- * @returns The stored proposal or the failure message.
+ * @returns The stored proposal, or the failure message and whether the
+ * outcome is ambiguous.
  */
 export async function createTribeEventProposalRequest(input: {
   payload: TribeEventProposalPayload;
   tribeSlug: string;
-}): Promise<TribeEventRequestResult<{ proposal: TribeEventProposalResult }>> {
+}): Promise<TribeEventMutationResult<{ proposal: TribeEventProposalResult }>> {
   const response = await fetch(buildProposalsEndpoint(input.tribeSlug), {
     body: JSON.stringify(input.payload),
     headers: TRIBE_EVENT_JSON_HEADERS,
@@ -82,14 +108,15 @@ export async function createTribeEventProposalRequest(input: {
 
   return result.isUsable
     ? { isSuccess: true, message: result.dto.message, proposal: result.dto.proposal }
-    : { isSuccess: false, message: result.message };
+    : buildTribeEventMutationFailure(response, result);
 }
 
 /**
  * Approves a proposal with the event fields the manager confirmed.
  *
  * @param input - Tribe, proposal, visible month, and the event payload.
- * @returns The new event slots of the visible month, or the failure message.
+ * @returns The new event slots of the visible month, or the failure message
+ * and whether the outcome is ambiguous.
  */
 export async function approveTribeEventProposalRequest(input: {
   month: string;
@@ -97,7 +124,7 @@ export async function approveTribeEventProposalRequest(input: {
   proposalId: string;
   tribeSlug: string;
 }): Promise<
-  TribeEventRequestResult<{
+  TribeEventMutationResult<{
     eventId: string;
     occurrences: TribeEventOccurrenceResult[];
     proposal: TribeEventProposalResult;
@@ -127,20 +154,21 @@ export async function approveTribeEventProposalRequest(input: {
         occurrences: result.dto.occurrences,
         proposal: result.dto.proposal,
       }
-    : { isSuccess: false, message: result.message };
+    : buildTribeEventMutationFailure(response, result);
 }
 
 /**
  * Rejects (manager) or withdraws (author) a pending proposal.
  *
  * @param input - Tribe, proposal, and the decision body.
- * @returns The resolved proposal or the failure message.
+ * @returns The resolved proposal, or the failure message and whether the
+ * outcome is ambiguous.
  */
 export async function decideTribeEventProposalRequest(input: {
   body: TribeEventProposalDecisionRequestBody;
   proposalId: string;
   tribeSlug: string;
-}): Promise<TribeEventRequestResult<{ proposal: TribeEventProposalResult }>> {
+}): Promise<TribeEventMutationResult<{ proposal: TribeEventProposalResult }>> {
   const response = await fetch(buildProposalEndpoint(input.tribeSlug, input.proposalId), {
     body: JSON.stringify(input.body),
     headers: TRIBE_EVENT_JSON_HEADERS,
@@ -150,5 +178,5 @@ export async function decideTribeEventProposalRequest(input: {
 
   return result.isUsable
     ? { isSuccess: true, message: result.dto.message, proposal: result.dto.proposal }
-    : { isSuccess: false, message: result.message };
+    : buildTribeEventMutationFailure(response, result);
 }

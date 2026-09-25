@@ -28,7 +28,28 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
+const MEMBERSHIP_LOCK_SQL = "for share of tribe_members";
+
+/**
+ * Repository over a fake request transaction that answers the manager
+ * membership lock itself (it returns nothing the adapter reads) and forwards
+ * every other statement to `execute`, so tests about the write statements
+ * keep their call order. The lock order is covered by
+ * `createRepositoryRecordingEveryStatement`.
+ */
 function createRepository(execute: Mock) {
+  return new PostgresTribeEventRepository(async (callback) =>
+    callback({
+      execute: (statement: unknown) =>
+        getSqlText(statement).includes(MEMBERSHIP_LOCK_SQL)
+          ? Promise.resolve({ rows: [] })
+          : execute(statement),
+    } as never)
+  );
+}
+
+/** Repository whose fake transaction forwards every statement to `execute`. */
+function createRepositoryRecordingEveryStatement(execute: Mock) {
   return new PostgresTribeEventRepository(async (callback) =>
     callback({ execute } as never)
   );
@@ -180,6 +201,23 @@ describe("PostgresTribeEventRepository", () => {
     ]);
   });
 
+  it("selects a series by a moved date only while that date is still a slot of its schedule", async () => {
+    const execute = vi.fn().mockResolvedValueOnce({ rows: [] });
+    const repository = createRepository(execute);
+
+    await repository.listByTribeRange({
+      rangeEnd: "2026-06-01T03:00:00.000Z",
+      rangeStart: "2026-05-01T03:00:00.000Z",
+      tribeSlug: "matematica-pro",
+    });
+
+    // A moved row kept after a schedule edit no longer belongs to the series,
+    // so it must not bring an otherwise out-of-range series into the month.
+    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
+      /public\.is_tribe_event_series_occurrence\(\s*moved_exceptions\.original_starts_at,\s*events\.starts_at,\s*events\.recurrence_frequency,\s*events\.recurrence_until\s*\)/
+    );
+  });
+
   it("keeps viewer permissions and skips the attendance query when the range has no events", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
@@ -263,6 +301,53 @@ describe("PostgresTribeEventRepository", () => {
     expect(sqlText).toContain("insert into public.events");
     expect(sqlText).toContain("recurrence_frequency");
     expect(sqlText).toContain("public.can_manage_tribe_events");
+  });
+
+  it("locks the manager membership before the event row on update and delete", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ status: "forbidden" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ status: "forbidden" }] });
+    const repository = createRepositoryRecordingEveryStatement(execute);
+
+    await expect(
+      repository.update({
+        attendanceRange: null,
+        capacity: { kind: "unchanged" },
+        description: null,
+        endsAt: null,
+        eventId: EVENT_ID,
+        eventType: null,
+        meetingUrl: null,
+        recurrenceFrequency: "none",
+        recurrenceUntil: null,
+        startsAt: "2026-05-06T18:00:00.000Z",
+        title: "Clase abierta",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+    await expect(
+      repository.delete({ eventId: EVENT_ID, tribeSlug: "matematica-pro" })
+    ).resolves.toEqual({ status: "forbidden" });
+
+    // A demotion, block, or removal of the manager waits for the FOR SHARE
+    // lock, so the can_manage_tribe_events read by the later statements
+    // cannot be revoked before the write commits.
+    for (const [callIndex, writeSql] of [
+      [0, "for update of events"],
+      [3, "delete from public.events"],
+    ] as const) {
+      const membershipLockSql = getSqlText(execute.mock.calls[callIndex]?.[0]);
+
+      expect(membershipLockSql).toContain("tribe_members.user_id = public.current_app_user_id()");
+      expect(membershipLockSql).toContain(MEMBERSHIP_LOCK_SQL);
+      expect(getSqlParams(execute.mock.calls[callIndex]?.[0])).toEqual(["matematica-pro"]);
+      expect(getSqlText(execute.mock.calls[callIndex + 1]?.[0])).toContain(writeSql);
+    }
+    expect(execute).toHaveBeenCalledTimes(5);
   });
 
   it("maps update failures to not found or forbidden", async () => {
@@ -636,6 +721,9 @@ describe("PostgresTribeEventRepository", () => {
       // The previous values come from the locked row, not from a CTE that
       // keeps the statement snapshot.
       expect(updateSql).not.toContain("target_event.capacity");
+      // The UPDATE runs after waiting for the lock, so the revision uses the
+      // statement clock instead of the older transaction start.
+      expect(updateSql).toContain("updated_at = timezone('utc', clock_timestamp())");
       expect(getSqlParams(execute.mock.calls[1]?.[0])).toEqual(
         expect.arrayContaining([
           "5",
@@ -694,6 +782,62 @@ describe("PostgresTribeEventRepository", () => {
       expect(updateSql).toContain("waitlist_refill_needed");
       // No candidate lookup and no promotion: the waitlists stay as they are.
       expect(execute).toHaveBeenCalledTimes(2);
+    });
+
+    it("leaves the event type column untouched when the update keeps the stored type", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ ...lockedEventRow, capacity: 5 }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              ...eventRow,
+              capacity: 5,
+              event_type: "workshop",
+              status: "updated",
+              waitlist_refill_needed: false,
+            },
+          ],
+        });
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.update({
+          ...updateCommand,
+          capacity: { kind: "unchanged" },
+          eventType: null,
+        })
+      ).resolves.toMatchObject({ event: { eventType: "workshop" }, status: "updated" });
+
+      expect(getSqlText(execute.mock.calls[1]?.[0])).not.toMatch(/event_type\s*=/);
+    });
+
+    it("writes an explicit event type", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ ...lockedEventRow, capacity: 5 }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              ...eventRow,
+              capacity: 5,
+              event_type: "qa",
+              status: "updated",
+              waitlist_refill_needed: false,
+            },
+          ],
+        });
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.update({
+          ...updateCommand,
+          capacity: { kind: "unchanged" },
+          eventType: "qa",
+        })
+      ).resolves.toMatchObject({ event: { eventType: "qa" }, status: "updated" });
+
+      expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(/event_type\s*=/);
     });
 
     it("writes an explicit capacity removal and refills when the change is reported", async () => {

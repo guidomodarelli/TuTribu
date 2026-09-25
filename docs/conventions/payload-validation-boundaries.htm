@@ -64,7 +64,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <li><strong>DTO público</strong> en <code>application/results/</code>: es el contrato de la UI, el mismo lugar que los tipos <code>*Result</code>. Zod es una librería pura (sin I/O, framework ni proveedor), así que la ruta (<code>app</code>), la página y el adapter del navegador (<code>lib</code>) lo importan sin romper la regla de dependencias. Cada schema se ata a su tipo con <code>satisfies z.ZodType&lt;Result&gt;</code>.</li>
     <li>Helpers genéricos compartidos: <code>src/modules/shared/infrastructure/validation/validation-issue-summary.ts</code> reduce issues a <code>{ path, code }</code> para logs.</li>
   </ul>
-  <div class="callout c-info"><code>application</code> y <code>domain</code> siguen sin importar <code>lib</code> ni <code>infrastructure</code>. El navegador solo importa tipos (<code>import type</code>) desde los schemas de input, para compartir la forma del body sin empaquetar código de servidor.</div>
+  <div class="callout c-info"><code>application</code> y <code>domain</code> siguen sin importar <code>lib</code> ni <code>infrastructure</code>. El adapter del navegador solo importa tipos (<code>import type</code>) desde los schemas de input, para compartir la forma del body sin empaquetar código de servidor. Los componentes presentacionales no importan esos tipos ni los de los adapters: emiten su propio contrato de UI (en eventos, <code>lib/events/tribe-event-form-submissions.ts</code>) y el adapter o el hook lo traduce al body del request.</div>
 </div>
 
 <div class="section">

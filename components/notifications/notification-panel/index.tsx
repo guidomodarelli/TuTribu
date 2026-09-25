@@ -85,7 +85,7 @@ export function NotificationPanel({
 
       {!hasNotifications && listStatus === NOTIFICATION_PANEL_STATUS.error ? (
         <div className={styles.NotificationPanel__state} role="alert">
-          <p>No pudimos cargar tus notificaciones.</p>
+          <p className={styles.NotificationPanel__message}>No pudimos cargar tus notificaciones.</p>
           <Button onClick={onRetry} size="sm" type="button" variant="outline">
             Reintentar
           </Button>
@@ -95,7 +95,7 @@ export function NotificationPanel({
       {!hasNotifications && listStatus === NOTIFICATION_PANEL_STATUS.loaded ? (
         <div className={styles.NotificationPanel__empty}>
           <BellOffIcon aria-hidden="true" className={styles.NotificationPanel__emptyIcon} />
-          <p>No tenés notificaciones.</p>
+          <p className={styles.NotificationPanel__message}>No tenés notificaciones.</p>
           <p className={styles.NotificationPanel__emptyHint}>
             Te avisamos acá antes de tus eventos y cuando cambie algo que te importa.
           </p>

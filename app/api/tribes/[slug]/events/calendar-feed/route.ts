@@ -1,9 +1,15 @@
+import type { z } from "zod";
+
 import {
   tribeEventCalendarFeedIssueResponseSchema,
   tribeEventCalendarFeedRevokeResponseSchema,
   tribeEventCalendarFeedStatusResponseSchema,
 } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
+import {
+  tribeEventCalendarFeedIssueBodySchema,
+  tribeEventCalendarFeedRevokeQuerySchema,
+} from "@/src/modules/events/infrastructure/api/schemas/tribe-event-calendar-feed-schemas";
 import {
   tribeEventEmptyQuerySchema,
   tribeEventsRouteParamsSchema,
@@ -23,6 +29,8 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 
 const CALENDAR_FEED_SUBSCRIPTION_LOG = {
   feature: "events",
+  baseUrlFailureMessage:
+    "Tribe calendar feed public base URL is invalid; token not rotated",
   issueFailureMessage: "Tribe calendar feed token issue failed",
   operation: "tribe-event-calendar-feed-subscription",
   revokeFailureMessage: "Tribe calendar feed token revoke failed",
@@ -45,22 +53,36 @@ function withNoStore(response: Response): Response {
 }
 
 function mapFailureStatusResponse(status: string): Response {
-  return status === TRIBE_EVENT_MUTATION_STATUS.notFound
-    ? createJsonResponse(
+  switch (status) {
+    case TRIBE_EVENT_MUTATION_STATUS.notFound:
+      return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.tribeNotFoundMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.notFound
-      )
-    : createJsonResponse(
+      );
+    // The active link is no longer the one the client showed: nothing was
+    // issued nor revoked.
+    case TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.calendarFeedChangedMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
+      );
+    default:
+      return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.calendarFeedForbiddenMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.forbidden
       );
+  }
 }
 
 /**
- * Session, boundary input (slug; no query nor body), and the request logger
- * shared by the three verbs.
+ * Session, boundary input (slug; for POST the body, for DELETE the query;
+ * GET takes no query), and the request logger shared by the three verbs.
  */
-async function resolveSubscriptionRequest(request: Request, context: TribeEventsRouteContext) {
+async function resolveSubscriptionRequest<TQuery, TBody = undefined>(
+  request: Request,
+  context: TribeEventsRouteContext,
+  schemas: { body?: z.ZodType<TBody>; query: z.ZodType<TQuery> }
+) {
   const { requestId } = resolveRequestContext(request.headers);
   const logger = createServerLogger({
     feature: CALENDAR_FEED_SUBSCRIPTION_LOG.feature,
@@ -85,8 +107,9 @@ async function resolveSubscriptionRequest(request: Request, context: TribeEvents
     params: context.params,
     request,
     schemas: {
+      body: schemas.body,
       params: tribeEventsRouteParamsSchema,
-      query: tribeEventEmptyQuerySchema,
+      query: schemas.query,
     },
   });
 
@@ -95,10 +118,12 @@ async function resolveSubscriptionRequest(request: Request, context: TribeEvents
   }
 
   return {
+    body: input.body,
     isResolved: true,
     logger,
     metadata: { tribeSlug: input.params.slug, userId: authenticatedMember.id },
     modules,
+    query: input.query,
     tribeSlug: input.params.slug,
   } as const;
 }
@@ -110,7 +135,9 @@ export async function GET(
   request: Request,
   context: TribeEventsRouteContext
 ): Promise<Response> {
-  const resolved = await resolveSubscriptionRequest(request, context);
+  const resolved = await resolveSubscriptionRequest(request, context, {
+    query: tribeEventEmptyQuerySchema,
+  });
 
   if (!resolved.isResolved) {
     return resolved.response;
@@ -150,21 +177,45 @@ export async function GET(
 /**
  * Generates (or regenerates, revoking the previous one) the personal link and
  * returns it once. The response is never cached and the token never logged.
+ * The public base URL is resolved before issuing: issuing commits the
+ * rotation, so failing afterwards would revoke the member's current link
+ * without ever revealing the replacement. The body carries the id of the
+ * subscription the client knows (optimistic precondition): when another tab
+ * or a retry already changed the active link, it answers 409 and issues no
+ * credential, so a response never carries an already revoked token.
  */
 export async function POST(
   request: Request,
   context: TribeEventsRouteContext
 ): Promise<Response> {
-  const resolved = await resolveSubscriptionRequest(request, context);
+  const resolved = await resolveSubscriptionRequest(request, context, {
+    body: tribeEventCalendarFeedIssueBodySchema,
+    query: tribeEventEmptyQuerySchema,
+  });
 
   if (!resolved.isResolved) {
     return resolved.response;
   }
 
-  const { logger, metadata, modules, tribeSlug } = resolved;
+  const { body, logger, metadata, modules, tribeSlug } = resolved;
+  let publicAppBaseUrl: string;
 
   try {
-    const result = await modules.events.useCases.issueTribeEventCalendarFeedToken({ tribeSlug });
+    publicAppBaseUrl = resolvePublicAppBaseUrl();
+  } catch (error) {
+    logger.error({ message: CALENDAR_FEED_SUBSCRIPTION_LOG.baseUrlFailureMessage, error, metadata });
+
+    return createJsonResponse(
+      { message: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCalendarFeedSubscriptionMessage },
+      TRIBE_EVENT_ROUTE_HTTP_STATUS.serverError
+    );
+  }
+
+  try {
+    const result = await modules.events.useCases.issueTribeEventCalendarFeedToken({
+      expectedSubscriptionId: body.expectedSubscriptionId,
+      tribeSlug,
+    });
 
     if (result.status !== TRIBE_EVENT_MUTATION_STATUS.feedTokenIssued) {
       return mapFailureStatusResponse(result.status);
@@ -174,7 +225,7 @@ export async function POST(
       createTribeEventPublicResponse({
         body: {
           feedUrl: buildTribeEventCalendarFeedUrl({
-            baseUrl: resolvePublicAppBaseUrl(),
+            baseUrl: publicAppBaseUrl,
             token: result.token,
             tribeSlug,
           }),
@@ -199,22 +250,32 @@ export async function POST(
 }
 
 /**
- * "Desactivar suscripción": revokes the active link (idempotent).
+ * "Desactivar suscripción": revokes the active link. The query carries the id
+ * of the subscription the client shows (`expectedSubscriptionId`, absent when
+ * it shows none), the same optimistic precondition as POST: when another tab
+ * already regenerated the link, it answers 409 and revokes nothing, so a
+ * stale tab never turns off the link another response just returned.
+ * Without an active link, while the client expected none, it is idempotent.
  */
 export async function DELETE(
   request: Request,
   context: TribeEventsRouteContext
 ): Promise<Response> {
-  const resolved = await resolveSubscriptionRequest(request, context);
+  const resolved = await resolveSubscriptionRequest(request, context, {
+    query: tribeEventCalendarFeedRevokeQuerySchema,
+  });
 
   if (!resolved.isResolved) {
     return resolved.response;
   }
 
-  const { logger, metadata, modules, tribeSlug } = resolved;
+  const { logger, metadata, modules, query, tribeSlug } = resolved;
 
   try {
-    const result = await modules.events.useCases.revokeTribeEventCalendarFeedToken({ tribeSlug });
+    const result = await modules.events.useCases.revokeTribeEventCalendarFeedToken({
+      expectedSubscriptionId: query.expectedSubscriptionId,
+      tribeSlug,
+    });
 
     if (result.status !== TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked) {
       return mapFailureStatusResponse(result.status);

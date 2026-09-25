@@ -27,6 +27,29 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
+/**
+ * Bound values of a drizzle statement, in order (nested fragments included).
+ */
+function getSqlParams(statement: unknown): unknown[] {
+  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? []).flatMap((chunk) => {
+    if (chunk && typeof chunk === "object") {
+      if ("queryChunks" in chunk) {
+        return getSqlParams(chunk);
+      }
+
+      if (chunk.constructor.name === "StringChunk") {
+        return [];
+      }
+
+      if ("value" in chunk) {
+        return [(chunk as { value: unknown }).value];
+      }
+    }
+
+    return [chunk];
+  });
+}
+
 function createExecutor(execute: Mock) {
   return async <T,>(callback: (database: never) => Promise<T>) => callback({ execute } as never);
 }
@@ -84,6 +107,47 @@ describe("PostgresTribeEventReminderRepository", () => {
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("order by events.id asc");
   });
 
+  it("reads series and exceptions only through the owner-executed maintenance functions", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [seriesRow(FIRST_EVENT_ID)] })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = new PostgresTribeEventReminderRepository(createExecutor(execute));
+
+    await repository.listSeriesInRange({
+      afterEventId: null,
+      limit: 200,
+      rangeEnd: "2026-05-07T12:10:00.000Z",
+      rangeStart: "2026-05-06T12:10:00.000Z",
+    });
+
+    const seriesSql = getSqlText(execute.mock.calls[0]?.[0]);
+    const exceptionsSql = getSqlText(execute.mock.calls[1]?.[0]);
+
+    expect(seriesSql).toContain("from public.list_tribe_event_reminder_series(");
+    expect(seriesSql).not.toContain("from public.events");
+    expect(exceptionsSql).toContain("from public.list_tribe_event_reminder_exceptions(");
+    expect(exceptionsSql).not.toContain("from public.event_occurrence_exceptions");
+  });
+
+  it("bounds the exceptions read to the reminder range instead of the whole history", async () => {
+    const rangeStart = "2026-05-06T12:10:00.000Z";
+    const rangeEnd = "2026-05-07T12:10:00.000Z";
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [seriesRow(FIRST_EVENT_ID), seriesRow(SECOND_EVENT_ID)] })
+      .mockResolvedValueOnce({ rows: [] });
+    const repository = new PostgresTribeEventReminderRepository(createExecutor(execute));
+
+    await repository.listSeriesInRange({ afterEventId: null, limit: 200, rangeEnd, rangeStart });
+
+    expect(getSqlParams(execute.mock.calls[1]?.[0])).toEqual([
+      [FIRST_EVENT_ID, SECOND_EVENT_ID],
+      rangeStart,
+      rangeEnd,
+    ]);
+  });
+
   it("returns an empty last page without querying exceptions", async () => {
     const execute = vi.fn().mockResolvedValueOnce({ rows: [] });
     const repository = new PostgresTribeEventReminderRepository(createExecutor(execute));
@@ -112,6 +176,7 @@ describe("PostgresTribeEventReminderRepository", () => {
             payload: { eventId: FIRST_EVENT_ID, occurrenceStartsAt: OCCURRENCE, startsAt: OCCURRENCE },
             type: "event_reminder_24h",
           },
+          minimumLeadMinutes: 60,
           originalStartsAt: OCCURRENCE,
           statuses: ["going", "maybe"],
           tribeId: TRIBE_ID,
@@ -119,10 +184,30 @@ describe("PostgresTribeEventReminderRepository", () => {
       ])
     ).resolves.toBe(3);
 
-    const insertSql = getSqlText(execute.mock.calls[0]?.[0]);
+    const enqueueStatement = execute.mock.calls[0]?.[0] as { queryChunks?: unknown[] };
+    const enqueueSql = getSqlText(enqueueStatement);
+    const candidatesParam = (enqueueStatement.queryChunks ?? [])
+      .map((chunk) =>
+        chunk && typeof chunk === "object" && "value" in chunk
+          ? (chunk as { value: unknown }).value
+          : chunk
+      )
+      .find((value): value is string => typeof value === "string" && value.startsWith("["));
 
-    expect(insertSql).toContain("public.can_receive_tribe_notifications(");
-    expect(insertSql).toContain("on conflict (recipient_user_id, dedupe_key) do nothing");
+    expect(enqueueSql).toContain("public.enqueue_tribe_event_reminders(");
+    expect(enqueueSql).not.toContain("insert into public.notifications");
+    expect(JSON.parse(candidatesParam ?? "[]")).toEqual([
+      {
+        dedupe_key: `event_reminder_24h:${FIRST_EVENT_ID}@${OCCURRENCE}`,
+        event_id: FIRST_EVENT_ID,
+        minimum_lead_minutes: 60,
+        occurrence_starts_at: OCCURRENCE,
+        payload: { eventId: FIRST_EVENT_ID, occurrenceStartsAt: OCCURRENCE, startsAt: OCCURRENCE },
+        statuses: ["going", "maybe"],
+        tribe_id: TRIBE_ID,
+        type: "event_reminder_24h",
+      },
+    ]);
   });
 
   it("does not touch the database when nothing is due", async () => {

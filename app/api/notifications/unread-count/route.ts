@@ -22,10 +22,10 @@ const NOTIFICATION_UNREAD_COUNT_ROUTE_LOG = {
  * visible.
  */
 export async function GET(request: Request): Promise<Response> {
-  const session = await resolveNotificationRouteSession(
-    request,
-    NOTIFICATION_UNREAD_COUNT_ROUTE_LOG.operation
-  );
+  const session = await resolveNotificationRouteSession(request, {
+    operation: NOTIFICATION_UNREAD_COUNT_ROUTE_LOG.operation,
+    unexpectedFailureMessage: NOTIFICATION_ROUTE_RESPONSE.unexpectedInboxMessage,
+  });
 
   if (!session.isResolved) {
     return session.response;

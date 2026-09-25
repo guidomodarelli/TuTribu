@@ -344,6 +344,8 @@ const FEED_URL_PROTOCOL_PATTERN = /^https?$/;
 
 export const tribeEventCalendarFeedSubscriptionSchema = z.object({
   createdAt: instantSchema,
+  /** Opaque id of the active token row, echoed back when regenerating. */
+  id: z.guid(),
   lastUsedAt: instantSchema.nullable(),
 }) satisfies z.ZodType<TribeEventCalendarFeedSubscriptionResult>;
 

@@ -5,10 +5,12 @@ import {
   createTribeEventProposalRequest,
   decideTribeEventProposalRequest,
   fetchTribeEventProposalsRequest,
+  toTribeEventProposalRequestBody,
 } from "@/lib/events/tribe-event-proposals-api-client";
 import {
   clearTribeEventOccurrenceExceptionRequest,
   saveTribeEventOccurrenceExceptionRequest,
+  toTribeEventOccurrenceExceptionRequestBody,
 } from "@/lib/events/tribe-events-api-client";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
@@ -77,7 +79,7 @@ describe("proposal and exception browser adapters", () => {
     );
   });
 
-  it("treats an unusable proposal body as a failure without message", async () => {
+  it("treats an unusable proposal body as an ambiguous failure without message", async () => {
     respondWith({ message: "ok", proposal: { ...proposal, status: "accepted" } }, 201);
 
     await expect(
@@ -89,7 +91,7 @@ describe("proposal and exception browser adapters", () => {
         },
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ isSuccess: false, message: null });
+    ).resolves.toEqual({ isOutcomeAmbiguous: true, isSuccess: false, message: null });
   });
 
   it("returns the safe message of a failed approval and the new slots of a successful one", async () => {
@@ -112,7 +114,11 @@ describe("proposal and exception browser adapters", () => {
         proposalId: PROPOSAL_ID,
         tribeSlug: "matematica-pro",
       })
-    ).resolves.toEqual({ isSuccess: false, message: "Esta propuesta ya fue resuelta." });
+    ).resolves.toEqual({
+      isOutcomeAmbiguous: false,
+      isSuccess: false,
+      message: "Esta propuesta ya fue resuelta.",
+    });
     expect(globalThis.fetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/proposals/${PROPOSAL_ID}/approval?month=2026-05`,
       expect.objectContaining({ method: "POST" })
@@ -133,6 +139,22 @@ describe("proposal and exception browser adapters", () => {
       `/api/tribes/matematica-pro/events/proposals/${PROPOSAL_ID}`,
       expect.objectContaining({ method: "PATCH" })
     );
+  });
+
+  it("classifies a server error on a decision as an ambiguous outcome", async () => {
+    respondWith({ message: "No pudimos actualizar la propuesta." }, 503);
+
+    await expect(
+      decideTribeEventProposalRequest({
+        body: { decision: "rejected", reviewNote: "" },
+        proposalId: PROPOSAL_ID,
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({
+      isOutcomeAmbiguous: true,
+      isSuccess: false,
+      message: "No pudimos actualizar la propuesta.",
+    });
   });
 
   it("cancels and restores a date against the exceptions endpoint", async () => {
@@ -162,5 +184,54 @@ describe("proposal and exception browser adapters", () => {
         "DELETE",
       ],
     ]);
+  });
+});
+
+describe("form submission to request body mapping", () => {
+  it("maps a proposal form submission to the proposal endpoint body", () => {
+    expect(
+      toTribeEventProposalRequestBody({
+        description: "Repasamos la unidad 3",
+        durationMinutes: 90,
+        eventType: "workshop",
+        startsAt: "2026-05-20T21:00:00.000Z",
+        title: "Taller de repaso",
+      })
+    ).toEqual({
+      description: "Repasamos la unidad 3",
+      durationMinutes: 90,
+      eventType: "workshop",
+      startsAt: "2026-05-20T21:00:00.000Z",
+      title: "Taller de repaso",
+    });
+  });
+
+  it("maps a cancelled date to the exception body with its original start and no new schedule", () => {
+    expect(
+      toTribeEventOccurrenceExceptionRequestBody(
+        { kind: "cancelled", reason: "Feriado" },
+        ORIGINAL_STARTS_AT
+      )
+    ).toEqual({ kind: "cancelled", originalStartsAt: ORIGINAL_STARTS_AT, reason: "Feriado" });
+  });
+
+  it("maps a moved date to the exception body with its new schedule and original start", () => {
+    expect(
+      toTribeEventOccurrenceExceptionRequestBody(
+        {
+          kind: "moved",
+          newEndsAt: null,
+          newStartsAt: "2026-05-15T21:00:00.000Z",
+          reason: "",
+        },
+        ORIGINAL_STARTS_AT
+      )
+    ).toEqual({
+      kind: "moved",
+      newEndsAt: null,
+      newStartsAt: "2026-05-15T21:00:00.000Z",
+      originalStartsAt: ORIGINAL_STARTS_AT,
+      reason: "",
+    });
   });
 });

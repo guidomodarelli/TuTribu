@@ -18,7 +18,6 @@ import {
 import {
   TribeEventOccurrenceExceptionDialog,
   type TribeEventOccurrenceExceptionMode,
-  type TribeEventOccurrenceExceptionPayload,
 } from "@/components/events/tribe-event-occurrence-exception-dialog";
 import { TribeEventOccurrenceActivity } from "@/components/events/tribe-event-occurrence-activity";
 import { TribeEventProposalFormDialog } from "@/components/events/tribe-event-proposal-form-dialog";
@@ -51,6 +50,10 @@ import {
   readAttendanceStreakComputedTime,
   readAttendanceStreakNextRefreshTime,
 } from "@/lib/events/tribe-event-attendance-streak-dto";
+import type {
+  TribeEventOccurrenceExceptionSubmission,
+  TribeEventProposalSubmission,
+} from "@/lib/events/tribe-event-form-submissions";
 import { isOccurrenceCancelled } from "@/lib/events/tribe-event-occurrence-exception-copy";
 import {
   getOccurrencePhaseChangeTimes,
@@ -60,7 +63,6 @@ import {
   filterOccurrencesByEventType,
   toggleEventTypeSelection,
 } from "@/lib/events/tribe-event-type-filter";
-import type { TribeEventProposalPayload } from "@/lib/events/tribe-event-proposals-api-client";
 import {
   createCalendarDays,
   groupAgendaDays,
@@ -212,6 +214,7 @@ export function TribeEventsCalendar({
   const viewerTimeZone = useViewerTimeZone();
   const {
     applyEventOccurrences,
+    beginSeriesMutation,
     clearOccurrenceException,
     attendanceStreak,
     attendanceStreakNextRefreshAt,
@@ -270,9 +273,12 @@ export function TribeEventsCalendar({
     serverSnapshotTime: readAttendanceStreakComputedTime(attendanceStreakComputedAt),
   });
   const proposals = useTribeEventProposals({
+    beginSeriesMutation,
     initialPendingCount: pendingProposalCount,
     month: month.current,
     onEventCreated: applyEventOccurrences,
+    // Every server render stamps a new instant, so it replaces the local count.
+    pendingCountSourceVersion: attendanceStreakComputedAt,
     tribeSlug,
   });
   const calendarFeed = useTribeEventCalendarFeed({ tribeSlug });
@@ -492,8 +498,8 @@ export function TribeEventsCalendar({
     proposals.loadProposals();
   };
 
-  const submitProposal = async (payload: TribeEventProposalPayload) => {
-    if (await proposals.createProposal(payload)) {
+  const submitProposal = async (submission: TribeEventProposalSubmission) => {
+    if (await proposals.createProposal(submission)) {
       setIsProposalFormOpen(false);
     }
   };
@@ -524,12 +530,14 @@ export function TribeEventsCalendar({
     setExceptionDialog({ mode, occurrence, session: formSessionCounterRef.current });
   };
 
-  const submitOccurrenceException = async (payload: TribeEventOccurrenceExceptionPayload) => {
+  const submitOccurrenceException = async (
+    submission: TribeEventOccurrenceExceptionSubmission
+  ) => {
     if (!exceptionDialog) {
       return;
     }
 
-    if (await saveOccurrenceException(exceptionDialog.occurrence, payload)) {
+    if (await saveOccurrenceException(exceptionDialog.occurrence, submission)) {
       setExceptionDialog(null);
     }
   };
@@ -811,8 +819,8 @@ export function TribeEventsCalendar({
           mode={exceptionDialog.mode}
           occurrence={exceptionDialog.occurrence}
           onClose={() => setExceptionDialog(null)}
-          onSubmit={(payload) => {
-            void submitOccurrenceException(payload);
+          onSubmit={(submission) => {
+            void submitOccurrenceException(submission);
           }}
         />
       ) : null}
@@ -823,14 +831,15 @@ export function TribeEventsCalendar({
           isSubmitting={proposals.isSubmitting}
           key={proposalFormSession}
           onClose={() => setIsProposalFormOpen(false)}
-          onSubmit={(payload) => {
-            void submitProposal(payload);
+          onSubmit={(submission) => {
+            void submitProposal(submission);
           }}
         />
       ) : null}
 
       {canManageEvents || canProposeEvents ? (
         <TribeEventProposalsPanel
+          canManageEvents={canManageEvents}
           isOpen={isProposalsPanelOpen}
           isSubmitting={proposals.isSubmitting}
           loadState={proposals.loadState}

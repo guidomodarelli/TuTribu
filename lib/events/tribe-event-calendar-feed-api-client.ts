@@ -1,5 +1,6 @@
 import {
   TRIBE_EVENT_HTTP_REQUEST,
+  TRIBE_EVENT_JSON_HEADERS,
   readTribeEventResponse,
   type TribeEventRequestResult,
 } from "@/lib/events/tribe-events-api-client";
@@ -10,6 +11,10 @@ import {
   tribeEventCalendarFeedStatusResponseSchema,
 } from "@/src/modules/events/application/results/tribe-event-public-dto-schemas";
 import type { TribeEventCalendarFeedSubscriptionResult } from "@/src/modules/events/application/results/tribe-event-result";
+import type {
+  TribeEventCalendarFeedIssueRequestBody,
+  TribeEventCalendarFeedRevokeRequestQuery,
+} from "@/src/modules/events/infrastructure/api/schemas/tribe-event-calendar-feed-schemas";
 
 /**
  * Browser adapter of `/api/tribes/[slug]/events/calendar-feed`. Every body is
@@ -19,9 +24,55 @@ import type { TribeEventCalendarFeedSubscriptionResult } from "@/src/modules/eve
 
 const CALENDAR_FEED_ENDPOINT_PATH = "/calendar-feed";
 const NO_STORE_CACHE: RequestCache = "no-store";
+/** The active link changed since the client loaded it (another tab, a retry). */
+const SUBSCRIPTION_CHANGED_HTTP_STATUS = 409;
+
+/**
+ * Outcome of generating the link. `isSubscriptionChanged` tells the caller
+ * that nothing was issued because its view of the subscription is stale.
+ */
+export type TribeEventCalendarFeedIssueRequestResult =
+  | {
+      feedUrl: string;
+      isSuccess: true;
+      message: string | null;
+      subscription: TribeEventCalendarFeedSubscriptionResult;
+    }
+  | { isSubscriptionChanged: boolean; isSuccess: false; message: string | null };
+
+/**
+ * Outcome of turning the link off. `isSubscriptionChanged` tells the caller
+ * that nothing was revoked because its view of the subscription is stale.
+ */
+export type TribeEventCalendarFeedRevokeRequestResult =
+  | { isSuccess: true; message: string | null }
+  | { isSubscriptionChanged: boolean; isSuccess: false; message: string | null };
+
+/** Query key of the revocation precondition, typed by the route contract. */
+const EXPECTED_SUBSCRIPTION_QUERY_KEY: keyof TribeEventCalendarFeedRevokeRequestQuery =
+  "expectedSubscriptionId";
 
 function buildCalendarFeedEndpoint(tribeSlug: string): string {
   return buildTribeEventsApiEndpoint(tribeSlug) + CALENDAR_FEED_ENDPOINT_PATH;
+}
+
+/**
+ * Revocation endpoint with the subscription the caller shows as precondition;
+ * without one the parameter is omitted (the route reads it as null).
+ */
+function buildCalendarFeedRevokeEndpoint(
+  tribeSlug: string,
+  expectedSubscriptionId: string | null
+): string {
+  const endpoint = buildCalendarFeedEndpoint(tribeSlug);
+
+  if (expectedSubscriptionId === null) {
+    return endpoint;
+  }
+
+  const query = new URLSearchParams({ [EXPECTED_SUBSCRIPTION_QUERY_KEY]: expectedSubscriptionId });
+
+  return `${endpoint}?${query.toString()}`;
 }
 
 /**
@@ -52,20 +103,24 @@ export async function fetchTribeEventCalendarFeedRequest(input: {
 
 /**
  * Generates or regenerates the personal link (the previous one stops working).
+ * It sends the id of the subscription the caller shows (null: none) so the
+ * server issues nothing when another tab or a retry already changed it.
  *
- * @param input - Tribe of the calendar.
- * @returns The https feed URL (shown once) and the subscription dates.
+ * @param input - Tribe of the calendar and the subscription the caller knows.
+ * @returns The https feed URL (shown once) and the subscription, or the safe
+ * failure message and whether the caller's subscription state is stale.
  */
 export async function issueTribeEventCalendarFeedRequest(input: {
+  expectedSubscriptionId: string | null;
   tribeSlug: string;
-}): Promise<
-  TribeEventRequestResult<{
-    feedUrl: string;
-    subscription: TribeEventCalendarFeedSubscriptionResult;
-  }>
-> {
+}): Promise<TribeEventCalendarFeedIssueRequestResult> {
+  const body: TribeEventCalendarFeedIssueRequestBody = {
+    expectedSubscriptionId: input.expectedSubscriptionId,
+  };
   const response = await fetch(buildCalendarFeedEndpoint(input.tribeSlug), {
+    body: JSON.stringify(body),
     cache: NO_STORE_CACHE,
+    headers: TRIBE_EVENT_JSON_HEADERS,
     method: TRIBE_EVENT_HTTP_REQUEST.methodPost,
   });
   const result = await readTribeEventResponse(response, tribeEventCalendarFeedIssueResponseSchema);
@@ -77,25 +132,41 @@ export async function issueTribeEventCalendarFeedRequest(input: {
         message: result.dto.message,
         subscription: result.dto.subscription,
       }
-    : { isSuccess: false, message: result.message };
+    : {
+        isSubscriptionChanged: response.status === SUBSCRIPTION_CHANGED_HTTP_STATUS,
+        isSuccess: false,
+        message: result.message,
+      };
 }
 
 /**
- * Turns the subscription off (idempotent).
+ * Turns the subscription off. It sends the id of the subscription the caller
+ * shows (null: none) so the server revokes nothing when another tab already
+ * replaced it; without an active link, while the caller shows none, it is
+ * idempotent.
  *
- * @param input - Tribe of the calendar.
- * @returns Whether the link was revoked, with the route message.
+ * @param input - Tribe of the calendar and the subscription the caller knows.
+ * @returns Whether the link was revoked, with the route message, and whether
+ * the caller's subscription state is stale.
  */
 export async function revokeTribeEventCalendarFeedRequest(input: {
+  expectedSubscriptionId: string | null;
   tribeSlug: string;
-}): Promise<TribeEventRequestResult<Record<never, never>>> {
-  const response = await fetch(buildCalendarFeedEndpoint(input.tribeSlug), {
-    cache: NO_STORE_CACHE,
-    method: TRIBE_EVENT_HTTP_REQUEST.methodDelete,
-  });
+}): Promise<TribeEventCalendarFeedRevokeRequestResult> {
+  const response = await fetch(
+    buildCalendarFeedRevokeEndpoint(input.tribeSlug, input.expectedSubscriptionId),
+    {
+      cache: NO_STORE_CACHE,
+      method: TRIBE_EVENT_HTTP_REQUEST.methodDelete,
+    }
+  );
   const result = await readTribeEventResponse(response, tribeEventCalendarFeedRevokeResponseSchema);
 
   return result.isUsable
     ? { isSuccess: true, message: result.dto.message }
-    : { isSuccess: false, message: result.message };
+    : {
+        isSubscriptionChanged: response.status === SUBSCRIPTION_CHANGED_HTTP_STATUS,
+        isSuccess: false,
+        message: result.message,
+      };
 }

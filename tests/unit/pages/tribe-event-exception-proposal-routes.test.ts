@@ -220,6 +220,26 @@ describe("occurrence exception and proposal routes", () => {
       await expectSafeErrorBody(forbidden, "No tenés permisos para gestionar eventos.");
     });
 
+    it("answers 409 when the series schedule changed after the date was validated", async () => {
+      useCases.saveTribeEventOccurrenceException.mockResolvedValueOnce({
+        status: "schedule_changed",
+      });
+
+      const response = await PUT_EXCEPTION(
+        buildRequest(
+          { kind: "cancelled", originalStartsAt: ORIGINAL_STARTS_AT },
+          `${BASE_URL}/${EVENT_ID}/exceptions`
+        ),
+        eventContext()
+      );
+
+      expect(response.status).toBe(409);
+      await expectSafeErrorBody(
+        response,
+        "El evento cambió; recargá para ver las fechas actualizadas."
+      );
+    });
+
     it("restores a date from the occurrence query", async () => {
       useCases.clearTribeEventOccurrenceException.mockResolvedValue({
         occurrences: [],

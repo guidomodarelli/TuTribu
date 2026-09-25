@@ -38,8 +38,8 @@ function formatRefreshDuration(minutes: number): string {
  * reusing the lines of the single-event download.
  *
  * Instants are UTC; `X-WR-TIMEZONE` only sets the calendar's default display
- * zone. DTSTAMP, LAST-MODIFIED, and SEQUENCE come from each series' last
- * change (never from "now"), so the same data always produces the same bytes
+ * zone. DTSTAMP and LAST-MODIFIED come from each series' last change and
+ * SEQUENCE from its persisted revision counter (never from "now"), so the same data always produces the same bytes
  * and the route can answer `304 Not Modified` from a content ETag.
  *
  * @param input - Calendar name (the tribe name) and the series to include.
@@ -63,7 +63,7 @@ export function buildTribeCalendarFeedIcsFile(input: {
         dateStamp: series.lastModifiedAt,
         event: series.event,
         occurrenceExceptions: series.occurrenceExceptions,
-        revision: { lastModifiedAt: series.lastModifiedAt },
+        revision: { lastModifiedAt: series.lastModifiedAt, sequence: series.calendarSequence },
       })
     ),
     "END:VCALENDAR",

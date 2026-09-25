@@ -354,7 +354,8 @@ describe("Tribe event routes", () => {
       capacity: null,
       description: "Repaso mensual",
       endsAt: "2026-05-06T19:00:00.000Z",
-      eventType: "live",
+      // Omitted in the body: the stored type is kept, never reset to live.
+      eventType: undefined,
       eventId: EVENT_ID,
       meetingUrl: "https://meet.google.com/abc-defg-hij",
       recurrenceFrequency: "none",
@@ -1055,6 +1056,26 @@ describe("Tribe event routes", () => {
       expect(updateTribeEvent).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({ capacity: null })
+      );
+    });
+
+    it("keeps the stored event type when a legacy PATCH body omits the field", async () => {
+      updateTribeEvent.mockResolvedValue({
+        event,
+        occurrences: [occurrence],
+        status: "updated" as const,
+      });
+
+      await PATCH(buildRequest(VALID_EVENT_BODY, EVENT_URL), buildEventContext());
+      await PATCH(
+        buildRequest({ ...VALID_EVENT_BODY, eventType: "workshop" }, EVENT_URL),
+        buildEventContext()
+      );
+
+      expect(updateTribeEvent.mock.calls[0]?.[0]?.eventType).toBeUndefined();
+      expect(updateTribeEvent).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ eventType: "workshop" })
       );
     });
 

@@ -135,7 +135,8 @@ export type TribeEventOccurrenceExceptionMutationResult =
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
         | typeof TRIBE_EVENT_MUTATION_STATUS.invalidOccurrence
         | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
-        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded;
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded
+        | typeof TRIBE_EVENT_MUTATION_STATUS.scheduleChanged;
     };
 
 export type TribeEventProposalResult = TribeEventProposal;
@@ -337,21 +338,25 @@ export type TribeEventCalendarFeedTokenIssueResult =
     }
   | {
       status:
+        | typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged
         | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
         | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
     };
 
 export type TribeEventCalendarFeedTokenRevokeResult = {
   status:
+    | typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged
     | typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked
     | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
 };
 
 /**
- * One series of the feed and the instant it last changed (drives SEQUENCE,
- * LAST-MODIFIED, and DTSTAMP so the file is stable between changes).
+ * One series of the feed with its revision: the instant it last changed
+ * (LAST-MODIFIED and DTSTAMP, so the file is stable between changes) and its
+ * strictly increasing revision counter (SEQUENCE).
  */
 export type TribeEventCalendarFeedSeriesResult = TribeEventCalendarResult & {
+  calendarSequence: number;
   lastModifiedAt: string;
 };
 

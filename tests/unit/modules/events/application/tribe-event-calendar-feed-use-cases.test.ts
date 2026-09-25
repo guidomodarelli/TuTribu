@@ -22,6 +22,8 @@ import type {
 const TRIBE_SLUG = "matematica-pro";
 const TOKEN = "a".repeat(43);
 const TOKEN_HASH = "b".repeat(64);
+const PREVIOUS_SUBSCRIPTION_ID = "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+const SUBSCRIPTION_ID = "2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a";
 const NOW = new Date("2026-05-10T12:00:00.000Z");
 const MILLISECONDS_PER_DAY = 86_400_000;
 const HOUR_MILLISECONDS = 3_600_000;
@@ -81,7 +83,7 @@ describe("issueTribeEventCalendarFeedToken", () => {
     const tribeEventCalendarFeedTokenRepository = createTokenRepository({
       issue: vi.fn(async () => ({
         status: TRIBE_EVENT_MUTATION_STATUS.feedTokenIssued,
-        subscription: { createdAt: NOW.toISOString(), lastUsedAt: null },
+        subscription: { createdAt: NOW.toISOString(), id: SUBSCRIPTION_ID, lastUsedAt: null },
       })),
     });
     const execute = issueTribeEventCalendarFeedToken({
@@ -89,16 +91,20 @@ describe("issueTribeEventCalendarFeedToken", () => {
       tribeEventCalendarFeedTokenRepository,
     });
 
-    const result = await execute({ tribeSlug: TRIBE_SLUG });
+    const result = await execute({
+      expectedSubscriptionId: PREVIOUS_SUBSCRIPTION_ID,
+      tribeSlug: TRIBE_SLUG,
+    });
 
     expect(tribeEventCalendarFeedTokenRepository.issue).toHaveBeenCalledWith({
+      expectedSubscriptionId: PREVIOUS_SUBSCRIPTION_ID,
       tokenHash: TOKEN_HASH,
       tribeSlug: TRIBE_SLUG,
     });
     expect(JSON.stringify(vi.mocked(tribeEventCalendarFeedTokenRepository.issue).mock.calls)).not.toContain(TOKEN);
     expect(result).toEqual({
       status: TRIBE_EVENT_MUTATION_STATUS.feedTokenIssued,
-      subscription: { createdAt: NOW.toISOString(), lastUsedAt: null },
+      subscription: { createdAt: NOW.toISOString(), id: SUBSCRIPTION_ID, lastUsedAt: null },
       token: TOKEN,
     });
   });
@@ -111,9 +117,22 @@ describe("issueTribeEventCalendarFeedToken", () => {
       }),
     });
 
-    await expect(execute({ tribeSlug: TRIBE_SLUG })).resolves.toEqual({
+    await expect(execute({ expectedSubscriptionId: null, tribeSlug: TRIBE_SLUG })).resolves.toEqual({
       status: TRIBE_EVENT_MUTATION_STATUS.forbidden,
     });
+  });
+
+  it("never returns a token when the active subscription is not the expected one", async () => {
+    const execute = issueTribeEventCalendarFeedToken({
+      tribeEventCalendarFeedTokenCodec: createCodec(),
+      tribeEventCalendarFeedTokenRepository: createTokenRepository({
+        issue: vi.fn(async () => ({ status: TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged })),
+      }),
+    });
+
+    await expect(
+      execute({ expectedSubscriptionId: PREVIOUS_SUBSCRIPTION_ID, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged });
   });
 });
 
@@ -134,9 +153,31 @@ describe("getTribeEventCalendarFeedSubscription and revokeTribeEventCalendarFeed
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.found, subscription: null });
     await expect(
       revokeTribeEventCalendarFeedToken({ tribeEventCalendarFeedTokenRepository: repository })({
+        expectedSubscriptionId: null,
         tribeSlug: TRIBE_SLUG,
       })
     ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.feedTokenRevoked });
+    expect(repository.revoke).toHaveBeenCalledWith({
+      expectedSubscriptionId: null,
+      tribeSlug: TRIBE_SLUG,
+    });
+  });
+
+  it("forwards the expected subscription and reports a revocation that lost the race", async () => {
+    const repository = createTokenRepository({
+      revoke: vi.fn(async () => ({ status: TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged })),
+    });
+
+    await expect(
+      revokeTribeEventCalendarFeedToken({ tribeEventCalendarFeedTokenRepository: repository })({
+        expectedSubscriptionId: PREVIOUS_SUBSCRIPTION_ID,
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({ status: TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged });
+    expect(repository.revoke).toHaveBeenCalledWith({
+      expectedSubscriptionId: PREVIOUS_SUBSCRIPTION_ID,
+      tribeSlug: TRIBE_SLUG,
+    });
   });
 });
 
@@ -160,7 +201,7 @@ describe("getTribeEventCalendarFeed", () => {
       eventTypes: [],
       lastUsedRefreshMinutes: TRIBE_EVENT_CALENDAR_FEED_REFRESH.lastUsedRefreshMinutes,
       maxExceptions: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxExceptions,
-      maxSeries: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents,
+      maxComponents: TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents,
       owner,
       rangeEnd: new Date(
         NOW.getTime() + TRIBE_EVENT_CALENDAR_FEED_WINDOW.futureWindowDays * MILLISECONDS_PER_DAY
@@ -246,7 +287,7 @@ describe("getTribeEventCalendarFeed", () => {
           },
         ],
         // The reader applies the type filter before its row limit.
-        series: [{ event: weekly, updatedAt: "2026-05-01T10:00:00.000Z" }],
+        series: [{ calendarSequence: 4, event: weekly, updatedAt: "2026-05-01T10:00:00.000Z" }],
         tribeName: "Matemática Pro",
       })),
     });
@@ -265,6 +306,7 @@ describe("getTribeEventCalendarFeed", () => {
       ownerUserId: owner.userId,
       series: [
         {
+          calendarSequence: 4,
           event: { ...weekly, recurrenceRule: "FREQ=WEEKLY" },
           lastModifiedAt: "2026-05-01T10:00:00.000Z",
           occurrenceExceptions: [
@@ -284,6 +326,7 @@ describe("getTribeEventCalendarFeed", () => {
   it("stops adding series once the VEVENT budget is spent", async () => {
     const budget = TRIBE_EVENT_CALENDAR_FEED_WINDOW.maxComponents;
     const series = Array.from({ length: budget + 1 }, (_, index) => ({
+      calendarSequence: 0,
       event: createSeries({
         id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
         recurrenceFrequency: "none",
@@ -333,8 +376,8 @@ describe("getTribeEventCalendarFeed", () => {
       readAsOwner: vi.fn(async () => ({
         exceptions: movedExceptions,
         series: [
-          { event: oversized, updatedAt: "2026-05-01T10:00:00.000Z" },
-          { event: oneOff, updatedAt: "2026-05-02T10:00:00.000Z" },
+          { calendarSequence: 0, event: oversized, updatedAt: "2026-05-01T10:00:00.000Z" },
+          { calendarSequence: 2, event: oneOff, updatedAt: "2026-05-02T10:00:00.000Z" },
         ],
         tribeName: "Matemática Pro",
       })),
