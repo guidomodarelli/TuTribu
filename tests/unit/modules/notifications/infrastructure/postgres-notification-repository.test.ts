@@ -162,7 +162,7 @@ describe("PostgresNotificationRepository", () => {
 
     const purgeSql = getSqlText(execute.mock.calls[0]?.[0]);
 
-    expect(purgeSql).toContain("notifications.read_at is not null");
-    expect(purgeSql).toContain("for update skip locked");
+    expect(purgeSql).toContain("public.purge_read_notifications(");
+    expect(purgeSql).not.toContain("delete from public.notifications");
   });
 });

@@ -7,8 +7,9 @@ import type { NewNotification, NotificationEventOccurrenceType } from "@/src/mod
 
 /**
  * Persistence of the reminder job. It runs without an app user, through the
- * maintenance connection (table owner): it reads the series of every tribe
- * and enqueues reminders for the members who answered.
+ * maintenance connection (the table owner or a dedicated maintenance role):
+ * it reads the series of every tribe and enqueues reminders for the members
+ * who answered, skipping a date that was cancelled or moved after the read.
  */
 
 export type ListTribeEventReminderSeriesQuery = TribeEventDateRange & {

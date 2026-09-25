@@ -7,8 +7,10 @@
 -- notification (producers insert with ON CONFLICT DO NOTHING).
 --
 -- Producers:
---   * event reminders (24 h / 15 min): the maintenance cron inserts them as
---     the table owner (maintenance connection), see
+--   * event reminders (24 h / 15 min): the maintenance cron enqueues them
+--     through owner-only SECURITY DEFINER functions (section 8), so a
+--     dedicated maintenance role with only EXECUTE on them works as well as
+--     the owner, see
 --     src/modules/events/application/use-cases/send-tribe-event-reminders-use-case.ts;
 --   * waitlist promotion, proposal review, and occurrence cancel/move: AFTER
 --     triggers (SECURITY DEFINER, owner-only) on the source tables, so the
@@ -16,7 +18,8 @@
 --     causes it; a rollback of the change leaves no notification.
 --
 -- Recipients only ever read and mark as read their own rows. Inserts and the
--- retention purge belong to the table owner.
+-- retention purge belong to the table owner (triggers and the section 8
+-- maintenance functions, which run with the owner's rights).
 
 -- 1. Table.
 CREATE TABLE IF NOT EXISTS public.notifications (
@@ -156,6 +159,27 @@ CREATE POLICY "Table owner reads events"
 ON public.events
 FOR SELECT
 USING (
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.events'::regclass
+  )
+);
+
+-- The reminder enqueue (section 8) locks the event rows FOR SHARE, which
+-- under FORCE RLS also needs an UPDATE policy that lets the owner see them.
+DROP POLICY IF EXISTS "Table owner locks events" ON public.events;
+CREATE POLICY "Table owner locks events"
+ON public.events
+FOR UPDATE
+USING (
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.events'::regclass
+  )
+)
+WITH CHECK (
   current_user = (
     SELECT pg_get_userbyid(pg_class.relowner)
     FROM pg_class
@@ -426,3 +450,264 @@ CREATE TRIGGER enqueue_event_occurrence_change_notifications
 AFTER INSERT OR UPDATE ON public.event_occurrence_exceptions
 FOR EACH ROW
 EXECUTE FUNCTION public.enqueue_event_occurrence_change_notifications();
+
+-- 8. Maintenance entrypoints of the reminder cron and the retention purge.
+--
+-- The cron (GET /api/maintenance/event-reminders) composes with the
+-- maintenance connection (DATABASE_MAINTENANCE_URL -> DATABASE_MIGRATION_URL
+-- -> DATABASE_URL). That connection may be the table owner or a DEDICATED
+-- maintenance role holding only EXECUTE on these functions (the contract
+-- documented for the message-image sweep in docs/architecture/message-images.htm):
+-- such a role has no table grants and matches none of the owner policies, so
+-- direct statements on events, event_occurrence_exceptions, event_attendances,
+-- or notifications would fail with "permission denied". Every table access of
+-- the cron therefore runs inside these SECURITY DEFINER functions, with the
+-- owner's rights (the owner policies above cover a NOBYPASSRLS owner).
+--
+-- Like the image-sweep primitives they are owner-only: REVOKE EXECUTE FROM
+-- PUBLIC and no grant to the shared request role (`authenticated`), because
+-- that role never sets app.current_user_id and would satisfy the maintenance
+-- guard. A dedicated maintenance role receives EXECUTE out of band. As
+-- defense in depth each function does nothing inside an app user context.
+
+-- 8a. One keyset page (by id) of the series that can have a date in
+-- [range_start, range_end): the SQL mirror of buildSeriesInRangePredicate
+-- (src/modules/events/infrastructure/repositories/tribe-event-sql.ts).
+-- Schedule bounds (start to effective end, 60 minutes without ends_at) or a
+-- date moved into the range whose original start is still a slot of the
+-- series. It is a superset: the application expands each series with its
+-- exceptions and keeps only the due dates. Both must change together.
+CREATE OR REPLACE FUNCTION public.list_tribe_event_reminder_series(
+  range_start timestamptz,
+  range_end timestamptz,
+  after_event_id uuid,
+  batch_limit integer
+)
+RETURNS SETOF public.events
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT events.*
+  FROM public.events
+  WHERE nullif(current_setting('app.current_user_id', true), '') IS NULL
+    AND (after_event_id IS NULL OR events.id > after_event_id)
+    AND (
+      (
+        events.starts_at < range_end
+        AND (
+          (
+            events.recurrence_frequency = 'none'
+            AND events.starts_at
+              + coalesce(events.ends_at - events.starts_at, interval '60 minutes')
+              > range_start
+          )
+          OR (
+            events.recurrence_frequency <> 'none'
+            AND (
+              events.recurrence_until IS NULL
+              OR events.recurrence_until
+                + coalesce(events.ends_at - events.starts_at, interval '60 minutes')
+                > range_start
+            )
+          )
+        )
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.event_occurrence_exceptions AS moved_exceptions
+        WHERE moved_exceptions.event_id = events.id
+          AND moved_exceptions.kind = 'moved'
+          AND moved_exceptions.new_starts_at < range_end
+          AND coalesce(
+            moved_exceptions.new_ends_at,
+            moved_exceptions.new_starts_at
+              + coalesce(events.ends_at - events.starts_at, interval '60 minutes')
+          ) > range_start
+          AND public.is_tribe_event_series_occurrence(
+            moved_exceptions.original_starts_at,
+            events.starts_at,
+            events.recurrence_frequency,
+            events.recurrence_until
+          )
+      )
+    )
+  ORDER BY events.id ASC
+  LIMIT batch_limit;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.list_tribe_event_reminder_series(
+  timestamptz, timestamptz, uuid, integer
+)
+FROM PUBLIC;
+
+-- 8b. The exceptions of one page of series (one query per page, no N+1).
+CREATE OR REPLACE FUNCTION public.list_tribe_event_reminder_exceptions(
+  target_event_ids uuid[]
+)
+RETURNS SETOF public.event_occurrence_exceptions
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT event_occurrence_exceptions.*
+  FROM public.event_occurrence_exceptions
+  WHERE nullif(current_setting('app.current_user_id', true), '') IS NULL
+    AND event_occurrence_exceptions.event_id = ANY(target_event_ids);
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.list_tribe_event_reminder_exceptions(uuid[])
+FROM PUBLIC;
+
+-- 8c. Enqueues due reminders. reminder_candidates is a JSON array of
+-- {dedupe_key, event_id, occurrence_starts_at, payload, statuses, tribe_id,
+-- type}; each candidate fans out to the members whose answer for that date
+-- is in statuses and who can still read the tribe, with ON CONFLICT DO
+-- NOTHING on (recipient, dedupe_key), so reruns and parallel runs insert
+-- each reminder once.
+--
+-- The candidates were computed from a listing that already committed, so a
+-- manager may have cancelled or moved the date, or edited the schedule,
+-- since then. The date is revalidated here against the CURRENT state:
+--   * the event rows are locked FOR SHARE first, in their own statement.
+--     Every manager write (saving or clearing an exception, editing or
+--     deleting the series) locks the same row FOR UPDATE, so it waits for
+--     this transaction, and one that committed while the lock waited is
+--     visible to the INSERT below (fresh READ COMMITTED snapshot). Attendance
+--     answers take the row FOR SHARE, which does not conflict;
+--   * the event must still exist in the candidate's tribe, the original
+--     start must still be a slot of its schedule
+--     (is_tribe_event_series_occurrence), the date must not be cancelled,
+--     and its current effective start (the new start of a moved date,
+--     otherwise the original one) must equal payload.startsAt. A stale
+--     candidate enqueues nothing; the next run computes the date again with
+--     its current schedule, so a moved date is reminded with its new start
+--     under the same permanent dedupe key.
+CREATE OR REPLACE FUNCTION public.enqueue_tribe_event_reminders(
+  reminder_candidates jsonb
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  created_count integer;
+BEGIN
+  IF nullif(current_setting('app.current_user_id', true), '') IS NOT NULL
+    OR jsonb_typeof(reminder_candidates) IS DISTINCT FROM 'array' THEN
+    RETURN 0;
+  END IF;
+
+  PERFORM 1
+  FROM public.events
+  WHERE events.id IN (
+    SELECT (candidate ->> 'event_id')::uuid
+    FROM jsonb_array_elements(reminder_candidates) AS candidate
+  )
+  ORDER BY events.id
+  FOR SHARE OF events;
+
+  WITH candidates AS (
+    SELECT *
+    FROM jsonb_to_recordset(reminder_candidates) AS candidate(
+      dedupe_key text,
+      event_id uuid,
+      occurrence_starts_at timestamptz,
+      payload jsonb,
+      statuses jsonb,
+      tribe_id uuid,
+      type text
+    )
+  ),
+  inserted_notifications AS (
+    INSERT INTO public.notifications (
+      recipient_user_id,
+      tribe_id,
+      type,
+      payload,
+      dedupe_key
+    )
+    SELECT
+      event_attendances.user_id,
+      event_attendances.tribe_id,
+      candidates.type,
+      candidates.payload,
+      candidates.dedupe_key
+    FROM candidates
+    INNER JOIN public.events
+      ON events.id = candidates.event_id
+      AND events.tribe_id = candidates.tribe_id
+    LEFT JOIN public.event_occurrence_exceptions AS occurrence_exception
+      ON occurrence_exception.event_id = candidates.event_id
+      AND occurrence_exception.original_starts_at = candidates.occurrence_starts_at
+    INNER JOIN public.event_attendances
+      ON event_attendances.event_id = candidates.event_id
+      AND event_attendances.tribe_id = candidates.tribe_id
+      AND event_attendances.occurrence_starts_at = candidates.occurrence_starts_at
+    WHERE public.is_tribe_event_series_occurrence(
+        candidates.occurrence_starts_at,
+        events.starts_at,
+        events.recurrence_frequency,
+        events.recurrence_until
+      )
+      AND occurrence_exception.kind IS DISTINCT FROM 'cancelled'
+      AND CASE
+        WHEN occurrence_exception.kind = 'moved' THEN occurrence_exception.new_starts_at
+        ELSE candidates.occurrence_starts_at
+      END = (candidates.payload ->> 'startsAt')::timestamptz
+      AND event_attendances.status IN (
+        SELECT jsonb_array_elements_text(candidates.statuses)
+      )
+      AND public.can_receive_tribe_notifications(
+        event_attendances.tribe_id,
+        event_attendances.user_id
+      )
+    ON CONFLICT (recipient_user_id, dedupe_key) DO NOTHING
+    RETURNING notifications.id
+  )
+  SELECT count(*)::integer
+  INTO created_count
+  FROM inserted_notifications;
+
+  RETURN created_count;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.enqueue_tribe_event_reminders(jsonb) FROM PUBLIC;
+
+-- 8d. Retention purge: deletes one bounded batch of notifications read
+-- before read_before. SKIP LOCKED lets two overlapping runs split the work.
+CREATE OR REPLACE FUNCTION public.purge_read_notifications(
+  batch_limit integer,
+  read_before timestamptz
+)
+RETURNS integer
+LANGUAGE sql
+VOLATILE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  WITH expired_notifications AS (
+    SELECT notifications.id
+    FROM public.notifications
+    WHERE nullif(current_setting('app.current_user_id', true), '') IS NULL
+      AND notifications.read_at IS NOT NULL
+      AND notifications.read_at < read_before
+    ORDER BY notifications.read_at ASC
+    LIMIT batch_limit
+    FOR UPDATE SKIP LOCKED
+  ),
+  deleted_notifications AS (
+    DELETE FROM public.notifications
+    USING expired_notifications
+    WHERE notifications.id = expired_notifications.id
+    RETURNING notifications.id
+  )
+  SELECT count(*)::integer
+  FROM deleted_notifications;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.purge_read_notifications(integer, timestamptz) FROM PUBLIC;

@@ -315,8 +315,11 @@ export class PostgresNotificationRepository implements NotificationRepository {
   }
 
   /**
-   * Deletes one batch of old read notifications. `skip locked` lets two
-   * overlapping cron runs split the work instead of waiting on each other.
+   * Deletes one batch of old read notifications through the owner-only
+   * `purge_read_notifications` function, so the maintenance connection works
+   * with a dedicated role that only holds EXECUTE on it. `skip locked`
+   * inside lets two overlapping cron runs split the work instead of waiting
+   * on each other.
    */
   async purgeReadBatch({
     batchSize,
@@ -324,23 +327,10 @@ export class PostgresNotificationRepository implements NotificationRepository {
   }: PurgeReadNotificationsRepositoryCommand): Promise<number> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        with expired_notifications as (
-          select notifications.id
-          from public.notifications
-          where notifications.read_at is not null
-            and notifications.read_at < ${readBefore}::timestamptz
-          order by notifications.read_at asc
-          limit ${batchSize}
-          for update skip locked
-        ),
-        deleted_notifications as (
-          delete from public.notifications
-          using expired_notifications
-          where notifications.id = expired_notifications.id
-          returning notifications.id
-        )
-        select count(*)::integer as deleted_count
-        from deleted_notifications
+        select public.purge_read_notifications(
+          ${batchSize}::integer,
+          ${readBefore}::timestamptz
+        ) as deleted_count
       `);
 
       return mapCount((result.rows?.[0] as { deleted_count?: unknown } | undefined)?.deleted_count);
