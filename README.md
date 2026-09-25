@@ -56,7 +56,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | Script | Description |
 | --- | --- |
 | `pnpm run dev` | Start the Next.js dev server through portless at `https://dev-tutribu.app` (proxy restart, hosts entry, CA trust, `next dev` with hot reload). Accepts `--dry-run`. |
-| `pnpm run dev:next` | Bare `next dev` on a plain port. Reserved for the Playwright web server and CI; use `pnpm run dev` for manual work. |
+| `pnpm run dev:next` | Bare `next dev` on a plain port. Reserved for the Playwright web server of the e2e suite; use `pnpm run dev` for manual work. |
 | `pnpm run build` | Build the production bundle. |
 | `pnpm run build:cloudflare` | Build the Cloudflare Workers bundle with OpenNext. |
 | `pnpm run preview:cloudflare` | Build and preview the app locally in the Cloudflare Workers runtime. |
@@ -64,7 +64,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run upload:cloudflare` | Build and upload a new Cloudflare Workers version without deploying it. |
 | `pnpm run cf-typegen` | Generate Cloudflare binding types from `wrangler.jsonc`. |
 | `pnpm start` | Run the production build locally. |
-| `ppnpm run ci` | Run the GitHub Actions quality gate: lint, application/test type checks, Vitest, and Next.js build. |
+| `pnpm run ci` | Run the full quality gate (also run by the Husky `pre-push` hook): lint, application/test type checks, Vitest, and Next.js build. |
 | `pnpm run lint` | Run ESLint across the repo. |
 | `pnpm run typecheck` | Run `tsc --noEmit` over production code. |
 | `pnpm test` | Run Vitest unit and integration tests. |
@@ -168,7 +168,7 @@ pnpm run lint
 
 ## Deployment targets
 
-GitHub Actions runs `ppnpm run ci` on push and pull request as the deterministic quality gate, including `next build` with non-sensitive build-time placeholders for server-only configuration. Vercel remains the default Next.js deployment target and continues to use `ppnpm run build` with deployment environment variables available.
+A Husky `pre-commit` hook runs lint-staged on every commit (ESLint and related Vitest suites for staged scripts, both type checks when TypeScript changes, and, through `scripts/pre-commit-migration-guardrails.mjs`, the SQL guardrail suites against a snapshot of the staged index whenever migrations are added, modified or deleted, plus, through `scripts/pre-commit-typescript-deletions.mjs`, both type checks against that snapshot when a commit only deletes TypeScript files). A Husky `pre-push` hook runs the full `pnpm run ci` gate before every push, only for the clean checked-out `HEAD`: pushing any other branch or commit, or `HEAD` with uncommitted or untracked changes, fails, so check out that branch with a clean working tree first and push again; there is no GitHub Actions gate. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
 
 Cloudflare Workers is supported through `@opennextjs/cloudflare` and `wrangler.jsonc`. Use the Cloudflare-specific scripts instead of invoking `wrangler` directly for the Next.js app:
 
