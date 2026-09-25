@@ -4,6 +4,11 @@ import type { TribeEventOccurrenceReference } from "@/src/modules/events/applica
 import { parseMonth } from "@/src/modules/events/application/services/buenos-aires-month";
 import { parseTribeEventOccurrenceKey } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
+  TRIBE_EVENT_TYPE,
+  TRIBE_EVENT_TYPE_QUERY_SEPARATOR,
+} from "@/src/modules/events/constants/tribe-events";
+import type { TribeEventType } from "@/src/modules/events/domain/entities/tribe-event";
+import {
   TRIBE_EVENT_INPUT_ISSUE,
   type TribeEventInputIssue,
 } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-input-issue";
@@ -29,6 +34,57 @@ export const tribeSlugParamSchema = z
 export const tribeEventIdParamSchema = z.guid({
   error: TRIBE_EVENT_INPUT_ISSUE.invalidEventReference,
 });
+
+/**
+ * Proposal id from the `[proposalId]` route segment (Postgres uuid).
+ */
+export const tribeEventProposalIdParamSchema = z.guid({
+  error: TRIBE_EVENT_INPUT_ISSUE.invalidProposalReference,
+});
+
+/**
+ * One event type of the fixed catalog.
+ */
+export const tribeEventTypeSchema = z.enum(TRIBE_EVENT_TYPE, {
+  error: TRIBE_EVENT_INPUT_ISSUE.invalidEventType,
+});
+
+/**
+ * Optional event type of a form body: missing, null, or blank means the
+ * default type (`fallbackType`).
+ *
+ * @param fallbackType - Type used when the field is empty.
+ * @returns Schema whose output is a catalog type.
+ */
+export function createEventTypeFieldSchema(fallbackType: TribeEventType) {
+  return z
+    .string({ error: TRIBE_EVENT_INPUT_ISSUE.invalidEventType })
+    .trim()
+    .nullish()
+    .transform((eventType) => eventType || fallbackType)
+    .pipe(tribeEventTypeSchema);
+}
+
+/**
+ * Splits the raw `type` query value(s): the parameter may be repeated
+ * (`?type=live&type=qa`) or carry a comma-separated list (`?type=live,qa`).
+ *
+ * @param value - One value or the repeated values of the parameter.
+ * @returns Every trimmed, non-empty entry.
+ */
+export function splitEventTypeQueryValues(value: string | string[]): string[] {
+  return (Array.isArray(value) ? value : [value])
+    .flatMap((entry) => entry.split(TRIBE_EVENT_TYPE_QUERY_SEPARATOR))
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+/**
+ * Removes repeated types keeping the first appearance.
+ */
+export function dedupeEventTypes(eventTypes: readonly TribeEventType[]): TribeEventType[] {
+  return [...new Set(eventTypes)];
+}
 
 /**
  * Visible calendar month (`YYYY-MM`, month between 01 and 12).

@@ -1,6 +1,15 @@
 "use client";
 
-import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ListIcon } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  CalendarDaysIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  InboxIcon,
+  LightbulbIcon,
+  ListIcon,
+  RssIcon,
+} from "lucide-react";
 import { Button } from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
@@ -20,15 +29,26 @@ export type TribeEventsViewMode =
 
 type TribeEventsCalendarHeaderProps = {
   canManageEvents: boolean;
+  /** Active members who do not manage events can propose one. */
+  canProposeEvents?: boolean;
   /** Visible `YYYY-MM` month. */
   month: string;
   nextMonthHref: string;
   onChooseViewMode: (viewMode: TribeEventsViewMode) => void;
   onCreateEvent: () => void;
+  /** Opens the proposals panel (manager queue or the member's own list). */
+  onOpenProposals?: () => void;
+  onProposeEvent?: () => void;
+  /** Opens the personal calendar subscription (webcal feed) dialog. */
+  onSubscribeCalendar?: () => void;
+  /** Pending proposals waiting for review (managers). */
+  pendingProposalCount?: number;
   previousMonthHref: string;
   /** "HH:MM Buenos Aires" label, or null before hydration. */
   timeLabel: string | null;
   todayHref: string;
+  /** Type filter chips, rendered as the last row of the toolbar. */
+  typeFilter?: ReactNode;
   viewMode: TribeEventsViewMode;
 };
 
@@ -36,10 +56,15 @@ const BUTTON_ATTRIBUTE = {
   sizeIcon: "icon",
   typeButton: "button",
   variantGhost: "ghost",
+  variantOutline: "outline",
   variantSecondary: "secondary",
 } as const;
 const COPY = {
   createButton: "Crear evento",
+  myProposalsButton: "Mis propuestas",
+  pendingProposalsButton: (count: number) => `Propuestas (${count})`,
+  proposeButton: "Proponer un encuentro",
+  subscribeCalendarButton: "Suscribirme al calendario",
   nextMonth: "Mes siguiente",
   previousMonth: "Mes anterior",
   today: "Hoy",
@@ -50,17 +75,25 @@ const COPY = {
 
 /**
  * Month navigation, "Hoy" shortcut with the Buenos Aires clock, view toggle,
- * and the create action for managers.
+ * the type filter, the create action and "Propuestas (N)" for managers, and
+ * "Proponer un encuentro" for members, and "Suscribirme al calendario" for
+ * every viewer.
  */
 export function TribeEventsCalendarHeader({
   canManageEvents,
+  canProposeEvents = false,
   month,
   nextMonthHref,
   onChooseViewMode,
   onCreateEvent,
+  onOpenProposals,
+  onProposeEvent,
+  onSubscribeCalendar,
+  pendingProposalCount = 0,
   previousMonthHref,
   timeLabel,
   todayHref,
+  typeFilter = null,
   viewMode,
 }: TribeEventsCalendarHeaderProps) {
   return (
@@ -129,13 +162,55 @@ export function TribeEventsCalendarHeader({
               </span>
             </Button>
           </div>
+          {canManageEvents && pendingProposalCount > 0 && onOpenProposals ? (
+            <Button
+              type={BUTTON_ATTRIBUTE.typeButton}
+              variant={BUTTON_ATTRIBUTE.variantOutline}
+              onClick={onOpenProposals}
+            >
+              <InboxIcon aria-hidden />
+              {COPY.pendingProposalsButton(pendingProposalCount)}
+            </Button>
+          ) : null}
           {canManageEvents ? (
             <Button type={BUTTON_ATTRIBUTE.typeButton} onClick={onCreateEvent}>
               {COPY.createButton}
             </Button>
           ) : null}
+          {canProposeEvents && onOpenProposals ? (
+            <Button
+              type={BUTTON_ATTRIBUTE.typeButton}
+              variant={BUTTON_ATTRIBUTE.variantGhost}
+              onClick={onOpenProposals}
+            >
+              {COPY.myProposalsButton}
+            </Button>
+          ) : null}
+          {onSubscribeCalendar ? (
+            <Button
+              type={BUTTON_ATTRIBUTE.typeButton}
+              variant={BUTTON_ATTRIBUTE.variantGhost}
+              onClick={onSubscribeCalendar}
+            >
+              <RssIcon aria-hidden />
+              {COPY.subscribeCalendarButton}
+            </Button>
+          ) : null}
+          {canProposeEvents && onProposeEvent ? (
+            <Button
+              type={BUTTON_ATTRIBUTE.typeButton}
+              variant={BUTTON_ATTRIBUTE.variantOutline}
+              onClick={onProposeEvent}
+            >
+              <LightbulbIcon aria-hidden />
+              {COPY.proposeButton}
+            </Button>
+          ) : null}
         </div>
       </div>
+      {typeFilter ? (
+        <div className={styles.TribeEventsCalendarHeader__filters}>{typeFilter}</div>
+      ) : null}
     </header>
   );
 }

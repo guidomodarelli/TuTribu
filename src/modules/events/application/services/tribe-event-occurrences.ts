@@ -5,16 +5,15 @@ import type {
 import type {
   TribeEvent,
   TribeEventDateRange,
+  TribeEventOccurrenceException,
   TribeEventRangeMatch,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   TribeEventAttendanceSummary,
   TribeEventOccurrenceAttendance,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
-import {
-  buildTribeEventRecurrenceRule,
-  expandTribeEventOccurrences,
-} from "@/src/modules/events/domain/services/tribe-event-recurrence";
+import { expandTribeEventOccurrencesWithExceptions } from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
+import { buildTribeEventRecurrenceRule } from "@/src/modules/events/domain/services/tribe-event-recurrence";
 
 const OCCURRENCE_KEY_SEPARATOR = "@";
 /**
@@ -94,19 +93,44 @@ function sortByStart(
 }
 
 /**
- * Expands every event into its occurrences inside the range, attaching the
- * attendance summary that belongs to each slot, sorted by start time.
+ * Groups exceptions by their event id so each series only scans its own.
  *
- * @param events - Series returned for the range.
- * @param attendances - Attendance summaries per occurrence.
- * @param range - Queried range.
+ * @param exceptions - Exceptions of any series.
+ * @returns Map from event id to its exceptions.
+ */
+export function groupTribeEventExceptionsByEvent(
+  exceptions: readonly TribeEventOccurrenceException[]
+): Map<string, TribeEventOccurrenceException[]> {
+  const exceptionsByEvent = new Map<string, TribeEventOccurrenceException[]>();
+
+  for (const exception of exceptions) {
+    const eventExceptions = exceptionsByEvent.get(exception.eventId) ?? [];
+
+    eventExceptions.push(exception);
+    exceptionsByEvent.set(exception.eventId, eventExceptions);
+  }
+
+  return exceptionsByEvent;
+}
+
+/**
+ * Expands every event into its occurrences inside the range, applying its
+ * cancelled and moved dates and attaching the attendance summary of each slot
+ * (keyed by the original start, so a moved date keeps its answers), sorted
+ * by effective start time.
+ *
+ * @param events - Series to expand.
+ * @param attendances - Attendance summaries of the slots in the range.
+ * @param exceptions - Exceptions of those series.
+ * @param range - Visible range, in UTC.
  * @param rangeMatch - How occurrences are matched against the range; see
- *   `expandTribeEventOccurrences`. Defaults to matching by start.
- * @returns Occurrence results sorted by start and title.
+ *   `expandTribeEventOccurrencesWithExceptions`. Defaults to matching by start.
+ * @returns Occurrence results ready for the UI.
  */
 export function buildTribeEventOccurrences(
   events: TribeEvent[],
   attendances: TribeEventOccurrenceAttendance[],
+  exceptions: readonly TribeEventOccurrenceException[],
   range: TribeEventDateRange,
   rangeMatch?: TribeEventRangeMatch
 ): TribeEventOccurrenceResult[] {
@@ -126,15 +150,21 @@ export function buildTribeEventOccurrences(
       },
     ])
   );
+  const exceptionsByEvent = groupTribeEventExceptionsByEvent(exceptions);
 
   return events
     .flatMap((event) => {
       const eventResult = toTribeEventResult(event);
 
-      return expandTribeEventOccurrences(event, range, rangeMatch).map((occurrence) => {
+      return expandTribeEventOccurrencesWithExceptions(
+        event,
+        exceptionsByEvent.get(event.id) ?? [],
+        range,
+        rangeMatch
+      ).map((occurrence) => {
         const occurrenceKey = buildTribeEventOccurrenceKey(
           event.id,
-          occurrence.startsAt
+          occurrence.originalStartsAt
         );
 
         return {
@@ -143,8 +173,11 @@ export function buildTribeEventOccurrences(
           description: eventResult.description,
           endsAt: occurrence.endsAt,
           eventId: eventResult.id,
+          eventType: eventResult.eventType,
+          exception: occurrence.exception,
           meetingUrl: eventResult.meetingUrl,
           occurrenceKey,
+          originalStartsAt: occurrence.originalStartsAt,
           recurrenceFrequency: eventResult.recurrenceFrequency,
           recurrenceRule: eventResult.recurrenceRule,
           recurrenceUntil: eventResult.recurrenceUntil,

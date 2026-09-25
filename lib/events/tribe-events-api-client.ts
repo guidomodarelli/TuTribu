@@ -1,9 +1,11 @@
 import type { z } from "zod";
 
+import type { TribeEventOccurrenceExceptionSubmission } from "@/lib/events/tribe-event-form-submissions";
 import {
   buildTribeEventApiEndpoint,
   buildTribeEventAttendanceApiEndpoint,
   buildTribeEventAttendanceStreakApiEndpoint,
+  buildTribeEventExceptionsApiEndpoint,
   buildTribeEventsApiEndpoint,
 } from "@/lib/events/tribe-events-routes";
 import {
@@ -12,6 +14,7 @@ import {
   tribeEventAttendanceStreakNextRefreshAtSchema,
   tribeEventAttendanceStreakResponseSchema,
   tribeEventDeleteResponseSchema,
+  tribeEventExceptionResponseSchema,
   tribeEventFailureResponseSchema,
   tribeEventListResponseSchema,
   tribeEventSaveResponseSchema,
@@ -22,7 +25,11 @@ import type {
   TribeEventAttendanceStreakResult,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
-import { TRIBE_EVENT_ATTENDANCE_FAILURE_CODE } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_ATTENDANCE_FAILURE_CODE,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+} from "@/src/modules/events/constants/tribe-events";
+import type { TribeEventOccurrenceExceptionRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-exception-request-schemas";
 import type { TribeEventMutationRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
 
 /**
@@ -38,6 +45,32 @@ import type { TribeEventMutationRequestBody } from "@/src/modules/events/infrast
  * by the route). Optional fields may travel as empty strings.
  */
 export type TribeEventSavePayload = TribeEventMutationRequestBody;
+
+/**
+ * Translates the change chosen in the date exception dialog into the body of
+ * `PUT .../exceptions`, adding the original start of the selected date. A
+ * cancelled date carries no new schedule.
+ *
+ * @param submission - Values emitted by the date exception dialog.
+ * @param originalStartsAt - Original start of the date being changed.
+ * @returns The request body the exceptions route validates.
+ */
+export function toTribeEventOccurrenceExceptionRequestBody(
+  submission: TribeEventOccurrenceExceptionSubmission,
+  originalStartsAt: string
+): TribeEventOccurrenceExceptionRequestBody {
+  if (submission.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled) {
+    return { kind: submission.kind, originalStartsAt, reason: submission.reason };
+  }
+
+  return {
+    kind: submission.kind,
+    newEndsAt: submission.newEndsAt,
+    newStartsAt: submission.newStartsAt,
+    originalStartsAt,
+    reason: submission.reason,
+  };
+}
 
 /**
  * Outcome of a request. `message` is the safe Spanish copy returned by the
@@ -134,9 +167,14 @@ const HTTP_REQUEST = {
   methodPost: "POST",
   methodPut: "PUT",
 } as const;
-const JSON_HEADERS = {
+/**
+ * Method and JSON headers shared by the browser adapters of the events API.
+ */
+export const TRIBE_EVENT_HTTP_REQUEST = HTTP_REQUEST;
+export const TRIBE_EVENT_JSON_HEADERS = {
   [HTTP_REQUEST.contentTypeHeader]: HTTP_REQUEST.jsonContentType,
 } as const;
+const JSON_HEADERS = TRIBE_EVENT_JSON_HEADERS;
 /** Lowest HTTP status of a server error, whose mutation may have committed. */
 const HTTP_SERVER_ERROR_MIN_STATUS = 500;
 
@@ -153,7 +191,7 @@ const tribeEventAttendanceStreakReadSchema = tribeEventAttendanceStreakResponseS
  */
 const tribeEventOccurrencesReadSchema = tribeEventListResponseSchema.pick({ events: true });
 
-type TribeEventResponseRead<TDto> =
+export type TribeEventResponseRead<TDto> =
   | { dto: TDto; isUsable: true }
   | {
       code: string | null;
@@ -189,7 +227,7 @@ function readMutationStreakFragment(dto: {
  * `isBodyReadable` tells whether the body was a JSON object at all, which
  * mutations use to tell a clean rejection from an ambiguous outcome.
  */
-async function readTribeEventResponse<TDto>(
+export async function readTribeEventResponse<TDto>(
   response: Response,
   schema: z.ZodType<TDto>
 ): Promise<TribeEventResponseRead<TDto>> {
@@ -220,7 +258,7 @@ async function readTribeEventResponse<TDto>(
  * an unreadable body, or a success status with an unusable body may hide a
  * committed mutation, so the outcome is ambiguous.
  */
-function buildMutationFailure(
+export function buildTribeEventMutationFailure(
   response: Response,
   read: { isBodyReadable: boolean; message: string | null }
 ): TribeEventMutationFailure {
@@ -260,7 +298,7 @@ export async function saveTribeEventRequest(input: {
   const result = await readTribeEventResponse(response, tribeEventSaveResponseSchema);
 
   if (!result.isUsable) {
-    return buildMutationFailure(response, result);
+    return buildTribeEventMutationFailure(response, result);
   }
 
   return {
@@ -294,7 +332,7 @@ export async function deleteTribeEventRequest(input: {
         isSuccess: true,
         message: result.dto.message,
       }
-    : buildMutationFailure(response, result);
+    : buildTribeEventMutationFailure(response, result);
 }
 
 /**
@@ -375,7 +413,8 @@ export async function fetchTribeEventOccurrencesRequest(input: {
 }
 
 /**
- * Records (`status`) or clears (`null`) the viewer answer for one occurrence.
+ * Records (`status`) or clears (`null`) the viewer answer for one occurrence,
+ * identified by its original start (the stable key of a moved date).
  *
  * @param input - Tribe, occurrence, and the answer to store.
  * @returns The fresh attendance summary, or the failure message, whether the
@@ -383,26 +422,30 @@ export async function fetchTribeEventOccurrencesRequest(input: {
  * occurrence already ended.
  */
 export async function saveTribeEventAttendanceRequest(input: {
-  occurrence: Pick<TribeEventOccurrenceResult, "eventId" | "startsAt">;
+  occurrence: Pick<TribeEventOccurrenceResult, "eventId" | "originalStartsAt">;
   status: TribeEventAttendanceOption | null;
   tribeSlug: string;
 }): Promise<TribeEventAttendanceRequestResult> {
   const { occurrence, status, tribeSlug } = input;
   const response = status
     ? await fetch(buildTribeEventAttendanceApiEndpoint(tribeSlug, occurrence.eventId), {
-        body: JSON.stringify({ occurrenceStartsAt: occurrence.startsAt, status }),
+        body: JSON.stringify({ occurrenceStartsAt: occurrence.originalStartsAt, status }),
         headers: JSON_HEADERS,
         method: HTTP_REQUEST.methodPut,
       })
     : await fetch(
-        buildTribeEventAttendanceApiEndpoint(tribeSlug, occurrence.eventId, occurrence.startsAt),
+        buildTribeEventAttendanceApiEndpoint(
+          tribeSlug,
+          occurrence.eventId,
+          occurrence.originalStartsAt
+        ),
         { method: HTTP_REQUEST.methodDelete }
       );
   const result = await readTribeEventResponse(response, tribeEventAttendanceResponseSchema);
 
   if (!result.isUsable) {
     return {
-      ...buildMutationFailure(response, result),
+      ...buildTribeEventMutationFailure(response, result),
       isOccurrenceEnded: result.code === TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
     };
   }
@@ -441,4 +484,68 @@ export async function fetchTribeEventAttendanceReportRequest(input: {
   }
 
   return { isSuccess: true, message: null, report: result.dto.report };
+}
+
+/**
+ * Sends one date exception request and classifies its outcome like the other
+ * mutations: the fresh series slots of the visible month, a clean rejection,
+ * or an ambiguous outcome that may have committed.
+ */
+async function sendTribeEventExceptionRequest(
+  endpoint: string,
+  init: RequestInit
+): Promise<TribeEventMutationResult<{ occurrences: TribeEventOccurrenceResult[] }>> {
+  const response = await fetch(endpoint, init);
+  const result = await readTribeEventResponse(response, tribeEventExceptionResponseSchema);
+
+  return result.isUsable
+    ? { isSuccess: true, message: result.dto.message, occurrences: result.dto.occurrences }
+    : buildTribeEventMutationFailure(response, result);
+}
+
+/**
+ * Cancels or moves one date of a series (`PUT .../exceptions`) and returns
+ * the series slots of the visible month.
+ *
+ * @param input - Tribe, event, visible month, and the requested change.
+ * @returns The fresh occurrences of the series, or the failure message and
+ * whether the outcome is ambiguous.
+ */
+export async function saveTribeEventOccurrenceExceptionRequest(input: {
+  body: TribeEventOccurrenceExceptionRequestBody;
+  eventId: string;
+  month: string;
+  tribeSlug: string;
+}): Promise<TribeEventMutationResult<{ occurrences: TribeEventOccurrenceResult[] }>> {
+  return sendTribeEventExceptionRequest(
+    buildTribeEventExceptionsApiEndpoint(input.tribeSlug, input.eventId, { month: input.month }),
+    {
+      body: JSON.stringify(input.body),
+      headers: JSON_HEADERS,
+      method: HTTP_REQUEST.methodPut,
+    }
+  );
+}
+
+/**
+ * Restores one date of a series (`DELETE .../exceptions?occurrence=`) and
+ * returns the series slots of the visible month.
+ *
+ * @param input - Tribe, event, original start of the date, and visible month.
+ * @returns The fresh occurrences of the series, or the failure message and
+ * whether the outcome is ambiguous.
+ */
+export async function clearTribeEventOccurrenceExceptionRequest(input: {
+  eventId: string;
+  month: string;
+  originalStartsAt: string;
+  tribeSlug: string;
+}): Promise<TribeEventMutationResult<{ occurrences: TribeEventOccurrenceResult[] }>> {
+  return sendTribeEventExceptionRequest(
+    buildTribeEventExceptionsApiEndpoint(input.tribeSlug, input.eventId, {
+      month: input.month,
+      originalStartsAt: input.originalStartsAt,
+    }),
+    { method: HTTP_REQUEST.methodDelete }
+  );
 }

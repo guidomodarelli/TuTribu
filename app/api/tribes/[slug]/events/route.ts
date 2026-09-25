@@ -5,6 +5,7 @@ import {
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import { readAttendanceStreakResponseFragment } from "@/src/modules/events/infrastructure/api/tribe-event-attendance-streak-response";
 import {
+  tribeEventListQuerySchema,
   tribeEventMonthQuerySchema,
   tribeEventMutationBodySchema,
   tribeEventsRouteParamsSchema,
@@ -57,7 +58,7 @@ export async function GET(request: Request, context: TribeRouteContext) {
     request,
     schemas: {
       params: tribeEventsRouteParamsSchema,
-      query: tribeEventMonthQuerySchema,
+      query: tribeEventListQuerySchema,
     },
   });
 
@@ -70,6 +71,7 @@ export async function GET(request: Request, context: TribeRouteContext) {
 
   try {
     const result = await modules.events.useCases.listTribeEvents({
+      eventTypes: input.query.type ?? [],
       month: input.query.month ?? null,
       occurrence: null,
       tribeSlug: slug,

@@ -5,9 +5,12 @@
   align-items: start;
   padding: 0.65rem 0;
   border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  border-left: 3px solid var(--event-type-accent, var(--border));
+  padding-left: 0.65rem;
   min-width: 0;
 
-  &--past {
+  &--past,
+  &--cancelled {
     color: var(--muted-foreground);
   }
 
@@ -37,6 +40,12 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.35rem 0.6rem;
+  }
+
+  &__note {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
   }
 
   &__metaText {
@@ -93,6 +102,12 @@
     text-decoration: underline;
     text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
     text-underline-offset: 0.2em;
+  }
+
+  &__time--cancelled,
+  &__titleButton--cancelled {
+    text-decoration-line: line-through;
+    text-decoration-color: currentColor;
   }
 }
 

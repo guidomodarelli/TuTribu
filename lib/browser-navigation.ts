@@ -29,3 +29,26 @@ export function replaceCurrentUrlSearchParams(
 
   window.history.replaceState(null, "", url.pathname + url.search + url.hash);
 }
+
+/**
+ * Replaces every value of one repeatable query parameter of the current URL
+ * (an empty list removes it) through `history.replaceState`, like
+ * {@link replaceCurrentUrlSearchParams}.
+ *
+ * @param name - Query parameter name.
+ * @param values - New values, in order.
+ */
+export function replaceCurrentUrlSearchParamValues(
+  name: string,
+  values: readonly string[]
+): void {
+  const url = new URL(window.location.href);
+
+  url.searchParams.delete(name);
+
+  for (const value of values) {
+    url.searchParams.append(name, value);
+  }
+
+  window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+}

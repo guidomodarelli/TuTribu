@@ -6,6 +6,7 @@ import type {
 import { buildTribeEventOccurrences } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import { createUpcomingTribeEventRange } from "@/src/modules/events/application/services/tribe-event-time-ranges";
 import {
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_RANGE_MATCH,
   TRIBE_EVENT_UPCOMING,
 } from "@/src/modules/events/constants/tribe-events";
@@ -36,15 +37,21 @@ async function listRunningAndUpcomingOccurrences(
   return buildTribeEventOccurrences(
     listing.events,
     listing.attendances,
+    listing.exceptions,
     range,
     TRIBE_EVENT_RANGE_MATCH.overlaps
+  ).filter(
+    (occurrence) =>
+      occurrence.exception?.kind !== TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled
   );
 }
 
 /**
  * Next few occurrences of the tribe, across every series, for the tribe home.
  * Finished occurrences drop out; running ones stay listed (see
- * {@link listRunningAndUpcomingOccurrences}).
+ * {@link listRunningAndUpcomingOccurrences}). Cancelled dates are left out
+ * (the calendar still shows them struck through); moved dates appear at
+ * their new time.
  */
 export function listUpcomingTribeEvents({
   tribeEventRepository,

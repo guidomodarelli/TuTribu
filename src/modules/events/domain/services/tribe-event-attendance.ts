@@ -1,10 +1,16 @@
-import { TRIBE_EVENT_ATTENDANCE_STATUS } from "@/src/modules/events/constants/tribe-events";
-import type { TribeEventSchedule } from "@/src/modules/events/domain/entities/tribe-event";
+import {
+  TRIBE_EVENT_ATTENDANCE_STATUS,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+} from "@/src/modules/events/constants/tribe-events";
+import type {
+  TribeEventOccurrenceException,
+  TribeEventSchedule,
+} from "@/src/modules/events/domain/entities/tribe-event";
+import { resolveTribeEventOccurrenceByOriginalStart } from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
 import {
   getTribeEventOccurrenceEndTime,
   type TribeEventOccurrenceTimes,
 } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
-import { findTribeEventOccurrence } from "@/src/modules/events/domain/services/tribe-event-recurrence";
 
 /**
  * Attendance rules shared by the use cases and the UI: free seats of an
@@ -119,17 +125,35 @@ export function getWaitlistRefillLookbackDurationMs(schedule: TribeEventSchedule
  * clock (`clock_timestamp()`), so a skewed application host cannot prune an
  * occurrence that is still in progress.
  *
+ * Exceptions follow the stable key `eventId@originalStartsAt`: attendance
+ * rows keep the original start, so a moved date is refilled under its
+ * original start but "ended" is decided with its effective (moved) times; a
+ * cancelled date takes no answers, so it is never refilled.
+ *
  * @param schedule - Updated schedule of the series.
- * @param candidateStarts - Starts that currently have a waitlist, any order.
- * @returns Canonical ISO starts that may be refilled, in the input order.
+ * @param candidateStarts - Original starts that currently have a waitlist, any order.
+ * @param exceptions - Exceptions of the series (moved or cancelled dates).
+ * @returns Canonical ISO original starts that may be refilled, in input order.
  */
 export function selectRefillableWaitlistOccurrenceStarts(
   schedule: TribeEventSchedule,
-  candidateStarts: string[]
+  candidateStarts: string[],
+  exceptions: readonly TribeEventOccurrenceException[] = []
 ): string[] {
   return candidateStarts.flatMap((candidateStart) => {
-    const occurrence = findTribeEventOccurrence(schedule, candidateStart);
+    const occurrence = resolveTribeEventOccurrenceByOriginalStart(
+      schedule,
+      exceptions,
+      candidateStart
+    );
 
-    return occurrence ? [occurrence.startsAt] : [];
+    if (
+      !occurrence ||
+      occurrence.exception?.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled
+    ) {
+      return [];
+    }
+
+    return [occurrence.originalStartsAt];
   });
 }

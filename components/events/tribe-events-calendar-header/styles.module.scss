@@ -96,6 +96,11 @@
     padding: 0.2rem;
   }
 
+  &__filters {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
   &__srOnly {
     position: absolute;
     width: 1px;

@@ -7,12 +7,14 @@ import {
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
 import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventRepository } from "@/src/modules/events/domain/repositories/tribe-event-repository";
+import { createTribeEventExceptionRepositoryDouble } from "../support/tribe-event-repository-doubles";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 
 const weeklyEvent: TribeEvent = {
   capacity: null,
   description: null,
+  eventType: "live",
   endsAt: "2026-05-06T19:00:00.000Z",
   id: EVENT_ID,
   meetingUrl: null,
@@ -56,6 +58,7 @@ function createRepository(overrides: Partial<TribeEventRepository> = {}) {
     findById: vi.fn(async () => weeklyEvent),
     getOccurrenceAttendanceReport: vi.fn(),
     listByTribeRange: vi.fn(),
+    listEventOccurrences: vi.fn(async () => ({ attendances: [], event: null, exceptions: [] })),
     readViewerAttendanceStreakSnapshot: vi.fn(),
     setAttendance: vi.fn(async () => ({
       attendance: savedAttendance,
@@ -73,7 +76,10 @@ describe("tribe event attendance use cases", () => {
 
   it("records the viewer answer for a real occurrence of the series", async () => {
     const repository = createRepository();
-    const execute = setTribeEventAttendance({ tribeEventRepository: repository });
+    const execute = setTribeEventAttendance({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: repository,
+    });
 
     await expect(
       execute({
@@ -97,7 +103,10 @@ describe("tribe event attendance use cases", () => {
 
   it("accepts maybe as an answer", async () => {
     const repository = createRepository();
-    const execute = setTribeEventAttendance({ tribeEventRepository: repository });
+    const execute = setTribeEventAttendance({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: repository,
+    });
 
     await execute({
       eventId: EVENT_ID,
@@ -113,7 +122,10 @@ describe("tribe event attendance use cases", () => {
 
   it("rejects instants that are not a slot of the series", async () => {
     const repository = createRepository();
-    const execute = setTribeEventAttendance({ tribeEventRepository: repository });
+    const execute = setTribeEventAttendance({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: repository,
+    });
 
     await expect(
       execute({
@@ -128,7 +140,10 @@ describe("tribe event attendance use cases", () => {
 
   it("reports not found for events that do not exist in the tribe", async () => {
     const repository = createRepository({ findById: vi.fn(async () => null) });
-    const execute = setTribeEventAttendance({ tribeEventRepository: repository });
+    const execute = setTribeEventAttendance({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: repository,
+    });
 
     await expect(
       execute({
@@ -148,7 +163,10 @@ describe("tribe event attendance use cases", () => {
         status: TRIBE_EVENT_MUTATION_STATUS.attendanceCleared,
       })),
     });
-    const execute = clearTribeEventAttendance({ tribeEventRepository: repository });
+    const execute = clearTribeEventAttendance({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: repository,
+    });
 
     await expect(
       execute({
@@ -181,13 +199,19 @@ describe("tribe event attendance use cases", () => {
     };
 
     await expect(
-      setTribeEventAttendance({ tribeEventRepository: repository })({
+      setTribeEventAttendance({
+          tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+          tribeEventRepository: repository,
+        })({
         ...occurrenceKey,
         status: "going",
       })
     ).resolves.toEqual(scheduleChanged);
     await expect(
-      clearTribeEventAttendance({ tribeEventRepository: repository })(
+      clearTribeEventAttendance({
+          tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+          tribeEventRepository: repository,
+        })(
         occurrenceKey
       )
     ).resolves.toEqual(scheduleChanged);
@@ -212,7 +236,10 @@ describe("tribe event attendance use cases", () => {
       });
 
       await expect(
-        setTribeEventAttendance({ tribeEventRepository: repository })({
+        setTribeEventAttendance({
+          tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+          tribeEventRepository: repository,
+        })({
           ...occurrenceKey,
           status: "going",
         })
@@ -221,7 +248,10 @@ describe("tribe event attendance use cases", () => {
         status: TRIBE_EVENT_MUTATION_STATUS.attendanceSaved,
       });
       await expect(
-        clearTribeEventAttendance({ tribeEventRepository: repository })(occurrenceKey)
+        clearTribeEventAttendance({
+          tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+          tribeEventRepository: repository,
+        })(occurrenceKey)
       ).resolves.toEqual({
         attendance: clearedAttendance,
         status: TRIBE_EVENT_MUTATION_STATUS.attendanceCleared,
@@ -246,13 +276,19 @@ describe("tribe event attendance use cases", () => {
       });
 
       await expect(
-        setTribeEventAttendance({ tribeEventRepository: repository })({
+        setTribeEventAttendance({
+          tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+          tribeEventRepository: repository,
+        })({
           ...occurrenceKey,
           status: "maybe",
         })
       ).resolves.toEqual(occurrenceEnded);
       await expect(
-        clearTribeEventAttendance({ tribeEventRepository: repository })(occurrenceKey)
+        clearTribeEventAttendance({
+          tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+          tribeEventRepository: repository,
+        })(occurrenceKey)
       ).resolves.toEqual(occurrenceEnded);
     });
   });
@@ -276,7 +312,10 @@ describe("tribe event attendance use cases", () => {
         ],
       }));
       const repository = createRepository({ getOccurrenceAttendanceReport });
-      const execute = getTribeEventAttendanceReport({ tribeEventRepository: repository });
+      const execute = getTribeEventAttendanceReport({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: repository,
+    });
       // The series started on 2026-05-06, so only four slots have finished.
       const expectedTrendStarts = [
         "2026-05-06T18:00:00.000Z",
@@ -318,11 +357,85 @@ describe("tribe event attendance use cases", () => {
           },
           eventTitle: "Clase abierta",
           occurrenceStartsAt: "2026-06-03T18:00:00.000Z",
+          originalOccurrenceStartsAt: "2026-06-03T18:00:00.000Z",
           trend: expectedTrendStarts.map((occurrenceStartsAt) => ({
             goingCount: trendGoingCounts[occurrenceStartsAt] ?? 0,
             occurrenceStartsAt,
+            originalOccurrenceStartsAt: occurrenceStartsAt,
           })),
         },
+        status: TRIBE_EVENT_MUTATION_STATUS.found,
+      });
+    });
+
+    it("reports a moved occurrence at its effective date while querying counts by its original start", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-06-01T12:00:00.000Z"));
+      const movedException = {
+        eventId: EVENT_ID,
+        kind: "moved" as const,
+        newEndsAt: null,
+        newStartsAt: "2026-05-21T20:00:00.000Z",
+        originalStartsAt: "2026-05-20T18:00:00.000Z",
+        reason: null,
+      };
+      const getOccurrenceAttendanceReport = vi.fn(async () => ({
+        attendees: [],
+        status: TRIBE_EVENT_MUTATION_STATUS.found,
+        trend: [{ goingCount: 5, occurrenceStartsAt: "2026-05-20T18:00:00.000Z" }],
+      }));
+      const execute = getTribeEventAttendanceReport({
+        tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble({
+          find: vi.fn(async () => movedException),
+          listByEvent: vi.fn(async () => [movedException]),
+        }),
+        tribeEventRepository: createRepository({ getOccurrenceAttendanceReport }),
+      });
+
+      const result = await execute({
+        eventId: EVENT_ID,
+        occurrenceStartsAt: "2026-05-20T18:00:00.000Z",
+        tribeSlug: "matematica-pro",
+      });
+
+      expect(getOccurrenceAttendanceReport).toHaveBeenCalledWith({
+        eventId: EVENT_ID,
+        occurrenceStartsAt: "2026-05-20T18:00:00.000Z",
+        trendOccurrenceStartsAts: [
+          "2026-05-06T18:00:00.000Z",
+          "2026-05-13T18:00:00.000Z",
+          "2026-05-20T18:00:00.000Z",
+          "2026-05-27T18:00:00.000Z",
+        ],
+        tribeSlug: "matematica-pro",
+      });
+      expect(result).toEqual({
+        report: expect.objectContaining({
+          occurrenceStartsAt: "2026-05-21T20:00:00.000Z",
+          originalOccurrenceStartsAt: "2026-05-20T18:00:00.000Z",
+          trend: [
+            {
+              goingCount: 0,
+              occurrenceStartsAt: "2026-05-06T18:00:00.000Z",
+              originalOccurrenceStartsAt: "2026-05-06T18:00:00.000Z",
+            },
+            {
+              goingCount: 0,
+              occurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+              originalOccurrenceStartsAt: "2026-05-13T18:00:00.000Z",
+            },
+            {
+              goingCount: 5,
+              occurrenceStartsAt: "2026-05-21T20:00:00.000Z",
+              originalOccurrenceStartsAt: "2026-05-20T18:00:00.000Z",
+            },
+            {
+              goingCount: 0,
+              occurrenceStartsAt: "2026-05-27T18:00:00.000Z",
+              originalOccurrenceStartsAt: "2026-05-27T18:00:00.000Z",
+            },
+          ],
+        }),
         status: TRIBE_EVENT_MUTATION_STATUS.found,
       });
     });
@@ -335,7 +448,10 @@ describe("tribe event attendance use cases", () => {
         findById: vi.fn(async () => ({ ...weeklyEvent, recurrenceFrequency: "none" as const })),
         getOccurrenceAttendanceReport,
       });
-      const execute = getTribeEventAttendanceReport({ tribeEventRepository: repository });
+      const execute = getTribeEventAttendanceReport({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: repository,
+    });
 
       await expect(
         execute({
@@ -351,7 +467,10 @@ describe("tribe event attendance use cases", () => {
 
     it("rejects occurrences that are not part of the series", async () => {
       const repository = createRepository();
-      const execute = getTribeEventAttendanceReport({ tribeEventRepository: repository });
+      const execute = getTribeEventAttendanceReport({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: repository,
+    });
 
       await expect(
         execute({

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
   formatBuenosAiresDateTimeRange,
   formatBuenosAiresLongDate,
@@ -44,5 +45,12 @@ describe("Buenos Aires date formatting", () => {
     expect(buildBuenosAiresInstant("2026-05-06", "15:00")).toBe("2026-05-06T18:00:00.000Z");
     expect(buildBuenosAiresInstant("", "15:00")).toBe("");
     expect(buildBuenosAiresInstant("2026-05-06", "")).toBe("");
+  });
+
+  it("moves a Buenos Aires date key whole days forward across month and year ends", () => {
+    expect(addDaysToBuenosAiresDateKey("2026-05-13", 1)).toBe("2026-05-14");
+    expect(addDaysToBuenosAiresDateKey("2026-05-31", 1)).toBe("2026-06-01");
+    expect(addDaysToBuenosAiresDateKey("2026-12-31", 2)).toBe("2027-01-02");
+    expect(addDaysToBuenosAiresDateKey("", 1)).toBe("");
   });
 });

@@ -1,6 +1,8 @@
 import type {
   TribeEventAttendanceOption,
+  TribeEventOccurrenceExceptionKind,
   TribeEventRecurrenceFrequency,
+  TribeEventType,
 } from "@/src/modules/events/domain/entities/tribe-event";
 
 /**
@@ -26,6 +28,8 @@ export type TribeEventOccurrenceReference = {
  * or falls back to the current Buenos Aires month.
  */
 export type ListTribeEventsQuery = {
+  /** Types to keep; empty keeps every type. */
+  eventTypes: readonly TribeEventType[];
   month: string | null;
   occurrence: TribeEventOccurrenceReference | null;
   tribeSlug: string;
@@ -50,6 +54,7 @@ export type TribeEventFieldsInput = {
   capacity: number | null;
   description: string | null;
   endsAt: string | null;
+  eventType: TribeEventType;
   meetingUrl: string | null;
   recurrenceFrequency: TribeEventRecurrenceFrequency;
   recurrenceUntil: string | null;
@@ -71,10 +76,12 @@ export type CreateTribeEventCommand = TribeEventFieldsInput & {
  * an omitted `capacity` stays undefined and means "keep the stored capacity":
  * an older client or API consumer that does not know the field must not
  * remove an existing limit. `null` removes it explicitly and a positive
- * integer sets it.
+ * integer sets it. An omitted `eventType` likewise stays undefined and keeps
+ * the stored type instead of resetting it to the default one.
  */
-export type TribeEventUpdateFieldsInput = Omit<TribeEventFieldsInput, "capacity"> & {
+export type TribeEventUpdateFieldsInput = Omit<TribeEventFieldsInput, "capacity" | "eventType"> & {
   capacity?: number | null;
+  eventType?: TribeEventType;
 };
 
 export type UpdateTribeEventCommand = TribeEventUpdateFieldsInput & {
@@ -122,5 +129,105 @@ export type GetTribeEventAttendanceStreakQuery = {
 export type ClearTribeEventAttendanceCommand = {
   eventId: string;
   occurrenceStartsAt: string;
+  tribeSlug: string;
+};
+
+/**
+ * Change requested for one date of a series, as produced by the input
+ * schema: a cancelled date carries no new times; a moved date carries its
+ * new start and an optional new end.
+ */
+export type TribeEventOccurrenceExceptionInput = {
+  kind: TribeEventOccurrenceExceptionKind;
+  newEndsAt: string | null;
+  newStartsAt: string | null;
+  originalStartsAt: string;
+  reason: string | null;
+};
+
+export type SaveTribeEventOccurrenceExceptionCommand = TribeEventOccurrenceExceptionInput & {
+  eventId: string;
+  tribeSlug: string;
+  visibleMonth: string | null;
+};
+
+export type ClearTribeEventOccurrenceExceptionCommand = {
+  eventId: string;
+  originalStartsAt: string;
+  tribeSlug: string;
+  visibleMonth: string | null;
+};
+
+/**
+ * Reduced meeting proposal as produced by the input schema.
+ */
+export type TribeEventProposalInput = {
+  description: string | null;
+  durationMinutes: number;
+  eventType: TribeEventType;
+  startsAt: string;
+  title: string;
+};
+
+export type CreateTribeEventProposalCommand = TribeEventProposalInput & {
+  tribeSlug: string;
+};
+
+export type ListTribeEventProposalsQuery = {
+  tribeSlug: string;
+};
+
+/**
+ * Approval: the event fields the manager confirmed (prefilled from the
+ * proposal and possibly edited).
+ */
+export type ApproveTribeEventProposalCommand = TribeEventFieldsInput & {
+  proposalId: string;
+  tribeSlug: string;
+  visibleMonth: string | null;
+};
+
+export type RejectTribeEventProposalCommand = {
+  proposalId: string;
+  reviewNote: string | null;
+  tribeSlug: string;
+};
+
+export type WithdrawTribeEventProposalCommand = {
+  proposalId: string;
+  tribeSlug: string;
+};
+
+/**
+ * Management of the signed-in member's own calendar feed token.
+ */
+export type TribeEventCalendarFeedTokenCommand = {
+  tribeSlug: string;
+};
+
+/**
+ * Generation or regeneration of the personal link, conditioned on the active
+ * subscription the client knows (null: none).
+ */
+export type TribeEventCalendarFeedTokenIssueCommand = TribeEventCalendarFeedTokenCommand & {
+  expectedSubscriptionId: string | null;
+};
+
+/**
+ * Revocation of the personal link, conditioned like the generation on the
+ * active subscription the client knows (null: none).
+ */
+export type TribeEventCalendarFeedTokenRevokeCommand = TribeEventCalendarFeedTokenCommand & {
+  expectedSubscriptionId: string | null;
+};
+
+/**
+ * Public feed request: the token (already checked to be well-formed by the
+ * route) is the only credential; there is no session.
+ */
+export type GetTribeEventCalendarFeedQuery = {
+  /** Types to keep; empty keeps every type. */
+  eventTypes: readonly TribeEventType[];
+  token: string;
   tribeSlug: string;
 };

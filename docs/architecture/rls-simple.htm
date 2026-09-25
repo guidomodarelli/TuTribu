@@ -140,6 +140,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li>RLS responde: <strong>&quot;puede tocar esta fila?&quot;</strong></li>
   <li>la app responde: <strong>&quot;tiene sentido permitir esta accion ahora?&quot;</strong></li>
 </ul>
+<p><strong>Escrituras con invariantes fuera de RLS.</strong> Si una escritura depende de algo que una policy no puede ver (un tope contado entre filas, un fin evaluado con <code>clock_timestamp()</code>, un candado o una segunda escritura en la misma transaccion), una policy de escritura para roles de request no alcanza: el rol podria escribir directo y saltearse esas reglas. En ese caso los roles de request quedan solo con <code>SELECT</code> (se revocan <code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code> con el grant guardado por <code>IF EXISTS</code>), no hay policies de escritura para ellos y el unico escritor es el repositorio o una funcion <code>SECURITY DEFINER</code> que aplica la regla de forma atomica. Una policy de owner (<code>current_user</code> = dueño de la tabla) mantiene esas escrituras operativas bajo <code>FORCE ROW LEVEL SECURITY</code> aunque el owner no tenga <code>BYPASSRLS</code>. Ejemplos: <code>event_attendances</code>, <code>event_proposals</code> y <code>event_occurrence_exceptions</code> (ver <code>tribe-events.htm</code>).</p>
 <div class="divider"></div>
 </div>
 

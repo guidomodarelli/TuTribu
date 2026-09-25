@@ -13,6 +13,7 @@ const weeklyEvent: TribeEvent = {
   capacity: null,
   description: null,
   endsAt: "2026-05-06T19:00:00.000Z",
+  eventType: "live",
   id: EVENT_ID,
   meetingUrl: null,
   recurrenceFrequency: "weekly",
@@ -36,6 +37,7 @@ function createRepository(overrides: Partial<TribeEventRepository> = {}) {
     findById: vi.fn(),
     getOccurrenceAttendanceReport: vi.fn(),
     listByTribeRange: vi.fn(),
+    listEventOccurrences: vi.fn(),
     readViewerAttendanceStreakSnapshot: vi.fn(),
     setAttendance: vi.fn(),
     update: vi.fn(),
@@ -58,6 +60,7 @@ describe("readAttendanceStreakResponseFragment", () => {
 
       return {
         events: [weeklyEvent],
+        exceptions: [],
         referenceTime: DATABASE_REFERENCE_TIME,
         viewerAttendances: [
           "2026-05-06T18:00:00.000Z",

@@ -99,6 +99,12 @@
     gap: 0.5rem 0.75rem;
   }
 
+  &__note {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
+  }
+
   &__streak {
     margin: 0;
     font-size: 0.85rem;

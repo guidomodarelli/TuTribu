@@ -70,7 +70,8 @@ export function useTribeEventAttendanceReport({
   const [settledReport, setSettledReport] = useState<SettledReportState | null>(null);
   const requestKey = isEnabled && occurrence ? buildRequestKey(occurrence, reloadCount) : null;
   const eventId = occurrence?.eventId ?? null;
-  const occurrenceStartsAt = occurrence?.startsAt ?? null;
+  // Answers are keyed by the original slot, so a moved date keeps its report.
+  const occurrenceStartsAt = occurrence?.originalStartsAt ?? null;
   const occurrenceKey = occurrence?.occurrenceKey ?? null;
 
   useEffect(() => {

@@ -4,15 +4,21 @@ import type {
   TribeEventAttendanceReportResult,
   TribeEventAttendanceStreakResult,
   TribeEventAttendanceSummaryResult,
+  TribeEventCalendarFeedSubscriptionResult,
   TribeEventListResult,
   TribeEventOccurrenceResult,
+  TribeEventProposalListResult,
+  TribeEventProposalResult,
   TribeEventResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 import { parseMonth } from "@/src/modules/events/application/services/buenos-aires-month";
 import {
   TRIBE_EVENT_ATTENDANCE_FAILURE_CODE,
   TRIBE_EVENT_ATTENDANCE_STATUS,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+  TRIBE_EVENT_PROPOSAL_STATUS,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
+  TRIBE_EVENT_TYPE,
 } from "@/src/modules/events/constants/tribe-events";
 
 /**
@@ -34,6 +40,12 @@ const monthKeySchema = z.string().refine((month) => parseMonth(month) !== null);
 
 const recurrenceFrequencySchema = z.enum(TRIBE_EVENT_RECURRENCE_FREQUENCY);
 const attendanceStatusSchema = z.enum(TRIBE_EVENT_ATTENDANCE_STATUS);
+const eventTypeSchema = z.enum(TRIBE_EVENT_TYPE);
+
+const occurrenceExceptionSchema = z.object({
+  kind: z.enum(TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND),
+  reason: z.string().nullable(),
+});
 
 const attendeePreviewSchema = z.object({
   id: z.string(),
@@ -56,8 +68,11 @@ export const tribeEventOccurrenceSchema = z.object({
   description: z.string().nullable(),
   endsAt: instantSchema.nullable(),
   eventId: z.string(),
+  eventType: eventTypeSchema,
+  exception: occurrenceExceptionSchema.nullable(),
   meetingUrl: z.string().nullable(),
   occurrenceKey: z.string(),
+  originalStartsAt: instantSchema,
   recurrenceFrequency: recurrenceFrequencySchema,
   recurrenceRule: z.string().nullable(),
   recurrenceUntil: instantSchema.nullable(),
@@ -71,6 +86,7 @@ export const tribeEventSchema = z.object({
   capacity: z.int().positive().nullable(),
   description: z.string().nullable(),
   endsAt: instantSchema.nullable(),
+  eventType: eventTypeSchema,
   id: z.string(),
   meetingUrl: z.string().nullable(),
   recurrenceFrequency: recurrenceFrequencySchema,
@@ -90,9 +106,11 @@ export const tribeEventListResponseSchema = z.object({
     next: monthKeySchema,
     previous: monthKeySchema,
   }),
+  pendingProposalCount: nonNegativeCountSchema,
   selectedOccurrenceKey: z.string().nullable(),
   viewerPermissions: z.object({
     canManageEvents: z.boolean(),
+    canProposeEvents: z.boolean(),
   }),
 }) satisfies z.ZodType<TribeEventListResult>;
 
@@ -233,10 +251,12 @@ export const tribeEventAttendanceReportSchema = z.object({
   }),
   eventTitle: z.string(),
   occurrenceStartsAt: instantSchema,
+  originalOccurrenceStartsAt: instantSchema,
   trend: z.array(
     z.object({
       goingCount: nonNegativeCountSchema,
       occurrenceStartsAt: instantSchema,
+      originalOccurrenceStartsAt: instantSchema,
     })
   ),
 }) satisfies z.ZodType<TribeEventAttendanceReportResult>;
@@ -248,6 +268,57 @@ export const tribeEventAttendanceReportResponseSchema = z.object({
   report: tribeEventAttendanceReportSchema,
 });
 
+/**
+ * `PUT` and `DELETE /exceptions` body: the series slots of the visible month
+ * after cancelling, moving, or restoring one date.
+ */
+export const tribeEventExceptionResponseSchema = z.object({
+  message: z.string(),
+  occurrences: z.array(tribeEventOccurrenceSchema),
+});
+
+export const tribeEventProposalSchema = z.object({
+  createdAt: instantSchema,
+  description: z.string().nullable(),
+  durationMinutes: z.int().positive(),
+  eventId: z.string().nullable(),
+  eventType: eventTypeSchema,
+  id: z.string(),
+  proposerName: z.string().nullable(),
+  reviewNote: z.string().nullable(),
+  reviewedAt: instantSchema.nullable(),
+  startsAt: instantSchema,
+  status: z.enum(TRIBE_EVENT_PROPOSAL_STATUS),
+  title: z.string(),
+}) satisfies z.ZodType<TribeEventProposalResult>;
+
+/**
+ * `GET /events/proposals` body.
+ */
+export const tribeEventProposalListResponseSchema = z.object({
+  canReviewProposals: z.boolean(),
+  pendingCount: nonNegativeCountSchema,
+  proposals: z.array(tribeEventProposalSchema),
+}) satisfies z.ZodType<TribeEventProposalListResult>;
+
+/**
+ * `POST /events/proposals` and `PATCH /events/proposals/[proposalId]` body.
+ */
+export const tribeEventProposalResponseSchema = z.object({
+  message: z.string(),
+  proposal: tribeEventProposalSchema,
+});
+
+/**
+ * `POST /events/proposals/[proposalId]/approval` body: the created event,
+ * its slots in the visible month, and the resolved proposal.
+ */
+export const tribeEventProposalApprovalResponseSchema = z.object({
+  event: tribeEventSchema,
+  message: z.string(),
+  occurrences: z.array(tribeEventOccurrenceSchema),
+  proposal: tribeEventProposalSchema,
+});
 
 export type TribeEventMessageResponse = z.infer<typeof tribeEventMessageResponseSchema>;
 export type TribeEventFailureResponse = z.infer<typeof tribeEventFailureResponseSchema>;
@@ -262,4 +333,49 @@ export type TribeEventAttendanceStreakResponse = z.infer<
 export type TribeEventAttendanceResponse = z.infer<typeof tribeEventAttendanceResponseSchema>;
 export type TribeEventAttendanceReportResponse = z.infer<
   typeof tribeEventAttendanceReportResponseSchema
+>;
+
+/**
+ * URL protocols of the personal feed link: https everywhere, http only when
+ * the public base URL is a local development host.
+ */
+const FEED_URL_PROTOCOL_PATTERN = /^https?$/;
+
+export const tribeEventCalendarFeedSubscriptionSchema = z.object({
+  createdAt: instantSchema,
+  /** Opaque id of the active token row, echoed back when regenerating. */
+  id: z.guid(),
+  lastUsedAt: instantSchema.nullable(),
+}) satisfies z.ZodType<TribeEventCalendarFeedSubscriptionResult>;
+
+/**
+ * `GET .../events/calendar-feed`: whether the member has an active link
+ * (never the token or its hash).
+ */
+export const tribeEventCalendarFeedStatusResponseSchema = z.object({
+  subscription: tribeEventCalendarFeedSubscriptionSchema.nullable(),
+});
+
+/**
+ * `POST .../events/calendar-feed`: the personal https feed URL, shown once.
+ */
+export const tribeEventCalendarFeedIssueResponseSchema = z.object({
+  feedUrl: z.url({ protocol: FEED_URL_PROTOCOL_PATTERN }),
+  message: z.string(),
+  subscription: tribeEventCalendarFeedSubscriptionSchema,
+});
+
+/**
+ * `DELETE .../events/calendar-feed`: the subscription is off.
+ */
+export const tribeEventCalendarFeedRevokeResponseSchema = z.object({
+  message: z.string(),
+  subscription: z.null(),
+});
+
+export type TribeEventCalendarFeedStatusResponse = z.infer<
+  typeof tribeEventCalendarFeedStatusResponseSchema
+>;
+export type TribeEventCalendarFeedIssueResponse = z.infer<
+  typeof tribeEventCalendarFeedIssueResponseSchema
 >;

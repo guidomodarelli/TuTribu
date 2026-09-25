@@ -16,6 +16,12 @@ $tribe-events-calendar-mobile-max: 767px;
     overflow-x: auto;
   }
 
+  &__filteredEmpty {
+    margin: 0;
+    color: var(--muted-foreground);
+    text-align: center;
+  }
+
   &__swipeArea {
     display: grid;
     gap: 1.25rem;

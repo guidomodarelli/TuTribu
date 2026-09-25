@@ -1,0 +1,51 @@
+.TribeEventsTypeFilter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-width: 0;
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    border: 1px solid var(--border);
+    border-radius: 999rem;
+    background: var(--background);
+    color: var(--foreground);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0 0.8rem;
+    -webkit-tap-highlight-color: transparent;
+
+    &[data-event-type] {
+      border-color: color-mix(in oklch, var(--event-type-accent) 40%, var(--border));
+    }
+
+    &[aria-pressed="true"] {
+      border-color: var(--foreground);
+      background: var(--muted);
+    }
+
+    &[data-event-type][aria-pressed="true"] {
+      border-color: var(--event-type-accent);
+      background: var(--event-type-surface);
+      color: var(--event-type-text);
+      box-shadow: inset 0 0 0 1px var(--event-type-accent);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+  }
+
+  &__icon {
+    flex: none;
+    width: 0.95rem;
+    height: 0.95rem;
+    color: var(--event-type-accent);
+  }
+}

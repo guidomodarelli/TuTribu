@@ -1,4 +1,5 @@
 import { ROUTES } from "@/src/constants/routes";
+import type { TribeEventType } from "@/src/modules/events/application/results/tribe-event-result";
 import { TRIBE_EVENTS_ROUTE_QUERY } from "@/src/modules/events/constants/tribe-events";
 
 /**
@@ -12,26 +13,31 @@ const EVENT_API_ENDPOINT = {
   attendancePath: "/attendance",
   attendanceStreakPath: "/attendance-streak",
   eventsPath: "/events",
+  exceptionsPath: "/exceptions",
   monthQuery: "?month=",
+  monthQueryContinuation: "&month=",
   occurrenceQuery: "?occurrence=",
   separator: "/",
 } as const;
 
 /**
- * Query values accepted by the tribe events page. Both are optional: without
- * `month` the route resolves the current Buenos Aires month.
+ * Query values accepted by the tribe events page. All are optional: without
+ * `month` the route resolves the current Buenos Aires month; without
+ * `eventTypes` every type is shown.
  */
 export type TribeEventsRouteQuery = {
+  eventTypes?: readonly TribeEventType[];
   month?: string;
   occurrenceKey?: string;
 };
 
 /**
  * Builds the tribe events page URL, adding only the query values provided.
+ * Each selected type becomes its own `type` parameter.
  *
  * @param tribeSlug - Tribe slug of the route.
- * @param query - Optional visible month and occurrence to open.
- * @returns Relative URL such as `/slug/eventos?month=2026-05`.
+ * @param query - Optional visible month, occurrence to open, and type filter.
+ * @returns Relative URL such as `/slug/eventos?month=2026-05&type=live`.
  */
 export function buildTribeEventsRoute(
   tribeSlug: string,
@@ -45,6 +51,10 @@ export function buildTribeEventsRoute(
 
   if (query.occurrenceKey) {
     searchParams.set(TRIBE_EVENTS_ROUTE_QUERY.event, query.occurrenceKey);
+  }
+
+  for (const eventType of query.eventTypes ?? []) {
+    searchParams.append(TRIBE_EVENTS_ROUTE_QUERY.type, eventType);
   }
 
   const queryString = searchParams.toString();
@@ -135,4 +145,29 @@ export function buildTribeEventAttendanceExportUrl(input: {
     EVENT_API_ENDPOINT.occurrenceQuery +
     encodeURIComponent(input.occurrenceStartsAt)
   );
+}
+
+/**
+ * Builds the date exceptions endpoint of one event series, with the visible
+ * month and, to restore a date, its original start.
+ *
+ * @param tribeSlug - Tribe slug of the route.
+ * @param eventId - Event series identifier.
+ * @param query - Visible month (`YYYY-MM`) and optional original start.
+ * @returns Relative URL such as `/api/tribes/slug/events/id/exceptions?month=2026-05`.
+ */
+export function buildTribeEventExceptionsApiEndpoint(
+  tribeSlug: string,
+  eventId: string,
+  query: { month: string; originalStartsAt?: string }
+): string {
+  const base = buildTribeEventApiEndpoint(tribeSlug, eventId) + EVENT_API_ENDPOINT.exceptionsPath;
+
+  return query.originalStartsAt
+    ? base +
+        EVENT_API_ENDPOINT.occurrenceQuery +
+        encodeURIComponent(query.originalStartsAt) +
+        EVENT_API_ENDPOINT.monthQueryContinuation +
+        query.month
+    : base + EVENT_API_ENDPOINT.monthQuery + query.month;
 }

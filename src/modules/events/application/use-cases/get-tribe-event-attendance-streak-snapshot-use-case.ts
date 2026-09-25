@@ -3,30 +3,63 @@ import type {
   TribeEventAttendanceStreakResult,
   TribeEventAttendanceStreakSnapshotResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
-import { buildTribeEventOccurrenceKey } from "@/src/modules/events/application/services/tribe-event-occurrences";
+import {
+  buildTribeEventOccurrenceKey,
+  groupTribeEventExceptionsByEvent,
+} from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
   createPastTribeEventRange,
   createUpcomingTribeEventRange,
 } from "@/src/modules/events/application/services/tribe-event-time-ranges";
 import {
   TRIBE_EVENT_ATTENDANCE_STREAK,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_RANGE_MATCH,
 } from "@/src/modules/events/constants/tribe-events";
-import type {
-  TribeEvent,
-  TribeEventDateRange,
-} from "@/src/modules/events/domain/entities/tribe-event";
+import type { TribeEventDateRange } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   TribeEventRepository,
   TribeEventViewerAttendanceHistory,
 } from "@/src/modules/events/domain/repositories/tribe-event-repository";
 import { calculateTribeEventAttendanceStreak } from "@/src/modules/events/domain/services/tribe-event-attendance";
+import {
+  expandTribeEventOccurrencesWithExceptions,
+  type TribeEventResolvedOccurrence,
+} from "@/src/modules/events/domain/services/tribe-event-occurrence-exceptions";
 import { getTribeEventOccurrenceEndTime } from "@/src/modules/events/domain/services/tribe-event-occurrence-timing";
-import { expandTribeEventOccurrences } from "@/src/modules/events/domain/services/tribe-event-recurrence";
 
 type GetTribeEventAttendanceStreakSnapshotDependencies = {
   tribeEventRepository: TribeEventRepository;
 };
+
+/**
+ * Occurrences of every series of the snapshot inside `range`, with the
+ * exceptions read by the same statement applied: a moved date is placed (and
+ * ends) at its new time and keeps its original start as attendance key; a
+ * cancelled date never took place, so it counts neither for the streak nor
+ * for the next refresh instant.
+ */
+function listHeldOccurrences(
+  snapshot: TribeEventViewerAttendanceHistory,
+  range: TribeEventDateRange,
+  rangeMatch?: (typeof TRIBE_EVENT_RANGE_MATCH)[keyof typeof TRIBE_EVENT_RANGE_MATCH]
+): Array<TribeEventResolvedOccurrence & { eventId: string }> {
+  const exceptionsByEvent = groupTribeEventExceptionsByEvent(snapshot.exceptions);
+
+  return snapshot.events.flatMap((event) =>
+    expandTribeEventOccurrencesWithExceptions(
+      event,
+      exceptionsByEvent.get(event.id) ?? [],
+      range,
+      rangeMatch
+    )
+      .filter(
+        (occurrence) =>
+          occurrence.exception?.kind !== TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled
+      )
+      .map((occurrence) => ({ ...occurrence, eventId: event.id }))
+  );
+}
 
 /**
  * Streak over the last finished occurrences of the tribe, across every
@@ -48,14 +81,13 @@ function calculateViewerAttendanceStreak(
       attendance.status,
     ])
   );
-  const occurrences = snapshot.events.flatMap((event) =>
-    expandTribeEventOccurrences(event, pastRange).map((occurrence) => ({
-      ...occurrence,
-      viewerStatus:
-        viewerStatusByKey.get(buildTribeEventOccurrenceKey(event.id, occurrence.startsAt)) ??
-        null,
-    }))
-  );
+  const occurrences = listHeldOccurrences(snapshot, pastRange).map((occurrence) => ({
+    ...occurrence,
+    viewerStatus:
+      viewerStatusByKey.get(
+        buildTribeEventOccurrenceKey(occurrence.eventId, occurrence.originalStartsAt)
+      ) ?? null,
+  }));
 
   return calculateTribeEventAttendanceStreak(occurrences, nowTime, {
     minimumAttended: TRIBE_EVENT_ATTENDANCE_STREAK.minimumAttended,
@@ -64,31 +96,28 @@ function calculateViewerAttendanceStreak(
 }
 
 /**
- * Nearest effective end (explicit end, or the default duration) after the
- * reference instant of an occurrence that is still running or starts inside
- * the upcoming range. Occurrences match the range by interval overlap, so an
- * occurrence that started in an earlier month and is still running counts.
+ * Nearest effective end (explicit end, or the default duration; the new end
+ * of a moved date) after the reference instant of an occurrence that is still
+ * running or starts inside the upcoming range. Occurrences match the range by
+ * interval overlap, so an occurrence that started in an earlier month and is
+ * still running counts. Cancelled dates are skipped.
  */
 function findNextOccurrenceEnd(
-  events: TribeEvent[],
+  snapshot: TribeEventViewerAttendanceHistory,
   upcomingRange: TribeEventDateRange,
   nowTime: number
 ): string | null {
   let nextEndTime: number | null = null;
 
-  for (const event of events) {
-    const occurrences = expandTribeEventOccurrences(
-      event,
-      upcomingRange,
-      TRIBE_EVENT_RANGE_MATCH.overlaps
-    );
+  for (const occurrence of listHeldOccurrences(
+    snapshot,
+    upcomingRange,
+    TRIBE_EVENT_RANGE_MATCH.overlaps
+  )) {
+    const endTime = getTribeEventOccurrenceEndTime(occurrence);
 
-    for (const occurrence of occurrences) {
-      const endTime = getTribeEventOccurrenceEndTime(occurrence);
-
-      if (endTime > nowTime && (nextEndTime === null || endTime < nextEndTime)) {
-        nextEndTime = endTime;
-      }
+    if (endTime > nowTime && (nextEndTime === null || endTime < nextEndTime)) {
+      nextEndTime = endTime;
     }
   }
 
@@ -189,7 +218,7 @@ export function getTribeEventAttendanceStreakSnapshot({
     return {
       attendanceStreak: calculateViewerAttendanceStreak(snapshot, pastRange, referenceTime),
       computedAt: new Date(referenceTime).toISOString(),
-      nextRefreshAt: findNextOccurrenceEnd(snapshot.events, upcomingRange, referenceTime),
+      nextRefreshAt: findNextOccurrenceEnd(snapshot, upcomingRange, referenceTime),
     };
   };
 }

@@ -23,7 +23,14 @@ import { buildCoursesModule } from "./courses/setup";
 import { PostgresCourseRepository } from "./courses/infrastructure/repositories/postgres-course-repository";
 import { PostgresLessonCommentRepository } from "./courses/infrastructure/repositories/postgres-lesson-comment-repository";
 import { R2LessonFileRepository } from "./courses/infrastructure/repositories/r2-lesson-file-repository";
-import { buildEventsModule } from "./events/setup";
+import { buildEventsCalendarFeedModule, buildEventsModule } from "./events/setup";
+import { calendarFeedTokenCodec } from "./events/infrastructure/calendar/calendar-feed-token-codec";
+import {
+  PostgresTribeEventCalendarFeedReader,
+  PostgresTribeEventCalendarFeedTokenRepository,
+} from "./events/infrastructure/repositories/postgres-tribe-event-calendar-feed-repository";
+import { PostgresTribeEventOccurrenceExceptionRepository } from "./events/infrastructure/repositories/postgres-tribe-event-occurrence-exception-repository";
+import { PostgresTribeEventProposalRepository } from "./events/infrastructure/repositories/postgres-tribe-event-proposal-repository";
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
 import { buildSitepingModule } from "./siteping/setup";
@@ -231,6 +238,15 @@ export async function createRequestModules(
       ),
     }),
     events: buildEventsModule({
+      tribeEventCalendarFeedTokenCodec: calendarFeedTokenCodec,
+      tribeEventCalendarFeedTokenRepository: new PostgresTribeEventCalendarFeedTokenRepository(
+        executeWithRequestContext
+      ),
+      tribeEventOccurrenceExceptionRepository:
+        new PostgresTribeEventOccurrenceExceptionRepository(executeWithRequestContext),
+      tribeEventProposalRepository: new PostgresTribeEventProposalRepository(
+        executeWithRequestContext
+      ),
       tribeEventRepository: new PostgresTribeEventRepository(
         executeWithRequestContext
       ),
@@ -292,4 +308,26 @@ export async function createMaintenanceModules(
     ...contextOverrides,
     databaseConnectionUsage: DATABASE_CONNECTION_USAGE.maintenance,
   });
+}
+
+/**
+ * Builds the modules of the public calendar feed. The feed has no session
+ * (calendar apps send no cookies; the token in the URL is the credential), so
+ * no auth context is read: the reader resolves the token without an app user
+ * and then reads the calendar in a request context bound to the token owner.
+ *
+ * @returns The session-less calendar feed module.
+ */
+export async function createCalendarFeedModules() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.request);
+
+  return {
+    events: buildEventsCalendarFeedModule({
+      tribeEventCalendarFeedReader: new PostgresTribeEventCalendarFeedReader(
+        (userId) => (callback) =>
+          databaseClient.withRequestContext({ email: null, userId }, callback)
+      ),
+      tribeEventCalendarFeedTokenCodec: calendarFeedTokenCodec,
+    }),
+  };
 }

@@ -150,8 +150,11 @@ describe("fetchTribeEventOccurrencesRequest", () => {
         description: null,
         endsAt: null,
         eventId: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
+        eventType: "live",
+        exception: null,
         meetingUrl: null,
         occurrenceKey: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f@2026-05-20T18:00:00.000Z",
+        originalStartsAt: "2026-05-20T18:00:00.000Z",
         recurrenceFrequency: "none",
         recurrenceRule: null,
         recurrenceUntil: null,
@@ -201,7 +204,7 @@ describe("fetchTribeEventOccurrencesRequest", () => {
 describe("mutation failure classification", () => {
   const originalFetch = global.fetch;
   const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
-  const occurrence = { eventId: EVENT_ID, startsAt: "2026-05-20T18:00:00.000Z" };
+  const occurrence = { eventId: EVENT_ID, originalStartsAt: "2026-05-20T18:00:00.000Z" };
   const savePayload = {
     capacity: "",
     description: "",
