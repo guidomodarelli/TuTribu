@@ -327,6 +327,132 @@ describe("NotificationCenter", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  it("defers a list refresh that starts while a read mark is pending so it cannot restore stale state", async () => {
+    const user = userEvent.setup();
+    const readAt = "2026-05-06T13:00:00.000Z";
+    const staleInboxReleases: Array<() => void> = [];
+    let hasCommittedMarkRead = false;
+    let settlePendingMarkRead: () => void = () => {};
+    let inboxLoads = 0;
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        headers: { "Content-Type": "application/json" },
+        status,
+      });
+
+    (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/notifications") {
+        inboxLoads += 1;
+
+        if (inboxLoads === 1) {
+          return Promise.resolve(json(inbox));
+        }
+
+        if (hasCommittedMarkRead) {
+          return Promise.resolve(
+            json({
+              notifications: inbox.notifications.map((notification) =>
+                notification.id === FIRST_ID ? { ...notification, readAt } : notification
+              ),
+              unreadCount: 1,
+            })
+          );
+        }
+
+        // Observed the server before the PATCH committed; resolves only
+        // after the mutation response, carrying the old unread state.
+        return new Promise<Response>((resolve) => {
+          staleInboxReleases.push(() => resolve(json(inbox)));
+        });
+      }
+
+      if (url === `/api/notifications/${FIRST_ID}` && init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          settlePendingMarkRead = () => {
+            hasCommittedMarkRead = true;
+            resolve(json({ unreadCount: 1 }));
+          };
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected request ${url}`));
+    });
+    renderCenter();
+    await user.click(screen.getByRole("button", { name: "Notificaciones, 2 sin leer" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "Notificaciones" })).getByRole("link", {
+        name: /Taller de álgebra/,
+      })
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Notificaciones, 1 sin leer" }));
+    await screen.findByRole("dialog", { name: "Notificaciones" });
+
+    await act(async () => {
+      settlePendingMarkRead();
+    });
+    await act(async () => {
+      staleInboxReleases.forEach((release) => release());
+    });
+
+    await waitFor(() => expect(inboxLoads).toBeGreaterThanOrEqual(2));
+    expect(screen.getByRole("button", { name: "Notificaciones, 1 sin leer" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Notificaciones, 2 sin leer" })).not.toBeInTheDocument();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("skips an unread poll that fires while a read mark is pending", async () => {
+    vi.useFakeTimers();
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const staleCountReleases: Array<() => void> = [];
+    let settlePendingMarkRead: () => void = () => {};
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        headers: { "Content-Type": "application/json" },
+        status,
+      });
+
+    (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/notifications") {
+        return Promise.resolve(json(inbox));
+      }
+
+      if (url === "/api/notifications/unread-count") {
+        return new Promise<Response>((resolve) => {
+          staleCountReleases.push(() => resolve(json({ unreadCount: 2 })));
+        });
+      }
+
+      if (url === `/api/notifications/${FIRST_ID}` && init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          settlePendingMarkRead = () => resolve(json({ unreadCount: 1 }));
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected request ${url}`));
+    });
+    renderCenter();
+    await user.click(screen.getByRole("button", { name: "Notificaciones, 2 sin leer" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "Notificaciones" })).getByRole("link", {
+        name: /Taller de álgebra/,
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(NOTIFICATION_UNREAD_POLL_INTERVAL_MS);
+    });
+    await act(async () => {
+      settlePendingMarkRead();
+    });
+    await act(async () => {
+      staleCountReleases.forEach((release) => release());
+    });
+
+    expect(screen.getByRole("button", { name: "Notificaciones, 1 sin leer" })).toBeInTheDocument();
+  });
+
   it("returns focus to the bell when the panel closes", async () => {
     const user = userEvent.setup();
 
