@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { toast } from "beez-ui";
 
 import {
@@ -29,7 +29,11 @@ export type TribeEventPostEventResourcesPayload = Omit<
 >;
 
 type UseTribeEventPostEventInput = {
-  /** Called after a save changes whether the occurrence has a recording. */
+  /**
+   * Called with the current recording availability after every successful
+   * load or save, so the agenda badge follows what the detail shows even when
+   * another manager changed the recording after the calendar was loaded.
+   */
   onRecordingAvailabilityChange?: (hasRecording: boolean) => void;
   target: TribeEventOccurrenceTarget;
 };
@@ -54,7 +58,8 @@ const COPY = {
 /**
  * Container logic of the post-event block of one occurrence: loads the
  * resources once per mount (the container remounts per occurrence), saves
- * them incrementally (no route refresh), and applies reactions
+ * them incrementally (no route refresh), reports the recording availability
+ * of every successful load or save to the parent, and applies reactions
  * optimistically with debounce, coalescing, and rollback to the persisted
  * baseline.
  *
@@ -80,6 +85,11 @@ export function useTribeEventPostEvent({
   // older reaction answer never overwrites them.
   const reactionScopeRef = useRef(0);
   const { eventId, originalStartsAt, tribeSlug } = target;
+  // Effect event: the load effect reports with the latest parent callback
+  // without refetching whenever the parent re-renders with a new closure.
+  const reportLoadedRecordingAvailability = useEffectEvent((hasRecording: boolean) => {
+    onRecordingAvailabilityChange?.(hasRecording);
+  });
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -110,6 +120,9 @@ export function useTribeEventPostEvent({
             postEvent: result.postEvent,
             status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded,
           });
+          // The abort guard above drops answers of a superseded load (reload,
+          // occurrence change, or unmount), so only the latest state reports.
+          reportLoadedRecordingAvailability(result.postEvent.recording !== null);
         } else {
           setLoadState({
             message: result.message ?? COPY.loadFailure,

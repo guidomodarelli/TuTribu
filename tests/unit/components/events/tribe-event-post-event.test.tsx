@@ -486,4 +486,58 @@ describe("TribeEventsCalendar recording badge", () => {
     expect(await screen.findByTitle("Grabación de Taller semanal")).toBeInTheDocument();
     expect(router.refresh).not.toHaveBeenCalled();
   });
+
+  function renderCalendar(recordedOccurrenceKeys: readonly string[]) {
+    render(
+      <TribeEventsCalendar
+        events={[occurrence]}
+        month={{ current: "2026-05", next: "2026-06", previous: "2026-04" }}
+        recordedOccurrenceKeys={recordedOccurrenceKeys}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageEvents: true, canProposeEvents: false }}
+      />,
+      { wrapper: RouterProvider }
+    );
+  }
+
+  it("adds the badge when opening an occurrence another manager recorded after the calendar loaded", async () => {
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar([]);
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    expect(screen.queryByText("Grabación disponible")).not.toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Taller semanal" })[0]);
+
+    expect(await screen.findByTitle("Grabación de Taller semanal")).toBeInTheDocument();
+    expect(await screen.findByText("Grabación disponible")).toBeInTheDocument();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("drops the stale badge when opening an occurrence whose recording was removed", async () => {
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({
+        body: { postEvent: buildPostEvent({ materials: [], recording: null }) },
+      }),
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar([OCCURRENCE_KEY]);
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+
+    expect(screen.getByText("Grabación disponible")).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Taller semanal" })[0]);
+
+    expect(await screen.findByText("Todavía no hay grabación ni materiales.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Grabación disponible")).not.toBeInTheDocument());
+  });
 });
