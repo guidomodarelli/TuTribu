@@ -1,0 +1,85 @@
+/*
+ * Color tokens of the tribe event types (catalog: TRIBE_EVENT_TYPE in
+ * src/modules/events/constants/tribe-events.ts). Every type defines:
+ *   --event-type-<type>-accent   stripe, dot, and icon color (>= 3:1 on the page background)
+ *   --event-type-<type>-surface  tinted background of pills, badges, and chips
+ *   --event-type-<type>-text     label color on its surface (>= 4.5:1, WCAG AA)
+ * Components never pick a type color directly: they set data-event-type on
+ * their root and read the resolved --event-type-accent / -surface / -text.
+ * Color is never the only signal: every surface also renders the type icon
+ * and label (visible or, in compact pills, for assistive technology).
+ */
+
+:root {
+  --event-type-live-accent: oklch(0.52 0.19 275);
+  --event-type-live-surface: oklch(0.95 0.03 275);
+  --event-type-live-text: oklch(0.38 0.16 275);
+
+  --event-type-workshop-accent: oklch(0.56 0.13 62);
+  --event-type-workshop-surface: oklch(0.95 0.04 80);
+  --event-type-workshop-text: oklch(0.4 0.1 55);
+
+  --event-type-qa-accent: oklch(0.53 0.1 215);
+  --event-type-qa-surface: oklch(0.95 0.03 215);
+  --event-type-qa-text: oklch(0.38 0.08 220);
+
+  --event-type-in-person-accent: oklch(0.52 0.13 150);
+  --event-type-in-person-surface: oklch(0.95 0.04 150);
+  --event-type-in-person-text: oklch(0.38 0.1 150);
+
+  --event-type-social-accent: oklch(0.55 0.19 350);
+  --event-type-social-surface: oklch(0.95 0.03 350);
+  --event-type-social-text: oklch(0.4 0.16 350);
+}
+
+.dark {
+  --event-type-live-accent: oklch(0.72 0.14 275);
+  --event-type-live-surface: oklch(0.3 0.06 275);
+  --event-type-live-text: oklch(0.89 0.06 275);
+
+  --event-type-workshop-accent: oklch(0.76 0.13 70);
+  --event-type-workshop-surface: oklch(0.3 0.05 65);
+  --event-type-workshop-text: oklch(0.9 0.08 80);
+
+  --event-type-qa-accent: oklch(0.74 0.1 215);
+  --event-type-qa-surface: oklch(0.3 0.05 220);
+  --event-type-qa-text: oklch(0.9 0.05 215);
+
+  --event-type-in-person-accent: oklch(0.74 0.13 150);
+  --event-type-in-person-surface: oklch(0.3 0.05 150);
+  --event-type-in-person-text: oklch(0.9 0.07 150);
+
+  --event-type-social-accent: oklch(0.74 0.15 350);
+  --event-type-social-surface: oklch(0.3 0.06 350);
+  --event-type-social-text: oklch(0.9 0.06 350);
+}
+
+[data-event-type="live"] {
+  --event-type-accent: var(--event-type-live-accent);
+  --event-type-surface: var(--event-type-live-surface);
+  --event-type-text: var(--event-type-live-text);
+}
+
+[data-event-type="workshop"] {
+  --event-type-accent: var(--event-type-workshop-accent);
+  --event-type-surface: var(--event-type-workshop-surface);
+  --event-type-text: var(--event-type-workshop-text);
+}
+
+[data-event-type="qa"] {
+  --event-type-accent: var(--event-type-qa-accent);
+  --event-type-surface: var(--event-type-qa-surface);
+  --event-type-text: var(--event-type-qa-text);
+}
+
+[data-event-type="in_person"] {
+  --event-type-accent: var(--event-type-in-person-accent);
+  --event-type-surface: var(--event-type-in-person-surface);
+  --event-type-text: var(--event-type-in-person-text);
+}
+
+[data-event-type="social"] {
+  --event-type-accent: var(--event-type-social-accent);
+  --event-type-surface: var(--event-type-social-surface);
+  --event-type-text: var(--event-type-social-text);
+}

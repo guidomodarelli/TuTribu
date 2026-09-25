@@ -10,6 +10,7 @@ describe("buildTribeEventIcsFile", () => {
         capacity: null,
         description: "Repaso mensual, con notas\nSegunda línea; fin",
         endsAt: "2026-05-06T19:00:00.000Z",
+        eventType: "live",
         id: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
         meetingUrl: "https://meet.google.com/abc-defg-hij",
         recurrenceFrequency: "weekly",
@@ -48,6 +49,7 @@ describe("buildTribeEventIcsFile", () => {
         capacity: null,
         description: null,
         endsAt: null,
+        eventType: "live",
         id: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
         meetingUrl: null,
         recurrenceFrequency: "none",
@@ -70,6 +72,7 @@ describe("buildTribeEventIcsFile", () => {
         capacity: null,
         description: "x".repeat(200),
         endsAt: null,
+        eventType: "live",
         id: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
         meetingUrl: null,
         recurrenceFrequency: "none",
@@ -84,5 +87,54 @@ describe("buildTribeEventIcsFile", () => {
 
     expect(lines.every((line) => line.length <= 75)).toBe(true);
     expect(lines.some((line) => line.startsWith(" "))).toBe(true);
+  });
+
+  it("excludes cancelled dates with EXDATE and overrides moved dates with RECURRENCE-ID", () => {
+    const icsFile = buildTribeEventIcsFile(
+      {
+        capacity: null,
+        description: null,
+        endsAt: "2026-05-07T22:00:00.000Z",
+        eventType: "workshop",
+        id: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
+        meetingUrl: null,
+        recurrenceFrequency: "weekly",
+        recurrenceRule: "FREQ=WEEKLY",
+        recurrenceUntil: null,
+        startsAt: "2026-05-07T21:00:00.000Z",
+        title: "Taller semanal",
+      },
+      NOW,
+      [
+        {
+          endsAt: "2026-05-14T22:00:00.000Z",
+          exception: { kind: "cancelled", reason: null },
+          originalStartsAt: "2026-05-14T21:00:00.000Z",
+          startsAt: "2026-05-14T21:00:00.000Z",
+        },
+        {
+          endsAt: null,
+          exception: { kind: "moved", reason: "Cambio de sala" },
+          originalStartsAt: "2026-05-21T21:00:00.000Z",
+          startsAt: "2026-05-22T21:30:00.000Z",
+        },
+      ]
+    );
+    const lines = icsFile.content.split("\r\n");
+    const eventStarts = lines.filter((line) => line === "BEGIN:VEVENT");
+    const overrideStart = lines.lastIndexOf("BEGIN:VEVENT");
+
+    expect(eventStarts).toHaveLength(2);
+    expect(lines).toContain("EXDATE:20260514T210000Z");
+    expect(lines.slice(overrideStart)).toEqual(
+      expect.arrayContaining([
+        "UID:6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f@tutribu",
+        "RECURRENCE-ID:20260521T210000Z",
+        "DTSTART:20260522T213000Z",
+        "DTEND:20260522T223000Z",
+        "SUMMARY:Taller semanal",
+      ])
+    );
+    expect(lines.indexOf("EXDATE:20260514T210000Z")).toBeLessThan(overrideStart);
   });
 });

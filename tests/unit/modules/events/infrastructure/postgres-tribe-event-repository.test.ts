@@ -28,7 +28,28 @@ function getSqlText(statement: unknown): string {
     .join("");
 }
 
+const MEMBERSHIP_LOCK_SQL = "for share of tribe_members";
+
+/**
+ * Repository over a fake request transaction that answers the manager
+ * membership lock itself (it returns nothing the adapter reads) and forwards
+ * every other statement to `execute`, so tests about the write statements
+ * keep their call order. The lock order is covered by
+ * `createRepositoryRecordingEveryStatement`.
+ */
 function createRepository(execute: Mock) {
+  return new PostgresTribeEventRepository(async (callback) =>
+    callback({
+      execute: (statement: unknown) =>
+        getSqlText(statement).includes(MEMBERSHIP_LOCK_SQL)
+          ? Promise.resolve({ rows: [] })
+          : execute(statement),
+    } as never)
+  );
+}
+
+/** Repository whose fake transaction forwards every statement to `execute`. */
+function createRepositoryRecordingEveryStatement(execute: Mock) {
   return new PostgresTribeEventRepository(async (callback) =>
     callback({ execute } as never)
   );
@@ -73,6 +94,9 @@ const lockedEventRow = {
 
 const eventRow = {
   can_manage_events: true,
+  can_propose_events: false,
+  event_type: "live",
+  pending_proposal_count: "0",
   capacity: null,
   description: "Repaso mensual",
   ends_at: "2026-05-06T19:00:00.000Z",
@@ -89,6 +113,7 @@ describe("PostgresTribeEventRepository", () => {
     const execute = vi
       .fn()
       .mockResolvedValueOnce({ rows: [eventRow] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           {
@@ -129,6 +154,7 @@ describe("PostgresTribeEventRepository", () => {
           capacity: null,
           description: "Repaso mensual",
           endsAt: "2026-05-06T19:00:00.000Z",
+          eventType: "live",
           id: EVENT_ID,
           meetingUrl: "https://meet.google.com/abc-defg-hij",
           recurrenceFrequency: "weekly",
@@ -137,25 +163,32 @@ describe("PostgresTribeEventRepository", () => {
           title: "Clase abierta",
         },
       ],
-      viewerPermissions: { canManageEvents: true },
+      exceptions: [],
+      pendingProposalCount: 0,
+      viewerPermissions: { canManageEvents: true, canProposeEvents: false },
     });
 
     const eventsSql = getSqlText(execute.mock.calls[0]?.[0]);
-    const attendanceSql = getSqlText(execute.mock.calls[1]?.[0]);
+    const exceptionsSql = getSqlText(execute.mock.calls[1]?.[0]);
+    const attendanceSql = getSqlText(execute.mock.calls[2]?.[0]);
 
     expect(eventsSql).toContain("public.can_manage_tribe_events");
     expect(eventsSql).toContain("public.can_read_tribe_content(target_tribe.id)");
     expect(eventsSql).toContain("events.recurrence_until is null");
     expect(eventsSql).toContain("order by event_rows.starts_at asc");
-    // Active-member totals come from the definer function, one call per range.
+    expect(exceptionsSql).toContain("from public.event_occurrence_exceptions");
+    expect(exceptionsSql).toContain("public.can_read_tribe_content(tribes.id)");
+    // Active-member totals come from the definer function, one call per range,
+    // including the dates moved into the month.
     expect(attendanceSql).toContain("public.summarize_tribe_event_attendances(");
-    expect(getSqlParams(execute.mock.calls[1]?.[0])).toEqual([
+    expect(getSqlParams(execute.mock.calls[2]?.[0])).toEqual([
       "matematica-pro",
       "2026-05-01T03:00:00.000Z",
       "2026-06-01T03:00:00.000Z",
       true,
       expect.any(Number),
       null,
+      true,
     ]);
   });
 
@@ -187,7 +220,9 @@ describe("PostgresTribeEventRepository", () => {
     ).resolves.toEqual({
       attendances: [],
       events: [],
-      viewerPermissions: { canManageEvents: true },
+      exceptions: [],
+      pendingProposalCount: 0,
+      viewerPermissions: { canManageEvents: true, canProposeEvents: false },
     });
     expect(execute).toHaveBeenCalledTimes(1);
   });
@@ -221,6 +256,7 @@ describe("PostgresTribeEventRepository", () => {
         capacity: null,
         description: null,
         endsAt: null,
+        eventType: "live",
         meetingUrl: "https://meet.google.com/abc-defg-hij",
         recurrenceFrequency: "weekly",
         recurrenceUntil: null,
@@ -240,6 +276,53 @@ describe("PostgresTribeEventRepository", () => {
     expect(sqlText).toContain("public.can_manage_tribe_events");
   });
 
+  it("locks the manager membership before the event row on update and delete", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ status: "forbidden" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ status: "forbidden" }] });
+    const repository = createRepositoryRecordingEveryStatement(execute);
+
+    await expect(
+      repository.update({
+        attendanceRange: null,
+        capacity: { kind: "unchanged" },
+        description: null,
+        endsAt: null,
+        eventId: EVENT_ID,
+        eventType: null,
+        meetingUrl: null,
+        recurrenceFrequency: "none",
+        recurrenceUntil: null,
+        startsAt: "2026-05-06T18:00:00.000Z",
+        title: "Clase abierta",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "forbidden" });
+    await expect(
+      repository.delete({ eventId: EVENT_ID, tribeSlug: "matematica-pro" })
+    ).resolves.toEqual({ status: "forbidden" });
+
+    // A demotion, block, or removal of the manager waits for the FOR SHARE
+    // lock, so the can_manage_tribe_events read by the later statements
+    // cannot be revoked before the write commits.
+    for (const [callIndex, writeSql] of [
+      [0, "for update of events"],
+      [3, "delete from public.events"],
+    ] as const) {
+      const membershipLockSql = getSqlText(execute.mock.calls[callIndex]?.[0]);
+
+      expect(membershipLockSql).toContain("tribe_members.user_id = public.current_app_user_id()");
+      expect(membershipLockSql).toContain(MEMBERSHIP_LOCK_SQL);
+      expect(getSqlParams(execute.mock.calls[callIndex]?.[0])).toEqual(["matematica-pro"]);
+      expect(getSqlText(execute.mock.calls[callIndex + 1]?.[0])).toContain(writeSql);
+    }
+    expect(execute).toHaveBeenCalledTimes(5);
+  });
+
   it("maps update failures to not found or forbidden", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({ rows: [{ status: "not_found" as const }] }); });
     // The lock finds no manageable row; the UPDATE statement classifies it.
@@ -253,6 +336,7 @@ describe("PostgresTribeEventRepository", () => {
         description: null,
         endsAt: null,
         eventId: EVENT_ID,
+        eventType: "live",
         meetingUrl: null,
         recurrenceFrequency: "none",
         recurrenceUntil: null,
@@ -339,6 +423,7 @@ describe("PostgresTribeEventRepository", () => {
       false,
       expect.any(Number),
       EVENT_ID,
+      false,
     ]);
   });
 
@@ -428,6 +513,7 @@ describe("PostgresTribeEventRepository", () => {
       description: null,
       endsAt: "2026-05-06T19:00:00.000Z",
       eventId: EVENT_ID,
+      eventType: "live" as const,
       meetingUrl: null,
       recurrenceFrequency: "weekly" as const,
       recurrenceUntil: null,
@@ -461,6 +547,8 @@ describe("PostgresTribeEventRepository", () => {
             { occurrence_starts_at: new Date("2026-05-19T18:00:00.000Z") },
           ],
         })
+        // Exceptions of the series: none.
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ promoted_count: 2 }] });
       const repository = createRepository(execute);
 
@@ -471,7 +559,7 @@ describe("PostgresTribeEventRepository", () => {
       });
 
       const candidateSql = getSqlText(execute.mock.calls[2]?.[0]);
-      const refillSql = getSqlText(execute.mock.calls[3]?.[0]);
+      const refillSql = getSqlText(execute.mock.calls[4]?.[0]);
 
       expect(candidateSql).toContain("event_attendances.status =");
       // Lower bound = DATABASE clock minus one occurrence duration (one hour):
@@ -483,7 +571,68 @@ describe("PostgresTribeEventRepository", () => {
       expect(refillSql).toContain("2026-05-13T18:00:00.000Z");
       expect(refillSql).toContain("2026-05-20T18:00:00.000Z");
       expect(refillSql).not.toContain("2026-05-19T18:00:00.000Z");
-      expect(execute).toHaveBeenCalledTimes(4);
+      expect(execute).toHaveBeenCalledTimes(5);
+    });
+
+    it("keys moved dates by their original start and skips cancelled dates", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [lockedEventRow] })
+        .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
+        .mockResolvedValueOnce({
+          rows: [
+            // Original slot already over, moved to the future: refilled
+            // under its original start (the attendance key).
+            { occurrence_starts_at: "2026-05-06T18:00:00.000Z" },
+            // Future slot that was cancelled: takes no answers, not refilled.
+            { occurrence_starts_at: "2026-05-20T18:00:00.000Z" },
+            // Future slot moved to a time that already ended: still sent, the
+            // refill function decides "ended" with its effective end.
+            { occurrence_starts_at: "2026-05-27T18:00:00.000Z" },
+          ],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              event_id: EVENT_ID,
+              kind: "moved",
+              new_ends_at: null,
+              new_starts_at: "2026-05-14T18:00:00.000Z",
+              original_starts_at: "2026-05-06T18:00:00.000Z",
+              reason: null,
+            },
+            {
+              event_id: EVENT_ID,
+              kind: "cancelled",
+              new_ends_at: null,
+              new_starts_at: null,
+              original_starts_at: "2026-05-20T18:00:00.000Z",
+              reason: null,
+            },
+            {
+              event_id: EVENT_ID,
+              kind: "moved",
+              new_ends_at: null,
+              new_starts_at: "2026-05-12T18:00:00.000Z",
+              original_starts_at: "2026-05-27T18:00:00.000Z",
+              reason: null,
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ promoted_count: 1 }] });
+      const repository = createRepository(execute);
+
+      await repository.update(updateCommand);
+
+      const candidateSql = getSqlText(execute.mock.calls[2]?.[0]);
+      const refillSql = getSqlText(execute.mock.calls[4]?.[0]);
+
+      // Waitlists of moved dates are candidates even before the lookback.
+      expect(candidateSql).toContain("public.event_occurrence_exceptions moved_exceptions");
+      expect(refillSql).toContain("2026-05-06T18:00:00.000Z");
+      expect(refillSql).not.toContain("2026-05-20T18:00:00.000Z");
+      expect(refillSql).toContain("2026-05-27T18:00:00.000Z");
+      expect(execute).toHaveBeenCalledTimes(5);
     });
 
     it("passes an occurrence in its last seconds even when the application clock is ahead", async () => {
@@ -499,6 +648,8 @@ describe("PostgresTribeEventRepository", () => {
         .mockResolvedValueOnce({
           rows: [{ occurrence_starts_at: new Date("2026-05-13T18:00:00.000Z") }],
         })
+        // Exceptions of the series: none.
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ promoted_count: 1 }] });
       const repository = createRepository(execute);
 
@@ -507,12 +658,12 @@ describe("PostgresTribeEventRepository", () => {
       });
 
       const candidateSql = getSqlText(execute.mock.calls[2]?.[0]);
-      const refillSql = getSqlText(execute.mock.calls[3]?.[0]);
+      const refillSql = getSqlText(execute.mock.calls[4]?.[0]);
 
       expect(candidateSql).not.toContain("2026-05-13T18:00:05.000Z");
       expect(refillSql).toContain("public.refill_tribe_event_waitlists(");
       expect(refillSql).toContain("2026-05-13T18:00:00.000Z");
-      expect(execute).toHaveBeenCalledTimes(4);
+      expect(execute).toHaveBeenCalledTimes(5);
     });
 
     it("locks the event row first and compares the UPDATE with the locked version", async () => {
@@ -603,6 +754,62 @@ describe("PostgresTribeEventRepository", () => {
       expect(execute).toHaveBeenCalledTimes(2);
     });
 
+    it("leaves the event type column untouched when the update keeps the stored type", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ ...lockedEventRow, capacity: 5 }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              ...eventRow,
+              capacity: 5,
+              event_type: "workshop",
+              status: "updated",
+              waitlist_refill_needed: false,
+            },
+          ],
+        });
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.update({
+          ...updateCommand,
+          capacity: { kind: "unchanged" },
+          eventType: null,
+        })
+      ).resolves.toMatchObject({ event: { eventType: "workshop" }, status: "updated" });
+
+      expect(getSqlText(execute.mock.calls[1]?.[0])).not.toMatch(/event_type\s*=/);
+    });
+
+    it("writes an explicit event type", async () => {
+      const execute = vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [{ ...lockedEventRow, capacity: 5 }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              ...eventRow,
+              capacity: 5,
+              event_type: "qa",
+              status: "updated",
+              waitlist_refill_needed: false,
+            },
+          ],
+        });
+      const repository = createRepository(execute);
+
+      await expect(
+        repository.update({
+          ...updateCommand,
+          capacity: { kind: "unchanged" },
+          eventType: "qa",
+        })
+      ).resolves.toMatchObject({ event: { eventType: "qa" }, status: "updated" });
+
+      expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(/event_type\s*=/);
+    });
+
     it("writes an explicit capacity removal and refills when the change is reported", async () => {
       const execute = vi
         .fn()
@@ -613,6 +820,8 @@ describe("PostgresTribeEventRepository", () => {
         .mockResolvedValueOnce({
           rows: [{ occurrence_starts_at: "2026-05-20T18:00:00.000Z" }],
         })
+        // Exceptions of the series: none.
+        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ promoted_count: 3 }] });
       const repository = createRepository(execute);
 
@@ -621,10 +830,10 @@ describe("PostgresTribeEventRepository", () => {
       ).resolves.toMatchObject({ event: { capacity: null }, status: "updated" });
 
       expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(/capacity\s*=/);
-      expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
+      expect(getSqlText(execute.mock.calls[4]?.[0])).toContain(
         "public.refill_tribe_event_waitlists("
       );
-      expect(execute).toHaveBeenCalledTimes(4);
+      expect(execute).toHaveBeenCalledTimes(5);
     });
 
     it("skips the refill call when no waitlisted occurrence is still valid", async () => {
@@ -634,14 +843,16 @@ describe("PostgresTribeEventRepository", () => {
         .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
         .mockResolvedValueOnce({
           rows: [{ occurrence_starts_at: "2026-05-19T18:00:00.000Z" }],
-        });
+        })
+        .mockResolvedValueOnce({ rows: [] });
       const repository = createRepository(execute);
 
       await expect(repository.update(updateCommand)).resolves.toMatchObject({
         attendances: [],
         status: "updated",
       });
-      expect(execute).toHaveBeenCalledTimes(3);
+      // Lock, update, waitlist candidates, and the exceptions of the series.
+      expect(execute).toHaveBeenCalledTimes(4);
     });
   });
 
@@ -677,6 +888,7 @@ describe("PostgresTribeEventRepository", () => {
         description: null,
         endsAt: null,
         eventId: EVENT_ID,
+        eventType: "live",
         meetingUrl: null,
         recurrenceFrequency: "weekly",
         recurrenceUntil: null,
@@ -723,6 +935,7 @@ describe("PostgresTribeEventRepository", () => {
         description: null,
         endsAt: null,
         eventId: EVENT_ID,
+        eventType: "live",
         meetingUrl: null,
         recurrenceFrequency: "weekly",
         recurrenceUntil: null,
@@ -790,6 +1003,17 @@ describe("PostgresTribeEventRepository", () => {
             { event_id: EVENT_ID, occurrence_starts_at: "not a date", status: "maybe" },
             null,
           ],
+          occurrence_exceptions: [
+            {
+              event_id: EVENT_ID,
+              kind: "cancelled",
+              new_ends_at: null,
+              new_starts_at: null,
+              original_starts_at: "2026-05-20T18:00:00+00:00",
+              reason: null,
+            },
+            { kind: "moved" },
+          ],
         },
       ],
     });
@@ -816,6 +1040,18 @@ describe("PostgresTribeEventRepository", () => {
       })
     ).resolves.toEqual({
       events: [expect.objectContaining({ id: EVENT_ID })],
+      // The exceptions come from the same statement, so the streak never
+      // mixes a schedule with the exceptions of another version.
+      exceptions: [
+        {
+          eventId: EVENT_ID,
+          kind: "cancelled",
+          newEndsAt: null,
+          newStartsAt: null,
+          originalStartsAt: "2026-05-20T18:00:00.000Z",
+          reason: null,
+        },
+      ],
       referenceTime: "2026-05-27T18:29:57.123Z",
       viewerAttendances: [
         { eventId: EVENT_ID, occurrenceStartsAt: "2026-05-13T18:00:00.000Z", status: "going" },
@@ -837,6 +1073,46 @@ describe("PostgresTribeEventRepository", () => {
         "2026-06-01T03:00:00.000Z",
       ])
     );
+  });
+
+  it("reads the viewer answers of dates moved into the attendance range from before it", async () => {
+    const execute = vi.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          ...eventRow,
+          snapshot_reference_time: new Date("2026-05-27T18:29:57.123Z"),
+          viewer_attendances: [],
+          occurrence_exceptions: [],
+        },
+      ],
+    });
+    const repository = createRepository(execute);
+
+    await repository.readViewerAttendanceStreakSnapshot({
+      eventRange: {
+        rangeEnd: "2026-07-01T03:00:00.000Z",
+        rangeStart: "2026-01-01T03:00:00.000Z",
+      },
+      tribeSlug: "matematica-pro",
+      viewerAttendanceRange: {
+        rangeEnd: "2026-06-01T03:00:00.000Z",
+        rangeStart: "2026-01-01T03:00:00.000Z",
+      },
+    });
+
+    // Answers keep the original start, so a date whose original start
+    // predates the range but was moved into it is matched by its moved
+    // exception; otherwise its answer would be missing from the streak.
+    const snapshotSql = getSqlText(execute.mock.calls[0][0]);
+    const viewerAttendancesSql = snapshotSql.slice(
+      snapshotSql.indexOf("from public.event_attendances"),
+      snapshotSql.indexOf("as viewer_attendances")
+    );
+
+    expect(viewerAttendancesSql).toContain(
+      "moved_exceptions.original_starts_at = event_attendances.occurrence_starts_at"
+    );
+    expect(viewerAttendancesSql).toContain("moved_exceptions.new_starts_at >=");
   });
 
   it("returns an empty snapshot when the tribe has no series in the range", async () => {
@@ -874,6 +1150,7 @@ describe("PostgresTribeEventRepository", () => {
       })
     ).resolves.toEqual({
       events: [],
+      exceptions: [],
       referenceTime: "2026-05-27T18:29:57.123Z",
       viewerAttendances: [],
     });

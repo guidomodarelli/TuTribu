@@ -51,7 +51,10 @@ function createOccurrence(
     endsAt: "2026-05-06T19:00:00.000Z",
     eventId: EVENT_ID,
     meetingUrl: null,
+    eventType: "live",
+    exception: null,
     occurrenceKey: `${EVENT_ID}@${STARTS_AT}`,
+    originalStartsAt: STARTS_AT,
     recurrenceFrequency: "weekly",
     recurrenceRule: "FREQ=WEEKLY",
     recurrenceUntil: null,
@@ -83,7 +86,7 @@ function renderCalendar(props: Partial<React.ComponentProps<typeof TribeEventsCa
       events={[createOccurrence()]}
       month={MAY}
       tribeSlug="matematica-pro"
-      viewerPermissions={{ canManageEvents: false }}
+      viewerPermissions={{ canManageEvents: false, canProposeEvents: false }}
       {...props}
     />,
     { wrapper: RouterProvider }
@@ -252,7 +255,7 @@ describe("TribeEventsCalendar attendance", () => {
   it("loads the attendees of the occurrence for managers only when the tab opens", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ viewerPermissions: { canManageEvents: true } });
+    renderCalendar({ viewerPermissions: { canManageEvents: true, canProposeEvents: false } });
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
@@ -269,9 +272,19 @@ describe("TribeEventsCalendar attendance", () => {
         },
         eventTitle: "Clase abierta",
         occurrenceStartsAt: STARTS_AT,
+        originalOccurrenceStartsAt: STARTS_AT,
         trend: [
-          { goingCount: 4, occurrenceStartsAt: "2026-04-22T18:00:00.000Z" },
-          { goingCount: 6, occurrenceStartsAt: "2026-04-29T18:00:00.000Z" },
+          {
+            goingCount: 4,
+            occurrenceStartsAt: "2026-04-22T18:00:00.000Z",
+            originalOccurrenceStartsAt: "2026-04-22T18:00:00.000Z",
+          },
+          // A moved date is labelled with the day it was held, not its key.
+          {
+            goingCount: 6,
+            occurrenceStartsAt: "2026-04-30T18:00:00.000Z",
+            originalOccurrenceStartsAt: "2026-04-29T18:00:00.000Z",
+          },
         ],
       },
     });
@@ -294,13 +307,13 @@ describe("TribeEventsCalendar attendance", () => {
       `/api/tribes/matematica-pro/events/${EVENT_ID}/attendance/export?occurrence=${encodeURIComponent(STARTS_AT)}`
     );
     expect(within(dialog).getByRole("listitem", { name: "22 abr: 4 personas" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("listitem", { name: "29 abr: 6 personas" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("listitem", { name: "30 abr: 6 personas" })).toBeInTheDocument();
   });
 
   it("does not reload the attendees when the detail reopens on the default tab", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ viewerPermissions: { canManageEvents: true } });
+    renderCalendar({ viewerPermissions: { canManageEvents: true, canProposeEvents: false } });
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
@@ -310,6 +323,7 @@ describe("TribeEventsCalendar attendance", () => {
         attendeeGroups: { going: [], maybe: [], notGoing: [], waitlisted: [] },
         eventTitle: "Clase abierta",
         occurrenceStartsAt: STARTS_AT,
+        originalOccurrenceStartsAt: STARTS_AT,
         trend: [],
       },
     });
@@ -341,6 +355,7 @@ describe("TribeEventsCalendar attendance", () => {
         attendeeGroups: { going: [], maybe: [], notGoing: [], waitlisted: [] },
         eventTitle: "Clase abierta",
         occurrenceStartsAt: STARTS_AT,
+        originalOccurrenceStartsAt: STARTS_AT,
         trend: [],
       },
     });
@@ -352,7 +367,7 @@ describe("TribeEventsCalendar attendance", () => {
   it("shows a safe error with retry when the attendees cannot be loaded", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ viewerPermissions: { canManageEvents: true } });
+    renderCalendar({ viewerPermissions: { canManageEvents: true, canProposeEvents: false } });
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
@@ -369,6 +384,7 @@ describe("TribeEventsCalendar attendance", () => {
         attendeeGroups: { going: [], maybe: [], notGoing: [], waitlisted: [] },
         eventTitle: "Clase abierta",
         occurrenceStartsAt: STARTS_AT,
+        originalOccurrenceStartsAt: STARTS_AT,
         trend: [],
       },
     });
@@ -384,7 +400,7 @@ describe("TribeEventsCalendar attendance", () => {
   it("sends the capacity from the event form and validates it before saving", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ events: [], viewerPermissions: { canManageEvents: true } });
+    renderCalendar({ events: [], viewerPermissions: { canManageEvents: true, canProposeEvents: false } });
 
     await user.click(screen.getByRole("button", { name: "Crear evento" }));
     fireEvent.change(screen.getByLabelText("Título"), { target: { value: "Taller" } });

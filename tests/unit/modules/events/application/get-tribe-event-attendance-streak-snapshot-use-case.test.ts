@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getTribeEventAttendanceStreakSnapshot } from "@/src/modules/events/application/use-cases/get-tribe-event-attendance-streak-snapshot-use-case";
-import type { TribeEvent } from "@/src/modules/events/domain/entities/tribe-event";
+import type {
+  TribeEvent,
+  TribeEventOccurrenceException,
+} from "@/src/modules/events/domain/entities/tribe-event";
 import type {
   ReadViewerAttendanceStreakSnapshotQuery,
   TribeEventRepository,
@@ -17,6 +20,7 @@ const weeklyEvent: TribeEvent = {
   capacity: null,
   description: null,
   endsAt: "2026-05-06T19:00:00.000Z",
+  eventType: "live",
   id: EVENT_ID,
   meetingUrl: null,
   recurrenceFrequency: "weekly",
@@ -45,7 +49,8 @@ function goingTo(occurrenceStartsAt: string): TribeEventViewerAttendance {
 function createRepository(
   events: TribeEvent[],
   viewerAttendances: TribeEventViewerAttendance[] = [],
-  databaseTime?: string
+  databaseTime?: string,
+  exceptions: TribeEventOccurrenceException[] = []
 ) {
   return {
     clearAttendance: vi.fn(),
@@ -54,9 +59,11 @@ function createRepository(
     findById: vi.fn(),
     getOccurrenceAttendanceReport: vi.fn(),
     listByTribeRange: vi.fn(),
+    listEventOccurrences: vi.fn(),
     readViewerAttendanceStreakSnapshot: vi.fn(
       async (query: ReadViewerAttendanceStreakSnapshotQuery) => ({
         events,
+        exceptions,
         referenceTime:
           databaseTime ??
           new Date(
@@ -115,6 +122,60 @@ describe("getTribeEventAttendanceStreakSnapshot", () => {
       attendanceStreak: { attendedCount: 3, occurrenceCount: 4 },
       computedAt: "2026-06-01T12:00:00.000Z",
       nextRefreshAt: "2026-06-03T19:00:00.000Z",
+    });
+  });
+
+  it("skips cancelled dates and uses the new time of moved dates", async () => {
+    const execute = getTribeEventAttendanceStreakSnapshot({
+      tribeEventRepository: createRepository(
+        [weeklyEvent],
+        [
+          goingTo("2026-05-06T18:00:00.000Z"),
+          goingTo("2026-05-13T18:00:00.000Z"),
+          goingTo("2026-05-20T18:00:00.000Z"),
+          goingTo("2026-06-03T18:00:00.000Z"),
+        ],
+        undefined,
+        [
+          // Cancelled: never took place, so it counts neither as attended nor
+          // as one of the last occurrences.
+          {
+            eventId: EVENT_ID,
+            kind: "cancelled",
+            newEndsAt: null,
+            newStartsAt: null,
+            originalStartsAt: "2026-05-27T18:00:00.000Z",
+            reason: null,
+          },
+          // Moved earlier into the past: it already took place at its new
+          // time and keeps its answer under the original start.
+          {
+            eventId: EVENT_ID,
+            kind: "moved",
+            newEndsAt: null,
+            newStartsAt: "2026-05-30T18:00:00.000Z",
+            originalStartsAt: "2026-06-03T18:00:00.000Z",
+            reason: null,
+          },
+          // Moved later: the next refresh is its new end.
+          {
+            eventId: EVENT_ID,
+            kind: "moved",
+            newEndsAt: "2026-06-12T20:00:00.000Z",
+            newStartsAt: "2026-06-12T18:00:00.000Z",
+            originalStartsAt: "2026-06-10T18:00:00.000Z",
+            reason: null,
+          },
+        ]
+      ),
+    });
+
+    await expect(
+      execute({ now: new Date("2026-06-06T12:00:00.000Z"), tribeSlug: "matematica-pro" })
+    ).resolves.toEqual({
+      attendanceStreak: { attendedCount: 4, occurrenceCount: 4 },
+      computedAt: "2026-06-06T12:00:00.000Z",
+      nextRefreshAt: "2026-06-12T20:00:00.000Z",
     });
   });
 

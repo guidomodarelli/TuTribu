@@ -8,14 +8,19 @@ import type {
 import {
   TRIBE_EVENT_ATTENDANCE_OPTIONS,
   TRIBE_EVENT_CAPACITY_LIMIT,
+  TRIBE_EVENT_DEFAULT_TYPE,
   TRIBE_EVENT_FIELD_LIMIT,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
 } from "@/src/modules/events/constants/tribe-events";
 import {
+  createEventTypeFieldSchema,
   createOptionalTextFieldSchema,
   createTribeEventInstantSchema,
+  dedupeEventTypes,
+  splitEventTypeQueryValues,
   tribeEventIdParamSchema,
   tribeEventMonthSchema,
+  tribeEventTypeSchema,
   tribeSlugParamSchema,
 } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-input-fields";
 import { TRIBE_EVENT_INPUT_ISSUE } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-input-issue";
@@ -47,6 +52,23 @@ export const tribeEventRouteParamsSchema = z.object({
  */
 export const tribeEventMonthQuerySchema = z.object({
   month: tribeEventMonthSchema.optional(),
+});
+
+/**
+ * `?month=` plus the optional type filter of `GET /events`: `type` may be
+ * repeated or a comma-separated list. Unlike the page, the API rejects an
+ * unknown type (400) instead of ignoring it. No type keeps every type.
+ */
+export const tribeEventListQuerySchema = z.object({
+  month: tribeEventMonthSchema.optional(),
+  type: z
+    .union([z.string(), z.array(z.string())], {
+      error: TRIBE_EVENT_INPUT_ISSUE.invalidEventType,
+    })
+    .transform(splitEventTypeQueryValues)
+    .pipe(z.array(tribeEventTypeSchema))
+    .transform(dedupeEventTypes)
+    .optional(),
 });
 
 /**
@@ -117,6 +139,7 @@ export const tribeEventMutationBodySchema = z.object(
       TRIBE_EVENT_INPUT_ISSUE.invalidDate,
       createTribeEventInstantSchema(TRIBE_EVENT_INPUT_ISSUE.invalidDate)
     ),
+    eventType: createEventTypeFieldSchema(TRIBE_EVENT_DEFAULT_TYPE),
     meetingUrl: createOptionalTextFieldSchema(
       TRIBE_EVENT_INPUT_ISSUE.invalidMeetingUrl,
       z.string()
@@ -147,12 +170,19 @@ export const tribeEventMutationBodySchema = z.object(
  * `capacity` stays undefined ("keep the stored capacity") instead of meaning
  * "no limit", so an older client that does not send the field never removes
  * an existing limit. An explicit empty or null capacity still removes it.
+ * Likewise an omitted `eventType` stays undefined ("keep the stored type")
+ * instead of falling back to the default type, so a stale bundle or API
+ * consumer that does not know the field never turns a workshop into a live
+ * event. An explicit empty or null type still means the default type.
  */
 export const tribeEventUpdateBodySchema = tribeEventMutationBodySchema.extend({
   // `.optional()` would still run the inner schema, which maps a missing
   // value to null; the explicit `undefined` branch keeps "omitted" apart.
   capacity: z.union([z.undefined(), capacityFieldSchema], {
     error: TRIBE_EVENT_INPUT_ISSUE.invalidCapacity,
+  }),
+  eventType: z.union([z.undefined(), createEventTypeFieldSchema(TRIBE_EVENT_DEFAULT_TYPE)], {
+    error: TRIBE_EVENT_INPUT_ISSUE.invalidEventType,
   }),
 }) satisfies z.ZodType<TribeEventUpdateFieldsInput>;
 

@@ -57,7 +57,10 @@ function createOccurrence(
     endsAt: "2026-05-06T19:00:00.000Z",
     eventId,
     meetingUrl: "https://meet.google.com/abc-defg-hij",
+    eventType: "live",
+    exception: null,
     occurrenceKey: `${eventId}@${startsAt}`,
+    originalStartsAt: startsAt,
     recurrenceFrequency: "none",
     recurrenceRule: null,
     recurrenceUntil: null,
@@ -79,6 +82,7 @@ function createEventDto(
     capacity: null,
     description: "Repaso mensual",
     endsAt: "2026-05-06T19:00:00.000Z",
+    eventType: "live",
     id: EVENT_ID,
     meetingUrl: "https://meet.google.com/abc-defg-hij",
     recurrenceFrequency: "none",
@@ -117,7 +121,7 @@ function renderCalendar(
       events={[createOccurrence()]}
       month={MAY}
       tribeSlug="matematica-pro"
-      viewerPermissions={{ canManageEvents: true }}
+      viewerPermissions={{ canManageEvents: true, canProposeEvents: false }}
       {...props}
     />,
     { wrapper: RouterProvider }
@@ -351,7 +355,7 @@ describe("TribeEventsCalendar", () => {
   it("shows members a quiet empty state when the month has no events", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false } });
+    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false, canProposeEvents: false } });
 
     expect(screen.getByText("No hay eventos este mes.")).toBeInTheDocument();
 
@@ -362,7 +366,7 @@ describe("TribeEventsCalendar", () => {
   });
 
   it("keeps the member empty state free of templates", () => {
-    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false } });
+    renderCalendar({ events: [], viewerPermissions: { canManageEvents: false, canProposeEvents: false } });
 
     expect(screen.queryByText("Creá tu primer encuentro")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Preguntas y respuestas semanal/ })).not.toBeInTheDocument();
@@ -520,6 +524,50 @@ describe("TribeEventsCalendar", () => {
     expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
   });
 
+  it("requires the end date the manager left empty after checking «Termina otro día»", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+    await user.click(within(dialog).getByRole("checkbox", { name: "Termina otro día" }));
+
+    // Checking it starts from the day after the start date.
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha de fin"), { target: { value: "" } });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Elegí la fecha de fin o destildá «Termina otro día»."
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha de fin"), {
+      target: { value: "2026-05-22" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de fin"), {
+      target: { value: "01:00" },
+    });
+    mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      endsAt: "2026-05-22T04:00:00.000Z",
+      startsAt: "2026-05-20T23:00:00.000Z",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
   it("stops recomputing the template end once the manager edits the end date", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
@@ -558,7 +606,7 @@ describe("TribeEventsCalendar", () => {
           previous: "2026-05",
         }}
         tribeSlug="matematica-pro"
-        viewerPermissions={{ canManageEvents: true }}
+        viewerPermissions={{ canManageEvents: true, canProposeEvents: false }}
       />
     );
 
@@ -760,6 +808,28 @@ describe("TribeEventsCalendar", () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
+    it("rewrites the stale month of a deep link to the month the occurrence is shown in", async () => {
+      // A link copied before the date moved still says April; the route
+      // resolved the moved occurrence in May and opened it there.
+      window.history.replaceState(
+        null,
+        "",
+        "/matematica-pro/eventos?month=2026-04&event=" +
+          encodeURIComponent(occurrence.occurrenceKey)
+      );
+
+      renderCalendar({ initialOccurrenceKey: occurrence.occurrenceKey });
+
+      expect(await screen.findByRole("dialog", { name: "Clase abierta" })).toBeInTheDocument();
+
+      const correctedUrl = new URL(window.location.href);
+
+      expect(correctedUrl.pathname).toBe("/matematica-pro/eventos");
+      expect(correctedUrl.searchParams.get("month")).toBe("2026-05");
+      expect(correctedUrl.searchParams.get("event")).toBe(occurrence.occurrenceKey);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
     it("ignores a deep link to an occurrence that is not on screen", () => {
       renderCalendar({ initialOccurrenceKey: `${OTHER_EVENT_ID}@2026-05-20T18:00:00.000Z` });
 
@@ -917,7 +987,7 @@ describe("TribeEventsCalendar", () => {
   it("opens the event detail with description, attendance, and calendar exports", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-    renderCalendar({ viewerPermissions: { canManageEvents: false } });
+    renderCalendar({ viewerPermissions: { canManageEvents: false, canProposeEvents: false } });
 
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
@@ -1054,6 +1124,7 @@ describe("TribeEventsCalendar", () => {
       capacity: "",
       description: "",
       endsAt: "2026-05-20T19:00:00.000Z",
+      eventType: "live",
       meetingUrl: "https://meet.google.com/abc-defg-hij",
       recurrenceFrequency: "none",
       recurrenceUntil: "",
@@ -1277,7 +1348,7 @@ describe("TribeEventsCalendar", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("edits an event from the detail and shows the attendance returned by the save", async () => {
+  it("edits an event from the detail and shows the attendance the server read after saving", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     renderCalendar();
@@ -2327,7 +2398,7 @@ describe("TribeEventsCalendar server render", () => {
           events={[createOccurrence()]}
           month={MAY}
           tribeSlug="matematica-pro"
-          viewerPermissions={{ canManageEvents: false }}
+          viewerPermissions={{ canManageEvents: false, canProposeEvents: false }}
         />
       </RouterProvider>
     );
@@ -2352,7 +2423,7 @@ describe("TribeEventsCalendar server render", () => {
           events={[createOccurrence()]}
           month={MAY}
           tribeSlug="matematica-pro"
-          viewerPermissions={{ canManageEvents: false }}
+          viewerPermissions={{ canManageEvents: false, canProposeEvents: false }}
         />
       </RouterProvider>
     );
@@ -2371,7 +2442,7 @@ describe("TribeEventsCalendar server render", () => {
           events={[createOccurrence()]}
           month={MAY}
           tribeSlug="matematica-pro"
-          viewerPermissions={{ canManageEvents: false }}
+          viewerPermissions={{ canManageEvents: false, canProposeEvents: false }}
         />
       </RouterProvider>
     );

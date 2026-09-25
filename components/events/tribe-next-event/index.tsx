@@ -4,6 +4,8 @@ import { Button } from "beez-ui";
 
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";
+import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
+import { formatMovedFromLabel } from "@/lib/events/tribe-event-occurrence-exception-copy";
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresTimeRange,
@@ -57,7 +59,8 @@ const COPY = {
 } as const;
 
 /**
- * Highlight of the closest occurrence that has not finished yet: who is
+ * Highlight of the closest occurrence that has not finished yet (never a
+ * cancelled date; a moved date shows where it came from): its type, who is
  * going, free seats, quick "Voy / Tal vez / No voy" buttons, the viewer's
  * own streak (never shown to anyone else), and a shortcut to the detail.
  */
@@ -76,6 +79,7 @@ export function TribeNextEvent({
     viewerTimeZone
   );
   const isLive = isOccurrenceLive(occurrence, nowTime);
+  const movedFromLabel = formatMovedFromLabel(occurrence);
   const joinUrl =
     occurrence.meetingUrl && isOccurrenceJoinable(occurrence, nowTime)
       ? occurrence.meetingUrl
@@ -98,6 +102,7 @@ export function TribeNextEvent({
           )}
         </div>
         <p className={styles.TribeNextEvent__title}>{occurrence.title}</p>
+        <TribeEventTypeBadge eventType={occurrence.eventType} />
         <p className={styles.TribeNextEvent__schedule}>
           {formatBuenosAiresLongDate(occurrence.startsAt)}
           {COPY.scheduleSeparator}
@@ -109,6 +114,7 @@ export function TribeNextEvent({
             </span>
           ) : null}
         </p>
+        {movedFromLabel ? <p className={styles.TribeNextEvent__note}>{movedFromLabel}</p> : null}
         <TribeEventAttendanceSummary isPast={false} occurrence={occurrence} />
         {attendanceStreak ? (
           <p className={styles.TribeNextEvent__streak}>{formatAttendanceStreak(attendanceStreak)}</p>

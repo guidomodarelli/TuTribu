@@ -26,16 +26,20 @@ import {
   type StreakFreshnessEvent,
   type StreakMutationOutcome,
 } from "@/lib/events/tribe-event-streak-freshness";
+import type { TribeEventOccurrenceExceptionSubmission } from "@/lib/events/tribe-event-form-submissions";
 import {
   compareOccurrencesByStart,
   mergeSavedOccurrences,
 } from "@/lib/events/tribe-events-calendar-grid";
 import {
+  clearTribeEventOccurrenceExceptionRequest,
   deleteTribeEventRequest,
   fetchTribeEventAttendanceStreakRequest,
   fetchTribeEventOccurrencesRequest,
   saveTribeEventAttendanceRequest,
+  saveTribeEventOccurrenceExceptionRequest,
   saveTribeEventRequest,
+  toTribeEventOccurrenceExceptionRequestBody,
   type TribeEventMutationFailure,
   type TribeEventSavePayload,
   type TribeEventStreakReadResult,
@@ -116,6 +120,12 @@ type SeriesMutationStreak = {
   outcome: StreakMutationOutcome;
 };
 
+/**
+ * Settles a series mutation sent outside this hook with how its request ended
+ * (see `TribeEventMutations.beginSeriesMutation`).
+ */
+export type TribeEventSeriesMutationSettler = (outcome: OccurrencesMutationOutcome) => void;
+
 type OccurrencesUpdater = (
   currentEvents: TribeEventOccurrenceResult[]
 ) => TribeEventOccurrenceResult[];
@@ -124,6 +134,24 @@ type OccurrencesUpdater = (
  * Client state and mutations of the tribe events calendar.
  */
 export type TribeEventMutations = {
+  /**
+   * Replaces the occurrences of one series with a fresh set from the server
+   * (for example after approving a proposal).
+   */
+  applyEventOccurrences: (eventId: string, occurrences: TribeEventOccurrenceResult[]) => void;
+  /**
+   * Registers a series mutation sent outside this hook (for example a proposal
+   * approval, which creates an event) in both freshness state machines, like
+   * the creations this hook sends. Settle it once with how the request ended:
+   * an applied or ambiguous outcome reads the streak again once every
+   * mutation settles (the response carries no streak), an ambiguous one also
+   * reads the visible month, and a rejection stored nothing.
+   *
+   * @returns The settler of that mutation; later calls are ignored.
+   */
+  beginSeriesMutation: () => TribeEventSeriesMutationSettler;
+  /** "Restaurar fecha": removes the exception of the occurrence. */
+  clearOccurrenceException: (occurrence: TribeEventOccurrenceResult) => Promise<boolean>;
   /** Viewer streak, refreshed by creations, edits, and deletions of a series. */
   attendanceStreak: TribeEventAttendanceStreakResult | null;
   /**
@@ -136,6 +164,12 @@ export type TribeEventMutations = {
   isDeletingEvent: boolean;
   isSavingAttendance: boolean;
   isSavingEvent: boolean;
+  isSavingException: boolean;
+  /** "Cancelar esta fecha" / "Mover esta fecha". */
+  saveOccurrenceException: (
+    occurrence: TribeEventOccurrenceResult,
+    submission: TribeEventOccurrenceExceptionSubmission
+  ) => Promise<boolean>;
   /**
    * Reads the streak again (for example when an occurrence on screen
    * finishes). Failures keep the streak on screen without user feedback and
@@ -164,6 +198,8 @@ const COPY = {
   deleteSuccess: "Evento eliminado.",
   eventSaveFailure: "No pudimos guardar el evento.",
   eventSaveFallback: "Evento guardado.",
+  exceptionFailure: "No pudimos actualizar la fecha.",
+  exceptionSaved: "Fecha actualizada.",
 } as const;
 
 /**
@@ -278,6 +314,7 @@ export function useTribeEventMutations({
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isSavingAttendance, setIsSavingAttendance] = useState(false);
+  const [isSavingException, setIsSavingException] = useState(false);
   const [attendanceStreakState, setAttendanceStreakState] = useState<AttendanceStreakState>({
     source: streakSource,
     streak: attendanceStreak,
@@ -298,6 +335,7 @@ export function useTribeEventMutations({
   const isSavingEventRef = useRef(false);
   const isDeletingEventRef = useRef(false);
   const isSavingAttendanceRef = useRef(false);
+  const isSavingExceptionRef = useRef(false);
   // In-flight streak refresh, aborted when a newer refresh or a mutation
   // starts, or the calendar unmounts, so a stale read never lands on screen.
   const streakRefreshControllerRef = useRef<AbortController | null>(null);
@@ -739,12 +777,127 @@ export function useTribeEventMutations({
     );
   };
 
+  const beginSeriesMutation: TribeEventMutations["beginSeriesMutation"] = () => {
+    beginStreakMutation();
+
+    let isSettled = false;
+
+    return (occurrencesOutcome) => {
+      // A second settle would unbalance the pending mutation counters.
+      if (isSettled) {
+        return;
+      }
+
+      isSettled = true;
+      settleStreakMutation(
+        occurrencesOutcome === OCCURRENCES_MUTATION_OUTCOME.rejected
+          ? STREAK_MUTATION_OUTCOME.unaffected
+          : STREAK_MUTATION_OUTCOME.missing,
+        occurrencesOutcome
+      );
+    };
+  };
+
   const replaceVisibleEvents = (updater: OccurrencesUpdater) => {
     setVisibleEventsState((currentState) => ({
       events: updater(currentState.sourceEvents === events ? currentState.events : events),
       sourceEvents: events,
     }));
   };
+
+  const applyEventOccurrences: TribeEventMutations["applyEventOccurrences"] = (
+    eventId,
+    occurrences
+  ) => {
+    replaceVisibleEvents((currentEvents) =>
+      mergeSavedOccurrences(currentEvents, occurrences, eventId)
+    );
+  };
+
+  // Month on screen when a response arrives. A response computed for another
+  // month (the viewer navigated while it was in flight) is never merged.
+  const isStaleMonth = (requestMonth: string): boolean =>
+    latestMonthRef.current !== requestMonth;
+
+  /**
+   * Runs one exception request (save or clear) with the shared duplicate
+   * guard, toasts, and the incremental patch of the series. A cancelled or
+   * moved date changes which occurrences count for the streak and when it
+   * changes next, and its response carries no streak, so it takes part in
+   * both freshness state machines like the other mutations: the streak is
+   * read again once every mutation settles, and the visible month is read
+   * again when the batch overlapped or the outcome is ambiguous.
+   */
+  const runExceptionMutation = async (
+    occurrence: TribeEventOccurrenceResult,
+    request: (requestMonth: string) => ReturnType<typeof clearTribeEventOccurrenceExceptionRequest>
+  ): Promise<boolean> => {
+    if (isSavingExceptionRef.current) {
+      return false;
+    }
+
+    isSavingExceptionRef.current = true;
+    setIsSavingException(true);
+
+    const requestMonth = month;
+
+    beginStreakMutation();
+    // Stays ambiguous unless the route answers: a network failure or timeout
+    // may still have committed the mutation.
+    let occurrencesOutcome: OccurrencesMutationOutcome = OCCURRENCES_MUTATION_OUTCOME.ambiguous;
+
+    try {
+      const result = await request(requestMonth);
+
+      if (!result.isSuccess) {
+        occurrencesOutcome = readFailedMutationOutcome(result);
+        toast.error(result.message ?? COPY.exceptionFailure);
+        return false;
+      }
+
+      if (!isStaleMonth(requestMonth)) {
+        applyEventOccurrences(occurrence.eventId, result.occurrences);
+      }
+
+      occurrencesOutcome = OCCURRENCES_MUTATION_OUTCOME.applied;
+      toast.success(result.message ?? COPY.exceptionSaved);
+      return true;
+    } catch {
+      // Network failure: the route never answered, so show the safe fallback;
+      // the outcome stays ambiguous and the visible month is read again.
+      toast.error(COPY.exceptionFailure);
+      return false;
+    } finally {
+      isSavingExceptionRef.current = false;
+      setIsSavingException(false);
+      settleStreakMutation(STREAK_MUTATION_OUTCOME.missing, occurrencesOutcome);
+    }
+  };
+
+  const saveOccurrenceException: TribeEventMutations["saveOccurrenceException"] = (
+    occurrence,
+    submission
+  ) =>
+    runExceptionMutation(occurrence, (requestMonth) =>
+      saveTribeEventOccurrenceExceptionRequest({
+        body: toTribeEventOccurrenceExceptionRequestBody(submission, occurrence.originalStartsAt),
+        eventId: occurrence.eventId,
+        month: requestMonth,
+        tribeSlug,
+      })
+    );
+
+  const clearOccurrenceException: TribeEventMutations["clearOccurrenceException"] = (
+    occurrence
+  ) =>
+    runExceptionMutation(occurrence, (requestMonth) =>
+      clearTribeEventOccurrenceExceptionRequest({
+        eventId: occurrence.eventId,
+        month: requestMonth,
+        originalStartsAt: occurrence.originalStartsAt,
+        tribeSlug,
+      })
+    );
 
   const saveEvent: TribeEventMutations["saveEvent"] = async (
     payload,
@@ -757,6 +910,7 @@ export function useTribeEventMutations({
     isSavingEventRef.current = true;
     setIsSavingEvent(true);
 
+    const requestMonth = month;
     const streakRequest = beginStreakMutation();
     let seriesMutationStreak: SeriesMutationStreak | null = null;
     // Stays ambiguous unless the route answers: a network failure or timeout
@@ -766,7 +920,7 @@ export function useTribeEventMutations({
     try {
       const result = await saveTribeEventRequest({
         eventId: editingOccurrence?.eventId ?? null,
-        month,
+        month: requestMonth,
         payload,
         tribeSlug,
       });
@@ -780,10 +934,8 @@ export function useTribeEventMutations({
       const savedEventId =
         editingOccurrence?.eventId ?? result.occurrences[0]?.eventId ?? null;
 
-      if (savedEventId) {
-        replaceVisibleEvents((currentEvents) =>
-          mergeSavedOccurrences(currentEvents, result.occurrences, savedEventId)
-        );
+      if (savedEventId && !isStaleMonth(requestMonth)) {
+        applyEventOccurrences(savedEventId, result.occurrences);
       }
 
       seriesMutationStreak = readSeriesMutationStreak(streakRequest, result);
@@ -909,14 +1061,19 @@ export function useTribeEventMutations({
   };
 
   return {
+    applyEventOccurrences,
+    beginSeriesMutation,
+    clearOccurrenceException,
     attendanceStreak: visibleAttendanceStreak,
     attendanceStreakNextRefreshAt: visibleStreakNextRefreshAt,
     deleteEvent,
     isDeletingEvent,
     isSavingAttendance,
     isSavingEvent,
+    isSavingException,
     refreshAttendanceStreak,
     saveEvent,
+    saveOccurrenceException,
     setAttendance,
     visibleEvents,
   };

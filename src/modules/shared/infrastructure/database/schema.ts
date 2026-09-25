@@ -898,6 +898,9 @@ export const events = pgTable("events", {
   // Seats per occurrence; NULL = unlimited. CHECK (capacity > 0) lives in
   // 20260923120000_add_tribe_event_capacity_waitlist.sql.
   capacity: integer("capacity"),
+  // live | workshop | qa | in_person | social. CHECK in
+  // 20260924120000_add_tribe_event_type.sql.
+  eventType: text("event_type").notNull().default("live"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
@@ -968,6 +971,94 @@ export const eventAttendances = pgTable("event_attendances", {
   promotedAtIndex: index("idx_event_attendances_promoted_at")
     .on(table.promotedAt)
     .where(sql`promoted_at IS NOT NULL`),
+}));
+
+// Cancelled or moved date of a series, keyed by the slot the recurrence rule
+// generates (original_starts_at). CHECKs, the composite FK to events, and RLS
+// live in 20260924121000_create_event_occurrence_exceptions.sql.
+export const eventOccurrenceExceptions = pgTable("event_occurrence_exceptions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id").notNull(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  originalStartsAt: timestamp("original_starts_at", { withTimezone: true }).notNull(),
+  // cancelled | moved
+  kind: text("kind").notNull(),
+  newStartsAt: timestamp("new_starts_at", { withTimezone: true }),
+  newEndsAt: timestamp("new_ends_at", { withTimezone: true }),
+  reason: text("reason"),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  eventOccurrenceKey: uniqueIndex("event_occurrence_exceptions_event_occurrence_key").on(
+    table.eventId,
+    table.originalStartsAt
+  ),
+  eventTribeForeignKey: foreignKey({
+    columns: [table.eventId, table.tribeId],
+    foreignColumns: [events.id, events.tribeId],
+    name: "event_occurrence_exceptions_event_tribe_fkey",
+  }).onDelete("cascade"),
+  tribeOriginalIndex: index("idx_event_occurrence_exceptions_tribe_original").on(
+    table.tribeId,
+    table.originalStartsAt
+  ),
+  tribeNewStartIndex: index("idx_event_occurrence_exceptions_tribe_new_start")
+    .on(table.tribeId, table.newStartsAt)
+    .where(sql`kind = 'moved'`),
+  updatedAtIndex: index("idx_event_occurrence_exceptions_updated_at").on(table.updatedAt),
+}));
+
+// Meeting proposed by a member; approving it creates the event (event_id).
+// CHECKs and RLS live in 20260924122000_create_event_proposals.sql.
+export const eventProposals = pgTable("event_proposals", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  proposedBy: text("proposed_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  durationMinutes: integer("duration_minutes").notNull(),
+  eventType: text("event_type").notNull().default("live"),
+  // pending | approved | rejected | withdrawn
+  status: text("status").notNull().default("pending"),
+  reviewedBy: text("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewNote: text("review_note"),
+  eventId: uuid("event_id").references(() => events.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  eventIdKey: uniqueIndex("event_proposals_event_id_key")
+    .on(table.eventId)
+    .where(sql`event_id IS NOT NULL`),
+  tribeStatusCreatedIndex: index("idx_event_proposals_tribe_status_created").on(
+    table.tribeId,
+    table.status,
+    table.createdAt
+  ),
+  tribeAuthorCreatedIndex: index("idx_event_proposals_tribe_author_created").on(
+    table.tribeId,
+    table.proposedBy,
+    table.createdAt
+  ),
+  reviewedAtIndex: index("idx_event_proposals_reviewed_at")
+    .on(table.reviewedAt)
+    .where(sql`reviewed_at IS NOT NULL`),
 }));
 
 export const tribePaymentIntegrations = pgTable("tribe_payment_integrations", {

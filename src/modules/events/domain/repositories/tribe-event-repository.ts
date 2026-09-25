@@ -5,7 +5,9 @@ import type {
   TribeEventAttendee,
   TribeEventAttendeePreview,
   TribeEventDateRange,
+  TribeEventOccurrenceException,
   TribeEventRecurrenceFrequency,
+  TribeEventType,
   TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type {
@@ -30,6 +32,7 @@ export type PersistTribeEventCommand = {
   capacity: number | null;
   description: string | null;
   endsAt: string | null;
+  eventType: TribeEventType;
   meetingUrl: string | null;
   recurrenceFrequency: TribeEventRecurrenceFrequency;
   recurrenceUntil: string | null;
@@ -46,7 +49,10 @@ export type TribeEventCapacityUpdate =
   | { kind: typeof TRIBE_EVENT_CAPACITY_UPDATE_KIND.unchanged }
   | { capacity: number | null; kind: typeof TRIBE_EVENT_CAPACITY_UPDATE_KIND.set };
 
-export type PersistTribeEventUpdateCommand = Omit<PersistTribeEventCommand, "capacity"> & {
+export type PersistTribeEventUpdateCommand = Omit<
+  PersistTribeEventCommand,
+  "capacity" | "eventType"
+> & {
   /**
    * Range whose attendance summaries of the event are read back after the
    * waitlist refill, or null to skip that read (no visible month).
@@ -58,6 +64,11 @@ export type PersistTribeEventUpdateCommand = Omit<PersistTribeEventCommand, "cap
    */
   capacity: TribeEventCapacityUpdate;
   eventId: string;
+  /**
+   * New type of the series, or null to leave the event type column untouched,
+   * so an update that does not mention the type keeps the stored one.
+   */
+  eventType: TribeEventType | null;
 };
 
 export type DeleteTribeEventRepositoryCommand = {
@@ -113,7 +124,8 @@ export type TribeEventOccurrenceAttendance = TribeEventAttendanceSummary & {
  * Everything the viewer attendance streak and its next refresh instant need,
  * read together: the series with an occurrence overlapping `eventRange`
  * (finished and upcoming occurrences) and the viewer's own answers to
- * occurrences starting inside `viewerAttendanceRange`.
+ * occurrences starting inside `viewerAttendanceRange`, including dates moved
+ * into it whose original start (the answer key) lies outside it.
  */
 export type ReadViewerAttendanceStreakSnapshotQuery = {
   eventRange: TribeEventDateRange;
@@ -133,11 +145,13 @@ export type TribeEventViewerAttendance = {
  */
 export type TribeEventViewerAttendanceHistory = {
   events: TribeEvent[];
+  /** Exceptions of those series in the range (cancelled or moved dates). */
+  exceptions: TribeEventOccurrenceException[];
   /**
-   * Database instant (ISO 8601, UTC) of the statement that read the series
-   * and the answers. Attendance writes decide whether an occurrence ended
-   * with the database clock, so the streak cutoff and its next refresh must
-   * use this instant instead of the application host clock.
+   * Database instant (ISO 8601, UTC) of the statement that read the series,
+   * the exceptions, and the answers. Attendance writes decide whether an
+   * occurrence ended with the database clock, so the streak cutoff and its
+   * next refresh must use this instant instead of the application host clock.
    */
   referenceTime: string;
   viewerAttendances: TribeEventViewerAttendance[];
@@ -165,12 +179,37 @@ export type TribeEventAttendanceReportLookup =
 
 export type TribeEventViewerPermissions = {
   canManageEvents: boolean;
+  /** Active members who do not manage events may propose a meeting. */
+  canProposeEvents: boolean;
 };
 
+/**
+ * Series whose occurrences can fall in a range, plus the exceptions whose
+ * original slot or new start falls in it, and the attendance of every slot
+ * shown in the range (including slots moved in from another month).
+ */
 export type TribeEventRangeListing = {
   attendances: TribeEventOccurrenceAttendance[];
   events: TribeEvent[];
+  exceptions: TribeEventOccurrenceException[];
+  /** Pending member proposals; always 0 for viewers who cannot review them. */
+  pendingProposalCount: number;
   viewerPermissions: TribeEventViewerPermissions;
+};
+
+export type ListTribeEventOccurrencesQuery = TribeEventDateRange & {
+  eventId: string;
+  tribeSlug: string;
+};
+
+/**
+ * One series inside a range, used to answer a mutation with the fresh
+ * occurrences of the visible month (null event: not found or not readable).
+ */
+export type TribeEventOccurrenceListing = {
+  attendances: TribeEventOccurrenceAttendance[];
+  event: TribeEvent | null;
+  exceptions: TribeEventOccurrenceException[];
 };
 
 type TribeEventMutationFailureStatus =
@@ -218,11 +257,14 @@ export type TribeEventAttendanceResult =
       /**
        * `occurrenceEnded` comes from the definer function guard, the only
        * source of truth for the end (database clock under the occurrence
-       * lock), also after waiting on that lock. `scheduleChanged` means a
-       * manager edited the schedule after the occurrence was validated.
+       * lock, at the effective time of a moved date), also after waiting on
+       * that lock. `occurrenceCancelled` means the date was cancelled.
+       * `scheduleChanged` means a manager edited the schedule after the
+       * occurrence was validated.
        */
       status:
         | TribeEventMutationFailureStatus
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled
         | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceEnded
         | typeof TRIBE_EVENT_MUTATION_STATUS.scheduleChanged;
     };
@@ -248,11 +290,15 @@ export type TribeEventRepository = {
   listByTribeRange: (
     query: ListTribeEventsByRangeQuery
   ) => Promise<TribeEventRangeListing>;
+  listEventOccurrences: (
+    query: ListTribeEventOccurrencesQuery
+  ) => Promise<TribeEventOccurrenceListing>;
   /**
-   * Series and viewer answers of {@link ReadViewerAttendanceStreakSnapshotQuery}
-   * read from one database snapshot, so the streak and the instant at which
-   * it changes next never mix two versions of the schedule (for example a
-   * series another manager created or rescheduled between two reads).
+   * Series, their exceptions, and viewer answers of
+   * {@link ReadViewerAttendanceStreakSnapshotQuery} read from one database
+   * snapshot, so the streak and the instant at which it changes next never
+   * mix two versions of the schedule (for example a series another manager
+   * created, rescheduled, or whose date was moved between two reads).
    */
   readViewerAttendanceStreakSnapshot: (
     query: ReadViewerAttendanceStreakSnapshotQuery

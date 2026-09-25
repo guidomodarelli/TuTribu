@@ -64,7 +64,10 @@ const openClassOccurrence = {
   endsAt: "2026-05-06T19:00:00.000Z",
   eventId: EVENT_ID,
   meetingUrl: "https://meet.google.com/abc-defg-hij",
+  eventType: "live",
+  exception: null,
   occurrenceKey: `${EVENT_ID}@2026-05-06T18:00:00.000Z`,
+  originalStartsAt: "2026-05-06T18:00:00.000Z",
   recurrenceFrequency: "none",
   recurrenceRule: null,
   recurrenceUntil: null,
@@ -81,9 +84,11 @@ const mayListing = {
     next: "2026-06",
     previous: "2026-04",
   },
+  pendingProposalCount: 0,
   selectedOccurrenceKey: null,
   viewerPermissions: {
     canManageEvents: true,
+    canProposeEvents: false,
   },
 };
 
@@ -160,6 +165,7 @@ describe("tribe coming soon pages", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Clase abierta")).toBeInTheDocument();
     expect(listTribeEvents).toHaveBeenCalledWith({
+      eventTypes: [],
       month: "2026-05",
       occurrence: null,
       tribeSlug: "matematica-pro",
@@ -182,6 +188,7 @@ describe("tribe coming soon pages", () => {
     );
 
     expect(listTribeEvents).toHaveBeenCalledWith({
+      eventTypes: [],
       month: null,
       occurrence: null,
       tribeSlug: "matematica-pro",
@@ -262,8 +269,9 @@ describe("tribe coming soon pages", () => {
     listTribeEvents.mockResolvedValue({
       events: [],
       month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
+      pendingProposalCount: 0,
       selectedOccurrenceKey: null,
-      viewerPermissions: { canManageEvents: false },
+      viewerPermissions: { canManageEvents: false, canProposeEvents: true },
     });
 
     render(
@@ -274,6 +282,7 @@ describe("tribe coming soon pages", () => {
     );
 
     expect(listTribeEvents).toHaveBeenCalledWith({
+      eventTypes: [],
       month: null,
       occurrence: {
         eventId: "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f",
@@ -291,8 +300,9 @@ describe("tribe coming soon pages", () => {
     listTribeEvents.mockResolvedValue({
       events: [],
       month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
+      pendingProposalCount: 0,
       selectedOccurrenceKey: null,
-      viewerPermissions: { canManageEvents: false },
+      viewerPermissions: { canManageEvents: false, canProposeEvents: true },
     });
 
     const page = await TribeEventsPage({
@@ -318,8 +328,9 @@ describe("tribe coming soon pages", () => {
     listTribeEvents.mockResolvedValue({
       events: [],
       month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
+      pendingProposalCount: 0,
       selectedOccurrenceKey: null,
-      viewerPermissions: { canManageEvents: false },
+      viewerPermissions: { canManageEvents: false, canProposeEvents: true },
     });
     getTribeEventAttendanceStreakSnapshot.mockRejectedValue(new Error("connection reset"));
 

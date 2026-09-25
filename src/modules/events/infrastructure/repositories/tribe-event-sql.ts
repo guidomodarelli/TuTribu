@@ -1,0 +1,274 @@
+import { sql } from "drizzle-orm";
+
+import {
+  TRIBE_EVENT_DEFAULT_DURATION_MINUTES,
+  TRIBE_EVENT_DEFAULT_TYPE,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+  TRIBE_EVENT_RECURRENCE_FREQUENCY,
+  TRIBE_EVENT_TYPE,
+} from "@/src/modules/events/constants/tribe-events";
+import type {
+  TribeEvent,
+  TribeEventDateRange,
+  TribeEventOccurrenceException,
+  TribeEventOccurrenceExceptionKind,
+  TribeEventRecurrenceFrequency,
+  TribeEventType,
+} from "@/src/modules/events/domain/entities/tribe-event";
+import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+
+/**
+ * SQL fragments and row mappers shared by the events repositories (series,
+ * occurrence exceptions, and proposals). Rows are consumed with the minimal
+ * narrowing their adapter needs; they are not revalidated with schemas.
+ */
+
+/**
+ * Runs a callback inside the request-scoped transaction
+ * (`withRequestContext`), which sets `app.current_user_id` for the guards.
+ */
+export type TribeEventDatabaseExecutor = <T>(
+  callback: (database: RequestDatabase) => Promise<T>
+) => Promise<T>;
+
+/**
+ * Locks the viewer's own membership in the tribe `FOR SHARE`, as its own
+ * statement, before any write whose authorization depends on it: proposal
+ * writes (create, withdraw, approve, reject) and manager writes on a series
+ * or on an occurrence exception (update, delete, save, clear). A concurrent
+ * demotion, block, or removal of the viewer (any write on that row) waits
+ * until the request commits, and a change that committed while this
+ * statement waited is visible to the next statement, so the authorization
+ * read afterwards (`is_active_tribe_member`, `can_manage_tribe_events`,
+ * `can_read_tribe_content`) cannot be revoked before the write commits. The
+ * runtime role bypasses RLS, so without this lock a manager demoted while
+ * the write waited on the event row would still write with the stale
+ * snapshot. It runs before the event, proposal, and advisory locks to keep
+ * the membership → other rows order that attendance answers also follow.
+ * No row (not a member) is fine: the later statement reports `forbidden` or
+ * `notFound`.
+ */
+export async function lockViewerMembership(
+  database: RequestDatabase,
+  tribeSlug: string
+): Promise<void> {
+  await database.execute(sql`
+    select tribe_members.id
+    from public.tribe_members
+    inner join public.tribes
+      on tribes.id = tribe_members.tribe_id
+    where tribes.slug = ${tribeSlug}
+      and tribe_members.user_id = public.current_app_user_id()
+    for share of tribe_members
+  `);
+}
+
+/**
+ * Duration of every occurrence of a series (needs an `events` row in scope):
+ * its explicit end minus its start, or the default duration when it has no
+ * end (same rule as `getTribeEventOccurrenceEndTime`). Used to match
+ * occurrences by overlap.
+ */
+export const TRIBE_EVENT_OCCURRENCE_DURATION = sql`
+  (
+    coalesce(
+      events.ends_at,
+      events.starts_at + make_interval(mins => ${TRIBE_EVENT_DEFAULT_DURATION_MINUTES}::integer)
+    ) - events.starts_at
+  )
+`;
+
+export type TribeEventRow = {
+  capacity: number | string | null;
+  description: string | null;
+  ends_at: Date | string | null;
+  event_type: string | null;
+  id: string;
+  meeting_url: string | null;
+  recurrence_frequency: string;
+  recurrence_until: Date | string | null;
+  starts_at: Date | string;
+  title: string;
+};
+
+export type TribeEventOccurrenceExceptionRow = {
+  event_id: string;
+  kind: string | null;
+  new_ends_at: Date | string | null;
+  new_starts_at: Date | string | null;
+  original_starts_at: Date | string;
+  reason: string | null;
+};
+
+const COUNT_BASE = 10;
+
+export const TRIBE_EVENT_COLUMNS = sql`
+  events.id,
+  events.capacity,
+  events.title,
+  events.description,
+  events.meeting_url,
+  events.starts_at,
+  events.ends_at,
+  events.recurrence_frequency,
+  events.recurrence_until,
+  events.event_type
+`;
+
+export const RETURNING_TRIBE_EVENT_COLUMNS = sql`
+  returning
+    events.id,
+    events.capacity,
+    events.title,
+    events.description,
+    events.meeting_url,
+    events.starts_at,
+    events.ends_at,
+    events.recurrence_frequency,
+    events.recurrence_until,
+    events.event_type
+`;
+
+export const TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS = sql`
+  event_occurrence_exceptions.event_id,
+  event_occurrence_exceptions.original_starts_at,
+  event_occurrence_exceptions.kind,
+  event_occurrence_exceptions.new_starts_at,
+  event_occurrence_exceptions.new_ends_at,
+  event_occurrence_exceptions.reason
+`;
+
+export function mapDateValue(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+export function mapNullableDateValue(value: Date | string | null): string | null {
+  return value ? mapDateValue(value) : null;
+}
+
+export function mapCount(value: number | string | null): number {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  const parsed = value === null ? Number.NaN : Number.parseInt(value, COUNT_BASE);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function mapNullableCount(value: number | string | null): number | null {
+  return value === null ? null : mapCount(value);
+}
+
+function mapRecurrenceFrequency(value: string | null): TribeEventRecurrenceFrequency {
+  return (
+    Object.values(TRIBE_EVENT_RECURRENCE_FREQUENCY).find((frequency) => frequency === value) ??
+    TRIBE_EVENT_RECURRENCE_FREQUENCY.none
+  );
+}
+
+/**
+ * Narrows a stored type to the catalog; an unknown value (never expected,
+ * the CHECK forbids it) falls back to the default type.
+ */
+export function mapTribeEventType(value: string | null): TribeEventType {
+  return (
+    Object.values(TRIBE_EVENT_TYPE).find((eventType) => eventType === value) ??
+    TRIBE_EVENT_DEFAULT_TYPE
+  );
+}
+
+export function mapTribeEvent(row: TribeEventRow): TribeEvent {
+  return {
+    capacity: mapNullableCount(row.capacity),
+    description: row.description,
+    endsAt: mapNullableDateValue(row.ends_at),
+    eventType: mapTribeEventType(row.event_type),
+    id: row.id,
+    meetingUrl: row.meeting_url,
+    recurrenceFrequency: mapRecurrenceFrequency(row.recurrence_frequency),
+    recurrenceUntil: mapNullableDateValue(row.recurrence_until),
+    startsAt: mapDateValue(row.starts_at),
+    title: row.title,
+  };
+}
+
+function mapExceptionKind(value: string | null): TribeEventOccurrenceExceptionKind | null {
+  return (
+    Object.values(TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND).find((kind) => kind === value) ?? null
+  );
+}
+
+/**
+ * Maps exception rows, dropping a row with an unknown kind instead of
+ * failing the whole listing.
+ */
+export function mapTribeEventOccurrenceExceptions(
+  rows: TribeEventOccurrenceExceptionRow[]
+): TribeEventOccurrenceException[] {
+  return rows.flatMap((row) => {
+    const kind = mapExceptionKind(row.kind);
+
+    return kind
+      ? [
+          {
+            eventId: row.event_id,
+            kind,
+            newEndsAt: mapNullableDateValue(row.new_ends_at),
+            newStartsAt: mapNullableDateValue(row.new_starts_at),
+            originalStartsAt: mapDateValue(row.original_starts_at),
+            reason: row.reason,
+          },
+        ]
+      : [];
+  });
+}
+
+/**
+ * Exceptions of a tribe (optionally of one event) whose original slot or
+ * moved slot overlaps `[rangeStart, rangeEnd)` (start before the range end,
+ * effective end after the range start): a date moved out of the range is
+ * needed to hide it, a date moved into the range to show it, and an
+ * in-progress date that started before the range still needs its exception.
+ * This is a superset of the "starts within" match; the domain expansion
+ * decides the final matching. Guarded by `can_read_tribe_content` because
+ * the runtime role bypasses RLS.
+ */
+export function buildTribeEventExceptionsInRangeQuery({
+  eventId,
+  rangeEnd,
+  rangeStart,
+  tribeSlug,
+}: TribeEventDateRange & { eventId?: string; tribeSlug: string }) {
+  const eventFilter = eventId
+    ? sql`and event_occurrence_exceptions.event_id = ${eventId}`
+    : sql``;
+
+  return sql`
+    select ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_COLUMNS}
+    from public.event_occurrence_exceptions
+    inner join public.tribes
+      on tribes.id = event_occurrence_exceptions.tribe_id
+    inner join public.events
+      on events.id = event_occurrence_exceptions.event_id
+    where tribes.slug = ${tribeSlug}
+      and public.can_read_tribe_content(tribes.id)
+      ${eventFilter}
+      and (
+        (
+          event_occurrence_exceptions.original_starts_at < ${rangeEnd}
+          and event_occurrence_exceptions.original_starts_at
+            + ${TRIBE_EVENT_OCCURRENCE_DURATION} > ${rangeStart}
+        )
+        or (
+          event_occurrence_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
+          and event_occurrence_exceptions.new_starts_at < ${rangeEnd}
+          and coalesce(
+            event_occurrence_exceptions.new_ends_at,
+            event_occurrence_exceptions.new_starts_at + ${TRIBE_EVENT_OCCURRENCE_DURATION}
+          ) > ${rangeStart}
+        )
+      )
+    order by event_occurrence_exceptions.original_starts_at asc
+  `;
+}
