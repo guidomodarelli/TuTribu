@@ -35,7 +35,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="doc-label">TuTribu — Manual de usuario</div>
   <div class="doc-title">Eventos: calendario, asistencia, cupos y repeticiones</div>
   <div class="doc-sub">Cómo ver los encuentros de la tribu, confirmar tu asistencia (con cupos y lista de espera) y, si liderás, programarlos y ver quiénes van.</div>
-  <div class="doc-meta"><span>Fecha: 2026-09-25</span><span>Audiencia: miembros y líderes</span></div>
+  <div class="doc-meta"><span>Fecha: 2026-09-27</span><span>Audiencia: miembros y líderes</span></div>
 </div>
 
 <div class="section">
@@ -111,6 +111,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <ul>
     <li>Los errores del formulario se muestran debajo de los campos antes de guardar (por ejemplo, una hora de fin anterior al inicio).</li>
     <li>Editar un evento que se repite cambia <strong>todas</strong> sus fechas. Las respuestas de asistencia ya dadas se conservan para las fechas que siguen existiendo, y también las fechas canceladas o movidas que siguen siendo parte de la serie.</li>
+    <li>Si una fecha de la serie ya tiene grabación, materiales, reacciones o comentarios (sección 11), no podés cambiar el inicio, la repetición ni el <strong>Repetir hasta</strong> de forma que esa fecha deje de existir: al guardar vas a ver el aviso <em>No podés cambiar el horario ni la repetición así: hay fechas con grabación, materiales, reacciones o comentarios que dejarían de existir.</em> y la serie queda como estaba. Sí podés cambiar el título, la descripción, el link, el tipo, el cupo o la hora de fin, alargar la serie o elegir una repetición que conserve esas fechas.</li>
     <li><strong>Eliminar</strong> pide confirmación. Borra el evento (o toda la serie) y las respuestas de asistencia; no se puede deshacer.</li>
   </ul>
   <div class="callout c-warn">Todos los horarios se muestran y se cargan en hora de Buenos Aires.</div>
@@ -207,6 +208,27 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">10</div>
   <div class="section-title">Avisos de tus eventos</div>
   <p>La <strong>campanita</strong> del encabezado te avisa antes de los encuentros a los que respondiste (24 horas y 15 minutos antes), cuando se libera tu lugar en la lista de espera, cuando una fecha se cancela o cambia de horario y cuando revisan una propuesta tuya. Tocá un aviso para ir directo a esa fecha. El detalle está en <a href="notifications.htm">Notificaciones</a>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">11</div>
+  <div class="section-title">Después del evento: grabación, materiales, reacciones y conversación</div>
+  <p>Cuando un encuentro termina, su detalle suma el bloque <strong>Después del encuentro</strong>. Las fechas canceladas no lo muestran. Una fecha movida cuenta como terminada según su horario nuevo.</p>
+  <ul>
+    <li><strong>Grabación.</strong> Si quienes gestionan los eventos la publicaron, la ves embebida en el detalle y con el link <strong>Abrir grabación</strong> para verla en YouTube, Vimeo, Wistia o Loom.</li>
+    <li><strong>Materiales.</strong> Slides, documentos o repositorios, cada uno con su nombre y su link.</li>
+    <li><strong>¿Cómo estuvo?</strong> Reaccioná con 🔥 (estuvo genial), 👍 (estuvo bien) o 😐 (más o menos). Tenés una sola reacción por fecha: tocá otra para cambiarla o la misma para quitarla. Si una reacción no se pudo guardar, te avisamos; si ya habías elegido otra, se guarda la última que elegiste. Los números muestran cuántas personas eligieron cada una. Reaccionar no le avisa a nadie. Solo los miembros activos pueden reaccionar.</li>
+  </ul>
+  <p>En la agenda, las fechas con grabación publicada muestran la marca <strong>Grabación disponible</strong>. Si alguien publica o quita la grabación mientras tenés el calendario abierto, la marca se actualiza al abrir esa fecha.</p>
+  <p><strong>Para quienes gestionan eventos (líder y guardianes).</strong> En una fecha terminada tocá <strong>Agregar grabación y materiales</strong> (o <strong>Editar grabación y materiales</strong> si ya hay algo):</p>
+  <ol>
+    <li>Pegá el link de la grabación (YouTube, Vimeo, Wistia o Loom). Si lo dejás vacío, la grabación se quita.</li>
+    <li>Agregá hasta 10 materiales con <strong>Agregar material</strong>: un nombre y un link que empiece con http o https. Las filas vacías se ignoran.</li>
+    <li>Tocá <strong>Guardar</strong>. El detalle y la agenda se actualizan sin recargar la página. Mientras se guarda, <strong>Editar grabación y materiales</strong> queda deshabilitado y vas a ver "Guardando la grabación y los materiales. Vas a poder editarlos cuando termine."; así el formulario siempre se abre con lo último guardado.</li>
+  </ol>
+  <p>La <strong>primera</strong> vez que publicás la grabación de una fecha, quienes respondieron <em>Voy</em> o <em>Tal vez</em> reciben el aviso <em>Ya está la grabación de…</em> en la campanita. Cambiar el link después, o quitarla y volver a publicarla, no avisa de nuevo.</p>
+  <p><strong>Convertir en lección.</strong> Si liderás la tribu (quienes gestionan los cursos), con una grabación publicada aparece <strong>Convertir en lección</strong>. Elegí el curso y el módulo, revisá el título y la descripción (vienen del evento) y tocá <strong>Crear lección</strong>. La lección usa el video de la grabación. Si esa fecha ya era una lección de ese curso, no se duplica: se te muestra el link <strong>Ver lección</strong> a la existente. Si mientras creabas la lección otra persona cambió o quitó la grabación, no se crea con el video viejo: vas a ver "La grabación cambió mientras creábamos la lección. Revisala y volvé a intentarlo." Lo mismo si la fecha volvió a estar en curso (por ejemplo, porque alguien extendió el horario del evento) o se canceló: vas a ver "Esta fecha del evento todavía no terminó o fue cancelada. Revisala y volvé a intentarlo." Los guardianes gestionan eventos pero no cursos, por eso no ven esta opción.</p>
+  <p><strong>Conversación.</strong> Cada fecha tiene su propia conversación, antes y después del encuentro: sirve para hacer preguntas antes y comentar después. Escribí y tocá <strong>Publicar</strong>. Si la conexión falla y volvés a tocar <strong>Publicar</strong> con el mismo texto, el comentario no se duplica. Podés eliminar tus comentarios; quienes gestionan eventos pueden eliminar cualquiera. Los miembros silenciados la leen pero no escriben. Por ahora las respuestas no generan avisos.</p>
 </div>
 </body>
 </html>

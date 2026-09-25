@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarPlusIcon, ExternalLinkIcon } from "lucide-react";
+import { CalendarPlusIcon, ExternalLinkIcon, VideoIcon } from "lucide-react";
 import { Badge, cn } from "beez-ui";
 
 import {
@@ -29,6 +29,8 @@ import {
 import styles from "./styles.module.scss";
 
 type TribeEventAgendaItemProps = {
+  /** The occurrence has a published recording ("Grabación disponible"). */
+  hasRecording?: boolean;
   /** Current time (epoch ms) or null before hydration. */
   nowTime: number | null;
   occurrence: TribeEventOccurrenceResult;
@@ -53,6 +55,7 @@ const COPY = {
   linkOpen: "Abrir link",
   liveBadge: "En vivo",
   pastBadge: "Finalizado",
+  recordingBadge: "Grabación disponible",
 } as const;
 /**
  * Badge of the viewer's own answer on each agenda row.
@@ -87,6 +90,7 @@ function AttendanceBadge({ occurrence }: { occurrence: TribeEventOccurrenceResul
  * shortcuts; a moved date says where it was moved from.
  */
 export function TribeEventAgendaItem({
+  hasRecording = false,
   nowTime,
   occurrence,
   onSelect,
@@ -156,6 +160,12 @@ export function TribeEventAgendaItem({
           ) : (
             <AttendanceBadge occurrence={occurrence} />
           )}
+          {hasRecording && !isCancelled ? (
+            <Badge className={styles.TribeEventAgendaItem__recordingBadge} variant={BADGE_VARIANT.outline}>
+              <VideoIcon aria-hidden />
+              {COPY.recordingBadge}
+            </Badge>
+          ) : null}
           {occurrence.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none ? (
             <span className={styles.TribeEventAgendaItem__metaText}>
               {TRIBE_EVENT_RECURRENCE_LABEL[occurrence.recurrenceFrequency]}

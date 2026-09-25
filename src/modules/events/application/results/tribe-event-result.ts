@@ -76,6 +76,11 @@ export type TribeEventListResult = {
   /** Pending member proposals (0 for viewers who cannot review them). */
   pendingProposalCount: number;
   /**
+   * Keys of the listed occurrences that have a published recording (agenda
+   * badge "Grabación disponible").
+   */
+  recordedOccurrenceKeys: string[];
+  /**
    * Deep-linked occurrence to open on load, only when it is a valid key that
    * belongs to `events`; null otherwise.
    */
@@ -92,7 +97,9 @@ export type TribeEventSaveFailureStatus =
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidRecurrence
-  | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+  | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
+  /** Update only: the edit would strand post-event content of a date. */
+  | typeof TRIBE_EVENT_MUTATION_STATUS.scheduleRemovesPostEventContent;
 
 /**
  * Outcome of creating or updating an event. `occurrences` carries the slots of

@@ -1,0 +1,53 @@
+.TribeEventLessonConversionDialog {
+  width: min(100% - 2rem, 34rem);
+
+  &__form,
+  &__result {
+    display: grid;
+    gap: 0.9rem;
+    min-width: 0;
+  }
+
+  &__field {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+    font-weight: 600;
+  }
+
+  &__select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  &__textarea {
+    min-height: 5rem;
+    resize: vertical;
+  }
+
+  &__muted,
+  &__resultText {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+  }
+
+  &__resultText {
+    color: var(--foreground);
+  }
+
+  &__error {
+    margin: 0;
+    border-left: 3px solid var(--destructive);
+    color: var(--destructive);
+    font-size: 0.9rem;
+    padding-left: 0.75rem;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+}

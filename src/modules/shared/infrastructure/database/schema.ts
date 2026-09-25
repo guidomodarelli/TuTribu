@@ -736,6 +736,13 @@ export const courseLessons = pgTable("course_lessons", {
   description: text("description"),
   sortOrder: integer("sort_order").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  // Occurrence whose recording originated the lesson ("Convertir en
+  // lección"). A value pair, not a FK to events: courses stay independent of
+  // the events schema. CHECK in 20260927123000_add_course_lesson_event_source.sql.
+  sourceEventId: uuid("source_event_id"),
+  sourceOccurrenceStartsAt: timestamp("source_occurrence_starts_at", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
@@ -743,6 +750,9 @@ export const courseLessons = pgTable("course_lessons", {
     .notNull()
     .default(UTC_NOW_SQL),
 }, (table) => ({
+  eventSourceIndex: index("idx_course_lessons_event_source")
+    .on(table.sourceEventId, table.sourceOccurrenceStartsAt)
+    .where(sql`source_event_id IS NOT NULL`),
   moduleTribeForeignKey: foreignKey({
     columns: [table.courseModuleId, table.tribeId],
     foreignColumns: [courseModules.id, courseModules.tribeId],
@@ -1088,6 +1098,138 @@ export const eventCalendarFeedTokens = pgTable("event_calendar_feed_tokens", {
     .on(table.userId, table.tribeId)
     .where(sql`revoked_at IS NULL`),
   tribeIdIndex: index("idx_event_calendar_feed_tokens_tribe_id").on(table.tribeId),
+}));
+
+// Recording of one event occurrence (at most one per slot). Its INSERT
+// enqueues "event_recording_available"; CHECKs, RLS, and the trigger live in
+// 20260927120000_create_event_occurrence_recordings.sql.
+export const eventOccurrenceRecordings = pgTable("event_occurrence_recordings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id").notNull(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  originalStartsAt: timestamp("original_starts_at", { withTimezone: true }).notNull(),
+  // loom | vimeo | wistia | youtube
+  videoProvider: text("video_provider").notNull(),
+  externalVideoId: text("external_video_id").notNull(),
+  sourceUrl: text("source_url").notNull(),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  eventOccurrenceKey: uniqueIndex("event_occurrence_recordings_event_occurrence_key").on(
+    table.eventId,
+    table.originalStartsAt
+  ),
+  eventTribeForeignKey: foreignKey({
+    columns: [table.eventId, table.tribeId],
+    foreignColumns: [events.id, events.tribeId],
+    name: "event_occurrence_recordings_event_tribe_fkey",
+  }).onDelete("cascade"),
+  tribeOriginalIndex: index("idx_event_occurrence_recordings_tribe_original").on(
+    table.tribeId,
+    table.originalStartsAt
+  ),
+}));
+
+// Ordered material links of one event occurrence (same migration).
+export const eventOccurrenceMaterials = pgTable("event_occurrence_materials", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id").notNull(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  originalStartsAt: timestamp("original_starts_at", { withTimezone: true }).notNull(),
+  title: text("title").notNull(),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  occurrenceSortKey: uniqueIndex("event_occurrence_materials_occurrence_sort_key").on(
+    table.eventId,
+    table.originalStartsAt,
+    table.sortOrder
+  ),
+  eventTribeForeignKey: foreignKey({
+    columns: [table.eventId, table.tribeId],
+    foreignColumns: [events.id, events.tribeId],
+    name: "event_occurrence_materials_event_tribe_fkey",
+  }).onDelete("cascade"),
+}));
+
+// "¿Cómo estuvo?" reaction of a member to a finished occurrence. CHECK and
+// RLS in 20260927121000_create_event_occurrence_reactions.sql.
+export const eventOccurrenceReactions = pgTable("event_occurrence_reactions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id").notNull(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  originalStartsAt: timestamp("original_starts_at", { withTimezone: true }).notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // fire | thumbs_up | neutral
+  reaction: text("reaction").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  memberKey: uniqueIndex("event_occurrence_reactions_member_key").on(
+    table.eventId,
+    table.originalStartsAt,
+    table.userId
+  ),
+  eventTribeForeignKey: foreignKey({
+    columns: [table.eventId, table.tribeId],
+    foreignColumns: [events.id, events.tribeId],
+    name: "event_occurrence_reactions_event_tribe_fkey",
+  }).onDelete("cascade"),
+}));
+
+// Conversation thread of one occurrence. CHECK and RLS in
+// 20260927122000_create_event_occurrence_comments.sql.
+export const eventOccurrenceComments = pgTable("event_occurrence_comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id").notNull(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  originalStartsAt: timestamp("original_starts_at", { withTimezone: true }).notNull(),
+  authorId: text("author_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  clientRequestId: uuid("client_request_id"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .default(UTC_NOW_SQL),
+}, (table) => ({
+  clientRequestKey: uniqueIndex("event_occurrence_comments_client_request_key")
+    .on(table.eventId, table.originalStartsAt, table.authorId, table.clientRequestId)
+    .where(sql`${table.clientRequestId} IS NOT NULL`),
+  eventTribeForeignKey: foreignKey({
+    columns: [table.eventId, table.tribeId],
+    foreignColumns: [events.id, events.tribeId],
+    name: "event_occurrence_comments_event_tribe_fkey",
+  }).onDelete("cascade"),
+  threadIndex: index("idx_event_occurrence_comments_thread").on(
+    table.eventId,
+    table.originalStartsAt,
+    table.createdAt,
+    table.id
+  ),
 }));
 
 // In-app notification inbox. CHECKs, RLS, the recipient update guard, and the

@@ -1,13 +1,15 @@
 /**
  * Catalog and limits of the in-app notification inbox. The type values
- * mirror the `notifications_valid_type` CHECK of
- * `database/migrations/20260926120000_create_notifications.sql`: adding a
- * type needs a migration that widens the CHECK.
+ * mirror the `notifications_valid_type` CHECK (created in
+ * `database/migrations/20260926120000_create_notifications.sql`, widened in
+ * `20260927120000_create_event_occurrence_recordings.sql`): adding a type
+ * needs a migration that widens the CHECK.
  */
 export const NOTIFICATION_TYPE = {
   eventOccurrenceCancelled: "event_occurrence_cancelled",
   eventOccurrenceMoved: "event_occurrence_moved",
   eventProposalReviewed: "event_proposal_reviewed",
+  eventRecordingAvailable: "event_recording_available",
   eventReminderDayBefore: "event_reminder_24h",
   eventReminderSoon: "event_reminder_15m",
   eventWaitlistPromoted: "event_waitlist_promoted",
@@ -20,6 +22,7 @@ export const NOTIFICATION_TYPES = [
   NOTIFICATION_TYPE.eventProposalReviewed,
   NOTIFICATION_TYPE.eventOccurrenceCancelled,
   NOTIFICATION_TYPE.eventOccurrenceMoved,
+  NOTIFICATION_TYPE.eventRecordingAvailable,
 ] as const;
 
 /**

@@ -292,6 +292,7 @@ describe("occurrence exception and proposal routes", () => {
         events: [],
         month: { current: "2026-05", next: "2026-06", previous: "2026-04" },
         pendingProposalCount: 0,
+        recordedOccurrenceKeys: [],
         selectedOccurrenceKey: null,
         viewerPermissions: { canManageEvents: false, canProposeEvents: true },
       });

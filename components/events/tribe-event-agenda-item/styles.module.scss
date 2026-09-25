@@ -104,6 +104,15 @@
     text-underline-offset: 0.2em;
   }
 
+  &__recordingBadge {
+    gap: 0.3rem;
+
+    svg {
+      width: 0.8rem;
+      height: 0.8rem;
+    }
+  }
+
   &__time--cancelled,
   &__titleButton--cancelled {
     text-decoration-line: line-through;

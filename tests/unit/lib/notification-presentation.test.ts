@@ -93,6 +93,14 @@ describe("describeNotification", () => {
     });
   });
 
+  it("announces an available recording with the occurrence deep link", () => {
+    expect(describeNotification(eventItem("event_recording_available"))).toMatchObject({
+      detail: "Fue el jueves 7 de mayo a las 18:00 · Matemática Pro",
+      href: DEEP_LINK,
+      title: "Ya está la grabación de taller de álgebra",
+    });
+  });
+
   it("links a deleted event to the tribe calendar instead of a dead occurrence", () => {
     expect(describeNotification(eventItem("event_reminder_24h", { eventTitle: null }))).toMatchObject({
       href: "/matematica-pro/eventos",

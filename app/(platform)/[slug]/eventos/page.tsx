@@ -162,6 +162,7 @@ export default async function TribeEventsPage({
       initialOccurrenceKey={listingDto.dto.selectedOccurrenceKey}
       month={listingDto.dto.month}
       pendingProposalCount={listingDto.dto.pendingProposalCount}
+      recordedOccurrenceKeys={listingDto.dto.recordedOccurrenceKeys}
       tribeSlug={slug}
       viewerPermissions={listingDto.dto.viewerPermissions}
     />

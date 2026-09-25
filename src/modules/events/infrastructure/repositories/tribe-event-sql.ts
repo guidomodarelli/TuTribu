@@ -36,8 +36,9 @@ export type TribeEventDatabaseExecutor = <T>(
 /**
  * Locks the viewer's own membership in the tribe `FOR SHARE`, as its own
  * statement, before any write whose authorization depends on it: proposal
- * writes (create, withdraw, approve, reject) and manager writes on a series
- * or on an occurrence exception (update, delete, save, clear). A concurrent
+ * writes (create, withdraw, approve, reject), manager writes on a series
+ * or on an occurrence exception (update, delete, save, clear), and the
+ * deletion of an occurrence comment (author or event manager). A concurrent
  * demotion, block, or removal of the viewer (any write on that row) waits
  * until the request commits, and a change that committed while this
  * statement waited is visible to the next statement, so the authorization

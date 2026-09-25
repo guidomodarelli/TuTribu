@@ -60,17 +60,25 @@ const TRIBE_EVENT_INPUT_ISSUE_MESSAGE: Record<TribeEventInputIssue, string> = {
   [TRIBE_EVENT_INPUT_ISSUE.invalidCalendarFeedSubscription]:
     TRIBE_EVENT_ROUTE_RESPONSE.calendarFeedChangedMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidCapacity]: TRIBE_EVENT_ROUTE_RESPONSE.invalidCapacityMessage,
+  [TRIBE_EVENT_INPUT_ISSUE.invalidComment]: TRIBE_EVENT_ROUTE_RESPONSE.invalidCommentMessage,
+  [TRIBE_EVENT_INPUT_ISSUE.invalidCommentReference]:
+    TRIBE_EVENT_ROUTE_RESPONSE.commentNotFoundMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidDate]: TRIBE_EVENT_ROUTE_RESPONSE.invalidDateMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidEventReference]: TRIBE_EVENT_ROUTE_RESPONSE.eventNotFoundMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidEventType]: TRIBE_EVENT_ROUTE_RESPONSE.invalidEventTypeMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidException]: TRIBE_EVENT_ROUTE_RESPONSE.invalidExceptionMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidInput]: TRIBE_EVENT_ROUTE_RESPONSE.invalidInputMessage,
+  [TRIBE_EVENT_INPUT_ISSUE.invalidMaterials]: TRIBE_EVENT_ROUTE_RESPONSE.invalidMaterialsMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidMeetingUrl]: TRIBE_EVENT_ROUTE_RESPONSE.invalidMeetingUrlMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidMonth]: TRIBE_EVENT_ROUTE_RESPONSE.invalidMonthMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidMove]: TRIBE_EVENT_ROUTE_RESPONSE.invalidMoveMessage,
+  [TRIBE_EVENT_INPUT_ISSUE.invalidOccurrenceReference]:
+    TRIBE_EVENT_ROUTE_RESPONSE.invalidOccurrenceMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidProposal]: TRIBE_EVENT_ROUTE_RESPONSE.invalidProposalMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidProposalReference]:
     TRIBE_EVENT_ROUTE_RESPONSE.proposalNotFoundMessage,
+  [TRIBE_EVENT_INPUT_ISSUE.invalidReaction]: TRIBE_EVENT_ROUTE_RESPONSE.invalidReactionMessage,
+  [TRIBE_EVENT_INPUT_ISSUE.invalidRecording]: TRIBE_EVENT_ROUTE_RESPONSE.invalidRecordingMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidRecurrence]: TRIBE_EVENT_ROUTE_RESPONSE.invalidRecurrenceMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidReviewNote]: TRIBE_EVENT_ROUTE_RESPONSE.invalidReviewNoteMessage,
   [TRIBE_EVENT_INPUT_ISSUE.invalidTribeReference]: TRIBE_EVENT_ROUTE_RESPONSE.tribeNotFoundMessage,

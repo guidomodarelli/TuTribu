@@ -26,6 +26,7 @@ import {
   COURSE_COVER_IMAGE_URL,
   COURSE_DESCRIPTION,
   COURSE_LESSON_DESCRIPTION,
+  COURSE_LESSON_TITLE,
   COURSE_MODULE_UNLOCK_AFTER_DAYS,
   COURSE_MUTATION_STATUS,
   COURSE_TITLE,
@@ -58,7 +59,6 @@ type LessonMutationDependencies = CourseRepositoryDependencies & {
 };
 
 const COURSE_MODULE_TITLE_MAX_LENGTH = 120;
-const COURSE_LESSON_TITLE_MAX_LENGTH = 160;
 const HTTP_URL_PROTOCOLS = ["http:", "https:"] as const;
 
 function normalizeText(value: string): string {
@@ -113,7 +113,7 @@ function isValidUnlockAfterDays(unlockAfterDays: number | null): boolean {
 }
 
 function isValidLessonTitle(title: string): boolean {
-  return title.length > 0 && title.length <= COURSE_LESSON_TITLE_MAX_LENGTH;
+  return title.length > 0 && title.length <= COURSE_LESSON_TITLE.maxLength;
 }
 
 function isValidLessonDescription(description: string): boolean {

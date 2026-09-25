@@ -1,0 +1,120 @@
+.TribeEventConversation {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+
+  &__heading {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__muted {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+  }
+
+  &__error {
+    margin: 0;
+    border-left: 3px solid var(--destructive);
+    color: var(--destructive);
+    font-size: 0.9rem;
+    padding-left: 0.75rem;
+  }
+
+  &__retry {
+    justify-self: start;
+  }
+
+  &__list {
+    display: grid;
+    gap: 0.85rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__item {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  &__itemHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  &__author {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__date {
+    flex: none;
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__delete {
+    margin-left: auto;
+    flex: none;
+  }
+
+  &__content {
+    margin: 0;
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  &__confirm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  &__form {
+    display: grid;
+    gap: 0.5rem;
+    justify-items: end;
+    min-width: 0;
+  }
+
+  // 16px on phones avoids the iOS focus zoom; compact size from tablet up.
+  &__input {
+    width: 100%;
+    min-height: 3rem;
+    font-size: 1rem;
+    resize: vertical;
+
+    @media (min-width: 48rem) {
+      font-size: 0.875rem;
+    }
+  }
+
+  &__srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

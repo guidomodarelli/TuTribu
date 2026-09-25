@@ -22,6 +22,35 @@ import type {
   WithdrawTribeEventProposalCommand,
 } from "@/src/modules/events/application/commands/tribe-event-command";
 import type {
+  CreateTribeEventOccurrenceCommentCommand,
+  DeleteTribeEventOccurrenceCommentCommand,
+  SaveTribeEventPostEventCommand,
+  SetTribeEventOccurrenceReactionCommand,
+  TribeEventOccurrenceQuery,
+} from "@/src/modules/events/application/commands/tribe-event-command";
+import type {
+  TribeEventCommentCreateResult,
+  TribeEventCommentDeleteResult,
+  TribeEventConversationLookupResult,
+  TribeEventPostEventLookupResult,
+  TribeEventPostEventMutationResult,
+  TribeEventReactionMutationResult,
+  TribeEventRecordingLessonSourceLookupResult,
+} from "@/src/modules/events/application/results/tribe-event-post-event-result";
+import {
+  createTribeEventOccurrenceComment,
+  deleteTribeEventOccurrenceComment,
+  getTribeEventPostEvent,
+  getTribeEventRecordingLessonSource,
+  listTribeEventOccurrenceComments,
+  saveTribeEventPostEvent,
+  setTribeEventOccurrenceReaction,
+} from "@/src/modules/events/application/use-cases/tribe-event-post-event-use-cases";
+import type {
+  TribeEventOccurrenceCommentRepository,
+  TribeEventPostEventRepository,
+} from "@/src/modules/events/domain/repositories/tribe-event-post-event-repository";
+import type {
   TribeEventAttendanceMutationResult,
   TribeEventAttendanceReportLookupResult,
   TribeEventAttendanceStreakSnapshotResult,
@@ -91,7 +120,9 @@ import type { TribeEventRepository } from "@/src/modules/events/domain/repositor
 type EventsModuleDependencies = {
   tribeEventCalendarFeedTokenCodec: TribeEventCalendarFeedTokenCodec;
   tribeEventCalendarFeedTokenRepository: TribeEventCalendarFeedTokenRepository;
+  tribeEventOccurrenceCommentRepository: TribeEventOccurrenceCommentRepository;
   tribeEventOccurrenceExceptionRepository: TribeEventOccurrenceExceptionRepository;
+  tribeEventPostEventRepository: TribeEventPostEventRepository;
   tribeEventProposalRepository: TribeEventProposalRepository;
   tribeEventReminderRepository: TribeEventReminderRepository;
   tribeEventRepository: TribeEventRepository;
@@ -109,6 +140,27 @@ type EventsModule = {
       command: ClearTribeEventOccurrenceExceptionCommand
     ) => Promise<TribeEventOccurrenceExceptionMutationResult>;
     createTribeEvent: (command: CreateTribeEventCommand) => Promise<TribeEventSaveResult>;
+    createTribeEventOccurrenceComment: (
+      command: CreateTribeEventOccurrenceCommentCommand
+    ) => Promise<TribeEventCommentCreateResult>;
+    deleteTribeEventOccurrenceComment: (
+      command: DeleteTribeEventOccurrenceCommentCommand
+    ) => Promise<TribeEventCommentDeleteResult>;
+    getTribeEventPostEvent: (
+      query: TribeEventOccurrenceQuery
+    ) => Promise<TribeEventPostEventLookupResult>;
+    getTribeEventRecordingLessonSource: (
+      query: TribeEventOccurrenceQuery
+    ) => Promise<TribeEventRecordingLessonSourceLookupResult>;
+    listTribeEventOccurrenceComments: (
+      query: TribeEventOccurrenceQuery
+    ) => Promise<TribeEventConversationLookupResult>;
+    saveTribeEventPostEvent: (
+      command: SaveTribeEventPostEventCommand
+    ) => Promise<TribeEventPostEventMutationResult>;
+    setTribeEventOccurrenceReaction: (
+      command: SetTribeEventOccurrenceReactionCommand
+    ) => Promise<TribeEventReactionMutationResult>;
     createTribeEventProposal: (
       command: CreateTribeEventProposalCommand
     ) => Promise<TribeEventProposalCreateResult>;
@@ -165,6 +217,13 @@ export function buildEventsModule(dependencies: EventsModuleDependencies): Event
       clearTribeEventAttendance: clearTribeEventAttendance(dependencies),
       clearTribeEventOccurrenceException: clearTribeEventOccurrenceException(dependencies),
       createTribeEvent: createTribeEvent(dependencies),
+      createTribeEventOccurrenceComment: createTribeEventOccurrenceComment(dependencies),
+      deleteTribeEventOccurrenceComment: deleteTribeEventOccurrenceComment(dependencies),
+      getTribeEventPostEvent: getTribeEventPostEvent(dependencies),
+      getTribeEventRecordingLessonSource: getTribeEventRecordingLessonSource(dependencies),
+      listTribeEventOccurrenceComments: listTribeEventOccurrenceComments(dependencies),
+      saveTribeEventPostEvent: saveTribeEventPostEvent(dependencies),
+      setTribeEventOccurrenceReaction: setTribeEventOccurrenceReaction(dependencies),
       createTribeEventProposal: createTribeEventProposal(dependencies),
       deleteTribeEvent: deleteTribeEvent(dependencies),
       getTribeEvent: getTribeEvent(dependencies),

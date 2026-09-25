@@ -44,6 +44,11 @@ import styles from "./styles.module.scss";
 
 type TribeEventDetailDialogProps = {
   /**
+   * Occurrence activity rendered by the container under the detail: the
+   * post-event block (recording, materials, reactions) and the conversation.
+   */
+  activityPanel?: ReactNode;
+  /**
    * Manager-only "Asistentes" tab content, rendered by the container (which
    * owns the report request). When null the dialog shows no tabs.
    */
@@ -158,6 +163,7 @@ function formatRecurrence(occurrence: TribeEventOccurrenceResult): string | null
  * attendance answer, calendar exports, and the manager actions.
  */
 export function TribeEventDetailDialog({
+  activityPanel = null,
   attendeesPanel = null,
   canManageEvents,
   isPast,
@@ -372,6 +378,7 @@ export function TribeEventDetailDialog({
           </div>
         )}
       </section>
+      {activityPanel}
     </>
   ) : null;
 

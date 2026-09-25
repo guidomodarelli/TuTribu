@@ -10,8 +10,11 @@ import {
 
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
+import { routeOccurrenceActivityRequests } from "@/tests/unit/components/events/support/occurrence-activity-fetch";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
+let apiFetch: Mock = vi.fn();
+
 vi.mock("beez-ui", async () => ({
   ...(await vi.importActual<typeof import("beez-ui")>("beez-ui")),
   toast: {
@@ -91,13 +94,14 @@ function renderCalendar(props: Partial<React.ComponentProps<typeof TribeEventsCa
 }
 
 function mockJsonResponse(body: Record<string, unknown>, ok = true) {
-  (global.fetch as Mock).mockResolvedValueOnce({ json: async () => body, ok });
+  apiFetch.mockResolvedValueOnce({ json: async () => body, ok });
 }
 
 describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    apiFetch = vi.fn();
+    global.fetch = routeOccurrenceActivityRequests(apiFetch);
     window.history.replaceState(null, "", "/matematica-pro/eventos");
     vi.useFakeTimers({ shouldAdvanceTime: true }).setSystemTime(
       new Date("2026-05-01T12:00:00.000Z")
@@ -146,7 +150,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
       "href",
       "/matematica-pro/eventos?month=2026-06&type=social"
     );
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
 
     await user.click(within(filters).getByRole("button", { name: "Todos" }));
 
@@ -223,7 +227,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     });
     await user.click(within(dialog).getByRole("button", { name: "Voy" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toEqual({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toEqual({
       occurrenceStartsAt: "2026-05-14T21:00:00.000Z",
       status: "going",
     });
@@ -257,11 +261,11 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     });
     await user.click(within(cancelDialog).getByRole("button", { name: "Cancelar esta fecha" }));
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiFetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/${EVENT_ID}/exceptions?month=2026-05`,
       expect.objectContaining({ method: "PUT" })
     );
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toEqual({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toEqual({
       kind: "cancelled",
       originalStartsAt: "2026-05-14T21:00:00.000Z",
       reason: "Feriado",
@@ -299,13 +303,13 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     expect(within(moveDialog).getByRole("alert")).toHaveTextContent(
       "La hora de fin debe ser posterior al inicio."
     );
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
 
     await user.clear(within(moveDialog).getByLabelText("Hora de fin (opcional)"));
     mockJsonResponse({ message: "Fecha movida.", occurrences: [moved] });
     await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       kind: "moved",
       newEndsAt: null,
       newStartsAt: "2026-05-15T22:00:00.000Z",
@@ -320,7 +324,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
 
     // A date change can move the streak and its next refresh, so the calendar
     // also reads the streak again once the change settles.
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiFetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/${EVENT_ID}/exceptions?occurrence=${encodeURIComponent(
         "2026-05-14T21:00:00.000Z"
       )}&month=2026-05`,
@@ -330,7 +334,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
       expect(within(detail).queryByText("Movido desde el jueves 14")).not.toBeInTheDocument()
     );
     await waitFor(() =>
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(apiFetch).toHaveBeenCalledWith(
         "/api/tribes/matematica-pro/events/attendance-streak",
         expect.objectContaining({ cache: "no-store" })
       )
@@ -372,7 +376,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     mockJsonResponse({ message: "Fecha movida.", occurrences: [overnight] });
     await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       kind: "moved",
       newEndsAt: "2026-05-15T04:00:00.000Z",
       newStartsAt: "2026-05-15T02:00:00.000Z",
@@ -409,7 +413,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     expect(within(moveDialog).getByRole("alert")).toHaveTextContent(
       "La hora de fin debe ser posterior al inicio."
     );
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
 
     await user.click(within(moveDialog).getByRole("checkbox", { name: "Termina otro día" }));
 
@@ -419,7 +423,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     mockJsonResponse({ message: "Fecha movida.", occurrences: [overnight] });
     await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       newEndsAt: "2026-05-18T02:30:00.000Z",
       newStartsAt: "2026-05-18T02:00:00.000Z",
     });
@@ -450,7 +454,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     expect(within(moveDialog).getByRole("alert")).toHaveTextContent(
       "Elegí la fecha de fin o destildá «Termina otro día»."
     );
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
 
     await user.type(within(moveDialog).getByLabelText("Fecha de fin"), "2026-05-22");
     await user.clear(within(moveDialog).getByLabelText("Hora de fin (opcional)"));
@@ -458,7 +462,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     mockJsonResponse({ message: "Fecha movida.", occurrences: [occurrence] });
     await user.click(within(moveDialog).getByRole("button", { name: "Mover esta fecha" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       kind: "moved",
       newEndsAt: "2026-05-22T04:00:00.000Z",
     });
@@ -497,11 +501,11 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     });
     await user.click(within(form).getByRole("button", { name: "Enviar propuesta" }));
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiFetch).toHaveBeenCalledWith(
       "/api/tribes/matematica-pro/events/proposals",
       expect.objectContaining({ method: "POST" })
     );
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toEqual({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toEqual({
       description: "",
       durationMinutes: 60,
       eventType: "live",
@@ -578,7 +582,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     await user.click(within(form).getByRole("button", { name: "Aprobar y publicar" }));
 
     // The approval creates an event, so the calendar reads the streak after it.
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiFetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/proposals/${PROPOSAL_ID}/approval?month=2026-05`,
       expect.objectContaining({ method: "POST" })
     );
@@ -746,7 +750,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(
-        (global.fetch as Mock).mock.calls.filter(
+        apiFetch.mock.calls.filter(
           ([url, init]) =>
             url === "/api/tribes/matematica-pro/events/proposals" &&
             ((init as RequestInit | undefined)?.method ?? "GET") === "GET"
@@ -790,7 +794,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     });
     await user.click(within(panel).getByRole("button", { name: "Confirmar rechazo" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[1][1].body)).toEqual({
+    expect(JSON.parse(apiFetch.mock.calls[1][1].body)).toEqual({
       decision: "rejected",
       reviewNote: "Ya hay un after",
     });
@@ -802,7 +806,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
 
     renderCalendar({ pendingProposalCount: 1 });
 
-    (global.fetch as Mock).mockReturnValueOnce(new Promise(() => {}));
+    apiFetch.mockReturnValueOnce(new Promise(() => {}));
     await user.click(screen.getByRole("button", { name: "Propuestas (1)" }));
 
     const panel = screen.getByRole("dialog", { name: "Propuestas de la tribu" });

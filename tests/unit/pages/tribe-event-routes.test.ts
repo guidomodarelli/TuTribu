@@ -175,6 +175,7 @@ describe("Tribe event routes", () => {
       previous: "2026-04",
     },
     pendingProposalCount: 0,
+    recordedOccurrenceKeys: [],
     selectedOccurrenceKey: null,
     viewerPermissions: {
       canManageEvents: true,
@@ -577,6 +578,21 @@ describe("Tribe event routes", () => {
         attendanceStreakNextRefreshAt: null,
         message: "Evento eliminado.",
       });
+    });
+
+    it("rejects with 409 a schedule edit that would strand post-event content", async () => {
+      updateTribeEvent.mockResolvedValue({
+        status: "schedule_removes_post_event_content" as const,
+      });
+
+      const response = await PATCH(buildPatchRequest(), buildEventContext());
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        message:
+          "No podés cambiar el horario ni la repetición así: hay fechas con grabación, materiales, reacciones o comentarios que dejarían de existir.",
+      });
+      expect(getTribeEventAttendanceStreakSnapshot).not.toHaveBeenCalled();
     });
 
     it("does not recompute the streak when the mutation is rejected", async () => {

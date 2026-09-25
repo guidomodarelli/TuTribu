@@ -12,8 +12,11 @@ import type {
   TribeEventOccurrenceResult,
   TribeEventResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
+import { routeOccurrenceActivityRequests } from "@/tests/unit/components/events/support/occurrence-activity-fetch";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
+let apiFetch: Mock = vi.fn();
+
 vi.mock("beez-ui", async () => ({
   ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
@@ -163,7 +166,7 @@ function findNextEventRegion() {
 }
 
 function mockJsonResponse(body: Record<string, unknown>, ok = true) {
-  (global.fetch as Mock).mockResolvedValueOnce({
+  apiFetch.mockResolvedValueOnce({
     json: async () => body,
     ok,
   });
@@ -182,7 +185,8 @@ describe("TribeEventsCalendar", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    apiFetch = vi.fn();
+    global.fetch = routeOccurrenceActivityRequests(apiFetch);
     // The fixtures live in May 2026; pin "now" before them so the occurrences
     // are upcoming (attendance enabled) regardless of the real date.
     vi
@@ -456,7 +460,7 @@ describe("TribeEventsCalendar", () => {
     mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
     await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       endsAt: "2026-05-21T04:00:00.000Z",
       startsAt: "2026-05-21T02:00:00.000Z",
     });
@@ -516,7 +520,7 @@ describe("TribeEventsCalendar", () => {
     await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
 
     // The saved event keeps the advertised 90 minutes.
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       endsAt: "2026-05-21T00:30:00.000Z",
       startsAt: "2026-05-20T23:00:00.000Z",
     });
@@ -584,7 +588,7 @@ describe("TribeEventsCalendar", () => {
     expect(within(dialog).getByRole("alert")).toHaveTextContent(
       "Elegí la fecha de fin o destildá «Termina otro día»."
     );
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
 
     fireEvent.change(within(dialog).getByLabelText("Fecha de fin"), {
       target: { value: "2026-05-22" },
@@ -595,7 +599,7 @@ describe("TribeEventsCalendar", () => {
     mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
     await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       endsAt: "2026-05-22T04:00:00.000Z",
       startsAt: "2026-05-20T23:00:00.000Z",
     });
@@ -812,7 +816,7 @@ describe("TribeEventsCalendar", () => {
       await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
 
       expect(readEventQuery()).toBe(occurrence.occurrenceKey);
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(apiFetch).not.toHaveBeenCalled();
     });
 
     it("keeps the rendered month in the URL when closing a monthless deep link", async () => {
@@ -839,7 +843,7 @@ describe("TribeEventsCalendar", () => {
 
       expect(reopenedUrl.searchParams.get("month")).toBe("2026-05");
       expect(reopenedUrl.searchParams.get("event")).toBe(occurrence.occurrenceKey);
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(apiFetch).not.toHaveBeenCalled();
     });
 
     it("rewrites the stale month of a deep link to the month the occurrence is shown in", async () => {
@@ -861,7 +865,7 @@ describe("TribeEventsCalendar", () => {
       expect(correctedUrl.pathname).toBe("/matematica-pro/eventos");
       expect(correctedUrl.searchParams.get("month")).toBe("2026-05");
       expect(correctedUrl.searchParams.get("event")).toBe(occurrence.occurrenceKey);
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(apiFetch).not.toHaveBeenCalled();
     });
 
     it("ignores a deep link to an occurrence that is not on screen", () => {
@@ -1005,7 +1009,7 @@ describe("TribeEventsCalendar", () => {
     });
     await user.click(goingButton);
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiFetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/${EVENT_ID}/attendance`,
       expect.objectContaining({ method: "PUT" })
     );
@@ -1086,11 +1090,11 @@ describe("TribeEventsCalendar", () => {
     });
     await user.click(screen.getByRole("button", { name: "Voy" }));
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiFetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/${EVENT_ID}/attendance`,
       expect.objectContaining({ method: "PUT" })
     );
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toEqual({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toEqual({
       occurrenceStartsAt: "2026-05-06T18:00:00.000Z",
       status: "going" as const,
     });
@@ -1108,7 +1112,7 @@ describe("TribeEventsCalendar", () => {
     });
     await user.click(screen.getByRole("button", { name: "Voy" }));
 
-    expect(global.fetch).toHaveBeenLastCalledWith(
+    expect(apiFetch).toHaveBeenLastCalledWith(
       `/api/tribes/matematica-pro/events/${EVENT_ID}/attendance?occurrence=${encodeURIComponent(
         "2026-05-06T18:00:00.000Z"
       )}`,
@@ -1150,11 +1154,11 @@ describe("TribeEventsCalendar", () => {
     });
     await user.click(screen.getByRole("button", { name: "Guardar evento" }));
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiFetch).toHaveBeenCalledWith(
       "/api/tribes/matematica-pro/events?month=2026-05",
       expect.objectContaining({ method: "POST" })
     );
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toEqual({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toEqual({
       capacity: "",
       description: "",
       endsAt: "2026-05-20T19:00:00.000Z",
@@ -1304,7 +1308,7 @@ describe("TribeEventsCalendar", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "La fecha de fin debe ser posterior al inicio."
     );
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
   });
 
   it("supports events that end on a later day", async () => {
@@ -1333,7 +1337,7 @@ describe("TribeEventsCalendar", () => {
     mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
     await user.click(screen.getByRole("button", { name: "Guardar evento" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       endsAt: "2026-05-21T04:00:00.000Z",
       startsAt: "2026-05-21T02:00:00.000Z",
     });
@@ -1346,7 +1350,7 @@ describe("TribeEventsCalendar", () => {
       json: () => Promise<Record<string, unknown>>;
       ok: boolean;
     }) => void = () => undefined;
-    (global.fetch as Mock).mockImplementationOnce(
+    apiFetch.mockImplementationOnce(
       function () { return new Promise((resolve) => {
           resolveRequest = resolve;
         }); }
@@ -1365,7 +1369,7 @@ describe("TribeEventsCalendar", () => {
     await waitFor(() => expect(saveButton).toBeDisabled());
     await user.click(saveButton);
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(apiFetch).toHaveBeenCalledTimes(1);
 
     resolveRequest({
       json: async () => ({
@@ -1420,13 +1424,13 @@ describe("TribeEventsCalendar", () => {
     });
     await user.click(screen.getByRole("button", { name: "Guardar evento" }));
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiFetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/${EVENT_ID}?month=2026-05`,
       expect.objectContaining({ method: "PATCH" })
     );
     // The edit always sends the capacity explicitly (empty = no limit), so the
     // server never mistakes it for a legacy body that omits the field.
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       capacity: "",
       title: "Clase cerrada",
     });
@@ -1449,7 +1453,7 @@ describe("TribeEventsCalendar", () => {
 
     await user.click(within(confirmation).getByRole("button", { name: "Cancelar" }));
 
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
     expect(await screen.findByRole("button", { name: /15:00\s*Clase abierta/ })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase abierta/ }));
@@ -1459,7 +1463,7 @@ describe("TribeEventsCalendar", () => {
       within(screen.getByRole("alertdialog")).getByRole("button", { name: "Eliminar" })
     );
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiFetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/${EVENT_ID}`,
       expect.objectContaining({ method: "DELETE" })
     );
@@ -1573,7 +1577,7 @@ describe("TribeEventsCalendar", () => {
      * itself still consumes the response queued with `mockJsonResponse`.
      */
     function answerStreakReads(attendanceStreak: Record<string, unknown>) {
-      (global.fetch as Mock).mockImplementation(async (url: string) =>
+      apiFetch.mockImplementation(async (url: string) =>
         url === seriesStreakEndpoint
           ? { json: async () => ({ attendanceStreak, attendanceStreakNextRefreshAt: null }), ok: true }
           : Promise.reject(new Error(`Unexpected request to ${url}`))
@@ -1581,7 +1585,7 @@ describe("TribeEventsCalendar", () => {
     }
 
     function getSeriesStreakRequests() {
-      return (global.fetch as Mock).mock.calls.filter(([url]) => url === seriesStreakEndpoint);
+      return apiFetch.mock.calls.filter(([url]) => url === seriesStreakEndpoint);
     }
 
     it("reads the streak once when the mutation response omits it", async () => {
@@ -1631,7 +1635,7 @@ describe("TribeEventsCalendar", () => {
     });
 
     function getStreakRequests() {
-      return (global.fetch as Mock).mock.calls.filter(([url]) => url === streakEndpoint);
+      return apiFetch.mock.calls.filter(([url]) => url === streakEndpoint);
     }
 
     async function advanceMinutes(minuteCount: number) {
@@ -1709,7 +1713,7 @@ describe("TribeEventsCalendar", () => {
     });
 
     it("cancels a pending refresh when the calendar unmounts", async () => {
-      (global.fetch as Mock).mockImplementationOnce(() => new Promise(() => undefined));
+      apiFetch.mockImplementationOnce(() => new Promise(() => undefined));
       const { unmount } = renderCalendar({
         attendanceStreak: initialStreak,
         events: [occurrence, laterOccurrence],
@@ -1934,7 +1938,7 @@ describe("TribeEventsCalendar", () => {
        * `createRunningWorkshop`.
        */
       function answerStreakReadsWithRenewedStreak() {
-        (global.fetch as Mock).mockImplementation(async (url: string) =>
+        apiFetch.mockImplementation(async (url: string) =>
           url === streakEndpoint
             ? {
                 json: async () => ({
@@ -2016,7 +2020,7 @@ describe("TribeEventsCalendar", () => {
           resolveSave = resolve;
         });
 
-        (global.fetch as Mock).mockImplementation(async (url: string) => {
+        apiFetch.mockImplementation(async (url: string) => {
           if (url === streakEndpoint) {
             return {
               json: async () => ({
@@ -2070,7 +2074,7 @@ describe("TribeEventsCalendar", () => {
           target: { value: "Encuentro renovado" },
         });
         await user.click(screen.getByRole("button", { name: "Guardar evento" }));
-        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
 
         return user;
       }
@@ -2146,7 +2150,7 @@ describe("TribeEventsCalendar", () => {
         });
         const mutationResponses: Array<() => Promise<JsonResponse>> = [];
 
-        (global.fetch as Mock).mockImplementation((url: string) => {
+        apiFetch.mockImplementation((url: string) => {
           if (url === streakEndpoint) {
             return pendingRefresh;
           }

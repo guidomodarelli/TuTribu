@@ -40,6 +40,7 @@ export type NotificationPayloadByType = {
     eventId: string | null;
     proposalId: string;
   };
+  [NOTIFICATION_TYPE.eventRecordingAvailable]: NotificationEventOccurrencePayload;
   [NOTIFICATION_TYPE.eventReminderDayBefore]: NotificationEventOccurrenceTimedPayload;
   [NOTIFICATION_TYPE.eventReminderSoon]: NotificationEventOccurrenceTimedPayload;
   [NOTIFICATION_TYPE.eventWaitlistPromoted]: NotificationEventOccurrencePayload;

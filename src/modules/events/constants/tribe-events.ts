@@ -1,6 +1,8 @@
 export const TRIBE_EVENT_MUTATION_STATUS = {
   attendanceCleared: "attendance_cleared",
   attendanceSaved: "attendance_saved",
+  commentCreated: "comment_created",
+  commentDeleted: "comment_deleted",
   created: "created",
   deleted: "deleted",
   forbidden: "forbidden",
@@ -15,17 +17,27 @@ export const TRIBE_EVENT_MUTATION_STATUS = {
   invalidDate: "invalid_date",
   invalidMeetingUrl: "invalid_meeting_url",
   invalidOccurrence: "invalid_occurrence",
+  invalidRecordingUrl: "invalid_recording_url",
   invalidRecurrence: "invalid_recurrence",
   notFound: "not_found",
   occurrenceCancelled: "occurrence_cancelled",
   occurrenceEnded: "occurrence_ended",
+  occurrenceNotFinished: "occurrence_not_finished",
+  postEventSaved: "post_event_saved",
   proposalApproved: "proposal_approved",
   proposalCreated: "proposal_created",
   proposalLimitReached: "proposal_limit_reached",
   proposalRejected: "proposal_rejected",
   proposalResolved: "proposal_resolved",
   proposalWithdrawn: "proposal_withdrawn",
+  reactionCleared: "reaction_cleared",
+  reactionSaved: "reaction_saved",
   scheduleChanged: "schedule_changed",
+  /**
+   * A series edit would stop generating a date that already holds post-event
+   * content (recording, materials, reactions, or comments).
+   */
+  scheduleRemovesPostEventContent: "schedule_removes_post_event_content",
   updated: "updated",
 } as const;
 

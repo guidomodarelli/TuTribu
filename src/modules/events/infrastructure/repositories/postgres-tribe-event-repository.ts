@@ -9,6 +9,7 @@ import {
   TRIBE_EVENT_PROPOSAL_STATUS,
   TRIBE_EVENT_RANGE_MATCH,
 } from "@/src/modules/events/constants/tribe-events";
+import type { TribeEventOccurrenceReference } from "@/src/modules/events/domain/entities/tribe-event-post-event";
 import type {
   TribeEvent,
   TribeEventAttendanceOption,
@@ -393,6 +394,10 @@ function mapUpdateResult(row: EventMutationRow | null): EventUpdateRowResult {
     return { event: mapTribeEvent(row), status: row.status };
   }
 
+  if (row?.status === TRIBE_EVENT_MUTATION_STATUS.scheduleRemovesPostEventContent) {
+    return { status: row.status };
+  }
+
   return { status: mapFailureStatus(row?.status ?? null) };
 }
 
@@ -592,6 +597,51 @@ function buildAttendanceSummaryQuery({
   `;
 }
 
+type RecordedOccurrenceRow = {
+  event_id: string;
+  original_starts_at: Date | string;
+};
+
+/**
+ * Occurrences of the range with a published recording, keyed by their
+ * original start; like attendance, a date moved into the range counts too.
+ */
+async function listRecordedOccurrencesInRange(
+  database: RequestDatabase,
+  { rangeEnd, rangeStart, tribeSlug }: TribeEventDateRange & { tribeSlug: string }
+): Promise<TribeEventOccurrenceReference[]> {
+  const result = await database.execute(sql`
+    select
+      event_occurrence_recordings.event_id,
+      event_occurrence_recordings.original_starts_at
+    from public.event_occurrence_recordings
+    inner join public.tribes
+      on tribes.id = event_occurrence_recordings.tribe_id
+    where tribes.slug = ${tribeSlug}
+      and public.can_read_tribe_content(tribes.id)
+      and (
+        (
+          event_occurrence_recordings.original_starts_at >= ${rangeStart}
+          and event_occurrence_recordings.original_starts_at < ${rangeEnd}
+        )
+        or exists (
+          select 1
+          from public.event_occurrence_exceptions moved_exceptions
+          where moved_exceptions.event_id = event_occurrence_recordings.event_id
+            and moved_exceptions.original_starts_at = event_occurrence_recordings.original_starts_at
+            and moved_exceptions.kind = ${TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved}
+            and moved_exceptions.new_starts_at >= ${rangeStart}
+            and moved_exceptions.new_starts_at < ${rangeEnd}
+        )
+      )
+  `);
+
+  return ((result.rows ?? []) as RecordedOccurrenceRow[]).map((row) => ({
+    eventId: row.event_id,
+    originalStartsAt: mapDateValue(row.original_starts_at),
+  }));
+}
+
 async function listExceptionsInRange(
   database: RequestDatabase,
   query: TribeEventDateRange & { eventId?: string; tribeSlug: string }
@@ -625,6 +675,72 @@ function buildWaitlistRefillNeededExpression(lockedEvent: LockedEventRow | null)
   )`;
 }
 
+/**
+ * CTE `stranded_post_event_occurrence` of the update statement: one row when
+ * a date that holds post-event content (recording, materials, reactions, or
+ * comments, all keyed by `original_starts_at`) is a slot of the CURRENT
+ * schedule but would no longer be one under the requested schedule
+ * (`is_tribe_event_series_occurrence`, the SQL mirror of
+ * `isTribeEventOccurrence`). The edit is then rejected instead of leaving
+ * that content unreachable. Content already orphaned before the edit (not a
+ * slot of the current schedule) does not block unrelated edits. Only
+ * managers see the row, so the status never tells a plain member whether the
+ * series has content.
+ *
+ * The statement runs after `lockEventForUpdate`: every post-event write
+ * takes the event row `FOR SHARE` before inserting, so the writes that
+ * committed while the lock waited are in this statement snapshot and no new
+ * one can commit until the edit does.
+ */
+function buildStrandedPostEventOccurrenceCte({
+  eventId,
+  recurrenceFrequency,
+  recurrenceUntil,
+  startsAt,
+}: Pick<
+  PersistTribeEventUpdateCommand,
+  "eventId" | "recurrenceFrequency" | "recurrenceUntil" | "startsAt"
+>) {
+  return sql`stranded_post_event_occurrence as (
+    select 1
+    from (
+      select event_occurrence_recordings.original_starts_at
+      from public.event_occurrence_recordings
+      where event_occurrence_recordings.event_id = ${eventId}
+      union
+      select event_occurrence_materials.original_starts_at
+      from public.event_occurrence_materials
+      where event_occurrence_materials.event_id = ${eventId}
+      union
+      select event_occurrence_reactions.original_starts_at
+      from public.event_occurrence_reactions
+      where event_occurrence_reactions.event_id = ${eventId}
+      union
+      select event_occurrence_comments.original_starts_at
+      from public.event_occurrence_comments
+      where event_occurrence_comments.event_id = ${eventId}
+    ) post_event_occurrences
+    inner join public.events current_event
+      on current_event.id = ${eventId}
+    inner join target_tribe
+      on target_tribe.id = current_event.tribe_id
+    where public.can_manage_tribe_events(target_tribe.id)
+      and public.is_tribe_event_series_occurrence(
+        post_event_occurrences.original_starts_at,
+        current_event.starts_at,
+        current_event.recurrence_frequency,
+        current_event.recurrence_until
+      )
+      and not public.is_tribe_event_series_occurrence(
+        post_event_occurrences.original_starts_at,
+        ${startsAt}::timestamptz,
+        ${recurrenceFrequency}::text,
+        ${recurrenceUntil}::timestamptz
+      )
+    limit 1
+  )`;
+}
+
 export class PostgresTribeEventRepository implements TribeEventRepository {
   constructor(private readonly executeWithDatabase: TribeEventDatabaseExecutor) {}
 
@@ -651,6 +767,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           events,
           exceptions: [],
           pendingProposalCount,
+          recordedOccurrences: [],
           viewerPermissions,
         };
       }
@@ -664,12 +781,18 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
         buildAttendanceSummaryQuery({ includeMovedIn: true, rangeEnd, rangeStart, tribeSlug })
       );
       const attendanceRows = (attendanceResult.rows ?? []) as AttendanceSummaryRow[];
+      const recordedOccurrences = await listRecordedOccurrencesInRange(database, {
+        rangeEnd,
+        rangeStart,
+        tribeSlug,
+      });
 
       return {
         attendances: attendanceRows.map(mapAttendanceSummary),
         events,
         exceptions,
         pendingProposalCount,
+        recordedOccurrences,
         viewerPermissions,
       };
     });
@@ -875,6 +998,11 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
    * attendance functions take the same row `FOR SHARE` before their
    * occurrence advisory lock, and the refill function takes it `FOR UPDATE`
    * again (already held, so it never waits).
+   *
+   * A schedule edit that would stop generating a date holding post-event
+   * content is refused in the same statement
+   * (`buildStrandedPostEventOccurrenceCte`) with
+   * `scheduleRemovesPostEventContent`, leaving the row untouched.
    */
   async update(command: PersistTribeEventUpdateCommand): Promise<TribeEventUpdateResult> {
     const capacityAssignment =
@@ -902,6 +1030,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           where events.id = ${command.eventId}
           limit 1
         ),
+        ${buildStrandedPostEventOccurrenceCte(command)},
         updated_event as (
           update public.events
           set
@@ -922,6 +1051,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           where events.id = ${command.eventId}
             and events.tribe_id = target_tribe.id
             and public.can_manage_tribe_events(target_tribe.id)
+            and not exists (select 1 from stranded_post_event_occurrence)
           ${RETURNING_TRIBE_EVENT_COLUMNS}
         )
         select
@@ -929,6 +1059,8 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
             when exists (select 1 from updated_event) then ${TRIBE_EVENT_MUTATION_STATUS.updated}
             when not exists (select 1 from target_tribe) then ${TRIBE_EVENT_MUTATION_STATUS.notFound}
             when not exists (select 1 from target_event) then ${TRIBE_EVENT_MUTATION_STATUS.notFound}
+            when exists (select 1 from stranded_post_event_occurrence)
+              then ${TRIBE_EVENT_MUTATION_STATUS.scheduleRemovesPostEventContent}
             else ${TRIBE_EVENT_MUTATION_STATUS.forbidden}
           end as status,
           updated_event.id,

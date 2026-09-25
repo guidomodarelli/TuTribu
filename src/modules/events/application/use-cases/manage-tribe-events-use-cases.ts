@@ -28,6 +28,7 @@ import {
   normalizeTribeEventFields,
 } from "@/src/modules/events/application/services/tribe-event-field-rules";
 import {
+  buildTribeEventOccurrenceKey,
   buildTribeEventOccurrences,
   toTribeEventResult,
 } from "@/src/modules/events/application/services/tribe-event-occurrences";
@@ -134,6 +135,17 @@ export function listTribeEvents({
       query.eventTypes.length === 0
         ? allEvents
         : allEvents.filter((occurrence) => query.eventTypes.includes(occurrence.eventType));
+    const recordedKeys = new Set(
+      listing.recordedOccurrences.map((recorded) =>
+        buildTribeEventOccurrenceKey(
+          recorded.eventId,
+          new Date(recorded.originalStartsAt).toISOString()
+        )
+      )
+    );
+    const recordedOccurrenceKeys = events
+      .filter((occurrence) => recordedKeys.has(occurrence.occurrenceKey))
+      .map((occurrence) => occurrence.occurrenceKey);
     const selectedOccurrenceKey =
       query.occurrence &&
       events.some((occurrence) => occurrence.occurrenceKey === query.occurrence?.key)
@@ -150,6 +162,7 @@ export function listTribeEvents({
           : current,
       },
       pendingProposalCount: listing.pendingProposalCount,
+      recordedOccurrenceKeys,
       selectedOccurrenceKey,
       viewerPermissions: listing.viewerPermissions,
     };

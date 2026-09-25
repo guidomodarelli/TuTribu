@@ -85,6 +85,7 @@ const mayListing = {
     previous: "2026-04",
   },
   pendingProposalCount: 0,
+  recordedOccurrenceKeys: [],
   selectedOccurrenceKey: null,
   viewerPermissions: {
     canManageEvents: true,
@@ -270,6 +271,7 @@ describe("tribe coming soon pages", () => {
       events: [],
       month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
       pendingProposalCount: 0,
+      recordedOccurrenceKeys: [],
       selectedOccurrenceKey: null,
       viewerPermissions: { canManageEvents: false, canProposeEvents: true },
     });
@@ -301,6 +303,7 @@ describe("tribe coming soon pages", () => {
       events: [],
       month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
       pendingProposalCount: 0,
+      recordedOccurrenceKeys: [],
       selectedOccurrenceKey: null,
       viewerPermissions: { canManageEvents: false, canProposeEvents: true },
     });
@@ -329,6 +332,7 @@ describe("tribe coming soon pages", () => {
       events: [],
       month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
       pendingProposalCount: 0,
+      recordedOccurrenceKeys: [],
       selectedOccurrenceKey: null,
       viewerPermissions: { canManageEvents: false, canProposeEvents: true },
     });

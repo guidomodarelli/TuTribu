@@ -10,9 +10,12 @@ import {
 
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
+import { routeOccurrenceActivityRequests } from "@/tests/unit/components/events/support/occurrence-activity-fetch";
 
 // Same Sonner double as the calendar suite: isolates its timers and global
 // notification store so toasts can be asserted.
+let apiFetch: Mock = vi.fn();
+
 vi.mock("beez-ui", async () => ({
   ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
@@ -94,13 +97,14 @@ function renderCalendar(props: Partial<React.ComponentProps<typeof TribeEventsCa
 }
 
 function mockJsonResponse(body: Record<string, unknown>, ok = true) {
-  (global.fetch as Mock).mockResolvedValueOnce({ json: async () => body, ok });
+  apiFetch.mockResolvedValueOnce({ json: async () => body, ok });
 }
 
 describe("TribeEventsCalendar attendance", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    apiFetch = vi.fn();
+    global.fetch = routeOccurrenceActivityRequests(apiFetch);
     vi.useFakeTimers({ shouldAdvanceTime: true }).setSystemTime(
       new Date("2026-05-01T12:00:00.000Z")
     );
@@ -130,7 +134,7 @@ describe("TribeEventsCalendar attendance", () => {
     });
     await user.click(within(answers).getByRole("button", { name: "Tal vez" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toEqual({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toEqual({
       occurrenceStartsAt: STARTS_AT,
       status: "maybe",
     });
@@ -249,7 +253,7 @@ describe("TribeEventsCalendar attendance", () => {
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
 
     expect(within(dialog).queryByRole("tab", { name: "Asistentes" })).not.toBeInTheDocument();
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
   });
 
   it("loads the attendees of the occurrence for managers only when the tab opens", async () => {
@@ -260,7 +264,7 @@ describe("TribeEventsCalendar attendance", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
 
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
 
     mockJsonResponse({
       report: {
@@ -290,7 +294,7 @@ describe("TribeEventsCalendar attendance", () => {
     });
     await user.click(within(dialog).getByRole("tab", { name: "Asistentes" }));
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(apiFetch).toHaveBeenCalledWith(
       `/api/tribes/matematica-pro/events/${EVENT_ID}/attendance?occurrence=${encodeURIComponent(STARTS_AT)}`,
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
@@ -331,7 +335,7 @@ describe("TribeEventsCalendar attendance", () => {
     expect(
       await within(dialog).findByText("Todavía nadie respondió a esta fecha.")
     ).toBeInTheDocument();
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(apiFetch).toHaveBeenCalledTimes(1);
 
     // Closing while "Asistentes" is selected unmounts the tabs without
     // reporting a tab change, so the calendar must forget the open tab itself.
@@ -348,7 +352,7 @@ describe("TribeEventsCalendar attendance", () => {
       "aria-selected",
       "true"
     );
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(apiFetch).toHaveBeenCalledTimes(1);
 
     mockJsonResponse({
       report: {
@@ -361,7 +365,7 @@ describe("TribeEventsCalendar attendance", () => {
     });
     await user.click(within(reopenedDialog).getByRole("tab", { name: "Asistentes" }));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
   });
 
   it("shows a safe error with retry when the attendees cannot be loaded", async () => {
@@ -372,7 +376,7 @@ describe("TribeEventsCalendar attendance", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
 
-    (global.fetch as Mock).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    apiFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     await user.click(within(dialog).getByRole("tab", { name: "Asistentes" }));
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
@@ -414,7 +418,7 @@ describe("TribeEventsCalendar attendance", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Ingresá un cupo entre 1 y 10000, o dejalo vacío para no limitarlo."
     );
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(apiFetch).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText("Cupo máximo (opcional)"), {
       target: { value: "12" },
@@ -426,7 +430,7 @@ describe("TribeEventsCalendar attendance", () => {
     });
     await user.click(screen.getByRole("button", { name: "Guardar evento" }));
 
-    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toMatchObject({
       capacity: "12",
       title: "Taller",
     });
@@ -438,7 +442,7 @@ describe("TribeEventsCalendar attendance", () => {
 
     function answerStreakRefreshWithFailure() {
       // The finish watcher reads the streak again; its failure is silent.
-      (global.fetch as Mock).mockResolvedValue({ json: async () => ({}), ok: false });
+      apiFetch.mockResolvedValue({ json: async () => ({}), ok: false });
     }
 
     it("hides the attendance controls at the exact end even when the page opened mid-minute", () => {
@@ -478,7 +482,7 @@ describe("TribeEventsCalendar attendance", () => {
 
       const dialog = screen.getByRole("dialog");
 
-      (global.fetch as Mock).mockResolvedValueOnce({
+      apiFetch.mockResolvedValueOnce({
         json: async () => ({ code: "occurrence_ended", message: OCCURRENCE_ENDED_MESSAGE }),
         ok: false,
         status: 409,
@@ -503,7 +507,7 @@ describe("TribeEventsCalendar attendance", () => {
       const dialog = screen.getByRole("dialog");
       const scheduleChangedMessage = "El evento cambió; recargá para ver las fechas actualizadas.";
 
-      (global.fetch as Mock).mockResolvedValueOnce({
+      apiFetch.mockResolvedValueOnce({
         json: async () => ({ message: scheduleChangedMessage }),
         ok: false,
         status: 409,

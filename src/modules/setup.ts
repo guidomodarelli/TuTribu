@@ -22,6 +22,7 @@ import { buildMessagesModule } from "./messages/setup";
 import { buildCoursesModule } from "./courses/setup";
 import { PostgresCourseRepository } from "./courses/infrastructure/repositories/postgres-course-repository";
 import { PostgresLessonCommentRepository } from "./courses/infrastructure/repositories/postgres-lesson-comment-repository";
+import { PostgresLessonEventSourceRepository } from "./courses/infrastructure/repositories/postgres-lesson-event-source-repository";
 import { R2LessonFileRepository } from "./courses/infrastructure/repositories/r2-lesson-file-repository";
 import { buildEventsCalendarFeedModule, buildEventsModule } from "./events/setup";
 import { calendarFeedTokenCodec } from "./events/infrastructure/calendar/calendar-feed-token-codec";
@@ -29,10 +30,13 @@ import {
   PostgresTribeEventCalendarFeedReader,
   PostgresTribeEventCalendarFeedTokenRepository,
 } from "./events/infrastructure/repositories/postgres-tribe-event-calendar-feed-repository";
+import { PostgresTribeEventOccurrenceCommentRepository } from "./events/infrastructure/repositories/postgres-tribe-event-occurrence-comment-repository";
 import { PostgresTribeEventOccurrenceExceptionRepository } from "./events/infrastructure/repositories/postgres-tribe-event-occurrence-exception-repository";
+import { PostgresTribeEventPostEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-post-event-repository";
 import { PostgresTribeEventProposalRepository } from "./events/infrastructure/repositories/postgres-tribe-event-proposal-repository";
 import { PostgresTribeEventReminderRepository } from "./events/infrastructure/repositories/postgres-tribe-event-reminder-repository";
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
+import { lockTribeEventOccurrenceRecordingForShare } from "./events/infrastructure/repositories/tribe-event-occurrence-recording-lock";
 import { PostgresNotificationRepository } from "./notifications/infrastructure/repositories/postgres-notification-repository";
 import { buildNotificationsModule } from "./notifications/setup";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
@@ -229,6 +233,10 @@ export async function createRequestModules(
       lessonCommentRepository: new PostgresLessonCommentRepository(
         executeWithRequestContext
       ),
+      lessonEventSourceRepository: new PostgresLessonEventSourceRepository(
+        executeWithRequestContext,
+        lockTribeEventOccurrenceRecordingForShare
+      ),
       lessonFileRepository: new R2LessonFileRepository(
         executeWithRequestContext,
         {
@@ -245,8 +253,14 @@ export async function createRequestModules(
       tribeEventCalendarFeedTokenRepository: new PostgresTribeEventCalendarFeedTokenRepository(
         executeWithRequestContext
       ),
+      tribeEventOccurrenceCommentRepository: new PostgresTribeEventOccurrenceCommentRepository(
+        executeWithRequestContext
+      ),
       tribeEventOccurrenceExceptionRepository:
         new PostgresTribeEventOccurrenceExceptionRepository(executeWithRequestContext),
+      tribeEventPostEventRepository: new PostgresTribeEventPostEventRepository(
+        executeWithRequestContext
+      ),
       tribeEventProposalRepository: new PostgresTribeEventProposalRepository(
         executeWithRequestContext
       ),

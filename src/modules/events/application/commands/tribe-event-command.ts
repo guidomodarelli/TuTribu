@@ -4,6 +4,7 @@ import type {
   TribeEventRecurrenceFrequency,
   TribeEventType,
 } from "@/src/modules/events/domain/entities/tribe-event";
+import type { TribeEventOccurrenceReaction } from "@/src/modules/events/domain/entities/tribe-event-post-event";
 
 /**
  * Commands and queries of the events use cases. Every value here was already
@@ -229,5 +230,55 @@ export type GetTribeEventCalendarFeedQuery = {
   /** Types to keep; empty keeps every type. */
   eventTypes: readonly TribeEventType[];
   token: string;
+  tribeSlug: string;
+};
+
+/**
+ * One occurrence of a series by its stable identity (original start), used
+ * by the post-event resources, reactions, and conversation.
+ */
+export type TribeEventOccurrenceQuery = {
+  eventId: string;
+  originalStartsAt: string;
+  tribeSlug: string;
+};
+
+/**
+ * Material link as produced by the input schema (trimmed title, http/https
+ * URL).
+ */
+export type TribeEventMaterialInput = {
+  title: string;
+  url: string;
+};
+
+/**
+ * "Agregar grabación y materiales": replaces the recording (null removes it)
+ * and the whole list of materials of one finished occurrence.
+ */
+export type SaveTribeEventPostEventCommand = TribeEventOccurrenceQuery & {
+  materials: TribeEventMaterialInput[];
+  recordingUrl: string | null;
+};
+
+/**
+ * "¿Cómo estuvo?": sets the viewer's reaction (null removes it).
+ */
+export type SetTribeEventOccurrenceReactionCommand = TribeEventOccurrenceQuery & {
+  reaction: TribeEventOccurrenceReaction | null;
+};
+
+/**
+ * Adds a comment. `clientRequestId` is generated once per send and reused on
+ * retries of the same text, so a retry after an ambiguous failure answers the
+ * comment already created.
+ */
+export type CreateTribeEventOccurrenceCommentCommand = TribeEventOccurrenceQuery & {
+  clientRequestId: string;
+  content: string;
+};
+
+export type DeleteTribeEventOccurrenceCommentCommand = {
+  commentId: string;
   tribeSlug: string;
 };
