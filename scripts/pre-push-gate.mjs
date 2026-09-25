@@ -6,18 +6,20 @@
  * `<local ref> <local oid> <remote ref> <remote oid>`. The gate validates the
  * exact commits being uploaded instead of the current working tree:
  *
- * - ref deletions (local oid made of zeros) are skipped;
- * - every distinct local oid runs `pnpm install --frozen-lockfile` and then
- *   `pnpm run ci` once; the frozen install rejects a `package.json` that
- *   drifted from `pnpm-lock.yaml` even when `node_modules` already exists;
- * - when the oid is `HEAD` and the working tree has no tracked, staged or
- *   untracked changes, the gate runs in place (the checkout already matches
- *   the commit);
- * - otherwise the oid is checked out in a detached temporary worktree and the
- *   same steps run there reusing the pnpm store. That commit may come from an
- *   untrusted ref, so no local `.env*` file is copied and both steps run with
- *   an allowlisted environment plus non-secret placeholders. The worktree is
- *   always removed, including on failure or interruption.
+ * - ref deletions (local oid made of zeros) are allowed and skipped;
+ * - the gate only validates the commit that is checked out: every pushed oid
+ *   must be `HEAD` and the working tree must have no tracked, staged or
+ *   untracked changes. Then `pnpm install --frozen-lockfile` and
+ *   `pnpm run ci` run once in place; the frozen install rejects a
+ *   `package.json` that drifted from `pnpm-lock.yaml` even when
+ *   `node_modules` already exists;
+ * - any other pushed oid (another branch, a fetched ref, or `HEAD` with local
+ *   changes) fails the push with a Spanish message asking to check out that
+ *   branch or commit with a clean working tree and push again. The gate never
+ *   checks out or executes code from a commit other than the checkout, so a
+ *   ref fetched from elsewhere cannot run its scripts under the developer
+ *   account, and the Node.js pins read from the checkout always belong to the
+ *   pushed commit.
  *
  * Before any ref is validated the running Node.js is checked against
  * `engines.node` (blocking) and `.nvmrc` (warning only).
@@ -29,13 +31,7 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-} from "node:fs";
-import os from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 /** Git's all-zero object id, used for deleted or missing refs. */
@@ -43,73 +39,6 @@ const ZERO_OID_PATTERN = /^0+$/;
 
 /** Number of whitespace-separated fields in a pre-push stdin line. */
 const PUSH_LINE_FIELD_COUNT = 4;
-
-/**
- * Non-secret values for the application variables `next build` and the test
- * suite read, used when validating a commit in a temporary worktree. They
- * match the placeholders the former GitHub Actions gate used.
- */
-export const WORKTREE_ENVIRONMENT_PLACEHOLDERS = Object.freeze({
-  BETTER_AUTH_SECRET: "pre-push-gate-build-secret-with-32-characters",
-  BETTER_AUTH_URL: "http://localhost:3000",
-  DATABASE_URL: "postgresql://ci:ci@localhost:5432/tutribu",
-  GOOGLE_CLIENT_ID: "pre-push-gate-google-client-id",
-  GOOGLE_CLIENT_SECRET: "pre-push-gate-google-client-secret",
-});
-
-/**
- * Operating-system, locale and tooling variables (upper-cased, because
- * Windows names are case-insensitive) that the worktree gate may inherit.
- * Anything else, including credentials exported in the shell, is dropped.
- */
-const INHERITED_ENVIRONMENT_VARIABLES = new Set([
-  "PATH",
-  "PATHEXT",
-  "HOME",
-  "USER",
-  "USERNAME",
-  "LOGNAME",
-  "SHELL",
-  "LANG",
-  "LANGUAGE",
-  "TZ",
-  "TERM",
-  "COLORTERM",
-  "FORCE_COLOR",
-  "NO_COLOR",
-  "CI",
-  "TMPDIR",
-  "TEMP",
-  "TMP",
-  "SYSTEMROOT",
-  "SYSTEMDRIVE",
-  "WINDIR",
-  "COMSPEC",
-  "OS",
-  "USERPROFILE",
-  "HOMEDRIVE",
-  "HOMEPATH",
-  "APPDATA",
-  "LOCALAPPDATA",
-  "PROGRAMDATA",
-  "PROGRAMFILES",
-  "PROGRAMFILES(X86)",
-  "PROGRAMW6432",
-  "COMMONPROGRAMFILES",
-  "COMMONPROGRAMFILES(X86)",
-  "COMMONPROGRAMW6432",
-  "NUMBER_OF_PROCESSORS",
-  "PROCESSOR_ARCHITECTURE",
-  "PNPM_HOME",
-  "COREPACK_HOME",
-  "NODE_EXTRA_CA_CERTS",
-]);
-
-/** Variable families inherited by the worktree gate (locale and XDG dirs). */
-const INHERITED_ENVIRONMENT_PREFIXES = ["LC_", "XDG_"];
-
-/** Prefix of the temporary worktree directories created by the gate. */
-const WORKTREE_DIRECTORY_PREFIX = "tutribu-pre-push-";
 
 /** Log prefix that identifies the gate output inside the push transcript. */
 const LOG_PREFIX = "[pre-push-gate]";
@@ -119,15 +48,6 @@ const PACKAGE_MANIFEST_FILE = "package.json";
 
 /** File that pins the exact Node.js version used locally. */
 const PINNED_NODE_VERSION_FILE = ".nvmrc";
-
-/** Exit code reported when the gate is interrupted by a signal. */
-const INTERRUPTED_EXIT_CODE = 130;
-
-/** Validation strategies for a pushed commit. */
-export const VALIDATION_STRATEGY = {
-  inPlace: "in-place",
-  worktree: "worktree",
-};
 
 /** Commands run for each validated commit. */
 export const GATE_COMMANDS = {
@@ -380,21 +300,42 @@ export function selectCommitsToValidate(pushedRefs) {
 }
 
 /**
- * Decides whether a commit can be validated in the current checkout.
+ * Returns the pushed commits the gate refuses to validate: every commit that
+ * is not the checked-out `HEAD`, or all of them when the working tree has
+ * local changes. Validating them would require checking out and executing
+ * code that is not the developer's clean checkout.
  *
- * @param {{ oid: string, headOid: string, isWorkingTreeClean: boolean }} options
- * @returns {string} One of {@link VALIDATION_STRATEGY}.
+ * @param {{ oid: string, refs: string[] }[]} commits - Commits being pushed.
+ * @param {{ headOid: string, isWorkingTreeClean: boolean }} checkout - State of
+ *   the current checkout.
+ * @returns {{ oid: string, refs: string[] }[]} Commits that block the push.
  */
-export function resolveValidationStrategy({ oid, headOid, isWorkingTreeClean }) {
-  return oid === headOid && isWorkingTreeClean
-    ? VALIDATION_STRATEGY.inPlace
-    : VALIDATION_STRATEGY.worktree;
+export function findCommitsOutsideCleanCheckout(commits, { headOid, isWorkingTreeClean }) {
+  return commits.filter((commit) => !isWorkingTreeClean || commit.oid !== headOid);
+}
+
+/**
+ * Builds the Spanish message shown when a pushed commit cannot be validated
+ * because it is not the clean checkout.
+ *
+ * @param {{ oid: string, refs: string[] }} commit - Rejected commit.
+ * @param {{ headOid: string, isWorkingTreeClean: boolean }} checkout - State of
+ *   the current checkout.
+ * @returns {string} Actionable message for the push transcript.
+ */
+function buildCheckoutRequiredMessage(commit, { headOid, isWorkingTreeClean }) {
+  const reason =
+    commit.oid === headOid && !isWorkingTreeClean
+      ? "es el HEAD actual pero el working tree tiene cambios sin commitear o archivos sin trackear"
+      : `no es el commit del checkout actual (HEAD ${headOid})`;
+
+  return `No se puede validar ${commit.oid} (${commit.refs.join(", ")}): ${reason}. El pre-push solo valida el HEAD actual con el working tree limpio. Hacé checkout de esa rama o commit, dejá el working tree limpio (commiteá, stasheá o descartá los cambios, incluidos los archivos sin trackear) y volvé a pushear.`;
 }
 
 /**
  * Returns a copy of the environment without Git's repository-local variables
  * (`GIT_DIR`, `GIT_INDEX_FILE`, `GIT_WORK_TREE`, ...). Git exports them to
- * hooks; leaking them into `git -C <worktree>` calls or into `pnpm run ci`
+ * hooks; leaking them into nested `git` calls or into `pnpm run ci`
  * would make nested Git commands (including test fixtures) operate on the
  * pushing repository instead of their own working directory.
  *
@@ -471,92 +412,6 @@ export function isWorkingTreeClean(repositoryRoot) {
 }
 
 /**
- * Creates a detached temporary worktree checked out at the given commit.
- *
- * @param {string} repositoryRoot - Repository top-level directory.
- * @param {string} oid - Commit to check out.
- * @returns {string} Absolute path of the new worktree.
- */
-export function createValidationWorktree(repositoryRoot, oid) {
-  const worktreePath = mkdtempSync(
-    path.join(os.tmpdir(), WORKTREE_DIRECTORY_PREFIX)
-  );
-
-  try {
-    runGit(["worktree", "add", "--detach", worktreePath, oid], repositoryRoot);
-  } catch (worktreeError) {
-    rmSync(worktreePath, { recursive: true, force: true });
-    throw worktreeError;
-  }
-
-  return worktreePath;
-}
-
-/**
- * Removes a temporary worktree and its administrative metadata.
- *
- * @param {string} repositoryRoot - Repository top-level directory.
- * @param {string} worktreePath - Worktree created by {@link createValidationWorktree}.
- * @returns {void}
- */
-export function removeValidationWorktree(repositoryRoot, worktreePath) {
-  const removal = spawnSync(
-    "git",
-    ["worktree", "remove", "--force", worktreePath],
-    {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-      env: buildRepositoryIndependentEnvironment(),
-    }
-  );
-
-  if (removal.status !== 0) {
-    // `git worktree remove` can fail on long Windows paths; delete the
-    // directory directly and let `prune` drop the stale metadata.
-    rmSync(worktreePath, { recursive: true, force: true });
-  }
-
-  spawnSync("git", ["worktree", "prune"], {
-    cwd: repositoryRoot,
-    env: buildRepositoryIndependentEnvironment(),
-  });
-}
-
-/**
- * Builds the environment for validating a commit in a temporary worktree.
- * That commit may come from a fetched, untrusted ref and its install lifecycle
- * scripts and tests run with this environment, so only the operating-system,
- * locale and tooling variables in {@link INHERITED_ENVIRONMENT_VARIABLES}
- * (plus the `LC_*`/`XDG_*` families) are kept, and the application variables
- * that `next build` and the tests need are replaced with the non-secret
- * {@link WORKTREE_ENVIRONMENT_PLACEHOLDERS}. Local `.env*` files are never
- * copied into the worktree.
- *
- * @param {NodeJS.ProcessEnv} [environment] - Source environment.
- * @returns {NodeJS.ProcessEnv} Allowlisted environment with placeholders.
- */
-export function buildWorktreeValidationEnvironment(environment = process.env) {
-  const allowlistedEntries = Object.entries(environment).filter(
-    ([variableName, value]) => {
-      const normalizedName = variableName.toUpperCase();
-
-      return (
-        value !== undefined &&
-        (INHERITED_ENVIRONMENT_VARIABLES.has(normalizedName) ||
-          INHERITED_ENVIRONMENT_PREFIXES.some((prefix) =>
-            normalizedName.startsWith(prefix)
-          ))
-      );
-    }
-  );
-
-  return {
-    ...Object.fromEntries(allowlistedEntries),
-    ...WORKTREE_ENVIRONMENT_PLACEHOLDERS,
-  };
-}
-
-/**
  * Runs a pnpm command with inherited stdio.
  *
  * @param {string[]} pnpmArguments - Arguments passed to `pnpm`.
@@ -585,85 +440,38 @@ function runPnpm(pnpmArguments, workingDirectory, environment = process.env) {
  * `pnpm run ci` alone would not detect against an existing `node_modules`.
  * `HUSKY=0` keeps the `prepare` script from rewriting the hooks config.
  *
- * @param {string} workingDirectory - Checkout or worktree to install in.
- * @param {NodeJS.ProcessEnv} [environment] - Environment for pnpm.
+ * @param {string} workingDirectory - Checkout to install in.
  * @returns {Promise<number>} pnpm exit code.
  */
-export function installFrozenDependencies(
-  workingDirectory,
-  environment = process.env
-) {
+export function installFrozenDependencies(workingDirectory) {
   return runPnpm(GATE_COMMANDS.install, workingDirectory, {
-    ...environment,
+    ...process.env,
     HUSKY: "0",
   });
 }
 
 /**
- * Runs the frozen install and, when it succeeds, the full `pnpm run ci`.
+ * Runs the frozen install and, when it succeeds, the full `pnpm run ci` in the
+ * current checkout.
  *
- * @param {string} oid - Commit being validated, used in the failure log.
- * @param {string} workingDirectory - Checkout or worktree at that commit.
- * @param {NodeJS.ProcessEnv} [environment] - Environment for both steps.
+ * @param {{ oid: string, refs: string[] }} commit - Clean `HEAD` being pushed.
+ * @param {string} repositoryRoot - Repository top-level directory.
  * @returns {Promise<boolean>} `true` when both steps passed.
  */
-async function runGateSteps(oid, workingDirectory, environment = process.env) {
-  const installExitCode = await installFrozenDependencies(
-    workingDirectory,
-    environment
+async function runGateSteps(commit, repositoryRoot) {
+  console.log(
+    `${LOG_PREFIX} ${commit.oid} (${commit.refs.join(", ")}) is the clean HEAD; running the gate in place`
   );
+  const installExitCode = await installFrozenDependencies(repositoryRoot);
 
   if (installExitCode !== 0) {
     console.error(
-      `${LOG_PREFIX} pnpm install --frozen-lockfile failed for ${oid} with exit code ${installExitCode}; package.json and pnpm-lock.yaml may be out of sync`
+      `${LOG_PREFIX} pnpm install --frozen-lockfile failed for ${commit.oid} with exit code ${installExitCode}; package.json and pnpm-lock.yaml may be out of sync`
     );
     return false;
   }
 
-  return (await runPnpm(GATE_COMMANDS.ci, workingDirectory, environment)) === 0;
-}
-
-/**
- * Validates one pushed commit and always cleans up its worktree.
- *
- * @param {{ oid: string, refs: string[] }} commit - Commit to validate.
- * @param {{ repositoryRoot: string, headOid: string, workingTreeClean: boolean, registerWorktree: (worktreePath: string | null) => void }} context
- * @returns {Promise<boolean>} `true` when the frozen install and `pnpm run ci` passed.
- */
-async function validateCommit(commit, context) {
-  const strategy = resolveValidationStrategy({
-    oid: commit.oid,
-    headOid: context.headOid,
-    isWorkingTreeClean: context.workingTreeClean,
-  });
-  const refsLabel = commit.refs.join(", ");
-
-  if (strategy === VALIDATION_STRATEGY.inPlace) {
-    console.log(
-      `${LOG_PREFIX} ${commit.oid} (${refsLabel}) is the clean HEAD; running the gate in place`
-    );
-    return runGateSteps(commit.oid, context.repositoryRoot);
-  }
-
-  console.log(
-    `${LOG_PREFIX} ${commit.oid} (${refsLabel}) differs from the checkout; validating it in a temporary worktree`
-  );
-  const worktreePath = createValidationWorktree(
-    context.repositoryRoot,
-    commit.oid
-  );
-  context.registerWorktree(worktreePath);
-
-  try {
-    return await runGateSteps(
-      commit.oid,
-      worktreePath,
-      buildWorktreeValidationEnvironment()
-    );
-  } finally {
-    removeValidationWorktree(context.repositoryRoot, worktreePath);
-    context.registerWorktree(null);
-  }
+  return (await runPnpm(GATE_COMMANDS.ci, repositoryRoot)) === 0;
 }
 
 /**
@@ -711,33 +519,29 @@ async function main() {
     return;
   }
 
-  let activeWorktreePath = null;
-  const handleInterruption = () => {
-    if (activeWorktreePath) {
-      removeValidationWorktree(repositoryRoot, activeWorktreePath);
-    }
-    process.exit(INTERRUPTED_EXIT_CODE);
-  };
-  process.on("SIGINT", handleInterruption);
-  process.on("SIGTERM", handleInterruption);
-
-  const context = {
-    repositoryRoot,
+  const checkout = {
     headOid: resolveHeadOid(repositoryRoot),
-    workingTreeClean: isWorkingTreeClean(repositoryRoot),
-    registerWorktree: (worktreePath) => {
-      activeWorktreePath = worktreePath;
-    },
+    isWorkingTreeClean: isWorkingTreeClean(repositoryRoot),
   };
+  const rejectedCommits = findCommitsOutsideCleanCheckout(commitsToValidate, checkout);
 
-  for (const commit of commitsToValidate) {
-    if (!(await validateCommit(commit, context))) {
-      console.error(
-        `${LOG_PREFIX} the gate failed for ${commit.oid} (${commit.refs.join(", ")}); the push was not sent`
-      );
-      process.exitCode = 1;
-      return;
+  if (rejectedCommits.length > 0) {
+    for (const rejectedCommit of rejectedCommits) {
+      console.error(`${LOG_PREFIX} ${buildCheckoutRequiredMessage(rejectedCommit, checkout)}`);
     }
+    console.error(`${LOG_PREFIX} the push was not sent`);
+    process.exitCode = 1;
+    return;
+  }
+
+  // Every pushed ref points to the clean HEAD, so there is one commit to validate.
+  const [headCommit] = commitsToValidate;
+
+  if (!(await runGateSteps(headCommit, repositoryRoot))) {
+    console.error(
+      `${LOG_PREFIX} the gate failed for ${headCommit.oid} (${headCommit.refs.join(", ")}); the push was not sent`
+    );
+    process.exitCode = 1;
   }
 }
 

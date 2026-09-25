@@ -5,16 +5,14 @@
  * for every commit. The full repository gate (`pnpm run ci`, which also runs
  * the whole Vitest suite and `next build`) runs in the Husky `pre-push` hook.
  *
- * lint-staged ignores deleted files, so deletion-only migration commits are
- * covered by `scripts/pre-commit-migration-guardrails.mjs`, which shares the
- * guardrail filters below.
+ * SQL migrations have no task here: lint-staged ignores deleted files and runs
+ * in the live checkout, so `scripts/pre-commit-migration-guardrails.mjs` (run
+ * by the same hook) validates every staged migration change once, against a
+ * snapshot of the staged index.
  */
-
-import { MIGRATION_GUARDRAIL_TEST_FILTERS } from "./scripts/pre-commit-migration-guardrails.mjs";
 
 const SCRIPT_FILE_PATTERN = "*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}";
 const TYPED_FILE_PATTERN = "*.{ts,tsx,mts,cts}";
-const MIGRATION_FILE_PATTERN = "database/migrations/**";
 
 export default {
   // lint-staged appends the staged file paths to string commands.
@@ -27,6 +25,4 @@ export default {
     "pnpm run typecheck",
     "pnpm run typecheck:tests",
   ],
-  [MIGRATION_FILE_PATTERN]: () =>
-    `vitest run ${MIGRATION_GUARDRAIL_TEST_FILTERS.join(" ")}`,
 };

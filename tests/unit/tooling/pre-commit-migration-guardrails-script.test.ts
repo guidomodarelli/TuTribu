@@ -24,7 +24,7 @@ type PreCommitMigrationGuardrailsScript = {
     repositoryRoot: string,
     environment?: NodeJS.ProcessEnv
   ) => StagedMigrationChanges;
-  shouldRunGuardrailsForDeletions: (changes: StagedMigrationChanges) => boolean;
+  shouldRunMigrationGuardrails: (changes: StagedMigrationChanges) => boolean;
   createStagedSnapshot: (
     repositoryRoot: string,
     environment?: NodeJS.ProcessEnv
@@ -115,10 +115,10 @@ describe("pre-commit migration guardrails script", () => {
       deletedPaths: [FIRST_MIGRATION_PATH],
       nonDeletedPaths: [],
     });
-    expect(guardrailsScript.shouldRunGuardrailsForDeletions(changes)).toBe(true);
+    expect(guardrailsScript.shouldRunMigrationGuardrails(changes)).toBe(true);
   });
 
-  it("should leave mixed migration changes to lint-staged to avoid a duplicate run", () => {
+  it("should validate mixed migration changes from the staged snapshot", () => {
     const repositoryRoot = createRepositoryWithMigrations();
     runGit(["rm", "--quiet", FIRST_MIGRATION_PATH], repositoryRoot);
     writeFileSync(path.join(repositoryRoot, SECOND_MIGRATION_PATH), "SELECT 3;\n");
@@ -133,7 +133,26 @@ describe("pre-commit migration guardrails script", () => {
       deletedPaths: [FIRST_MIGRATION_PATH],
       nonDeletedPaths: [SECOND_MIGRATION_PATH],
     });
-    expect(guardrailsScript.shouldRunGuardrailsForDeletions(changes)).toBe(false);
+    // lint-staged would run the suites in the live checkout, where an untracked
+    // file recreating the deleted migration stays visible.
+    expect(guardrailsScript.shouldRunMigrationGuardrails(changes)).toBe(true);
+  });
+
+  it("should validate added or modified migrations from the staged snapshot", () => {
+    const repositoryRoot = createRepositoryWithMigrations();
+    writeFileSync(path.join(repositoryRoot, SECOND_MIGRATION_PATH), "SELECT 3;\n");
+    runGit(["add", SECOND_MIGRATION_PATH], repositoryRoot);
+
+    const changes = guardrailsScript.listStagedMigrationChanges(
+      repositoryRoot,
+      repositoryIndependentEnvironment
+    );
+
+    expect(changes).toEqual({
+      deletedPaths: [],
+      nonDeletedPaths: [SECOND_MIGRATION_PATH],
+    });
+    expect(guardrailsScript.shouldRunMigrationGuardrails(changes)).toBe(true);
   });
 
   it("should skip the guardrails when no migration is staged", () => {
@@ -149,12 +168,15 @@ describe("pre-commit migration guardrails script", () => {
     );
 
     expect(changes).toEqual({ deletedPaths: [], nonDeletedPaths: [] });
-    expect(guardrailsScript.shouldRunGuardrailsForDeletions(changes)).toBe(false);
+    expect(guardrailsScript.shouldRunMigrationGuardrails(changes)).toBe(false);
   });
 
   it("should snapshot the staged index instead of the live working tree", () => {
     const repositoryRoot = createRepositoryWithMigrations();
+    // Mixed change: one migration deleted, another modified and staged.
     runGit(["rm", "--quiet", FIRST_MIGRATION_PATH], repositoryRoot);
+    writeFileSync(path.join(repositoryRoot, SECOND_MIGRATION_PATH), "SELECT 3;\n");
+    runGit(["add", SECOND_MIGRATION_PATH], repositoryRoot);
     // The deleted migration comes back as an untracked file and README gets an
     // unstaged edit; neither is part of the commit being validated.
     writeFileSync(path.join(repositoryRoot, FIRST_MIGRATION_PATH), "SELECT 1;\n");
@@ -169,7 +191,7 @@ describe("pre-commit migration guardrails script", () => {
       expect(existsSync(path.join(snapshotPath, FIRST_MIGRATION_PATH))).toBe(false);
       expect(
         readFileSync(path.join(snapshotPath, SECOND_MIGRATION_PATH), "utf8")
-      ).toBe("SELECT 2;\n");
+      ).toBe("SELECT 3;\n");
       expect(readFileSync(path.join(snapshotPath, "README.md"), "utf8")).toBe(
         "fixture\n"
       );

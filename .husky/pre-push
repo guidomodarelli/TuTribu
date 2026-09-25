@@ -1,2 +1,2 @@
-# Validates the exact commits being pushed (read from stdin), not the working tree.
+# Validates only the clean checked-out HEAD; pushing any other commit fails.
 node scripts/pre-push-gate.mjs

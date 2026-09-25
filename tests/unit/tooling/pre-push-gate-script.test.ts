@@ -20,26 +20,20 @@ type PushedRef = {
   remoteOid: string;
 };
 
+type CommitToValidate = { oid: string; refs: string[] };
+
 type PrePushGateScript = {
-  VALIDATION_STRATEGY: { inPlace: string; worktree: string };
   parsePushedRefs: (stdinText: string) => PushedRef[];
   isZeroOid: (oid: string) => boolean;
   selectCommitsToValidate: (
     pushedRefs: PushedRef[]
-  ) => { oid: string; refs: string[] }[];
-  resolveValidationStrategy: (options: {
-    oid: string;
-    headOid: string;
-    isWorkingTreeClean: boolean;
-  }) => string;
+  ) => CommitToValidate[];
+  findCommitsOutsideCleanCheckout: (
+    commits: CommitToValidate[],
+    checkout: { headOid: string; isWorkingTreeClean: boolean }
+  ) => CommitToValidate[];
   resolveHeadOid: (repositoryRoot: string) => string;
   isWorkingTreeClean: (repositoryRoot: string) => boolean;
-  createValidationWorktree: (repositoryRoot: string, oid: string) => string;
-  removeValidationWorktree: (repositoryRoot: string, worktreePath: string) => void;
-  WORKTREE_ENVIRONMENT_PLACEHOLDERS: Record<string, string>;
-  buildWorktreeValidationEnvironment: (
-    environment?: Record<string, string | undefined>
-  ) => NodeJS.ProcessEnv;
   buildRepositoryIndependentEnvironment: (
     environment?: Record<string, string | undefined>
   ) => NodeJS.ProcessEnv;
@@ -87,8 +81,7 @@ function writeFixtureManifest(
 ): void {
   writeFileSync(
     path.join(directory, "package.json"),
-    `${JSON.stringify({ name: "gate-fixture", version: "1.0.0", private: true, dependencies })}
-`
+    `${JSON.stringify({ name: "gate-fixture", version: "1.0.0", private: true, dependencies })}\n`
   );
 }
 
@@ -137,8 +130,7 @@ function createRepositoryWithRuntimePins(supportedRange: string, pinnedVersion: 
   const { repositoryRoot } = createRepositoryWithTwoCommits();
   writeFileSync(
     path.join(repositoryRoot, "package.json"),
-    `${JSON.stringify({ name: "gate-fixture", private: true, engines: { node: supportedRange } })}
-`
+    `${JSON.stringify({ name: "gate-fixture", private: true, engines: { node: supportedRange } })}\n`
   );
   writeFileSync(path.join(repositoryRoot, ".nvmrc"), `${pinnedVersion}
 `);
@@ -146,6 +138,49 @@ function createRepositoryWithRuntimePins(supportedRange: string, pinnedVersion: 
   runGit(["commit", "--quiet", "-m", "pins"], repositoryRoot);
 
   return repositoryRoot;
+}
+
+/**
+ * Builds a clean repository whose `ci` script writes a report inside the checkout it ran in,
+ * so a test can tell whether the gate executed code from the pushed commit.
+ */
+function createGateFixtureRepository() {
+  const { repositoryRoot, firstOid } = createRepositoryWithTwoCommits();
+  const reportPath = path.join(repositoryRoot, "gate-report.txt");
+  writeFileSync(
+    path.join(repositoryRoot, "package.json"),
+    `${JSON.stringify({
+      name: "gate-fixture",
+      private: true,
+      engines: { node: RUNNING_NODE_VERSION },
+      scripts: { ci: "node report.cjs" },
+    })}\n`
+  );
+  writeFileSync(
+    path.join(repositoryRoot, "report.cjs"),
+    'require("node:fs").writeFileSync("gate-report.txt", "ran");\n'
+  );
+  const lockfileInstall = spawnSync("pnpm", ["install", "--offline"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    env: { ...prePushGateScript.buildRepositoryIndependentEnvironment(), HUSKY: "0" },
+    shell: process.platform === "win32",
+  });
+
+  if (lockfileInstall.status !== 0) {
+    throw new Error(`fixture pnpm install failed: ${lockfileInstall.stderr}`);
+  }
+
+  writeFileSync(path.join(repositoryRoot, ".gitignore"), ".env*\nnode_modules\ngate-report.txt\n");
+  runGit(["add", "."], repositoryRoot);
+  runGit(["commit", "--quiet", "-m", "gate fixture"], repositoryRoot);
+
+  return {
+    repositoryRoot,
+    firstOid,
+    headOid: runGit(["rev-parse", "HEAD"], repositoryRoot),
+    reportPath,
+  };
 }
 
 function runPrePushGate(repositoryRoot: string, stdinText: string) {
@@ -227,13 +262,18 @@ describe("pre-push gate script", () => {
     expect(environment).toEqual({ PATH: "/usr/bin", HUSKY: "0" });
   });
 
-  it("should run in place only for a clean HEAD and use a worktree otherwise", () => {
-    const { inPlace, worktree } = prePushGateScript.VALIDATION_STRATEGY;
-    const resolve = prePushGateScript.resolveValidationStrategy;
+  it("should accept only the clean HEAD and report every other pushed commit", () => {
+    const headCommit = { oid: FIRST_OID, refs: ["refs/heads/current"] };
+    const otherCommit = { oid: SECOND_OID, refs: ["refs/heads/other"] };
+    const findOutside = prePushGateScript.findCommitsOutsideCleanCheckout;
 
-    expect(resolve({ oid: FIRST_OID, headOid: FIRST_OID, isWorkingTreeClean: true })).toBe(inPlace);
-    expect(resolve({ oid: FIRST_OID, headOid: FIRST_OID, isWorkingTreeClean: false })).toBe(worktree);
-    expect(resolve({ oid: SECOND_OID, headOid: FIRST_OID, isWorkingTreeClean: true })).toBe(worktree);
+    expect(findOutside([headCommit], { headOid: FIRST_OID, isWorkingTreeClean: true })).toEqual([]);
+    expect(
+      findOutside([headCommit, otherCommit], { headOid: FIRST_OID, isWorkingTreeClean: true })
+    ).toEqual([otherCommit]);
+    expect(findOutside([headCommit], { headOid: FIRST_OID, isWorkingTreeClean: false })).toEqual([
+      headCommit,
+    ]);
   });
 
   it("should treat uncommitted and untracked changes as a dirty working tree", () => {
@@ -251,26 +291,6 @@ describe("pre-push gate script", () => {
     rmSync(path.join(repositoryRoot, "untracked.txt"));
     writeFileSync(path.join(repositoryRoot, "state.txt"), "edited\n");
     expect(prePushGateScript.isWorkingTreeClean(repositoryRoot)).toBe(false);
-  });
-
-  it("should check out the pushed commit, not the working tree, and always remove the worktree", () => {
-    const { repositoryRoot, firstOid } = createRepositoryWithTwoCommits();
-    writeFileSync(path.join(repositoryRoot, "state.txt"), "uncommitted fix\n");
-    writeFileSync(path.join(repositoryRoot, ".env.local"), "LOCAL=1\n");
-
-    const worktreePath = prePushGateScript.createValidationWorktree(repositoryRoot, firstOid);
-
-    try {
-      expect(readFileSync(path.join(worktreePath, "state.txt"), "utf8")).toBe("broken\n");
-      expect(existsSync(path.join(worktreePath, ".env.local"))).toBe(false);
-    } finally {
-      prePushGateScript.removeValidationWorktree(repositoryRoot, worktreePath);
-    }
-
-    expect(existsSync(worktreePath)).toBe(false);
-    expect(runGit(["worktree", "list", "--porcelain"], repositoryRoot)).not.toContain(
-      path.basename(worktreePath)
-    );
   });
 
   it("should reject a Node runtime outside engines.node and accept only the pinned major", () => {
@@ -315,14 +335,12 @@ describe("pre-push gate script", () => {
 
     const gateRun = runPrePushGate(
       repositoryRoot,
-      `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}
-`
+      `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
     );
 
     expect(gateRun.status).toBe(1);
     expect(gateRun.stderr).toContain(`Node ${RUNNING_NODE_VERSION}`);
     expect(gateRun.stdout).not.toContain("running the gate");
-    expect(runGit(["worktree", "list", "--porcelain"], repositoryRoot).split("worktree ").length).toBe(2);
   });
 
   it("should warn and continue when Node matches engines.node but not the pinned .nvmrc", () => {
@@ -338,89 +356,78 @@ describe("pre-push gate script", () => {
     expect(gateRun.stdout).toContain("no pushed commits to validate");
   });
 
-  it("should give the worktree gate only allowlisted variables plus non-secret placeholders", () => {
-    const environment = prePushGateScript.buildWorktreeValidationEnvironment({
-      PATH: "/usr/bin",
-      HOME: "/home/dev",
-      LC_ALL: "C.UTF-8",
-      GIT_DIR: "/elsewhere/.git",
-      DATABASE_URL: "postgresql://owner:real-password@db.example/tutribu",
-      GITHUB_TOKEN: "ghp_real",
-      MERCADO_PAGO_CLIENT_SECRET: "real-secret",
-      npm_config__authToken: "npm-real",
-    });
-
-    expect(environment).toEqual({
-      PATH: "/usr/bin",
-      HOME: "/home/dev",
-      LC_ALL: "C.UTF-8",
-      ...prePushGateScript.WORKTREE_ENVIRONMENT_PLACEHOLDERS,
-    });
-    expect(Object.keys(prePushGateScript.WORKTREE_ENVIRONMENT_PLACEHOLDERS)).toEqual(
-      expect.arrayContaining(["DATABASE_URL", "BETTER_AUTH_SECRET"])
-    );
-  });
-
   it(
-    "should run the worktree gate without local .env files or inherited secrets",
+    "should refuse to run code from a pushed commit that is not the checkout",
     () => {
-      const { repositoryRoot } = createRepositoryWithTwoCommits();
-      const reportPath = path.join(repositoryRoot, "gate-report.json");
-      writeFileSync(
-        path.join(repositoryRoot, "package.json"),
-        `${JSON.stringify({
-          name: "gate-fixture",
-          private: true,
-          engines: { node: RUNNING_NODE_VERSION },
-          scripts: { ci: "node report.cjs" },
-        })}\n`
-      );
-      writeFileSync(
-        path.join(repositoryRoot, "report.cjs"),
-        [
-          'const { readdirSync, writeFileSync } = require("node:fs");',
-          `writeFileSync(${JSON.stringify(reportPath)}, JSON.stringify({`,
-          '  environmentFiles: readdirSync(".").filter((name) => name.startsWith(".env")),',
-          "  databaseUrl: process.env.DATABASE_URL,",
-          "  providerToken: process.env.FIXTURE_PROVIDER_TOKEN ?? null,",
-          "}));",
-        ].join("\n")
-      );
-      const lockfileInstall = spawnSync("pnpm", ["install", "--offline"], {
-        cwd: repositoryRoot,
-        encoding: "utf8",
-        env: { ...prePushGateScript.buildRepositoryIndependentEnvironment(), HUSKY: "0" },
-        shell: process.platform === "win32",
-      });
-      expect(lockfileInstall.status).toBe(0);
-      writeFileSync(path.join(repositoryRoot, ".gitignore"), ".env*\nnode_modules\ngate-report.json\n");
-      runGit(["add", "."], repositoryRoot);
-      runGit(["commit", "--quiet", "-m", "gate fixture"], repositoryRoot);
-      const pushedOid = runGit(["rev-parse", "HEAD"], repositoryRoot);
-      writeFileSync(path.join(repositoryRoot, ".env.local"), "DATABASE_URL=postgresql://local-secret\n");
-      // An uncommitted edit forces the worktree strategy for the pushed HEAD.
-      writeFileSync(path.join(repositoryRoot, "state.txt"), "uncommitted\n");
+      const { repositoryRoot, firstOid, reportPath } = createGateFixtureRepository();
 
-      const gateRun = spawnSync(process.execPath, [PRE_PUSH_GATE_SCRIPT_PATH], {
-        cwd: repositoryRoot,
-        encoding: "utf8",
-        input: `refs/heads/main ${pushedOid} refs/heads/main ${ZERO_OID}\n`,
-        env: {
-          ...prePushGateScript.buildRepositoryIndependentEnvironment(),
-          DATABASE_URL: "postgresql://inherited-secret",
-          FIXTURE_PROVIDER_TOKEN: "inherited-token",
-        },
-      });
+      const gateRun = runPrePushGate(
+        repositoryRoot,
+        `refs/heads/other ${firstOid} refs/heads/other ${ZERO_OID}\n`
+      );
 
-      expect(gateRun.status, gateRun.stderr).toBe(0);
-      expect(JSON.parse(readFileSync(reportPath, "utf8"))).toEqual({
-        environmentFiles: [],
-        databaseUrl: prePushGateScript.WORKTREE_ENVIRONMENT_PLACEHOLDERS.DATABASE_URL,
-        providerToken: null,
-      });
+      expect(gateRun.status).toBe(1);
+      expect(gateRun.stderr).toContain(firstOid);
+      expect(gateRun.stderr).toContain("refs/heads/other");
+      expect(gateRun.stderr).toContain("checkout");
+      expect(existsSync(reportPath)).toBe(false);
     },
     PNPM_INSTALL_TEST_TIMEOUT_MS
   );
+
+  it(
+    "should refuse the HEAD while the working tree has uncommitted or untracked changes",
+    () => {
+      const { repositoryRoot, headOid, reportPath } = createGateFixtureRepository();
+      writeFileSync(path.join(repositoryRoot, "untracked.txt"), "not committed\n");
+
+      const gateRun = runPrePushGate(
+        repositoryRoot,
+        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+      );
+
+      expect(gateRun.status).toBe(1);
+      expect(gateRun.stderr).toContain("working tree");
+      expect(existsSync(reportPath)).toBe(false);
+    },
+    PNPM_INSTALL_TEST_TIMEOUT_MS
+  );
+
+  it(
+    "should run the frozen install and ci in place for the clean HEAD and allow deletions",
+    () => {
+      const { repositoryRoot, headOid, reportPath } = createGateFixtureRepository();
+
+      const gateRun = runPrePushGate(
+        repositoryRoot,
+        [
+          `(delete) ${ZERO_OID} refs/heads/gone ${FIRST_OID}`,
+          `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}`,
+          "",
+        ].join("\n")
+      );
+
+      expect(gateRun.status, gateRun.stderr).toBe(0);
+      expect(readFileSync(reportPath, "utf8")).toBe("ran");
+    },
+    PNPM_INSTALL_TEST_TIMEOUT_MS
+  );
+
+  it("should allow a push that only deletes refs without running the gate", () => {
+    const repositoryRoot = createRepositoryWithRuntimePins(
+      `>=${RUNNING_NODE_MAJOR} <${RUNNING_NODE_MAJOR + 1}`,
+      RUNNING_NODE_VERSION
+    );
+    writeFileSync(path.join(repositoryRoot, "untracked.txt"), "not committed\n");
+
+    const gateRun = runPrePushGate(
+      repositoryRoot,
+      `(delete) ${ZERO_OID} refs/heads/gone ${FIRST_OID}\n`
+    );
+
+    expect(gateRun.status).toBe(0);
+    expect(gateRun.stdout).toContain("no pushed commits to validate");
+  });
 
   it(
     "should accept a lockfile that matches package.json with node_modules installed",

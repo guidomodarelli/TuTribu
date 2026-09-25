@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * Runs the SQL migration guardrail suites from the Husky `pre-commit` hook when
- * a commit only deletes files under `database/migrations`.
+ * Runs the SQL migration guardrail suites from the Husky `pre-commit` hook
+ * whenever a commit adds, modifies or deletes files under `database/migrations`.
  *
- * lint-staged discovers staged files with `--diff-filter=ACMR`, so a deleted
- * migration never matches its `database/migrations/**` task. This script reads
- * the same index Git is committing (it keeps `GIT_INDEX_FILE`, which Git sets
- * for partial commits) and runs the guardrails when deletions are staged and
- * no added or modified migration already made lint-staged run them.
+ * This script is the only owner of the migration guardrails in `pre-commit`;
+ * lint-staged has no `database/migrations/**` task. lint-staged discovers
+ * staged files with `--diff-filter=ACMR`, so it never sees a deleted migration,
+ * and it runs its tasks in the live checkout, where an untracked file that
+ * recreates a deleted migration would still be visible. This script reads the
+ * same index Git is committing (it keeps `GIT_INDEX_FILE`, which Git sets for
+ * partial commits) and runs the guardrails once for any staged migration change.
  *
  * The suites run against a temporary export of that index (`git checkout-index`)
  * instead of the live checkout, so an untracked file recreating a deleted
@@ -132,14 +134,15 @@ export function listStagedMigrationChanges(
 }
 
 /**
- * Decides whether this script must run the guardrails. Mixed changes are left
- * to lint-staged, which already runs them for the non-deleted paths.
+ * Decides whether this script must run the guardrails: any staged migration
+ * change, including mixed commits that delete one migration and add or modify
+ * another, is validated from the staged snapshot.
  *
  * @param {{ deletedPaths: string[], nonDeletedPaths: string[] }} changes
- * @returns {boolean} `true` when only deletions touch the migrations.
+ * @returns {boolean} `true` when the commit touches the migrations.
  */
-export function shouldRunGuardrailsForDeletions({ deletedPaths, nonDeletedPaths }) {
-  return deletedPaths.length > 0 && nonDeletedPaths.length === 0;
+export function shouldRunMigrationGuardrails({ deletedPaths, nonDeletedPaths }) {
+  return deletedPaths.length > 0 || nonDeletedPaths.length > 0;
 }
 
 /**
@@ -243,7 +246,7 @@ function runGuardrailSuites(snapshotPath) {
 }
 
 /**
- * Entry point: runs the guardrails for deletion-only migration commits.
+ * Entry point: runs the guardrails for commits that touch the migrations.
  *
  * @returns {Promise<void>}
  */
@@ -251,12 +254,12 @@ async function main() {
   const repositoryRoot = process.cwd();
   const changes = listStagedMigrationChanges(repositoryRoot);
 
-  if (!shouldRunGuardrailsForDeletions(changes)) {
+  if (!shouldRunMigrationGuardrails(changes)) {
     return;
   }
 
   console.log(
-    `${LOG_PREFIX} ${changes.deletedPaths.length} staged migration deletion(s); running the migration guardrail suites against the staged snapshot`
+    `${LOG_PREFIX} ${changes.deletedPaths.length} staged migration deletion(s) and ${changes.nonDeletedPaths.length} other staged migration change(s); running the migration guardrail suites against the staged snapshot`
   );
   const snapshotPath = createStagedSnapshot(repositoryRoot);
   const handleInterruption = () => {
