@@ -7,12 +7,20 @@
  * exact commits being uploaded instead of the current working tree:
  *
  * - ref deletions (local oid made of zeros) are allowed and skipped;
+ * - every pushed oid is peeled to the commit it identifies, so an annotated
+ *   tag (`git push --follow-tags`, `git push origin <tag>`) is compared by
+ *   the commit it points at instead of by the tag object id;
  * - the gate only validates the commit that is checked out: every pushed oid
  *   must be `HEAD` and the working tree must have no tracked, staged or
  *   untracked changes. Then `pnpm install --frozen-lockfile` and
  *   `pnpm run ci` run once in place; the frozen install rejects a
  *   `package.json` that drifted from `pnpm-lock.yaml` even when
  *   `node_modules` already exists;
+ * - `HEAD` and the working tree are checked again after the install and
+ *   after `pnpm run ci`: Git uploads the oids it captured on stdin, so a
+ *   commit or edit made in another terminal during the run would otherwise
+ *   let a passing gate vouch for a different pushed commit. Any change fails
+ *   the push asking to retry without touching the checkout;
  * - any other pushed oid (another branch, a fetched ref, or `HEAD` with local
  *   changes) fails the push with a Spanish message asking to check out that
  *   branch or commit with a clean working tree and push again. The gate never
@@ -273,10 +281,13 @@ export function isZeroOid(oid) {
  * Selects the distinct commits that must be validated, skipping deletions.
  *
  * @param {ReturnType<typeof parsePushedRefs>} pushedRefs - Parsed ref updates.
+ * @param {(oid: string) => string} [resolveCommitOid] - Maps a pushed object
+ *   id to the commit it identifies (peels annotated tags). Defaults to the
+ *   identity, which treats every pushed oid as a commit.
  * @returns {{ oid: string, refs: string[] }[]} Commits in first-seen order with
  *   the local refs that point to each one.
  */
-export function selectCommitsToValidate(pushedRefs) {
+export function selectCommitsToValidate(pushedRefs, resolveCommitOid = (oid) => oid) {
   const commitsByOid = new Map();
 
   for (const pushedRef of pushedRefs) {
@@ -284,13 +295,14 @@ export function selectCommitsToValidate(pushedRefs) {
       continue;
     }
 
-    const existingCommit = commitsByOid.get(pushedRef.localOid);
+    const commitOid = resolveCommitOid(pushedRef.localOid);
+    const existingCommit = commitsByOid.get(commitOid);
 
     if (existingCommit) {
       existingCommit.refs.push(pushedRef.localRef);
     } else {
-      commitsByOid.set(pushedRef.localOid, {
-        oid: pushedRef.localOid,
+      commitsByOid.set(commitOid, {
+        oid: commitOid,
         refs: [pushedRef.localRef],
       });
     }
@@ -401,6 +413,26 @@ export function resolveHeadOid(repositoryRoot) {
 }
 
 /**
+ * Peels a pushed object id to the commit it identifies, so an annotated tag
+ * resolves to its tagged commit. An object that does not peel to a commit
+ * (a tag of a tree or blob) keeps its own id, which never matches `HEAD` and
+ * therefore blocks the push.
+ *
+ * @param {string} repositoryRoot - Repository top-level directory.
+ * @param {string} oid - Pushed object id.
+ * @returns {string} Commit object id, or `oid` when it does not peel to one.
+ */
+export function resolvePushedCommitOid(repositoryRoot, oid) {
+  const result = spawnSync("git", ["rev-parse", "--verify", "--quiet", `${oid}^{commit}`], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    env: buildRepositoryIndependentEnvironment(),
+  });
+
+  return result.status === 0 ? result.stdout.trim() : oid;
+}
+
+/**
  * Returns whether the checkout has no staged, unstaged or untracked changes
  * (ignored files such as `.env*`, `node_modules` and `.next` do not count).
  *
@@ -409,6 +441,47 @@ export function resolveHeadOid(repositoryRoot) {
  */
 export function isWorkingTreeClean(repositoryRoot) {
   return runGit(["status", "--porcelain"], repositoryRoot).length === 0;
+}
+
+/**
+ * Reads the current checkout state.
+ *
+ * @param {string} repositoryRoot - Repository top-level directory.
+ * @returns {{ headOid: string, isWorkingTreeClean: boolean }}
+ */
+function readCheckoutState(repositoryRoot) {
+  return {
+    headOid: resolveHeadOid(repositoryRoot),
+    isWorkingTreeClean: isWorkingTreeClean(repositoryRoot),
+  };
+}
+
+/**
+ * Checks that the checkout is still the clean pushed commit after a gate step.
+ * Git uploads the oid captured on stdin, so a commit or an edit made while the
+ * gate runs would otherwise let the gate pass for code that is not pushed.
+ *
+ * @param {{ oid: string, refs: string[] }} commit - Clean `HEAD` being pushed.
+ * @param {string} repositoryRoot - Repository top-level directory.
+ * @param {string} completedStep - Gate step that just finished, for the log.
+ * @returns {boolean} `true` when `HEAD` is unchanged and the tree is clean.
+ */
+function isCheckoutStillPushedCommit(commit, repositoryRoot, completedStep) {
+  const checkout = readCheckoutState(repositoryRoot);
+
+  if (checkout.headOid === commit.oid && checkout.isWorkingTreeClean) {
+    return true;
+  }
+
+  const change =
+    checkout.headOid === commit.oid
+      ? "el working tree tiene cambios sin commitear o archivos sin trackear"
+      : `HEAD pasó a ${checkout.headOid}`;
+
+  console.error(
+    `${LOG_PREFIX} El checkout cambió mientras corría el gate (después de ${completedStep}): se valida ${commit.oid} (${commit.refs.join(", ")}) pero ${change}. Git subiría ${commit.oid}, no el código validado. Volvé a pushear sin modificar el checkout (sin commits, ediciones ni checkouts en otra terminal) mientras corre el pre-push.`
+  );
+  return false;
 }
 
 /**
@@ -452,11 +525,13 @@ export function installFrozenDependencies(workingDirectory) {
 
 /**
  * Runs the frozen install and, when it succeeds, the full `pnpm run ci` in the
- * current checkout.
+ * current checkout, rechecking after each step that the checkout is still the
+ * clean pushed commit.
  *
  * @param {{ oid: string, refs: string[] }} commit - Clean `HEAD` being pushed.
  * @param {string} repositoryRoot - Repository top-level directory.
- * @returns {Promise<boolean>} `true` when both steps passed.
+ * @returns {Promise<boolean>} `true` when both steps passed and the checkout
+ *   did not change while they ran.
  */
 async function runGateSteps(commit, repositoryRoot) {
   console.log(
@@ -471,7 +546,15 @@ async function runGateSteps(commit, repositoryRoot) {
     return false;
   }
 
-  return (await runPnpm(GATE_COMMANDS.ci, repositoryRoot)) === 0;
+  if (!isCheckoutStillPushedCommit(commit, repositoryRoot, "pnpm install")) {
+    return false;
+  }
+
+  if ((await runPnpm(GATE_COMMANDS.ci, repositoryRoot)) !== 0) {
+    return false;
+  }
+
+  return isCheckoutStillPushedCommit(commit, repositoryRoot, "pnpm run ci");
 }
 
 /**
@@ -511,7 +594,8 @@ async function main() {
   }
 
   const commitsToValidate = selectCommitsToValidate(
-    parsePushedRefs(await readStdin())
+    parsePushedRefs(await readStdin()),
+    (oid) => resolvePushedCommitOid(repositoryRoot, oid)
   );
 
   if (commitsToValidate.length === 0) {
@@ -519,10 +603,7 @@ async function main() {
     return;
   }
 
-  const checkout = {
-    headOid: resolveHeadOid(repositoryRoot),
-    isWorkingTreeClean: isWorkingTreeClean(repositoryRoot),
-  };
+  const checkout = readCheckoutState(repositoryRoot);
   const rejectedCommits = findCommitsOutsideCleanCheckout(commitsToValidate, checkout);
 
   if (rejectedCommits.length > 0) {

@@ -112,6 +112,7 @@ function createRepositoryWithTwoCommits() {
   runGit(["config", "user.email", "gate@example.test"], repositoryRoot);
   runGit(["config", "user.name", "Gate Test"], repositoryRoot);
   runGit(["config", "commit.gpgsign", "false"], repositoryRoot);
+  runGit(["config", "tag.gpgsign", "false"], repositoryRoot);
   runGit(["config", "core.autocrlf", "false"], repositoryRoot);
   runGit(["config", "core.hooksPath", "no-hooks"], repositoryRoot);
   writeFileSync(path.join(repositoryRoot, ".gitignore"), ".env*\n");
@@ -140,11 +141,16 @@ function createRepositoryWithRuntimePins(supportedRange: string, pinnedVersion: 
   return repositoryRoot;
 }
 
+/** `ci` script source that only records, inside the checkout, that it ran. */
+const REPORT_ONLY_CI_SCRIPT = 'require("node:fs").writeFileSync("gate-report.txt", "ran");\n';
+
 /**
  * Builds a clean repository whose `ci` script writes a report inside the checkout it ran in,
  * so a test can tell whether the gate executed code from the pushed commit.
+ *
+ * @param ciScriptSource - Source of `report.cjs`, the fixture's `ci` script.
  */
-function createGateFixtureRepository() {
+function createGateFixtureRepository(ciScriptSource: string = REPORT_ONLY_CI_SCRIPT) {
   const { repositoryRoot, firstOid } = createRepositoryWithTwoCommits();
   const reportPath = path.join(repositoryRoot, "gate-report.txt");
   writeFileSync(
@@ -156,10 +162,7 @@ function createGateFixtureRepository() {
       scripts: { ci: "node report.cjs" },
     })}\n`
   );
-  writeFileSync(
-    path.join(repositoryRoot, "report.cjs"),
-    'require("node:fs").writeFileSync("gate-report.txt", "ran");\n'
-  );
+  writeFileSync(path.join(repositoryRoot, "report.cjs"), ciScriptSource);
   const lockfileInstall = spawnSync("pnpm", ["install", "--offline"], {
     cwd: repositoryRoot,
     encoding: "utf8",
@@ -409,6 +412,90 @@ describe("pre-push gate script", () => {
 
       expect(gateRun.status, gateRun.stderr).toBe(0);
       expect(readFileSync(reportPath, "utf8")).toBe("ran");
+    },
+    PNPM_INSTALL_TEST_TIMEOUT_MS
+  );
+
+  it(
+    "should fail when the ci run modifies a tracked file of the pushed checkout",
+    () => {
+      const { repositoryRoot, headOid, reportPath } = createGateFixtureRepository(
+        `${REPORT_ONLY_CI_SCRIPT}require("node:fs").writeFileSync("state.txt", "edited during the gate");\n`
+      );
+
+      const gateRun = runPrePushGate(
+        repositoryRoot,
+        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+      );
+
+      expect(readFileSync(reportPath, "utf8")).toBe("ran");
+      expect(gateRun.status).toBe(1);
+      expect(gateRun.stderr).toContain("cambió mientras corría el gate");
+      expect(gateRun.stderr).toContain("sin modificar el checkout");
+    },
+    PNPM_INSTALL_TEST_TIMEOUT_MS
+  );
+
+  it(
+    "should fail when HEAD moves to another commit while the ci run is in progress",
+    () => {
+      const { repositoryRoot, headOid } = createGateFixtureRepository(
+        `${REPORT_ONLY_CI_SCRIPT}require("node:child_process").execFileSync("git", ["commit", "--quiet", "--allow-empty", "-m", "concurrent"]);\n`
+      );
+
+      const gateRun = runPrePushGate(
+        repositoryRoot,
+        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+      );
+
+      expect(runGit(["rev-parse", "HEAD"], repositoryRoot)).not.toBe(headOid);
+      expect(gateRun.status).toBe(1);
+      expect(gateRun.stderr).toContain(headOid);
+      expect(gateRun.stderr).toContain("cambió mientras corría el gate");
+    },
+    PNPM_INSTALL_TEST_TIMEOUT_MS
+  );
+
+  it(
+    "should validate an annotated tag that points at the clean HEAD",
+    () => {
+      const { repositoryRoot, headOid, reportPath } = createGateFixtureRepository();
+      runGit(["tag", "--annotate", "v1.0.0", "--message", "release"], repositoryRoot);
+      const tagObjectOid = runGit(["rev-parse", "refs/tags/v1.0.0"], repositoryRoot);
+
+      expect(tagObjectOid).not.toBe(headOid);
+
+      const gateRun = runPrePushGate(
+        repositoryRoot,
+        [
+          `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}`,
+          `refs/tags/v1.0.0 ${tagObjectOid} refs/tags/v1.0.0 ${ZERO_OID}`,
+          "",
+        ].join("\n")
+      );
+
+      expect(gateRun.status, gateRun.stderr).toBe(0);
+      expect(readFileSync(reportPath, "utf8")).toBe("ran");
+    },
+    PNPM_INSTALL_TEST_TIMEOUT_MS
+  );
+
+  it(
+    "should refuse an annotated tag that points at a commit other than HEAD",
+    () => {
+      const { repositoryRoot, firstOid, reportPath } = createGateFixtureRepository();
+      runGit(["tag", "--annotate", "v0.1.0", "--message", "old release", firstOid], repositoryRoot);
+      const tagObjectOid = runGit(["rev-parse", "refs/tags/v0.1.0"], repositoryRoot);
+
+      const gateRun = runPrePushGate(
+        repositoryRoot,
+        `refs/tags/v0.1.0 ${tagObjectOid} refs/tags/v0.1.0 ${ZERO_OID}\n`
+      );
+
+      expect(gateRun.status).toBe(1);
+      expect(gateRun.stderr).toContain(firstOid);
+      expect(gateRun.stderr).toContain("refs/tags/v0.1.0");
+      expect(existsSync(reportPath)).toBe(false);
     },
     PNPM_INSTALL_TEST_TIMEOUT_MS
   );
