@@ -7,14 +7,16 @@
  * exact commits being uploaded instead of the current working tree:
  *
  * - ref deletions (local oid made of zeros) are skipped;
- * - every distinct local oid runs `pnpm run ci` once;
+ * - every distinct local oid runs `pnpm install --frozen-lockfile` and then
+ *   `pnpm run ci` once; the frozen install rejects a `package.json` that
+ *   drifted from `pnpm-lock.yaml` even when `node_modules` already exists;
  * - when the oid is `HEAD` and the working tree has no tracked, staged or
  *   untracked changes, the gate runs in place (the checkout already matches
  *   the commit);
  * - otherwise the oid is checked out in a detached temporary worktree, the
- *   local `.env*` files are copied into it, dependencies are installed from
- *   the frozen lockfile reusing the pnpm store, and `pnpm run ci` runs there.
- *   The worktree is always removed, including on failure or interruption.
+ *   local `.env*` files are copied into it, and the same steps run there
+ *   reusing the pnpm store. The worktree is always removed, including on
+ *   failure or interruption.
  *
  * Usage (from `.husky/pre-push`):
  *   node scripts/pre-push-gate.mjs < <git pre-push stdin>
@@ -335,11 +337,47 @@ function runPnpm(pnpmArguments, workingDirectory, environment = process.env) {
 }
 
 /**
+ * Installs dependencies strictly from the committed lockfile. pnpm exits
+ * non-zero when `package.json` no longer matches `pnpm-lock.yaml`, which
+ * `pnpm run ci` alone would not detect against an existing `node_modules`.
+ * `HUSKY=0` keeps the `prepare` script from rewriting the hooks config.
+ *
+ * @param {string} workingDirectory - Checkout or worktree to install in.
+ * @returns {Promise<number>} pnpm exit code.
+ */
+export function installFrozenDependencies(workingDirectory) {
+  return runPnpm(GATE_COMMANDS.install, workingDirectory, {
+    ...process.env,
+    HUSKY: "0",
+  });
+}
+
+/**
+ * Runs the frozen install and, when it succeeds, the full `pnpm run ci`.
+ *
+ * @param {string} oid - Commit being validated, used in the failure log.
+ * @param {string} workingDirectory - Checkout or worktree at that commit.
+ * @returns {Promise<boolean>} `true` when both steps passed.
+ */
+async function runGateSteps(oid, workingDirectory) {
+  const installExitCode = await installFrozenDependencies(workingDirectory);
+
+  if (installExitCode !== 0) {
+    console.error(
+      `${LOG_PREFIX} pnpm install --frozen-lockfile failed for ${oid} with exit code ${installExitCode}; package.json and pnpm-lock.yaml may be out of sync`
+    );
+    return false;
+  }
+
+  return (await runPnpm(GATE_COMMANDS.ci, workingDirectory)) === 0;
+}
+
+/**
  * Validates one pushed commit and always cleans up its worktree.
  *
  * @param {{ oid: string, refs: string[] }} commit - Commit to validate.
  * @param {{ repositoryRoot: string, headOid: string, workingTreeClean: boolean, registerWorktree: (worktreePath: string | null) => void }} context
- * @returns {Promise<boolean>} `true` when `pnpm run ci` passed.
+ * @returns {Promise<boolean>} `true` when the frozen install and `pnpm run ci` passed.
  */
 async function validateCommit(commit, context) {
   const strategy = resolveValidationStrategy({
@@ -351,9 +389,9 @@ async function validateCommit(commit, context) {
 
   if (strategy === VALIDATION_STRATEGY.inPlace) {
     console.log(
-      `${LOG_PREFIX} ${commit.oid} (${refsLabel}) is the clean HEAD; running pnpm run ci in place`
+      `${LOG_PREFIX} ${commit.oid} (${refsLabel}) is the clean HEAD; running the gate in place`
     );
-    return (await runPnpm(GATE_COMMANDS.ci, context.repositoryRoot)) === 0;
+    return runGateSteps(commit.oid, context.repositoryRoot);
   }
 
   console.log(
@@ -367,20 +405,7 @@ async function validateCommit(commit, context) {
 
   try {
     copyEnvironmentFiles(context.repositoryRoot, worktreePath);
-    // HUSKY=0 keeps the worktree install from rewriting the shared hooks config.
-    const installExitCode = await runPnpm(GATE_COMMANDS.install, worktreePath, {
-      ...process.env,
-      HUSKY: "0",
-    });
-
-    if (installExitCode !== 0) {
-      console.error(
-        `${LOG_PREFIX} pnpm install failed for ${commit.oid} with exit code ${installExitCode}`
-      );
-      return false;
-    }
-
-    return (await runPnpm(GATE_COMMANDS.ci, worktreePath)) === 0;
+    return await runGateSteps(commit.oid, worktreePath);
   } finally {
     removeValidationWorktree(context.repositoryRoot, worktreePath);
     context.registerWorktree(null);
@@ -440,7 +465,7 @@ async function main() {
   for (const commit of commitsToValidate) {
     if (!(await validateCommit(commit, context))) {
       console.error(
-        `${LOG_PREFIX} pnpm run ci failed for ${commit.oid} (${commit.refs.join(", ")}); the push was not sent`
+        `${LOG_PREFIX} the gate failed for ${commit.oid} (${commit.refs.join(", ")}); the push was not sent`
       );
       process.exitCode = 1;
       return;

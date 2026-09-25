@@ -39,11 +39,14 @@ type PrePushGateScript = {
   buildRepositoryIndependentEnvironment: (
     environment?: Record<string, string | undefined>
   ) => NodeJS.ProcessEnv;
+  installFrozenDependencies: (workingDirectory: string) => Promise<number>;
 };
 
 const ZERO_OID = "0".repeat(40);
 const FIRST_OID = "a".repeat(40);
 const SECOND_OID = "b".repeat(40);
+/** Real pnpm installs in fixtures can exceed the default Vitest timeout. */
+const PNPM_INSTALL_TEST_TIMEOUT_MS = 60_000;
 
 let prePushGateScript: PrePushGateScript;
 const temporaryDirectories: string[] = [];
@@ -61,6 +64,36 @@ function runGit(gitArguments: string[], workingDirectory: string): string {
   }
 
   return result.stdout.trim();
+}
+
+function writeFixtureManifest(
+  directory: string,
+  dependencies: Record<string, string>
+): void {
+  writeFileSync(
+    path.join(directory, "package.json"),
+    `${JSON.stringify({ name: "gate-fixture", version: "1.0.0", private: true, dependencies })}
+`
+  );
+}
+
+function createInstalledDependencyFixture(): string {
+  const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), "pre-push-gate-install-"));
+  temporaryDirectories.push(fixtureRoot);
+  writeFixtureManifest(fixtureRoot, {});
+
+  const initialInstall = spawnSync("pnpm", ["install", "--offline"], {
+    cwd: fixtureRoot,
+    encoding: "utf8",
+    env: { ...prePushGateScript.buildRepositoryIndependentEnvironment(), HUSKY: "0" },
+    shell: process.platform === "win32",
+  });
+
+  if (initialInstall.status !== 0) {
+    throw new Error(`fixture pnpm install failed: ${initialInstall.stderr}`);
+  }
+
+  return fixtureRoot;
 }
 
 function createRepositoryWithTwoCommits() {
@@ -204,4 +237,26 @@ describe("pre-push gate script", () => {
       path.basename(worktreePath)
     );
   });
+
+  it(
+    "should accept a lockfile that matches package.json with node_modules installed",
+    async () => {
+      const fixtureRoot = createInstalledDependencyFixture();
+
+      expect(existsSync(path.join(fixtureRoot, "node_modules"))).toBe(true);
+      await expect(prePushGateScript.installFrozenDependencies(fixtureRoot)).resolves.toBe(0);
+    },
+    PNPM_INSTALL_TEST_TIMEOUT_MS
+  );
+
+  it(
+    "should fail when package.json drifted from the lockfile even with node_modules installed",
+    async () => {
+      const fixtureRoot = createInstalledDependencyFixture();
+      writeFixtureManifest(fixtureRoot, { "left-pad": "^1.3.0" });
+
+      await expect(prePushGateScript.installFrozenDependencies(fixtureRoot)).resolves.not.toBe(0);
+    },
+    PNPM_INSTALL_TEST_TIMEOUT_MS
+  );
 });
