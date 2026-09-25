@@ -416,8 +416,11 @@ function buildExceptedSlotStartsInRangeArray({ rangeEnd, rangeStart }: TribeEven
  * anchored on the 31st that ends mid-February, or a bounded series whose
  * only slot in the window is cancelled or moved out of it, therefore never
  * matches. `list_tribe_event_reminder_series` (migration 20260926120000,
- * section 8a) is its SQL mirror for the reminder cron, which pages series
- * under a per-run cap: both must change together.
+ * section 8a) is its "starts within" counterpart for the reminder cron, which
+ * pages series under a per-run cap and only reminds dates that START in the
+ * range (`tribe_event_series_has_occurrence_starting_in_range` delegates to
+ * the same helper with a one-microsecond occurrence): a change to the
+ * schedule bounds or the excepted-slot rules must be applied to both.
  */
 export function buildSeriesWithOccurrenceInRangePredicate({
   rangeEnd,

@@ -34,13 +34,16 @@ export class PostgresTribeEventReminderRepository implements TribeEventReminderR
   constructor(private readonly executeWithDatabase: TribeEventDatabaseExecutor) {}
 
   /**
-   * One keyset page of series (ordered by id) that can have a date in the
-   * range, plus their exceptions in a second query (no N+1). The exceptions
-   * read is bounded by the same range (`list_tribe_event_reminder_exceptions`
-   * returns only the rows whose original slot can overlap it, or whose moved
-   * date lands in it), so a long-lived series with years of history never
-   * loads its past cancellations and moves on every run. It reads one row
-   * past the limit to know whether another page exists.
+   * One keyset page of series (ordered by id) that have an effective date
+   * starting in the range (the "starts within" semantics of the reminder
+   * expansion, applied before the page limit so running long occurrences
+   * never fill the capped pages), plus their exceptions in a second query
+   * (no N+1). The exceptions read is bounded by the same range
+   * (`list_tribe_event_reminder_exceptions` returns only the rows whose
+   * original start is in it, or whose moved date starts in it), so a
+   * long-lived or long-lasting series never loads its past cancellations and
+   * moves on every run. It reads one row past the limit to know whether
+   * another page exists.
    */
   async listSeriesInRange({
     afterEventId,

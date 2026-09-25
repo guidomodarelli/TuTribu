@@ -501,24 +501,83 @@ EXECUTE FUNCTION public.enqueue_event_occurrence_change_notifications();
 -- guard. A dedicated maintenance role receives EXECUTE out of band. As
 -- defense in depth each function does nothing inside an app user context.
 
--- 8a. One keyset page (by id) of the series that HAVE an effective date in
--- [range_start, range_end): the SQL mirror of
--- buildSeriesWithOccurrenceInRangePredicate
--- (src/modules/events/infrastructure/repositories/tribe-event-sql.ts). The
--- cheap schedule bounds (start to effective end, 60 minutes without ends_at)
--- run first, then tribe_event_series_has_occurrence_in_range
--- (20260925123000) confirms that the cadence has a slot overlapping the
--- range that is not cancelled or moved (its excepted original starts are
--- the exception rows of the window, read through the
--- (event_id, original_starts_at) unique index), or a date moved into the
--- range whose original start is still a slot of the series. The exact
--- predicate runs BEFORE the keyset LIMIT: the cron reads at most
--- TRIBE_EVENT_REMINDER_BATCH pages and restarts from the first id on every
--- run, so a cadence-only superset (unbounded series whose start precedes
--- range_end without a date in the next day) could fill every page with
+-- 8a'. Whether a series has an EFFECTIVE slot that STARTS in
+-- [range_start, range_end): a slot of its cadence that is not listed in
+-- excepted_slot_starts (the original starts of its cancelled or moved dates)
+-- and whose start falls in the range. It is the "starts within" semantics of
+-- the reminder expansion (selectDueTribeEventReminders expands with
+-- TRIBE_EVENT_RANGE_MATCH.startsWithin), whereas
+-- tribe_event_series_has_occurrence_in_range (20260925123000) keeps the
+-- overlap semantics of the calendar feed: a long occurrence that started
+-- before range_start and is still running overlaps the range but can never
+-- be due for a reminder in it.
+--
+-- It delegates to tribe_event_series_has_occurrence_in_range with a
+-- one-microsecond occurrence (the timestamptz resolution), so the bounded
+-- cadence walk and is_tribe_event_series_occurrence stay the only recurrence
+-- rule: a slot then overlaps the range exactly when slot < range_end and
+-- slot + 1 microsecond > range_start, that is slot >= range_start. The walk
+-- starts one microsecond before range_start instead of one series duration
+-- before it, so its cost stays proportional to the excepted starts passed in
+-- and never depends on the series duration. Pure, IMMUTABLE, reads no table;
+-- only the owner-only listing below calls it, so PUBLIC stays revoked and no
+-- request role grant is added.
+CREATE OR REPLACE FUNCTION public.tribe_event_series_has_occurrence_starting_in_range(
+  event_starts_at timestamptz,
+  event_recurrence_frequency text,
+  event_recurrence_until timestamptz,
+  range_start timestamptz,
+  range_end timestamptz,
+  excepted_slot_starts timestamptz[]
+)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+SET search_path = public, pg_temp
+AS $$
+  SELECT public.tribe_event_series_has_occurrence_in_range(
+    event_starts_at,
+    -- Timestamptz resolution: the shortest occurrence, which turns the
+    -- overlap test into "starts at or after range_start".
+    event_starts_at + interval '1 microsecond',
+    event_recurrence_frequency,
+    event_recurrence_until,
+    range_start,
+    range_end,
+    excepted_slot_starts
+  );
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.tribe_event_series_has_occurrence_starting_in_range(
+  timestamptz, text, timestamptz, timestamptz, timestamptz, timestamptz[]
+)
+FROM PUBLIC;
+
+-- 8a. One keyset page (by id) of the series that have an effective date
+-- STARTING in [range_start, range_end), the only dates a reminder can be due
+-- for (selectDueTribeEventReminders expands with "starts within"). The cheap
+-- schedule bounds run first (a single event starts in the range; a recurring
+-- series starts before range_end and its recurrence_until, inclusive, is not
+-- before range_start), then tribe_event_series_has_occurrence_starting_in_range
+-- confirms that the cadence has a slot starting in the range that is not
+-- cancelled or moved (its excepted original starts are the exception rows
+-- whose original start is in the range, read through the
+-- (event_id, original_starts_at) unique index), or else a date moved INTO the
+-- range (its new start is in it, read through
+-- idx_event_occurrence_exceptions_event_new_start, created in 8b) whose
+-- original start is still a slot of the series. The exact predicate runs
+-- BEFORE the keyset LIMIT: the cron reads at most TRIBE_EVENT_REMINDER_BATCH
+-- pages and restarts from the first id on every run, so any superset of the
+-- due series (an unbounded cadence without a date in the next day, or a long
+-- occurrence that started before range_start and is still running, which
+-- overlaps the range but has nothing to remind) could fill every page with
 -- UUID-lower filler rows and starve a later series with a due reminder on
 -- every run. The application still expands each series with its exceptions
--- and keeps only the due dates. Both must change together.
+-- and keeps only the due dates. This is the "starts within" counterpart of
+-- buildSeriesWithOccurrenceInRangePredicate
+-- (src/modules/events/infrastructure/repositories/tribe-event-sql.ts), which
+-- keeps overlap semantics for the calendar feed.
 CREATE OR REPLACE FUNCTION public.list_tribe_event_reminder_series(
   range_start timestamptz,
   range_end timestamptz,
@@ -541,23 +600,18 @@ AS $$
         AND (
           (
             events.recurrence_frequency = 'none'
-            AND events.starts_at
-              + coalesce(events.ends_at - events.starts_at, interval '60 minutes')
-              > range_start
+            AND events.starts_at >= range_start
           )
           OR (
             events.recurrence_frequency <> 'none'
             AND (
               events.recurrence_until IS NULL
-              OR events.recurrence_until
-                + coalesce(events.ends_at - events.starts_at, interval '60 minutes')
-                > range_start
+              OR events.recurrence_until >= range_start
             )
           )
         )
-        AND public.tribe_event_series_has_occurrence_in_range(
+        AND public.tribe_event_series_has_occurrence_starting_in_range(
           events.starts_at,
-          events.ends_at,
           events.recurrence_frequency,
           events.recurrence_until,
           range_start,
@@ -566,11 +620,8 @@ AS $$
             SELECT excepted_slots.original_starts_at
             FROM public.event_occurrence_exceptions AS excepted_slots
             WHERE excepted_slots.event_id = events.id
+              AND excepted_slots.original_starts_at >= range_start
               AND excepted_slots.original_starts_at < range_end
-              AND excepted_slots.original_starts_at >= range_start - least(
-                coalesce(events.ends_at - events.starts_at, interval '60 minutes'),
-                range_start - events.starts_at
-              )
           )
         )
       )
@@ -579,12 +630,8 @@ AS $$
         FROM public.event_occurrence_exceptions AS moved_exceptions
         WHERE moved_exceptions.event_id = events.id
           AND moved_exceptions.kind = 'moved'
+          AND moved_exceptions.new_starts_at >= range_start
           AND moved_exceptions.new_starts_at < range_end
-          AND coalesce(
-            moved_exceptions.new_ends_at,
-            moved_exceptions.new_starts_at
-              + coalesce(events.ends_at - events.starts_at, interval '60 minutes')
-          ) > range_start
           AND public.is_tribe_event_series_occurrence(
             moved_exceptions.original_starts_at,
             events.starts_at,
@@ -606,17 +653,17 @@ FROM PUBLIC;
 -- bounded by the reminder range [range_start, range_end). A long-lived
 -- series accumulates years of cancellations and moves that can never affect
 -- the next day, so the function returns only:
---   * the rows whose ORIGINAL slot can overlap the range (it starts before
---     range_end and its series duration, 60 minutes without ends_at, reaches
---     range_start): they remove that slot from the plain expansion. The lower
---     bound is written as range_start - least(duration, range_start -
---     starts_at), like the excepted slots of 8a, so a duration of millennia
---     never falls below the timestamptz range, and both bounds use the
---     (event_id, original_starts_at) unique index;
---   * the MOVED rows whose new start lands in the range: the reminder
---     expansion matches a moved date by its effective start
---     (selectDueTribeEventReminders, "starts within"), and range_start is the
---     earliest start a reminder can be due for. They are read through
+--   * the rows whose ORIGINAL start is in the range: the reminder expansion
+--     (selectDueTribeEventReminders, "starts within") only yields slots that
+--     start in the range and matches an exception to its slot by original
+--     start, so an earlier original start can never remove a slot of this
+--     run. The bound does not subtract the series duration: validation only
+--     asks endsAt to be after startsAt, so a weekly series lasting a year
+--     would otherwise reload a year of history on every run. Read through
+--     the (event_id, original_starts_at) unique index;
+--   * the MOVED rows whose new start lands in the range: the expansion
+--     matches a moved date by its effective start, so they are the only
+--     moved dates this run can remind. Read through
 --     idx_event_occurrence_exceptions_event_new_start.
 -- Rows kept after a schedule edit are not filtered here; the domain
 -- expansion ignores an original start that is no longer a slot.
@@ -635,17 +682,12 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT event_occurrence_exceptions.*
-  FROM public.events
-  INNER JOIN public.event_occurrence_exceptions
-    ON event_occurrence_exceptions.event_id = events.id
+  SELECT slot_exceptions.*
+  FROM public.event_occurrence_exceptions AS slot_exceptions
   WHERE nullif(current_setting('app.current_user_id', true), '') IS NULL
-    AND events.id = ANY(target_event_ids)
-    AND event_occurrence_exceptions.original_starts_at < range_end
-    AND event_occurrence_exceptions.original_starts_at >= range_start - least(
-      coalesce(events.ends_at - events.starts_at, interval '60 minutes'),
-      range_start - events.starts_at
-    )
+    AND slot_exceptions.event_id = ANY(target_event_ids)
+    AND slot_exceptions.original_starts_at >= range_start
+    AND slot_exceptions.original_starts_at < range_end
   UNION
   SELECT moved_exceptions.*
   FROM public.event_occurrence_exceptions AS moved_exceptions
