@@ -125,6 +125,22 @@ function renderActivity(isFinished = true) {
   );
 }
 
+/**
+ * Mirrors the calendar detail: the activity remounts under a new key every
+ * time the same occurrence is reopened, and `null` means the detail is closed.
+ */
+function KeyedActivity({ detailSession }: { detailSession: number | null }) {
+  return detailSession === null ? null : (
+    <TribeEventOccurrenceActivity
+      isFinished
+      key={detailSession}
+      occurrence={occurrence}
+      tribeSlug={TRIBE_SLUG}
+      onRecordingAvailabilityChange={vi.fn()}
+    />
+  );
+}
+
 describe("TribeEventOccurrenceActivity", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -512,6 +528,93 @@ describe("TribeEventOccurrenceActivity", () => {
     expect(within(reopenedDialog).getByLabelText("Nombre del material 1")).toHaveValue(
       "Slides editadas"
     );
+  });
+
+  it("shows a save that finishes after the detail was closed and reopened", async () => {
+    let persistedMaterials = [{ title: "Slides", url: "https://example.com/slides" }];
+    let settleSave: () => void = () => undefined;
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({
+        body: { postEvent: buildPostEvent({ materials: persistedMaterials }) },
+      }),
+      [`PUT /events/${EVENT_ID}/post-event`]: () =>
+        new Promise<RouteResponse>((resolve) => {
+          settleSave = () => {
+            persistedMaterials = [{ title: "Guía", url: "https://example.com/guia" }];
+            resolve({
+              body: {
+                message: "Grabación y materiales guardados.",
+                postEvent: buildPostEvent({ materials: persistedMaterials }),
+              },
+            });
+          };
+        }),
+    });
+
+    const user = userEvent.setup();
+    const { rerender } = render(<KeyedActivity detailSession={1} />);
+
+    await user.click(await screen.findByRole("button", { name: "Editar grabación y materiales" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "Grabación y materiales" })).getByRole("button", {
+        name: "Guardar",
+      })
+    );
+
+    // Close the detail while the save is pending and reopen the same occurrence.
+    rerender(<KeyedActivity detailSession={null} />);
+    rerender(<KeyedActivity detailSession={2} />);
+
+    await act(async () => {
+      settleSave();
+    });
+
+    expect(await screen.findByRole("link", { name: "Guía" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Slides" })).not.toBeInTheDocument();
+  });
+
+  it("persists a debounced reaction when the detail closes before the flush", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reactionBodies: unknown[] = [];
+    let persistedReactions = { counts: { fire: 2, neutral: 0, thumbs_up: 1 }, viewerReaction: null as string | null };
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({
+        body: { postEvent: buildPostEvent({ reactions: persistedReactions }) },
+      }),
+      [`PUT /events/${EVENT_ID}/reaction`]: (init) => {
+        reactionBodies.push(JSON.parse(String(init?.body)));
+        persistedReactions = { counts: { fire: 3, neutral: 0, thumbs_up: 1 }, viewerReaction: "fire" };
+
+        return { body: { reactions: persistedReactions } };
+      },
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { rerender } = render(<KeyedActivity detailSession={1} />);
+
+    await user.click(await screen.findByRole("button", { name: "Estuvo genial: 2 personas" }));
+    rerender(<KeyedActivity detailSession={null} />);
+
+    await waitFor(() =>
+      expect(reactionBodies).toEqual([{ occurrenceStartsAt: ORIGINAL_STARTS_AT, reaction: "fire" }])
+    );
+
+    rerender(<KeyedActivity detailSession={2} />);
+
+    expect(await screen.findByRole("button", { name: "Estuvo genial: 3 personas" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TRIBE_EVENT_REACTION_FLUSH_DELAY_MS);
+    });
+
+    expect(reactionBodies).toHaveLength(1);
   });
 
   it("saves the recording and materials and reports the new availability", async () => {
