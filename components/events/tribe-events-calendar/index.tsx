@@ -611,17 +611,28 @@ export function TribeEventsCalendar({
     void setAttendance(occurrence, status);
   };
 
-  // A save in the detail dialog updates the agenda badge without a reload.
+  // Every load or save in the detail dialog updates the agenda badge without a
+  // reload. The functional update reads the latest keys (a load answer can
+  // arrive after other renders) and keeps the state when nothing changed.
   const setOccurrenceRecordingAvailability = (occurrenceKey: string, hasRecording: boolean) => {
-    const nextKeys = new Set(recordedKeys);
+    setRecordedOccurrenceState((currentState) => {
+      const currentKeys =
+        currentState.sourceKeys === recordedOccurrenceKeys ? currentState.keys : serverRecordedKeys;
 
-    if (hasRecording) {
-      nextKeys.add(occurrenceKey);
-    } else {
-      nextKeys.delete(occurrenceKey);
-    }
+      if (currentKeys.has(occurrenceKey) === hasRecording && currentKeys === currentState.keys) {
+        return currentState;
+      }
 
-    setRecordedOccurrenceState({ keys: nextKeys, sourceKeys: recordedOccurrenceKeys });
+      const nextKeys = new Set(currentKeys);
+
+      if (hasRecording) {
+        nextKeys.add(occurrenceKey);
+      } else {
+        nextKeys.delete(occurrenceKey);
+      }
+
+      return { keys: nextKeys, sourceKeys: recordedOccurrenceKeys };
+    });
   };
 
   const renderAgendaItem = (occurrence: TribeEventOccurrenceResult) => (
