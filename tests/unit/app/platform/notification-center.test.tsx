@@ -401,6 +401,77 @@ describe("NotificationCenter", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("reconciles the unread count after overlapping read marks settle out of order", async () => {
+    const user = userEvent.setup();
+    const markReadReleases = new Map<string, () => void>();
+    let inboxLoads = 0;
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        headers: { "Content-Type": "application/json" },
+        status,
+      });
+
+    (global.fetch as Mock).mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/notifications") {
+        inboxLoads += 1;
+
+        // The deferred reconcile list load fails, so only a count read can
+        // correct the badge.
+        return Promise.resolve(
+          inboxLoads === 1
+            ? json(inbox)
+            : json({ message: "No pudimos cargar tus notificaciones. Intentá de nuevo." }, 500)
+        );
+      }
+
+      if (url === "/api/notifications/unread-count") {
+        return Promise.resolve(json({ unreadCount: 0 }));
+      }
+
+      if (init?.method === "PATCH") {
+        return new Promise<Response>((resolve) => {
+          // The later-started mark commits first and still counts the earlier
+          // uncommitted mark; the earlier one then returns the final count.
+          const unreadCountAfterCommit = url === `/api/notifications/${SECOND_ID}` ? 1 : 0;
+
+          markReadReleases.set(url, () => resolve(json({ unreadCount: unreadCountAfterCommit })));
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected request ${url}`));
+    });
+    renderCenter();
+    await user.click(screen.getByRole("button", { name: "Notificaciones, 2 sin leer" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "Notificaciones" })).getByRole("link", {
+        name: /Taller de álgebra/,
+      })
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Notificaciones, 1 sin leer" }));
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "Notificaciones" })).getByRole("link", {
+        name: /Club de lectura/,
+      })
+    );
+
+    await act(async () => {
+      markReadReleases.get(`/api/notifications/${SECOND_ID}`)?.();
+    });
+    await act(async () => {
+      markReadReleases.get(`/api/notifications/${FIRST_ID}`)?.();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Notificaciones" })).toBeInTheDocument()
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/notifications/unread-count",
+      expect.objectContaining({ cache: "no-store" })
+    );
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
   it("skips an unread poll that fires while a read mark is pending", async () => {
     vi.useFakeTimers();
 
@@ -577,6 +648,18 @@ describe("NotificationCenter", () => {
     await user.click(screen.getByRole("button", { name: "Reintentar" }));
 
     expect(await screen.findByText("No tenés notificaciones.")).toBeInTheDocument();
+  });
+
+  it("shows the error and a retry when refreshing an empty server inbox fails", async () => {
+    const user = userEvent.setup();
+
+    respondWith({ message: "No pudimos cargar tus notificaciones. Intentá de nuevo." }, 500);
+    renderCenter({ notifications: [], unreadCount: 0 });
+    await user.click(screen.getByRole("button", { name: "Notificaciones" }));
+
+    expect(await screen.findByText("No pudimos cargar tus notificaciones.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(screen.queryByText("No tenés notificaciones.")).not.toBeInTheDocument();
   });
 
   it("polls only the unread count while the tab is visible", async () => {
