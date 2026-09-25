@@ -243,7 +243,14 @@ export type TribeEventUpdateResult =
       status: typeof TRIBE_EVENT_MUTATION_STATUS.updated;
     }
   | {
-      status: TribeEventMutationFailureStatus;
+      /**
+       * `scheduleRemovesPostEventContent`: the new start, repetition, or end
+       * date would stop generating a date that holds a recording, materials,
+       * reactions, or comments, so the row is left untouched.
+       */
+      status:
+        | TribeEventMutationFailureStatus
+        | typeof TRIBE_EVENT_MUTATION_STATUS.scheduleRemovesPostEventContent;
     };
 
 export type TribeEventDeletionResult = {

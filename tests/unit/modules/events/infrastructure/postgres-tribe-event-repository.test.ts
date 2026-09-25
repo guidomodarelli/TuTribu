@@ -380,6 +380,58 @@ describe("PostgresTribeEventRepository", () => {
     ).resolves.toEqual({ status: "forbidden" as const });
   });
 
+  it("rejects a schedule edit that would strand post-event content and skips the refill", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [lockedEventRow] })
+      .mockResolvedValueOnce({ rows: [{ status: "schedule_removes_post_event_content" }] });
+    const repository = createRepository(execute);
+
+    await expect(
+      repository.update({
+        attendanceRange: {
+          rangeEnd: "2026-06-01T03:00:00.000Z",
+          rangeStart: "2026-05-01T03:00:00.000Z",
+        },
+        capacity: { kind: "unchanged" },
+        description: null,
+        endsAt: null,
+        eventId: EVENT_ID,
+        eventType: null,
+        meetingUrl: null,
+        recurrenceFrequency: "weekly",
+        recurrenceUntil: null,
+        startsAt: "2026-05-07T18:00:00.000Z",
+        title: "Clase abierta",
+        tribeSlug: "matematica-pro",
+      })
+    ).resolves.toEqual({ status: "schedule_removes_post_event_content" });
+
+    // The check runs in the UPDATE statement itself, after the FOR UPDATE
+    // lock, so no post-event write can commit between the check and the
+    // UPDATE; the rejected edit neither refills nor reads summaries.
+    const updateStatement = execute.mock.calls[1]?.[0];
+    const updateSql = getSqlText(updateStatement);
+
+    for (const postEventTable of [
+      "public.event_occurrence_recordings",
+      "public.event_occurrence_materials",
+      "public.event_occurrence_reactions",
+      "public.event_occurrence_comments",
+    ]) {
+      expect(updateSql).toContain(postEventTable);
+    }
+    expect(updateSql).toContain("public.is_tribe_event_series_occurrence");
+    expect(getSqlParams(updateStatement)).toEqual(
+      expect.arrayContaining([
+        "2026-05-07T18:00:00.000Z",
+        "weekly",
+        "schedule_removes_post_event_content",
+      ])
+    );
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
   it("answers through the definer function and returns the fresh occurrence summary", async () => {
     const execute = vi
       .fn()

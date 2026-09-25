@@ -33,6 +33,11 @@ export const TRIBE_EVENT_MUTATION_STATUS = {
   reactionCleared: "reaction_cleared",
   reactionSaved: "reaction_saved",
   scheduleChanged: "schedule_changed",
+  /**
+   * A series edit would stop generating a date that already holds post-event
+   * content (recording, materials, reactions, or comments).
+   */
+  scheduleRemovesPostEventContent: "schedule_removes_post_event_content",
   updated: "updated",
 } as const;
 

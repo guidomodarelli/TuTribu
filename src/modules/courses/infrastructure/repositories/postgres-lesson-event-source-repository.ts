@@ -174,7 +174,9 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
    * in its own statement, so the lookup that follows gets a snapshot that
    * already sees a lesson committed by a concurrent request. With the lock
    * held, an existing lesson of that occurrence anywhere in the course is
-   * returned (`existing`) instead of inserting a duplicate.
+   * returned (`existing`) instead of inserting a duplicate. The module is
+   * re-resolved and share-locked after that lock, so a course or module
+   * deleted meanwhile answers `not_found` instead of a foreign key failure.
    */
   async createFromEventRecording(
     command: CreateLessonFromEventRecordingRepositoryCommand
@@ -232,6 +234,26 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
           )
         )
       `);
+
+      // The course or module may have been deleted while this request waited
+      // on the conversion lock. Re-read the module in a fresh snapshot and
+      // share-lock it so a concurrent delete waits for this insert instead of
+      // failing its foreign key; a vanished target is the regular not found.
+      const lockedTargetResult = await database.execute(sql`
+        select course_modules.id
+        from public.course_modules
+        inner join public.courses
+          on courses.id = course_modules.course_id
+        where course_modules.id = ${command.courseModuleId}
+          and course_modules.course_id = ${command.courseId}
+          and course_modules.tribe_id = ${target.tribe_id}::uuid
+          and courses.tribe_id = ${target.tribe_id}::uuid
+        for share of course_modules
+      `);
+
+      if (!lockedTargetResult.rows?.[0]) {
+        return { status: LESSON_EVENT_SOURCE_STATUS.notFound };
+      }
 
       const existingResult = await database.execute(sql`
         select course_lessons.id, course_lessons.title, course_lessons.course_module_id

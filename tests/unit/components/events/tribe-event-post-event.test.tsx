@@ -77,7 +77,8 @@ function buildPostEvent(overrides: Record<string, unknown> = {}) {
   };
 }
 
-type RouteHandler = (init?: RequestInit) => { body: unknown; ok?: boolean; status?: number };
+type RouteResponse = { body: unknown; ok?: boolean; status?: number };
+type RouteHandler = (init?: RequestInit) => RouteResponse | Promise<RouteResponse>;
 
 /**
  * Fake of the post-event API: each handler answers a "METHOD path" key.
@@ -91,7 +92,7 @@ function mockApi(handlers: Record<string, RouteHandler>) {
       throw new Error(`Unexpected request ${init?.method ?? "GET"} ${path}`);
     }
 
-    const { body, ok = true, status = ok ? 200 : 500 } = handler(init);
+    const { body, ok = true, status = ok ? 200 : 500 } = await handler(init);
 
     return { json: async () => body, ok, status };
   });
@@ -277,6 +278,124 @@ describe("TribeEventOccurrenceActivity", () => {
       )
     );
     expect(toast.error).toHaveBeenCalledWith("Esta fecha todavía no terminó.");
+  });
+
+  it("keeps an in-flight reaction when a resources save answers with the pre-reaction counts", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onRecordingAvailabilityChange = vi.fn();
+    let settleReaction: (response: RouteResponse) => void = () => undefined;
+    const reactionBodies: unknown[] = [];
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      // The save persisted before the reaction: it still carries the old counts.
+      [`PUT /events/${EVENT_ID}/post-event`]: () => ({
+        body: { message: "Grabación y materiales guardados.", postEvent: buildPostEvent() },
+      }),
+      [`PUT /events/${EVENT_ID}/reaction`]: (init) => {
+        reactionBodies.push(JSON.parse(String(init?.body)));
+
+        return new Promise<RouteResponse>((resolve) => {
+          settleReaction = resolve;
+        });
+      },
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    render(
+      <TribeEventOccurrenceActivity
+        isFinished
+        occurrence={occurrence}
+        tribeSlug={TRIBE_SLUG}
+        onRecordingAvailabilityChange={onRecordingAvailabilityChange}
+      />
+    );
+    await user.click(await screen.findByRole("button", { name: "Estuvo bien: 1 persona" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TRIBE_EVENT_REACTION_FLUSH_DELAY_MS);
+    });
+    await waitFor(() => expect(reactionBodies).toHaveLength(1));
+
+    await user.click(screen.getByRole("button", { name: "Editar grabación y materiales" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Grabación y materiales" });
+
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(onRecordingAvailabilityChange).toHaveBeenLastCalledWith(OCCURRENCE_KEY, true));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Grabación y materiales" })).not.toBeInTheDocument()
+    );
+    expect(screen.getByRole("button", { name: "Estuvo bien: 2 personas" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    await act(async () => {
+      settleReaction({
+        body: { reactions: { counts: { fire: 2, neutral: 0, thumbs_up: 2 }, viewerReaction: "thumbs_up" } },
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Estuvo bien: 2 personas" })).toHaveAttribute(
+        "aria-pressed",
+        "true"
+      )
+    );
+    expect(reactionBodies).toHaveLength(1);
+  });
+
+  it("still sends a debounced reaction when a resources save finishes before the flush", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reactionBodies: unknown[] = [];
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      [`PUT /events/${EVENT_ID}/post-event`]: () => ({
+        body: { message: "Grabación y materiales guardados.", postEvent: buildPostEvent() },
+      }),
+      [`PUT /events/${EVENT_ID}/reaction`]: (init) => {
+        reactionBodies.push(JSON.parse(String(init?.body)));
+
+        return {
+          body: { reactions: { counts: { fire: 3, neutral: 0, thumbs_up: 1 }, viewerReaction: "fire" } },
+        };
+      },
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderActivity();
+    await user.click(await screen.findByRole("button", { name: "Estuvo genial: 2 personas" }));
+    await user.click(screen.getByRole("button", { name: "Editar grabación y materiales" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Grabación y materiales" });
+
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Grabación y materiales" })).not.toBeInTheDocument()
+    );
+
+    expect(screen.getByRole("button", { name: "Estuvo genial: 3 personas" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TRIBE_EVENT_REACTION_FLUSH_DELAY_MS);
+    });
+
+    await waitFor(() =>
+      expect(reactionBodies).toEqual([{ occurrenceStartsAt: ORIGINAL_STARTS_AT, reaction: "fire" }])
+    );
+    expect(screen.getByRole("button", { name: "Estuvo genial: 3 personas" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
   });
 
   it("saves the recording and materials and reports the new availability", async () => {
