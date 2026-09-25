@@ -501,13 +501,24 @@ EXECUTE FUNCTION public.enqueue_event_occurrence_change_notifications();
 -- guard. A dedicated maintenance role receives EXECUTE out of band. As
 -- defense in depth each function does nothing inside an app user context.
 
--- 8a. One keyset page (by id) of the series that can have a date in
--- [range_start, range_end): the SQL mirror of buildSeriesInRangePredicate
--- (src/modules/events/infrastructure/repositories/tribe-event-sql.ts).
--- Schedule bounds (start to effective end, 60 minutes without ends_at) or a
--- date moved into the range whose original start is still a slot of the
--- series. It is a superset: the application expands each series with its
--- exceptions and keeps only the due dates. Both must change together.
+-- 8a. One keyset page (by id) of the series that HAVE an effective date in
+-- [range_start, range_end): the SQL mirror of
+-- buildSeriesWithOccurrenceInRangePredicate
+-- (src/modules/events/infrastructure/repositories/tribe-event-sql.ts). The
+-- cheap schedule bounds (start to effective end, 60 minutes without ends_at)
+-- run first, then tribe_event_series_has_occurrence_in_range
+-- (20260925123000) confirms that the cadence has a slot overlapping the
+-- range that is not cancelled or moved (its excepted original starts are
+-- the exception rows of the window, read through the
+-- (event_id, original_starts_at) unique index), or a date moved into the
+-- range whose original start is still a slot of the series. The exact
+-- predicate runs BEFORE the keyset LIMIT: the cron reads at most
+-- TRIBE_EVENT_REMINDER_BATCH pages and restarts from the first id on every
+-- run, so a cadence-only superset (unbounded series whose start precedes
+-- range_end without a date in the next day) could fill every page with
+-- UUID-lower filler rows and starve a later series with a due reminder on
+-- every run. The application still expands each series with its exceptions
+-- and keeps only the due dates. Both must change together.
 CREATE OR REPLACE FUNCTION public.list_tribe_event_reminder_series(
   range_start timestamptz,
   range_end timestamptz,
@@ -542,6 +553,24 @@ AS $$
                 + coalesce(events.ends_at - events.starts_at, interval '60 minutes')
                 > range_start
             )
+          )
+        )
+        AND public.tribe_event_series_has_occurrence_in_range(
+          events.starts_at,
+          events.ends_at,
+          events.recurrence_frequency,
+          events.recurrence_until,
+          range_start,
+          range_end,
+          array(
+            SELECT excepted_slots.original_starts_at
+            FROM public.event_occurrence_exceptions AS excepted_slots
+            WHERE excepted_slots.event_id = events.id
+              AND excepted_slots.original_starts_at < range_end
+              AND excepted_slots.original_starts_at >= range_start - least(
+                coalesce(events.ends_at - events.starts_at, interval '60 minutes'),
+                range_start - events.starts_at
+              )
           )
         )
       )
