@@ -293,6 +293,10 @@ export class PostgresTribeEventOccurrenceCommentRepository
   /**
    * Deletes a comment of the tribe when the viewer wrote it or manages
    * events. A missing comment and a foreign tribe both answer not found.
+   * When the author and a moderator delete it concurrently, the second
+   * `DELETE` waits and then affects no row although its snapshot still
+   * sees the target: an authorized viewer whose delete removed nothing is
+   * therefore answered not found (already gone), never forbidden.
    */
   async delete({
     commentId,
@@ -325,6 +329,12 @@ export class PostgresTribeEventOccurrenceCommentRepository
           case
             when exists (select 1 from deleted_comment) then ${TRIBE_EVENT_MUTATION_STATUS.commentDeleted}
             when not exists (select 1 from target_comment) then ${TRIBE_EVENT_MUTATION_STATUS.notFound}
+            when exists (
+              select 1
+              from target_comment
+              where target_comment.author_id = public.current_app_user_id()
+                or public.can_manage_tribe_events(target_comment.tribe_id)
+            ) then ${TRIBE_EVENT_MUTATION_STATUS.notFound}
             else ${TRIBE_EVENT_MUTATION_STATUS.forbidden}
           end as status
       `);
