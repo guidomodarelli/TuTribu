@@ -26,6 +26,7 @@ import {
   type StreakFreshnessEvent,
   type StreakMutationOutcome,
 } from "@/lib/events/tribe-event-streak-freshness";
+import type { TribeEventOccurrenceExceptionSubmission } from "@/lib/events/tribe-event-form-submissions";
 import {
   compareOccurrencesByStart,
   mergeSavedOccurrences,
@@ -38,12 +39,12 @@ import {
   saveTribeEventAttendanceRequest,
   saveTribeEventOccurrenceExceptionRequest,
   saveTribeEventRequest,
+  toTribeEventOccurrenceExceptionRequestBody,
   type TribeEventMutationFailure,
   type TribeEventSavePayload,
   type TribeEventStreakReadResult,
   type TribeEventStreakRefresh,
 } from "@/lib/events/tribe-events-api-client";
-import type { TribeEventOccurrenceExceptionRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-exception-request-schemas";
 import type {
   TribeEventAttendanceOption,
   TribeEventAttendanceStreakResult,
@@ -119,6 +120,12 @@ type SeriesMutationStreak = {
   outcome: StreakMutationOutcome;
 };
 
+/**
+ * Settles a series mutation sent outside this hook with how its request ended
+ * (see `TribeEventMutations.beginSeriesMutation`).
+ */
+export type TribeEventSeriesMutationSettler = (outcome: OccurrencesMutationOutcome) => void;
+
 type OccurrencesUpdater = (
   currentEvents: TribeEventOccurrenceResult[]
 ) => TribeEventOccurrenceResult[];
@@ -132,6 +139,17 @@ export type TribeEventMutations = {
    * (for example after approving a proposal).
    */
   applyEventOccurrences: (eventId: string, occurrences: TribeEventOccurrenceResult[]) => void;
+  /**
+   * Registers a series mutation sent outside this hook (for example a proposal
+   * approval, which creates an event) in both freshness state machines, like
+   * the creations this hook sends. Settle it once with how the request ended:
+   * an applied or ambiguous outcome reads the streak again once every
+   * mutation settles (the response carries no streak), an ambiguous one also
+   * reads the visible month, and a rejection stored nothing.
+   *
+   * @returns The settler of that mutation; later calls are ignored.
+   */
+  beginSeriesMutation: () => TribeEventSeriesMutationSettler;
   /** "Restaurar fecha": removes the exception of the occurrence. */
   clearOccurrenceException: (occurrence: TribeEventOccurrenceResult) => Promise<boolean>;
   /** Viewer streak, refreshed by creations, edits, and deletions of a series. */
@@ -150,7 +168,7 @@ export type TribeEventMutations = {
   /** "Cancelar esta fecha" / "Mover esta fecha". */
   saveOccurrenceException: (
     occurrence: TribeEventOccurrenceResult,
-    body: Omit<TribeEventOccurrenceExceptionRequestBody, "originalStartsAt">
+    submission: TribeEventOccurrenceExceptionSubmission
   ) => Promise<boolean>;
   /**
    * Reads the streak again (for example when an occurrence on screen
@@ -759,6 +777,27 @@ export function useTribeEventMutations({
     );
   };
 
+  const beginSeriesMutation: TribeEventMutations["beginSeriesMutation"] = () => {
+    beginStreakMutation();
+
+    let isSettled = false;
+
+    return (occurrencesOutcome) => {
+      // A second settle would unbalance the pending mutation counters.
+      if (isSettled) {
+        return;
+      }
+
+      isSettled = true;
+      settleStreakMutation(
+        occurrencesOutcome === OCCURRENCES_MUTATION_OUTCOME.rejected
+          ? STREAK_MUTATION_OUTCOME.unaffected
+          : STREAK_MUTATION_OUTCOME.missing,
+        occurrencesOutcome
+      );
+    };
+  };
+
   const replaceVisibleEvents = (updater: OccurrencesUpdater) => {
     setVisibleEventsState((currentState) => ({
       events: updater(currentState.sourceEvents === events ? currentState.events : events),
@@ -837,11 +876,11 @@ export function useTribeEventMutations({
 
   const saveOccurrenceException: TribeEventMutations["saveOccurrenceException"] = (
     occurrence,
-    body
+    submission
   ) =>
     runExceptionMutation(occurrence, (requestMonth) =>
       saveTribeEventOccurrenceExceptionRequest({
-        body: { ...body, originalStartsAt: occurrence.originalStartsAt },
+        body: toTribeEventOccurrenceExceptionRequestBody(submission, occurrence.originalStartsAt),
         eventId: occurrence.eventId,
         month: requestMonth,
         tribeSlug,
@@ -1023,6 +1062,7 @@ export function useTribeEventMutations({
 
   return {
     applyEventOccurrences,
+    beginSeriesMutation,
     clearOccurrenceException,
     attendanceStreak: visibleAttendanceStreak,
     attendanceStreakNextRefreshAt: visibleStreakNextRefreshAt,

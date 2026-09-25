@@ -10,6 +10,7 @@ import type {
   TribeEventAttendeeResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 import { createPastTribeEventRange } from "@/src/modules/events/application/services/tribe-event-time-ranges";
+import { pickValidatedTribeEventSchedule } from "@/src/modules/events/application/services/tribe-event-validated-schedule";
 import {
   TRIBE_EVENT_ATTENDANCE_STATUS,
   TRIBE_EVENT_ATTENDANCE_TREND,
@@ -21,7 +22,6 @@ import type {
   TribeEvent,
   TribeEventAttendee,
   TribeEventOccurrenceException,
-  TribeEventSchedule,
 } from "@/src/modules/events/domain/entities/tribe-event";
 import type { TribeEventOccurrenceExceptionRepository } from "@/src/modules/events/domain/repositories/tribe-event-occurrence-exception-repository";
 import type {
@@ -97,20 +97,6 @@ async function resolveAttendanceKey(
     key: { eventId, occurrenceStartsAt, tribeSlug },
     occurrence,
     status: RESOLVED_KEY_STATUS.valid,
-  };
-}
-
-/**
- * Schedule fields the occurrence was validated against. The repository sends
- * them with the write so the database refuses it if a manager changed the
- * schedule after this validation (it runs in an earlier transaction).
- */
-function pickValidatedSchedule(event: TribeEvent): TribeEventSchedule {
-  return {
-    endsAt: event.endsAt,
-    recurrenceFrequency: event.recurrenceFrequency,
-    recurrenceUntil: event.recurrenceUntil,
-    startsAt: event.startsAt,
   };
 }
 
@@ -197,7 +183,7 @@ export function setTribeEventAttendance({
 
     return tribeEventRepository.setAttendance({
       ...resolvedKey.key,
-      schedule: pickValidatedSchedule(resolvedKey.event),
+      schedule: pickValidatedTribeEventSchedule(resolvedKey.event),
       status: command.status,
     });
   };
@@ -226,7 +212,7 @@ export function clearTribeEventAttendance({
 
     return tribeEventRepository.clearAttendance({
       ...resolvedKey.key,
-      schedule: pickValidatedSchedule(resolvedKey.event),
+      schedule: pickValidatedTribeEventSchedule(resolvedKey.event),
     });
   };
 }

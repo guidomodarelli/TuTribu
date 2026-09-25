@@ -33,6 +33,7 @@ import {
 } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import {
   TRIBE_EVENT_CAPACITY_UPDATE_KIND,
+  TRIBE_EVENT_DEFAULT_TYPE,
   TRIBE_EVENT_MUTATION_STATUS,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
@@ -201,11 +202,13 @@ export function updateTribeEvent({
   tribeEventRepository,
 }: TribeEventDependencies) {
   return async (command: UpdateTribeEventCommand): Promise<TribeEventSaveResult> => {
-    // An omitted capacity is only normalized as "no limit" to reuse the
-    // field rules; `resolveCapacityUpdate` below keeps the stored one.
+    // An omitted capacity or type is only normalized with a placeholder to
+    // reuse the field rules (neither takes part in them); the update below
+    // keeps the stored values.
     const normalizedInput = normalizeTribeEventFields({
       ...command,
       capacity: command.capacity ?? null,
+      eventType: command.eventType ?? TRIBE_EVENT_DEFAULT_TYPE,
     });
 
     if (normalizedInput.status !== NORMALIZED_EVENT_STATUS.valid) {
@@ -221,6 +224,7 @@ export function updateTribeEvent({
       attendanceRange: null,
       capacity: resolveCapacityUpdate(command.capacity),
       eventId: command.eventId,
+      eventType: command.eventType ?? null,
       tribeSlug: command.tribeSlug,
     });
 

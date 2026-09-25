@@ -22,6 +22,7 @@ import type {
 } from "@/src/modules/events/domain/repositories/tribe-event-proposal-repository";
 import {
   RETURNING_TRIBE_EVENT_COLUMNS,
+  lockViewerMembership,
   mapCount,
   mapDateValue,
   mapNullableDateValue,
@@ -157,7 +158,9 @@ async function readProposal(
 /**
  * Locks the proposal row (FOR UPDATE) inside the request transaction. A
  * concurrent review of the same proposal waits here and then sees the
- * resolved status, which is what makes approval idempotent.
+ * resolved status, which is what makes approval idempotent. Every write
+ * calls `lockViewerMembership` first so the authorization read here stays
+ * valid until the write commits.
  */
 async function lockProposal(
   database: RequestDatabase,
@@ -209,8 +212,9 @@ function resolveReviewFailure(
 /**
  * Postgres adapter of member proposals. Every statement runs in the request
  * transaction (`withRequestContext`) and repeats the authorization in SQL
- * because the runtime role bypasses RLS; the policies of
- * `event_proposals` protect every other role.
+ * because the runtime role bypasses RLS. This adapter is the only writer of
+ * `event_proposals`: request roles may only read it, because RLS cannot
+ * enforce the pending-proposal cap or the event created on approval.
  */
 export class PostgresTribeEventProposalRepository implements TribeEventProposalRepository {
   constructor(private readonly executeWithDatabase: TribeEventDatabaseExecutor) {}
@@ -219,6 +223,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
     command: CreateTribeEventProposalRepositoryCommand
   ): Promise<TribeEventProposalCreationResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, command.tribeSlug);
       const access = await readTribeAccess(database, command.tribeSlug);
 
       if (!access) {
@@ -325,7 +330,12 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
                 on proposer.id = event_proposals.proposed_by
               where event_proposals.tribe_id = ${access.tribe_id}
                 and event_proposals.proposed_by = public.current_app_user_id()
-              order by event_proposals.created_at desc, event_proposals.id desc
+              -- Pending rows first (bounded by the anti-spam cap) so resolved
+              -- history can never push a withdrawable proposal past the limit.
+              order by
+                (event_proposals.status = ${TRIBE_EVENT_PROPOSAL_STATUS.pending}) desc,
+                event_proposals.created_at desc,
+                event_proposals.id desc
               limit ${query.authorListSize}
             `
       );
@@ -345,6 +355,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
     command: ApproveTribeEventProposalRepositoryCommand
   ): Promise<TribeEventProposalApprovalResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, command.tribeSlug);
       const lockedProposal = await lockProposal(database, command);
       const failure = resolveReviewFailure(lockedProposal);
 
@@ -412,6 +423,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
     command: RejectTribeEventProposalRepositoryCommand
   ): Promise<TribeEventProposalReviewResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, command.tribeSlug);
       const failure = resolveReviewFailure(await lockProposal(database, command));
 
       if (failure !== null) {
@@ -443,6 +455,7 @@ export class PostgresTribeEventProposalRepository implements TribeEventProposalR
    */
   async withdraw(command: TribeEventProposalReference): Promise<TribeEventProposalReviewResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, command.tribeSlug);
       const lockedProposal = await lockProposal(database, command);
 
       if (!lockedProposal || lockedProposal.proposed_by !== lockedProposal.viewer_id) {

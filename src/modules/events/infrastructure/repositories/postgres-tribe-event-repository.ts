@@ -55,6 +55,7 @@ import {
   buildMovedIntoRangePredicate,
   buildSeriesInRangePredicate,
   buildTribeEventExceptionsInRangeQuery,
+  lockViewerMembership,
   mapCount,
   mapDateValue,
   mapNullableCount,
@@ -858,7 +859,8 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
    * Updates the series and, only when its capacity or schedule really changed,
    * refills the waitlists in the same transaction. A capacity marked as
    * `unchanged` is left out of the SET list, so a body that omits the field
-   * keeps the stored limit and never promotes the whole queue.
+   * keeps the stored limit and never promotes the whole queue. A null event
+   * type is left out the same way, so the stored type is kept.
    *
    * The change is detected against the row locked `FOR UPDATE` by a first
    * statement, not against a CTE of the UPDATE statement: under READ
@@ -867,17 +869,23 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
    * 10 -> 5 followed by a waiting 5 -> 10 compared 10 with 10 and skipped the
    * refill. Once the lock is held no other transaction can change the row,
    * so the captured values are exactly the version the UPDATE replaces.
-   * Lock order stays event row first: the attendance functions take the same
-   * row `FOR SHARE` before their occurrence advisory lock, and the refill
-   * function takes it `FOR UPDATE` again (already held, so it never waits).
+   * Lock order is the manager's membership (`lockViewerMembership`, so a
+   * demotion that commits while this edit waits on the event row is seen by
+   * the UPDATE statement instead of racing it), then the event row: the
+   * attendance functions take the same row `FOR SHARE` before their
+   * occurrence advisory lock, and the refill function takes it `FOR UPDATE`
+   * again (already held, so it never waits).
    */
   async update(command: PersistTribeEventUpdateCommand): Promise<TribeEventUpdateResult> {
     const capacityAssignment =
       command.capacity.kind === TRIBE_EVENT_CAPACITY_UPDATE_KIND.set
         ? sql`capacity = ${command.capacity.capacity},`
         : sql``;
+    const eventTypeAssignment =
+      command.eventType === null ? sql`` : sql`event_type = ${command.eventType},`;
 
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, command.tribeSlug);
       const lockedEvent = await this.lockEventForUpdate(database, command);
       const result = await database.execute(sql`
         with target_tribe as (
@@ -898,6 +906,7 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
           update public.events
           set
             ${capacityAssignment}
+            ${eventTypeAssignment}
             title = ${command.title},
             description = ${command.description},
             meeting_url = ${command.meetingUrl},
@@ -905,7 +914,6 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
             ends_at = ${command.endsAt},
             recurrence_frequency = ${command.recurrenceFrequency},
             recurrence_until = ${command.recurrenceUntil},
-            event_type = ${command.eventType},
             -- Stamped after lockEventForUpdate waited: now() is the older
             -- transaction start and would move the calendar revision
             -- (LAST-MODIFIED) backward while calendar_sequence moves forward.
@@ -1000,8 +1008,16 @@ export class PostgresTribeEventRepository implements TribeEventRepository {
     return (result.rows?.[0] ?? null) as LockedEventRow | null;
   }
 
+  /**
+   * Deletes the series after locking the manager's membership
+   * (`lockViewerMembership`): the DELETE waits on the event row held by
+   * in-flight attendance answers, and without that lock a demotion committed
+   * meanwhile would not be seen by `can_manage_tribe_events`, which keeps the
+   * statement snapshot.
+   */
   async delete(command: DeleteTribeEventRepositoryCommand): Promise<TribeEventDeletionResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, command.tribeSlug);
       const result = await database.execute(sql`
         with target_tribe as (
           select tribes.id

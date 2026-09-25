@@ -15,26 +15,19 @@ import {
 } from "beez-ui";
 
 import {
+  addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
   formatBuenosAiresTime,
   formatBuenosAiresWeekdayDay,
   getBuenosAiresDateKey,
 } from "@/lib/date-time/buenos-aires-format";
+import type { TribeEventOccurrenceExceptionSubmission } from "@/lib/events/tribe-event-form-submissions";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import {
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_REASON_MAX_LENGTH,
 } from "@/src/modules/events/constants/tribe-events";
-import type { TribeEventOccurrenceExceptionRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-exception-request-schemas";
 import styles from "./styles.module.scss";
-
-/**
- * Change requested for one date (the container adds the original start).
- */
-export type TribeEventOccurrenceExceptionPayload = Omit<
-  TribeEventOccurrenceExceptionRequestBody,
-  "originalStartsAt"
->;
 
 export type TribeEventOccurrenceExceptionMode =
   (typeof TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND)[keyof typeof TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND];
@@ -46,7 +39,7 @@ type TribeEventOccurrenceExceptionDialogProps = {
   /** Date being changed; null closes the dialog. */
   occurrence: TribeEventOccurrenceResult | null;
   onClose: () => void;
-  onSubmit: (payload: TribeEventOccurrenceExceptionPayload) => void;
+  onSubmit: (submission: TribeEventOccurrenceExceptionSubmission) => void;
 };
 
 type ExceptionFormValues = {
@@ -59,6 +52,7 @@ type ExceptionFormValues = {
 };
 
 const EMPTY_VALUE = "";
+const NEXT_DAY_OFFSET = 1;
 const FIELD_ID = {
   date: "tribe-event-exception-date",
   endsDate: "tribe-event-exception-ends-date",
@@ -88,6 +82,7 @@ const COPY = {
   endsOnAnotherDayLabel: "Termina otro día",
   endsTimeLabel: "Hora de fin (opcional)",
   invalidEnd: "La hora de fin debe ser posterior al inicio.",
+  missingEndDate: "Elegí la fecha de fin o destildá «Termina otro día».",
   missingEndTime: "Indicá la hora de fin o dejá vacía la fecha de fin.",
   missingSchedule: "Elegí la nueva fecha y la hora de inicio.",
   moveDescription: (dateLabel: string) =>
@@ -161,16 +156,23 @@ function suggestEnd(
 }
 
 /**
- * Validates the move form and builds the payload, or returns the Spanish
+ * Validates the move form and builds the submission, or returns the Spanish
  * error to show next to the form.
  */
 function buildMovePayload(
-  values: ExceptionFormValues
-): { error: string } | { payload: TribeEventOccurrenceExceptionPayload } {
+  values: ExceptionFormValues,
+  endsOnAnotherDay: boolean
+): { error: string } | { submission: TribeEventOccurrenceExceptionSubmission } {
   const newStartsAt = buildBuenosAiresInstant(values.date, values.startsTime);
 
   if (!newStartsAt) {
     return { error: COPY.missingSchedule };
+  }
+
+  // A checked «Termina otro día» with no date would silently save a same-day
+  // end, so the chosen next-day end must be explicit.
+  if (endsOnAnotherDay && !values.endsDate) {
+    return { error: COPY.missingEndDate };
   }
 
   if (values.endsDate && !values.endsTime) {
@@ -186,7 +188,7 @@ function buildMovePayload(
   }
 
   return {
-    payload: {
+    submission: {
       kind: TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved,
       newEndsAt,
       newStartsAt,
@@ -253,9 +255,15 @@ export function TribeEventOccurrenceExceptionDialog({
     setIsEndSuggested(false);
     setEndsOnAnotherDay(isChecked);
 
-    if (!isChecked) {
-      updateField("endsDate", EMPTY_VALUE);
-    }
+    setValidationError(null);
+    // Checking it starts from the day after the new date; the manager can
+    // still pick another day. Unchecking withdraws the end date.
+    setValues((currentValues) => ({
+      ...currentValues,
+      endsDate: isChecked
+        ? currentValues.endsDate || addDaysToBuenosAiresDateKey(currentValues.date, NEXT_DAY_OFFSET)
+        : EMPTY_VALUE,
+    }));
   };
 
   const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
@@ -270,14 +278,14 @@ export function TribeEventOccurrenceExceptionDialog({
       return;
     }
 
-    const result = buildMovePayload(values);
+    const result = buildMovePayload(values, endsOnAnotherDay);
 
     if ("error" in result) {
       setValidationError(result.error);
       return;
     }
 
-    onSubmit(result.payload);
+    onSubmit(result.submission);
   };
 
   return (

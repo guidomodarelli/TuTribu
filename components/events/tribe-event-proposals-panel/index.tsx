@@ -31,6 +31,12 @@ import {
 import styles from "./styles.module.scss";
 
 type TribeEventProposalsPanelProps = {
+  /**
+   * Viewer role already known from the server render. It sets the panel
+   * identity while the queue loads or after a failed load; once loaded, the
+   * payload decides.
+   */
+  canManageEvents: boolean;
   isOpen: boolean;
   isSubmitting: boolean;
   loadState: TribeEventProposalsLoadState;
@@ -94,6 +100,7 @@ function formatProposalSchedule(proposal: TribeEventProposalResult): string {
  * their status, the review note when rejected, and "Retirar" while pending.
  */
 export function TribeEventProposalsPanel({
+  canManageEvents,
   isOpen,
   isSubmitting,
   loadState,
@@ -106,7 +113,7 @@ export function TribeEventProposalsPanel({
   const [rejectingProposalId, setRejectingProposalId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState(EMPTY_VALUE);
   const isLoaded = loadState.status === TRIBE_EVENT_PROPOSALS_LOAD_STATUS.loaded;
-  const canReviewProposals = isLoaded && loadState.canReviewProposals;
+  const canReviewProposals = isLoaded ? loadState.canReviewProposals : canManageEvents;
 
   const startRejecting = (proposal: TribeEventProposalResult) => {
     setRejectingProposalId(proposal.id);

@@ -552,6 +552,39 @@ describe("tribe event use cases", () => {
     ]);
   });
 
+  it("keeps the stored event type when the update omits it and changes it when explicit", async () => {
+    const update = vi.fn(async () => ({
+      attendances: [],
+      event: createEvent({ eventType: "workshop" }),
+      status: TRIBE_EVENT_MUTATION_STATUS.updated,
+    }));
+    const execute = updateTribeEvent({
+      tribeEventOccurrenceExceptionRepository: createTribeEventExceptionRepositoryDouble(),
+      tribeEventRepository: createRepository({ update }),
+    });
+    const baseCommand = {
+      capacity: null,
+      description: null,
+      endsAt: null,
+      eventId: EVENT_ID,
+      meetingUrl: null,
+      recurrenceFrequency: TRIBE_EVENT_RECURRENCE_FREQUENCY.none,
+      recurrenceUntil: null,
+      startsAt: "2026-05-06T18:00:00.000Z",
+      title: "Taller de repaso",
+      tribeSlug: "matematica-pro",
+      visibleMonth: null,
+    };
+
+    // A legacy body without the field must not turn a workshop into a live event.
+    await execute(baseCommand);
+    await execute({ ...baseCommand, eventType: "qa" as const });
+
+    expect(
+      update.mock.calls.map((call) => ((call as unknown[])[0] as { eventType: unknown }).eventType)
+    ).toEqual([null, "qa"]);
+  });
+
   it("returns the visible month occurrences with the summaries read after the waitlist refill", async () => {
     const promotedAttendance = {
       ...EMPTY_ATTENDANCE,

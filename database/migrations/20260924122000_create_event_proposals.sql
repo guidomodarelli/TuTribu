@@ -81,39 +81,52 @@ USING (
   OR public.can_manage_tribe_events(tribe_id)
 );
 
+-- No direct writes for request roles. The anti-spam cap (at most three
+-- pending proposals per member and tribe) needs a per-member advisory lock and
+-- a count of pending rows before the insert, and an approval must create the
+-- event in the same transaction that resolves the proposal. RLS checks one
+-- row at a time and cannot express either rule, so the only writer is the
+-- events repository (runtime role, which runs both under its locks). Granting
+-- INSERT to a request role would let a member flood the manager queue past
+-- the cap; granting UPDATE would let a manager mark a proposal approved
+-- without creating its event.
 DROP POLICY IF EXISTS "Active members can propose events"
 ON public.event_proposals;
-CREATE POLICY "Active members can propose events"
-ON public.event_proposals
-FOR INSERT
-WITH CHECK (
-  proposed_by = public.current_app_user_id()
-  AND public.is_active_tribe_member(tribe_id)
-  AND status = 'pending'
-  AND reviewed_by IS NULL
-  AND event_id IS NULL
-);
-
 DROP POLICY IF EXISTS "Authors can withdraw pending event proposals"
 ON public.event_proposals;
-CREATE POLICY "Authors can withdraw pending event proposals"
+DROP POLICY IF EXISTS "Event managers can review event proposals"
+ON public.event_proposals;
+
+-- Owner exception: the table is under FORCE RLS, so without it a table owner
+-- without BYPASSRLS (migration or runtime role) could not write at all once
+-- the member and manager write policies are gone. Request roles never own
+-- the table.
+DROP POLICY IF EXISTS "Table owner manages event proposals"
+ON public.event_proposals;
+CREATE POLICY "Table owner manages event proposals"
 ON public.event_proposals
-FOR UPDATE
+FOR ALL
 USING (
-  proposed_by = public.current_app_user_id()
-  AND status = 'pending'
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.event_proposals'::regclass
+  )
 )
 WITH CHECK (
-  proposed_by = public.current_app_user_id()
-  AND status = 'withdrawn'
+  current_user = (
+    SELECT pg_get_userbyid(pg_class.relowner)
+    FROM pg_class
+    WHERE pg_class.oid = 'public.event_proposals'::regclass
+  )
 );
 
--- The UPDATE policies authorize rows, not columns: without this guard the
--- author's withdrawal (USING the old pending row, WITH CHECK only the new
--- status) could also move the proposal to another tribe, rewrite its title
--- or schedule, or attach a review or an unrelated event in the same
--- statement. The trigger fires for every role, including the runtime role
--- that bypasses RLS, and keeps two invariants:
+-- Column guard for every writer: the repository is the only one today, but
+-- a row-level check cannot stop a buggy or future UPDATE from moving the
+-- proposal to another tribe, rewriting its title or schedule, or attaching a
+-- review or an unrelated event while withdrawing it. The trigger fires for
+-- every role, including the runtime role that bypasses RLS, and keeps two
+-- invariants:
 --   * what was proposed (tribe, author, content, schedule, type, creation
 --     date) never changes after insert, for authors and managers alike;
 --   * a withdrawal only changes `status` and `updated_at`, and only from
@@ -166,21 +179,10 @@ BEFORE UPDATE ON public.event_proposals
 FOR EACH ROW
 EXECUTE FUNCTION public.guard_event_proposal_update();
 
-DROP POLICY IF EXISTS "Event managers can review event proposals"
-ON public.event_proposals;
-CREATE POLICY "Event managers can review event proposals"
-ON public.event_proposals
-FOR UPDATE
-USING (
-  public.can_manage_tribe_events(tribe_id)
-)
-WITH CHECK (
-  public.can_manage_tribe_events(tribe_id)
-);
-
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-    GRANT SELECT, INSERT, UPDATE ON public.event_proposals TO authenticated;
+    REVOKE INSERT, UPDATE, DELETE ON public.event_proposals FROM authenticated;
+    GRANT SELECT ON public.event_proposals TO authenticated;
   END IF;
 END $$;

@@ -20,7 +20,7 @@ import {
 } from "beez-ui";
 
 import { buildBuenosAiresInstant } from "@/lib/date-time/buenos-aires-format";
-import type { TribeEventProposalPayload } from "@/lib/events/tribe-event-proposals-api-client";
+import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";
 import type { TribeEventType } from "@/src/modules/events/application/results/tribe-event-result";
 import { TRIBE_EVENT_TYPE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
 import {
@@ -35,7 +35,7 @@ type TribeEventProposalFormDialogProps = {
   isOpen: boolean;
   isSubmitting: boolean;
   onClose: () => void;
-  onSubmit: (payload: TribeEventProposalPayload) => void;
+  onSubmit: (submission: TribeEventProposalSubmission) => void;
 };
 
 type ProposalFormValues = {
