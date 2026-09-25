@@ -402,6 +402,28 @@ describe("PostgresTribeEventOccurrenceCommentRepository", () => {
     ).resolves.toEqual({ status: "not_found" });
   });
 
+  it("holds the viewer's membership before the moderator delete evaluates the permission", async () => {
+    const statements: string[] = [];
+    const execute = vi.fn(async (statement: unknown) => {
+      const text = getSqlText(statement);
+
+      statements.push(text);
+
+      return text.includes("delete from public.event_occurrence_comments")
+        ? { rows: [{ status: "comment_deleted" }] }
+        : { rows: [] };
+    });
+    const repository = new PostgresTribeEventOccurrenceCommentRepository(createExecutor(execute));
+
+    await expect(repository.delete({ commentId: COMMENT_ID, tribeSlug: TRIBE_SLUG })).resolves.toEqual({
+      status: "comment_deleted",
+    });
+    expect(statements).toHaveLength(2);
+    expect(statements[0]).toContain("for share of tribe_members");
+    expect(statements[1]).toContain("delete from public.event_occurrence_comments");
+    expect(statements[1]).toContain("public.can_manage_tribe_events(target_comment.tribe_id)");
+  });
+
   it("reports forbidden and not found writes from the SQL status", async () => {
     const forbidden = new PostgresTribeEventOccurrenceCommentRepository(
       createExecutor(

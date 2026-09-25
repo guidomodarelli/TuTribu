@@ -17,6 +17,7 @@ import {
   readTribeEventOccurrenceWriteTarget,
 } from "@/src/modules/events/infrastructure/repositories/tribe-event-occurrence-write-guard";
 import {
+  lockViewerMembership,
   mapDateValue,
   type TribeEventDatabaseExecutor,
 } from "@/src/modules/events/infrastructure/repositories/tribe-event-sql";
@@ -297,12 +298,22 @@ export class PostgresTribeEventOccurrenceCommentRepository
    * `DELETE` waits and then affects no row although its snapshot still
    * sees the target: an authorized viewer whose delete removed nothing is
    * therefore answered not found (already gone), never forbidden.
+   *
+   * The viewer's membership is locked `FOR SHARE` in a previous statement
+   * (`lockViewerMembership`), like every other event-manager write: a
+   * concurrent demotion, block, or removal waits for this delete, and one
+   * that committed while the lock waited is visible to the `DELETE`, so
+   * `can_manage_tribe_events` cannot answer with a revoked permission. The
+   * comment row is locked afterwards by the `DELETE`, keeping the membership
+   * → other rows order.
    */
   async delete({
     commentId,
     tribeSlug,
   }: DeleteTribeEventOccurrenceCommentCommand): Promise<TribeEventOccurrenceCommentDeleteResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockViewerMembership(database, tribeSlug);
+
       const result = await database.execute(sql`
         with target_comment as (
           select event_occurrence_comments.id, event_occurrence_comments.tribe_id,
