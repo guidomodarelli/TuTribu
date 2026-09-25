@@ -17,6 +17,7 @@
     "upload:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "start": "next start",
+    "release": "node scripts/release.mjs",
     "ci": "pnpm run lint && pnpm run typecheck && pnpm run typecheck:tests && pnpm run test && pnpm run build",
     "commitlint": "commitlint --from HEAD~30 --to HEAD --verbose",
     "prepare": "husky",

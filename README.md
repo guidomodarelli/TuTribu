@@ -73,6 +73,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run test:e2e:ui` | Run Playwright with the interactive UI runner. |
 | `pnpm run db:migrate` | Apply pending SQL migrations to the configured Neon database. |
 | `pnpm run db:migrate:force` | Force a Drizzle push. Use only when an intentional override is required. |
+| `pnpm release` | Diagnose the repository and ship a release from `main`: update `main`, apply pending migrations (after confirmation), bump the version (`--bump patch\|minor\|major` or `--set-version X.Y.Z`, only the next patch/minor/major) and push `main` plus the `vX.Y.Z` tag. `--dry-run` only shows the plan. See `docs/conventions/release-process.htm`. |
 
 ## Environment
 
