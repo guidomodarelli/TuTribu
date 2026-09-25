@@ -26,6 +26,7 @@ import {
   type StreakFreshnessEvent,
   type StreakMutationOutcome,
 } from "@/lib/events/tribe-event-streak-freshness";
+import type { TribeEventOccurrenceExceptionSubmission } from "@/lib/events/tribe-event-form-submissions";
 import {
   compareOccurrencesByStart,
   mergeSavedOccurrences,
@@ -38,12 +39,12 @@ import {
   saveTribeEventAttendanceRequest,
   saveTribeEventOccurrenceExceptionRequest,
   saveTribeEventRequest,
+  toTribeEventOccurrenceExceptionRequestBody,
   type TribeEventMutationFailure,
   type TribeEventSavePayload,
   type TribeEventStreakReadResult,
   type TribeEventStreakRefresh,
 } from "@/lib/events/tribe-events-api-client";
-import type { TribeEventOccurrenceExceptionRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-exception-request-schemas";
 import type {
   TribeEventAttendanceOption,
   TribeEventAttendanceStreakResult,
@@ -167,7 +168,7 @@ export type TribeEventMutations = {
   /** "Cancelar esta fecha" / "Mover esta fecha". */
   saveOccurrenceException: (
     occurrence: TribeEventOccurrenceResult,
-    body: Omit<TribeEventOccurrenceExceptionRequestBody, "originalStartsAt">
+    submission: TribeEventOccurrenceExceptionSubmission
   ) => Promise<boolean>;
   /**
    * Reads the streak again (for example when an occurrence on screen
@@ -875,11 +876,11 @@ export function useTribeEventMutations({
 
   const saveOccurrenceException: TribeEventMutations["saveOccurrenceException"] = (
     occurrence,
-    body
+    submission
   ) =>
     runExceptionMutation(occurrence, (requestMonth) =>
       saveTribeEventOccurrenceExceptionRequest({
-        body: { ...body, originalStartsAt: occurrence.originalStartsAt },
+        body: toTribeEventOccurrenceExceptionRequestBody(submission, occurrence.originalStartsAt),
         eventId: occurrence.eventId,
         month: requestMonth,
         tribeSlug,

@@ -7,6 +7,7 @@ import {
   type TribeEventRequestResult,
   type TribeEventSavePayload,
 } from "@/lib/events/tribe-events-api-client";
+import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";
 import { buildTribeEventsApiEndpoint } from "@/lib/events/tribe-events-routes";
 import {
   tribeEventProposalApprovalResponseSchema,
@@ -32,6 +33,25 @@ import type {
  */
 
 export type TribeEventProposalPayload = TribeEventProposalRequestBody;
+
+/**
+ * Translates what the member chose in the proposal form into the body of
+ * `POST .../events/proposals`, so the form never depends on the wire shape.
+ *
+ * @param submission - Values emitted by the proposal form dialog.
+ * @returns The request body the proposal route validates.
+ */
+export function toTribeEventProposalRequestBody(
+  submission: TribeEventProposalSubmission
+): TribeEventProposalPayload {
+  return {
+    description: submission.description,
+    durationMinutes: submission.durationMinutes,
+    eventType: submission.eventType,
+    startsAt: submission.startsAt,
+    title: submission.title,
+  };
+}
 
 const PROPOSAL_ENDPOINT = {
   approvalPath: "/approval",
