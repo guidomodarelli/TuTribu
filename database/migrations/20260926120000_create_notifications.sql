@@ -677,6 +677,22 @@ FROM PUBLIC;
 --     this transaction, and one that committed while the lock waited is
 --     visible to the INSERT below (fresh READ COMMITTED snapshot). Attendance
 --     answers take the row FOR SHARE, which does not conflict;
+--   * then the occurrence advisory lock of every candidate date (the same
+--     'tribe_event_occurrence:<event>@<epoch of the original start>' key the
+--     attendance functions use), ascending by (event_id, original start),
+--     before the recipients are read. Answers hold that lock while they
+--     change an RSVP, and the event row lock alone does not serialize them
+--     (FOR SHARE is compatible with FOR SHARE), so without it the recipient
+--     snapshot could read an old going/maybe row and enqueue a reminder after
+--     the member's cancellation committed. The INSERT is a later statement,
+--     so it reads the attendance states committed while the locks waited.
+--     Global lock order: membership row (answers only; this function never
+--     locks memberships) -> event rows FOR SHARE/UPDATE -> occurrence
+--     advisory locks in ascending (event_id, original start). Answers take
+--     one advisory lock after their event row, the membership trigger and
+--     the manager writes take them in that same ascending order after their
+--     event rows, and this function takes every event row before any
+--     advisory lock, so no cycle is possible;
 --   * the window cutoff is rechecked once the locks are held: the current
 --     effective start must still be later than clock_timestamp() plus the
 --     candidate's minimum_lead_minutes (0 for the 15-minute reminder, 60 for
@@ -702,6 +718,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+  candidate_occurrence record;
   created_count integer;
   locked_at timestamptz;
 BEGIN
@@ -719,7 +736,26 @@ BEGIN
   ORDER BY events.id
   FOR SHARE OF events;
 
-  -- clock_timestamp(), not now(): the lock above may have waited.
+  -- Occurrence advisory locks, after the event row locks and in a
+  -- deterministic order (see the header). Every candidate date is locked,
+  -- even a stale one: it costs nothing and keeps the order simple.
+  FOR candidate_occurrence IN
+    SELECT DISTINCT
+      (candidate ->> 'event_id')::uuid AS event_id,
+      (candidate ->> 'occurrence_starts_at')::timestamptz AS occurrence_starts_at
+    FROM jsonb_array_elements(reminder_candidates) AS candidate
+    ORDER BY 1, 2
+  LOOP
+    PERFORM pg_advisory_xact_lock(
+      hashtextextended(
+        'tribe_event_occurrence:' || candidate_occurrence.event_id::text || '@'
+          || extract(epoch FROM candidate_occurrence.occurrence_starts_at)::text,
+        0
+      )
+    );
+  END LOOP;
+
+  -- clock_timestamp(), not now(): the locks above may have waited.
   locked_at := clock_timestamp();
 
   WITH candidates AS (

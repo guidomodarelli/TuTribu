@@ -94,7 +94,11 @@ export class PostgresTribeEventReminderRepository implements TribeEventReminderR
    * Fans every candidate out to the members whose answer for that occurrence
    * is in its statuses and who can still read the tribe, in one call to
    * `enqueue_tribe_event_reminders`. That function locks the event rows
-   * `FOR SHARE` (manager writes lock them `FOR UPDATE`) and then skips a
+   * `FOR SHARE` (manager writes lock them `FOR UPDATE`), then takes the
+   * occurrence advisory lock of every candidate date in ascending
+   * (event, original start) order, the same lock attendance answers hold
+   * while they change an RSVP, so a member who stops attending before the
+   * recipients are read gets no reminder. It then skips a
    * candidate whose date is no longer a slot of the series, was cancelled,
    * or whose current effective start differs from `payload.startsAt`, and
    * rechecks each window cutoff (`minimum_lead_minutes`) against
