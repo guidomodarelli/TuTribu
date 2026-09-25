@@ -25,7 +25,7 @@ function getPnpmRunTargets(script: string): string[] {
 }
 
 describe("package scripts", () => {
-  it("keeps next build in the shared CI contract used by GitHub Actions", () => {
+  it("keeps next build in the full `ci` contract run by the pre-push hook", () => {
     const scripts = readPackageScripts();
     const ciScript = scripts.ci ?? "";
 

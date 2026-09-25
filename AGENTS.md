@@ -501,16 +501,17 @@ pnpm run dev
 - `.app` is a real TLD, so unlike `.localhost` it does not resolve to loopback by itself: without the hosts entry the browser reports that the domain does not exist even though the proxy is listening on port 443. The script covers this; if it cannot write the hosts file, add the line it prints by hand from an elevated terminal.
 - Before starting a new server, run `portless list`; if the `dev-tutribu` route is already active on `https://dev-tutribu.app`, reuse it instead of starting another instance.
 - Automation that hits the local server (Playwright scripts, `curl`) must use the `https://dev-tutribu.app` base URL.
-- This is a local verification rule only; it does not replace the tests, lint, typecheck, or the GitHub Actions gate.
+- This is a local verification rule only; it does not replace the tests, lint, typecheck, the pre-commit hook, or the full `pnpm run ci` gate.
 
 ### Quality gate workflow
 
-- The full repository gate runs in GitHub Actions through `.github/workflows/quality-gate.yml`.
-- The shared contract is `pnpm run ci`, which runs `lint`, `typecheck`, `typecheck:tests`, `test`, and `build`.
+- There is no GitHub Actions gate. Every commit runs a Husky `pre-commit` hook (`.husky/pre-commit` → `pnpm exec lint-staged`, configured in `lint-staged.config.mjs`): ESLint and `vitest related --run` on staged scripts, `typecheck` and `typecheck:tests` when TypeScript files are staged, and the SQL guardrail suites when `database/migrations/**` changes. The hook is installed by the `prepare` script on `pnpm install`.
+- Do not bypass the hooks with `--no-verify` to get past a real failure; fix the cause and commit or push again.
+- Every push runs a Husky `pre-push` hook with the full contract, `pnpm run ci`, which runs `lint`, `typecheck`, `typecheck:tests`, `test`, and `build`. A push that fails the hook is not sent. The pre-push hook replaces the former GitHub Actions gate: do not wait for or require GitHub Actions checks before merging.
 - `typecheck` and the `build` type check share the same scope (`tsconfig.typecheck.json`, wired through `typescript.tsconfigPath` in `next.config.ts`): product code under `app`, `components`, `hooks`, `lib`, `src` and the framework entrypoints. Vitest 5 suites run through Vite and are type-checked separately with `pnpm run typecheck:tests` and `tsconfig.test.json`. Product configurations must not include Vitest globals.
-- Agents must not duplicate this heavy gate in local Stop hooks; during a task, run only validations relevant to the change.
+- Agents must not duplicate the full gate in local Stop hooks; during a task, run only validations relevant to the change and rely on the pre-commit hook for each commit.
 - The package manager is pnpm 12, pinned through `packageManager` (plus `engines.pnpm`). pnpm 12 enforces `minimumReleaseAge` (24 hours) by default and validates every lockfile entry, so a freshly published version is rejected until it is a day old: prefer versions older than 24 hours and always confirm with `pnpm install --frozen-lockfile`. Never regenerate the lockfile with `pnpm clean --lockfile` to get past that check; it re-resolves every caret range and drifts unrelated dependencies.
-- Vercel validates the deployment build and does not replace the GitHub Actions gate.
+- Vercel validates the deployment build and does not replace the full `pnpm run ci` gate.
 
 ## 7. Concurrency, Observability, and Performance
 
