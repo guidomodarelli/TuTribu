@@ -901,6 +901,10 @@ export const events = pgTable("events", {
   // live | workshop | qa | in_person | social. CHECK in
   // 20260924120000_add_tribe_event_type.sql.
   eventType: text("event_type").notNull().default("live"),
+  // iCalendar SEQUENCE of the series. Owned by the BEFORE INSERT OR UPDATE
+  // trigger of 20260925121000_add_tribe_event_calendar_sequence.sql: +1 on
+  // every UPDATE, app-supplied values are ignored.
+  calendarSequence: integer("calendar_sequence").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),

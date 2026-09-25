@@ -20,11 +20,11 @@ import {
 } from "beez-ui";
 
 import {
+  addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
   formatBuenosAiresTime,
   getBuenosAiresDateKey,
 } from "@/lib/date-time/buenos-aires-format";
-import { MILLISECONDS_PER_SECOND, SECONDS_PER_MINUTE } from "@/src/constants/time";
 import type {
   TribeEventOccurrenceResult,
   TribeEventType,
@@ -195,6 +195,7 @@ const COPY = {
   invalidRecurrenceUntil: "La repetición debe terminar después de la fecha de inicio.",
   meetingUrlLabel: "Link de reunión",
   meetingUrlPlaceholder: "https://meet.google.com/…",
+  missingEndDate: "Elegí la fecha de fin o destildá «Termina otro día».",
   missingEndTime: "Indicá la hora de fin o dejá vacía la fecha de fin.",
   recurrenceFrequencyLabel: "Repetición",
   recurrenceUntilLabel: "Repetir hasta (opcional)",
@@ -213,13 +214,8 @@ const TIME_FORMAT = {
   separator: ":",
 } as const;
 
-const MILLISECONDS_PER_DAY =
-  TIME_FORMAT.hoursPerDay *
-  TIME_FORMAT.minutesPerHour *
-  SECONDS_PER_MINUTE *
-  MILLISECONDS_PER_SECOND;
-const START_OF_DAY_TIME = "00:00";
 const SAME_DAY_OFFSET = 0;
+const NEXT_DAY_OFFSET = 1;
 
 /**
  * Wall-clock end suggested for a start: the «HH:mm» time and how many days
@@ -263,19 +259,47 @@ function suggestEndSchedule(
 }
 
 /**
- * Moves a Buenos Aires `YYYY-MM-DD` date key a number of days forward. Returns
- * an empty value while the start date is still unknown.
+ * Initial form state: the values plus whether the end is still a generated
+ * suggestion and, when it crossed midnight, how many days after the start
+ * date it falls on.
  */
-function addDaysToBuenosAiresDateKey(dateKey: string, days: number): string {
-  const startOfDay = buildBuenosAiresInstant(dateKey, START_OF_DAY_TIME);
+type InitialFormState = {
+  isEndSuggested: boolean;
+  suggestedEndDayOffset: number;
+  values: EventFormValues;
+};
 
-  if (!startOfDay) {
-    return EMPTY_VALUE;
+/**
+ * Builds the initial form state. In create mode (template or proposal) any
+ * prefilled end is computed from the start plus the duration, so it stays a
+ * suggestion that follows the start, keeping a next-day offset for overnight
+ * durations. In edit mode a saved end is the manager's choice and never
+ * follows the start; only an empty end is still suggested.
+ */
+function createInitialFormState(
+  occurrence: TribeEventOccurrenceResult | null,
+  initialValues: TribeEventFormInitialValues | undefined
+): InitialFormState {
+  const values = createInitialValues(occurrence, initialValues);
+
+  if (occurrence) {
+    return {
+      isEndSuggested: values.endsTime === EMPTY_VALUE,
+      suggestedEndDayOffset: SAME_DAY_OFFSET,
+      values,
+    };
   }
 
-  return getBuenosAiresDateKey(
-    new Date(Date.parse(startOfDay) + days * MILLISECONDS_PER_DAY)
-  );
+  const suggestedEnd =
+    values.startsTime && values.endsTime && initialValues?.durationMinutes
+      ? suggestEndSchedule(values.startsTime, initialValues.durationMinutes)
+      : null;
+
+  return {
+    isEndSuggested: true,
+    suggestedEndDayOffset: suggestedEnd?.dayOffset ?? SAME_DAY_OFFSET,
+    values,
+  };
 }
 
 function createInitialValues(
@@ -357,13 +381,20 @@ function isValidCapacity(capacity: string): boolean {
 }
 
 function buildPayload(
-  values: EventFormValues
+  values: EventFormValues,
+  endsOnAnotherDay: boolean
 ): { error: string } | { payload: TribeEventFormPayload } {
   if (!isValidCapacity(values.capacity)) {
     return { error: COPY.invalidCapacity };
   }
 
   const startsAt = buildBuenosAiresInstant(values.date, values.startsTime);
+
+  // A checked «Termina otro día» with no date would silently save a same-day
+  // end, so the chosen next-day end must be explicit.
+  if (endsOnAnotherDay && !values.endsDate) {
+    return { error: COPY.missingEndDate };
+  }
 
   if (values.endsDate && !values.endsTime) {
     return { error: COPY.missingEndTime };
@@ -419,9 +450,10 @@ export function TribeEventFormDialog({
   onSubmit,
   purpose = TRIBE_EVENT_FORM_PURPOSE.save,
 }: TribeEventFormDialogProps) {
-  const [initialFormValues] = useState<EventFormValues>(() =>
-    createInitialValues(editingOccurrence, initialValues)
+  const [initialFormState] = useState<InitialFormState>(() =>
+    createInitialFormState(editingOccurrence, initialValues)
   );
+  const initialFormValues = initialFormState.values;
   const [values, setValues] = useState<EventFormValues>(initialFormValues);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [endsOnAnotherDay, setEndsOnAnotherDay] = useState(
@@ -429,15 +461,16 @@ export function TribeEventFormDialog({
   );
   // Whether the end still holds a generated suggestion (or nothing). While it
   // does, every start change recomputes it; the first explicit edit of an end
-  // field hands the end over to the manager. A saved end (edit mode) is never
-  // a suggestion, so it is never overwritten.
-  const [isEndSuggested, setIsEndSuggested] = useState(
-    initialFormValues.endsTime === EMPTY_VALUE
-  );
+  // field hands the end over to the manager. An end prefilled from a template
+  // or proposal duration is a suggestion; a saved end (edit mode) is never a
+  // suggestion, so it is never overwritten.
+  const [isEndSuggested, setIsEndSuggested] = useState(initialFormState.isEndSuggested);
   // Days between the start date and a suggested end that crossed midnight.
   // It keeps the end date in sync while the date changes, until the manager
   // edits the end explicitly.
-  const [suggestedEndDayOffset, setSuggestedEndDayOffset] = useState(SAME_DAY_OFFSET);
+  const [suggestedEndDayOffset, setSuggestedEndDayOffset] = useState(
+    initialFormState.suggestedEndDayOffset
+  );
   const isEditing = editingOccurrence !== null;
   const isApproving = !isEditing && purpose === TRIBE_EVENT_FORM_PURPOSE.approve;
   const dialogTitle = isEditing
@@ -535,9 +568,15 @@ export function TribeEventFormDialog({
     setEndsOnAnotherDay(isChecked);
     setSuggestedEndDayOffset(SAME_DAY_OFFSET);
 
-    if (!isChecked) {
-      updateField("endsDate", EMPTY_VALUE);
-    }
+    setValidationError(null);
+    // Checking it starts from the day after the start date; the manager can
+    // still pick another day. Unchecking withdraws the end date.
+    setValues((currentValues) => ({
+      ...currentValues,
+      endsDate: isChecked
+        ? currentValues.endsDate || addDaysToBuenosAiresDateKey(currentValues.date, NEXT_DAY_OFFSET)
+        : EMPTY_VALUE,
+    }));
   };
 
   const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
@@ -547,7 +586,7 @@ export function TribeEventFormDialog({
       return;
     }
 
-    const result = buildPayload(values);
+    const result = buildPayload(values, endsOnAnotherDay);
 
     if ("error" in result) {
       setValidationError(result.error);

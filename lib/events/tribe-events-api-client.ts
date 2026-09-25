@@ -1,5 +1,6 @@
 import type { z } from "zod";
 
+import type { TribeEventOccurrenceExceptionSubmission } from "@/lib/events/tribe-event-form-submissions";
 import {
   buildTribeEventApiEndpoint,
   buildTribeEventAttendanceApiEndpoint,
@@ -24,7 +25,10 @@ import type {
   TribeEventAttendanceStreakResult,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
-import { TRIBE_EVENT_ATTENDANCE_FAILURE_CODE } from "@/src/modules/events/constants/tribe-events";
+import {
+  TRIBE_EVENT_ATTENDANCE_FAILURE_CODE,
+  TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
+} from "@/src/modules/events/constants/tribe-events";
 import type { TribeEventOccurrenceExceptionRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-exception-request-schemas";
 import type { TribeEventMutationRequestBody } from "@/src/modules/events/infrastructure/api/schemas/tribe-event-request-schemas";
 
@@ -41,6 +45,32 @@ import type { TribeEventMutationRequestBody } from "@/src/modules/events/infrast
  * by the route). Optional fields may travel as empty strings.
  */
 export type TribeEventSavePayload = TribeEventMutationRequestBody;
+
+/**
+ * Translates the change chosen in the date exception dialog into the body of
+ * `PUT .../exceptions`, adding the original start of the selected date. A
+ * cancelled date carries no new schedule.
+ *
+ * @param submission - Values emitted by the date exception dialog.
+ * @param originalStartsAt - Original start of the date being changed.
+ * @returns The request body the exceptions route validates.
+ */
+export function toTribeEventOccurrenceExceptionRequestBody(
+  submission: TribeEventOccurrenceExceptionSubmission,
+  originalStartsAt: string
+): TribeEventOccurrenceExceptionRequestBody {
+  if (submission.kind === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.cancelled) {
+    return { kind: submission.kind, originalStartsAt, reason: submission.reason };
+  }
+
+  return {
+    kind: submission.kind,
+    newEndsAt: submission.newEndsAt,
+    newStartsAt: submission.newStartsAt,
+    originalStartsAt,
+    reason: submission.reason,
+  };
+}
 
 /**
  * Outcome of a request. `message` is the safe Spanish copy returned by the
@@ -228,7 +258,7 @@ export async function readTribeEventResponse<TDto>(
  * an unreadable body, or a success status with an unusable body may hide a
  * committed mutation, so the outcome is ambiguous.
  */
-function buildMutationFailure(
+export function buildTribeEventMutationFailure(
   response: Response,
   read: { isBodyReadable: boolean; message: string | null }
 ): TribeEventMutationFailure {
@@ -268,7 +298,7 @@ export async function saveTribeEventRequest(input: {
   const result = await readTribeEventResponse(response, tribeEventSaveResponseSchema);
 
   if (!result.isUsable) {
-    return buildMutationFailure(response, result);
+    return buildTribeEventMutationFailure(response, result);
   }
 
   return {
@@ -302,7 +332,7 @@ export async function deleteTribeEventRequest(input: {
         isSuccess: true,
         message: result.dto.message,
       }
-    : buildMutationFailure(response, result);
+    : buildTribeEventMutationFailure(response, result);
 }
 
 /**
@@ -415,7 +445,7 @@ export async function saveTribeEventAttendanceRequest(input: {
 
   if (!result.isUsable) {
     return {
-      ...buildMutationFailure(response, result),
+      ...buildTribeEventMutationFailure(response, result),
       isOccurrenceEnded: result.code === TRIBE_EVENT_ATTENDANCE_FAILURE_CODE.occurrenceEnded,
     };
   }
@@ -470,7 +500,7 @@ async function sendTribeEventExceptionRequest(
 
   return result.isUsable
     ? { isSuccess: true, message: result.dto.message, occurrences: result.dto.occurrences }
-    : buildMutationFailure(response, result);
+    : buildTribeEventMutationFailure(response, result);
 }
 
 /**

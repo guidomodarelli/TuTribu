@@ -128,6 +128,40 @@ function renderCalendar(
   );
 }
 
+/**
+ * Waits until a confirmed deletion lands and the calendar is interactive
+ * again: the confirmation closed (it only does once the route answered), the
+ * occurrence left the DOM, and the calendar is back in the accessibility tree.
+ *
+ * While a modal dialog is open, Radix hides the rest of the page from the
+ * accessibility tree, so a plain role query reports the occurrence as gone
+ * before the request settles (`hidden: true` looks past that). Radix lifts
+ * that hiding in an effect cleanup that React flushes in a later task than the
+ * commit that removes the dialog, so the calendar landmark must be reachable
+ * again before the caller queries anything inside it by role.
+ *
+ * @param occurrenceName - Accessible name of the deleted agenda item.
+ */
+async function waitForDeletedOccurrence(occurrenceName: RegExp) {
+  await waitFor(() => {
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { hidden: true, name: occurrenceName })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
+  });
+}
+
+/**
+ * Finds the next event highlight once it is reachable by role. Closing a
+ * modal dialog lifts the Radix accessibility hiding of the page in a later
+ * task than the commit that removes the dialog, so a synchronous role query
+ * right after a mutation or an Escape can miss a region that is on screen.
+ */
+function findNextEventRegion() {
+  return screen.findByRole("region", { name: "Próximo evento" });
+}
+
 function mockJsonResponse(body: Record<string, unknown>, ok = true) {
   (global.fetch as Mock).mockResolvedValueOnce({
     json: async () => body,
@@ -522,6 +556,50 @@ describe("TribeEventsCalendar", () => {
 
     expect(within(dialog).getByLabelText("Hora de fin")).toHaveValue("01:30");
     expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+  });
+
+  it("requires the end date the manager left empty after checking «Termina otro día»", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar({ events: [] });
+
+    await user.click(screen.getByRole("button", { name: /Taller en vivo/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Nuevo evento" });
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha"), {
+      target: { value: "2026-05-20" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
+      target: { value: "20:00" },
+    });
+    await user.click(within(dialog).getByRole("checkbox", { name: "Termina otro día" }));
+
+    // Checking it starts from the day after the start date.
+    expect(within(dialog).getByLabelText("Fecha de fin")).toHaveValue("2026-05-21");
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha de fin"), { target: { value: "" } });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Elegí la fecha de fin o destildá «Termina otro día»."
+    );
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    fireEvent.change(within(dialog).getByLabelText("Fecha de fin"), {
+      target: { value: "2026-05-22" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Hora de fin"), {
+      target: { value: "01:00" },
+    });
+    mockJsonResponse({ event: createEventDto(), message: "Evento creado.", occurrences: [] });
+    await user.click(within(dialog).getByRole("button", { name: "Guardar evento" }));
+
+    expect(JSON.parse((global.fetch as Mock).mock.calls[0][1].body)).toMatchObject({
+      endsAt: "2026-05-22T04:00:00.000Z",
+      startsAt: "2026-05-20T23:00:00.000Z",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("stops recomputing the template end once the manager edits the end date", async () => {
@@ -1385,9 +1463,7 @@ describe("TribeEventsCalendar", () => {
       `/api/tribes/matematica-pro/events/${EVENT_ID}`,
       expect.objectContaining({ method: "DELETE" })
     );
-    await waitFor(() =>
-      expect(screen.queryByRole("button", { name: /15:00\s*Clase abierta/ })).not.toBeInTheDocument()
-    );
+    await waitForDeletedOccurrence(/15:00\s*Clase abierta/);
   });
 
   describe("attendance streak after series mutations", () => {
@@ -1427,15 +1503,7 @@ describe("TribeEventsCalendar", () => {
       await user.click(
         within(screen.getByRole("alertdialog")).getByRole("button", { name: "Eliminar" })
       );
-      await waitFor(() =>
-        expect(
-          screen.queryByRole("button", { name: /15:00\s*Clase abierta/ })
-        ).not.toBeInTheDocument()
-      );
-    }
-
-    function getNextEventRegion() {
-      return screen.getByRole("region", { name: "Próximo evento" });
+      await waitForDeletedOccurrence(/15:00\s*Clase abierta/);
     }
 
     it("shows the streak returned by an edit without reloading the route", async () => {
@@ -1447,7 +1515,7 @@ describe("TribeEventsCalendar", () => {
       });
 
       expect(
-        await within(getNextEventRegion()).findByText(
+        await within(await findNextEventRegion()).findByText(
           "Fuiste a 2 de los últimos 5 encuentros 🔥"
         )
       ).toBeInTheDocument();
@@ -1478,7 +1546,7 @@ describe("TribeEventsCalendar", () => {
       await user.click(screen.getByRole("button", { name: "Guardar evento" }));
 
       expect(
-        await within(getNextEventRegion()).findByText(
+        await within(await findNextEventRegion()).findByText(
           "Fuiste a 3 de los últimos 5 encuentros 🔥"
         )
       ).toBeInTheDocument();
@@ -1494,9 +1562,9 @@ describe("TribeEventsCalendar", () => {
       await deleteFirstOccurrence({ attendanceStreak: null, attendanceStreakNextRefreshAt: null });
 
       expect(
-        await within(getNextEventRegion()).findByText("Encuentro abierto")
+        await within(await findNextEventRegion()).findByText("Encuentro abierto")
       ).toBeInTheDocument();
-      expect(within(getNextEventRegion()).queryByText(/Fuiste a/)).not.toBeInTheDocument();
+      expect(within(await findNextEventRegion()).queryByText(/Fuiste a/)).not.toBeInTheDocument();
       expect(router.refresh).not.toHaveBeenCalled();
     });
 
@@ -1526,7 +1594,7 @@ describe("TribeEventsCalendar", () => {
       await deleteFirstOccurrence({});
 
       expect(
-        await within(getNextEventRegion()).findByText(
+        await within(await findNextEventRegion()).findByText(
           "Fuiste a 3 de los últimos 5 encuentros 🔥"
         )
       ).toBeInTheDocument();
@@ -1544,7 +1612,7 @@ describe("TribeEventsCalendar", () => {
       });
 
       expect(
-        await within(getNextEventRegion()).findByText(
+        await within(await findNextEventRegion()).findByText(
           "Fuiste a 3 de los últimos 5 encuentros 🔥"
         )
       ).toBeInTheDocument();
@@ -1561,10 +1629,6 @@ describe("TribeEventsCalendar", () => {
       startsAt: "2026-05-20T18:00:00.000Z",
       title: "Encuentro abierto",
     });
-
-    function getNextEventRegion() {
-      return screen.getByRole("region", { name: "Próximo evento" });
-    }
 
     function getStreakRequests() {
       return (global.fetch as Mock).mock.calls.filter(([url]) => url === streakEndpoint);
@@ -1597,7 +1661,7 @@ describe("TribeEventsCalendar", () => {
       await advanceMinutes(1);
 
       expect(
-        await within(getNextEventRegion()).findByText(
+        await within(await findNextEventRegion()).findByText(
           "Fuiste a 5 de los últimos 5 encuentros 🔥"
         )
       ).toBeInTheDocument();
@@ -1624,7 +1688,7 @@ describe("TribeEventsCalendar", () => {
 
       await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
       expect(
-        within(getNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
+        within(await findNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
       ).toBeInTheDocument();
       expect(toast.error).not.toHaveBeenCalled();
     });
@@ -1640,7 +1704,7 @@ describe("TribeEventsCalendar", () => {
 
       await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
       expect(
-        within(getNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
+        within(await findNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
       ).toBeInTheDocument();
     });
 
@@ -1675,7 +1739,7 @@ describe("TribeEventsCalendar", () => {
       });
 
       expect(
-        await within(getNextEventRegion()).findByText(
+        await within(await findNextEventRegion()).findByText(
           "Fuiste a 5 de los últimos 5 encuentros 🔥"
         )
       ).toBeInTheDocument();
@@ -1740,7 +1804,7 @@ describe("TribeEventsCalendar", () => {
       await advanceMinutes(1);
 
       expect(
-        await within(getNextEventRegion()).findByText(
+        await within(await findNextEventRegion()).findByText(
           "Fuiste a 5 de los últimos 5 encuentros 🔥"
         )
       ).toBeInTheDocument();
@@ -1754,7 +1818,7 @@ describe("TribeEventsCalendar", () => {
       await advanceMinutes(30);
 
       expect(
-        await within(getNextEventRegion()).findByText(
+        await within(await findNextEventRegion()).findByText(
           "Fuiste a 3 de los últimos 5 encuentros 🔥"
         )
       ).toBeInTheDocument();
@@ -1780,7 +1844,7 @@ describe("TribeEventsCalendar", () => {
       await advanceMinutes(2);
 
       expect(
-        await within(getNextEventRegion()).findByText(
+        await within(await findNextEventRegion()).findByText(
           "Fuiste a 5 de los últimos 5 encuentros 🔥"
         )
       ).toBeInTheDocument();
@@ -1858,7 +1922,7 @@ describe("TribeEventsCalendar", () => {
         await advanceMinutes(15);
 
         expect(
-          await within(getNextEventRegion()).findByText(renewedStreakText)
+          await within(await findNextEventRegion()).findByText(renewedStreakText)
         ).toBeInTheDocument();
         expect(getStreakRequests()).toHaveLength(1);
         expect(router.refresh).not.toHaveBeenCalled();
@@ -1894,7 +1958,7 @@ describe("TribeEventsCalendar", () => {
         await createRunningWorkshop({ attendanceStreak: initialStreak });
 
         expect(
-          await within(getNextEventRegion()).findByText(renewedStreakText)
+          await within(await findNextEventRegion()).findByText(renewedStreakText)
         ).toBeInTheDocument();
         expect(getStreakRequests()).toHaveLength(1);
 
@@ -1918,7 +1982,7 @@ describe("TribeEventsCalendar", () => {
         });
 
         expect(
-          await within(getNextEventRegion()).findByText(renewedStreakText)
+          await within(await findNextEventRegion()).findByText(renewedStreakText)
         ).toBeInTheDocument();
         expect(getStreakRequests()).toHaveLength(1);
       });
@@ -2022,12 +2086,12 @@ describe("TribeEventsCalendar", () => {
 
         await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
         expect(
-          await within(getNextEventRegion()).findByText(
+          await within(await findNextEventRegion()).findByText(
             "Fuiste a 2 de los últimos 5 encuentros 🔥"
           )
         ).toBeInTheDocument();
         expect(
-          within(getNextEventRegion()).queryByText("Fuiste a 5 de los últimos 5 encuentros 🔥")
+          within(await findNextEventRegion()).queryByText("Fuiste a 5 de los últimos 5 encuentros 🔥")
         ).not.toBeInTheDocument();
         expect(router.refresh).not.toHaveBeenCalled();
       });
@@ -2044,7 +2108,7 @@ describe("TribeEventsCalendar", () => {
 
         await waitFor(() => expect(getStreakRequests()).toHaveLength(1));
         expect(
-          await within(getNextEventRegion()).findByText(
+          await within(await findNextEventRegion()).findByText(
             "Fuiste a 5 de los últimos 5 encuentros 🔥"
           )
         ).toBeInTheDocument();
@@ -2183,7 +2247,7 @@ describe("TribeEventsCalendar", () => {
         });
 
         expect(
-          await within(getNextEventRegion()).findByText(finishedStreakText)
+          await within(await findNextEventRegion()).findByText(finishedStreakText)
         ).toBeInTheDocument();
       });
 
@@ -2198,7 +2262,7 @@ describe("TribeEventsCalendar", () => {
         });
 
         expect(
-          await within(getNextEventRegion()).findByText(finishedStreakText)
+          await within(await findNextEventRegion()).findByText(finishedStreakText)
         ).toBeInTheDocument();
       });
 
@@ -2215,15 +2279,15 @@ describe("TribeEventsCalendar", () => {
 
         await submitLaterOccurrenceEdit();
         expect(
-          await within(getNextEventRegion()).findByText(mutationStreakText)
+          await within(await findNextEventRegion()).findByText(mutationStreakText)
         ).toBeInTheDocument();
         await streakRefresh.resolveRefresh({
           attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
         });
 
-        expect(within(getNextEventRegion()).getByText(mutationStreakText)).toBeInTheDocument();
+        expect(within(await findNextEventRegion()).getByText(mutationStreakText)).toBeInTheDocument();
         expect(
-          within(getNextEventRegion()).queryByText(finishedStreakText)
+          within(await findNextEventRegion()).queryByText(finishedStreakText)
         ).not.toBeInTheDocument();
       });
 
@@ -2238,7 +2302,7 @@ describe("TribeEventsCalendar", () => {
         });
 
         expect(
-          await within(getNextEventRegion()).findByText(finishedStreakText)
+          await within(await findNextEventRegion()).findByText(finishedStreakText)
         ).toBeInTheDocument();
       });
 
@@ -2253,15 +2317,15 @@ describe("TribeEventsCalendar", () => {
 
         await submitLaterOccurrenceDeletion();
         expect(
-          await within(getNextEventRegion()).findByText(mutationStreakText)
+          await within(await findNextEventRegion()).findByText(mutationStreakText)
         ).toBeInTheDocument();
         await streakRefresh.resolveRefresh({
           attendanceStreak: { attendedCount: 5, occurrenceCount: 5 },
         });
 
-        expect(within(getNextEventRegion()).getByText(mutationStreakText)).toBeInTheDocument();
+        expect(within(await findNextEventRegion()).getByText(mutationStreakText)).toBeInTheDocument();
         expect(
-          within(getNextEventRegion()).queryByText(finishedStreakText)
+          within(await findNextEventRegion()).queryByText(finishedStreakText)
         ).not.toBeInTheDocument();
       });
     });

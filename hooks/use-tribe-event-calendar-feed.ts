@@ -51,6 +51,10 @@ const COPY = {
   copyFailure: "No pudimos copiar el link.",
   generateFailure: "No pudimos generar tu link. Intentá de nuevo.",
   generateSuccess: "Link listo.",
+  // The link was issued (and any previous one revoked) after the dialog closed:
+  // its plain value is forgotten, so the only way to copy one is regenerating.
+  generateSuccessAfterClose:
+    "Generamos un link nuevo, pero cerraste la ventana antes de copiarlo y cualquier link anterior ya no funciona. Volvé a abrir la suscripción y regeneralo para copiarlo.",
   generating: "Generando tu link…",
   loadFailure: "No pudimos cargar tu suscripción al calendario.",
   revokeFailure: "No pudimos desactivar la suscripción. Intentá de nuevo.",
@@ -142,11 +146,15 @@ export function useTribeEventCalendarFeed({
   /**
    * Shared guard and `toast.promise` lifecycle of both mutations. The request
    * promise rejects on a failed response so the toast shows the error copy.
+   * The success copy is chosen when the request resolves: if the dialog
+   * session changed meanwhile, `successAfterClose` (when given) replaces the
+   * regular copy so the toast never promises a result the dialog discarded.
    */
   const runMutation = async <TResult extends { isSuccess: boolean; message: string | null }>(
     request: () => Promise<TResult>,
-    copy: { failure: string; loading: string; success: string },
-    onSuccess: (result: Extract<TResult, { isSuccess: true }>) => void
+    copy: { failure: string; loading: string; success: string; successAfterClose?: string },
+    onSuccess: (result: Extract<TResult, { isSuccess: true }>) => void,
+    onRejected?: (result: Extract<TResult, { isSuccess: false }>) => void
   ): Promise<boolean> => {
     if (isSubmittingRef.current) {
       return false;
@@ -159,6 +167,10 @@ export function useTribeEventCalendarFeed({
 
     const pendingRequest = request().then((result) => {
       if (!result.isSuccess) {
+        if (dialogSession === dialogSessionRef.current) {
+          onRejected?.(result as Extract<TResult, { isSuccess: false }>);
+        }
+
         throw toRequestError(result.message, copy.failure);
       }
 
@@ -168,7 +180,10 @@ export function useTribeEventCalendarFeed({
     toast.promise(pendingRequest, {
       error: (error: unknown) => (error instanceof Error ? error.message : copy.failure),
       loading: copy.loading,
-      success: copy.success,
+      success: () =>
+        dialogSession === dialogSessionRef.current
+          ? copy.success
+          : (copy.successAfterClose ?? copy.success),
     });
 
     try {
@@ -191,28 +206,68 @@ export function useTribeEventCalendarFeed({
     }
   };
 
-  const generateLink = () =>
-    runMutation(
-      () => issueTribeEventCalendarFeedRequest({ tribeSlug }),
-      { failure: COPY.generateFailure, loading: COPY.generating, success: COPY.generateSuccess },
+  /**
+   * Id of the subscription on screen (null: none), the precondition both
+   * mutations send.
+   */
+  const readExpectedSubscriptionId = () =>
+    loadState.status === TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded
+      ? (loadState.subscription?.id ?? null)
+      : null;
+
+  /**
+   * When the server answers that the subscription changed (another tab or a
+   * retry won), the state is reloaded so the next attempt starts from the
+   * active link.
+   */
+  const reloadWhenSubscriptionChanged = (result: { isSubscriptionChanged: boolean }) => {
+    if (result.isSubscriptionChanged) {
+      loadSubscription();
+    }
+  };
+
+  /**
+   * Sends the subscription on screen as the precondition.
+   */
+  const generateLink = () => {
+    const expectedSubscriptionId = readExpectedSubscriptionId();
+
+    return runMutation(
+      () => issueTribeEventCalendarFeedRequest({ expectedSubscriptionId, tribeSlug }),
+      {
+        failure: COPY.generateFailure,
+        loading: COPY.generating,
+        success: COPY.generateSuccess,
+        successAfterClose: COPY.generateSuccessAfterClose,
+      },
       (result) => {
         setFeedUrl(result.feedUrl);
         setLoadState({
           status: TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded,
           subscription: result.subscription,
         });
-      }
+      },
+      reloadWhenSubscriptionChanged
     );
+  };
 
-  const revokeLink = () =>
-    runMutation(
-      () => revokeTribeEventCalendarFeedRequest({ tribeSlug }),
+  /**
+   * Sends the subscription on screen as the precondition, so a stale dialog
+   * never turns off a link another tab has just regenerated.
+   */
+  const revokeLink = () => {
+    const expectedSubscriptionId = readExpectedSubscriptionId();
+
+    return runMutation(
+      () => revokeTribeEventCalendarFeedRequest({ expectedSubscriptionId, tribeSlug }),
       { failure: COPY.revokeFailure, loading: COPY.revoking, success: COPY.revokeSuccess },
       () => {
         setFeedUrl(null);
         setLoadState({ status: TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded, subscription: null });
-      }
+      },
+      reloadWhenSubscriptionChanged
     );
+  };
 
   const copyFeedUrl = async () => {
     if (!feedUrl) {

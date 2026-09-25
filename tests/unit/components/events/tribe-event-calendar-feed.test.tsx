@@ -27,6 +27,8 @@ const TRIBE_SLUG = "matematica-pro";
 const FEED_URL =
   "https://tutribu.example.com/api/calendar/tribes/matematica-pro/feed/Zx8_Qm-3kP0aB1cD2eF3gH4iJ5kL6mN7oP8qR9sT0uV.ics";
 const ENDPOINT = "/api/tribes/matematica-pro/events/calendar-feed";
+const SUBSCRIPTION_ID = "2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a";
+const OTHER_TAB_SUBSCRIPTION_ID = "3e4f5a6b-7c8d-4e9f-8a1b-2c3d4e5f6a7b";
 
 const router = {
   back: vi.fn(),
@@ -66,8 +68,27 @@ function respondWith(body: unknown, status = 200) {
 const issuedBody = {
   feedUrl: FEED_URL,
   message: "Tu link de calendario está listo. Copialo ahora: no lo vamos a volver a mostrar.",
-  subscription: { createdAt: "2026-05-01T12:00:00.000Z", lastUsedAt: null },
+  subscription: { createdAt: "2026-05-01T12:00:00.000Z", id: SUBSCRIPTION_ID, lastUsedAt: null },
 };
+
+const GENERATE_SUCCESS_AFTER_CLOSE =
+  "Generamos un link nuevo, pero cerraste la ventana antes de copiarlo y cualquier link anterior ya no funciona. Volvé a abrir la suscripción y regeneralo para copiarlo.";
+
+type ToastPromiseOptions = { success: string | ((result: unknown) => string) };
+
+/**
+ * Success copy the recorded `toast.promise` call would show once its request
+ * resolves, evaluated at that moment like Sonner does.
+ */
+async function resolvedSuccessToastCopy(callIndex = 0): Promise<string> {
+  const [pendingRequest, options] = ((toast.promise as Mock).mock.calls[callIndex] ?? []) as [
+    Promise<unknown>,
+    ToastPromiseOptions,
+  ];
+  const result = await pendingRequest;
+
+  return typeof options.success === "function" ? options.success(result) : options.success;
+}
 
 async function openDialog(user: ReturnType<typeof userEvent.setup>) {
   if (!screen.queryByRole("button", { name: "Suscribirme al calendario" })) {
@@ -106,12 +127,16 @@ describe("TribeEventsCalendar calendar subscription", () => {
     expect(linkField).toHaveAttribute("readonly");
     expect(global.fetch).toHaveBeenLastCalledWith(
       ENDPOINT,
-      expect.objectContaining({ method: "POST" })
+      expect.objectContaining({
+        body: JSON.stringify({ expectedSubscriptionId: null }),
+        method: "POST",
+      })
     );
     expect(toast.promise).toHaveBeenCalledWith(
       expect.any(Promise),
       expect.objectContaining({ loading: "Generando tu link…" })
     );
+    await expect(resolvedSuccessToastCopy()).resolves.toBe("Link listo.");
     expect(within(dialog).getByRole("link", { name: "Abrir en Apple Calendar" })).toHaveAttribute(
       "href",
       FEED_URL.replace("https://", "webcal://")
@@ -175,6 +200,8 @@ describe("TribeEventsCalendar calendar subscription", () => {
     await waitFor(() => expect(within(dialog).getByRole("button", { name: "Generar link" })).toBeEnabled());
     expect(within(dialog).queryByRole("textbox", { name: "Tu link de calendario" })).toBeNull();
     expect(within(dialog).getByText(/Todavía no tenés un link de calendario/)).toBeInTheDocument();
+    // The toast must not claim the discarded link is ready to copy.
+    await expect(resolvedSuccessToastCopy()).resolves.toBe(GENERATE_SUCCESS_AFTER_CLOSE);
   });
 
   it("asks for confirmation before regenerating because the old link stops working", async () => {
@@ -196,6 +223,53 @@ describe("TribeEventsCalendar calendar subscription", () => {
     expect(
       await within(dialog).findByRole("textbox", { name: "Tu link de calendario" })
     ).toHaveValue(FEED_URL);
+    // The subscription on screen travels as the precondition.
+    expect(global.fetch).toHaveBeenLastCalledWith(
+      ENDPOINT,
+      expect.objectContaining({
+        body: JSON.stringify({ expectedSubscriptionId: SUBSCRIPTION_ID }),
+        method: "POST",
+      })
+    );
+  });
+
+  it("reloads the state instead of showing a link when another tab already regenerated it", async () => {
+    const user = userEvent.setup();
+    const changedMessage =
+      "Tu link de calendario cambió desde otra pestaña o dispositivo. Revisalo y volvé a intentarlo.";
+    respondWith({ subscription: issuedBody.subscription });
+    respondWith({ message: changedMessage }, 409);
+    respondWith({
+      subscription: { ...issuedBody.subscription, id: OTHER_TAB_SUBSCRIPTION_ID },
+    });
+    respondWith(issuedBody, 201);
+
+    const dialog = await openDialog(user);
+
+    await user.click(await within(dialog).findByRole("button", { name: "Regenerar link" }));
+    await user.click(within(dialog).getByRole("button", { name: "Sí, regenerar" }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+    const [pendingRequest] = (toast.promise as Mock).mock.calls[0] ?? [];
+
+    await expect(pendingRequest).rejects.toThrow(changedMessage);
+    expect(within(dialog).queryByRole("textbox", { name: "Tu link de calendario" })).toBeNull();
+    expect(router.refresh).not.toHaveBeenCalled();
+
+    // The retry starts from the link that is active now.
+    await user.click(await within(dialog).findByRole("button", { name: "Regenerar link" }));
+    await user.click(within(dialog).getByRole("button", { name: "Sí, regenerar" }));
+
+    expect(
+      await within(dialog).findByRole("textbox", { name: "Tu link de calendario" })
+    ).toHaveValue(FEED_URL);
+    expect(global.fetch).toHaveBeenLastCalledWith(
+      ENDPOINT,
+      expect.objectContaining({
+        body: JSON.stringify({ expectedSubscriptionId: OTHER_TAB_SUBSCRIPTION_ID }),
+        method: "POST",
+      })
+    );
   });
 
   it("turns the subscription off without refreshing the route", async () => {
@@ -212,15 +286,50 @@ describe("TribeEventsCalendar calendar subscription", () => {
 
     expect(await within(dialog).findByRole("button", { name: "Generar link" })).toBeInTheDocument();
     expect(global.fetch).toHaveBeenLastCalledWith(
-      ENDPOINT,
+      `${ENDPOINT}?expectedSubscriptionId=${SUBSCRIPTION_ID}`,
       expect.objectContaining({ method: "DELETE" })
     );
     expect(router.refresh).not.toHaveBeenCalled();
+    await expect(resolvedSuccessToastCopy()).resolves.toBe("Suscripción desactivada.");
+  });
+
+  it("reloads the state instead of turning off a link another tab already replaced", async () => {
+    const user = userEvent.setup();
+    const changedMessage =
+      "Tu link de calendario cambió desde otra pestaña o dispositivo. Revisalo y volvé a intentarlo.";
+    respondWith({ subscription: issuedBody.subscription });
+    respondWith({ message: changedMessage }, 409);
+    respondWith({
+      subscription: { ...issuedBody.subscription, id: OTHER_TAB_SUBSCRIPTION_ID },
+    });
+    respondWith({
+      message: "Suscripción desactivada. El link anterior ya no funciona.",
+      subscription: null,
+    });
+
+    const dialog = await openDialog(user);
+
+    await user.click(await within(dialog).findByRole("button", { name: "Desactivar suscripción" }));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
+    const [pendingRequest] = (toast.promise as Mock).mock.calls[0] ?? [];
+
+    await expect(pendingRequest).rejects.toThrow(changedMessage);
+    expect(router.refresh).not.toHaveBeenCalled();
+
+    // The active link is still on: the retry targets the one active now.
+    await user.click(await within(dialog).findByRole("button", { name: "Desactivar suscripción" }));
+
+    expect(await within(dialog).findByRole("button", { name: "Generar link" })).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenLastCalledWith(
+      `${ENDPOINT}?expectedSubscriptionId=${OTHER_TAB_SUBSCRIPTION_ID}`,
+      expect.objectContaining({ method: "DELETE" })
+    );
   });
 
   it("shows a safe error with a retry when the state cannot be loaded", async () => {
     const user = userEvent.setup();
-    respondWith({ subscription: { createdAt: "not-a-date", lastUsedAt: null } });
+    respondWith({ subscription: { createdAt: "not-a-date", id: SUBSCRIPTION_ID, lastUsedAt: null } });
     respondWith({ subscription: null });
 
     const dialog = await openDialog(user);

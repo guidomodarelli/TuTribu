@@ -150,7 +150,9 @@ export function TribeEventCalendarFeedDialog({
 
     return (
       <div className={styles.TribeEventCalendarFeedDialog__status}>
-        <p>{COPY.activeSince(formatBuenosAiresLongDate(subscription.createdAt))}</p>
+        <p className={styles.TribeEventCalendarFeedDialog__text}>
+          {COPY.activeSince(formatBuenosAiresLongDate(subscription.createdAt))}
+        </p>
         <p className={styles.TribeEventCalendarFeedDialog__hint}>
           {subscription.lastUsedAt
             ? COPY.lastUsed(formatBuenosAiresLongDate(subscription.lastUsedAt))
@@ -165,7 +167,7 @@ export function TribeEventCalendarFeedDialog({
     if (isConfirmingRegenerate) {
       return (
         <div className={styles.TribeEventCalendarFeedDialog__confirm} role="group">
-          <p>{COPY.regenerateWarning}</p>
+          <p className={styles.TribeEventCalendarFeedDialog__text}>{COPY.regenerateWarning}</p>
           <div className={styles.TribeEventCalendarFeedDialog__actions}>
             <Button
               disabled={isSubmitting}
@@ -225,7 +227,7 @@ export function TribeEventCalendarFeedDialog({
       case TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.error:
         return (
           <div className={styles.TribeEventCalendarFeedDialog__status} role="alert">
-            <p>{loadState.message}</p>
+            <p className={styles.TribeEventCalendarFeedDialog__text}>{loadState.message}</p>
             <Button
               size={BUTTON_ATTRIBUTE.sizeSmall}
               type={BUTTON_ATTRIBUTE.typeButton}
@@ -268,7 +270,7 @@ export function TribeEventCalendarFeedDialog({
           <DialogDescription>{COPY.description}</DialogDescription>
         </DialogHeader>
         <p className={styles.TribeEventCalendarFeedDialog__warning}>
-          <ShieldAlertIcon aria-hidden />
+          <ShieldAlertIcon aria-hidden className={styles.TribeEventCalendarFeedDialog__warningIcon} />
           <span>{COPY.personalWarning}</span>
         </p>
         {renderBody()}

@@ -18,24 +18,17 @@
 -- promote_tribe_event_waitlist, unchanged), and the promoted_at contract that
 -- later phases hook into are all preserved.
 
--- 1. Owner exception on event_occurrence_exceptions (SELECT only). The
--- SECURITY DEFINER functions below run as the table owner and read the
--- exceptions of any tribe, also from the membership trigger, where no request
--- user may be set (webhooks, maintenance). Under FORCE RLS an owner without
--- BYPASSRLS would see no exception and treat a cancelled date as a normal one.
--- It authorizes only the owner; request roles keep the tribemate policy.
+-- 1. Owner exception on event_occurrence_exceptions. The SECURITY DEFINER
+-- functions below run as the table owner and read the exceptions of any
+-- tribe, also from the membership trigger, where no request user may be set
+-- (webhooks, maintenance). Under FORCE RLS an owner without BYPASSRLS would
+-- see no exception and treat a cancelled date as a normal one. That read is
+-- covered by "Table owner manages event occurrence exceptions" (FOR ALL,
+-- created with the table in 20260924121000), which authorizes only the
+-- owner; request roles keep the tribemate read policy. The narrower
+-- SELECT-only owner policy is dropped so a single owner policy remains.
 DROP POLICY IF EXISTS "Table owner reads event occurrence exceptions"
 ON public.event_occurrence_exceptions;
-CREATE POLICY "Table owner reads event occurrence exceptions"
-ON public.event_occurrence_exceptions
-FOR SELECT
-USING (
-  current_user = (
-    SELECT pg_get_userbyid(pg_class.relowner)
-    FROM pg_class
-    WHERE pg_class.oid = 'public.event_occurrence_exceptions'::regclass
-  )
-);
 
 -- 2. Internal helper: state of one occurrence (identified by its original
 -- start) under its exception. is_cancelled tells whether the date was
@@ -450,8 +443,10 @@ FROM PUBLIC;
 -- exceptions. Occurrences are still identified by their original start (the
 -- attendance key and the advisory lock), is_tribe_event_series_occurrence
 -- still checks that original start against the current schedule, and both
--- the pre-lock scan and the post-lock re-check skip cancelled dates and use
--- the effective end of moved dates. The lock order (membership row, event row
+-- the pre-lock scan and the post-lock re-check use the effective end of moved
+-- dates. Only the post-lock re-check skips cancelled dates: the pre-lock scan
+-- keeps them because a concurrent restore may be deleting the exception (see
+-- the comment in the scan). The lock order (membership row, event row
 -- FOR SHARE, occurrence advisory locks in ascending order) is unchanged.
 CREATE OR REPLACE FUNCTION public.promote_tribe_event_waitlists_after_membership_change()
 RETURNS trigger
@@ -514,7 +509,13 @@ BEGIN
           event_attendances.user_id = affected_user_id
           AND event_attendances.status = ANY(scanned_attendance_statuses)
       END
-      AND NOT occurrence_state.is_cancelled
+      -- No cancellation filter here: this scan takes no lock, so a restore
+      -- (or a move of a cancelled date) still in flight shows the old
+      -- 'cancelled' exception, while that restore refills against a snapshot
+      -- where this membership is still active. Keeping cancelled candidates
+      -- makes this trigger wait on the event row and re-check the exception
+      -- under the locks below. The end filter stays: restoring or moving a
+      -- date is refused once its current effective end passed.
       AND occurrence_state.effective_ends_at > clock_timestamp()
     ORDER BY event_attendances.event_id ASC, event_attendances.occurrence_starts_at ASC
   LOOP

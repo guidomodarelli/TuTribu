@@ -170,12 +170,19 @@ export const tribeEventMutationBodySchema = z.object(
  * `capacity` stays undefined ("keep the stored capacity") instead of meaning
  * "no limit", so an older client that does not send the field never removes
  * an existing limit. An explicit empty or null capacity still removes it.
+ * Likewise an omitted `eventType` stays undefined ("keep the stored type")
+ * instead of falling back to the default type, so a stale bundle or API
+ * consumer that does not know the field never turns a workshop into a live
+ * event. An explicit empty or null type still means the default type.
  */
 export const tribeEventUpdateBodySchema = tribeEventMutationBodySchema.extend({
   // `.optional()` would still run the inner schema, which maps a missing
   // value to null; the explicit `undefined` branch keeps "omitted" apart.
   capacity: z.union([z.undefined(), capacityFieldSchema], {
     error: TRIBE_EVENT_INPUT_ISSUE.invalidCapacity,
+  }),
+  eventType: z.union([z.undefined(), createEventTypeFieldSchema(TRIBE_EVENT_DEFAULT_TYPE)], {
+    error: TRIBE_EVENT_INPUT_ISSUE.invalidEventType,
   }),
 }) satisfies z.ZodType<TribeEventUpdateFieldsInput>;
 
