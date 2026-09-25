@@ -453,6 +453,81 @@ describe("NotificationCenter", () => {
     expect(screen.getByRole("button", { name: "Notificaciones, 1 sin leer" })).toBeInTheDocument();
   });
 
+  it("discards an older slow unread poll that resolves after a newer inbox load", async () => {
+    vi.useFakeTimers();
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let releaseStalePoll: () => void = () => {};
+    const json = (body: unknown) =>
+      new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+
+    (global.fetch as Mock).mockImplementation((url: string) => {
+      if (url === "/api/notifications/unread-count") {
+        return new Promise<Response>((resolve) => {
+          releaseStalePoll = () => resolve(json({ unreadCount: 2 }));
+        });
+      }
+
+      if (url === "/api/notifications") {
+        return Promise.resolve(json({ ...inbox, unreadCount: 3 }));
+      }
+
+      return Promise.reject(new Error(`Unexpected request ${url}`));
+    });
+    renderCenter();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(NOTIFICATION_UNREAD_POLL_INTERVAL_MS);
+    });
+    await user.click(screen.getByRole("button", { name: "Notificaciones, 2 sin leer" }));
+    await screen.findByRole("button", { name: "Notificaciones, 3 sin leer" });
+    await act(async () => {
+      releaseStalePoll();
+    });
+
+    expect(screen.getByRole("button", { name: "Notificaciones, 3 sin leer" })).toBeInTheDocument();
+  });
+
+  it("keeps the count of a newer poll when an older inbox load resolves after it, still rendering the list", async () => {
+    vi.useFakeTimers();
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let releaseStaleInbox: () => void = () => {};
+    const json = (body: unknown) =>
+      new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+
+    (global.fetch as Mock).mockImplementation((url: string) => {
+      if (url === "/api/notifications") {
+        return new Promise<Response>((resolve) => {
+          releaseStaleInbox = () => resolve(json({ ...inbox, unreadCount: 3 }));
+        });
+      }
+
+      if (url === "/api/notifications/unread-count") {
+        return Promise.resolve(json({ unreadCount: 4 }));
+      }
+
+      return Promise.reject(new Error(`Unexpected request ${url}`));
+    });
+    renderCenter(null);
+
+    await user.click(screen.getByRole("button", { name: "Notificaciones" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(NOTIFICATION_UNREAD_POLL_INTERVAL_MS);
+    });
+    await screen.findByRole("button", { name: "Notificaciones, 4 sin leer" });
+    await act(async () => {
+      releaseStaleInbox();
+    });
+
+    expect(screen.getByRole("button", { name: "Notificaciones, 4 sin leer" })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog", { name: "Notificaciones" })).getByRole("link", {
+        name: /Taller de álgebra/,
+      })
+    ).toBeInTheDocument();
+  });
+
   it("returns focus to the bell when the panel closes", async () => {
     const user = userEvent.setup();
 
