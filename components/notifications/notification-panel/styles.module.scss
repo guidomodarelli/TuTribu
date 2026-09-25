@@ -32,10 +32,10 @@
     padding: 1rem;
     color: var(--muted-foreground);
     font-size: 0.9rem;
+  }
 
-    p {
-      margin: 0;
-    }
+  &__message {
+    margin: 0;
   }
 
   &__empty {
@@ -46,10 +46,6 @@
     color: var(--muted-foreground);
     font-size: 0.9rem;
     text-align: center;
-
-    p {
-      margin: 0;
-    }
   }
 
   &__emptyIcon {
@@ -60,6 +56,7 @@
 
   &__emptyHint {
     max-width: 18rem;
+    margin: 0;
     font-size: 0.8rem;
   }
 
