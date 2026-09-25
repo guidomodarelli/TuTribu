@@ -12,7 +12,9 @@
  *   the commit it points at instead of by the tag object id;
  * - the gate only validates the commit that is checked out: every pushed oid
  *   must be `HEAD` and the working tree must have no tracked, staged or
- *   untracked changes. Then `pnpm install --frozen-lockfile` and
+ *   untracked changes and no tracked file flagged `skip-worktree` or
+ *   `assume-unchanged` (`git status` hides whether those differ from `HEAD`,
+ *   so the gate could validate a local edit Git never uploads). Then `pnpm install --frozen-lockfile` and
  *   `pnpm run ci` run once in place; the frozen install rejects a
  *   `package.json` that drifted from `pnpm-lock.yaml` even when
  *   `node_modules` already exists;
@@ -30,7 +32,9 @@
  *   pushed commit.
  *
  * Before any ref is validated the running Node.js is checked against
- * `engines.node` (blocking) and `.nvmrc` (warning only).
+ * `engines.node` (blocking) and `.nvmrc` (warning only). A prerelease runtime
+ * (`24.21.0-rc.1`) never satisfies `engines.node` and never matches `.nvmrc`,
+ * following semver range semantics that exclude prereleases.
  *
  * Usage (from `.husky/pre-push`):
  *   node scripts/pre-push-gate.mjs < <git pre-push stdin>
@@ -77,20 +81,60 @@ const VERSION_COMPARATOR_PATTERN =
 /** Leading `v` accepted in `.nvmrc` and `process.version`. */
 const VERSION_PREFIX_PATTERN = /^v/;
 
+/** Semver build metadata suffix (`+build.1`), ignored for precedence. */
+const VERSION_BUILD_METADATA_PATTERN = /[+].*$/;
+
+/** Separator between the `major.minor.patch` core and a prerelease tag. */
+const PRERELEASE_SEPARATOR = "-";
+
+/** `git ls-files -v` tag of a tracked file flagged `skip-worktree`. */
+const SKIP_WORKTREE_TAG = "S";
+
+/** Lowercase `git ls-files -v` tags mark files flagged `assume-unchanged`. */
+const ASSUME_UNCHANGED_TAG_PATTERN = /^[a-z]$/;
+
+/** Maximum number of flagged files listed in a rejection message. */
+const MAX_REPORTED_FLAGGED_FILES = 5;
+
 /**
- * Parses a `major.minor.patch` version into numbers, padding missing parts.
+ * Parses a version into its numeric `major.minor.patch` core (padding missing
+ * parts) and its prerelease tag, dropping build metadata.
  *
- * @param {string} version - Version such as `24.21.0` or `v24`.
- * @returns {number[]} `[major, minor, patch]`.
+ * @param {string} version - Version such as `24.21.0`, `v24` or `24.21.0-rc.1`.
+ * @returns {{ parts: number[], prerelease: string | null }} `[major, minor, patch]`
+ *   and the prerelease tag (`rc.1`), or `null` for a release.
  */
-function parseVersionParts(version) {
-  const [major = 0, minor = 0, patch = 0] = version
+function parseVersion(version) {
+  const normalizedVersion = version
     .trim()
     .replace(VERSION_PREFIX_PATTERN, "")
+    .replace(VERSION_BUILD_METADATA_PATTERN, "");
+  const separatorIndex = normalizedVersion.indexOf(PRERELEASE_SEPARATOR);
+  const hasPrerelease = separatorIndex !== -1;
+  const core = hasPrerelease ? normalizedVersion.slice(0, separatorIndex) : normalizedVersion;
+  const [major = 0, minor = 0, patch = 0] = core
     .split(".")
     .map((part) => Number.parseInt(part, 10) || 0);
 
-  return [major, minor, patch];
+  return {
+    parts: [major, minor, patch],
+    prerelease: hasPrerelease ? normalizedVersion.slice(separatorIndex + 1) : null,
+  };
+}
+
+/**
+ * Returns whether two versions are the same release, including the
+ * prerelease tag, so `24.21.0-rc.1` never equals `24.21.0`.
+ *
+ * @param {string} leftVersion - First version.
+ * @param {string} rightVersion - Second version.
+ * @returns {boolean} `true` when core and prerelease tag are identical.
+ */
+function isSameVersion(leftVersion, rightVersion) {
+  const left = parseVersion(leftVersion);
+  const right = parseVersion(rightVersion);
+
+  return compareVersionParts(left.parts, right.parts) === 0 && left.prerelease === right.prerelease;
 }
 
 /**
@@ -114,6 +158,8 @@ function compareVersionParts(leftParts, rightParts) {
  * Evaluates an `engines.node` range made of space-separated comparators
  * (`>=24 <25`). Other semver syntaxes (`^`, `~`, `||`, `x`) are rejected so an
  * unsupported range fails loudly instead of silently allowing any runtime.
+ * A prerelease version never satisfies the range: the comparators name only
+ * releases, and semver excludes prereleases unless a comparator admits them.
  *
  * @param {string} version - Running Node.js version.
  * @param {string} supportedRange - `engines.node` value.
@@ -121,9 +167,9 @@ function compareVersionParts(leftParts, rightParts) {
  * @throws {Error} When the range uses syntax this evaluator does not support.
  */
 function satisfiesVersionRange(version, supportedRange) {
-  const versionParts = parseVersionParts(version);
+  const { parts: versionParts, prerelease } = parseVersion(version);
 
-  return supportedRange
+  const satisfiesEveryComparator = supportedRange
     .trim()
     .split(/[ ]+/)
     .every((comparator) => {
@@ -164,6 +210,8 @@ function satisfiesVersionRange(version, supportedRange) {
         }
       }
     });
+
+  return satisfiesEveryComparator && prerelease === null;
 }
 
 /**
@@ -185,18 +233,19 @@ export function evaluateNodeRuntime({ runningVersion, supportedRange, pinnedVers
   const suggestedVersion = normalizedPinnedVersion ?? supportedRange;
 
   if (!satisfiesVersionRange(normalizedRunningVersion, supportedRange)) {
+    const prereleaseNote = parseVersion(normalizedRunningVersion).prerelease
+      ? " (es una versión prerelease y engines.node solo admite releases)"
+      : "";
+
     return {
       status: NODE_RUNTIME_STATUS.unsupported,
-      message: `Node ${normalizedRunningVersion} no cumple engines.node "${supportedRange}". Cambiá a Node ${suggestedVersion} (.nvmrc), por ejemplo con "nvm use", y volvé a pushear.`,
+      message: `Node ${normalizedRunningVersion}${prereleaseNote} no cumple engines.node "${supportedRange}". Cambiá a Node ${suggestedVersion} (.nvmrc), por ejemplo con "nvm use", y volvé a pushear.`,
     };
   }
 
   if (
     normalizedPinnedVersion &&
-    compareVersionParts(
-      parseVersionParts(normalizedRunningVersion),
-      parseVersionParts(normalizedPinnedVersion)
-    ) !== 0
+    !isSameVersion(normalizedRunningVersion, normalizedPinnedVersion)
   ) {
     return {
       status: NODE_RUNTIME_STATUS.pinnedVersionDrift,
@@ -331,17 +380,36 @@ export function findCommitsOutsideCleanCheckout(commits, { headOid, isWorkingTre
  * because it is not the clean checkout.
  *
  * @param {{ oid: string, refs: string[] }} commit - Rejected commit.
- * @param {{ headOid: string, isWorkingTreeClean: boolean }} checkout - State of
- *   the current checkout.
+ * @param {{ headOid: string, isWorkingTreeClean: boolean, flaggedFiles: string[] }} checkout -
+ *   State of the current checkout.
  * @returns {string} Actionable message for the push transcript.
  */
-function buildCheckoutRequiredMessage(commit, { headOid, isWorkingTreeClean }) {
+function buildCheckoutRequiredMessage(commit, { headOid, isWorkingTreeClean, flaggedFiles }) {
   const reason =
     commit.oid === headOid && !isWorkingTreeClean
-      ? "es el HEAD actual pero el working tree tiene cambios sin commitear o archivos sin trackear"
+      ? `es el HEAD actual pero ${describeDirtyWorkingTree(flaggedFiles)}`
       : `no es el commit del checkout actual (HEAD ${headOid})`;
 
   return `No se puede validar ${commit.oid} (${commit.refs.join(", ")}): ${reason}. El pre-push solo valida el HEAD actual con el working tree limpio. Hacé checkout de esa rama o commit, dejá el working tree limpio (commiteá, stasheá o descartá los cambios, incluidos los archivos sin trackear) y volvé a pushear.`;
+}
+
+/**
+ * Describes, in Spanish, why the working tree does not count as clean.
+ *
+ * @param {string[]} flaggedFiles - Tracked files flagged `skip-worktree` or
+ *   `assume-unchanged`.
+ * @returns {string} Reason fragment for the rejection messages.
+ */
+function describeDirtyWorkingTree(flaggedFiles) {
+  if (flaggedFiles.length === 0) {
+    return "el working tree tiene cambios sin commitear o archivos sin trackear";
+  }
+
+  const listedFiles = flaggedFiles.slice(0, MAX_REPORTED_FLAGGED_FILES).join(", ");
+  const remainingCount = flaggedFiles.length - MAX_REPORTED_FLAGGED_FILES;
+  const remainingNote = remainingCount > 0 ? ` y ${remainingCount} más` : "";
+
+  return `hay archivos trackeados marcados con skip-worktree o assume-unchanged (${listedFiles}${remainingNote}) y git status no muestra si difieren de HEAD; quitá las marcas con "git update-index --no-skip-worktree --no-assume-unchanged <archivo>"`;
 }
 
 /**
@@ -433,26 +501,68 @@ export function resolvePushedCommitOid(repositoryRoot, oid) {
 }
 
 /**
- * Returns whether the checkout has no staged, unstaged or untracked changes
- * (ignored files such as `.env*`, `node_modules` and `.next` do not count).
+ * Lists the tracked files flagged `skip-worktree` or `assume-unchanged`.
+ * `git status` does not compare those files with `HEAD`, so a local edit to
+ * one of them is invisible to the clean-tree check while Git still uploads the
+ * committed version.
  *
  * @param {string} repositoryRoot - Repository top-level directory.
- * @returns {boolean} `true` when the working tree matches `HEAD`.
+ * @returns {string[]} Flagged paths relative to the repository root.
+ */
+export function listStatusHiddenFiles(repositoryRoot) {
+  return runGit(["ls-files", "-v", "-z"], repositoryRoot)
+    .split("\0")
+    .filter((entry) => entry.length > 0)
+    .filter((entry) => {
+      const [tag] = entry;
+
+      return tag === SKIP_WORKTREE_TAG || ASSUME_UNCHANGED_TAG_PATTERN.test(tag);
+    })
+    .map((entry) => entry.slice(entry.indexOf(" ") + 1));
+}
+
+/**
+ * Returns whether the checkout has no staged, unstaged or untracked changes
+ * (ignored files such as `.env*`, `node_modules` and `.next` do not count).
+ * `git status` alone cannot prove it for tracked files flagged
+ * `skip-worktree` or `assume-unchanged`, so any flagged file also makes the
+ * tree count as not clean.
+ *
+ * @param {string} repositoryRoot - Repository top-level directory.
+ * @returns {boolean} `true` when the working tree provably matches `HEAD`.
  */
 export function isWorkingTreeClean(repositoryRoot) {
-  return runGit(["status", "--porcelain"], repositoryRoot).length === 0;
+  return readWorkingTreeState(repositoryRoot).isWorkingTreeClean;
+}
+
+/**
+ * Reads whether the working tree is clean together with the flagged files
+ * that `git status` would hide.
+ *
+ * @param {string} repositoryRoot - Repository top-level directory.
+ * @returns {{ isWorkingTreeClean: boolean, flaggedFiles: string[] }}
+ */
+function readWorkingTreeState(repositoryRoot) {
+  const flaggedFiles = listStatusHiddenFiles(repositoryRoot);
+
+  return {
+    isWorkingTreeClean:
+      flaggedFiles.length === 0 &&
+      runGit(["status", "--porcelain"], repositoryRoot).length === 0,
+    flaggedFiles,
+  };
 }
 
 /**
  * Reads the current checkout state.
  *
  * @param {string} repositoryRoot - Repository top-level directory.
- * @returns {{ headOid: string, isWorkingTreeClean: boolean }}
+ * @returns {{ headOid: string, isWorkingTreeClean: boolean, flaggedFiles: string[] }}
  */
 function readCheckoutState(repositoryRoot) {
   return {
     headOid: resolveHeadOid(repositoryRoot),
-    isWorkingTreeClean: isWorkingTreeClean(repositoryRoot),
+    ...readWorkingTreeState(repositoryRoot),
   };
 }
 
@@ -475,7 +585,7 @@ function isCheckoutStillPushedCommit(commit, repositoryRoot, completedStep) {
 
   const change =
     checkout.headOid === commit.oid
-      ? "el working tree tiene cambios sin commitear o archivos sin trackear"
+      ? describeDirtyWorkingTree(checkout.flaggedFiles)
       : `HEAD pasó a ${checkout.headOid}`;
 
   console.error(

@@ -34,6 +34,7 @@ type PrePushGateScript = {
   ) => CommitToValidate[];
   resolveHeadOid: (repositoryRoot: string) => string;
   isWorkingTreeClean: (repositoryRoot: string) => boolean;
+  listStatusHiddenFiles: (repositoryRoot: string) => string[];
   buildRepositoryIndependentEnvironment: (
     environment?: Record<string, string | undefined>
   ) => NodeJS.ProcessEnv;
@@ -296,6 +297,46 @@ describe("pre-push gate script", () => {
     expect(prePushGateScript.isWorkingTreeClean(repositoryRoot)).toBe(false);
   });
 
+  it.each([
+    ["skip-worktree", "--skip-worktree"],
+    ["assume-unchanged", "--assume-unchanged"],
+  ])(
+    "should not treat a modified tracked file flagged %s as a clean working tree",
+    (_flagName, updateIndexFlag) => {
+      const { repositoryRoot } = createRepositoryWithTwoCommits();
+      runGit(["update-index", updateIndexFlag, "state.txt"], repositoryRoot);
+      writeFileSync(path.join(repositoryRoot, "state.txt"), "local fix never committed\n");
+
+      expect(runGit(["status", "--porcelain"], repositoryRoot)).toBe("");
+      expect(prePushGateScript.listStatusHiddenFiles(repositoryRoot)).toEqual(["state.txt"]);
+      expect(prePushGateScript.isWorkingTreeClean(repositoryRoot)).toBe(false);
+    }
+  );
+
+  it("should reject a prerelease Node runtime even when its core version is pinned", () => {
+    const { match, pinnedVersionDrift, unsupported } = prePushGateScript.NODE_RUNTIME_STATUS;
+    const evaluate = prePushGateScript.evaluateNodeRuntime;
+
+    const prerelease = evaluate({
+      runningVersion: "24.21.0-rc.1",
+      supportedRange: ">=24 <25",
+      pinnedVersion: "24.21.0",
+    });
+    expect(prerelease.status).toBe(unsupported);
+    expect(prerelease.message).toContain("prerelease");
+    expect(
+      evaluate({ runningVersion: "24.21.0-rc.1", supportedRange: "24.21.0", pinnedVersion: null })
+        .status
+    ).toBe(unsupported);
+    expect(
+      evaluate({ runningVersion: "24.21.0", supportedRange: ">=24 <25", pinnedVersion: "24.21.0-rc.1" })
+        .status
+    ).toBe(pinnedVersionDrift);
+    expect(
+      evaluate({ runningVersion: "24.21.0+build.7", supportedRange: ">=24 <25", pinnedVersion: "24.21.0" })
+    ).toEqual({ status: match, message: null });
+  });
+
   it("should reject a Node runtime outside engines.node and accept only the pinned major", () => {
     const { match, pinnedVersionDrift, unsupported } = prePushGateScript.NODE_RUNTIME_STATUS;
     const evaluate = prePushGateScript.evaluateNodeRuntime;
@@ -392,6 +433,46 @@ describe("pre-push gate script", () => {
       expect(gateRun.status).toBe(1);
       expect(gateRun.stderr).toContain("working tree");
       expect(existsSync(reportPath)).toBe(false);
+    },
+    PNPM_INSTALL_TEST_TIMEOUT_MS
+  );
+
+  it(
+    "should refuse the HEAD while a modified tracked file is flagged skip-worktree",
+    () => {
+      const { repositoryRoot, headOid, reportPath } = createGateFixtureRepository();
+      runGit(["update-index", "--skip-worktree", "state.txt"], repositoryRoot);
+      writeFileSync(path.join(repositoryRoot, "state.txt"), "local fix never committed\n");
+
+      const gateRun = runPrePushGate(
+        repositoryRoot,
+        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+      );
+
+      expect(gateRun.status).toBe(1);
+      expect(gateRun.stderr).toContain("skip-worktree o assume-unchanged (state.txt)");
+      expect(existsSync(reportPath)).toBe(false);
+    },
+    PNPM_INSTALL_TEST_TIMEOUT_MS
+  );
+
+  it(
+    "should fail when the ci run flags and edits a tracked file so git status hides it",
+    () => {
+      const { repositoryRoot, headOid, reportPath } = createGateFixtureRepository(
+        `${REPORT_ONLY_CI_SCRIPT}require("node:child_process").execFileSync("git", ["update-index", "--assume-unchanged", "state.txt"]);\nrequire("node:fs").writeFileSync("state.txt", "edited during the gate");\n`
+      );
+
+      const gateRun = runPrePushGate(
+        repositoryRoot,
+        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+      );
+
+      expect(readFileSync(reportPath, "utf8")).toBe("ran");
+      expect(runGit(["status", "--porcelain"], repositoryRoot)).toBe("");
+      expect(gateRun.status).toBe(1);
+      expect(gateRun.stderr).toContain("cambió mientras corría el gate");
+      expect(gateRun.stderr).toContain("assume-unchanged (state.txt)");
     },
     PNPM_INSTALL_TEST_TIMEOUT_MS
   );
