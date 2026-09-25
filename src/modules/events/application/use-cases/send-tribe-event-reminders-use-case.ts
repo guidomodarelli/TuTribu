@@ -56,6 +56,7 @@ function toReminderCandidate(
       },
       type: dueReminder.window.type,
     },
+    minimumLeadMinutes: dueReminder.window.minimumLeadMinutes,
     originalStartsAt: dueReminder.originalStartsAt,
     statuses: dueReminder.window.statuses,
     tribeId: dueReminder.tribeId,

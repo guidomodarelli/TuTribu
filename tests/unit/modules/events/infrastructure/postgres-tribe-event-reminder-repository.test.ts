@@ -135,6 +135,7 @@ describe("PostgresTribeEventReminderRepository", () => {
             payload: { eventId: FIRST_EVENT_ID, occurrenceStartsAt: OCCURRENCE, startsAt: OCCURRENCE },
             type: "event_reminder_24h",
           },
+          minimumLeadMinutes: 60,
           originalStartsAt: OCCURRENCE,
           statuses: ["going", "maybe"],
           tribeId: TRIBE_ID,
@@ -158,6 +159,7 @@ describe("PostgresTribeEventReminderRepository", () => {
       {
         dedupe_key: `event_reminder_24h:${FIRST_EVENT_ID}@${OCCURRENCE}`,
         event_id: FIRST_EVENT_ID,
+        minimum_lead_minutes: 60,
         occurrence_starts_at: OCCURRENCE,
         payload: { eventId: FIRST_EVENT_ID, occurrenceStartsAt: OCCURRENCE, startsAt: OCCURRENCE },
         statuses: ["going", "maybe"],

@@ -90,7 +90,10 @@ export class PostgresTribeEventReminderRepository implements TribeEventReminderR
    * `enqueue_tribe_event_reminders`. That function locks the event rows
    * `FOR SHARE` (manager writes lock them `FOR UPDATE`) and then skips a
    * candidate whose date is no longer a slot of the series, was cancelled,
-   * or whose current effective start differs from `payload.startsAt`.
+   * or whose current effective start differs from `payload.startsAt`, and
+   * rechecks each window cutoff (`minimum_lead_minutes`) against
+   * `clock_timestamp()` once the locks are held, so a late candidate is not
+   * enqueued after its occurrence started (or after the day-before cutoff).
    * `on conflict do nothing` on (recipient, dedupe_key) makes reruns and
    * parallel runs insert each reminder once.
    */
@@ -103,6 +106,7 @@ export class PostgresTribeEventReminderRepository implements TribeEventReminderR
       candidates.map((candidate) => ({
         dedupe_key: candidate.notification.dedupeKey,
         event_id: candidate.eventId,
+        minimum_lead_minutes: candidate.minimumLeadMinutes,
         occurrence_starts_at: candidate.originalStartsAt,
         payload: candidate.notification.payload,
         statuses: candidate.statuses,

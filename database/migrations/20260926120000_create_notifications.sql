@@ -377,8 +377,18 @@ EXECUTE FUNCTION public.enqueue_event_proposal_reviewed_notification();
 -- answered going, maybe, or waitlisted for that date (except whoever made
 -- the change), in the transaction that saves the exception. An UPDATE that
 -- does not change the schedule (retry, double click, reason edit) enqueues
--- nothing; a real change gets a new version (updated_at) in its key. Dates
--- entirely in the past are skipped. Restoring a date notifies nobody.
+-- nothing; a real change gets a new version (updated_at) in its key. Restoring
+-- a date notifies nobody.
+--
+-- A change is skipped only when it rewrites a date that is entirely over:
+-- the occurrence as it was held BEFORE the change (the previous move of the
+-- row, otherwise the original slot) and, for a move, the occurrence after it
+-- have both ended against clock_timestamp() (the write path re-checks the end
+-- with the same clock and permits changes until the occurrence ends). The
+-- start is not enough: a date cancelled while it is in progress still
+-- notifies, and so does a past original slot that had been moved into the
+-- future (cancelling it clears NEW.new_starts_at, so only OLD knows that the
+-- held date is still ahead).
 CREATE OR REPLACE FUNCTION public.enqueue_event_occurrence_change_notifications()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -387,6 +397,9 @@ SET search_path = public
 AS $$
 DECLARE
   actor_id text := public.current_app_user_id();
+  event_duration interval;
+  held_ends_at timestamptz;
+  moved_ends_at timestamptz;
   notification_type text;
   occurrence_instant text := public.format_notification_instant(NEW.original_starts_at);
 BEGIN
@@ -397,8 +410,26 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  IF greatest(NEW.original_starts_at, coalesce(NEW.new_starts_at, NEW.original_starts_at))
-    < now() THEN
+  -- Duration of the series (60 minutes without ends_at), the same rule as
+  -- tribe_event_occurrence_ends_at and resolve_tribe_event_occurrence_exception.
+  SELECT coalesce(events.ends_at - events.starts_at, interval '60 minutes')
+  INTO event_duration
+  FROM public.events
+  WHERE events.id = NEW.event_id;
+
+  held_ends_at := CASE
+    WHEN TG_OP = 'UPDATE' AND OLD.kind = 'moved' AND OLD.new_starts_at IS NOT NULL THEN
+      coalesce(OLD.new_ends_at, OLD.new_starts_at + event_duration)
+    ELSE NEW.original_starts_at + event_duration
+  END;
+  moved_ends_at := CASE
+    WHEN NEW.kind = 'moved' AND NEW.new_starts_at IS NOT NULL THEN
+      coalesce(NEW.new_ends_at, NEW.new_starts_at + event_duration)
+    ELSE NULL
+  END;
+
+  IF coalesce(greatest(held_ends_at, moved_ends_at), '-infinity'::timestamptz)
+    <= clock_timestamp() THEN
     RETURN NULL;
   END IF;
 
@@ -577,6 +608,14 @@ FROM PUBLIC;
 --     this transaction, and one that committed while the lock waited is
 --     visible to the INSERT below (fresh READ COMMITTED snapshot). Attendance
 --     answers take the row FOR SHARE, which does not conflict;
+--   * the window cutoff is rechecked once the locks are held: the current
+--     effective start must still be later than clock_timestamp() plus the
+--     candidate's minimum_lead_minutes (0 for the 15-minute reminder, 60 for
+--     the day-before one). The candidate was selected with the clock of the
+--     listing, and the lock may have waited behind a manager transaction, so
+--     without it a late candidate could be enqueued after the occurrence
+--     started (or after the day-before cutoff). A candidate without the
+--     field enqueues nothing;
 --   * the event must still exist in the candidate's tribe, the original
 --     start must still be a slot of its schedule
 --     (is_tribe_event_series_occurrence), the date must not be cancelled,
@@ -595,6 +634,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   created_count integer;
+  locked_at timestamptz;
 BEGIN
   IF nullif(current_setting('app.current_user_id', true), '') IS NOT NULL
     OR jsonb_typeof(reminder_candidates) IS DISTINCT FROM 'array' THEN
@@ -610,11 +650,15 @@ BEGIN
   ORDER BY events.id
   FOR SHARE OF events;
 
+  -- clock_timestamp(), not now(): the lock above may have waited.
+  locked_at := clock_timestamp();
+
   WITH candidates AS (
     SELECT *
     FROM jsonb_to_recordset(reminder_candidates) AS candidate(
       dedupe_key text,
       event_id uuid,
+      minimum_lead_minutes integer,
       occurrence_starts_at timestamptz,
       payload jsonb,
       statuses jsonb,
@@ -643,6 +687,12 @@ BEGIN
     LEFT JOIN public.event_occurrence_exceptions AS occurrence_exception
       ON occurrence_exception.event_id = candidates.event_id
       AND occurrence_exception.original_starts_at = candidates.occurrence_starts_at
+    CROSS JOIN LATERAL (
+      SELECT CASE
+        WHEN occurrence_exception.kind = 'moved' THEN occurrence_exception.new_starts_at
+        ELSE candidates.occurrence_starts_at
+      END AS starts_at
+    ) AS effective_occurrence
     INNER JOIN public.event_attendances
       ON event_attendances.event_id = candidates.event_id
       AND event_attendances.tribe_id = candidates.tribe_id
@@ -654,10 +704,9 @@ BEGIN
         events.recurrence_until
       )
       AND occurrence_exception.kind IS DISTINCT FROM 'cancelled'
-      AND CASE
-        WHEN occurrence_exception.kind = 'moved' THEN occurrence_exception.new_starts_at
-        ELSE candidates.occurrence_starts_at
-      END = (candidates.payload ->> 'startsAt')::timestamptz
+      AND effective_occurrence.starts_at = (candidates.payload ->> 'startsAt')::timestamptz
+      AND effective_occurrence.starts_at
+        > locked_at + make_interval(mins => candidates.minimum_lead_minutes)
       AND event_attendances.status IN (
         SELECT jsonb_array_elements_text(candidates.statuses)
       )
