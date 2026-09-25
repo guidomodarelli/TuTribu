@@ -45,7 +45,9 @@ export const TRIBE_EVENT_REMINDERS = [TRIBE_EVENT_REMINDER.dayBefore, TRIBE_EVEN
 /**
  * Bounded processing per cron run: series are read in keyset pages so one
  * run never loads every series of the platform at once (at most
- * `maxPagesPerRun * seriesPerPage` series with a date in the next day). A run
+ * `maxPagesPerRun * seriesPerPage` series with an effective date in the next
+ * day; series whose cadence has no date there are filtered before the page
+ * limit and never count against the cap). A run
  * that hits the page cap reports `isComplete: false` in its structured log:
  * that is the signal to raise the cap or shard the cron before reminders of
  * the remaining series are skipped.

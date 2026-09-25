@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 
+import { notificationInboxSchema } from "@/src/modules/notifications/application/results/notification-public-dto-schemas";
 import { PostgresNotificationRepository } from "@/src/modules/notifications/infrastructure/repositories/postgres-notification-repository";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
@@ -184,6 +185,75 @@ describe("PostgresNotificationRepository", () => {
     expect(logger.warn).toHaveBeenCalledWith({
       message: expect.stringContaining("invalid instant"),
       metadata: { field: "startsAt", notificationId: "bad-starts-at", type: "event_occurrence_moved" },
+    });
+  });
+
+  it("skips and logs notifications whose payload ids are not UUIDs so the public inbox still parses", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...baseRow,
+            id: "5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+            payload: { eventId: "not-a-uuid", occurrenceStartsAt: OCCURRENCE },
+            type: "event_reminder_24h",
+          },
+          {
+            ...baseRow,
+            id: "7e8f9a0b-1c2d-4e3f-8a4b-5c6d7e8f9a0b",
+            payload: { decision: "rejected", proposalId: "11111111-1111-1111-1111-111111111111" },
+            type: "event_proposal_reviewed",
+          },
+          {
+            ...baseRow,
+            event_starts_at: "2026-05-20T21:00:00.000Z",
+            id: PROPOSAL_ID,
+            payload: { decision: "approved", eventId: "event-42", proposalId: PROPOSAL_ID },
+            type: "event_proposal_reviewed",
+          },
+          {
+            ...baseRow,
+            id: NOTIFICATION_ID,
+            payload: { eventId: EVENT_ID, occurrenceStartsAt: OCCURRENCE },
+            type: "event_reminder_15m",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ unread_count: 4 }] });
+    const logger = { warn: vi.fn() };
+    const repository = new PostgresNotificationRepository(createExecutor(execute), { logger });
+
+    const inbox = await repository.getInbox({ limit: 30, unreadCountCap: 100 });
+
+    expect(inbox.notifications.map((notification) => notification.id)).toEqual([
+      PROPOSAL_ID,
+      NOTIFICATION_ID,
+    ]);
+    expect(inbox.notifications[0]).toMatchObject({
+      proposal: { eventId: null, eventStartsAt: null, proposalId: PROPOSAL_ID },
+    });
+    expect(notificationInboxSchema.safeParse(inbox).success).toBe(true);
+    expect(logger.warn).toHaveBeenCalledTimes(3);
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid id"),
+      metadata: {
+        field: "eventId",
+        notificationId: "5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+        type: "event_reminder_24h",
+      },
+    });
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid id"),
+      metadata: {
+        field: "proposalId",
+        notificationId: "7e8f9a0b-1c2d-4e3f-8a4b-5c6d7e8f9a0b",
+        type: "event_proposal_reviewed",
+      },
+    });
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid id"),
+      metadata: { field: "eventId", notificationId: PROPOSAL_ID, type: "event_proposal_reviewed" },
     });
   });
 

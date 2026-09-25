@@ -64,8 +64,10 @@ function toReminderCandidate(
 }
 
 /**
- * Reminder job (maintenance cron, every 5 minutes): reads the series that can
- * have a date in the reminder windows, expands them with their exceptions
+ * Reminder job (maintenance cron, every 5 minutes): reads the series that
+ * have an effective date in the reminder range (the listing applies the exact
+ * occurrence predicate before its keyset limit, so series without a date in
+ * the next day never consume the page cap), expands them with their exceptions
  * (like `listUpcomingTribeEvents`), and enqueues the day-before (24 h) and
  * "en 15 minutos" reminders that are due and not sent yet for the members who
  * answered. Every run sees every due occurrence again (catch-up after a late

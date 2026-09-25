@@ -45,6 +45,8 @@ export type PostgresNotificationRepositoryOptions = {
 
 const INVALID_PAYLOAD_INSTANT_LOG_MESSAGE =
   "PostgresNotificationRepository:getInbox skipped a notification with an invalid instant in its payload";
+const INVALID_PAYLOAD_ID_LOG_MESSAGE =
+  "PostgresNotificationRepository:getInbox found an invalid id in a notification payload";
 
 type NotificationInboxRow = {
   created_at: Date | string;
@@ -68,6 +70,15 @@ type NotificationInboxRow = {
  */
 const PAYLOAD_UUID_PATTERN = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
 const PAYLOAD_INSTANT_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$";
+/**
+ * UUID shape the public inbox DTO accepts (`z.uuid()`: RFC 9562 version and
+ * variant nibbles, plus the nil and max UUIDs). Payload ids are narrowed to
+ * it before they reach the domain notification, so a malformed id skips only
+ * its row instead of making the public inbox schema reject every item. This
+ * is minimal structural narrowing of stored data, not a schema validation.
+ */
+const PUBLIC_UUID_SHAPE =
+  /^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
 const COUNT_BASE = 10;
 
 function mapInstant(value: Date | string): string {
@@ -88,6 +99,10 @@ function parsePayloadInstant(value: string): string | null {
   const instant = new Date(value);
 
   return Number.isNaN(instant.getTime()) ? null : instant.toISOString();
+}
+
+function isPublicUuid(value: string): boolean {
+  return PUBLIC_UUID_SHAPE.test(value);
 }
 
 function mapCount(value: unknown): number {
@@ -137,21 +152,31 @@ type InvalidPayloadInstantField =
   | typeof PAYLOAD_KEY.occurrenceStartsAt
   | typeof PAYLOAD_KEY.startsAt;
 
-type ReportInvalidPayloadInstant = (
-  row: NotificationInboxRow,
-  field: InvalidPayloadInstantField
-) => void;
+type InvalidPayloadIdField = typeof PAYLOAD_KEY.eventId | typeof PAYLOAD_KEY.proposalId;
+
+type InvalidPayloadField = InvalidPayloadInstantField | InvalidPayloadIdField;
+
+type ReportInvalidPayloadField = (row: NotificationInboxRow, field: InvalidPayloadField) => void;
+
+const INVALID_PAYLOAD_FIELD_LOG_MESSAGE: Record<InvalidPayloadField, string> = {
+  [PAYLOAD_KEY.eventId]: INVALID_PAYLOAD_ID_LOG_MESSAGE,
+  [PAYLOAD_KEY.occurrenceStartsAt]: INVALID_PAYLOAD_INSTANT_LOG_MESSAGE,
+  [PAYLOAD_KEY.proposalId]: INVALID_PAYLOAD_ID_LOG_MESSAGE,
+  [PAYLOAD_KEY.startsAt]: INVALID_PAYLOAD_INSTANT_LOG_MESSAGE,
+};
 
 /**
  * Maps an inbox row to the domain notification, or null when the row cannot
- * be shown (unknown type, missing ids, or an invalid payload instant), so it
- * is skipped instead of failing the inbox. A cancellation notice always shows
- * the cancelled time: a later move of the same date (the exception switched
- * to `moved`) must not rewrite that historical notice.
+ * be shown (unknown type, missing or malformed required ids, or an invalid
+ * payload instant), so it is skipped instead of failing the inbox. A malformed
+ * optional id (the event linked to a reviewed proposal) only drops that link.
+ * A cancellation notice always shows the cancelled time: a later move of the
+ * same date (the exception switched to `moved`) must not rewrite that
+ * historical notice.
  */
 function mapInboxNotification(
   row: NotificationInboxRow,
-  reportInvalidPayloadInstant: ReportInvalidPayloadInstant
+  reportInvalidPayloadField: ReportInvalidPayloadField
 ): InboxNotification | null {
   if (!isNotificationType(row.type)) {
     return null;
@@ -172,13 +197,27 @@ function mapInboxNotification(
       return null;
     }
 
-    const eventStartsAt = mapNullableInstant(row.event_starts_at);
+    if (!isPublicUuid(proposalId)) {
+      reportInvalidPayloadField(row, PAYLOAD_KEY.proposalId);
+
+      return null;
+    }
+
+    const rawLinkedEventId = readPayloadString(row.payload, PAYLOAD_KEY.eventId);
+    const linkedEventId =
+      rawLinkedEventId !== null && isPublicUuid(rawLinkedEventId) ? rawLinkedEventId : null;
+
+    if (rawLinkedEventId !== null && !linkedEventId) {
+      reportInvalidPayloadField(row, PAYLOAD_KEY.eventId);
+    }
+
+    const eventStartsAt = linkedEventId ? mapNullableInstant(row.event_starts_at) : null;
 
     return {
       ...base,
       proposal: {
         decision,
-        eventId: eventStartsAt ? readPayloadString(row.payload, PAYLOAD_KEY.eventId) : null,
+        eventId: eventStartsAt ? linkedEventId : null,
         eventStartsAt,
         proposalId,
         proposalTitle: row.proposal_title,
@@ -195,10 +234,16 @@ function mapInboxNotification(
     return null;
   }
 
+  if (!isPublicUuid(eventId)) {
+    reportInvalidPayloadField(row, PAYLOAD_KEY.eventId);
+
+    return null;
+  }
+
   const occurrenceStartsAt = parsePayloadInstant(rawOccurrenceStartsAt);
 
   if (!occurrenceStartsAt) {
-    reportInvalidPayloadInstant(row, PAYLOAD_KEY.occurrenceStartsAt);
+    reportInvalidPayloadField(row, PAYLOAD_KEY.occurrenceStartsAt);
 
     return null;
   }
@@ -207,7 +252,7 @@ function mapInboxNotification(
   const payloadStartsAt = rawPayloadStartsAt === null ? null : parsePayloadInstant(rawPayloadStartsAt);
 
   if (rawPayloadStartsAt !== null && !payloadStartsAt) {
-    reportInvalidPayloadInstant(row, PAYLOAD_KEY.startsAt);
+    reportInvalidPayloadField(row, PAYLOAD_KEY.startsAt);
 
     return null;
   }
@@ -311,7 +356,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
       const notifications = ((result.rows ?? []) as NotificationInboxRow[]).flatMap((row) => {
         const notification = mapInboxNotification(row, (skippedRow, field) => {
           this.logger?.warn({
-            message: INVALID_PAYLOAD_INSTANT_LOG_MESSAGE,
+            message: INVALID_PAYLOAD_FIELD_LOG_MESSAGE[field],
             metadata: { field, notificationId: skippedRow.id, type: skippedRow.type },
           });
         });

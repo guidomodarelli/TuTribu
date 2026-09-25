@@ -81,6 +81,10 @@ function markItemRead(
  * refresh is deferred until the last pending mark settles. A failed read
  * mark that a newer mutation superseded reconciles from the server (through
  * the same deferred refresh) instead of rolling back over the newer state.
+ * Reads also race each other (a count poll and a list refresh can observe
+ * different server snapshots and resolve out of order), so every read takes a
+ * shared, increasing read generation and adopts its unread count only when no
+ * newer read already applied one; an older list still renders its items.
  *
  * @param initialInbox - Inbox rendered by the layout, or null when it could
  * not be loaded (the bell then loads on open and polls the count).
@@ -102,6 +106,32 @@ export function useNotificationCenter(
   const mutationVersionRef = useRef(0);
   const pendingMutationCountRef = useRef(0);
   const hasDeferredListRefreshRef = useRef(false);
+  const readGenerationRef = useRef(0);
+  const appliedCountReadGenerationRef = useRef(0);
+
+  /**
+   * Starts a server read (poll or list refresh).
+   *
+   * @returns The read generation that orders it against every other read.
+   */
+  const beginRead = useCallback(() => {
+    readGenerationRef.current += 1;
+
+    return readGenerationRef.current;
+  }, []);
+
+  /**
+   * Adopts the unread count of a read unless a newer read already applied
+   * its own (read/read race: the older snapshot would restore a stale badge).
+   */
+  const adoptReadUnreadCount = useCallback((readGeneration: number, readUnreadCount: number) => {
+    if (readGeneration <= appliedCountReadGenerationRef.current) {
+      return;
+    }
+
+    appliedCountReadGenerationRef.current = readGeneration;
+    setUnreadCount(readUnreadCount);
+  }, []);
 
   const refreshUnreadCount = useCallback((signal: AbortSignal) => {
     if (pendingMutationCountRef.current > 0) {
@@ -111,6 +141,7 @@ export function useNotificationCenter(
     }
 
     const versionAtStart = mutationVersionRef.current;
+    const readGeneration = beginRead();
 
     fetchUnreadNotificationCountRequest({ signal })
       .then((result) => {
@@ -118,14 +149,14 @@ export function useNotificationCenter(
           return;
         }
 
-        setUnreadCount(result.unreadCount);
+        adoptReadUnreadCount(readGeneration, result.unreadCount);
       })
       .catch(() => {
         // Deliberate fallback: an aborted poll was superseded (or the bell
         // unmounted) and a network failure keeps the last known count; the
         // next tick retries. The badge is advisory, so no toast interrupts.
       });
-  }, []);
+  }, [adoptReadUnreadCount, beginRead]);
 
   useEffect(() => {
     let pollController: AbortController | null = null;
@@ -170,6 +201,7 @@ export function useNotificationCenter(
 
     const controller = new AbortController();
     const versionAtStart = mutationVersionRef.current;
+    const readGeneration = beginRead();
 
     listControllerRef.current = controller;
 
@@ -190,7 +222,7 @@ export function useNotificationCenter(
 
         if (versionAtStart === mutationVersionRef.current) {
           setNotifications(result.inbox.notifications);
-          setUnreadCount(result.inbox.unreadCount);
+          adoptReadUnreadCount(readGeneration, result.inbox.unreadCount);
         }
 
         setListStatus(NOTIFICATION_LIST_STATUS.loaded);
@@ -206,7 +238,7 @@ export function useNotificationCenter(
             : NOTIFICATION_LIST_STATUS.error
         );
       });
-  }, []);
+  }, [adoptReadUnreadCount, beginRead]);
 
   /**
    * Starts a local mutation: bumps the version (so in-flight reads discard
