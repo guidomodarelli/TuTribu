@@ -1,3 +1,4 @@
+import { openLessonEventSourceRouteScope } from "@/app/api/tribes/[slug]/courses/lesson-event-source-route-scope";
 import { lessonConversionTargetsResponseSchema } from "@/src/modules/courses/application/results/lesson-event-source-public-dto-schemas";
 import { LESSON_EVENT_SOURCE_STATUS } from "@/src/modules/courses/constants/courses";
 import {
@@ -8,13 +9,9 @@ import {
   parseLessonEventSourceInput,
 } from "@/src/modules/courses/infrastructure/api/lesson-event-source-http";
 import { lessonEventSourceParamsSchema } from "@/src/modules/courses/infrastructure/api/lesson-event-source-request-schemas";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const LESSON_TARGETS_ROUTE_LOG = {
   failureMessage: "Lesson conversion targets load failed",
-  feature: "courses",
   operation: "lesson-from-event-recording",
 } as const;
 
@@ -23,21 +20,16 @@ const LESSON_TARGETS_ROUTE_LOG = {
  * lesson. Course managers only (403 for everyone else).
  */
 export async function GET(request: Request, context: { params: Promise<{ slug: string }> }) {
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: LESSON_TARGETS_ROUTE_LOG.feature,
+  const scope = await openLessonEventSourceRouteScope(request, {
     operation: LESSON_TARGETS_ROUTE_LOG.operation,
-    requestId,
+    unexpectedFailureMessage: LESSON_EVENT_SOURCE_RESPONSE.unexpectedTargetsMessage,
   });
-  const modules = await createRequestModules({ requestId });
-  const member = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!member) {
-    return createLessonEventSourceJsonResponse(
-      { message: LESSON_EVENT_SOURCE_RESPONSE.unauthorizedMessage },
-      LESSON_EVENT_SOURCE_HTTP_STATUS.unauthorized
-    );
+  if (!scope.isOpen) {
+    return scope.response;
   }
+
+  const { logger, member, modules } = scope;
 
   const input = await parseLessonEventSourceInput({
     logger,

@@ -1,3 +1,4 @@
+import { openLessonEventSourceRouteScope } from "@/app/api/tribes/[slug]/courses/lesson-event-source-route-scope";
 import { buildCourseLessonRoute } from "@/lib/courses/course-lesson-route";
 import { lessonConversionResponseSchema } from "@/src/modules/courses/application/results/lesson-event-source-public-dto-schemas";
 import { LESSON_EVENT_SOURCE_STATUS } from "@/src/modules/courses/constants/courses";
@@ -13,14 +14,10 @@ import {
   lessonFromEventBodySchema,
 } from "@/src/modules/courses/infrastructure/api/lesson-event-source-request-schemas";
 import { TRIBE_EVENT_MUTATION_STATUS } from "@/src/modules/events/constants/tribe-events";
-import { createRequestModules } from "@/src/modules/setup";
-import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
-import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const LESSON_FROM_EVENT_ROUTE_LOG = {
   completedMessage: "Lesson conversion from event recording completed",
   failureMessage: "Lesson conversion from event recording failed",
-  feature: "courses",
   operation: "lesson-from-event-recording",
   occurrenceUnavailableMessage:
     "Lesson conversion rejected: the source occurrence is not finished or was cancelled",
@@ -61,21 +58,16 @@ function createOccurrenceUnavailableResponse(): Response {
  * inside that transaction.
  */
 export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
-  const { requestId } = resolveRequestContext(request.headers);
-  const logger = createServerLogger({
-    feature: LESSON_FROM_EVENT_ROUTE_LOG.feature,
+  const scope = await openLessonEventSourceRouteScope(request, {
     operation: LESSON_FROM_EVENT_ROUTE_LOG.operation,
-    requestId,
+    unexpectedFailureMessage: LESSON_EVENT_SOURCE_RESPONSE.unexpectedConversionMessage,
   });
-  const modules = await createRequestModules({ requestId });
-  const member = await modules.auth.useCases.getAuthenticatedMember();
 
-  if (!member) {
-    return createLessonEventSourceJsonResponse(
-      { message: LESSON_EVENT_SOURCE_RESPONSE.unauthorizedMessage },
-      LESSON_EVENT_SOURCE_HTTP_STATUS.unauthorized
-    );
+  if (!scope.isOpen) {
+    return scope.response;
   }
+
+  const { logger, member, modules } = scope;
 
   const input = await parseLessonEventSourceInput({
     bodySchema: lessonFromEventBodySchema,

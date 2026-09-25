@@ -641,6 +641,79 @@ describe("lesson conversion routes", () => {
     expect(JSON.stringify(logWarn.mock.calls)).not.toContain("drop");
   });
 
+  it.each([
+    ["module composition", () => (createRequestModules as Mock).mockRejectedValue(new Error("pool exhausted"))],
+    ["session lookup", () => getAuthenticatedMember.mockRejectedValue(new Error("better-auth secret mismatch"))],
+  ])(
+    "answers a safe Spanish 500 on every lesson conversion route when %s fails while opening the scope",
+    async (_failure, arrangeFailure) => {
+      arrangeFailure();
+
+      const responses = await Promise.all([
+        POST_LESSON_FROM_EVENT(
+          buildRequest("https://tutribu.example.com/api", conversionBody),
+          tribeContext()
+        ),
+        GET_LESSON_TARGETS(buildRequest("https://tutribu.example.com/api"), tribeContext()),
+      ]);
+      const bodies = await Promise.all(responses.map((response) => response.json()));
+
+      expect(responses.map((response) => response.status)).toEqual([500, 500]);
+      expect(bodies).toEqual([
+        { message: "No pudimos crear la lección. Intentá de nuevo." },
+        { message: "No pudimos cargar los cursos. Intentá de nuevo." },
+      ]);
+      expect(JSON.stringify(bodies)).not.toMatch(/pool exhausted|better-auth/);
+      expect(logError).toHaveBeenCalledTimes(2);
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.any(Error),
+          message: "Lesson conversion route scope setup failed",
+        })
+      );
+      expect(eventUseCases.getTribeEventRecordingLessonSource).not.toHaveBeenCalled();
+      expect(courseUseCases.createLessonFromEventRecording).not.toHaveBeenCalled();
+      expect(courseUseCases.listLessonConversionTargets).not.toHaveBeenCalled();
+    }
+  );
+
+  it("logs the lesson conversion scope setup failure with the request id of the call", async () => {
+    const { createServerLogger } = await import(
+      "@/src/modules/shared/infrastructure/observability/server-logger"
+    );
+
+    (createRequestModules as Mock).mockRejectedValue(new Error("pool exhausted"));
+
+    await POST_LESSON_FROM_EVENT(
+      {
+        ...buildRequest("https://tutribu.example.com/api", conversionBody),
+        headers: new Headers({ "x-request-id": CLIENT_REQUEST_ID }),
+      } as unknown as Request,
+      tribeContext()
+    );
+
+    expect(createServerLogger).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: "lesson-from-event-recording", requestId: CLIENT_REQUEST_ID })
+    );
+  });
+
+  it("answers 401 on the lesson conversion routes without a session", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+
+    const responses = await Promise.all([
+      POST_LESSON_FROM_EVENT(
+        buildRequest("https://tutribu.example.com/api", conversionBody),
+        tribeContext()
+      ),
+      GET_LESSON_TARGETS(buildRequest("https://tutribu.example.com/api"), tribeContext()),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([401, 401]);
+    expect(await responses[0].json()).toEqual({ message: "Iniciá sesión para gestionar los cursos." });
+    expect(eventUseCases.getTribeEventRecordingLessonSource).not.toHaveBeenCalled();
+    expect(courseUseCases.listLessonConversionTargets).not.toHaveBeenCalled();
+  });
+
   it("lists the conversion targets only for course managers", async () => {
     courseUseCases.listLessonConversionTargets.mockResolvedValueOnce({
       courses: [{ id: COURSE_ID, modules: [{ id: MODULE_ID, title: "Talleres" }], title: "Grabaciones" }],
