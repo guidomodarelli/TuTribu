@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "beez-ui";
 
 import {
+  trackTribeEventConversationMutation,
+  waitForTribeEventConversationMutations,
+} from "@/lib/events/tribe-event-occurrence-pending-mutations";
+import {
   createTribeEventCommentRequest,
   deleteTribeEventCommentRequest,
   fetchTribeEventConversationRequest,
@@ -45,7 +49,9 @@ type PendingCommentAttempt = {
  * route. A ref guards against duplicate submits. Each send carries a client
  * request id generated once per attempt and reused while the same text is
  * retried after a failure, so a retry after a lost or unreadable response
- * answers the comment already created instead of duplicating it.
+ * answers the comment already created instead of duplicating it. Comment
+ * creations and deletions are registered per occurrence and a load waits for
+ * them, so reopening the detail while one is pending shows its outcome.
  *
  * @param target - Occurrence addressed by the conversation.
  * @returns Load state, submitting flags, and the mutations.
@@ -65,13 +71,18 @@ export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
 
   useEffect(() => {
     const abortController = new AbortController();
+    const occurrenceTarget = { eventId, originalStartsAt, tribeSlug };
 
-    fetchTribeEventConversationRequest(
-      { eventId, originalStartsAt, tribeSlug },
-      abortController.signal
-    )
+    // A comment created or deleted by a previous opening of this occurrence
+    // may still be committing: load after it so the thread is not stale.
+    waitForTribeEventConversationMutations(occurrenceTarget)
+      .then(() =>
+        abortController.signal.aborted
+          ? null
+          : fetchTribeEventConversationRequest(occurrenceTarget, abortController.signal)
+      )
       .then((result) => {
-        if (abortController.signal.aborted) {
+        if (!result || abortController.signal.aborted) {
           return;
         }
 
@@ -124,10 +135,12 @@ export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
     pendingCommentAttemptRef.current = pendingAttempt;
 
     try {
-      const result = await createTribeEventCommentRequest(
-        { eventId, originalStartsAt, tribeSlug },
-        pendingAttempt
-      );
+      const occurrenceTarget = { eventId, originalStartsAt, tribeSlug };
+      const request = createTribeEventCommentRequest(occurrenceTarget, pendingAttempt);
+
+      trackTribeEventConversationMutation(occurrenceTarget, request);
+
+      const result = await request;
 
       if (!result.isSuccess) {
         toast.error(result.message ?? COPY.createFailure);
@@ -164,7 +177,11 @@ export function useTribeEventConversation(target: TribeEventOccurrenceTarget) {
     setDeletingCommentIds((currentIds) => new Set(currentIds).add(commentId));
 
     try {
-      const result = await deleteTribeEventCommentRequest({ commentId, tribeSlug });
+      const request = deleteTribeEventCommentRequest({ commentId, tribeSlug });
+
+      trackTribeEventConversationMutation({ eventId, originalStartsAt, tribeSlug }, request);
+
+      const result = await request;
 
       if (!result.isSuccess) {
         toast.error(result.message ?? COPY.deleteFailure);

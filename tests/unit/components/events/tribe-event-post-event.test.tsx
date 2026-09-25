@@ -617,6 +617,45 @@ describe("TribeEventOccurrenceActivity", () => {
     expect(reactionBodies).toHaveLength(1);
   });
 
+  it("reports a reaction that fails after the detail closed while it was in flight", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { toast } = await import("beez-ui");
+    const reactionBodies: unknown[] = [];
+    let settleReaction: (response: RouteResponse) => void = () => undefined;
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      [`PUT /events/${EVENT_ID}/reaction`]: (init) => {
+        reactionBodies.push(JSON.parse(String(init?.body)));
+
+        return new Promise<RouteResponse>((resolve) => {
+          settleReaction = resolve;
+        });
+      },
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { rerender } = render(<KeyedActivity detailSession={1} />);
+
+    await user.click(await screen.findByRole("button", { name: "Estuvo genial: 2 personas" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TRIBE_EVENT_REACTION_FLUSH_DELAY_MS);
+    });
+    await waitFor(() => expect(reactionBodies).toHaveLength(1));
+
+    // Close the detail while the debounced reaction is on the wire.
+    rerender(<KeyedActivity detailSession={null} />);
+
+    await act(async () => {
+      settleReaction({ body: { message: "Esta fecha todavía no terminó." }, ok: false, status: 409 });
+    });
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Esta fecha todavía no terminó."));
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(reactionBodies).toHaveLength(1);
+  });
+
   it("saves the recording and materials and reports the new availability", async () => {
     const onRecordingAvailabilityChange = vi.fn();
     const savedBodies: unknown[] = [];
@@ -832,6 +871,85 @@ describe("TribeEventOccurrenceActivity", () => {
     await user.click(screen.getByRole("button", { name: "Sí, eliminar" }));
 
     await waitFor(() => expect(screen.queryByText("¿Suben las slides?")).not.toBeInTheDocument());
+  });
+
+  it("shows a comment published after the detail was closed and reopened", async () => {
+    const newComment = {
+      authorImageUrl: null,
+      authorName: "Beto",
+      canDelete: true,
+      content: "¡Gracias!",
+      createdAt: "2026-05-15T10:00:00.000Z",
+      id: "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d",
+    };
+    let persistedComments: unknown[] = [];
+    let settleCreate: () => void = () => undefined;
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: () => ({
+        body: { canComment: true, comments: persistedComments },
+      }),
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+      [`POST /events/${EVENT_ID}/comments`]: () =>
+        new Promise<RouteResponse>((resolve) => {
+          settleCreate = () => {
+            persistedComments = [newComment];
+            resolve({ body: { comment: newComment, message: "Comentario publicado." }, status: 201 });
+          };
+        }),
+    });
+
+    const user = userEvent.setup();
+    const { rerender } = render(<KeyedActivity detailSession={1} />);
+
+    await user.type(await screen.findByLabelText("Escribí un comentario"), "¡Gracias!");
+    await user.click(screen.getByRole("button", { name: "Publicar" }));
+
+    // Close the detail while the comment is pending and reopen the same occurrence.
+    rerender(<KeyedActivity detailSession={null} />);
+    rerender(<KeyedActivity detailSession={2} />);
+
+    await act(async () => {
+      settleCreate();
+    });
+
+    expect(await screen.findByText("¡Gracias!", { selector: "p" })).toBeInTheDocument();
+  });
+
+  it("hides a comment deleted after the detail was closed and reopened", async () => {
+    let isCommentDeleted = false;
+    let settleDelete: () => void = () => undefined;
+
+    mockApi({
+      [`DELETE /events/comments/${COMMENT_ID}`]: () =>
+        new Promise<RouteResponse>((resolve) => {
+          settleDelete = () => {
+            isCommentDeleted = true;
+            resolve({ body: { message: "Comentario eliminado." } });
+          };
+        }),
+      [`GET /events/${EVENT_ID}/comments`]: () =>
+        isCommentDeleted ? { body: { canComment: true, comments: [] } } : conversationHandler(),
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({ body: { postEvent: buildPostEvent() } }),
+    });
+
+    const user = userEvent.setup();
+    const { rerender } = render(<KeyedActivity detailSession={1} />);
+
+    await user.click(await screen.findByRole("button", { name: "Eliminar comentario de Ana" }));
+    await user.click(screen.getByRole("button", { name: "Sí, eliminar" }));
+
+    rerender(<KeyedActivity detailSession={null} />);
+    rerender(<KeyedActivity detailSession={2} />);
+
+    await act(async () => {
+      settleDelete();
+    });
+
+    expect(
+      await screen.findByText("Todavía no hay comentarios. Contá cómo te fue.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("¿Suben las slides?")).not.toBeInTheDocument();
   });
 
   it("does not repeat a replayed comment the thread already shows", async () => {
