@@ -20,6 +20,11 @@ import {
   isTribeEventOccurrenceReaction,
 } from "@/src/modules/events/domain/services/tribe-event-post-event";
 import {
+  lockTribeEventOccurrenceForWrite,
+  readTribeEventOccurrenceWriteTarget,
+  type TribeEventFinishedOccurrenceFailureStatus,
+} from "@/src/modules/events/infrastructure/repositories/tribe-event-occurrence-write-guard";
+import {
   mapCount,
   type TribeEventDatabaseExecutor,
 } from "@/src/modules/events/infrastructure/repositories/tribe-event-sql";
@@ -34,6 +39,8 @@ import {
  * materials, reactions). Reads repeat `can_read_tribe_content`; resource
  * writes repeat `can_manage_tribe_events`; reactions repeat
  * `is_active_tribe_member` and ownership (the runtime role bypasses RLS).
+ * Every write revalidates the slot and the permission under the membership
+ * and event row locks (`tribe-event-occurrence-write-guard`).
  */
 
 type ResourcesRow = {
@@ -45,16 +52,6 @@ type ResourcesRow = {
   source_url: string | null;
   video_provider: string | null;
   viewer_reaction: string | null;
-};
-
-type TargetEventRow = {
-  can_manage: boolean | null;
-  tribe_id: string | null;
-};
-
-type ReactionTargetRow = {
-  can_participate: boolean | null;
-  tribe_id: string | null;
 };
 
 /**
@@ -223,6 +220,32 @@ async function readReactionSummary(
   return mapReactionSummary(row?.reaction_counts ?? null, row?.viewer_reaction ?? null);
 }
 
+type ManagedOccurrence =
+  | { isAccepted: true; tribeId: string }
+  | {
+      isAccepted: false;
+      status: TribeEventFinishedOccurrenceFailureStatus | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden;
+    };
+
+/**
+ * Finished, non-cancelled slot the viewer still manages, read under the
+ * locks taken so far.
+ */
+async function readManagedOccurrence(
+  database: RequestDatabase,
+  key: TribeEventOccurrenceKeyQuery
+): Promise<ManagedOccurrence> {
+  const target = await readTribeEventOccurrenceWriteTarget(database, key, true);
+
+  if (!target.isAccepted) {
+    return target;
+  }
+
+  return target.guard.canManage
+    ? { isAccepted: true, tribeId: target.guard.tribeId }
+    : { isAccepted: false, status: TRIBE_EVENT_MUTATION_STATUS.forbidden };
+}
+
 export class PostgresTribeEventPostEventRepository implements TribeEventPostEventRepository {
   constructor(private readonly executeWithDatabase: TribeEventDatabaseExecutor) {}
 
@@ -234,11 +257,16 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
 
   /**
    * Replaces the recording (upsert, or delete when null) and the whole list
-   * of materials in one transaction. An advisory lock per occurrence
-   * serializes two managers saving at once, so the materials list is never
-   * interleaved (delete + insert of the same sort orders). The lock is taken
-   * in its own statement: the following statements get a snapshot that
-   * already sees the other save committed.
+   * of materials in one transaction. Lock order: the manager's membership
+   * and the event row (`lockTribeEventOccurrenceForWrite`), then an advisory
+   * lock per occurrence that serializes two managers saving at once, so the
+   * materials list is never interleaved (delete + insert of the same sort
+   * orders). Each lock is its own statement, so the following statements get
+   * a snapshot that already sees what committed while they waited.
+   *
+   * The guard is read after the event row lock: the slot must still be a
+   * finished, non-cancelled date of the current schedule and the viewer must
+   * manage events.
    *
    * Only the INSERT of a recording enqueues "event_recording_available"
    * (database trigger, same transaction); replacing the link is an UPDATE.
@@ -247,25 +275,12 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
     command: SaveTribeEventPostEventResourcesCommand
   ): Promise<TribeEventPostEventSaveResult> {
     return this.executeWithDatabase(async (database) => {
-      const targetResult = await database.execute(sql`
-        select
-          events.tribe_id,
-          public.can_manage_tribe_events(events.tribe_id) as can_manage
-        from public.events
-        inner join public.tribes
-          on tribes.id = events.tribe_id
-        where tribes.slug = ${command.tribeSlug}
-          and events.id = ${command.eventId}
-        limit 1
-      `);
-      const target = (targetResult.rows?.[0] ?? null) as TargetEventRow | null;
+      await lockTribeEventOccurrenceForWrite(database, command);
 
-      if (!target?.tribe_id) {
-        return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
-      }
+      const target = await readManagedOccurrence(database, command);
 
-      if (!target.can_manage) {
-        return { status: TRIBE_EVENT_MUTATION_STATUS.forbidden };
+      if (!target.isAccepted) {
+        return { status: target.status };
       }
 
       await database.execute(sql`
@@ -293,14 +308,14 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
           )
           values (
             ${command.eventId},
-            ${target.tribe_id},
+            ${target.tribeId},
             ${command.originalStartsAt}::timestamptz,
             ${command.recording.provider},
             ${command.recording.externalVideoId},
             ${command.recording.sourceUrl},
             public.current_app_user_id(),
-            timezone('utc', now()),
-            timezone('utc', now())
+            timezone('utc', clock_timestamp()),
+            timezone('utc', clock_timestamp())
           )
           on conflict (event_id, original_starts_at) do update set
             video_provider = excluded.video_provider,
@@ -338,7 +353,7 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
           )
           select
             ${command.eventId},
-            ${target.tribe_id},
+            ${target.tribeId},
             ${command.originalStartsAt}::timestamptz,
             material.title,
             material.url,
@@ -362,28 +377,24 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
   /**
    * Upserts (or deletes, with `reaction: null`) the viewer's reaction and
    * answers with the fresh counts. Only an active member of the event's tribe
-   * writes; repeating the same reaction is a no-op.
+   * writes; repeating the same reaction is a no-op. The slot is revalidated
+   * under the membership and event row locks: a new reaction needs a
+   * finished, non-cancelled date, while removing one only needs a real slot.
    */
   async setReaction(
     command: SetTribeEventOccurrenceReactionCommand
   ): Promise<TribeEventOccurrenceReactionResult> {
     return this.executeWithDatabase(async (database) => {
-      const targetResult = await database.execute(sql`
-        select
-          events.tribe_id,
-          public.is_active_tribe_member(events.tribe_id) as can_participate
-        from public.events
-        inner join public.tribes
-          on tribes.id = events.tribe_id
-        where tribes.slug = ${command.tribeSlug}
-          and events.id = ${command.eventId}
-          and public.can_read_tribe_content(tribes.id)
-        limit 1
-      `);
-      const target = (targetResult.rows?.[0] ?? null) as ReactionTargetRow | null;
+      await lockTribeEventOccurrenceForWrite(database, command);
 
-      if (!target?.tribe_id) {
-        return { status: TRIBE_EVENT_MUTATION_STATUS.notFound };
+      const target = await readTribeEventOccurrenceWriteTarget(
+        database,
+        command,
+        command.reaction !== null
+      );
+
+      if (!target.isAccepted) {
+        return { status: target.status };
       }
 
       if (command.reaction === null) {
@@ -400,7 +411,7 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
         };
       }
 
-      if (!target.can_participate) {
+      if (!target.guard.canParticipate) {
         return { status: TRIBE_EVENT_MUTATION_STATUS.forbidden };
       }
 
@@ -416,7 +427,7 @@ export class PostgresTribeEventPostEventRepository implements TribeEventPostEven
         )
         values (
           ${command.eventId},
-          ${target.tribe_id},
+          ${target.guard.tribeId},
           ${command.originalStartsAt}::timestamptz,
           public.current_app_user_id(),
           ${command.reaction},

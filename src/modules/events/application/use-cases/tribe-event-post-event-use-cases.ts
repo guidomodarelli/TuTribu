@@ -47,6 +47,13 @@ import {
  * and the recording as a lesson source. The occurrence is always resolved
  * from the series first, so a key can only address a real slot, and its
  * effective times (moved dates) decide whether it already finished.
+ *
+ * That resolution runs in its own transactions, so it only fails fast and
+ * builds the response: every write repeats the slot checks (still a slot of
+ * the current schedule, not cancelled, finished when required) and the
+ * permission in the write transaction, under the membership and event row
+ * locks, and its status (`invalidOccurrence`, `occurrenceCancelled`,
+ * `occurrenceNotFinished`, `forbidden`) is passed through as is.
  */
 
 type OccurrenceDependencies = {

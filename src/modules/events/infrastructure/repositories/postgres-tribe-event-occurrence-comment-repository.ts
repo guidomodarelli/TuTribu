@@ -13,6 +13,10 @@ import type {
   TribeEventOccurrenceKeyQuery,
 } from "@/src/modules/events/domain/repositories/tribe-event-post-event-repository";
 import {
+  lockTribeEventOccurrenceForWrite,
+  readTribeEventOccurrenceWriteTarget,
+} from "@/src/modules/events/infrastructure/repositories/tribe-event-occurrence-write-guard";
+import {
   mapDateValue,
   type TribeEventDatabaseExecutor,
 } from "@/src/modules/events/infrastructure/repositories/tribe-event-sql";
@@ -143,10 +147,29 @@ export class PostgresTribeEventOccurrenceCommentRepository
     });
   }
 
+  /**
+   * Adds a comment of an active member. The slot (a real date of the current
+   * schedule; cancelled dates keep their conversation) and the membership
+   * are revalidated under the membership and event row locks, so a schedule
+   * edit or a block that committed after the use case resolved the
+   * occurrence is honored.
+   */
   async create(
     command: CreateTribeEventOccurrenceCommentCommand
   ): Promise<TribeEventOccurrenceCommentCreateResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockTribeEventOccurrenceForWrite(database, command);
+
+      const target = await readTribeEventOccurrenceWriteTarget(database, command, false);
+
+      if (!target.isAccepted) {
+        return { status: target.status };
+      }
+
+      if (!target.guard.canParticipate) {
+        return { status: TRIBE_EVENT_MUTATION_STATUS.forbidden };
+      }
+
       const result = await database.execute(sql`
         with target_event as (
           select events.id, events.tribe_id

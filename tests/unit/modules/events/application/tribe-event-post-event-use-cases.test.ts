@@ -238,9 +238,37 @@ describe("saveTribeEventPostEvent", () => {
       })
     ).resolves.toEqual({ status: "forbidden" });
   });
+
+  it("reports a date cancelled after it was resolved, as revalidated by the write", async () => {
+    const dependencies = buildDependencies(AFTER_END, null);
+
+    vi.mocked(dependencies.tribeEventPostEventRepository.saveResources).mockResolvedValue({
+      status: "occurrence_cancelled",
+    });
+
+    await expect(
+      saveTribeEventPostEvent(dependencies)({
+        ...occurrenceQuery,
+        materials: [],
+        recordingUrl: YOUTUBE_URL,
+      })
+    ).resolves.toEqual({ status: "occurrence_cancelled" });
+  });
 });
 
 describe("setTribeEventOccurrenceReaction", () => {
+  it("reports an instant that stopped being a slot before the reaction was written", async () => {
+    const dependencies = buildDependencies(AFTER_END, null);
+
+    vi.mocked(dependencies.tribeEventPostEventRepository.setReaction).mockResolvedValue({
+      status: "invalid_occurrence",
+    });
+
+    await expect(
+      setTribeEventOccurrenceReaction(dependencies)({ ...occurrenceQuery, reaction: "fire" })
+    ).resolves.toEqual({ status: "invalid_occurrence" });
+  });
+
   it("saves a reaction on a finished occurrence", async () => {
     const dependencies = buildDependencies(AFTER_END, null);
     const reactions = { counts: { fire: 1, neutral: 0, thumbs_up: 0 }, viewerReaction: "fire" as const };

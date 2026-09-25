@@ -12,7 +12,8 @@ import type {
  * repeats `can_read_tribe_content` in SQL and every write repeats its own
  * guard (`can_manage_tribe_events` for resources, `is_active_tribe_member`
  * plus ownership for reactions and comments) because the runtime role
- * bypasses RLS.
+ * bypasses RLS. Writes also revalidate the occurrence slot in their own
+ * transaction.
  */
 
 export type TribeEventOccurrenceKeyQuery = {
@@ -51,12 +52,25 @@ type PostEventFailureStatus =
   | typeof TRIBE_EVENT_MUTATION_STATUS.forbidden
   | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
 
+/**
+ * Slot checks every write repeats inside its own transaction, under the
+ * membership and event row locks: the use case resolved the occurrence in an
+ * earlier transaction, and a manager may have cancelled or moved the date,
+ * or edited the schedule, in between.
+ */
+type OccurrenceSlotFailureStatus = typeof TRIBE_EVENT_MUTATION_STATUS.invalidOccurrence;
+
+type FinishedOccurrenceFailureStatus =
+  | OccurrenceSlotFailureStatus
+  | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled
+  | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceNotFinished;
+
 export type TribeEventPostEventSaveResult =
   | {
       resources: TribeEventPostEventResources;
       status: typeof TRIBE_EVENT_MUTATION_STATUS.postEventSaved;
     }
-  | { status: PostEventFailureStatus };
+  | { status: FinishedOccurrenceFailureStatus | PostEventFailureStatus };
 
 /**
  * `reaction: null` removes the viewer's reaction (idempotent).
@@ -72,7 +86,7 @@ export type TribeEventOccurrenceReactionResult =
         | typeof TRIBE_EVENT_MUTATION_STATUS.reactionCleared
         | typeof TRIBE_EVENT_MUTATION_STATUS.reactionSaved;
     }
-  | { status: PostEventFailureStatus };
+  | { status: FinishedOccurrenceFailureStatus | PostEventFailureStatus };
 
 export type TribeEventPostEventRepository = {
   /**
@@ -112,7 +126,7 @@ export type TribeEventOccurrenceCommentCreateResult =
       comment: TribeEventOccurrenceComment;
       status: typeof TRIBE_EVENT_MUTATION_STATUS.commentCreated;
     }
-  | { status: PostEventFailureStatus };
+  | { status: OccurrenceSlotFailureStatus | PostEventFailureStatus };
 
 export type TribeEventOccurrenceCommentDeleteResult = {
   status: typeof TRIBE_EVENT_MUTATION_STATUS.commentDeleted | PostEventFailureStatus;
