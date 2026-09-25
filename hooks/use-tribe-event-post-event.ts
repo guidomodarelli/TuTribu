@@ -81,8 +81,9 @@ export function useTribeEventPostEvent({
   const reactionIntentRef = useRef<PendingReactionIntent | null>(null);
   const reactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isReactionRequestInFlightRef = useRef(false);
-  // Bumped whenever the reactions are replaced by a load or a save, so an
-  // older reaction answer never overwrites them.
+  // Bumped whenever a load (or a save with no pending reaction) replaces the
+  // reactions, so an older reaction answer never overwrites them. A save that
+  // races a pending reaction keeps the scope: that reaction answer is newer.
   const reactionScopeRef = useRef(0);
   const { eventId, originalStartsAt, tribeSlug } = target;
   // Effect event: the load effect reports with the latest parent callback
@@ -149,6 +150,33 @@ export function useTribeEventPostEvent({
     setReloadCount((currentCount) => currentCount + 1);
   }, []);
 
+  /**
+   * Adopts the reactions of a resources save without discarding the viewer's
+   * pending reaction. The save can race a debounced or in-flight reaction and
+   * answer with the pre-reaction counts, so a pending intent survives: its
+   * baseline becomes the saved summary, the optimistic view is kept on top,
+   * and the reaction response (same scope) stays the final authority.
+   *
+   * @param savedReactions - Reaction summary returned by the save.
+   */
+  const reconcileReactionsAfterSave = (savedReactions: TribeEventReactionSummary) => {
+    const pendingIntent = reactionIntentRef.current;
+
+    if (!pendingIntent) {
+      reactionScopeRef.current += 1;
+      setVisibleReactions(savedReactions);
+      return;
+    }
+
+    reactionIntentRef.current = {
+      baseline: savedReactions,
+      intendedReaction: pendingIntent.intendedReaction,
+    };
+    setVisibleReactions(
+      applyOptimisticTribeEventReaction(savedReactions, pendingIntent.intendedReaction)
+    );
+  };
+
   const saveResources = async (payload: TribeEventPostEventResourcesPayload): Promise<boolean> => {
     if (isSavingRef.current) {
       return false;
@@ -178,9 +206,7 @@ export function useTribeEventPostEvent({
       const result = await request;
 
       if (isMountedRef.current) {
-        reactionIntentRef.current = null;
-        reactionScopeRef.current += 1;
-        setVisibleReactions(result.postEvent.reactions);
+        reconcileReactionsAfterSave(result.postEvent.reactions);
         setLoadState({ postEvent: result.postEvent, status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded });
       }
 
@@ -224,7 +250,7 @@ export function useTribeEventPostEvent({
 
     isReactionRequestInFlightRef.current = false;
 
-    // A reload or a save replaced the reactions meanwhile: this answer is stale.
+    // A reload replaced the reactions meanwhile: this answer is stale.
     if (!isMountedRef.current || reactionScopeRef.current !== scope) {
       return;
     }
