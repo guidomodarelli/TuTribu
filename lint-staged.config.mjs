@@ -4,20 +4,17 @@
  * The hook stays focused on what the commit touches so it remains fast enough
  * for every commit. The full repository gate (`pnpm run ci`, which also runs
  * the whole Vitest suite and `next build`) runs in the Husky `pre-push` hook.
+ *
+ * lint-staged ignores deleted files, so deletion-only migration commits are
+ * covered by `scripts/pre-commit-migration-guardrails.mjs`, which shares the
+ * guardrail filters below.
  */
+
+import { MIGRATION_GUARDRAIL_TEST_FILTERS } from "./scripts/pre-commit-migration-guardrails.mjs";
 
 const SCRIPT_FILE_PATTERN = "*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}";
 const TYPED_FILE_PATTERN = "*.{ts,tsx,mts,cts}";
 const MIGRATION_FILE_PATTERN = "database/migrations/**";
-
-/** Vitest file-name filters for the suites that guard SQL migrations. */
-const MIGRATION_GUARDRAIL_TEST_FILTERS = [
-  "sql-guardrails",
-  "migration-guardrails",
-  "migration-rls",
-  "push-migrations-script",
-  "dropped-column-references",
-];
 
 export default {
   // lint-staged appends the staged file paths to string commands.

@@ -1,1 +1,3 @@
 pnpm exec lint-staged
+# lint-staged ignores deleted files; run the migration guardrails for deletion-only commits.
+node scripts/pre-commit-migration-guardrails.mjs

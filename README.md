@@ -168,7 +168,7 @@ pnpm run lint
 
 ## Deployment targets
 
-A Husky `pre-commit` hook runs lint-staged on every commit (ESLint and related Vitest suites for staged scripts, both type checks when TypeScript changes, and the SQL guardrail suites when migrations change). A Husky `pre-push` hook runs the full `pnpm run ci` gate on the pushed commits before every push (in a temporary worktree when a pushed commit differs from the clean checkout); there is no GitHub Actions gate. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
+A Husky `pre-commit` hook runs lint-staged on every commit (ESLint and related Vitest suites for staged scripts, both type checks when TypeScript changes, and the SQL guardrail suites when migrations change, including deletion-only commits through `scripts/pre-commit-migration-guardrails.mjs`). A Husky `pre-push` hook runs the full `pnpm run ci` gate on the pushed commits before every push (in a temporary worktree when a pushed commit differs from the clean checkout); there is no GitHub Actions gate. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
 
 Cloudflare Workers is supported through `@opennextjs/cloudflare` and `wrangler.jsonc`. Use the Cloudflare-specific scripts instead of invoking `wrangler` directly for the Next.js app:
 
