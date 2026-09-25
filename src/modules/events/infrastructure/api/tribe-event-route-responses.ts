@@ -85,6 +85,8 @@ export const TRIBE_EVENT_ROUTE_RESPONSE = {
   proposalReviewForbiddenMessage: "Solo quienes gestionan eventos pueden revisar propuestas.",
   proposalWithdrawnMessage: "Propuesta retirada.",
   scheduleChangedMessage: "El evento cambió; recargá para ver las fechas actualizadas.",
+  scheduleRemovesPostEventContentMessage:
+    "No podés cambiar el horario ni la repetición así: hay fechas con grabación, materiales, reacciones o comentarios que dejarían de existir.",
   tribeNotFoundMessage: "No pudimos encontrar la tribu.",
   unauthorizedMessage: "Iniciá sesión para gestionar eventos.",
   unexpectedAttendanceMessage: "No pudimos guardar tu respuesta. Intentá de nuevo.",
@@ -146,6 +148,11 @@ export function mapTribeEventMutationStatusResponse(status: string): Response {
       return createJsonResponse(
         { message: TRIBE_EVENT_ROUTE_RESPONSE.invalidRecurrenceMessage },
         TRIBE_EVENT_ROUTE_HTTP_STATUS.badRequest
+      );
+    case TRIBE_EVENT_MUTATION_STATUS.scheduleRemovesPostEventContent:
+      return createJsonResponse(
+        { message: TRIBE_EVENT_ROUTE_RESPONSE.scheduleRemovesPostEventContentMessage },
+        TRIBE_EVENT_ROUTE_HTTP_STATUS.conflict
       );
     case TRIBE_EVENT_MUTATION_STATUS.notFound:
       return createJsonResponse(

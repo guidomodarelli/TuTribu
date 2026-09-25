@@ -97,7 +97,9 @@ export type TribeEventSaveFailureStatus =
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidDate
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidMeetingUrl
   | typeof TRIBE_EVENT_MUTATION_STATUS.invalidRecurrence
-  | typeof TRIBE_EVENT_MUTATION_STATUS.notFound;
+  | typeof TRIBE_EVENT_MUTATION_STATUS.notFound
+  /** Update only: the edit would strand post-event content of a date. */
+  | typeof TRIBE_EVENT_MUTATION_STATUS.scheduleRemovesPostEventContent;
 
 /**
  * Outcome of creating or updating an event. `occurrences` carries the slots of
