@@ -73,10 +73,14 @@ function markItemRead(
  * initial inbox, list refresh on open (AbortController, stale responses
  * ignored), unread polling, and incremental read marks. Every mutation
  * patches the local state and adopts the unread count returned by the
- * server; no route refresh happens. A counter of local mutations makes a poll
- * that started before a mark discard its (older) count, and a failed read
- * mark that a newer mutation superseded reconciles from the server instead
- * of rolling back over the newer state.
+ * server; no route refresh happens. A version of local mutations makes a
+ * read that started before a mark discard its (older) result. Reads that
+ * would start while a mark is still pending are not issued, because they
+ * could observe the server before the mark commits and resolve after it:
+ * a poll is skipped (the mark's response carries the fresh count) and a list
+ * refresh is deferred until the last pending mark settles. A failed read
+ * mark that a newer mutation superseded reconciles from the server (through
+ * the same deferred refresh) instead of rolling back over the newer state.
  *
  * @param initialInbox - Inbox rendered by the layout, or null when it could
  * not be loaded (the bell then loads on open and polls the count).
@@ -96,9 +100,16 @@ export function useNotificationCenter(
   const isMarkingAllRef = useRef(false);
   const listControllerRef = useRef<AbortController | null>(null);
   const mutationVersionRef = useRef(0);
-  const hasPendingReconcileRef = useRef(false);
+  const pendingMutationCountRef = useRef(0);
+  const hasDeferredListRefreshRef = useRef(false);
 
   const refreshUnreadCount = useCallback((signal: AbortSignal) => {
+    if (pendingMutationCountRef.current > 0) {
+      // A pending mark will adopt the server count from its own response; a
+      // poll issued now could read the pre-commit count and resolve later.
+      return;
+    }
+
     const versionAtStart = mutationVersionRef.current;
 
     fetchUnreadNotificationCountRequest({ signal })
@@ -143,16 +154,24 @@ export function useNotificationCenter(
 
   const refreshList = useCallback(() => {
     listControllerRef.current?.abort();
-
-    const controller = new AbortController();
-    const versionAtStart = mutationVersionRef.current;
-
-    listControllerRef.current = controller;
     setListStatus((currentStatus) =>
       currentStatus === NOTIFICATION_LIST_STATUS.loaded
         ? currentStatus
         : NOTIFICATION_LIST_STATUS.loading
     );
+
+    if (pendingMutationCountRef.current > 0) {
+      // Deferred: a list read now could observe the server before the pending
+      // mark commits and overwrite it once resolved. The last settling mark
+      // issues it.
+      hasDeferredListRefreshRef.current = true;
+      return;
+    }
+
+    const controller = new AbortController();
+    const versionAtStart = mutationVersionRef.current;
+
+    listControllerRef.current = controller;
 
     fetchNotificationInboxRequest({ signal: controller.signal })
       .then((result) => {
@@ -189,6 +208,32 @@ export function useNotificationCenter(
       });
   }, []);
 
+  /**
+   * Starts a local mutation: bumps the version (so in-flight reads discard
+   * their results) and counts it as pending (so new reads are not issued).
+   *
+   * @returns The version that identifies this mutation.
+   */
+  const beginMutation = useCallback(() => {
+    mutationVersionRef.current += 1;
+    pendingMutationCountRef.current += 1;
+
+    return mutationVersionRef.current;
+  }, []);
+
+  /**
+   * Settles a local mutation and, once no mutation is pending, issues the
+   * list refresh deferred while they were in flight.
+   */
+  const settleMutation = useCallback(() => {
+    pendingMutationCountRef.current = Math.max(pendingMutationCountRef.current - 1, 0);
+
+    if (pendingMutationCountRef.current === 0 && hasDeferredListRefreshRef.current) {
+      hasDeferredListRefreshRef.current = false;
+      refreshList();
+    }
+  }, [refreshList]);
+
   const markRead = useCallback(
     (notificationId: string) => {
       const target = notifications.find((notification) => notification.id === notificationId);
@@ -197,9 +242,7 @@ export function useNotificationCenter(
         return;
       }
 
-      mutationVersionRef.current += 1;
-
-      const version = mutationVersionRef.current;
+      const version = beginMutation();
 
       setNotifications((current) => markItemRead(current, notificationId, new Date().toISOString()));
       setUnreadCount((current) => Math.max(current - 1, 0));
@@ -209,14 +252,9 @@ export function useNotificationCenter(
           // A newer mutation (another read or "mark all") already rewrote this
           // state, so rolling back would undo it (e.g. an item the server
           // already marked read would turn unread again). Reconcile from the
-          // server instead; while a "mark all" is in flight, defer until it
-          // settles so its own outcome is not overwritten by an older list.
-          if (isMarkingAllRef.current) {
-            hasPendingReconcileRef.current = true;
-          } else {
-            refreshList();
-          }
-
+          // server instead, once every pending mutation settles so their own
+          // outcome is not overwritten by an older list.
+          hasDeferredListRefreshRef.current = true;
           return;
         }
 
@@ -236,9 +274,10 @@ export function useNotificationCenter(
             setUnreadCount(result.unreadCount);
           }
         })
-        .catch(revert);
+        .catch(revert)
+        .finally(settleMutation);
     },
-    [notifications, refreshList]
+    [beginMutation, notifications, settleMutation]
   );
 
   const markAllRead = useCallback(async () => {
@@ -248,9 +287,8 @@ export function useNotificationCenter(
 
     isMarkingAllRef.current = true;
     setIsMarkingAll(true);
-    mutationVersionRef.current += 1;
 
-    const version = mutationVersionRef.current;
+    const version = beginMutation();
     const previousNotifications = notifications;
     const previousUnreadCount = unreadCount;
     const readAt = new Date().toISOString();
@@ -291,13 +329,9 @@ export function useNotificationCenter(
     } finally {
       isMarkingAllRef.current = false;
       setIsMarkingAll(false);
-
-      if (hasPendingReconcileRef.current) {
-        hasPendingReconcileRef.current = false;
-        refreshList();
-      }
+      settleMutation();
     }
-  }, [notifications, refreshList, unreadCount]);
+  }, [beginMutation, notifications, settleMutation, unreadCount]);
 
   return {
     isMarkingAll,

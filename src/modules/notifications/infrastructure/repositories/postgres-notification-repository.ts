@@ -31,6 +31,21 @@ export type NotificationDatabaseExecutor = <T>(
   callback: (database: RequestDatabase) => Promise<T>
 ) => Promise<T>;
 
+/**
+ * Structured logger the repository reports skipped rows to (wired with the
+ * server logger in `setup.ts`).
+ */
+export type NotificationRepositoryLogger = {
+  warn: (entry: { message: string; metadata?: Record<string, unknown> }) => void;
+};
+
+export type PostgresNotificationRepositoryOptions = {
+  logger?: NotificationRepositoryLogger;
+};
+
+const INVALID_PAYLOAD_INSTANT_LOG_MESSAGE =
+  "PostgresNotificationRepository:getInbox skipped a notification with an invalid instant in its payload";
+
 type NotificationInboxRow = {
   created_at: Date | string;
   event_starts_at: Date | string | null;
@@ -61,6 +76,18 @@ function mapInstant(value: Date | string): string {
 
 function mapNullableInstant(value: Date | string | null): string | null {
   return value === null ? null : mapInstant(value);
+}
+
+/**
+ * Normalizes a payload instant to ISO, or null when the stored string is not
+ * a valid date (`toISOString()` would throw and fail the whole inbox). The
+ * payload is only constrained to be a JSON object, so this is the minimal
+ * defensive check of the mapper, not a schema validation.
+ */
+function parsePayloadInstant(value: string): string | null {
+  const instant = new Date(value);
+
+  return Number.isNaN(instant.getTime()) ? null : instant.toISOString();
 }
 
 function mapCount(value: unknown): number {
@@ -106,12 +133,26 @@ const PAYLOAD_KEY = {
   startsAt: "startsAt",
 } as const;
 
+type InvalidPayloadInstantField =
+  | typeof PAYLOAD_KEY.occurrenceStartsAt
+  | typeof PAYLOAD_KEY.startsAt;
+
+type ReportInvalidPayloadInstant = (
+  row: NotificationInboxRow,
+  field: InvalidPayloadInstantField
+) => void;
+
 /**
  * Maps an inbox row to the domain notification, or null when the row cannot
- * be shown (unknown type or missing ids), so it is skipped instead of failing
- * the inbox.
+ * be shown (unknown type, missing ids, or an invalid payload instant), so it
+ * is skipped instead of failing the inbox. A cancellation notice always shows
+ * the cancelled time: a later move of the same date (the exception switched
+ * to `moved`) must not rewrite that historical notice.
  */
-function mapInboxNotification(row: NotificationInboxRow): InboxNotification | null {
+function mapInboxNotification(
+  row: NotificationInboxRow,
+  reportInvalidPayloadInstant: ReportInvalidPayloadInstant
+): InboxNotification | null {
   if (!isNotificationType(row.type)) {
     return null;
   }
@@ -148,23 +189,41 @@ function mapInboxNotification(row: NotificationInboxRow): InboxNotification | nu
   }
 
   const eventId = readPayloadString(row.payload, PAYLOAD_KEY.eventId);
-  const occurrenceStartsAt = readPayloadString(row.payload, PAYLOAD_KEY.occurrenceStartsAt);
+  const rawOccurrenceStartsAt = readPayloadString(row.payload, PAYLOAD_KEY.occurrenceStartsAt);
 
-  if (!eventId || !occurrenceStartsAt) {
+  if (!eventId || !rawOccurrenceStartsAt) {
     return null;
   }
 
-  const payloadStartsAt = readPayloadString(row.payload, PAYLOAD_KEY.startsAt);
+  const occurrenceStartsAt = parsePayloadInstant(rawOccurrenceStartsAt);
+
+  if (!occurrenceStartsAt) {
+    reportInvalidPayloadInstant(row, PAYLOAD_KEY.occurrenceStartsAt);
+
+    return null;
+  }
+
+  const rawPayloadStartsAt = readPayloadString(row.payload, PAYLOAD_KEY.startsAt);
+  const payloadStartsAt = rawPayloadStartsAt === null ? null : parsePayloadInstant(rawPayloadStartsAt);
+
+  if (rawPayloadStartsAt !== null && !payloadStartsAt) {
+    reportInvalidPayloadInstant(row, PAYLOAD_KEY.startsAt);
+
+    return null;
+  }
+
   const startsAt =
-    payloadStartsAt ?? mapNullableInstant(row.moved_starts_at) ?? occurrenceStartsAt;
+    row.type === NOTIFICATION_TYPE.eventOccurrenceCancelled
+      ? occurrenceStartsAt
+      : payloadStartsAt ?? mapNullableInstant(row.moved_starts_at) ?? occurrenceStartsAt;
 
   return {
     ...base,
     event: {
       eventId,
       eventTitle: row.event_title,
-      occurrenceStartsAt: mapInstant(occurrenceStartsAt),
-      startsAt: mapInstant(startsAt),
+      occurrenceStartsAt,
+      startsAt,
     },
     type: row.type,
   };
@@ -187,7 +246,14 @@ const VISIBLE_NOTIFICATION_PREDICATE = sql`
  * are resolved at read time from the ids of the payload.
  */
 export class PostgresNotificationRepository implements NotificationRepository {
-  constructor(private readonly executeWithDatabase: NotificationDatabaseExecutor) {}
+  private readonly logger?: NotificationRepositoryLogger;
+
+  constructor(
+    private readonly executeWithDatabase: NotificationDatabaseExecutor,
+    options: PostgresNotificationRepositoryOptions = {}
+  ) {
+    this.logger = options.logger;
+  }
 
   async getInbox({
     limit,
@@ -243,7 +309,12 @@ export class PostgresNotificationRepository implements NotificationRepository {
       `);
       const unreadCount = await this.countUnreadWith(database, unreadCountCap);
       const notifications = ((result.rows ?? []) as NotificationInboxRow[]).flatMap((row) => {
-        const notification = mapInboxNotification(row);
+        const notification = mapInboxNotification(row, (skippedRow, field) => {
+          this.logger?.warn({
+            message: INVALID_PAYLOAD_INSTANT_LOG_MESSAGE,
+            metadata: { field, notificationId: skippedRow.id, type: skippedRow.type },
+          });
+        });
 
         return notification ? [notification] : [];
       });

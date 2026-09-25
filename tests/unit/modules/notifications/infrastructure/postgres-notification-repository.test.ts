@@ -118,6 +118,75 @@ describe("PostgresNotificationRepository", () => {
     expect(countSql).toContain("notifications.read_at is null");
   });
 
+  it("keeps the cancelled time on a cancellation notice even after the date is moved", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...baseRow,
+            id: NOTIFICATION_ID,
+            moved_starts_at: new Date("2026-05-09T21:00:00.000Z"),
+            payload: { eventId: EVENT_ID, occurrenceStartsAt: OCCURRENCE },
+            type: "event_occurrence_cancelled",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ unread_count: 1 }] });
+    const repository = new PostgresNotificationRepository(createExecutor(execute));
+
+    const inbox = await repository.getInbox({ limit: 30, unreadCountCap: 100 });
+
+    expect(inbox.notifications[0]).toMatchObject({
+      event: { occurrenceStartsAt: OCCURRENCE, startsAt: OCCURRENCE },
+      type: "event_occurrence_cancelled",
+    });
+  });
+
+  it("skips and logs notifications whose stored instants are not valid dates", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...baseRow,
+            id: "bad-occurrence",
+            payload: { eventId: EVENT_ID, occurrenceStartsAt: "not-a-date" },
+            type: "event_reminder_24h",
+          },
+          {
+            ...baseRow,
+            id: "bad-starts-at",
+            payload: { eventId: EVENT_ID, occurrenceStartsAt: OCCURRENCE, startsAt: "2026-13-45" },
+            type: "event_occurrence_moved",
+          },
+          {
+            ...baseRow,
+            id: NOTIFICATION_ID,
+            payload: { eventId: EVENT_ID, occurrenceStartsAt: OCCURRENCE, startsAt: OCCURRENCE },
+            type: "event_reminder_15m",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [{ unread_count: 3 }] });
+    const logger = { warn: vi.fn() };
+    const repository = new PostgresNotificationRepository(createExecutor(execute), { logger });
+
+    const inbox = await repository.getInbox({ limit: 30, unreadCountCap: 100 });
+
+    expect(inbox.notifications.map((notification) => notification.id)).toEqual([NOTIFICATION_ID]);
+    expect(inbox.unreadCount).toBe(3);
+    expect(logger.warn).toHaveBeenCalledTimes(2);
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid instant"),
+      metadata: { field: "occurrenceStartsAt", notificationId: "bad-occurrence", type: "event_reminder_24h" },
+    });
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: expect.stringContaining("invalid instant"),
+      metadata: { field: "startsAt", notificationId: "bad-starts-at", type: "event_occurrence_moved" },
+    });
+  });
+
   it("marks an own notification and reports not found for anyone else's", async () => {
     const execute = vi
       .fn()
