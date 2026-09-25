@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 type PushedRef = {
   localRef: string;
@@ -40,6 +41,12 @@ type PrePushGateScript = {
     environment?: Record<string, string | undefined>
   ) => NodeJS.ProcessEnv;
   installFrozenDependencies: (workingDirectory: string) => Promise<number>;
+  NODE_RUNTIME_STATUS: { match: string; pinnedVersionDrift: string; unsupported: string };
+  evaluateNodeRuntime: (options: {
+    runningVersion: string;
+    supportedRange: string;
+    pinnedVersion: string | null;
+  }) => { status: string; message: string | null };
 };
 
 const ZERO_OID = "0".repeat(40);
@@ -47,6 +54,11 @@ const FIRST_OID = "a".repeat(40);
 const SECOND_OID = "b".repeat(40);
 /** Real pnpm installs in fixtures can exceed the default Vitest timeout. */
 const PNPM_INSTALL_TEST_TIMEOUT_MS = 60_000;
+const PRE_PUSH_GATE_SCRIPT_PATH = fileURLToPath(
+  new URL("../../../scripts/pre-push-gate.mjs", import.meta.url)
+);
+const RUNNING_NODE_VERSION = process.versions.node;
+const RUNNING_NODE_MAJOR = Number(RUNNING_NODE_VERSION.split(".")[0]);
 
 let prePushGateScript: PrePushGateScript;
 const temporaryDirectories: string[] = [];
@@ -116,6 +128,30 @@ function createRepositoryWithTwoCommits() {
   const secondOid = runGit(["rev-parse", "HEAD"], repositoryRoot);
 
   return { repositoryRoot, firstOid, secondOid };
+}
+
+function createRepositoryWithRuntimePins(supportedRange: string, pinnedVersion: string): string {
+  const { repositoryRoot } = createRepositoryWithTwoCommits();
+  writeFileSync(
+    path.join(repositoryRoot, "package.json"),
+    `${JSON.stringify({ name: "gate-fixture", private: true, engines: { node: supportedRange } })}
+`
+  );
+  writeFileSync(path.join(repositoryRoot, ".nvmrc"), `${pinnedVersion}
+`);
+  runGit(["add", "."], repositoryRoot);
+  runGit(["commit", "--quiet", "-m", "pins"], repositoryRoot);
+
+  return repositoryRoot;
+}
+
+function runPrePushGate(repositoryRoot: string, stdinText: string) {
+  return spawnSync(process.execPath, [PRE_PUSH_GATE_SCRIPT_PATH], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    input: stdinText,
+    env: prePushGateScript.buildRepositoryIndependentEnvironment(),
+  });
 }
 
 describe("pre-push gate script", () => {
@@ -236,6 +272,71 @@ describe("pre-push gate script", () => {
     expect(runGit(["worktree", "list", "--porcelain"], repositoryRoot)).not.toContain(
       path.basename(worktreePath)
     );
+  });
+
+  it("should reject a Node runtime outside engines.node and accept only the pinned major", () => {
+    const { match, pinnedVersionDrift, unsupported } = prePushGateScript.NODE_RUNTIME_STATUS;
+    const evaluate = prePushGateScript.evaluateNodeRuntime;
+
+    expect(
+      evaluate({ runningVersion: "24.21.0", supportedRange: ">=24 <25", pinnedVersion: "24.21.0" })
+    ).toEqual({ status: match, message: null });
+    expect(
+      evaluate({ runningVersion: "22.12.0", supportedRange: ">=24 <25", pinnedVersion: "24.21.0" }).status
+    ).toBe(unsupported);
+    expect(
+      evaluate({ runningVersion: "25.0.0", supportedRange: ">=24 <25", pinnedVersion: "24.21.0" }).status
+    ).toBe(unsupported);
+
+    const drift = evaluate({
+      runningVersion: "24.14.1",
+      supportedRange: ">=24 <25",
+      pinnedVersion: "v24.21.0",
+    });
+    expect(drift.status).toBe(pinnedVersionDrift);
+    expect(drift.message).toContain("24.21.0");
+  });
+
+  it("should refuse to parse an engines.node range it cannot evaluate", () => {
+    expect(() =>
+      prePushGateScript.evaluateNodeRuntime({
+        runningVersion: "24.21.0",
+        supportedRange: "^24 || ^26",
+        pinnedVersion: null,
+      })
+    ).toThrow(/engines.node/);
+  });
+
+  it("should block the push before validating refs when Node is outside engines.node", () => {
+    const repositoryRoot = createRepositoryWithRuntimePins(
+      `>=${RUNNING_NODE_MAJOR + 1}`,
+      `${RUNNING_NODE_MAJOR + 1}.0.0`
+    );
+    const headOid = runGit(["rev-parse", "HEAD"], repositoryRoot);
+
+    const gateRun = runPrePushGate(
+      repositoryRoot,
+      `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}
+`
+    );
+
+    expect(gateRun.status).toBe(1);
+    expect(gateRun.stderr).toContain(`Node ${RUNNING_NODE_VERSION}`);
+    expect(gateRun.stdout).not.toContain("running the gate");
+    expect(runGit(["worktree", "list", "--porcelain"], repositoryRoot).split("worktree ").length).toBe(2);
+  });
+
+  it("should warn and continue when Node matches engines.node but not the pinned .nvmrc", () => {
+    const repositoryRoot = createRepositoryWithRuntimePins(
+      `>=${RUNNING_NODE_MAJOR} <${RUNNING_NODE_MAJOR + 1}`,
+      `${RUNNING_NODE_MAJOR}.999.0`
+    );
+
+    const gateRun = runPrePushGate(repositoryRoot, "");
+
+    expect(gateRun.status).toBe(0);
+    expect(gateRun.stderr).toContain(`${RUNNING_NODE_MAJOR}.999.0`);
+    expect(gateRun.stdout).toContain("no pushed commits to validate");
   });
 
   it(

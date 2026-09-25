@@ -28,8 +28,10 @@ import { spawn, spawnSync } from "node:child_process";
 import {
   constants as fsConstants,
   copyFileSync,
+  existsSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
 } from "node:fs";
 import os from "node:os";
@@ -50,6 +52,12 @@ const WORKTREE_DIRECTORY_PREFIX = "tutribu-pre-push-";
 /** Log prefix that identifies the gate output inside the push transcript. */
 const LOG_PREFIX = "[pre-push-gate]";
 
+/** Manifest that declares the supported Node.js range in `engines.node`. */
+const PACKAGE_MANIFEST_FILE = "package.json";
+
+/** File that pins the exact Node.js version used locally. */
+const PINNED_NODE_VERSION_FILE = ".nvmrc";
+
 /** Exit code reported when the gate is interrupted by a signal. */
 const INTERRUPTED_EXIT_CODE = 130;
 
@@ -64,6 +72,182 @@ export const GATE_COMMANDS = {
   install: ["install", "--frozen-lockfile", "--prefer-offline"],
   ci: ["run", "ci"],
 };
+
+/** Outcomes of comparing the running Node.js with the repository pins. */
+export const NODE_RUNTIME_STATUS = {
+  match: "match",
+  pinnedVersionDrift: "pinned-version-drift",
+  unsupported: "unsupported",
+};
+
+/** One `engines.node` comparator such as `>=24`, `<25` or `24.21.0`. */
+const VERSION_COMPARATOR_PATTERN =
+  /^(>=|<=|>|<|=)?v?([0-9]+)(?:[.]([0-9]+))?(?:[.]([0-9]+))?$/;
+
+/** Leading `v` accepted in `.nvmrc` and `process.version`. */
+const VERSION_PREFIX_PATTERN = /^v/;
+
+/**
+ * Parses a `major.minor.patch` version into numbers, padding missing parts.
+ *
+ * @param {string} version - Version such as `24.21.0` or `v24`.
+ * @returns {number[]} `[major, minor, patch]`.
+ */
+function parseVersionParts(version) {
+  const [major = 0, minor = 0, patch = 0] = version
+    .trim()
+    .replace(VERSION_PREFIX_PATTERN, "")
+    .split(".")
+    .map((part) => Number.parseInt(part, 10) || 0);
+
+  return [major, minor, patch];
+}
+
+/**
+ * Compares two parsed versions.
+ *
+ * @param {number[]} leftParts - First version.
+ * @param {number[]} rightParts - Second version.
+ * @returns {number} Negative, zero or positive like `Array#sort` comparators.
+ */
+function compareVersionParts(leftParts, rightParts) {
+  for (let index = 0; index < leftParts.length; index += 1) {
+    if (leftParts[index] !== rightParts[index]) {
+      return leftParts[index] - rightParts[index];
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Evaluates an `engines.node` range made of space-separated comparators
+ * (`>=24 <25`). Other semver syntaxes (`^`, `~`, `||`, `x`) are rejected so an
+ * unsupported range fails loudly instead of silently allowing any runtime.
+ *
+ * @param {string} version - Running Node.js version.
+ * @param {string} supportedRange - `engines.node` value.
+ * @returns {boolean} `true` when every comparator accepts the version.
+ * @throws {Error} When the range uses syntax this evaluator does not support.
+ */
+function satisfiesVersionRange(version, supportedRange) {
+  const versionParts = parseVersionParts(version);
+
+  return supportedRange
+    .trim()
+    .split(/[ ]+/)
+    .every((comparator) => {
+      const comparatorMatch = VERSION_COMPARATOR_PATTERN.exec(comparator);
+
+      if (!comparatorMatch) {
+        throw new Error(
+          `pre-push-gate:satisfiesVersionRange cannot evaluate engines.node "${supportedRange}"; use space-separated comparators such as ">=24 <25"`
+        );
+      }
+
+      const [, operator = "=", major, minor, patch] = comparatorMatch;
+      const difference = compareVersionParts(versionParts, [
+        Number(major),
+        Number(minor ?? 0),
+        Number(patch ?? 0),
+      ]);
+
+      switch (operator) {
+        case ">=":
+          return difference >= 0;
+        case "<=":
+          return difference <= 0;
+        case ">":
+          return difference > 0;
+        case "<":
+          return difference < 0;
+        default: {
+          // A bare partial version (`24`, `24.21`) matches every release under it.
+          const comparedPartCount = [major, minor, patch].filter(
+            (part) => part !== undefined
+          ).length;
+
+          return compareVersionParts(
+            versionParts.slice(0, comparedPartCount),
+            [major, minor, patch].slice(0, comparedPartCount).map(Number)
+          ) === 0;
+        }
+      }
+    });
+}
+
+/**
+ * Compares the running Node.js with `engines.node` and `.nvmrc`. A runtime
+ * outside `engines.node` is unsupported and blocks the push; a runtime inside
+ * the range that differs from the exact `.nvmrc` pin only warns, so a patch or
+ * minor drift inside the supported major does not block every push.
+ *
+ * @param {{ runningVersion: string, supportedRange: string, pinnedVersion: string | null }} options
+ * @returns {{ status: string, message: string | null }} One of
+ *   {@link NODE_RUNTIME_STATUS} and the Spanish message to show, if any.
+ * @throws {Error} When `engines.node` uses an unsupported range syntax.
+ */
+export function evaluateNodeRuntime({ runningVersion, supportedRange, pinnedVersion }) {
+  const normalizedRunningVersion = runningVersion.replace(VERSION_PREFIX_PATTERN, "");
+  const normalizedPinnedVersion = pinnedVersion
+    ? pinnedVersion.trim().replace(VERSION_PREFIX_PATTERN, "")
+    : null;
+  const suggestedVersion = normalizedPinnedVersion ?? supportedRange;
+
+  if (!satisfiesVersionRange(normalizedRunningVersion, supportedRange)) {
+    return {
+      status: NODE_RUNTIME_STATUS.unsupported,
+      message: `Node ${normalizedRunningVersion} no cumple engines.node "${supportedRange}". Cambiá a Node ${suggestedVersion} (.nvmrc), por ejemplo con "nvm use", y volvé a pushear.`,
+    };
+  }
+
+  if (
+    normalizedPinnedVersion &&
+    compareVersionParts(
+      parseVersionParts(normalizedRunningVersion),
+      parseVersionParts(normalizedPinnedVersion)
+    ) !== 0
+  ) {
+    return {
+      status: NODE_RUNTIME_STATUS.pinnedVersionDrift,
+      message: `Node ${normalizedRunningVersion} cumple engines.node "${supportedRange}" pero difiere de ${normalizedPinnedVersion} fijado en .nvmrc; el gate continúa, conviene cambiar a esa versión.`,
+    };
+  }
+
+  return { status: NODE_RUNTIME_STATUS.match, message: null };
+}
+
+/**
+ * Reads `engines.node` and `.nvmrc` from the checkout and evaluates the
+ * running Node.js against them.
+ *
+ * @param {string} repositoryRoot - Repository top-level directory.
+ * @returns {{ status: string, message: string | null }}
+ * @throws {Error} When `package.json` has no `engines.node`.
+ */
+function checkNodeRuntime(repositoryRoot) {
+  const packageManifest = JSON.parse(
+    readFileSync(path.join(repositoryRoot, PACKAGE_MANIFEST_FILE), "utf8")
+  );
+  const supportedRange = packageManifest.engines?.node;
+
+  if (typeof supportedRange !== "string") {
+    throw new Error(
+      `pre-push-gate:checkNodeRuntime found no engines.node in ${PACKAGE_MANIFEST_FILE} at ${repositoryRoot}`
+    );
+  }
+
+  const pinnedVersionPath = path.join(repositoryRoot, PINNED_NODE_VERSION_FILE);
+  const pinnedVersion = existsSync(pinnedVersionPath)
+    ? readFileSync(pinnedVersionPath, "utf8")
+    : null;
+
+  return evaluateNodeRuntime({
+    runningVersion: process.versions.node,
+    supportedRange,
+    pinnedVersion,
+  });
+}
 
 /**
  * Parses the pre-push stdin payload into pushed ref updates.
@@ -434,6 +618,20 @@ async function readStdin() {
  */
 async function main() {
   const repositoryRoot = runGit(["rev-parse", "--show-toplevel"], process.cwd());
+  // `.nvmrc` and `engines.node` do not switch the `node` already running this
+  // hook, so reject an unsupported runtime before validating any ref.
+  const nodeRuntime = checkNodeRuntime(repositoryRoot);
+
+  if (nodeRuntime.status === NODE_RUNTIME_STATUS.unsupported) {
+    console.error(`${LOG_PREFIX} ${nodeRuntime.message}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (nodeRuntime.message) {
+    console.warn(`${LOG_PREFIX} ${nodeRuntime.message}`);
+  }
+
   const commitsToValidate = selectCommitsToValidate(
     parsePushedRefs(await readStdin())
   );
