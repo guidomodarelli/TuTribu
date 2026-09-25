@@ -8,7 +8,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { toast } from "beez-ui";
 
-import { NotificationCenter } from "@/components/notifications/notification-center";
+import { NotificationCenter } from "@/app/(platform)/notification-center";
 import { NOTIFICATION_UNREAD_POLL_INTERVAL_MS } from "@/hooks/use-notification-center";
 import type { NotificationInboxResponse } from "@/src/modules/notifications/application/results/notification-public-dto-schemas";
 

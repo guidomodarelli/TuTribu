@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
-import { NotificationCenter } from "@/components/notifications/notification-center";
+import { NotificationCenter } from "./notification-center";
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { TribeSupportButton } from "@/components/tribes/tribe-support-button";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
