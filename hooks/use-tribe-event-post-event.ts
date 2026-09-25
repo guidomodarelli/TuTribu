@@ -85,6 +85,10 @@ export function useTribeEventPostEvent({
   // reactions, so an older reaction answer never overwrites them. A save that
   // races a pending reaction keeps the scope: that reaction answer is newer.
   const reactionScopeRef = useRef(0);
+  // Bumped whenever a reaction request persists. A save captures it when it
+  // starts: if it changed by the time the save answers, the save may have read
+  // the counts before that reaction committed, so its reactions are stale.
+  const completedReactionGenerationRef = useRef(0);
   const { eventId, originalStartsAt, tribeSlug } = target;
   // Effect event: the load effect reports with the latest parent callback
   // without refetching whenever the parent re-renders with a new closure.
@@ -152,14 +156,26 @@ export function useTribeEventPostEvent({
 
   /**
    * Adopts the reactions of a resources save without discarding the viewer's
-   * pending reaction. The save can race a debounced or in-flight reaction and
-   * answer with the pre-reaction counts, so a pending intent survives: its
-   * baseline becomes the saved summary, the optimistic view is kept on top,
-   * and the reaction response (same scope) stays the final authority.
+   * reactions. A reaction that persisted after the save started wins: the save
+   * may have read the counts before that reaction committed, so its reactions
+   * are ignored (resources and recording still apply). Otherwise the save can
+   * still race a debounced or in-flight reaction and answer with the
+   * pre-reaction counts, so a pending intent survives: its baseline becomes the
+   * saved summary, the optimistic view is kept on top, and the reaction
+   * response (same scope) stays the final authority.
    *
    * @param savedReactions - Reaction summary returned by the save.
+   * @param reactionGenerationAtSaveStart - Completed reaction generation read
+   * when the save started.
    */
-  const reconcileReactionsAfterSave = (savedReactions: TribeEventReactionSummary) => {
+  const reconcileReactionsAfterSave = (
+    savedReactions: TribeEventReactionSummary,
+    reactionGenerationAtSaveStart: number
+  ) => {
+    if (completedReactionGenerationRef.current !== reactionGenerationAtSaveStart) {
+      return;
+    }
+
     const pendingIntent = reactionIntentRef.current;
 
     if (!pendingIntent) {
@@ -185,6 +201,8 @@ export function useTribeEventPostEvent({
     isSavingRef.current = true;
     setIsSaving(true);
 
+    const reactionGenerationAtSaveStart = completedReactionGenerationRef.current;
+
     const request = saveTribeEventPostEventRequest(
       { eventId, originalStartsAt, tribeSlug },
       payload
@@ -206,7 +224,7 @@ export function useTribeEventPostEvent({
       const result = await request;
 
       if (isMountedRef.current) {
-        reconcileReactionsAfterSave(result.postEvent.reactions);
+        reconcileReactionsAfterSave(result.postEvent.reactions, reactionGenerationAtSaveStart);
         setLoadState({ postEvent: result.postEvent, status: TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded });
       }
 
@@ -264,6 +282,8 @@ export function useTribeEventPostEvent({
       toast.error(result.message ?? COPY.reactionFailure);
       return;
     }
+
+    completedReactionGenerationRef.current += 1;
 
     if (latestIntent.intendedReaction === result.reactions.viewerReaction) {
       reactionIntentRef.current = null;

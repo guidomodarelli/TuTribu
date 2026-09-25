@@ -398,6 +398,72 @@ describe("TribeEventOccurrenceActivity", () => {
     );
   });
 
+  it("keeps a completed reaction when an older resources save answers after it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onRecordingAvailabilityChange = vi.fn();
+    let settleReaction: (response: RouteResponse) => void = () => undefined;
+    let settleSave: (response: RouteResponse) => void = () => undefined;
+
+    mockApi({
+      [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
+      [`GET /events/${EVENT_ID}/post-event`]: () => ({
+        body: { postEvent: buildPostEvent({ recording: null }) },
+      }),
+      [`PUT /events/${EVENT_ID}/post-event`]: () =>
+        new Promise<RouteResponse>((resolve) => {
+          settleSave = resolve;
+        }),
+      [`PUT /events/${EVENT_ID}/reaction`]: () =>
+        new Promise<RouteResponse>((resolve) => {
+          settleReaction = resolve;
+        }),
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    render(
+      <TribeEventOccurrenceActivity
+        isFinished
+        occurrence={occurrence}
+        tribeSlug={TRIBE_SLUG}
+        onRecordingAvailabilityChange={onRecordingAvailabilityChange}
+      />
+    );
+    await user.click(await screen.findByRole("button", { name: "Estuvo bien: 1 persona" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TRIBE_EVENT_REACTION_FLUSH_DELAY_MS);
+    });
+    await user.click(screen.getByRole("button", { name: "Editar grabación y materiales" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Grabación y materiales" });
+
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    // The reaction commits and answers first; the save read the old counts.
+    await act(async () => {
+      settleReaction({
+        body: { reactions: { counts: { fire: 2, neutral: 0, thumbs_up: 2 }, viewerReaction: "thumbs_up" } },
+      });
+    });
+    await act(async () => {
+      settleSave({
+        body: {
+          message: "Grabación y materiales guardados.",
+          postEvent: buildPostEvent({
+            materials: [{ title: "Guía", url: "https://example.com/guia" }],
+          }),
+        },
+      });
+    });
+
+    await waitFor(() => expect(onRecordingAvailabilityChange).toHaveBeenLastCalledWith(OCCURRENCE_KEY, true));
+    expect(await screen.findByRole("link", { name: "Guía" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Estuvo bien: 2 personas" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+  });
+
   it("saves the recording and materials and reports the new availability", async () => {
     const onRecordingAvailabilityChange = vi.fn();
     const savedBodies: unknown[] = [];
