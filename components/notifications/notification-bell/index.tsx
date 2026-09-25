@@ -3,6 +3,7 @@
 import { BellIcon } from "lucide-react";
 import {
   Button,
+  cn,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -21,9 +22,23 @@ import {
 
 import styles from "./styles.module.scss";
 
+/**
+ * Surfaces the bell can render. `responsive` ships both until hydration so a
+ * media query (same 768px breakpoint as `useIsMobile`) shows the right one and
+ * no surface is swapped once the client knows the viewport.
+ */
+export const NOTIFICATION_BELL_SURFACE = {
+  popover: "popover",
+  responsive: "responsive",
+  sheet: "sheet",
+} as const;
+
+export type NotificationBellSurface =
+  (typeof NOTIFICATION_BELL_SURFACE)[keyof typeof NOTIFICATION_BELL_SURFACE];
+
 type NotificationBellProps = Omit<React.ComponentProps<typeof NotificationPanel>, "titleSlot"> & {
-  /** Narrow viewports get a bottom sheet instead of a popover. */
-  isMobile: boolean;
+  /** Desktop popover, mobile bottom sheet, or both before hydration. */
+  surface: NotificationBellSurface;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 };
@@ -36,15 +51,20 @@ const PANEL_TITLE_ID = "notification-panel-title";
  * ("Notificaciones, 3 sin leer") and a polite live region announces changes
  * while the page is open. It opens a popover on desktop and a bottom sheet on
  * mobile; both trap focus while open and return it to the bell on close
- * (Radix). Presentational: all state and callbacks come from the container.
+ * (Radix). Each surface keeps a fixed slot in the tree, so dropping the
+ * inactive one after hydration never remounts the active one.
+ * Presentational: all state and callbacks come from the container.
  */
 export function NotificationBell({
-  isMobile,
   isOpen,
   onOpenChange,
+  surface,
   unreadCount,
   ...panelProps
 }: NotificationBellProps) {
+  const isResponsive = surface === NOTIFICATION_BELL_SURFACE.responsive;
+  const showsSheet = isResponsive || surface === NOTIFICATION_BELL_SURFACE.sheet;
+  const showsPopover = isResponsive || surface === NOTIFICATION_BELL_SURFACE.popover;
   const accessibleLabel = describeUnreadNotifications(unreadCount);
   const trigger = (
     <Button
@@ -68,49 +88,61 @@ export function NotificationBell({
     </span>
   );
 
-  if (isMobile) {
-    return (
-      <>
-        {liveRegion}
-        <Sheet onOpenChange={onOpenChange} open={isOpen}>
-          <SheetTrigger asChild>{trigger}</SheetTrigger>
-          <SheetContent className={styles.NotificationBell__sheet} side="bottom">
-            <SheetDescription className={styles.NotificationBell__srOnly}>
-              Avisos de tus eventos y propuestas.
-            </SheetDescription>
-            <NotificationPanel
-              {...panelProps}
-              reservesCloseButtonSpace
-              titleSlot={<SheetTitle className={styles.NotificationBell__title}>{PANEL_TITLE}</SheetTitle>}
-              unreadCount={unreadCount}
-            />
-          </SheetContent>
-        </Sheet>
-      </>
-    );
-  }
-
   return (
     <>
       {liveRegion}
-      <Popover onOpenChange={onOpenChange} open={isOpen}>
-        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-        <PopoverContent
-          align="end"
-          aria-labelledby={PANEL_TITLE_ID}
-          className={styles.NotificationBell__popover}
+      {showsPopover ? (
+        <span
+          className={cn(
+            styles.NotificationBell__surface,
+            isResponsive && styles["NotificationBell__surface--popoverOnly"]
+          )}
         >
-          <NotificationPanel
-            {...panelProps}
-            titleSlot={
-              <h2 className={styles.NotificationBell__title} id={PANEL_TITLE_ID}>
-                {PANEL_TITLE}
-              </h2>
-            }
-            unreadCount={unreadCount}
-          />
-        </PopoverContent>
-      </Popover>
+          <Popover onOpenChange={onOpenChange} open={isOpen}>
+            <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+            <PopoverContent
+              align="end"
+              aria-labelledby={PANEL_TITLE_ID}
+              className={styles.NotificationBell__popover}
+            >
+              <NotificationPanel
+                {...panelProps}
+                titleSlot={
+                  <h2 className={styles.NotificationBell__title} id={PANEL_TITLE_ID}>
+                    {PANEL_TITLE}
+                  </h2>
+                }
+                unreadCount={unreadCount}
+              />
+            </PopoverContent>
+          </Popover>
+        </span>
+      ) : null}
+      {showsSheet ? (
+        <span
+          className={cn(
+            styles.NotificationBell__surface,
+            isResponsive && styles["NotificationBell__surface--sheetOnly"]
+          )}
+        >
+          <Sheet onOpenChange={onOpenChange} open={isOpen}>
+            <SheetTrigger asChild>{trigger}</SheetTrigger>
+            <SheetContent className={styles.NotificationBell__sheet} side="bottom">
+              <SheetDescription className={styles.NotificationBell__srOnly}>
+                Avisos de tus eventos y propuestas.
+              </SheetDescription>
+              <NotificationPanel
+                {...panelProps}
+                reservesCloseButtonSpace
+                titleSlot={
+                  <SheetTitle className={styles.NotificationBell__title}>{PANEL_TITLE}</SheetTitle>
+                }
+                unreadCount={unreadCount}
+              />
+            </SheetContent>
+          </Sheet>
+        </span>
+      ) : null}
     </>
   );
 }

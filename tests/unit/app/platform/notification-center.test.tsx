@@ -532,3 +532,112 @@ describe("NotificationCenter", () => {
     expect(screen.getByRole("button", { name: "Notificaciones, 2 sin leer" })).toBeInTheDocument();
   });
 });
+
+describe("NotificationCenter hydration", () => {
+  const MOBILE_VIEWPORT_WIDTH_PX = 375;
+
+  async function renderServerMarkup() {
+    const { renderToString } = await import("react-dom/server");
+
+    return renderToString(
+      <RouterProvider>
+        <NotificationCenter initialInbox={inbox} />
+      </RouterProvider>
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (global.fetch as Mock).mockReset();
+  });
+
+  it("ships both surfaces before hydration so CSS picks the one for the viewport", async () => {
+    const html = await renderServerMarkup();
+
+    expect(html).toContain('data-slot="popover-trigger"');
+    expect(html).toContain('data-slot="sheet-trigger"');
+    // Each pre-hydration slot keeps the base element next to its modifier.
+    expect(html).toContain(
+      'class="NotificationBell__surface NotificationBell__surface--popoverOnly"'
+    );
+    expect(html).toContain(
+      'class="NotificationBell__surface NotificationBell__surface--sheetOnly"'
+    );
+  });
+
+  it("keeps the server sheet trigger mounted when a mobile first load hydrates", async () => {
+    const { hydrateRoot } = await import("react-dom/client");
+    const user = userEvent.setup();
+    const originalWidth = window.innerWidth;
+    const container = document.createElement("div");
+
+    container.innerHTML = await renderServerMarkup();
+    document.body.appendChild(container);
+    window.innerWidth = MOBILE_VIEWPORT_WIDTH_PX;
+
+    const serverSheetTrigger = container.querySelector('[data-slot="sheet-trigger"]');
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+
+    try {
+      await act(async () => {
+        root = hydrateRoot(
+          container,
+          <RouterProvider>
+            <NotificationCenter initialInbox={inbox} />
+          </RouterProvider>
+        );
+      });
+
+      // Only the active surface remains, and it is the server node itself:
+      // hydration never replaces the surface the user may already be tapping.
+      expect(container.querySelector('[data-slot="popover-trigger"]')).toBeNull();
+      expect(container.querySelector('[data-slot="sheet-trigger"]')).toBe(serverSheetTrigger);
+      expect(
+        container.querySelector('[class*="NotificationBell__surface--"]')
+      ).toBeNull();
+
+      respondWith(inbox);
+      await user.click(
+        within(container).getByRole("button", { name: "Notificaciones, 2 sin leer" })
+      );
+
+      const sheet = await screen.findByRole("dialog", { name: "Notificaciones" });
+
+      expect(sheet).toHaveAttribute("data-slot", "sheet-content");
+    } finally {
+      act(() => root?.unmount());
+      container.remove();
+      window.innerWidth = originalWidth;
+    }
+  });
+
+  it("keeps a single popover surface after hydrating on desktop", async () => {
+    const { hydrateRoot } = await import("react-dom/client");
+    const container = document.createElement("div");
+
+    container.innerHTML = await renderServerMarkup();
+    document.body.appendChild(container);
+
+    const serverPopoverTrigger = container.querySelector('[data-slot="popover-trigger"]');
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+
+    try {
+      await act(async () => {
+        root = hydrateRoot(
+          container,
+          <RouterProvider>
+            <NotificationCenter initialInbox={inbox} />
+          </RouterProvider>
+        );
+      });
+
+      expect(container.querySelector('[data-slot="sheet-trigger"]')).toBeNull();
+      expect(container.querySelector('[data-slot="popover-trigger"]')).toBe(
+        serverPopoverTrigger
+      );
+    } finally {
+      act(() => root?.unmount());
+      container.remove();
+    }
+  });
+});

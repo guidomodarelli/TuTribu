@@ -1,4 +1,27 @@
+// Same breakpoint as `useIsMobile` (768px) so CSS and the hook agree.
+$notification-bell-mobile-max: 767px;
+
 .NotificationBell {
+  // Slot of one surface; `contents` keeps the trigger a direct header item.
+  &__surface {
+    display: contents;
+  }
+
+  // Pre-hydration modifiers: both surfaces ship and CSS shows one.
+  &__surface--sheetOnly {
+    display: none;
+  }
+
+  @media (max-width: $notification-bell-mobile-max) {
+    &__surface--popoverOnly {
+      display: none;
+    }
+
+    &__surface--sheetOnly {
+      display: contents;
+    }
+  }
+
   &__trigger {
     position: relative;
   }
