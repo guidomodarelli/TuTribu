@@ -17,15 +17,21 @@ type DatabaseExecutor = <T>(
 ) => Promise<T>;
 
 /**
- * Collaborator that share-locks the source occurrence recording inside the
- * conversion transaction and answers its current video (null when it was
- * removed). Owned by the events module and injected by the composition root,
- * so this adapter never reads the events schema itself.
+ * Collaborator that holds the source occurrence inside the conversion
+ * transaction: it share-locks the event and its recording, and answers the
+ * current video (null when it was removed) while the occurrence is still a
+ * finished, non-cancelled date, or `isHeld: false` when it no longer is (a
+ * longer series end, a cancelled date). Owned by the events module and
+ * injected by the composition root, so this adapter never reads the events
+ * schema itself.
  */
 export type LessonEventRecordingSourceLock = (
   database: RequestDatabase,
-  key: { eventId: string; originalStartsAt: string; tribeId: string }
-) => Promise<{ externalVideoId: string; provider: VideoProvider } | null>;
+  key: { eventId: string; originalStartsAt: string; tribeId: string; tribeSlug: string }
+) => Promise<
+  | { isHeld: true; recording: { externalVideoId: string; provider: VideoProvider } | null }
+  | { isHeld: false }
+>;
 
 type TargetsRow = {
   can_manage: boolean | null;
@@ -204,17 +210,21 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
    * meanwhile answers `not_found` instead of a foreign key failure.
    *
    * The route read the recording in an earlier transaction, so right before
-   * the insert the source recording is share-locked again through the
-   * injected events lock and compared with the copied video: a recording
-   * replaced or removed in between answers `recording_changed` instead of a
-   * lesson with the superseded video, and a replacement issued later waits
-   * for this commit. Lock order is membership → conversion advisory lock →
-   * module → recording, the same membership-first order the events writes
-   * follow. The recording is the last lock and nothing of events is locked
-   * after it, so it cannot cycle with `saveResources` (membership → event →
-   * occurrence advisory → recording row). An existing lesson is answered
-   * without holding the recording: it is the idempotent result, not a new
-   * copy of the video.
+   * the insert the source occurrence is held again through the injected
+   * events lock (event row, then recording, both `FOR SHARE`): an occurrence
+   * that is no longer finished or was cancelled in between (a manager
+   * extended the series end) answers `occurrence_unavailable`, and a
+   * recording replaced or removed answers `recording_changed`, instead of a
+   * lesson with a superseded video or of a date still in progress. A schedule
+   * edit, exception, or replacement issued later waits for this commit. Lock
+   * order is membership → conversion advisory lock → module → event →
+   * recording, the same membership-first order the events writes follow. The
+   * event and the recording are the last locks and nothing else is locked
+   * after them, so they cannot cycle with `saveResources` (membership →
+   * event `FOR SHARE` → occurrence advisory → recording row) nor with the
+   * schedule and exception writes (membership → event `FOR UPDATE`), which
+   * never lock course rows. An existing lesson is answered without holding
+   * the occurrence: it is the idempotent result, not a new copy of the video.
    */
   async createFromEventRecording(
     command: CreateLessonFromEventRecordingRepositoryCommand
@@ -341,11 +351,18 @@ export class PostgresLessonEventSourceRepository implements LessonEventSourceRep
         };
       }
 
-      const heldRecording = await this.lockEventRecordingSource(database, {
+      const heldSource = await this.lockEventRecordingSource(database, {
         eventId: command.sourceEventId,
         originalStartsAt: command.sourceOccurrenceStartsAt,
         tribeId: target.tribe_id,
+        tribeSlug: command.tribeSlug,
       });
+
+      if (!heldSource.isHeld) {
+        return { status: LESSON_EVENT_SOURCE_STATUS.occurrenceUnavailable };
+      }
+
+      const heldRecording = heldSource.recording;
 
       if (
         heldRecording?.provider !== command.videoProvider ||

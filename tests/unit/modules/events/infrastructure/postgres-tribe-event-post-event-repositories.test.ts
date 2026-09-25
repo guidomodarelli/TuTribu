@@ -449,30 +449,84 @@ describe("PostgresTribeEventOccurrenceCommentRepository", () => {
 });
 
 describe("lockTribeEventOccurrenceRecordingForShare", () => {
-  const recordingKey = { eventId: EVENT_ID, originalStartsAt: ORIGINAL_STARTS_AT, tribeId: TRIBE_ID };
+  const recordingKey = {
+    eventId: EVENT_ID,
+    originalStartsAt: ORIGINAL_STARTS_AT,
+    tribeId: TRIBE_ID,
+    tribeSlug: TRIBE_SLUG,
+  };
+  const heldRecordingRow = { external_video_id: "dQw4w9WgXcQ", video_provider: "youtube" };
 
-  it("share-locks the occurrence recording of the tribe and answers its current video", async () => {
+  /**
+   * Fake conversion transaction: the recording lock answers `recordingRows`
+   * and the occurrence guard read answers `guard`.
+   */
+  function createRecordingLockExecute(guard: GuardRow, recordingRows: unknown[] = [heldRecordingRow]) {
     const statements: string[] = [];
     const execute = vi.fn(async (statement: unknown) => {
-      statements.push(getSqlText(statement));
+      const text = getSqlText(statement);
 
-      return { rows: [{ external_video_id: "dQw4w9WgXcQ", video_provider: "youtube" }] };
+      statements.push(text);
+
+      if (text.includes("is_tribe_event_series_occurrence")) {
+        return { rows: guard ? [guard] : [] };
+      }
+
+      if (text.includes("for share of event_occurrence_recordings")) {
+        return { rows: recordingRows };
+      }
+
+      return { rows: [] };
     });
 
+    return { execute, statements };
+  }
+
+  it("holds the event row, then the recording, and answers the video of a finished occurrence", async () => {
+    const { execute, statements } = createRecordingLockExecute(openGuard);
+
     await expect(
       lockTribeEventOccurrenceRecordingForShare({ execute } as never, recordingKey)
-    ).resolves.toEqual({ externalVideoId: "dQw4w9WgXcQ", provider: "youtube" });
+    ).resolves.toEqual({
+      isHeld: true,
+      recording: { externalVideoId: "dQw4w9WgXcQ", provider: "youtube" },
+    });
 
-    expect(statements).toHaveLength(1);
-    expect(statements[0]).toContain("for share of event_occurrence_recordings");
-    expect(statements[0]).toContain("event_occurrence_recordings.tribe_id =");
+    const eventLockIndex = statements.findIndex((text) => text.includes("for share of events"));
+    const recordingLockIndex = statements.findIndex((text) =>
+      text.includes("for share of event_occurrence_recordings")
+    );
+    const guardIndex = statements.findIndex((text) =>
+      text.includes("is_tribe_event_series_occurrence")
+    );
+
+    expect(eventLockIndex).toBe(0);
+    expect(recordingLockIndex).toBeGreaterThan(eventLockIndex);
+    expect(guardIndex).toBeGreaterThan(recordingLockIndex);
+    expect(statements[guardIndex]).toContain("clock_timestamp()");
+    expect(statements[recordingLockIndex]).toContain("event_occurrence_recordings.tribe_id =");
+    expect(statements.some((text) => text.includes("for share of tribe_members"))).toBe(false);
   });
 
-  it("answers null when the occurrence no longer has a recording", async () => {
-    const execute = vi.fn(async () => ({ rows: [] }));
+  it("answers a held empty recording when the occurrence no longer has one", async () => {
+    const { execute } = createRecordingLockExecute(openGuard, []);
 
     await expect(
       lockTribeEventOccurrenceRecordingForShare({ execute } as never, recordingKey)
-    ).resolves.toBeNull();
+    ).resolves.toEqual({ isHeld: true, recording: null });
+  });
+
+  it.each([
+    ["the series end was extended past now", { ...openGuard, is_finished: false }, "occurrence_not_finished"],
+    ["the date was cancelled", { ...openGuard, is_cancelled: true }, "occurrence_cancelled"],
+    ["the instant is no longer a slot", { ...openGuard, is_occurrence: false }, "invalid_occurrence"],
+    ["the event is gone", null, "not_found"],
+    ["the event belongs to another tribe", { ...openGuard, tribe_id: "0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f" }, "not_found"],
+  ])("does not hold the source when %s", async (_case, guard, status) => {
+    const { execute } = createRecordingLockExecute(guard);
+
+    await expect(
+      lockTribeEventOccurrenceRecordingForShare({ execute } as never, recordingKey)
+    ).resolves.toEqual({ isHeld: false, status });
   });
 });

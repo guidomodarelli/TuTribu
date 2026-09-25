@@ -31,6 +31,8 @@ export const LESSON_EVENT_SOURCE_RESPONSE = {
   forbiddenMessage: "Solo quienes gestionan los cursos pueden convertir la grabación en lección.",
   invalidLessonMessage: "Completá el título de la lección (hasta 160 caracteres).",
   notFoundMessage: "No encontramos el curso, el módulo o la grabación.",
+  occurrenceUnavailableMessage:
+    "Esta fecha del evento todavía no terminó o fue cancelada. Revisala y volvé a intentarlo.",
   recordingChangedMessage:
     "La grabación cambió mientras creábamos la lección. Revisala y volvé a intentarlo.",
   unauthorizedMessage: "Iniciá sesión para gestionar los cursos.",

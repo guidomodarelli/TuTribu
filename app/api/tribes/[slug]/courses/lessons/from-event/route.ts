@@ -22,8 +22,29 @@ const LESSON_FROM_EVENT_ROUTE_LOG = {
   failureMessage: "Lesson conversion from event recording failed",
   feature: "courses",
   operation: "lesson-from-event-recording",
+  occurrenceUnavailableMessage:
+    "Lesson conversion rejected: the source occurrence is not finished or was cancelled",
   recordingChangedMessage: "Lesson conversion rejected: the recording changed before the commit",
 } as const;
+
+/**
+ * Source statuses of the events use case that mean the occurrence exists
+ * but is not (or no longer) a finished, non-cancelled date.
+ */
+const UNAVAILABLE_SOURCE_OCCURRENCE_STATUSES: ReadonlySet<string> = new Set([
+  TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled,
+  TRIBE_EVENT_MUTATION_STATUS.occurrenceNotFinished,
+]);
+
+/**
+ * 409 of a source occurrence that is still in progress or was cancelled.
+ */
+function createOccurrenceUnavailableResponse(): Response {
+  return createLessonEventSourceJsonResponse(
+    { message: LESSON_EVENT_SOURCE_RESPONSE.occurrenceUnavailableMessage },
+    LESSON_EVENT_SOURCE_HTTP_STATUS.conflict
+  );
+}
 
 /**
  * "Convertir en lección": the route is the composition point of two
@@ -35,7 +56,9 @@ const LESSON_FROM_EVENT_ROUTE_LOG = {
  * link instead of a duplicate. The two reads are separate transactions, so
  * the courses transaction holds the recording again before committing: a
  * recording replaced or removed in between answers 409 (`recording_changed`)
- * instead of a lesson with the superseded video.
+ * instead of a lesson with the superseded video, and an occurrence that is
+ * not (or no longer) finished, or was cancelled, answers 409 before and
+ * inside that transaction.
  */
 export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
   const { requestId } = resolveRequestContext(request.headers);
@@ -82,6 +105,10 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
       originalStartsAt: input.body.occurrenceStartsAt,
       tribeSlug: slug,
     });
+
+    if (UNAVAILABLE_SOURCE_OCCURRENCE_STATUSES.has(source.status)) {
+      return createOccurrenceUnavailableResponse();
+    }
 
     if (source.status !== TRIBE_EVENT_MUTATION_STATUS.found) {
       return createLessonEventSourceJsonResponse(
@@ -154,6 +181,13 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
           { message: LESSON_EVENT_SOURCE_RESPONSE.recordingChangedMessage },
           LESSON_EVENT_SOURCE_HTTP_STATUS.conflict
         );
+      case LESSON_EVENT_SOURCE_STATUS.occurrenceUnavailable:
+        logger.warn({
+          message: LESSON_FROM_EVENT_ROUTE_LOG.occurrenceUnavailableMessage,
+          metadata: { ...logMetadata, result: result.status },
+        });
+
+        return createOccurrenceUnavailableResponse();
       default:
         return createLessonEventSourceJsonResponse(
           { message: LESSON_EVENT_SOURCE_RESPONSE.forbiddenMessage },

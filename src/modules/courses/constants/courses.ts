@@ -89,6 +89,7 @@ export const LESSON_EVENT_SOURCE_STATUS = {
   found: "found",
   invalidInput: "invalid_input",
   notFound: "not_found",
+  occurrenceUnavailable: "occurrence_unavailable",
   recordingChanged: "recording_changed",
 } as const;
 

@@ -565,6 +565,59 @@ describe("lesson conversion routes", () => {
     });
   });
 
+  it.each(["occurrence_not_finished", "occurrence_cancelled"])(
+    "answers 409 without calling courses when the source occurrence is %s",
+    async (status) => {
+      eventUseCases.getTribeEventRecordingLessonSource.mockResolvedValue({ status });
+
+      const response = await POST_LESSON_FROM_EVENT(
+        buildRequest("https://tutribu.example.com/api", conversionBody),
+        tribeContext()
+      );
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({
+        message:
+          "Esta fecha del evento todavía no terminó o fue cancelada. Revisala y volvé a intentarlo.",
+      });
+      expect(courseUseCases.createLessonFromEventRecording).not.toHaveBeenCalled();
+    }
+  );
+
+  it("answers 409 when the occurrence stopped being finished before the lesson was created", async () => {
+    eventUseCases.getTribeEventRecordingLessonSource.mockResolvedValue({
+      source: {
+        description: null,
+        eventId: EVENT_ID,
+        externalVideoId: "dQw4w9WgXcQ",
+        occurrenceStartsAt: ORIGINAL_STARTS_AT,
+        provider: "youtube",
+        startsAt: ORIGINAL_STARTS_AT,
+        title: "Taller",
+      },
+      status: "found",
+    });
+    courseUseCases.createLessonFromEventRecording.mockResolvedValue({
+      status: "occurrence_unavailable",
+    });
+
+    const response = await POST_LESSON_FROM_EVENT(
+      buildRequest("https://tutribu.example.com/api", conversionBody),
+      tribeContext()
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      message:
+        "Esta fecha del evento todavía no terminó o fue cancelada. Revisala y volvé a intentarlo.",
+    });
+    expect(logWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ result: "occurrence_unavailable" }),
+      })
+    );
+  });
+
   it("answers 404 without a recording and never calls courses", async () => {
     eventUseCases.getTribeEventRecordingLessonSource.mockResolvedValue({ status: "not_found" });
 

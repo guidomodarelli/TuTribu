@@ -77,6 +77,7 @@ export type LessonFromEventRecordingResult =
       status:
         | typeof LESSON_EVENT_SOURCE_STATUS.forbidden
         | typeof LESSON_EVENT_SOURCE_STATUS.notFound
+        | typeof LESSON_EVENT_SOURCE_STATUS.occurrenceUnavailable
         | typeof LESSON_EVENT_SOURCE_STATUS.recordingChanged;
     };
 

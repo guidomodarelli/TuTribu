@@ -283,8 +283,12 @@ export function setTribeEventOccurrenceReaction(dependencies: PostEventDependenc
 }
 
 /**
- * The recording of a finished occurrence as the source of a course lesson
- * (title and description of the event plus the parsed video).
+ * The recording of a finished, non-cancelled occurrence as the source of a
+ * course lesson (title and description of the event plus the parsed video).
+ * A published recording can outlive the finished state (a manager extends
+ * the series end or cancels the date later), so the slot is checked again
+ * here; the conversion transaction repeats the check under the event lock
+ * (`lockTribeEventOccurrenceRecordingForShare`).
  */
 export function getTribeEventRecordingLessonSource(dependencies: PostEventDependencies) {
   return async (
@@ -294,6 +298,12 @@ export function getTribeEventRecordingLessonSource(dependencies: PostEventDepend
 
     if (!occurrence.isResolved) {
       return { status: occurrence.status };
+    }
+
+    const slotFailure = checkFinishedSlot(occurrence.slot, readNow(dependencies.clock));
+
+    if (slotFailure) {
+      return { status: slotFailure };
     }
 
     const resources = await dependencies.tribeEventPostEventRepository.getResources(query);

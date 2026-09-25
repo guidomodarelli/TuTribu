@@ -47,6 +47,14 @@ function getSqlText(statement: unknown): string {
  */
 const RECORDING_LOCK_MARKER = "event recording source lock";
 
+/**
+ * Answer of the injected events lock: the held recording (null when it was
+ * removed), or a source occurrence that is no longer finished and active.
+ */
+type RecordingSourceHold =
+  | { isHeld: true; recording: { externalVideoId: string; provider: string } | null }
+  | { isHeld: false };
+
 type PostLockTarget = {
   can_manage: boolean;
   module_id: string | null;
@@ -61,9 +69,9 @@ type PostLockTarget = {
 function createConversionDatabase(
   postLockTarget: PostLockTarget,
   existingLessonRows: Record<string, unknown>[] = [],
-  heldRecording: { externalVideoId: string; provider: string } | null = {
-    externalVideoId: command.externalVideoId,
-    provider: command.videoProvider,
+  recordingSourceHold: RecordingSourceHold = {
+    isHeld: true,
+    recording: { externalVideoId: command.externalVideoId, provider: command.videoProvider },
   }
 ) {
   const statements: string[] = [];
@@ -93,7 +101,7 @@ function createConversionDatabase(
   const lockEventRecordingSource = vi.fn(async () => {
     statements.push(RECORDING_LOCK_MARKER);
 
-    return heldRecording;
+    return recordingSourceHold;
   });
   const repository = new PostgresLessonEventSourceRepository(
     async (callback) => callback({ execute } as never),
@@ -212,6 +220,7 @@ describe("PostgresLessonEventSourceRepository.createFromEventRecording", () => {
       eventId: command.sourceEventId,
       originalStartsAt: command.sourceOccurrenceStartsAt,
       tribeId: TRIBE_ID,
+      tribeSlug: command.tribeSlug,
     });
     expect(recordingLockIndex).toBeGreaterThan(moduleLockIndex);
     expect(insertIndex).toBeGreaterThan(recordingLockIndex);
@@ -221,7 +230,7 @@ describe("PostgresLessonEventSourceRepository.createFromEventRecording", () => {
     const { repository, statements } = createConversionDatabase(
       { can_manage: true, module_id: MODULE_ID },
       [],
-      null
+      { isHeld: true, recording: null }
     );
 
     await expect(repository.createFromEventRecording(command)).resolves.toEqual({
@@ -234,7 +243,7 @@ describe("PostgresLessonEventSourceRepository.createFromEventRecording", () => {
     const { repository, statements } = createConversionDatabase(
       { can_manage: true, module_id: MODULE_ID },
       [],
-      { externalVideoId: "76979871", provider: "vimeo" }
+      { isHeld: true, recording: { externalVideoId: "76979871", provider: "vimeo" } }
     );
 
     await expect(repository.createFromEventRecording(command)).resolves.toEqual({
@@ -243,11 +252,24 @@ describe("PostgresLessonEventSourceRepository.createFromEventRecording", () => {
     expect(statements.some((text) => text.includes("insert into public.course_lessons"))).toBe(false);
   });
 
+  it("answers occurrence unavailable without inserting when the source occurrence is no longer finished", async () => {
+    const { repository, statements } = createConversionDatabase(
+      { can_manage: true, module_id: MODULE_ID },
+      [],
+      { isHeld: false }
+    );
+
+    await expect(repository.createFromEventRecording(command)).resolves.toEqual({
+      status: "occurrence_unavailable",
+    });
+    expect(statements.some((text) => text.includes("insert into public.course_lessons"))).toBe(false);
+  });
+
   it("still links the existing lesson without holding the recording", async () => {
     const { lockEventRecordingSource, repository } = createConversionDatabase(
       { can_manage: true, module_id: MODULE_ID },
       [{ course_module_id: MODULE_ID, id: LESSON_ID, title: command.title }],
-      null
+      { isHeld: true, recording: null }
     );
 
     await expect(repository.createFromEventRecording(command)).resolves.toMatchObject({

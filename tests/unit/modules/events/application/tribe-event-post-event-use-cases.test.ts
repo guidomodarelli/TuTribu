@@ -390,6 +390,51 @@ describe("getTribeEventRecordingLessonSource", () => {
       getTribeEventRecordingLessonSource(dependencies)(occurrenceQuery)
     ).resolves.toEqual({ status: "not_found" });
   });
+
+  it("rejects a recording whose occurrence is no longer finished (the series end was extended)", async () => {
+    const dependencies = buildDependencies(
+      DURING,
+      buildResources({
+        recording: {
+          externalVideoId: "76979871",
+          provider: "vimeo",
+          sourceUrl: "https://vimeo.com/76979871",
+        },
+      })
+    );
+
+    await expect(
+      getTribeEventRecordingLessonSource(dependencies)(occurrenceQuery)
+    ).resolves.toEqual({ status: "occurrence_not_finished" });
+    expect(dependencies.tribeEventPostEventRepository.getResources).not.toHaveBeenCalled();
+  });
+
+  it("rejects a recording of a cancelled date", async () => {
+    const dependencies = buildDependencies(
+      AFTER_END,
+      buildResources({
+        recording: {
+          externalVideoId: "76979871",
+          provider: "vimeo",
+          sourceUrl: "https://vimeo.com/76979871",
+        },
+      })
+    );
+
+    vi.mocked(dependencies.tribeEventOccurrenceExceptionRepository.find).mockResolvedValue({
+      eventId: EVENT_ID,
+      kind: "cancelled",
+      newEndsAt: null,
+      newStartsAt: null,
+      originalStartsAt: ORIGINAL_STARTS_AT,
+      reason: null,
+    });
+
+    await expect(
+      getTribeEventRecordingLessonSource(dependencies)(occurrenceQuery)
+    ).resolves.toEqual({ status: "occurrence_cancelled" });
+    expect(dependencies.tribeEventPostEventRepository.getResources).not.toHaveBeenCalled();
+  });
 });
 
 describe("occurrence conversation", () => {

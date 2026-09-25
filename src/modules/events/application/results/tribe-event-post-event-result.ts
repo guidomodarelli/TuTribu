@@ -124,4 +124,9 @@ export type TribeEventRecordingLessonSourceLookupResult =
       source: TribeEventRecordingLessonSourceResult;
       status: typeof TRIBE_EVENT_MUTATION_STATUS.found;
     }
-  | { status: OccurrenceLookupFailureStatus };
+  | {
+      status:
+        | OccurrenceLookupFailureStatus
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceCancelled
+        | typeof TRIBE_EVENT_MUTATION_STATUS.occurrenceNotFinished;
+    };
