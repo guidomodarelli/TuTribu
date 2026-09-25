@@ -16,6 +16,7 @@ import type {
   SaveTribeEventOccurrenceExceptionCommand,
   SetTribeEventAttendanceCommand,
   TribeEventCalendarFeedTokenCommand,
+  TribeEventCalendarFeedTokenIssueCommand,
   UpdateTribeEventCommand,
   WithdrawTribeEventProposalCommand,
 } from "@/src/modules/events/application/commands/tribe-event-command";
@@ -112,7 +113,7 @@ type EventsModule = {
       command: TribeEventCalendarFeedTokenCommand
     ) => Promise<TribeEventCalendarFeedSubscriptionLookupResult>;
     issueTribeEventCalendarFeedToken: (
-      command: TribeEventCalendarFeedTokenCommand
+      command: TribeEventCalendarFeedTokenIssueCommand
     ) => Promise<TribeEventCalendarFeedTokenIssueResult>;
     getTribeEventAttendanceReport: (
       query: GetTribeEventAttendanceReportQuery

@@ -8,6 +8,7 @@ import {
 const TRIBE_ID = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 const TRIBE_SLUG = "matematica-pro";
 const TOKEN_ID = "5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e";
+const PREVIOUS_TOKEN_ID = "4a5b6c7d-8e9f-4a0b-9c1d-2e3f4a5b6c7d";
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const TOKEN_HASH = "b".repeat(64);
 const OWNER_ID = "user-ana";
@@ -50,6 +51,7 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
           can_read: true,
           created_at: new Date("2026-05-01T12:00:00.000Z"),
           last_used_at: null,
+          subscription_id: TOKEN_ID,
           tribe_id: TRIBE_ID,
         },
       ],
@@ -58,7 +60,7 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
 
     await expect(repository.findActive({ tribeSlug: TRIBE_SLUG })).resolves.toEqual({
       status: "found",
-      subscription: { createdAt: "2026-05-01T12:00:00.000Z", lastUsedAt: null },
+      subscription: { createdAt: "2026-05-01T12:00:00.000Z", id: TOKEN_ID, lastUsedAt: null },
     });
 
     const lookupSql = getSqlText(execute.mock.calls[0]?.[0]);
@@ -94,17 +96,21 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       .mockResolvedValueOnce({ rows: [{ id: "membership-ana" }] })
       .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
       .mockResolvedValueOnce({ rows: [{}] })
-      .mockResolvedValueOnce({ rows: [{ can_read: true }] })
+      .mockResolvedValueOnce({ rows: [{ can_read: true, precondition_holds: true }] })
       .mockResolvedValueOnce({
-        rows: [{ created_at: "2026-05-02T12:00:00.000Z", last_used_at: null }],
+        rows: [{ created_at: "2026-05-02T12:00:00.000Z", id: TOKEN_ID, last_used_at: null }],
       });
     const repository = new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(execute));
 
     await expect(
-      repository.issue({ tokenHash: TOKEN_HASH, tribeSlug: TRIBE_SLUG })
+      repository.issue({
+        expectedSubscriptionId: PREVIOUS_TOKEN_ID,
+        tokenHash: TOKEN_HASH,
+        tribeSlug: TRIBE_SLUG,
+      })
     ).resolves.toEqual({
       status: "feed_token_issued",
-      subscription: { createdAt: "2026-05-02T12:00:00.000Z", lastUsedAt: null },
+      subscription: { createdAt: "2026-05-02T12:00:00.000Z", id: TOKEN_ID, lastUsedAt: null },
     });
 
     const [membershipLockSql, , lockSql, revokeSql, insertSql] = execute.mock.calls.map(
@@ -116,6 +122,11 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
     expect(lockSql).toContain("pg_advisory_xact_lock");
     expect(revokeSql).toContain("set revoked_at = timezone('utc', clock_timestamp())");
     expect(revokeSql).toContain("user_id = public.current_app_user_id()");
+    // The optimistic precondition shares the revocation statement.
+    expect(revokeSql).toContain("is not distinct from");
+    expect(execute.mock.calls[3]?.[0]).toMatchObject({
+      queryChunks: expect.arrayContaining([PREVIOUS_TOKEN_ID]),
+    });
     expect(insertSql).toContain("insert into public.event_calendar_feed_tokens");
     expect(insertSql).toContain("public.current_app_user_id()");
   });
@@ -128,7 +139,7 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
     const repository = new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(execute));
 
     await expect(
-      repository.issue({ tokenHash: TOKEN_HASH, tribeSlug: TRIBE_SLUG })
+      repository.issue({ expectedSubscriptionId: null, tokenHash: TOKEN_HASH, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ status: "forbidden" });
     expect(execute).toHaveBeenCalledTimes(2);
   });
@@ -139,11 +150,11 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       .mockResolvedValueOnce({ rows: [{ id: "membership-ana" }] })
       .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
       .mockResolvedValueOnce({ rows: [{}] })
-      .mockResolvedValueOnce({ rows: [{ can_read: false }] });
+      .mockResolvedValueOnce({ rows: [{ can_read: false, precondition_holds: true }] });
     const repository = new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(execute));
 
     await expect(
-      repository.issue({ tokenHash: TOKEN_HASH, tribeSlug: TRIBE_SLUG })
+      repository.issue({ expectedSubscriptionId: null, tokenHash: TOKEN_HASH, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ status: "forbidden" });
     // No insert after the recheck: the member keeps no new link.
     expect(execute).toHaveBeenCalledTimes(4);
@@ -154,6 +165,27 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
 
     expect(recheckSql).toContain("public.can_read_tribe_content(");
     expect(recheckSql).toContain("update public.event_calendar_feed_tokens");
+  });
+
+  it("issues nothing when the active token is no longer the one the client expected", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: "membership-ana" }] })
+      .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
+      .mockResolvedValueOnce({ rows: [{}] })
+      .mockResolvedValueOnce({ rows: [{ can_read: true, precondition_holds: false }] });
+    const repository = new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(execute));
+
+    await expect(
+      repository.issue({
+        expectedSubscriptionId: PREVIOUS_TOKEN_ID,
+        tokenHash: TOKEN_HASH,
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({ status: "feed_token_changed" });
+    // No insert: a duplicate regeneration (retry, second tab) that lost the
+    // race gets no credential, and the winner's token stays active.
+    expect(execute).toHaveBeenCalledTimes(4);
   });
 
   it("revokes idempotently only the member's own token", async () => {
@@ -182,9 +214,9 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       .mockResolvedValueOnce({ rows: [{ id: "membership-ana" }] })
       .mockResolvedValueOnce({ rows: [{ can_read: true, created_at: null, tribe_id: TRIBE_ID }] })
       .mockResolvedValueOnce({ rows: [{}] })
-      .mockResolvedValueOnce({ rows: [{ can_read: true }] })
+      .mockResolvedValueOnce({ rows: [{ can_read: true, precondition_holds: true }] })
       .mockResolvedValueOnce({
-        rows: [{ created_at: "2026-05-02T12:00:00.000Z", last_used_at: null }],
+        rows: [{ created_at: "2026-05-02T12:00:00.000Z", id: TOKEN_ID, last_used_at: null }],
       });
     const revokeExecute = vi
       .fn()
@@ -193,6 +225,7 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       .mockResolvedValueOnce({ rows: [] });
 
     await new PostgresTribeEventCalendarFeedTokenRepository(createExecutor(issueExecute)).issue({
+      expectedSubscriptionId: null,
       tokenHash: TOKEN_HASH,
       tribeSlug: TRIBE_SLUG,
     });

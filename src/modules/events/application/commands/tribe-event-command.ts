@@ -204,6 +204,14 @@ export type TribeEventCalendarFeedTokenCommand = {
 };
 
 /**
+ * Generation or regeneration of the personal link, conditioned on the active
+ * subscription the client knows (null: none).
+ */
+export type TribeEventCalendarFeedTokenIssueCommand = TribeEventCalendarFeedTokenCommand & {
+  expectedSubscriptionId: string | null;
+};
+
+/**
  * Public feed request: the token (already checked to be well-formed by the
  * route) is the only credential; there is no session.
  */

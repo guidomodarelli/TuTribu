@@ -25,6 +25,11 @@ export type TribeEventCalendarFeedTokenQuery = {
 };
 
 export type IssueTribeEventCalendarFeedTokenCommand = TribeEventCalendarFeedTokenQuery & {
+  /**
+   * Id of the subscription the client knows as active (null: it knows none).
+   * The token is issued only while that is still the active one.
+   */
+  expectedSubscriptionId: string | null;
   /** SHA-256 hex digest of the new token; the plain token never reaches SQL. */
   tokenHash: string;
 };
@@ -41,7 +46,9 @@ export type TribeEventCalendarFeedTokenIssueResult =
       status: typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenIssued;
       subscription: TribeEventCalendarFeedSubscription;
     }
-  | { status: FeedTokenFailureStatus };
+  | {
+      status: FeedTokenFailureStatus | typeof TRIBE_EVENT_MUTATION_STATUS.feedTokenChanged;
+    };
 
 /**
  * Revoking is idempotent: no active token is still `feedTokenRevoked`.
@@ -59,6 +66,10 @@ export type TribeEventCalendarFeedTokenRepository = {
   /**
    * Revokes the active token of the member for the tribe (if any) and stores
    * the new one in the same transaction, serialized per member and tribe.
+   * Optimistic precondition: when the active token is no longer
+   * `expectedSubscriptionId` (another tab, a retry, or a revocation won the
+   * race) nothing is revoked nor issued and it answers `feedTokenChanged`,
+   * so only the credential of a successful response stays active.
    */
   issue: (
     command: IssueTribeEventCalendarFeedTokenCommand

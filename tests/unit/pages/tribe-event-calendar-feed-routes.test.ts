@@ -38,6 +38,16 @@ const OWNER_ID = "user-ana";
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const FEED_URL = `https://tutribu.example.com/api/calendar/tribes/${TRIBE_SLUG}/feed/${TOKEN}.ics`;
 const MANAGEMENT_URL = `https://tutribu.example.com/api/tribes/${TRIBE_SLUG}/events/calendar-feed`;
+const SUBSCRIPTION_ID = "2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a";
+const PREVIOUS_SUBSCRIPTION_ID = "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f";
+
+function issueRequest(body: unknown = { expectedSubscriptionId: null }) {
+  return new Request(MANAGEMENT_URL, {
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+}
 
 const foundFeed = {
   calendarName: "Matemática Pro",
@@ -225,10 +235,7 @@ describe("/api/tribes/[slug]/events/calendar-feed", () => {
   it("requires a session", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
 
-    const response = await POST_SUBSCRIPTION(
-      new Request(MANAGEMENT_URL, { method: "POST" }),
-      managementContext()
-    );
+    const response = await POST_SUBSCRIPTION(issueRequest(), managementContext());
 
     expect(response.status).toBe(401);
     expect(managementUseCases.issueTribeEventCalendarFeedToken).not.toHaveBeenCalled();
@@ -247,6 +254,7 @@ describe("/api/tribes/[slug]/events/calendar-feed", () => {
       status: "found",
       subscription: {
         createdAt: "2026-05-01T12:00:00.000Z",
+        id: SUBSCRIPTION_ID,
         lastUsedAt: null,
         tokenHash: "b".repeat(64),
       },
@@ -257,30 +265,28 @@ describe("/api/tribes/[slug]/events/calendar-feed", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     await expect(response.json()).resolves.toEqual({
-      subscription: { createdAt: "2026-05-01T12:00:00.000Z", lastUsedAt: null },
+      subscription: { createdAt: "2026-05-01T12:00:00.000Z", id: SUBSCRIPTION_ID, lastUsedAt: null },
     });
   });
 
   it("issues a token and answers the personal feed URL once, never cached", async () => {
     managementUseCases.issueTribeEventCalendarFeedToken.mockResolvedValue({
       status: "feed_token_issued",
-      subscription: { createdAt: "2026-05-02T12:00:00.000Z", lastUsedAt: null },
+      subscription: { createdAt: "2026-05-02T12:00:00.000Z", id: SUBSCRIPTION_ID, lastUsedAt: null },
       token: TOKEN,
     });
 
-    const response = await POST_SUBSCRIPTION(
-      new Request(MANAGEMENT_URL, { method: "POST" }),
-      managementContext()
-    );
+    const response = await POST_SUBSCRIPTION(issueRequest(), managementContext());
 
     expect(response.status).toBe(201);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     await expect(response.json()).resolves.toEqual({
       feedUrl: FEED_URL,
       message: "Tu link de calendario está listo. Copialo ahora: no lo vamos a volver a mostrar.",
-      subscription: { createdAt: "2026-05-02T12:00:00.000Z", lastUsedAt: null },
+      subscription: { createdAt: "2026-05-02T12:00:00.000Z", id: SUBSCRIPTION_ID, lastUsedAt: null },
     });
     expect(managementUseCases.issueTribeEventCalendarFeedToken).toHaveBeenCalledWith({
+      expectedSubscriptionId: null,
       tribeSlug: TRIBE_SLUG,
     });
     expect(everyLogLine()).not.toContain(TOKEN);
@@ -299,10 +305,7 @@ describe("/api/tribes/[slug]/events/calendar-feed", () => {
         process.env.BETTER_AUTH_URL = invalidBaseUrl;
       }
 
-      const response = await POST_SUBSCRIPTION(
-        new Request(MANAGEMENT_URL, { method: "POST" }),
-        managementContext()
-      );
+      const response = await POST_SUBSCRIPTION(issueRequest(), managementContext());
 
       expect(response.status).toBe(500);
       await expect(response.json()).resolves.toEqual({
@@ -320,15 +323,53 @@ describe("/api/tribes/[slug]/events/calendar-feed", () => {
   it("maps a viewer who cannot read the tribe to 403", async () => {
     managementUseCases.issueTribeEventCalendarFeedToken.mockResolvedValue({ status: "forbidden" });
 
-    const response = await POST_SUBSCRIPTION(
-      new Request(MANAGEMENT_URL, { method: "POST" }),
-      managementContext()
-    );
+    const response = await POST_SUBSCRIPTION(issueRequest(), managementContext());
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
       message: "Solo los miembros de la tribu pueden suscribirse a su calendario.",
     });
+  });
+
+  it("answers 409 without a link when another tab or a retry already changed the active one", async () => {
+    managementUseCases.issueTribeEventCalendarFeedToken.mockResolvedValue({
+      status: "feed_token_changed",
+    });
+
+    const response = await POST_SUBSCRIPTION(
+      issueRequest({ expectedSubscriptionId: PREVIOUS_SUBSCRIPTION_ID }),
+      managementContext()
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      message:
+        "Tu link de calendario cambió desde otra pestaña o dispositivo. Revisalo y volvé a intentarlo.",
+    });
+    expect(managementUseCases.issueTribeEventCalendarFeedToken).toHaveBeenCalledWith({
+      expectedSubscriptionId: PREVIOUS_SUBSCRIPTION_ID,
+      tribeSlug: TRIBE_SLUG,
+    });
+  });
+
+  it.each([
+    ["no body", undefined],
+    ["a missing precondition", {}],
+    ["a malformed subscription id", { expectedSubscriptionId: "not-a-uuid" }],
+  ])("rejects %s with a safe 400 before issuing", async (_label, body) => {
+    const request =
+      body === undefined
+        ? new Request(MANAGEMENT_URL, { method: "POST" })
+        : issueRequest(body);
+
+    const response = await POST_SUBSCRIPTION(request, managementContext());
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      message:
+        "Tu link de calendario cambió desde otra pestaña o dispositivo. Revisalo y volvé a intentarlo.",
+    });
+    expect(managementUseCases.issueTribeEventCalendarFeedToken).not.toHaveBeenCalled();
   });
 
   it("revokes the subscription idempotently", async () => {
@@ -351,14 +392,11 @@ describe("/api/tribes/[slug]/events/calendar-feed", () => {
   it("answers a safe 500 when the issued DTO is unusable", async () => {
     managementUseCases.issueTribeEventCalendarFeedToken.mockResolvedValue({
       status: "feed_token_issued",
-      subscription: { createdAt: "not-a-date", lastUsedAt: null },
+      subscription: { createdAt: "not-a-date", id: SUBSCRIPTION_ID, lastUsedAt: null },
       token: TOKEN,
     });
 
-    const response = await POST_SUBSCRIPTION(
-      new Request(MANAGEMENT_URL, { method: "POST" }),
-      managementContext()
-    );
+    const response = await POST_SUBSCRIPTION(issueRequest(), managementContext());
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({

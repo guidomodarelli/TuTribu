@@ -10,6 +10,12 @@ import type {
  */
 export type TribeEventCalendarFeedSubscription = {
   createdAt: string;
+  /**
+   * Opaque id of the active token row (never the token nor its hash). The
+   * client echoes it when regenerating, as the optimistic precondition that
+   * the link it sees is still the active one.
+   */
+  id: string;
   /** Last feed request served with the token (throttled); null if never used. */
   lastUsedAt: string | null;
 };
