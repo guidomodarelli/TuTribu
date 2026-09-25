@@ -375,16 +375,47 @@ function buildScheduleReachesRangePredicate({ rangeEnd, rangeStart }: TribeEvent
 }
 
 /**
+ * Original starts of the exceptions (cancelled or moved) of the `events` row
+ * in scope whose slot can overlap `[rangeStart, rangeEnd)`, as a SQL array.
+ * Every exception removes its original slot from the plain schedule (a moved
+ * date that lands in the range is matched by `buildMovedIntoRangePredicate`
+ * instead). It is a superset: rows kept after a schedule edit are not
+ * filtered here, because a start that is no longer a slot can never match
+ * one. The lower bound is the later of the series start and the range start
+ * minus the series duration, written as `rangeStart - least(duration,
+ * rangeStart - starts_at)` so a duration of millennia never falls below the
+ * timestamptz range; both bounds use the `(event_id, original_starts_at)`
+ * unique index, so the array only holds rows of the window.
+ */
+function buildExceptedSlotStartsInRangeArray({ rangeEnd, rangeStart }: TribeEventDateRange) {
+  return sql`
+    array(
+      select excepted_slots.original_starts_at
+      from public.event_occurrence_exceptions excepted_slots
+      where excepted_slots.event_id = events.id
+        and excepted_slots.original_starts_at < ${rangeEnd}::timestamptz
+        and excepted_slots.original_starts_at >= ${rangeStart}::timestamptz - least(
+          ${TRIBE_EVENT_OCCURRENCE_DURATION},
+          ${rangeStart}::timestamptz - events.starts_at
+        )
+    )
+  `;
+}
+
+/**
  * Exact variant of `buildSeriesInRangePredicate` for readers that select
  * series in SQL without expanding them first (the calendar feed applies its
- * budgets inside the statement): a series matches only when its cadence
- * produces at least one occurrence overlapping `[rangeStart, rangeEnd)`
- * (`tribe_event_series_has_occurrence_in_range`, which confirms each slot
- * with `is_tribe_event_series_occurrence`, the SQL mirror of the domain
- * expansion), or when it has a date moved into the range. The cheap schedule
- * bounds run first so the per-row check only sees plausible series. A
- * monthly series anchored on the 31st that ends mid-February therefore never
- * matches a February window.
+ * budgets inside the statement): a series matches only when it has at least
+ * one EFFECTIVE occurrence overlapping `[rangeStart, rangeEnd)`, that is a
+ * slot of its cadence without a cancellation or move
+ * (`tribe_event_series_has_occurrence_in_range` with the excepted original
+ * starts of the window, confirming each slot with
+ * `is_tribe_event_series_occurrence`, the SQL mirror of the domain
+ * expansion), or a date moved into the range. The cheap schedule bounds run
+ * first so the per-row check only sees plausible series. A monthly series
+ * anchored on the 31st that ends mid-February, or a bounded series whose
+ * only slot in the window is cancelled or moved out of it, therefore never
+ * matches.
  */
 export function buildSeriesWithOccurrenceInRangePredicate({
   rangeEnd,
@@ -400,7 +431,8 @@ export function buildSeriesWithOccurrenceInRangePredicate({
           events.recurrence_frequency,
           events.recurrence_until,
           ${rangeStart}::timestamptz,
-          ${rangeEnd}::timestamptz
+          ${rangeEnd}::timestamptz,
+          ${buildExceptedSlotStartsInRangeArray({ rangeEnd, rangeStart })}
         )
       )
       or ${buildMovedIntoRangePredicate({ rangeEnd, rangeStart }, TRIBE_EVENT_RANGE_MATCH.overlaps)}

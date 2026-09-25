@@ -190,9 +190,11 @@ async function revokeActiveMemberFeedTokenIfReadable(
  * budgets together with their complete set of still-valid exceptions:
  *
  * 1. `candidate_series`: every series of the requested types with at least
- *    one occurrence overlapping the window (its cadence is checked in SQL,
- *    since nothing expands the series before the budgets) or a date moved
- *    into it, in feed order (most recent first). No row limit: a limit
+ *    one effective occurrence overlapping the window: a slot of its cadence
+ *    that is neither cancelled nor moved (checked in SQL, since nothing
+ *    expands the series before the budgets) or a date moved into it, in
+ *    feed order (most recent first). A series whose slots in the window are
+ *    all excepted would only add an EXDATE or an out-of-window override. No row limit: a limit
  *    applied before the budgets could hide later series that still fit.
  * 2. `valid_exceptions`: the exceptions whose original start is still a
  *    slot of the current schedule (`is_tribe_event_series_occurrence`, the

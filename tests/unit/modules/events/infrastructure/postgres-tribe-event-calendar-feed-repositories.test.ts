@@ -505,6 +505,31 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     );
   });
 
+  it("does not budget a series whose only in-window slots are cancelled or moved away", async () => {
+    const ownerExecute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ id: TRIBE_ID, name: "Matemática Pro" }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [ACCESS_ONLY_ROW] });
+    const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
+
+    await reader.readAsOwner(FEED_QUERY);
+
+    // A bounded monthly series whose last slot in the window is cancelled has
+    // no effective occurrence there: the slot check receives the excepted
+    // original starts of the series that can overlap the window, so only a
+    // slot without an exception (or a date moved into the window) counts.
+    const feedSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
+    const candidateSql = feedSql.slice(0, feedSql.indexOf("valid_exceptions as materialized"));
+    const slotCheckSql = candidateSql.slice(
+      candidateSql.indexOf("public.tribe_event_series_has_occurrence_in_range(")
+    );
+
+    expect(slotCheckSql).toMatch(
+      /::timestamptz,\s*array\(\s*select excepted_slots\.original_starts_at\s*from public\.event_occurrence_exceptions excepted_slots\s*where excepted_slots\.event_id = events\.id\s*and excepted_slots\.original_starts_at </
+    );
+  });
+
   it("returns null and reads nothing else when the owner lost access", async () => {
     const ownerExecute = vi.fn(async (..._statements: unknown[]) => ({ rows: [] }));
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
