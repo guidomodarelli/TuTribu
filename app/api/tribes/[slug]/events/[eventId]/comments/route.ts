@@ -39,12 +39,12 @@ type TribeEventRouteContext = {
  * the viewer can write in it.
  */
 export async function GET(request: Request, context: TribeEventRouteContext) {
-  const scope = await openTribeEventPostEventRouteScope(
-    request,
-    CONVERSATION_ROUTE_LOG.operation
-  );
+  const scope = await openTribeEventPostEventRouteScope(request, {
+    operation: CONVERSATION_ROUTE_LOG.operation,
+    unexpectedFailureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedConversationMessage,
+  });
 
-  if (!scope.isAuthenticated) {
+  if (!scope.isOpen) {
     return scope.response;
   }
 
@@ -109,12 +109,12 @@ export async function GET(request: Request, context: TribeEventRouteContext) {
  * thread appends it without reloading. Replies do not notify in this phase.
  */
 export async function POST(request: Request, context: TribeEventRouteContext) {
-  const scope = await openTribeEventPostEventRouteScope(
-    request,
-    CONVERSATION_ROUTE_LOG.operation
-  );
+  const scope = await openTribeEventPostEventRouteScope(request, {
+    operation: CONVERSATION_ROUTE_LOG.operation,
+    unexpectedFailureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage,
+  });
 
-  if (!scope.isAuthenticated) {
+  if (!scope.isOpen) {
     return scope.response;
   }
 

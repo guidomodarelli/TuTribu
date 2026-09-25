@@ -34,7 +34,7 @@ type TribeEventRouteContext = {
   }>;
 };
 
-type AuthenticatedScope = Extract<TribeEventPostEventRouteScope, { isAuthenticated: true }>;
+type AuthenticatedScope = Extract<TribeEventPostEventRouteScope, { isOpen: true }>;
 
 /**
  * Saves (or clears, with `reaction: null`) the viewer's reaction and answers
@@ -92,9 +92,12 @@ async function respondWithReaction(input: {
  * same reaction is a no-op; it never notifies.
  */
 export async function PUT(request: Request, context: TribeEventRouteContext) {
-  const scope = await openTribeEventPostEventRouteScope(request, REACTION_ROUTE_LOG.operation);
+  const scope = await openTribeEventPostEventRouteScope(request, {
+    operation: REACTION_ROUTE_LOG.operation,
+    unexpectedFailureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedReactionMessage,
+  });
 
-  if (!scope.isAuthenticated) {
+  if (!scope.isOpen) {
     return scope.response;
   }
 
@@ -126,9 +129,12 @@ export async function PUT(request: Request, context: TribeEventRouteContext) {
  * Removes the viewer's reaction of `?occurrence=` (idempotent).
  */
 export async function DELETE(request: Request, context: TribeEventRouteContext) {
-  const scope = await openTribeEventPostEventRouteScope(request, REACTION_ROUTE_LOG.operation);
+  const scope = await openTribeEventPostEventRouteScope(request, {
+    operation: REACTION_ROUTE_LOG.operation,
+    unexpectedFailureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedReactionMessage,
+  });
 
-  if (!scope.isAuthenticated) {
+  if (!scope.isOpen) {
     return scope.response;
   }
 

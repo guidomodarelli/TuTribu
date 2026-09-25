@@ -118,6 +118,101 @@ describe("post-event routes", () => {
     expect(eventUseCases.getTribeEventPostEvent).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["module composition", () => (createRequestModules as Mock).mockRejectedValue(new Error("pool exhausted"))],
+    ["session lookup", () => getAuthenticatedMember.mockRejectedValue(new Error("better-auth secret mismatch"))],
+  ])(
+    "answers a safe Spanish 500 on every post-event route when %s fails while opening the scope",
+    async (_failure, arrangeFailure) => {
+      arrangeFailure();
+
+      const responses = await Promise.all([
+        GET_POST_EVENT(
+          buildRequest(`${BASE_URL}/post-event?occurrence=${ORIGINAL_STARTS_AT}`),
+          eventContext()
+        ),
+        PUT_POST_EVENT(
+          buildRequest(`${BASE_URL}/post-event`, {
+            materials: [],
+            occurrenceStartsAt: ORIGINAL_STARTS_AT,
+            recordingUrl: null,
+          }),
+          eventContext()
+        ),
+        PUT_REACTION(
+          buildRequest(`${BASE_URL}/reaction`, { occurrenceStartsAt: ORIGINAL_STARTS_AT, reaction: "fire" }),
+          eventContext()
+        ),
+        DELETE_REACTION(
+          buildRequest(`${BASE_URL}/reaction?occurrence=${ORIGINAL_STARTS_AT}`),
+          eventContext()
+        ),
+        GET_COMMENTS(
+          buildRequest(`${BASE_URL}/comments?occurrence=${ORIGINAL_STARTS_AT}`),
+          eventContext()
+        ),
+        POST_COMMENT(
+          buildRequest(`${BASE_URL}/comments`, {
+            clientRequestId: CLIENT_REQUEST_ID,
+            content: "Hola",
+            occurrenceStartsAt: ORIGINAL_STARTS_AT,
+          }),
+          eventContext()
+        ),
+        DELETE_COMMENT(
+          buildRequest(`https://tutribu.example.com/api/tribes/${TRIBE_SLUG}/events/comments/${COMMENT_ID}`),
+          { params: Promise.resolve({ commentId: COMMENT_ID, slug: TRIBE_SLUG }) }
+        ),
+      ]);
+      const bodies = await Promise.all(responses.map((response) => response.json()));
+
+      expect(responses.map((response) => response.status)).toEqual(Array(7).fill(500));
+      expect(bodies).toEqual([
+        { message: "No pudimos cargar la grabación y los materiales. Intentá de nuevo." },
+        { message: "No pudimos guardar la grabación y los materiales. Intentá de nuevo." },
+        { message: "No pudimos guardar tu reacción. Intentá de nuevo." },
+        { message: "No pudimos guardar tu reacción. Intentá de nuevo." },
+        { message: "No pudimos cargar la conversación. Intentá de nuevo." },
+        { message: "No pudimos actualizar la conversación. Intentá de nuevo." },
+        { message: "No pudimos actualizar la conversación. Intentá de nuevo." },
+      ]);
+      expect(JSON.stringify(bodies)).not.toMatch(/pool exhausted|better-auth/);
+      expect(logError).toHaveBeenCalledTimes(7);
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.any(Error),
+          message: "Tribe event post-event route scope setup failed",
+        })
+      );
+      expect(eventUseCases.getTribeEventPostEvent).not.toHaveBeenCalled();
+      expect(eventUseCases.saveTribeEventPostEvent).not.toHaveBeenCalled();
+      expect(eventUseCases.setTribeEventOccurrenceReaction).not.toHaveBeenCalled();
+      expect(eventUseCases.listTribeEventOccurrenceComments).not.toHaveBeenCalled();
+      expect(eventUseCases.createTribeEventOccurrenceComment).not.toHaveBeenCalled();
+      expect(eventUseCases.deleteTribeEventOccurrenceComment).not.toHaveBeenCalled();
+    }
+  );
+
+  it("logs the scope setup failure with the request id of the call", async () => {
+    const { createServerLogger } = await import(
+      "@/src/modules/shared/infrastructure/observability/server-logger"
+    );
+
+    (createRequestModules as Mock).mockRejectedValue(new Error("pool exhausted"));
+
+    await GET_POST_EVENT(
+      {
+        ...buildRequest(`${BASE_URL}/post-event?occurrence=${ORIGINAL_STARTS_AT}`),
+        headers: new Headers({ "x-request-id": CLIENT_REQUEST_ID }),
+      } as unknown as Request,
+      eventContext()
+    );
+
+    expect(createServerLogger).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: "tribe-event-post-event", requestId: CLIENT_REQUEST_ID })
+    );
+  });
+
   it("serves the post-event view with the course permission composed in", async () => {
     eventUseCases.getTribeEventPostEvent.mockResolvedValue({ postEvent, status: "found" });
     courseUseCases.canManageTribeCourses.mockResolvedValue(true);

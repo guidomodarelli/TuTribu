@@ -27,9 +27,12 @@ type TribeEventCommentRouteContext = {
  * answers 404, which the client treats as already gone.
  */
 export async function DELETE(request: Request, context: TribeEventCommentRouteContext) {
-  const scope = await openTribeEventPostEventRouteScope(request, COMMENT_ROUTE_LOG.operation);
+  const scope = await openTribeEventPostEventRouteScope(request, {
+    operation: COMMENT_ROUTE_LOG.operation,
+    unexpectedFailureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedCommentMessage,
+  });
 
-  if (!scope.isAuthenticated) {
+  if (!scope.isOpen) {
     return scope.response;
   }
 

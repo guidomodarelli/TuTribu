@@ -43,9 +43,12 @@ type TribeEventRouteContext = {
  * do (manage resources, participate, convert the recording into a lesson).
  */
 export async function GET(request: Request, context: TribeEventRouteContext) {
-  const scope = await openTribeEventPostEventRouteScope(request, POST_EVENT_ROUTE_LOG.operation);
+  const scope = await openTribeEventPostEventRouteScope(request, {
+    operation: POST_EVENT_ROUTE_LOG.operation,
+    unexpectedFailureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedPostEventLoadMessage,
+  });
 
-  if (!scope.isAuthenticated) {
+  if (!scope.isOpen) {
     return scope.response;
   }
 
@@ -114,9 +117,12 @@ export async function GET(request: Request, context: TribeEventRouteContext) {
  * first recording notifies attendees in the same transaction.
  */
 export async function PUT(request: Request, context: TribeEventRouteContext) {
-  const scope = await openTribeEventPostEventRouteScope(request, POST_EVENT_ROUTE_LOG.operation);
+  const scope = await openTribeEventPostEventRouteScope(request, {
+    operation: POST_EVENT_ROUTE_LOG.operation,
+    unexpectedFailureMessage: TRIBE_EVENT_ROUTE_RESPONSE.unexpectedPostEventSaveMessage,
+  });
 
-  if (!scope.isAuthenticated) {
+  if (!scope.isOpen) {
     return scope.response;
   }
 
