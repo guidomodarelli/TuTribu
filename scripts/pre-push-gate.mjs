@@ -47,7 +47,8 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { MAIN_BRANCH } from "./release/release-plan.mjs";
+/** Branch that receives releases (`beez-rp create-version`); only reached through gated pull requests. */
+const MAIN_BRANCH = "main";
 
 /** Git's all-zero object id, used for deleted or missing refs. */
 const ZERO_OID_PATTERN = /^0+$/;

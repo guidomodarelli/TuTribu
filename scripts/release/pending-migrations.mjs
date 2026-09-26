@@ -9,10 +9,19 @@
  * `@next/env`), so the check always targets the database that
  * `pnpm run db:migrate` would change. Only the host is ever shown.
  *
+ * `beez-rp.config.js` uses it as the `migrations.check` adapter of
+ * `beez-rp create-version`, so every result follows the `MigrationCheck`
+ * contract of beez-rp (`status`, `pending`, `target`, `reason`).
+ *
  * @module pending-migrations
  */
 
-import { MIGRATION_STATUS } from "./release-plan.mjs";
+/** Result of checking the database, as `beez-rp create-version` expects it. */
+export const MIGRATION_STATUS = Object.freeze({
+  upToDate: "up-to-date",
+  pending: "pending",
+  unknown: "unknown",
+});
 
 /** Drizzle journal that lists every versioned migration. */
 export const MIGRATION_JOURNAL_PATH = "database/migrations/meta/_journal.json";
@@ -72,6 +81,29 @@ export function findPendingMigrations(journalEntries, lastAppliedCreatedAt) {
   return journalEntries
     .filter((entry) => lastAppliedCreatedAt === null || entry.when > lastAppliedCreatedAt)
     .map((entry) => entry.tag);
+}
+
+/**
+ * Reads the Drizzle journal at several Git revisions and merges them, so the
+ * check also covers migrations of the checked-out branch that are about to
+ * land on `origin/main`. A revision without a journal is skipped.
+ *
+ * @param {{ tryGit: (gitArguments: string[]) => Promise<string | null> }} gitReader - Git reader that returns `null` on failure.
+ * @param {string[]} revisions - Revisions to read, for example `["HEAD", "origin/main"]`.
+ * @returns {Promise<{ tag: string, when: number }[]>} Unique entries ordered by `when`.
+ */
+export async function readMigrationJournalAt(gitReader, revisions) {
+  const journals = [];
+
+  for (const revision of revisions) {
+    const journalText = await gitReader.tryGit(["show", `${revision}:${MIGRATION_JOURNAL_PATH}`]);
+
+    if (journalText) {
+      journals.push(parseMigrationJournal(journalText));
+    }
+  }
+
+  return mergeMigrationJournals(journals);
 }
 
 /**
@@ -149,7 +181,7 @@ async function queryLastAppliedMigration(connectionString) {
  * {@link MIGRATION_STATUS.unknown} so the release can still continue.
  *
  * @param {{ repositoryRoot: string, journalEntries: { tag: string, when: number }[] }} options - Inputs.
- * @returns {Promise<{ status: string, pending: string[], databaseHost: string | null, reason: string | null }>} Result.
+ * @returns {Promise<{ status: string, pending: string[], target: string | null, reason: string | null }>} Result; `target` is the database host.
  */
 export async function checkPendingMigrations({ repositoryRoot, journalEntries }) {
   let connectionString;
@@ -160,7 +192,7 @@ export async function checkPendingMigrations({ repositoryRoot, journalEntries })
     return {
       status: MIGRATION_STATUS.unknown,
       pending: [],
-      databaseHost: null,
+      target: null,
       reason: `no se pudieron cargar los .env (${error?.message ?? "error desconocido"})`,
     };
   }
@@ -169,7 +201,7 @@ export async function checkPendingMigrations({ repositoryRoot, journalEntries })
     return {
       status: MIGRATION_STATUS.unknown,
       pending: [],
-      databaseHost: null,
+      target: null,
       reason: "no hay DATABASE_MIGRATION_URL ni DATABASE_URL en los .env",
     };
   }
@@ -183,14 +215,14 @@ export async function checkPendingMigrations({ repositoryRoot, journalEntries })
     return {
       status: pending.length > 0 ? MIGRATION_STATUS.pending : MIGRATION_STATUS.upToDate,
       pending,
-      databaseHost,
+      target: databaseHost,
       reason: null,
     };
   } catch (error) {
     return {
       status: MIGRATION_STATUS.unknown,
       pending: [],
-      databaseHost,
+      target: databaseHost,
       reason: `falló la consulta a ${databaseHost} (${error?.code ?? error?.message ?? "error desconocido"})`,
     };
   }
