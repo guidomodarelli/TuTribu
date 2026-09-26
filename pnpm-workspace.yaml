@@ -21,11 +21,10 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 minimumReleaseAgeExclude:
-  - beez-ui@0.6.0
+  - beez-ui@0.6.0 || 0.7.0
   - react-dom@19.3.0
   - react@19.3.0
   - scheduler@0.28.0
   - '@types/react-dom@19.3.0'
   - '@types/react@19.3.0'
-  - '@types/node@24.13.4'
-  - "@types/node@26.5.1"
+  - '@types/node@24.13.4 || 26.5.1'
