@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [0.94.0] - 2026-09-26
+
 ### Added
 
 - Animaciones sutiles en toda la plataforma: los mensajes, respuestas, comentarios, eventos, invitaciones, miembros y notificaciones entran y salen con suavidad, y los contadores (me gusta, asistentes, no leídas, links activos) se animan al cambiar.
@@ -36,3 +38,4 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El diagnóstico de precios ya no muestra un check mientras se actualiza o si falla, y dice "1 miembro asociado" en singular.
 - Los errores de invitaciones, ajustes y soporte se muestran en español y corresponden a la acción que falló.
 - Los ajustes avisan cuando la imagen de una URL no carga y cuando falta guardar tras subirla.
+
