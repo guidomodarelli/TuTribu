@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proceso de release</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Proceso de release</div>
+  <div class="doc-sub">Un solo comando, <code>pnpm release</code>, diagnostica el repositorio, muestra qué falta y publica la versión desde <code>main</code>.</div>
+  <div class="doc-meta"><span>Scope: <code>scripts/release.mjs</code> / <code>scripts/release/</code> / <code>Vercel</code></span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Uso</div>
+  <table>
+    <tr><th>Comando</th><th>Qué hace</th></tr>
+    <tr><td><code>pnpm release</code></td><td>Diagnóstico, plan y ejecución interactiva. La versión se elige con las flechas; se sugiere patch, minor o major según los commits.</td></tr>
+    <tr><td><code>pnpm release --bump patch|minor|major</code></td><td>Elige el tipo de versión sin preguntar.</td></tr>
+    <tr><td><code>pnpm release --set-version X.Y.Z</code></td><td>Fija la versión exacta. Solo se acepta el siguiente patch, minor o major de la versión actual: nunca una menor, igual ni una que saltee versiones (por ejemplo, de <code>0.93.0</code> solo valen <code>0.93.1</code>, <code>0.94.0</code> o <code>1.0.0</code>).</td></tr>
+    <tr><td><code>pnpm release --dry-run</code></td><td>Diagnostica y muestra el plan sin cambiar nada.</td></tr>
+  </table>
+  <div class="callout c-info">Sin terminal interactiva (por ejemplo con stdin redirigido) cada pregunta toma su opción por defecto y lo informa en pantalla.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Diagnóstico</div>
+  <p>Antes de tocar nada, el comando hace <code>git fetch origin --prune --tags</code> y arma un panel con:</p>
+  <ul>
+    <li><strong>Rama</strong>: los releases salen solo desde <code>main</code>.</li>
+    <li><strong>Working tree</strong>: tiene que estar limpio.</li>
+    <li><strong>main ↔ origin</strong>: commits atrás o adelante de <code>origin/main</code>.</li>
+    <li><strong>Último release</strong>: el último commit de versión (<code>X.Y.Z</code>) que llegó a <code>origin/main</code>. Los tags <code>vX.Y.Z</code> históricos solo existen en clones locales, por eso no se usan como referencia.</li>
+    <li><strong>Sin publicar</strong>: commits de <code>origin/main</code> posteriores al último release.</li>
+    <li><strong>Migraciones</strong>: entradas de <code>database/migrations/meta/_journal.json</code> (de <code>HEAD</code> y <code>origin/main</code>) más nuevas que el último <code>created_at</code> de <code>drizzle.__drizzle_migrations</code>, la misma regla que usa <code>drizzle-kit migrate</code>. La conexión se resuelve igual que <code>drizzle.config.ts</code> (<code>DATABASE_MIGRATION_URL</code> y luego <code>DATABASE_URL</code>) y solo se muestra el host. Si la base no responde, el release sigue con una advertencia.</li>
+    <li><strong>Node.js</strong>: advierte si difiere de <code>.nvmrc</code>.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Bloqueos</div>
+  <p>Estas situaciones no se automatizan; el comando se detiene y explica el próximo paso concreto:</p>
+  <ul>
+    <li><strong>Rama feature</strong>: indica si faltan commits por subir, si hay que abrir el PR, si el PR está abierto o en borrador (con su link) o si ya se mergeó y solo falta volver a <code>main</code>.</li>
+    <li><strong>Cambios sin commitear</strong>: lista los archivos y pide commitearlos en una rama o stashearlos.</li>
+    <li><strong>Commits locales en <code>main</code> que no son un release</strong>: pide moverlos a una rama y llevarlos por un PR.</li>
+    <li><strong>HEAD desacoplado</strong>.</li>
+  </ul>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Pasos que ejecuta</div>
+  <table>
+    <tr><th>Paso</th><th>Cuándo</th><th>Detalle</th></tr>
+    <tr><td>Actualizar <code>main</code></td><td><code>main</code> está atrás de origin</td><td><code>git merge --ff-only origin/main</code>.</td></tr>
+    <tr><td>Aplicar migraciones</td><td>Hay migraciones pendientes</td><td>Muestra la lista y el host destino, y pregunta: aplicar ahora (<code>scripts/push-migrations.js</code>, lo mismo que <code>pnpm run db:migrate</code>), saltear o cancelar. Después de migrar vuelve a verificar que no quede ninguna pendiente. Corre antes de subir la versión para que el deploy encuentre el esquema listo.</td></tr>
+    <tr><td>Versionar</td><td>Hay commits sin publicar</td><td>Muestra qué se publica, elige la versión (flag o pregunta), actualiza <code>package.json</code>, crea el commit <code>X.Y.Z</code> (pasa por el hook pre-commit) y el tag anotado <code>vX.Y.Z</code>.</td></tr>
+    <tr><td>Publicar</td><td>Siempre que se versionó, o hay un release a medio subir</td><td>Pide confirmación y ejecuta <code>git push --atomic origin main refs/tags/vX.Y.Z</code>. El hook pre-push corre <code>pnpm run ci</code> (~10 min). Si el remoto es SSH y no hay <code>GIT_SSH_COMMAND</code>, agrega <code>ServerAliveInterval</code> para que GitHub no corte la conexión durante el gate. Al terminar verifica que el tag exista en origin.</td></tr>
+  </table>
+  <p>Vercel buildea solo cuando cambia la versión de <code>package.json</code> (<code>scripts/ignore-build.sh</code>), así que el push del commit de versión dispara el deploy de producción.</p>
+  <div class="callout c-ok">Cada paso se deriva del estado actual. Si algo falla, se corrige la causa y se vuelve a correr <code>pnpm release</code>: retoma desde el primer paso que falte. Un commit de versión creado en local pero no subido se detecta como release a medio subir y solo se reintenta el push.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Estructura</div>
+  <table>
+    <tr><th>Archivo</th><th>Responsabilidad</th></tr>
+    <tr><td><code>scripts/release.mjs</code></td><td>Orquestador: diagnóstico, plan, confirmaciones y ejecución de cada paso.</td></tr>
+    <tr><td><code>scripts/release/release-plan.mjs</code></td><td>Lógica pura: flags, versiones válidas, sugerencia de tipo, detección de release a medio subir y armado del plan o de los bloqueos.</td></tr>
+    <tr><td><code>scripts/release/release-state.mjs</code></td><td>Lectura del estado de Git y del PR de la rama con <code>gh</code>.</td></tr>
+    <tr><td><code>scripts/release/pending-migrations.mjs</code></td><td>Detección de migraciones pendientes en la base configurada.</td></tr>
+    <tr><td><code>scripts/release/terminal-ui.mjs</code></td><td>UI de terminal sin dependencias: colores (<code>util.styleText</code>, respeta <code>NO_COLOR</code>), cajas, spinner y selector con flechas.</td></tr>
+  </table>
+  <p>Los tests viven en <code>tests/unit/tooling/release-plan-script.test.ts</code> y <code>tests/unit/tooling/release-state-script.test.ts</code> (este último usa repositorios Git reales con un remoto bare).</p>
+</div>
+</body>
+</html>

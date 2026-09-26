@@ -73,6 +73,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run test:e2e:ui` | Run Playwright with the interactive UI runner. |
 | `pnpm run db:migrate` | Apply pending SQL migrations to the configured Neon database. |
 | `pnpm run db:migrate:force` | Force a Drizzle push. Use only when an intentional override is required. |
+| `pnpm release` | Diagnose the repository and ship a release from `main`: update `main`, apply pending migrations (after confirmation), bump the version (`--bump patch\|minor\|major` or `--set-version X.Y.Z`, only the next patch/minor/major) and push `main` plus the `vX.Y.Z` tag. `--dry-run` only shows the plan. See `docs/conventions/release-process.htm`. |
 
 ## Environment
 
@@ -197,7 +198,7 @@ Notes:
   - `infrastructure/` — adapters for auth, persistence, HTTP clients, and provider SDKs. Owns external DTOs and their mappers.
 - `src/modules/shared/*` — cross-module shared code (e.g. `infrastructure/database/`).
 - `beez-ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
-- `beez-ui@^0.5.5` — shared UI package installed from npm, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
+- `beez-ui@^0.6.0` — shared UI package installed from npm, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
 - `components/<scope>/<component>/{index.tsx,styles.module.scss}` — custom presentational components.
 - `lib/*` — framework-safe helpers, UI utilities, and client-only adapters. Off-limits to `application` and `domain`.
 - `database/migrations/*` — versioned SQL migrations (source of truth for schema and RLS policies).

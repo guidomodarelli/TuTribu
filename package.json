@@ -2,7 +2,7 @@
   "name": "tutribu",
   "version": "0.93.0",
   "private": true,
-  "packageManager": "pnpm@12.3.4",
+  "packageManager": "pnpm@12.6.0",
   "engines": {
     "pnpm": ">=12 <13",
     "node": ">=24 <25"
@@ -17,6 +17,7 @@
     "upload:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "start": "next start",
+    "release": "node scripts/release.mjs",
     "ci": "pnpm run lint && pnpm run typecheck && pnpm run typecheck:tests && pnpm run test && pnpm run build",
     "commitlint": "commitlint --from HEAD~30 --to HEAD --verbose",
     "prepare": "husky",
@@ -39,7 +40,7 @@
     "@github/relative-time-element": "^5.0.0",
     "@next/env": "^16.3.4",
     "@siteping/widget": "0.9.12",
-    "beez-ui": "^0.5.5",
+    "beez-ui": "^0.6.0",
     "better-auth": "^1.6.11",
     "drizzle-orm": "^0.45.2",
     "emoji-picker-react": "^4.19.1",

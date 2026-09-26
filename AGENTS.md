@@ -167,7 +167,7 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 - Do not reintroduce `components/ui` source copies or a local `components.json`.
 - Prefer composition of existing shared primitives before custom product components.
 - Import browser-ready `beez-ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the default LaTribu theme and fonts; product SCSS Modules and explicit overrides stay here.
-- Use pnpm 12.3.4 and consume published beez-ui releases from npm with a caret range. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
+- Use pnpm 12.6.0 and consume published beez-ui releases from npm with a caret range. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
 - Follow `docs/architecture/shared-ui-library.htm` for package boundaries and distribution.
 - Structure rule for custom components :
   - Applies to manually created components under `components/*`.
@@ -547,7 +547,7 @@ A server render or an `after()` callback can be aborted mid-flight (Next.js dev 
 
 ### Test tooling
 
-- Use pnpm 12.3.4 and the committed pnpm-lock.yaml. Install with `pnpm install --frozen-lockfile`.
+- Use pnpm 12.6.0 and the committed pnpm-lock.yaml. Install with `pnpm install --frozen-lockfile`.
 - Use Vitest 5 for unit and integration tests; `pnpm test` runs once and `pnpm test:watch` watches.
 - Run `pnpm typecheck:tests` against `tsconfig.test.json`; keep Vitest and Testing Library globals out of the application tsconfig.
 
@@ -556,4 +556,4 @@ A server render or an `after()` callback can be aborted mid-flight (Next.js dev 
 - Use Node.js 24.21.0 from `.nvmrc` locally and in the Husky `pre-push` gate; `engines.node` permits only Node 24. The `pre-push` gate rejects a runtime outside `engines.node` and warns when it differs from `.nvmrc`.
 - TypeScript 7 is the project compiler for application tests and Next builds. Keep the separate `tsconfig.test.json` and run `pnpm typecheck:tests`.
 - `.pnpmfile.cjs` supplies the official TypeScript 6 compatibility API privately to ESLint packages. Keep the root `typescript` dependency on version 7 and do not disable Next build type checking. Review the hook when ESLint supports the new compiler API.
-- There is no GitHub Actions workflow; the local runtime must match `.nvmrc` and `packageManager` (pnpm 12.3.4) before the hooks run. Update runtime pins, Node types and lockfiles together.
+- There is no GitHub Actions workflow; the local runtime must match `.nvmrc` and `packageManager` (pnpm 12.6.0) before the hooks run. Update runtime pins, Node types and lockfiles together.
