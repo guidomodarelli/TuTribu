@@ -4,6 +4,20 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [0.94.1] - 2026-09-26
+
+### Added
+
+- Las fotos de perfil aparecen suavemente al cargar y, en la ronda, el indicador de página acompaña el cambio de página.
+
+### Changed
+
+- Los indicadores de carga muestran un brillo suave; el menú lateral, el panel de notificaciones y los controles de los formularios tienen transiciones más fluidas.
+
+### Fixed
+
+- Los menús y selectores muestran sus bordes y sombras desde que se abren, y las tarjetas interactivas conservan su contorno al pasar el puntero.
+
 ## [0.94.0] - 2026-09-26
 
 ### Added
