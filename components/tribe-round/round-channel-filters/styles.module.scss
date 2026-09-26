@@ -18,6 +18,9 @@
   scrollbar-color: color-mix(in oklch, var(--muted-foreground) 34%, transparent)
     transparent;
   scrollbar-width: thin;
+  // Stacking root for the gliding indicator: it paints above the strip
+  // background but below every chip, whichever way it travels.
+  isolation: isolate;
 
   &::-webkit-scrollbar {
     height: 0.4rem;
@@ -40,8 +43,6 @@
 
   &__chip {
     position: relative;
-    // The sliding indicator paints behind the label inside the chip.
-    isolation: isolate;
     box-sizing: border-box;
     display: inline-flex;
     flex: 0 0 auto;
@@ -56,7 +57,8 @@
     padding: 0 12px;
     border: 1px solid var(--border);
     border-radius: 999rem;
-    background: var(--background);
+    // Transparent so the gliding indicator stays visible under the chips it crosses.
+    background: transparent;
     color: var(--muted-foreground);
     cursor: pointer;
     font: inherit;
@@ -72,7 +74,7 @@
     @media (hover: hover) {
       &:hover {
         border-color: color-mix(in oklch, var(--primary) 48%, var(--border));
-        background: color-mix(in oklch, var(--primary) 7%, var(--background));
+        background: color-mix(in oklch, var(--primary) 7%, transparent);
         color: var(--foreground);
       }
     }
@@ -86,14 +88,15 @@
       outline-offset: 3px;
     }
 
+    // The indicator draws the active outline, so it glides with the fill.
     &--active {
-      border-color: color-mix(in oklch, var(--primary) 62%, var(--border));
+      border-color: transparent;
       color: var(--foreground);
 
       @media (hover: hover) {
         &:hover {
-          border-color: color-mix(in oklch, var(--primary) 76%, var(--border));
-          background: var(--background);
+          border-color: transparent;
+          background: transparent;
         }
       }
     }
@@ -101,12 +104,20 @@
 
   &__indicator {
     position: absolute;
-    inset: 0;
+    // Covers the chip border so its outline replaces it.
+    inset: -1px;
     z-index: -1;
     border-radius: inherit;
     background: color-mix(in oklch, var(--primary) 12%, var(--background));
-    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 18%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 62%, var(--border));
     pointer-events: none;
+    @include motion.interactive(box-shadow);
+
+    @media (hover: hover) {
+      .RoundChannelFilters__chip:hover > & {
+        box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 76%, var(--border));
+      }
+    }
   }
 
   &__emoji {

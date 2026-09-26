@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- En el filtro de canales de la ronda, el resaltado del canal elegido se desliza sin esconderse detrás de los otros canales ni tapar sus nombres, y el borde lo acompaña.
+
 ## [0.94.1] - 2026-09-26
 
 ### Added
