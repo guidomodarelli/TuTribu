@@ -27,6 +27,29 @@ const BOX_PADDING = 1;
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SPINNER_INTERVAL_MS = 80;
 
+/** Time spent waiting for answers, excluded from the reported total. */
+let promptWaitMs = 0;
+
+/**
+ * Returns how long the command has waited for the user's answers.
+ *
+ * @returns {number} Milliseconds spent with a prompt open.
+ */
+export function getPromptWaitMs() {
+  return promptWaitMs;
+}
+
+/**
+ * Measures the elapsed time since a start, without the time spent waiting for answers.
+ *
+ * @param {number} startedAt - `Date.now()` when the measured work started.
+ * @param {number} promptWaitAtStart - {@link getPromptWaitMs} at that moment.
+ * @returns {number} Active milliseconds.
+ */
+export function measureActiveMs(startedAt, promptWaitAtStart = 0) {
+  return Date.now() - startedAt - (promptWaitMs - promptWaitAtStart);
+}
+
 /** Exit code conventionally used after Ctrl+C. */
 export const INTERRUPTED_EXIT_CODE = 130;
 
@@ -92,33 +115,117 @@ export function visibleWidth(text) {
   return [...stripVTControlCharacters(text)].length;
 }
 
+/** Label/value rows (`renderRow`): the value starts after a gap of two or more spaces. */
+const VALUE_COLUMN_PATTERN = /^\s*\S(?:.*?\S)?\s{2,}(?=\S)/u;
+
+/** Leading marker (icon, arrow, bullet or `1.`, never a word) followed by a space, used as hanging indent. */
+const HANGING_MARKER_PATTERN = /^(\s*)((?:[^\p{L}\p{N}\s]{1,2}|\d{1,2}\.)\s+)?/u;
+
 /**
- * Truncates a styled line to a visible width, appending an ellipsis.
+ * Splits styled text into words (with their ANSI codes) and the spaces between them.
  *
  * @param {string} text - Possibly styled text.
- * @param {number} width - Maximum visible width.
- * @returns {string} Line that fits in `width` columns.
+ * @returns {{ text: string, width: number, isSpace: boolean }[]} Segments in order.
  */
-function fitToWidth(text, width) {
-  if (visibleWidth(text) <= width) {
-    return text;
-  }
-
-  // Walk the text keeping ANSI sequences intact so colors survive the cut.
-  let visibleCount = 0;
-  let result = "";
+function splitStyledSegments(text) {
+  const segments = [];
 
   for (const token of text.match(ANSI_TOKEN_PATTERN) ?? []) {
-    if (token.startsWith("\x1b")) {
-      result += token;
-    } else if (visibleCount < width - 1) {
-      result += token;
-      visibleCount += 1;
+    const isEscape = token.startsWith("\x1b");
+    const isSpace = !isEscape && token === " ";
+    const last = segments.at(-1);
+
+    // An escape after a space starts the next word so it is never dropped with a line-start space.
+    if (last && ((isEscape && !last.isSpace) || (!isEscape && last.isSpace === isSpace))) {
+      last.text += token;
+      last.width += isEscape ? 0 : 1;
+    } else {
+      segments.push({ text: token, width: isEscape ? 0 : 1, isSpace });
     }
   }
 
-  const hasStyles = result !== stripVTControlCharacters(result);
-  return `${result}…${hasStyles ? ANSI_RESET : ""}`;
+  return segments;
+}
+
+/**
+ * Returns the ANSI sequences seen so far, so a continuation line reopens the active styles.
+ *
+ * @param {string} text - Styled text already emitted.
+ * @returns {string} Concatenated escape sequences.
+ */
+function collectEscapes(text) {
+  return (text.match(ANSI_TOKEN_PATTERN) ?? []).filter((token) => token.startsWith("\x1b")).join("");
+}
+
+/**
+ * Word-wraps a styled line to a visible width without ever cutting it off:
+ * words move to the next line, continuation lines align after a leading
+ * marker (icon, arrow, bullet or `1.`), styles are closed at each break and
+ * reopened on the next line, and a word longer than the width is split.
+ *
+ * @param {string} text - Possibly styled line.
+ * @param {number} width - Maximum visible width.
+ * @returns {string[]} Lines that each fit in `width` columns.
+ */
+export function wrapStyledLine(text, width) {
+  if (visibleWidth(text) <= width) {
+    return [text];
+  }
+
+  // Continuation lines align with the value column of a row, or after a leading marker.
+  const plainText = stripVTControlCharacters(text);
+  const indentPrefix = VALUE_COLUMN_PATTERN.exec(plainText)?.[0] ?? HANGING_MARKER_PATTERN.exec(plainText)?.[0] ?? "";
+  const indentWidth = [...indentPrefix].length;
+  const hangingIndent = indentWidth < width / 2 ? " ".repeat(indentWidth) : "";
+  const lines = [];
+  let current = "";
+  let currentWidth = 0;
+  let emitted = "";
+
+  const breakLine = () => {
+    const hasStyles = current !== stripVTControlCharacters(current);
+    lines.push(`${current.trimEnd()}${hasStyles ? ANSI_RESET : ""}`);
+    emitted += current;
+    current = `${hangingIndent}${collectEscapes(emitted)}`;
+    currentWidth = hangingIndent.length;
+  };
+
+  for (const segment of splitStyledSegments(text)) {
+    const isLineStart = currentWidth === hangingIndent.length && lines.length > 0;
+
+    if (segment.isSpace) {
+      if (!isLineStart) {
+        current += segment.text;
+        currentWidth += segment.width;
+      }
+      continue;
+    }
+
+    // Move the word to the next line only when it fits there; a longer word is split right here.
+    const fitsOnFreshLine = hangingIndent.length + segment.width <= width;
+    if (currentWidth + segment.width > width && currentWidth > hangingIndent.length && fitsOnFreshLine) {
+      breakLine();
+    }
+
+    // A single word wider than the line is split across lines instead of truncated.
+    for (const token of segment.text.match(ANSI_TOKEN_PATTERN) ?? []) {
+      const isEscape = token.startsWith("\x1b");
+
+      if (!isEscape && currentWidth >= width) {
+        breakLine();
+      }
+
+      current += token;
+      currentWidth += isEscape ? 0 : 1;
+    }
+  }
+
+  if (stripVTControlCharacters(current).trim()) {
+    const hasStyles = current !== stripVTControlCharacters(current);
+    lines.push(`${current.trimEnd()}${hasStyles ? ANSI_RESET : ""}`);
+  }
+
+  return lines;
 }
 
 /**
@@ -132,7 +239,9 @@ export function resolveBoxWidth() {
 }
 
 /**
- * Renders a rounded box with an optional title in its top border.
+ * Renders a rounded box with an optional title in its top border. Long lines
+ * are word-wrapped, never truncated; a title that does not fit in the border
+ * moves inside the box as its first lines.
  *
  * @param {{ title?: string, lines: string[], tone?: string, width?: number }} options - Box content.
  * @returns {string} Multi-line box.
@@ -142,14 +251,18 @@ export function renderBox({ title, lines, tone = BOX_TONE.neutral, width = resol
   const innerWidth = width - 2;
   const contentWidth = innerWidth - BOX_PADDING * 2;
   const titleText = title ? ` ${paint("bold", title)} ` : "";
-  const topFill = Math.max(innerWidth - visibleWidth(titleText) - 1, 0);
-  const top = `${border("╭─")}${titleText}${border(`${"─".repeat(topFill)}╮`)}`;
+  const titleFits = visibleWidth(titleText) + 1 <= innerWidth;
+  const borderTitle = titleFits ? titleText : "";
+  const topFill = Math.max(innerWidth - visibleWidth(borderTitle) - 1, 0);
+  const top = `${border("╭─")}${borderTitle}${border(`${"─".repeat(topFill)}╮`)}`;
   const padding = " ".repeat(BOX_PADDING);
-  const body = lines.map((line) => {
-    const fitted = fitToWidth(line, contentWidth);
-    const fill = " ".repeat(contentWidth - visibleWidth(fitted));
-    return `${border("│")}${padding}${fitted}${fill}${padding}${border("│")}`;
-  });
+  const contentLines = titleFits || !title ? lines : [paint("bold", title), "", ...lines];
+  const body = contentLines
+    .flatMap((line) => wrapStyledLine(line, contentWidth))
+    .map((line) => {
+      const fill = " ".repeat(Math.max(contentWidth - visibleWidth(line), 0));
+      return `${border("│")}${padding}${line}${fill}${padding}${border("│")}`;
+    });
   const bottom = border(`╰${"─".repeat(innerWidth)}╯`);
 
   return [top, ...body, bottom].join("\n");
@@ -301,6 +414,7 @@ export function select({ message, options, defaultIndex = 0 }) {
   }
 
   return new Promise((resolve) => {
+    const promptStartedAt = Date.now();
     let selectedIndex = defaultIndex;
     let renderedLineCount = 0;
 
@@ -327,6 +441,7 @@ export function select({ message, options, defaultIndex = 0 }) {
       const chosen = options[selectedIndex];
       process.stdout.write(`${ANSI.cursorUp(renderedLineCount)}\r${ANSI.clearBelow}${ANSI.showCursor}`);
       print(`${question} ${paint("magentaBright", chosen.label)}`);
+      promptWaitMs += Date.now() - promptStartedAt;
       resolve(chosen.value);
     };
 

@@ -10,7 +10,10 @@
  */
 
 import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 
+import { readUnreleased } from "./changelog.mjs";
 import { MAIN_BRANCH, findUnpushedRelease } from "./release-plan.mjs";
 import {
   MIGRATION_JOURNAL_PATH,
@@ -253,6 +256,23 @@ async function readFeatureBranch(reader, branchName) {
 }
 
 /**
+ * Reads the `[Unreleased]` block of the working-tree CHANGELOG.md.
+ *
+ * @param {string} repositoryRoot - Repository root.
+ * @returns {{ exists: boolean, entryCount: number, unknownSections: string[] }} Unreleased state.
+ */
+export function readChangelogState(repositoryRoot) {
+  const changelogPath = path.join(repositoryRoot, "CHANGELOG.md");
+
+  if (!existsSync(changelogPath)) {
+    return { exists: false, entryCount: 0, unknownSections: [] };
+  }
+
+  const { exists, entryCount, unknownSections } = readUnreleased(readFileSync(changelogPath, "utf8"));
+  return { exists, entryCount, unknownSections };
+}
+
+/**
  * Gathers the complete release snapshot.
  *
  * @param {{
@@ -317,5 +337,6 @@ export async function collectReleaseState({
     unpushedRelease,
     unreleasedCommits,
     migrations,
+    changelog: readChangelogState(repositoryRoot),
   };
 }

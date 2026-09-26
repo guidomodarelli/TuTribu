@@ -13,6 +13,8 @@
  * @module release-plan
  */
 
+import { CHANGE_TYPES, UNRELEASED_HEADING } from "./changelog.mjs";
+
 /**
  * @typedef {{ sha?: string, subject: string, body?: string }} ReleaseCommit
  * @typedef {{ name: string, headSha: string, hasUpstream: boolean, unpushedCount: number, aheadOfMainCount: number }} FeatureBranchSnapshot
@@ -32,11 +34,18 @@
  *   unpushedRelease: UnpushedRelease | null,
  *   unreleasedCommits: ReleaseCommit[],
  *   migrations: MigrationSnapshot,
+ *   changelog: { exists: boolean, entryCount: number, unknownSections: string[] },
  * }} ReleaseState
  * @typedef {{ id: string, title: string, detail: string | undefined }} ReleasePlanStep
  * @typedef {{ title: string, details: string[] }} ReleaseBlocker
  * @typedef {{ steps: ReleasePlanStep[], blockers: ReleaseBlocker[], warnings: string[] }} ReleasePlan
  */
+
+/** Changelog that travels in the release commit, so it may be uncommitted on `main`. */
+const CHANGELOG_FILE = "CHANGELOG.md";
+
+/** Width of the `git status --porcelain` state columns before each path. */
+const PORCELAIN_STATUS_WIDTH = 3;
 
 /** Branch that receives releases; Vercel deploys it. */
 export const MAIN_BRANCH = "main";
@@ -54,6 +63,7 @@ export const RELEASE_TYPE = {
 /** Stable identifiers of every step the orchestrator knows how to run. */
 export const RELEASE_STEP = {
   syncMain: "sync-main",
+  generateChangelog: "generate-changelog",
   applyMigrations: "apply-migrations",
   bumpVersion: "bump-version",
   pushRelease: "push-release",
@@ -410,7 +420,11 @@ export function buildReleasePlan(state) {
     });
   }
 
-  if (state.workingTreeChanges.length > 0) {
+  const onlyChangelogChanged =
+    state.workingTreeChanges.length > 0 &&
+    state.workingTreeChanges.every((line) => line.slice(PORCELAIN_STATUS_WIDTH) === CHANGELOG_FILE);
+
+  if (state.workingTreeChanges.length > 0 && !onlyChangelogChanged) {
     plan.blockers.push({
       title: `Hay ${state.workingTreeChanges.length} archivo(s) sin commitear`,
       details: [
@@ -460,8 +474,31 @@ export function buildReleasePlan(state) {
   }
 
   if (state.unreleasedCommits.length > 0) {
+    if (state.changelog.unknownSections.length > 0) {
+      plan.steps = [];
+      plan.blockers.push({
+        title: `CHANGELOG.md ${UNRELEASED_HEADING} usa secciones no válidas: ${state.changelog.unknownSections.join(", ")}`,
+        details: [`Usá solo ${CHANGE_TYPES.map((type) => `### ${type}`).join(", ")} y volvé a correr pnpm create-version.`],
+      });
+      return plan;
+    }
+
+    if (state.changelog.entryCount === 0) {
+      plan.steps.push(
+        step(
+          RELEASE_STEP.generateChangelog,
+          `Completar ${UNRELEASED_HEADING} del CHANGELOG con Codex`,
+          "Está vacío: Codex lo arma desde los commits sin publicar. Si no puede, el release se corta."
+        )
+      );
+    }
+
     plan.steps.push(
-      step(RELEASE_STEP.bumpVersion, "Elegir la nueva versión y crear commit + tag", "Se sugiere patch/minor/major según los commits."),
+      step(
+        RELEASE_STEP.bumpVersion,
+        "Elegir la nueva versión y crear commit + tag",
+        `${UNRELEASED_HEADING} pasa a esa versión con la fecha de hoy y se commitea junto con package.json.`
+      ),
       step(RELEASE_STEP.pushRelease, `Subir ${MAIN_BRANCH} y el tag a origin`, "Dispara el deploy en Vercel.")
     );
   }

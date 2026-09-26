@@ -14,6 +14,8 @@ import {
   resolveRequestedVersion,
   suggestReleaseType,
 } from "../../../scripts/release/release-plan.mjs";
+import { buildChangelogPrompt } from "../../../scripts/release/changelog-ai.mjs";
+import { readLatestRelease, readUnreleased, releaseUnreleased } from "../../../scripts/release/changelog.mjs";
 
 type ReleaseState = Parameters<typeof buildReleasePlan>[0];
 
@@ -35,6 +37,7 @@ function createMainState(overrides: Partial<ReleaseState> = {}): ReleaseState {
     unpushedRelease: null,
     unreleasedCommits: [{ subject: "Add event reminders (#75)" }],
     migrations: UP_TO_DATE_MIGRATIONS,
+    changelog: { exists: true, entryCount: 2, unknownSections: [] },
     ...overrides,
   };
 }
@@ -138,6 +141,27 @@ describe("release plan", () => {
     ]);
   });
 
+  it("should ask Codex to fill an empty [Unreleased] block before bumping", () => {
+    const state = createMainState({ changelog: { exists: true, entryCount: 0, unknownSections: [] } });
+
+    expect(stepIds(state)).toEqual([RELEASE_STEP.generateChangelog, RELEASE_STEP.bumpVersion, RELEASE_STEP.pushRelease]);
+  });
+
+  it("should block [Unreleased] sections outside the Keep a Changelog change types", () => {
+    const plan = buildReleasePlan(createMainState({ changelog: { exists: true, entryCount: 1, unknownSections: ["Mejoras"] } }));
+
+    expect(plan.steps).toEqual([]);
+    expect(plan.blockers[0].title).toContain("Mejoras");
+  });
+
+  it("should accept an uncommitted CHANGELOG.md on main, since it travels in the release commit", () => {
+    expect(stepIds(createMainState({ workingTreeChanges: [" M CHANGELOG.md"] }))).toEqual([
+      RELEASE_STEP.bumpVersion,
+      RELEASE_STEP.pushRelease,
+    ]);
+    expect(buildReleasePlan(createMainState({ workingTreeChanges: [" M CHANGELOG.md", " M README.md"] })).blockers).toHaveLength(1);
+  });
+
   it("should plan nothing when everything is already released", () => {
     const plan = buildReleasePlan(createMainState({ unreleasedCommits: [] }));
 
@@ -218,5 +242,34 @@ describe("release plan", () => {
     );
 
     expect(plan.blockers[0].details).toEqual(["El PR #81 ya está mergeado: hacé git switch main."]);
+  });
+});
+
+describe("changelog", () => {
+  const CHANGELOG = "# Cambios\n\n## [Unreleased]\n\n### Added\n\n- Agrega recordatorios.\n\n### Fixed\n\n- Corrige $& en títulos.\n";
+
+  it("should move [Unreleased] under the released version and leave an empty [Unreleased] on top", () => {
+    const released = releaseUnreleased(CHANGELOG, "0.94.0", "2026-09-26");
+
+    expect(released).toBe(
+      "# Cambios\n\n## [Unreleased]\n\n## [0.94.0] - 2026-09-26\n\n### Added\n\n- Agrega recordatorios.\n\n### Fixed\n\n- Corrige $& en títulos.\n\n"
+    );
+    expect(readUnreleased(released).entryCount).toBe(0);
+    expect(readLatestRelease(released)).toEqual({ version: "0.94.0", entryCount: 2 });
+  });
+
+  it("should refuse an empty or missing [Unreleased] block and unknown sections", () => {
+    expect(() => releaseUnreleased("# Cambios\n\n## [Unreleased]\n\n### Added\n", "0.94.0", "2026-09-26")).toThrow(/no changes/);
+    expect(() => releaseUnreleased("# Cambios\n", "0.94.0", "2026-09-26")).toThrow(/\[Unreleased\]/);
+    expect(() => releaseUnreleased(CHANGELOG.replace("### Fixed", "### Mejoras"), "0.94.0", "2026-09-26")).toThrow(/Mejoras/);
+  });
+
+  it("should ask Codex for Keep a Changelog entries from the unreleased commits only", () => {
+    const prompt = buildChangelogPrompt([{ sha: "8fc02455aaaa", subject: "Add event reminders (#75)" }], "quien usa TuTribu");
+
+    expect(prompt).toContain("## [Unreleased]");
+    expect(prompt).toContain("- 8fc0245 Add event reminders (#75)");
+    expect(prompt).toContain("quien usa TuTribu");
+    expect(prompt).toContain("Modificá únicamente CHANGELOG.md");
   });
 });

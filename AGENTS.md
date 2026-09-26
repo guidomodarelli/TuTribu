@@ -30,10 +30,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Keep documentation under `docs/` current for every implemented behavior, architectural decision, convention, and user-facing workflow.
 - Product documentation under `docs/architecture/`, `docs/conventions/`, and `docs/user-manual/` must use `.htm` files and follow the guidelines defined in `docs/DESIGN.md`.
 - Do not add, keep, or update Markdown product documents under `docs/`; migrate any stale `.md` document to `.htm` in the same work item before changing it.
-- Repository control files that must remain Markdown for tooling compatibility, such as `AGENTS.md`, `README.md`, `CLAUDE.md`, `DESIGN.md`, and `TODO.md`, are exempt from the `docs/` format rule.
+- Repository control files that must remain Markdown for tooling compatibility, such as `AGENTS.md`, `README.md`, `CLAUDE.md`, `CHANGELOG.md`, `DESIGN.md`, and `TODO.md`, are exempt from the `docs/` format rule.
 - Place each documentation update in the section that owns the content: architecture decisions in `docs/architecture/`, project conventions in `docs/conventions/`, and user-facing instructions in `docs/user-manual/`.
 - Whenever a change is undocumented, or documentation needs to be improved, modified, edited, transformed, added, deleted, relocated, redefined, restructured, or adjusted in any similar way, update the corresponding document in the same work item before closing the task.
 - Do not close a task while the relevant `docs/` page is stale, missing, outside the required section, or in the wrong format.
+
+### Changelog governance
+
+- Every change that alters product behavior, user-facing UI or copy, data handling, permissions, or deployed configuration must update `CHANGELOG.md` in the same work item.
+- Add entries only inside the `## [Unreleased]` block, never under an already released version. Never write the version or the date by hand: `pnpm create-version` renames `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` when releasing and leaves an empty `[Unreleased]` block on top.
+- Follow [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/): group entries only under these sections, in this order, omitting empty ones: `### Added`, `### Changed`, `### Deprecated`, `### Removed`, `### Fixed`, `### Security`.
+- Write one `- ` line per change, in Spanish, describing what changes for TuTribu users (members and tribe creators), without internal implementation details.
+- Changes with no effect for users (tests, internal refactors, local tooling, agent instructions) do not need an entry.
+- If `[Unreleased]` is empty when releasing, `pnpm create-version` asks Codex to fill it from the unreleased commits; if Codex is unavailable or writes nothing valid, the release stops.
 
 ### Architecture documentation governance
 

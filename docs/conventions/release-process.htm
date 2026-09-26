@@ -47,7 +47,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><td><code>pnpm create-version --set-version X.Y.Z</code></td><td>Fija la versión exacta. Solo se acepta el siguiente patch, minor o major de la versión actual: nunca una menor, igual ni una que saltee versiones (por ejemplo, de <code>0.93.0</code> solo valen <code>0.93.1</code>, <code>0.94.0</code> o <code>1.0.0</code>).</td></tr>
     <tr><td><code>pnpm create-version --dry-run</code></td><td>Diagnostica y muestra el plan sin cambiar nada.</td></tr>
   </table>
-  <div class="callout c-info">Sin terminal interactiva (por ejemplo con stdin redirigido) cada pregunta toma su opción por defecto y lo informa en pantalla.</div>
+  <div class="callout c-info">Sin terminal interactiva (por ejemplo con stdin redirigido) cada pregunta toma su opción por defecto y lo informa en pantalla. Las únicas preguntas son la confirmación del plan, la versión (si no se pasa <code>--bump</code> ni <code>--set-version</code>) y las migraciones pendientes. El tiempo total que se muestra al final no cuenta la espera de las respuestas.</div>
 </div>
 
 <div class="section">
@@ -61,6 +61,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <li><strong>Último release</strong>: el último commit de versión (<code>X.Y.Z</code>) que llegó a <code>origin/main</code>. Los tags <code>vX.Y.Z</code> históricos solo existen en clones locales, por eso no se usan como referencia.</li>
     <li><strong>Sin publicar</strong>: commits de <code>origin/main</code> posteriores al último release.</li>
     <li><strong>Migraciones</strong>: entradas de <code>database/migrations/meta/_journal.json</code> (de <code>HEAD</code> y <code>origin/main</code>) más nuevas que el último <code>created_at</code> de <code>drizzle.__drizzle_migrations</code>, la misma regla que usa <code>drizzle-kit migrate</code>. La conexión se resuelve igual que <code>drizzle.config.ts</code> (<code>DATABASE_MIGRATION_URL</code> y luego <code>DATABASE_URL</code>) y solo se muestra el host. Si la base no responde, el release sigue con una advertencia.</li>
+    <li><strong>CHANGELOG</strong>: cantidad de entradas en <code>## [Unreleased]</code> de <code>CHANGELOG.md</code>, o si está vacío o usa secciones no válidas.</li>
     <li><strong>Node.js</strong>: advierte si difiere de <code>.nvmrc</code>.</li>
   </ul>
 </div>
@@ -71,7 +72,8 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p>Estas situaciones no se automatizan; el comando se detiene y explica el próximo paso concreto:</p>
   <ul>
     <li><strong>Rama feature</strong>: indica si faltan commits por subir, si hay que abrir el PR, si el PR está abierto o en borrador (con su link) o si ya se mergeó y solo falta volver a <code>main</code>.</li>
-    <li><strong>Cambios sin commitear</strong>: lista los archivos y pide commitearlos en una rama o stashearlos.</li>
+    <li><strong>Cambios sin commitear</strong>: lista los archivos y pide commitearlos en una rama o stashearlos. La única excepción es <code>CHANGELOG.md</code>, que viaja en el commit de versión.</li>
+    <li><strong>Secciones no válidas en <code>[Unreleased]</code></strong>: solo se aceptan las de Keep a Changelog.</li>
     <li><strong>Commits locales en <code>main</code> que no son un release</strong>: pide moverlos a una rama y llevarlos por un PR.</li>
     <li><strong>HEAD desacoplado</strong>.</li>
   </ul>
@@ -84,8 +86,9 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><th>Paso</th><th>Cuándo</th><th>Detalle</th></tr>
     <tr><td>Actualizar <code>main</code></td><td><code>main</code> está atrás de origin</td><td><code>git merge --ff-only origin/main</code>.</td></tr>
     <tr><td>Aplicar migraciones</td><td>Hay migraciones pendientes</td><td>Muestra la lista y el host destino, y pregunta: aplicar ahora (<code>scripts/push-migrations.js</code>, lo mismo que <code>pnpm run db:migrate</code>), saltear o cancelar. Después de migrar vuelve a verificar que no quede ninguna pendiente. Corre antes de subir la versión para que el deploy encuentre el esquema listo.</td></tr>
-    <tr><td>Versionar</td><td>Hay commits sin publicar</td><td>Muestra qué se publica, elige la versión (flag o pregunta), actualiza <code>package.json</code>, crea el commit <code>X.Y.Z</code> y el tag anotado <code>vX.Y.Z</code>.</td></tr>
-    <tr><td>Publicar</td><td>Siempre que se versionó, o hay un release a medio subir</td><td>Pide confirmación y ejecuta <code>git push --atomic origin main refs/tags/vX.Y.Z</code>. El hook pre-push no corre el gate en <code>main</code> ni en tags: ya corrió al pushear la rama que llegó a <code>main</code> por pull request. Al terminar verifica que el tag exista en origin.</td></tr>
+    <tr><td>Completar el CHANGELOG</td><td>Hay commits sin publicar y <code>[Unreleased]</code> está vacío</td><td>Invoca a Codex (<code>codex exec --sandbox workspace-write --ephemeral -</code>, con el prompt por stdin) para que complete <code>[Unreleased]</code> desde los commits sin publicar y muestra el resultado. Si Codex no está instalado, falla o deja el bloque vacío o con secciones no válidas, el release se corta y pide completarlo.</td></tr>
+    <tr><td>Versionar</td><td>Hay commits sin publicar</td><td>Muestra qué se publica, elige la versión (flag o pregunta), actualiza <code>package.json</code>, renombra <code>## [Unreleased]</code> a <code>## [X.Y.Z] - AAAA-MM-DD</code> dejando un <code>[Unreleased]</code> vacío arriba, crea el commit <code>X.Y.Z</code> con los dos archivos y el tag anotado <code>vX.Y.Z</code>.</td></tr>
+    <tr><td>Publicar</td><td>Siempre que se versionó, o hay un release a medio subir</td><td>Ejecuta, sin volver a preguntar (la confirmación del plan ya lo cubre), <code>git push --atomic origin main refs/tags/vX.Y.Z</code>. El hook pre-push no corre el gate en <code>main</code> ni en tags: ya corrió al pushear la rama que llegó a <code>main</code> por pull request. Al terminar verifica que el tag exista en origin.</td></tr>
   </table>
   <p>Vercel buildea solo cuando cambia la versión de <code>package.json</code> (<code>scripts/ignore-build.sh</code>), así que el push del commit de versión dispara el deploy de producción.</p>
   <div class="callout c-ok">Cada paso se deriva del estado actual. Si algo falla, se corrige la causa y se vuelve a correr <code>pnpm create-version</code>: retoma desde el primer paso que falte. Un commit de versión creado en local pero no subido se detecta como release a medio subir y solo se reintenta el push.</div>
@@ -93,14 +96,22 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 
 <div class="section">
   <div class="section-num">05</div>
+  <div class="section-title">CHANGELOG</div>
+  <p><code>CHANGELOG.md</code> sigue <a href="https://keepachangelog.com/es-ES/1.1.0/">Keep a Changelog</a>. Cada cambio que afecta a quien usa TuTribu agrega sus entradas en <code>## [Unreleased]</code>, agrupadas en <code>### Added</code>, <code>### Changed</code>, <code>### Deprecated</code>, <code>### Removed</code>, <code>### Fixed</code> y <code>### Security</code> (solo las que apliquen), en español. Nunca se escriben la versión ni la fecha a mano: las agrega <code>pnpm create-version</code>. La regla completa está en <code>AGENTS.md</code> (Changelog governance). Las versiones hasta la 0.93.0 no tienen entradas.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
   <div class="section-title">Estructura</div>
   <table>
     <tr><th>Archivo</th><th>Responsabilidad</th></tr>
     <tr><td><code>scripts/release.mjs</code></td><td>Orquestador: diagnóstico, plan, confirmaciones y ejecución de cada paso.</td></tr>
     <tr><td><code>scripts/release/release-plan.mjs</code></td><td>Lógica pura: flags, versiones válidas, sugerencia de tipo, detección de release a medio subir y armado del plan o de los bloqueos.</td></tr>
     <tr><td><code>scripts/release/release-state.mjs</code></td><td>Lectura del estado de Git y del PR de la rama con <code>gh</code>.</td></tr>
+    <tr><td><code>scripts/release/changelog.mjs</code></td><td>Lógica pura del CHANGELOG: lectura de <code>[Unreleased]</code>, validación de secciones y paso del bloque a la versión publicada.</td></tr>
+    <tr><td><code>scripts/release/changelog-ai.mjs</code></td><td>Prompt e invocación de Codex para completar <code>[Unreleased]</code>.</td></tr>
     <tr><td><code>scripts/release/pending-migrations.mjs</code></td><td>Detección de migraciones pendientes en la base configurada.</td></tr>
-    <tr><td><code>scripts/release/terminal-ui.mjs</code></td><td>UI de terminal sin dependencias: colores (<code>util.styleText</code>, respeta <code>NO_COLOR</code>), cajas, spinner y selector con flechas.</td></tr>
+    <tr><td><code>scripts/release/terminal-ui.mjs</code></td><td>UI de terminal sin dependencias: colores (<code>util.styleText</code>, respeta <code>NO_COLOR</code>), cajas que ajustan el texto largo en varias líneas en lugar de cortarlo, íconos Nerd Font, spinner, selector con flechas y medición del tiempo sin contar la espera de respuestas.</td></tr>
   </table>
   <p>Los tests viven en <code>tests/unit/tooling/release-plan-script.test.ts</code> y <code>tests/unit/tooling/release-state-script.test.ts</code> (este último usa repositorios Git reales con un remoto bare).</p>
 </div>

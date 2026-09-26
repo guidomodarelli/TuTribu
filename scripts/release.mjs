@@ -22,10 +22,12 @@
  * @module release
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { CODEX_NOT_FOUND_EXIT_CODE, buildChangelogPrompt, runCodex } from "./release/changelog-ai.mjs";
+import { CHANGE_TYPES, UNRELEASED_HEADING, readUnreleased, releaseUnreleased } from "./release/changelog.mjs";
 import { checkPendingMigrations } from "./release/pending-migrations.mjs";
 import {
   MAIN_BRANCH,
@@ -54,6 +56,7 @@ import {
   ICON,
   confirm,
   formatDuration,
+  measureActiveMs,
   paint,
   print,
   renderBanner,
@@ -81,6 +84,12 @@ const MAX_LISTED_COMMITS = 12;
 
 /** Maximum pending migrations listed before summarizing the rest. */
 const MAX_LISTED_MIGRATIONS = 10;
+
+/** Changelog released together with `package.json` in the version commit. */
+const CHANGELOG_PATH = path.join(REPOSITORY_ROOT, "CHANGELOG.md");
+
+/** Readers of the changelog, as written in the Codex prompt. */
+const CHANGELOG_AUDIENCE = "quien usa TuTribu (miembros y creadores de tribus)";
 
 /** `version` field of `package.json`, replaced in place to keep formatting. */
 const PACKAGE_VERSION_FIELD_PATTERN = /("version"\s*:\s*")[^"]+(")/;
@@ -112,6 +121,24 @@ class ReleaseStepError extends Error {
 
 /** Raised when the user cancels on purpose; ends the run without an error box. */
 class ReleaseCancelledError extends Error {}
+
+/**
+ * Renders the diagnosis row of the CHANGELOG `[Unreleased]` block.
+ *
+ * @param {{ exists: boolean, entryCount: number, unknownSections: string[] }} changelog - Unreleased state.
+ * @returns {string} Row.
+ */
+function renderChangelogRow(changelog) {
+  if (changelog.unknownSections.length > 0) {
+    return renderRow(ICON.failure, "CHANGELOG", paint("red", `secciones no válidas: ${changelog.unknownSections.join(", ")}`));
+  }
+
+  if (changelog.entryCount === 0) {
+    return renderRow(ICON.warning, "CHANGELOG", paint("yellow", "[Unreleased] vacío: lo completa Codex al versionar"));
+  }
+
+  return renderRow(ICON.success, "CHANGELOG", `${changelog.entryCount} entrada(s) en [Unreleased]`);
+}
 
 /**
  * Renders the status panel of the diagnosis.
@@ -172,7 +199,7 @@ function renderDiagnosis(state) {
     [MIGRATION_STATUS.pending]: [ICON.warning, paint("yellow", `${migrations.pending.length} pendiente(s) en ${migrations.databaseHost}`)],
     [MIGRATION_STATUS.unknown]: [ICON.warning, paint("yellow", "no se pudo verificar")],
   }[migrations.status];
-  rows.push(renderRow(migrationRow[0], "Migraciones", migrationRow[1]));
+  rows.push(renderRow(migrationRow[0], "Migraciones", migrationRow[1]), renderChangelogRow(state.changelog));
 
   const pinnedNodeVersion = readFileSync(PINNED_NODE_VERSION_PATH, "utf8").trim().replace(/^v/, "");
   const nodeMatches = process.versions.node === pinnedNodeVersion;
@@ -313,8 +340,46 @@ async function applyMigrationsStep(context) {
 }
 
 /**
- * Chooses the next version (flags or prompt) and creates the release commit
- * and annotated tag.
+ * Reads the `[Unreleased]` block of the working-tree CHANGELOG.md.
+ *
+ * @returns {ReturnType<typeof readUnreleased>} Unreleased state.
+ */
+function readWorkingUnreleased() {
+  return existsSync(CHANGELOG_PATH)
+    ? readUnreleased(readFileSync(CHANGELOG_PATH, "utf8"))
+    : { exists: false, entryCount: 0, unknownSections: [], body: "" };
+}
+
+/**
+ * Asks Codex to fill an empty `[Unreleased]` block from the unreleased commits and shows the result.
+ *
+ * @param {object} context - Release context.
+ */
+async function generateChangelogStep(context) {
+  const prompt = buildChangelogPrompt(context.state.unreleasedCommits, CHANGELOG_AUDIENCE);
+  print(paint("gray", "Codex está escribiendo el CHANGELOG a partir de los commits sin publicar…"));
+  const exitCode = await runCodex(REPOSITORY_ROOT, prompt);
+  const unreleased = readWorkingUnreleased();
+
+  if (exitCode !== 0 || unreleased.entryCount === 0 || unreleased.unknownSections.length > 0) {
+    const reason =
+      exitCode === CODEX_NOT_FOUND_EXIT_CODE
+        ? "no se encontró la CLI de Codex"
+        : exitCode !== 0
+          ? `Codex terminó con código ${exitCode}`
+          : "el bloque sigue vacío o con secciones no válidas";
+    throw new ReleaseStepError(
+      `No se pudo completar ${UNRELEASED_HEADING} del CHANGELOG: ${reason}.`,
+      `Completalo (con la IA o a mano) usando ${CHANGE_TYPES.map((type) => `### ${type}`).join(", ")} y volvé a correr pnpm create-version.`
+    );
+  }
+
+  print(renderBox({ title: `CHANGELOG · ${UNRELEASED_HEADING} (generado por Codex)`, lines: unreleased.body.split("\n"), tone: BOX_TONE.info }));
+}
+
+/**
+ * Chooses the next version (flags or prompt), releases the CHANGELOG
+ * `[Unreleased]` block and creates the release commit and annotated tag.
  *
  * @param {object} context - Release context.
  */
@@ -344,15 +409,29 @@ async function bumpVersionStep(context) {
   }
 
   const tag = toReleaseTag(nextRelease.version);
+  let releasedChangelog;
+
+  try {
+    const releaseDate = new Date().toISOString().split("T")[0];
+    releasedChangelog = releaseUnreleased(readFileSync(CHANGELOG_PATH, "utf8"), nextRelease.version, releaseDate);
+  } catch (error) {
+    throw new ReleaseStepError(
+      `CHANGELOG.md no está listo: ${error instanceof Error ? error.message : String(error)}`,
+      `Completá ${UNRELEASED_HEADING} con ${CHANGE_TYPES.map((type) => `### ${type}`).join(", ")} y volvé a correr pnpm create-version.`
+    );
+  }
+
+  print(renderBox({ title: `CHANGELOG · ${UNRELEASED_HEADING} → [${nextRelease.version}]`, lines: readWorkingUnreleased().body.split("\n"), tone: BOX_TONE.info }));
   const manifestPath = path.join(REPOSITORY_ROOT, "package.json");
   const manifest = readFileSync(manifestPath, "utf8");
   writeFileSync(manifestPath, manifest.replace(PACKAGE_VERSION_FIELD_PATTERN, `$1${nextRelease.version}$2`));
+  writeFileSync(CHANGELOG_PATH, releasedChangelog);
 
-  await runGitStep(["add", "package.json"], "No se pudo stagear package.json", "Revisá git status.");
+  await runGitStep(["add", "package.json", "CHANGELOG.md"], "No se pudo stagear package.json y CHANGELOG.md", "Revisá git status.");
   await runGitStep(
     ["commit", "--quiet", "-m", nextRelease.version],
     "El commit de versión falló",
-    "Corregí el error, descartá el cambio con git checkout package.json y volvé a correr pnpm create-version."
+    "Corregí el error, descartá el cambio con git checkout package.json CHANGELOG.md y volvé a correr pnpm create-version."
   );
   await runGitStep(
     ["tag", "-a", tag, "-m", nextRelease.version],
@@ -383,13 +462,7 @@ async function pushReleaseStep(context) {
     await runGitStep(["tag", "-a", tag, "-m", version], `No se pudo crear el tag ${tag}`, `Revisá git tag --list ${tag}.`);
   }
 
-  const shouldPush = await confirm(`¿Subir ${MAIN_BRANCH} + ${tag} a ${RELEASE_REMOTE}? Esto publica en producción.`);
-
-  if (!shouldPush) {
-    print(`${ICON.warning} ${paint("yellow", `${tag} quedó creado solo en local. Corré pnpm create-version cuando quieras subirlo.`)}`);
-    throw new ReleaseCancelledError();
-  }
-
+  // The "¿Ejecutamos el plan?" confirmation already covers the push; no second prompt here.
   await runGitStep(
     ["push", "--atomic", RELEASE_REMOTE, MAIN_BRANCH, `refs/tags/${tag}`],
     `El push de ${MAIN_BRANCH} + ${tag} falló`,
@@ -408,6 +481,7 @@ async function pushReleaseStep(context) {
 /** Executors of each plan step. */
 const STEP_EXECUTORS = {
   [RELEASE_STEP.syncMain]: syncMainStep,
+  [RELEASE_STEP.generateChangelog]: generateChangelogStep,
   [RELEASE_STEP.applyMigrations]: applyMigrationsStep,
   [RELEASE_STEP.bumpVersion]: bumpVersionStep,
   [RELEASE_STEP.pushRelease]: pushReleaseStep,
@@ -438,7 +512,7 @@ function renderPublishedSummary(context, startedAt) {
     lines.push(`${ICON.info} ${paint("bold", "Cambios")}   https://github.com/${githubRepository}/compare/${previousShortSha}...${tag}`);
   }
 
-  lines.push("", paint("gray", `Tiempo total: ${formatDuration(Date.now() - startedAt)}`));
+  lines.push("", paint("gray", `Tiempo total: ${formatDuration(measureActiveMs(startedAt))} (sin contar la espera de tus respuestas)`));
 
   return renderBox({ title: `${ICON.rocket} ${tag} publicado`, lines, tone: BOX_TONE.success });
 }
@@ -552,7 +626,7 @@ async function main() {
   print(
     context.published
       ? renderPublishedSummary(context, startedAt)
-      : renderBox({ title: "Listo", lines: [`${ICON.success} Plan completado en ${formatDuration(Date.now() - startedAt)}.`], tone: BOX_TONE.success })
+      : renderBox({ title: "Listo", lines: [`${ICON.success} Plan completado en ${formatDuration(measureActiveMs(startedAt))} (sin contar la espera de tus respuestas).`], tone: BOX_TONE.success })
   );
 
   return 0;
