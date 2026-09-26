@@ -6,7 +6,7 @@
   display: grid;
   gap: 0.75rem;
   min-width: 0;
-  border-bottom: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
   padding-bottom: 1rem;
 
   &__header {
@@ -43,7 +43,7 @@
     font-size: 0.9rem;
     font-weight: 600;
     text-decoration: underline;
-    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+    text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
 
     &:hover {
       color: var(--foreground);
@@ -105,7 +105,7 @@
 
   &__recurrence {
     border-radius: 999rem;
-    background: color-mix(in oklch, var(--muted) 80%, transparent);
+    background: color-mix(in oklab, var(--muted) 80%, transparent);
     font-size: 0.75rem;
     font-weight: 600;
     padding: 0.05rem 0.5rem;
@@ -116,7 +116,7 @@
     font-size: 0.9rem;
     font-weight: 600;
     text-decoration: underline;
-    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+    text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
 
     &:hover {
       text-decoration-color: currentColor;

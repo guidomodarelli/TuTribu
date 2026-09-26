@@ -69,7 +69,7 @@ $bar-stagger-step: motion.$stagger-step;
     max-width: 2rem;
     height: 3.5rem;
     border-radius: 0.25rem;
-    background: color-mix(in oklch, var(--muted) 70%, transparent);
+    background: color-mix(in oklab, var(--muted) 70%, transparent);
   }
 
   &__bar {

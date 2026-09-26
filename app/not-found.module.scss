@@ -56,7 +56,7 @@
     font-size: 0.8rem;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: color-mix(in oklch, var(--foreground) 62%, transparent);
+    color: color-mix(in oklab, var(--foreground) 62%, transparent);
   }
 
   &__title {

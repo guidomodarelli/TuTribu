@@ -165,7 +165,7 @@ $tribe-welcome-display-icon-size: 1.125rem;
   @media (hover: hover) {
     &__linkCard:hover:not(:disabled) {
       background: var(--accent);
-      border-color: color-mix(in oklch, var(--ring) 55%, var(--border));
+      border-color: color-mix(in oklab, var(--ring) 55%, var(--border));
     }
 
     &__linkCard:hover:not(:disabled) &__linkCardIcon {

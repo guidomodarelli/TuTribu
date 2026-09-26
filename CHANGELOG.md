@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- Los fondos, bordes y textos teñidos con el color principal (el día de hoy en el calendario, los chips y bordes activos, los links y etiquetas destacadas) conservan el azul del tema en lugar de virar a rosa o violeta.
+
 ## [0.94.3] - 2026-09-26
 
 ### Fixed

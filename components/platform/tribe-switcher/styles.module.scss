@@ -21,13 +21,13 @@
 
     @media (hover: hover) {
       &:hover {
-        background-color: color-mix(in oklch, var(--muted) 72%, transparent);
+        background-color: color-mix(in oklab, var(--muted) 72%, transparent);
       }
     }
 
     &:active,
     &[data-state="open"] {
-      background-color: color-mix(in oklch, var(--muted) 72%, transparent);
+      background-color: color-mix(in oklab, var(--muted) 72%, transparent);
     }
 
     &:focus-visible {
@@ -38,8 +38,8 @@
 
   &__privateBadge {
     min-height: 1.35rem;
-    border: 1px solid color-mix(in oklch, var(--primary) 34%, var(--border));
-    color: color-mix(in oklch, var(--primary) 78%, var(--foreground));
+    border: 1px solid color-mix(in oklab, var(--primary) 34%, var(--border));
+    color: color-mix(in oklab, var(--primary) 78%, var(--foreground));
     font-size: 0.75rem;
     font-weight: 700;
   }
@@ -66,7 +66,7 @@
     min-height: 2.25rem;
 
     &[data-active="true"] {
-      background-color: color-mix(in oklch, var(--accent) 72%, transparent);
+      background-color: color-mix(in oklab, var(--accent) 72%, transparent);
       color: var(--accent-foreground);
     }
   }

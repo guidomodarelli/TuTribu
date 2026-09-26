@@ -177,7 +177,7 @@ $tribe-story-about-fact-count: 6;
     font-size: 0.9rem;
     gap: 0.25rem;
     text-decoration: underline;
-    text-decoration-color: color-mix(in oklch, var(--primary) 45%, transparent);
+    text-decoration-color: color-mix(in oklab, var(--primary) 45%, transparent);
     text-underline-offset: 0.15em;
     width: fit-content;
     word-break: break-word;

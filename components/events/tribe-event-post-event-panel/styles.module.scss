@@ -97,7 +97,7 @@
     font-size: 0.9rem;
     overflow-wrap: anywhere;
     text-decoration: underline;
-    text-decoration-color: color-mix(in oklch, var(--primary) 40%, transparent);
+    text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent);
     text-underline-offset: 0.2em;
     @include motion.interactive(color, text-decoration-color);
 
@@ -175,7 +175,7 @@
 
     &--selected {
       border-color: var(--primary);
-      background-color: color-mix(in oklch, var(--primary) 14%, var(--background));
+      background-color: color-mix(in oklab, var(--primary) 14%, var(--background));
     }
   }
 

@@ -23,7 +23,7 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding-bottom: 0.75rem;
-    border-bottom: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
   }
 
   &__heading {
@@ -59,7 +59,7 @@
     &:focus-visible {
       outline: none;
       border-color: var(--ring);
-      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
     }
 
     svg {
@@ -92,7 +92,7 @@
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     height: 100%;
-    border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
     border-radius: var(--radius-lg);
     overflow: hidden;
     // Keeps the rounded clip on WebKit while the cover image scales.
@@ -105,8 +105,8 @@
     // Hover lift only where a real pointer hovers; touch taps would stick.
     @media (hover: hover) {
       &:hover {
-        border-color: color-mix(in oklch, var(--primary) 40%, var(--border));
-        box-shadow: 0 6px 20px color-mix(in oklch, var(--foreground) 8%, transparent);
+        border-color: color-mix(in oklab, var(--primary) 40%, var(--border));
+        box-shadow: 0 6px 20px color-mix(in oklab, var(--foreground) 8%, transparent);
         transform: translateY(-2px);
       }
     }
@@ -118,7 +118,7 @@
     &:focus-visible {
       outline: none;
       border-color: var(--ring);
-      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
     }
   }
 
@@ -164,7 +164,7 @@
     color: var(--muted-foreground);
     background: linear-gradient(
       135deg,
-      color-mix(in oklch, var(--primary) 14%, var(--muted)),
+      color-mix(in oklab, var(--primary) 14%, var(--muted)),
       var(--muted)
     );
   }

@@ -25,8 +25,8 @@
     @include motion.interactive;
 
     &:hover {
-      border-color: color-mix(in oklch, var(--foreground) 24%, var(--border));
-      background: color-mix(in oklch, var(--muted) 60%, var(--background));
+      border-color: color-mix(in oklab, var(--foreground) 24%, var(--border));
+      background: color-mix(in oklab, var(--muted) 60%, var(--background));
     }
 
     &:active {
@@ -34,12 +34,12 @@
     }
 
     &[data-event-type] {
-      border-color: color-mix(in oklch, var(--event-type-accent) 40%, var(--border));
+      border-color: color-mix(in oklab, var(--event-type-accent) 40%, var(--border));
     }
 
     &[data-event-type]:hover {
-      border-color: color-mix(in oklch, var(--event-type-accent) 70%, var(--border));
-      background: color-mix(in oklch, var(--event-type-surface) 55%, var(--background));
+      border-color: color-mix(in oklab, var(--event-type-accent) 70%, var(--border));
+      background: color-mix(in oklab, var(--event-type-surface) 55%, var(--background));
     }
 
     &[aria-pressed="true"] {

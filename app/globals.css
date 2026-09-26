@@ -28,7 +28,7 @@
 
   * {
     border-color: var(--border);
-    outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
 
   body {

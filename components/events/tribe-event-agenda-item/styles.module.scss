@@ -6,7 +6,7 @@
   gap: 0.25rem 0.75rem;
   align-items: start;
   padding: 0.65rem 0;
-  border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
   border-left: 3px solid var(--event-type-accent, var(--border));
   padding-left: 0.65rem;
   min-width: 0;
@@ -76,7 +76,7 @@
     @include motion.interactive;
 
     &:hover {
-      border-color: color-mix(in oklch, var(--foreground) 24%, var(--border));
+      border-color: color-mix(in oklab, var(--foreground) 24%, var(--border));
       background: var(--accent);
     }
 
@@ -97,7 +97,7 @@
 
   &__liveBadge {
     gap: 0.35rem;
-    border-color: color-mix(in oklch, var(--destructive) 45%, var(--border));
+    border-color: color-mix(in oklab, var(--destructive) 45%, var(--border));
     color: var(--destructive);
   }
 
@@ -119,7 +119,7 @@
     text-align: left;
     overflow-wrap: anywhere;
     text-decoration: underline;
-    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+    text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
     text-underline-offset: 0.2em;
     -webkit-tap-highlight-color: transparent;
 

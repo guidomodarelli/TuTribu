@@ -127,7 +127,7 @@ $tribe-welcome-selection-modal-option-count: 8;
   @media (hover: hover) {
     &__optionCard:hover:not(:disabled) {
       background: var(--accent);
-      border-color: color-mix(in oklch, var(--ring) 55%, var(--border));
+      border-color: color-mix(in oklab, var(--ring) 55%, var(--border));
     }
 
     &__optionCard:hover:not(:disabled) &__optionCardIcon {

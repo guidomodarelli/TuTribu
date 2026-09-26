@@ -62,7 +62,7 @@
 
   &__attendee {
     display: flex;
-    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
     padding-bottom: 0.3rem;
     flex-wrap: wrap;
     align-items: baseline;

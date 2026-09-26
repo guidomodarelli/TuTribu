@@ -48,9 +48,9 @@ $tribe-loading-message-step: 160ms;
     min-height: 4rem;
     max-height: 4rem;
     box-sizing: border-box;
-    border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 82%, transparent);
     border-radius: 0.625rem;
-    background: color-mix(in oklch, var(--muted) 42%, transparent);
+    background: color-mix(in oklab, var(--muted) 42%, transparent);
     padding: 0.625rem 0.875rem;
   }
 

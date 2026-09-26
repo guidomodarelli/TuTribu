@@ -8,7 +8,7 @@
   width: fit-content;
   max-width: 100%;
   min-width: 0;
-  border: 1px solid color-mix(in oklch, var(--event-type-accent) 45%, transparent);
+  border: 1px solid color-mix(in oklab, var(--event-type-accent) 45%, transparent);
   border-radius: 999rem;
   background: var(--event-type-surface);
   padding: 0.15rem 0.55rem 0.15rem 0.45rem;

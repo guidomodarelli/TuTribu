@@ -73,10 +73,10 @@
   }
 
   &__comingSoonBadge {
-    border: 1px solid color-mix(in oklch, var(--coming-soon) 45%, transparent);
+    border: 1px solid color-mix(in oklab, var(--coming-soon) 45%, transparent);
     border-radius: 999rem;
     padding-inline: 0.45rem;
-    background-color: color-mix(in oklch, var(--coming-soon) 16%, transparent);
+    background-color: color-mix(in oklab, var(--coming-soon) 16%, transparent);
     color: var(--coming-soon-foreground);
     font-size: 0.75rem;
     font-weight: 600;
@@ -89,7 +89,7 @@
     padding-inline: 0.5rem;
     font-size: 0.8125rem;
     line-height: 1.4;
-    color: color-mix(in oklch, var(--sidebar-foreground) 72%, transparent);
+    color: color-mix(in oklab, var(--sidebar-foreground) 72%, transparent);
   }
 }
 

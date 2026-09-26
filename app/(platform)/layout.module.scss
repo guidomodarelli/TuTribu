@@ -13,8 +13,8 @@ $platform-header-touch-target: 2.5rem;
     display: flex;
     height: 3.5rem;
     align-items: center;
-    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
-    background-color: color-mix(in oklch, var(--background) 80%, transparent);
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    background-color: color-mix(in oklab, var(--background) 80%, transparent);
     padding-inline: 1rem;
     backdrop-filter: blur(8px);
   }
@@ -72,8 +72,8 @@ $platform-header-touch-target: 2.5rem;
 
   &__header {
     height: 3.5rem;
-    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
-    background-color: color-mix(in oklch, var(--background) 80%, transparent);
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+    background-color: color-mix(in oklab, var(--background) 80%, transparent);
   }
 
   &__content {

@@ -36,7 +36,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.4rem;
     align-items: center;
-    border-left: 2px solid color-mix(in oklch, var(--border) 80%, transparent);
+    border-left: 2px solid color-mix(in oklab, var(--border) 80%, transparent);
     padding-left: 0.6rem;
   }
 

@@ -21,7 +21,7 @@
     }
 
     &:empty::before {
-      color: color-mix(in oklch, var(--muted-foreground) 74%, transparent);
+      color: color-mix(in oklab, var(--muted-foreground) 74%, transparent);
       content: attr(data-placeholder);
       pointer-events: none;
     }
@@ -45,7 +45,7 @@
     @include motion.interactive(color);
 
     &:hover {
-      color: color-mix(in oklch, var(--primary) 72%, var(--foreground));
+      color: color-mix(in oklab, var(--primary) 72%, var(--foreground));
     }
 
     &:focus-visible {
@@ -84,7 +84,7 @@
 
   &__input {
     min-height: 2rem;
-    border: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 82%, transparent);
     border-radius: 0.5rem;
     background: var(--background);
     color: var(--foreground);
@@ -97,7 +97,7 @@
 
     &:focus-visible {
       border-color: var(--ring);
-      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 35%, transparent);
     }
 
     &[aria-invalid="true"] {
@@ -105,7 +105,7 @@
     }
 
     &[aria-invalid="true"]:focus-visible {
-      box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 25%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 25%, transparent);
     }
   }
 }

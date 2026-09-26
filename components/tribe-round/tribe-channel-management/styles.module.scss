@@ -220,7 +220,7 @@
 
     @media (hover: hover) {
       &:hover:not(:disabled) {
-        background: color-mix(in oklch, var(--destructive) 10%, transparent);
+        background: color-mix(in oklab, var(--destructive) 10%, transparent);
         color: var(--destructive);
       }
     }

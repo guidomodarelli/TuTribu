@@ -87,7 +87,7 @@
 
     margin: 0.5rem 0 0;
     padding-top: 0.5rem;
-    border-top: 1px solid color-mix(in oklch, var(--border) 82%, transparent);
+    border-top: 1px solid color-mix(in oklab, var(--border) 82%, transparent);
     font-size: 0.8rem;
     color: var(--muted-foreground);
   }
@@ -121,13 +121,13 @@
     }
 
     &:active {
-      background: color-mix(in oklch, var(--muted) 64%, transparent);
+      background: color-mix(in oklab, var(--muted) 64%, transparent);
       color: var(--foreground);
       transform: scale(0.94);
     }
 
     &[data-state="open"] {
-      background: color-mix(in oklch, var(--muted) 56%, transparent);
+      background: color-mix(in oklab, var(--muted) 56%, transparent);
       color: var(--foreground);
     }
 

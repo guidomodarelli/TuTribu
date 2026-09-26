@@ -13,8 +13,8 @@
     gap: 0;
     width: 100%;
     overflow: hidden;
-    border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
-    background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+    background-color: color-mix(in oklab, var(--card) 95%, transparent);
     padding: clamp(1.25rem, 5vw, 2rem);
     box-shadow: 0 24px 64px -40px oklch(0.2 0 0 / 55%);
     -webkit-backdrop-filter: blur(12px);
@@ -38,7 +38,7 @@
     height: 12rem;
     width: 12rem;
     border-radius: 999px;
-    background-color: color-mix(in oklch, var(--primary) 10%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 10%, transparent);
     filter: blur(48px);
   }
 

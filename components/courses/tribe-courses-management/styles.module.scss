@@ -17,7 +17,7 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 1rem;
-    border-bottom: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
     padding-bottom: 1rem;
   }
 
@@ -137,7 +137,7 @@
     letter-spacing: 0.05em;
     padding: 0.125rem 0.5rem;
     border-radius: 999rem;
-    background-color: color-mix(in oklch, var(--destructive) 18%, transparent);
+    background-color: color-mix(in oklab, var(--destructive) 18%, transparent);
     color: var(--destructive);
   }
 
@@ -153,14 +153,14 @@
     padding: 0;
     display: grid;
     gap: 0.5rem;
-    border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
     padding-top: 1rem;
   }
 
   &__lessonItem {
     padding: 0.75rem;
     border-radius: var(--radius-md);
-    background-color: color-mix(in oklch, var(--muted) 50%, transparent);
+    background-color: color-mix(in oklab, var(--muted) 50%, transparent);
   }
 
   &__addLessonButton {
@@ -176,7 +176,7 @@
     letter-spacing: 0.05em;
     padding: 0.125rem 0.5rem;
     border-radius: 999rem;
-    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+    background-color: color-mix(in oklab, var(--muted) 60%, transparent);
     color: var(--muted-foreground);
   }
 
@@ -260,9 +260,9 @@
     gap: 0.5rem;
     flex-wrap: wrap;
     padding: 0.375rem 0.625rem;
-    border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
     border-radius: var(--radius-md);
-    background-color: color-mix(in oklch, var(--muted) 35%, transparent);
+    background-color: color-mix(in oklab, var(--muted) 35%, transparent);
     font-size: 0.8125rem;
   }
 
@@ -288,16 +288,16 @@
     letter-spacing: 0.05em;
     padding: 0.125rem 0.5rem;
     border-radius: 999rem;
-    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+    background-color: color-mix(in oklab, var(--muted) 60%, transparent);
     color: var(--muted-foreground);
 
     &--ready {
-      background-color: color-mix(in oklch, var(--primary) 14%, transparent);
+      background-color: color-mix(in oklab, var(--primary) 14%, transparent);
       color: var(--primary);
     }
 
     &--error {
-      background-color: color-mix(in oklch, var(--destructive) 18%, transparent);
+      background-color: color-mix(in oklab, var(--destructive) 18%, transparent);
       color: var(--destructive);
     }
   }

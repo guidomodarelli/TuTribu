@@ -34,7 +34,7 @@
   }
 
   &__dayCell--today {
-    background: color-mix(in oklch, var(--primary) 6%, var(--background));
+    background: color-mix(in oklab, var(--primary) 6%, var(--background));
   }
 
   &__dayNumber {
@@ -87,7 +87,7 @@
     @include motion.interactive;
 
     &[aria-pressed="true"] {
-      background: color-mix(in oklch, var(--primary) 14%, var(--background));
+      background: color-mix(in oklab, var(--primary) 14%, var(--background));
     }
 
     &:active {
@@ -129,7 +129,7 @@
 
   &__eventPill {
     width: 100%;
-    border: 1px solid color-mix(in oklch, var(--event-type-accent, var(--primary)) 35%, var(--border));
+    border: 1px solid color-mix(in oklab, var(--event-type-accent, var(--primary)) 35%, var(--border));
     border-left: 3px solid var(--event-type-accent, var(--primary));
     border-radius: 0.45rem;
     background: var(--event-type-surface, var(--background));
@@ -146,8 +146,8 @@
     @include motion.interactive;
 
     &:hover {
-      border-color: color-mix(in oklch, var(--event-type-accent, var(--primary)) 60%, var(--border));
-      background: color-mix(in oklch, var(--event-type-accent, var(--primary)) 10%, var(--event-type-surface, var(--background)));
+      border-color: color-mix(in oklab, var(--event-type-accent, var(--primary)) 60%, var(--border));
+      background: color-mix(in oklab, var(--event-type-accent, var(--primary)) 10%, var(--event-type-surface, var(--background)));
     }
 
     &:active {
@@ -163,13 +163,13 @@
   &__eventPill--past,
   &__eventPill--cancelled {
     border-color: var(--border);
-    border-left-color: color-mix(in oklch, var(--event-type-accent, var(--border)) 50%, var(--border));
-    background: color-mix(in oklch, var(--muted) 60%, var(--background));
+    border-left-color: color-mix(in oklab, var(--event-type-accent, var(--border)) 50%, var(--border));
+    background: color-mix(in oklab, var(--muted) 60%, var(--background));
     color: var(--muted-foreground);
     font-weight: 600;
 
     &:hover {
-      border-color: color-mix(in oklch, var(--foreground) 18%, var(--border));
+      border-color: color-mix(in oklab, var(--foreground) 18%, var(--border));
       background: var(--muted);
     }
   }

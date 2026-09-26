@@ -40,7 +40,7 @@
     @media (hover: hover) {
       &:hover:not(:disabled) {
         border-color: color-mix(in srgb, var(--background) 80%, var(--foreground) 20%);
-        background: color-mix(in oklch, var(--muted) 36%, var(--background));
+        background: color-mix(in oklab, var(--muted) 36%, var(--background));
       }
     }
 
@@ -73,7 +73,7 @@
     :global(.EmojiPickerReact) {
       --epr-bg-color: var(--popover);
       --epr-category-label-bg-color: color-mix(
-        in oklch,
+        in oklab,
         var(--popover) 92%,
         transparent
       );
@@ -81,7 +81,7 @@
       --epr-text-color: var(--muted-foreground);
       --epr-highlight-color: var(--primary);
       --epr-hover-bg-color: var(--muted);
-      --epr-focus-bg-color: color-mix(in oklch, var(--primary) 12%, var(--muted));
+      --epr-focus-bg-color: color-mix(in oklab, var(--primary) 12%, var(--muted));
       --epr-search-input-bg-color: var(--background);
       --epr-search-input-bg-color-active: var(--background);
       --epr-search-input-text-color: var(--foreground);
@@ -97,7 +97,7 @@
     :global(.EmojiPickerReact.epr-dark-theme) {
       --epr-dark-bg-color: var(--popover);
       --epr-dark-category-label-bg-color: color-mix(
-        in oklch,
+        in oklab,
         var(--popover) 92%,
         transparent
       );
@@ -105,7 +105,7 @@
       --epr-dark-highlight-color: var(--primary);
       --epr-dark-hover-bg-color: var(--muted);
       --epr-dark-focus-bg-color: color-mix(
-        in oklch,
+        in oklab,
         var(--primary) 16%,
         var(--muted)
       );
@@ -117,7 +117,7 @@
 
     :global(.EmojiPickerReact *),
     :global(.EmojiPickerReact) {
-      scrollbar-color: color-mix(in oklch, var(--muted-foreground) 48%, transparent)
+      scrollbar-color: color-mix(in oklab, var(--muted-foreground) 48%, transparent)
         transparent;
       scrollbar-width: thin;
     }
@@ -138,7 +138,7 @@
       border: 0.12rem solid transparent;
       border-radius: 999rem;
       background-color: color-mix(
-        in oklch,
+        in oklab,
         var(--muted-foreground) 48%,
         transparent
       );
@@ -148,7 +148,7 @@
     :global(.EmojiPickerReact *::-webkit-scrollbar-thumb:hover),
     :global(.EmojiPickerReact::-webkit-scrollbar-thumb:hover) {
       background-color: color-mix(
-        in oklch,
+        in oklab,
         var(--muted-foreground) 62%,
         transparent
       );

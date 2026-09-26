@@ -400,7 +400,7 @@
 
   &__helpIcon {
     align-items: center;
-    background: color-mix(in oklch, var(--primary) 22%, transparent);
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
     border-radius: 999rem;
     color: var(--primary);
     display: inline-flex;

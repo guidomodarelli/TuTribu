@@ -37,7 +37,7 @@
     color: var(--foreground);
     font-weight: 600;
     text-decoration: underline;
-    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+    text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
     text-underline-offset: 0.2em;
 
     @include motion.interactive(text-decoration-color, color);

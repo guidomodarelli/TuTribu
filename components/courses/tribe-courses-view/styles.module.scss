@@ -39,7 +39,7 @@
       overscroll-behavior: contain;
       padding: 0.75rem 0.5rem 0.75rem 0;
       scrollbar-width: thin;
-      scrollbar-color: color-mix(in oklch, var(--border) 80%, transparent)
+      scrollbar-color: color-mix(in oklab, var(--border) 80%, transparent)
         transparent;
 
       &::-webkit-scrollbar {
@@ -51,13 +51,13 @@
       }
 
       &::-webkit-scrollbar-thumb {
-        background-color: color-mix(in oklch, var(--border) 80%, transparent);
+        background-color: color-mix(in oklab, var(--border) 80%, transparent);
         border-radius: 999rem;
       }
 
       &::-webkit-scrollbar-thumb:hover {
         background-color: color-mix(
-          in oklch,
+          in oklab,
           var(--muted-foreground) 50%,
           transparent
         );
@@ -80,7 +80,7 @@
     gap: 0.75rem;
     margin: 0 0 0.25rem;
     padding-bottom: 0.75rem;
-    border-bottom: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border-bottom: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
   }
 
   &__sidebarHeading {
@@ -116,7 +116,7 @@
     &:focus-visible {
       outline: none;
       border-color: var(--ring);
-      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
     }
 
     &:active {
@@ -155,7 +155,7 @@
     &:focus-visible {
       outline: none;
       border-radius: var(--radius-md);
-      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
     }
 
     svg {
@@ -278,7 +278,7 @@
     justify-content: space-between;
     align-items: center;
     gap: 0.75rem;
-    border-top: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border-top: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
     padding-top: 1rem;
   }
 
@@ -313,12 +313,12 @@
     @include motion.interactive(background-color, color, box-shadow);
 
     &:hover {
-      background-color: color-mix(in oklch, var(--accent) 45%, transparent);
+      background-color: color-mix(in oklab, var(--accent) 45%, transparent);
     }
 
     &:focus-visible {
       outline: none;
-      box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--ring) 70%, transparent);
+      box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--ring) 70%, transparent);
     }
 
     &--active {
@@ -337,7 +337,7 @@
     z-index: -1;
     border-left: 2px solid var(--primary);
     border-radius: inherit;
-    background-color: color-mix(in oklch, var(--primary) 10%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 10%, transparent);
   }
 
   &__lessonMarker {
@@ -400,7 +400,7 @@
   }
 
   &__lessonDescription {
-    border-top: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border-top: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
     padding-top: 1rem;
   }
 
@@ -415,7 +415,7 @@
   &__lessonFiles {
     display: grid;
     gap: 0.625rem;
-    border-top: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border-top: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
     padding-top: 1rem;
   }
 
@@ -443,7 +443,7 @@
     gap: 0.5rem;
     min-width: 0;
     padding: 0.5rem 0.75rem;
-    border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
     border-radius: var(--radius-md);
     color: var(--foreground);
     font-size: 0.875rem;
@@ -452,17 +452,17 @@
     @include motion.interactive(background-color, border-color, box-shadow);
 
     &:hover {
-      background-color: color-mix(in oklch, var(--accent) 45%, transparent);
+      background-color: color-mix(in oklab, var(--accent) 45%, transparent);
     }
 
     &:active {
-      background-color: color-mix(in oklch, var(--accent) 65%, transparent);
+      background-color: color-mix(in oklab, var(--accent) 65%, transparent);
     }
 
     &:focus-visible {
       outline: none;
       border-color: var(--ring);
-      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
     }
   }
 

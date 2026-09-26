@@ -104,7 +104,7 @@ $tribe-story-gallery-indicator-height: 0.375rem;
     &__navButton:global([data-slot="carousel-next"]) {
       width: $tribe-story-gallery-nav-size;
       height: $tribe-story-gallery-nav-size;
-      background: color-mix(in oklch, var(--background) 84%, transparent);
+      background: color-mix(in oklab, var(--background) 84%, transparent);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
     }

@@ -7,7 +7,7 @@
 
   display: grid;
   gap: 0.875rem;
-  border-top: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+  border-top: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
   padding-top: 1rem;
 
   &__heading {
@@ -42,7 +42,7 @@
     resize: vertical;
     min-height: 3rem;
     padding: 0.5rem 0.75rem;
-    border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
+    border: 1px solid color-mix(in oklab, var(--border) 76%, transparent);
     border-radius: var(--radius-md);
     background-color: var(--background);
     color: var(--foreground);
@@ -65,7 +65,7 @@
     &:focus-visible {
       outline: none;
       border-color: var(--ring);
-      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
     }
   }
 
@@ -155,7 +155,7 @@
 
     &:focus-visible {
       outline: none;
-      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
     }
 
     &:disabled {

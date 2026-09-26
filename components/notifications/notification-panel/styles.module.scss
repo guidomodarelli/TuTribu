@@ -91,7 +91,7 @@ $notification-panel-region-fade: 180ms;
   }
 
   &__item + &__item {
-    border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
   }
 
   &__link {
@@ -124,7 +124,7 @@ $notification-panel-region-fade: 180ms;
     }
 
     &--unread {
-      background-color: color-mix(in oklch, var(--primary) 6%, transparent);
+      background-color: color-mix(in oklab, var(--primary) 6%, transparent);
     }
   }
 
