@@ -41,7 +41,8 @@ const NO_PULL_REQUEST_MESSAGE_PATTERN = /no pull requests found/i;
 const PULL_REQUEST_JSON_FIELDS = "number,url,title,state,isDraft,headRefOid";
 
 /**
- * Runs a command and captures its output.
+ * Runs a command and captures its output. Leading whitespace is kept because
+ * `git status --porcelain` encodes the file state in the first columns.
  *
  * @param {string} command - Executable name.
  * @param {string[]} commandArguments - Arguments.
@@ -62,7 +63,7 @@ export function runCaptured(command, commandArguments, options = {}) {
     child.stdout.setEncoding("utf8").on("data", (chunk) => (stdout += chunk));
     child.stderr.setEncoding("utf8").on("data", (chunk) => (stderr += chunk));
     child.on("error", (error) => resolve({ status: 1, stdout, stderr: error.message }));
-    child.on("close", (status) => resolve({ status: status ?? 1, stdout: stdout.trim(), stderr: stderr.trim() }));
+    child.on("close", (status) => resolve({ status: status ?? 1, stdout: stdout.trimEnd(), stderr: stderr.trim() }));
   });
 }
 
