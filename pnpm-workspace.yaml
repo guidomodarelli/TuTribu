@@ -21,7 +21,8 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 minimumReleaseAgeExclude:
-  - beez-ui@0.6.0 || 0.7.0
+  - beez-ui
+  - beez-rp
   - react-dom@19.3.0
   - react@19.3.0
   - scheduler@0.28.0

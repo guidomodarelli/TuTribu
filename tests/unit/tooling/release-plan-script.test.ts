@@ -1,23 +1,22 @@
 /** @vitest-environment node */
 
 import { describe, expect, it } from "vitest";
+import { ALLOWED_NEXT_VERSIONS, CURRENT_STABLE_VERSION, REJECTED_VERSION_BUMP_CASES } from "beez-rp/testing";
+import { resolveRequestedVersion } from "beez-rp/versions";
 
 import {
   MIGRATION_STATUS,
   PULL_REQUEST_STATE,
   RELEASE_STEP,
   buildReleasePlan,
-  bumpReleaseVersion,
   findUnpushedRelease,
-  listNextVersions,
   parseReleaseArguments,
-  resolveRequestedVersion,
-  suggestReleaseType,
 } from "../../../scripts/release/release-plan.mjs";
-import { buildChangelogPrompt } from "../../../scripts/release/changelog-ai.mjs";
-import { readLatestRelease, readUnreleased, releaseUnreleased } from "../../../scripts/release/changelog.mjs";
 
 type ReleaseState = Parameters<typeof buildReleasePlan>[0];
+
+/** Hand-typed `--set-version v1.2.4` means `1.2.4`, so the flag accepts the v-prefixed variant on purpose. */
+const V_PREFIXED_NEXT_VERSION = "v1.2.4";
 
 const UP_TO_DATE_MIGRATIONS = {
   status: MIGRATION_STATUS.upToDate,
@@ -46,38 +45,27 @@ function stepIds(state: ReleaseState): string[] {
   return buildReleasePlan(state).steps.map((planStep) => planStep.id);
 }
 
+/** Resolves a version typed through `pnpm create-version --set-version=<version>`, as the command does. */
+function requestVersionThroughFlag(version: string) {
+  const { bump, setVersion } = parseReleaseArguments([`--set-version=${version}`]);
+  return resolveRequestedVersion(CURRENT_STABLE_VERSION, { bump, setVersion });
+}
+
 describe("release plan", () => {
-  it("should bump each semver part and reset the lower ones", () => {
-    expect(bumpReleaseVersion("0.93.4", "patch")).toBe("0.93.5");
-    expect(bumpReleaseVersion("0.93.4", "minor")).toBe("0.94.0");
-    expect(bumpReleaseVersion("0.93.4", "major")).toBe("1.0.0");
+  it.each(ALLOWED_NEXT_VERSIONS)(`should accept --set-version ${CURRENT_STABLE_VERSION} -> %s`, (version) => {
+    expect(requestVersionThroughFlag(version)?.version).toBe(version);
   });
 
-  it("should offer only the next patch, minor and major versions", () => {
-    expect(listNextVersions("0.93.0").map((candidate) => candidate.version)).toEqual([
-      "0.93.1",
-      "0.94.0",
-      "1.0.0",
-    ]);
+  it("should accept a v-prefixed --set-version for the next version", () => {
+    expect(requestVersionThroughFlag(V_PREFIXED_NEXT_VERSION)?.version).toBe("1.2.4");
   });
 
-  it("should accept --set-version only when it is the next patch, minor or major", () => {
-    expect(resolveRequestedVersion("0.93.0", { bump: null, setVersion: "0.94.0" })).toEqual({
-      releaseType: "minor",
-      version: "0.94.0",
-    });
-    expect(() => resolveRequestedVersion("0.93.0", { bump: null, setVersion: "0.95.0" })).toThrow(
-      /no saltear versiones/
-    );
-    expect(() => resolveRequestedVersion("0.93.0", { bump: null, setVersion: "0.93.2" })).toThrow(
-      /Opciones: 0\.93\.1, 0\.94\.0, 1\.0\.0/
-    );
-    expect(() => resolveRequestedVersion("0.93.0", { bump: null, setVersion: "0.93.0" })).toThrow();
-    expect(() => resolveRequestedVersion("0.93.0", { bump: null, setVersion: "0.92.0" })).toThrow();
-    expect(() => resolveRequestedVersion("0.93.0", { bump: null, setVersion: "1.x" })).toThrow(
-      /formato X\.Y\.Z/
-    );
-  });
+  it.each(REJECTED_VERSION_BUMP_CASES.filter(([, version]) => version !== V_PREFIXED_NEXT_VERSION))(
+    "should reject --set-version when the bump is %s (%j)",
+    (_reason, version) => {
+      expect(() => requestVersionThroughFlag(version)).toThrow(/--set-version/);
+    }
+  );
 
   it("should resolve --bump and leave the version to the prompt when no flag is given", () => {
     expect(resolveRequestedVersion("0.93.0", { bump: "patch", setVersion: null })?.version).toBe("0.93.1");
@@ -97,20 +85,6 @@ describe("release plan", () => {
       /no los dos a la vez/
     );
     expect(() => parseReleaseArguments(["--force"])).toThrow(/Opción desconocida/);
-  });
-
-  it("should suggest the release type from the shipped commits", () => {
-    expect(suggestReleaseType([{ subject: "fix: handle empty feed" }, { subject: "chore: bump deps" }]).releaseType).toBe(
-      "patch"
-    );
-    expect(suggestReleaseType([{ subject: "fix: typo" }, { subject: "feat(events): waitlist" }]).releaseType).toBe(
-      "minor"
-    );
-    expect(suggestReleaseType([{ subject: "Add personal webcal feed (#74)" }]).releaseType).toBe("minor");
-    expect(suggestReleaseType([{ subject: "refactor!: drop legacy routes" }]).releaseType).toBe("major");
-    expect(
-      suggestReleaseType([{ subject: "feat: new auth", body: "BREAKING CHANGE: sessions reset" }]).releaseType
-    ).toBe("major");
   });
 
   it("should detect a release commit created locally but never pushed", () => {
@@ -242,34 +216,5 @@ describe("release plan", () => {
     );
 
     expect(plan.blockers[0].details).toEqual(["El PR #81 ya está mergeado: hacé git switch main."]);
-  });
-});
-
-describe("changelog", () => {
-  const CHANGELOG = "# Cambios\n\n## [Unreleased]\n\n### Added\n\n- Agrega recordatorios.\n\n### Fixed\n\n- Corrige $& en títulos.\n";
-
-  it("should move [Unreleased] under the released version and leave an empty [Unreleased] on top", () => {
-    const released = releaseUnreleased(CHANGELOG, "0.94.0", "2026-09-26");
-
-    expect(released).toBe(
-      "# Cambios\n\n## [Unreleased]\n\n## [0.94.0] - 2026-09-26\n\n### Added\n\n- Agrega recordatorios.\n\n### Fixed\n\n- Corrige $& en títulos.\n\n"
-    );
-    expect(readUnreleased(released).entryCount).toBe(0);
-    expect(readLatestRelease(released)).toEqual({ version: "0.94.0", entryCount: 2 });
-  });
-
-  it("should refuse an empty or missing [Unreleased] block and unknown sections", () => {
-    expect(() => releaseUnreleased("# Cambios\n\n## [Unreleased]\n\n### Added\n", "0.94.0", "2026-09-26")).toThrow(/no changes/);
-    expect(() => releaseUnreleased("# Cambios\n", "0.94.0", "2026-09-26")).toThrow(/\[Unreleased\]/);
-    expect(() => releaseUnreleased(CHANGELOG.replace("### Fixed", "### Mejoras"), "0.94.0", "2026-09-26")).toThrow(/Mejoras/);
-  });
-
-  it("should ask Codex for Keep a Changelog entries from the unreleased commits only", () => {
-    const prompt = buildChangelogPrompt([{ sha: "8fc02455aaaa", subject: "Add event reminders (#75)" }], "quien usa TuTribu");
-
-    expect(prompt).toContain("## [Unreleased]");
-    expect(prompt).toContain("- 8fc0245 Add event reminders (#75)");
-    expect(prompt).toContain("quien usa TuTribu");
-    expect(prompt).toContain("Modificá únicamente CHANGELOG.md");
   });
 });

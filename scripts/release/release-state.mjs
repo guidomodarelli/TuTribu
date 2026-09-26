@@ -13,7 +13,9 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { readUnreleased } from "./changelog.mjs";
+import { readUnreleased } from "beez-rp/changelog";
+import { RELEASE_COMMIT_SUBJECT_GREP } from "beez-rp/constants";
+
 import { MAIN_BRANCH, findUnpushedRelease } from "./release-plan.mjs";
 import {
   MIGRATION_JOURNAL_PATH,
@@ -33,9 +35,6 @@ const FIELD_SEPARATOR = "\x1f";
 
 /** Separates records in `git log --format` output. */
 const RECORD_SEPARATOR = "\x1e";
-
-/** `git log --grep` pattern of release commit subjects (`0.93.0`). */
-const RELEASE_COMMIT_SUBJECT_GREP = String.raw`^[0-9]+\.[0-9]+\.[0-9]+$`;
 
 /** Message `gh pr view` prints when the branch has no pull request. */
 const NO_PULL_REQUEST_MESSAGE_PATTERN = /no pull requests found/i;
