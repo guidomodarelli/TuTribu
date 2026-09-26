@@ -32,8 +32,8 @@ import { checkPendingMigrations, readMigrationJournalAt } from "./scripts/releas
  */
 const MIGRATION_JOURNAL_REVISIONS = ["HEAD", "origin/main"];
 
-/** Script that runs `drizzle-kit migrate`, shared with `pnpm run db:migrate`. */
-const MIGRATION_COMMAND = "node scripts/push-migrations.js";
+/** Runs `drizzle-kit migrate` (shared with `pnpm run db:migrate`) with the same Node binary as the release. */
+const MIGRATION_COMMAND = `"${process.execPath}" scripts/push-migrations.js`;
 
 /**
  * Checks which journal migrations the configured database still misses.

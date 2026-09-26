@@ -43,7 +43,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Write one `- ` line per change, in Spanish, describing what changes for TuTribu users (members and tribe creators), without internal implementation details.
 - Changes with no effect for users (tests, internal refactors, local tooling, agent instructions) do not need an entry.
 - If `[Unreleased]` is empty when releasing, `pnpm create-version` asks Codex to fill it from the unreleased commits; if Codex is unavailable or writes nothing valid, the release stops.
-- `pnpm create-version` runs the shared `beez-rp create-version` command. Change TuTribu-specific release behavior (changelog audience, version type descriptions, migrations adapter, final summary) in `beez-rp.config.js`, and the shared engine in the beez-rp repository.
+- `pnpm create-version` runs the shared `beez-rp create-version` command. Change TuTribu-specific release behavior (changelog audience, version type descriptions, migrations adapter, final summary) in `beez-rp.config.mjs`, and the shared engine in the beez-rp repository.
 
 ### Architecture documentation governance
 

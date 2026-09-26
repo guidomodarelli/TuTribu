@@ -9,7 +9,7 @@
  * `@next/env`), so the check always targets the database that
  * `pnpm run db:migrate` would change. Only the host is ever shown.
  *
- * `beez-rp.config.js` uses it as the `migrations.check` adapter of
+ * `beez-rp.config.mjs` uses it as the `migrations.check` adapter of
  * `beez-rp create-version`, so every result follows the `MigrationCheck`
  * contract of beez-rp (`status`, `pending`, `target`, `reason`).
  *

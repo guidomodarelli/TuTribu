@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import createVersionConfig from "../../../beez-rp.config.js";
+import createVersionConfig from "../../../beez-rp.config.mjs";
 import {
   MIGRATION_STATUS,
   describeDatabaseHost,
@@ -217,7 +217,7 @@ describe("beez-rp create-version config", () => {
     });
 
     await expect(migrations.apply(failingContext)).rejects.toThrow("drizzle-kit migrate falló con código 1.");
-    expect(executedCommands).toEqual(["node scripts/push-migrations.js"]);
+    expect(executedCommands).toEqual([`"${process.execPath}" scripts/push-migrations.js`]);
     await expect(migrations.apply(createHookContext(process.cwd()))).resolves.toBeUndefined();
   });
 });

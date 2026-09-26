@@ -73,7 +73,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run test:e2e:ui` | Run Playwright with the interactive UI runner. |
 | `pnpm run db:migrate` | Apply pending SQL migrations to the configured Neon database. |
 | `pnpm run db:migrate:force` | Force a Drizzle push. Use only when an intentional override is required. |
-| `pnpm create-version` (alias `pnpm cv`) | Diagnose the repository and ship a release from `main`: update `main`, apply pending migrations (after confirmation), fill an empty `CHANGELOG.md` `[Unreleased]` block with Codex, bump the version (`--bump patch\|minor\|major` or `--set-version X.Y.Z`, only the next patch/minor/major) releasing `[Unreleased]` as `[X.Y.Z] - date`, and push `main` plus the `vX.Y.Z` tag. `--dry-run` only shows the plan. Runs the shared `beez-rp create-version` command, configured for TuTribu in `beez-rp.config.js`. See `docs/conventions/release-process.htm`. |
+| `pnpm create-version` (alias `pnpm cv`) | Diagnose the repository and ship a release from `main`: update `main`, apply pending migrations (after confirmation), fill an empty `CHANGELOG.md` `[Unreleased]` block with Codex, bump the version (`--bump patch\|minor\|major` or `--set-version X.Y.Z`, only the next patch/minor/major) releasing `[Unreleased]` as `[X.Y.Z] - date`, and push `main` plus the `vX.Y.Z` tag. `--dry-run` only shows the plan. Runs the shared `beez-rp create-version` command, configured for TuTribu in `beez-rp.config.mjs`. See `docs/conventions/release-process.htm`. |
 
 ## Environment
 
