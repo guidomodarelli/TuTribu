@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `pnpm release`: one command that diagnoses the repository, shows what is
+ * `pnpm create-version`: one command that diagnoses the repository, shows what is
  * still missing and ships the release from `main`.
  *
  * 1. Diagnosis: fetches `origin`, reads the branch, working tree, `main`
@@ -12,8 +12,9 @@
  * 3. Execution: updates `main`, applies pending migrations after an explicit
  *    confirmation, asks for the version (or takes `--bump` /
  *    `--set-version`), creates the `X.Y.Z` commit and the annotated
- *    `vX.Y.Z` tag, and pushes both. The push runs the Husky pre-push gate
- *    (`pnpm run ci`) and the version change makes Vercel build and deploy.
+ *    `vX.Y.Z` tag, and pushes both. The Husky pre-push gate skips `main` and
+ *    tags (it already ran on the merged branch), and the version change makes
+ *    Vercel build and deploy.
  *
  * Every step is derived from the current state, so running the command again
  * after a failure resumes from the first missing step.
@@ -84,12 +85,6 @@ const MAX_LISTED_MIGRATIONS = 10;
 /** `version` field of `package.json`, replaced in place to keep formatting. */
 const PACKAGE_VERSION_FIELD_PATTERN = /("version"\s*:\s*")[^"]+(")/;
 
-/** SSH keepalive so GitHub does not drop the connection during the ~10 min gate. */
-const SSH_KEEPALIVE_COMMAND = "ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=40";
-
-/** Remote URLs pushed over SSH (`git@host:` or `ssh://`). */
-const SSH_REMOTE_PATTERN = /^(ssh:\/\/|[\w.-]+@[\w.-]+:)/;
-
 /** GitHub `owner/repo` inside an SSH or HTTPS remote URL. */
 const GITHUB_REPOSITORY_PATTERN = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/;
 
@@ -117,21 +112,6 @@ class ReleaseStepError extends Error {
 
 /** Raised when the user cancels on purpose; ends the run without an error box. */
 class ReleaseCancelledError extends Error {}
-
-/**
- * Builds the environment for `git push`, adding an SSH keepalive when the
- * remote uses SSH and the user did not configure `GIT_SSH_COMMAND`.
- *
- * @param {string} remoteUrl - URL of {@link RELEASE_REMOTE}.
- * @returns {NodeJS.ProcessEnv} Environment for the push.
- */
-function buildPushEnvironment(remoteUrl) {
-  if (!SSH_REMOTE_PATTERN.test(remoteUrl) || process.env.GIT_SSH_COMMAND) {
-    return process.env;
-  }
-
-  return { ...process.env, GIT_SSH_COMMAND: SSH_KEEPALIVE_COMMAND };
-}
 
 /**
  * Renders the status panel of the diagnosis.
@@ -258,10 +238,9 @@ function renderPlan(plan) {
  * @param {string[]} gitArguments - Git arguments.
  * @param {string} failureMessage - Spanish message when it fails.
  * @param {string} hint - Spanish next action.
- * @param {NodeJS.ProcessEnv} [environment] - Environment override.
  */
-async function runGitStep(gitArguments, failureMessage, hint, environment) {
-  const exitCode = await runInherited("git", gitArguments, { cwd: REPOSITORY_ROOT, env: environment });
+async function runGitStep(gitArguments, failureMessage, hint) {
+  const exitCode = await runInherited("git", gitArguments, { cwd: REPOSITORY_ROOT });
 
   if (exitCode !== 0) {
     throw new ReleaseStepError(`${failureMessage} (git ${gitArguments[0]} salió con código ${exitCode}).`, hint);
@@ -356,7 +335,7 @@ async function bumpVersionStep(context) {
       message: `¿Qué versión publicamos? (actual ${currentVersion})`,
       options: nextVersions.map((candidate) => ({
         label: `${candidate.releaseType.padEnd(5)}  ${currentVersion} → ${candidate.version}`,
-        hint: candidate.releaseType === suggestion.releaseType ? `★ sugerida: ${suggestion.reason}` : undefined,
+        hint: candidate.releaseType === suggestion.releaseType ? `${ICON.star} sugerida: ${suggestion.reason}` : undefined,
         value: candidate.version,
       })),
       defaultIndex: nextVersions.findIndex((candidate) => candidate.releaseType === suggestion.releaseType),
@@ -372,8 +351,8 @@ async function bumpVersionStep(context) {
   await runGitStep(["add", "package.json"], "No se pudo stagear package.json", "Revisá git status.");
   await runGitStep(
     ["commit", "--quiet", "-m", nextRelease.version],
-    "El commit de versión falló (¿el hook pre-commit?)",
-    "Corregí el error, descartá el cambio con git checkout package.json y volvé a correr pnpm release."
+    "El commit de versión falló",
+    "Corregí el error, descartá el cambio con git checkout package.json y volvé a correr pnpm create-version."
   );
   await runGitStep(
     ["tag", "-a", tag, "-m", nextRelease.version],
@@ -407,16 +386,14 @@ async function pushReleaseStep(context) {
   const shouldPush = await confirm(`¿Subir ${MAIN_BRANCH} + ${tag} a ${RELEASE_REMOTE}? Esto publica en producción.`);
 
   if (!shouldPush) {
-    print(`${ICON.warning} ${paint("yellow", `${tag} quedó creado solo en local. Corré pnpm release cuando quieras subirlo.`)}`);
+    print(`${ICON.warning} ${paint("yellow", `${tag} quedó creado solo en local. Corré pnpm create-version cuando quieras subirlo.`)}`);
     throw new ReleaseCancelledError();
   }
 
-  print(paint("gray", "El hook pre-push corre pnpm run ci (lint, typecheck, tests y build). Tarda ~10 min…"));
   await runGitStep(
     ["push", "--atomic", RELEASE_REMOTE, MAIN_BRANCH, `refs/tags/${tag}`],
     `El push de ${MAIN_BRANCH} + ${tag} falló`,
-    `El release quedó en local: corregí el error y corré pnpm release, que retoma el push de ${tag}.`,
-    buildPushEnvironment(context.remoteUrl)
+    `El release quedó en local: corregí el error y corré pnpm create-version, que retoma el push de ${tag}.`
   );
 
   const remoteTag = await context.reader.tryGit(["ls-remote", "--tags", RELEASE_REMOTE, tag]);
@@ -463,7 +440,7 @@ function renderPublishedSummary(context, startedAt) {
 
   lines.push("", paint("gray", `Tiempo total: ${formatDuration(Date.now() - startedAt)}`));
 
-  return renderBox({ title: `▲ ${tag} publicado`, lines, tone: BOX_TONE.success });
+  return renderBox({ title: `${ICON.rocket} ${tag} publicado`, lines, tone: BOX_TONE.success });
 }
 
 /**
@@ -490,7 +467,7 @@ async function main() {
   const reader = createGitReader(REPOSITORY_ROOT);
   const remoteUrl = (await reader.tryGit(["remote", "get-url", RELEASE_REMOTE])) ?? "";
   const publishedVersion = await readPackageVersionAt(reader, REMOTE_MAIN_REF);
-  print(renderBanner({ projectName: PROJECT_NAME, version: publishedVersion }));
+  print(renderBanner({ projectName: PROJECT_NAME, publishedLabel: publishedVersion ? `v${publishedVersion} en producción` : null }));
 
   const spinner = startSpinner("Diagnosticando el repositorio");
   let state;
@@ -513,8 +490,10 @@ async function main() {
   const plan = buildReleasePlan(state);
   print(renderPlan(plan));
 
+  // A blocker is an expected outcome already explained in the box, not a
+  // command failure: exiting 0 keeps pnpm from appending ELIFECYCLE noise.
   if (plan.blockers.length > 0) {
-    return FAILURE_EXIT_CODE;
+    return 0;
   }
 
   if (plan.steps.length === 0) {
@@ -538,7 +517,7 @@ async function main() {
   }
 
   if (options.dryRun) {
-    print(`${ICON.info} ${paint("cyan", "--dry-run: no se cambió nada. Corré pnpm release para ejecutar el plan.")}`);
+    print(`${ICON.info} ${paint("cyan", "--dry-run: no se cambió nada. Corré pnpm create-version para ejecutar el plan.")}`);
     return 0;
   }
 
@@ -563,7 +542,7 @@ async function main() {
       if (error instanceof ReleaseStepError) {
         lines.push("", `${paint("bold", "Qué hacer:")} ${error.hint}`);
       }
-      lines.push("", paint("gray", "pnpm release retoma desde el primer paso que falte."));
+      lines.push("", paint("gray", "pnpm create-version retoma desde el primer paso que falte."));
       print(renderBox({ title: `Falló el paso ${index + 1}: ${planStep.title}`, lines, tone: BOX_TONE.danger }));
       return FAILURE_EXIT_CODE;
     }

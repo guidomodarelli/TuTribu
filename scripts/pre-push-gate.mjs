@@ -7,10 +7,11 @@
  * exact commits being uploaded instead of the current working tree:
  *
  * - ref deletions (local oid made of zeros) are allowed and skipped;
- * - every pushed oid is peeled to the commit it identifies, so an annotated
- *   tag (`git push --follow-tags`, `git push origin <tag>`) is compared by
- *   the commit it points at instead of by the tag object id;
- * - the gate only validates the commit that is checked out: every pushed oid
+ * - only branches other than `main` are gated: pushes to `refs/heads/main`
+ *   (such as `pnpm release`) and to tags are skipped, because the gate
+ *   already ran when the branch that reaches `main` through a pull request
+ *   was pushed;
+ * - the gate only validates the commit that is checked out: every gated oid
  *   must be `HEAD` and the working tree must have no tracked, staged or
  *   untracked changes and no tracked file flagged `skip-worktree` or
  *   `assume-unchanged` (`git status` hides whether those differ from `HEAD`,
@@ -23,7 +24,7 @@
  *   commit or edit made in another terminal during the run would otherwise
  *   let a passing gate vouch for a different pushed commit. Any change fails
  *   the push asking to retry without touching the checkout;
- * - any other pushed oid (another branch, a fetched ref, or `HEAD` with local
+ * - any other gated oid (another branch, a fetched ref, or `HEAD` with local
  *   changes) fails the push with a Spanish message asking to check out that
  *   branch or commit with a clean working tree and push again. The gate never
  *   checks out or executes code from a commit other than the checkout, so a
@@ -31,7 +32,7 @@
  *   account, and the Node.js pins read from the checkout always belong to the
  *   pushed commit.
  *
- * Before any ref is validated the running Node.js is checked against
+ * When at least one ref is gated, the running Node.js is checked against
  * `engines.node` (blocking) and `.nvmrc` (warning only). A prerelease runtime
  * (`24.21.0-rc.1`) never satisfies `engines.node` and never matches `.nvmrc`,
  * following semver range semantics that exclude prereleases.
@@ -46,8 +47,16 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import { MAIN_BRANCH } from "./release/release-plan.mjs";
+
 /** Git's all-zero object id, used for deleted or missing refs. */
 const ZERO_OID_PATTERN = /^0+$/;
+
+/** Prefix of the remote refs that name branches; tags and other refs are not gated. */
+const BRANCH_REF_PREFIX = "refs/heads/";
+
+/** Remote ref of `main`, which the gate skips. */
+const MAIN_BRANCH_REF = `${BRANCH_REF_PREFIX}${MAIN_BRANCH}`;
 
 /** Number of whitespace-separated fields in a pre-push stdin line. */
 const PUSH_LINE_FIELD_COUNT = 4;
@@ -327,31 +336,40 @@ export function isZeroOid(oid) {
 }
 
 /**
- * Selects the distinct commits that must be validated, skipping deletions.
+ * Returns whether a push to a remote ref runs the gate: only branches other
+ * than `main` do. `main` receives code through reviewed pull requests whose
+ * branches were already gated, and tags point at commits of `main`.
+ *
+ * @param {string} remoteRef - Remote ref being updated, such as `refs/heads/feature`.
+ * @returns {boolean} `true` for a branch other than `main`.
+ */
+export function isGatedRemoteRef(remoteRef) {
+  return remoteRef.startsWith(BRANCH_REF_PREFIX) && remoteRef !== MAIN_BRANCH_REF;
+}
+
+/**
+ * Selects the distinct commits that must be validated, skipping deletions and
+ * refs the gate does not cover (see {@link isGatedRemoteRef}).
  *
  * @param {ReturnType<typeof parsePushedRefs>} pushedRefs - Parsed ref updates.
- * @param {(oid: string) => string} [resolveCommitOid] - Maps a pushed object
- *   id to the commit it identifies (peels annotated tags). Defaults to the
- *   identity, which treats every pushed oid as a commit.
  * @returns {{ oid: string, refs: string[] }[]} Commits in first-seen order with
  *   the local refs that point to each one.
  */
-export function selectCommitsToValidate(pushedRefs, resolveCommitOid = (oid) => oid) {
+export function selectCommitsToValidate(pushedRefs) {
   const commitsByOid = new Map();
 
   for (const pushedRef of pushedRefs) {
-    if (isZeroOid(pushedRef.localOid)) {
+    if (isZeroOid(pushedRef.localOid) || !isGatedRemoteRef(pushedRef.remoteRef)) {
       continue;
     }
 
-    const commitOid = resolveCommitOid(pushedRef.localOid);
-    const existingCommit = commitsByOid.get(commitOid);
+    const existingCommit = commitsByOid.get(pushedRef.localOid);
 
     if (existingCommit) {
       existingCommit.refs.push(pushedRef.localRef);
     } else {
-      commitsByOid.set(commitOid, {
-        oid: commitOid,
+      commitsByOid.set(pushedRef.localOid, {
+        oid: pushedRef.localOid,
         refs: [pushedRef.localRef],
       });
     }
@@ -478,26 +496,6 @@ function runGit(gitArguments, workingDirectory) {
  */
 export function resolveHeadOid(repositoryRoot) {
   return runGit(["rev-parse", "HEAD"], repositoryRoot);
-}
-
-/**
- * Peels a pushed object id to the commit it identifies, so an annotated tag
- * resolves to its tagged commit. An object that does not peel to a commit
- * (a tag of a tree or blob) keeps its own id, which never matches `HEAD` and
- * therefore blocks the push.
- *
- * @param {string} repositoryRoot - Repository top-level directory.
- * @param {string} oid - Pushed object id.
- * @returns {string} Commit object id, or `oid` when it does not peel to one.
- */
-export function resolvePushedCommitOid(repositoryRoot, oid) {
-  const result = spawnSync("git", ["rev-parse", "--verify", "--quiet", `${oid}^{commit}`], {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-    env: buildRepositoryIndependentEnvironment(),
-  });
-
-  return result.status === 0 ? result.stdout.trim() : oid;
 }
 
 /**
@@ -689,6 +687,15 @@ async function readStdin() {
  */
 async function main() {
   const repositoryRoot = runGit(["rev-parse", "--show-toplevel"], process.cwd());
+  const commitsToValidate = selectCommitsToValidate(parsePushedRefs(await readStdin()));
+
+  if (commitsToValidate.length === 0) {
+    console.log(
+      `${LOG_PREFIX} no pushed commits to validate (the gate only runs on branches other than ${MAIN_BRANCH})`
+    );
+    return;
+  }
+
   // `.nvmrc` and `engines.node` do not switch the `node` already running this
   // hook, so reject an unsupported runtime before validating any ref.
   const nodeRuntime = checkNodeRuntime(repositoryRoot);
@@ -701,16 +708,6 @@ async function main() {
 
   if (nodeRuntime.message) {
     console.warn(`${LOG_PREFIX} ${nodeRuntime.message}`);
-  }
-
-  const commitsToValidate = selectCommitsToValidate(
-    parsePushedRefs(await readStdin()),
-    (oid) => resolvePushedCommitOid(repositoryRoot, oid)
-  );
-
-  if (commitsToValidate.length === 0) {
-    console.log(`${LOG_PREFIX} no pushed commits to validate`);
-    return;
   }
 
   const checkout = readCheckoutState(repositoryRoot);

@@ -25,6 +25,7 @@ type CommitToValidate = { oid: string; refs: string[] };
 type PrePushGateScript = {
   parsePushedRefs: (stdinText: string) => PushedRef[];
   isZeroOid: (oid: string) => boolean;
+  isGatedRemoteRef: (remoteRef: string) => boolean;
   selectCommitsToValidate: (
     pushedRefs: PushedRef[]
   ) => CommitToValidate[];
@@ -254,6 +255,22 @@ describe("pre-push gate script", () => {
     expect(prePushGateScript.isZeroOid(FIRST_OID)).toBe(false);
   });
 
+  it("should gate only branches other than main by their remote ref", () => {
+    const commits = prePushGateScript.selectCommitsToValidate([
+      { localRef: "refs/heads/main", localOid: FIRST_OID, remoteRef: "refs/heads/main", remoteOid: ZERO_OID },
+      { localRef: "refs/tags/v1.0.0", localOid: FIRST_OID, remoteRef: "refs/tags/v1.0.0", remoteOid: ZERO_OID },
+      { localRef: "refs/heads/feature", localOid: SECOND_OID, remoteRef: "refs/heads/main", remoteOid: ZERO_OID },
+      { localRef: "refs/heads/main", localOid: FIRST_OID, remoteRef: "refs/heads/hotfix", remoteOid: ZERO_OID },
+    ]);
+
+    expect(commits).toEqual([{ oid: FIRST_OID, refs: ["refs/heads/main"] }]);
+    expect(prePushGateScript.isGatedRemoteRef("refs/heads/feature/login")).toBe(true);
+    expect(prePushGateScript.isGatedRemoteRef("refs/heads/main")).toBe(false);
+    expect(prePushGateScript.isGatedRemoteRef("refs/heads/mainline")).toBe(true);
+    expect(prePushGateScript.isGatedRemoteRef("refs/tags/v1.0.0")).toBe(false);
+    expect(prePushGateScript.isGatedRemoteRef("refs/notes/commits")).toBe(false);
+  });
+
   it("should drop Git's repository-local variables exported to hooks", () => {
     const environment = prePushGateScript.buildRepositoryIndependentEnvironment({
       PATH: "/usr/bin",
@@ -379,7 +396,7 @@ describe("pre-push gate script", () => {
 
     const gateRun = runPrePushGate(
       repositoryRoot,
-      `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+      `refs/heads/feature ${headOid} refs/heads/feature ${ZERO_OID}\n`
     );
 
     expect(gateRun.status).toBe(1);
@@ -392,11 +409,38 @@ describe("pre-push gate script", () => {
       `>=${RUNNING_NODE_MAJOR} <${RUNNING_NODE_MAJOR + 1}`,
       `${RUNNING_NODE_MAJOR}.999.0`
     );
+    const previousOid = runGit(["rev-parse", "HEAD~1"], repositoryRoot);
 
-    const gateRun = runPrePushGate(repositoryRoot, "");
+    const gateRun = runPrePushGate(
+      repositoryRoot,
+      `refs/heads/feature ${previousOid} refs/heads/feature ${ZERO_OID}\n`
+    );
 
-    expect(gateRun.status).toBe(0);
     expect(gateRun.stderr).toContain(`${RUNNING_NODE_MAJOR}.999.0`);
+    // The warning does not stop the gate: it goes on to reject the non-HEAD commit.
+    expect(gateRun.stderr).toContain(`No se puede validar ${previousOid}`);
+    expect(gateRun.status).toBe(1);
+  });
+
+  it("should skip pushes to main and tags without checking Node or the working tree", () => {
+    const repositoryRoot = createRepositoryWithRuntimePins(
+      `>=${RUNNING_NODE_MAJOR + 1}`,
+      `${RUNNING_NODE_MAJOR + 1}.0.0`
+    );
+    const headOid = runGit(["rev-parse", "HEAD"], repositoryRoot);
+    writeFileSync(path.join(repositoryRoot, "untracked.txt"), "not committed\n");
+
+    const gateRun = runPrePushGate(
+      repositoryRoot,
+      [
+        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}`,
+        `refs/tags/v1.0.0 ${FIRST_OID} refs/tags/v1.0.0 ${ZERO_OID}`,
+        "",
+      ].join("\n")
+    );
+
+    expect(gateRun.status, gateRun.stderr).toBe(0);
+    expect(gateRun.stderr).toBe("");
     expect(gateRun.stdout).toContain("no pushed commits to validate");
   });
 
@@ -427,7 +471,7 @@ describe("pre-push gate script", () => {
 
       const gateRun = runPrePushGate(
         repositoryRoot,
-        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+        `refs/heads/feature ${headOid} refs/heads/feature ${ZERO_OID}\n`
       );
 
       expect(gateRun.status).toBe(1);
@@ -446,7 +490,7 @@ describe("pre-push gate script", () => {
 
       const gateRun = runPrePushGate(
         repositoryRoot,
-        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+        `refs/heads/feature ${headOid} refs/heads/feature ${ZERO_OID}\n`
       );
 
       expect(gateRun.status).toBe(1);
@@ -465,7 +509,7 @@ describe("pre-push gate script", () => {
 
       const gateRun = runPrePushGate(
         repositoryRoot,
-        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+        `refs/heads/feature ${headOid} refs/heads/feature ${ZERO_OID}\n`
       );
 
       expect(readFileSync(reportPath, "utf8")).toBe("ran");
@@ -486,7 +530,7 @@ describe("pre-push gate script", () => {
         repositoryRoot,
         [
           `(delete) ${ZERO_OID} refs/heads/gone ${FIRST_OID}`,
-          `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}`,
+          `refs/heads/feature ${headOid} refs/heads/feature ${ZERO_OID}`,
           "",
         ].join("\n")
       );
@@ -506,7 +550,7 @@ describe("pre-push gate script", () => {
 
       const gateRun = runPrePushGate(
         repositoryRoot,
-        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+        `refs/heads/feature ${headOid} refs/heads/feature ${ZERO_OID}\n`
       );
 
       expect(readFileSync(reportPath, "utf8")).toBe("ran");
@@ -526,7 +570,7 @@ describe("pre-push gate script", () => {
 
       const gateRun = runPrePushGate(
         repositoryRoot,
-        `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}\n`
+        `refs/heads/feature ${headOid} refs/heads/feature ${ZERO_OID}\n`
       );
 
       expect(runGit(["rev-parse", "HEAD"], repositoryRoot)).not.toBe(headOid);
@@ -538,45 +582,24 @@ describe("pre-push gate script", () => {
   );
 
   it(
-    "should validate an annotated tag that points at the clean HEAD",
+    "should gate the branch and ignore main and tags pushed in the same run",
     () => {
-      const { repositoryRoot, headOid, reportPath } = createGateFixtureRepository();
-      runGit(["tag", "--annotate", "v1.0.0", "--message", "release"], repositoryRoot);
-      const tagObjectOid = runGit(["rev-parse", "refs/tags/v1.0.0"], repositoryRoot);
-
-      expect(tagObjectOid).not.toBe(headOid);
+      const { repositoryRoot, firstOid, headOid, reportPath } = createGateFixtureRepository();
 
       const gateRun = runPrePushGate(
         repositoryRoot,
         [
-          `refs/heads/main ${headOid} refs/heads/main ${ZERO_OID}`,
-          `refs/tags/v1.0.0 ${tagObjectOid} refs/tags/v1.0.0 ${ZERO_OID}`,
+          `refs/heads/main ${firstOid} refs/heads/main ${ZERO_OID}`,
+          `refs/tags/v0.1.0 ${firstOid} refs/tags/v0.1.0 ${ZERO_OID}`,
+          `refs/heads/feature ${headOid} refs/heads/feature ${ZERO_OID}`,
           "",
         ].join("\n")
       );
 
       expect(gateRun.status, gateRun.stderr).toBe(0);
+      expect(gateRun.stdout).toContain("refs/heads/feature");
+      expect(gateRun.stdout).not.toContain(firstOid);
       expect(readFileSync(reportPath, "utf8")).toBe("ran");
-    },
-    PNPM_INSTALL_TEST_TIMEOUT_MS
-  );
-
-  it(
-    "should refuse an annotated tag that points at a commit other than HEAD",
-    () => {
-      const { repositoryRoot, firstOid, reportPath } = createGateFixtureRepository();
-      runGit(["tag", "--annotate", "v0.1.0", "--message", "old release", firstOid], repositoryRoot);
-      const tagObjectOid = runGit(["rev-parse", "refs/tags/v0.1.0"], repositoryRoot);
-
-      const gateRun = runPrePushGate(
-        repositoryRoot,
-        `refs/tags/v0.1.0 ${tagObjectOid} refs/tags/v0.1.0 ${ZERO_OID}\n`
-      );
-
-      expect(gateRun.status).toBe(1);
-      expect(gateRun.stderr).toContain(firstOid);
-      expect(gateRun.stderr).toContain("refs/tags/v0.1.0");
-      expect(existsSync(reportPath)).toBe(false);
     },
     PNPM_INSTALL_TEST_TIMEOUT_MS
   );

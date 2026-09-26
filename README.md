@@ -64,7 +64,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run upload:cloudflare` | Build and upload a new Cloudflare Workers version without deploying it. |
 | `pnpm run cf-typegen` | Generate Cloudflare binding types from `wrangler.jsonc`. |
 | `pnpm start` | Run the production build locally. |
-| `pnpm run ci` | Run the full quality gate (also run by the Husky `pre-push` hook): lint, application/test type checks, Vitest, and Next.js build. |
+| `pnpm run ci` | Run the full quality gate (also run by the Husky `pre-push` hook on branches other than `main`): lint, application/test type checks, Vitest, and Next.js build. |
 | `pnpm run lint` | Run ESLint across the repo. |
 | `pnpm run typecheck` | Run `tsc --noEmit` over production code. |
 | `pnpm test` | Run Vitest unit and integration tests. |
@@ -73,7 +73,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run test:e2e:ui` | Run Playwright with the interactive UI runner. |
 | `pnpm run db:migrate` | Apply pending SQL migrations to the configured Neon database. |
 | `pnpm run db:migrate:force` | Force a Drizzle push. Use only when an intentional override is required. |
-| `pnpm release` | Diagnose the repository and ship a release from `main`: update `main`, apply pending migrations (after confirmation), bump the version (`--bump patch\|minor\|major` or `--set-version X.Y.Z`, only the next patch/minor/major) and push `main` plus the `vX.Y.Z` tag. `--dry-run` only shows the plan. See `docs/conventions/release-process.htm`. |
+| `pnpm create-version` (alias `pnpm cv`) | Diagnose the repository and ship a release from `main`: update `main`, apply pending migrations (after confirmation), bump the version (`--bump patch\|minor\|major` or `--set-version X.Y.Z`, only the next patch/minor/major) and push `main` plus the `vX.Y.Z` tag. `--dry-run` only shows the plan. See `docs/conventions/release-process.htm`. |
 
 ## Environment
 
@@ -169,7 +169,7 @@ pnpm run lint
 
 ## Deployment targets
 
-A Husky `pre-commit` hook runs lint-staged on every commit (ESLint and related Vitest suites for staged scripts, both type checks when TypeScript changes, and, through `scripts/pre-commit-migration-guardrails.mjs`, the SQL guardrail suites against a snapshot of the staged index whenever migrations are added, modified or deleted, plus, through `scripts/pre-commit-typescript-deletions.mjs`, both type checks against that snapshot when a commit only deletes TypeScript files). A Husky `pre-push` hook runs the full `pnpm run ci` gate before every push, only for the clean checked-out `HEAD`: pushing any other branch or commit, or `HEAD` with uncommitted or untracked changes, fails, so check out that branch with a clean working tree first and push again; there is no GitHub Actions gate. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
+Commits run no hooks. A Husky `pre-push` hook runs the full `pnpm run ci` gate before every push of a branch other than `main`, only for the clean checked-out `HEAD`: pushing any other branch or commit, or `HEAD` with uncommitted or untracked changes, fails, so check out that branch with a clean working tree first and push again. Pushes to `main` (such as `pnpm create-version`) and tags skip the gate, because `main` only receives pull requests from gated branches; there is no GitHub Actions gate. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
 
 Cloudflare Workers is supported through `@opennextjs/cloudflare` and `wrangler.jsonc`. Use the Cloudflare-specific scripts instead of invoking `wrangler` directly for the Next.js app:
 

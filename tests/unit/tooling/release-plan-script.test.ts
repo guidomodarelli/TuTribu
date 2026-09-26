@@ -198,7 +198,7 @@ describe("release plan", () => {
     expect(plan.blockers[0].details).toEqual([
       "2 commit(s) sin subir: git push.",
       "Falta mergear el PR #81 (está en borrador): https://github.com/acme/app/pull/81",
-      "Después hacé git switch main y corré pnpm release.",
+      "Después hacé git switch main y corré pnpm create-version.",
     ]);
   });
 

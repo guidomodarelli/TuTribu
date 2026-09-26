@@ -1,2 +1,2 @@
-# Validates only the clean checked-out HEAD; pushing any other commit fails.
+# Gates branches other than main; validates only the clean checked-out HEAD.
 node scripts/pre-push-gate.mjs

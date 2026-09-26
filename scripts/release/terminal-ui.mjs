@@ -1,5 +1,5 @@
 /**
- * Dependency-free terminal UI for `pnpm release`: colors, gradient banner,
+ * Dependency-free terminal UI for `pnpm create-version`: colors, gradient banner,
  * rounded boxes, step headers, spinners and interactive prompts (arrow-key
  * select and yes/no confirm).
  *
@@ -45,9 +45,6 @@ const ANSI = {
   cursorUp: (lineCount) => (lineCount > 0 ? `\x1b[${lineCount}A` : ""),
 };
 
-/** Colors cycled across the banner title to draw a gradient. */
-const BANNER_GRADIENT = ["magentaBright", "magenta", "redBright", "yellow", "yellowBright"];
-
 /** Border color of each box tone. */
 export const BOX_TONE = {
   neutral: "gray",
@@ -58,15 +55,20 @@ export const BOX_TONE = {
   accent: "magenta",
 };
 
-/** Icons shared by status lines. */
+/**
+ * Icons shared by status lines. They use Nerd Font glyphs (Font Awesome set),
+ * so the terminal needs a Nerd Font, the same one the oh-my-posh prompt uses.
+ */
 export const ICON = {
-  success: styleText("green", "✔"),
-  failure: styleText("red", "✖"),
-  warning: styleText("yellow", "▲"),
-  info: styleText("cyan", "●"),
-  pending: styleText("gray", "○"),
-  arrow: styleText("magenta", "❯"),
-  bullet: styleText("gray", "·"),
+  success: styleText("green", "\uf00c"), // nf-fa-check
+  failure: styleText("red", "\uf00d"), // nf-fa-times
+  warning: styleText("yellow", "\uf071"), // nf-fa-warning
+  info: styleText("cyan", "\uf05a"), // nf-fa-info_circle
+  pending: styleText("gray", "\uf10c"), // nf-fa-circle_o
+  arrow: styleText("magenta", "\uf054"), // nf-fa-chevron_right
+  bullet: styleText("gray", "\uf444"), // nf-oct-dot_fill
+  star: styleText("yellow", "\uf005"), // nf-fa-star
+  rocket: "\uf135", // nf-fa-rocket
 };
 
 /**
@@ -167,26 +169,20 @@ export function renderRow(icon, label, value, labelWidth = 16) {
 }
 
 /**
- * Renders the gradient banner shown when the command starts.
+ * Renders the one-line header shown when the command starts: an inverted
+ * `RELEASE` label, the project name, the published version aligned to the
+ * right and a rule underneath.
  *
- * @param {{ projectName: string, version: string | null }} options - Banner content.
- * @returns {string} Banner.
+ * @param {{ projectName: string, publishedLabel: string | null }} options - Header content.
+ * @returns {string} Header.
  */
-export function renderBanner({ projectName, version }) {
-  const title = `${projectName} · RELEASE`.split("").join(" ");
-  const gradientTitle = [...title]
-    .map((character, index) => paint(["bold", BANNER_GRADIENT[index % BANNER_GRADIENT.length]], character))
-    .join("");
-  const fire = [paint("yellowBright", "   ▲"), paint("yellow", "  ▲▲▲"), paint("redBright", " ▲▲▲▲▲")];
-  const versionLabel = version ? paint("gray", `versión publicada: v${version}`) : "";
+export function renderBanner({ projectName, publishedLabel }) {
+  const width = resolveBoxWidth();
+  const left = `${paint(["inverse", "bold", "magenta"], " RELEASE ")}  ${paint("bold", projectName)}`;
+  const right = publishedLabel ? paint("gray", publishedLabel) : "";
+  const gap = " ".repeat(Math.max(width - visibleWidth(left) - visibleWidth(right), 2));
 
-  return [
-    "",
-    `${fire[0]}`,
-    `${fire[1]}    ${gradientTitle}`,
-    `${fire[2]}   ${paint("gray", "diagnóstico → plan → release, en un solo comando")}  ${versionLabel}`,
-    "",
-  ].join("\n");
+  return ["", `${left}${gap}${right}`, paint("gray", "─".repeat(width)), ""].join("\n");
 }
 
 /**

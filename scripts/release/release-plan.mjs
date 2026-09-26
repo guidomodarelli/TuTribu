@@ -1,5 +1,5 @@
 /**
- * Pure release planning for `pnpm release`.
+ * Pure release planning for `pnpm create-version`.
  *
  * Receives the repository snapshot gathered by `release-state.mjs` and
  * decides, without touching Git or the database, what is still missing to
@@ -177,9 +177,9 @@ export function resolveRequestedVersion(currentVersion, { bump, setVersion }) {
   return match;
 }
 
-/** Usage printed by `pnpm release --help`. */
+/** Usage printed by `pnpm create-version --help`. */
 export const RELEASE_USAGE = [
-  "Uso: pnpm release [opciones]",
+  "Uso: pnpm create-version [opciones]",
   "",
   "  --bump patch|minor|major   Elige el tipo de versión sin preguntar.",
   "  --set-version X.Y.Z        Fija la versión exacta (solo el siguiente patch, minor o major).",
@@ -188,7 +188,7 @@ export const RELEASE_USAGE = [
 ];
 
 /**
- * Parses the command-line arguments of `pnpm release`.
+ * Parses the command-line arguments of `pnpm create-version`.
  *
  * @param {string[]} argv - Arguments after the script path.
  * @returns {{ bump: string | null, setVersion: string | null, dryRun: boolean, help: boolean }} Options.
@@ -366,7 +366,7 @@ export function describeFeatureBranchGaps(branch, pullRequest, githubError) {
     gaps.push(`Falta abrir el PR contra ${MAIN_BRANCH}: gh pr create --fill.`);
   }
 
-  gaps.push(`Después hacé git switch ${MAIN_BRANCH} y corré pnpm release.`);
+  gaps.push(`Después hacé git switch ${MAIN_BRANCH} y corré pnpm create-version.`);
 
   return gaps;
 }
@@ -396,7 +396,7 @@ export function buildReleasePlan(state) {
   if (!state.currentBranch) {
     plan.blockers.push({
       title: "HEAD está desacoplado (detached)",
-      details: [`Hacé git switch ${MAIN_BRANCH} y volvé a correr pnpm release.`],
+      details: [`Hacé git switch ${MAIN_BRANCH} y volvé a correr pnpm create-version.`],
     });
     return plan;
   }
@@ -406,7 +406,7 @@ export function buildReleasePlan(state) {
       title: `Estás en ${state.currentBranch}: los releases salen solo desde ${MAIN_BRANCH}`,
       details: state.branch
         ? describeFeatureBranchGaps(state.branch, state.pullRequest, state.githubError)
-        : [`Hacé git switch ${MAIN_BRANCH} y volvé a correr pnpm release.`],
+        : [`Hacé git switch ${MAIN_BRANCH} y volvé a correr pnpm create-version.`],
     });
   }
 
@@ -415,7 +415,7 @@ export function buildReleasePlan(state) {
       title: `Hay ${state.workingTreeChanges.length} archivo(s) sin commitear`,
       details: [
         ...state.workingTreeChanges.slice(0, 5),
-        "Commitealos en una rama (o git stash) y volvé a correr pnpm release.",
+        "Commitealos en una rama (o git stash) y volvé a correr pnpm create-version.",
       ],
     });
   }
@@ -436,7 +436,7 @@ export function buildReleasePlan(state) {
 
   if (state.unpushedRelease) {
     plan.steps.push(
-      step(RELEASE_STEP.pushRelease, `Subir el release ${state.unpushedRelease.tag} que quedó pendiente`, "Corre el gate pre-push (~10 min) y dispara el deploy en Vercel.")
+      step(RELEASE_STEP.pushRelease, `Subir el release ${state.unpushedRelease.tag} que quedó pendiente`, "Dispara el deploy en Vercel.")
     );
     return plan;
   }
@@ -462,7 +462,7 @@ export function buildReleasePlan(state) {
   if (state.unreleasedCommits.length > 0) {
     plan.steps.push(
       step(RELEASE_STEP.bumpVersion, "Elegir la nueva versión y crear commit + tag", "Se sugiere patch/minor/major según los commits."),
-      step(RELEASE_STEP.pushRelease, `Subir ${MAIN_BRANCH} y el tag a origin`, "Corre el gate pre-push (~10 min) y dispara el deploy en Vercel.")
+      step(RELEASE_STEP.pushRelease, `Subir ${MAIN_BRANCH} y el tag a origin`, "Dispara el deploy en Vercel.")
     );
   }
 

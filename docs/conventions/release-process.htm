@@ -33,7 +33,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="doc-header">
   <div class="doc-label">CONVENTION</div>
   <div class="doc-title">Proceso de release</div>
-  <div class="doc-sub">Un solo comando, <code>pnpm release</code>, diagnostica el repositorio, muestra qué falta y publica la versión desde <code>main</code>.</div>
+  <div class="doc-sub">Un solo comando, <code>pnpm create-version</code>, diagnostica el repositorio, muestra qué falta y publica la versión desde <code>main</code>.</div>
   <div class="doc-meta"><span>Scope: <code>scripts/release.mjs</code> / <code>scripts/release/</code> / <code>Vercel</code></span><span>Status: Active</span></div>
 </div>
 
@@ -42,10 +42,10 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-title">Uso</div>
   <table>
     <tr><th>Comando</th><th>Qué hace</th></tr>
-    <tr><td><code>pnpm release</code></td><td>Diagnóstico, plan y ejecución interactiva. La versión se elige con las flechas; se sugiere patch, minor o major según los commits.</td></tr>
-    <tr><td><code>pnpm release --bump patch|minor|major</code></td><td>Elige el tipo de versión sin preguntar.</td></tr>
-    <tr><td><code>pnpm release --set-version X.Y.Z</code></td><td>Fija la versión exacta. Solo se acepta el siguiente patch, minor o major de la versión actual: nunca una menor, igual ni una que saltee versiones (por ejemplo, de <code>0.93.0</code> solo valen <code>0.93.1</code>, <code>0.94.0</code> o <code>1.0.0</code>).</td></tr>
-    <tr><td><code>pnpm release --dry-run</code></td><td>Diagnostica y muestra el plan sin cambiar nada.</td></tr>
+    <tr><td><code>pnpm create-version</code> o <code>pnpm cv</code></td><td>Diagnóstico, plan y ejecución interactiva (<code>cv</code> es un alias). La versión se elige con las flechas; se sugiere patch, minor o major según los commits.</td></tr>
+    <tr><td><code>pnpm create-version --bump patch|minor|major</code></td><td>Elige el tipo de versión sin preguntar.</td></tr>
+    <tr><td><code>pnpm create-version --set-version X.Y.Z</code></td><td>Fija la versión exacta. Solo se acepta el siguiente patch, minor o major de la versión actual: nunca una menor, igual ni una que saltee versiones (por ejemplo, de <code>0.93.0</code> solo valen <code>0.93.1</code>, <code>0.94.0</code> o <code>1.0.0</code>).</td></tr>
+    <tr><td><code>pnpm create-version --dry-run</code></td><td>Diagnostica y muestra el plan sin cambiar nada.</td></tr>
   </table>
   <div class="callout c-info">Sin terminal interactiva (por ejemplo con stdin redirigido) cada pregunta toma su opción por defecto y lo informa en pantalla.</div>
 </div>
@@ -84,11 +84,11 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><th>Paso</th><th>Cuándo</th><th>Detalle</th></tr>
     <tr><td>Actualizar <code>main</code></td><td><code>main</code> está atrás de origin</td><td><code>git merge --ff-only origin/main</code>.</td></tr>
     <tr><td>Aplicar migraciones</td><td>Hay migraciones pendientes</td><td>Muestra la lista y el host destino, y pregunta: aplicar ahora (<code>scripts/push-migrations.js</code>, lo mismo que <code>pnpm run db:migrate</code>), saltear o cancelar. Después de migrar vuelve a verificar que no quede ninguna pendiente. Corre antes de subir la versión para que el deploy encuentre el esquema listo.</td></tr>
-    <tr><td>Versionar</td><td>Hay commits sin publicar</td><td>Muestra qué se publica, elige la versión (flag o pregunta), actualiza <code>package.json</code>, crea el commit <code>X.Y.Z</code> (pasa por el hook pre-commit) y el tag anotado <code>vX.Y.Z</code>.</td></tr>
-    <tr><td>Publicar</td><td>Siempre que se versionó, o hay un release a medio subir</td><td>Pide confirmación y ejecuta <code>git push --atomic origin main refs/tags/vX.Y.Z</code>. El hook pre-push corre <code>pnpm run ci</code> (~10 min). Si el remoto es SSH y no hay <code>GIT_SSH_COMMAND</code>, agrega <code>ServerAliveInterval</code> para que GitHub no corte la conexión durante el gate. Al terminar verifica que el tag exista en origin.</td></tr>
+    <tr><td>Versionar</td><td>Hay commits sin publicar</td><td>Muestra qué se publica, elige la versión (flag o pregunta), actualiza <code>package.json</code>, crea el commit <code>X.Y.Z</code> y el tag anotado <code>vX.Y.Z</code>.</td></tr>
+    <tr><td>Publicar</td><td>Siempre que se versionó, o hay un release a medio subir</td><td>Pide confirmación y ejecuta <code>git push --atomic origin main refs/tags/vX.Y.Z</code>. El hook pre-push no corre el gate en <code>main</code> ni en tags: ya corrió al pushear la rama que llegó a <code>main</code> por pull request. Al terminar verifica que el tag exista en origin.</td></tr>
   </table>
   <p>Vercel buildea solo cuando cambia la versión de <code>package.json</code> (<code>scripts/ignore-build.sh</code>), así que el push del commit de versión dispara el deploy de producción.</p>
-  <div class="callout c-ok">Cada paso se deriva del estado actual. Si algo falla, se corrige la causa y se vuelve a correr <code>pnpm release</code>: retoma desde el primer paso que falte. Un commit de versión creado en local pero no subido se detecta como release a medio subir y solo se reintenta el push.</div>
+  <div class="callout c-ok">Cada paso se deriva del estado actual. Si algo falla, se corrige la causa y se vuelve a correr <code>pnpm create-version</code>: retoma desde el primer paso que falte. Un commit de versión creado en local pero no subido se detecta como release a medio subir y solo se reintenta el push.</div>
 </div>
 
 <div class="section">
