@@ -2,35 +2,58 @@
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  // Stacking root for the gliding indicator: it paints above the group
+  // background but below every button, whichever way it travels.
+  isolation: isolate;
+
+  // Positions the indicator over its button without making it a child of the
+  // button, whose press transform would open a stacking context around it.
+  &__slot {
+    position: relative;
+    display: inline-flex;
+  }
 
   // Every answer shares the outline surface; the selected one is marked by the
-  // gliding indicator plus a stronger border, so the change reads as movement.
+  // gliding indicator, which also draws its outline, so the change reads as
+  // movement. Button surfaces stay translucent so the indicator shows through
+  // the buttons it crosses.
   &__option {
-    position: relative;
-    isolation: isolate;
-
-    // Doubled class so the modifier wins over the library outline border
+    // Doubled class so these rules win over the library outline surface
     // regardless of stylesheet order.
-    &#{&}--selected {
-      border-color: color-mix(in oklch, var(--primary) 45%, var(--border));
+    &#{&} {
+      background-color: transparent;
+
+      &:hover {
+        background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+      }
+    }
+
+    :global(.dark) &#{&} {
+      background-color: color-mix(in oklch, var(--input) 30%, transparent);
+
+      &:hover {
+        background-color: color-mix(in oklch, var(--input) 50%, transparent);
+      }
+    }
+
+    &#{&}--selected,
+    &#{&}--selected:hover,
+    :global(.dark) &#{&}--selected,
+    :global(.dark) &#{&}--selected:hover {
+      border-color: transparent;
+      background-color: transparent;
       color: var(--secondary-foreground);
     }
   }
 
   &__indicator {
     position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 0;
-    border-radius: inherit;
+    inset: 0;
+    z-index: -1;
+    // Matches the `sm` button radius.
+    border-radius: min(var(--radius-md), 12px);
     background-color: var(--secondary);
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 45%, var(--border));
     pointer-events: none;
-  }
-
-  &__label {
-    position: relative;
-    z-index: 1;
   }
 }

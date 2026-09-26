@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- En Eventos, el resaltado de la respuesta de asistencia ("Voy", "Tal vez", "No voy") y el del selector entre lista y calendario se deslizan sin esconderse detrás de los otros botones ni taparlos, y el borde de la respuesta elegida acompaña al resaltado.
+
 ## [0.94.2] - 2026-09-26
 
 ### Fixed

@@ -76,21 +76,10 @@ export function TribeEventAttendanceOptions({
         {TRIBE_EVENT_ATTENDANCE_OPTIONS.map((option) => {
           const isSelected = isOptionSelected(option, viewerStatus);
 
+          // The highlight is the button's sibling, not its child: the press
+          // transform would otherwise lift it above the neighbor buttons.
           return (
-            <Button
-              aria-pressed={isSelected}
-              className={
-                isSelected
-                  ? `${styles.TribeEventAttendanceOptions__option} ${styles["TribeEventAttendanceOptions__option--selected"]}`
-                  : styles.TribeEventAttendanceOptions__option
-              }
-              disabled={isSaving}
-              key={option}
-              size={BUTTON_ATTRIBUTE.sizeSmall}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantOutline}
-              onClick={() => onSelect(isSelected ? null : option)}
-            >
+            <span className={styles.TribeEventAttendanceOptions__slot} key={option}>
               {isSelected ? (
                 <motion.span
                   aria-hidden
@@ -99,10 +88,22 @@ export function TribeEventAttendanceOptions({
                   transition={SPRING_LAYOUT}
                 />
               ) : null}
-              <span className={styles.TribeEventAttendanceOptions__label}>
+              <Button
+                aria-pressed={isSelected}
+                className={
+                  isSelected
+                    ? `${styles.TribeEventAttendanceOptions__option} ${styles["TribeEventAttendanceOptions__option--selected"]}`
+                    : styles.TribeEventAttendanceOptions__option
+                }
+                disabled={isSaving}
+                size={BUTTON_ATTRIBUTE.sizeSmall}
+                type={BUTTON_ATTRIBUTE.typeButton}
+                variant={BUTTON_ATTRIBUTE.variantOutline}
+                onClick={() => onSelect(isSelected ? null : option)}
+              >
                 {TRIBE_EVENT_ATTENDANCE_LABEL[option]}
-              </span>
-            </Button>
+              </Button>
+            </span>
           );
         })}
       </div>

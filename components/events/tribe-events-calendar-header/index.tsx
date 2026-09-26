@@ -173,19 +173,10 @@ export function TribeEventsCalendarHeader({
               const isActive = viewMode === option.viewMode;
               const ViewModeIcon = option.icon;
 
+              // The marker is the button's sibling, not its child: the press
+              // transform would otherwise lift it above the other button.
               return (
-                <Button
-                  aria-pressed={isActive}
-                  className={cn(
-                    styles.TribeEventsCalendarHeader__viewButton,
-                    isActive && styles["TribeEventsCalendarHeader__viewButton--active"]
-                  )}
-                  key={option.viewMode}
-                  size={BUTTON_ATTRIBUTE.sizeIcon}
-                  type={BUTTON_ATTRIBUTE.typeButton}
-                  variant={BUTTON_ATTRIBUTE.variantGhost}
-                  onClick={() => onChooseViewMode(option.viewMode)}
-                >
+                <span className={styles.TribeEventsCalendarHeader__viewSlot} key={option.viewMode}>
                   {isActive ? (
                     <motion.span
                       aria-hidden
@@ -194,12 +185,21 @@ export function TribeEventsCalendarHeader({
                       transition={shouldAnimateViewMode ? SPRING_LAYOUT : INSTANT_TRANSITION}
                     />
                   ) : null}
-                  <ViewModeIcon
-                    aria-hidden
-                    className={styles.TribeEventsCalendarHeader__viewIcon}
-                  />
-                  <span className={styles.TribeEventsCalendarHeader__srOnly}>{option.label}</span>
-                </Button>
+                  <Button
+                    aria-pressed={isActive}
+                    className={cn(
+                      styles.TribeEventsCalendarHeader__viewButton,
+                      isActive && styles["TribeEventsCalendarHeader__viewButton--active"]
+                    )}
+                    size={BUTTON_ATTRIBUTE.sizeIcon}
+                    type={BUTTON_ATTRIBUTE.typeButton}
+                    variant={BUTTON_ATTRIBUTE.variantGhost}
+                    onClick={() => onChooseViewMode(option.viewMode)}
+                  >
+                    <ViewModeIcon aria-hidden />
+                    <span className={styles.TribeEventsCalendarHeader__srOnly}>{option.label}</span>
+                  </Button>
+                </span>
               );
             })}
           </div>

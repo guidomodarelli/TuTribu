@@ -166,15 +166,24 @@ $tribe-events-calendar-header-chevron-nudge: 2px;
     border: 1px solid var(--border);
     border-radius: 0.75rem;
     padding: 0.2rem;
+    // Stacking root for the gliding marker: it paints above the toggle
+    // background but below both buttons, whichever way it travels.
+    isolation: isolate;
   }
 
-  // The marker sits under the icon inside the pressed button.
-  &__viewButton {
+  // Positions the marker over its button without making it a child of the
+  // button, whose press transform would open a stacking context around it.
+  &__viewSlot {
     position: relative;
-    isolation: isolate;
+    display: inline-flex;
+  }
 
+  // The active button stays see-through, even hovered, so the marker under it
+  // shows.
+  &__viewButton {
     &--active,
     &--active:hover {
+      background-color: transparent;
       color: var(--secondary-foreground);
     }
   }
@@ -183,12 +192,10 @@ $tribe-events-calendar-header-chevron-nudge: 2px;
     position: absolute;
     inset: 0;
     z-index: -1;
-    border-radius: inherit;
+    // Matches the `icon` button radius (`rounded-lg`).
+    border-radius: var(--radius);
     background: var(--secondary);
-  }
-
-  &__viewIcon {
-    position: relative;
+    pointer-events: none;
   }
 
   &__filters {
