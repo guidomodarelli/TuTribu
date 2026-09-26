@@ -60,6 +60,13 @@ export const RELEASE_TYPE = {
   patch: "patch",
 };
 
+/** What each release type means for TuTribu users, shown under each version option. */
+export const RELEASE_TYPE_DESCRIPTION = {
+  patch: "Solo arreglos o cambios internos; nada nuevo para quien usa la app.",
+  minor: "Funcionalidades o mejoras nuevas; lo existente sigue funcionando igual.",
+  major: "Cambio grande o incompatible: flujos, datos o comportamiento que cambian para los usuarios.",
+};
+
 /** Stable identifiers of every step the orchestrator knows how to run. */
 export const RELEASE_STEP = {
   syncMain: "sync-main",

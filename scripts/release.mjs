@@ -33,6 +33,7 @@ import {
   MAIN_BRANCH,
   MIGRATION_STATUS,
   RELEASE_STEP,
+  RELEASE_TYPE_DESCRIPTION,
   RELEASE_USAGE,
   buildReleasePlan,
   listNextVersions,
@@ -401,6 +402,7 @@ async function bumpVersionStep(context) {
       options: nextVersions.map((candidate) => ({
         label: `${candidate.releaseType.padEnd(5)}  ${currentVersion} → ${candidate.version}`,
         hint: candidate.releaseType === suggestion.releaseType ? `${ICON.star} sugerida: ${suggestion.reason}` : undefined,
+        description: RELEASE_TYPE_DESCRIPTION[candidate.releaseType],
         value: candidate.version,
       })),
       defaultIndex: nextVersions.findIndex((candidate) => candidate.releaseType === suggestion.releaseType),

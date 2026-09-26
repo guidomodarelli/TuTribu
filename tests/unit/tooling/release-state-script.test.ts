@@ -14,7 +14,7 @@ import {
 } from "../../../scripts/release/pending-migrations.mjs";
 import { MIGRATION_STATUS } from "../../../scripts/release/release-plan.mjs";
 import { collectReleaseState } from "../../../scripts/release/release-state.mjs";
-import { renderBox, visibleWidth } from "../../../scripts/release/terminal-ui.mjs";
+import { renderBox, resolveNumberKey, visibleWidth } from "../../../scripts/release/terminal-ui.mjs";
 import { stripVTControlCharacters } from "node:util";
 
 /** Real Git fixtures with a bare remote can exceed the default timeout on Windows. */
@@ -226,5 +226,16 @@ describe("terminal boxes", () => {
 
     expect(stripVTControlCharacters(box.split("\n")[0])).toBe(`╭${"─".repeat(28)}╮`);
     expect(stripVTControlCharacters(box)).toContain("Falló el paso 1:");
+  });
+});
+
+describe("numbered prompt options", () => {
+  it("should pick an option with its number key and ignore keys outside the listed options", () => {
+    expect(resolveNumberKey("1", 3)).toBe(0);
+    expect(resolveNumberKey("3", 3)).toBe(2);
+    expect(resolveNumberKey("4", 3)).toBe(-1);
+    expect(resolveNumberKey("0", 3)).toBe(-1);
+    expect(resolveNumberKey("a", 3)).toBe(-1);
+    expect(resolveNumberKey(undefined, 3)).toBe(-1);
   });
 });

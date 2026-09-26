@@ -47,7 +47,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><td><code>pnpm create-version --set-version X.Y.Z</code></td><td>Fija la versión exacta. Solo se acepta el siguiente patch, minor o major de la versión actual: nunca una menor, igual ni una que saltee versiones (por ejemplo, de <code>0.93.0</code> solo valen <code>0.93.1</code>, <code>0.94.0</code> o <code>1.0.0</code>).</td></tr>
     <tr><td><code>pnpm create-version --dry-run</code></td><td>Diagnostica y muestra el plan sin cambiar nada.</td></tr>
   </table>
-  <div class="callout c-info">Sin terminal interactiva (por ejemplo con stdin redirigido) cada pregunta toma su opción por defecto y lo informa en pantalla. Las únicas preguntas son la confirmación del plan, la versión (si no se pasa <code>--bump</code> ni <code>--set-version</code>) y las migraciones pendientes. El tiempo total que se muestra al final no cuenta la espera de las respuestas.</div>
+  <div class="callout c-info">Sin terminal interactiva (por ejemplo con stdin redirigido) cada pregunta toma su opción por defecto y lo informa en pantalla. Las únicas preguntas son la confirmación del plan, la versión (si no se pasa <code>--bump</code> ni <code>--set-version</code>) y las migraciones pendientes. Las opciones están numeradas: se eligen apretando su número, o con las flechas y Enter; cada versión muestra debajo qué significa patch, minor o major. El tiempo total que se muestra al final no cuenta la espera de las respuestas.</div>
 </div>
 
 <div class="section">

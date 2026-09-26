@@ -398,10 +398,30 @@ function exitOnInterrupt() {
   process.exit(INTERRUPTED_EXIT_CODE);
 }
 
+/** Options that can be picked with a single digit key (1-9). */
+const MAX_NUMBERED_OPTIONS = 9;
+
 /**
- * Asks the user to choose one option with the arrow keys.
+ * Maps a typed character to the option it selects.
  *
- * @param {{ message: string, options: { label: string, hint?: string, value: string }[], defaultIndex?: number }} prompt - Prompt.
+ * @param {string | undefined} text - Character typed by the user.
+ * @param {number} optionCount - Number of options in the prompt.
+ * @returns {number} Zero-based option index, or -1 when the key does not pick an option.
+ */
+export function resolveNumberKey(text, optionCount) {
+  if (!text || !/^[1-9]$/u.test(text)) {
+    return -1;
+  }
+
+  const index = Number(text) - 1;
+  return index < Math.min(optionCount, MAX_NUMBERED_OPTIONS) ? index : -1;
+}
+
+/**
+ * Asks the user to choose one option: its number picks it right away, or the
+ * arrow keys move the selection and Enter confirms it.
+ *
+ * @param {{ message: string, options: { label: string, hint?: string, description?: string, value: string }[], defaultIndex?: number }} prompt - Prompt; `description` renders on its own line below the option.
  * @returns {Promise<string>} Selected value (the default one when stdin is not a TTY).
  */
 export function select({ message, options, defaultIndex = 0 }) {
@@ -421,14 +441,17 @@ export function select({ message, options, defaultIndex = 0 }) {
     const render = () => {
       const lines = [
         question,
-        ...options.map((option, index) => {
+        ...options.flatMap((option, index) => {
           const isSelected = index === selectedIndex;
           const pointer = isSelected ? ICON.arrow : " ";
+          const numberLabel = index < MAX_NUMBERED_OPTIONS ? `${index + 1}.` : "  ";
+          const number = isSelected ? paint(["bold", "magentaBright"], numberLabel) : paint("gray", numberLabel);
           const label = isSelected ? paint(["bold", "magentaBright"], option.label) : option.label;
           const hint = option.hint ? `  ${paint("gray", option.hint)}` : "";
-          return `  ${pointer} ${label}${hint}`;
+          const optionLine = `  ${pointer} ${number} ${label}${hint}`;
+          return option.description ? [optionLine, `       ${paint("gray", option.description)}`] : [optionLine];
         }),
-        paint("gray", "  ↑/↓ para moverte · Enter para confirmar"),
+        paint("gray", `  1-${Math.min(options.length, MAX_NUMBERED_OPTIONS)} para elegir · ↑/↓ y Enter para moverte y confirmar`),
       ];
       process.stdout.write(`${ANSI.cursorUp(renderedLineCount)}\r${ANSI.clearBelow}${lines.join("\n")}\n`);
       renderedLineCount = lines.length;
@@ -445,10 +468,15 @@ export function select({ message, options, defaultIndex = 0 }) {
       resolve(chosen.value);
     };
 
-    const onKeypress = (_text, key = {}) => {
+    const onKeypress = (text, key = {}) => {
+      const numberedIndex = resolveNumberKey(text, options.length);
+
       if (key.ctrl && key.name === "c") {
         input.setRawMode(false);
         exitOnInterrupt();
+      } else if (numberedIndex !== -1) {
+        selectedIndex = numberedIndex;
+        finish();
       } else if (key.name === "up" || key.name === "k") {
         selectedIndex = (selectedIndex - 1 + options.length) % options.length;
         render();
