@@ -280,6 +280,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.1.1
         version: 6.1.1(oxc-transform-react@0.145.0)(vite@8.2.2(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.6.1)(sass@1.100.0)(terser@5.16.9)(tsx@4.21.0)(yaml@2.9.0))
+      beez-rp:
+        specifier: ^0.1.1
+        version: 0.1.1
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
@@ -4135,6 +4138,11 @@ packages:
   baseline-browser-mapping@2.10.10:
     resolution: {integrity: sha512-sUoJ3IMxx4AyRqO4MLeHlnGDkyXRoUG0/AI9fjK+vS72ekpV0yWVY7O0BVjmBcRtkNcsAO2QDZ4tdKKGoI6YaQ==}
     engines: {node: '>=6.0.0'}
+    hasBin: true
+
+  beez-rp@0.1.1:
+    resolution: {integrity: sha512-JThp1CL6GQrUVzvPhwtiP0FoH1MPlBZgA2SjMlrz/1laQ5auNNf3zMeaCJcOJIjLJeXbsa4eLGsaEVBAlFefOg==}
+    engines: {node: '>=22'}
     hasBin: true
 
   beez-ui@0.7.0:
@@ -10540,6 +10548,8 @@ snapshots:
   base64-arraybuffer@1.0.2: {}
 
   baseline-browser-mapping@2.10.10: {}
+
+  beez-rp@0.1.1: {}
 
   beez-ui@0.7.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     dependencies:

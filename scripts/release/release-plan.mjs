@@ -13,7 +13,8 @@
  * @module release-plan
  */
 
-import { CHANGE_TYPES, UNRELEASED_HEADING } from "./changelog.mjs";
+import { CHANGE_TYPES, RELEASE_TYPE, UNRELEASED_HEADING } from "beez-rp/constants";
+import { isReleaseCommitSubject, toReleaseTag } from "beez-rp/versions";
 
 /**
  * @typedef {{ sha?: string, subject: string, body?: string }} ReleaseCommit
@@ -50,16 +51,6 @@ const PORCELAIN_STATUS_WIDTH = 3;
 /** Branch that receives releases; Vercel deploys it. */
 export const MAIN_BRANCH = "main";
 
-/** Prefix of the annotated Git tags that mark each release (`v0.93.0`). */
-export const RELEASE_TAG_PREFIX = "v";
-
-/** Semver release types offered when bumping the version. */
-export const RELEASE_TYPE = {
-  major: "major",
-  minor: "minor",
-  patch: "patch",
-};
-
 /** What each release type means for TuTribu users, shown under each version option. */
 export const RELEASE_TYPE_DESCRIPTION = {
   patch: "Solo arreglos o cambios internos; nada nuevo para quien usa la app.",
@@ -90,110 +81,6 @@ export const MIGRATION_STATUS = {
   unknown: "unknown",
 };
 
-/** `X.Y.Z` release version without prerelease or build metadata. */
-const RELEASE_VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)$/;
-
-/** Conventional commit header: `type(scope)!: subject`. */
-const CONVENTIONAL_HEADER_PATTERN = /^(?<type>[a-z]+)(?:\([^)]*\))?(?<breaking>!)?:\s/i;
-
-/** Footer that marks a breaking change in a conventional commit body. */
-const BREAKING_CHANGE_FOOTER_PATTERN = /^BREAKING[ -]CHANGE:/m;
-
-/** Conventional types that ship user-visible features. */
-const FEATURE_COMMIT_TYPES = new Set(["feat"]);
-
-/** Imperative verbs used by legacy, non-conventional feature subjects. */
-const LEGACY_FEATURE_SUBJECT_PATTERN = /^(add|implement|introduce|support|enable|create|allow)\b/i;
-
-/**
- * Parses a strict `X.Y.Z` version.
- *
- * @param {string} version - Version such as `0.93.0`.
- * @returns {[number, number, number]} Major, minor and patch numbers.
- * @throws {Error} When the version is not a plain release version.
- */
-export function parseReleaseVersion(version) {
-  const match = RELEASE_VERSION_PATTERN.exec(String(version).trim());
-
-  if (!match) {
-    throw new Error(`release-plan:parseReleaseVersion expected X.Y.Z, received "${version}"`);
-  }
-
-  return [Number(match[1]), Number(match[2]), Number(match[3])];
-}
-
-/**
- * Returns the next version for a semver release type.
- *
- * @param {string} version - Current `X.Y.Z` version.
- * @param {string} releaseType - One of {@link RELEASE_TYPE}.
- * @returns {string} Next `X.Y.Z` version.
- */
-export function bumpReleaseVersion(version, releaseType) {
-  const [major, minor, patch] = parseReleaseVersion(version);
-
-  switch (releaseType) {
-    case RELEASE_TYPE.major:
-      return `${major + 1}.0.0`;
-    case RELEASE_TYPE.minor:
-      return `${major}.${minor + 1}.0`;
-    case RELEASE_TYPE.patch:
-      return `${major}.${minor}.${patch + 1}`;
-    default:
-      throw new Error(`release-plan:bumpReleaseVersion unknown release type "${releaseType}"`);
-  }
-}
-
-/**
- * Lists the only versions allowed after the current one: the next patch,
- * minor and major. Anything else would skip versions (two patches, two
- * minors, two majors) or go backwards.
- *
- * @param {string} currentVersion - Current `X.Y.Z` version.
- * @returns {{ releaseType: string, version: string }[]} Allowed next versions, patch first.
- */
-export function listNextVersions(currentVersion) {
-  return [RELEASE_TYPE.patch, RELEASE_TYPE.minor, RELEASE_TYPE.major].map((releaseType) => ({
-    releaseType,
-    version: bumpReleaseVersion(currentVersion, releaseType),
-  }));
-}
-
-/**
- * Resolves the version requested through `--bump` or `--set-version`.
- *
- * @param {string} currentVersion - Current `X.Y.Z` version.
- * @param {{ bump: string | null, setVersion: string | null }} request - Parsed CLI options.
- * @returns {{ version: string, releaseType: string } | null} Requested version, or `null` to ask interactively.
- * @throws {Error} With a Spanish message when the request is invalid.
- */
-export function resolveRequestedVersion(currentVersion, { bump, setVersion }) {
-  const nextVersions = listNextVersions(currentVersion);
-
-  if (bump) {
-    return nextVersions.find((candidate) => candidate.releaseType === bump) ?? null;
-  }
-
-  if (!setVersion) {
-    return null;
-  }
-
-  if (!RELEASE_VERSION_PATTERN.test(setVersion)) {
-    throw new Error(`--set-version espera el formato X.Y.Z y recibió "${setVersion}".`);
-  }
-
-  const match = nextVersions.find((candidate) => candidate.version === setVersion);
-
-  if (!match) {
-    const allowed = nextVersions.map((candidate) => candidate.version).join(", ");
-    throw new Error(
-      `--set-version ${setVersion} no es válida después de ${currentVersion}: tiene que ser mayor y no saltear versiones. Opciones: ${allowed}.`
-    );
-  }
-
-  return match;
-}
-
 /** Usage printed by `pnpm create-version --help`. */
 export const RELEASE_USAGE = [
   "Uso: pnpm create-version [opciones]",
@@ -208,7 +95,7 @@ export const RELEASE_USAGE = [
  * Parses the command-line arguments of `pnpm create-version`.
  *
  * @param {string[]} argv - Arguments after the script path.
- * @returns {{ bump: string | null, setVersion: string | null, dryRun: boolean, help: boolean }} Options.
+ * @returns {{ bump: import("beez-rp/versions").ReleaseType | null, setVersion: string | null, dryRun: boolean, help: boolean }} Options.
  * @throws {Error} With a Spanish message when an argument is unknown or invalid.
  */
 export function parseReleaseArguments(argv) {
@@ -255,73 +142,6 @@ export function parseReleaseArguments(argv) {
   }
 
   return options;
-}
-
-/**
- * Builds the Git tag name of a release version.
- *
- * @param {string} version - `X.Y.Z` version.
- * @returns {string} Tag such as `v0.94.0`.
- */
-export function toReleaseTag(version) {
-  return `${RELEASE_TAG_PREFIX}${version}`;
-}
-
-/**
- * Returns whether a commit subject is a release bump commit (`0.93.0`).
- *
- * @param {string} subject - Commit subject.
- * @returns {boolean} `true` for version-only subjects.
- */
-export function isReleaseCommitSubject(subject) {
-  return RELEASE_VERSION_PATTERN.test(subject.trim());
-}
-
-/**
- * Suggests the semver release type for the commits that will ship.
- *
- * Breaking changes suggest `major`; features (conventional `feat` or legacy
- * imperative subjects such as "Add ...") suggest `minor`; a set made only of
- * conventional maintenance commits (`fix`, `chore`, `docs`, ...) suggests
- * `patch`. Unknown legacy subjects suggest `minor`, matching the history of
- * the repository.
- *
- * @param {{ subject: string, body?: string }[]} commits - Commits since the last release.
- * @returns {{ releaseType: string, reason: string }} Suggested type and a Spanish explanation.
- */
-export function suggestReleaseType(commits) {
-  const shippedCommits = commits.filter((commit) => !isReleaseCommitSubject(commit.subject));
-  let hasFeature = false;
-  let hasUnknownSubject = false;
-
-  for (const commit of shippedCommits) {
-    const header = CONVENTIONAL_HEADER_PATTERN.exec(commit.subject);
-
-    if (header?.groups?.breaking || BREAKING_CHANGE_FOOTER_PATTERN.test(commit.body ?? "")) {
-      return { releaseType: RELEASE_TYPE.major, reason: "hay cambios incompatibles (breaking change)" };
-    }
-
-    if (header) {
-      hasFeature ||= FEATURE_COMMIT_TYPES.has(header.groups.type.toLowerCase());
-      continue;
-    }
-
-    if (LEGACY_FEATURE_SUBJECT_PATTERN.test(commit.subject)) {
-      hasFeature = true;
-    } else {
-      hasUnknownSubject = true;
-    }
-  }
-
-  if (hasFeature) {
-    return { releaseType: RELEASE_TYPE.minor, reason: "hay funcionalidades nuevas" };
-  }
-
-  if (hasUnknownSubject || shippedCommits.length === 0) {
-    return { releaseType: RELEASE_TYPE.minor, reason: "criterio habitual del repositorio" };
-  }
-
-  return { releaseType: RELEASE_TYPE.patch, reason: "solo hay arreglos y mantenimiento" };
 }
 
 /**

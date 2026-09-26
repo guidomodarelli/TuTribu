@@ -90,7 +90,13 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><td>Versionar</td><td>Hay commits sin publicar</td><td>Muestra qué se publica, elige la versión (flag o pregunta), actualiza <code>package.json</code>, renombra <code>## [Unreleased]</code> a <code>## [X.Y.Z] - AAAA-MM-DD</code> dejando un <code>[Unreleased]</code> vacío arriba, crea el commit <code>X.Y.Z</code> con los dos archivos y el tag anotado <code>vX.Y.Z</code>.</td></tr>
     <tr><td>Publicar</td><td>Siempre que se versionó, o hay un release a medio subir</td><td>Ejecuta, sin preguntar, <code>git push --atomic origin main refs/tags/vX.Y.Z</code>. El hook pre-push no corre el gate en <code>main</code> ni en tags: ya corrió al pushear la rama que llegó a <code>main</code> por pull request. Al terminar verifica que el tag exista en origin.</td></tr>
   </table>
-  <p>Vercel buildea solo cuando cambia la versión de <code>package.json</code> (<code>scripts/ignore-build.sh</code>), así que el push del commit de versión dispara el deploy de producción.</p>
+  <p>Vercel buildea solo cuando la versión de <code>package.json</code> es una versión estable válida respecto del commit anterior (<code>vercel.json</code> → <code>scripts/ignore-build.sh</code>), así que el push del commit de versión dispara el deploy de producción. Como el <code>ignoreCommand</code> corre antes de instalar dependencias, el wrapper ejecuta <code>npx --yes beez-rp@&lt;rango&gt; ignore-build</code> con el rango de la devDependency <code>beez-rp</code> declarada en <code>package.json</code>. beez-rp no tiene dependencias, así que la descarga tarda segundos. La regla es la misma que aplica <code>pnpm create-version</code>, porque las dos usan <code>beez-rp/versions</code>:</p>
+  <ul>
+    <li>Solo se buildea la siguiente patch, minor o major: de <code>1.2.3</code> valen <code>1.2.4</code>, <code>1.3.0</code> o <code>2.0.0</code>.</li>
+    <li>Se saltea el build si la versión no cambió, bajó, saltea versiones (<code>1.0.0</code> → <code>3.0.0</code>, <code>1.2.3</code> → <code>1.4.0</code>) o no reinicia las partes menores (<code>1.2.3</code> → <code>1.3.3</code>).</li>
+    <li>Nunca se buildean prereleases ni metadata de build (<code>1.3.0-alpha.1</code>, <code>2.0.0-beta.2</code>, <code>2.0.0-rc.1</code>, <code>1.2.4+build.5</code>) ni nada que no sea <code>X.Y.Z</code> plano.</li>
+    <li>Si no se puede leer la versión del commit anterior, se buildea solo si la actual es estable. Si el gate no puede verificar la versión (sin Node.js, sin <code>beez-rp</code> declarado, falla de <code>npx</code> o de red, o un error del gate), se saltea el build.</li>
+  </ul>
   <div class="callout c-ok">Cada paso se deriva del estado actual. Si algo falla, se corrige la causa y se vuelve a correr <code>pnpm create-version</code>: retoma desde el primer paso que falte. Un commit de versión creado en local pero no subido se detecta como release a medio subir y solo se reintenta el push.</div>
 </div>
 
@@ -106,14 +112,13 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <table>
     <tr><th>Archivo</th><th>Responsabilidad</th></tr>
     <tr><td><code>scripts/release.mjs</code></td><td>Orquestador: diagnóstico, plan, preguntas y ejecución de cada paso.</td></tr>
-    <tr><td><code>scripts/release/release-plan.mjs</code></td><td>Lógica pura: flags, versiones válidas, sugerencia de tipo, detección de release a medio subir y armado del plan o de los bloqueos.</td></tr>
+    <tr><td><code>scripts/release/release-plan.mjs</code></td><td>Lógica pura propia de TuTribu: flags, detección de release a medio subir, PR de la rama, migraciones y armado del plan o de los bloqueos.</td></tr>
     <tr><td><code>scripts/release/release-state.mjs</code></td><td>Lectura del estado de Git y del PR de la rama con <code>gh</code>.</td></tr>
-    <tr><td><code>scripts/release/changelog.mjs</code></td><td>Lógica pura del CHANGELOG: lectura de <code>[Unreleased]</code>, validación de secciones y paso del bloque a la versión publicada.</td></tr>
-    <tr><td><code>scripts/release/changelog-ai.mjs</code></td><td>Prompt e invocación de Codex para completar <code>[Unreleased]</code>.</td></tr>
     <tr><td><code>scripts/release/pending-migrations.mjs</code></td><td>Detección de migraciones pendientes en la base configurada.</td></tr>
-    <tr><td><code>scripts/release/terminal-ui.mjs</code></td><td>UI de terminal sin dependencias: colores (<code>util.styleText</code>, respeta <code>NO_COLOR</code>), cajas que ajustan el texto largo en varias líneas en lugar de cortarlo, íconos Nerd Font, spinner, selector con flechas y medición del tiempo sin contar la espera de respuestas.</td></tr>
+    <tr><td><code>scripts/ignore-build.sh</code></td><td><code>ignoreCommand</code> de Vercel: corre <code>npx beez-rp@&lt;rango&gt; ignore-build</code> y sale con <code>1</code> (buildear) solo cuando la última línea es <code>BUILD</code>; en cualquier otro caso sale con <code>0</code> (saltear).</td></tr>
+    <tr><td>devDependency <code>beez-rp</code></td><td>Paquete compartido con agenda-mensual y beez-ui: reglas de versión (<code>beez-rp/versions</code>), gate de Vercel (<code>beez-rp ignore-build</code>), CHANGELOG (<code>beez-rp/changelog</code>), Codex (<code>beez-rp/changelog-ai</code>), UI de terminal (<code>beez-rp/terminal-ui</code>) y fixtures de versiones (<code>beez-rp/testing</code>). Se excluye de <code>minimumReleaseAge</code> en <code>pnpm-workspace.yaml</code> porque es un paquete propio.</td></tr>
   </table>
-  <p>Los tests viven en <code>tests/unit/tooling/release-plan-script.test.ts</code> y <code>tests/unit/tooling/release-state-script.test.ts</code> (este último usa repositorios Git reales con un remoto bare).</p>
+  <p>Los tests viven en <code>tests/unit/tooling/release-plan-script.test.ts</code> (flags de la app contra todas las variantes rechazadas de <code>beez-rp/testing</code>), <code>tests/unit/tooling/release-state-script.test.ts</code> (usa repositorios Git reales con un remoto bare) y <code>tests/unit/tooling/build-gate-script.test.ts</code> (corre el <code>ignore-build.sh</code> real con un <code>npx</code> falso que ejecuta el <code>beez-rp</code> instalado o simula fallos; en Windows usa el Git Bash porque el <code>bash</code> de WSL deja los archivos bloqueados). Las reglas y la UI compartidas se testean en el repositorio de beez-rp.</p>
 </div>
 </body>
 </html>
