@@ -1,7 +1,7 @@
 /**
  * Dependency-free terminal UI for `pnpm create-version`: colors, gradient banner,
- * rounded boxes, step headers, spinners and interactive prompts (arrow-key
- * select and yes/no confirm).
+ * rounded boxes, step headers, spinners and the interactive arrow-key select
+ * prompt.
  *
  * Colors go through `util.styleText`, which drops ANSI codes automatically
  * when stdout is not a TTY or `NO_COLOR` is set. Interactive prompts fall
@@ -509,21 +509,4 @@ export function select({ message, options, defaultIndex = 0 }) {
     process.stdout.write(ANSI.hideCursor);
     render();
   });
-}
-
-/**
- * Asks a yes/no question with the arrow-key selector.
- *
- * @param {string} message - Question.
- * @param {boolean} [defaultAnswer] - Answer preselected (and used without a TTY).
- * @returns {Promise<boolean>} Answer.
- */
-export async function confirm(message, defaultAnswer = true) {
-  const options = [
-    { label: "Sí", value: "yes" },
-    { label: "No", value: "no" },
-  ];
-  const answer = await select({ message, options, defaultIndex: defaultAnswer ? 0 : 1 });
-
-  return answer === "yes";
 }

@@ -55,7 +55,6 @@ import {
 import {
   BOX_TONE,
   ICON,
-  confirm,
   formatDuration,
   measureActiveMs,
   paint,
@@ -464,7 +463,7 @@ async function pushReleaseStep(context) {
     await runGitStep(["tag", "-a", tag, "-m", version], `No se pudo crear el tag ${tag}`, `Revisá git tag --list ${tag}.`);
   }
 
-  // The "¿Ejecutamos el plan?" confirmation already covers the push; no second prompt here.
+  // Running `pnpm create-version` is the request to publish; `--dry-run` previews the plan.
   await runGitStep(
     ["push", "--atomic", RELEASE_REMOTE, MAIN_BRANCH, `refs/tags/${tag}`],
     `El push de ${MAIN_BRANCH} + ${tag} falló`,
@@ -594,11 +593,6 @@ async function main() {
 
   if (options.dryRun) {
     print(`${ICON.info} ${paint("cyan", "--dry-run: no se cambió nada. Corré pnpm create-version para ejecutar el plan.")}`);
-    return 0;
-  }
-
-  if (!(await confirm("¿Ejecutamos el plan?"))) {
-    print(`${ICON.warning} ${paint("yellow", "Release cancelado. No se tocó nada.")}`);
     return 0;
   }
 
