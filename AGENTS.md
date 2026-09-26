@@ -231,6 +231,13 @@ components/<scope>/<component>/
 - Tailwind utility classes are forbidden in product code (`app`, `components`, and `src` feature modules) and must be replaced with `SCSS` classes.
 - Tailwind compilation belongs exclusively to `beez-ui`; the application consumes precompiled CSS. Shared component sources and the shadcn CLI configuration live in that library.
 
+### Motion baseline
+
+- Use `motion` (`motion/react`) and the shared primitives in `components/motion/*` for client-side state changes, and the mixins in `src/styles/_motion.scss` for CSS-only entrances of server-rendered content.
+- Animate only `transform` and `opacity` (height only through `AnimatedCollapse`), keep durations between 120 and 320 ms, take timing from `lib/motion/tokens.ts`, and never hide server-rendered HTML behind a Motion `initial` state.
+- Do not re-animate `beez-ui` primitives, which already animate. Every animation must respect `prefers-reduced-motion`.
+- Follow the motion convention guide at `docs/conventions/motion.htm`.
+
 ### CSS architecture baseline (BEM mandatory)
 
 - BEM is mandatory for all product classes defined in `*.module.scss` files.

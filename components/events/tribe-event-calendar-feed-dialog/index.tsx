@@ -12,6 +12,7 @@ import {
   Input,
 } from "beez-ui";
 
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import {
   TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS,
   type TribeEventCalendarFeedLoadState,
@@ -37,6 +38,13 @@ type TribeEventCalendarFeedDialogProps = {
 };
 
 const FEED_URL_FIELD_ID = "tribe-event-calendar-feed-url";
+/** Presence keys of the dialog regions that swap content in place. */
+const PRESENCE_KEY = {
+  actions: "actions",
+  confirm: "confirm",
+  issued: "issued",
+  status: "status",
+} as const;
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
@@ -83,7 +91,8 @@ const COPY = {
  * confirmation, since the old link stops working), shows it once with
  * "Copiar" and the Apple/Google shortcuts, and turns it off. State and
  * requests belong to `useTribeEventCalendarFeed`; only the confirmation step
- * is local UI state.
+ * is local UI state. Loading, status, the issued link and the confirmation
+ * cross-fade in place, and focus follows the confirmation step.
  */
 export function TribeEventCalendarFeedDialog({
   feedUrl,
@@ -97,6 +106,14 @@ export function TribeEventCalendarFeedDialog({
   onRevoke,
 }: TribeEventCalendarFeedDialogProps) {
   const [isConfirmingRegenerate, setIsConfirmingRegenerate] = useState(false);
+  // The confirmation replaces "Regenerar link"; after "Cancelar" the button
+  // comes back (once the swap finishes) and takes the focus again.
+  const [shouldRefocusRegenerate, setShouldRefocusRegenerate] = useState(false);
+
+  const cancelRegenerate = () => {
+    setIsConfirmingRegenerate(false);
+    setShouldRefocusRegenerate(true);
+  };
   const subscription =
     loadState.status === TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded
       ? loadState.subscription
@@ -166,14 +183,21 @@ export function TribeEventCalendarFeedDialog({
   const renderActions = () => {
     if (isConfirmingRegenerate) {
       return (
-        <div className={styles.TribeEventCalendarFeedDialog__confirm} role="group">
+        <div
+          aria-label={COPY.regenerateButton}
+          className={styles.TribeEventCalendarFeedDialog__confirm}
+          role="group"
+        >
           <p className={styles.TribeEventCalendarFeedDialog__text}>{COPY.regenerateWarning}</p>
           <div className={styles.TribeEventCalendarFeedDialog__actions}>
             <Button
+              // "Regenerar link" was replaced by this step: the safe answer
+              // takes the focus so keyboard users are not dropped on the page.
+              autoFocus
               disabled={isSubmitting}
               type={BUTTON_ATTRIBUTE.typeButton}
               variant={BUTTON_ATTRIBUTE.variantGhost}
-              onClick={() => setIsConfirmingRegenerate(false)}
+              onClick={cancelRegenerate}
             >
               {COPY.cancelRegenerate}
             </Button>
@@ -205,6 +229,7 @@ export function TribeEventCalendarFeedDialog({
               {COPY.revokeButton}
             </Button>
             <Button
+              autoFocus={shouldRefocusRegenerate}
               disabled={isSubmitting}
               type={BUTTON_ATTRIBUTE.typeButton}
               variant={BUTTON_ATTRIBUTE.variantOutline}
@@ -241,8 +266,14 @@ export function TribeEventCalendarFeedDialog({
       case TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS.loaded:
         return (
           <>
-            {feedUrl ? renderIssuedLink(feedUrl) : renderSubscriptionStatus()}
-            {renderActions()}
+            <PresenceSwap presenceKey={feedUrl ? PRESENCE_KEY.issued : PRESENCE_KEY.status}>
+              {feedUrl ? renderIssuedLink(feedUrl) : renderSubscriptionStatus()}
+            </PresenceSwap>
+            <PresenceSwap
+              presenceKey={isConfirmingRegenerate ? PRESENCE_KEY.confirm : PRESENCE_KEY.actions}
+            >
+              {renderActions()}
+            </PresenceSwap>
           </>
         );
       default:
@@ -260,6 +291,7 @@ export function TribeEventCalendarFeedDialog({
       onOpenChange={(open) => {
         if (!open) {
           setIsConfirmingRegenerate(false);
+          setShouldRefocusRegenerate(false);
           onClose();
         }
       }}
@@ -273,7 +305,12 @@ export function TribeEventCalendarFeedDialog({
           <ShieldAlertIcon aria-hidden className={styles.TribeEventCalendarFeedDialog__warningIcon} />
           <span>{COPY.personalWarning}</span>
         </p>
-        {renderBody()}
+        <PresenceSwap
+          className={styles.TribeEventCalendarFeedDialog__body}
+          presenceKey={loadState.status}
+        >
+          {renderBody()}
+        </PresenceSwap>
       </DialogContent>
     </Dialog>
   );

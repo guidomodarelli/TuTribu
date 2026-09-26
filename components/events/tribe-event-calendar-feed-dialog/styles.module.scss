@@ -5,6 +5,14 @@
   max-height: min(88svh, 44rem);
   overflow-y: auto;
 
+  // Loaded body: status or issued link, then the actions, with the same
+  // rhythm as the dialog itself.
+  &__body {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+  }
+
   &__warning {
     display: flex;
     gap: 0.6rem;

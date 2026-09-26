@@ -32,6 +32,7 @@ import { TribeEventsEmptyState } from "@/components/events/tribe-events-empty-st
 import { TribeEventsMonthGrid } from "@/components/events/tribe-events-month-grid";
 import { TribeEventsTypeFilter } from "@/components/events/tribe-events-type-filter";
 import { TribeNextEvent } from "@/components/events/tribe-next-event";
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
 import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
 import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { advanceMinuteClockTo, useMinuteClock } from "@/hooks/use-minute-clock";
@@ -97,6 +98,7 @@ import type {
   TribeEventViewerPermissionsResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 import styles from "./styles.module.scss";
+import { useMonthTransitionDirection } from "./use-month-transition-direction";
 
 type TribeEventsCalendarProps = {
   /** Viewer-only attendance streak, computed on the server (null if none). */
@@ -168,6 +170,17 @@ const FORM_MODE = {
   edit: "edit",
 } as const;
 const NO_EVENT_TYPES: readonly TribeEventType[] = [];
+/** Pre-hydration views, in DOM order; CSS shows the one that fits the viewport. */
+const AUTO_VIEW_MODES: readonly TribeEventsViewMode[] = [
+  TRIBE_EVENTS_VIEW_MODE.calendar,
+  TRIBE_EVENTS_VIEW_MODE.list,
+];
+/** Modifier that hides each pre-hydration view on the viewports it does not fit. */
+const AUTO_VIEW_CLASS_NAME: Record<TribeEventsViewMode, string | undefined> = {
+  [TRIBE_EVENTS_VIEW_MODE.calendar]: styles["TribeEventsCalendar__autoView--calendar"],
+  [TRIBE_EVENTS_VIEW_MODE.list]: styles["TribeEventsCalendar__autoView--list"],
+};
+const ROLE_STATUS = "status";
 const NO_RECORDED_OCCURRENCES: readonly string[] = [];
 const TIME_LABEL_SUFFIX = " Buenos Aires";
 const COPY = {
@@ -175,6 +188,18 @@ const COPY = {
   linkCopied: "Link copiado.",
   linkCopyFailure: "No pudimos copiar el link.",
 } as const;
+
+/** View the viewer switched to, and the month where that switch happened. */
+type EnteredViewState = {
+  month: string;
+  viewMode: TribeEventsViewMode;
+};
+
+/** Day tapped in the phone grid, remembered only for the month it belongs to. */
+type DaySelectionState = {
+  dayKey: string | null;
+  month: string;
+};
 
 type OccurrenceSelectionState = {
   occurrenceKey: string | null;
@@ -210,6 +235,11 @@ export function TribeEventsCalendar({
   // both views are rendered and a CSS media query shows the right one. That
   // avoids flashing the desktop grid on phones before the client takes over.
   const shouldRenderBothViews = chosenViewMode === null && !isHydrated;
+  // Only a view the viewer switched to plays its entrance; the view picked
+  // automatically at hydration was already on screen, and a new month plays
+  // its own directional entrance instead.
+  const [enteredView, setEnteredView] = useState<EnteredViewState | null>(null);
+  const renderedViewModes = shouldRenderBothViews ? AUTO_VIEW_MODES : [viewMode];
   const router = useRouter();
   const viewerTimeZone = useViewerTimeZone();
   const {
@@ -329,11 +359,20 @@ export function TribeEventsCalendar({
     useState<TribeEventOccurrenceResult | null>(null);
   const formSessionCounterRef = useRef(0);
   const [arePastEventsVisible, setArePastEventsVisible] = useState(false);
-  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [daySelection, setDaySelection] = useState<DaySelectionState>({
+    dayKey: null,
+    month: month.current,
+  });
   // Occurrence whose "Asistentes" tab is open; the report only loads for it.
   const [attendeesOccurrenceKey, setAttendeesOccurrenceKey] = useState<string | null>(null);
 
   const currentMonth = month.current;
+  const monthTransitionDirection = useMonthTransitionDirection(tribeSlug, currentMonth);
+  // A day tapped in another month is not on this grid, so it falls back to today.
+  const selectedDayKey = daySelection.month === currentMonth ? daySelection.dayKey : null;
+  const selectDay = (dayKey: string) => {
+    setDaySelection({ dayKey, month: currentMonth });
+  };
   const calendarDays = useMemo(() => createCalendarDays(currentMonth), [currentMonth]);
   const occurrencesByDay = useMemo(() => groupOccurrencesByDay(filteredEvents), [filteredEvents]);
   const canManageEvents = viewerPermissions.canManageEvents;
@@ -544,7 +583,11 @@ export function TribeEventsCalendar({
 
   const renderEmptyState = () => {
     if (visibleEvents.length > 0) {
-      return <p className={styles.TribeEventsCalendar__filteredEmpty}>{COPY.filteredEmpty}</p>;
+      return (
+        <p className={styles.TribeEventsCalendar__filteredEmpty} role={ROLE_STATUS}>
+          {COPY.filteredEmpty}
+        </p>
+      );
     }
 
     return canManageEvents ? (
@@ -655,7 +698,7 @@ export function TribeEventsCalendar({
         occurrencesByDay={occurrencesByDay}
         renderOccurrence={renderAgendaItem}
         todayKey={todayKey}
-        onSelectDay={setSelectedDayKey}
+        onSelectDay={selectDay}
         onSelectOccurrence={selectOccurrence}
       />
       {filteredEvents.length === 0 ? renderEmptyState() : null}
@@ -677,12 +720,24 @@ export function TribeEventsCalendar({
       />
     );
 
+  const chooseViewMode = (nextViewMode: TribeEventsViewMode) => {
+    if (nextViewMode !== viewMode) {
+      setEnteredView({ month: currentMonth, viewMode: nextViewMode });
+    }
+
+    setChosenViewMode(nextViewMode);
+  };
+
+  const renderView = (renderedViewMode: TribeEventsViewMode) =>
+    renderedViewMode === TRIBE_EVENTS_VIEW_MODE.calendar ? renderCalendarView() : renderListView();
+
   return (
     <main className={styles.TribeEventsCalendar}>
       <TribeEventsCalendarHeader
         canManageEvents={canManageEvents}
         canProposeEvents={canProposeEvents}
         month={month.current}
+        monthTransitionDirection={monthTransitionDirection}
         nextMonthHref={nextMonthHref}
         pendingProposalCount={proposals.pendingCount}
         previousMonthHref={previousMonthHref}
@@ -698,50 +753,57 @@ export function TribeEventsCalendar({
           />
         }
         viewMode={viewMode}
-        onChooseViewMode={setChosenViewMode}
+        shouldAnimateViewMode={chosenViewMode !== null}
+        onChooseViewMode={chooseViewMode}
         onCreateEvent={() => openCreateForm()}
         onOpenProposals={openProposalsPanel}
         onProposeEvent={openProposalForm}
         onSubscribeCalendar={openCalendarFeed}
       />
 
-      {nextOccurrence && nowTime !== null ? (
-        <TribeNextEvent
-          attendanceStreak={attendanceStreak}
-          isSavingAttendance={isSavingAttendance}
-          nowTime={nowTime}
-          occurrence={nextOccurrence}
-          viewerTimeZone={viewerTimeZone}
-          onSeeDetail={selectOccurrence}
-          onSetAttendance={saveAttendance}
-        />
-      ) : null}
+      {/* The block only exists once the clock is known (after hydration), so it
+          grows into place instead of pushing the month down in a single jump. */}
+      <AnimatedCollapse isOpen={nextOccurrence !== null && nowTime !== null}>
+        {nextOccurrence && nowTime !== null ? (
+          <TribeNextEvent
+            attendanceStreak={attendanceStreak}
+            isSavingAttendance={isSavingAttendance}
+            nowTime={nowTime}
+            occurrence={nextOccurrence}
+            viewerTimeZone={viewerTimeZone}
+            onSeeDetail={selectOccurrence}
+            onSetAttendance={saveAttendance}
+          />
+        ) : null}
+      </AnimatedCollapse>
 
       <div className={styles.TribeEventsCalendar__swipeArea} {...monthSwipeHandlers}>
-        {shouldRenderBothViews ? (
-          <>
+        {/* Keyed by month so a new month replays its directional entrance. */}
+        <div
+          className={styles.TribeEventsCalendar__monthView}
+          data-month-transition={monthTransitionDirection}
+          key={currentMonth}
+        >
+          {/* Keyed views in one list: hydration drops the hidden view but keeps
+              the visible one mounted, so it is not rebuilt or re-animated. */}
+          {renderedViewModes.map((renderedViewMode) => (
             <div
-              className={cn(
-                styles.TribeEventsCalendar__autoView,
-                styles["TribeEventsCalendar__autoView--calendar"]
-              )}
+              className={
+                shouldRenderBothViews
+                  ? cn(styles.TribeEventsCalendar__autoView, AUTO_VIEW_CLASS_NAME[renderedViewMode])
+                  : cn(
+                      styles.TribeEventsCalendar__view,
+                      enteredView?.viewMode === renderedViewMode &&
+                        enteredView.month === currentMonth &&
+                        styles["TribeEventsCalendar__view--entering"]
+                    )
+              }
+              key={renderedViewMode}
             >
-              {renderCalendarView()}
+              {renderView(renderedViewMode)}
             </div>
-            <div
-              className={cn(
-                styles.TribeEventsCalendar__autoView,
-                styles["TribeEventsCalendar__autoView--list"]
-              )}
-            >
-              {renderListView()}
-            </div>
-          </>
-        ) : viewMode === TRIBE_EVENTS_VIEW_MODE.calendar ? (
-          renderCalendarView()
-        ) : (
-          renderListView()
-        )}
+          ))}
+        </div>
       </div>
 
       <TribeEventDetailDialog

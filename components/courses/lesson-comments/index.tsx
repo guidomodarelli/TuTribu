@@ -1,11 +1,17 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { RotateCwIcon, Trash2 } from "lucide-react";
+import { AnimatePresence } from "motion/react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { toast, Avatar, AvatarFallback, AvatarImage, Button } from "beez-ui";
 
-
-
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { LESSON_COMMENT_CONTENT } from "@/src/modules/courses/constants/courses";
 import type { LessonCommentResult } from "@/src/modules/courses/application/results/course-results";
 import styles from "./styles.module.scss";
@@ -17,8 +23,11 @@ const COMMENTS_COPY = {
   emptyState: "Todavía no hay comentarios. Sé la primera persona en comentar.",
   heading: "Comentarios",
   loadError: "No pudimos cargar los comentarios.",
+  loading: "Cargando comentarios…",
   placeholder: "Escribí un comentario",
+  retryButton: "Reintentar",
   submitButton: "Comentar",
+  submittingButton: "Publicando…",
   submitError: "No pudimos publicar el comentario. Intentá de nuevo.",
   submitSuccess: "Comentario publicado.",
 } as const;
@@ -51,6 +60,23 @@ const LOAD_STATUS = {
 
 const ABORT_ERROR_NAME = "AbortError";
 
+/** Key that, combined with Ctrl or Cmd, publishes the draft from the textarea. */
+const SUBMIT_SHORTCUT_KEY = "Enter";
+
+/** Prefix of the per-lesson id that ties the visually hidden label to the textarea. */
+const COMMENT_INPUT_ID_PREFIX = "lesson-comments-input-";
+
+const COMMENTS_ACCESSIBILITY = {
+  alertRole: "alert",
+  statusRole: "status",
+} as const;
+
+const COMMENTS_RETRY_BUTTON = {
+  size: "sm",
+  type: "button",
+  variant: "outline",
+} as const;
+
 type LoadStatus = (typeof LOAD_STATUS)[keyof typeof LOAD_STATUS];
 
 const COMMENT_DATE_FORMATTER = new Intl.DateTimeFormat("es-AR", {
@@ -62,6 +88,13 @@ const COMMENT_DATE_FORMATTER = new Intl.DateTimeFormat("es-AR", {
   year: "numeric",
 });
 
+/**
+ * Builds the endpoint that lists and creates comments of one lesson.
+ *
+ * @param tribeSlug - Tribe slug.
+ * @param lessonId - Lesson identifier.
+ * @returns Relative endpoint path.
+ */
 function buildLessonCommentsApiUrl(
   tribeSlug: string,
   lessonId: string
@@ -69,6 +102,13 @@ function buildLessonCommentsApiUrl(
   return `${COMMENTS_API.apiTribesPrefix}${tribeSlug}${COMMENTS_API.lessonsPrefix}${lessonId}${COMMENTS_API.lessonCommentsSuffix}`;
 }
 
+/**
+ * Builds the endpoint of a single comment.
+ *
+ * @param tribeSlug - Tribe slug.
+ * @param commentId - Comment identifier.
+ * @returns Relative endpoint path.
+ */
 function buildCommentApiUrl(tribeSlug: string, commentId: string): string {
   return `${COMMENTS_API.apiTribesPrefix}${tribeSlug}${COMMENTS_API.commentsPrefix}${commentId}`;
 }
@@ -122,11 +162,24 @@ type LessonCommentsProps = {
   tribeSlug: string;
 };
 
+/**
+ * Lesson comment thread: loads the comments on mount, publishes new ones and
+ * deletes the viewer's own, animating each insertion and removal.
+ *
+ * @param props - Lesson and tribe identifiers.
+ * @returns Comments section for the selected lesson.
+ */
 export function LessonComments({ lessonId, tribeSlug }: LessonCommentsProps) {
   const [comments, setComments] = useState<LessonCommentResult[]>([]);
   const [loadStatus, setLoadStatus] = useState<LoadStatus>(LOAD_STATUS.loading);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [draftContent, setDraftContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Guards against a second submit (double click, Ctrl+Enter) landing before
+  // the disabled state renders.
+  const isSubmittingRef = useRef(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const inputId = COMMENT_INPUT_ID_PREFIX + lessonId;
   const [deletingCommentIds, setDeletingCommentIds] = useState<Set<string>>(
     () => new Set()
   );
@@ -161,17 +214,21 @@ export function LessonComments({ lessonId, tribeSlug }: LessonCommentsProps) {
       });
 
     return () => abortController.abort();
-  }, [lessonId, tribeSlug]);
+  }, [lessonId, tribeSlug, loadAttempt]);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleRetryLoad = () => {
+    setLoadStatus(LOAD_STATUS.loading);
+    setLoadAttempt((currentAttempt) => currentAttempt + 1);
+  };
 
+  const submitDraft = async () => {
     const content = draftContent.trim();
 
-    if (content.length === 0 || isSubmitting) {
+    if (content.length === 0 || isSubmittingRef.current) {
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -205,7 +262,24 @@ export function LessonComments({ lessonId, tribeSlug }: LessonCommentsProps) {
     } catch {
       toast.error(COMMENTS_COPY.submitError);
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void submitDraft();
+  };
+
+  const handleDraftKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (
+      event.key === SUBMIT_SHORTCUT_KEY &&
+      (event.metaKey || event.ctrlKey) &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault();
+      void submitDraft();
     }
   };
 
@@ -233,6 +307,8 @@ export function LessonComments({ lessonId, tribeSlug }: LessonCommentsProps) {
       setComments((current) =>
         current.filter((comment) => comment.id !== commentId)
       );
+      // The focused delete button leaves with its comment; keep focus in the thread.
+      headingRef.current?.focus();
     } catch {
       toast.error(COMMENTS_COPY.deleteError);
     } finally {
@@ -249,31 +325,66 @@ export function LessonComments({ lessonId, tribeSlug }: LessonCommentsProps) {
       aria-label={COMMENTS_COPY.heading}
       className={styles.LessonComments}
     >
-      <h3 className={styles.LessonComments__heading}>
+      <h3
+        className={styles.LessonComments__heading}
+        ref={headingRef}
+        tabIndex={-1}
+      >
         {COMMENTS_COPY.heading}
       </h3>
 
       <form className={styles.LessonComments__form} onSubmit={handleSubmit}>
+        <label className={styles.LessonComments__label} htmlFor={inputId}>
+          {COMMENTS_COPY.placeholder}
+        </label>
         <textarea
           className={styles.LessonComments__input}
+          id={inputId}
           maxLength={LESSON_COMMENT_CONTENT.maxLength}
           onChange={(event) => setDraftContent(event.target.value)}
+          onKeyDown={handleDraftKeyDown}
           placeholder={COMMENTS_COPY.placeholder}
           rows={2}
           value={draftContent}
         />
         <Button
+          aria-busy={isSubmitting || undefined}
           disabled={isSubmitting || draftContent.trim().length === 0}
           type="submit"
         >
-          {COMMENTS_COPY.submitButton}
+          {isSubmitting
+            ? COMMENTS_COPY.submittingButton
+            : COMMENTS_COPY.submitButton}
         </Button>
       </form>
 
-      {loadStatus === LOAD_STATUS.error ? (
-        <p className={styles.LessonComments__errorMessage}>
-          {COMMENTS_COPY.loadError}
+      {loadStatus === LOAD_STATUS.loading ? (
+        <p
+          className={styles.LessonComments__loading}
+          role={COMMENTS_ACCESSIBILITY.statusRole}
+        >
+          {COMMENTS_COPY.loading}
         </p>
+      ) : null}
+
+      {loadStatus === LOAD_STATUS.error ? (
+        <div
+          className={styles.LessonComments__error}
+          role={COMMENTS_ACCESSIBILITY.alertRole}
+        >
+          <p className={styles.LessonComments__errorMessage}>
+            {COMMENTS_COPY.loadError}
+          </p>
+          <Button
+            onClick={handleRetryLoad}
+            size={COMMENTS_RETRY_BUTTON.size}
+            type={COMMENTS_RETRY_BUTTON.type}
+            variant={COMMENTS_RETRY_BUTTON.variant}
+          >
+            <RotateCwIcon aria-hidden />
+            {COMMENTS_COPY.retryButton}
+          </Button>
+        </div>
       ) : null}
 
       {loadStatus === LOAD_STATUS.loaded && comments.length === 0 ? (
@@ -283,36 +394,41 @@ export function LessonComments({ lessonId, tribeSlug }: LessonCommentsProps) {
       ) : null}
 
       <ul className={styles.LessonComments__list}>
-        {comments.map((comment) => (
-          <li className={styles.LessonComments__item} key={comment.id}>
-            <div className={styles.LessonComments__itemHeader}>
-              <Avatar size="sm">
-                <AvatarImage src={comment.authorImageUrl} />
-                <AvatarFallback>
-                  {comment.authorName.slice(0, 1).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className={styles.LessonComments__authorName}>
-                {comment.authorName}
-              </span>
-              <span className={styles.LessonComments__date}>
-                {formatCommentDate(comment.createdAt)}
-              </span>
-              {comment.canDelete ? (
-                <button
-                  aria-label={COMMENTS_COPY.deleteButton}
-                  className={styles.LessonComments__deleteButton}
-                  disabled={deletingCommentIds.has(comment.id)}
-                  onClick={() => handleDelete(comment.id)}
-                  type="button"
-                >
-                  <Trash2 aria-hidden />
-                </button>
-              ) : null}
-            </div>
-            <p className={styles.LessonComments__content}>{comment.content}</p>
-          </li>
-        ))}
+        <AnimatePresence initial={false}>
+          {comments.map((comment) => (
+            <AnimatedListItem
+              className={styles.LessonComments__item}
+              key={comment.id}
+            >
+              <div className={styles.LessonComments__itemHeader}>
+                <Avatar size="sm">
+                  <AvatarImage src={comment.authorImageUrl} />
+                  <AvatarFallback>
+                    {comment.authorName.slice(0, 1).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className={styles.LessonComments__authorName}>
+                  {comment.authorName}
+                </span>
+                <span className={styles.LessonComments__date}>
+                  {formatCommentDate(comment.createdAt)}
+                </span>
+                {comment.canDelete ? (
+                  <button
+                    aria-label={COMMENTS_COPY.deleteButton}
+                    className={styles.LessonComments__deleteButton}
+                    disabled={deletingCommentIds.has(comment.id)}
+                    onClick={() => handleDelete(comment.id)}
+                    type="button"
+                  >
+                    <Trash2 aria-hidden />
+                  </button>
+                ) : null}
+              </div>
+              <p className={styles.LessonComments__content}>{comment.content}</p>
+            </AnimatedListItem>
+          ))}
+        </AnimatePresence>
       </ul>
     </section>
   );

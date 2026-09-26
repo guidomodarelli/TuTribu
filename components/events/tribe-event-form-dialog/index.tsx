@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 
 import {
   Button,
@@ -19,6 +20,7 @@ import {
   Textarea,
 } from "beez-ui";
 
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
 import {
   addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
@@ -42,6 +44,7 @@ import {
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
   TRIBE_EVENT_TYPES,
 } from "@/src/modules/events/constants/tribe-events";
+import { MOTION_DURATION_SECONDS, MOTION_EASE_OUT } from "@/lib/motion/tokens";
 import styles from "./styles.module.scss";
 
 /**
@@ -145,6 +148,31 @@ const FIELD_ID = {
   recurrenceUntil: "tribe-event-recurrence-until",
   startsTime: "tribe-event-starts-time",
   title: "tribe-event-title",
+  validationError: "tribe-event-validation-error",
+} as const;
+
+/** Id of a form control that a validation message can point at. */
+type EventFormFieldId = (typeof FIELD_ID)[keyof typeof FIELD_ID];
+
+/**
+ * Validation failure shown under the form: the Spanish message and the
+ * control it belongs to, which is marked invalid, described by the message
+ * and focused so the manager lands on what to fix.
+ */
+type EventFormValidationIssue = {
+  fieldId: EventFormFieldId;
+  message: string;
+};
+
+/**
+ * Fade for fields that appear with a choice ("Termina otro día", a
+ * repetition): opacity only, so the two-column row does not shift sideways.
+ */
+const CONDITIONAL_FIELD_MOTION = {
+  animate: { opacity: 1 },
+  exit: { opacity: 0, transition: { duration: MOTION_DURATION_SECONDS.exit, ease: MOTION_EASE_OUT } },
+  initial: { opacity: 0 },
+  transition: { duration: MOTION_DURATION_SECONDS.enter, ease: MOTION_EASE_OUT },
 } as const;
 const INPUT_TYPE = {
   date: "date",
@@ -360,9 +388,8 @@ function createInitialValues(
 }
 
 /**
- * Validates the wall-clock inputs and turns them into the endpoint payload.
- * Returns an error message (in Spanish) instead of a payload when the values
- * cannot form a valid schedule.
+ * Whether "Cupo máximo" is empty (no limit) or a whole number within the
+ * limits the server accepts.
  */
 function isValidCapacity(capacity: string): boolean {
   const capacityValue = capacity.trim();
@@ -380,12 +407,17 @@ function isValidCapacity(capacity: string): boolean {
   );
 }
 
+/**
+ * Validates the wall-clock inputs and turns them into the endpoint payload.
+ * Returns the validation issue (Spanish message plus the control to fix)
+ * instead of a payload when the values cannot form a valid schedule.
+ */
 function buildPayload(
   values: EventFormValues,
   endsOnAnotherDay: boolean
-): { error: string } | { payload: TribeEventFormPayload } {
+): { issue: EventFormValidationIssue } | { payload: TribeEventFormPayload } {
   if (!isValidCapacity(values.capacity)) {
-    return { error: COPY.invalidCapacity };
+    return { issue: { fieldId: FIELD_ID.capacity, message: COPY.invalidCapacity } };
   }
 
   const startsAt = buildBuenosAiresInstant(values.date, values.startsTime);
@@ -393,11 +425,11 @@ function buildPayload(
   // A checked «Termina otro día» with no date would silently save a same-day
   // end, so the chosen next-day end must be explicit.
   if (endsOnAnotherDay && !values.endsDate) {
-    return { error: COPY.missingEndDate };
+    return { issue: { fieldId: FIELD_ID.endsDate, message: COPY.missingEndDate } };
   }
 
   if (values.endsDate && !values.endsTime) {
-    return { error: COPY.missingEndTime };
+    return { issue: { fieldId: FIELD_ID.endsTime, message: COPY.missingEndTime } };
   }
 
   const endsAt = values.endsTime
@@ -405,7 +437,7 @@ function buildPayload(
     : EMPTY_VALUE;
 
   if (endsAt && startsAt && Date.parse(endsAt) <= Date.parse(startsAt)) {
-    return { error: COPY.invalidEndDate };
+    return { issue: { fieldId: FIELD_ID.endsTime, message: COPY.invalidEndDate } };
   }
 
   const isRecurring =
@@ -423,7 +455,9 @@ function buildPayload(
     startsAt &&
     Date.parse(recurrenceUntil) < Date.parse(startsAt)
   ) {
-    return { error: COPY.invalidRecurrenceUntil };
+    return {
+      issue: { fieldId: FIELD_ID.recurrenceUntil, message: COPY.invalidRecurrenceUntil },
+    };
   }
 
   return {
@@ -441,6 +475,23 @@ function buildPayload(
   };
 }
 
+/**
+ * Moves focus to the control a validation message points at, so keyboard
+ * and screen reader users land on the field to fix.
+ */
+function focusFormControl(form: HTMLFormElement, fieldId: EventFormFieldId): void {
+  const control = form.elements.namedItem(fieldId);
+
+  if (control instanceof HTMLElement) {
+    control.focus();
+  }
+}
+
+/**
+ * Create, edit and approve form of an event. Validation runs on submit and
+ * reports the first problem next to the form, marking and focusing the
+ * control it belongs to.
+ */
 export function TribeEventFormDialog({
   editingOccurrence,
   initialValues,
@@ -455,7 +506,14 @@ export function TribeEventFormDialog({
   );
   const initialFormValues = initialFormState.values;
   const [values, setValues] = useState<EventFormValues>(initialFormValues);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationIssue, setValidationIssue] = useState<EventFormValidationIssue | null>(null);
+  // Last message shown, kept while the error region collapses so the text
+  // does not vanish before the region closes.
+  const [shownValidationMessage, setShownValidationMessage] = useState<string | null>(null);
+
+  if (validationIssue && validationIssue.message !== shownValidationMessage) {
+    setShownValidationMessage(validationIssue.message);
+  }
   const [endsOnAnotherDay, setEndsOnAnotherDay] = useState(
     initialFormValues.endsDate !== EMPTY_VALUE
   );
@@ -489,8 +547,14 @@ export function TribeEventFormDialog({
   const isRecurring =
     values.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
 
+  /** ARIA wiring that ties a control to the current validation message. */
+  const getValidationProps = (fieldId: EventFormFieldId) =>
+    validationIssue?.fieldId === fieldId
+      ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
+      : {};
+
   const updateField = (field: keyof EventFormValues, value: string) => {
-    setValidationError(null);
+    setValidationIssue(null);
     setValues((currentValues) => ({ ...currentValues, [field]: value }));
   };
 
@@ -502,7 +566,7 @@ export function TribeEventFormDialog({
   };
 
   const updateDate = (date: string) => {
-    setValidationError(null);
+    setValidationIssue(null);
     setValues((currentValues) => ({
       ...currentValues,
       date,
@@ -521,7 +585,7 @@ export function TribeEventFormDialog({
   // previously suggested next-day end date is withdrawn when the new
   // suggestion no longer crosses midnight.
   const updateStartsTime = (startsTime: string) => {
-    setValidationError(null);
+    setValidationIssue(null);
 
     if (!isEndSuggested) {
       setValues((currentValues) => ({ ...currentValues, startsTime }));
@@ -568,7 +632,7 @@ export function TribeEventFormDialog({
     setEndsOnAnotherDay(isChecked);
     setSuggestedEndDayOffset(SAME_DAY_OFFSET);
 
-    setValidationError(null);
+    setValidationIssue(null);
     // Checking it starts from the day after the start date; the manager can
     // still pick another day. Unchecking withdraws the end date.
     setValues((currentValues) => ({
@@ -588,8 +652,9 @@ export function TribeEventFormDialog({
 
     const result = buildPayload(values, endsOnAnotherDay);
 
-    if ("error" in result) {
-      setValidationError(result.error);
+    if ("issue" in result) {
+      setValidationIssue(result.issue);
+      focusFormControl(submitEvent.currentTarget, result.issue.fieldId);
       return;
     }
 
@@ -668,24 +733,32 @@ export function TribeEventFormDialog({
             <div className={styles.TribeEventFormDialog__field}>
               <label htmlFor={FIELD_ID.endsTime}>{COPY.endsTimeLabel}</label>
               <Input
+                {...getValidationProps(FIELD_ID.endsTime)}
                 id={FIELD_ID.endsTime}
                 type={INPUT_TYPE.time}
                 value={values.endsTime}
                 onChange={(event) => updateEndField("endsTime", event.currentTarget.value)}
               />
             </div>
-            {endsOnAnotherDay ? (
-              <div className={styles.TribeEventFormDialog__field}>
-                <label htmlFor={FIELD_ID.endsDate}>{COPY.endsDateLabel}</label>
-                <Input
-                  id={FIELD_ID.endsDate}
-                  min={values.date || undefined}
-                  type={INPUT_TYPE.date}
-                  value={values.endsDate}
-                  onChange={(event) => updateEndField("endsDate", event.currentTarget.value)}
-                />
-              </div>
-            ) : null}
+            <AnimatePresence initial={false}>
+              {endsOnAnotherDay ? (
+                <motion.div
+                  className={styles.TribeEventFormDialog__field}
+                  key={FIELD_ID.endsDate}
+                  {...CONDITIONAL_FIELD_MOTION}
+                >
+                  <label htmlFor={FIELD_ID.endsDate}>{COPY.endsDateLabel}</label>
+                  <Input
+                    {...getValidationProps(FIELD_ID.endsDate)}
+                    id={FIELD_ID.endsDate}
+                    min={values.date || undefined}
+                    type={INPUT_TYPE.date}
+                    value={values.endsDate}
+                    onChange={(event) => updateEndField("endsDate", event.currentTarget.value)}
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
           <div className={styles.TribeEventFormDialog__toggle}>
             <Checkbox
@@ -719,27 +792,39 @@ export function TribeEventFormDialog({
                 </SelectContent>
               </Select>
             </div>
-            {isRecurring ? (
-              <div className={styles.TribeEventFormDialog__field}>
-                <label htmlFor={FIELD_ID.recurrenceUntil}>
-                  {COPY.recurrenceUntilLabel}
-                </label>
-                <Input
-                  id={FIELD_ID.recurrenceUntil}
-                  min={values.date || undefined}
-                  type={INPUT_TYPE.date}
-                  value={values.recurrenceUntil}
-                  onChange={(event) =>
-                    updateField("recurrenceUntil", event.currentTarget.value)
-                  }
-                />
-              </div>
-            ) : null}
+            <AnimatePresence initial={false}>
+              {isRecurring ? (
+                <motion.div
+                  className={styles.TribeEventFormDialog__field}
+                  key={FIELD_ID.recurrenceUntil}
+                  {...CONDITIONAL_FIELD_MOTION}
+                >
+                  <label htmlFor={FIELD_ID.recurrenceUntil}>
+                    {COPY.recurrenceUntilLabel}
+                  </label>
+                  <Input
+                    {...getValidationProps(FIELD_ID.recurrenceUntil)}
+                    id={FIELD_ID.recurrenceUntil}
+                    min={values.date || undefined}
+                    type={INPUT_TYPE.date}
+                    value={values.recurrenceUntil}
+                    onChange={(event) =>
+                      updateField("recurrenceUntil", event.currentTarget.value)
+                    }
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
           <div className={styles.TribeEventFormDialog__field}>
             <label htmlFor={FIELD_ID.capacity}>{COPY.capacityLabel}</label>
             <Input
-              aria-describedby={FIELD_ID.capacityHint}
+              aria-describedby={
+                validationIssue?.fieldId === FIELD_ID.capacity
+                  ? FIELD_ID.validationError + " " + FIELD_ID.capacityHint
+                  : FIELD_ID.capacityHint
+              }
+              aria-invalid={validationIssue?.fieldId === FIELD_ID.capacity || undefined}
               className={styles.TribeEventFormDialog__capacity}
               id={FIELD_ID.capacity}
               // Plain text with a numeric keyboard: native number validation
@@ -775,11 +860,15 @@ export function TribeEventFormDialog({
               onChange={(event) => updateField("description", event.currentTarget.value)}
             />
           </div>
-          {validationError ? (
-            <p className={styles.TribeEventFormDialog__error} role="alert">
-              {validationError}
+          <AnimatedCollapse isOpen={validationIssue !== null}>
+            <p
+              className={styles.TribeEventFormDialog__error}
+              id={FIELD_ID.validationError}
+              role="alert"
+            >
+              {validationIssue?.message ?? shownValidationMessage}
             </p>
-          ) : null}
+          </AnimatedCollapse>
           <div className={styles.TribeEventFormDialog__actions}>
             <Button
               type={BUTTON_ATTRIBUTE.typeButton}

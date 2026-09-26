@@ -11,6 +11,7 @@ import { TribeEventOccurrenceActivity } from "@/components/events/tribe-event-oc
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 import { TRIBE_EVENT_REACTION_FLUSH_DELAY_MS } from "@/lib/events/tribe-event-post-event-state";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
+import { MOTION_SAFE_FAKE_TIMERS } from "@/tests/unit/components/events/support/motion-safe-fake-timers";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 vi.mock("beez-ui", async () => ({
@@ -223,7 +224,7 @@ describe("TribeEventOccurrenceActivity", () => {
   });
 
   it("applies reactions immediately and sends only the latest intent after the debounce", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
     const reactionBodies: unknown[] = [];
 
     mockApi({
@@ -266,7 +267,7 @@ describe("TribeEventOccurrenceActivity", () => {
   });
 
   it("rolls the reaction back to the persisted counts when saving fails", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
     const { toast } = await import("beez-ui");
 
     mockApi({
@@ -297,7 +298,7 @@ describe("TribeEventOccurrenceActivity", () => {
   });
 
   it("keeps an in-flight reaction when a resources save answers with the pre-reaction counts", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
     const onRecordingAvailabilityChange = vi.fn();
     let settleReaction: (response: RouteResponse) => void = () => undefined;
     const reactionBodies: unknown[] = [];
@@ -365,7 +366,7 @@ describe("TribeEventOccurrenceActivity", () => {
   });
 
   it("still sends a debounced reaction when a resources save finishes before the flush", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
     const reactionBodies: unknown[] = [];
 
     mockApi({
@@ -415,7 +416,7 @@ describe("TribeEventOccurrenceActivity", () => {
   });
 
   it("keeps a completed reaction when an older resources save answers after it", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
     const onRecordingAvailabilityChange = vi.fn();
     let settleReaction: (response: RouteResponse) => void = () => undefined;
     let settleSave: (response: RouteResponse) => void = () => undefined;
@@ -528,7 +529,8 @@ describe("TribeEventOccurrenceActivity", () => {
 
     await waitFor(() => expect(editButton).toBeEnabled());
     expect(editButton).not.toHaveAttribute("aria-busy", "true");
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    // The saving notice folds away once the save settles.
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
 
     await user.click(editButton);
 
@@ -583,7 +585,7 @@ describe("TribeEventOccurrenceActivity", () => {
   });
 
   it("persists a debounced reaction when the detail closes before the flush", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
     const reactionBodies: unknown[] = [];
     let persistedReactions = { counts: { fire: 2, neutral: 0, thumbs_up: 1 }, viewerReaction: null as string | null };
 
@@ -625,7 +627,7 @@ describe("TribeEventOccurrenceActivity", () => {
   });
 
   it("reports a reaction that fails after the detail closed while it was in flight", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
     const { toast } = await import("beez-ui");
     const reactionBodies: unknown[] = [];
     let settleReaction: (response: RouteResponse) => void = () => undefined;
@@ -664,7 +666,7 @@ describe("TribeEventOccurrenceActivity", () => {
   });
 
   it("sends a newer reaction tapped while the previous request was in flight when that request fails", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
     const { toast } = await import("beez-ui");
     const reactionBodies: unknown[] = [];
     const reactionSettlers: Array<(response: RouteResponse) => void> = [];
@@ -830,7 +832,7 @@ describe("TribeEventOccurrenceActivity", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "Convertir en lección" });
 
-    await user.click(within(dialog).getByRole("combobox", { name: "Curso" }));
+    await user.click(await within(dialog).findByRole("combobox", { name: "Curso" }));
     await user.click(await screen.findByRole("option", { name: "Grabaciones" }));
     await user.click(within(dialog).getByRole("button", { name: "Crear lección" }));
 
@@ -875,7 +877,7 @@ describe("TribeEventOccurrenceActivity", () => {
 
     const submittedDialog = await screen.findByRole("dialog", { name: "Convertir en lección" });
 
-    await user.click(within(submittedDialog).getByRole("combobox", { name: "Curso" }));
+    await user.click(await within(submittedDialog).findByRole("combobox", { name: "Curso" }));
     await user.click(await screen.findByRole("option", { name: "Grabaciones" }));
     await user.click(within(submittedDialog).getByRole("button", { name: "Crear lección" }));
     await user.click(within(submittedDialog).getByRole("button", { name: "Cancelar" }));
@@ -1137,7 +1139,7 @@ describe("TribeEventsCalendar recording badge", () => {
     vi.clearAllMocks();
     global.fetch = vi.fn();
     window.history.replaceState(null, "", `/${TRIBE_SLUG}/eventos`);
-    vi.useFakeTimers({ shouldAdvanceTime: true }).setSystemTime(new Date("2026-05-20T15:00:00.000Z"));
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS).setSystemTime(new Date("2026-05-20T15:00:00.000Z"));
   });
 
   afterEach(() => {

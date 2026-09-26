@@ -671,6 +671,8 @@ describe("AppSidebar", () => {
       "data-active",
       "true"
     );
+    expect(screen.getByRole("button", { name: /eventos/i })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: /la tribu/i })).not.toHaveAttribute("aria-current");
 
     await user.click(screen.getByRole("button", { name: /la tribu/i }));
 

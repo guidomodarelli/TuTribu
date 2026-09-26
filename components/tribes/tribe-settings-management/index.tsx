@@ -2,11 +2,11 @@
 
 import { useId, useState } from "react";
 import Image from "next/image";
-import { ImageIcon, UploadIcon } from "lucide-react";
+import { ImageIcon, ImageOffIcon, UploadIcon } from "lucide-react";
 import { toast, Button, Input } from "beez-ui";
 
-
-
+import { PresenceSwap } from "@/components/motion/presence-swap";
+import { joinClassNames } from "@/lib/motion/join-class-names";
 import type { TribeIdentityResult } from "@/src/modules/tribes/application/results/tribe-identity-result";
 import styles from "./styles.module.scss";
 
@@ -16,6 +16,7 @@ const TRIBE_SETTINGS_COPY = {
   coverHint:
     "Imagen ancha, ideal en proporción 3:1. Encabeza la página de historia y la tarjeta para compartir.",
   coverLabel: "Portada",
+  coverPreviewError: "No pudimos cargar la portada",
   description:
     "Identidad visual de la tribu. Se usa en la barra lateral, en la página de historia y al compartir el link.",
   fallbackSaveError: "No pudimos guardar los ajustes.",
@@ -29,11 +30,13 @@ const TRIBE_SETTINGS_COPY = {
   logoEmpty: "Sin logo",
   logoHint: "Imagen cuadrada. Acompaña el nombre de la tribu en toda la aplicación.",
   logoLabel: "Logo",
+  logoPreviewError: "No pudimos cargar el logo",
   saveButton: "Guardar",
   saveSuccess: "Ajustes actualizados.",
   savingButton: "Guardando...",
   title: "Ajustes",
   uploadButton: "Subir imagen",
+  uploadSuccess: "Imagen subida. Guardá los cambios para aplicarla.",
   uploadingButton: "Subiendo...",
   uploadLimitHint: (maxMegabytes: number) =>
     `JPG, PNG, GIF o WebP de hasta ${maxMegabytes} MB.`,
@@ -79,6 +82,81 @@ const UPLOAD_MAX_BYTES =
 const LOGO_PREVIEW_SIZE = 96;
 const COVER_PREVIEW_SIZES = "(min-width: 64rem) 36rem, 100vw";
 
+/** States of an image preview box, used as presence keys for its cross-fade. */
+const PREVIEW_STATE = {
+  broken: "broken",
+  empty: "empty",
+  image: "image",
+} as const;
+
+type PreviewState = (typeof PREVIEW_STATE)[keyof typeof PREVIEW_STATE];
+
+/** Presence keys for the note that swaps with the validation error under each field. */
+const FIELD_FEEDBACK_KEY = {
+  error: "error",
+  note: "note",
+} as const;
+
+/** Error whose message is safe to show: it comes from the tribes API or a Spanish fallback. */
+class TribeSettingsRequestError extends Error {
+  override name = "TribeSettingsRequestError";
+}
+
+/**
+ * Sends a settings request, turning network failures (reported by browsers in
+ * English) into a safe Spanish error.
+ * @param url - Endpoint to call.
+ * @param init - Fetch options.
+ * @param fallbackErrorMessage - Message shown when the network fails.
+ * @returns The fetch response.
+ * @throws {TribeSettingsRequestError} When the request cannot reach the server.
+ */
+async function fetchSettingsEndpoint(
+  url: string,
+  init: RequestInit,
+  fallbackErrorMessage: string
+): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (networkError) {
+    throw new TribeSettingsRequestError(fallbackErrorMessage, {
+      cause: networkError,
+    });
+  }
+}
+
+/**
+ * Picks the user-facing message of a failed settings operation.
+ * @param error - Caught error.
+ * @param fallbackMessage - Spanish fallback for unexpected failures.
+ * @returns A safe message.
+ */
+function resolveSettingsErrorMessage(
+  error: unknown,
+  fallbackMessage: string
+): string {
+  return error instanceof TribeSettingsRequestError
+    ? error.message
+    : fallbackMessage;
+}
+
+/**
+ * Resolves what a preview box shows for the current URL.
+ * @param hasValidUrl - Whether the input holds an http(s) URL.
+ * @param isBroken - Whether that URL already failed to load.
+ * @returns The preview state.
+ */
+function resolvePreviewState(
+  hasValidUrl: boolean,
+  isBroken: boolean
+): PreviewState {
+  if (!hasValidUrl) {
+    return PREVIEW_STATE.empty;
+  }
+
+  return isBroken ? PREVIEW_STATE.broken : PREVIEW_STATE.image;
+}
+
 type TribeSettingsManagementProps = {
   identity: TribeIdentityResult | null;
   tribeSlug: string;
@@ -115,9 +193,11 @@ async function uploadTribeImage(
   tribeSlug: string,
   imageFile: File
 ): Promise<string> {
-  const reserveResponse = await fetch(buildImagesEndpoint(tribeSlug), {
-    method: SETTINGS_REQUEST.postMethod,
-  });
+  const reserveResponse = await fetchSettingsEndpoint(
+    buildImagesEndpoint(tribeSlug),
+    { method: SETTINGS_REQUEST.postMethod },
+    TRIBE_SETTINGS_COPY.fallbackUploadError
+  );
   const reserveBody = (await reserveResponse.json().catch(() => ({}))) as {
     deliveryUrl?: string;
     imageId?: string;
@@ -131,7 +211,7 @@ async function uploadTribeImage(
     !reserveBody.deliveryUrl ||
     !reserveBody.imageId
   ) {
-    throw new Error(
+    throw new TribeSettingsRequestError(
       reserveBody.message ?? TRIBE_SETTINGS_COPY.fallbackUploadError
     );
   }
@@ -140,10 +220,11 @@ async function uploadTribeImage(
 
   formData.append(SETTINGS_REQUEST.fileFormField, imageFile);
 
-  const uploadResponse = await fetch(reserveBody.uploadUrl, {
-    body: formData,
-    method: SETTINGS_REQUEST.postMethod,
-  });
+  const uploadResponse = await fetchSettingsEndpoint(
+    reserveBody.uploadUrl,
+    { body: formData, method: SETTINGS_REQUEST.postMethod },
+    TRIBE_SETTINGS_COPY.fallbackUploadError
+  );
 
   if (!uploadResponse.ok) {
     void fetch(
@@ -155,7 +236,7 @@ async function uploadTribeImage(
       // Deliberate no-op: the reservation stays a draft and the sweep reclaims it.
     });
 
-    throw new Error(TRIBE_SETTINGS_COPY.fallbackUploadError);
+    throw new TribeSettingsRequestError(TRIBE_SETTINGS_COPY.fallbackUploadError);
   }
 
   return reserveBody.deliveryUrl;
@@ -165,19 +246,23 @@ async function submitIdentityUpdate(
   tribeSlug: string,
   payload: { coverUrl: string | null; logoUrl: string | null }
 ): Promise<string> {
-  const response = await fetch(buildSettingsEndpoint(tribeSlug), {
-    body: JSON.stringify(payload),
-    headers: {
-      [SETTINGS_REQUEST.contentTypeHeader]: SETTINGS_REQUEST.jsonContentType,
+  const response = await fetchSettingsEndpoint(
+    buildSettingsEndpoint(tribeSlug),
+    {
+      body: JSON.stringify(payload),
+      headers: {
+        [SETTINGS_REQUEST.contentTypeHeader]: SETTINGS_REQUEST.jsonContentType,
+      },
+      method: SETTINGS_REQUEST.putMethod,
     },
-    method: SETTINGS_REQUEST.putMethod,
-  });
+    TRIBE_SETTINGS_COPY.fallbackSaveError
+  );
   const responseBody = (await response.json().catch(() => ({}))) as {
     message?: string;
   };
 
   if (!response.ok) {
-    throw new Error(
+    throw new TribeSettingsRequestError(
       responseBody.message ?? TRIBE_SETTINGS_COPY.fallbackSaveError
     );
   }
@@ -193,6 +278,7 @@ type ImageUploadButtonProps = {
 /**
  * Outline button that wraps a visually hidden file input so the whole control
  * stays keyboard and screen-reader accessible while looking like a button.
+ * The label mirrors the focus ring of the hidden input.
  */
 function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonProps) {
   return (
@@ -201,7 +287,7 @@ function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonPro
       className={styles.TribeSettingsManagement__uploadButton}
       variant={SETTINGS_REQUEST.outlineVariant}
     >
-      <label data-disabled={isUploading ? true : undefined}>
+      <label aria-busy={isUploading || undefined} data-disabled={isUploading ? true : undefined}>
         <UploadIcon />
         {isUploading
           ? TRIBE_SETTINGS_COPY.uploadingButton
@@ -223,6 +309,159 @@ function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonPro
   );
 }
 
+/** Visual variant of an identity image field. */
+type IdentityImageVariant = (typeof UPLOAD_TARGET)[keyof typeof UPLOAD_TARGET];
+
+type IdentityImageFieldProps = {
+  brokenPreviewLabel: string;
+  emptyPreviewLabel: string;
+  hint: string;
+  isInvalid: boolean;
+  isPreviewBroken: boolean;
+  isUploading: boolean;
+  label: string;
+  onFileSelected: (imageFile: File | undefined) => void;
+  onPreviewError: (failedUrl: string) => void;
+  onUrlChange: (url: string) => void;
+  previewAlt: string;
+  url: string;
+  variant: IdentityImageVariant;
+};
+
+/**
+ * One identity image (logo or cover): live preview, URL input, upload button
+ * and the validation message rendered next to the input.
+ */
+function IdentityImageField({
+  brokenPreviewLabel,
+  emptyPreviewLabel,
+  hint,
+  isInvalid,
+  isPreviewBroken,
+  isUploading,
+  label,
+  onFileSelected,
+  onPreviewError,
+  onUrlChange,
+  previewAlt,
+  url,
+  variant,
+}: IdentityImageFieldProps) {
+  const inputId = useId();
+  const hintId = useId();
+  const errorId = useId();
+  const trimmedUrl = url.trim();
+  const previewState = resolvePreviewState(
+    trimmedUrl.length > 0 && isHttpUrl(trimmedUrl),
+    isPreviewBroken
+  );
+  const isLogo = variant === UPLOAD_TARGET.logo;
+
+  return (
+    <div className={styles.TribeSettingsManagement__field}>
+      <div className={styles.TribeSettingsManagement__fieldHeading}>
+        <label
+          className={styles.TribeSettingsManagement__fieldLabel}
+          htmlFor={inputId}
+        >
+          {label}
+        </label>
+        <p className={styles.TribeSettingsManagement__fieldHelper} id={hintId}>
+          {hint}
+        </p>
+      </div>
+      <div
+        className={joinClassNames(
+          styles.TribeSettingsManagement__fieldBody,
+          isLogo && styles["TribeSettingsManagement__fieldBody--logo"]
+        )}
+      >
+        <div
+          className={
+            isLogo
+              ? styles.TribeSettingsManagement__logoPreview
+              : styles.TribeSettingsManagement__coverPreview
+          }
+        >
+          <PresenceSwap
+            className={styles.TribeSettingsManagement__previewSwap}
+            presenceKey={previewState}
+          >
+            {previewState === PREVIEW_STATE.image ? (
+              <Image
+                alt={previewAlt}
+                className={styles.TribeSettingsManagement__previewImage}
+                onError={() => {
+                  onPreviewError(trimmedUrl);
+                }}
+                src={trimmedUrl}
+                unoptimized
+                {...(isLogo
+                  ? { height: LOGO_PREVIEW_SIZE, width: LOGO_PREVIEW_SIZE }
+                  : { fill: true, sizes: COVER_PREVIEW_SIZES })}
+              />
+            ) : (
+              <span className={styles.TribeSettingsManagement__previewEmpty}>
+                {previewState === PREVIEW_STATE.broken ? (
+                  <ImageOffIcon
+                    aria-hidden
+                    className={styles.TribeSettingsManagement__previewEmptyIcon}
+                  />
+                ) : (
+                  <ImageIcon
+                    aria-hidden
+                    className={styles.TribeSettingsManagement__previewEmptyIcon}
+                  />
+                )}
+                <span className={styles.TribeSettingsManagement__previewEmptyLabel}>
+                  {previewState === PREVIEW_STATE.broken
+                    ? brokenPreviewLabel
+                    : emptyPreviewLabel}
+                </span>
+              </span>
+            )}
+          </PresenceSwap>
+        </div>
+        <div className={styles.TribeSettingsManagement__fieldControls}>
+          <Input
+            aria-describedby={isInvalid ? `${hintId} ${errorId}` : hintId}
+            aria-invalid={isInvalid}
+            disabled={isUploading}
+            id={inputId}
+            onChange={(event) => {
+              onUrlChange(event.target.value);
+            }}
+            placeholder={TRIBE_SETTINGS_COPY.urlPlaceholder}
+            value={url}
+          />
+          <ImageUploadButton
+            isUploading={isUploading}
+            onFileSelected={onFileSelected}
+          />
+          <PresenceSwap
+            className={styles.TribeSettingsManagement__fieldFeedback}
+            presenceKey={isInvalid ? FIELD_FEEDBACK_KEY.error : FIELD_FEEDBACK_KEY.note}
+          >
+            {isInvalid ? (
+              <p
+                className={styles.TribeSettingsManagement__fieldError}
+                id={errorId}
+                role="alert"
+              >
+                {TRIBE_SETTINGS_COPY.invalidUrl}
+              </p>
+            ) : (
+              <p className={styles.TribeSettingsManagement__fieldNote}>
+                {TRIBE_SETTINGS_COPY.uploadLimitHint(UPLOAD_MAX_MEGABYTES)}
+              </p>
+            )}
+          </PresenceSwap>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Leader-only tribe settings: the visual identity (logo and cover) that the
  * app chrome, the story page and the shareable card all read.
@@ -235,22 +474,15 @@ export function TribeSettingsManagement({
   const [coverUrl, setCoverUrl] = useState(identity?.coverUrl ?? "");
   const [isLogoInvalid, setIsLogoInvalid] = useState(false);
   const [isCoverInvalid, setIsCoverInvalid] = useState(false);
+  const [brokenLogoUrl, setBrokenLogoUrl] = useState<string | null>(null);
+  const [brokenCoverUrl, setBrokenCoverUrl] = useState<string | null>(null);
   const [uploadingTargets, setUploadingTargets] = useState<
     ReadonlySet<string>
   >(() => new Set());
   const [isSaving, setIsSaving] = useState(false);
   const identityHeadingId = useId();
-  const logoId = useId();
-  const logoHintId = useId();
-  const logoErrorId = useId();
-  const coverId = useId();
-  const coverHintId = useId();
-  const coverErrorId = useId();
   const trimmedLogoUrl = logoUrl.trim();
   const trimmedCoverUrl = coverUrl.trim();
-  const hasLogoPreview = trimmedLogoUrl.length > 0 && isHttpUrl(trimmedLogoUrl);
-  const hasCoverPreview =
-    trimmedCoverUrl.length > 0 && isHttpUrl(trimmedCoverUrl);
   const isUploadingLogo = uploadingTargets.has(UPLOAD_TARGET.logo);
   const isUploadingCover = uploadingTargets.has(UPLOAD_TARGET.cover);
 
@@ -268,11 +500,11 @@ export function TribeSettingsManagement({
     });
   };
   const handleImageFileUpload = async (
-    target: string,
+    target: IdentityImageVariant,
     imageFile: File | undefined,
     applyDeliveryUrl: (deliveryUrl: string) => void
   ) => {
-    if (!imageFile) {
+    if (!imageFile || uploadingTargets.has(target)) {
       return;
     }
 
@@ -294,11 +526,13 @@ export function TribeSettingsManagement({
       const deliveryUrl = await uploadTribeImage(tribeSlug, imageFile);
 
       applyDeliveryUrl(deliveryUrl);
+      toast.success(TRIBE_SETTINGS_COPY.uploadSuccess);
     } catch (uploadError) {
       toast.error(
-        uploadError instanceof Error
-          ? uploadError.message
-          : TRIBE_SETTINGS_COPY.fallbackUploadError
+        resolveSettingsErrorMessage(
+          uploadError,
+          TRIBE_SETTINGS_COPY.fallbackUploadError
+        )
       );
     } finally {
       setUploadingTarget(target, false);
@@ -306,6 +540,10 @@ export function TribeSettingsManagement({
   };
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (isSaving) {
+      return;
+    }
 
     const nextLogoInvalid =
       trimmedLogoUrl.length > 0 && !isHttpUrl(trimmedLogoUrl);
@@ -330,9 +568,10 @@ export function TribeSettingsManagement({
       toast.success(message);
     } catch (saveError) {
       toast.error(
-        saveError instanceof Error
-          ? saveError.message
-          : TRIBE_SETTINGS_COPY.fallbackSaveError
+        resolveSettingsErrorMessage(
+          saveError,
+          TRIBE_SETTINGS_COPY.fallbackSaveError
+        )
       );
     } finally {
       setIsSaving(false);
@@ -373,178 +612,66 @@ export function TribeSettingsManagement({
           </div>
 
           <div className={styles.TribeSettingsManagement__sectionFields}>
-            <div className={styles.TribeSettingsManagement__field}>
-              <div className={styles.TribeSettingsManagement__fieldHeading}>
-                <label
-                  className={styles.TribeSettingsManagement__fieldLabel}
-                  htmlFor={logoId}
-                >
-                  {TRIBE_SETTINGS_COPY.logoLabel}
-                </label>
-                <p
-                  className={styles.TribeSettingsManagement__fieldHelper}
-                  id={logoHintId}
-                >
-                  {TRIBE_SETTINGS_COPY.logoHint}
-                </p>
-              </div>
-              <div
-                className={`${styles.TribeSettingsManagement__fieldBody} ${styles["TribeSettingsManagement__fieldBody--logo"]}`}
-              >
-                <div className={styles.TribeSettingsManagement__logoPreview}>
-                  {hasLogoPreview ? (
-                    <Image
-                      alt={TRIBE_SETTINGS_COPY.logoAlt}
-                      className={styles.TribeSettingsManagement__logoPreviewImage}
-                      height={LOGO_PREVIEW_SIZE}
-                      src={trimmedLogoUrl}
-                      unoptimized
-                      width={LOGO_PREVIEW_SIZE}
-                    />
-                  ) : (
-                    <span className={styles.TribeSettingsManagement__previewEmpty}>
-                      <ImageIcon
-                        aria-hidden
-                        className={styles.TribeSettingsManagement__previewEmptyIcon}
-                      />
-                      <span className={styles.TribeSettingsManagement__previewEmptyLabel}>
-                        {TRIBE_SETTINGS_COPY.logoEmpty}
-                      </span>
-                    </span>
-                  )}
-                </div>
-                <div className={styles.TribeSettingsManagement__fieldControls}>
-                  <Input
-                    aria-describedby={
-                      isLogoInvalid ? `${logoHintId} ${logoErrorId}` : logoHintId
-                    }
-                    aria-invalid={isLogoInvalid}
-                    id={logoId}
-                    onChange={(event) => {
-                      setLogoUrl(event.target.value);
-                      setIsLogoInvalid(false);
-                    }}
-                    placeholder={TRIBE_SETTINGS_COPY.urlPlaceholder}
-                    value={logoUrl}
-                  />
-                  <ImageUploadButton
-                    isUploading={isUploadingLogo}
-                    onFileSelected={(imageFile) => {
-                      void handleImageFileUpload(
-                        UPLOAD_TARGET.logo,
-                        imageFile,
-                        (deliveryUrl) => {
-                          setLogoUrl(deliveryUrl);
-                          setIsLogoInvalid(false);
-                        }
-                      );
-                    }}
-                  />
-                  {isLogoInvalid ? (
-                    <p
-                      className={styles.TribeSettingsManagement__fieldError}
-                      id={logoErrorId}
-                      role="alert"
-                    >
-                      {TRIBE_SETTINGS_COPY.invalidUrl}
-                    </p>
-                  ) : (
-                    <p className={styles.TribeSettingsManagement__fieldNote}>
-                      {TRIBE_SETTINGS_COPY.uploadLimitHint(UPLOAD_MAX_MEGABYTES)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.TribeSettingsManagement__field}>
-              <div className={styles.TribeSettingsManagement__fieldHeading}>
-                <label
-                  className={styles.TribeSettingsManagement__fieldLabel}
-                  htmlFor={coverId}
-                >
-                  {TRIBE_SETTINGS_COPY.coverLabel}
-                </label>
-                <p
-                  className={styles.TribeSettingsManagement__fieldHelper}
-                  id={coverHintId}
-                >
-                  {TRIBE_SETTINGS_COPY.coverHint}
-                </p>
-              </div>
-              <div className={styles.TribeSettingsManagement__fieldBody}>
-                <div className={styles.TribeSettingsManagement__coverPreview}>
-                  {hasCoverPreview ? (
-                    <Image
-                      alt={TRIBE_SETTINGS_COPY.coverAlt}
-                      className={styles.TribeSettingsManagement__coverPreviewImage}
-                      fill
-                      sizes={COVER_PREVIEW_SIZES}
-                      src={trimmedCoverUrl}
-                      unoptimized
-                    />
-                  ) : (
-                    <span className={styles.TribeSettingsManagement__previewEmpty}>
-                      <ImageIcon
-                        aria-hidden
-                        className={styles.TribeSettingsManagement__previewEmptyIcon}
-                      />
-                      <span className={styles.TribeSettingsManagement__previewEmptyLabel}>
-                        {TRIBE_SETTINGS_COPY.coverEmpty}
-                      </span>
-                    </span>
-                  )}
-                </div>
-                <div className={styles.TribeSettingsManagement__fieldControls}>
-                  <Input
-                    aria-describedby={
-                      isCoverInvalid
-                        ? `${coverHintId} ${coverErrorId}`
-                        : coverHintId
-                    }
-                    aria-invalid={isCoverInvalid}
-                    id={coverId}
-                    onChange={(event) => {
-                      setCoverUrl(event.target.value);
-                      setIsCoverInvalid(false);
-                    }}
-                    placeholder={TRIBE_SETTINGS_COPY.urlPlaceholder}
-                    value={coverUrl}
-                  />
-                  <ImageUploadButton
-                    isUploading={isUploadingCover}
-                    onFileSelected={(imageFile) => {
-                      void handleImageFileUpload(
-                        UPLOAD_TARGET.cover,
-                        imageFile,
-                        (deliveryUrl) => {
-                          setCoverUrl(deliveryUrl);
-                          setIsCoverInvalid(false);
-                        }
-                      );
-                    }}
-                  />
-                  {isCoverInvalid ? (
-                    <p
-                      className={styles.TribeSettingsManagement__fieldError}
-                      id={coverErrorId}
-                      role="alert"
-                    >
-                      {TRIBE_SETTINGS_COPY.invalidUrl}
-                    </p>
-                  ) : (
-                    <p className={styles.TribeSettingsManagement__fieldNote}>
-                      {TRIBE_SETTINGS_COPY.uploadLimitHint(UPLOAD_MAX_MEGABYTES)}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
+            <IdentityImageField
+              brokenPreviewLabel={TRIBE_SETTINGS_COPY.logoPreviewError}
+              emptyPreviewLabel={TRIBE_SETTINGS_COPY.logoEmpty}
+              hint={TRIBE_SETTINGS_COPY.logoHint}
+              isInvalid={isLogoInvalid}
+              isPreviewBroken={brokenLogoUrl === trimmedLogoUrl}
+              isUploading={isUploadingLogo}
+              label={TRIBE_SETTINGS_COPY.logoLabel}
+              onFileSelected={(imageFile) => {
+                void handleImageFileUpload(
+                  UPLOAD_TARGET.logo,
+                  imageFile,
+                  (deliveryUrl) => {
+                    setLogoUrl(deliveryUrl);
+                    setIsLogoInvalid(false);
+                  }
+                );
+              }}
+              onPreviewError={setBrokenLogoUrl}
+              onUrlChange={(nextUrl) => {
+                setLogoUrl(nextUrl);
+                setIsLogoInvalid(false);
+              }}
+              previewAlt={TRIBE_SETTINGS_COPY.logoAlt}
+              url={logoUrl}
+              variant={UPLOAD_TARGET.logo}
+            />
+            <IdentityImageField
+              brokenPreviewLabel={TRIBE_SETTINGS_COPY.coverPreviewError}
+              emptyPreviewLabel={TRIBE_SETTINGS_COPY.coverEmpty}
+              hint={TRIBE_SETTINGS_COPY.coverHint}
+              isInvalid={isCoverInvalid}
+              isPreviewBroken={brokenCoverUrl === trimmedCoverUrl}
+              isUploading={isUploadingCover}
+              label={TRIBE_SETTINGS_COPY.coverLabel}
+              onFileSelected={(imageFile) => {
+                void handleImageFileUpload(
+                  UPLOAD_TARGET.cover,
+                  imageFile,
+                  (deliveryUrl) => {
+                    setCoverUrl(deliveryUrl);
+                    setIsCoverInvalid(false);
+                  }
+                );
+              }}
+              onPreviewError={setBrokenCoverUrl}
+              onUrlChange={(nextUrl) => {
+                setCoverUrl(nextUrl);
+                setIsCoverInvalid(false);
+              }}
+              previewAlt={TRIBE_SETTINGS_COPY.coverAlt}
+              url={coverUrl}
+              variant={UPLOAD_TARGET.cover}
+            />
           </div>
         </section>
 
         <div className={styles.TribeSettingsManagement__actions}>
           <Button
+            aria-busy={isSaving || undefined}
             className={styles.TribeSettingsManagement__saveButton}
             disabled={isSaving || uploadingTargets.size > 0}
             type={SETTINGS_REQUEST.submitButtonType}

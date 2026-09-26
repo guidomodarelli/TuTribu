@@ -6,11 +6,11 @@ import { ErrorState } from "@/components/feedback/error-state";
 
 const ERROR_PAGE_COPY = {
   description:
-    "Ocurrio un problema inesperado. Puedes reintentar ahora o volver al inicio mientras lo revisamos.",
+    "Ocurrió un problema inesperado. Podés reintentar ahora o volver al inicio mientras lo revisamos.",
   eyebrow: "Error inesperado",
   homeLabel: "Volver al inicio",
   retryLabel: "Reintentar",
-  title: "No pudimos cargar esta seccion",
+  title: "No pudimos cargar esta sección",
 } as const;
 
 type ErrorPageProps = {

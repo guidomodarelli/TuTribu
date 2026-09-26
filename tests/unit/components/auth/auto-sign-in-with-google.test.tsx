@@ -37,7 +37,7 @@ describe("AutoSignInWithGoogle", () => {
     expect(screen.getByText(/te estamos redirigiendo a google/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: /iniciar sesion con google/i,
+        name: /iniciar sesión con google/i,
       })
     ).toBeInTheDocument();
   });
@@ -53,7 +53,7 @@ describe("AutoSignInWithGoogle", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /iniciar sesion con google/i,
+        name: /iniciar sesión con google/i,
       })
     );
 

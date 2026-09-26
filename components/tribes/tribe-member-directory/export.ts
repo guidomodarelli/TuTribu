@@ -153,6 +153,12 @@ const DOWNLOAD_ANCHOR = {
   relValue: "noopener",
 } as const;
 
+/**
+ * Delay before releasing the download blob URL. WebKit (Safari, iOS) starts the
+ * download asynchronously and cancels it when the URL is revoked in the same task.
+ */
+const OBJECT_URL_REVOKE_DELAY_MS = 1000;
+
 function buildSelectionsCell(selections: TribeMemberSelectionBadge[]): string {
   if (selections.length === 0) {
     return MEMBER_EXPORT_COPY.noSelections;
@@ -340,5 +346,7 @@ export function downloadTextFile(
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
-  URL.revokeObjectURL(objectUrl);
+  window.setTimeout(() => {
+    URL.revokeObjectURL(objectUrl);
+  }, OBJECT_URL_REVOKE_DELAY_MS);
 }

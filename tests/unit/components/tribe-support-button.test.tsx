@@ -113,6 +113,46 @@ describe("TribeSupportButton", () => {
     expect(screen.queryByTestId("support-config-dialog")).not.toBeInTheDocument();
   });
 
+  it("still loads support on WebKit versions without AbortSignal.any", async () => {
+    const abortSignalAnyDescriptor = Object.getOwnPropertyDescriptor(
+      AbortSignal,
+      "any"
+    );
+
+    // Safari < 17.4 ships AbortSignal without the static `any` combinator.
+    Object.defineProperty(AbortSignal, "any", {
+      configurable: true,
+      value: undefined,
+      writable: true,
+    });
+
+    try {
+      usePathnameMock.mockReturnValue(ROUTES.tribes.bySlug(MEMBER_TRIBE.slug));
+      mockFetchOnce({
+        channel: TRIBE_SUPPORT_CHANNEL.whatsapp,
+        message: null,
+        phoneNumber: "+54 9 11 1234 5678",
+      });
+
+      render(<TribeSupportButton memberTribes={[MEMBER_TRIBE]} />);
+
+      expect(
+        await screen.findByRole("link", { name: /Abrir WhatsApp de soporte/i })
+      ).toHaveAttribute("href", "https://wa.me/5491112345678");
+
+      const passedSignal = fetchMock.mock.calls[0]?.[1]?.signal as
+        | AbortSignal
+        | undefined;
+
+      expect(passedSignal).toBeInstanceOf(AbortSignal);
+      expect(passedSignal?.aborted).toBe(false);
+    } finally {
+      if (abortSignalAnyDescriptor) {
+        Object.defineProperty(AbortSignal, "any", abortSignalAnyDescriptor);
+      }
+    }
+  });
+
   it("renders a direct WhatsApp link for muted leaders when support is configured", async () => {
     usePathnameMock.mockReturnValue(ROUTES.tribes.bySlug(MUTED_LEADER_TRIBE.slug));
     mockFetchOnce({

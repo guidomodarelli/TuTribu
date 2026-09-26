@@ -13,6 +13,10 @@ type AutoSignInWithGoogleProps = {
   callbackUrl: string;
 };
 
+/**
+ * Starts the Google sign-in once on mount and keeps the manual button as a
+ * fallback when the automatic redirect does not happen.
+ */
 export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps) {
   const hasTriggeredSignInRef = useRef(false);
   const { push } = useRouter();
@@ -31,7 +35,7 @@ export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps)
   return (
     <div className={styles.AutoSignInWithGoogle}>
       <CardDescription className={styles.AutoSignInWithGoogle__description}>
-        Te estamos redirigiendo a Google. Si no sucede automaticamente, usa el boton.
+        Te estamos redirigiendo a Google. Si no sucede automáticamente, usá el botón.
       </CardDescription>
       <SignInWithGoogleButton callbackUrl={callbackUrl} />
     </div>

@@ -1,17 +1,18 @@
+@use "sass:math";
+@use "../../../src/styles/motion";
+
 $bouncing-dots-loader-md-width: 12.5rem;
 $bouncing-dots-loader-md-height: 3.75rem;
 $bouncing-dots-loader-md-dot-size: 1.25rem;
 $bouncing-dots-loader-md-shadow-height: 0.25rem;
 $bouncing-dots-loader-md-shadow-top: 3.875rem;
 $bouncing-dots-loader-md-dot-flat-height: 0.3125rem;
-$bouncing-dots-loader-md-dot-flat-radius: 3.125rem 3.125rem 1.5625rem 1.5625rem;
 $bouncing-dots-loader-sm-width: 6.5rem;
 $bouncing-dots-loader-sm-height: 1.875rem;
 $bouncing-dots-loader-sm-dot-size: 0.625rem;
 $bouncing-dots-loader-sm-shadow-height: 0.1875rem;
 $bouncing-dots-loader-sm-shadow-top: 1.9375rem;
 $bouncing-dots-loader-sm-dot-flat-height: 0.1875rem;
-$bouncing-dots-loader-sm-dot-flat-radius: 1.5625rem 1.5625rem 0.75rem 0.75rem;
 $bouncing-dots-loader-animation-duration: 0.5s;
 $bouncing-dots-loader-animation-delay-step-one: 0.2s;
 $bouncing-dots-loader-animation-delay-step-two: 0.3s;
@@ -21,12 +22,46 @@ $bouncing-dots-loader-shadow-color: color-mix(
   var(--foreground) 35%,
   transparent
 );
+// Squash of a dot touching the floor, and the share of the cycle it takes to recover.
+$bouncing-dots-loader-squash-width: 1.7;
+$bouncing-dots-loader-recovery-progress: 0.4;
+// Short loads finish before the loader shows, so it never flashes.
+$bouncing-dots-loader-reveal-delay: 120ms;
+
+/// Travel of a dot resting at `top: 0` whose bottom edge reaches the floor
+/// while squashed to `$flat-height`, scaling from its bottom center.
+@function bouncing-dots-floor-offset($stage-height, $dot-size, $flat-height) {
+  @return $stage-height + $flat-height - $dot-size;
+}
+
+/// Bounce drawn with `transform` only, so it runs on the compositor instead
+/// of re-laying out `top`, `height` and `border-radius` on every frame.
+@mixin bouncing-dots-keyframes($name, $stage-height, $dot-size, $flat-height) {
+  @keyframes #{$name} {
+    0% {
+      transform: translateY(bouncing-dots-floor-offset($stage-height, $dot-size, $flat-height))
+        scale($bouncing-dots-loader-squash-width, math.div($flat-height, $dot-size));
+    }
+
+    #{$bouncing-dots-loader-recovery-progress * 100%} {
+      transform: translateY($stage-height * (1 - $bouncing-dots-loader-recovery-progress)) scale(1);
+    }
+
+    100% {
+      transform: translateY(0) scale(1);
+    }
+  }
+}
+
+@include motion.define-keyframes;
 
 .BouncingDotsLoader {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
+
+  @include motion.fade($bouncing-dots-loader-reveal-delay);
 
   &__stage {
     position: relative;
@@ -42,12 +77,13 @@ $bouncing-dots-loader-shadow-color: color-mix(
 
   &__dot {
     position: absolute;
+    top: 0;
     left: 15%;
     width: $bouncing-dots-loader-md-dot-size;
     height: $bouncing-dots-loader-md-dot-size;
     border-radius: 50%;
     background-color: $bouncing-dots-loader-dot-color;
-    transform-origin: 50%;
+    transform-origin: 50% 100%;
     animation: BouncingDotsLoader-dot-md
       $bouncing-dots-loader-animation-duration alternate infinite ease;
 
@@ -114,43 +150,19 @@ $bouncing-dots-loader-shadow-color: color-mix(
   }
 }
 
-@keyframes BouncingDotsLoader-dot-md {
-  0% {
-    top: $bouncing-dots-loader-md-height;
-    height: $bouncing-dots-loader-md-dot-flat-height;
-    border-radius: $bouncing-dots-loader-md-dot-flat-radius;
-    transform: scaleX(1.7);
-  }
+@include bouncing-dots-keyframes(
+  BouncingDotsLoader-dot-md,
+  $bouncing-dots-loader-md-height,
+  $bouncing-dots-loader-md-dot-size,
+  $bouncing-dots-loader-md-dot-flat-height
+);
 
-  40% {
-    height: $bouncing-dots-loader-md-dot-size;
-    border-radius: 50%;
-    transform: scaleX(1);
-  }
-
-  100% {
-    top: 0;
-  }
-}
-
-@keyframes BouncingDotsLoader-dot-sm {
-  0% {
-    top: $bouncing-dots-loader-sm-height;
-    height: $bouncing-dots-loader-sm-dot-flat-height;
-    border-radius: $bouncing-dots-loader-sm-dot-flat-radius;
-    transform: scaleX(1.7);
-  }
-
-  40% {
-    height: $bouncing-dots-loader-sm-dot-size;
-    border-radius: 50%;
-    transform: scaleX(1);
-  }
-
-  100% {
-    top: 0;
-  }
-}
+@include bouncing-dots-keyframes(
+  BouncingDotsLoader-dot-sm,
+  $bouncing-dots-loader-sm-height,
+  $bouncing-dots-loader-sm-dot-size,
+  $bouncing-dots-loader-sm-dot-flat-height
+);
 
 @keyframes BouncingDotsLoader-shadow {
   0% {

@@ -11,6 +11,8 @@ import type { MemberTribeListItemResult } from "@/src/modules/tribes/application
 import type { TribeSupportSettings } from "@/src/modules/tribes/domain/repositories/tribe-support-repository";
 import { TribeSupportConfigDialog } from "@/components/tribes/tribe-support-config-dialog";
 
+import { joinClassNames } from "@/lib/motion/join-class-names";
+
 import styles from "./styles.module.scss";
 
 const SUPPORT_BUTTON_COPY = {
@@ -55,6 +57,12 @@ const SUPPORT_PHONE_NON_DIGIT_PATTERN = /\D/g;
 
 const SUPPORT_FETCH_TIMEOUT_MS = 15000;
 
+/** Icon shown once the support settings resolve; it pops in after the loader. */
+const RESOLVED_ICON_CLASS_NAME = joinClassNames(
+  styles.TribeSupportButton__icon,
+  styles["TribeSupportButton__icon--resolved"]
+);
+
 type TribeSupportButtonProps = {
   memberTribes: MemberTribeListItemResult[];
 };
@@ -62,6 +70,46 @@ type TribeSupportButtonProps = {
 type FetchResponseBody = {
   settings: TribeSupportSettings | null;
 };
+
+/**
+ * Combines the effect abort signal with a request timeout. `AbortSignal.any`
+ * only exists since Safari 17.4, so older WebKit gets an equivalent controller
+ * aborted by a timer; without it the request would throw synchronously and
+ * members would never see the support button.
+ * @param effectSignal - Signal aborted when the effect is cleaned up.
+ * @param timeoutMs - Maximum request duration.
+ * @returns The combined signal and a cleanup that releases the fallback timer.
+ */
+function createTimeoutSignal(
+  effectSignal: AbortSignal,
+  timeoutMs: number
+): { dispose: () => void; signal: AbortSignal } {
+  if (
+    typeof AbortSignal.any === "function" &&
+    typeof AbortSignal.timeout === "function"
+  ) {
+    return {
+      dispose: () => {},
+      signal: AbortSignal.any([effectSignal, AbortSignal.timeout(timeoutMs)]),
+    };
+  }
+
+  const fallbackController = new AbortController();
+  const abortFallback = () => {
+    fallbackController.abort();
+  };
+  const timeoutId = window.setTimeout(abortFallback, timeoutMs);
+
+  effectSignal.addEventListener("abort", abortFallback, { once: true });
+
+  return {
+    dispose: () => {
+      window.clearTimeout(timeoutId);
+      effectSignal.removeEventListener("abort", abortFallback);
+    },
+    signal: fallbackController.signal,
+  };
+}
 
 function isSameOrNestedPath(pathname: string, routePath: string): boolean {
   return (
@@ -109,6 +157,10 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
 
   useEffect(() => {
     const abortController = new AbortController();
+    const requestSignal = createTimeoutSignal(
+      abortController.signal,
+      SUPPORT_FETCH_TIMEOUT_MS
+    );
     let isCurrent = true;
 
     async function loadSupportSettings() {
@@ -127,12 +179,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
           SUPPORT_BUTTON_REQUEST.apiPrefix +
             encodeURIComponent(activeTribeSlug) +
             SUPPORT_BUTTON_REQUEST.supportSegment,
-          {
-            signal: AbortSignal.any([
-              abortController.signal,
-              AbortSignal.timeout(SUPPORT_FETCH_TIMEOUT_MS),
-            ]),
-          }
+          { signal: requestSignal.signal }
         );
 
         if (!isCurrent) {
@@ -170,6 +217,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
     return () => {
       isCurrent = false;
       abortController.abort();
+      requestSignal.dispose();
     };
   }, [activeTribeSlug]);
 
@@ -206,7 +254,10 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
       >
         <LoaderIcon
           aria-hidden
-          className={`${styles.TribeSupportButton__icon} ${styles["TribeSupportButton__icon--spinning"]}`}
+          className={joinClassNames(
+            styles.TribeSupportButton__icon,
+            styles["TribeSupportButton__icon--spinning"]
+          )}
         />
       </Button>
     );
@@ -233,7 +284,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
           rel={SUPPORT_BUTTON_LINK.newTabRel}
           target={SUPPORT_BUTTON_LINK.newTabTarget}
         >
-          <WhatsappIcon aria-hidden className={styles.TribeSupportButton__icon} />
+          <WhatsappIcon aria-hidden className={RESOLVED_ICON_CLASS_NAME} />
         </a>
       </Button>
     );
@@ -250,7 +301,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
           type={SUPPORT_BUTTON_UI.buttonType}
           variant={SUPPORT_BUTTON_UI.buttonVariant}
         >
-          <WhatsappIcon aria-hidden className={styles.TribeSupportButton__icon} />
+          <WhatsappIcon aria-hidden className={RESOLVED_ICON_CLASS_NAME} />
         </Button>
         <TribeSupportConfigDialog
           initialSettings={null}
@@ -276,7 +327,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
             type={SUPPORT_BUTTON_UI.buttonType}
             variant={SUPPORT_BUTTON_UI.buttonVariant}
           >
-            <WhatsappIcon aria-hidden className={styles.TribeSupportButton__icon} />
+            <WhatsappIcon aria-hidden className={RESOLVED_ICON_CLASS_NAME} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align={SUPPORT_BUTTON_UI.align}>

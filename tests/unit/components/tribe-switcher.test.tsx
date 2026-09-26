@@ -124,6 +124,18 @@ describe("TribeSwitcher", () => {
     ).toHaveAttribute("data-active", "false");
   });
 
+  it("tells assistive technology which tribe is being viewed", async () => {
+    const user = userEvent.setup();
+
+    (usePathname as Mock).mockReturnValue("/beta-club/eventos");
+    render(<TribeSwitcher memberTribes={memberTribes} />);
+
+    await user.click(screen.getByRole("button", { name: /abrir tribus/i }));
+
+    expect(screen.getByRole("menuitem", { name: "Beta Club" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("menuitem", { name: "Alpha Club" })).not.toHaveAttribute("aria-current");
+  });
+
   it("does not render tribe items on the home route", () => {
     render(<TribeSwitcher memberTribes={memberTribes} />);
 

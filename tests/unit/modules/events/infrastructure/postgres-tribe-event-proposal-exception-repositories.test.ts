@@ -3,6 +3,9 @@ import { describe, expect, it, vi, type Mock } from "vitest";
 import { PostgresTribeEventOccurrenceExceptionRepository } from "@/src/modules/events/infrastructure/repositories/postgres-tribe-event-occurrence-exception-repository";
 import { PostgresTribeEventProposalRepository } from "@/src/modules/events/infrastructure/repositories/postgres-tribe-event-proposal-repository";
 
+/** Drizzle `execute` mock whose calls record every SQL statement it receives. */
+type ExecuteStatements = (...statements: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
+
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const PROPOSAL_ID = "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f";
 const TRIBE_ID = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
@@ -81,7 +84,7 @@ const proposalRow = {
 
 describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
   it("upserts the exception of a date only for event managers", async () => {
-    const execute = vi.fn(async (..._statements: unknown[]) => ({
+    const execute = vi.fn<ExecuteStatements>(async () => ({
       rows: [
         {
           event_id: EVENT_ID,
@@ -184,7 +187,7 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
   });
 
   it("bumps the series revision when a date is restored", async () => {
-    const execute = vi.fn(async (..._statements: unknown[]) => ({
+    const execute = vi.fn<ExecuteStatements>(async () => ({
       rows: [{ status: "exception_cleared" }],
     }));
     const repository = new PostgresTribeEventOccurrenceExceptionRepository(
@@ -353,7 +356,7 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
   });
 
   it("reads exceptions only for viewers who can read the tribe", async () => {
-    const execute = vi.fn(async (..._statements: unknown[]) => ({
+    const execute = vi.fn<ExecuteStatements>(async () => ({
       rows: [
         {
           event_id: EVENT_ID,

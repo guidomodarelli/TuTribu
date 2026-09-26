@@ -1,20 +1,32 @@
+@use "../../../src/styles/motion";
+
 .AvatarSessionMenu {
   display: inline-flex;
   width: auto;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  transition:
-    box-shadow 160ms ease,
-    opacity 160ms ease;
+  -webkit-tap-highlight-color: transparent;
 
-  &:hover {
-    opacity: 0.88;
+  @include motion.interactive(box-shadow, opacity, transform);
+
+  @media (hover: hover) {
+    &:hover {
+      opacity: 0.88;
+    }
   }
 
-  &:focus-visible {
+  &:active {
+    transform: scale(0.96);
+  }
+
+  // Ring separated from the avatar by the page background, visible on photos.
+  &:focus-visible,
+  &[data-state="open"] {
     outline: none;
-    box-shadow: 0 0 0 2px var(--ring);
+    box-shadow:
+      0 0 0 2px var(--background),
+      0 0 0 4px var(--ring);
   }
 
   &__content {

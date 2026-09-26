@@ -3,7 +3,15 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { TribeSubscriptionPaymentStatus } from "@/components/subscriptions/tribe-subscription-payment-status";
+import * as browserNavigation from "@/lib/browser-navigation";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+
+// The project's navigation boundary: jsdom cannot leave the document for the checkout.
+vi.mock("@/lib/browser-navigation", () => ({
+  navigateToUrl: vi.fn(),
+}));
+
+const CHECKOUT_URL = "https://www.mercadopago.com.ar/subscriptions/checkout";
 
 describe("TribeSubscriptionPaymentStatus", () => {
   const previousFetch = global.fetch;
@@ -51,7 +59,7 @@ describe("TribeSubscriptionPaymentStatus", () => {
       console.error = vi.fn();
       global.fetch = vi.fn(async () => ({
         json: async () => ({
-          checkoutUrl: "https://www.mercadopago.com.ar/subscriptions/checkout",
+          checkoutUrl: CHECKOUT_URL,
         }),
         ok: true,
       })) as Mock;
@@ -68,13 +76,14 @@ describe("TribeSubscriptionPaymentStatus", () => {
       await user.click(screen.getByRole("button", { name: "Volver a pagar" }));
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
-          "/api/tribes/matematica-pro/subscriptions/start",
-          expect.objectContaining({
-            method: "POST",
-          })
-        );
+        expect(browserNavigation.navigateToUrl).toHaveBeenCalledWith(CHECKOUT_URL);
       });
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/start",
+        expect.objectContaining({
+          method: "POST",
+        })
+      );
     }
   );
 
@@ -101,8 +110,82 @@ describe("TribeSubscriptionPaymentStatus", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps the retry action disabled while the browser leaves for the checkout", async () => {
+    const user = userEvent.setup();
+    console.error = vi.fn();
+    global.fetch = vi.fn(async () => ({
+      json: async () => ({
+        checkoutUrl: CHECKOUT_URL,
+      }),
+      ok: true,
+    })) as Mock;
+
+    render(
+      <TribeSubscriptionPaymentStatus
+        subscriptionStatus={TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const retryButton = screen.getByRole("button", { name: "Volver a pagar" });
+
+    await user.click(retryButton);
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText("Un momento, te llevamos al siguiente paso.")
+    ).toBeInTheDocument();
+    expect(retryButton).toBeDisabled();
+    expect(retryButton).toHaveAttribute("aria-busy", "true");
+    expect(browserNavigation.navigateToUrl).toHaveBeenCalledTimes(1);
+    expect(browserNavigation.navigateToUrl).toHaveBeenCalledWith(CHECKOUT_URL);
+  });
+
+  it("starts a single checkout when the retry action is double-clicked", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn(
+      () => new Promise(() => undefined)
+    ) as unknown as Mock;
+
+    render(
+      <TribeSubscriptionPaymentStatus
+        subscriptionStatus={TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.dblClick(screen.getByRole("button", { name: "Volver a pagar" }));
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-enables the retry action and announces the error when checkout cannot start", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn(async () => ({
+      json: async () => ({}),
+      ok: false,
+    })) as Mock;
+
+    render(
+      <TribeSubscriptionPaymentStatus
+        subscriptionStatus={TRIBE_MEMBER_SUBSCRIPTION_STATUS.paymentBlocked}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Volver a pagar" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        /^No pudimos iniciar el pago. Intentá de nuevo.$/
+      )
+    );
+    expect(screen.getByRole("button", { name: "Volver a pagar" })).toBeEnabled();
+  });
+
   it("shows the safe fallback when the retry request fails unexpectedly", async () => {
     const user = userEvent.setup();
+    console.error = vi.fn();
     global.fetch = vi.fn(async () => {
       throw new Error("Failed to fetch");
     }) as Mock;

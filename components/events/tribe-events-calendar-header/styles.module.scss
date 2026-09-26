@@ -1,3 +1,24 @@
+@use "../../../src/styles/motion";
+
+// Horizontal travel of the month title after the viewer changed month.
+$tribe-events-calendar-header-title-offset: 10px;
+$tribe-events-calendar-header-title-duration: 280ms;
+// Chevron nudge towards the month it links to, on hover.
+$tribe-events-calendar-header-chevron-nudge: 2px;
+
+// Slides the month title in from the side the viewer navigated towards.
+@keyframes TribeEventsCalendarHeaderTitleEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--month-enter-offset, 0), 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .TribeEventsCalendarHeader {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -28,6 +49,23 @@
     line-height: 1.1;
     text-align: center;
     overflow-wrap: anywhere;
+
+    &[data-month-transition="next"] {
+      --month-enter-offset: #{$tribe-events-calendar-header-title-offset};
+    }
+
+    &[data-month-transition="previous"] {
+      --month-enter-offset: -#{$tribe-events-calendar-header-title-offset};
+    }
+
+    &[data-month-transition="next"],
+    &[data-month-transition="previous"] {
+      animation: TribeEventsCalendarHeaderTitleEnter $tribe-events-calendar-header-title-duration motion.$ease-out both;
+
+      @include motion.reduced {
+        animation: none;
+      }
+    }
   }
 
   &__todayLink,
@@ -37,18 +75,51 @@
     justify-content: center;
     border: 1px solid var(--border);
     border-radius: 999rem;
+    background: var(--background);
     color: var(--foreground);
     font-weight: 600;
     text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+
+    @include motion.interactive;
+
+    &:hover {
+      border-color: color-mix(in oklch, var(--foreground) 24%, var(--border));
+      background: var(--accent);
+    }
+
+    &:active {
+      transform: scale(0.96);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
   }
 
   &__iconLink {
+    flex: none;
     width: 2.25rem;
     height: 2.25rem;
 
     svg {
       width: 1.1rem;
       height: 1.1rem;
+
+      @include motion.interactive(transform);
+    }
+  }
+
+  // The chevron leans towards the month it opens; hover-capable pointers only,
+  // so a tap on touch screens never leaves it shifted.
+  @media (hover: hover) and (pointer: fine) {
+    &__iconLink--previous:hover svg {
+      transform: translate3d(-$tribe-events-calendar-header-chevron-nudge, 0, 0);
+    }
+
+    &__iconLink--next:hover svg {
+      transform: translate3d($tribe-events-calendar-header-chevron-nudge, 0, 0);
     }
   }
 
@@ -86,6 +157,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.6rem;
+    min-width: 0;
   }
 
   &__viewToggle {
@@ -94,6 +166,29 @@
     border: 1px solid var(--border);
     border-radius: 0.75rem;
     padding: 0.2rem;
+  }
+
+  // The marker sits under the icon inside the pressed button.
+  &__viewButton {
+    position: relative;
+    isolation: isolate;
+
+    &--active,
+    &--active:hover {
+      color: var(--secondary-foreground);
+    }
+  }
+
+  &__viewIndicator {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--secondary);
+  }
+
+  &__viewIcon {
+    position: relative;
   }
 
   &__filters {

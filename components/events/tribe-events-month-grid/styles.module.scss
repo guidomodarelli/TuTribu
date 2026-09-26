@@ -1,3 +1,5 @@
+@use "../../../src/styles/motion";
+
 // Block root: stacks the month table and the phone day summary with the same
 // spacing the calendar swipe area applied when they were rendered as siblings.
 .TribeEventsMonthGrid {
@@ -17,6 +19,9 @@
 
   &__dayHeader {
     border-left: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: 0.8rem;
+    font-weight: 600;
     text-align: center;
   }
 
@@ -30,7 +35,6 @@
 
   &__dayCell--today {
     background: color-mix(in oklch, var(--primary) 6%, var(--background));
-    box-shadow: inset 0 3px 0 var(--primary);
   }
 
   &__dayNumber {
@@ -39,11 +43,20 @@
     justify-content: center;
     width: 1.75rem;
     height: 1.75rem;
+    border-radius: 50%;
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
   }
 
   &__dayNumber--muted {
     color: var(--muted-foreground);
+    font-weight: 500;
+  }
+
+  // Filled marker so today reads at a glance, even in the compact phone grid.
+  &__dayNumber--today {
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 
   &__dayEvents {
@@ -69,9 +82,21 @@
     background: none;
     color: var(--muted-foreground);
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    @include motion.interactive;
 
     &[aria-pressed="true"] {
       background: color-mix(in oklch, var(--primary) 14%, var(--background));
+    }
+
+    &:active {
+      transform: scale(0.94);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
     }
   }
 
@@ -116,6 +141,23 @@
     overflow-wrap: anywhere;
     padding: 0.35rem;
     text-align: left;
+    -webkit-tap-highlight-color: transparent;
+
+    @include motion.interactive;
+
+    &:hover {
+      border-color: color-mix(in oklch, var(--event-type-accent, var(--primary)) 60%, var(--border));
+      background: color-mix(in oklch, var(--event-type-accent, var(--primary)) 10%, var(--event-type-surface, var(--background)));
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
+    }
   }
 
   &__eventPill--past,
@@ -125,6 +167,11 @@
     background: color-mix(in oklch, var(--muted) 60%, var(--background));
     color: var(--muted-foreground);
     font-weight: 600;
+
+    &:hover {
+      border-color: color-mix(in oklch, var(--foreground) 18%, var(--border));
+      background: var(--muted);
+    }
   }
 
   &__eventPillTitle--cancelled {
@@ -183,6 +230,12 @@
 
     &__daySummary {
       display: grid;
+      min-width: 0;
+
+      // No summary for the tapped day: keep the root gap from adding space.
+      &:empty {
+        display: none;
+      }
     }
   }
 }

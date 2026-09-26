@@ -2,7 +2,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import { act } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "beez-ui";
 
@@ -441,4 +441,204 @@ describe("TribeStoryManagement", () => {
       );
     });
   });
+
+  it("moves focus to the new resource URL field after adding it", async () => {
+    const user = userEvent.setup();
+
+    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+
+    await user.click(screen.getByRole("button", { name: /agregar recurso/i }));
+
+    expect(screen.getByLabelText("URL de la imagen")).toHaveFocus();
+  });
+
+  it("keeps focus on the moved resource and announces its new position", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeStoryManagement
+        story={buildStoryWithImages(["primera", "segunda", "tercera"])}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Bajar Recurso 1 de 3" }));
+
+    // Still movable down: focus stays on the same arrow of the moved row.
+    expect(
+      screen.getByRole("button", { name: "Bajar Recurso 2 de 3" })
+    ).toHaveFocus();
+    expect(
+      screen.getByText("Recurso movido a la posición 2 de 3.")
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Bajar Recurso 2 de 3" }));
+
+    // At the bottom edge "Bajar" is disabled, so focus hands over to "Subir".
+    expect(
+      screen.getByRole("button", { name: "Subir Recurso 3 de 3" })
+    ).toHaveFocus();
+    expect(screen.getAllByLabelText("URL de la imagen").at(-1)).toHaveValue(
+      "https://images.example.com/primera.jpg"
+    );
+  });
+
+  it("moves focus to the add button and drops the row after removing a resource", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeStoryManagement
+        story={buildStoryWithImages(["primera"])}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Eliminar Recurso 1 de 1" })
+    );
+
+    expect(
+      screen.getByRole("button", { name: /agregar recurso/i })
+    ).toHaveFocus();
+    await waitFor(() => {
+      expect(screen.queryByLabelText("URL de la imagen")).not.toBeInTheDocument();
+    });
+  });
+
+  it("reorders resources by dragging a row handle onto another row", () => {
+    render(
+      <TribeStoryManagement
+        story={buildStoryWithImages(["primera", "segunda"])}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const dataTransfer = {
+      dropEffect: "",
+      effectAllowed: "",
+      setData: vi.fn(),
+      setDragImage: vi.fn(),
+    };
+    const [firstHandle] = screen.getAllByTitle("Arrastrar para reordenar");
+    const [, secondUrlInput] = screen.getAllByLabelText("URL de la imagen");
+
+    fireEvent.dragStart(firstHandle, { dataTransfer });
+    fireEvent.dragOver(secondUrlInput, { dataTransfer });
+    fireEvent.drop(secondUrlInput, { dataTransfer });
+
+    expect(dataTransfer.setData).toHaveBeenCalled();
+    expect(
+      screen.getAllByLabelText("URL de la imagen").map((input) => (input as HTMLInputElement).value)
+    ).toEqual([
+      "https://images.example.com/segunda.jpg",
+      "https://images.example.com/primera.jpg",
+    ]);
+  });
+
+  it("selects the URL placeholder after inserting a link from the toolbar", async () => {
+    const user = userEvent.setup();
+
+    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+
+    const contentInput = screen.getByLabelText(
+      "Historia de la tribu"
+    ) as HTMLTextAreaElement;
+
+    await user.type(contentInput, "Mirá el sitio");
+    contentInput.setSelectionRange(5, 13);
+    await user.click(screen.getByRole("button", { name: "Link" }));
+
+    expect(contentInput).toHaveValue("Mirá [el sitio](https://)");
+    expect(
+      contentInput.value.slice(
+        contentInput.selectionStart,
+        contentInput.selectionEnd
+      )
+    ).toBe("https://");
+    expect(contentInput).toHaveFocus();
+  });
+
+  it("shows progress and sends a single request when the form is submitted twice", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockReturnValue(new Promise(() => undefined));
+
+    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+
+    await user.type(
+      screen.getByLabelText("Historia de la tribu"),
+      "Nacimos en 2020."
+    );
+
+    const form = screen
+      .getByRole("button", { name: "Guardar" })
+      .closest("form") as HTMLFormElement;
+
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+
+    const savingButton = await screen.findByRole("button", {
+      name: "Guardando...",
+    });
+
+    expect(savingButton).toBeDisabled();
+    expect(savingButton).toHaveAttribute("aria-busy", "true");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not paste an uploaded image into a row that was switched to video meanwhile", async () => {
+    const user = userEvent.setup();
+    let resolveUpload!: (response: unknown) => void;
+
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/tribes/matematica-pro/images") {
+        return {
+          json: vi.fn(async () => ({
+            deliveryUrl: "https://imagedelivery.example.com/subida.jpg",
+            imageId: "image-1",
+            uploadUrl: "https://upload.example.com/direct",
+          })),
+          ok: true,
+        };
+      }
+
+      return new Promise((resolve) => {
+        resolveUpload = resolve;
+      });
+    });
+
+    render(<TribeStoryManagement story={null} tribeSlug="matematica-pro" />);
+
+    await user.click(screen.getByRole("button", { name: /agregar recurso/i }));
+    await user.upload(
+      screen.getByLabelText("Subir imagen"),
+      new File(["imagen"], "tribu.png", { type: "image/png" })
+    );
+    await screen.findByText("Subiendo...");
+
+    await user.click(screen.getByRole("combobox", { name: "Tipo" }));
+    await user.click(await screen.findByRole("option", { name: "Video" }));
+
+    resolveUpload({ ok: true });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Subiendo...")).not.toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Link del video")).toHaveValue("");
+  });
 });
+
+function buildStoryWithImages(imageNames: string[]) {
+  return {
+    content: "Nacimos en 2020.",
+    media: imageNames.map((imageName, imageIndex) => ({
+      externalVideoId: null,
+      id: "media-" + imageName,
+      mediaType: "image" as const,
+      sortOrder: imageIndex,
+      url: `https://images.example.com/${imageName}.jpg`,
+      videoProvider: null,
+    })),
+    websiteUrl: null,
+  };
+}

@@ -1,3 +1,7 @@
+@use "../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .NotFoundPage {
   --not-found-accent-warm: oklch(0.84 0.12 78 / 26%);
   --not-found-accent-cool: oklch(0.82 0.11 220 / 22%);
@@ -26,6 +30,26 @@
       linear-gradient(180deg, var(--not-found-surface-start), var(--not-found-surface-end));
   }
 
+  // Copy and actions settle in one after another; the backdrop stays static.
+  &__eyebrow,
+  &__title,
+  &__description,
+  &__actions {
+    @include motion.enter;
+  }
+
+  &__title {
+    animation-delay: 40ms;
+  }
+
+  &__description {
+    animation-delay: 80ms;
+  }
+
+  &__actions {
+    animation-delay: 120ms;
+  }
+
   &__eyebrow {
     margin: 0;
     font-family: var(--font-mono);
@@ -38,6 +62,7 @@
   &__title {
     margin: 0;
     max-width: 11ch;
+    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
     font-size: clamp(2.9rem, 9vw, 6rem);
     line-height: 0.95;
     letter-spacing: 0;

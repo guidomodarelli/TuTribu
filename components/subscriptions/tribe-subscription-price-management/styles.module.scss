@@ -1,3 +1,13 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
+@keyframes TribeSubscriptionPriceManagementSpin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 .TribeSubscriptionPriceManagement {
   display: grid;
   gap: 1.5rem;
@@ -54,17 +64,37 @@
   }
 
   &__status {
+    @include motion.fade;
+
     align-items: center;
     color: var(--foreground);
     display: flex;
     gap: 0.9rem;
     margin: 0;
+
+    &--error {
+      color: var(--destructive);
+    }
   }
 
   &__status svg {
     color: oklch(0.72 0.19 142);
+    flex-shrink: 0;
     height: 1.75rem;
     width: 1.75rem;
+  }
+
+  &__status--error svg {
+    color: var(--destructive);
+  }
+
+  // Loading indicator only: it stops under reduced motion.
+  &__spinningIcon {
+    animation: TribeSubscriptionPriceManagementSpin 800ms linear infinite;
+
+    @include motion.reduced {
+      animation: none;
+    }
   }
 
   &__diagnostics {
@@ -143,6 +173,7 @@
 
   &__diagnosticsValue {
     font-size: 1.75rem;
+    font-variant-numeric: tabular-nums;
     font-weight: 700;
     line-height: 1;
     margin: 0;
@@ -209,7 +240,7 @@
   &__trialField {
     display: grid;
     gap: 0.45rem;
-    transition: opacity 0.15s ease;
+    transition: opacity motion.$duration-hover motion.$ease-out;
   }
 
   &__trialField[data-disabled="true"] {
@@ -250,7 +281,10 @@
     margin-top: 0.25rem;
   }
 
+  // Mounted when editing starts: it eases in below its price row.
   &__editForm {
+    @include motion.enter($distance: 4px);
+
     display: grid;
     gap: 1rem;
     padding-block: 1rem;
@@ -323,6 +357,20 @@
     font-size: 1.25rem;
     font-weight: 700;
     overflow-wrap: anywhere;
+  }
+
+  &__amount {
+    font-variant-numeric: tabular-nums;
+  }
+
+  // Provider counts appear after a manual verification.
+  &__meta--fresh {
+    @include motion.fade;
+  }
+
+  // Pops in when a price becomes the current one.
+  &__currentBadge {
+    @include motion.pop;
   }
 
   &__badges {

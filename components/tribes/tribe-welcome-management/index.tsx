@@ -1,14 +1,13 @@
 "use client";
 
 import { useId, useMemo, useRef, useState } from "react";
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { LoaderCircleIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { isValidPhoneNumber } from "libphonenumber-js";
+import { AnimatePresence } from "motion/react";
 import { toast, Button, Input, Switch, Textarea } from "beez-ui";
 
-
-
-
-
+import { AnimatedCount } from "@/components/motion/animated-count";
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { TribeWelcomeDisplay } from "@/components/tribes/tribe-welcome-display";
 import { TribeWelcomeSelectionModal } from "@/components/tribes/tribe-welcome-selection-modal";
 import type {
@@ -78,7 +77,7 @@ const TRIBE_WELCOME_MANAGEMENT_COPY = {
   previewModalButton: "Ver modal de selección",
   previewModalEmpty: "Activá al menos un link para previsualizar el modal.",
   previewSrLabel: "Vista previa de la bienvenida",
-  removeItemLabel: "Eliminar",
+  removeItemLabel: (legend: string) => `Eliminar ${legend}`,
   removeLinkTitle: "Eliminar link",
   removeRuleTitle: "Eliminar acuerdo",
   requiredBadgeLabel: "Ingresá un texto para el badge.",
@@ -95,6 +94,7 @@ const TRIBE_WELCOME_MANAGEMENT_COPY = {
   requiredLinkUrl: "Ingresá una URL.",
   requiredRuleLabel: "Escribí el acuerdo antes de guardar.",
   saveButton: "Guardar",
+  savingButton: "Guardando...",
   saveSuccess: "Bienvenida actualizada.",
   validationSummary: "Revisá los campos marcados antes de guardar.",
   validationWhatsappPhone:
@@ -151,7 +151,6 @@ const WELCOME_MANAGEMENT_TEXT = {
 
 const WELCOME_MANAGEMENT_ARIA = {
   ariaHiddenTrue: "true",
-  ariaLivePolite: "polite",
   roleAlert: "alert",
 } as const;
 
@@ -264,20 +263,26 @@ function buildWelcomeEndpoint(tribeSlug: string): string {
   );
 }
 
-function createEmptyRule(sortOrder: number): TribeWelcomeRuleResult {
+function createEmptyRule(
+  id: string,
+  sortOrder: number
+): TribeWelcomeRuleResult {
   return {
-    id: createClientId(),
+    id,
     isActive: true,
     label: "",
     sortOrder,
   };
 }
 
-function createEmptyLink(sortOrder: number): TribeWelcomeLinkResult {
+function createEmptyLink(
+  id: string,
+  sortOrder: number
+): TribeWelcomeLinkResult {
   return {
     badgeLabel: "",
     description: null,
-    id: createClientId(),
+    id,
     isActive: true,
     label: "",
     message: null,
@@ -521,6 +526,11 @@ async function submitWelcomeUpdate(
   return responseBody.message ?? TRIBE_WELCOME_MANAGEMENT_COPY.saveSuccess;
 }
 
+/**
+ * Welcome editor for tribe leaders: greeting, selection modal copy, agreements
+ * and resource links, with inline validation, a live preview and a preview of
+ * the member selection modal. Non-leaders get the read-only welcome display.
+ */
 export function TribeWelcomeManagement({
   canEdit,
   canRecordSelections = false,
@@ -576,6 +586,9 @@ export function TribeWelcomeManagement({
   const selectionModalDescriptionErrorId = useId();
   const linksHeadingErrorId = useId();
   const pendingFocusIdRef = useRef<string | null>(null);
+  const isSavingRef = useRef(false);
+  const addRuleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const addLinkButtonRef = useRef<HTMLButtonElement | null>(null);
   const currentWelcome = useMemo(
     () => ({
       linksHeading,
@@ -718,26 +731,48 @@ export function TribeWelcomeManagement({
       clearMissingBadgeLabelLink(linkId);
     }
   };
+  // Ids are created outside the state updaters so the updaters stay pure (React
+  // may call them twice) and the pending focus always targets the added row.
   const handleAddRule = () => {
-    setRules((currentRules) => {
-      const created = createEmptyRule(getNextSortOrder(currentRules));
+    const createdRuleId = createClientId();
 
-      pendingFocusIdRef.current = created.id;
-
-      return [...currentRules, created];
-    });
+    pendingFocusIdRef.current = createdRuleId;
+    setRules((currentRules) => [
+      ...currentRules,
+      createEmptyRule(createdRuleId, getNextSortOrder(currentRules)),
+    ]);
   };
   const handleAddLink = () => {
-    setLinks((currentLinks) => {
-      const created = createEmptyLink(getNextSortOrder(currentLinks));
+    const createdLinkId = createClientId();
 
-      pendingFocusIdRef.current = created.id;
-
-      return [...currentLinks, created];
-    });
+    pendingFocusIdRef.current = createdLinkId;
+    setLinks((currentLinks) => [
+      ...currentLinks,
+      createEmptyLink(createdLinkId, getNextSortOrder(currentLinks)),
+    ]);
+  };
+  // The removed row's controls leave the page, so focus moves to the add
+  // button of the same collection instead of falling back to <body>.
+  const handleRemoveRule = (ruleId: string) => {
+    setRules((currentRules) =>
+      currentRules.filter((currentRule) => currentRule.id !== ruleId)
+    );
+    addRuleButtonRef.current?.focus();
+  };
+  const handleRemoveLink = (linkId: string) => {
+    setLinks((currentLinks) =>
+      currentLinks.filter((currentLink) => currentLink.id !== linkId)
+    );
+    addLinkButtonRef.current?.focus();
   };
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    // A second submit (double click, Enter held down) must not start another
+    // request before the first one re-renders the disabled button.
+    if (isSavingRef.current) {
+      return;
+    }
 
     const nextInvalidUrls = collectInvalidUrlLinkIds(links);
     const nextMissingRuleLabels = collectInvalidLabelRuleIds(rules);
@@ -775,6 +810,7 @@ export function TribeWelcomeManagement({
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
     setValidationMessage(null);
 
@@ -793,6 +829,7 @@ export function TribeWelcomeManagement({
           : TRIBE_WELCOME_MANAGEMENT_COPY.fallbackSaveError
       );
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -1105,11 +1142,12 @@ export function TribeWelcomeManagement({
                   {TRIBE_WELCOME_MANAGEMENT_COPY.rulesHeading}
                 </h2>
                 <span className={styles.TribeWelcomeManagement__count}>
-                  {rules.length}
+                  <AnimatedCount value={rules.length} />
                 </span>
               </div>
               <Button
                 onClick={handleAddRule}
+                ref={addRuleButtonRef}
                 type={WELCOME_MANAGEMENT_REQUEST.buttonType}
                 variant={WELCOME_MANAGEMENT_REQUEST.outlineVariant}
               >
@@ -1122,26 +1160,28 @@ export function TribeWelcomeManagement({
                 {TRIBE_WELCOME_MANAGEMENT_COPY.emptyRules}
               </p>
             ) : null}
+            <AnimatePresence initial={false}>
             {rules.map((rule, ruleIndex) => {
               const ruleInputId = "rule-input-" + rule.id;
               const ruleErrorId = ruleLabelErrorIdPrefix + rule.id;
               const showRuleLabelError = missingLabelRuleIds.has(rule.id);
+              const ruleLegend = buildLegend(
+                TRIBE_WELCOME_MANAGEMENT_COPY.ruleLegendPrefix,
+                ruleIndex,
+                rules.length
+              );
 
               return (
+                <AnimatedListItem as="div" key={rule.id}>
                 <fieldset
                   className={
                     styles.TribeWelcomeManagement__row +
                     " " +
                     styles["TribeWelcomeManagement__row--withHeader"]
                   }
-                  key={rule.id}
                 >
                   <legend className={styles.TribeWelcomeManagement__legend}>
-                    {buildLegend(
-                      TRIBE_WELCOME_MANAGEMENT_COPY.ruleLegendPrefix,
-                      ruleIndex,
-                      rules.length
-                    )}
+                    {ruleLegend}
                   </legend>
                   <label
                     className={
@@ -1168,17 +1208,11 @@ export function TribeWelcomeManagement({
                       {getActiveStateLabel(rule.isActive)}
                     </label>
                     <Button
-                      aria-label={
-                        TRIBE_WELCOME_MANAGEMENT_COPY.removeItemLabel
-                      }
+                      aria-label={TRIBE_WELCOME_MANAGEMENT_COPY.removeItemLabel(
+                        ruleLegend
+                      )}
                       className={styles.TribeWelcomeManagement__removeButton}
-                      onClick={() =>
-                        setRules((currentRules) =>
-                          currentRules.filter(
-                            (currentRule) => currentRule.id !== rule.id
-                          )
-                        )
-                      }
+                      onClick={() => handleRemoveRule(rule.id)}
                       size={WELCOME_MANAGEMENT_REQUEST.iconButtonSize}
                       title={TRIBE_WELCOME_MANAGEMENT_COPY.removeRuleTitle}
                       type={WELCOME_MANAGEMENT_REQUEST.buttonType}
@@ -1223,8 +1257,10 @@ export function TribeWelcomeManagement({
                     ) : null}
                   </div>
                 </fieldset>
+                </AnimatedListItem>
               );
             })}
+            </AnimatePresence>
           </section>
 
           <section className={styles.TribeWelcomeManagement__collection}>
@@ -1234,11 +1270,12 @@ export function TribeWelcomeManagement({
                   {TRIBE_WELCOME_MANAGEMENT_COPY.resourcesHeading}
                 </h2>
                 <span className={styles.TribeWelcomeManagement__count}>
-                  {links.length}
+                  <AnimatedCount value={links.length} />
                 </span>
               </div>
               <Button
                 onClick={handleAddLink}
+                ref={addLinkButtonRef}
                 type={WELCOME_MANAGEMENT_REQUEST.buttonType}
                 variant={WELCOME_MANAGEMENT_REQUEST.outlineVariant}
               >
@@ -1251,6 +1288,7 @@ export function TribeWelcomeManagement({
                 {TRIBE_WELCOME_MANAGEMENT_COPY.emptyLinks}
               </p>
             ) : null}
+            <AnimatePresence initial={false}>
             {links.map((link, linkIndex) => {
               const phoneErrorId = phoneErrorIdPrefix + link.id;
               const urlErrorId = urlErrorIdPrefix + link.id;
@@ -1263,22 +1301,23 @@ export function TribeWelcomeManagement({
               const showUrlError = invalidUrlLinkIds.has(link.id);
               const showLinkLabelError = missingLabelLinkIds.has(link.id);
               const showBadgeLabelError = missingBadgeLabelLinkIds.has(link.id);
+              const linkLegend = buildLegend(
+                TRIBE_WELCOME_MANAGEMENT_COPY.linkLegendPrefix,
+                linkIndex,
+                links.length
+              );
 
               return (
+                <AnimatedListItem as="div" key={link.id}>
                 <fieldset
                   className={
                     styles.TribeWelcomeManagement__row +
                     " " +
                     styles["TribeWelcomeManagement__row--withHeader"]
                   }
-                  key={link.id}
                 >
                   <legend className={styles.TribeWelcomeManagement__legend}>
-                    {buildLegend(
-                      TRIBE_WELCOME_MANAGEMENT_COPY.linkLegendPrefix,
-                      linkIndex,
-                      links.length
-                    )}
+                    {linkLegend}
                   </legend>
                   <label
                     className={
@@ -1611,17 +1650,11 @@ export function TribeWelcomeManagement({
                       {getActiveStateLabel(link.isActive)}
                     </label>
                     <Button
-                      aria-label={
-                        TRIBE_WELCOME_MANAGEMENT_COPY.removeItemLabel
-                      }
+                      aria-label={TRIBE_WELCOME_MANAGEMENT_COPY.removeItemLabel(
+                        linkLegend
+                      )}
                       className={styles.TribeWelcomeManagement__removeButton}
-                      onClick={() =>
-                        setLinks((currentLinks) =>
-                          currentLinks.filter(
-                            (currentLink) => currentLink.id !== link.id
-                          )
-                        )
-                      }
+                      onClick={() => handleRemoveLink(link.id)}
                       size={WELCOME_MANAGEMENT_REQUEST.iconButtonSize}
                       title={TRIBE_WELCOME_MANAGEMENT_COPY.removeLinkTitle}
                       type={WELCOME_MANAGEMENT_REQUEST.buttonType}
@@ -1631,8 +1664,10 @@ export function TribeWelcomeManagement({
                     </Button>
                   </div>
                 </fieldset>
+                </AnimatedListItem>
               );
             })}
+            </AnimatePresence>
           </section>
 
         <aside
@@ -1652,10 +1687,9 @@ export function TribeWelcomeManagement({
               {TRIBE_WELCOME_MANAGEMENT_COPY.previewModalButton}
             </Button>
           </div>
-          <div
-            aria-live={WELCOME_MANAGEMENT_ARIA.ariaLivePolite}
-            className={styles.TribeWelcomeManagement__previewSurface}
-          >
+          {/* Not a live region: announcing the whole preview on every keystroke
+              would drown the form for screen reader users. */}
+          <div className={styles.TribeWelcomeManagement__previewSurface}>
             <TribeWelcomeDisplay welcome={currentWelcome} />
           </div>
           {!hasActivePreviewLinks ? (
@@ -1665,20 +1699,20 @@ export function TribeWelcomeManagement({
           ) : null}
         </aside>
 
-        {isPreviewModalOpen ? (
-          <TribeWelcomeSelectionModal
-            benefit={
-              selectionModalBenefit.trim() ? selectionModalBenefit : null
-            }
-            description={selectionModalDescription}
-            links={links}
-            onClose={() => setIsPreviewModalOpen(false)}
-            open
-            previewOnly
-            title={selectionModalTitle}
-            tribeSlug={tribeSlug}
-          />
-        ) : null}
+        {/* Kept mounted so the dialog can play its exit animation and return
+            focus to the "Ver modal de selección" button when it closes. */}
+        <TribeWelcomeSelectionModal
+          benefit={
+            selectionModalBenefit.trim() ? selectionModalBenefit : null
+          }
+          description={selectionModalDescription}
+          links={links}
+          onClose={() => setIsPreviewModalOpen(false)}
+          open={isPreviewModalOpen}
+          previewOnly
+          title={selectionModalTitle}
+          tribeSlug={tribeSlug}
+        />
 
         {validationMessage ? (
           <p
@@ -1691,11 +1725,22 @@ export function TribeWelcomeManagement({
 
         <div className={styles.TribeWelcomeManagement__submitBar}>
           <Button
+            aria-busy={isSaving || undefined}
             className={styles.TribeWelcomeManagement__submit}
             disabled={isSaving || !isDirty}
             type={WELCOME_MANAGEMENT_REQUEST.submitButtonType}
           >
-            {TRIBE_WELCOME_MANAGEMENT_COPY.saveButton}
+            {isSaving ? (
+              <>
+                <LoaderCircleIcon
+                  aria-hidden
+                  className={styles.TribeWelcomeManagement__submitSpinner}
+                />
+                {TRIBE_WELCOME_MANAGEMENT_COPY.savingButton}
+              </>
+            ) : (
+              TRIBE_WELCOME_MANAGEMENT_COPY.saveButton
+            )}
           </Button>
         </div>
       </form>

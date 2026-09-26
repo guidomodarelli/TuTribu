@@ -1,5 +1,13 @@
 .ThemeModeDropdown {
+  // Anchors the outgoing icon, which Motion pops out of the flow while it exits.
+  position: relative;
   border-radius: 999px;
+
+  &__iconSlot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 
   &__triggerIcon {
     color: var(--foreground);
@@ -9,4 +17,3 @@
     min-width: 9rem;
   }
 }
-

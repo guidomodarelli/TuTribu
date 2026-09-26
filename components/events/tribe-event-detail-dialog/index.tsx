@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { CalendarPlusIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } from "lucide-react";
 
 import {
@@ -21,6 +21,8 @@ import {
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";
 import {
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY,
@@ -79,6 +81,25 @@ type TribeEventDetailDialogProps = {
   viewerTimeZone: string | null;
 };
 
+/**
+ * Occurrence view the dialog renders: the open props, or the last open props
+ * while the dialog animates out.
+ */
+type RetainedDetailView = {
+  activityPanel: ReactNode;
+  attendeesPanel: ReactNode;
+  isPast: boolean;
+  occurrence: TribeEventOccurrenceResult;
+};
+
+type TribeEventDetailDialogBodyProps = Omit<
+  TribeEventDetailDialogProps,
+  "activityPanel" | "attendeesPanel" | "isPast" | "isSavingException" | "occurrence" | "onClose"
+> & {
+  isSavingException: boolean;
+  view: RetainedDetailView;
+};
+
 const EVENT_ENDPOINT = {
   calendarPath: "/calendar",
   eventsPath: "/events",
@@ -106,6 +127,14 @@ const BUTTON_ATTRIBUTE = {
 const DETAIL_TAB = {
   attendees: "attendees",
   detail: "detail",
+} as const;
+/**
+ * Presence keys of the attendance area: the summary and the cancelled
+ * notice cross-fade when a manager cancels or restores the date.
+ */
+const ATTENDANCE_PRESENCE_KEY = {
+  cancelled: "cancelled",
+  summary: "summary",
 } as const;
 const COPY = {
   attendanceHeading: "Asistencia",
@@ -182,17 +211,84 @@ export function TribeEventDetailDialog({
   tribeSlug,
   viewerTimeZone,
 }: TribeEventDetailDialogProps) {
-  const localTimeLabel = occurrence
-    ? formatViewerLocalTimeLabel(occurrence.startsAt, occurrence.endsAt, viewerTimeZone)
-    : null;
-  const recurrenceText = occurrence ? formatRecurrence(occurrence) : null;
-  const isCancelled = occurrence ? isOccurrenceCancelled(occurrence) : false;
-  const isSeries =
-    occurrence !== null &&
-    occurrence.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
-  const movedFromLabel = occurrence ? formatMovedFromLabel(occurrence) : null;
-  const googleCalendarUrl =
-    occurrence && !isCancelled ? buildTribeEventGoogleCalendarUrl(occurrence) : null;
+  // The container clears `occurrence` (and the panels built from it) to
+  // close the dialog, but the dialog keeps its content mounted while it
+  // animates out. The last open view is retained so the closing dialog shows
+  // what the member was reading instead of collapsing into an empty frame.
+  const [retainedView, setRetainedView] = useState<RetainedDetailView | null>(null);
+
+  if (occurrence !== null && retainedView?.occurrence !== occurrence) {
+    setRetainedView({ activityPanel, attendeesPanel, isPast, occurrence });
+  }
+
+  const view: RetainedDetailView | null =
+    occurrence !== null ? { activityPanel, attendeesPanel, isPast, occurrence } : retainedView;
+
+  return (
+    <Dialog
+      open={occurrence !== null}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className={styles.TribeEventDetailDialog}>
+        {view ? (
+          <TribeEventDetailDialogBody
+            canManageEvents={canManageEvents}
+            isSavingAttendance={isSavingAttendance}
+            isSavingException={isSavingException}
+            tribeSlug={tribeSlug}
+            view={view}
+            viewerTimeZone={viewerTimeZone}
+            onCancelOccurrence={onCancelOccurrence}
+            onCopyLink={onCopyLink}
+            onDelete={onDelete}
+            onEdit={onEdit}
+            onMoveOccurrence={onMoveOccurrence}
+            onRestoreOccurrence={onRestoreOccurrence}
+            onSetAttendance={onSetAttendance}
+            onToggleAttendees={onToggleAttendees}
+          />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Occurrence-dependent content of the dialog, rendered from the open props
+ * or, while closing, from the retained view.
+ */
+function TribeEventDetailDialogBody({
+  canManageEvents,
+  isSavingAttendance,
+  isSavingException,
+  onCancelOccurrence,
+  onCopyLink,
+  onDelete,
+  onEdit,
+  onMoveOccurrence,
+  onRestoreOccurrence,
+  onSetAttendance,
+  onToggleAttendees,
+  tribeSlug,
+  view,
+  viewerTimeZone,
+}: TribeEventDetailDialogBodyProps) {
+  const { activityPanel, attendeesPanel, isPast, occurrence } = view;
+  const localTimeLabel = formatViewerLocalTimeLabel(
+    occurrence.startsAt,
+    occurrence.endsAt,
+    viewerTimeZone
+  );
+  const recurrenceText = formatRecurrence(occurrence);
+  const isCancelled = isOccurrenceCancelled(occurrence);
+  const isSeries = occurrence.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
+  const movedFromLabel = formatMovedFromLabel(occurrence);
+  const googleCalendarUrl = isCancelled ? null : buildTribeEventGoogleCalendarUrl(occurrence);
+  const canAnswerAttendance = !isPast && !isCancelled;
 
   const renderSeriesManagerActions = (currentOccurrence: TribeEventOccurrenceResult) => (
     <DialogFooter className={styles.TribeEventDetailDialog__managerActions}>
@@ -271,7 +367,7 @@ export function TribeEventDetailDialog({
     </DialogFooter>
   );
 
-  const detailContent = occurrence ? (
+  const detailContent = (
     <>
       {movedFromLabel || occurrence.exception?.reason ? (
         <div className={styles.TribeEventDetailDialog__exception}>
@@ -289,7 +385,7 @@ export function TribeEventDetailDialog({
       {occurrence.description ? (
         <dl className={styles.TribeEventDetailDialog__facts}>
           <div className={styles.TribeEventDetailDialog__fact}>
-            <dt>{COPY.descriptionHeading}</dt>
+            <dt className={styles.TribeEventDetailDialog__factTerm}>{COPY.descriptionHeading}</dt>
             <dd className={styles.TribeEventDetailDialog__description}>
               {occurrence.description}
             </dd>
@@ -311,7 +407,7 @@ export function TribeEventDetailDialog({
           </Button>
         ) : (
           <p className={styles.TribeEventDetailDialog__missingLink}>
-            <LinkIcon aria-hidden />
+            <LinkIcon aria-hidden className={styles.TribeEventDetailDialog__missingLinkIcon} />
             {COPY.meetingLinkMissing}
           </p>
         )}
@@ -359,12 +455,18 @@ export function TribeEventDetailDialog({
         <p className={styles.TribeEventDetailDialog__attendanceHeading}>
           {COPY.attendanceHeading}
         </p>
-        {isCancelled ? (
-          <p className={styles.TribeEventDetailDialog__cancelledNotice}>{COPY.cancelledNotice}</p>
-        ) : (
-          <TribeEventAttendanceSummary isPast={isPast} occurrence={occurrence} />
-        )}
-        {isPast || isCancelled ? null : (
+        <PresenceSwap
+          presenceKey={
+            isCancelled ? ATTENDANCE_PRESENCE_KEY.cancelled : ATTENDANCE_PRESENCE_KEY.summary
+          }
+        >
+          {isCancelled ? (
+            <p className={styles.TribeEventDetailDialog__cancelledNotice}>{COPY.cancelledNotice}</p>
+          ) : (
+            <TribeEventAttendanceSummary isPast={isPast} occurrence={occurrence} />
+          )}
+        </PresenceSwap>
+        <AnimatedCollapse isOpen={canAnswerAttendance}>
           <div className={styles.TribeEventDetailDialog__attendanceActions}>
             <span className={styles.TribeEventDetailDialog__attendanceLegend}>
               {COPY.attendanceLegend}
@@ -376,100 +478,87 @@ export function TribeEventDetailDialog({
               onSelect={(status) => onSetAttendance(occurrence, status)}
             />
           </div>
-        )}
+        </AnimatedCollapse>
       </section>
       {activityPanel}
     </>
-  ) : null;
+  );
 
   return (
-    <Dialog
-      open={occurrence !== null}
-      onOpenChange={(open) => {
-        if (!open) {
-          onClose();
-        }
-      }}
-    >
-      <DialogContent className={styles.TribeEventDetailDialog}>
-        {occurrence ? (
-          <>
-            <DialogHeader>
-              <div className={styles.TribeEventDetailDialog__titleRow}>
-                <DialogTitle className={styles.TribeEventDetailDialog__title}>
-                  {occurrence.title}
-                </DialogTitle>
-                {isCancelled ? (
-                  <Badge variant={BADGE_VARIANT.destructive}>
-                    {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.cancelledBadge}
-                  </Badge>
-                ) : null}
-                {movedFromLabel ? (
-                  <Badge variant={BADGE_VARIANT.outline}>
-                    {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.movedBadge}
-                  </Badge>
-                ) : null}
-                {isPast && !isCancelled ? (
-                  <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
-                ) : null}
-              </div>
-              <TribeEventTypeBadge eventType={occurrence.eventType} />
-              <DialogDescription>
-                {formatBuenosAiresLongDate(occurrence.startsAt)}
-                {COPY.scheduleSeparator}
-                {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
-                {recurrenceText ? COPY.scheduleSeparator + recurrenceText : null}
-              </DialogDescription>
-              {localTimeLabel ? (
-                <p className={styles.TribeEventDetailDialog__localTime}>{localTimeLabel}</p>
-              ) : null}
-            </DialogHeader>
-
-            {attendeesPanel ? (
-              <Tabs
-                className={styles.TribeEventDetailDialog__tabs}
-                defaultValue={DETAIL_TAB.detail}
-                key={occurrence.occurrenceKey}
-                onValueChange={(value) => onToggleAttendees?.(value === DETAIL_TAB.attendees)}
-              >
-                <TabsList>
-                  <TabsTrigger value={DETAIL_TAB.detail}>{COPY.detailTab}</TabsTrigger>
-                  <TabsTrigger value={DETAIL_TAB.attendees}>{COPY.attendeesTab}</TabsTrigger>
-                </TabsList>
-                <TabsContent
-                  className={styles.TribeEventDetailDialog__tabPanel}
-                  value={DETAIL_TAB.detail}
-                >
-                  {detailContent}
-                </TabsContent>
-                <TabsContent value={DETAIL_TAB.attendees}>{attendeesPanel}</TabsContent>
-              </Tabs>
-            ) : (
-              detailContent
-            )}
-
-            {canManageEvents && isSeries ? renderSeriesManagerActions(occurrence) : null}
-            {canManageEvents && !isSeries ? (
-              <DialogFooter className={styles.TribeEventDetailDialog__actions}>
-                <Button
-                  type={BUTTON_ATTRIBUTE.typeButton}
-                  variant={BUTTON_ATTRIBUTE.variantSecondary}
-                  onClick={() => onEdit(occurrence)}
-                >
-                  {COPY.editButton}
-                </Button>
-                <Button
-                  type={BUTTON_ATTRIBUTE.typeButton}
-                  variant={BUTTON_ATTRIBUTE.variantDestructive}
-                  onClick={() => onDelete(occurrence)}
-                >
-                  {COPY.deleteButton}
-                </Button>
-              </DialogFooter>
-            ) : null}
-          </>
+    <>
+      <DialogHeader>
+        <div className={styles.TribeEventDetailDialog__titleRow}>
+          <DialogTitle className={styles.TribeEventDetailDialog__title}>
+            {occurrence.title}
+          </DialogTitle>
+          {isCancelled ? (
+            <Badge variant={BADGE_VARIANT.destructive}>
+              {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.cancelledBadge}
+            </Badge>
+          ) : null}
+          {movedFromLabel ? (
+            <Badge variant={BADGE_VARIANT.outline}>
+              {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.movedBadge}
+            </Badge>
+          ) : null}
+          {isPast && !isCancelled ? (
+            <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
+          ) : null}
+        </div>
+        <TribeEventTypeBadge eventType={occurrence.eventType} />
+        <DialogDescription>
+          {formatBuenosAiresLongDate(occurrence.startsAt)}
+          {COPY.scheduleSeparator}
+          {formatBuenosAiresTimeRange(occurrence.startsAt, occurrence.endsAt)}
+          {recurrenceText ? COPY.scheduleSeparator + recurrenceText : null}
+        </DialogDescription>
+        {localTimeLabel ? (
+          <p className={styles.TribeEventDetailDialog__localTime}>{localTimeLabel}</p>
         ) : null}
-      </DialogContent>
-    </Dialog>
+      </DialogHeader>
+
+      {attendeesPanel ? (
+        <Tabs
+          className={styles.TribeEventDetailDialog__tabs}
+          defaultValue={DETAIL_TAB.detail}
+          key={occurrence.occurrenceKey}
+          onValueChange={(value) => onToggleAttendees?.(value === DETAIL_TAB.attendees)}
+        >
+          <TabsList>
+            <TabsTrigger value={DETAIL_TAB.detail}>{COPY.detailTab}</TabsTrigger>
+            <TabsTrigger value={DETAIL_TAB.attendees}>{COPY.attendeesTab}</TabsTrigger>
+          </TabsList>
+          <TabsContent
+            className={styles.TribeEventDetailDialog__tabPanel}
+            value={DETAIL_TAB.detail}
+          >
+            {detailContent}
+          </TabsContent>
+          <TabsContent value={DETAIL_TAB.attendees}>{attendeesPanel}</TabsContent>
+        </Tabs>
+      ) : (
+        detailContent
+      )}
+
+      {canManageEvents && isSeries ? renderSeriesManagerActions(occurrence) : null}
+      {canManageEvents && !isSeries ? (
+        <DialogFooter className={styles.TribeEventDetailDialog__actions}>
+          <Button
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={BUTTON_ATTRIBUTE.variantSecondary}
+            onClick={() => onEdit(occurrence)}
+          >
+            {COPY.editButton}
+          </Button>
+          <Button
+            type={BUTTON_ATTRIBUTE.typeButton}
+            variant={BUTTON_ATTRIBUTE.variantDestructive}
+            onClick={() => onDelete(occurrence)}
+          >
+            {COPY.deleteButton}
+          </Button>
+        </DialogFooter>
+      ) : null}
+    </>
   );
 }

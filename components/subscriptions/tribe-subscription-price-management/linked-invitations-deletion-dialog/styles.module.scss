@@ -1,3 +1,11 @@
+@use "../../../../src/styles/motion";
+
+@keyframes LinkedInvitationsDeletionDialogSpin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 .LinkedInvitationsDeletionDialog {
   max-width: min(100%, 640px);
 
@@ -8,11 +16,17 @@
     font-weight: 600;
   }
 
+  // Long link lists scroll inside the dialog so the footer actions stay
+  // reachable on short phone viewports.
   &__list {
     display: grid;
     gap: 0.85rem;
     margin: 0;
-    padding: 0;
+    max-height: min(52svh, 28rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    // Room for the focus rings of the controls inside the scroll area.
+    padding: 0.125rem;
     list-style: none;
   }
 
@@ -22,15 +36,24 @@
     padding: 0.65rem;
     border: 1px solid var(--border);
     border-radius: 0.55rem;
+    min-width: 0;
   }
 
   &__itemLabel {
     color: var(--foreground);
     font-size: 0.95rem;
     font-weight: 600;
+    overflow-wrap: anywhere;
   }
 
   &__itemControls {
+    display: grid;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  // Controls revealed by the chosen action; they expand in place.
+  &__conditionalControls {
     display: grid;
     gap: 0.45rem;
   }
@@ -44,15 +67,22 @@
     margin: 0;
     color: var(--muted-foreground);
     font-size: 0.85rem;
+
+    &--danger {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      color: var(--destructive);
+      font-weight: 600;
+    }
   }
 
-  &__notice--danger {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    margin: 0;
-    color: var(--destructive);
-    font-size: 0.85rem;
-    font-weight: 600;
+  // Loading indicator only: it stops under reduced motion.
+  &__spinner {
+    animation: LinkedInvitationsDeletionDialogSpin 800ms linear infinite;
+
+    @include motion.reduced {
+      animation: none;
+    }
   }
 }

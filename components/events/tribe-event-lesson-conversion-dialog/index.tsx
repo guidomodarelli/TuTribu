@@ -18,6 +18,8 @@ import {
   Textarea,
 } from "beez-ui";
 
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import { Link } from "@/components/navigation/link";
 import {
   TRIBE_EVENT_POST_EVENT_LOAD_STATUS,
@@ -60,7 +62,29 @@ const FIELD_ID = {
   description: "tribe-event-lesson-description",
   module: "tribe-event-lesson-module",
   title: "tribe-event-lesson-title",
+  validationError: "tribe-event-lesson-validation-error",
 } as const;
+
+/** Required controls that the validation message can point at. */
+type LessonRequiredFieldId =
+  | typeof FIELD_ID.course
+  | typeof FIELD_ID.module
+  | typeof FIELD_ID.title;
+
+/** Body states of the dialog; changing between them cross-fades the body. */
+const BODY_PRESENCE_KEY = {
+  empty: "empty",
+  error: "error",
+  form: "form",
+  loading: "loading",
+  result: "result",
+} as const;
+
+/** Data the body renders, frozen while the dialog animates out. */
+type LessonConversionView = Pick<
+  TribeEventLessonConversionDialogProps,
+  "convertedLesson" | "targetsState"
+>;
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
@@ -93,12 +117,34 @@ const COPY = {
 } as const;
 
 /**
+ * First required control still missing, in reading order (course, module,
+ * title), or null when all of them are filled.
+ */
+function findFirstMissingField(
+  hasCourse: boolean,
+  courseModuleId: string,
+  title: string
+): LessonRequiredFieldId | null {
+  if (!hasCourse) {
+    return FIELD_ID.course;
+  }
+
+  if (!courseModuleId) {
+    return FIELD_ID.module;
+  }
+
+  return title.trim() ? null : FIELD_ID.title;
+}
+
+/**
  * "Convertir en lección": picks a course and a module of the tribe and
  * creates a lesson with the recording video and the prefilled event copy.
  * When the occurrence already had a lesson in that course, it links to it.
+ * Loading, error, form and result cross-fade; a missing field is reported
+ * under the form, marked invalid and focused.
  */
 export function TribeEventLessonConversionDialog({
-  convertedLesson,
+  convertedLesson: openConvertedLesson,
   defaultDescription,
   defaultTitle,
   isOpen,
@@ -106,13 +152,32 @@ export function TribeEventLessonConversionDialog({
   onClose,
   onRetry,
   onSubmit,
-  targetsState,
+  targetsState: openTargetsState,
 }: TribeEventLessonConversionDialogProps) {
   const [courseId, setCourseId] = useState(EMPTY_VALUE);
   const [courseModuleId, setCourseModuleId] = useState(EMPTY_VALUE);
   const [title, setTitle] = useState(defaultTitle);
   const [description, setDescription] = useState(defaultDescription);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [invalidFieldId, setInvalidFieldId] = useState<LessonRequiredFieldId | null>(null);
+  // Closing resets the conversion state in the same update, but the dialog
+  // stays on screen while it animates out: the body keeps rendering the last
+  // open view so it does not flash "Cargando cursos…" on its way out.
+  const [retainedView, setRetainedView] = useState<LessonConversionView>({
+    convertedLesson: openConvertedLesson,
+    targetsState: openTargetsState,
+  });
+
+  if (
+    isOpen &&
+    (retainedView.convertedLesson !== openConvertedLesson ||
+      retainedView.targetsState !== openTargetsState)
+  ) {
+    setRetainedView({ convertedLesson: openConvertedLesson, targetsState: openTargetsState });
+  }
+
+  const { convertedLesson, targetsState } = isOpen
+    ? { convertedLesson: openConvertedLesson, targetsState: openTargetsState }
+    : retainedView;
   const courses =
     targetsState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded ? targetsState.courses : [];
   const coursesWithModules = courses.filter((course) => course.modules.length > 0);
@@ -125,8 +190,18 @@ export function TribeEventLessonConversionDialog({
       return;
     }
 
-    if (!selectedCourse || !courseModuleId || !title.trim()) {
-      setValidationError(COPY.missingFields);
+    const missingFieldId = findFirstMissingField(selectedCourse !== null, courseModuleId, title);
+
+    if (!selectedCourse || missingFieldId) {
+      const fieldToFix = missingFieldId ?? FIELD_ID.course;
+      const control = submitEvent.currentTarget.elements.namedItem(fieldToFix);
+
+      setInvalidFieldId(fieldToFix);
+
+      if (control instanceof HTMLElement) {
+        control.focus();
+      }
+
       return;
     }
 
@@ -137,6 +212,22 @@ export function TribeEventLessonConversionDialog({
       title: title.trim(),
     });
   };
+
+  /** ARIA wiring that ties a required control to the validation message. */
+  const getValidationProps = (fieldId: LessonRequiredFieldId) =>
+    invalidFieldId === fieldId
+      ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
+      : {};
+
+  const bodyPresenceKey = convertedLesson
+    ? BODY_PRESENCE_KEY.result
+    : targetsState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error
+      ? BODY_PRESENCE_KEY.error
+      : targetsState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loaded
+        ? coursesWithModules.length === 0
+          ? BODY_PRESENCE_KEY.empty
+          : BODY_PRESENCE_KEY.form
+        : BODY_PRESENCE_KEY.loading;
 
   const renderBody = () => {
     if (convertedLesson) {
@@ -191,7 +282,13 @@ export function TribeEventLessonConversionDialog({
     }
 
     return (
-      <form className={styles.TribeEventLessonConversionDialog__form} onSubmit={handleSubmit}>
+      // Native validation is off so a missing field reaches the Spanish inline
+      // message; `required` still marks the mandatory title for assistive tech.
+      <form
+        className={styles.TribeEventLessonConversionDialog__form}
+        noValidate
+        onSubmit={handleSubmit}
+      >
         <div className={styles.TribeEventLessonConversionDialog__field}>
           <label htmlFor={FIELD_ID.course}>{COPY.courseLabel}</label>
           <Select
@@ -205,13 +302,17 @@ export function TribeEventLessonConversionDialog({
                 return;
               }
 
-              setValidationError(null);
+              setInvalidFieldId(null);
               setCourseId(value);
               // A course with a single module preselects it.
               setCourseModuleId(course.modules.length === 1 ? course.modules[0].id : EMPTY_VALUE);
             }}
           >
-            <SelectTrigger className={styles.TribeEventLessonConversionDialog__select} id={FIELD_ID.course}>
+            <SelectTrigger
+              {...getValidationProps(FIELD_ID.course)}
+              className={styles.TribeEventLessonConversionDialog__select}
+              id={FIELD_ID.course}
+            >
               <SelectValue placeholder={COPY.coursePlaceholder} />
             </SelectTrigger>
             <SelectContent>
@@ -233,11 +334,15 @@ export function TribeEventLessonConversionDialog({
                 return;
               }
 
-              setValidationError(null);
+              setInvalidFieldId(null);
               setCourseModuleId(value);
             }}
           >
-            <SelectTrigger className={styles.TribeEventLessonConversionDialog__select} id={FIELD_ID.module}>
+            <SelectTrigger
+              {...getValidationProps(FIELD_ID.module)}
+              className={styles.TribeEventLessonConversionDialog__select}
+              id={FIELD_ID.module}
+            >
               <SelectValue placeholder={COPY.modulePlaceholder} />
             </SelectTrigger>
             <SelectContent>
@@ -252,12 +357,13 @@ export function TribeEventLessonConversionDialog({
         <div className={styles.TribeEventLessonConversionDialog__field}>
           <label htmlFor={FIELD_ID.title}>{COPY.titleLabel}</label>
           <Input
+            {...getValidationProps(FIELD_ID.title)}
             id={FIELD_ID.title}
             maxLength={COURSE_LESSON_TITLE.maxLength}
             required
             value={title}
             onChange={(event) => {
-              setValidationError(null);
+              setInvalidFieldId(null);
               setTitle(event.currentTarget.value);
             }}
           />
@@ -272,11 +378,15 @@ export function TribeEventLessonConversionDialog({
             onChange={(event) => setDescription(event.currentTarget.value)}
           />
         </div>
-        {validationError ? (
-          <p className={styles.TribeEventLessonConversionDialog__error} role="alert">
-            {validationError}
+        <AnimatedCollapse isOpen={invalidFieldId !== null}>
+          <p
+            className={styles.TribeEventLessonConversionDialog__error}
+            id={FIELD_ID.validationError}
+            role="alert"
+          >
+            {COPY.missingFields}
           </p>
-        ) : null}
+        </AnimatedCollapse>
         <div className={styles.TribeEventLessonConversionDialog__actions}>
           <Button type={BUTTON_ATTRIBUTE.typeButton} variant={BUTTON_ATTRIBUTE.variantGhost} onClick={onClose}>
             {COPY.cancelButton}
@@ -303,7 +413,7 @@ export function TribeEventLessonConversionDialog({
           <DialogTitle>{COPY.title}</DialogTitle>
           <DialogDescription>{COPY.description}</DialogDescription>
         </DialogHeader>
-        {renderBody()}
+        <PresenceSwap presenceKey={bodyPresenceKey}>{renderBody()}</PresenceSwap>
       </DialogContent>
     </Dialog>
   );

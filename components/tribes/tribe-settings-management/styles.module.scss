@@ -1,3 +1,7 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .TribeSettingsManagement {
   display: grid;
   gap: clamp(1.5rem, 4vw, 2.25rem);
@@ -7,6 +11,8 @@
   padding: 0.25rem 0 1.5rem;
 
   &__header {
+    @include motion.enter;
+
     display: grid;
     gap: 0.5rem;
     min-width: 0;
@@ -39,6 +45,8 @@
   }
 
   &__form {
+    @include motion.fade(60ms);
+
     display: grid;
     gap: 1.5rem;
     min-width: 0;
@@ -118,9 +126,12 @@
     min-width: 0;
   }
 
+  &__fieldFeedback {
+    grid-column: 1 / -1;
+  }
+
   &__fieldNote,
   &__fieldError {
-    grid-column: 1 / -1;
     font-size: 0.8rem;
     line-height: 1.45;
   }
@@ -141,6 +152,12 @@
       opacity: 0.6;
       pointer-events: none;
     }
+
+    // The real control is the visually hidden file input: mirror its keyboard focus.
+    &:has(input:focus-visible) {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
   }
 
   &__uploadInput {
@@ -156,6 +173,7 @@
   }
 
   &__logoPreview {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -168,7 +186,15 @@
     background: color-mix(in srgb, var(--muted) 50%, transparent);
   }
 
-  &__logoPreviewImage {
+  &__previewSwap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__previewImage {
     display: block;
     width: 100%;
     height: 100%;
@@ -187,10 +213,6 @@
     border: 1px solid var(--border);
     border-radius: 1rem;
     background: color-mix(in srgb, var(--muted) 50%, transparent);
-  }
-
-  &__coverPreviewImage {
-    object-fit: cover;
   }
 
   &__previewEmpty {

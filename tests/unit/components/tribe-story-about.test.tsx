@@ -1,5 +1,6 @@
 import { vi, describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
 
@@ -168,6 +169,56 @@ describe("TribeStoryAbout", () => {
     expect(
       screen.queryByRole("link", { name: "Unirse a la tribu" })
     ).not.toBeInTheDocument();
+  });
+
+  it("disables the free join button and shows progress while joining", async () => {
+    const user = userEvent.setup();
+    const freeJoinAction = vi.fn(
+      () => new Promise<void>(() => undefined)
+    );
+
+    render(
+      <TribeStoryAbout
+        freeJoinAction={freeJoinAction}
+        offerPrice={null}
+        stats={{ ...STATS, openFreeJoinAvailable: true }}
+        story={null}
+        tribeName="Matematica Pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Unirse gratis" }));
+
+    const pendingButton = await screen.findByRole("button", {
+      name: "Uniéndote...",
+    });
+
+    expect(pendingButton).toBeDisabled();
+    expect(pendingButton).toHaveAttribute("aria-busy", "true");
+
+    await user.click(pendingButton);
+
+    expect(freeJoinAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("names every online member for assistive technology, including those without a photo", () => {
+    render(
+      <TribeStoryAbout
+        offerPrice={null}
+        onlineMembers={[
+          { image: null, name: "Ana Pérez" },
+          { image: "https://images.example.com/bruno.jpg", name: "Bruno Díaz" },
+        ]}
+        stats={STATS}
+        story={null}
+        tribeName="Matematica Pro"
+      />
+    );
+
+    const onlineList = screen.getByRole("list", { name: "Miembros en línea" });
+
+    expect(within(onlineList).getByText("Ana Pérez")).toBeInTheDocument();
+    expect(within(onlineList).getByAltText("Bruno Díaz")).toBeInTheDocument();
   });
 
   it("shows the empty state when there is no story yet", () => {

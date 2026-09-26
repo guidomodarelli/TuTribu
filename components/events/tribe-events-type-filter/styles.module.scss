@@ -1,3 +1,5 @@
+@use "../../../src/styles/motion";
+
 .TribeEventsTypeFilter {
   display: flex;
   flex-wrap: wrap;
@@ -20,8 +22,24 @@
     padding: 0 0.8rem;
     -webkit-tap-highlight-color: transparent;
 
+    @include motion.interactive;
+
+    &:hover {
+      border-color: color-mix(in oklch, var(--foreground) 24%, var(--border));
+      background: color-mix(in oklch, var(--muted) 60%, var(--background));
+    }
+
+    &:active {
+      transform: scale(0.96);
+    }
+
     &[data-event-type] {
       border-color: color-mix(in oklch, var(--event-type-accent) 40%, var(--border));
+    }
+
+    &[data-event-type]:hover {
+      border-color: color-mix(in oklch, var(--event-type-accent) 70%, var(--border));
+      background: color-mix(in oklch, var(--event-type-surface) 55%, var(--background));
     }
 
     &[aria-pressed="true"] {
@@ -47,5 +65,12 @@
     width: 0.95rem;
     height: 0.95rem;
     color: var(--event-type-accent);
+
+    @include motion.interactive(transform);
+  }
+
+  // A selected chip lifts its icon slightly, echoing the press.
+  &__chip[aria-pressed="true"] .TribeEventsTypeFilter__icon {
+    transform: scale(1.12);
   }
 }

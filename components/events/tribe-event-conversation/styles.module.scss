@@ -1,3 +1,5 @@
+@use "../../../src/styles/motion";
+
 .TribeEventConversation {
   display: grid;
   gap: 0.75rem;
@@ -28,6 +30,12 @@
     padding-left: 0.75rem;
   }
 
+  &__body {
+    display: grid;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
   &__retry {
     justify-self: start;
   }
@@ -44,6 +52,12 @@
     display: grid;
     gap: 0.3rem;
     min-width: 0;
+    @include motion.interactive(opacity);
+
+    // A comment being deleted dims until the server confirms and it folds away.
+    &--deleting {
+      opacity: 0.55;
+    }
   }
 
   &__itemHeader {
@@ -74,9 +88,13 @@
     flex: none;
   }
 
+  // Aligned with the author name (small avatar plus gap), so threads scan as one
+  // column of text.
   &__content {
     margin: 0;
+    padding-left: 2rem;
     font-size: 0.9rem;
+    line-height: 1.5;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
   }
@@ -86,6 +104,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
+    padding-left: 2rem;
     font-size: 0.85rem;
   }
 

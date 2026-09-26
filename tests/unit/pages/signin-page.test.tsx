@@ -181,7 +181,7 @@ describe("SignInPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: /iniciar sesion con google/i,
+        name: /iniciar sesión con google/i,
       })
     ).toBeInTheDocument();
   });

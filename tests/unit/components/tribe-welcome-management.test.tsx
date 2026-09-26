@@ -301,8 +301,12 @@ describe("TribeWelcomeManagement", () => {
       />
     );
 
-    await user.click(screen.getAllByRole("button", { name: "Eliminar" })[0]);
-    await user.click(screen.getAllByRole("button", { name: "Eliminar" })[1]);
+    await user.click(
+      screen.getByRole("button", { name: "Eliminar Acuerdo 1 de 2" })
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Eliminar Recurso 1 de 2" })
+    );
     await user.click(screen.getByRole("button", { name: "Agregar acuerdo" }));
     await user.click(screen.getByRole("button", { name: "Agregar link" }));
 
@@ -846,5 +850,102 @@ describe("TribeWelcomeManagement", () => {
     expect(
       screen.getByText("Completá el teléfono de WhatsApp para guardar ese link.")
     ).toBeInTheDocument();
+  });
+
+  it("shows progress and sends a single request when the form is submitted twice", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockReturnValue(new Promise(() => undefined));
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    await user.type(screen.getByLabelText("Mensaje de bienvenida"), " Hola");
+
+    const form = screen
+      .getByRole("button", { name: "Guardar" })
+      .closest("form") as HTMLFormElement;
+
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+
+    const savingButton = await screen.findByRole("button", {
+      name: "Guardando...",
+    });
+
+    expect(savingButton).toBeDisabled();
+    expect(savingButton).toHaveAttribute("aria-busy", "true");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("moves focus to the add button and drops the row after removing an agreement", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Eliminar Acuerdo 1 de 1" })
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Agregar acuerdo" })
+    ).toHaveFocus();
+    await waitFor(() => {
+      expect(
+        screen.queryByDisplayValue("Presentate al entrar")
+      ).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("Aún no agregaste acuerdos.")).toBeInTheDocument();
+  });
+
+  it("returns focus to the preview trigger when the selection modal preview closes", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    const openModalButton = screen.getByRole("button", {
+      name: "Ver modal de selección",
+    });
+
+    await user.click(openModalButton);
+    await screen.findByRole("dialog", { name: "Elegí cómo querés empezar" });
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(openModalButton).toHaveFocus();
+    });
+  });
+
+  it("does not announce the whole preview on every edit", () => {
+    render(
+      <TribeWelcomeManagement
+        canEdit
+        tribeSlug="matematica-pro"
+        welcome={buildWelcome()}
+      />
+    );
+
+    const preview = screen.getByRole("complementary", {
+      name: "Vista previa de la bienvenida",
+    });
+
+    expect(preview.querySelector("[aria-live]")).toBeNull();
   });
 });

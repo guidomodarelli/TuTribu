@@ -1,15 +1,16 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import { toast, Button, Input, Switch } from "beez-ui";
 
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { Link } from "@/components/navigation/link";
 import { RichLinkEditor } from "@/components/rich-text/rich-link-editor";
 import { useRichLinkEditor } from "@/components/rich-text/rich-link-editor/use-rich-link-editor";
-
-
-
 import { formatFileSize } from "@/lib/format-file-size";
+import { joinClassNames } from "@/lib/motion/join-class-names";
 import {
   ATTACHMENT_FILE,
   ATTACHMENT_FILE_INPUT_ACCEPT,
@@ -100,6 +101,7 @@ const COURSES_MANAGEMENT_COPY = {
   titleLabel: "Título",
   titleLessonPlaceholder: "Ej: Qué dinero invertir",
   titleModulePlaceholder: "Ej: Empezar acá",
+  titleRequiredMessage: "Escribí un título.",
   unexpectedError: "No pudimos completar la acción. Intentá de nuevo.",
   videoUrlHelp:
     "Pegá la URL completa del video (Vimeo, Wistia, Loom o YouTube).",
@@ -138,6 +140,18 @@ const OPTIMISTIC_ID_FALLBACK_SEPARATOR = "-";
 const TYPEOF_UNDEFINED = "undefined";
 const CRYPTO_RANDOM_UUID_PROPERTY = "randomUUID";
 const ARIA_ROLE_GROUP = "group";
+const ARIA_ROLE_ALERT = "alert";
+const ARIA_ROLE_STATUS = "status";
+
+/**
+ * Prefixes of the keys that name the control to refocus once a form closes;
+ * the entity id is appended.
+ */
+const FOCUS_RESTORE_KEY_PREFIX = {
+  addLesson: "add-lesson:",
+  editLesson: "edit-lesson:",
+  editModule: "edit-module:",
+} as const;
 
 function buildCanonicalVideoUrl(
   provider: VideoProvider,
@@ -478,6 +492,14 @@ function readLessonFromResponse(payload: unknown): LessonResult | null {
   };
 }
 
+/**
+ * Leader-facing module and lesson editor of a course, with optimistic CRUD,
+ * file attachments, animated list changes and focus kept on the affected
+ * control when forms open and close.
+ *
+ * @param props - Course identity, initial module tree and tribe slug.
+ * @returns Course content management page content.
+ */
 export function TribeCoursesManagement({
   courseId,
   courseTitle,
@@ -501,6 +523,61 @@ export function TribeCoursesManagement({
     string | null
   >(null);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const newModuleButtonRef = useRef<HTMLButtonElement>(null);
+  const shouldFocusNewModuleButtonRef = useRef(false);
+  const addLessonButtonsRef = useRef(new Map<string, HTMLButtonElement>());
+  // Key of the control that must regain focus when it mounts again after the
+  // form that replaced it closes (see FOCUS_RESTORE_KEY_PREFIX).
+  const focusRestoreKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!showNewModuleForm && shouldFocusNewModuleButtonRef.current) {
+      shouldFocusNewModuleButtonRef.current = false;
+      newModuleButtonRef.current?.focus();
+    }
+  }, [showNewModuleForm]);
+
+  const closeNewModuleForm = () => {
+    shouldFocusNewModuleButtonRef.current = true;
+    setShowNewModuleForm(false);
+  };
+
+  /**
+   * Builds a ref callback that focuses its element when it mounts while its
+   * key is the pending focus-restore target.
+   */
+  const bindFocusRestore =
+    (focusKey: string) => (element: HTMLElement | null) => {
+      if (element && focusRestoreKeyRef.current === focusKey) {
+        focusRestoreKeyRef.current = null;
+        element.focus();
+      }
+    };
+
+  const bindAddLessonButton =
+    (moduleId: string) => (element: HTMLButtonElement | null) => {
+      if (!element) {
+        addLessonButtonsRef.current.delete(moduleId);
+        return;
+      }
+      addLessonButtonsRef.current.set(moduleId, element);
+      bindFocusRestore(FOCUS_RESTORE_KEY_PREFIX.addLesson + moduleId)(element);
+    };
+
+  const closeModuleEditor = (moduleId: string) => {
+    focusRestoreKeyRef.current = FOCUS_RESTORE_KEY_PREFIX.editModule + moduleId;
+    setEditingModuleId(null);
+  };
+
+  const closeLessonEditor = (lessonId: string) => {
+    focusRestoreKeyRef.current = FOCUS_RESTORE_KEY_PREFIX.editLesson + lessonId;
+    setEditingLessonId(null);
+  };
+
+  const closeLessonCreator = (moduleId: string) => {
+    focusRestoreKeyRef.current = FOCUS_RESTORE_KEY_PREFIX.addLesson + moduleId;
+    setCreatingLessonModuleId(null);
+  };
 
   if (syncedInitialModules !== initialModules || syncedTribeSlug !== tribeSlug) {
     setSyncedInitialModules(initialModules);
@@ -632,7 +709,7 @@ export function TribeCoursesManagement({
       );
       swapModulePending(optimisticId, serverModule.id);
       clearModulePending(serverModule.id);
-      setShowNewModuleForm(false);
+      closeNewModuleForm();
       toast.success(COURSES_MANAGEMENT_COPY.moduleCreatedMessage);
     } catch {
       setModules((current) => removeModuleById(current, optimisticId));
@@ -701,7 +778,7 @@ export function TribeCoursesManagement({
         );
       }
       clearModulePending(moduleId);
-      setEditingModuleId(null);
+      closeModuleEditor(moduleId);
       toast.success(COURSES_MANAGEMENT_COPY.moduleUpdatedMessage);
     } catch {
       setModules((current) =>
@@ -727,6 +804,8 @@ export function TribeCoursesManagement({
     }
     setModules((current) => removeModuleById(current, moduleId));
     markModulePending(moduleId);
+    // The focused delete button leaves with its module; keep focus on the page.
+    newModuleButtonRef.current?.focus();
 
     try {
       const response = await fetch(buildModuleApiUrl(tribeSlug, moduleId), {
@@ -829,7 +908,7 @@ export function TribeCoursesManagement({
       );
       swapLessonPending(optimisticId, serverLesson.id);
       clearLessonPending(serverLesson.id);
-      setCreatingLessonModuleId(null);
+      closeLessonCreator(courseModuleId);
       toast.success(COURSES_MANAGEMENT_COPY.lessonCreatedMessage);
     } catch {
       setModules((current) =>
@@ -916,7 +995,7 @@ export function TribeCoursesManagement({
         );
       }
       clearLessonPending(lesson.id);
-      setEditingLessonId(null);
+      closeLessonEditor(lesson.id);
       toast.success(COURSES_MANAGEMENT_COPY.lessonUpdatedMessage);
     } catch {
       setModules((current) =>
@@ -944,6 +1023,8 @@ export function TribeCoursesManagement({
       removeLessonById(current, snapshot.moduleId, lessonId)
     );
     markLessonPending(lessonId);
+    // The focused delete button leaves with its lesson; keep focus in the module.
+    addLessonButtonsRef.current.get(snapshot.moduleId)?.focus();
 
     try {
       const response = await fetch(buildLessonApiUrl(tribeSlug, lessonId), {
@@ -1002,13 +1083,14 @@ export function TribeCoursesManagement({
         <Button
           disabled={showNewModuleForm}
           onClick={() => setShowNewModuleForm(true)}
+          ref={newModuleButtonRef}
           type={FORM_BUTTON_TYPE.button}
         >
           {COURSES_MANAGEMENT_COPY.newModuleButton}
         </Button>
       </header>
 
-      {showNewModuleForm ? (
+      <AnimatedCollapse isOpen={showNewModuleForm}>
         <ModuleForm
           headingLabel={COURSES_MANAGEMENT_COPY.createModuleHeading}
           initialState={{
@@ -1018,10 +1100,10 @@ export function TribeCoursesManagement({
             unlockAfterDays: null,
           }}
           isEditing={false}
-          onCancel={() => setShowNewModuleForm(false)}
+          onCancel={closeNewModuleForm}
           onSubmit={submitNewModule}
         />
-      ) : null}
+      </AnimatedCollapse>
 
       {modules.length === 0 && !showNewModuleForm ? (
         <p className={styles.TribeCoursesManagement__emptyState}>
@@ -1030,222 +1112,244 @@ export function TribeCoursesManagement({
       ) : null}
 
       <ul className={styles.TribeCoursesManagement__moduleList}>
-        {modules.map((courseModule) => {
-          const isModulePending = pendingModuleIds.has(courseModule.id);
-          const isModuleOptimistic = isOptimisticId(courseModule.id);
-          const isModuleLocked = isModulePending || isModuleOptimistic;
-          const moduleItemClassName = isModulePending
-            ? `${styles.TribeCoursesManagement__moduleItem} ${styles["TribeCoursesManagement__moduleItem--pending"]}`
-            : styles.TribeCoursesManagement__moduleItem;
+        <AnimatePresence initial={false}>
+          {modules.map((courseModule) => {
+            const isModulePending = pendingModuleIds.has(courseModule.id);
+            const isModuleOptimistic = isOptimisticId(courseModule.id);
+            const isModuleLocked = isModulePending || isModuleOptimistic;
 
-          return (
-            <li className={moduleItemClassName} key={courseModule.id}>
-              {editingModuleId === courseModule.id ? (
-                <ModuleForm
-                  headingLabel={`${EDIT_HEADING_PREFIX}${courseModule.title}`}
-                  initialState={{
-                    isActive: courseModule.isActive,
-                    sortOrder: courseModule.sortOrder,
-                    title: courseModule.title,
-                    unlockAfterDays: courseModule.unlockAfterDays,
-                  }}
-                  isEditing
-                  onCancel={() => setEditingModuleId(null)}
-                  onSubmit={(form) =>
-                    submitModuleUpdate(courseModule.id, form)
-                  }
-                />
-              ) : (
-                <div className={styles.TribeCoursesManagement__moduleHeader}>
-                  <div>
-                    <h2
-                      className={styles.TribeCoursesManagement__moduleTitle}
-                    >
-                      {courseModule.title}
-                      {!courseModule.isActive ? (
-                        <span
-                          className={
-                            styles.TribeCoursesManagement__inactiveBadge
-                          }
-                        >
-                          {COURSES_MANAGEMENT_COPY.inactiveBadge}
-                        </span>
-                      ) : null}
-                      {isModulePending ? (
-                        <span
-                          className={
-                            styles.TribeCoursesManagement__pendingBadge
-                          }
-                        >
-                          {COURSES_MANAGEMENT_COPY.pendingBadge}
-                        </span>
-                      ) : null}
-                    </h2>
-                    <p
-                      className={
-                        styles.TribeCoursesManagement__moduleMeta
-                      }
-                    >
-                      Orden: {courseModule.sortOrder}
-                      {courseModule.unlockAfterDays !== null
-                        ? ` · Se desbloquea a los ${courseModule.unlockAfterDays} días`
-                        : ""}
-                    </p>
-                  </div>
-                  <div
-                    aria-label={`Acciones del módulo ${courseModule.title}`}
-                    className={styles.TribeCoursesManagement__actions}
-                    role={ARIA_ROLE_GROUP}
-                  >
-                    <Button
-                      disabled={isModuleLocked}
-                      onClick={() => setEditingModuleId(courseModule.id)}
-                      type={FORM_BUTTON_TYPE.button}
-                      variant={BUTTON_VARIANT.outline}
-                    >
-                      {COURSES_MANAGEMENT_COPY.editButton}
-                    </Button>
-                    <Button
-                      disabled={isModuleLocked}
-                      onClick={() => deleteModule(courseModule.id)}
-                      type={FORM_BUTTON_TYPE.button}
-                      variant={BUTTON_VARIANT.destructive}
-                    >
-                      {COURSES_MANAGEMENT_COPY.deleteButton}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <ul className={styles.TribeCoursesManagement__lessonList}>
-                {courseModule.lessons.map((lesson) => {
-                  const isLessonPending = pendingLessonIds.has(lesson.id);
-                  const isLessonOptimistic = isOptimisticId(lesson.id);
-                  const isLessonLocked =
-                    isLessonPending || isLessonOptimistic;
-                  const lessonItemClassName = isLessonPending
-                    ? `${styles.TribeCoursesManagement__lessonItem} ${styles["TribeCoursesManagement__lessonItem--pending"]}`
-                    : styles.TribeCoursesManagement__lessonItem;
-
-                  return (
-                    <li className={lessonItemClassName} key={lesson.id}>
-                      {editingLessonId === lesson.id ? (
-                        <LessonForm
-                          headingLabel={`${EDIT_HEADING_PREFIX}${lesson.title}`}
-                          initialFiles={lesson.files ?? []}
-                          initialState={{
-                            description: lesson.description ?? "",
-                            externalVideoUrl: buildCanonicalVideoUrl(
-                              lesson.videoProvider,
-                              lesson.externalVideoId
-                            ),
-                            isActive: lesson.isActive,
-                            sortOrder: lesson.sortOrder,
-                            title: lesson.title,
-                          }}
-                          isEditing
-                          onCancel={() => setEditingLessonId(null)}
-                          onSubmit={(form) => submitLessonUpdate(lesson, form)}
-                          tribeSlug={tribeSlug}
-                        />
-                      ) : (
-                        <div
-                          className={
-                            styles.TribeCoursesManagement__lessonHeader
-                          }
-                        >
-                          <div>
-                            <h3
-                              className={
-                                styles.TribeCoursesManagement__lessonTitle
-                              }
-                            >
-                              {lesson.title}
-                              {!lesson.isActive ? (
-                                <span
-                                  className={
-                                    styles.TribeCoursesManagement__inactiveBadge
-                                  }
-                                >
-                                  {COURSES_MANAGEMENT_COPY.inactiveBadge}
-                                </span>
-                              ) : null}
-                              {isLessonPending ? (
-                                <span
-                                  className={
-                                    styles.TribeCoursesManagement__pendingBadge
-                                  }
-                                >
-                                  {COURSES_MANAGEMENT_COPY.pendingBadge}
-                                </span>
-                              ) : null}
-                            </h3>
-                            <p
-                              className={
-                                styles.TribeCoursesManagement__lessonMeta
-                              }
-                            >
-                              {PROVIDER_LABEL[lesson.videoProvider]}: {lesson.externalVideoId} · Orden: {lesson.sortOrder}
-                            </p>
-                          </div>
-                          <div
-                            aria-label={`Acciones de la lección ${lesson.title}`}
-                            className={styles.TribeCoursesManagement__actions}
-                            role={ARIA_ROLE_GROUP}
+            return (
+              <AnimatedListItem
+                aria-busy={isModulePending || undefined}
+                className={joinClassNames(
+                  styles.TribeCoursesManagement__moduleItem,
+                  isModulePending &&
+                    styles["TribeCoursesManagement__moduleItem--pending"]
+                )}
+                key={courseModule.id}
+              >
+                {editingModuleId === courseModule.id ? (
+                  <ModuleForm
+                    headingLabel={`${EDIT_HEADING_PREFIX}${courseModule.title}`}
+                    initialState={{
+                      isActive: courseModule.isActive,
+                      sortOrder: courseModule.sortOrder,
+                      title: courseModule.title,
+                      unlockAfterDays: courseModule.unlockAfterDays,
+                    }}
+                    isEditing
+                    onCancel={() => closeModuleEditor(courseModule.id)}
+                    onSubmit={(form) =>
+                      submitModuleUpdate(courseModule.id, form)
+                    }
+                  />
+                ) : (
+                  <div className={styles.TribeCoursesManagement__moduleHeader}>
+                    <div>
+                      <h2
+                        className={styles.TribeCoursesManagement__moduleTitle}
+                      >
+                        {courseModule.title}
+                        {!courseModule.isActive ? (
+                          <span
+                            className={
+                              styles.TribeCoursesManagement__inactiveBadge
+                            }
                           >
-                            <Button
-                              disabled={isLessonLocked}
-                              onClick={() => setEditingLessonId(lesson.id)}
-                              type={FORM_BUTTON_TYPE.button}
-                              variant={BUTTON_VARIANT.outline}
-                            >
-                              {COURSES_MANAGEMENT_COPY.editButton}
-                            </Button>
-                            <Button
-                              disabled={isLessonLocked}
-                              onClick={() => deleteLesson(lesson.id)}
-                              type={FORM_BUTTON_TYPE.button}
-                              variant={BUTTON_VARIANT.destructive}
-                            >
-                              {COURSES_MANAGEMENT_COPY.deleteButton}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+                            {COURSES_MANAGEMENT_COPY.inactiveBadge}
+                          </span>
+                        ) : null}
+                        {isModulePending ? (
+                          <span
+                            className={
+                              styles.TribeCoursesManagement__pendingBadge
+                            }
+                          >
+                            {COURSES_MANAGEMENT_COPY.pendingBadge}
+                          </span>
+                        ) : null}
+                      </h2>
+                      <p
+                        className={
+                          styles.TribeCoursesManagement__moduleMeta
+                        }
+                      >
+                        Orden: {courseModule.sortOrder}
+                        {courseModule.unlockAfterDays !== null
+                          ? ` · Se desbloquea a los ${courseModule.unlockAfterDays} días`
+                          : ""}
+                      </p>
+                    </div>
+                    <div
+                      aria-label={`Acciones del módulo ${courseModule.title}`}
+                      className={styles.TribeCoursesManagement__actions}
+                      role={ARIA_ROLE_GROUP}
+                    >
+                      <Button
+                        disabled={isModuleLocked}
+                        onClick={() => setEditingModuleId(courseModule.id)}
+                        ref={bindFocusRestore(
+                          FOCUS_RESTORE_KEY_PREFIX.editModule + courseModule.id
+                        )}
+                        type={FORM_BUTTON_TYPE.button}
+                        variant={BUTTON_VARIANT.outline}
+                      >
+                        {COURSES_MANAGEMENT_COPY.editButton}
+                      </Button>
+                      <Button
+                        disabled={isModuleLocked}
+                        onClick={() => deleteModule(courseModule.id)}
+                        type={FORM_BUTTON_TYPE.button}
+                        variant={BUTTON_VARIANT.destructive}
+                      >
+                        {COURSES_MANAGEMENT_COPY.deleteButton}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
-              {creatingLessonModuleId === courseModule.id ? (
-                <LessonForm
-                  headingLabel={COURSES_MANAGEMENT_COPY.newLessonHeading}
-                  initialFiles={[]}
-                  initialState={{
-                    description: "",
-                    externalVideoUrl: "",
-                    isActive: true,
-                    sortOrder: courseModule.lessons.length,
-                    title: "",
-                  }}
-                  isEditing={false}
-                  onCancel={() => setCreatingLessonModuleId(null)}
-                  onSubmit={(form) => submitNewLesson(courseModule.id, form)}
-                  tribeSlug={tribeSlug}
-                />
-              ) : (
-                <Button
-                  disabled={isModuleLocked}
-                  onClick={() => setCreatingLessonModuleId(courseModule.id)}
-                  type={FORM_BUTTON_TYPE.button}
-                  variant={BUTTON_VARIANT.outline}
-                >
-                  {COURSES_MANAGEMENT_COPY.newLessonButton}
-                </Button>
-              )}
-            </li>
-          );
-        })}
+                <ul className={styles.TribeCoursesManagement__lessonList}>
+                  <AnimatePresence initial={false}>
+                    {courseModule.lessons.map((lesson) => {
+                      const isLessonPending = pendingLessonIds.has(lesson.id);
+                      const isLessonOptimistic = isOptimisticId(lesson.id);
+                      const isLessonLocked =
+                        isLessonPending || isLessonOptimistic;
+
+                      return (
+                        <AnimatedListItem
+                          aria-busy={isLessonPending || undefined}
+                          className={joinClassNames(
+                            styles.TribeCoursesManagement__lessonItem,
+                            isLessonPending &&
+                              styles["TribeCoursesManagement__lessonItem--pending"]
+                          )}
+                          key={lesson.id}
+                        >
+                          {editingLessonId === lesson.id ? (
+                            <LessonForm
+                              headingLabel={`${EDIT_HEADING_PREFIX}${lesson.title}`}
+                              initialFiles={lesson.files ?? []}
+                              initialState={{
+                                description: lesson.description ?? "",
+                                externalVideoUrl: buildCanonicalVideoUrl(
+                                  lesson.videoProvider,
+                                  lesson.externalVideoId
+                                ),
+                                isActive: lesson.isActive,
+                                sortOrder: lesson.sortOrder,
+                                title: lesson.title,
+                              }}
+                              isEditing
+                              onCancel={() => closeLessonEditor(lesson.id)}
+                              onSubmit={(form) => submitLessonUpdate(lesson, form)}
+                              tribeSlug={tribeSlug}
+                            />
+                          ) : (
+                            <div
+                              className={
+                                styles.TribeCoursesManagement__lessonHeader
+                              }
+                            >
+                              <div>
+                                <h3
+                                  className={
+                                    styles.TribeCoursesManagement__lessonTitle
+                                  }
+                                >
+                                  {lesson.title}
+                                  {!lesson.isActive ? (
+                                    <span
+                                      className={
+                                        styles.TribeCoursesManagement__inactiveBadge
+                                      }
+                                    >
+                                      {COURSES_MANAGEMENT_COPY.inactiveBadge}
+                                    </span>
+                                  ) : null}
+                                  {isLessonPending ? (
+                                    <span
+                                      className={
+                                        styles.TribeCoursesManagement__pendingBadge
+                                      }
+                                    >
+                                      {COURSES_MANAGEMENT_COPY.pendingBadge}
+                                    </span>
+                                  ) : null}
+                                </h3>
+                                <p
+                                  className={
+                                    styles.TribeCoursesManagement__lessonMeta
+                                  }
+                                >
+                                  {PROVIDER_LABEL[lesson.videoProvider]}: {lesson.externalVideoId} · Orden: {lesson.sortOrder}
+                                </p>
+                              </div>
+                              <div
+                                aria-label={`Acciones de la lección ${lesson.title}`}
+                                className={styles.TribeCoursesManagement__actions}
+                                role={ARIA_ROLE_GROUP}
+                              >
+                                <Button
+                                  disabled={isLessonLocked}
+                                  onClick={() => setEditingLessonId(lesson.id)}
+                                  ref={bindFocusRestore(
+                                    FOCUS_RESTORE_KEY_PREFIX.editLesson + lesson.id
+                                  )}
+                                  type={FORM_BUTTON_TYPE.button}
+                                  variant={BUTTON_VARIANT.outline}
+                                >
+                                  {COURSES_MANAGEMENT_COPY.editButton}
+                                </Button>
+                                <Button
+                                  disabled={isLessonLocked}
+                                  onClick={() => deleteLesson(lesson.id)}
+                                  type={FORM_BUTTON_TYPE.button}
+                                  variant={BUTTON_VARIANT.destructive}
+                                >
+                                  {COURSES_MANAGEMENT_COPY.deleteButton}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </AnimatedListItem>
+                      );
+                    })}
+                  </AnimatePresence>
+                </ul>
+
+                {creatingLessonModuleId === courseModule.id ? (
+                  <LessonForm
+                    headingLabel={COURSES_MANAGEMENT_COPY.newLessonHeading}
+                    initialFiles={[]}
+                    initialState={{
+                      description: "",
+                      externalVideoUrl: "",
+                      isActive: true,
+                      sortOrder: courseModule.lessons.length,
+                      title: "",
+                    }}
+                    isEditing={false}
+                    onCancel={() => closeLessonCreator(courseModule.id)}
+                    onSubmit={(form) => submitNewLesson(courseModule.id, form)}
+                    tribeSlug={tribeSlug}
+                  />
+                ) : (
+                  <Button
+                    className={styles.TribeCoursesManagement__addLessonButton}
+                    disabled={isModuleLocked}
+                    onClick={() => setCreatingLessonModuleId(courseModule.id)}
+                    ref={bindAddLessonButton(courseModule.id)}
+                    type={FORM_BUTTON_TYPE.button}
+                    variant={BUTTON_VARIANT.outline}
+                  >
+                    {COURSES_MANAGEMENT_COPY.newLessonButton}
+                  </Button>
+                )}
+              </AnimatedListItem>
+            );
+          })}
+        </AnimatePresence>
       </ul>
     </main>
   );
@@ -1259,6 +1363,84 @@ type ModuleFormProps = {
   onSubmit: (form: ModuleFormState) => Promise<void>;
 };
 
+/**
+ * Title field state shared by the module and lesson forms: focuses the input
+ * when the form opens and reports a visible error for a blank title.
+ *
+ * @param initialTitle - Title the form starts with.
+ * @returns Title value, setters, validation and input wiring.
+ */
+function useRequiredTitleField(initialTitle: string) {
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const titleErrorId = useId();
+  const [title, setTitleValue] = useState(initialTitle);
+  const [titleError, setTitleError] = useState<string | null>(null);
+
+  useEffect(() => {
+    titleInputRef.current?.focus();
+  }, []);
+
+  const setTitle = (nextTitle: string) => {
+    setTitleValue(nextTitle);
+    setTitleError(null);
+  };
+
+  /** Returns the trimmed title, or null after flagging a blank one. */
+  const validateTitle = (): string | null => {
+    const trimmedTitle = title.trim();
+
+    if (trimmedTitle.length === 0) {
+      setTitleError(COURSES_MANAGEMENT_COPY.titleRequiredMessage);
+      titleInputRef.current?.focus();
+      return null;
+    }
+
+    return trimmedTitle;
+  };
+
+  return {
+    setTitle,
+    title,
+    titleError,
+    titleErrorId,
+    titleInputRef,
+    validateTitle,
+  };
+}
+
+type FieldErrorProps = {
+  id: string;
+  message: string | null;
+};
+
+/**
+ * Inline validation message rendered next to the affected field.
+ *
+ * @param props - Element id referenced by `aria-describedby` and the message.
+ * @returns The message, or nothing when there is no error.
+ */
+function FieldError({ id, message }: FieldErrorProps) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <span
+      className={styles.TribeCoursesManagement__fieldError}
+      id={id}
+      role={ARIA_ROLE_ALERT}
+    >
+      {message}
+    </span>
+  );
+}
+
+/**
+ * Create or edit form of a course module.
+ *
+ * @param props - Heading, initial values, mode and callbacks.
+ * @returns Module form.
+ */
 function ModuleForm({
   headingLabel,
   initialState,
@@ -1266,27 +1448,55 @@ function ModuleForm({
   onCancel,
   onSubmit,
 }: ModuleFormProps) {
-  const [title, setTitle] = useState(initialState.title);
+  const {
+    setTitle,
+    title,
+    titleError,
+    titleErrorId,
+    titleInputRef,
+    validateTitle,
+  } = useRequiredTitleField(initialState.title);
   const [sortOrder, setSortOrder] = useState(initialState.sortOrder);
   const [isActive, setIsActive] = useState(initialState.isActive);
   const [unlockAfterDays, setUnlockAfterDays] = useState<number | null>(
     initialState.unlockAfterDays
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Guards against a second submit landing before the disabled state renders.
+  const isSubmittingRef = useRef(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmittingRef.current) {
+      return;
+    }
+    const validTitle = validateTitle();
+    if (validTitle === null) {
+      return;
+    }
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
-      await onSubmit({ isActive, sortOrder, title, unlockAfterDays });
+      await onSubmit({
+        isActive,
+        sortOrder,
+        title: validTitle,
+        unlockAfterDays,
+      });
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
 
   return (
     <form
-      className={styles.TribeCoursesManagement__form}
+      aria-busy={isSubmitting || undefined}
+      className={joinClassNames(
+        styles.TribeCoursesManagement__form,
+        isEditing && styles["TribeCoursesManagement__form--inline"]
+      )}
+      noValidate
       onSubmit={handleSubmit}
     >
       <h3 className={styles.TribeCoursesManagement__formHeading}>
@@ -1295,11 +1505,15 @@ function ModuleForm({
       <label className={styles.TribeCoursesManagement__formField}>
         <span>{COURSES_MANAGEMENT_COPY.titleLabel}</span>
         <Input
+          aria-describedby={titleError ? titleErrorId : undefined}
+          aria-invalid={titleError ? true : undefined}
           onChange={(event) => setTitle(event.target.value)}
           placeholder={COURSES_MANAGEMENT_COPY.titleModulePlaceholder}
+          ref={titleInputRef}
           required
           value={title}
         />
+        <FieldError id={titleErrorId} message={titleError} />
       </label>
       <label className={styles.TribeCoursesManagement__formField}>
         <span>{COURSES_MANAGEMENT_COPY.sortOrderLabel}</span>
@@ -1341,7 +1555,11 @@ function ModuleForm({
         </label>
       ) : null}
       <div className={styles.TribeCoursesManagement__formActions}>
-        <Button disabled={isSubmitting} type={FORM_BUTTON_TYPE.submit}>
+        <Button
+          aria-busy={isSubmitting || undefined}
+          disabled={isSubmitting}
+          type={FORM_BUTTON_TYPE.submit}
+        >
           {isEditing
             ? COURSES_MANAGEMENT_COPY.saveButton
             : COURSES_MANAGEMENT_COPY.createButton}
@@ -1369,6 +1587,13 @@ type LessonFormProps = {
   tribeSlug: string;
 };
 
+/**
+ * Create or edit form of a lesson, including the video URL, the rich-text
+ * description and the attachment uploads.
+ *
+ * @param props - Heading, initial values and files, mode and callbacks.
+ * @returns Lesson form.
+ */
 function LessonForm({
   headingLabel,
   initialFiles,
@@ -1378,10 +1603,26 @@ function LessonForm({
   onSubmit,
   tribeSlug,
 }: LessonFormProps) {
-  const [title, setTitle] = useState(initialState.title);
-  const [externalVideoUrl, setExternalVideoUrl] = useState(
+  const {
+    setTitle,
+    title,
+    titleError,
+    titleErrorId,
+    titleInputRef,
+    validateTitle,
+  } = useRequiredTitleField(initialState.title);
+  const [externalVideoUrl, setExternalVideoUrlValue] = useState(
     initialState.externalVideoUrl
   );
+  const videoUrlInputRef = useRef<HTMLInputElement>(null);
+  const videoUrlErrorId = useId();
+  const [videoUrlError, setVideoUrlError] = useState<string | null>(null);
+  const setExternalVideoUrl = (nextVideoUrl: string) => {
+    setExternalVideoUrlValue(nextVideoUrl);
+    setVideoUrlError(null);
+  };
+  // Guards against a second submit landing before the disabled state renders.
+  const isSubmittingRef = useRef(false);
   const descriptionEditor = useRichLinkEditor({
     initialMarkdown: initialState.description,
   });
@@ -1645,11 +1886,20 @@ function LessonForm({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (hasUploadsInFlight) {
+    if (hasUploadsInFlight || isSubmittingRef.current) {
       return;
     }
     if (hasFailedUploads) {
       toast.error(COURSES_MANAGEMENT_COPY.fileUploadFailedBlockMessage);
+      return;
+    }
+    const validTitle = validateTitle();
+    if (validTitle === null) {
+      return;
+    }
+    if (!detectedProvider) {
+      setVideoUrlError(COURSES_MANAGEMENT_COPY.invalidVideoUrlMessage);
+      videoUrlInputRef.current?.focus();
       return;
     }
     const description = descriptionEditor.serialize().trim();
@@ -1663,6 +1913,7 @@ function LessonForm({
         readyFiles.push({ assetId: draft.assetId });
       }
     }
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -1671,16 +1922,22 @@ function LessonForm({
         ...(filesTouched ? { files: readyFiles } : {}),
         isActive,
         sortOrder,
-        title,
+        title: validTitle,
       });
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
 
   return (
     <form
-      className={styles.TribeCoursesManagement__form}
+      aria-busy={isSubmitting || undefined}
+      className={joinClassNames(
+        styles.TribeCoursesManagement__form,
+        isEditing && styles["TribeCoursesManagement__form--inline"]
+      )}
+      noValidate
       onSubmit={handleSubmit}
     >
       <h3 className={styles.TribeCoursesManagement__formHeading}>
@@ -1689,25 +1946,42 @@ function LessonForm({
       <label className={styles.TribeCoursesManagement__formField}>
         <span>{COURSES_MANAGEMENT_COPY.titleLabel}</span>
         <Input
+          aria-describedby={titleError ? titleErrorId : undefined}
+          aria-invalid={titleError ? true : undefined}
           onChange={(event) => setTitle(event.target.value)}
           placeholder={COURSES_MANAGEMENT_COPY.titleLessonPlaceholder}
+          ref={titleInputRef}
           required
           value={title}
         />
+        <FieldError id={titleErrorId} message={titleError} />
       </label>
       <label className={styles.TribeCoursesManagement__formField}>
         <span>{COURSES_MANAGEMENT_COPY.videoUrlLabel}</span>
         <Input
+          aria-describedby={videoUrlError ? videoUrlErrorId : undefined}
+          aria-invalid={videoUrlError ? true : undefined}
           onChange={(event) => setExternalVideoUrl(event.target.value)}
           placeholder={COURSES_MANAGEMENT_COPY.videoUrlPlaceholder}
+          ref={videoUrlInputRef}
           required
           value={externalVideoUrl}
         />
-        <small className={styles.TribeCoursesManagement__formHelp}>
-          {detectedProvider
-            ? `Detectado: ${PROVIDER_LABEL[detectedProvider]}`
-            : COURSES_MANAGEMENT_COPY.videoUrlHelp}
-        </small>
+        {videoUrlError ? (
+          <FieldError id={videoUrlErrorId} message={videoUrlError} />
+        ) : (
+          <small
+            className={joinClassNames(
+              styles.TribeCoursesManagement__formHelp,
+              detectedProvider &&
+                styles["TribeCoursesManagement__formHelp--success"]
+            )}
+          >
+            {detectedProvider
+              ? `Detectado: ${PROVIDER_LABEL[detectedProvider]}`
+              : COURSES_MANAGEMENT_COPY.videoUrlHelp}
+          </small>
+        )}
       </label>
       <label className={styles.TribeCoursesManagement__formField}>
         <span>{COURSES_MANAGEMENT_COPY.descriptionLabel}</span>
@@ -1740,7 +2014,10 @@ function LessonForm({
                   <span className={styles.TribeCoursesManagement__fileSize}>
                     {formatFileSize(draft.fileSizeBytes)}
                   </span>
-                  <span className={LESSON_FILE_STATUS_CLASS_NAME[draft.status]}>
+                  <span
+                    className={LESSON_FILE_STATUS_CLASS_NAME[draft.status]}
+                    role={ARIA_ROLE_STATUS}
+                  >
                     {LESSON_FILE_STATUS_LABEL[draft.status]}
                   </span>
                   <div className={styles.TribeCoursesManagement__fileActions}>
@@ -1818,6 +2095,7 @@ function LessonForm({
       ) : null}
       <div className={styles.TribeCoursesManagement__formActions}>
         <Button
+          aria-busy={isSubmitting || hasUploadsInFlight || undefined}
           disabled={isSubmitting || hasUploadsInFlight || hasFailedUploads}
           type={FORM_BUTTON_TYPE.submit}
         >

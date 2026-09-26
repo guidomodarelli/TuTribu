@@ -1,3 +1,7 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .UpcomingTribeEvents {
   display: grid;
   gap: 0.75rem;
@@ -19,12 +23,32 @@
     font-weight: 600;
   }
 
+  &__seeAll,
+  &__title,
+  &__meetingLink {
+    border-radius: 0.2rem;
+    text-underline-offset: 0.2em;
+    -webkit-tap-highlight-color: transparent;
+
+    @include motion.interactive(color, text-decoration-color);
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+  }
+
   &__seeAll {
     color: var(--muted-foreground);
     font-size: 0.9rem;
     font-weight: 600;
     text-decoration: underline;
-    text-underline-offset: 0.2em;
+    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+
+    &:hover {
+      color: var(--foreground);
+      text-decoration-color: currentColor;
+    }
   }
 
   &__list {
@@ -41,8 +65,13 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.35rem 1rem;
-    border-left: 3px solid var(--primary);
+    min-width: 0;
+    // Stripe in the event type color, like the events calendar rows.
+    border-left: 3px solid var(--event-type-accent, var(--primary));
     padding: 0.25rem 0 0.25rem 0.75rem;
+
+    // Server-rendered: CSS-only entrance, one row after another.
+    @include motion.stagger(6);
   }
 
   &__itemBody {
@@ -55,16 +84,23 @@
     color: var(--foreground);
     font-weight: 600;
     overflow-wrap: anywhere;
-    text-decoration: none;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+
+    &:hover {
+      text-decoration-color: currentColor;
+    }
   }
 
   &__schedule {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.5rem;
     margin: 0;
     color: var(--muted-foreground);
     font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
   }
 
   &__recurrence {
@@ -80,6 +116,10 @@
     font-size: 0.9rem;
     font-weight: 600;
     text-decoration: underline;
-    text-underline-offset: 0.2em;
+    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+
+    &:hover {
+      text-decoration-color: currentColor;
+    }
   }
 }

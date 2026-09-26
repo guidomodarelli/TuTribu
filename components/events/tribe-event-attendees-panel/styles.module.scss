@@ -1,3 +1,7 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .TribeEventAttendeesPanel {
   display: grid;
   gap: 1rem;
@@ -20,11 +24,14 @@
     }
   }
 
+  // Groups arrive with the fetched report, so a short stagger reads as the
+  // list settling in rather than popping.
   &__group {
     display: grid;
     align-content: start;
     gap: 0.35rem;
     min-width: 0;
+    @include motion.stagger(4);
   }
 
   &__heading {
@@ -42,6 +49,7 @@
   &__count {
     color: var(--foreground);
     font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
   }
 
   &__list {
@@ -54,11 +62,18 @@
 
   &__attendee {
     display: flex;
+    border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+    padding-bottom: 0.3rem;
     flex-wrap: wrap;
     align-items: baseline;
     justify-content: space-between;
     gap: 0 0.5rem;
     min-width: 0;
+
+    &:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
   }
 
   &__name {
@@ -86,6 +101,8 @@
   }
 
   &__error {
+    border-left: 3px solid var(--destructive);
     color: var(--destructive);
+    padding-left: 0.75rem;
   }
 }

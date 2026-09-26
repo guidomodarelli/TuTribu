@@ -29,6 +29,11 @@ function buildSafariUrl(signInUrl: string): string {
     : signInUrl;
 }
 
+/**
+ * Asks people inside an in-app browser to continue in their regular browser:
+ * a Safari deep link on iOS, manual steps elsewhere, and the sign-in link
+ * ready to copy.
+ */
 export function OpenInBrowserCta({ isIos, signInUrl }: OpenInBrowserCtaProps) {
   const safariUrl = buildSafariUrl(signInUrl);
 

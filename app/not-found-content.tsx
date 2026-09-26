@@ -44,7 +44,7 @@ export function NotFoundSignInAction() {
       variant={NOT_FOUND_UI.outlineVariant}
     >
       <Link href={ROUTES.auth.signIn}>
-        Iniciar sesion
+        Iniciar sesión
       </Link>
     </Button>
   );
@@ -78,10 +78,10 @@ export function NotFoundView({
       />
       <p className={styles.NotFoundPage__eyebrow}>Error 404</p>
       <h1 className={styles.NotFoundPage__title}>
-        Esta pagina no existe o ya no esta disponible
+        Esta página no existe o ya no está disponible
       </h1>
       <p className={styles.NotFoundPage__description}>
-        Revisa la URL o vuelve a un punto conocido para seguir navegando dentro
+        Revisá la URL o volvé a un punto conocido para seguir navegando dentro
         de {siteConfig.name}.
       </p>
       <div className={styles.NotFoundPage__actions}>

@@ -1,3 +1,15 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
+// Grows the progress fill from zero to its inline `scaleX` target: a keyframe
+// without `to` animates towards the element's own computed transform.
+@keyframes TribeCoursesCatalogProgressGrow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
 .TribeCoursesCatalog {
   display: grid;
   gap: 1.5rem;
@@ -15,6 +27,8 @@
   }
 
   &__heading {
+    @include motion.enter;
+
     font-size: clamp(1.25rem, 2vw, 1.5rem);
     font-weight: 700;
     line-height: 1.3;
@@ -36,7 +50,7 @@
     line-height: 1;
     text-decoration: none;
     white-space: nowrap;
-    transition: background-color 120ms ease, color 120ms ease;
+    @include motion.interactive(background-color, color, border-color, box-shadow);
 
     &:hover {
       background-color: var(--muted);
@@ -66,6 +80,10 @@
   }
 
   &__cardItem {
+    // `backwards` releases the entrance so the card hover lift keeps working.
+    @include motion.stagger(8);
+
+    animation-fill-mode: backwards;
     margin: 0;
     min-width: 0;
   }
@@ -77,15 +95,24 @@
     border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
     border-radius: var(--radius-lg);
     overflow: hidden;
+    // Keeps the rounded clip on WebKit while the cover image scales.
+    isolation: isolate;
     color: var(--foreground);
     text-decoration: none;
     background-color: var(--card);
-    transition: border-color 120ms ease, box-shadow 120ms ease,
-      transform 120ms ease;
+    @include motion.interactive(border-color, box-shadow, transform);
 
-    &:hover {
-      border-color: color-mix(in oklch, var(--primary) 40%, var(--border));
-      box-shadow: 0 4px 16px color-mix(in oklch, var(--foreground) 8%, transparent);
+    // Hover lift only where a real pointer hovers; touch taps would stick.
+    @media (hover: hover) {
+      &:hover {
+        border-color: color-mix(in oklch, var(--primary) 40%, var(--border));
+        box-shadow: 0 6px 20px color-mix(in oklch, var(--foreground) 8%, transparent);
+        transform: translateY(-2px);
+      }
+    }
+
+    &:active {
+      transform: translateY(0) scale(0.995);
     }
 
     &:focus-visible {
@@ -109,6 +136,21 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 320ms motion.$ease-out;
+
+    @include motion.reduced {
+      transition: none;
+    }
+  }
+
+  @media (hover: hover) {
+    &__card:hover &__coverImage {
+      transform: scale(1.03);
+    }
+
+    &__card:hover &__cardCtaIcon {
+      transform: translateX(2px);
+    }
   }
 
   &__coverFallback {
@@ -136,8 +178,11 @@
 
   &__cardTitle {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.25rem 0.5rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 1.0625rem;
     font-weight: 700;
     line-height: 1.35;
@@ -184,12 +229,19 @@
     overflow: hidden;
   }
 
+  // Full-width bar scaled from the left by an inline `scaleX`.
   &__progressFill {
     position: absolute;
-    inset: 0 auto 0 0;
+    inset: 0;
     display: block;
     border-radius: 999rem;
     background-color: var(--primary);
+    transform-origin: left center;
+    animation: TribeCoursesCatalogProgressGrow motion.$duration-enter motion.$ease-out 120ms backwards;
+
+    @include motion.reduced {
+      animation: none;
+    }
   }
 
   &__progressLabel {
@@ -200,6 +252,9 @@
   }
 
   &__cardCta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
     justify-self: start;
     margin-top: 0.25rem;
     font-size: 0.875rem;
@@ -207,7 +262,20 @@
     color: var(--primary);
   }
 
+  &__cardCtaIcon {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+    transition: transform motion.$duration-hover motion.$ease-out;
+
+    @include motion.reduced {
+      transition: none;
+    }
+  }
+
   &__emptyState {
+    @include motion.enter;
+
     display: grid;
     gap: 0.5rem;
     padding: 2rem;

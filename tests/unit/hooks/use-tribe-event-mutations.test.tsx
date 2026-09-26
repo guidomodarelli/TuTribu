@@ -391,7 +391,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     heldStreakReads = [];
     heldAttendance = createHeldResponse();
     heldSave = createHeldResponse();
-    global.fetch = vi.fn((url: string, init?: RequestInit) => {
+    global.fetch = vi.fn((url: string) => {
       if (url === STREAK_ENDPOINT) {
         const heldStreakRead = createHeldResponse();
 

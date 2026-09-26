@@ -86,6 +86,27 @@ describe("ThemeModeDropdown", () => {
     expect(screen.getByRole("menuitemradio", { name: /sistema/i })).toBeInTheDocument();
   });
 
+  it("names the selected mode on the trigger and updates it after choosing another one", async () => {
+    const user = userEvent.setup();
+
+    render(<ThemeModeDropdown />);
+
+    expect(screen.getByRole("button", { name: "Cambiar tema, actual: Sistema" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /cambiar tema/i }));
+    await user.click(screen.getByRole("menuitemradio", { name: /oscuro/i }));
+
+    expect(await screen.findByRole("button", { name: "Cambiar tema, actual: Oscuro" })).toBeInTheDocument();
+  });
+
+  it("names the stored mode on the trigger when a preference already exists", () => {
+    localStorage.setItem("tutribu-theme", "light");
+
+    render(<ThemeModeDropdown />);
+
+    expect(screen.getByRole("button", { name: "Cambiar tema, actual: Claro" })).toBeInTheDocument();
+  });
+
   it("uses system as the default mode when there is no stored preference", async () => {
     const user = userEvent.setup();
 
@@ -195,5 +216,39 @@ describe("ThemeModeDropdown", () => {
     render(<ThemeModeDropdown />);
     await waitFor(() => expect(screen.getByLabelText("Tema compartido")).toHaveTextContent("system:dark"));
     expect(document.documentElement).toHaveClass("dark");
+  });
+
+  it("hydrates a stored preference without a mismatch and names it after hydration", async () => {
+    const { renderToString } = await import("react-dom/server");
+    const { hydrateRoot } = await import("react-dom/client");
+    const recoverableErrors: unknown[] = [];
+    const container = document.createElement("div");
+    const tree = (
+      <AppProviders isSitepingEnabled={false}>
+        <ThemeModeDropdown />
+      </AppProviders>
+    );
+
+    localStorage.setItem("tutribu-theme", "dark");
+    container.innerHTML = renderToString(tree);
+    document.body.appendChild(container);
+
+    expect(container.querySelector("button")).toHaveAttribute("aria-label", "Cambiar tema");
+
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+
+    try {
+      await act(async () => {
+        root = hydrateRoot(container, tree, {
+          onRecoverableError: (error) => recoverableErrors.push(error),
+        });
+      });
+
+      expect(recoverableErrors).toEqual([]);
+      expect(await screen.findByRole("button", { name: "Cambiar tema, actual: Oscuro" })).toBeInTheDocument();
+    } finally {
+      act(() => root?.unmount());
+      container.remove();
+    }
   });
 });

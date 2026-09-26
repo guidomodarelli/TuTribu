@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 import {
+  AlertCircleIcon,
   CheckCircle2Icon,
   Clock3Icon,
   CreditCardIcon,
@@ -33,14 +34,8 @@ import {
 } from "lucide-react";
 import { toast, Badge, Button, Checkbox, Input, Separator, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "beez-ui";
 
-
-
-
-
-
-
-
-
+import { AnimatedCount } from "@/components/motion/animated-count";
+import { joinClassNames } from "@/lib/motion/join-class-names";
 import type {
   TribeSubscriberDiagnosticsResult,
   TribeMercadoPagoAccountResult,
@@ -84,6 +79,9 @@ const PRICE_MANAGEMENT_COPY = {
     "Conectá una cuenta de Mercado Pago para empezar a gestionar precios.",
   diagnosticsForAccountPrefix: "Suscriptores de",
   createButton: "Crear precio",
+  createPendingButton: "Creando precio...",
+  associatedMembersPluralSuffix: "miembros asociados",
+  associatedMembersSingularSuffix: "miembro asociado",
   createSectionTitle: "Crear nuevo precio",
   disconnectedFreeJoinNotice:
     "Mercado Pago requiere reconexión para crear precios pagos. Podés marcar la entrada gratis como actual.",
@@ -159,6 +157,7 @@ const PRICE_MANAGEMENT_COPY = {
   trialMonthSuffix: "mes",
   trialMonthsSuffix: "meses",
   providerSubscribersMetaSuffix: "suscriptores vigentes en Mercado Pago",
+  providerSubscriberMetaSingularSuffix: "suscriptor vigente en Mercado Pago",
   verifyProviderPlanButton: "Verificar plan",
   verifyProviderSubscribersButton: "Verificar suscriptores",
   verifyingProviderPlans: "Verificando planes con Mercado Pago...",
@@ -188,6 +187,7 @@ const PRICE_MANAGEMENT_REQUEST = {
   deleteMethod: "DELETE",
   destructiveBadgeVariant: "destructive",
   enterKey: "Enter",
+  escapeKey: "Escape",
   jsonContentType: "application/json",
   postMethod: "POST",
   patchMethod: "PATCH",
@@ -230,6 +230,26 @@ const PRICE_MANAGEMENT_FORMAT = {
   trialFrequencyType: "days",
   validTrialFrequencyPattern: /^\d+$/,
 } as const;
+/**
+ * Joins a count with its singular or plural noun phrase.
+ *
+ * @param count - Number of people counted.
+ * @param singularSuffix - Phrase used when the count is exactly one.
+ * @param pluralSuffix - Phrase used for any other count.
+ * @returns Count followed by the matching phrase.
+ */
+function formatCountLabel(
+  count: number,
+  singularSuffix: string,
+  pluralSuffix: string
+): string {
+  return (
+    String(count) +
+    PRICE_MANAGEMENT_FORMAT.labelSeparator +
+    (count === 1 ? singularSuffix : pluralSuffix)
+  );
+}
+
 const PRICE_AMOUNT_FORMATTER = new Intl.NumberFormat(
   PRICE_MANAGEMENT_FORMAT.locale,
   {
@@ -783,6 +803,12 @@ export function TribeSubscriptionPriceManagement({
     );
   const [subscriberDiagnosticsMessage, setSubscriberDiagnosticsMessage] =
     useState<string | null>(null);
+  const [hasSubscriberDiagnosticsError, setHasSubscriberDiagnosticsError] =
+    useState(false);
+  const editButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const editNameInputRef = useRef<HTMLInputElement>(null);
+  // Price whose edit button regains focus once its inline editor closes.
+  const priceIdToRefocusRef = useRef<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const hasStartedMercadoPagoConnection = useRef(false);
   const [shouldAutoConnectMercadoPagoOnLoad] = useState(
@@ -941,6 +967,55 @@ export function TribeSubscriptionPriceManagement({
         },
       ]
     : [];
+  const editingPriceId = editingPrice?.id ?? null;
+  const isReconcilingSubscriberDiagnostics =
+    pendingAction === PRICE_MANAGEMENT_COPY.subscriberDiagnosticsUpdateButton;
+
+  useEffect(() => {
+    if (editingPriceId) {
+      editNameInputRef.current?.focus();
+    }
+  }, [editingPriceId]);
+
+  // The edit button stays disabled while an action is pending, so focus moves
+  // back to it only once the editor is closed and nothing is pending.
+  useEffect(() => {
+    const priceIdToRefocus = priceIdToRefocusRef.current;
+
+    if (!priceIdToRefocus || editingPriceId || pendingAction) {
+      return;
+    }
+
+    priceIdToRefocusRef.current = null;
+    editButtonRefs.current.get(priceIdToRefocus)?.focus();
+  }, [editingPriceId, pendingAction]);
+
+  /**
+   * Closes the inline price editor and returns focus to its edit button.
+   *
+   * @param priceId - Price whose editor closes.
+   */
+  const closePriceEditor = (priceId: string) => {
+    priceIdToRefocusRef.current = priceId;
+    setEditingPrice(null);
+    setFieldErrors({});
+  };
+
+  /**
+   * Registers the edit button of a price so focus can return to it.
+   *
+   * @param priceId - Price the button edits.
+   * @returns Ref callback for the button.
+   */
+  const bindEditButton =
+    (priceId: string) => (element: HTMLButtonElement | null) => {
+      if (element) {
+        editButtonRefs.current.set(priceId, element);
+      } else {
+        editButtonRefs.current.delete(priceId);
+      }
+    };
+
   const startMercadoPagoConnection = useCallback(
     (connectionEndpoint: string) => {
       if (navigateToMercadoPagoConnection) {
@@ -1356,7 +1431,7 @@ export function TribeSubscriptionPriceManagement({
         applyPriceMutationResponse(response.price);
       }
 
-      setEditingPrice(null);
+      closePriceEditor(editingPrice.id);
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.saveEditButton);
     } catch (error) {
       if (
@@ -1668,6 +1743,7 @@ export function TribeSubscriptionPriceManagement({
    */
   const handleReconcileSubscriberDiagnostics = async () => {
     setPendingAction(PRICE_MANAGEMENT_COPY.subscriberDiagnosticsUpdateButton);
+    setHasSubscriberDiagnosticsError(false);
     setSubscriberDiagnosticsMessage(
       PRICE_MANAGEMENT_COPY.subscriberDiagnosticsUpdating
     );
@@ -1692,6 +1768,7 @@ export function TribeSubscriptionPriceManagement({
           ? error.message
           : PRICE_MANAGEMENT_COPY.fallbackSubscriberDiagnosticsError;
 
+      setHasSubscriberDiagnosticsError(true);
       setSubscriberDiagnosticsMessage(message);
       toast.error(message);
     } finally {
@@ -1957,6 +2034,7 @@ export function TribeSubscriptionPriceManagement({
             </div>
             {isMercadoPagoConnected ? (
               <Button
+                aria-busy={isReconcilingSubscriberDiagnostics || undefined}
                 disabled={Boolean(pendingAction)}
                 onClick={() => {
                   void handleReconcileSubscriberDiagnostics();
@@ -1964,17 +2042,39 @@ export function TribeSubscriptionPriceManagement({
                 type={PRICE_MANAGEMENT_REQUEST.buttonType}
                 variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
               >
-                <RefreshCwIcon />
+                <RefreshCwIcon
+                  aria-hidden
+                  className={joinClassNames(
+                    isReconcilingSubscriberDiagnostics &&
+                      styles.TribeSubscriptionPriceManagement__spinningIcon
+                  )}
+                />
                 {PRICE_MANAGEMENT_COPY.subscriberDiagnosticsUpdateButton}
               </Button>
             ) : null}
           </div>
           {subscriberDiagnosticsMessage ? (
             <p
-              className={styles.TribeSubscriptionPriceManagement__status}
+              className={joinClassNames(
+                styles.TribeSubscriptionPriceManagement__status,
+                hasSubscriberDiagnosticsError &&
+                  styles["TribeSubscriptionPriceManagement__status--error"]
+              )}
               role={PRICE_MANAGEMENT_REQUEST.statusRole}
             >
-              <CheckCircle2Icon />
+              {/* The icon mirrors the state: in progress, failed or updated. */}
+              {isReconcilingSubscriberDiagnostics ? (
+                <RefreshCwIcon
+                  aria-hidden
+                  className={
+                    styles.TribeSubscriptionPriceManagement__spinningIcon
+                  }
+                />
+              ) : hasSubscriberDiagnosticsError ? (
+                <AlertCircleIcon aria-hidden />
+              ) : (
+                <CheckCircle2Icon aria-hidden />
+              )}
               {subscriberDiagnosticsMessage}
             </p>
           ) : null}
@@ -2017,7 +2117,7 @@ export function TribeSubscriptionPriceManagement({
                     styles.TribeSubscriptionPriceManagement__diagnosticsValue
                   }
                 >
-                  {item.value}
+                  <AnimatedCount value={item.value} />
                 </dd>
               </div>
             ))}
@@ -2201,6 +2301,10 @@ export function TribeSubscriptionPriceManagement({
                 className={styles.TribeSubscriptionPriceManagement__formActions}
               >
                 <Button
+                  aria-busy={
+                    pendingAction === PRICE_MANAGEMENT_COPY.createButton ||
+                    undefined
+                  }
                   disabled={
                     isPriceManagementDisabled ||
                     !name.trim() ||
@@ -2209,8 +2313,10 @@ export function TribeSubscriptionPriceManagement({
                   }
                   type={PRICE_MANAGEMENT_REQUEST.submitType}
                 >
-                  <PlusIcon />
-                  {PRICE_MANAGEMENT_COPY.createButton}
+                  <PlusIcon aria-hidden />
+                  {pendingAction === PRICE_MANAGEMENT_COPY.createButton
+                    ? PRICE_MANAGEMENT_COPY.createPendingButton
+                    : PRICE_MANAGEMENT_COPY.createButton}
                 </Button>
               </div>
           </form>
@@ -2378,12 +2484,24 @@ export function TribeSubscriptionPriceManagement({
                       {price.name}
                     </strong>
                     <span className={styles.TribeSubscriptionPriceManagement__meta}>
-                      {price.activeSubscribersCount} miembros asociados
+                      {formatCountLabel(
+                        price.activeSubscribersCount,
+                        PRICE_MANAGEMENT_COPY.associatedMembersSingularSuffix,
+                        PRICE_MANAGEMENT_COPY.associatedMembersPluralSuffix
+                      )}
                     </span>
                     {providerSubscriberCountsByPriceId[price.id] !== undefined ? (
-                      <span className={styles.TribeSubscriptionPriceManagement__meta}>
-                        {providerSubscriberCountsByPriceId[price.id]}{" "}
-                        {PRICE_MANAGEMENT_COPY.providerSubscribersMetaSuffix}
+                      <span
+                        className={joinClassNames(
+                          styles.TribeSubscriptionPriceManagement__meta,
+                          styles["TribeSubscriptionPriceManagement__meta--fresh"]
+                        )}
+                      >
+                        {formatCountLabel(
+                          providerSubscriberCountsByPriceId[price.id],
+                          PRICE_MANAGEMENT_COPY.providerSubscriberMetaSingularSuffix,
+                          PRICE_MANAGEMENT_COPY.providerSubscribersMetaSuffix
+                        )}
                       </span>
                     ) : null}
                   </span>
@@ -2397,8 +2515,12 @@ export function TribeSubscriptionPriceManagement({
                 <TableCell>
                   <span className={styles.TribeSubscriptionPriceManagement__badges}>
                     {price.isCurrent ? (
-                      <Badge>
-                        <CheckCircle2Icon />
+                      <Badge
+                        className={
+                          styles.TribeSubscriptionPriceManagement__currentBadge
+                        }
+                      >
+                        <CheckCircle2Icon aria-hidden />
                         {PRICE_MANAGEMENT_COPY.currentBadge}
                       </Badge>
                     ) : null}
@@ -2430,10 +2552,12 @@ export function TribeSubscriptionPriceManagement({
                       {price.status !== PRICE_MANAGEMENT_STATUS.canceled &&
                       price.status !== PRICE_MANAGEMENT_STATUS.paused ? (
                         <Button
+                          aria-expanded={editingPriceId === price.id}
                           disabled={isPriceManagementDisabled}
                           onClick={() => {
                             handleStartEditingPrice(price);
                           }}
+                          ref={bindEditButton(price.id)}
                           type={PRICE_MANAGEMENT_REQUEST.buttonType}
                           variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
                         >
@@ -2482,7 +2606,15 @@ export function TribeSubscriptionPriceManagement({
                         type={PRICE_MANAGEMENT_REQUEST.buttonType}
                         variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
                       >
-                        <RefreshCwIcon />
+                        <RefreshCwIcon
+                          aria-hidden
+                          className={joinClassNames(
+                            pendingAction ===
+                              PRICE_MANAGEMENT_COPY.verifyProviderPlanButton +
+                                price.id &&
+                              styles.TribeSubscriptionPriceManagement__spinningIcon
+                          )}
+                        />
                         {PRICE_MANAGEMENT_COPY.verifyProviderPlanButton}
                       </Button>
                       <Button
@@ -2497,7 +2629,15 @@ export function TribeSubscriptionPriceManagement({
                         type={PRICE_MANAGEMENT_REQUEST.buttonType}
                         variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
                       >
-                        <RefreshCwIcon />
+                        <RefreshCwIcon
+                          aria-hidden
+                          className={joinClassNames(
+                            pendingAction ===
+                              PRICE_MANAGEMENT_COPY.verifyProviderSubscribersButton +
+                                price.id &&
+                              styles.TribeSubscriptionPriceManagement__spinningIcon
+                          )}
+                        />
                         {PRICE_MANAGEMENT_COPY.verifyProviderSubscribersButton}
                       </Button>
                       </div>
@@ -2509,6 +2649,15 @@ export function TribeSubscriptionPriceManagement({
                     <TableCell colSpan={PRICE_MANAGEMENT_REQUEST.tableColumnCount}>
                       <form
                         className={styles.TribeSubscriptionPriceManagement__editForm}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === PRICE_MANAGEMENT_REQUEST.escapeKey &&
+                            !pendingAction
+                          ) {
+                            event.preventDefault();
+                            closePriceEditor(price.id);
+                          }
+                        }}
                         onSubmit={handleUpdatePrice}
                       >
                         <div className={styles.TribeSubscriptionPriceManagement__field}>
@@ -2525,6 +2674,7 @@ export function TribeSubscriptionPriceManagement({
                                 name: event.currentTarget.value,
                               });
                             }}
+                            ref={editNameInputRef}
                             value={editingPrice.name}
                           />
                         </div>
@@ -2600,6 +2750,11 @@ export function TribeSubscriptionPriceManagement({
                         </div>
                         <div className={styles.TribeSubscriptionPriceManagement__actions}>
                           <Button
+                            aria-busy={
+                              pendingAction ===
+                                PRICE_MANAGEMENT_COPY.saveEditButton +
+                                  price.id || undefined
+                            }
                             disabled={
                               isPriceManagementDisabled ||
                               !editingPrice.name.trim() ||
@@ -2613,8 +2768,7 @@ export function TribeSubscriptionPriceManagement({
                           </Button>
                           <Button
                             onClick={() => {
-                              setEditingPrice(null);
-                              setFieldErrors({});
+                              closePriceEditor(price.id);
                             }}
                             type={PRICE_MANAGEMENT_REQUEST.buttonType}
                             variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}

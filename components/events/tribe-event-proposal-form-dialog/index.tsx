@@ -19,6 +19,7 @@ import {
   cn,
 } from "beez-ui";
 
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
 import { buildBuenosAiresInstant } from "@/lib/date-time/buenos-aires-format";
 import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";
 import type { TribeEventType } from "@/src/modules/events/application/results/tribe-event-result";
@@ -63,7 +64,14 @@ const FIELD_ID = {
   eventType: "tribe-event-proposal-type",
   startsTime: "tribe-event-proposal-starts-time",
   title: "tribe-event-proposal-title",
+  validationError: "tribe-event-proposal-validation-error",
 } as const;
+
+/** Required controls that a validation message can point at. */
+type ProposalRequiredFieldId =
+  | typeof FIELD_ID.date
+  | typeof FIELD_ID.startsTime
+  | typeof FIELD_ID.title;
 const INPUT_TYPE = {
   date: "date",
   time: "time",
@@ -90,6 +98,22 @@ const COPY = {
   titleLabel: "Título",
 } as const;
 
+/**
+ * First required control still missing, in reading order, or null when the
+ * title, date and start time are all present.
+ */
+function findFirstMissingField(values: ProposalFormValues): ProposalRequiredFieldId | null {
+  if (!values.title.trim()) {
+    return FIELD_ID.title;
+  }
+
+  if (!values.date) {
+    return FIELD_ID.date;
+  }
+
+  return values.startsTime ? null : FIELD_ID.startsTime;
+}
+
 function isTribeEventType(value: string): value is TribeEventType {
   return TRIBE_EVENT_TYPES.some((eventType) => eventType === value);
 }
@@ -97,7 +121,8 @@ function isTribeEventType(value: string): value is TribeEventType {
 /**
  * Reduced form a member uses to propose a meeting: title, date and time,
  * duration, type, and description. Managers complete the rest (link,
- * repetition, capacity) when they approve it.
+ * repetition, capacity) when they approve it. A missing required field is
+ * reported under the form, marked invalid and focused.
  */
 export function TribeEventProposalFormDialog({
   isOpen,
@@ -106,13 +131,20 @@ export function TribeEventProposalFormDialog({
   onSubmit,
 }: TribeEventProposalFormDialogProps) {
   const [values, setValues] = useState<ProposalFormValues>(FORM_DEFAULTS);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  // Control the "missing fields" message points at; null while valid.
+  const [invalidFieldId, setInvalidFieldId] = useState<ProposalRequiredFieldId | null>(null);
+
+  /** ARIA wiring that ties a required control to the validation message. */
+  const getValidationProps = (fieldId: ProposalRequiredFieldId) =>
+    invalidFieldId === fieldId
+      ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
+      : {};
 
   const updateField = <TField extends keyof ProposalFormValues>(
     field: TField,
     value: ProposalFormValues[TField]
   ) => {
-    setValidationError(null);
+    setInvalidFieldId(null);
     setValues((currentValues) => ({ ...currentValues, [field]: value }));
   };
 
@@ -124,9 +156,18 @@ export function TribeEventProposalFormDialog({
     }
 
     const startsAt = buildBuenosAiresInstant(values.date, values.startsTime);
+    const missingFieldId = findFirstMissingField(values);
 
-    if (!values.title.trim() || !startsAt) {
-      setValidationError(COPY.missingFields);
+    if (missingFieldId || !startsAt) {
+      const fieldToFix = missingFieldId ?? FIELD_ID.startsTime;
+      const control = submitEvent.currentTarget.elements.namedItem(fieldToFix);
+
+      setInvalidFieldId(fieldToFix);
+
+      if (control instanceof HTMLElement) {
+        control.focus();
+      }
+
       return;
     }
 
@@ -153,10 +194,18 @@ export function TribeEventProposalFormDialog({
           <DialogTitle>{COPY.title}</DialogTitle>
           <DialogDescription>{COPY.description}</DialogDescription>
         </DialogHeader>
-        <form className={styles.TribeEventProposalFormDialog__form} onSubmit={handleSubmit}>
+        {/* Native validation is off so a missing field reaches the Spanish
+            inline message instead of a browser-language bubble; `required`
+            still tells assistive technology which fields are mandatory. */}
+        <form
+          className={styles.TribeEventProposalFormDialog__form}
+          noValidate
+          onSubmit={handleSubmit}
+        >
           <div className={styles.TribeEventProposalFormDialog__field}>
             <label htmlFor={FIELD_ID.title}>{COPY.titleLabel}</label>
             <Input
+              {...getValidationProps(FIELD_ID.title)}
               id={FIELD_ID.title}
               maxLength={TRIBE_EVENT_FIELD_LIMIT.titleMaxLength}
               required
@@ -168,6 +217,7 @@ export function TribeEventProposalFormDialog({
             <div className={styles.TribeEventProposalFormDialog__field}>
               <label htmlFor={FIELD_ID.date}>{COPY.dateLabel}</label>
               <Input
+                {...getValidationProps(FIELD_ID.date)}
                 id={FIELD_ID.date}
                 required
                 type={INPUT_TYPE.date}
@@ -178,6 +228,7 @@ export function TribeEventProposalFormDialog({
             <div className={styles.TribeEventProposalFormDialog__field}>
               <label htmlFor={FIELD_ID.startsTime}>{COPY.startsTimeLabel}</label>
               <Input
+                {...getValidationProps(FIELD_ID.startsTime)}
                 id={FIELD_ID.startsTime}
                 required
                 type={INPUT_TYPE.time}
@@ -249,11 +300,15 @@ export function TribeEventProposalFormDialog({
               onChange={(event) => updateField("description", event.currentTarget.value)}
             />
           </div>
-          {validationError ? (
-            <p className={styles.TribeEventProposalFormDialog__error} role="alert">
-              {validationError}
+          <AnimatedCollapse isOpen={invalidFieldId !== null}>
+            <p
+              className={styles.TribeEventProposalFormDialog__error}
+              id={FIELD_ID.validationError}
+              role="alert"
+            >
+              {COPY.missingFields}
             </p>
-          ) : null}
+          </AnimatedCollapse>
           <div className={styles.TribeEventProposalFormDialog__actions}>
             <Button
               type={BUTTON_ATTRIBUTE.typeButton}

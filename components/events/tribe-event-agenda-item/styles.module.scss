@@ -1,3 +1,5 @@
+@use "../../../src/styles/motion";
+
 .TribeEventAgendaItem {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -69,6 +71,23 @@
     border: 1px solid var(--border);
     border-radius: 0.5rem;
     color: var(--foreground);
+    -webkit-tap-highlight-color: transparent;
+
+    @include motion.interactive;
+
+    &:hover {
+      border-color: color-mix(in oklch, var(--foreground) 24%, var(--border));
+      background: var(--accent);
+    }
+
+    &:active {
+      transform: scale(0.94);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
 
     svg {
       width: 1rem;
@@ -102,6 +121,19 @@
     text-decoration: underline;
     text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
     text-underline-offset: 0.2em;
+    -webkit-tap-highlight-color: transparent;
+
+    @include motion.interactive(text-decoration-color, color);
+
+    &:hover {
+      text-decoration-color: currentColor;
+    }
+
+    &:focus-visible {
+      border-radius: 0.2rem;
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
   }
 
   &__recordingBadge {

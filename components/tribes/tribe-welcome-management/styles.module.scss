@@ -1,3 +1,13 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
+@keyframes TribeWelcomeManagementSpin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 $tribe-welcome-mobile-max: 1023px;
 $tribe-welcome-desktop-min: 1024px;
 $tribe-welcome-row-actions-gap: 1rem;
@@ -37,10 +47,13 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
     margin: 0;
   }
 
+  &__header {
+    @include motion.enter;
+  }
+
   &__title {
     font-size: clamp(1.5rem, 3vw, 2rem);
     font-weight: 600;
-    letter-spacing: -0.01em;
     line-height: 1.15;
   }
 
@@ -87,6 +100,7 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
     font-size: 0.75rem;
     font-weight: 600;
     line-height: 1;
+    font-variant-numeric: tabular-nums;
     min-width: 1.5rem;
     padding: 0.2rem 0.5rem;
     text-align: center;
@@ -145,6 +159,8 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
     color: var(--destructive);
     font-size: 0.8rem;
     line-height: 1.4;
+
+    @include motion.enter($duration: 180ms, $distance: 3px);
   }
 
   &__defaultHint {
@@ -166,6 +182,8 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
     letter-spacing: 0.02em;
     padding: 0.1rem 0.55rem;
     text-transform: uppercase;
+
+    @include motion.pop($duration: 180ms);
   }
 
   &__resetButton {
@@ -178,6 +196,8 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
     font-size: 0.8rem;
     padding: 0;
     text-decoration: underline;
+
+    @include motion.interactive(color, opacity);
 
     &:hover {
       text-decoration: none;
@@ -257,6 +277,8 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
     background: transparent;
     color: var(--destructive);
 
+    @include motion.interactive(background-color, color);
+
     &:hover {
       background: color-mix(in srgb, var(--destructive) 12%, transparent);
     }
@@ -314,6 +336,8 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
     color: var(--destructive);
     font-size: 0.95rem;
     line-height: 1.5;
+
+    @include motion.enter($duration: 180ms, $distance: 3px);
   }
 
   &__submitBar {
@@ -326,6 +350,16 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
   &__submit {
     box-shadow: 0 12px 32px
       color-mix(in srgb, var(--foreground) 25%, transparent);
+    min-width: 8rem;
+  }
+
+  // Loading indicator only: it stops under reduced motion.
+  &__submitSpinner {
+    animation: TribeWelcomeManagementSpin 800ms linear infinite;
+
+    @include motion.reduced {
+      animation: none;
+    }
   }
 
   &__preview {
@@ -336,6 +370,8 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
     gap: 1rem;
     margin-top: 0.5rem;
     padding: 1.5rem;
+
+    @include motion.fade($delay: 80ms);
   }
 
   &__previewHeader {

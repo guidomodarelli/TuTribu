@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { PlusIcon, Trash2Icon } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 
 import {
   Button,
@@ -13,6 +14,8 @@ import {
   Input,
 } from "beez-ui";
 
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import type { TribeEventPostEventView } from "@/src/modules/events/application/results/tribe-event-post-event-public-dto-schemas";
 import { TRIBE_EVENT_POST_EVENT_LIMIT } from "@/src/modules/events/constants/tribe-event-post-event";
 import styles from "./styles.module.scss";
@@ -44,10 +47,23 @@ type TribeEventPostEventFormDialogProps = {
 const EMPTY_VALUE = "";
 const WEB_URL_PROTOCOLS: readonly string[] = ["http:", "https:"];
 const FIELD_ID = {
+  addMaterial: "tribe-event-add-material",
   materialTitle: (rowId: number) => `tribe-event-material-title-${rowId}`,
   materialUrl: (rowId: number) => `tribe-event-material-url-${rowId}`,
   recordingUrl: "tribe-event-recording-url",
+  validationError: "tribe-event-post-event-validation-error",
 } as const;
+const MATERIAL_ROW_ELEMENT = "div";
+
+/**
+ * Validation failure of the form: the Spanish message and the id of the
+ * control to fix (the recording link or a material field), which is marked
+ * invalid and focused.
+ */
+type PostEventValidationIssue = {
+  fieldId: string;
+  message: string;
+};
 const INPUT_TYPE = {
   url: "url",
 } as const;
@@ -87,6 +103,44 @@ function isWebUrl(value: string): boolean {
   }
 }
 
+/**
+ * First control of a half-filled material row that needs fixing: its name
+ * when missing, otherwise its link. Fully empty rows are ignored.
+ */
+function findInvalidMaterialFieldId(rows: MaterialRow[]): string | null {
+  for (const row of rows) {
+    const title = row.title.trim();
+    const url = row.url.trim();
+
+    if (!title && !url) {
+      continue;
+    }
+
+    if (!title) {
+      return FIELD_ID.materialTitle(row.id);
+    }
+
+    if (!isWebUrl(url)) {
+      return FIELD_ID.materialUrl(row.id);
+    }
+  }
+
+  return null;
+}
+
+/** Moves focus to the control with `fieldId` once it is in the document. */
+function focusFieldById(fieldId: string): void {
+  // The target may be a row mounted in this same update, so focus waits for
+  // the next frame, when React has committed it.
+  requestAnimationFrame(() => {
+    const control = document.getElementById(fieldId);
+
+    if (control instanceof HTMLElement) {
+      control.focus();
+    }
+  });
+}
+
 function toMaterialRows(postEvent: TribeEventPostEventView | null): MaterialRow[] {
   return (postEvent?.materials ?? []).map((material, index) => ({
     id: index,
@@ -97,7 +151,9 @@ function toMaterialRows(postEvent: TribeEventPostEventView | null): MaterialRow[
 
 /**
  * "Agregar grabación y materiales": recording link plus an editable list of
- * material links, validated inline before submitting. The provider check of
+ * material links, validated inline before submitting (the field to fix is
+ * marked invalid and focused). Rows animate in and out as they are added
+ * and removed, and a new row takes the focus. The provider check of
  * the recording (YouTube, Vimeo, Wistia, Loom) is authoritative on the server.
  */
 export function TribeEventPostEventFormDialog({
@@ -114,11 +170,17 @@ export function TribeEventPostEventFormDialog({
     toMaterialRows(initialPostEvent)
   );
   const [nextRowId, setNextRowId] = useState(materialRows.length);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationIssue, setValidationIssue] = useState<PostEventValidationIssue | null>(null);
+  // Last message shown, kept while the error region collapses.
+  const [shownValidationMessage, setShownValidationMessage] = useState<string | null>(null);
+
+  if (validationIssue && validationIssue.message !== shownValidationMessage) {
+    setShownValidationMessage(validationIssue.message);
+  }
   const canAddMaterial = materialRows.length < TRIBE_EVENT_POST_EVENT_LIMIT.materialsMax;
 
   const updateMaterial = (rowId: number, field: "title" | "url", value: string) => {
-    setValidationError(null);
+    setValidationIssue(null);
     setMaterialRows((currentRows) =>
       currentRows.map((row) => (row.id === rowId ? { ...row, [field]: value } : row))
     );
@@ -134,11 +196,22 @@ export function TribeEventPostEventFormDialog({
       { id: nextRowId, title: EMPTY_VALUE, url: EMPTY_VALUE },
     ]);
     setNextRowId((currentId) => currentId + 1);
+    // The new row is where the manager types next.
+    focusFieldById(FIELD_ID.materialTitle(nextRowId));
   };
 
+  /** ARIA wiring that ties a control to the current validation message. */
+  const getValidationProps = (fieldId: string) =>
+    validationIssue?.fieldId === fieldId
+      ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
+      : {};
+
   const removeMaterial = (rowId: number) => {
-    setValidationError(null);
+    setValidationIssue(null);
     setMaterialRows((currentRows) => currentRows.filter((row) => row.id !== rowId));
+    // The removed row took the focused button with it; "Agregar material"
+    // is the next useful stop and is always shown after a removal.
+    focusFieldById(FIELD_ID.addMaterial);
   };
 
   const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
@@ -151,19 +224,23 @@ export function TribeEventPostEventFormDialog({
     const trimmedRecordingUrl = recordingUrl.trim();
 
     if (trimmedRecordingUrl && !isWebUrl(trimmedRecordingUrl)) {
-      setValidationError(COPY.invalidRecording);
+      setValidationIssue({ fieldId: FIELD_ID.recordingUrl, message: COPY.invalidRecording });
+      focusFieldById(FIELD_ID.recordingUrl);
       return;
     }
 
     // Fully empty rows are dropped; half-filled rows are an error.
+    const invalidMaterialFieldId = findInvalidMaterialFieldId(materialRows);
+
+    if (invalidMaterialFieldId) {
+      setValidationIssue({ fieldId: invalidMaterialFieldId, message: COPY.invalidMaterial });
+      focusFieldById(invalidMaterialFieldId);
+      return;
+    }
+
     const filledRows = materialRows
       .map((row) => ({ title: row.title.trim(), url: row.url.trim() }))
       .filter((row) => row.title || row.url);
-
-    if (filledRows.some((row) => !row.title || !isWebUrl(row.url))) {
-      setValidationError(COPY.invalidMaterial);
-      return;
-    }
 
     onSubmit({ materials: filledRows, recordingUrl: trimmedRecordingUrl || null });
   };
@@ -186,6 +263,7 @@ export function TribeEventPostEventFormDialog({
           <div className={styles.TribeEventPostEventFormDialog__field}>
             <label htmlFor={FIELD_ID.recordingUrl}>{COPY.recordingLabel}</label>
             <Input
+              {...getValidationProps(FIELD_ID.recordingUrl)}
               id={FIELD_ID.recordingUrl}
               inputMode={INPUT_TYPE.url}
               maxLength={TRIBE_EVENT_POST_EVENT_LIMIT.urlMaxLength}
@@ -193,7 +271,7 @@ export function TribeEventPostEventFormDialog({
               type={INPUT_TYPE.url}
               value={recordingUrl}
               onChange={(event) => {
-                setValidationError(null);
+                setValidationIssue(null);
                 setRecordingUrl(event.currentTarget.value);
               }}
             />
@@ -203,44 +281,56 @@ export function TribeEventPostEventFormDialog({
             <legend className={styles.TribeEventPostEventFormDialog__legend}>
               {COPY.materialsLegend}
             </legend>
-            {materialRows.map((row, index) => {
-              const position = index + 1;
+            <AnimatePresence initial={false}>
+              {materialRows.map((row, index) => {
+                const position = index + 1;
 
-              return (
-                <div className={styles.TribeEventPostEventFormDialog__materialRow} key={row.id}>
-                  <Input
-                    aria-label={COPY.materialTitleLabel(position)}
-                    id={FIELD_ID.materialTitle(row.id)}
-                    maxLength={TRIBE_EVENT_POST_EVENT_LIMIT.materialTitleMaxLength}
-                    placeholder={COPY.materialTitlePlaceholder}
-                    value={row.title}
-                    onChange={(event) => updateMaterial(row.id, "title", event.currentTarget.value)}
-                  />
-                  <Input
-                    aria-label={COPY.materialUrlLabel(position)}
-                    id={FIELD_ID.materialUrl(row.id)}
-                    inputMode={INPUT_TYPE.url}
-                    maxLength={TRIBE_EVENT_POST_EVENT_LIMIT.urlMaxLength}
-                    placeholder="https://"
-                    type={INPUT_TYPE.url}
-                    value={row.url}
-                    onChange={(event) => updateMaterial(row.id, "url", event.currentTarget.value)}
-                  />
-                  <Button
-                    aria-label={COPY.removeMaterial(position)}
-                    size={BUTTON_ATTRIBUTE.sizeSmall}
-                    type={BUTTON_ATTRIBUTE.typeButton}
-                    variant={BUTTON_ATTRIBUTE.variantGhost}
-                    onClick={() => removeMaterial(row.id)}
+                return (
+                  <AnimatedListItem
+                    as={MATERIAL_ROW_ELEMENT}
+                    className={styles.TribeEventPostEventFormDialog__materialRow}
+                    key={row.id}
                   >
-                    <Trash2Icon aria-hidden />
-                  </Button>
-                </div>
-              );
-            })}
+                    <Input
+                      {...getValidationProps(FIELD_ID.materialTitle(row.id))}
+                      aria-label={COPY.materialTitleLabel(position)}
+                      className={styles.TribeEventPostEventFormDialog__materialTitle}
+                      id={FIELD_ID.materialTitle(row.id)}
+                      maxLength={TRIBE_EVENT_POST_EVENT_LIMIT.materialTitleMaxLength}
+                      placeholder={COPY.materialTitlePlaceholder}
+                      value={row.title}
+                      onChange={(event) => updateMaterial(row.id, "title", event.currentTarget.value)}
+                    />
+                    <Input
+                      {...getValidationProps(FIELD_ID.materialUrl(row.id))}
+                      aria-label={COPY.materialUrlLabel(position)}
+                      className={styles.TribeEventPostEventFormDialog__materialUrl}
+                      id={FIELD_ID.materialUrl(row.id)}
+                      inputMode={INPUT_TYPE.url}
+                      maxLength={TRIBE_EVENT_POST_EVENT_LIMIT.urlMaxLength}
+                      placeholder="https://"
+                      type={INPUT_TYPE.url}
+                      value={row.url}
+                      onChange={(event) => updateMaterial(row.id, "url", event.currentTarget.value)}
+                    />
+                    <Button
+                      aria-label={COPY.removeMaterial(position)}
+                      className={styles.TribeEventPostEventFormDialog__materialRemove}
+                      size={BUTTON_ATTRIBUTE.sizeSmall}
+                      type={BUTTON_ATTRIBUTE.typeButton}
+                      variant={BUTTON_ATTRIBUTE.variantGhost}
+                      onClick={() => removeMaterial(row.id)}
+                    >
+                      <Trash2Icon aria-hidden />
+                    </Button>
+                  </AnimatedListItem>
+                );
+              })}
+            </AnimatePresence>
             {canAddMaterial ? (
               <Button
                 className={styles.TribeEventPostEventFormDialog__addMaterial}
+                id={FIELD_ID.addMaterial}
                 size={BUTTON_ATTRIBUTE.sizeSmall}
                 type={BUTTON_ATTRIBUTE.typeButton}
                 variant={BUTTON_ATTRIBUTE.variantOutline}
@@ -254,11 +344,15 @@ export function TribeEventPostEventFormDialog({
             )}
           </fieldset>
 
-          {validationError ? (
-            <p className={styles.TribeEventPostEventFormDialog__error} role="alert">
-              {validationError}
+          <AnimatedCollapse isOpen={validationIssue !== null}>
+            <p
+              className={styles.TribeEventPostEventFormDialog__error}
+              id={FIELD_ID.validationError}
+              role="alert"
+            >
+              {validationIssue?.message ?? shownValidationMessage}
             </p>
-          ) : null}
+          </AnimatedCollapse>
           <div className={styles.TribeEventPostEventFormDialog__actions}>
             <Button
               type={BUTTON_ATTRIBUTE.typeButton}

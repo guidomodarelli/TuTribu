@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence } from "motion/react";
 
 import {
   Badge,
@@ -14,6 +15,9 @@ import {
 } from "beez-ui";
 
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresTime,
@@ -50,6 +54,15 @@ type TribeEventProposalsPanelProps = {
 
 const EMPTY_VALUE = "";
 const REVIEW_NOTE_FIELD_ID_PREFIX = "tribe-event-proposal-note-";
+/** Prefix of the per-proposal "Rechazar" button id, used to give focus back. */
+const REJECT_BUTTON_ID_PREFIX = "tribe-event-proposal-reject-";
+/** Presence keys of the panel body; changing between them cross-fades it. */
+const BODY_PRESENCE_KEY = {
+  empty: "empty",
+  error: "error",
+  list: "list",
+  loading: "loading",
+} as const;
 const BADGE_VARIANT = {
   outline: "outline",
   secondary: "secondary",
@@ -83,6 +96,16 @@ const COPY = {
   withdrawButton: "Retirar",
 } as const;
 
+/**
+ * Focuses the element with `elementId` after the current update commits, so
+ * focus survives when the focused control is swapped for another.
+ */
+function focusElementAfterCommit(elementId: string): void {
+  requestAnimationFrame(() => {
+    document.getElementById(elementId)?.focus();
+  });
+}
+
 function formatProposalSchedule(proposal: TribeEventProposalResult): string {
   return (
     formatBuenosAiresLongDate(proposal.startsAt) +
@@ -98,6 +121,9 @@ function formatProposalSchedule(proposal: TribeEventProposalResult): string {
  * Proposals panel. Managers see the pending queue with "Revisar y aprobar"
  * and "Rechazar" (optional note); members see their own proposals with
  * their status, the review note when rejected, and "Retirar" while pending.
+ * Proposals that leave the queue fold away, the rejection note unfolds
+ * under its proposal with the focus in the note, and "Volver" returns the
+ * focus to "Rechazar".
  */
 export function TribeEventProposalsPanel({
   canManageEvents,
@@ -118,6 +144,12 @@ export function TribeEventProposalsPanel({
   const startRejecting = (proposal: TribeEventProposalResult) => {
     setRejectingProposalId(proposal.id);
     setReviewNote(EMPTY_VALUE);
+    focusElementAfterCommit(REVIEW_NOTE_FIELD_ID_PREFIX + proposal.id);
+  };
+
+  const cancelRejecting = (proposal: TribeEventProposalResult) => {
+    setRejectingProposalId(null);
+    focusElementAfterCommit(REJECT_BUTTON_ID_PREFIX + proposal.id);
   };
 
   const confirmReject = async (proposal: TribeEventProposalResult) => {
@@ -132,7 +164,7 @@ export function TribeEventProposalsPanel({
     const noteFieldId = REVIEW_NOTE_FIELD_ID_PREFIX + proposal.id;
 
     return (
-      <li className={styles.TribeEventProposalsPanel__item} key={proposal.id}>
+      <AnimatedListItem className={styles.TribeEventProposalsPanel__item} key={proposal.id}>
         <div className={styles.TribeEventProposalsPanel__heading}>
           <p className={styles.TribeEventProposalsPanel__title}>{proposal.title}</p>
           {canReviewProposals ? null : (
@@ -160,7 +192,7 @@ export function TribeEventProposalsPanel({
             {proposal.reviewNote}
           </p>
         ) : null}
-        {canReviewProposals && isRejecting ? (
+        <AnimatedCollapse isOpen={canReviewProposals && isRejecting}>
           <div className={styles.TribeEventProposalsPanel__rejectForm}>
             <label className={styles.TribeEventProposalsPanel__label} htmlFor={noteFieldId}>
               {COPY.reviewNoteLabel}
@@ -176,7 +208,7 @@ export function TribeEventProposalsPanel({
                 size={BUTTON_ATTRIBUTE.sizeSmall}
                 type={BUTTON_ATTRIBUTE.typeButton}
                 variant={BUTTON_ATTRIBUTE.variantGhost}
-                onClick={() => setRejectingProposalId(null)}
+                onClick={() => cancelRejecting(proposal)}
               >
                 {COPY.cancelReject}
               </Button>
@@ -193,7 +225,7 @@ export function TribeEventProposalsPanel({
               </Button>
             </div>
           </div>
-        ) : null}
+        </AnimatedCollapse>
         {canReviewProposals && !isRejecting ? (
           <div className={styles.TribeEventProposalsPanel__actions}>
             <Button
@@ -206,6 +238,7 @@ export function TribeEventProposalsPanel({
             </Button>
             <Button
               disabled={isSubmitting}
+              id={REJECT_BUTTON_ID_PREFIX + proposal.id}
               size={BUTTON_ATTRIBUTE.sizeSmall}
               type={BUTTON_ATTRIBUTE.typeButton}
               variant={BUTTON_ATTRIBUTE.variantOutline}
@@ -228,9 +261,18 @@ export function TribeEventProposalsPanel({
             </Button>
           </div>
         ) : null}
-      </li>
+      </AnimatedListItem>
     );
   };
+
+  const bodyPresenceKey =
+    loadState.status === TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error
+      ? BODY_PRESENCE_KEY.error
+      : !isLoaded
+        ? BODY_PRESENCE_KEY.loading
+        : loadState.proposals.length === 0
+          ? BODY_PRESENCE_KEY.empty
+          : BODY_PRESENCE_KEY.list;
 
   const renderBody = () => {
     if (loadState.status === TRIBE_EVENT_PROPOSALS_LOAD_STATUS.error) {
@@ -267,7 +309,7 @@ export function TribeEventProposalsPanel({
 
     return (
       <ul className={styles.TribeEventProposalsPanel__list}>
-        {loadState.proposals.map(renderProposal)}
+        <AnimatePresence initial={false}>{loadState.proposals.map(renderProposal)}</AnimatePresence>
       </ul>
     );
   };
@@ -288,7 +330,7 @@ export function TribeEventProposalsPanel({
             {canReviewProposals ? COPY.managerDescription : COPY.authorDescription}
           </DialogDescription>
         </DialogHeader>
-        {renderBody()}
+        <PresenceSwap presenceKey={bodyPresenceKey}>{renderBody()}</PresenceSwap>
       </DialogContent>
     </Dialog>
   );

@@ -1,3 +1,5 @@
+@use "../../../src/styles/motion";
+
 .TribeSwitcher {
   display: inline-flex;
   align-items: center;
@@ -13,12 +15,18 @@
     font-size: 0.875rem;
     font-weight: 500;
     color: var(--foreground);
-    transition:
-      background-color 160ms ease,
-      box-shadow 160ms ease,
-      color 160ms ease;
+    -webkit-tap-highlight-color: transparent;
 
-    &:hover {
+    @include motion.interactive(background-color, box-shadow, color);
+
+    @media (hover: hover) {
+      &:hover {
+        background-color: color-mix(in oklch, var(--muted) 72%, transparent);
+      }
+    }
+
+    &:active,
+    &[data-state="open"] {
       background-color: color-mix(in oklch, var(--muted) 72%, transparent);
     }
 
@@ -41,6 +49,13 @@
     height: 1rem;
     flex: 0 0 auto;
     color: var(--muted-foreground);
+
+    @include motion.interactive(transform);
+  }
+
+  // The chevron points up while the menu is open.
+  &__trigger[data-state="open"] &__triggerIcon {
+    transform: rotate(180deg);
   }
 
   &__content {
@@ -66,6 +81,7 @@
   &__activeIcon {
     width: 1rem;
     height: 1rem;
+    flex: 0 0 auto;
     margin-left: auto;
   }
 }

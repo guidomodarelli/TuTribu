@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { toast } from "beez-ui";
 import userEvent from "@testing-library/user-event";
 import type { PickerProps, EmojiClickData } from "emoji-picker-react";
 
@@ -511,5 +512,186 @@ describe("TribeChannelManagement", () => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
     });
     expect((global.fetch as Mock).mock.calls[1][1].body).toBeUndefined();
+  });
+
+  it("confirms each operation with a channel message when the server omits one", async () => {
+    (global.fetch as Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          channel: {
+            accessScope: "tribemates",
+            emoji: "⭐",
+            id: "channel-news",
+            name: "Novedades",
+            slug: "novedades",
+            sortOrder: 30,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      });
+    const user = userEvent.setup();
+
+    render(
+      <TribeChannelManagement
+        channels={channels}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const createForm = getCreateForm();
+
+    await user.type(
+      within(createForm).getByRole("textbox", { name: "Nombre" }),
+      "Novedades"
+    );
+    await user.click(
+      within(createForm).getByRole("button", { name: "Elegir ícono" })
+    );
+    await user.click(screen.getByRole("button", { name: "Elegir estrella" }));
+    await user.click(screen.getByRole("button", { name: "Crear canal" }));
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Canal creado.");
+    });
+
+    const rondaChannelItem = getChannelItem("Ronda");
+
+    await user.type(
+      within(rondaChannelItem).getByRole("textbox", { name: "Nombre" }),
+      " general"
+    );
+    await user.click(
+      within(rondaChannelItem).getByRole("button", { name: "Guardar" })
+    );
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Canal actualizado.");
+    });
+
+    await user.click(
+      within(getChannelItem("Recursos")).getByRole("button", {
+        name: "Eliminar",
+      })
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Eliminar canal" })
+    );
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Canal eliminado.");
+    });
+  });
+
+  it("keeps a pending deletion locked while another channel finishes saving", async () => {
+    let resolveSave: (response: unknown) => void = () => undefined;
+    let resolveDelete: (response: unknown) => void = () => undefined;
+
+    (global.fetch as Mock)
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveSave = resolve;
+        })
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveDelete = resolve;
+        })
+      );
+    const user = userEvent.setup();
+
+    render(
+      <TribeChannelManagement
+        channels={channels}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const rondaChannelItem = getChannelItem("Ronda");
+
+    await user.type(
+      within(rondaChannelItem).getByRole("textbox", { name: "Nombre" }),
+      " general"
+    );
+    await user.click(
+      within(rondaChannelItem).getByRole("button", { name: "Guardar" })
+    );
+    await user.click(
+      within(getChannelItem("Recursos")).getByRole("button", {
+        name: "Eliminar",
+      })
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Eliminar canal" })
+    );
+
+    expect(screen.getByRole("button", { name: "Eliminar canal" })).toBeDisabled();
+
+    await act(async () => {
+      resolveSave({
+        ok: true,
+        json: async () => ({
+          channel: { ...channels[0], name: "Ronda general" },
+        }),
+      });
+    });
+
+    expect(screen.getByRole("button", { name: "Eliminar canal" })).toBeDisabled();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      resolveDelete({ ok: true, json: async () => ({}) });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue("Recursos")).not.toBeInTheDocument();
+    });
+  });
+
+  it("titles the delete dialog with the saved name and returns focus to the list after deleting", async () => {
+    (global.fetch as Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ message: "Canal eliminado." }),
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TribeChannelManagement
+        channels={channels}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const recursosChannelItem = getChannelItem("Recursos");
+
+    await user.type(
+      within(recursosChannelItem).getByRole("textbox", { name: "Nombre" }),
+      " viejos"
+    );
+    await user.click(
+      within(recursosChannelItem).getByRole("button", { name: "Eliminar" })
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "¿Eliminar el canal Recursos?" })
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Eliminar canal" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { level: 2, name: "Canales configurados" })
+      ).toHaveFocus();
+    });
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue("Recursos viejos")).not.toBeInTheDocument();
+    });
   });
 });

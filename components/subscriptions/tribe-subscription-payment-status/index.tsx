@@ -6,10 +6,13 @@
  * @module tribe-subscription-payment-status
  */
 
-import { useState } from "react";
-import { CreditCardIcon } from "lucide-react";
+import { useRef, useState } from "react";
+import { CreditCardIcon, LoaderCircleIcon } from "lucide-react";
 
 import { Button } from "beez-ui";
+import { PresenceSwap } from "@/components/motion/presence-swap";
+import { navigateToUrl } from "@/lib/browser-navigation";
+import { joinClassNames } from "@/lib/motion/join-class-names";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import styles from "./styles.module.scss";
 
@@ -41,6 +44,16 @@ const SUBSCRIPTION_PAYMENT_STATUS_REQUEST = {
   statusRole: "status",
 } as const;
 
+/** Tone of the inline feedback; also keys its enter/exit transition. */
+const SUBSCRIPTION_PAYMENT_FEEDBACK_TONE = {
+  error: "error",
+  progress: "progress",
+} as const;
+
+const SUBSCRIPTION_PAYMENT_STATUS_LOG = {
+  retryFailed: "TribeSubscriptionPaymentStatus:handleRetryPayment failed",
+} as const;
+
 const SUBSCRIPTION_PAYMENT_STATUS_CONTENT = {
   [TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled]: {
     description: SUBSCRIPTION_PAYMENT_STATUS_COPY.canceledDescription,
@@ -63,6 +76,14 @@ const SUBSCRIPTION_PAYMENT_STATUS_CONTENT = {
 type SubscriptionPaymentStatus =
   keyof typeof SUBSCRIPTION_PAYMENT_STATUS_CONTENT;
 
+type SubscriptionPaymentFeedbackTone =
+  (typeof SUBSCRIPTION_PAYMENT_FEEDBACK_TONE)[keyof typeof SUBSCRIPTION_PAYMENT_FEEDBACK_TONE];
+
+type SubscriptionPaymentFeedback = {
+  message: string;
+  tone: SubscriptionPaymentFeedbackTone;
+};
+
 const SUBSCRIPTION_PAYMENT_RETRY_STATUSES: ReadonlySet<SubscriptionPaymentStatus> =
   new Set([
     TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled,
@@ -80,12 +101,24 @@ type SubscriptionStartResponse = {
   subscriptionUrl?: string;
 };
 
+/**
+ * Resolves the safe message shown when the checkout could not start.
+ *
+ * @param body - Parsed start-subscription response body.
+ * @returns Server-provided safe message or the Spanish fallback.
+ */
 function resolveSubscriptionStartErrorMessage(
   body: SubscriptionStartResponse
 ): string {
   return body.message ?? SUBSCRIPTION_PAYMENT_STATUS_COPY.errorFallback;
 }
 
+/**
+ * Builds the same-origin endpoint that starts a subscription checkout.
+ *
+ * @param tribeSlug - Tribe slug.
+ * @returns Relative endpoint path.
+ */
 function buildStartSubscriptionEndpoint(tribeSlug: string): string {
   return (
     SUBSCRIPTION_PAYMENT_STATUS_REQUEST.apiTribes +
@@ -94,19 +127,44 @@ function buildStartSubscriptionEndpoint(tribeSlug: string): string {
   );
 }
 
+/**
+ * Renders the member-facing payment state and, when allowed, a retry action
+ * that starts a new checkout and hands the browser off to Mercado Pago.
+ *
+ * @param props - Current subscription status and tribe slug.
+ * @returns Subscription payment status section.
+ */
 export function TribeSubscriptionPaymentStatus({
   subscriptionStatus,
   tribeSlug,
 }: TribeSubscriptionPaymentStatusProps) {
   const [isStartingPayment, setIsStartingPayment] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<SubscriptionPaymentFeedback | null>(
+    null
+  );
+  // Guards against a second click landing before the disabled state renders.
+  const isStartingPaymentRef = useRef(false);
   const statusContent = SUBSCRIPTION_PAYMENT_STATUS_CONTENT[subscriptionStatus];
   const canRetryPayment =
     SUBSCRIPTION_PAYMENT_RETRY_STATUSES.has(subscriptionStatus);
 
+  const failPaymentStart = (message: string) => {
+    isStartingPaymentRef.current = false;
+    setIsStartingPayment(false);
+    setFeedback({ message, tone: SUBSCRIPTION_PAYMENT_FEEDBACK_TONE.error });
+  };
+
   const handleRetryPayment = async () => {
+    if (isStartingPaymentRef.current) {
+      return;
+    }
+
+    isStartingPaymentRef.current = true;
     setIsStartingPayment(true);
-    setFeedbackMessage(SUBSCRIPTION_PAYMENT_STATUS_COPY.loadingAction);
+    setFeedback({
+      message: SUBSCRIPTION_PAYMENT_STATUS_COPY.loadingAction,
+      tone: SUBSCRIPTION_PAYMENT_FEEDBACK_TONE.progress,
+    });
 
     try {
       const response = await fetch(buildStartSubscriptionEndpoint(tribeSlug), {
@@ -119,23 +177,28 @@ export function TribeSubscriptionPaymentStatus({
       const body = (await response.json().catch(() => ({}))) as
         SubscriptionStartResponse;
 
+      // On success the action stays disabled while the browser leaves for the
+      // checkout, so a second tap cannot start another one mid-redirect.
       if (response.ok && body.subscriptionUrl) {
-        window.location.assign(body.subscriptionUrl);
+        navigateToUrl(body.subscriptionUrl);
 
         return;
       }
 
       if (!response.ok || !body.checkoutUrl) {
-        setFeedbackMessage(resolveSubscriptionStartErrorMessage(body));
+        failPaymentStart(resolveSubscriptionStartErrorMessage(body));
 
         return;
       }
 
-      window.location.assign(body.checkoutUrl);
-    } catch {
-      setFeedbackMessage(SUBSCRIPTION_PAYMENT_STATUS_COPY.errorFallback);
-    } finally {
-      setIsStartingPayment(false);
+      navigateToUrl(body.checkoutUrl);
+    } catch (error) {
+      console.error(
+        SUBSCRIPTION_PAYMENT_STATUS_LOG.retryFailed,
+        { tribeSlug },
+        error
+      );
+      failPaymentStart(SUBSCRIPTION_PAYMENT_STATUS_COPY.errorFallback);
     }
   };
 
@@ -150,23 +213,43 @@ export function TribeSubscriptionPaymentStatus({
       <p className={styles.TribeSubscriptionPaymentStatus__description}>
         {statusContent.description}
       </p>
-      {feedbackMessage ? (
-        <p
-          className={styles.TribeSubscriptionPaymentStatus__feedback}
-          role={SUBSCRIPTION_PAYMENT_STATUS_REQUEST.statusRole}
-        >
-          {feedbackMessage}
-        </p>
-      ) : null}
+      {/* Kept mounted so assistive technology announces each message change. */}
+      <div
+        className={styles.TribeSubscriptionPaymentStatus__feedbackRegion}
+        role={SUBSCRIPTION_PAYMENT_STATUS_REQUEST.statusRole}
+      >
+        {feedback ? (
+          <PresenceSwap presenceKey={feedback.tone + feedback.message}>
+            <p
+              className={joinClassNames(
+                styles.TribeSubscriptionPaymentStatus__feedback,
+                feedback.tone === SUBSCRIPTION_PAYMENT_FEEDBACK_TONE.error &&
+                  styles["TribeSubscriptionPaymentStatus__feedback--error"]
+              )}
+            >
+              {feedback.message}
+            </p>
+          </PresenceSwap>
+        ) : null}
+      </div>
       {canRetryPayment ? (
         <Button
+          aria-busy={isStartingPayment || undefined}
+          className={styles.TribeSubscriptionPaymentStatus__action}
           disabled={isStartingPayment}
           onClick={() => {
             void handleRetryPayment();
           }}
           type={SUBSCRIPTION_PAYMENT_STATUS_REQUEST.buttonType}
         >
-          <CreditCardIcon />
+          {isStartingPayment ? (
+            <LoaderCircleIcon
+              aria-hidden
+              className={styles.TribeSubscriptionPaymentStatus__spinner}
+            />
+          ) : (
+            <CreditCardIcon aria-hidden />
+          )}
           {SUBSCRIPTION_PAYMENT_STATUS_COPY.retryPaymentButton}
         </Button>
       ) : null}

@@ -19,7 +19,7 @@ test("should restore the legacy theme, persist changes and navigate without relo
   await page.reload();
   await expect(page.locator("html")).not.toHaveClass(/dark/);
   await page.goto("/auth/route-not-found-for-ui-check");
-  await expect(page.getByRole("heading", { name: "Esta pagina no existe o ya no esta disponible" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Esta página no existe o ya no está disponible" })).toBeVisible();
   await page.evaluate(() => { document.documentElement.dataset.navigationProbe = "preserved"; });
   await page.getByRole("link", { name: "Volver al inicio", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);

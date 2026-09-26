@@ -12,9 +12,13 @@ type ComingSoonSectionProps = {
   heading: string;
 };
 
+/**
+ * Placeholder of a tribe section that is not available yet. It renders inside
+ * the platform layout's `main` landmark, so its root is a plain `div`.
+ */
 export function ComingSoonSection({ heading }: ComingSoonSectionProps) {
   return (
-    <main className={styles.ComingSoonSection}>
+    <div className={styles.ComingSoonSection}>
       <section
         className={styles.ComingSoonSection__content}
         aria-labelledby={COMING_SOON_SECTION_ATTRIBUTES.titleId}
@@ -32,6 +36,6 @@ export function ComingSoonSection({ heading }: ComingSoonSectionProps) {
           {COMING_SOON_SECTION_COPY.description}
         </p>
       </section>
-    </main>
+    </div>
   );
 }

@@ -11,6 +11,7 @@ import {
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { routeOccurrenceActivityRequests } from "@/tests/unit/components/events/support/occurrence-activity-fetch";
+import { MOTION_SAFE_FAKE_TIMERS } from "@/tests/unit/components/events/support/motion-safe-fake-timers";
 
 // Same Sonner double as the calendar suite: isolates its timers and global
 // notification store so toasts can be asserted.
@@ -105,7 +106,7 @@ describe("TribeEventsCalendar attendance", () => {
     vi.clearAllMocks();
     apiFetch = vi.fn();
     global.fetch = routeOccurrenceActivityRequests(apiFetch);
-    vi.useFakeTimers({ shouldAdvanceTime: true }).setSystemTime(
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS).setSystemTime(
       new Date("2026-05-01T12:00:00.000Z")
     );
   });
@@ -449,7 +450,9 @@ describe("TribeEventsCalendar attendance", () => {
       // Plain fake timers: the clock must not drift with real time so the
       // boundary can be asserted to the millisecond.
       vi.useRealTimers();
-      vi.useFakeTimers().setSystemTime(new Date("2026-05-06T18:59:30.500Z"));
+      vi.useFakeTimers({ toFake: MOTION_SAFE_FAKE_TIMERS.toFake }).setSystemTime(
+        new Date("2026-05-06T18:59:30.500Z")
+      );
       answerStreakRefreshWithFailure();
 
       renderCalendar();

@@ -13,16 +13,21 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type MouseEvent,
 } from "react";
+import { motion } from "motion/react";
 import { toast, Button } from "beez-ui";
 
 import { LessonComments } from "@/components/courses/lesson-comments";
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import { Link } from "@/components/navigation/link";
 import { RichTextContent } from "@/components/rich-text/rich-text-content";
 
 import { formatFileSize } from "@/lib/format-file-size";
+import { joinClassNames } from "@/lib/motion/join-class-names";
+import { SPRING_LAYOUT } from "@/lib/motion/tokens";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   CourseTreeViewerPermissionsResult,
@@ -43,7 +48,46 @@ const POPSTATE_EVENT = "popstate";
 const HISTORY_UNUSED_TITLE = "";
 const PRIMARY_MOUSE_BUTTON = 0;
 const PERCENT_MAX = 100;
+const PROGRESSBAR_ROLE = "progressbar";
+const IMAGE_ROLE = "img";
 
+/** Shared layout id: the active-lesson highlight glides between sidebar rows. */
+const ACTIVE_LESSON_INDICATOR_LAYOUT_ID = "tribe-courses-view-active-lesson";
+
+/** Presence keys of the sidebar lesson marker. */
+const LESSON_MARKER_KEY = {
+  completed: "completed",
+  number: "number",
+} as const;
+
+const SCROLL_BEHAVIOR = {
+  instant: "auto",
+  smooth: "smooth",
+} as const;
+const SCROLL_BLOCK_START = "start";
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+/** Distinguishes the lesson body key from its sibling comments key. */
+const LESSON_BODY_KEY_PREFIX = "lesson-body-";
+
+/**
+ * Inline transform for the progress fill; scaling keeps the change on the
+ * compositor and lets the CSS transition glide between values.
+ *
+ * @param progressPercent - Progress between 0 and 100.
+ * @returns Style object with the horizontal scale.
+ */
+function buildProgressFillStyle(progressPercent: number) {
+  return { transform: `scaleX(${progressPercent / PERCENT_MAX})` };
+}
+
+/**
+ * Builds the shareable URL of a lesson inside the course view.
+ *
+ * @param tribeSlug - Tribe slug.
+ * @param courseId - Course identifier.
+ * @param lessonId - Lesson identifier.
+ * @returns Relative page path with the course and lesson query parameters.
+ */
 function buildLessonHref(
   tribeSlug: string,
   courseId: string,
@@ -110,12 +154,15 @@ const COURSES_COPY = {
   completionError: "No pudimos guardar tu progreso. Intentá de nuevo.",
   emptyDescription: "Este curso todavía no tiene lecciones cargadas.",
   emptyHeading: "Curso sin contenido",
+  downloadFilePrefix: "Descargar ",
   inactiveBadge: "Inactivo",
   lessonFilesHeading: "Material de la lección",
+  lessonNavigationLabel: "Navegación de lecciones",
   lockedModulePrefix: "Se desbloquea el ",
   manageCta: "Gestionar",
   nextLessonButton: "Siguiente lección",
   previousLessonButton: "Lección anterior",
+  progressLabel: "Progreso del curso",
   progressSuffix: "% completado",
   selectLessonPrompt: "Elegí una lección de la barra lateral para empezar.",
   uncompleteButton: "Marcar como no completada",
@@ -195,12 +242,21 @@ function findInitialLesson(
   return lessons[0] ?? null;
 }
 
+/**
+ * Course player: video, lesson details, files, comments and a sidebar with
+ * the module tree and progress. Lesson selection is client-side and mirrored
+ * in the shareable URL through the History API.
+ *
+ * @param props - Course tree, initial lesson, tribe slug and permissions.
+ * @returns Course view page content.
+ */
 export function TribeCoursesView({
   course,
   selectedLessonId,
   tribeSlug,
   viewerPermissions,
 }: TribeCoursesViewProps) {
+  const lessonArticleRef = useRef<HTMLElement>(null);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(
     selectedLessonId
   );
@@ -223,6 +279,29 @@ export function TribeCoursesView({
     return () => window.removeEventListener(POPSTATE_EVENT, handlePopState);
   }, []);
 
+  // On phones the sidebar sits below the player, and long lessons push the
+  // player above the fold on desktop: bring the new lesson's top into view
+  // whenever it is scrolled past, so the selection visibly takes effect.
+  const revealLessonArticle = useCallback(() => {
+    const lessonArticle = lessonArticleRef.current;
+
+    if (!lessonArticle || lessonArticle.getBoundingClientRect().top >= 0) {
+      return;
+    }
+
+    // Read at call time so a preference changed mid-session is honored.
+    const prefersReducedMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia(REDUCED_MOTION_QUERY).matches;
+
+    lessonArticle.scrollIntoView({
+      behavior: prefersReducedMotion
+        ? SCROLL_BEHAVIOR.instant
+        : SCROLL_BEHAVIOR.smooth,
+      block: SCROLL_BLOCK_START,
+    });
+  }, []);
+
   const navigateToLesson = useCallback(
     (lessonId: string) => {
       setActiveLessonId(lessonId);
@@ -231,8 +310,9 @@ export function TribeCoursesView({
         HISTORY_UNUSED_TITLE,
         buildLessonHref(tribeSlug, course.id, lessonId)
       );
+      revealLessonArticle();
     },
-    [course.id, tribeSlug]
+    [course.id, revealLessonArticle, tribeSlug]
   );
 
   // Select a lesson without a server round-trip: the view already holds every
@@ -385,7 +465,10 @@ export function TribeCoursesView({
     <main className={styles.TribeCoursesView}>
       {hasLessons ? (
         <div className={styles.TribeCoursesView__layout}>
-          <article className={styles.TribeCoursesView__main}>
+          <article
+            className={styles.TribeCoursesView__main}
+            ref={lessonArticleRef}
+          >
             {activeLesson ? (
               <>
                 <div className={styles.TribeCoursesView__playerFrame}>
@@ -400,76 +483,89 @@ export function TribeCoursesView({
                     title={activeLesson.title}
                   />
                 </div>
-                <div className={styles.TribeCoursesView__lessonHeader}>
-                  <h2 className={styles.TribeCoursesView__lessonHeading}>
-                    {activeLesson.title}
-                  </h2>
-                  <Button
-                    aria-pressed={isActiveLessonCompleted}
-                    disabled={pendingCompletionLessonIds.has(activeLesson.id)}
-                    onClick={() => toggleLessonCompletion(activeLesson)}
-                    type="button"
-                    variant={isActiveLessonCompleted ? "default" : "outline"}
-                  >
-                    <Check aria-hidden />
-                    {isActiveLessonCompleted
-                      ? COURSES_COPY.uncompleteButton
-                      : COURSES_COPY.completeButton}
-                  </Button>
-                </div>
-                {activeLesson.description ? (
-                  <div className={styles.TribeCoursesView__lessonDescription}>
-                    <p
-                      className={styles.TribeCoursesView__lessonDescriptionText}
+                {/* Keyed by lesson so each switch replays the CSS entrance. */}
+                <div
+                  className={styles.TribeCoursesView__lessonBody}
+                  key={LESSON_BODY_KEY_PREFIX + activeLesson.id}
+                >
+                  <div className={styles.TribeCoursesView__lessonHeader}>
+                    <h2 className={styles.TribeCoursesView__lessonHeading}>
+                      {activeLesson.title}
+                    </h2>
+                    <Button
+                      aria-busy={
+                        pendingCompletionLessonIds.has(activeLesson.id) ||
+                        undefined
+                      }
+                      aria-pressed={isActiveLessonCompleted}
+                      disabled={pendingCompletionLessonIds.has(activeLesson.id)}
+                      onClick={() => toggleLessonCompletion(activeLesson)}
+                      type="button"
+                      variant={isActiveLessonCompleted ? "default" : "outline"}
                     >
-                      <RichTextContent content={activeLesson.description} />
-                    </p>
+                      <Check aria-hidden />
+                      {isActiveLessonCompleted
+                        ? COURSES_COPY.uncompleteButton
+                        : COURSES_COPY.completeButton}
+                    </Button>
                   </div>
-                ) : null}
-                {activeLesson.files?.length ? (
-                  <section
-                    aria-label={COURSES_COPY.lessonFilesHeading}
-                    className={styles.TribeCoursesView__lessonFiles}
-                  >
-                    <h3 className={styles.TribeCoursesView__lessonFilesHeading}>
-                      {COURSES_COPY.lessonFilesHeading}
-                    </h3>
-                    <ul className={styles.TribeCoursesView__fileList}>
-                      {sortLessonFiles(activeLesson.files).map((lessonFile) => (
-                        <li
-                          className={styles.TribeCoursesView__fileItem}
-                          key={lessonFile.id}
-                        >
-                          <a
-                            aria-label={`Descargar ${lessonFile.fileName}`}
-                            className={styles.TribeCoursesView__fileLink}
-                            href={buildLessonFileDownloadHref(
-                              tribeSlug,
-                              lessonFile.id
-                            )}
+                  {activeLesson.description ? (
+                    <div className={styles.TribeCoursesView__lessonDescription}>
+                      <p
+                        className={styles.TribeCoursesView__lessonDescriptionText}
+                      >
+                        <RichTextContent content={activeLesson.description} />
+                      </p>
+                    </div>
+                  ) : null}
+                  {activeLesson.files?.length ? (
+                    <section
+                      aria-label={COURSES_COPY.lessonFilesHeading}
+                      className={styles.TribeCoursesView__lessonFiles}
+                    >
+                      <h3 className={styles.TribeCoursesView__lessonFilesHeading}>
+                        {COURSES_COPY.lessonFilesHeading}
+                      </h3>
+                      <ul className={styles.TribeCoursesView__fileList}>
+                        {sortLessonFiles(activeLesson.files).map((lessonFile) => (
+                          <li
+                            className={styles.TribeCoursesView__fileItem}
+                            key={lessonFile.id}
                           >
-                            <FileText
-                              aria-hidden
-                              className={styles.TribeCoursesView__fileIcon}
-                            />
-                            <span
-                              className={styles.TribeCoursesView__fileName}
+                            <a
+                              aria-label={
+                                COURSES_COPY.downloadFilePrefix +
+                                lessonFile.fileName
+                              }
+                              className={styles.TribeCoursesView__fileLink}
+                              href={buildLessonFileDownloadHref(
+                                tribeSlug,
+                                lessonFile.id
+                              )}
                             >
-                              {lessonFile.fileName}
-                            </span>
-                            <span
-                              className={styles.TribeCoursesView__fileSize}
-                            >
-                              {formatFileSize(lessonFile.fileSizeBytes)}
-                            </span>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ) : null}
+                              <FileText
+                                aria-hidden
+                                className={styles.TribeCoursesView__fileIcon}
+                              />
+                              <span
+                                className={styles.TribeCoursesView__fileName}
+                              >
+                                {lessonFile.fileName}
+                              </span>
+                              <span
+                                className={styles.TribeCoursesView__fileSize}
+                              >
+                                {formatFileSize(lessonFile.fileSizeBytes)}
+                              </span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                </div>
                 <nav
-                  aria-label="Navegación de lecciones"
+                  aria-label={COURSES_COPY.lessonNavigationLabel}
                   className={styles.TribeCoursesView__lessonNav}
                 >
                   {previousLesson ? (
@@ -528,15 +624,16 @@ export function TribeCoursesView({
             </div>
             <div className={styles.TribeCoursesView__progress}>
               <div
+                aria-label={COURSES_COPY.progressLabel}
                 aria-valuemax={PERCENT_MAX}
                 aria-valuemin={0}
                 aria-valuenow={progressPercent}
                 className={styles.TribeCoursesView__progressTrack}
-                role="progressbar"
+                role={PROGRESSBAR_ROLE}
               >
                 <span
                   className={styles.TribeCoursesView__progressFill}
-                  style={{ width: `${progressPercent}%` }}
+                  style={buildProgressFillStyle(progressPercent)}
                 />
               </div>
               <p className={styles.TribeCoursesView__progressLabel}>
@@ -583,11 +680,11 @@ export function TribeCoursesView({
                               aria-current={
                                 isActive ? ARIA_CURRENT_PAGE : undefined
                               }
-                              className={
-                                isActive
-                                  ? `${styles.TribeCoursesView__lessonLink} ${styles["TribeCoursesView__lessonLink--active"]}`
-                                  : styles.TribeCoursesView__lessonLink
-                              }
+                              className={joinClassNames(
+                                styles.TribeCoursesView__lessonLink,
+                                isActive &&
+                                  styles["TribeCoursesView__lessonLink--active"]
+                              )}
                               href={buildLessonHref(
                                 tribeSlug,
                                 course.id,
@@ -597,25 +694,47 @@ export function TribeCoursesView({
                                 handleLessonSelect(event, lesson.id)
                               }
                             >
-                              {completed ? (
-                                <span
-                                  aria-label={COURSES_COPY.completedBadge}
-                                  className={
-                                    styles.TribeCoursesView__lessonCheck
-                                  }
-                                >
-                                  <Check aria-hidden />
-                                </span>
-                              ) : (
-                                <span
+                              {isActive ? (
+                                <motion.span
                                   aria-hidden
                                   className={
-                                    styles.TribeCoursesView__lessonNumber
+                                    styles.TribeCoursesView__activeIndicator
                                   }
-                                >
-                                  {lessonIndex + 1}
-                                </span>
-                              )}
+                                  layoutId={ACTIVE_LESSON_INDICATOR_LAYOUT_ID}
+                                  transition={SPRING_LAYOUT}
+                                />
+                              ) : null}
+                              <PresenceSwap
+                                as="span"
+                                className={styles.TribeCoursesView__lessonMarker}
+                                mode="popLayout"
+                                presenceKey={
+                                  completed
+                                    ? LESSON_MARKER_KEY.completed
+                                    : LESSON_MARKER_KEY.number
+                                }
+                              >
+                                {completed ? (
+                                  <span
+                                    aria-label={COURSES_COPY.completedBadge}
+                                    className={
+                                      styles.TribeCoursesView__lessonCheck
+                                    }
+                                    role={IMAGE_ROLE}
+                                  >
+                                    <Check aria-hidden />
+                                  </span>
+                                ) : (
+                                  <span
+                                    aria-hidden
+                                    className={
+                                      styles.TribeCoursesView__lessonNumber
+                                    }
+                                  >
+                                    {lessonIndex + 1}
+                                  </span>
+                                )}
+                              </PresenceSwap>
                               <span
                                 className={styles.TribeCoursesView__lessonTitle}
                               >

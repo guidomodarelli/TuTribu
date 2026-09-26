@@ -1,3 +1,5 @@
+@use "../../../src/styles/motion";
+
 .TribeEventPostEventPanel {
   display: grid;
   gap: 0.75rem;
@@ -14,6 +16,16 @@
     text-transform: uppercase;
   }
 
+  &__body {
+    display: grid;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  &__retry {
+    justify-self: start;
+  }
+
   &__subheading {
     display: inline-flex;
     align-items: center;
@@ -21,12 +33,13 @@
     margin: 0;
     font-size: 0.9rem;
     font-weight: 600;
+  }
 
-    svg {
-      width: 1rem;
-      height: 1rem;
-      flex: none;
-    }
+  &__subheadingIcon {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    color: var(--muted-foreground);
   }
 
   &__muted {
@@ -84,13 +97,25 @@
     font-size: 0.9rem;
     overflow-wrap: anywhere;
     text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, var(--primary) 40%, transparent);
     text-underline-offset: 0.2em;
+    @include motion.interactive(color, text-decoration-color);
 
-    svg {
-      width: 0.95rem;
-      height: 0.95rem;
-      flex: none;
+    &:hover {
+      text-decoration-color: currentColor;
     }
+
+    &:focus-visible {
+      border-radius: 0.2rem;
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+  }
+
+  &__linkIcon {
+    flex: none;
+    width: 0.95rem;
+    height: 0.95rem;
   }
 
   &__materialList {
@@ -127,9 +152,15 @@
     padding: 0.3rem 0.8rem;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    @include motion.interactive(background-color, border-color, transform);
 
     &:hover:not(:disabled) {
       background-color: var(--accent);
+    }
+
+    // A short press dip confirms the tap before the count rolls.
+    &:active:not(:disabled) {
+      transform: scale(0.96);
     }
 
     &:focus-visible {
@@ -154,6 +185,8 @@
   }
 
   &__reactionCount {
+    display: inline-flex;
+    min-width: 1ch;
     font-size: 0.9rem;
     font-variant-numeric: tabular-nums;
     font-weight: 600;

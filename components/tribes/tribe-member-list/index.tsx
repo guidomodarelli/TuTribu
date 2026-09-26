@@ -1,5 +1,10 @@
+"use client";
+
+import { AnimatePresence } from "motion/react";
 import { Avatar, AvatarFallback, AvatarImage, Badge } from "beez-ui";
 
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import { FreeInvitationAvatarFrame } from "@/components/tribes/free-invitation-avatar-frame";
 import type {
   TribeMemberResult,
@@ -20,6 +25,21 @@ const TRIBE_MEMBER_SELECTION_COUNT = {
 } as const;
 
 const FIRST_MEMBER_POSITION = 1;
+
+/**
+ * Above this many rows, filtering only fades rows in and out: measuring every
+ * row for the reflow glide would cost more than it adds on long lists.
+ */
+const MEMBER_LIST_LAYOUT_ANIMATION_LIMIT = 40;
+
+/** Presence keys for the region that swaps between the list and its empty state. */
+const MEMBER_LIST_PRESENCE_KEY = {
+  empty: "empty",
+  list: "list",
+} as const;
+
+/** Decorative avatar alt: the member name is already rendered next to it. */
+const DECORATIVE_IMAGE_ALT = "";
 
 const POSITION_ATTRIBUTES = {
   ariaHidden: true,
@@ -59,6 +79,8 @@ export type TribeMemberSelectionBadge = {
 
 type TribeMemberListProps = {
   canViewFreeInvitations?: boolean;
+  /** Overrides the empty copy, for example when a search or filter hides every member. */
+  emptyDescription?: string;
   members: TribeMemberResult[];
   selectionsByMemberId?: Record<string, TribeMemberSelectionBadge[]>;
 };
@@ -130,72 +152,95 @@ function TribeMemberSelectionBadges({
   );
 }
 
+/**
+ * Numbered member rows with role and selection badges. Rows added or removed
+ * after the first render (search, filters) fade in and out and the remaining
+ * rows glide into place; the server-rendered list is shown as is.
+ * @param props - Members to render, their selections and the empty copy.
+ * @returns The member list, or a polite empty message.
+ */
 export function TribeMemberList({
   canViewFreeInvitations = false,
+  emptyDescription = TRIBE_MEMBER_LIST_COPY.emptyDescription,
   members,
   selectionsByMemberId,
 }: TribeMemberListProps) {
-  if (members.length === 0) {
-    return (
-      <p className={styles.TribeMemberList__empty}>
-        {TRIBE_MEMBER_LIST_COPY.emptyDescription}
-      </p>
-    );
-  }
+  const hasMembers = members.length > 0;
+  const shouldAnimateLayout =
+    members.length <= MEMBER_LIST_LAYOUT_ANIMATION_LIMIT;
 
   return (
-    <ul
-      aria-label={TRIBE_MEMBER_LIST_COPY.listLabel}
-      className={styles.TribeMemberList__list}
+    <PresenceSwap
+      presenceKey={
+        hasMembers ? MEMBER_LIST_PRESENCE_KEY.list : MEMBER_LIST_PRESENCE_KEY.empty
+      }
     >
-      {members.map((member, memberIndex) => {
-        const memberSelections = selectionsByMemberId?.[member.id] ?? [];
-        const memberPosition = memberIndex + FIRST_MEMBER_POSITION;
-        const showFreeFrame =
-          canViewFreeInvitations && member.joinedViaFreeInvitation;
-        const avatar = (
-          <Avatar className={styles.TribeMemberList__avatar}>
-            {member.image ? (
-              <AvatarImage alt={member.name} src={member.image} />
-            ) : null}
-            <AvatarFallback>{member.avatarFallback}</AvatarFallback>
-          </Avatar>
-        );
+      {hasMembers ? (
+        <ul
+          aria-label={TRIBE_MEMBER_LIST_COPY.listLabel}
+          className={styles.TribeMemberList__list}
+        >
+          <AnimatePresence initial={false}>
+            {members.map((member, memberIndex) => {
+              const memberSelections = selectionsByMemberId?.[member.id] ?? [];
+              const memberPosition = memberIndex + FIRST_MEMBER_POSITION;
+              const showFreeFrame =
+                canViewFreeInvitations && member.joinedViaFreeInvitation;
+              const avatar = (
+                <Avatar className={styles.TribeMemberList__avatar}>
+                  {member.image ? (
+                    <AvatarImage alt={DECORATIVE_IMAGE_ALT} src={member.image} />
+                  ) : null}
+                  <AvatarFallback>{member.avatarFallback}</AvatarFallback>
+                </Avatar>
+              );
 
-        return (
-          <li className={styles.TribeMemberList__item} key={member.id}>
-            <span
-              aria-hidden={POSITION_ATTRIBUTES.ariaHidden}
-              className={styles.TribeMemberList__position}
-            >
-              {memberPosition}
-            </span>
-            {showFreeFrame ? (
-              <FreeInvitationAvatarFrame frameId={member.id}>
-                {avatar}
-              </FreeInvitationAvatarFrame>
-            ) : (
-              avatar
-            )}
-            <div className={styles.TribeMemberList__identity}>
-              <div className={styles.TribeMemberList__memberDetails}>
-                <div className={styles.TribeMemberList__nameRow}>
-                  <p className={styles.TribeMemberList__name}>{member.name}</p>
-                  <TribeMemberRoleBadge role={member.role} />
-                </div>
-                {member.email ? (
-                  <p className={styles.TribeMemberList__email}>{member.email}</p>
-                ) : null}
-              </div>
-              {memberSelections.length > 0 ? (
-                <div className={styles.TribeMemberList__sideBadges}>
-                  <TribeMemberSelectionBadges selections={memberSelections} />
-                </div>
-              ) : null}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+              return (
+                <AnimatedListItem
+                  as="li"
+                  className={styles.TribeMemberList__item}
+                  key={member.id}
+                  layout={shouldAnimateLayout}
+                >
+                  <span
+                    aria-hidden={POSITION_ATTRIBUTES.ariaHidden}
+                    className={styles.TribeMemberList__position}
+                  >
+                    {memberPosition}
+                  </span>
+                  {showFreeFrame ? (
+                    <FreeInvitationAvatarFrame frameId={member.id}>
+                      {avatar}
+                    </FreeInvitationAvatarFrame>
+                  ) : (
+                    avatar
+                  )}
+                  <div className={styles.TribeMemberList__identity}>
+                    <div className={styles.TribeMemberList__memberDetails}>
+                      <div className={styles.TribeMemberList__nameRow}>
+                        <p className={styles.TribeMemberList__name}>{member.name}</p>
+                        <TribeMemberRoleBadge role={member.role} />
+                      </div>
+                      {member.email ? (
+                        <p className={styles.TribeMemberList__email}>{member.email}</p>
+                      ) : null}
+                    </div>
+                    {memberSelections.length > 0 ? (
+                      <div className={styles.TribeMemberList__sideBadges}>
+                        <TribeMemberSelectionBadges selections={memberSelections} />
+                      </div>
+                    ) : null}
+                  </div>
+                </AnimatedListItem>
+              );
+            })}
+          </AnimatePresence>
+        </ul>
+      ) : (
+        <p className={styles.TribeMemberList__empty} role="status">
+          {emptyDescription}
+        </p>
+      )}
+    </PresenceSwap>
   );
 }

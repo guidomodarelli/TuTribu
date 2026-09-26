@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import { toast, Button, Input, Switch } from "beez-ui";
 
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { Link } from "@/components/navigation/link";
-
-
-
+import { joinClassNames } from "@/lib/motion/join-class-names";
 import { ROUTES } from "@/src/constants/routes";
 import {
   COURSE_DESCRIPTION,
@@ -45,10 +46,13 @@ const CATALOG_MANAGEMENT_COPY = {
   sortOrderLabel: "Orden",
   titleLabel: "Título",
   titlePlaceholder: "Ej: Inversiones desde cero",
+  titleRequiredError: "Escribí un título para el curso.",
   unexpectedError: "No pudimos completar la acción. Intentá de nuevo.",
 } as const;
 
 const EDIT_HEADING_PREFIX = "Editar: ";
+const COURSE_ACTIONS_LABEL_PREFIX = "Acciones del curso ";
+const SORT_ORDER_META_SEPARATOR = ": ";
 
 const HTTP_METHOD = {
   delete: "DELETE",
@@ -86,15 +90,36 @@ const INPUT_TYPE = {
 } as const;
 const NUMERIC_PARSE_RADIX = 10;
 const ARIA_ROLE_GROUP = "group";
+const ARIA_ROLE_ALERT = "alert";
 
+/**
+ * Builds the endpoint that creates courses of a tribe.
+ *
+ * @param tribeSlug - Tribe slug.
+ * @returns Relative endpoint path.
+ */
 function buildCoursesApiUrl(tribeSlug: string): string {
   return `${COURSES_API.apiTribesPrefix}${tribeSlug}${COURSES_API.coursesSuffix}`;
 }
 
+/**
+ * Builds the endpoint of a single course.
+ *
+ * @param tribeSlug - Tribe slug.
+ * @param courseId - Course identifier.
+ * @returns Relative endpoint path.
+ */
 function buildCourseApiUrl(tribeSlug: string, courseId: string): string {
   return `${COURSES_API.apiTribesPrefix}${tribeSlug}${COURSES_API.coursesById}${courseId}`;
 }
 
+/**
+ * Builds the link to the module and lesson management of a course.
+ *
+ * @param tribeSlug - Tribe slug.
+ * @param courseId - Course identifier.
+ * @returns Relative page path with the course query parameter.
+ */
 function buildManageCourseHref(tribeSlug: string, courseId: string): string {
   return `${ROUTES.tribes.coursesManage(tribeSlug)}?${COURSE_MANAGE_QUERY_PARAM}=${courseId}`;
 }
@@ -178,6 +203,13 @@ function toCourseWithModules(course: CourseResult): CourseWithModulesResult {
   };
 }
 
+/**
+ * Leader-facing course catalog editor with optimistic create, update and
+ * delete, animated list changes and focus kept on the affected control.
+ *
+ * @param props - Initial courses and tribe slug.
+ * @returns Course catalog management page content.
+ */
 export function TribeCoursesCatalogManagement({
   initialCourses,
   tribeSlug,
@@ -192,6 +224,35 @@ export function TribeCoursesCatalogManagement({
   );
   const [showNewCourseForm, setShowNewCourseForm] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+  // Controls that must regain focus once the form that replaced them closes.
+  const newCourseButtonRef = useRef<HTMLButtonElement>(null);
+  const shouldFocusNewCourseButtonRef = useRef(false);
+  const courseIdToRefocusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!showNewCourseForm && shouldFocusNewCourseButtonRef.current) {
+      shouldFocusNewCourseButtonRef.current = false;
+      newCourseButtonRef.current?.focus();
+    }
+  }, [showNewCourseForm]);
+
+  const closeNewCourseForm = () => {
+    shouldFocusNewCourseButtonRef.current = true;
+    setShowNewCourseForm(false);
+  };
+
+  const closeCourseEditor = (courseId: string) => {
+    courseIdToRefocusRef.current = courseId;
+    setEditingCourseId(null);
+  };
+
+  const focusEditButtonAfterEditing =
+    (courseId: string) => (editButton: HTMLButtonElement | null) => {
+      if (editButton && courseIdToRefocusRef.current === courseId) {
+        courseIdToRefocusRef.current = null;
+        editButton.focus();
+      }
+    };
 
   if (syncedInitialCourses !== initialCourses || syncedTribeSlug !== tribeSlug) {
     setSyncedInitialCourses(initialCourses);
@@ -280,7 +341,7 @@ export function TribeCoursesCatalogManagement({
         )
       );
       clearCoursePending(optimisticId);
-      setShowNewCourseForm(false);
+      closeNewCourseForm();
       toast.success(CATALOG_MANAGEMENT_COPY.courseCreatedMessage);
     } catch {
       setCourses((current) =>
@@ -358,7 +419,7 @@ export function TribeCoursesCatalogManagement({
         );
       }
       clearCoursePending(courseId);
-      setEditingCourseId(null);
+      closeCourseEditor(courseId);
       toast.success(CATALOG_MANAGEMENT_COPY.courseUpdatedMessage);
     } catch {
       setCourses((current) =>
@@ -384,6 +445,8 @@ export function TribeCoursesCatalogManagement({
       current.filter((course) => course.id !== courseId)
     );
     markCoursePending(courseId);
+    // The focused delete button leaves with its row; keep focus on the page.
+    newCourseButtonRef.current?.focus();
 
     try {
       const response = await fetch(buildCourseApiUrl(tribeSlug, courseId), {
@@ -429,13 +492,14 @@ export function TribeCoursesCatalogManagement({
         <Button
           disabled={showNewCourseForm}
           onClick={() => setShowNewCourseForm(true)}
+          ref={newCourseButtonRef}
           type={FORM_BUTTON_TYPE.button}
         >
           {CATALOG_MANAGEMENT_COPY.newCourseButton}
         </Button>
       </header>
 
-      {showNewCourseForm ? (
+      <AnimatedCollapse isOpen={showNewCourseForm}>
         <CourseForm
           headingLabel={CATALOG_MANAGEMENT_COPY.createCourseHeading}
           initialState={{
@@ -446,10 +510,10 @@ export function TribeCoursesCatalogManagement({
             title: "",
           }}
           isEditing={false}
-          onCancel={() => setShowNewCourseForm(false)}
+          onCancel={closeNewCourseForm}
           onSubmit={submitNewCourse}
         />
-      ) : null}
+      </AnimatedCollapse>
 
       {courses.length === 0 && !showNewCourseForm ? (
         <p className={styles.TribeCoursesCatalogManagement__emptyState}>
@@ -458,103 +522,114 @@ export function TribeCoursesCatalogManagement({
       ) : null}
 
       <ul className={styles.TribeCoursesCatalogManagement__courseList}>
-        {courses.map((course) => {
-          const isCoursePending = pendingCourseIds.has(course.id);
-          const isCourseLocked = isCoursePending || isOptimisticId(course.id);
-          const courseItemClassName = isCoursePending
-            ? `${styles.TribeCoursesCatalogManagement__courseItem} ${styles["TribeCoursesCatalogManagement__courseItem--pending"]}`
-            : styles.TribeCoursesCatalogManagement__courseItem;
+        <AnimatePresence initial={false}>
+          {courses.map((course) => {
+            const isCoursePending = pendingCourseIds.has(course.id);
+            const isCourseLocked = isCoursePending || isOptimisticId(course.id);
+            const isEditingCourse = editingCourseId === course.id;
 
-          return (
-            <li className={courseItemClassName} key={course.id}>
-              {editingCourseId === course.id ? (
-                <CourseForm
-                  headingLabel={`${EDIT_HEADING_PREFIX}${course.title}`}
-                  initialState={{
-                    coverImageUrl: course.coverImageUrl ?? "",
-                    description: course.description ?? "",
-                    isActive: course.isActive,
-                    sortOrder: course.sortOrder,
-                    title: course.title,
-                  }}
-                  isEditing
-                  onCancel={() => setEditingCourseId(null)}
-                  onSubmit={(form) => submitCourseUpdate(course.id, form)}
-                />
-              ) : (
-                <div className={styles.TribeCoursesCatalogManagement__courseHeader}>
-                  <div>
-                    <h2 className={styles.TribeCoursesCatalogManagement__courseTitle}>
-                      {course.title}
-                      {!course.isActive ? (
-                        <span
-                          className={
-                            styles.TribeCoursesCatalogManagement__inactiveBadge
-                          }
-                        >
-                          {CATALOG_MANAGEMENT_COPY.inactiveBadge}
-                        </span>
-                      ) : null}
-                      {isCoursePending ? (
-                        <span
-                          className={
-                            styles.TribeCoursesCatalogManagement__pendingBadge
-                          }
-                        >
-                          {CATALOG_MANAGEMENT_COPY.pendingBadge}
-                        </span>
-                      ) : null}
-                    </h2>
-                    <p className={styles.TribeCoursesCatalogManagement__courseMeta}>
-                      Orden: {course.sortOrder}
-                    </p>
-                    {course.description ? (
-                      <p
-                        className={
-                          styles.TribeCoursesCatalogManagement__courseDescription
-                        }
-                      >
-                        {course.description}
+            return (
+              <AnimatedListItem
+                aria-busy={isCoursePending || undefined}
+                className={joinClassNames(
+                  styles.TribeCoursesCatalogManagement__courseItem,
+                  isCoursePending &&
+                    styles["TribeCoursesCatalogManagement__courseItem--pending"]
+                )}
+                key={course.id}
+              >
+                {isEditingCourse ? (
+                  <CourseForm
+                    headingLabel={`${EDIT_HEADING_PREFIX}${course.title}`}
+                    initialState={{
+                      coverImageUrl: course.coverImageUrl ?? "",
+                      description: course.description ?? "",
+                      isActive: course.isActive,
+                      sortOrder: course.sortOrder,
+                      title: course.title,
+                    }}
+                    isEditing
+                    onCancel={() => closeCourseEditor(course.id)}
+                    onSubmit={(form) => submitCourseUpdate(course.id, form)}
+                  />
+                ) : (
+                  <div className={styles.TribeCoursesCatalogManagement__courseHeader}>
+                    <div>
+                      <h2 className={styles.TribeCoursesCatalogManagement__courseTitle}>
+                        {course.title}
+                        {!course.isActive ? (
+                          <span
+                            className={
+                              styles.TribeCoursesCatalogManagement__inactiveBadge
+                            }
+                          >
+                            {CATALOG_MANAGEMENT_COPY.inactiveBadge}
+                          </span>
+                        ) : null}
+                        {isCoursePending ? (
+                          <span
+                            className={
+                              styles.TribeCoursesCatalogManagement__pendingBadge
+                            }
+                          >
+                            {CATALOG_MANAGEMENT_COPY.pendingBadge}
+                          </span>
+                        ) : null}
+                      </h2>
+                      <p className={styles.TribeCoursesCatalogManagement__courseMeta}>
+                        {CATALOG_MANAGEMENT_COPY.sortOrderLabel}
+                        {SORT_ORDER_META_SEPARATOR}
+                        {course.sortOrder}
                       </p>
-                    ) : null}
-                  </div>
-                  <div
-                    aria-label={`Acciones del curso ${course.title}`}
-                    className={styles.TribeCoursesCatalogManagement__actions}
-                    role={ARIA_ROLE_GROUP}
-                  >
-                    {!isCourseLocked ? (
-                      <Link
-                        className={
-                          styles.TribeCoursesCatalogManagement__manageContentLink
-                        }
-                        href={buildManageCourseHref(tribeSlug, course.id)}
+                      {course.description ? (
+                        <p
+                          className={
+                            styles.TribeCoursesCatalogManagement__courseDescription
+                          }
+                        >
+                          {course.description}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div
+                      aria-label={COURSE_ACTIONS_LABEL_PREFIX + course.title}
+                      className={styles.TribeCoursesCatalogManagement__actions}
+                      role={ARIA_ROLE_GROUP}
+                    >
+                      {!isCourseLocked ? (
+                        <Link
+                          className={
+                            styles.TribeCoursesCatalogManagement__manageContentLink
+                          }
+                          href={buildManageCourseHref(tribeSlug, course.id)}
+                        >
+                          {CATALOG_MANAGEMENT_COPY.manageContentButton}
+                        </Link>
+                      ) : null}
+                      <Button
+                        disabled={isCourseLocked}
+                        onClick={() => setEditingCourseId(course.id)}
+                        ref={focusEditButtonAfterEditing(course.id)}
+                        type={FORM_BUTTON_TYPE.button}
+                        variant={BUTTON_VARIANT.outline}
                       >
-                        {CATALOG_MANAGEMENT_COPY.manageContentButton}
-                      </Link>
-                    ) : null}
-                    <Button
-                      disabled={isCourseLocked}
-                      onClick={() => setEditingCourseId(course.id)}
-                      type={FORM_BUTTON_TYPE.button}
-                      variant={BUTTON_VARIANT.outline}
-                    >
-                      {CATALOG_MANAGEMENT_COPY.editButton}
-                    </Button>
-                    <Button
-                      disabled={isCourseLocked}
-                      onClick={() => deleteCourse(course.id)}
-                      type={FORM_BUTTON_TYPE.button}
-                      variant={BUTTON_VARIANT.destructive}
-                    >
-                      {CATALOG_MANAGEMENT_COPY.deleteButton}
-                    </Button>
+                        {CATALOG_MANAGEMENT_COPY.editButton}
+                      </Button>
+                      <Button
+                        disabled={isCourseLocked}
+                        onClick={() => deleteCourse(course.id)}
+                        type={FORM_BUTTON_TYPE.button}
+                        variant={BUTTON_VARIANT.destructive}
+                      >
+                        {CATALOG_MANAGEMENT_COPY.deleteButton}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </li>
-          );
-        })}
+                )}
+              </AnimatedListItem>
+            );
+          })}
+        </AnimatePresence>
       </ul>
     </main>
   );
@@ -568,6 +643,13 @@ type CourseFormProps = {
   onSubmit: (form: CourseFormState) => Promise<void>;
 };
 
+/**
+ * Create or edit form of a course. Focuses the title on open and validates
+ * that the title is not blank before calling `onSubmit`.
+ *
+ * @param props - Heading, initial values, mode and callbacks.
+ * @returns Course form.
+ */
 function CourseForm({
   headingLabel,
   initialState,
@@ -575,6 +657,9 @@ function CourseForm({
   onCancel,
   onSubmit,
 }: CourseFormProps) {
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const titleErrorId = useId();
+  const [titleError, setTitleError] = useState<string | null>(null);
   const [title, setTitle] = useState(initialState.title);
   const [description, setDescription] = useState(initialState.description);
   const [coverImageUrl, setCoverImageUrl] = useState(
@@ -583,9 +668,29 @@ function CourseForm({
   const [sortOrder, setSortOrder] = useState(initialState.sortOrder);
   const [isActive, setIsActive] = useState(initialState.isActive);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Guards against a second submit landing before the disabled state renders.
+  const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    titleInputRef.current?.focus();
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (isSubmittingRef.current) {
+      return;
+    }
+
+    const trimmedTitle = title.trim();
+
+    if (trimmedTitle.length === 0) {
+      setTitleError(CATALOG_MANAGEMENT_COPY.titleRequiredError);
+      titleInputRef.current?.focus();
+      return;
+    }
+
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -593,16 +698,22 @@ function CourseForm({
         description,
         isActive,
         sortOrder,
-        title,
+        title: trimmedTitle,
       });
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
 
   return (
     <form
-      className={styles.TribeCoursesCatalogManagement__form}
+      aria-busy={isSubmitting || undefined}
+      className={joinClassNames(
+        styles.TribeCoursesCatalogManagement__form,
+        isEditing && styles["TribeCoursesCatalogManagement__form--inline"]
+      )}
+      noValidate
       onSubmit={handleSubmit}
     >
       <h3 className={styles.TribeCoursesCatalogManagement__formHeading}>
@@ -611,12 +722,27 @@ function CourseForm({
       <label className={styles.TribeCoursesCatalogManagement__formField}>
         <span>{CATALOG_MANAGEMENT_COPY.titleLabel}</span>
         <Input
+          aria-describedby={titleError ? titleErrorId : undefined}
+          aria-invalid={titleError ? true : undefined}
           maxLength={COURSE_TITLE.maxLength}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            setTitleError(null);
+          }}
           placeholder={CATALOG_MANAGEMENT_COPY.titlePlaceholder}
+          ref={titleInputRef}
           required
           value={title}
         />
+        {titleError ? (
+          <span
+            className={styles.TribeCoursesCatalogManagement__fieldError}
+            id={titleErrorId}
+            role={ARIA_ROLE_ALERT}
+          >
+            {titleError}
+          </span>
+        ) : null}
       </label>
       <label className={styles.TribeCoursesCatalogManagement__formField}>
         <span>{CATALOG_MANAGEMENT_COPY.descriptionLabel}</span>
@@ -658,12 +784,17 @@ function CourseForm({
         </label>
       ) : null}
       <div className={styles.TribeCoursesCatalogManagement__formActions}>
-        <Button disabled={isSubmitting} type={FORM_BUTTON_TYPE.submit}>
+        <Button
+          aria-busy={isSubmitting || undefined}
+          disabled={isSubmitting}
+          type={FORM_BUTTON_TYPE.submit}
+        >
           {isEditing
             ? CATALOG_MANAGEMENT_COPY.saveButton
             : CATALOG_MANAGEMENT_COPY.createButton}
         </Button>
         <Button
+          disabled={isSubmitting}
           onClick={onCancel}
           type={FORM_BUTTON_TYPE.button}
           variant={BUTTON_VARIANT.outline}

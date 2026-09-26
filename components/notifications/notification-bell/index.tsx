@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { BellIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   Button,
   cn,
@@ -14,11 +16,14 @@ import {
   SheetTrigger,
 } from "beez-ui";
 
+import { AnimatedCount } from "@/components/motion/animated-count";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 import {
   describeUnreadNotifications,
   formatUnreadBadge,
+  NOTIFICATION_BADGE_MAX,
 } from "@/lib/notifications/notification-presentation";
+import { MOTION_DURATION_SECONDS, MOTION_EASE_OUT, SPRING_POP } from "@/lib/motion/tokens";
 
 import styles from "./styles.module.scss";
 
@@ -46,6 +51,75 @@ type NotificationBellProps = Omit<React.ComponentProps<typeof NotificationPanel>
 const PANEL_TITLE = "Notificaciones";
 const PANEL_TITLE_ID = "notification-panel-title";
 
+/** Scale the unread badge grows from and shrinks to when it appears or clears. */
+const BADGE_HIDDEN_SCALE = 0.4;
+
+/** Badge entrance and exit: a confident pop in, a quick fade out. */
+const BADGE_MOTION = {
+  animate: { opacity: 1, scale: 1, transition: SPRING_POP },
+  exit: {
+    opacity: 0,
+    scale: BADGE_HIDDEN_SCALE,
+    transition: { duration: MOTION_DURATION_SECONDS.exit, ease: MOTION_EASE_OUT },
+  },
+  initial: { opacity: 0, scale: BADGE_HIDDEN_SCALE },
+} as const;
+
+/** Angles, in degrees, of the bell swing: out, back past rest, then settling. */
+const BELL_NUDGE_ANGLE_DEGREES = {
+  rebound: 10,
+  rest: 0,
+  settle: -4,
+  swing: -14,
+} as const;
+
+/**
+ * One short swing of the bell, played once when the unread count grows
+ * (never on the first render and never in a loop).
+ */
+const BELL_NUDGE_ROTATION_DEGREES = [
+  BELL_NUDGE_ANGLE_DEGREES.rest,
+  BELL_NUDGE_ANGLE_DEGREES.swing,
+  BELL_NUDGE_ANGLE_DEGREES.rebound,
+  BELL_NUDGE_ANGLE_DEGREES.settle,
+  BELL_NUDGE_ANGLE_DEGREES.rest,
+];
+
+/** Timing of the bell swing, within the product's 320 ms reveal budget. */
+const BELL_NUDGE_TRANSITION = {
+  duration: MOTION_DURATION_SECONDS.reveal,
+  ease: MOTION_EASE_OUT,
+} as const;
+
+/**
+ * Highest value the rolling badge animates to. Every count above the visible
+ * maximum renders "9+", so they share one value and never roll between
+ * identical labels.
+ */
+const BADGE_ROLL_CEILING = NOTIFICATION_BADGE_MAX + 1;
+
+/**
+ * Counts how many times the unread count grew while mounted, adjusting state
+ * during render (the React-endorsed alternative to an effect) so the swing
+ * starts in the same commit that shows the new badge.
+ * @param unreadCount - Current unread notifications.
+ * @returns Zero until the count grows, then the number of increases seen.
+ */
+function useUnreadIncreaseCount(unreadCount: number): number {
+  const [previousUnreadCount, setPreviousUnreadCount] = useState(unreadCount);
+  const [increaseCount, setIncreaseCount] = useState(0);
+
+  if (previousUnreadCount !== unreadCount) {
+    if (unreadCount > previousUnreadCount) {
+      setIncreaseCount((currentIncreaseCount) => currentIncreaseCount + 1);
+    }
+
+    setPreviousUnreadCount(unreadCount);
+  }
+
+  return increaseCount;
+}
+
 /**
  * Header bell with the unread badge. The accessible name carries the count
  * ("Notificaciones, 3 sin leer") and a polite live region announces changes
@@ -67,6 +141,7 @@ export function NotificationBell({
   const showsSheet = isResponsive || surface === NOTIFICATION_BELL_SURFACE.sheet;
   const showsPopover = isResponsive || surface === NOTIFICATION_BELL_SURFACE.popover;
   const accessibleLabel = describeUnreadNotifications(unreadCount);
+  const unreadIncreaseCount = useUnreadIncreaseCount(unreadCount);
   const trigger = (
     <Button
       aria-label={accessibleLabel}
@@ -75,12 +150,33 @@ export function NotificationBell({
       type="button"
       variant="ghost"
     >
-      <BellIcon aria-hidden="true" />
-      {unreadCount > 0 ? (
-        <span aria-hidden="true" className={styles.NotificationBell__badge}>
-          {formatUnreadBadge(unreadCount)}
-        </span>
-      ) : null}
+      {/* Remounting on each increase replays the swing exactly once. */}
+      <motion.span
+        animate={unreadIncreaseCount > 0 ? { rotate: BELL_NUDGE_ROTATION_DEGREES } : undefined}
+        aria-hidden="true"
+        className={styles.NotificationBell__icon}
+        key={unreadIncreaseCount}
+        transition={BELL_NUDGE_TRANSITION}
+      >
+        <BellIcon aria-hidden="true" />
+      </motion.span>
+      <AnimatePresence initial={false}>
+        {unreadCount > 0 ? (
+          <motion.span
+            animate={BADGE_MOTION.animate}
+            aria-hidden="true"
+            className={styles.NotificationBell__badge}
+            exit={BADGE_MOTION.exit}
+            initial={BADGE_MOTION.initial}
+            key="unread-badge"
+          >
+            <AnimatedCount
+              format={formatUnreadBadge}
+              value={Math.min(unreadCount, BADGE_ROLL_CEILING)}
+            />
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
     </Button>
   );
   const liveRegion = (

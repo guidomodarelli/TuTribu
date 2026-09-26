@@ -1,8 +1,17 @@
+@use "../../../src/styles/motion";
+
 $tribe-story-gallery-desktop-max: 63.99rem;
 $tribe-story-gallery-nav-size: 2.5rem;
 $tribe-story-gallery-nav-offset: clamp(0.75rem, 3vw, 1.5rem);
+// Hit area stays touch friendly while the visible track stays a slim pill.
+$tribe-story-gallery-indicator-hit-size: 1.5rem;
+$tribe-story-gallery-indicator-width: 0.5rem;
+$tribe-story-gallery-indicator-active-width: 1.25rem;
+$tribe-story-gallery-indicator-height: 0.375rem;
 
 .TribeStoryGallery {
+  display: grid;
+  gap: 0.5rem;
   width: 100%;
 
   &__carousel {
@@ -18,7 +27,6 @@ $tribe-story-gallery-nav-offset: clamp(0.75rem, 3vw, 1.5rem);
     width: 100%;
   }
 
-  &__video,
   &__image {
     border: 0;
     display: block;
@@ -30,6 +38,58 @@ $tribe-story-gallery-nav-offset: clamp(0.75rem, 3vw, 1.5rem);
 
   &__navButton {
     z-index: 1;
+  }
+
+  &__indicators {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+  }
+
+  &__indicator {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    display: inline-flex;
+    height: $tribe-story-gallery-indicator-hit-size;
+    justify-content: center;
+    min-width: $tribe-story-gallery-indicator-hit-size;
+    padding: 0 0.125rem;
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: -2px;
+    }
+  }
+
+  &__indicatorTrack {
+    background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+    border-radius: 999px;
+    display: block;
+    height: $tribe-story-gallery-indicator-height;
+    overflow: hidden;
+    position: relative;
+    width: $tribe-story-gallery-indicator-width;
+
+    @include motion.interactive(background-color);
+  }
+
+  &__indicator:hover &__indicatorTrack {
+    background: color-mix(in srgb, var(--muted-foreground) 60%, transparent);
+  }
+
+  // The selected pill is wider; the fill glides between tracks via `layoutId`.
+  &__indicator[aria-current="true"] &__indicatorTrack {
+    width: $tribe-story-gallery-indicator-active-width;
+  }
+
+  &__indicatorFill {
+    background: var(--foreground);
+    border-radius: inherit;
+    inset: 0;
+    position: absolute;
   }
 }
 

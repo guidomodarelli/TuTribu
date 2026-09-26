@@ -70,6 +70,10 @@ export type RichLinkEditorController = {
   linkTextInput: string;
   linkUrlInput: string;
   popoverMode: RichLinkPopoverMode;
+  /** Whether the popover draft has visible text and an http(s) URL, so it can be saved. */
+  isLinkEditValid: boolean;
+  /** Whether the author typed a URL that cannot become a safe http(s) link. */
+  hasInvalidLinkUrl: boolean;
   setLinkTextInput: (value: string) => void;
   setLinkUrlInput: (value: string) => void;
   setPopoverMode: (mode: RichLinkPopoverMode) => void;
@@ -124,6 +128,11 @@ export function useRichLinkEditor(
   // state while showing the placeholder, leaving the caret and Backspace acting
   // on an empty DOM selection that can never reach those hidden spaces.
   const hasContent = content.length > 0;
+  const normalizedLinkUrlInput = normalizeMarkdownUrl(linkUrlInput);
+  const hasInvalidLinkUrl =
+    linkUrlInput.trim().length > 0 && normalizedLinkUrlInput === null;
+  const isLinkEditValid =
+    normalizedLinkUrlInput !== null && linkTextInput.trim().length > 0;
 
   useLayoutEffect(() => {
     const editor = editorRef.current;
@@ -465,6 +474,8 @@ export function useRichLinkEditor(
     handleKeyDown,
     handlePaste,
     hasContent,
+    hasInvalidLinkUrl,
+    isLinkEditValid,
     linkTextInput,
     linkUrlInput,
     loadFromDisplay,

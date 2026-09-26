@@ -332,6 +332,91 @@ describe("TribeCoursesView", () => {
     expect(screen.getByText("50% completado")).toBeInTheDocument();
   });
 
+  it("updates the named course progress bar when a lesson is completed", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn(async () =>
+      buildJsonResponse({ completed: true })
+    ) as unknown as typeof fetch;
+
+    render(
+      <TribeCoursesView
+        course={buildCourse()}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    const progressBar = screen.getByRole("progressbar", {
+      name: "Progreso del curso",
+    });
+    expect(progressBar).toHaveAttribute("aria-valuenow", "50");
+
+    await user.click(
+      screen.getByRole("button", { name: "Marcar como completada" })
+    );
+
+    expect(progressBar).toHaveAttribute("aria-valuenow", "100");
+    expect(screen.getByText("100% completado")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getAllByRole("img", { name: "Completada" })).toHaveLength(2)
+    );
+  });
+
+  it("brings the lesson into view when it was scrolled past, as on phones where the sidebar sits below", async () => {
+    const user = userEvent.setup();
+    const scrollIntoViewSpy = vi.spyOn(Element.prototype, "scrollIntoView");
+
+    render(
+      <TribeCoursesView
+        course={buildCourse()}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    const lessonArticle = screen
+      .getByRole("heading", { name: "Primera clase" })
+      .closest("article");
+    // jsdom has no layout: place the article above the viewport, as after
+    // scrolling down to the sidebar on a phone.
+    vi.spyOn(lessonArticle as HTMLElement, "getBoundingClientRect").mockReturnValue(
+      { top: -480 } as DOMRect
+    );
+
+    await user.click(screen.getByRole("link", { name: /Segunda clase/ }));
+
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+    expect(scrollIntoViewSpy.mock.contexts[0]).toBe(lessonArticle);
+    // The test environment reports reduced motion, so the jump is instant.
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({
+      behavior: "auto",
+      block: "start",
+    });
+  });
+
+  it("does not scroll when the lesson top is already visible", async () => {
+    const user = userEvent.setup();
+    const scrollIntoViewSpy = vi.spyOn(Element.prototype, "scrollIntoView");
+
+    render(
+      <TribeCoursesView
+        course={buildCourse()}
+        selectedLessonId={null}
+        tribeSlug={TRIBE_SLUG}
+        viewerPermissions={{ canManageCourses: false }}
+      />
+    );
+
+    await user.click(screen.getByRole("link", { name: /Segunda clase/ }));
+
+    expect(
+      screen.getByRole("heading", { name: "Segunda clase" })
+    ).toBeInTheDocument();
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+  });
+
   it("hydrates the sidebar management link without recoverable errors", async () => {
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");

@@ -75,7 +75,7 @@ describe("NotFoundPage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /esta pagina no existe o ya no esta disponible/i,
+        name: /esta página no existe o ya no está disponible/i,
       })
     ).toBeInTheDocument();
     expect(
@@ -85,10 +85,10 @@ describe("NotFoundPage", () => {
       screen.getByRole("link", { name: /volver al inicio/i })
     ).toHaveAttribute("data-prefetch", "false");
     expect(
-      screen.getByRole("link", { name: /iniciar sesion/i })
+      screen.getByRole("link", { name: /iniciar sesión/i })
     ).toHaveAttribute("href", "/auth/signin");
     expect(
-      screen.getByRole("link", { name: /iniciar sesion/i })
+      screen.getByRole("link", { name: /iniciar sesión/i })
     ).toHaveAttribute("data-prefetch", "false");
   });
 
@@ -108,7 +108,7 @@ describe("NotFoundPage", () => {
       screen.getByRole("link", { name: /volver al inicio/i })
     ).toHaveAttribute("href", "/");
     expect(
-      screen.queryByRole("link", { name: /iniciar sesion/i })
+      screen.queryByRole("link", { name: /iniciar sesión/i })
     ).not.toBeInTheDocument();
   });
 
@@ -119,11 +119,11 @@ describe("NotFoundPage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /esta pagina no existe o ya no esta disponible/i,
+        name: /esta página no existe o ya no está disponible/i,
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /iniciar sesion/i })
+      screen.getByRole("link", { name: /iniciar sesión/i })
     ).toHaveAttribute("href", "/auth/signin");
     expect(errorMock).toHaveBeenCalledWith({
       message: "Failed to resolve session for not found page",
@@ -140,11 +140,11 @@ describe("NotFoundPage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /esta pagina no existe o ya no esta disponible/i,
+        name: /esta página no existe o ya no está disponible/i,
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /iniciar sesion/i })
+      screen.getByRole("link", { name: /iniciar sesión/i })
     ).toHaveAttribute("href", "/auth/signin");
     expect(errorMock).toHaveBeenCalledWith({
       message: "Failed to resolve session for not found page",
@@ -165,11 +165,11 @@ describe("NotFoundPage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: /esta pagina no existe o ya no esta disponible/i,
+        name: /esta página no existe o ya no está disponible/i,
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /iniciar sesion/i })
+      screen.getByRole("link", { name: /iniciar sesión/i })
     ).toHaveAttribute("href", "/auth/signin");
     expect(errorMock).toHaveBeenCalledWith({
       message: "Failed to resolve session for not found page",

@@ -1,3 +1,7 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .TribeCoursesCatalogManagement {
   display: grid;
   gap: 1.5rem;
@@ -6,6 +10,8 @@
   padding: clamp(1rem, 3vw, 2rem);
 
   &__header {
+    @include motion.enter;
+
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -21,17 +27,29 @@
   }
 
   &__backLink {
+    @include motion.interactive(color);
+
+    border-radius: calc(var(--radius-md) - 2px);
     color: var(--muted-foreground);
     font-size: 0.8125rem;
     text-decoration: none;
+    text-underline-offset: 0.2rem;
 
     &:hover {
       color: var(--foreground);
       text-decoration: underline;
     }
+
+    &:focus-visible {
+      color: var(--foreground);
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
   }
 
   &__emptyState {
+    @include motion.fade;
+
     color: var(--muted-foreground);
     margin: 0;
   }
@@ -51,10 +69,13 @@
     border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
     border-radius: var(--radius-lg);
     background-color: var(--card);
+    min-width: 0;
+  }
 
-    &--pending {
-      opacity: 0.7;
-    }
+  // Dims the row content, not the row: Motion owns the row's inline opacity.
+  &__courseItem--pending &__courseHeader {
+    opacity: 0.7;
+    transition: opacity motion.$duration-hover motion.$ease-out;
   }
 
   &__courseHeader {
@@ -74,6 +95,8 @@
     font-weight: 700;
     line-height: 1.35;
     margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   &__courseMeta {
@@ -87,6 +110,10 @@
     font-size: 0.875rem;
     line-height: 1.5;
     margin: 0.375rem 0 0;
+  }
+
+  &__pendingBadge {
+    @include motion.pop;
   }
 
   &__inactiveBadge,
@@ -123,7 +150,7 @@
     font-weight: 500;
     text-decoration: none;
     white-space: nowrap;
-    transition: background-color 120ms ease;
+    @include motion.interactive(background-color, border-color, box-shadow);
 
     &:hover {
       background-color: var(--muted);
@@ -143,6 +170,22 @@
     border: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
     border-radius: var(--radius-lg);
     background-color: var(--card);
+
+    // Inside a course row the row already frames the form, which replaces the
+    // summary in place and enters softly.
+    &--inline {
+      @include motion.enter($distance: 4px);
+
+      padding: 0;
+      border: 0;
+      background-color: transparent;
+    }
+  }
+
+  &__fieldError {
+    color: var(--destructive);
+    font-size: 0.8125rem;
+    font-weight: 400;
   }
 
   &__formHeading {
@@ -193,6 +236,7 @@
 
   &__formActions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
   }

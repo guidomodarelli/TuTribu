@@ -1,3 +1,12 @@
+@use "../../../src/styles/motion";
+
+// Skeleton timing: appear only if loading is not instant, then breathe slowly.
+$tribe-loading-reveal-delay: 120ms;
+$tribe-loading-pulse-duration: 1.6s;
+$tribe-loading-message-step: 160ms;
+
+@include motion.define-keyframes;
+
 .TribeLoadingPage {
   display: grid;
   align-content: start;
@@ -7,6 +16,9 @@
   max-width: min(100%, 45rem);
   min-height: 100%;
   margin: 0 auto;
+
+  // Fast navigations resolve before the delay, so the skeleton never flashes.
+  @include motion.fade($tribe-loading-reveal-delay);
 
   &__srOnly {
     position: absolute;
@@ -84,7 +96,20 @@
   &__shortBodyLine {
     border-radius: var(--radius-md);
     background-color: var(--muted);
-    animation: tribe-loading-pulse 1.4s ease-in-out infinite;
+    animation: tribe-loading-pulse $tribe-loading-pulse-duration ease-in-out infinite;
+
+    @include motion.reduced {
+      animation: none;
+    }
+  }
+
+  // Each skeleton message breathes slightly after the previous one.
+  &__message:nth-child(2) * {
+    animation-delay: $tribe-loading-message-step;
+  }
+
+  &__message:nth-child(3) * {
+    animation-delay: $tribe-loading-message-step * 2;
   }
 
   &__avatar {
@@ -146,7 +171,7 @@
 @keyframes tribe-loading-pulse {
   0%,
   100% {
-    opacity: 0.5;
+    opacity: 0.55;
   }
 
   50% {

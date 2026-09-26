@@ -1,6 +1,22 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
+// Sections enter in reading order; list items follow their own section.
+$tribe-welcome-display-section-count: 4;
+$tribe-welcome-display-list-base-delay: 120ms;
+$tribe-welcome-display-list-count: 8;
+$tribe-welcome-display-icon-size: 1.125rem;
+
+@keyframes TribeWelcomeDisplaySpin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 .TribeWelcomeDisplay {
   display: grid;
-  gap: 1.5rem;
+  gap: 1.75rem;
   margin: 0 auto;
   max-width: min(100%, 760px);
   padding: 0.25rem 0;
@@ -10,6 +26,14 @@
   &__section {
     display: grid;
     gap: 0.75rem;
+  }
+
+  // Top-level blocks (header, agreements, links, action) enter one after the
+  // other; this is CSS only so the server-rendered HTML is never hidden.
+  &__header,
+  &__section,
+  &__action {
+    @include motion.stagger($tribe-welcome-display-section-count);
   }
 
   &__eyebrow,
@@ -23,8 +47,9 @@
 
   &__eyebrow {
     color: var(--muted-foreground);
-    font-size: 0.9rem;
-    font-weight: 650;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
 
@@ -43,19 +68,23 @@
     color: var(--muted-foreground);
     display: block;
     font-size: 0.75rem;
-    font-weight: 650;
+    font-weight: 600;
     letter-spacing: 0.04em;
     margin-bottom: 0.25rem;
     text-transform: uppercase;
   }
 
   &__title {
+    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
     font-size: clamp(2rem, 6vw, 4rem);
-    line-height: 0.98;
+    font-weight: 600;
+    line-height: 1.02;
+    overflow-wrap: anywhere;
   }
 
   &__sectionTitle {
     font-size: 1.15rem;
+    font-weight: 600;
     line-height: 1.3;
   }
 
@@ -64,6 +93,8 @@
     font-size: 1.05rem;
     line-height: 1.6;
     max-width: 62ch;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
   }
 
   &__ruleList {
@@ -73,6 +104,19 @@
     padding-left: 1.5rem;
   }
 
+  &__ruleItem {
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+    padding-left: 0.5rem;
+
+    &::marker {
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+    }
+
+    @include motion.stagger($tribe-welcome-display-list-count, $tribe-welcome-display-list-base-delay);
+  }
+
   &__linkList {
     display: grid;
     gap: 0.6rem;
@@ -80,52 +124,93 @@
     padding-left: 0;
   }
 
-  &__ruleItem {
-    line-height: 1.55;
-    padding-left: 0.5rem;
-  }
-
-  &__linkList {
-    list-style: none;
-    padding-left: 0;
+  &__linkItem {
+    @include motion.stagger($tribe-welcome-display-list-count, $tribe-welcome-display-list-base-delay);
   }
 
   &__linkCard {
+    align-items: center;
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 0.75rem;
     color: var(--foreground);
     cursor: pointer;
-    display: block;
+    display: flex;
     font: inherit;
+    gap: 0.75rem;
+    justify-content: space-between;
     padding: 0.875rem 1rem;
     text-align: left;
     text-decoration: none;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
     width: 100%;
 
-    &:hover,
+    @include motion.interactive(background-color, border-color, box-shadow, opacity);
+
     &:focus-visible {
-      background: var(--accent);
-      border-color: var(--ring);
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
     }
 
     &:disabled {
       cursor: not-allowed;
       opacity: 0.7;
     }
+
+    &[aria-busy="true"] {
+      cursor: progress;
+      opacity: 1;
+    }
+  }
+
+  @media (hover: hover) {
+    &__linkCard:hover:not(:disabled) {
+      background: var(--accent);
+      border-color: color-mix(in oklch, var(--ring) 55%, var(--border));
+    }
+
+    &__linkCard:hover:not(:disabled) &__linkCardIcon {
+      color: var(--foreground);
+      transform: translate(2px, -2px);
+    }
+  }
+
+  &__linkCardText {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
   }
 
   &__linkCardTitle {
     display: block;
-    font-weight: 650;
+    font-weight: 600;
+    overflow-wrap: anywhere;
   }
 
   &__linkCardDescription {
     color: var(--muted-foreground);
+    display: block;
     font-size: 0.9rem;
     line-height: 1.45;
-    margin: 0.25rem 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__linkCardIcon {
+    color: var(--muted-foreground);
+    flex-shrink: 0;
+    height: $tribe-welcome-display-icon-size;
+    width: $tribe-welcome-display-icon-size;
+
+    @include motion.interactive(color, transform);
+
+    // Loading indicator only: it stops under reduced motion.
+    &--pending {
+      animation: TribeWelcomeDisplaySpin 800ms linear infinite;
+      color: var(--foreground);
+
+      @include motion.reduced {
+        animation: none;
+      }
+    }
   }
 
   &__action {

@@ -4,6 +4,10 @@ import { ExternalLinkIcon, FileTextIcon, GraduationCapIcon, VideoIcon } from "lu
 
 import { Button } from "beez-ui";
 
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
+import { AnimatedCount } from "@/components/motion/animated-count";
+import { PresenceSwap } from "@/components/motion/presence-swap";
+import { joinClassNames } from "@/lib/motion/join-class-names";
 import {
   TRIBE_EVENT_POST_EVENT_LOAD_STATUS,
   type TribeEventLoadState,
@@ -68,9 +72,28 @@ const COPY = {
  * Post-event block of a finished occurrence: the recording (embedded player
  * plus a link to open it), the materials, "¿Cómo estuvo?" reactions with
  * counts, and the manager actions. Presentational: the container owns the
- * requests and passes state and callbacks.
+ * requests and passes state and callbacks. Reaction counts roll when they
+ * change and the saving notice folds in and out.
  */
-export function TribeEventPostEventPanel({
+export function TribeEventPostEventPanel(props: TribeEventPostEventPanelProps) {
+  return (
+    <section aria-label={COPY.heading} className={styles.TribeEventPostEventPanel}>
+      <p className={styles.TribeEventPostEventPanel__heading}>{COPY.heading}</p>
+      <PresenceSwap
+        className={styles.TribeEventPostEventPanel__body}
+        presenceKey={props.loadState.status}
+      >
+        <TribeEventPostEventPanelBody {...props} />
+      </PresenceSwap>
+    </section>
+  );
+}
+
+/**
+ * Content under the heading for the current load state; loading, error and
+ * the loaded resources cross-fade in place.
+ */
+function TribeEventPostEventPanelBody({
   isSavingResources,
   loadState,
   occurrenceTitle,
@@ -82,23 +105,20 @@ export function TribeEventPostEventPanel({
 }: TribeEventPostEventPanelProps) {
   if (loadState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.loading) {
     return (
-      <section aria-label={COPY.heading} className={styles.TribeEventPostEventPanel}>
-        <p className={styles.TribeEventPostEventPanel__heading}>{COPY.heading}</p>
-        <p className={styles.TribeEventPostEventPanel__muted} role="status">
-          {COPY.loading}
-        </p>
-      </section>
+      <p className={styles.TribeEventPostEventPanel__muted} role="status">
+        {COPY.loading}
+      </p>
     );
   }
 
   if (loadState.status === TRIBE_EVENT_POST_EVENT_LOAD_STATUS.error) {
     return (
-      <section aria-label={COPY.heading} className={styles.TribeEventPostEventPanel}>
-        <p className={styles.TribeEventPostEventPanel__heading}>{COPY.heading}</p>
+      <>
         <p className={styles.TribeEventPostEventPanel__error} role="alert">
           {loadState.message}
         </p>
         <Button
+          className={styles.TribeEventPostEventPanel__retry}
           size={BUTTON_ATTRIBUTE.sizeSmall}
           type={BUTTON_ATTRIBUTE.typeButton}
           variant={BUTTON_ATTRIBUTE.variantOutline}
@@ -106,7 +126,7 @@ export function TribeEventPostEventPanel({
         >
           {COPY.retry}
         </Button>
-      </section>
+      </>
     );
   }
 
@@ -116,13 +136,11 @@ export function TribeEventPostEventPanel({
   const visibleReactions = reactions ?? postEvent.reactions;
 
   return (
-    <section aria-label={COPY.heading} className={styles.TribeEventPostEventPanel}>
-      <p className={styles.TribeEventPostEventPanel__heading}>{COPY.heading}</p>
-
+    <>
       {recording ? (
         <div className={styles.TribeEventPostEventPanel__recording}>
           <p className={styles.TribeEventPostEventPanel__subheading}>
-            <VideoIcon aria-hidden />
+            <VideoIcon aria-hidden className={styles.TribeEventPostEventPanel__subheadingIcon} />
             {COPY.recordingHeading}
           </p>
           <div className={styles.TribeEventPostEventPanel__player}>
@@ -141,7 +159,7 @@ export function TribeEventPostEventPanel({
             rel={LINK_ATTRIBUTE.noreferrer}
             target={LINK_ATTRIBUTE.targetBlank}
           >
-            <ExternalLinkIcon aria-hidden />
+            <ExternalLinkIcon aria-hidden className={styles.TribeEventPostEventPanel__linkIcon} />
             {COPY.openRecording}
           </a>
         </div>
@@ -150,7 +168,7 @@ export function TribeEventPostEventPanel({
       {postEvent.materials.length > 0 ? (
         <div className={styles.TribeEventPostEventPanel__materials}>
           <p className={styles.TribeEventPostEventPanel__subheading}>
-            <FileTextIcon aria-hidden />
+            <FileTextIcon aria-hidden className={styles.TribeEventPostEventPanel__subheadingIcon} />
             {COPY.materialsHeading}
           </p>
           <ul className={styles.TribeEventPostEventPanel__materialList}>
@@ -162,7 +180,10 @@ export function TribeEventPostEventPanel({
                   rel={LINK_ATTRIBUTE.noreferrer}
                   target={LINK_ATTRIBUTE.targetBlank}
                 >
-                  <ExternalLinkIcon aria-hidden />
+                  <ExternalLinkIcon
+                    aria-hidden
+                    className={styles.TribeEventPostEventPanel__linkIcon}
+                  />
                   {material.title}
                 </a>
               </li>
@@ -201,11 +222,11 @@ export function TribeEventPostEventPanel({
         </div>
       ) : null}
 
-      {viewerPermissions.canManageResources && isSavingResources ? (
+      <AnimatedCollapse isOpen={viewerPermissions.canManageResources && isSavingResources}>
         <p className={styles.TribeEventPostEventPanel__muted} role="status">
           {COPY.savingResources}
         </p>
-      ) : null}
+      </AnimatedCollapse>
 
       <div
         aria-label={COPY.reactionsHeading}
@@ -223,11 +244,10 @@ export function TribeEventPostEventPanel({
               <button
                 aria-label={COPY.reactionCount(display.label, count)}
                 aria-pressed={isSelected}
-                className={
-                  isSelected
-                    ? `${styles.TribeEventPostEventPanel__reaction} ${styles["TribeEventPostEventPanel__reaction--selected"]}`
-                    : styles.TribeEventPostEventPanel__reaction
-                }
+                className={joinClassNames(
+                  styles.TribeEventPostEventPanel__reaction,
+                  isSelected && styles["TribeEventPostEventPanel__reaction--selected"]
+                )}
                 disabled={!viewerPermissions.canParticipate}
                 key={reaction}
                 title={display.label}
@@ -238,7 +258,7 @@ export function TribeEventPostEventPanel({
                   {display.emoji}
                 </span>
                 <span aria-hidden className={styles.TribeEventPostEventPanel__reactionCount}>
-                  {count}
+                  <AnimatedCount value={count} />
                 </span>
               </button>
             );
@@ -248,6 +268,6 @@ export function TribeEventPostEventPanel({
           <p className={styles.TribeEventPostEventPanel__muted}>{COPY.reactionsReadOnly}</p>
         )}
       </div>
-    </section>
+    </>
   );
 }

@@ -24,22 +24,34 @@ const AVATAR_SESSION_FALLBACK = {
   guestName: "Invitado",
 } as const;
 const AVATAR_SESSION_MENU_UI = {
-  accountMenuLabel: "Menu de cuenta",
+  accountMenuLabel: "Menú de cuenta",
   avatarLoading: AVATAR_IMAGE_LOADING_PRIORITY,
   buttonType: "button",
   dropdownAlign: "end",
   dropdownSide: "bottom",
 } as const;
 
+/**
+ * Builds up to two initials from a display name, ignoring repeated spaces.
+ * @param name - Member display name.
+ * @returns Uppercase initials, or an empty string for a blank name.
+ */
 function getInitials(name: string): string {
   return name
+    .trim()
     .split(AVATAR_INITIALS_SEPARATOR)
+    .filter(Boolean)
     .map((part) => part[0])
     .join("")
     .toUpperCase()
     .slice(0, AVATAR_INITIALS_MAX_PARTS);
 }
 
+/**
+ * Account menu of the platform header: the avatar trigger, the member
+ * identity, and the sign-in or sign-out action. Presentational: the session
+ * and the sign-out flow come from the client container.
+ */
 export function AvatarSessionMenu({
   authenticatedMember,
   onSignOut,
@@ -92,14 +104,14 @@ export function AvatarSessionMenu({
         <DropdownMenuSeparator />
         {hasAuthenticatedMember ? (
           <DropdownMenuItem onClick={handleSignOut} disabled={signOutDisabled}>
-            <LogOutIcon />
-            Cerrar sesion
+            <LogOutIcon aria-hidden="true" />
+            Cerrar sesión
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem asChild>
             <Link href={signInPath}>
-              <LogInIcon />
-              Iniciar sesion
+              <LogInIcon aria-hidden="true" />
+              Iniciar sesión
             </Link>
           </DropdownMenuItem>
         )}

@@ -1,13 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from "beez-ui";
 
-
-
-
-
-
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import { TRIBE_SUPPORT_CHANNEL } from "@/src/modules/tribes/constants/tribe-support";
 import type {
   TribeSupportChannel,
@@ -56,8 +52,10 @@ const SUPPORT_DIALOG_BUTTON = {
   outlineVariant: "outline",
 } as const;
 
-const SUPPORT_DIALOG_LIVE_REGION = {
-  polite: "polite",
+/** Presence keys for the helper text that swaps with the save error under the phone input. */
+const PHONE_FEEDBACK_KEY = {
+  error: "error",
+  help: "help",
 } as const;
 
 const SUPPORT_DIALOG_MESSAGE_MAX_LENGTH = 1000;
@@ -98,6 +96,10 @@ export function TribeSupportConfigDialog({
   const phoneInputId = useId();
   const messageInputId = useId();
   const phoneErrorId = useId();
+  const phoneHelpId = useId();
+  const messageHelpId = useId();
+  // Synchronous guard: two quick submits can run before `isSaving` re-renders.
+  const isSubmittingRef = useRef(false);
   const [channel, setChannel] = useState<TribeSupportChannel>(() =>
     getInitialChannel(initialSettings)
   );
@@ -129,9 +131,11 @@ export function TribeSupportConfigDialog({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (isSaving) {
+    if (isSubmittingRef.current) {
       return;
     }
+
+    isSubmittingRef.current = true;
 
     const trimmedPhoneNumber = phoneNumber.trim();
     const trimmedMessage = message.trim();
@@ -174,12 +178,22 @@ export function TribeSupportConfigDialog({
     } catch {
       setErrorMessage(SUPPORT_DIALOG_COPY.fallbackError);
     } finally {
+      isSubmittingRef.current = false;
       setIsSaving(false);
     }
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    // Keep the dialog open while saving so the result is never lost.
+    if (!nextOpen && isSaving) {
+      return;
+    }
+
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className={styles.TribeSupportConfigDialog}>
         <DialogHeader>
           <DialogTitle>{SUPPORT_DIALOG_COPY.title}</DialogTitle>
@@ -229,29 +243,41 @@ export function TribeSupportConfigDialog({
               {SUPPORT_DIALOG_COPY.phoneLabel}
             </label>
             <Input
-              aria-describedby={errorMessage ? phoneErrorId : undefined}
+              aria-describedby={errorMessage ? phoneErrorId : phoneHelpId}
               aria-invalid={errorMessage ? true : undefined}
               autoComplete={SUPPORT_DIALOG_FORM.phoneAutoComplete}
               id={phoneInputId}
-              onChange={(event) => setPhoneNumber(event.currentTarget.value)}
+              onChange={(event) => {
+                setPhoneNumber(event.currentTarget.value);
+                setErrorMessage(null);
+              }}
               placeholder={SUPPORT_DIALOG_COPY.phonePlaceholder}
               required
               type={SUPPORT_DIALOG_FORM.inputType}
               value={phoneNumber}
             />
-            {errorMessage ? (
-              <p
-                aria-live={SUPPORT_DIALOG_LIVE_REGION.polite}
-                className={styles.TribeSupportConfigDialog__error}
-                id={phoneErrorId}
-              >
-                {errorMessage}
-              </p>
-            ) : (
-              <p className={styles.TribeSupportConfigDialog__help}>
-                {SUPPORT_DIALOG_COPY.phoneHelp}
-              </p>
-            )}
+            <PresenceSwap
+              presenceKey={
+                errorMessage ? PHONE_FEEDBACK_KEY.error : PHONE_FEEDBACK_KEY.help
+              }
+            >
+              {errorMessage ? (
+                <p
+                  className={styles.TribeSupportConfigDialog__error}
+                  id={phoneErrorId}
+                  role="alert"
+                >
+                  {errorMessage}
+                </p>
+              ) : (
+                <p
+                  className={styles.TribeSupportConfigDialog__help}
+                  id={phoneHelpId}
+                >
+                  {SUPPORT_DIALOG_COPY.phoneHelp}
+                </p>
+              )}
+            </PresenceSwap>
           </div>
 
           <div className={styles.TribeSupportConfigDialog__field}>
@@ -262,13 +288,17 @@ export function TribeSupportConfigDialog({
               {SUPPORT_DIALOG_COPY.messageLabel}
             </label>
             <Textarea
+              aria-describedby={messageHelpId}
               id={messageInputId}
               maxLength={SUPPORT_DIALOG_MESSAGE_MAX_LENGTH}
               onChange={(event) => setMessage(event.currentTarget.value)}
               placeholder={SUPPORT_DIALOG_COPY.messagePlaceholder}
               value={message}
             />
-            <p className={styles.TribeSupportConfigDialog__help}>
+            <p
+              className={styles.TribeSupportConfigDialog__help}
+              id={messageHelpId}
+            >
               {SUPPORT_DIALOG_COPY.messageHelp}
             </p>
           </div>
@@ -276,13 +306,17 @@ export function TribeSupportConfigDialog({
           <DialogFooter>
             <Button
               disabled={isSaving}
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
               type={SUPPORT_DIALOG_BUTTON.cancelType}
               variant={SUPPORT_DIALOG_BUTTON.outlineVariant}
             >
               {SUPPORT_DIALOG_COPY.cancelLabel}
             </Button>
-            <Button disabled={isSaving} type={SUPPORT_DIALOG_FORM.submitType}>
+            <Button
+              aria-busy={isSaving || undefined}
+              disabled={isSaving}
+              type={SUPPORT_DIALOG_FORM.submitType}
+            >
               {isSaving
                 ? SUPPORT_DIALOG_COPY.savingLabel
                 : SUPPORT_DIALOG_COPY.saveLabel}

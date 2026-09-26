@@ -225,6 +225,42 @@ describe("MessageLikesHoverCard", () => {
     });
   });
 
+  it("shows the empty state when every liker was withdrawn after the count was rendered", async () => {
+    (global.fetch as Mock).mockResolvedValueOnce({
+      json: async () => ({ likers: [], totalCount: 0 }),
+      ok: true,
+    });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderHoverCard(2);
+    await openHoverCard(user);
+
+    await waitFor(() => {
+      expect(screen.getByText("Todavía nadie dio me gusta.")).toBeInTheDocument();
+    });
+  });
+
+  it("announces loading and result feedback through a polite live region", async () => {
+    (global.fetch as Mock).mockResolvedValueOnce({
+      json: async () => ({ message: "boom" }),
+      ok: false,
+      statusText: "Internal Server Error",
+    });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderHoverCard(3);
+    await openHoverCard(user);
+
+    const errorFeedback = await screen.findByText(
+      "No pudimos cargar las reacciones."
+    );
+
+    expect(errorFeedback.closest("[aria-live]")).toHaveAttribute(
+      "aria-live",
+      "polite"
+    );
+  });
+
   it("shows a safe error message when the request fails", async () => {
     (global.fetch as Mock).mockResolvedValueOnce({
       json: async () => ({ message: "boom" }),

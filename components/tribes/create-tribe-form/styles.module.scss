@@ -1,3 +1,7 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .CreateTribeForm {
   display: grid;
   gap: 1.25rem;
@@ -5,6 +9,13 @@
   &__field {
     display: grid;
     gap: 0.5rem;
+    min-width: 0;
+  }
+
+  // Server-rendered fields settle in one after another on first paint.
+  &__field,
+  &__actions {
+    @include motion.stagger(4);
   }
 
   &__label {
@@ -63,7 +74,6 @@
     right: 0.65rem;
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
     max-width: min(7rem, calc(100% - 1.3rem));
     transform: translateY(-50%);
     padding: 0.2rem 0.45rem;
@@ -74,24 +84,31 @@
     pointer-events: none;
     white-space: nowrap;
     overflow: hidden;
+    @include motion.interactive(background-color, color);
+
+    &--synced {
+      max-width: min(7.45rem, calc(100% - 1.3rem));
+      background: color-mix(in srgb, var(--free) 16%, var(--background));
+      color: var(--free-foreground);
+    }
+
+    &--unsynced {
+      max-width: min(6.1rem, calc(100% - 1.3rem));
+      background: color-mix(in srgb, var(--coming-soon) 18%, var(--background));
+      color: var(--coming-soon-foreground);
+    }
+  }
+
+  &__statusContent {
+    gap: 0.25rem;
+    min-width: 0;
+    overflow: hidden;
     text-overflow: ellipsis;
 
     svg {
       width: 0.8rem;
       height: 0.8rem;
       flex-shrink: 0;
-    }
-
-    &--synced {
-      max-width: min(7.45rem, calc(100% - 1.3rem));
-      background: color-mix(in srgb, #1f9d55 14%, white);
-      color: color-mix(in srgb, #12693a 82%, var(--foreground));
-    }
-
-    &--unsynced {
-      max-width: min(6.1rem, calc(100% - 1.3rem));
-      background: color-mix(in srgb, #c97a00 14%, white);
-      color: color-mix(in srgb, #8a5600 86%, var(--foreground));
     }
   }
 
@@ -102,18 +119,19 @@
     overflow-wrap: anywhere;
   }
 
+  // Inline alert: a destructive rule next to the message instead of a framed box.
   &__feedback {
     display: grid;
+    justify-items: start;
     gap: 0.75rem;
-    padding: 1rem;
-    border: 1px solid color-mix(in srgb, var(--destructive) 30%, transparent);
-    border-radius: 1rem;
-    background: color-mix(in srgb, var(--destructive) 8%, transparent);
+    padding: 0.25rem 0 0.25rem 0.875rem;
+    border-left: 2px solid color-mix(in srgb, var(--destructive) 70%, transparent);
   }
 
   &__error {
     margin: 0;
     color: color-mix(in srgb, var(--destructive) 88%, var(--foreground));
+    line-height: 1.5;
   }
 
   &__actions {

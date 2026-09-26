@@ -8,6 +8,7 @@ import {
   TribeEventAttendanceSummary,
 } from "@/components/events/tribe-event-attendance-summary";
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { formatBuenosAiresTimeRange } from "@/lib/date-time/buenos-aires-format";
 import { formatViewerLocalTimeLabel } from "@/lib/date-time/viewer-local-time-format";
 import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";
@@ -87,7 +88,8 @@ function AttendanceBadge({ occurrence }: { occurrence: TribeEventOccurrenceResul
  * answer or finished badge, recurrence, a compact attendance summary
  * (avatars, counts, free seats), and the meeting link. A cancelled date is
  * struck through with a "Cancelado" badge and no calendar or meeting
- * shortcuts; a moved date says where it was moved from.
+ * shortcuts; a moved date says where it was moved from. The row animates
+ * in and out when its list wraps it in `AnimatePresence` (agenda days).
  */
 export function TribeEventAgendaItem({
   hasRecording = false,
@@ -112,7 +114,7 @@ export function TribeEventAgendaItem({
   const canAddToGoogleCalendar = phase !== null && !isPast && !isCancelled;
 
   return (
-    <li
+    <AnimatedListItem
       className={cn(
         styles.TribeEventAgendaItem,
         isPast && styles["TribeEventAgendaItem--past"],
@@ -209,6 +211,6 @@ export function TribeEventAgendaItem({
           </a>
         ) : null}
       </div>
-    </li>
+    </AnimatedListItem>
   );
 }

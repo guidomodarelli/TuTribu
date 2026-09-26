@@ -1,0 +1,20 @@
+@use "../../../../src/styles/motion";
+
+@keyframes FreeJoinSubmitButtonSpin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.FreeJoinSubmitButton {
+  width: 100%;
+
+  // Loading indicator only: it stops under reduced motion.
+  &__spinner {
+    animation: FreeJoinSubmitButtonSpin 800ms linear infinite;
+
+    @include motion.reduced {
+      animation: none;
+    }
+  }
+}

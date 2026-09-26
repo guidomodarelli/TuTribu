@@ -11,10 +11,11 @@ const PLATFORM_LOADING = {
  * Generic platform fallback: gives every page segment its own Suspense
  * boundary so client navigations resolve instantly while the page data
  * streams in. Tribe segments use the round-shaped skeleton in «[slug]».
+ * It renders inside the layout's `main` landmark, so its root is a `div`.
  */
 export default function PlatformLoadingPage() {
   return (
-    <main
+    <div
       aria-label={PLATFORM_LOADING.statusLabel}
       className={styles.PlatformLoadingPage}
       role={PLATFORM_LOADING.statusRole}
@@ -29,6 +30,6 @@ export default function PlatformLoadingPage() {
           key={PLATFORM_LOADING.lineKeyPrefix + String(lineIndex)}
         />
       ))}
-    </main>
+    </div>
   );
 }

@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from "beez-ui";
 
-import { RICH_LINK_POPOVER_MODE } from "@/lib/rich-text/link-markdown-constants";
-import { RICH_TEXT_SEGMENT_TYPE } from "@/lib/rich-text/link-markdown-constants";
+import {
+  RICH_LINK_POPOVER_MODE,
+  RICH_TEXT_EDITOR_KEY,
+  RICH_TEXT_SEGMENT_TYPE,
+} from "@/lib/rich-text/link-markdown-constants";
 import type { RichLinkEditorController } from "./use-rich-link-editor";
 import styles from "./styles.module.scss";
 
@@ -60,6 +63,8 @@ export function RichLinkEditor({
     handleKeyDown,
     handlePaste,
     hasContent,
+    hasInvalidLinkUrl,
+    isLinkEditValid,
     linkTextInput,
     linkUrlInput,
     openLinkPopover,
@@ -72,6 +77,8 @@ export function RichLinkEditor({
     setLinkUrlInput,
     setPopoverMode,
   } = editor;
+  const linkTextInputRef = useRef<HTMLInputElement | null>(null);
+  const isEditingLink = popoverMode === RICH_LINK_POPOVER_MODE.edit;
   const editorClassName = isInvalid
     ? `${styles.RichLinkEditor__editor} ${styles["RichLinkEditor__editor--invalid"]}`
     : styles.RichLinkEditor__editor;
@@ -84,6 +91,28 @@ export function RichLinkEditor({
       closeLinkPopover();
     }
   }, [closeLinkPopover, isDisabled]);
+
+  // Switching from the actions to the edit form unmounts the focused "Editar"
+  // button; move focus into the form so keyboard users land on the first field
+  // instead of the document body.
+  useEffect(() => {
+    if (isEditingLink) {
+      linkTextInputRef.current?.focus();
+    }
+  }, [isEditingLink, activeLink?.key]);
+
+  /** Saves the link draft with Enter from either popover field, like a form. */
+  const handleEditFieldKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== RICH_TEXT_EDITOR_KEY.enter) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (activeLink && isLinkEditValid) {
+      saveLinkEdit(activeLink);
+    }
+  };
 
   return (
     <div
@@ -184,7 +213,7 @@ export function RichLinkEditor({
                       </Button>
                     </div>
                   ) : (
-                    <>
+                    <div className={styles.RichLinkEditor__editForm}>
                       <label className={styles.RichLinkEditor__label}>
                         <span>{copy.popoverTextLabel}</span>
                         <input
@@ -192,22 +221,27 @@ export function RichLinkEditor({
                           onChange={(event) => {
                             setLinkTextInput(event.currentTarget.value);
                           }}
+                          onKeyDown={handleEditFieldKeyDown}
+                          ref={linkTextInputRef}
                           value={linkTextInput}
                         />
                       </label>
                       <label className={styles.RichLinkEditor__label}>
                         <span>{copy.popoverUrlLabel}</span>
                         <input
+                          aria-invalid={hasInvalidLinkUrl}
                           className={styles.RichLinkEditor__input}
                           onChange={(event) => {
                             setLinkUrlInput(event.currentTarget.value);
                           }}
+                          onKeyDown={handleEditFieldKeyDown}
                           type={URL_INPUT_TYPE}
                           value={linkUrlInput}
                         />
                       </label>
                       <div className={styles.RichLinkEditor__actions}>
                         <Button
+                          disabled={!isLinkEditValid}
                           onClick={() => {
                             if (activeLink) {
                               saveLinkEdit(activeLink);
@@ -225,7 +259,7 @@ export function RichLinkEditor({
                           {copy.editCancel}
                         </Button>
                       </div>
-                    </>
+                    </div>
                   )}
                 </PopoverContent>
               </Popover>

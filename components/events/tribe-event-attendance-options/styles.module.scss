@@ -2,4 +2,35 @@
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+
+  // Every answer shares the outline surface; the selected one is marked by the
+  // gliding indicator plus a stronger border, so the change reads as movement.
+  &__option {
+    position: relative;
+    isolation: isolate;
+
+    // Doubled class so the modifier wins over the library outline border
+    // regardless of stylesheet order.
+    &#{&}--selected {
+      border-color: color-mix(in oklch, var(--primary) 45%, var(--border));
+      color: var(--secondary-foreground);
+    }
+  }
+
+  &__indicator {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background-color: var(--secondary);
+    pointer-events: none;
+  }
+
+  &__label {
+    position: relative;
+    z-index: 1;
+  }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 
 import {
   Button,
@@ -14,6 +15,7 @@ import {
   Textarea,
 } from "beez-ui";
 
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
 import {
   addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
@@ -22,6 +24,7 @@ import {
   getBuenosAiresDateKey,
 } from "@/lib/date-time/buenos-aires-format";
 import type { TribeEventOccurrenceExceptionSubmission } from "@/lib/events/tribe-event-form-submissions";
+import { MOTION_DURATION_SECONDS, MOTION_EASE_OUT } from "@/lib/motion/tokens";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import {
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
@@ -60,6 +63,27 @@ const FIELD_ID = {
   endsTime: "tribe-event-exception-ends-time",
   reason: "tribe-event-exception-reason",
   startsTime: "tribe-event-exception-starts-time",
+  validationError: "tribe-event-exception-validation-error",
+} as const;
+
+/** Id of a form control that a validation message can point at. */
+type ExceptionFormFieldId = (typeof FIELD_ID)[keyof typeof FIELD_ID];
+
+/**
+ * Validation failure of the move form: the Spanish message and the control
+ * it belongs to, which is marked invalid and focused.
+ */
+type ExceptionFormValidationIssue = {
+  fieldId: ExceptionFormFieldId;
+  message: string;
+};
+
+/** Opacity-only fade for the end date that appears with «Termina otro día». */
+const CONDITIONAL_FIELD_MOTION = {
+  animate: { opacity: 1 },
+  exit: { opacity: 0, transition: { duration: MOTION_DURATION_SECONDS.exit, ease: MOTION_EASE_OUT } },
+  initial: { opacity: 0 },
+  transition: { duration: MOTION_DURATION_SECONDS.enter, ease: MOTION_EASE_OUT },
 } as const;
 const INPUT_TYPE = {
   date: "date",
@@ -157,26 +181,31 @@ function suggestEnd(
 
 /**
  * Validates the move form and builds the submission, or returns the Spanish
- * error to show next to the form.
+ * error to show next to the form with the control it belongs to.
  */
 function buildMovePayload(
   values: ExceptionFormValues,
   endsOnAnotherDay: boolean
-): { error: string } | { submission: TribeEventOccurrenceExceptionSubmission } {
+): { issue: ExceptionFormValidationIssue } | { submission: TribeEventOccurrenceExceptionSubmission } {
   const newStartsAt = buildBuenosAiresInstant(values.date, values.startsTime);
 
   if (!newStartsAt) {
-    return { error: COPY.missingSchedule };
+    return {
+      issue: {
+        fieldId: values.date ? FIELD_ID.startsTime : FIELD_ID.date,
+        message: COPY.missingSchedule,
+      },
+    };
   }
 
   // A checked «Termina otro día» with no date would silently save a same-day
   // end, so the chosen next-day end must be explicit.
   if (endsOnAnotherDay && !values.endsDate) {
-    return { error: COPY.missingEndDate };
+    return { issue: { fieldId: FIELD_ID.endsDate, message: COPY.missingEndDate } };
   }
 
   if (values.endsDate && !values.endsTime) {
-    return { error: COPY.missingEndTime };
+    return { issue: { fieldId: FIELD_ID.endsTime, message: COPY.missingEndTime } };
   }
 
   const newEndsAt = values.endsTime
@@ -184,7 +213,7 @@ function buildMovePayload(
     : null;
 
   if (newEndsAt && Date.parse(newEndsAt) <= Date.parse(newStartsAt)) {
-    return { error: COPY.invalidEnd };
+    return { issue: { fieldId: FIELD_ID.endsTime, message: COPY.invalidEnd } };
   }
 
   return {
@@ -195,6 +224,17 @@ function buildMovePayload(
       reason: values.reason,
     },
   };
+}
+
+/**
+ * Moves focus to the control a validation message points at.
+ */
+function focusFormControl(form: HTMLFormElement, fieldId: ExceptionFormFieldId): void {
+  const control = form.elements.namedItem(fieldId);
+
+  if (control instanceof HTMLElement) {
+    control.focus();
+  }
 }
 
 /**
@@ -212,7 +252,15 @@ export function TribeEventOccurrenceExceptionDialog({
   const [values, setValues] = useState<ExceptionFormValues>(() =>
     createInitialValues(occurrence)
   );
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationIssue, setValidationIssue] = useState<ExceptionFormValidationIssue | null>(
+    null
+  );
+  // Last message shown, kept while the error region collapses.
+  const [shownValidationMessage, setShownValidationMessage] = useState<string | null>(null);
+
+  if (validationIssue && validationIssue.message !== shownValidationMessage) {
+    setShownValidationMessage(validationIssue.message);
+  }
   const [endsOnAnotherDay, setEndsOnAnotherDay] = useState(values.endsDate !== EMPTY_VALUE);
   const [durationMilliseconds] = useState(() => getOccurrenceDurationMilliseconds(occurrence));
   // While the end still holds the occurrence's own end (or a suggestion built
@@ -222,13 +270,19 @@ export function TribeEventOccurrenceExceptionDialog({
   const isMove = mode === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved;
   const dateLabel = occurrence ? formatBuenosAiresWeekdayDay(occurrence.originalStartsAt, true) : EMPTY_VALUE;
 
+  /** ARIA wiring that ties a control to the current validation message. */
+  const getValidationProps = (fieldId: ExceptionFormFieldId) =>
+    validationIssue?.fieldId === fieldId
+      ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
+      : {};
+
   const updateField = (field: keyof ExceptionFormValues, value: string) => {
-    setValidationError(null);
+    setValidationIssue(null);
     setValues((currentValues) => ({ ...currentValues, [field]: value }));
   };
 
   const updateStartField = (field: "date" | "startsTime", value: string) => {
-    setValidationError(null);
+    setValidationIssue(null);
 
     const nextValues = { ...values, [field]: value };
     const suggestedEnd =
@@ -255,7 +309,7 @@ export function TribeEventOccurrenceExceptionDialog({
     setIsEndSuggested(false);
     setEndsOnAnotherDay(isChecked);
 
-    setValidationError(null);
+    setValidationIssue(null);
     // Checking it starts from the day after the new date; the manager can
     // still pick another day. Unchecking withdraws the end date.
     setValues((currentValues) => ({
@@ -280,8 +334,9 @@ export function TribeEventOccurrenceExceptionDialog({
 
     const result = buildMovePayload(values, endsOnAnotherDay);
 
-    if ("error" in result) {
-      setValidationError(result.error);
+    if ("issue" in result) {
+      setValidationIssue(result.issue);
+      focusFormControl(submitEvent.currentTarget, result.issue.fieldId);
       return;
     }
 
@@ -304,8 +359,11 @@ export function TribeEventOccurrenceExceptionDialog({
             {isMove ? COPY.moveDescription(dateLabel) : COPY.cancelDescription(dateLabel)}
           </DialogDescription>
         </DialogHeader>
+        {/* Native validation is off so an empty date or time reaches the
+            Spanish inline message instead of a browser-language bubble. */}
         <form
           className={styles.TribeEventOccurrenceExceptionDialog__form}
+          noValidate
           onSubmit={handleSubmit}
         >
           {isMove ? (
@@ -313,6 +371,7 @@ export function TribeEventOccurrenceExceptionDialog({
               <div className={styles.TribeEventOccurrenceExceptionDialog__field}>
                 <label htmlFor={FIELD_ID.date}>{COPY.dateLabel}</label>
                 <Input
+                  {...getValidationProps(FIELD_ID.date)}
                   id={FIELD_ID.date}
                   required
                   type={INPUT_TYPE.date}
@@ -324,6 +383,7 @@ export function TribeEventOccurrenceExceptionDialog({
                 <div className={styles.TribeEventOccurrenceExceptionDialog__field}>
                   <label htmlFor={FIELD_ID.startsTime}>{COPY.startsTimeLabel}</label>
                   <Input
+                    {...getValidationProps(FIELD_ID.startsTime)}
                     id={FIELD_ID.startsTime}
                     required
                     type={INPUT_TYPE.time}
@@ -334,6 +394,7 @@ export function TribeEventOccurrenceExceptionDialog({
                 <div className={styles.TribeEventOccurrenceExceptionDialog__field}>
                   <label htmlFor={FIELD_ID.endsTime}>{COPY.endsTimeLabel}</label>
                   <Input
+                    {...getValidationProps(FIELD_ID.endsTime)}
                     id={FIELD_ID.endsTime}
                     type={INPUT_TYPE.time}
                     value={values.endsTime}
@@ -341,19 +402,26 @@ export function TribeEventOccurrenceExceptionDialog({
                   />
                 </div>
               </div>
-              {endsOnAnotherDay ? (
-                <div className={styles.TribeEventOccurrenceExceptionDialog__field}>
-                  <label htmlFor={FIELD_ID.endsDate}>{COPY.endsDateLabel}</label>
-                  {/* No native `min`: an earlier end must reach the Spanish
-                      inline error instead of a browser-language bubble. */}
-                  <Input
-                    id={FIELD_ID.endsDate}
-                    type={INPUT_TYPE.date}
-                    value={values.endsDate}
-                    onChange={(event) => updateEndField("endsDate", event.currentTarget.value)}
-                  />
-                </div>
-              ) : null}
+              <AnimatePresence initial={false}>
+                {endsOnAnotherDay ? (
+                  <motion.div
+                    className={styles.TribeEventOccurrenceExceptionDialog__field}
+                    key={FIELD_ID.endsDate}
+                    {...CONDITIONAL_FIELD_MOTION}
+                  >
+                    <label htmlFor={FIELD_ID.endsDate}>{COPY.endsDateLabel}</label>
+                    {/* No native `min`: an earlier end must reach the Spanish
+                        inline error instead of a browser-language bubble. */}
+                    <Input
+                      {...getValidationProps(FIELD_ID.endsDate)}
+                      id={FIELD_ID.endsDate}
+                      type={INPUT_TYPE.date}
+                      value={values.endsDate}
+                      onChange={(event) => updateEndField("endsDate", event.currentTarget.value)}
+                    />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
               <div className={styles.TribeEventOccurrenceExceptionDialog__toggle}>
                 <Checkbox
                   checked={endsOnAnotherDay}
@@ -375,11 +443,15 @@ export function TribeEventOccurrenceExceptionDialog({
               onChange={(event) => updateField("reason", event.currentTarget.value)}
             />
           </div>
-          {validationError ? (
-            <p className={styles.TribeEventOccurrenceExceptionDialog__error} role="alert">
-              {validationError}
+          <AnimatedCollapse isOpen={validationIssue !== null}>
+            <p
+              className={styles.TribeEventOccurrenceExceptionDialog__error}
+              id={FIELD_ID.validationError}
+              role="alert"
+            >
+              {validationIssue?.message ?? shownValidationMessage}
             </p>
-          ) : null}
+          </AnimatedCollapse>
           <div className={styles.TribeEventOccurrenceExceptionDialog__actions}>
             <Button
               type={BUTTON_ATTRIBUTE.typeButton}

@@ -1,10 +1,13 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { CheckCircle2Icon, PencilLineIcon } from "lucide-react";
 
 import { Button, Input } from "beez-ui";
 
+import { AnimatedCollapse } from "@/components/motion/animated-collapse";
+import { PresenceSwap } from "@/components/motion/presence-swap";
+import { joinClassNames } from "@/lib/motion/join-class-names";
 import { normalizeTribeSlug } from "@/src/modules/tribes/domain/value-objects/tribe-slug";
 import styles from "./styles.module.scss";
 
@@ -28,6 +31,15 @@ const CREATE_TRIBE_FORM_FIELD = {
 const CREATE_TRIBE_FORM_INTERACTION = {
   buttonType: "button",
 } as const;
+
+/** Presence keys for the synced/edited slug status pill. */
+const SLUG_STATUS_KEY = {
+  edited: "edited",
+  synced: "synced",
+} as const;
+
+/** Browser event fired when a page is shown, including restores from the back-forward cache. */
+const PAGE_SHOW_EVENT = "pageshow";
 
 type CreateTribeFormProps = {
   errorMessage?: string | null;
@@ -67,6 +79,30 @@ export function CreateTribeForm({
     normalizedInitialSlug.length > 0 &&
       normalizedInitialSlug !== normalizedInitialNameSlug
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFeedbackDismissed, setIsFeedbackDismissed] = useState(false);
+  const feedbackId = useId();
+  const slugInputRef = useRef<HTMLInputElement>(null);
+  // Synchronous guard: the native POST navigates away, so a second activation
+  // before the button re-renders as disabled would create the tribe twice.
+  const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    // A back navigation can restore this page from the bfcache with the
+    // button still disabled; re-enable it so the form stays usable.
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+      }
+    };
+
+    window.addEventListener(PAGE_SHOW_EVENT, handlePageShow);
+
+    return () => {
+      window.removeEventListener(PAGE_SHOW_EVENT, handlePageShow);
+    };
+  }, []);
   const normalizedNameSlug = normalizeTribeSlug(name);
   const canonicalSlug = normalizeTribeSlug(slug);
   const isSlugSynced =
@@ -74,12 +110,23 @@ export function CreateTribeForm({
 
   const slugPreview =
     canonicalSlug || normalizedNameSlug || TRIBE_SLUG_PREVIEW_FALLBACK;
+  const isFeedbackVisible = Boolean(errorMessage) && !isFeedbackDismissed;
 
   return (
     <form
       action={submitPath}
+      aria-busy={isSubmitting || undefined}
       className={styles.CreateTribeForm}
       method={CREATE_TRIBE_FORM_FIELD.method}
+      onSubmit={(event) => {
+        if (isSubmittingRef.current) {
+          event.preventDefault();
+          return;
+        }
+
+        isSubmittingRef.current = true;
+        setIsSubmitting(true);
+      }}
     >
       <input
         name={CREATE_TRIBE_FORM_FIELD.slug}
@@ -121,7 +168,7 @@ export function CreateTribeForm({
           </label>
           <Button
             className={styles.CreateTribeForm__syncButton}
-            disabled={!normalizedNameSlug}
+            disabled={!normalizedNameSlug || isSlugSynced}
             onClick={() => {
               setHasManualSlugChanges(false);
               setSlug(normalizedNameSlug);
@@ -135,11 +182,14 @@ export function CreateTribeForm({
         </div>
         <div className={styles.CreateTribeForm__slugInputWrap}>
           <Input
-            className={`${styles.CreateTribeForm__slugInput} ${
-              isSlugSynced
-                ? styles["CreateTribeForm__slugInput--synced"]
-                : styles["CreateTribeForm__slugInput--unsynced"]
-            }`}
+            aria-describedby={isFeedbackVisible ? feedbackId : undefined}
+            className={joinClassNames(
+              styles.CreateTribeForm__slugInput,
+              normalizedNameSlug &&
+                (isSlugSynced
+                  ? styles["CreateTribeForm__slugInput--synced"]
+                  : styles["CreateTribeForm__slugInput--unsynced"])
+            )}
             id={slugInputId}
             onBlur={(event) => {
               setSlug(normalizeTribeSlug(event.currentTarget.value));
@@ -149,32 +199,48 @@ export function CreateTribeForm({
               setSlug(normalizeTribeSlugDraft(event.currentTarget.value));
             }}
             placeholder="creadoras-que-construyen-futuro"
+            ref={slugInputRef}
             required
             value={slug}
           />
           {normalizedNameSlug ? (
             <span
               aria-live={CREATE_TRIBE_FORM_ARIA.livePolite}
-              className={`${styles.CreateTribeForm__statusInline} ${
+              className={joinClassNames(
+                styles.CreateTribeForm__statusInline,
                 isSlugSynced
                   ? styles["CreateTribeForm__statusInline--synced"]
                   : styles["CreateTribeForm__statusInline--unsynced"]
-              }`}
+              )}
             >
-              {isSlugSynced ? <CheckCircle2Icon /> : <PencilLineIcon />}
-              <span>{isSlugSynced ? "Sincronizado" : "Editado"}</span>
+              <PresenceSwap
+                as="span"
+                className={styles.CreateTribeForm__statusContent}
+                mode="popLayout"
+                presenceKey={
+                  isSlugSynced ? SLUG_STATUS_KEY.synced : SLUG_STATUS_KEY.edited
+                }
+              >
+                {isSlugSynced ? (
+                  <CheckCircle2Icon aria-hidden />
+                ) : (
+                  <PencilLineIcon aria-hidden />
+                )}
+                <span>{isSlugSynced ? "Sincronizado" : "Editado"}</span>
+              </PresenceSwap>
             </span>
           ) : null}
         </div>
         <p className={styles.CreateTribeForm__hint}>
-          Tu tribu quedara en <strong>/{slugPreview}</strong>
+          Tu tribu quedará en <strong>/{slugPreview}</strong>
         </p>
       </div>
 
-      {errorMessage ? (
+      <AnimatedCollapse isOpen={isFeedbackVisible}>
         <div
           aria-live={CREATE_TRIBE_FORM_ARIA.livePolite}
           className={styles.CreateTribeForm__feedback}
+          id={feedbackId}
         >
           <p className={styles.CreateTribeForm__error}>{errorMessage}</p>
 
@@ -183,6 +249,9 @@ export function CreateTribeForm({
               onClick={() => {
                 setHasManualSlugChanges(true);
                 setSlug(suggestedSlug);
+                // The conflict is resolved: hide it and keep focus on the fixed field.
+                setIsFeedbackDismissed(true);
+                slugInputRef.current?.focus();
               }}
               type={CREATE_TRIBE_FORM_INTERACTION.buttonType}
               variant={CREATE_TRIBE_FORM_BUTTON.outlineVariant}
@@ -191,11 +260,15 @@ export function CreateTribeForm({
             </Button>
           ) : null}
         </div>
-      ) : null}
+      </AnimatedCollapse>
 
       <div className={styles.CreateTribeForm__actions}>
-        <Button type={CREATE_TRIBE_FORM_BUTTON.submitType}>
-          Crear tribu
+        <Button
+          aria-busy={isSubmitting || undefined}
+          disabled={isSubmitting}
+          type={CREATE_TRIBE_FORM_BUTTON.submitType}
+        >
+          {isSubmitting ? "Creando tribu…" : "Crear tribu"}
         </Button>
       </div>
     </form>

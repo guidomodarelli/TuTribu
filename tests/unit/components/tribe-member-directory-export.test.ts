@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   buildMembersCsv,
   buildMembersExportFilename,
   buildMembersHtml,
+  downloadTextFile,
   MEMBER_EXPORT_FORMAT,
 } from "@/components/tribes/tribe-member-directory/export";
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
@@ -195,6 +196,51 @@ describe("tribe member directory export", () => {
       );
 
       expect(filename).toBe("miembros-tribu-2026-05-24.html");
+    });
+  });
+
+  describe("downloadTextFile", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+      Reflect.deleteProperty(URL, "createObjectURL");
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    });
+
+    it("keeps the blob URL alive until WebKit has started the download", () => {
+      vi.useFakeTimers();
+      const blobUrl = "blob:https://dev-tutribu.app/export-1";
+      const revokeObjectURL = vi.fn();
+      const clickedDownloads: string[] = [];
+      const captureDownload = (event: MouseEvent) => {
+        const anchor = event.target as HTMLAnchorElement;
+
+        clickedDownloads.push(anchor.download);
+        event.preventDefault();
+      };
+
+      // jsdom does not implement blob URLs; define them for this adapter test only.
+      Object.defineProperty(URL, "createObjectURL", {
+        configurable: true,
+        value: vi.fn(() => blobUrl),
+      });
+      Object.defineProperty(URL, "revokeObjectURL", {
+        configurable: true,
+        value: revokeObjectURL,
+      });
+      document.addEventListener("click", captureDownload);
+
+      try {
+        downloadTextFile("nombre", "miembros.csv", "text/csv;charset=utf-8;");
+
+        expect(clickedDownloads).toEqual(["miembros.csv"]);
+        expect(revokeObjectURL).not.toHaveBeenCalled();
+
+        vi.runAllTimers();
+
+        expect(revokeObjectURL).toHaveBeenCalledWith(blobUrl);
+      } finally {
+        document.removeEventListener("click", captureDownload);
+      }
     });
   });
 });

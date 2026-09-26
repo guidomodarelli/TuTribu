@@ -1,3 +1,5 @@
+@use "../../../src/styles/motion";
+
 .RichStoryContent {
   display: grid;
   gap: 0.9rem;
@@ -19,12 +21,30 @@
   &__listItem {
     line-height: 1.7;
     overflow-wrap: anywhere;
+
+    &::marker {
+      color: var(--muted-foreground);
+    }
   }
 
   &__link {
+    border-radius: 0.2rem;
     color: var(--primary);
     text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, var(--primary) 45%, transparent);
     text-underline-offset: 0.15em;
     word-break: break-word;
+
+    @include motion.interactive(color, text-decoration-color);
+
+    &:hover {
+      color: color-mix(in oklch, var(--primary) 72%, var(--foreground));
+      text-decoration-color: currentColor;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
   }
 }

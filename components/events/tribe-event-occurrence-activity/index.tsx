@@ -27,6 +27,16 @@ const EMPTY_VALUE = "";
 const LESSON_TITLE_SEPARATOR = " · ";
 
 /**
+ * Resources form session: its id keys the dialog so every opening starts
+ * from fresh values, and `isOpen` lets a closed form stay mounted while it
+ * animates out.
+ */
+type ResourcesFormSession = {
+  id: number;
+  isOpen: boolean;
+};
+
+/**
  * Client container of the occurrence activity shown inside the detail
  * dialog: the post-event block (finished, non-cancelled dates) and the
  * conversation (every date). It owns the requests through dedicated hooks
@@ -75,10 +85,13 @@ function TribeEventPostEventSection({
     target,
   });
   const lessonConversion = useTribeEventLessonConversion(target);
-  // Session of the open resources form (null when closed). Sessions only
-  // grow, so a form reopened while a save is pending never reuses the id of
-  // the form that submitted it.
-  const [resourcesFormSession, setResourcesFormSession] = useState<number | null>(null);
+  // Session of the resources form (null before the first opening). Session
+  // ids only grow, so a form reopened while a save is pending never reuses
+  // the id of the form that submitted it. A closed session stays mounted
+  // with `isOpen: false` so the dialog plays its exit animation.
+  const [resourcesFormSession, setResourcesFormSession] = useState<ResourcesFormSession | null>(
+    null
+  );
   const lastResourcesFormSessionRef = useRef(0);
   const [isLessonDialogOpen, setIsLessonDialogOpen] = useState(false);
   const [lessonDialogSession, setLessonDialogSession] = useState(0);
@@ -101,7 +114,16 @@ function TribeEventPostEventSection({
     }
 
     lastResourcesFormSessionRef.current += 1;
-    setResourcesFormSession(lastResourcesFormSessionRef.current);
+    setResourcesFormSession({ id: lastResourcesFormSessionRef.current, isOpen: true });
+  };
+
+  /** Closes the form of session `sessionId` if it is still the open one. */
+  const closeResourcesForm = (sessionId: number) => {
+    setResourcesFormSession((currentSession) =>
+      currentSession?.id === sessionId && currentSession.isOpen
+        ? { ...currentSession, isOpen: false }
+        : currentSession
+    );
   };
 
   const closeLessonDialog = () => {
@@ -124,20 +146,18 @@ function TribeEventPostEventSection({
       {resourcesFormSession !== null ? (
         <TribeEventPostEventFormDialog
           initialPostEvent={loadedPostEvent}
-          isOpen
+          isOpen={resourcesFormSession.isOpen}
           isSaving={postEvent.isSaving}
-          key={resourcesFormSession}
-          onClose={() => setResourcesFormSession(null)}
+          key={resourcesFormSession.id}
+          onClose={() => closeResourcesForm(resourcesFormSession.id)}
           onSubmit={(payload) => {
-            const submittingFormSession = resourcesFormSession;
+            const submittingFormSessionId = resourcesFormSession.id;
 
             void postEvent.saveResources(payload).then((isSaved) => {
               if (isSaved) {
                 // Close only the form that submitted: a form reopened while
                 // the save was pending is a new session with its own edits.
-                setResourcesFormSession((currentSession) =>
-                  currentSession === submittingFormSession ? null : currentSession
-                );
+                closeResourcesForm(submittingFormSessionId);
               }
             });
           }}

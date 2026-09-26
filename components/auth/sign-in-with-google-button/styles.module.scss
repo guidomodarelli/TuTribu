@@ -1,4 +1,6 @@
 .SignInWithGoogleButton {
+  // Anchors the outgoing label while the pending label swaps in.
+  position: relative;
   margin-top: 1.5rem;
   width: 100%;
 }

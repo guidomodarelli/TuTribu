@@ -1,0 +1,20 @@
+@use "../../../../src/styles/motion";
+
+@keyframes TribeOpenJoinSubmitButtonSpin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.TribeOpenJoinSubmitButton {
+  min-width: 12rem;
+
+  // Loading indicator only: it stops under reduced motion.
+  &__spinner {
+    animation: TribeOpenJoinSubmitButtonSpin 800ms linear infinite;
+
+    @include motion.reduced {
+      animation: none;
+    }
+  }
+}

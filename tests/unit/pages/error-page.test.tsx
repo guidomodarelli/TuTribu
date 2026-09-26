@@ -23,7 +23,7 @@ describe("ErrorPage", () => {
     expect(screen.getByText(/error inesperado/i)).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: /no pudimos cargar esta seccion/i,
+        name: /no pudimos cargar esta sección/i,
       })
     ).toBeInTheDocument();
     expect(

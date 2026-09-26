@@ -13,6 +13,7 @@ import type {
   TribeEventResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 import { routeOccurrenceActivityRequests } from "@/tests/unit/components/events/support/occurrence-activity-fetch";
+import { MOTION_SAFE_FAKE_TIMERS } from "@/tests/unit/components/events/support/motion-safe-fake-timers";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 let apiFetch: Mock = vi.fn();
@@ -190,7 +191,7 @@ describe("TribeEventsCalendar", () => {
     // The fixtures live in May 2026; pin "now" before them so the occurrences
     // are upcoming (attendance enabled) regardless of the real date.
     vi
-      .useFakeTimers({ shouldAdvanceTime: true })
+      .useFakeTimers(MOTION_SAFE_FAKE_TIMERS)
       .setSystemTime(new Date("2026-05-01T12:00:00.000Z"));
   });
 
@@ -552,7 +553,10 @@ describe("TribeEventsCalendar", () => {
     expect(
       within(dialog).getByRole("checkbox", { name: "Termina otro día" })
     ).not.toBeChecked();
-    expect(within(dialog).queryByLabelText("Fecha de fin")).not.toBeInTheDocument();
+    // The withdrawn end date fades out of the row.
+    await waitFor(() =>
+      expect(within(dialog).queryByLabelText("Fecha de fin")).not.toBeInTheDocument()
+    );
 
     fireEvent.change(within(dialog).getByLabelText("Hora de inicio"), {
       target: { value: "23:30" },
@@ -1104,7 +1108,8 @@ describe("TribeEventsCalendar", () => {
         "true"
       )
     );
-    expect(within(screen.getByRole("dialog")).getByText("3 van")).toBeInTheDocument();
+    // The counts line cross-fades to the new total.
+    expect(await within(screen.getByRole("dialog")).findByText("3 van")).toBeInTheDocument();
 
     mockJsonResponse({
       attendance: createAttendance({ goingCount: 2, viewerStatus: null }),
@@ -1438,7 +1443,8 @@ describe("TribeEventsCalendar", () => {
 
     await user.click(screen.getByRole("button", { name: /15:00\s*Clase cerrada/ }));
 
-    expect(within(screen.getByRole("dialog")).getByText("3 van")).toBeInTheDocument();
+    // The counts line cross-fades to the new total.
+    expect(await within(screen.getByRole("dialog")).findByText("3 van")).toBeInTheDocument();
   });
 
   it("asks for confirmation before deleting an event", async () => {
@@ -2487,5 +2493,232 @@ describe("TribeEventsCalendar server render", () => {
     expect(
       screen.queryByRole("region", { name: "Lista de eventos" })
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("TribeEventsCalendar transitions and view state", () => {
+  const juneOccurrence = createOccurrence({
+    endsAt: "2026-06-10T19:00:00.000Z",
+    eventId: OTHER_EVENT_ID,
+    startsAt: "2026-06-10T18:00:00.000Z",
+    title: "Encuentro de junio",
+  });
+  const JUNE = { current: "2026-06", next: "2026-07", previous: "2026-05" };
+  const APRIL = { current: "2026-04", next: "2026-05", previous: "2026-03" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiFetch = vi.fn();
+    global.fetch = routeOccurrenceActivityRequests(apiFetch);
+    vi
+      .useFakeTimers(MOTION_SAFE_FAKE_TIMERS)
+      .setSystemTime(new Date("2026-05-01T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function rerenderMonth(
+    rerender: (ui: React.ReactElement) => void,
+    month: typeof MAY,
+    events: TribeEventOccurrenceResult[]
+  ) {
+    rerender(
+      <TribeEventsCalendar
+        events={events}
+        month={month}
+        tribeSlug="matematica-pro"
+        viewerPermissions={{ canManageEvents: true, canProposeEvents: false }}
+      />
+    );
+  }
+
+  function getMonthView() {
+    return screen
+      .getByRole("table", { name: "Calendario mensual de eventos" })
+      .closest("[data-month-transition]");
+  }
+
+  it("slides the month in the direction the viewer navigated", () => {
+    const { rerender } = renderCalendar({ tribeSlug: "tribu-transiciones" });
+
+    expect(getMonthView()).toHaveAttribute("data-month-transition", "none");
+
+    rerender(
+      <TribeEventsCalendar
+        events={[juneOccurrence]}
+        month={JUNE}
+        tribeSlug="tribu-transiciones"
+        viewerPermissions={{ canManageEvents: true, canProposeEvents: false }}
+      />
+    );
+
+    expect(getMonthView()).toHaveAttribute("data-month-transition", "next");
+    expect(screen.getByRole("heading", { name: "Junio 2026" })).toHaveAttribute(
+      "data-month-transition",
+      "next"
+    );
+
+    rerender(
+      <TribeEventsCalendar
+        events={[createOccurrence()]}
+        month={MAY}
+        tribeSlug="tribu-transiciones"
+        viewerPermissions={{ canManageEvents: true, canProposeEvents: false }}
+      />
+    );
+
+    expect(getMonthView()).toHaveAttribute("data-month-transition", "previous");
+  });
+
+  it("forgets the tapped day when another month is shown", async () => {
+    vi.setSystemTime(new Date("2026-06-10T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const aprilOccurrence = createOccurrence({
+      endsAt: "2026-04-20T19:00:00.000Z",
+      startsAt: "2026-04-20T18:00:00.000Z",
+      title: "Encuentro de abril",
+    });
+    const { rerender } = renderCalendar({ events: [aprilOccurrence], month: APRIL });
+
+    await user.click(screen.getByRole("button", { name: "Lunes 20 de abril: 1 evento" }));
+
+    expect(screen.getByRole("region", { name: "Eventos del día" })).toBeInTheDocument();
+
+    rerenderMonth(rerender, JUNE, [juneOccurrence]);
+
+    const daySummary = await screen.findByRole("region", { name: "Eventos del día" });
+
+    expect(
+      within(daySummary).getByRole("button", { name: "Encuentro de junio" })
+    ).toBeInTheDocument();
+  });
+
+  it("exposes the view toggle as a labelled group with the active view pressed", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar();
+
+    const viewToggle = screen.getByRole("group", { name: "Vista de eventos" });
+
+    expect(within(viewToggle).getByRole("button", { name: "Ver calendario" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    await user.click(within(viewToggle).getByRole("button", { name: "Ver lista" }));
+
+    expect(within(viewToggle).getByRole("button", { name: "Ver lista" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(within(viewToggle).getByRole("button", { name: "Ver calendario" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+    // Only the view the viewer switched to plays its entrance.
+    expect(
+      screen.getByRole("region", { name: "Lista de eventos" }).closest(".TribeEventsCalendar__view")
+    ).toHaveClass("TribeEventsCalendar__view--entering");
+  });
+
+  it("does not replay a view entrance for the view shown on load", () => {
+    renderCalendar();
+
+    const calendarView = screen
+      .getByRole("table", { name: "Calendario mensual de eventos" })
+      .closest(".TribeEventsCalendar__view");
+
+    expect(calendarView).toHaveClass("TribeEventsCalendar__view");
+    expect(calendarView).not.toHaveClass("TribeEventsCalendar__view--entering");
+  });
+
+  it("announces when the type filter leaves the month without events", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    renderCalendar();
+
+    await user.click(
+      within(screen.getByRole("group", { name: "Filtrar por tipo de evento" })).getByRole(
+        "button",
+        { name: "Social" }
+      )
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "No hay eventos de los tipos elegidos este mes."
+    );
+  });
+
+  it("folds finished occurrences away again after revealing them", async () => {
+    vi.setSystemTime(new Date("2026-05-05T12:00:00.000Z"));
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const pastOccurrence = createOccurrence({
+      endsAt: "2026-05-03T19:00:00.000Z",
+      eventId: OTHER_EVENT_ID,
+      startsAt: "2026-05-03T18:00:00.000Z",
+      title: "Ronda pasada",
+    });
+
+    renderCalendar({ events: [pastOccurrence, createOccurrence()] });
+
+    await user.click(screen.getByRole("button", { name: "Ver lista" }));
+    await user.click(screen.getByRole("button", { name: "Ver 1 finalizado" }));
+
+    expect(screen.getByRole("button", { name: "Ronda pasada" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ocultar finalizados" }));
+
+    // The folded rows leave with an exit animation (covered by the agenda
+    // tests on a real clock); the toggle reflects the new state right away.
+    expect(screen.getByRole("button", { name: "Ver 1 finalizado" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+    expect(screen.getByRole("button", { name: "Clase abierta" })).toBeInTheDocument();
+  });
+});
+
+describe("TribeEventsCalendar hydration", () => {
+  it("keeps the server-rendered view mounted and visible while hydrating", async () => {
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS).setSystemTime(
+      new Date("2026-05-01T12:00:00.000Z")
+    );
+    const { renderToString } = await import("react-dom/server");
+    const { hydrateRoot } = await import("react-dom/client");
+    const calendar = (
+      <RouterProvider>
+        <TribeEventsCalendar
+          events={[createOccurrence()]}
+          month={MAY}
+          tribeSlug="matematica-pro"
+          viewerPermissions={{ canManageEvents: false, canProposeEvents: false }}
+        />
+      </RouterProvider>
+    );
+    const container = document.createElement("div");
+
+    container.innerHTML = renderToString(calendar);
+    document.body.appendChild(container);
+
+    const serverTable = container.querySelector("table");
+    const serverAgendaRow = container.querySelector("li");
+
+    // Server-rendered rows must be visible before any client script runs.
+    expect(serverAgendaRow?.getAttribute("style") ?? "").not.toMatch(/opacity:\s*0/);
+
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+
+    await act(async () => {
+      root = hydrateRoot(container, calendar);
+    });
+
+    expect(container.querySelector("table")).toBe(serverTable);
+    expect(container.querySelector('[aria-label="Lista de eventos"]')).toBeNull();
+
+    act(() => root?.unmount());
+    container.remove();
+    vi.useRealTimers();
   });
 });

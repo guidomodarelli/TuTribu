@@ -146,10 +146,15 @@ describe("TribeWelcomeSelectionModal", () => {
 
     const closeButton = screen.getByRole("button", { name: "Cerrar" });
     const optionButton = screen.getByRole("button", { name: "Soporte" });
+    // The shared dialog hides the rest of the page from assistive technology.
     const backgroundButton = screen.getByRole("button", {
+      hidden: true,
       name: "Acción de fondo",
     });
 
+    expect(
+      screen.queryByRole("button", { name: "Acción de fondo" })
+    ).not.toBeInTheDocument();
     expect(closeButton).toHaveFocus();
 
     await user.tab();
@@ -165,5 +170,76 @@ describe("TribeWelcomeSelectionModal", () => {
 
     expect(optionButton).toHaveFocus();
     expect(backgroundButton).not.toHaveFocus();
+  });
+
+  it("closes with Escape and notifies the host", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <TribeWelcomeSelectionModal
+        description="Elegí una opción"
+        links={buildLinks()}
+        onClose={onClose}
+        open
+        title="Bienvenida"
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "Bienvenida" })
+    ).toHaveAccessibleDescription("Elegí una opción");
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Bienvenida" })
+      ).not.toBeInTheDocument();
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("follows the open prop when the host keeps it mounted", async () => {
+    const { rerender } = render(
+      <TribeWelcomeSelectionModal
+        description=""
+        links={buildLinks()}
+        open={false}
+        title="Bienvenida"
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    rerender(
+      <TribeWelcomeSelectionModal
+        description=""
+        links={buildLinks()}
+        open
+        title="Bienvenida"
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: "Bienvenida" })
+    ).toBeInTheDocument();
+  });
+
+  it("stays closed when there is no active option to choose", () => {
+    render(
+      <TribeWelcomeSelectionModal
+        description=""
+        links={buildLinks().map((link) => ({ ...link, isActive: false }))}
+        open
+        title="Bienvenida"
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

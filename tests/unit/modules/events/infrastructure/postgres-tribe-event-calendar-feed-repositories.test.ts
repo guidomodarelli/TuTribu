@@ -5,6 +5,9 @@ import {
   PostgresTribeEventCalendarFeedTokenRepository,
 } from "@/src/modules/events/infrastructure/repositories/postgres-tribe-event-calendar-feed-repository";
 
+/** Drizzle `execute` mock whose calls record every SQL statement it receives. */
+type ExecuteStatements = (...statements: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
+
 const TRIBE_ID = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 const TRIBE_SLUG = "matematica-pro";
 const TOKEN_ID = "5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e";
@@ -45,7 +48,7 @@ function createExecutor(execute: Mock) {
 
 describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
   it("reports the active subscription of the signed-in member without the hash", async () => {
-    const execute = vi.fn(async (..._statements: unknown[]) => ({
+    const execute = vi.fn<ExecuteStatements>(async () => ({
       rows: [
         {
           can_read: true,
@@ -293,7 +296,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
   }
 
   it("resolves the token without a user through the definer function", async () => {
-    const anonymousExecute = vi.fn(async (..._statements: unknown[]) => ({
+    const anonymousExecute = vi.fn<ExecuteStatements>(async () => ({
       rows: [{ token_hash: TOKEN_HASH, token_id: TOKEN_ID, tribe_id: TRIBE_ID, user_id: OWNER_ID }],
     }));
     const reader = createReader(new Map([[null, anonymousExecute]]));
@@ -599,7 +602,7 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
   });
 
   it("returns null and reads nothing else when the owner lost access", async () => {
-    const ownerExecute = vi.fn(async (..._statements: unknown[]) => ({ rows: [] }));
+    const ownerExecute = vi.fn<ExecuteStatements>(async () => ({ rows: [] }));
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
     await expect(

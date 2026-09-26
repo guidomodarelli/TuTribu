@@ -1,3 +1,7 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .RichLinkEditor {
   &__editor {
     width: 100%;
@@ -30,6 +34,7 @@
   }
 
   &__editorLink {
+    border-radius: 0.2rem;
     color: var(--primary);
     cursor: pointer;
     font-weight: 700;
@@ -37,13 +42,29 @@
     text-decoration-thickness: 0.08em;
     text-underline-offset: 0.18em;
 
+    @include motion.interactive(color);
+
     &:hover {
       color: color-mix(in oklch, var(--primary) 72%, var(--foreground));
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
     }
   }
 
   &__popover {
     gap: 0.75rem;
+  }
+
+  // The popover itself animates in (beez-ui); only the swap from the action
+  // row to the edit form gets a short, opacity-led entrance.
+  &__editForm {
+    display: grid;
+    gap: 0.75rem;
+
+    @include motion.enter($duration: 180ms, $distance: 4px);
   }
 
   &__actions {
@@ -69,7 +90,23 @@
     color: var(--foreground);
     font: inherit;
     font-weight: 400;
+    outline: 0;
     padding: 0 0.65rem;
+
+    @include motion.interactive(border-color, box-shadow);
+
+    &:focus-visible {
+      border-color: var(--ring);
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 35%, transparent);
+    }
+
+    &[aria-invalid="true"] {
+      border-color: var(--destructive);
+    }
+
+    &[aria-invalid="true"]:focus-visible {
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 25%, transparent);
+    }
   }
 }
 

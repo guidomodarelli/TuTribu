@@ -129,6 +129,9 @@ const APP_SIDEBAR_UI = {
 
 const TRIBE_LOGO_SIZE = 32;
 
+/** `aria-current` token of the section being viewed, so its state is not only visual. */
+const ACTIVE_SECTION_CURRENT = "page";
+
 const TRIBE_ADMIN_ROLE = {
   guardian: "guardian",
   leader: "leader",
@@ -151,6 +154,15 @@ function isSameOrNestedPath(pathname: string, routePath: string): boolean {
     pathname === routePath ||
     pathname.startsWith(`${routePath}${APP_SIDEBAR_UI.nestedRouteSeparator}`)
   );
+}
+
+/**
+ * Exposes the active navigation item to assistive technology.
+ * @param isActive - Whether the item matches the current route.
+ * @returns The `aria-current` value, or `undefined` for inactive items.
+ */
+function getAriaCurrent(isActive: boolean): typeof ACTIVE_SECTION_CURRENT | undefined {
+  return isActive ? ACTIVE_SECTION_CURRENT : undefined;
 }
 
 function getTribeBrandMark(tribeName: string): string {
@@ -219,7 +231,7 @@ export function AppSidebar({
                       <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
                     )}
                     <span className={styles.AppSidebar__brandName}>{brandName}</span>
-                    <ChevronDownIcon className={styles.AppSidebar__brandChevron} />
+                    <ChevronDownIcon aria-hidden="true" className={styles.AppSidebar__brandChevron} />
                   </SidebarMenuButton>
                 }
                 memberTribes={memberTribes}
@@ -257,6 +269,7 @@ export function AppSidebar({
                     return (
                       <SidebarMenuItem key={item.label}>
                         <SidebarMenuButton
+                          aria-current={getAriaCurrent(isSectionActive)}
                           tooltip={item.label}
                           isActive={isSectionActive}
                           onClick={() => navigateFromSidebar(sectionPath)}
@@ -302,6 +315,7 @@ export function AppSidebar({
                       return (
                         <SidebarMenuItem key={item.label}>
                           <SidebarMenuButton
+                            aria-current={getAriaCurrent(isSectionActive)}
                             tooltip={item.label}
                             isActive={isSectionActive}
                             onClick={() => navigateFromSidebar(sectionPath)}
@@ -327,6 +341,7 @@ export function AppSidebar({
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
+                    aria-current={getAriaCurrent(isCreateTribeActive)}
                     tooltip={APP_SIDEBAR_UI.createTribeTooltip}
                     isActive={isCreateTribeActive}
                     onClick={() => navigateFromSidebar(ROUTES.tribes.create)}
@@ -337,6 +352,7 @@ export function AppSidebar({
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
+                    aria-current={getAriaCurrent(pathname === discoverTribesNavigationItem.href)}
                     tooltip={discoverTribesNavigationItem.label}
                     isActive={pathname === discoverTribesNavigationItem.href}
                     onClick={() => navigateFromSidebar(discoverTribesNavigationItem.href)}
@@ -349,13 +365,12 @@ export function AppSidebar({
                 </SidebarMenuItem>
                 {memberTribes.map((tribe) => {
                   const tribePath = ROUTES.tribes.bySlug(tribe.slug);
-                  const isTribeActive =
-                    pathname === tribePath ||
-                    pathname.startsWith(`${tribePath}/`);
+                  const isTribeActive = isSameOrNestedPath(pathname, tribePath);
 
                   return (
                     <SidebarMenuItem key={tribe.tribeId}>
                       <SidebarMenuButton
+                        aria-current={getAriaCurrent(isTribeActive)}
                         tooltip={tribe.name}
                         isActive={isTribeActive}
                         onClick={() => navigateFromSidebar(tribePath)}
@@ -365,7 +380,7 @@ export function AppSidebar({
                           {tribe.name}
                         </span>
                         {isTribeActive ? (
-                          <CheckIcon className={styles.AppSidebar__activeIcon} />
+                          <CheckIcon aria-hidden="true" className={styles.AppSidebar__activeIcon} />
                         ) : null}
                       </SidebarMenuButton>
                     </SidebarMenuItem>

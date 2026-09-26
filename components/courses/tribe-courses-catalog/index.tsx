@@ -1,4 +1,4 @@
-import { Settings } from "lucide-react";
+import { ArrowRight, Settings } from "lucide-react";
 import Image from "next/image";
 
 import { Link } from "@/components/navigation/link";
@@ -22,12 +22,25 @@ const CATALOG_COPY = {
   lessonCountSuffixPlural: "lecciones",
   lessonCountSuffixSingular: "lección",
   manageCta: "Gestionar",
+  progressLabel: "Progreso del curso",
   progressSuffix: "% completado",
   startCta: "Empezar",
 } as const;
 
 const COURSE_QUERY_PARAM = "curso";
 const PERCENT_MAX = 100;
+const PROGRESSBAR_ROLE = "progressbar";
+
+/**
+ * Inline transform for the progress fill. Scaling instead of sizing keeps the
+ * fill on the compositor and lets its CSS entrance grow it from zero.
+ *
+ * @param progressPercent - Progress between 0 and 100.
+ * @returns Style object with the horizontal scale.
+ */
+function buildProgressFillStyle(progressPercent: number) {
+  return { transform: `scaleX(${progressPercent / PERCENT_MAX})` };
+}
 
 /**
  * Builds the shareable URL of a course inside the tribe courses section.
@@ -42,6 +55,12 @@ type TribeCoursesCatalogProps = {
   viewerPermissions: CourseTreeViewerPermissionsResult;
 };
 
+/**
+ * Formats the lesson count with its singular or plural noun.
+ *
+ * @param lessonCount - Visible lessons in the course.
+ * @returns Spanish lesson count label.
+ */
 function formatLessonCount(lessonCount: number): string {
   const suffix =
     lessonCount === 1
@@ -51,6 +70,12 @@ function formatLessonCount(lessonCount: number): string {
   return `${lessonCount} ${suffix}`;
 }
 
+/**
+ * Link to the course catalog management page, shown to course managers.
+ *
+ * @param props - Tribe slug.
+ * @returns Management link.
+ */
 function CourseManagementLink({ tribeSlug }: { tribeSlug: string }) {
   return (
     <Link
@@ -63,6 +88,12 @@ function CourseManagementLink({ tribeSlug }: { tribeSlug: string }) {
   );
 }
 
+/**
+ * Server-rendered catalog of the tribe courses with the viewer progress.
+ *
+ * @param props - Visible courses, tribe slug and viewer permissions.
+ * @returns Courses catalog page content.
+ */
 export function TribeCoursesCatalog({
   courses,
   tribeSlug,
@@ -141,15 +172,16 @@ export function TribeCoursesCatalog({
                       {formatLessonCount(lessonCount)}
                     </p>
                     <div
+                      aria-label={CATALOG_COPY.progressLabel}
                       aria-valuemax={PERCENT_MAX}
                       aria-valuemin={0}
                       aria-valuenow={progressPercent}
                       className={styles.TribeCoursesCatalog__progressTrack}
-                      role="progressbar"
+                      role={PROGRESSBAR_ROLE}
                     >
                       <span
                         className={styles.TribeCoursesCatalog__progressFill}
-                        style={{ width: `${progressPercent}%` }}
+                        style={buildProgressFillStyle(progressPercent)}
                       />
                     </div>
                     <p className={styles.TribeCoursesCatalog__progressLabel}>
@@ -160,6 +192,10 @@ export function TribeCoursesCatalog({
                       {hasProgress
                         ? CATALOG_COPY.continueCta
                         : CATALOG_COPY.startCta}
+                      <ArrowRight
+                        aria-hidden
+                        className={styles.TribeCoursesCatalog__cardCtaIcon}
+                      />
                     </span>
                   </div>
                 </Link>

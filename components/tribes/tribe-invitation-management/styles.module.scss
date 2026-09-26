@@ -1,3 +1,7 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .TribeInvitationManagement {
   display: grid;
   gap: clamp(1.5rem, 4vw, 2.25rem);
@@ -7,6 +11,8 @@
   padding: 0.25rem 0 1.5rem;
 
   &__header {
+    @include motion.enter;
+
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -58,7 +64,35 @@
     width: 100%;
   }
 
+  &__region {
+    @include motion.fade(60ms);
+
+    min-width: 0;
+  }
+
+  &__listRegion {
+    display: grid;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  &__listMeta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  &__listCount {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
   &__list {
+    position: relative;
     display: grid;
     margin: 0;
     padding: 0;
@@ -102,6 +136,7 @@
     border-radius: 50%;
     background: var(--free);
     box-shadow: 0 0 0.5rem color-mix(in srgb, var(--free) 70%, transparent);
+    @include motion.pop(160ms);
   }
 
   &__meta {
@@ -183,8 +218,20 @@
   }
 
   &__copyButton {
+    position: relative;
     flex: 1 1 auto;
     min-width: 0;
+
+    &--copied,
+    &--copied:hover {
+      border-color: color-mix(in srgb, var(--free) 55%, var(--border));
+      color: var(--free-foreground);
+    }
+  }
+
+  &__copyLabel {
+    gap: 0.5rem;
+    white-space: nowrap;
   }
 
   &__moreButton {
@@ -217,6 +264,12 @@
     max-width: 52ch;
   }
 
+  &__dialogForm {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+  }
+
   &__dialogBody {
     display: grid;
     gap: 1rem;
@@ -243,6 +296,7 @@
   }
 
   &__fieldError {
+    padding-top: 0.125rem;
     color: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
     font-size: 0.875rem;
     line-height: 1.4;
@@ -266,6 +320,8 @@
 
     &__copyButton {
       flex: 0 0 auto;
+      // Reserve the width of the longer label so "Copiado" does not shift the row.
+      min-width: 8.5rem;
     }
 
     &__detailValue--stacked {

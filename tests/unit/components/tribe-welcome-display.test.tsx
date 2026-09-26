@@ -150,4 +150,51 @@ describe("TribeWelcomeDisplay", () => {
     expect(openedWindow.close).toHaveBeenCalled();
     expect(openedWindow.location.href).toBe("about:blank");
   });
+
+  it("marks only the chosen resource as busy and locks the others while its selection is recorded", async () => {
+    const user = userEvent.setup();
+    const welcome = buildWelcome();
+    const openedWindow = {
+      close: vi.fn(),
+      location: { href: "about:blank" },
+      opener: window,
+    };
+
+    Object.defineProperty(window, "open", {
+      configurable: true,
+      value: vi.fn(() => openedWindow),
+    });
+    fetchMock.mockReturnValue(new Promise(() => undefined));
+
+    render(
+      <TribeWelcomeDisplay
+        tribeSlug="matematica-pro"
+        welcome={{
+          ...welcome,
+          links: [
+            { ...welcome.links[0], description: "Escribinos cuando quieras" },
+            {
+              ...welcome.links[0],
+              id: "33333333-3333-4333-8333-333333333333",
+              label: "Canal",
+            },
+          ],
+        }}
+      />
+    );
+
+    const supportButton = screen.getByRole("button", { name: /Soporte/ });
+    const channelButton = screen.getByRole("button", { name: /Canal/ });
+
+    // The description renders as phrasing content, valid inside a <button>.
+    expect(supportButton).toHaveTextContent("Escribinos cuando quieras");
+    expect(supportButton.querySelector("p")).toBeNull();
+
+    await user.click(supportButton);
+
+    expect(supportButton).toHaveAttribute("aria-busy", "true");
+    expect(supportButton).toBeDisabled();
+    expect(channelButton).not.toHaveAttribute("aria-busy");
+    expect(channelButton).toBeDisabled();
+  });
 });

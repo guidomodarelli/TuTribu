@@ -11,7 +11,7 @@ import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/r
 import styles from "./styles.module.scss";
 
 const AUTH_SIGN_OUT_REQUEST = {
-  errorMessage: "No pudimos cerrar la sesion. Intenta de nuevo.",
+  errorMessage: "No pudimos cerrar la sesión. Intentá de nuevo.",
   errorPath: ROUTES.auth.error,
 } as const;
 
@@ -21,6 +21,11 @@ type AvatarSessionMenuClientProps = {
   signOutCallbackUrl: string;
 };
 
+/**
+ * Client container of the account menu: owns the sign-out request, ignores
+ * repeated clicks while it is in flight, and maps a failure to a Spanish toast
+ * plus the auth error page.
+ */
 export function AvatarSessionMenuClient({
   authenticatedMember,
   signInPath,

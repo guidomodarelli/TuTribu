@@ -15,6 +15,7 @@ import { SmilePlusIcon } from "lucide-react";
 
 import { Button, Popover, PopoverContent, PopoverTrigger, useTheme } from "beez-ui";
 
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import { DARK_THEME_MODE } from "@/src/constants/theme-mode";
 import styles from "./styles.module.scss";
 
@@ -27,8 +28,11 @@ const CHANNEL_EMOJI_PICKER_COPY = {
 const CHANNEL_EMOJI_PICKER_CONFIG = {
   align: "start",
   buttonType: "button",
+  /** Presence key of the placeholder icon shown before an emoji is chosen. */
+  emptySelectionKey: "empty",
   pickerHeight: 360,
-  pickerWidth: 320,
+  /** Fills the popover, which already caps its width to the viewport on phones. */
+  pickerWidth: "100%",
   outlineVariant: "outline",
 } as const;
 
@@ -48,6 +52,14 @@ type ChannelEmojiPickerProps = {
   value: string;
 };
 
+/**
+ * Icon picker for a tribe channel: an outline trigger showing the current
+ * emoji that opens a searchable emoji popover. The chosen emoji swaps in with
+ * a short cross-fade.
+ *
+ * @param props - Current value, change handler, label and disabled state.
+ * @returns The labelled emoji picker.
+ */
 export function ChannelEmojiPicker({
   disabled = false,
   isLabelVisuallyHidden = false,
@@ -85,12 +97,14 @@ export function ChannelEmojiPicker({
             type={CHANNEL_EMOJI_PICKER_CONFIG.buttonType}
             variant={CHANNEL_EMOJI_PICKER_CONFIG.outlineVariant}
           >
-            <span
-              aria-hidden
+            <PresenceSwap
+              as="span"
               className={styles.ChannelEmojiPicker__selectedEmoji}
+              mode="popLayout"
+              presenceKey={selectedEmoji || CHANNEL_EMOJI_PICKER_CONFIG.emptySelectionKey}
             >
-              {selectedEmoji || <SmilePlusIcon />}
-            </span>
+              <span aria-hidden>{selectedEmoji || <SmilePlusIcon />}</span>
+            </PresenceSwap>
           </Button>
         </PopoverTrigger>
         <PopoverContent

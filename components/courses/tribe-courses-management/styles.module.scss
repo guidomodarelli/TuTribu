@@ -1,3 +1,7 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .TribeCoursesManagement {
   display: grid;
   gap: 1.5rem;
@@ -6,6 +10,8 @@
   padding: clamp(1rem, 3vw, 2rem);
 
   &__header {
+    @include motion.enter;
+
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -16,25 +22,39 @@
   }
 
   &__heading {
-    font-size: 1.5rem;
+    font-size: clamp(1.25rem, 2vw, 1.5rem);
     font-weight: 600;
     margin: 0;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
   }
 
   &__backLink {
+    @include motion.interactive(color);
+
     display: inline-block;
+    border-radius: calc(var(--radius-md) - 2px);
     color: var(--muted-foreground);
     font-size: 0.875rem;
     margin-top: 0.25rem;
     text-decoration: none;
+    text-underline-offset: 0.2rem;
 
     &:hover {
       color: var(--foreground);
       text-decoration: underline;
     }
+
+    &:focus-visible {
+      color: var(--foreground);
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
   }
 
   &__emptyState {
+    @include motion.fade;
+
     color: var(--muted-foreground);
     padding: 1rem 0;
   }
@@ -52,13 +72,20 @@
     gap: 1rem;
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 1.25rem;
+    padding: clamp(1rem, 3vw, 1.25rem);
     background-color: var(--card);
-    transition: opacity 120ms ease-out;
+  }
 
-    &--pending {
-      opacity: 0.72;
-    }
+  // Pending rows dim their own header, not the row: Motion owns the row's
+  // inline opacity while it enters, leaves and reflows.
+  &__moduleItem--pending > &__moduleHeader,
+  &__lessonItem--pending > &__lessonHeader {
+    opacity: 0.72;
+  }
+
+  &__moduleHeader,
+  &__lessonHeader {
+    transition: opacity motion.$duration-hover motion.$ease-out;
   }
 
   &__moduleHeader,
@@ -72,27 +99,35 @@
 
   &__moduleTitle {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.25rem 0.5rem;
     font-size: 1.125rem;
     font-weight: 600;
     margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   &__lessonTitle {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.25rem 0.5rem;
     font-size: 1rem;
     font-weight: 500;
     margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   &__moduleMeta,
   &__lessonMeta {
     color: var(--muted-foreground);
     font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
     margin: 0.25rem 0 0;
+    overflow-wrap: anywhere;
   }
 
   &__inactiveBadge {
@@ -126,14 +161,15 @@
     padding: 0.75rem;
     border-radius: var(--radius-md);
     background-color: color-mix(in oklch, var(--muted) 50%, transparent);
-    transition: opacity 120ms ease-out;
+  }
 
-    &--pending {
-      opacity: 0.72;
-    }
+  &__addLessonButton {
+    justify-self: start;
   }
 
   &__pendingBadge {
+    @include motion.pop;
+
     font-size: 0.6875rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -151,6 +187,21 @@
     border: 1px dashed var(--border);
     border-radius: var(--radius-md);
     background-color: var(--background);
+
+    // Edit forms replace a row in place: they enter softly and drop the frame
+    // the row already provides.
+    &--inline {
+      @include motion.enter($distance: 4px);
+
+      padding: 0;
+      border: 0;
+      background-color: transparent;
+    }
+  }
+
+  &__fieldError {
+    color: var(--destructive);
+    font-size: 0.8125rem;
   }
 
   &__formHeading {
@@ -172,6 +223,11 @@
   &__formHelp {
     color: var(--muted-foreground);
     font-size: 0.75rem;
+    transition: color motion.$duration-hover motion.$ease-out;
+
+    &--success {
+      color: var(--primary);
+    }
   }
 
   &__descriptionEditor {
@@ -183,6 +239,7 @@
 
   &__formActions {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     margin-top: 0.5rem;
   }
@@ -196,6 +253,8 @@
   }
 
   &__fileItem {
+    @include motion.enter($distance: 4px);
+
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -220,6 +279,8 @@
   }
 
   &__fileStatus {
+    @include motion.interactive(background-color, color);
+
     flex-shrink: 0;
     font-size: 0.6875rem;
     font-weight: 600;

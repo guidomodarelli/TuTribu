@@ -14,6 +14,17 @@ vi.mock("beez-ui", async () => ({
   },
 }));
 
+/** Message the provider plan verification endpoint returns in these tests. */
+const PROVIDER_PLANS_VERIFIED_MESSAGE = "Planes verificados con Mercado Pago.";
+
+/**
+ * Waits for the provider plan verification that managers trigger on load, so
+ * its state updates finish inside the test instead of after it.
+ */
+async function waitForLoadVerification() {
+  expect(await screen.findByText(PROVIDER_PLANS_VERIFIED_MESSAGE)).toBeInTheDocument();
+}
+
 describe("TribeSubscriptionPriceManagement", () => {
   const previousFetch = global.fetch;
   const activePrice = {
@@ -62,7 +73,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     global.fetch = vi.fn(async () => ({
         json: async () => ({
         canceledPriceIds: [],
-        message: "Planes verificados con Mercado Pago.",
+        message: PROVIDER_PLANS_VERIFIED_MESSAGE,
         prices: [activePrice],
         verifiedCount: 1,
       }),
@@ -75,7 +86,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the current-price action with Spanish product copy", () => {
+  it("renders the current-price action with Spanish product copy", async () => {
     render(
       <TribeSubscriptionPriceManagement
         availableMercadoPagoAccounts={[mercadoPagoAccount]}
@@ -88,6 +99,8 @@ describe("TribeSubscriptionPriceManagement", () => {
         tribeSlug="matematica-pro"
       />
     );
+
+    await waitForLoadVerification();
 
     expect(
       screen.getAllByRole("button", { name: "Marcar como actual" })
@@ -102,7 +115,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     expect(screen.getByText("Conectado")).toBeInTheDocument();
   });
 
-  it("should render prices as an operational table with creation and help sections", () => {
+  it("should render prices as an operational table with creation and help sections", async () => {
     render(
       <TribeSubscriptionPriceManagement
         availableMercadoPagoAccounts={[mercadoPagoAccount]}
@@ -115,6 +128,8 @@ describe("TribeSubscriptionPriceManagement", () => {
         tribeSlug="matematica-pro"
       />
     );
+
+    await waitForLoadVerification();
 
     expect(
       screen.getByRole("heading", { name: "Crear nuevo precio" })
@@ -140,7 +155,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     ).toBeInTheDocument();
   });
 
-  it("should present prices as a plan catalog instead of historical versions", () => {
+  it("should present prices as a plan catalog instead of historical versions", async () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
@@ -152,6 +167,8 @@ describe("TribeSubscriptionPriceManagement", () => {
         tribeSlug="matematica-pro"
       />
     );
+
+    await waitForLoadVerification();
 
     expect(
       screen.getByRole("table", { name: "Catálogo de planes" })
@@ -188,7 +205,59 @@ describe("TribeSubscriptionPriceManagement", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("should render subscriber diagnostics only for leaders", () => {
+  it("focuses the inline editor and returns focus to the edit button when Escape cancels it", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Editar" })).toBeEnabled();
+    });
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+
+    expect(screen.getByLabelText("Nuevo nombre")).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Editar" })).toHaveAttribute(
+      "aria-expanded",
+      "true"
+    );
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByLabelText("Nuevo nombre")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Editar" })).toHaveFocus();
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the singular label for a single associated member", () => {
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
+        canManagePrices={false}
+        isMercadoPagoConnected
+        prices={[{ ...activePrice, activeSubscribersCount: 1 }]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(screen.getByText("1 miembro asociado")).toBeInTheDocument();
+    expect(screen.queryByText("1 miembros asociados")).not.toBeInTheDocument();
+  });
+
+  it("should render subscriber diagnostics only for leaders", async () => {
     render(
       <TribeSubscriptionPriceManagement
         freeJoinIsCurrent={false}
@@ -201,6 +270,8 @@ describe("TribeSubscriptionPriceManagement", () => {
         tribeSlug="matematica-pro"
       />
     );
+
+    await waitForLoadVerification();
 
     expect(
       screen.getByRole("heading", { name: "Detalle de suscriptores" })
@@ -219,7 +290,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [activePrice],
           verifiedCount: 1,
         }),
@@ -279,7 +350,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [activePrice],
           verifiedCount: 1,
         }),
@@ -329,7 +400,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [activePrice],
           verifiedCount: 1,
         }),
@@ -407,7 +478,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [longTrialPrice],
           verifiedCount: 1,
         }),
@@ -535,7 +606,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [monthlyTrialPrice],
           verifiedCount: 1,
         }),
@@ -612,7 +683,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [canceledPrice],
           verifiedCount: 1,
         }),
@@ -685,7 +756,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     global.fetch = vi.fn(async () => ({
       json: async () => ({
         canceledPriceIds: ["price-1"],
-        message: "Planes verificados con Mercado Pago.",
+        message: PROVIDER_PLANS_VERIFIED_MESSAGE,
         prices: [
           {
             ...activePrice,
@@ -727,7 +798,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [activePrice],
           verifiedCount: 1,
         }),
@@ -780,7 +851,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [activePrice],
           verifiedCount: 1,
         }),
@@ -840,7 +911,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [priceWithLocalAssociation],
           verifiedCount: 1,
         }),
@@ -884,7 +955,7 @@ describe("TribeSubscriptionPriceManagement", () => {
           method: "POST",
         })
       );
-      expect(screen.getByText("1 miembros asociados")).toBeInTheDocument();
+      expect(screen.getByText("1 miembro asociado")).toBeInTheDocument();
       expect(
         screen.getByText("0 suscriptores vigentes en Mercado Pago")
       ).toBeInTheDocument();
@@ -932,7 +1003,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     global.fetch = vi.fn(async () => ({
       json: async () => ({
         canceledPriceIds: [],
-        message: "Planes verificados con Mercado Pago.",
+        message: PROVIDER_PLANS_VERIFIED_MESSAGE,
         prices: [pausedPrice],
         verifiedCount: 1,
       }),
@@ -979,7 +1050,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [canceledPriceWithLocalAssociation],
           verifiedCount: 1,
         }),
@@ -1014,7 +1085,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
     expect(
-      await screen.findByText("Planes verificados con Mercado Pago.")
+      await screen.findByText(PROVIDER_PLANS_VERIFIED_MESSAGE)
     ).toBeInTheDocument();
 
     const verifySubscribersButton = screen.getByRole("button", {
@@ -1539,7 +1610,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       json: async () => ({
         canceledPriceIds: ["price-1"],
         freeJoinIsCurrent: true,
-        message: "Planes verificados con Mercado Pago.",
+        message: PROVIDER_PLANS_VERIFIED_MESSAGE,
         prices: [canceledPrice],
         verifiedCount: 1,
       }),
@@ -1561,7 +1632,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     await waitFor(() => {
       expect(screen.getByText("Actual")).toBeInTheDocument();
       expect(
-        screen.getByText("Planes verificados con Mercado Pago.")
+        screen.getByText(PROVIDER_PLANS_VERIFIED_MESSAGE)
       ).toBeInTheDocument();
       expect(
         screen.getAllByRole("button", { name: "Marcar como actual" })[0]
@@ -1580,7 +1651,7 @@ describe("TribeSubscriptionPriceManagement", () => {
       .mockResolvedValueOnce({
         json: async () => ({
           canceledPriceIds: [],
-          message: "Planes verificados con Mercado Pago.",
+          message: PROVIDER_PLANS_VERIFIED_MESSAGE,
           prices: [paidPrice],
           verifiedCount: 1,
         }),

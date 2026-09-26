@@ -199,4 +199,52 @@ describe("RichLinkEditor", () => {
       screen.queryByRole("button", { name: COPY.removeAction })
     ).not.toBeInTheDocument();
   });
+
+  it("moves focus into the link text field when switching to the edit form", async () => {
+    const user = userEvent.setup();
+    render(<EditorHarness initialMarkdown="[el curso](https://tutribu.com)" />);
+
+    await user.click(screen.getByRole("link", { name: "el curso" }));
+    await user.click(screen.getByRole("button", { name: COPY.editAction }));
+
+    expect(screen.getByLabelText(COPY.popoverTextLabel)).toHaveFocus();
+  });
+
+  it("saves the link edit with Enter from a popover field", async () => {
+    const user = userEvent.setup();
+    render(<EditorHarness initialMarkdown="[el curso](https://tutribu.com)" />);
+
+    await user.click(screen.getByRole("link", { name: "el curso" }));
+    await user.click(screen.getByRole("button", { name: COPY.editAction }));
+
+    const urlInput = screen.getByLabelText(COPY.popoverUrlLabel);
+    await user.clear(urlInput);
+    await user.type(urlInput, "https://tutribu.com/enter{Enter}");
+
+    expect(
+      screen.queryByRole("button", { name: COPY.editSave })
+    ).not.toBeInTheDocument();
+    expect(await serialize(user)).toBe("[el curso](https://tutribu.com/enter)");
+  });
+
+  it("blocks saving a link edit whose URL is not a valid web address", async () => {
+    const user = userEvent.setup();
+    render(<EditorHarness initialMarkdown="[el curso](https://tutribu.com)" />);
+
+    await user.click(screen.getByRole("link", { name: "el curso" }));
+    await user.click(screen.getByRole("button", { name: COPY.editAction }));
+
+    const urlInput = screen.getByLabelText(COPY.popoverUrlLabel);
+    await user.clear(urlInput);
+    await user.type(urlInput, "no es un link{Enter}");
+
+    expect(urlInput).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: COPY.editSave })).toBeDisabled();
+
+    await user.clear(urlInput);
+    await user.type(urlInput, "https://tutribu.com/valido");
+
+    expect(urlInput).toHaveAttribute("aria-invalid", "false");
+    expect(screen.getByRole("button", { name: COPY.editSave })).toBeEnabled();
+  });
 });

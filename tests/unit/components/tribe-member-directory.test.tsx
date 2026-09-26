@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, type MockedFunction } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { TribeMemberDirectory } from "@/components/tribes/tribe-member-directory";
@@ -115,12 +115,16 @@ describe("TribeMemberDirectory", () => {
     );
 
     const memberList = screen.getByRole("list", { name: "Lista de miembros" });
+
+    await waitFor(() => {
+      expect(within(memberList).getAllByRole("listitem")).toHaveLength(1);
+    });
+
     const items = within(memberList).getAllByRole("listitem");
 
-    expect(items).toHaveLength(1);
     expect(within(items[0]).getByText("Grace Hopper")).toBeInTheDocument();
     expect(within(items[0]).getByText("1")).toBeInTheDocument();
-    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument());
   });
 
   it("filters members by a case-insensitive name match", async () => {
@@ -142,8 +146,8 @@ describe("TribeMemberDirectory", () => {
     );
 
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
-    expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument();
-    expect(screen.queryByText("Katherine Johnson")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Katherine Johnson")).not.toBeInTheDocument());
   });
 
   it("filters members by an email substring", async () => {
@@ -165,7 +169,7 @@ describe("TribeMemberDirectory", () => {
     );
 
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
-    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument());
   });
 
   it("shows the empty list copy when no member matches the search", async () => {
@@ -186,9 +190,9 @@ describe("TribeMemberDirectory", () => {
       "nadie coincide aquí"
     );
 
-    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
-    expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument();
-    expect(screen.queryByText("Katherine Johnson")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Katherine Johnson")).not.toBeInTheDocument());
   });
 
   it("composes the search query with the active selection filter", async () => {
@@ -213,9 +217,9 @@ describe("TribeMemberDirectory", () => {
       "grace"
     );
 
-    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument());
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
-    expect(screen.queryByText("Katherine Johnson")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Katherine Johnson")).not.toBeInTheDocument());
   });
 
   it("falls back to every member when the active filter is no longer available", async () => {
@@ -236,7 +240,7 @@ describe("TribeMemberDirectory", () => {
     await user.click(screen.getByRole("button", { name: "Soporte (1)" }));
 
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
-    expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument());
 
     rerender(
       <TribeMemberDirectory
@@ -366,13 +370,13 @@ describe("TribeMemberDirectory", () => {
     await user.type(searchInput, "hopper");
 
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
-    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument());
 
     await user.clear(searchInput);
     await user.type(searchInput, "ada.lovelace");
 
-    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
-    expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument());
   });
 
   it("keeps the email-aware search placeholder when at least one member email is visible", () => {
@@ -447,8 +451,8 @@ describe("TribeMemberDirectory", () => {
     );
 
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
-    expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
-    expect(screen.queryByText("Katherine Johnson")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Katherine Johnson")).not.toBeInTheDocument());
   });
 
   it("renders the invite CTA only when the viewer can invite", () => {
@@ -481,5 +485,112 @@ describe("TribeMemberDirectory", () => {
     expect(
       screen.getByRole("link", { name: "Invitar miembro" })
     ).toHaveAttribute("href", "/matematica-pro/invitaciones");
+  });
+
+  it("matches names regardless of accents typed in the search", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        filterOptions={[]}
+        members={[
+          ...baseMembers,
+          {
+            avatarFallback: "JP",
+            email: null,
+            id: "member-4",
+            image: null,
+            joinedViaFreeInvitation: false,
+            name: "José Pérez",
+            role: "tribemate",
+          },
+        ]}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.type(
+      screen.getByRole("searchbox", { name: "Buscar miembro" }),
+      "jose perez"
+    );
+
+    expect(screen.getByText("José Pérez")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument()
+    );
+  });
+
+  it("marks the active filter as pressed for assistive technology", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        canViewFreeInvitations={true}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    const allFilter = screen.getByRole("button", { name: "Todos (3)" });
+    const freeFilter = screen.getByRole("button", { name: "Invitación free (1)" });
+
+    expect(allFilter).toHaveAttribute("aria-pressed", "true");
+    expect(freeFilter).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(freeFilter);
+
+    expect(allFilter).toHaveAttribute("aria-pressed", "false");
+    expect(freeFilter).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("explains that nothing matches and disables the export when the search hides every member", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeMemberDirectory
+        canExportMembers={true}
+        canInviteMembers={false}
+        filterOptions={[]}
+        members={baseMembers}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /Exportar/ })).toBeEnabled();
+
+    await user.type(
+      screen.getByRole("searchbox", { name: "Buscar miembro" }),
+      "nadie coincide"
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Ningún miembro coincide con la búsqueda o el filtro elegido."
+    );
+    expect(
+      screen.queryByText("Todavía no hay miembros visibles en esta tribu.")
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Exportar/ })).toBeDisabled();
+  });
+
+  it("keeps the tribe empty copy when there are no members at all", () => {
+    render(
+      <TribeMemberDirectory
+        canExportMembers={false}
+        canInviteMembers={false}
+        filterOptions={[]}
+        members={[]}
+        selectionsByMemberId={{}}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Todavía no hay miembros visibles en esta tribu."
+    );
   });
 });

@@ -11,6 +11,7 @@ import {
 import { TribeEventsCalendar } from "@/components/events/tribe-events-calendar";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { routeOccurrenceActivityRequests } from "@/tests/unit/components/events/support/occurrence-activity-fetch";
+import { MOTION_SAFE_FAKE_TIMERS } from "@/tests/unit/components/events/support/motion-safe-fake-timers";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 let apiFetch: Mock = vi.fn();
@@ -103,7 +104,7 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     apiFetch = vi.fn();
     global.fetch = routeOccurrenceActivityRequests(apiFetch);
     window.history.replaceState(null, "", "/matematica-pro/eventos");
-    vi.useFakeTimers({ shouldAdvanceTime: true }).setSystemTime(
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS).setSystemTime(
       new Date("2026-05-01T12:00:00.000Z")
     );
   });
@@ -417,7 +418,10 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
 
     await user.click(within(moveDialog).getByRole("checkbox", { name: "Termina otro día" }));
 
-    expect(within(moveDialog).queryByLabelText("Fecha de fin")).not.toBeInTheDocument();
+    // The end date fades out once «Termina otro día» is unchecked.
+    await waitFor(() =>
+      expect(within(moveDialog).queryByLabelText("Fecha de fin")).not.toBeInTheDocument()
+    );
     await user.clear(within(moveDialog).getByLabelText("Hora de fin (opcional)"));
     await user.type(within(moveDialog).getByLabelText("Hora de fin (opcional)"), "23:30");
     mockJsonResponse({ message: "Fecha movida.", occurrences: [overnight] });
@@ -959,7 +963,7 @@ describe("TribeEventsCalendar proposal reconciliation", () => {
     vi.clearAllMocks();
     global.fetch = vi.fn();
     window.history.replaceState(null, "", "/matematica-pro/eventos");
-    vi.useFakeTimers({ shouldAdvanceTime: true }).setSystemTime(
+    vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS).setSystemTime(
       new Date("2026-05-01T12:00:00.000Z")
     );
   });
@@ -1116,7 +1120,8 @@ describe("TribeEventsCalendar proposal reconciliation", () => {
     await user.click(within(panel).getByRole("button", { name: "Confirmar rechazo" }));
 
     expect(await within(panel).findByText("Picnic")).toBeInTheDocument();
-    expect(within(panel).queryByText("After")).not.toBeInTheDocument();
+    // The rejected proposal folds out of the queue.
+    await waitFor(() => expect(within(panel).queryByText("After")).not.toBeInTheDocument());
     expect(within(panel).queryByText("No hay propuestas pendientes.")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { hidden: true, name: "Propuestas (1)" })
@@ -1184,7 +1189,7 @@ describe("TribeEventsCalendar proposal reconciliation", () => {
     expect(countRequests(`GET ${proposalsEndpoint}`)).toBe(2);
     // The remaining loaded proposal stays visible and actionable.
     expect(within(panel).getByText("Picnic")).toBeInTheDocument();
-    expect(within(panel).queryByText("After")).not.toBeInTheDocument();
+    await waitFor(() => expect(within(panel).queryByText("After")).not.toBeInTheDocument());
     expect(within(panel).queryByText("No pudimos cargar las propuestas.")).not.toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: "Rechazar" })).toBeEnabled();
     expect(

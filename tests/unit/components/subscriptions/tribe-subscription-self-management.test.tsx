@@ -60,5 +60,61 @@ describe("TribeSubscriptionSelfManagement", () => {
       );
       expect(screen.getByText("Suscripción cancelada")).toBeInTheDocument();
     });
+    expect(await screen.findByText("Estado: cancelada")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText("Estado: activa")).not.toBeInTheDocument()
+    );
+    expect(
+      screen.queryByRole("button", { name: /cancelación|Cancelar suscripción/ })
+    ).not.toBeInTheDocument();
+  });
+
+  it("lets the member back out of the cancellation without calling the API", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn() as Mock;
+
+    render(
+      <TribeSubscriptionSelfManagement
+        subscriptionStatus={TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cancelar suscripción" }));
+    await user.click(screen.getByRole("button", { name: "Mantener suscripción" }));
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Cancelar suscripción" })
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("status")).toBeEmptyDOMElement());
+  });
+
+  it("keeps the confirmation available and shows the safe error when cancellation fails", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn(async () => ({
+      json: async () => ({}),
+      ok: false,
+    })) as Mock;
+
+    render(
+      <TribeSubscriptionSelfManagement
+        subscriptionStatus={TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cancelar suscripción" }));
+    await user.click(screen.getByRole("button", { name: "Confirmar cancelación" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        /^No pudimos cancelar la suscripción. Intentá de nuevo.$/
+      )
+    );
+    expect(
+      screen.getByRole("button", { name: "Confirmar cancelación" })
+    ).toBeEnabled();
+    expect(screen.getByText("Estado: activa")).toBeInTheDocument();
   });
 });

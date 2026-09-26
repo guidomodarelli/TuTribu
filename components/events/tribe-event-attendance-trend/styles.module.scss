@@ -1,3 +1,22 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
+// Bars rise from the baseline once, when the chart is first painted.
+@keyframes TrendBarGrow {
+  from {
+    transform: scaleY(0);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+$bar-grow-duration: 420ms;
+$bar-stagger-limit: 8;
+$bar-stagger-step: motion.$stagger-step;
+
 .TribeEventAttendanceTrend {
   display: grid;
   gap: 0.5rem;
@@ -24,6 +43,15 @@
     justify-items: center;
     gap: 0.2rem;
     min-width: 0;
+    @include motion.stagger($bar-stagger-limit);
+  }
+
+  // Each bar grows with the same delay as its column, so the chart reads
+  // left to right, oldest date first.
+  @for $index from 1 through $bar-stagger-limit {
+    &__point:nth-child(#{$index}) &__bar {
+      animation-delay: ($index - 1) * $bar-stagger-step;
+    }
   }
 
   &__count {
@@ -51,6 +79,12 @@
     min-height: 2px;
     border-radius: 0.25rem;
     background: var(--primary);
+    transform-origin: 50% 100%;
+    animation: TrendBarGrow $bar-grow-duration motion.$ease-out $bar-stagger-limit * $bar-stagger-step both;
+
+    @include motion.reduced {
+      animation: none;
+    }
   }
 
   &__date {

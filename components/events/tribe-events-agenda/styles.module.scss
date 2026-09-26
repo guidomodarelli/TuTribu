@@ -1,3 +1,5 @@
+@use "../../../src/styles/motion";
+
 .TribeEventsAgenda {
   display: grid;
   gap: 1.25rem;
@@ -6,5 +8,19 @@
   &__pastToggle {
     justify-self: start;
     color: var(--muted-foreground);
+
+    // Points down while finished occurrences are folded, up once revealed.
+    &[aria-expanded="true"] .TribeEventsAgenda__pastToggleIcon {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__pastToggleIcon {
+    @include motion.interactive(transform);
+  }
+
+  &__day {
+    display: grid;
+    min-width: 0;
   }
 }

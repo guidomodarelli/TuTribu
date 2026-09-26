@@ -27,6 +27,9 @@ const TRIBE_SWITCHER_UI = {
   triggerAriaLabel: "Abrir tribus",
 } as const;
 
+/** `aria-current` token of the tribe being viewed; the check mark alone is visual only. */
+const ACTIVE_TRIBE_CURRENT = "page";
+
 type TribeSwitcherProps = {
   className?: string;
   dropdownTrigger?: React.ReactNode;
@@ -36,6 +39,11 @@ type TribeSwitcherProps = {
   showPrivateBadge?: boolean;
 };
 
+/**
+ * Tribe menu of the header and the sidebar brand: create, discover, and jump
+ * between the member's tribes. Renders only inside a tribe route; the check
+ * mark and `aria-current` identify the tribe being viewed.
+ */
 export function TribeSwitcher({
   className,
   dropdownTrigger,
@@ -85,7 +93,7 @@ export function TribeSwitcher({
                 className={styles.TribeSwitcher__trigger}
                 aria-label={TRIBE_SWITCHER_UI.triggerAriaLabel}
               >
-                <ChevronDownIcon className={styles.TribeSwitcher__triggerIcon} />
+                <ChevronDownIcon aria-hidden="true" className={styles.TribeSwitcher__triggerIcon} />
               </button>
             )}
           </DropdownMenuTrigger>
@@ -120,6 +128,7 @@ export function TribeSwitcher({
                 <DropdownMenuItem
                   key={tribe.tribeId}
                   className={styles.TribeSwitcher__item}
+                  aria-current={isActiveTribe ? ACTIVE_TRIBE_CURRENT : undefined}
                   data-active={isActiveTribe}
                   onClick={() => navigateToTribe(tribePath)}
                 >
@@ -128,7 +137,7 @@ export function TribeSwitcher({
                     {tribe.name}
                   </span>
                   {isActiveTribe ? (
-                    <CheckIcon className={styles.TribeSwitcher__activeIcon} />
+                    <CheckIcon aria-hidden="true" className={styles.TribeSwitcher__activeIcon} />
                   ) : null}
                 </DropdownMenuItem>
               );

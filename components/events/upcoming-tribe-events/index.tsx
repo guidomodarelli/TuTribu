@@ -64,7 +64,11 @@ export function UpcomingTribeEvents({ events, tribeSlug }: UpcomingTribeEventsPr
       </div>
       <ul className={styles.UpcomingTribeEvents__list}>
         {events.map((occurrence) => (
-          <li className={styles.UpcomingTribeEvents__item} key={occurrence.occurrenceKey}>
+          <li
+            className={styles.UpcomingTribeEvents__item}
+            data-event-type={occurrence.eventType}
+            key={occurrence.occurrenceKey}
+          >
             <div className={styles.UpcomingTribeEvents__itemBody}>
               <Link
                 className={styles.UpcomingTribeEvents__title}

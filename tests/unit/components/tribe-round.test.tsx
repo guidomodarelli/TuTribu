@@ -13,6 +13,16 @@ import { toast, TooltipProvider } from "beez-ui";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 
+/**
+ * Timers faked by the debounce suites. Only timeouts are faked: Motion runs
+ * every animation on one shared, module-level frame loop, and faking its clock
+ * (animation frames, intervals or `Date`) leaves a frame pending after the
+ * clock is restored, which freezes list exits in every later test of this file.
+ */
+const DEBOUNCE_FAKE_TIMERS = {
+  toFake: ["setTimeout", "clearTimeout"],
+} satisfies Parameters<typeof vi.useFakeTimers>[0];
+
 import { ATTACHMENT_FILE } from "@/src/constants/attachment-files";
 
 const refreshMock = vi.fn();
@@ -2815,7 +2825,7 @@ describe("TribeRound", () => {
   });
 
   it("preserves concurrent message interactions when optimistic creation fails", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers(DEBOUNCE_FAKE_TIMERS);
     const user = userEvent.setup({
       advanceTimers: vi.advanceTimersByTime,
     });
@@ -2867,7 +2877,10 @@ describe("TribeRound", () => {
         expect(screen.getByRole("dialog")).toBeInTheDocument();
       });
 
-      expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+      // The failed optimistic message plays its exit before leaving the DOM.
+      await waitFor(() => {
+        expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+      });
       expect(
         screen.getByRole("button", { hidden: true, name: "Me gusta 3" })
       ).toBeInTheDocument();
@@ -2904,7 +2917,10 @@ describe("TribeRound", () => {
     await user.click(screen.getByRole("button", { name: "Compartir" }));
 
     expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
-    expect(screen.queryByText("Anuncio inicial")).not.toBeInTheDocument();
+    // The displaced message plays its exit before leaving the page.
+    await waitFor(() => {
+      expect(screen.queryByText("Anuncio inicial")).not.toBeInTheDocument();
+    });
 
     await act(async () => {
       deferredResponse.resolve({
@@ -2920,7 +2936,10 @@ describe("TribeRound", () => {
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
 
-    expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+    // The failed optimistic message plays its exit before leaving the DOM.
+    await waitFor(() => {
+      expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+    });
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
   });
 
@@ -5463,7 +5482,10 @@ describe("TribeRound", () => {
     });
 
     expect(screen.getByText("Nuevo encuentro")).toBeInTheDocument();
-    expect(screen.queryByText("Anuncio inicial")).not.toBeInTheDocument();
+    // The displaced message plays its exit before leaving the page.
+    await waitFor(() => {
+      expect(screen.queryByText("Anuncio inicial")).not.toBeInTheDocument();
+    });
     const messageList = screen.getByText("Nuevo encuentro").closest("ol");
 
     expect(messageList).not.toBeNull();
@@ -5512,7 +5534,12 @@ describe("TribeRound", () => {
     const messageList = screen.getByText("Nuevo encuentro").closest("ol");
 
     expect(messageList).not.toBeNull();
-    expect(within(messageList as HTMLElement).queryByText("Anuncio inicial")).not.toBeInTheDocument();
+    // The displaced message plays its exit before leaving the page.
+    await waitFor(() => {
+      expect(
+        within(messageList as HTMLElement).queryByText("Anuncio inicial")
+      ).not.toBeInTheDocument();
+    });
     expect(within(messageList as HTMLElement).getAllByRole("listitem")).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Siguiente" })).toHaveAttribute(
       "href",
@@ -5682,7 +5709,12 @@ describe("TribeRound", () => {
     expect(titleInput).toHaveClass("TribeRound__titleInput--invalid");
     expect(contentEditor).toHaveAttribute("aria-invalid", "true");
     expect(contentEditor).toHaveClass("RichLinkEditor__editor--invalid");
-    expect(channelTrigger).toHaveAttribute("aria-invalid", "true");
+    // A button does not support aria-invalid: the missing channel is announced
+    // through the requirements list it is described by.
+    expect(channelTrigger).not.toHaveAttribute("aria-invalid");
+    expect(channelTrigger).toHaveAccessibleDescription(
+      expect.stringContaining("Seleccionar canal")
+    );
     expect(channelTrigger).toHaveClass("TribeRound__channelTrigger--invalid");
   });
 
@@ -5747,6 +5779,24 @@ describe("TribeRound", () => {
       "/matematica-pro?channel=ronda"
     );
     expect(screen.getByText("Anuncio inicial")).toBeInTheDocument();
+  });
+
+  it("marks the active channel filter as the current page", () => {
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Todos" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
+    expect(screen.getByRole("link", { name: "Ronda" })).not.toHaveAttribute(
+      "aria-current"
+    );
   });
 
   it("keeps channel filters visible when the round has only one channel", () => {
@@ -5888,7 +5938,7 @@ describe("TribeRound", () => {
   });
 
   it("updates likes optimistically and reconciles without refreshing the route", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers(DEBOUNCE_FAKE_TIMERS);
     const user = userEvent.setup({
       advanceTimers: vi.advanceTimersByTime,
     });
@@ -6102,8 +6152,49 @@ describe("TribeRound", () => {
     ).toBeNull();
   });
 
+  it("confirms a pin with a success message when the server omits one", async () => {
+    vi.useFakeTimers(DEBOUNCE_FAKE_TIMERS);
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
+
+    (global.fetch as Mock).mockResolvedValueOnce({
+      json: async () => ({
+        isPinned: true,
+        pinnedAt: "2026-04-26T13:00:00.000Z",
+      }),
+      ok: true,
+      statusText: "OK",
+    });
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    try {
+      await user.click(screen.getByRole("button", { name: "Pinear mensaje" }));
+
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+      });
+
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith("Mensaje pineado.");
+      });
+      expect(toast.success).not.toHaveBeenCalledWith(
+        "No pudimos actualizar el pin."
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("renders pinned messages with a visible indicator and toggles pin without refreshing", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers(DEBOUNCE_FAKE_TIMERS);
     const user = userEvent.setup({
       advanceTimers: vi.advanceTimersByTime,
     });
@@ -6353,7 +6444,7 @@ describe("TribeRound", () => {
   });
 
   it("shows a warning when the pinned message limit is reached", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers(DEBOUNCE_FAKE_TIMERS);
     const user = userEvent.setup({
       advanceTimers: vi.advanceTimersByTime,
     });
@@ -6400,7 +6491,7 @@ describe("TribeRound", () => {
   });
 
   it("keeps the last debounced pin intent and skips the request when clicks cancel out", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers(DEBOUNCE_FAKE_TIMERS);
     const user = userEvent.setup({
       advanceTimers: vi.advanceTimersByTime,
     });
@@ -6438,7 +6529,7 @@ describe("TribeRound", () => {
   });
 
   it("keeps the last debounced like intent and skips the request when clicks cancel out", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers(DEBOUNCE_FAKE_TIMERS);
     const user = userEvent.setup({
       advanceTimers: vi.advanceTimersByTime,
     });
@@ -6681,7 +6772,7 @@ describe("TribeRound", () => {
   });
 
   it("reverts an optimistic like when the request fails", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers(DEBOUNCE_FAKE_TIMERS);
     const user = userEvent.setup({
       advanceTimers: vi.advanceTimersByTime,
     });
@@ -6721,7 +6812,7 @@ describe("TribeRound", () => {
   });
 
   it("reverts an optimistic pin when the request fails", async () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers(DEBOUNCE_FAKE_TIMERS);
     const user = userEvent.setup({
       advanceTimers: vi.advanceTimersByTime,
     });
@@ -6762,6 +6853,102 @@ describe("TribeRound", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("keeps the reply input editable while a reply is sending and preserves a newer draft when it fails", async () => {
+    const user = userEvent.setup();
+    const deferredReplyResponse = createDeferredResponse();
+
+    (global.fetch as Mock).mockReturnValueOnce(deferredReplyResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
+    );
+
+    const replyInput = screen.getByRole("textbox", {
+      name: "Escribir una respuesta",
+    });
+
+    await user.type(replyInput, "Primera respuesta");
+    await user.keyboard("{Enter}");
+
+    expect(replyInput).toBeEnabled();
+    expect(replyInput).toHaveFocus();
+    expect(
+      screen.getByRole("button", { name: "Enviar respuesta" })
+    ).toBeDisabled();
+
+    await user.type(replyInput, "Segunda respuesta");
+
+    await act(async () => {
+      deferredReplyResponse.resolve({
+        json: async () => ({ message: "No pudimos publicar la respuesta." }),
+        ok: false,
+        statusText: "Bad Request",
+      } as Response);
+    });
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        "No pudimos publicar la respuesta."
+      );
+    });
+    expect(replyInput).toHaveValue("Segunda respuesta");
+    await waitFor(() => {
+      expect(screen.queryByText("Primera respuesta")).not.toBeInTheDocument();
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the optimistic reply as busy until the server confirms it", async () => {
+    const user = userEvent.setup();
+    const deferredReplyResponse = createDeferredResponse();
+
+    (global.fetch as Mock).mockReturnValueOnce(deferredReplyResponse.promise);
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Escribir una respuesta" }),
+      "Excelente clase"
+    );
+    await user.keyboard("{Enter}");
+
+    const optimisticReply = screen.getByText("Excelente clase").closest("li");
+
+    expect(optimisticReply).toHaveAttribute("aria-busy", "true");
+
+    await act(async () => {
+      deferredReplyResponse.resolve({
+        json: async () => ({ reply: createdReply }),
+        ok: true,
+        statusText: "Created",
+      } as Response);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Excelente clase").closest("li")).not.toHaveAttribute(
+        "aria-busy"
+      );
+    });
+    expect(screen.getAllByText("Excelente clase")).toHaveLength(1);
   });
 
   it("appends the returned reply without refreshing the route", async () => {

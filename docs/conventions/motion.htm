@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Motion</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fbf3ea;border-color:#d4a15a;color:#7a541a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Motion</div>
+  <div class="doc-sub">Cómo agregar animaciones sutiles y consistentes en componentes de producto con <code>motion</code> y mixins SCSS, respetando <code>prefers-reduced-motion</code>, el render en servidor y ambos motores (Chromium y WebKit).</div>
+  <div class="doc-meta"><span>Scope: UI / Styling / Interaction</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+<p>La animación en TuTribu comunica cambios de estado: algo entró, algo salió, algo se guardó, un valor cambió o una región se expandió. No es decoración. Los primitivos de <code>beez-ui</code> (diálogos, menús, popovers, tooltips, sheets, tabs, sidebar y el press de <code>Button</code>) ya animan con <code>motion</code>; esta convención cubre la animación de los componentes de producto que viven en este repositorio.</p>
+<p>Hay dos herramientas, según dónde se renderiza el contenido:</p>
+<table>
+  <tr><th>Caso</th><th>Herramienta</th><th>Por qué</th></tr>
+  <tr><td>Entrada de contenido renderizado en el servidor (secciones, listas iniciales, estados vacíos)</td><td>Mixins SCSS de <code>src/styles/_motion.scss</code></td><td>Corren sin JavaScript, no ocultan el HTML del servidor antes de hidratar y funcionan en Server Components.</td></tr>
+  <tr><td>Cambios en el cliente (ítems agregados o borrados, contadores, estados de envío, regiones que se expanden, indicadores que se deslizan)</td><td><code>motion/react</code> y las primitivas de <code>components/motion/*</code></td><td>Necesitan presencia (animar antes de desmontar), layout y dirección del cambio.</td></tr>
+</table>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Rules</div>
+<ul>
+  <li><strong>Animar solo <code>transform</code> y <code>opacity</code></strong> (y altura únicamente a través de <code>AnimatedCollapse</code>). Nunca animar <code>width</code>, <code>top</code>, <code>margin</code> ni sombras pesadas en listas largas.</li>
+  <li><strong>Duraciones de 120 a 320 ms</strong> con la curva ease-out fuerte <code>cubic-bezier(0.16, 1, 0.3, 1)</code>. Las salidas son más cortas que las entradas para no bloquear la siguiente interacción.</li>
+  <li><strong>Sin loops decorativos.</strong> Solo indicadores de carga pueden repetirse, y se detienen con reduced motion.</li>
+  <li><strong>Reduced motion siempre.</strong> <code>BeezUIProvider</code> monta <code>MotionConfig reducedMotion="user"</code> para toda la app, y cada mixin SCSS se desactiva bajo <code>prefers-reduced-motion: reduce</code>. No agregar animaciones fuera de esos dos caminos.</li>
+  <li><strong>No ocultar HTML del servidor.</strong> No usar <code>initial={{ opacity: 0 }}</code> de <code>motion</code> en contenido que llega renderizado: se ve vacío hasta que hidrata. Envolver listas cliente en <code>&lt;AnimatePresence initial={false}&gt;</code> para que solo animen los cambios posteriores.</li>
+  <li><strong>No re-animar primitivos de <code>beez-ui</code>.</strong> Sí se pueden animar cambios internos de un diálogo (pasos, errores, listas).</li>
+  <li><strong>Valores con nombre.</strong> Duraciones, curvas y resortes salen de <code>lib/motion/tokens.ts</code>, que replica los tokens internos de <code>beez-ui</code>; mantener ambos alineados cuando la librería cambie su lenguaje de motion.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Primitivas cliente</div>
+<table>
+  <tr><th>Componente</th><th>Uso</th></tr>
+  <tr><td><code>AnimatedCollapse</code></td><td>Expande y colapsa una región animando altura y opacidad; libera <code>overflow</code> al terminar para no recortar anillos de foco ni popovers. El padding va dentro del contenido.</td></tr>
+  <tr><td><code>PresenceSwap</code></td><td>Cross-fade entre estados de una misma región (sin cambios → guardando → guardado). Cambiar <code>presenceKey</code> dispara la transición; el primer render no anima.</td></tr>
+  <tr><td><code>AnimatedCount</code></td><td>Contadores (me gusta, asistentes, no leídas): el número rueda hacia arriba al subir y hacia abajo al bajar.</td></tr>
+  <tr><td><code>AnimatedListItem</code></td><td>Ítems de lista que entran, salen y reacomodan a sus hermanos con un resorte. Va dentro de <code>&lt;AnimatePresence initial={false}&gt;</code>.</td></tr>
+</table>
+<p><code>PresenceSwap</code> y <code>AnimatedListItem</code> vuelven <code>inert</code> y <code>aria-hidden</code> al elemento mientras sale: un ítem borrado o un estado reemplazado no se puede enfocar, clickear ni anunciar durante su animación. No hace falta envolver el contenido en otro componente para lograrlo.</p>
+<p>En listas largas (más de unas decenas de filas) desactivar el reacomodo con <code>layout={false}</code> para no medir cientos de nodos en cada cambio.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Usage</div>
+<div class="code-block"><pre>// styles.module.scss — entrada CSS para contenido del servidor.
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes; // keyframes locales al módulo
+
+.MemberList {
+  &__item {
+    @include motion.stagger(8);     // escalona los primeros 8 hermanos
+    @include motion.interactive;    // hover/focus consistentes
+  }
+}
+
+// Componente cliente — ítems que llegan después del primer render.
+&lt;ul className={styles.NotificationPanel__list}&gt;
+  &lt;AnimatePresence initial={false}&gt;
+    {notifications.map((notification) =&gt; (
+      &lt;AnimatedListItem key={notification.id}&gt;…&lt;/AnimatedListItem&gt;
+    ))}
+  &lt;/AnimatePresence&gt;
+&lt;/ul&gt;</pre></div>
+<div class="callout c-info">CSS Modules localiza los nombres de <code>@keyframes</code> por módulo; por eso cada módulo que anima incluye <code>motion.define-keyframes</code> una vez, en el nivel superior.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Testing</div>
+<ul>
+  <li>En Vitest, <code>vitest.setup.ts</code> hace que <code>matchMedia</code> reporte <code>prefers-reduced-motion: reduce</code>: las animaciones de transformación se omiten, pero las salidas de <code>AnimatePresence</code> siguen siendo asíncronas. Esperarlas con <code>waitFor</code> o <code>findBy*</code>.</li>
+  <li>Con fake timers, falsear solo <code>setTimeout</code>, <code>clearTimeout</code> y, si hace falta, <code>Date</code> (<code>vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] })</code>). jsdom programa <code>requestAnimationFrame</code> con un <code>setInterval</code>: si se falsea y se restaura con un frame pendiente, las animaciones de salida quedan congeladas en todos los tests siguientes del archivo. Por lo mismo, <code>PresenceSwap mode="wait"</code> nunca muestra el estado nuevo bajo fake timers completos.</li>
+  <li>No mockear <code>motion</code> ni <code>beez-ui</code>. Los tests validan el comportamiento observable (qué queda en el DOM, foco, roles), no los valores de la animación.</li>
+  <li>El recorrido real de las animaciones se valida en navegador, en Chromium y WebKit, en 375 px y desktop, y también con reduced motion activado.</li>
+</ul>
+</div>
+</body>
+</html>

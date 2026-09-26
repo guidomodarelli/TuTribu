@@ -1,5 +1,14 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 $tribe-story-about-desktop-min: 64rem;
 $tribe-story-about-sidebar-width: 20rem;
+// Sidebar and its facts enter just after the main column, so the page settles
+// top-to-bottom, left-to-right instead of popping in all at once.
+$tribe-story-about-sidebar-delay: 80ms;
+$tribe-story-about-fact-base-delay: 120ms;
+$tribe-story-about-fact-count: 6;
 
 .TribeStoryAbout {
   display: grid;
@@ -8,10 +17,13 @@ $tribe-story-about-sidebar-width: 20rem;
 
   &__cover {
     aspect-ratio: 3 / 1;
+    background: color-mix(in srgb, var(--muted) 60%, transparent);
     border-radius: 0.75rem;
     overflow: hidden;
     position: relative;
     width: 100%;
+
+    @include motion.fade;
   }
 
   &__coverImage {
@@ -45,6 +57,8 @@ $tribe-story-about-sidebar-width: 20rem;
     display: grid;
     gap: 1.5rem;
     min-width: 0;
+
+    @include motion.enter;
   }
 
   &__header {
@@ -55,7 +69,6 @@ $tribe-story-about-sidebar-width: 20rem;
   &__title {
     font-size: clamp(1.5rem, 3vw, 2rem);
     font-weight: 600;
-    letter-spacing: -0.01em;
     line-height: 1.15;
     margin: 0;
   }
@@ -72,6 +85,8 @@ $tribe-story-about-sidebar-width: 20rem;
     display: grid;
     gap: 1rem;
     padding-top: 1.25rem;
+
+    @include motion.enter($tribe-story-about-sidebar-delay);
 
     @media (min-width: $tribe-story-about-desktop-min) {
       border-left: 1px solid var(--border);
@@ -101,6 +116,8 @@ $tribe-story-about-sidebar-width: 20rem;
     display: flex;
     gap: 0.75rem;
     justify-content: space-between;
+
+    @include motion.stagger($tribe-story-about-fact-count, $tribe-story-about-fact-base-delay);
   }
 
   &__factTerm {
@@ -110,6 +127,7 @@ $tribe-story-about-sidebar-width: 20rem;
 
   &__factValue {
     font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
     font-weight: 600;
     margin: 0;
     text-align: right;
@@ -126,9 +144,11 @@ $tribe-story-about-sidebar-width: 20rem;
 
   &__onlineMember {
     border-radius: 999px;
+    box-shadow: 0 0 0 2px var(--background);
     display: inline-flex;
     flex-shrink: 0;
     overflow: hidden;
+    position: relative;
   }
 
   &__onlineAvatar {
@@ -150,15 +170,60 @@ $tribe-story-about-sidebar-width: 20rem;
   }
 
   &__websiteLink {
+    align-items: center;
+    border-radius: 0.25rem;
     color: var(--primary);
+    display: inline-flex;
     font-size: 0.9rem;
+    gap: 0.25rem;
     text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, var(--primary) 45%, transparent);
     text-underline-offset: 0.15em;
     width: fit-content;
     word-break: break-word;
+
+    @include motion.interactive(color, text-decoration-color);
+
+    &:hover {
+      text-decoration-color: currentColor;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+  }
+
+  &__websiteIcon {
+    flex-shrink: 0;
+    height: 0.9rem;
+    width: 0.9rem;
+
+    @include motion.interactive(transform);
+  }
+
+  &__websiteLink:hover &__websiteIcon {
+    transform: translate(1px, -1px);
   }
 
   &__joinAction {
     display: flex;
+  }
+
+  &__joinButton {
+    width: 100%;
+  }
+
+  &__visuallyHidden {
+    border: 0;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
   }
 }

@@ -1,4 +1,10 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .LessonComments {
+  @include motion.fade;
+
   display: grid;
   gap: 0.875rem;
   border-top: 1px solid color-mix(in oklch, var(--border) 76%, transparent);
@@ -8,6 +14,21 @@
     font-size: 0.875rem;
     font-weight: 600;
     margin: 0;
+
+    // Receives programmatic focus after a deletion; no ring for that case.
+    &:focus {
+      outline: none;
+    }
+  }
+
+  // Visually hidden: the placeholder alone is not an accessible label.
+  &__label {
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
   }
 
   &__form {
@@ -29,6 +50,13 @@
     font-size: 1rem;
     line-height: 1.5;
     font-family: inherit;
+    transition:
+      border-color motion.$duration-hover motion.$ease-out,
+      box-shadow motion.$duration-hover motion.$ease-out;
+
+    @include motion.reduced {
+      transition-duration: 1ms;
+    }
 
     @media (min-width: 48rem) {
       font-size: 0.875rem;
@@ -41,6 +69,21 @@
     }
   }
 
+  &__loading {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
+  &__error {
+    @include motion.enter;
+
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+  }
+
   &__errorMessage {
     color: var(--destructive);
     font-size: 0.875rem;
@@ -48,6 +91,8 @@
   }
 
   &__emptyState {
+    @include motion.fade;
+
     color: var(--muted-foreground);
     font-size: 0.875rem;
     margin: 0;
@@ -100,7 +145,8 @@
     background: transparent;
     color: var(--muted-foreground);
     cursor: pointer;
-    transition: background-color 120ms ease, color 120ms ease;
+    flex-shrink: 0;
+    @include motion.interactive(background-color, color, box-shadow);
 
     &:hover {
       background-color: var(--muted);

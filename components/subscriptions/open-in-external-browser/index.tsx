@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "beez-ui";
+import { AnimatedCount } from "@/components/motion/animated-count";
 import { navigateToUrl } from "@/lib/browser-navigation";
 import styles from "./styles.module.scss";
 
@@ -10,6 +11,8 @@ const COUNTDOWN_INITIAL_SECONDS = 5;
 const COUNTDOWN_INTERVAL_MS = 1000;
 const VISIBILITY_FALLBACK_DELAY_MS = 2000;
 const VISIBILITY_VISIBLE_STATE = "visible";
+/** `role="timer"` keeps the per-second countdown out of live announcements. */
+const COUNTDOWN_ROLE = "timer";
 
 const OPEN_IN_EXTERNAL_BROWSER_COPY = {
   countdownDescription:
@@ -45,6 +48,7 @@ export function OpenInExternalBrowser({
   fallbackSignInUrl,
 }: OpenInExternalBrowserProps) {
   const automaticFallbackTimeoutIdRef = useRef<number | null>(null);
+  const primaryActionFallbackTimeoutIdRef = useRef<number | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(
     COUNTDOWN_INITIAL_SECONDS
   );
@@ -68,14 +72,21 @@ export function OpenInExternalBrowser({
       window.clearInterval(countdownIntervalId);
       window.clearTimeout(automaticFallbackTimeoutIdRef.current ?? undefined);
       automaticFallbackTimeoutIdRef.current = null;
+      window.clearTimeout(primaryActionFallbackTimeoutIdRef.current ?? undefined);
+      primaryActionFallbackTimeoutIdRef.current = null;
     };
   }, [fallbackSignInUrl]);
 
   const handlePrimaryAction = () => {
     window.clearTimeout(automaticFallbackTimeoutIdRef.current ?? undefined);
     automaticFallbackTimeoutIdRef.current = null;
+    // Repeated taps restart a single fallback window instead of stacking
+    // several redirects to the sign-in flow.
+    window.clearTimeout(primaryActionFallbackTimeoutIdRef.current ?? undefined);
 
-    window.setTimeout(() => {
+    primaryActionFallbackTimeoutIdRef.current = window.setTimeout(() => {
+      primaryActionFallbackTimeoutIdRef.current = null;
+
       if (document.visibilityState === VISIBILITY_VISIBLE_STATE) {
         navigateToUrl(fallbackSignInUrl);
       }
@@ -95,11 +106,11 @@ export function OpenInExternalBrowser({
           {OPEN_IN_EXTERNAL_BROWSER_COPY.description}
         </p>
         <div
-          aria-live="polite"
           className={styles.OpenInExternalBrowser__countdown}
+          role={COUNTDOWN_ROLE}
         >
           <span className={styles.OpenInExternalBrowser__countdownValue}>
-            {remainingSeconds}
+            <AnimatedCount value={remainingSeconds} />
           </span>
           <p className={styles.OpenInExternalBrowser__countdownDescription}>
             {OPEN_IN_EXTERNAL_BROWSER_COPY.countdownDescription}

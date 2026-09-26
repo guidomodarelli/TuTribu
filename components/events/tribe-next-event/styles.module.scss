@@ -1,9 +1,14 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .TribeNextEvent {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem 1.5rem;
   align-items: center;
-  border-left: 3px solid var(--primary);
+  // Same type color as the agenda rows and grid pills of this occurrence.
+  border-left: 3px solid var(--event-type-accent, var(--primary));
   padding: 0.5rem 0 0.5rem 1rem;
 
   &__body {
@@ -14,6 +19,7 @@
 
   &__heading {
     display: flex;
+    min-height: 1.5rem;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem 0.75rem;
@@ -97,6 +103,14 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem 0.75rem;
+  }
+
+  // Appears when the join window opens while the block is on screen.
+  &__join {
+    @include motion.pop;
+
+    // Release the final keyframe so the button keeps its own press transform.
+    animation-fill-mode: backwards;
   }
 
   &__note {

@@ -1,0 +1,127 @@
+@use "sass:list";
+
+// Motion mixins for server-rendered and CSS-only animations.
+//
+// CSS Modules localize `@keyframes` names per module, so each module that
+// animates calls `define-keyframes` once at its top level and then uses the
+// `enter` / `stagger` mixins inside its BEM blocks. Every animation is removed
+// under `prefers-reduced-motion: reduce`. Timing matches `lib/motion/tokens.ts`.
+//
+// Usage (path relative to the module):
+//   @use "../../../src/styles/motion";
+//   @include motion.define-keyframes;
+//   .Block { @include motion.enter; }
+//   .Block__item { @include motion.stagger(8); }
+
+
+$ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+$ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+$duration-fast: 140ms;
+$duration-hover: 180ms;
+$duration-enter: 320ms;
+$stagger-step: 35ms;
+$stagger-limit: 10;
+$enter-distance: 6px;
+
+@mixin reduced {
+  @media (prefers-reduced-motion: reduce) {
+    @content;
+  }
+}
+
+/// Declares the local keyframes used by `enter`, `fade` and `stagger`.
+@mixin define-keyframes {
+  @keyframes MotionEnter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, var(--motion-enter-distance, #{$enter-distance}), 0);
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes MotionFade {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes MotionPop {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/// Fades and lifts the element into place once, when it is first painted.
+@mixin enter($delay: 0ms, $duration: $duration-enter, $distance: $enter-distance) {
+  --motion-enter-distance: #{$distance};
+
+  animation: MotionEnter $duration $ease-out $delay both;
+
+  @include reduced {
+    animation: none;
+  }
+}
+
+/// Opacity-only entrance, for large regions where travel would feel heavy.
+@mixin fade($delay: 0ms, $duration: $duration-enter) {
+  animation: MotionFade $duration $ease-out $delay both;
+
+  @include reduced {
+    animation: none;
+  }
+}
+
+/// Scale-in entrance for small, self-contained elements such as badges.
+@mixin pop($delay: 0ms, $duration: 240ms) {
+  animation: MotionPop $duration $ease-out $delay both;
+
+  @include reduced {
+    animation: none;
+  }
+}
+
+/// Staggers `enter` across siblings; items beyond the limit share the last delay.
+@mixin stagger($limit: $stagger-limit, $base-delay: 0ms, $step: $stagger-step) {
+  @include enter($base-delay + $limit * $step);
+
+  @for $index from 1 through $limit {
+    &:nth-child(#{$index}) {
+      animation-delay: $base-delay + ($index - 1) * $step;
+    }
+  }
+}
+
+/// Standard hover/focus transition for interactive surfaces.
+@mixin interactive($properties...) {
+  $list: (background-color, color, border-color, box-shadow, opacity, transform);
+  $transitions: ();
+
+  @if list.length($properties) > 0 {
+    $list: $properties;
+  }
+
+  @each $property in $list {
+    $transitions: list.append($transitions, $property $duration-hover $ease-out, comma);
+  }
+
+  transition: $transitions;
+
+  @include reduced {
+    transition-duration: 1ms;
+  }
+}

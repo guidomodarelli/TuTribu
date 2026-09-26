@@ -22,15 +22,18 @@
     justify-content: space-between;
   }
 
-  &__help {
+  &__help,
+  &__error {
     margin: 0;
     font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
+  &__help {
     color: var(--muted-foreground);
   }
 
   &__error {
-    margin: 0;
-    font-size: 0.75rem;
-    color: var(--destructive);
+    color: color-mix(in srgb, var(--destructive) 85%, var(--foreground));
   }
 }

@@ -163,4 +163,71 @@ describe("OpenInExternalBrowser", () => {
 
     expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();
   });
+
+  it("keeps a single fallback redirect when the primary action is tapped repeatedly", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    render(
+      <OpenInExternalBrowser
+        externalBrowserUrl={EXTERNAL_BROWSER_URL}
+        fallbackSignInUrl={FALLBACK_SIGN_IN_URL}
+      />
+    );
+
+    const primaryAction = screen.getByRole("link", {
+      name: "Continuar en tu navegador",
+    });
+
+    await user.click(primaryAction);
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+    await user.click(primaryAction);
+
+    act(() => {
+      vi.advanceTimersByTime(1_000);
+    });
+
+    expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+
+    expect(browserNavigation.navigateToUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels the pending primary-action fallback when the handoff unmounts", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    const { unmount } = render(
+      <OpenInExternalBrowser
+        externalBrowserUrl={EXTERNAL_BROWSER_URL}
+        fallbackSignInUrl={FALLBACK_SIGN_IN_URL}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("link", { name: "Continuar en tu navegador" })
+    );
+    unmount();
+
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+
+    expect(browserNavigation.navigateToUrl).not.toHaveBeenCalled();
+  });
+
+  it("exposes the countdown as a timer so each tick is not announced", () => {
+    render(
+      <OpenInExternalBrowser
+        externalBrowserUrl={EXTERNAL_BROWSER_URL}
+        fallbackSignInUrl={FALLBACK_SIGN_IN_URL}
+      />
+    );
+
+    expect(screen.getByRole("timer")).toHaveTextContent("5");
+    expect(screen.getByRole("timer")).not.toHaveAttribute("aria-live", "polite");
+  });
 });

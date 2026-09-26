@@ -1,19 +1,29 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 import Image from "next/image";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
   BoldIcon,
+  GripVerticalIcon,
   ImageIcon,
   LinkIcon,
   ListIcon,
+  LoaderCircleIcon,
   PlusIcon,
   UploadIcon,
   Trash2Icon,
   VideoIcon,
 } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 import { toast, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from "beez-ui";
 
 
@@ -21,7 +31,10 @@ import { toast, Button, Input, Select, SelectContent, SelectItem, SelectTrigger,
 
 
 
+import { AnimatedCount } from "@/components/motion/animated-count";
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
+import { joinClassNames } from "@/lib/motion/join-class-names";
 import { buildPlayerEmbedSource } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { parseExternalVideoUrl } from "@/src/modules/shared/domain/value-objects/external-video-url";
 import {
@@ -47,6 +60,9 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   contentHint:
     "Contá de dónde viene la tribu, qué la mueve y hacia dónde va. Podés usar **negrita**, listas con - al inicio de línea y links con [texto](https://...).",
   contentLabel: "Historia de la tribu",
+  dragHandleLabel: "Arrastrar para reordenar",
+  mediaMovedAnnouncement: (position: number, total: number) =>
+    `Recurso movido a la posición ${position} de ${total}.`,
   contentPlaceholder:
     "Ej.: Nacimos en 2020 como un grupo de amigos que quería aprender a invertir...",
   editDescription:
@@ -86,7 +102,7 @@ const TRIBE_STORY_MANAGEMENT_COPY = {
   previewNote:
     "Así van a ver la página los miembros y visitantes. Los cambios se aplican cuando guardás desde la pestaña Edición.",
   previewTabLabel: "Vista previa",
-  removeMediaLabel: "Eliminar",
+  removeMediaLabel: (legend: string) => `Eliminar ${legend}`,
   removeMediaTitle: "Eliminar recurso",
   requiredContent: "Escribí la historia antes de guardar.",
   saveButton: "Guardar",
@@ -146,8 +162,28 @@ const MEDIA_THUMB_SIZES = "(min-width: 40rem) 9rem, 12rem";
 const STORY_FORMAT = {
   boldMarker: "**",
   linkPrefix: "[",
-  linkSuffix: "](https://)",
+  linkTextEnd: "](",
+  linkUrlPlaceholder: "https://",
+  linkSuffix: ")",
+  listLineBreak: "\n",
   listPrefix: "- ",
+} as const;
+
+/** Share of the story length limit from which the counter turns into a warning. */
+const CONTENT_COUNTER_WARNING_RATIO = 0.9;
+
+/** Element id prefixes used to move focus back into a gallery row after an edit. */
+const MEDIA_FOCUS_ID_PREFIX = {
+  moveDown: "story-media-move-down-",
+  moveUp: "story-media-move-up-",
+  url: "story-media-url-",
+} as const;
+
+/** Drag payload for reordering gallery rows; Firefox only starts a drag with data. */
+const MEDIA_DRAG = {
+  dataType: "text/plain",
+  effect: "move",
+  imageOffsetPx: 24,
 } as const;
 
 const STORY_MODE_TAB = {
@@ -160,6 +196,13 @@ const UPLOAD_MAX_MEGABYTES = 10;
 const BYTES_PER_KIBIBYTE = 1024;
 const UPLOAD_MAX_BYTES =
   UPLOAD_MAX_MEGABYTES * BYTES_PER_KIBIBYTE * BYTES_PER_KIBIBYTE;
+
+/** Result of a toolbar format: replacement text and the selection to restore inside it. */
+type StoryTextFormat = {
+  selectionEnd: number;
+  selectionStart: number;
+  text: string;
+};
 
 type EditableStoryMediaItem = {
   clientId: string;
@@ -553,8 +596,22 @@ export function TribeStoryManagement({
     ReadonlySet<string>
   >(() => new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [draggedMediaClientId, setDraggedMediaClientId] = useState<
+    string | null
+  >(null);
+  const [dropTargetClientId, setDropTargetClientId] = useState<string | null>(
+    null
+  );
+  const [mediaAnnouncement, setMediaAnnouncement] = useState("");
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
-  const draggedMediaIndexRef = useRef<number | null>(null);
+  const addMediaButtonRef = useRef<HTMLButtonElement | null>(null);
+  const draggedMediaClientIdRef = useRef<string | null>(null);
+  const pendingFocusElementIdRef = useRef<string | null>(null);
+  const pendingTextareaSelectionRef = useRef<{
+    end: number;
+    start: number;
+  } | null>(null);
+  const isSavingRef = useRef(false);
   const contentHeadingId = useId();
   const contentId = useId();
   const contentHintId = useId();
@@ -569,6 +626,9 @@ export function TribeStoryManagement({
   const showContentError =
     validationMessage !== null && trimmedContent.length === 0;
   const canAddMedia = mediaItems.length < TRIBE_STORY_MEDIA_MAX_ITEMS;
+  const isContentNearLimit =
+    content.length >=
+    TRIBE_STORY_CONTENT_MAX_LENGTH * CONTENT_COUNTER_WARNING_RATIO;
   const trimmedWebsiteUrlForPreview = websiteUrl.trim();
   const previewStory: TribeStoryResult | null = trimmedContent
     ? {
@@ -581,6 +641,33 @@ export function TribeStoryManagement({
             : null,
       }
     : null;
+
+  // Toolbar formats rewrite the controlled value, which moves the caret to the
+  // end; restore the intended selection once React has committed the text.
+  useLayoutEffect(() => {
+    const textarea = contentRef.current;
+    const pendingSelection = pendingTextareaSelectionRef.current;
+
+    if (!textarea || !pendingSelection) {
+      return;
+    }
+
+    pendingTextareaSelectionRef.current = null;
+    textarea.setSelectionRange(pendingSelection.start, pendingSelection.end);
+  }, [content]);
+
+  // Adding, moving or removing a gallery row re-renders the list; move focus to
+  // the control that keeps the leader's place instead of losing it.
+  useEffect(() => {
+    const pendingFocusElementId = pendingFocusElementIdRef.current;
+
+    if (!pendingFocusElementId) {
+      return;
+    }
+
+    pendingFocusElementIdRef.current = null;
+    document.getElementById(pendingFocusElementId)?.focus();
+  }, [mediaItems]);
 
   const setUploadingTarget = (target: string, isUploading: boolean) => {
     setUploadingTargets((currentTargets) => {
@@ -633,7 +720,7 @@ export function TribeStoryManagement({
     }
   };
   const applyTextareaFormat = (
-    transform: (selectedText: string) => string
+    format: (selectedText: string) => StoryTextFormat
   ) => {
     const textarea = contentRef.current;
 
@@ -644,35 +731,58 @@ export function TribeStoryManagement({
     const selectionStart = textarea.selectionStart ?? content.length;
     const selectionEnd = textarea.selectionEnd ?? content.length;
     const selectedText = content.slice(selectionStart, selectionEnd);
-    const formattedText = transform(selectedText);
+    const formatted = format(selectedText);
 
+    pendingTextareaSelectionRef.current = {
+      end: selectionStart + formatted.selectionEnd,
+      start: selectionStart + formatted.selectionStart,
+    };
     setContent(
       content.slice(0, selectionStart) +
-        formattedText +
+        formatted.text +
         content.slice(selectionEnd)
     );
     setValidationMessage(null);
     textarea.focus();
   };
+  // Bold keeps the wrapped words selected so a second click can be undone.
   const handleBoldFormat = () =>
-    applyTextareaFormat(
-      (selectedText) =>
-        STORY_FORMAT.boldMarker + selectedText + STORY_FORMAT.boldMarker
-    );
+    applyTextareaFormat((selectedText) => ({
+      selectionEnd: STORY_FORMAT.boldMarker.length + selectedText.length,
+      selectionStart: STORY_FORMAT.boldMarker.length,
+      text: STORY_FORMAT.boldMarker + selectedText + STORY_FORMAT.boldMarker,
+    }));
+  // Lists leave the caret after the inserted items, ready to keep typing.
   const handleListFormat = () =>
-    applyTextareaFormat((selectedText) =>
-      selectedText
+    applyTextareaFormat((selectedText) => {
+      const text = selectedText
         ? selectedText
-            .split("\n")
+            .split(STORY_FORMAT.listLineBreak)
             .map((line) => STORY_FORMAT.listPrefix + line)
-            .join("\n")
-        : STORY_FORMAT.listPrefix
-    );
+            .join(STORY_FORMAT.listLineBreak)
+        : STORY_FORMAT.listPrefix;
+
+      return { selectionEnd: text.length, selectionStart: text.length, text };
+    });
+  // Links select the URL placeholder so the leader can paste the address.
   const handleLinkFormat = () =>
-    applyTextareaFormat(
-      (selectedText) =>
-        STORY_FORMAT.linkPrefix + selectedText + STORY_FORMAT.linkSuffix
-    );
+    applyTextareaFormat((selectedText) => {
+      const urlStart =
+        STORY_FORMAT.linkPrefix.length +
+        selectedText.length +
+        STORY_FORMAT.linkTextEnd.length;
+
+      return {
+        selectionEnd: urlStart + STORY_FORMAT.linkUrlPlaceholder.length,
+        selectionStart: urlStart,
+        text:
+          STORY_FORMAT.linkPrefix +
+          selectedText +
+          STORY_FORMAT.linkTextEnd +
+          STORY_FORMAT.linkUrlPlaceholder +
+          STORY_FORMAT.linkSuffix,
+      };
+    });
   const updateMediaItem = (
     clientId: string,
     patch: Partial<EditableStoryMediaItem>
@@ -697,14 +807,50 @@ export function TribeStoryManagement({
       return nextIds;
     });
   };
+  // The id is created outside the updater so the updater stays pure (React may
+  // call it twice) and focus can move to the new row's URL field.
+  // An upload can finish after the leader switched the row to video or removed
+  // it; only an image row that still exists receives the uploaded URL.
+  // The check runs inside the updater because this callback outlives the
+  // render that started the upload.
+  const applyUploadedImageUrl = (clientId: string, deliveryUrl: string) => {
+    setMediaItems((currentItems) =>
+      currentItems.map((mediaItem) =>
+        mediaItem.clientId === clientId &&
+        mediaItem.mediaType === TRIBE_STORY_MEDIA_TYPE.image
+          ? { ...mediaItem, url: deliveryUrl }
+          : mediaItem
+      )
+    );
+    setValidationMessage(null);
+    setInvalidMediaClientIds((currentIds) => {
+      if (!currentIds.has(clientId)) {
+        return currentIds;
+      }
+
+      const nextIds = new Set(currentIds);
+
+      nextIds.delete(clientId);
+
+      return nextIds;
+    });
+  };
   const handleAddMediaItem = () => {
+    if (!canAddMedia) {
+      return;
+    }
+
+    const createdClientId = createMediaClientId();
+
+    pendingFocusElementIdRef.current =
+      MEDIA_FOCUS_ID_PREFIX.url + createdClientId;
     setMediaItems((currentItems) =>
       currentItems.length >= TRIBE_STORY_MEDIA_MAX_ITEMS
         ? currentItems
         : [
             ...currentItems,
             {
-              clientId: createMediaClientId(),
+              clientId: createdClientId,
               mediaType: TRIBE_STORY_MEDIA_TYPE.image,
               url: "",
             },
@@ -716,30 +862,122 @@ export function TribeStoryManagement({
       currentItems.filter((mediaItem) => mediaItem.clientId !== clientId)
     );
     setValidationMessage(null);
+    // The removed row's controls leave the page; land on the add button.
+    addMediaButtonRef.current?.focus();
   };
-  const handleMoveMediaItem = (mediaIndex: number, direction: number) => {
-    setMediaItems((currentItems) =>
-      moveItem(currentItems, mediaIndex, mediaIndex + direction)
+  const announceMediaPosition = (targetIndex: number) => {
+    setMediaAnnouncement(
+      TRIBE_STORY_MANAGEMENT_COPY.mediaMovedAnnouncement(
+        targetIndex + 1,
+        mediaItems.length
+      )
     );
   };
-  const handleMediaDragStart = (mediaIndex: number) => {
-    draggedMediaIndexRef.current = mediaIndex;
+  const handleMoveMediaItem = (mediaIndex: number, direction: number) => {
+    const targetIndex = mediaIndex + direction;
+    const movedItem = mediaItems.at(mediaIndex);
+
+    if (!movedItem || targetIndex < 0 || targetIndex >= mediaItems.length) {
+      return;
+    }
+
+    // Keep focus on the same arrow unless the row reached the edge, where that
+    // arrow turns disabled; then hand focus to the opposite arrow.
+    const reachedEdge =
+      direction < 0 ? targetIndex === 0 : targetIndex === mediaItems.length - 1;
+    const isMovingUp = direction < 0;
+    const shouldFocusMoveUp = reachedEdge ? !isMovingUp : isMovingUp;
+
+    pendingFocusElementIdRef.current =
+      (shouldFocusMoveUp
+        ? MEDIA_FOCUS_ID_PREFIX.moveUp
+        : MEDIA_FOCUS_ID_PREFIX.moveDown) + movedItem.clientId;
+    setMediaItems((currentItems) =>
+      moveItem(currentItems, mediaIndex, targetIndex)
+    );
+    announceMediaPosition(targetIndex);
   };
-  const handleMediaDrop = (targetIndex: number) => {
-    const draggedIndex = draggedMediaIndexRef.current;
+  const resetMediaDrag = () => {
+    draggedMediaClientIdRef.current = null;
+    setDraggedMediaClientId(null);
+    setDropTargetClientId(null);
+  };
+  const handleMediaDragStart = (
+    event: DragEvent<HTMLElement>,
+    clientId: string
+  ) => {
+    const rowElement = event.currentTarget.closest(
+      "." + styles.TribeStoryManagement__mediaItem
+    );
 
-    draggedMediaIndexRef.current = null;
+    event.dataTransfer.effectAllowed = MEDIA_DRAG.effect;
+    event.dataTransfer.setData(MEDIA_DRAG.dataType, clientId);
 
-    if (draggedIndex === null || draggedIndex === targetIndex) {
+    if (rowElement) {
+      event.dataTransfer.setDragImage(
+        rowElement,
+        MEDIA_DRAG.imageOffsetPx,
+        MEDIA_DRAG.imageOffsetPx
+      );
+    }
+
+    draggedMediaClientIdRef.current = clientId;
+    setDraggedMediaClientId(clientId);
+  };
+  const handleMediaDragOver = (
+    event: DragEvent<HTMLElement>,
+    clientId: string
+  ) => {
+    // Only rows dragged from this list are accepted as drop sources.
+    if (draggedMediaClientIdRef.current === null) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = MEDIA_DRAG.effect;
+
+    if (dropTargetClientId !== clientId) {
+      setDropTargetClientId(clientId);
+    }
+  };
+  const handleMediaDrop = (
+    event: DragEvent<HTMLElement>,
+    targetClientId: string
+  ) => {
+    const draggedClientId = draggedMediaClientIdRef.current;
+
+    resetMediaDrag();
+
+    if (draggedClientId === null) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const draggedIndex = mediaItems.findIndex(
+      (mediaItem) => mediaItem.clientId === draggedClientId
+    );
+    const targetIndex = mediaItems.findIndex(
+      (mediaItem) => mediaItem.clientId === targetClientId
+    );
+
+    if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) {
       return;
     }
 
     setMediaItems((currentItems) =>
       moveItem(currentItems, draggedIndex, targetIndex)
     );
+    announceMediaPosition(targetIndex);
   };
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    // A second submit (double click, Enter held down) must not start another
+    // request before the first one re-renders the disabled button.
+    if (isSavingRef.current) {
+      return;
+    }
 
     const nextInvalidMediaIds = new Set(
       mediaItems
@@ -763,6 +1001,7 @@ export function TribeStoryManagement({
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
     setValidationMessage(null);
 
@@ -784,6 +1023,7 @@ export function TribeStoryManagement({
           : TRIBE_STORY_MANAGEMENT_COPY.fallbackSaveError
       );
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -793,6 +1033,7 @@ export function TribeStoryManagement({
       className={styles.TribeStoryManagement__addMedia}
       disabled={!canAddMedia}
       onClick={handleAddMediaItem}
+      ref={addMediaButtonRef}
       type={STORY_MANAGEMENT_REQUEST.buttonType}
       variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
     >
@@ -916,7 +1157,13 @@ export function TribeStoryManagement({
                         {validationMessage}
                       </p>
                     ) : null}
-                    <p className={styles.TribeStoryManagement__counter}>
+                    <p
+                      className={joinClassNames(
+                        styles.TribeStoryManagement__counter,
+                        isContentNearLimit &&
+                          styles["TribeStoryManagement__counter--warning"]
+                      )}
+                    >
                       {TRIBE_STORY_MANAGEMENT_COPY.contentCounter(
                         content.length,
                         TRIBE_STORY_CONTENT_MAX_LENGTH
@@ -983,7 +1230,8 @@ export function TribeStoryManagement({
                     {TRIBE_STORY_MANAGEMENT_COPY.mediaHeading}
                   </h2>
                   <span className={styles.TribeStoryManagement__count}>
-                    {mediaItems.length}/{TRIBE_STORY_MEDIA_MAX_ITEMS}
+                    <AnimatedCount value={mediaItems.length} />
+                    /{TRIBE_STORY_MEDIA_MAX_ITEMS}
                   </span>
                 </div>
                 <p className={styles.TribeStoryManagement__sectionDescription}>
@@ -999,11 +1247,12 @@ export function TribeStoryManagement({
                   </p>
                 ) : (
                   <ol className={styles.TribeStoryManagement__mediaList}>
+                    <AnimatePresence initial={false}>
                     {mediaItems.map((mediaItem, mediaIndex) => {
                       const mediaTypeSelectId =
                         "story-media-type-" + mediaItem.clientId;
                       const mediaUrlInputId =
-                        "story-media-url-" + mediaItem.clientId;
+                        MEDIA_FOCUS_ID_PREFIX.url + mediaItem.clientId;
                       const mediaErrorId = mediaErrorIdPrefix + mediaItem.clientId;
                       const showMediaError = invalidMediaClientIds.has(
                         mediaItem.clientId
@@ -1013,18 +1262,44 @@ export function TribeStoryManagement({
                       const legend = buildLegend(mediaIndex, mediaItems.length);
 
                       return (
-                        <li
-                          className={styles.TribeStoryManagement__mediaItem}
-                          draggable
+                        <AnimatedListItem
+                          className={joinClassNames(
+                            styles.TribeStoryManagement__mediaItem,
+                            draggedMediaClientId === mediaItem.clientId &&
+                              styles["TribeStoryManagement__mediaItem--dragging"],
+                            dropTargetClientId === mediaItem.clientId &&
+                              draggedMediaClientId !== mediaItem.clientId &&
+                              styles["TribeStoryManagement__mediaItem--dropTarget"]
+                          )}
                           key={mediaItem.clientId}
-                          onDragOver={(event) => event.preventDefault()}
-                          onDragStart={() => handleMediaDragStart(mediaIndex)}
-                          onDrop={() => handleMediaDrop(mediaIndex)}
+                          onDragOver={(event) =>
+                            handleMediaDragOver(event, mediaItem.clientId)
+                          }
+                          onDrop={(event) =>
+                            handleMediaDrop(event, mediaItem.clientId)
+                          }
                         >
+                          <div className={styles.TribeStoryManagement__mediaItemContent}>
                           <div className={styles.TribeStoryManagement__mediaItemHeader}>
-                            <p className={styles.TribeStoryManagement__mediaLegend}>
-                              {legend}
-                            </p>
+                            <div className={styles.TribeStoryManagement__mediaLegendGroup}>
+                              {/* Pointer-only affordance: the arrow buttons are
+                                  the keyboard and screen reader path. */}
+                              <span
+                                aria-hidden
+                                className={styles.TribeStoryManagement__dragHandle}
+                                draggable
+                                onDragEnd={resetMediaDrag}
+                                onDragStart={(event) =>
+                                  handleMediaDragStart(event, mediaItem.clientId)
+                                }
+                                title={TRIBE_STORY_MANAGEMENT_COPY.dragHandleLabel}
+                              >
+                                <GripVerticalIcon />
+                              </span>
+                              <p className={styles.TribeStoryManagement__mediaLegend}>
+                                {legend}
+                              </p>
+                            </div>
                             <div className={styles.TribeStoryManagement__mediaActions}>
                               <Button
                                 aria-label={
@@ -1033,6 +1308,7 @@ export function TribeStoryManagement({
                                   legend
                                 }
                                 disabled={mediaIndex === 0}
+                                id={MEDIA_FOCUS_ID_PREFIX.moveUp + mediaItem.clientId}
                                 onClick={() => handleMoveMediaItem(mediaIndex, -1)}
                                 size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
                                 title={TRIBE_STORY_MANAGEMENT_COPY.moveUpLabel}
@@ -1048,6 +1324,9 @@ export function TribeStoryManagement({
                                   legend
                                 }
                                 disabled={mediaIndex === mediaItems.length - 1}
+                                id={
+                                  MEDIA_FOCUS_ID_PREFIX.moveDown + mediaItem.clientId
+                                }
                                 onClick={() => handleMoveMediaItem(mediaIndex, 1)}
                                 size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
                                 title={TRIBE_STORY_MANAGEMENT_COPY.moveDownLabel}
@@ -1057,9 +1336,9 @@ export function TribeStoryManagement({
                                 <ArrowDownIcon />
                               </Button>
                               <Button
-                                aria-label={
-                                  TRIBE_STORY_MANAGEMENT_COPY.removeMediaLabel
-                                }
+                                aria-label={TRIBE_STORY_MANAGEMENT_COPY.removeMediaLabel(
+                                  legend
+                                )}
                                 onClick={() =>
                                   handleRemoveMediaItem(mediaItem.clientId)
                                 }
@@ -1152,9 +1431,10 @@ export function TribeStoryManagement({
                                           mediaItem.clientId,
                                           imageFile,
                                           (deliveryUrl) =>
-                                            updateMediaItem(mediaItem.clientId, {
-                                              url: deliveryUrl,
-                                            })
+                                            applyUploadedImageUrl(
+                                              mediaItem.clientId,
+                                              deliveryUrl
+                                            )
                                         );
                                       }}
                                     />
@@ -1179,12 +1459,20 @@ export function TribeStoryManagement({
                               </div>
                             </div>
                           </div>
-                        </li>
+                          </div>
+                        </AnimatedListItem>
                       );
                     })}
+                    </AnimatePresence>
                   </ol>
                 )}
                 {addMediaButton}
+                <p
+                  aria-live="polite"
+                  className={styles.TribeStoryManagement__visuallyHidden}
+                >
+                  {mediaAnnouncement}
+                </p>
               </div>
             </section>
 
@@ -1198,13 +1486,22 @@ export function TribeStoryManagement({
                 </p>
               ) : null}
               <Button
+                aria-busy={isSaving || undefined}
                 className={styles.TribeStoryManagement__saveButton}
                 disabled={isSaving || uploadingTargets.size > 0}
                 type={STORY_MANAGEMENT_REQUEST.submitButtonType}
               >
-                {isSaving
-                  ? TRIBE_STORY_MANAGEMENT_COPY.savingButton
-                  : TRIBE_STORY_MANAGEMENT_COPY.saveButton}
+                {isSaving ? (
+                  <>
+                    <LoaderCircleIcon
+                      aria-hidden
+                      className={styles.TribeStoryManagement__saveSpinner}
+                    />
+                    {TRIBE_STORY_MANAGEMENT_COPY.savingButton}
+                  </>
+                ) : (
+                  TRIBE_STORY_MANAGEMENT_COPY.saveButton
+                )}
               </Button>
             </div>
           </form>

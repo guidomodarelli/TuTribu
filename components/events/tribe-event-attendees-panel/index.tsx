@@ -4,6 +4,7 @@ import { DownloadIcon } from "lucide-react";
 import { Button } from "beez-ui";
 
 import { TribeEventAttendanceTrend } from "@/components/events/tribe-event-attendance-trend";
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import { formatBuenosAiresDateTimeRange } from "@/lib/date-time/buenos-aires-format";
 import {
   TRIBE_EVENT_ATTENDANCE_REPORT_STATUS,
@@ -73,11 +74,38 @@ function AttendeeList({ attendees }: { attendees: TribeEventAttendeeResult[] }) 
 }
 
 /**
+ * Presence key of the panel body: idle and loading share the loading view so
+ * starting the request does not replay the transition.
+ */
+function getBodyPresenceKey(reportState: TribeEventAttendanceReportState): string {
+  return reportState.status === TRIBE_EVENT_ATTENDANCE_REPORT_STATUS.idle
+    ? TRIBE_EVENT_ATTENDANCE_REPORT_STATUS.loading
+    : reportState.status;
+}
+
+/**
  * Manager-only "Asistentes" section of the detail dialog: answers grouped by
  * status (waitlist in FIFO order), CSV export, and the going trend of the
  * series. Presentational: the container fetches and passes `reportState`.
+ * Loading, error and the loaded report cross-fade instead of jumping.
  */
 export function TribeEventAttendeesPanel({
+  exportUrl,
+  onRetry,
+  reportState,
+}: TribeEventAttendeesPanelProps) {
+  return (
+    <PresenceSwap presenceKey={getBodyPresenceKey(reportState)}>
+      <TribeEventAttendeesPanelBody
+        exportUrl={exportUrl}
+        reportState={reportState}
+        onRetry={onRetry}
+      />
+    </PresenceSwap>
+  );
+}
+
+function TribeEventAttendeesPanelBody({
   exportUrl,
   onRetry,
   reportState,

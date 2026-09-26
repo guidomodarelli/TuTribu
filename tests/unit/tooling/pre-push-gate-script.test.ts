@@ -39,7 +39,6 @@ type PrePushGateScript = {
   buildRepositoryIndependentEnvironment: (
     environment?: Record<string, string | undefined>
   ) => NodeJS.ProcessEnv;
-  installFrozenDependencies: (workingDirectory: string) => Promise<number>;
   NODE_RUNTIME_STATUS: { match: string; pinnedVersionDrift: string; unsupported: string };
   evaluateNodeRuntime: (options: {
     runningVersion: string;
@@ -75,35 +74,6 @@ function runGit(gitArguments: string[], workingDirectory: string): string {
   }
 
   return result.stdout.trim();
-}
-
-function writeFixtureManifest(
-  directory: string,
-  dependencies: Record<string, string>
-): void {
-  writeFileSync(
-    path.join(directory, "package.json"),
-    `${JSON.stringify({ name: "gate-fixture", version: "1.0.0", private: true, dependencies })}\n`
-  );
-}
-
-function createInstalledDependencyFixture(): string {
-  const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), "pre-push-gate-install-"));
-  temporaryDirectories.push(fixtureRoot);
-  writeFixtureManifest(fixtureRoot, {});
-
-  const initialInstall = spawnSync("pnpm", ["install", "--offline"], {
-    cwd: fixtureRoot,
-    encoding: "utf8",
-    env: { ...prePushGateScript.buildRepositoryIndependentEnvironment(), HUSKY: "0" },
-    shell: process.platform === "win32",
-  });
-
-  if (initialInstall.status !== 0) {
-    throw new Error(`fixture pnpm install failed: ${initialInstall.stderr}`);
-  }
-
-  return fixtureRoot;
 }
 
 function createRepositoryWithTwoCommits() {
@@ -165,11 +135,14 @@ function createGateFixtureRepository(ciScriptSource: string = REPORT_ONLY_CI_SCR
     })}\n`
   );
   writeFileSync(path.join(repositoryRoot, "report.cjs"), ciScriptSource);
-  const lockfileInstall = spawnSync("pnpm", ["install", "--offline"], {
+  // pnpm is a `.cmd` shim on Windows, so it runs through a shell; the fixed
+  // arguments go inside the command because Node deprecates an argument list
+  // together with `shell` (DEP0190).
+  const lockfileInstall = spawnSync("pnpm install --offline", {
     cwd: repositoryRoot,
     encoding: "utf8",
     env: { ...prePushGateScript.buildRepositoryIndependentEnvironment(), HUSKY: "0" },
-    shell: process.platform === "win32",
+    shell: true,
   });
 
   if (lockfileInstall.status !== 0) {
@@ -621,23 +594,30 @@ describe("pre-push gate script", () => {
   });
 
   it(
-    "should accept a lockfile that matches package.json with node_modules installed",
-    async () => {
-      const fixtureRoot = createInstalledDependencyFixture();
+    "should block the push without running ci when package.json drifted from the lockfile",
+    () => {
+      const { repositoryRoot, reportPath } = createGateFixtureRepository();
+      const manifestPath = path.join(repositoryRoot, "package.json");
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+      writeFileSync(
+        manifestPath,
+        `${JSON.stringify({ ...manifest, dependencies: { "left-pad": "^1.3.0" } })}\n`
+      );
+      runGit(["commit", "--quiet", "-am", "drift"], repositoryRoot);
+      const driftedOid = runGit(["rev-parse", "HEAD"], repositoryRoot);
 
-      expect(existsSync(path.join(fixtureRoot, "node_modules"))).toBe(true);
-      await expect(prePushGateScript.installFrozenDependencies(fixtureRoot)).resolves.toBe(0);
-    },
-    PNPM_INSTALL_TEST_TIMEOUT_MS
-  );
+      expect(existsSync(path.join(repositoryRoot, "node_modules"))).toBe(true);
 
-  it(
-    "should fail when package.json drifted from the lockfile even with node_modules installed",
-    async () => {
-      const fixtureRoot = createInstalledDependencyFixture();
-      writeFixtureManifest(fixtureRoot, { "left-pad": "^1.3.0" });
+      // The gate runs as a child process, so pnpm's lockfile error lands in the
+      // captured output instead of the test runner console.
+      const gateRun = runPrePushGate(
+        repositoryRoot,
+        `refs/heads/feature ${driftedOid} refs/heads/feature ${ZERO_OID}\n`
+      );
 
-      await expect(prePushGateScript.installFrozenDependencies(fixtureRoot)).resolves.not.toBe(0);
+      expect(gateRun.status).toBe(1);
+      expect(gateRun.stderr).toContain("pnpm install --frozen-lockfile failed");
+      expect(existsSync(reportPath)).toBe(false);
     },
     PNPM_INSTALL_TEST_TIMEOUT_MS
   );

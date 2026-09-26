@@ -1,5 +1,8 @@
+"use client";
+
 import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage, cn } from "beez-ui";
 
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import {
   formatAttendanceCounts,
   formatCapacityStatus,
@@ -31,6 +34,8 @@ const COMPACT_AVATAR_LIMIT = 3;
 const STACKED_AVATAR_INITIALS = 1;
 const MORE_PREFIX = "+";
 const DETAILS_SEPARATOR = " · ";
+/** Inline wrapper so each line keeps its paragraph box while its text swaps. */
+const PRESENCE_ELEMENT = "span";
 const COPY = {
   nobodyYet: "Todavía nadie confirmó asistencia.",
   nobodyPast: "Nadie confirmó asistencia.",
@@ -40,7 +45,9 @@ const COPY = {
  * Attendance of one occurrence: stacked avatars of people going with
  * "Ana, Juan y 10 más van", the going/maybe counts, free seats or waitlist,
  * and the viewer's waitlist position. Avatars are decorative; the sentence
- * carries the same information for assistive technology.
+ * carries the same information for assistive technology. When an answer
+ * changes the counts, the lines cross-fade to the new text instead of
+ * jumping; the first render is static so server output stays visible.
  */
 export function TribeEventAttendanceSummary({
   isPast,
@@ -104,10 +111,18 @@ export function TribeEventAttendanceSummary({
           <p className={styles.TribeEventAttendanceSummary__names}>{namesText ?? emptyText}</p>
         ) : null}
         {detailsText ? (
-          <p className={styles.TribeEventAttendanceSummary__counts}>{detailsText}</p>
+          <p className={styles.TribeEventAttendanceSummary__counts}>
+            <PresenceSwap as={PRESENCE_ELEMENT} presenceKey={detailsText}>
+              {detailsText}
+            </PresenceSwap>
+          </p>
         ) : null}
         {waitlistText ? (
-          <p className={styles.TribeEventAttendanceSummary__waitlist}>{waitlistText}</p>
+          <p className={styles.TribeEventAttendanceSummary__waitlist}>
+            <PresenceSwap as={PRESENCE_ELEMENT} presenceKey={waitlistText}>
+              {waitlistText}
+            </PresenceSwap>
+          </p>
         ) : null}
       </div>
     </div>

@@ -1,9 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { AnimatePresence } from "motion/react";
+import { ChevronDownIcon } from "lucide-react";
 import { Button } from "beez-ui";
 
 import { TribeEventsAgendaDay } from "@/components/events/tribe-events-agenda-day";
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import type { TribeEventsAgendaDay as TribeEventsAgendaDayGroup } from "@/lib/events/tribe-events-calendar-grid";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import styles from "./styles.module.scss";
@@ -25,6 +28,7 @@ const BUTTON_ATTRIBUTE = {
   typeButton: "button",
   variantGhost: "ghost",
 } as const;
+const ELEMENT_DIV = "div";
 const COPY = {
   hidePastButton: "Ocultar finalizados",
   listLabel: "Lista de eventos",
@@ -34,7 +38,9 @@ const COPY = {
 
 /**
  * Agenda (list) view of the month, grouped by Buenos Aires day, with the
- * toggle that reveals finished occurrences.
+ * toggle that reveals finished occurrences. Days that appear or leave (the
+ * toggle, the type filter, a deletion) fade in and out while the rest of the
+ * list glides into place; the first render is static so SSR stays visible.
  */
 export function TribeEventsAgenda({
   agendaDays,
@@ -45,6 +51,10 @@ export function TribeEventsAgenda({
   shouldCollapsePastEvents,
   todayKey,
 }: TribeEventsAgendaProps) {
+  const pastToggleLabel = arePastEventsVisible
+    ? COPY.hidePastButton
+    : COPY.showPastButton(pastEventsCount);
+
   return (
     <section aria-label={COPY.listLabel} className={styles.TribeEventsAgenda}>
       {shouldCollapsePastEvents ? (
@@ -56,21 +66,27 @@ export function TribeEventsAgenda({
           variant={BUTTON_ATTRIBUTE.variantGhost}
           onClick={onTogglePastEvents}
         >
-          {arePastEventsVisible
-            ? COPY.hidePastButton
-            : COPY.showPastButton(pastEventsCount)}
+          <ChevronDownIcon aria-hidden className={styles.TribeEventsAgenda__pastToggleIcon} />
+          {pastToggleLabel}
         </Button>
       ) : null}
-      {agendaDays.map((agendaDay) => (
-        <TribeEventsAgendaDay
-          dayKey={agendaDay.dayKey}
-          firstOccurrence={agendaDay.dayEvents[0]}
-          key={agendaDay.dayKey}
-          todayKey={todayKey}
-        >
-          {agendaDay.dayEvents.map(renderOccurrence)}
-        </TribeEventsAgendaDay>
-      ))}
+      <AnimatePresence initial={false}>
+        {agendaDays.map((agendaDay) => (
+          <AnimatedListItem
+            as={ELEMENT_DIV}
+            className={styles.TribeEventsAgenda__day}
+            key={agendaDay.dayKey}
+          >
+            <TribeEventsAgendaDay
+              dayKey={agendaDay.dayKey}
+              firstOccurrence={agendaDay.dayEvents[0]}
+              todayKey={todayKey}
+            >
+              {agendaDay.dayEvents.map(renderOccurrence)}
+            </TribeEventsAgendaDay>
+          </AnimatedListItem>
+        ))}
+      </AnimatePresence>
     </section>
   );
 }

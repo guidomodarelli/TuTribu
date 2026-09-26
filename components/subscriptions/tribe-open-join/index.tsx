@@ -1,6 +1,7 @@
 import { Link } from "@/components/navigation/link";
 import { Button } from "beez-ui";
 
+import { TribeOpenJoinSubmitButton } from "./tribe-open-join-submit-button";
 import styles from "./styles.module.scss";
 
 const TRIBE_OPEN_JOIN_COPY = {
@@ -9,6 +10,7 @@ const TRIBE_OPEN_JOIN_COPY = {
     "Esta tribu tiene una suscripción activa. Para entrar, continuá con el precio actual.",
   eyebrow: "Unite a esta tribu",
   submitButton: "Continuar con el pago",
+  submitPendingButton: "Te llevamos a Mercado Pago…",
   title: "Completá tu suscripción",
 } as const;
 
@@ -18,7 +20,6 @@ const TRIBE_OPEN_JOIN_AMOUNT_FORMAT = {
 } as const;
 
 const TRIBE_OPEN_JOIN_AMOUNT_DIVISOR = 100;
-const TRIBE_OPEN_JOIN_SUBMIT_BUTTON_TYPE = "submit";
 
 type TribeOpenJoinOffer = {
   amountCents: number;
@@ -92,9 +93,11 @@ export function TribeOpenJoin({ offer, startAction }: TribeOpenJoinProps) {
         </dl>
       </div>
       <form action={startAction} className={styles.TribeOpenJoin__form}>
-        <Button type={TRIBE_OPEN_JOIN_SUBMIT_BUTTON_TYPE}>
+        <TribeOpenJoinSubmitButton
+          pendingLabel={TRIBE_OPEN_JOIN_COPY.submitPendingButton}
+        >
           {TRIBE_OPEN_JOIN_COPY.submitButton}
-        </Button>
+        </TribeOpenJoinSubmitButton>
       </form>
     </section>
   );

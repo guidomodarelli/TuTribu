@@ -38,11 +38,19 @@ $notification-bell-touch-target: 2.5rem;
     }
   }
 
+  // Swings from its top edge, like a hanging bell.
+  &__icon {
+    display: inline-flex;
+    transform-origin: 50% 10%;
+  }
+
   &__badge {
     position: absolute;
     top: 0;
     right: 0;
-    transform: translate(35%, -30%);
+    // `translate` composes with the `transform` Motion writes for the pop, so
+    // the offset survives the animation (Chromium 104+, Safari 14.1+).
+    translate: 35% -30%;
     display: inline-flex;
     min-width: 1.25rem;
     height: 1.25rem;

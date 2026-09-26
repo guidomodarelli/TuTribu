@@ -1,3 +1,5 @@
+@use "../../src/styles/motion";
+
 .AppSidebar {
   &__brandLogo {
     height: 2rem;
@@ -29,16 +31,31 @@
     white-space: nowrap;
   }
 
+  // Long tribe names truncate instead of pushing the check mark or badge out.
   &__itemLabel {
-    display: inline;
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__brandChevron {
     width: 1rem;
     height: 1rem;
+    flex: 0 0 auto;
     margin-left: auto;
     color: var(--sidebar-foreground);
     opacity: 0.72;
+
+    @include motion.interactive(transform, opacity);
+  }
+
+  // The brand button is the tribe menu trigger; its chevron flips while open.
+  :global([data-state="open"]) > &__brandChevron {
+    opacity: 1;
+    transform: rotate(180deg);
   }
 
   &__separator {

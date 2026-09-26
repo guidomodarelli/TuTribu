@@ -1,9 +1,15 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .TribeMemberDirectory {
   display: grid;
   gap: 1.5rem;
   width: min(100%, 42rem);
 
   &__header {
+    @include motion.enter;
+
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
@@ -52,6 +58,14 @@
 
   &__inviteCta {
     flex: 0 0 auto;
+  }
+
+  &__body {
+    @include motion.fade(60ms);
+
+    display: grid;
+    gap: 1.25rem;
+    min-width: 0;
   }
 
   &__searchInput {

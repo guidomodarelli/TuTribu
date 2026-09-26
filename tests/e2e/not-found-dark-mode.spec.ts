@@ -21,7 +21,7 @@ async function getNotFoundBackdropImageForTheme(
   await page.goto(NOT_FOUND_TEST_ROUTE);
   await expect(
     page.getByRole("heading", {
-      name: /esta pagina no existe o ya no esta disponible/i,
+      name: /esta página no existe o ya no está disponible/i,
     })
   ).toBeVisible();
 

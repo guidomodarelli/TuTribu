@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "beez-ui";
 
@@ -67,7 +67,7 @@ describe("TribeSettingsManagement", () => {
     await user.type(screen.getByLabelText("Logo"), "not-a-url");
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "Ingresá una URL válida que empiece con http:// o https://"
     );
     expect(screen.getByLabelText("Logo")).toHaveAttribute(
@@ -142,8 +142,11 @@ describe("TribeSettingsManagement", () => {
       expect.objectContaining({ method: "POST" })
     );
     expect(
-      screen.getByRole("img", { name: "Vista previa del logo" })
+      await screen.findByRole("img", { name: "Vista previa del logo" })
     ).toBeInTheDocument();
+    expect(toast.success).toHaveBeenCalledWith(
+      "Imagen subida. Guardá los cambios para aplicarla."
+    );
   });
 
   it("rejects files that are not images without uploading them", async () => {
@@ -160,5 +163,62 @@ describe("TribeSettingsManagement", () => {
       "Elegí un archivo de imagen (JPG, PNG, GIF o WebP)."
     );
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("shows the save fallback instead of the raw browser message when the network fails", async () => {
+    const user = userEvent.setup();
+
+    (global.fetch as Mock).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    render(<TribeSettingsManagement identity={identity} tribeSlug="test" />);
+
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("No pudimos guardar los ajustes.");
+    });
+    expect(toast.error).not.toHaveBeenCalledWith("Failed to fetch");
+    expect(screen.getByRole("button", { name: "Guardar" })).toBeEnabled();
+  });
+
+  it("replaces a preview that fails to load with a visible notice until the URL changes", async () => {
+    const user = userEvent.setup();
+
+    render(<TribeSettingsManagement identity={identity} tribeSlug="test" />);
+
+    fireEvent.error(screen.getByRole("img", { name: "Vista previa del logo" }));
+
+    expect(await screen.findByText("No pudimos cargar el logo")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("img", { name: "Vista previa del logo" })
+      ).not.toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText("Logo"), "?v=2");
+
+    expect(
+      await screen.findByRole("img", { name: "Vista previa del logo" })
+    ).toHaveAttribute("src", identity.logoUrl + "?v=2");
+  });
+
+  it("locks the URL input while its image is uploading", async () => {
+    const user = userEvent.setup();
+
+    (global.fetch as Mock).mockImplementationOnce(() => new Promise(() => {}));
+
+    render(<TribeSettingsManagement identity={null} tribeSlug="test" />);
+
+    const [logoUploadInput] = screen.getAllByLabelText("Subir imagen");
+
+    await user.upload(
+      logoUploadInput,
+      new File(["logo"], "logo.png", { type: "image/png" })
+    );
+
+    expect(screen.getByLabelText("Logo")).toBeDisabled();
+    expect(screen.getByLabelText("Portada")).toBeEnabled();
+    expect(screen.getByText("Subiendo...")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar" })).toBeDisabled();
   });
 });

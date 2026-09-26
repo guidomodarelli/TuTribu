@@ -264,9 +264,12 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
         screen.getByRole("heading", { level: 2, name: /Avanzar/ })
       ).toBeInTheDocument();
     });
-    expect(
-      screen.queryByRole("heading", { level: 2, name: /Empezar acá/ })
-    ).not.toBeInTheDocument();
+    // The replaced module plays its exit animation before leaving the DOM.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { level: 2, name: /Empezar acá/ })
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("does not trigger a full route refresh on a successful create", async () => {
@@ -1169,6 +1172,121 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
       );
       await pending.promise;
     });
+  });
+
+  it("flags a blank module title next to the field without calling the API", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
+        initialModules={seedModules}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Nuevo módulo" }));
+
+    const titleInput = screen.getByPlaceholderText("Ej: Empezar acá");
+    expect(titleInput).toHaveFocus();
+
+    await user.type(titleInput, "   ");
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Escribí un título.");
+    expect(titleInput).toHaveAttribute("aria-invalid", "true");
+    expect(titleInput).toHaveFocus();
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    await user.type(titleInput, "Módulo nuevo");
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows an invalid video URL next to the field instead of submitting the lesson", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
+        initialModules={seedModules}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    const moduleItem = screen
+      .getByRole("heading", { level: 2, name: /Empezar acá/ })
+      .closest("li") as HTMLElement;
+    await user.click(
+      within(moduleItem).getByRole("button", { name: "Agregar lección" })
+    );
+    await user.type(
+      screen.getByPlaceholderText("Ej: Qué dinero invertir"),
+      "Bienvenida"
+    );
+    const videoUrlInput = screen.getByPlaceholderText(
+      "https://vimeo.com/123456789"
+    );
+    await user.type(videoUrlInput, "no es un video");
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "La URL del video no es válida."
+    );
+    expect(videoUrlInput).toHaveAttribute("aria-invalid", "true");
+    expect(videoUrlInput).toHaveFocus();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("focuses the title when editing a lesson and returns focus to its edit button on cancel", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
+        initialModules={seedModules}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    await user.click(
+      within(
+        screen.getByRole("group", {
+          name: "Acciones de la lección Lección intro",
+        })
+      ).getByRole("button", { name: "Editar" })
+    );
+
+    expect(screen.getByDisplayValue("Lección intro")).toHaveFocus();
+
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(
+      within(
+        screen.getByRole("group", {
+          name: "Acciones de la lección Lección intro",
+        })
+      ).getByRole("button", { name: "Editar" })
+    ).toHaveFocus();
+  });
+
+  it("returns focus to the add-lesson button when the new lesson form is canceled", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeCoursesManagement
+        courseId="course-1"
+        courseTitle="Inversiones"
+        initialModules={seedModules}
+        tribeSlug={TRIBE_SLUG}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Agregar lección" }));
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(
+      screen.getByRole("button", { name: "Agregar lección" })
+    ).toHaveFocus();
   });
 
   it("removes a lesson optimistically and restores it on failure", async () => {

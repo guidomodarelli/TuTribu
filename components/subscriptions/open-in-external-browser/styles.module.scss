@@ -1,8 +1,20 @@
+@use "../../../src/styles/motion";
+
 // The handoff renders inside the platform layout, below its sticky header and
 // inside the main padding, so a full `100svh` here overshoots the viewport and
 // pushes the centered block below the fold on phones.
 $open-in-external-browser-header-height: 3.5rem;
 $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
+
+@include motion.define-keyframes;
+
+// Staggered entrance for the handoff copy. `backwards` releases the animated
+// properties once it ends so button press and disabled styles keep working.
+%handoff-entrance {
+  @include motion.stagger(6);
+
+  animation-fill-mode: backwards;
+}
 
 .OpenInExternalBrowser {
   align-items: center;
@@ -26,6 +38,8 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
   }
 
   &__eyebrow {
+    @extend %handoff-entrance;
+
     color: var(--muted-foreground);
     font-size: 0.78rem;
     font-weight: 700;
@@ -34,21 +48,29 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
   }
 
   &__title {
+    @extend %handoff-entrance;
+
     color: var(--foreground);
     font-size: clamp(1.75rem, 5vw, 2.5rem);
     font-weight: 700;
     line-height: 1.15;
+    text-wrap: balance;
   }
 
   &__description {
+    @extend %handoff-entrance;
+
     color: var(--muted-foreground);
     font-size: 1rem;
     line-height: 1.6;
     margin-inline: auto;
     max-width: 28rem;
+    text-wrap: pretty;
   }
 
   &__countdown {
+    @extend %handoff-entrance;
+
     align-items: center;
     display: grid;
     gap: 0.625rem;
@@ -61,9 +83,11 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
     align-items: center;
     background: var(--foreground);
     border-radius: 999rem;
+    box-shadow: 0 0 0 0.375rem color-mix(in srgb, var(--foreground) 8%, transparent);
     color: var(--background);
     display: inline-flex;
     font-size: 2.25rem;
+    font-variant-numeric: tabular-nums;
     font-weight: 700;
     height: 4.5rem;
     justify-content: center;
@@ -76,15 +100,22 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
     font-size: 0.95rem;
     line-height: 1.5;
     margin-inline: auto;
+    text-wrap: pretty;
   }
 
   &__primaryAction {
+    @extend %handoff-entrance;
+
     margin-top: 0.5rem;
     width: 100%;
   }
 
   &__fallbackLink {
+    @include motion.interactive(color, text-decoration-color);
+    @extend %handoff-entrance;
+
     align-items: center;
+    border-radius: calc(var(--radius) - 2px);
     color: var(--muted-foreground);
     display: inline-flex;
     font-size: 0.9rem;
@@ -92,10 +123,18 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
     min-height: 2.75rem;
     padding: 0.5rem 0.75rem;
     text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
     text-underline-offset: 0.2rem;
 
     &:hover {
       color: var(--foreground);
+      text-decoration-color: currentColor;
+    }
+
+    &:focus-visible {
+      color: var(--foreground);
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
     }
   }
 }

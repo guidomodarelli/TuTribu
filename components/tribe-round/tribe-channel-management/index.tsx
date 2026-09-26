@@ -1,14 +1,14 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { PlusIcon, Trash2Icon } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 import { toast, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "beez-ui";
 
+import { AnimatedCount } from "@/components/motion/animated-count";
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import { ChannelEmojiPicker } from "@/components/tribe-round/channel-emoji-picker";
-
-
-
-
 import type { TribeChannelResult } from "@/src/modules/messages/application/results/tribe-round-result";
 import { TRIBE_CHANNEL_NAME } from "@/src/modules/messages/constants/message-round";
 import styles from "./styles.module.scss";
@@ -19,6 +19,7 @@ const CHANNEL_MANAGEMENT_COPY = {
     "Editá el ícono o el nombre y guardá cada canal. Al eliminar uno con mensajes, vas a elegir a qué canal moverlos.",
   configuredSectionTitle: "Canales configurados",
   createButton: "Crear canal",
+  createSuccess: "Canal creado.",
   createSectionDescription:
     "Elegí un ícono y un nombre. El canal nuevo aparece al final de la lista de la ronda.",
   createSectionTitle: "Nuevo canal",
@@ -30,6 +31,7 @@ const CHANNEL_MANAGEMENT_COPY = {
   deleteDialogTitle: (channelName: string) => `¿Eliminar el canal ${channelName}?`,
   deleteNoTargetHint:
     "Es el único canal: no hay otro al que mover sus mensajes.",
+  deleteSuccess: "Canal eliminado.",
   emojiLabel: "Ícono",
   emptyState: "Todavía no hay canales configurados.",
   emptyStateHint: "Creá el primero con el formulario de arriba.",
@@ -42,6 +44,7 @@ const CHANNEL_MANAGEMENT_COPY = {
   namePlaceholder: "Nombre del canal",
   nameTooLongError: `Usá ${TRIBE_CHANNEL_NAME.maxLength} caracteres o menos.`,
   saveButton: "Guardar",
+  saveSuccess: "Canal actualizado.",
   sectionDescription:
     "Organizá la ronda en canales. Si un canal tiene mensajes, se moverán antes de eliminarlo.",
   sectionTitle: "Canales",
@@ -94,6 +97,15 @@ const CHANNEL_MANAGEMENT_FIELD_ID = {
 } as const;
 
 const CHANNEL_OPTION_LABEL_SEPARATOR = " ";
+
+/** Presence keys for the per-row save status line. */
+const CHANNEL_ROW_STATUS_KEY = {
+  saved: "saved",
+  unsaved: "unsaved",
+} as const;
+
+/** Heading focus target, focusable from script only. */
+const PROGRAMMATIC_FOCUS_TAB_INDEX = -1;
 
 type TribeChannelManagementProps = {
   channels: TribeChannelResult[];
@@ -156,9 +168,39 @@ function hasUnsavedChanges(
 }
 
 /**
+ * Adds or removes a channel id from an immutable set of in-flight requests.
+ *
+ * @param currentIds - Channel ids with a request in flight.
+ * @param channelId - Channel whose request starts or ends.
+ * @param isPending - Whether the request starts (`true`) or ends (`false`).
+ * @returns A new set with the change applied.
+ */
+function toggleChannelPending(
+  currentIds: ReadonlySet<string>,
+  channelId: string,
+  isPending: boolean
+): ReadonlySet<string> {
+  const nextIds = new Set(currentIds);
+
+  if (isPending) {
+    nextIds.add(channelId);
+  } else {
+    nextIds.delete(channelId);
+  }
+
+  return nextIds;
+}
+
+/**
  * Leader and guardian page to organise the round into channels: create a
  * channel with an icon and a name, rename or re-icon existing channels one
  * row at a time, and delete a channel after choosing where its messages go.
+ *
+ * Each row tracks its own in-flight request, so saving one channel never
+ * re-enables the controls of another channel that is still being deleted.
+ *
+ * @param props - Initial channels and the tribe slug used by the endpoints.
+ * @returns The channel management page body.
  */
 export function TribeChannelManagement({
   channels,
@@ -168,17 +210,33 @@ export function TribeChannelManagement({
   const [savedChannels, setSavedChannels] = useState(channels);
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("");
-  const [pendingChannelId, setPendingChannelId] = useState<string | null>(null);
+  const [pendingChannelIds, setPendingChannelIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+  const [isCreatePending, setIsCreatePending] = useState(false);
   const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
   const [deleteTargetChannelId, setDeleteTargetChannelId] = useState("");
+  // Kept after the candidate is cleared so the title does not blank out while
+  // the dialog plays its closing animation.
+  const [deleteDialogChannelName, setDeleteDialogChannelName] = useState("");
+  const configuredHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const wasChannelDeletedRef = useRef(false);
   const isCreateNameValid = isValidChannelName(name);
+  const canCreateChannel = !isCreatePending && isCreateNameValid && Boolean(emoji.trim());
+  // Dialog copy and destinations use the saved names, not unsaved row drafts.
   const deleteCandidate =
-    channelItems.find((channel) => channel.id === deleteCandidateId) ?? null;
-  const deleteTargetOptions = channelItems.filter(
+    savedChannels.find((channel) => channel.id === deleteCandidateId) ?? null;
+  const deleteTargetOptions = savedChannels.filter(
     (channel) => channel.id !== deleteCandidateId
   );
   const isDeleteInProgress =
-    deleteCandidateId !== null && pendingChannelId === deleteCandidateId;
+    deleteCandidateId !== null && pendingChannelIds.has(deleteCandidateId);
+
+  const setChannelPending = (channelId: string, isPending: boolean) => {
+    setPendingChannelIds((currentIds) =>
+      toggleChannelPending(currentIds, channelId, isPending)
+    );
+  };
 
   const replaceChannel = (updatedChannel: TribeChannelResult) => {
     setChannelItems((currentItems) =>
@@ -195,7 +253,12 @@ export function TribeChannelManagement({
 
   const handleCreateChannel = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setPendingChannelId(CHANNEL_MANAGEMENT_COPY.createButton);
+
+    if (!canCreateChannel) {
+      return;
+    }
+
+    setIsCreatePending(true);
 
     try {
       const response = await submitChannelRequest(
@@ -216,7 +279,7 @@ export function TribeChannelManagement({
 
       setEmoji("");
       setName("");
-      toast.success(response.message ?? CHANNEL_MANAGEMENT_COPY.createButton);
+      toast.success(response.message ?? CHANNEL_MANAGEMENT_COPY.createSuccess);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -224,12 +287,16 @@ export function TribeChannelManagement({
           : CHANNEL_MANAGEMENT_COPY.fallbackCreateError
       );
     } finally {
-      setPendingChannelId(null);
+      setIsCreatePending(false);
     }
   };
 
   const handleUpdateChannel = async (channel: TribeChannelResult) => {
-    setPendingChannelId(channel.id);
+    if (pendingChannelIds.has(channel.id)) {
+      return;
+    }
+
+    setChannelPending(channel.id, true);
 
     try {
       const response = await submitChannelRequest(
@@ -243,7 +310,7 @@ export function TribeChannelManagement({
       );
 
       replaceChannel(response.channel ?? channel);
-      toast.success(response.message ?? CHANNEL_MANAGEMENT_COPY.saveButton);
+      toast.success(response.message ?? CHANNEL_MANAGEMENT_COPY.saveSuccess);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -251,12 +318,16 @@ export function TribeChannelManagement({
           : CHANNEL_MANAGEMENT_COPY.fallbackUpdateError
       );
     } finally {
-      setPendingChannelId(null);
+      setChannelPending(channel.id, false);
     }
   };
 
   const handleDeleteChannel = async (channel: TribeChannelResult) => {
-    setPendingChannelId(channel.id);
+    if (pendingChannelIds.has(channel.id)) {
+      return;
+    }
+
+    setChannelPending(channel.id, true);
 
     try {
       const response = await submitChannelRequest(
@@ -271,9 +342,10 @@ export function TribeChannelManagement({
       setSavedChannels((currentItems) =>
         currentItems.filter((currentChannel) => currentChannel.id !== channel.id)
       );
+      wasChannelDeletedRef.current = true;
       setDeleteCandidateId(null);
       setDeleteTargetChannelId("");
-      toast.success(response.message ?? CHANNEL_MANAGEMENT_COPY.deleteButton);
+      toast.success(response.message ?? CHANNEL_MANAGEMENT_COPY.deleteSuccess);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -281,7 +353,7 @@ export function TribeChannelManagement({
           : CHANNEL_MANAGEMENT_COPY.fallbackDeleteError
       );
     } finally {
-      setPendingChannelId(null);
+      setChannelPending(channel.id, false);
     }
   };
 
@@ -360,8 +432,9 @@ export function TribeChannelManagement({
             </p>
           </div>
           <Button
+            aria-busy={isCreatePending || undefined}
             className={styles.TribeChannelManagement__createButton}
-            disabled={Boolean(pendingChannelId) || !isCreateNameValid || !emoji.trim()}
+            disabled={!canCreateChannel}
             type={CHANNEL_MANAGEMENT_FORM.submitType}
           >
             <PlusIcon />
@@ -373,12 +446,17 @@ export function TribeChannelManagement({
       <section className={styles.TribeChannelManagement__section}>
         <div className={styles.TribeChannelManagement__sectionIntro}>
           <div className={styles.TribeChannelManagement__sectionTitleRow}>
-            <h2 className={styles.TribeChannelManagement__sectionTitle}>
+            <h2
+              className={styles.TribeChannelManagement__sectionTitle}
+              ref={configuredHeadingRef}
+              tabIndex={PROGRAMMATIC_FOCUS_TAB_INDEX}
+            >
               {CHANNEL_MANAGEMENT_COPY.configuredSectionTitle}
             </h2>
-            <span className={styles.TribeChannelManagement__count}>
-              {channelItems.length}
-            </span>
+            <AnimatedCount
+              className={styles.TribeChannelManagement__count}
+              value={channelItems.length}
+            />
           </div>
           <p className={styles.TribeChannelManagement__sectionDescription}>
             {CHANNEL_MANAGEMENT_COPY.configuredSectionDescription}
@@ -399,18 +477,23 @@ export function TribeChannelManagement({
               aria-label={CHANNEL_MANAGEMENT_COPY.configuredSectionTitle}
               className={styles.TribeChannelManagement__list}
             >
+              <AnimatePresence initial={false}>
               {channelItems.map((channel) => {
                 const savedChannel = savedChannels.find(
                   (currentChannel) => currentChannel.id === channel.id
                 );
-                const isPending = pendingChannelId === channel.id;
+                const isPending = pendingChannelIds.has(channel.id);
                 const isDirty = hasUnsavedChanges(channel, savedChannel);
                 const isNameTooLong =
                   channel.name.length > TRIBE_CHANNEL_NAME.maxLength;
                 const nameHelpId = `${CHANNEL_MANAGEMENT_FIELD_ID.editNameHelpPrefix}${channel.id}`;
 
                 return (
-                  <li className={styles.TribeChannelManagement__item} key={channel.id}>
+                  <AnimatedListItem
+                    aria-busy={isPending || undefined}
+                    className={styles.TribeChannelManagement__item}
+                    key={channel.id}
+                  >
                     <div className={styles.TribeChannelManagement__itemFields}>
                       <ChannelEmojiPicker
                         disabled={isPending}
@@ -452,11 +535,18 @@ export function TribeChannelManagement({
                       className={styles.TribeChannelManagement__actions}
                       role={CHANNEL_MANAGEMENT_FORM.groupRole}
                     >
-                      {isDirty ? (
-                        <span className={styles.TribeChannelManagement__unsaved}>
-                          {CHANNEL_MANAGEMENT_COPY.unsavedChanges}
-                        </span>
-                      ) : null}
+                      <PresenceSwap
+                        as="span"
+                        className={styles.TribeChannelManagement__unsaved}
+                        mode="popLayout"
+                        presenceKey={
+                          isDirty
+                            ? CHANNEL_ROW_STATUS_KEY.unsaved
+                            : CHANNEL_ROW_STATUS_KEY.saved
+                        }
+                      >
+                        {isDirty ? CHANNEL_MANAGEMENT_COPY.unsavedChanges : null}
+                      </PresenceSwap>
                       <Button
                         className={styles.TribeChannelManagement__saveButton}
                         disabled={
@@ -476,6 +566,7 @@ export function TribeChannelManagement({
                         disabled={isPending}
                         onClick={() => {
                           setDeleteTargetChannelId("");
+                          setDeleteDialogChannelName(savedChannel?.name ?? channel.name);
                           setDeleteCandidateId(channel.id);
                         }}
                         size={CHANNEL_MANAGEMENT_FORM.iconSize}
@@ -486,9 +577,10 @@ export function TribeChannelManagement({
                         <Trash2Icon />
                       </Button>
                     </div>
-                  </li>
+                  </AnimatedListItem>
                 );
               })}
+              </AnimatePresence>
             </ol>
           )}
         </div>
@@ -498,10 +590,20 @@ export function TribeChannelManagement({
         open={deleteCandidate !== null}
         onOpenChange={handleDeleteDialogChange}
       >
-        <DialogContent>
+        <DialogContent
+          onCloseAutoFocus={(event) => {
+            // The trigger row no longer exists after a deletion; keep keyboard
+            // users anchored on the channel list instead of the page body.
+            if (wasChannelDeletedRef.current) {
+              wasChannelDeletedRef.current = false;
+              event.preventDefault();
+              configuredHeadingRef.current?.focus();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
-              {CHANNEL_MANAGEMENT_COPY.deleteDialogTitle(deleteCandidate?.name ?? "")}
+              {CHANNEL_MANAGEMENT_COPY.deleteDialogTitle(deleteDialogChannelName)}
             </DialogTitle>
             <DialogDescription>
               {CHANNEL_MANAGEMENT_COPY.deleteDialogDescription}

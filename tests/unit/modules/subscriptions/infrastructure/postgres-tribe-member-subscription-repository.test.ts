@@ -112,9 +112,6 @@ function createRepository(
 const PROVIDER_PLAN_CHECKOUT_URL =
   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=provider-plan-1";
 
-const SPECIFIC_PROVIDER_PLAN_CHECKOUT_URL =
-  "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=specific-provider-plan";
-
 const PREVIOUS_PROVIDER_PLAN_CHECKOUT_URL =
   "https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=previous-provider-plan";
 

@@ -7,6 +7,11 @@ const PRESENCE_HEARTBEAT = {
   apiPrefix: "/api/tribes/",
   intervalMs: 60000,
   method: "POST",
+  /**
+   * Minimum time between a tab becoming visible and the previous touch, so
+   * quickly switching tabs back and forth does not flood the endpoint.
+   */
+  minimumVisibilityGapMs: 30000,
   presenceSegment: "/presence",
   visibleState: "visible",
 } as const;
@@ -18,7 +23,7 @@ type TribeRouteParams = {
 function buildPresenceEndpoint(tribeSlug: string): string {
   return (
     PRESENCE_HEARTBEAT.apiPrefix +
-    tribeSlug +
+    encodeURIComponent(tribeSlug) +
     PRESENCE_HEARTBEAT.presenceSegment
   );
 }
@@ -43,16 +48,30 @@ export function TribePresenceHeartbeat() {
       return undefined;
     }
 
+    let lastTouchAt: number | null = null;
+
     const touchPresence = () => {
       if (document.visibilityState !== PRESENCE_HEARTBEAT.visibleState) {
         return;
       }
 
+      lastTouchAt = Date.now();
       void fetch(buildPresenceEndpoint(tribeSlug), {
         method: PRESENCE_HEARTBEAT.method,
       }).catch(() => {
         // Deliberate no-op: presence is cosmetic and retries on the next tick.
       });
+    };
+
+    const touchPresenceWhenVisibleAgain = () => {
+      if (
+        lastTouchAt !== null &&
+        Date.now() - lastTouchAt < PRESENCE_HEARTBEAT.minimumVisibilityGapMs
+      ) {
+        return;
+      }
+
+      touchPresence();
     };
 
     touchPresence();
@@ -62,11 +81,14 @@ export function TribePresenceHeartbeat() {
       PRESENCE_HEARTBEAT.intervalMs
     );
 
-    document.addEventListener("visibilitychange", touchPresence);
+    document.addEventListener("visibilitychange", touchPresenceWhenVisibleAgain);
 
     return () => {
       window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", touchPresence);
+      document.removeEventListener(
+        "visibilitychange",
+        touchPresenceWhenVisibleAgain
+      );
     };
   }, [tribeSlug]);
 

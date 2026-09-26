@@ -43,6 +43,7 @@ const MESSAGE_LIKES_HOVER_CARD_COPY = {
 const NO_HOVER_POINTER_MEDIA_QUERY = "(hover: none)";
 
 const MESSAGE_LIKES_HOVER_CARD_UI = {
+  ariaLivePolite: "polite",
   buttonType: "button",
   side: "top",
 } as const;
@@ -236,8 +237,10 @@ export function MessageLikesHoverCard({
 
   const remainingCount = Math.max(totalCount - likers.length, 0);
   const hasLikers = likers.length > 0;
+  // Trust the loaded response over the (possibly stale) optimistic count: a
+  // message whose likers were all withdrawn must not render a bare title.
   const isEmpty =
-    status === LIKERS_LOAD_STATUS.loaded && !hasLikers && likeCount === 0;
+    status === LIKERS_LOAD_STATUS.loaded && !hasLikers && totalCount === 0;
   const triggerClassName = [
     styles.MessageLikesHoverCard__trigger,
     ...(isTriggerDisabled
@@ -252,21 +255,26 @@ export function MessageLikesHoverCard({
       <p className={styles.MessageLikesHoverCard__title}>
         {MESSAGE_LIKES_HOVER_CARD_COPY.title}
       </p>
-      {status === LIKERS_LOAD_STATUS.loading && !hasLikers ? (
-        <p className={styles.MessageLikesHoverCard__feedback}>
-          {MESSAGE_LIKES_HOVER_CARD_COPY.loadingMessage}
-        </p>
-      ) : null}
-      {status === LIKERS_LOAD_STATUS.error ? (
-        <p className={styles.MessageLikesHoverCard__feedback}>
-          {MESSAGE_LIKES_HOVER_CARD_COPY.errorMessage}
-        </p>
-      ) : null}
-      {isEmpty ? (
-        <p className={styles.MessageLikesHoverCard__feedback}>
-          {MESSAGE_LIKES_HOVER_CARD_COPY.emptyMessage}
-        </p>
-      ) : null}
+      <div
+        aria-live={MESSAGE_LIKES_HOVER_CARD_UI.ariaLivePolite}
+        className={styles.MessageLikesHoverCard__feedbackRegion}
+      >
+        {status === LIKERS_LOAD_STATUS.loading && !hasLikers ? (
+          <p className={styles.MessageLikesHoverCard__feedback}>
+            {MESSAGE_LIKES_HOVER_CARD_COPY.loadingMessage}
+          </p>
+        ) : null}
+        {status === LIKERS_LOAD_STATUS.error ? (
+          <p className={styles.MessageLikesHoverCard__feedback}>
+            {MESSAGE_LIKES_HOVER_CARD_COPY.errorMessage}
+          </p>
+        ) : null}
+        {isEmpty ? (
+          <p className={styles.MessageLikesHoverCard__feedback}>
+            {MESSAGE_LIKES_HOVER_CARD_COPY.emptyMessage}
+          </p>
+        ) : null}
+      </div>
       {hasLikers ? (
         <ul className={styles.MessageLikesHoverCard__list}>
           {likers.map((liker) => (

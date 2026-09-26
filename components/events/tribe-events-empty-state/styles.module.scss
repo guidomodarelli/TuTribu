@@ -1,3 +1,7 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .TribeEventsEmptyState {
   display: grid;
   gap: 0.25rem;
@@ -5,14 +9,19 @@
   padding: 1.5rem 0;
   text-align: center;
 
+  @include motion.fade;
+
   &__title {
     margin: 0;
     font-weight: 600;
+    text-wrap: balance;
   }
 
   &__hint {
     margin: 0;
+    max-width: 36rem;
     color: var(--muted-foreground);
+    text-wrap: pretty;
   }
 
   &__templates {
@@ -29,6 +38,9 @@
   &__templateItem {
     display: flex;
     min-width: 0;
+
+    // Templates arrive one after another, after the heading settles.
+    @include motion.stagger(4, 60ms);
   }
 
   &__template {
@@ -49,6 +61,7 @@
 
   &__templateTitle {
     font-weight: 600;
+    overflow-wrap: anywhere;
   }
 
   &__templateMeta {
@@ -65,5 +78,6 @@
 
   &__proposeButton {
     justify-self: center;
+    margin-top: 0.75rem;
   }
 }

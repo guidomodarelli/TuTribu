@@ -119,7 +119,7 @@ describe("TribeEventsCalendar calendar subscription", () => {
     ).toBeInTheDocument();
     expect(global.fetch).toHaveBeenCalledWith(ENDPOINT, expect.objectContaining({ cache: "no-store" }));
 
-    await user.click(within(dialog).getByRole("button", { name: "Generar link" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Generar link" }));
 
     const linkField = await within(dialog).findByRole("textbox", { name: "Tu link de calendario" });
 
@@ -214,7 +214,7 @@ describe("TribeEventsCalendar calendar subscription", () => {
     await user.click(await within(dialog).findByRole("button", { name: "Regenerar link" }));
 
     expect(
-      within(dialog).getByText(/El link anterior va a dejar de funcionar/)
+      await within(dialog).findByText(/El link anterior va a dejar de funcionar/)
     ).toBeInTheDocument();
     expect(global.fetch).toHaveBeenCalledTimes(1);
 
@@ -247,7 +247,7 @@ describe("TribeEventsCalendar calendar subscription", () => {
     const dialog = await openDialog(user);
 
     await user.click(await within(dialog).findByRole("button", { name: "Regenerar link" }));
-    await user.click(within(dialog).getByRole("button", { name: "Sí, regenerar" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Sí, regenerar" }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(3));
     const [pendingRequest] = (toast.promise as Mock).mock.calls[0] ?? [];
@@ -258,7 +258,7 @@ describe("TribeEventsCalendar calendar subscription", () => {
 
     // The retry starts from the link that is active now.
     await user.click(await within(dialog).findByRole("button", { name: "Regenerar link" }));
-    await user.click(within(dialog).getByRole("button", { name: "Sí, regenerar" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Sí, regenerar" }));
 
     expect(
       await within(dialog).findByRole("textbox", { name: "Tu link de calendario" })

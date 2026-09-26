@@ -1,8 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { XIcon } from "lucide-react";
-import { toast } from "beez-ui";
+import { useRef, useState } from "react";
+import { ArrowUpRightIcon, LoaderCircleIcon, XIcon } from "lucide-react";
+import {
+  toast,
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "beez-ui";
 
 import type { TribeWelcomeLinkResult } from "@/src/modules/tribes/application/results/tribe-welcome-result";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
@@ -32,41 +40,12 @@ const WHATSAPP_LINK = {
 
 const PHONE_NUMBER_NON_DIGIT_PATTERN = /\D/g;
 
-const MODAL_ARIA = {
-  ariaHiddenTrue: "true",
-  ariaModalTrue: "true",
-  describedBy: "tribe-welcome-selection-modal-description",
-  labelledBy: "tribe-welcome-selection-modal-title",
-  role: "dialog",
-} as const;
-
+/** Button attributes for the modal close control and the option buttons. */
 const MODAL_BUTTON = {
   buttonType: "button",
+  closeSize: "icon-sm",
+  closeVariant: "ghost",
 } as const;
-
-const MODAL_KEY = {
-  escape: "Escape",
-  tab: "Tab",
-} as const;
-
-const MODAL_EVENT = {
-  keydown: "keydown",
-} as const;
-
-const MODAL_FOCUSABLE_ELEMENT_SELECTOR = {
-  anchor: "a[href]",
-  button: "button:not(:disabled)",
-  input: "input:not(:disabled)",
-  select: "select:not(:disabled)",
-  tabIndex: '[tabindex]:not([tabindex="-1"])',
-  textarea: "textarea:not(:disabled)",
-} as const;
-
-const MODAL_FOCUSABLE_SELECTOR_SEPARATOR = ", ";
-
-const MODAL_FOCUSABLE_SELECTOR = Object.values(
-  MODAL_FOCUSABLE_ELEMENT_SELECTOR
-).join(MODAL_FOCUSABLE_SELECTOR_SEPARATOR);
 
 const SELECTION_WINDOW_OPEN = {
   blankUrl: "about:blank",
@@ -133,90 +112,43 @@ function openDestinationWindow(): Window | null {
   return openedWindow;
 }
 
-function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>(MODAL_FOCUSABLE_SELECTOR)
-  );
-}
-
+/**
+ * Member-facing modal that asks for a welcome resource the first time the
+ * member lands on the welcome page. It is built on the shared `Dialog`, which
+ * owns the focus trap, scroll lock, focus restoration and enter/exit motion.
+ * `open` seeds the visibility and re-syncs it when the prop changes, so a host
+ * can keep the modal mounted and let it play its exit animation.
+ */
 export function TribeWelcomeSelectionModal({
   benefit,
   description,
   links,
   onClose,
-  open: initiallyOpen,
+  open,
   previewOnly = false,
   title,
   tribeSlug,
 }: TribeWelcomeSelectionModalProps) {
   const activeLinks = getActiveLinks(links);
   const hasActiveLinks = activeLinks.length > 0;
-  const [isOpen, setIsOpen] = useState(initiallyOpen && hasActiveLinks);
+  const [isOpen, setIsOpen] = useState(open && hasActiveLinks);
+  const [previousOpen, setPreviousOpen] = useState(open);
   const [pendingLinkId, setPendingLinkId] = useState<string | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const modalRef = useRef<HTMLDivElement | null>(null);
   const pendingSelectionRef = useRef(false);
+  const returnFocusElementRef = useRef<HTMLElement | null>(null);
+  const hasDescription = description.trim().length > 0;
 
-  const closeModal = useCallback(() => {
+  // Re-sync when the host toggles `open` while keeping the modal mounted.
+  if (previousOpen !== open) {
+    setPreviousOpen(open);
+    setIsOpen(open && hasActiveLinks);
+  }
+
+  const closeModal = () => {
     setIsOpen(false);
     onClose?.();
-  }, [onClose]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === MODAL_KEY.escape) {
-        closeModal();
-        return;
-      }
-
-      if (event.key !== MODAL_KEY.tab || !modalRef.current) {
-        return;
-      }
-
-      const focusableElements = getFocusableElements(modalRef.current);
-      const firstFocusableElement = focusableElements.at(0);
-      const lastFocusableElement = focusableElements.at(-1);
-
-      if (!firstFocusableElement || !lastFocusableElement) {
-        event.preventDefault();
-        return;
-      }
-
-      const activeElement = document.activeElement;
-
-      if (!modalRef.current.contains(activeElement)) {
-        event.preventDefault();
-        firstFocusableElement.focus();
-        return;
-      }
-
-      if (event.shiftKey && activeElement === firstFocusableElement) {
-        event.preventDefault();
-        lastFocusableElement.focus();
-        return;
-      }
-
-      if (!event.shiftKey && activeElement === lastFocusableElement) {
-        event.preventDefault();
-        firstFocusableElement.focus();
-      }
-    };
-
-    document.addEventListener(MODAL_EVENT.keydown, handleKeyDown);
-    closeButtonRef.current?.focus();
-
-    return () => {
-      document.removeEventListener(MODAL_EVENT.keydown, handleKeyDown);
-    };
-  }, [closeModal, isOpen]);
-
-  if (!isOpen) {
-    return null;
-  }
+  };
 
   const handleSelect = async (link: TribeWelcomeLinkResult) => {
     if (pendingSelectionRef.current) {
@@ -283,44 +215,68 @@ export function TribeWelcomeSelectionModal({
   };
 
   return (
-    <div
-      aria-describedby={MODAL_ARIA.describedBy}
-      aria-labelledby={MODAL_ARIA.labelledBy}
-      aria-modal={MODAL_ARIA.ariaModalTrue}
-      className={styles.TribeWelcomeSelectionModal}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
+    <Dialog
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
           closeModal();
         }
       }}
-      ref={modalRef}
-      role={MODAL_ARIA.role}
+      open={isOpen}
     >
-      <div className={styles.TribeWelcomeSelectionModal__dialog}>
+      <DialogContent
+        // Without a description Radix must not point at a missing element.
+        {...(hasDescription ? {} : { "aria-describedby": undefined })}
+        className={styles.TribeWelcomeSelectionModal}
+        onCloseAutoFocus={(event) => {
+          // The dialog has no Radix trigger, so return focus to whatever opened
+          // it (for example the leader's preview button) by hand.
+          event.preventDefault();
+
+          const returnFocusElement = returnFocusElementRef.current;
+
+          returnFocusElementRef.current = null;
+
+          if (returnFocusElement?.isConnected) {
+            returnFocusElement.focus();
+          }
+        }}
+        onOpenAutoFocus={(event) => {
+          // Start on the close control, so a stray Enter never picks an option.
+          event.preventDefault();
+          returnFocusElementRef.current =
+            document.activeElement instanceof HTMLElement &&
+            document.activeElement !== document.body
+              ? document.activeElement
+              : null;
+          closeButtonRef.current?.focus();
+        }}
+        showCloseButton={false}
+      >
         <header className={styles.TribeWelcomeSelectionModal__header}>
-          <h2
-            className={styles.TribeWelcomeSelectionModal__title}
-            id={MODAL_ARIA.labelledBy}
-          >
+          <DialogTitle className={styles.TribeWelcomeSelectionModal__title}>
             {title}
-          </h2>
-          <button
-            aria-label={TRIBE_WELCOME_SELECTION_MODAL_COPY.closeLabel}
-            className={styles.TribeWelcomeSelectionModal__close}
-            onClick={closeModal}
-            ref={closeButtonRef}
-            type={MODAL_BUTTON.buttonType}
-          >
-            <XIcon aria-hidden={MODAL_ARIA.ariaHiddenTrue} />
-          </button>
+          </DialogTitle>
+          <DialogClose asChild>
+            <Button
+              aria-label={TRIBE_WELCOME_SELECTION_MODAL_COPY.closeLabel}
+              className={styles.TribeWelcomeSelectionModal__close}
+              ref={closeButtonRef}
+              size={MODAL_BUTTON.closeSize}
+              type={MODAL_BUTTON.buttonType}
+              variant={MODAL_BUTTON.closeVariant}
+            >
+              <XIcon aria-hidden />
+            </Button>
+          </DialogClose>
         </header>
 
-        <p
-          className={styles.TribeWelcomeSelectionModal__description}
-          id={MODAL_ARIA.describedBy}
-        >
-          {description}
-        </p>
+        {hasDescription ? (
+          <DialogDescription
+            className={styles.TribeWelcomeSelectionModal__description}
+          >
+            {description}
+          </DialogDescription>
+        ) : null}
 
         {benefit ? (
           <p className={styles.TribeWelcomeSelectionModal__benefit}>
@@ -342,6 +298,8 @@ export function TribeWelcomeSelectionModal({
             }
 
             const isAnyPending = pendingLinkId !== null;
+            const isPending = pendingLinkId === link.id;
+            const TrailingIcon = isPending ? LoaderCircleIcon : ArrowUpRightIcon;
 
             return (
               <li
@@ -349,26 +307,48 @@ export function TribeWelcomeSelectionModal({
                 key={link.id}
               >
                 <button
+                  aria-busy={isPending || undefined}
                   className={styles.TribeWelcomeSelectionModal__optionCard}
                   disabled={isAnyPending}
-                  onClick={() => handleSelect(link)}
+                  onClick={() => {
+                    void handleSelect(link);
+                  }}
                   type={MODAL_BUTTON.buttonType}
                 >
-                  <span className={styles.TribeWelcomeSelectionModal__optionCardTitle}>
-                    {link.label}
+                  <span
+                    className={styles.TribeWelcomeSelectionModal__optionCardText}
+                  >
+                    <span
+                      className={
+                        styles.TribeWelcomeSelectionModal__optionCardTitle
+                      }
+                    >
+                      {link.label}
+                    </span>
+                    {link.description ? (
+                      <span
+                        className={
+                          styles.TribeWelcomeSelectionModal__optionCardDescription
+                        }
+                      >
+                        {link.description}
+                      </span>
+                    ) : null}
                   </span>
-                  {link.description ? (
-                    <p className={styles.TribeWelcomeSelectionModal__optionCardDescription}>
-                      {link.description}
-                    </p>
-                  ) : null}
+                  <TrailingIcon
+                    aria-hidden
+                    className={
+                      isPending
+                        ? `${styles.TribeWelcomeSelectionModal__optionCardIcon} ${styles["TribeWelcomeSelectionModal__optionCardIcon--pending"]}`
+                        : styles.TribeWelcomeSelectionModal__optionCardIcon
+                    }
+                  />
                 </button>
               </li>
             );
           })}
         </ul>
-
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

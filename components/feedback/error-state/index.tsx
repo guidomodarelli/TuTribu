@@ -21,6 +21,10 @@ type ErrorStateProps = {
   title: string;
 };
 
+/**
+ * Full-page recovery view shared by the route and global error boundaries:
+ * explains the failure in Spanish and offers retry and a way home.
+ */
 export function ErrorState({
   description,
   eyebrow,

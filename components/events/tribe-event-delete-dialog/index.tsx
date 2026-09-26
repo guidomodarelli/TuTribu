@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button } from "beez-ui";
 
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
@@ -41,6 +42,8 @@ function formatDescription(occurrence: TribeEventOccurrenceResult): string {
  * Confirmation step before an irreversible event deletion. The confirm button
  * is a plain button (not `AlertDialogAction`) so the dialog stays open and
  * disabled while the request is in flight instead of closing optimistically.
+ * The last occurrence is retained while the dialog animates out, so the
+ * description does not go blank on its way out.
  */
 export function TribeEventDeleteDialog({
   isDeleting,
@@ -48,6 +51,14 @@ export function TribeEventDeleteDialog({
   onCancel,
   onConfirm,
 }: TribeEventDeleteDialogProps) {
+  const [retainedOccurrence, setRetainedOccurrence] = useState(occurrence);
+
+  if (occurrence !== null && occurrence !== retainedOccurrence) {
+    setRetainedOccurrence(occurrence);
+  }
+
+  const visibleOccurrence = occurrence ?? retainedOccurrence;
+
   return (
     <AlertDialog
       open={occurrence !== null}
@@ -61,7 +72,7 @@ export function TribeEventDeleteDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{COPY.title}</AlertDialogTitle>
           <AlertDialogDescription>
-            {occurrence ? formatDescription(occurrence) : null}
+            {visibleOccurrence ? formatDescription(visibleOccurrence) : null}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

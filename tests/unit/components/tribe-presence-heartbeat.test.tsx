@@ -62,4 +62,37 @@ describe("TribePresenceHeartbeat", () => {
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
+
+  it("does not flood the endpoint when the tab quickly toggles visibility", () => {
+    useParamsMock.mockReturnValue({ slug: "matematica-pro" });
+
+    render(<TribePresenceHeartbeat />);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      vi.advanceTimersByTime(30000);
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("encodes the route slug before building the presence endpoint", () => {
+    useParamsMock.mockReturnValue({ slug: "tribu con espacios" });
+
+    render(<TribePresenceHeartbeat />);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/tribes/tribu%20con%20espacios/presence",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
 });

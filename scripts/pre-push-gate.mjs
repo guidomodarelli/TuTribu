@@ -602,13 +602,18 @@ function isCheckoutStillPushedCommit(commit, repositoryRoot, completedStep) {
  */
 function runPnpm(pnpmArguments, workingDirectory, environment = process.env) {
   return new Promise((resolve, reject) => {
-    // pnpm is a `.cmd` shim on Windows; the arguments are fixed constants.
-    const child = spawn("pnpm", pnpmArguments, {
+    const spawnOptions = {
       cwd: workingDirectory,
       env: buildRepositoryIndependentEnvironment(environment),
-      stdio: ["ignore", "inherit", "inherit"],
-      shell: process.platform === "win32",
-    });
+      stdio: /** @type {const} */ (["ignore", "inherit", "inherit"]),
+    };
+    // pnpm is a `.cmd` shim on Windows, which needs a shell. The arguments are
+    // fixed constants, so they go inside the command: Node deprecates passing
+    // an argument list together with `shell` (DEP0190).
+    const child =
+      process.platform === "win32"
+        ? spawn(["pnpm", ...pnpmArguments].join(" "), { ...spawnOptions, shell: true })
+        : spawn("pnpm", pnpmArguments, spawnOptions);
 
     child.on("error", reject);
     child.on("close", (exitCode) => resolve(exitCode ?? 1));

@@ -5,6 +5,7 @@ import { Button } from "beez-ui";
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import { formatMovedFromLabel } from "@/lib/events/tribe-event-occurrence-exception-copy";
 import {
   formatBuenosAiresLongDate,
@@ -49,6 +50,11 @@ const LINK_ATTRIBUTE = {
   noreferrer: "noreferrer",
   targetBlank: "_blank",
 } as const;
+/** Keys of the heading status, which cross-fades when the occurrence goes live. */
+const STATUS_PRESENCE_KEY = {
+  countdown: "countdown",
+  live: "live",
+} as const;
 const COPY = {
   attendanceLegend: "¿Vas a participar?",
   join: "Unirme",
@@ -63,6 +69,8 @@ const COPY = {
  * cancelled date; a moved date shows where it came from): its type, who is
  * going, free seats, quick "Voy / Tal vez / No voy" buttons, the viewer's
  * own streak (never shown to anyone else), and a shortcut to the detail.
+ * The stripe takes the event type color; the countdown cross-fades into
+ * "En vivo ahora" and "Unirme" pops in when the join window opens.
  */
 export function TribeNextEvent({
   attendanceStreak = null,
@@ -86,20 +94,28 @@ export function TribeNextEvent({
       : null;
 
   return (
-    <section aria-label={COPY.nextEventLabel} className={styles.TribeNextEvent}>
+    <section
+      aria-label={COPY.nextEventLabel}
+      className={styles.TribeNextEvent}
+      data-event-type={occurrence.eventType}
+    >
       <div className={styles.TribeNextEvent__body}>
         <div className={styles.TribeNextEvent__heading}>
           <p className={styles.TribeNextEvent__label}>{COPY.nextEventLabel}</p>
-          {isLive ? (
-            <p className={styles.TribeNextEvent__live}>
-              <span aria-hidden className={styles.TribeNextEvent__liveDot} />
-              {COPY.liveNow}
-            </p>
-          ) : (
-            <p className={styles.TribeNextEvent__countdown}>
-              {formatOccurrenceCountdown(occurrence.startsAt, nowTime)}
-            </p>
-          )}
+          <PresenceSwap
+            presenceKey={isLive ? STATUS_PRESENCE_KEY.live : STATUS_PRESENCE_KEY.countdown}
+          >
+            {isLive ? (
+              <p className={styles.TribeNextEvent__live}>
+                <span aria-hidden className={styles.TribeNextEvent__liveDot} />
+                {COPY.liveNow}
+              </p>
+            ) : (
+              <p className={styles.TribeNextEvent__countdown}>
+                {formatOccurrenceCountdown(occurrence.startsAt, nowTime)}
+              </p>
+            )}
+          </PresenceSwap>
         </div>
         <p className={styles.TribeNextEvent__title}>{occurrence.title}</p>
         <TribeEventTypeBadge eventType={occurrence.eventType} />
@@ -122,7 +138,7 @@ export function TribeNextEvent({
       </div>
       <div className={styles.TribeNextEvent__actions}>
         {joinUrl ? (
-          <Button asChild size={BUTTON_ATTRIBUTE.sizeSmall}>
+          <Button asChild className={styles.TribeNextEvent__join} size={BUTTON_ATTRIBUTE.sizeSmall}>
             <a href={joinUrl} rel={LINK_ATTRIBUTE.noreferrer} target={LINK_ATTRIBUTE.targetBlank}>
               {COPY.join}
             </a>

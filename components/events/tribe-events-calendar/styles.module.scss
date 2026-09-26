@@ -1,5 +1,27 @@
+@use "../../../src/styles/motion";
+
 // Mirrors `MOBILE_BREAKPOINT` (768px) in `beez-ui/src/hooks/use-mobile.ts`.
 $tribe-events-calendar-mobile-max: 767px;
+// Horizontal travel of a month entering after the viewer changed month.
+$tribe-events-calendar-month-offset: 12px;
+$tribe-events-calendar-month-duration: 280ms;
+$tribe-events-calendar-view-duration: 220ms;
+
+@include motion.define-keyframes;
+
+// Slides a new month in from the side the viewer navigated towards; the
+// direction comes from `--month-enter-offset` on the keyed month view.
+@keyframes TribeEventsCalendarMonthEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--month-enter-offset, 0), 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 .TribeEventsCalendar {
   display: grid;
@@ -18,14 +40,50 @@ $tribe-events-calendar-mobile-max: 767px;
 
   &__filteredEmpty {
     margin: 0;
+    padding: 1rem 0;
     color: var(--muted-foreground);
     text-align: center;
+
+    @include motion.fade;
   }
 
   &__swipeArea {
     display: grid;
+    min-width: 0;
+    // Clips the horizontal travel of an entering month so it never adds a
+    // transient horizontal scrollbar; vertical overflow stays visible.
+    overflow-x: clip;
+  }
+
+  &__monthView,
+  &__view {
+    display: grid;
     gap: 1.25rem;
     min-width: 0;
+  }
+
+  &__monthView {
+    &[data-month-transition="next"] {
+      --month-enter-offset: #{$tribe-events-calendar-month-offset};
+    }
+
+    &[data-month-transition="previous"] {
+      --month-enter-offset: -#{$tribe-events-calendar-month-offset};
+    }
+
+    &[data-month-transition="next"],
+    &[data-month-transition="previous"] {
+      animation: TribeEventsCalendarMonthEnter $tribe-events-calendar-month-duration motion.$ease-out both;
+
+      @include motion.reduced {
+        animation: none;
+      }
+    }
+  }
+
+  // Played only when the viewer switches between calendar and list.
+  &__view--entering {
+    @include motion.enter($duration: $tribe-events-calendar-view-duration);
   }
 
   // Before hydration both views are in the DOM; the breakpoint mirrors
@@ -34,7 +92,9 @@ $tribe-events-calendar-mobile-max: 767px;
   // Element shared by both pre-hydration wrappers; the modifiers only decide
   // which view is hidden at each breakpoint.
   &__autoView {
-    display: block;
+    display: grid;
+    gap: 1.25rem;
+    min-width: 0;
   }
 
   &__autoView--list {
@@ -54,7 +114,7 @@ $tribe-events-calendar-mobile-max: 767px;
     }
 
     &__autoView--list {
-      display: block;
+      display: grid;
     }
   }
 }

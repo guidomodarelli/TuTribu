@@ -1,3 +1,11 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
+$tribe-story-video-slide-badge-size: 3.5rem;
+$tribe-story-video-slide-badge-hover-scale: 1.06;
+$tribe-story-video-slide-thumbnail-hover-scale: 1.02;
+
 .TribeStoryVideoSlide {
   align-items: center;
   background: color-mix(in srgb, var(--foreground) 85%, transparent);
@@ -6,35 +14,72 @@
   display: flex;
   height: 100%;
   justify-content: center;
+  overflow: hidden;
   padding: 0;
   position: relative;
   width: 100%;
 
+  // Inset ring: the slide clips its overflow, so an outer outline would be cut.
+  &:focus-visible {
+    box-shadow: inset 0 0 0 3px var(--ring);
+    outline: 0;
+  }
+
   &__thumbnail {
     object-fit: cover;
+
+    @include motion.interactive(transform);
   }
 
   &__video {
     border: 0;
+    display: block;
     height: 100%;
     width: 100%;
+
+    @include motion.fade($duration: 220ms);
   }
 
   &__playBadge {
     align-items: center;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     background: color-mix(in srgb, var(--background) 85%, transparent);
     border-radius: 999px;
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--foreground) 25%, transparent);
     display: flex;
-    height: 3.5rem;
+    height: $tribe-story-video-slide-badge-size;
     justify-content: center;
     position: relative;
-    width: 3.5rem;
+    width: $tribe-story-video-slide-badge-size;
     z-index: 1;
+
+    @include motion.interactive(transform, background-color);
   }
 
   &__playIcon {
     color: var(--foreground);
+    fill: currentColor;
     height: 1.5rem;
+    // Optical centering: the triangle's visual mass sits left of its box.
+    transform: translateX(0.08rem);
     width: 1.5rem;
+  }
+
+  // Hover lift only on devices that really hover, so taps on iOS do not leave
+  // the badge stuck in its hover state.
+  @media (hover: hover) {
+    &:hover &__playBadge {
+      background: var(--background);
+      transform: scale($tribe-story-video-slide-badge-hover-scale);
+    }
+
+    &:hover &__thumbnail {
+      transform: scale($tribe-story-video-slide-thumbnail-hover-scale);
+    }
+  }
+
+  &:active &__playBadge {
+    transform: scale(0.97);
   }
 }

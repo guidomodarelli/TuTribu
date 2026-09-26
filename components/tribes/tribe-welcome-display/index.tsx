@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { ArrowUpRightIcon, LoaderCircleIcon } from "lucide-react";
 import { toast } from "beez-ui";
 
 import type {
@@ -17,6 +18,7 @@ const TRIBE_WELCOME_DISPLAY_COPY = {
   agreementsHeading: "Acuerdos de convivencia",
   benefitEyebrow: "Beneficio por seleccionar una opción",
   defaultHeading: "Bienvenido/a",
+  eyebrow: "Antes de empezar",
   fallbackError:
     "No pudimos registrar tu elección. Probá de nuevo en unos minutos.",
 } as const;
@@ -106,6 +108,12 @@ function openDestinationWindow(): Window | null {
   return openedWindow;
 }
 
+/**
+ * Member-facing welcome screen: greeting, active agreements and the resource
+ * links. With a `tribeSlug` each resource records the member selection before
+ * opening its destination (pre-opened window keeps popup blockers happy);
+ * without it the resources are plain external links, as in the leader preview.
+ */
 export function TribeWelcomeDisplay({
   action,
   tribeSlug,
@@ -171,16 +179,30 @@ export function TribeWelcomeDisplay({
   };
 
   const renderLinkCard = (link: TribeWelcomeLinkResult, href: string) => {
+    const isPending = pendingLinkId === link.id;
+    const TrailingIcon = isPending ? LoaderCircleIcon : ArrowUpRightIcon;
+    // Only phrasing content: the card can render as a <button>, where block
+    // elements such as <p> are invalid HTML.
     const content = (
       <>
-        <span className={styles.TribeWelcomeDisplay__linkCardTitle}>
-          {link.label}
+        <span className={styles.TribeWelcomeDisplay__linkCardText}>
+          <span className={styles.TribeWelcomeDisplay__linkCardTitle}>
+            {link.label}
+          </span>
+          {link.description ? (
+            <span className={styles.TribeWelcomeDisplay__linkCardDescription}>
+              {link.description}
+            </span>
+          ) : null}
         </span>
-        {link.description ? (
-          <p className={styles.TribeWelcomeDisplay__linkCardDescription}>
-            {link.description}
-          </p>
-        ) : null}
+        <TrailingIcon
+          aria-hidden
+          className={
+            isPending
+              ? `${styles.TribeWelcomeDisplay__linkCardIcon} ${styles["TribeWelcomeDisplay__linkCardIcon--pending"]}`
+              : styles.TribeWelcomeDisplay__linkCardIcon
+          }
+        />
       </>
     );
 
@@ -199,6 +221,7 @@ export function TribeWelcomeDisplay({
 
     return (
       <button
+        aria-busy={isPending || undefined}
         className={styles.TribeWelcomeDisplay__linkCard}
         disabled={pendingLinkId !== null}
         onClick={() => {
@@ -215,7 +238,7 @@ export function TribeWelcomeDisplay({
     <section className={styles.TribeWelcomeDisplay}>
       <header className={styles.TribeWelcomeDisplay__header}>
         <p className={styles.TribeWelcomeDisplay__eyebrow}>
-          Antes de empezar
+          {TRIBE_WELCOME_DISPLAY_COPY.eyebrow}
         </p>
         <h1 className={styles.TribeWelcomeDisplay__title}>
           {TRIBE_WELCOME_DISPLAY_COPY.defaultHeading}

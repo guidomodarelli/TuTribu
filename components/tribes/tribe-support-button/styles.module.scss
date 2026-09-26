@@ -1,3 +1,7 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .TribeSupportButton {
   border-radius: 999px;
 
@@ -8,6 +12,16 @@
 
     &--spinning {
       animation: TribeSupportButton__spin 1s linear infinite;
+
+      // Keep a static loader: `aria-busy` and the disabled state still convey loading.
+      @include motion.reduced {
+        animation: none;
+      }
+    }
+
+    // The loader is replaced client-side once support resolves; settle the icon in.
+    &--resolved {
+      @include motion.pop;
     }
   }
 }

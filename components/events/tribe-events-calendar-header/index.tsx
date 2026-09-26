@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { motion } from "motion/react";
 import {
   CalendarDaysIcon,
   ChevronLeftIcon,
@@ -10,10 +11,13 @@ import {
   ListIcon,
   RssIcon,
 } from "lucide-react";
-import { Button } from "beez-ui";
+import { Button, cn } from "beez-ui";
 
+import type { MonthTransitionDirection } from "@/components/events/tribe-events-calendar/use-month-transition-direction";
+import { AnimatedCount } from "@/components/motion/animated-count";
 import { Link } from "@/components/navigation/link";
 import { formatBuenosAiresMonthTitle } from "@/lib/date-time/buenos-aires-format";
+import { SPRING_LAYOUT } from "@/lib/motion/tokens";
 import styles from "./styles.module.scss";
 
 /**
@@ -33,6 +37,8 @@ type TribeEventsCalendarHeaderProps = {
   canProposeEvents?: boolean;
   /** Visible `YYYY-MM` month. */
   month: string;
+  /** Side the month title slides in from after a month change. */
+  monthTransitionDirection?: MonthTransitionDirection;
   nextMonthHref: string;
   onChooseViewMode: (viewMode: TribeEventsViewMode) => void;
   onCreateEvent: () => void;
@@ -44,6 +50,11 @@ type TribeEventsCalendarHeaderProps = {
   /** Pending proposals waiting for review (managers). */
   pendingProposalCount?: number;
   previousMonthHref: string;
+  /**
+   * Glide the active view marker when the view changes. Off while the view
+   * still follows the viewport, so hydration does not animate it.
+   */
+  shouldAnimateViewMode?: boolean;
   /** "HH:MM Buenos Aires" label, or null before hydration. */
   timeLabel: string | null;
   todayHref: string;
@@ -57,12 +68,14 @@ const BUTTON_ATTRIBUTE = {
   typeButton: "button",
   variantGhost: "ghost",
   variantOutline: "outline",
-  variantSecondary: "secondary",
 } as const;
 const COPY = {
   createButton: "Crear evento",
   myProposalsButton: "Mis propuestas",
-  pendingProposalsButton: (count: number) => `Propuestas (${count})`,
+  pendingProposalsButton: "Propuestas",
+  pendingProposalsCountClose: ")",
+  pendingProposalsCountOpen: " (",
+  pendingProposalsLabel: (count: number) => `Propuestas (${count})`,
   proposeButton: "Proponer un encuentro",
   subscribeCalendarButton: "Suscribirme al calendario",
   nextMonth: "Mes siguiente",
@@ -72,17 +85,29 @@ const COPY = {
   viewList: "Ver lista",
   viewModeLabel: "Vista de eventos",
 } as const;
+const ROLE_GROUP = "group";
+/** Shared layout id: the active view marker glides between the two buttons. */
+const VIEW_MODE_INDICATOR_LAYOUT_ID = "tribe-events-view-mode-indicator";
+/** Moves the marker without animation (view picked by the viewport). */
+const INSTANT_TRANSITION = { duration: 0 } as const;
+/** Buttons of the view toggle, in visual order. */
+const VIEW_MODE_OPTIONS = [
+  { icon: ListIcon, label: COPY.viewList, viewMode: TRIBE_EVENTS_VIEW_MODE.list },
+  { icon: CalendarDaysIcon, label: COPY.viewCalendar, viewMode: TRIBE_EVENTS_VIEW_MODE.calendar },
+] as const;
 
 /**
  * Month navigation, "Hoy" shortcut with the Buenos Aires clock, view toggle,
  * the type filter, the create action and "Propuestas (N)" for managers, and
  * "Proponer un encuentro" for members, and "Suscribirme al calendario" for
- * every viewer.
+ * every viewer. The month title slides in from the side the viewer moved to,
+ * and a marker glides between the two view buttons.
  */
 export function TribeEventsCalendarHeader({
   canManageEvents,
   canProposeEvents = false,
   month,
+  monthTransitionDirection,
   nextMonthHref,
   onChooseViewMode,
   onCreateEvent,
@@ -91,6 +116,7 @@ export function TribeEventsCalendarHeader({
   onSubscribeCalendar,
   pendingProposalCount = 0,
   previousMonthHref,
+  shouldAnimateViewMode = true,
   timeLabel,
   todayHref,
   typeFilter = null,
@@ -101,17 +127,28 @@ export function TribeEventsCalendarHeader({
       <div className={styles.TribeEventsCalendarHeader__monthNavigation}>
         <Link
           aria-label={COPY.previousMonth}
-          className={styles.TribeEventsCalendarHeader__iconLink}
+          className={cn(
+            styles.TribeEventsCalendarHeader__iconLink,
+            styles["TribeEventsCalendarHeader__iconLink--previous"]
+          )}
           href={previousMonthHref}
         >
           <ChevronLeftIcon aria-hidden />
         </Link>
-        <h1 className={styles.TribeEventsCalendarHeader__title}>
+        {/* Keyed by month so the title replays its entrance on every change. */}
+        <h1
+          className={styles.TribeEventsCalendarHeader__title}
+          data-month-transition={monthTransitionDirection}
+          key={month}
+        >
           {formatBuenosAiresMonthTitle(month)}
         </h1>
         <Link
           aria-label={COPY.nextMonth}
-          className={styles.TribeEventsCalendarHeader__iconLink}
+          className={cn(
+            styles.TribeEventsCalendarHeader__iconLink,
+            styles["TribeEventsCalendarHeader__iconLink--next"]
+          )}
           href={nextMonthHref}
         >
           <ChevronRightIcon aria-hidden />
@@ -130,46 +167,56 @@ export function TribeEventsCalendarHeader({
           <div
             aria-label={COPY.viewModeLabel}
             className={styles.TribeEventsCalendarHeader__viewToggle}
+            role={ROLE_GROUP}
           >
-            <Button
-              aria-pressed={viewMode === TRIBE_EVENTS_VIEW_MODE.list}
-              size={BUTTON_ATTRIBUTE.sizeIcon}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={
-                viewMode === TRIBE_EVENTS_VIEW_MODE.list
-                  ? BUTTON_ATTRIBUTE.variantSecondary
-                  : BUTTON_ATTRIBUTE.variantGhost
-              }
-              onClick={() => onChooseViewMode(TRIBE_EVENTS_VIEW_MODE.list)}
-            >
-              <ListIcon aria-hidden />
-              <span className={styles.TribeEventsCalendarHeader__srOnly}>{COPY.viewList}</span>
-            </Button>
-            <Button
-              aria-pressed={viewMode === TRIBE_EVENTS_VIEW_MODE.calendar}
-              size={BUTTON_ATTRIBUTE.sizeIcon}
-              type={BUTTON_ATTRIBUTE.typeButton}
-              variant={
-                viewMode === TRIBE_EVENTS_VIEW_MODE.calendar
-                  ? BUTTON_ATTRIBUTE.variantSecondary
-                  : BUTTON_ATTRIBUTE.variantGhost
-              }
-              onClick={() => onChooseViewMode(TRIBE_EVENTS_VIEW_MODE.calendar)}
-            >
-              <CalendarDaysIcon aria-hidden />
-              <span className={styles.TribeEventsCalendarHeader__srOnly}>
-                {COPY.viewCalendar}
-              </span>
-            </Button>
+            {VIEW_MODE_OPTIONS.map((option) => {
+              const isActive = viewMode === option.viewMode;
+              const ViewModeIcon = option.icon;
+
+              return (
+                <Button
+                  aria-pressed={isActive}
+                  className={cn(
+                    styles.TribeEventsCalendarHeader__viewButton,
+                    isActive && styles["TribeEventsCalendarHeader__viewButton--active"]
+                  )}
+                  key={option.viewMode}
+                  size={BUTTON_ATTRIBUTE.sizeIcon}
+                  type={BUTTON_ATTRIBUTE.typeButton}
+                  variant={BUTTON_ATTRIBUTE.variantGhost}
+                  onClick={() => onChooseViewMode(option.viewMode)}
+                >
+                  {isActive ? (
+                    <motion.span
+                      aria-hidden
+                      className={styles.TribeEventsCalendarHeader__viewIndicator}
+                      layoutId={VIEW_MODE_INDICATOR_LAYOUT_ID}
+                      transition={shouldAnimateViewMode ? SPRING_LAYOUT : INSTANT_TRANSITION}
+                    />
+                  ) : null}
+                  <ViewModeIcon
+                    aria-hidden
+                    className={styles.TribeEventsCalendarHeader__viewIcon}
+                  />
+                  <span className={styles.TribeEventsCalendarHeader__srOnly}>{option.label}</span>
+                </Button>
+              );
+            })}
           </div>
           {canManageEvents && pendingProposalCount > 0 && onOpenProposals ? (
+            // The count rolls when it changes; the label keeps the exact
+            // number for assistive technology while both digits overlap.
             <Button
+              aria-label={COPY.pendingProposalsLabel(pendingProposalCount)}
               type={BUTTON_ATTRIBUTE.typeButton}
               variant={BUTTON_ATTRIBUTE.variantOutline}
               onClick={onOpenProposals}
             >
               <InboxIcon aria-hidden />
-              {COPY.pendingProposalsButton(pendingProposalCount)}
+              {COPY.pendingProposalsButton}
+              {COPY.pendingProposalsCountOpen}
+              <AnimatedCount value={pendingProposalCount} />
+              {COPY.pendingProposalsCountClose}
             </Button>
           ) : null}
           {canManageEvents ? (

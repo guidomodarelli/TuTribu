@@ -164,7 +164,7 @@ describe("TribePage", () => {
   it("returns a Suspense route shell before resolving runtime route data", () => {
     const markup = renderToString(<TribePage params={new Promise(() => {})} />);
     render(<div dangerouslySetInnerHTML={{ __html: markup }} />);
-    expect(screen.getByRole("status", { name: "Cargando seccion de tribu" })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Cargando sección de tribu" })).toBeInTheDocument();
     expect(createRequestModules).not.toHaveBeenCalled();
   });
 

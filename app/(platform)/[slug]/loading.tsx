@@ -7,12 +7,16 @@ const TRIBE_LOADING_SKELETON = {
   filterCount: 4,
   keySeparator: "-",
   statusAriaRole: "status",
-  statusLabel: "Cargando seccion de tribu",
+  statusLabel: "Cargando sección de tribu",
 } as const;
 
+/**
+ * Round-shaped skeleton of the tribe segments. It renders inside the platform
+ * layout's `main` landmark, so its root is a `div` with the status role.
+ */
 export default function TribeLoadingPage() {
   return (
-    <main
+    <div
       className={styles.TribeLoadingPage}
       role={TRIBE_LOADING_SKELETON.statusAriaRole}
       aria-label={TRIBE_LOADING_SKELETON.statusLabel}
@@ -54,6 +58,6 @@ export default function TribeLoadingPage() {
           )
         )}
       </section>
-    </main>
+    </div>
   );
 }

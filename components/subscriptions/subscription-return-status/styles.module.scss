@@ -1,3 +1,5 @@
+// No entrance animation on purpose: this screen reloads itself every few
+// seconds while Mercado Pago confirms, and a replayed entrance would flicker.
 .SubscriptionReturnStatus {
   align-content: center;
   display: grid;
@@ -9,6 +11,7 @@
     color: var(--muted-foreground);
     font-size: 0.78rem;
     font-weight: 700;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
   }
 
@@ -17,6 +20,7 @@
     font-size: clamp(2.25rem, 7vw, 5rem);
     font-weight: 700;
     line-height: 1;
+    text-wrap: balance;
   }
 
   &__description {
@@ -24,5 +28,6 @@
     font-size: 1.05rem;
     line-height: 1.7;
     max-width: 36rem;
+    text-wrap: pretty;
   }
 }

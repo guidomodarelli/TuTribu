@@ -22,7 +22,6 @@ import {
   ChevronRightIcon,
   ChevronDownIcon,
   FileIcon,
-  HeartIcon,
   ImageIcon,
   ListPlusIcon,
   MessageCircleIcon,
@@ -38,6 +37,7 @@ import {
   VoteIcon,
   XIcon,
 } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
@@ -55,7 +55,11 @@ import { formatFileSize } from "@/lib/format-file-size";
 
 
 import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
+import { AnimatedCount } from "@/components/motion/animated-count";
+import { AnimatedListItem } from "@/components/motion/animated-list-item";
+import { MessageLikeButton } from "@/components/tribe-round/message-like-button";
 import { MessageLikesHoverCard } from "@/components/tribe-round/message-likes-hover-card";
+import { RoundChannelFilters } from "@/components/tribe-round/round-channel-filters";
 import {
   ATTACHMENT_FILE,
   ATTACHMENT_FILE_INPUT_ACCEPT,
@@ -232,7 +236,9 @@ const TRIBE_ROUND_COPY = {
   pinButtonAriaLabel: "Pinear mensaje",
   pinnedBadge: "Pineado",
   pinLimitReachedMessage: "Solo podes pinear hasta 3 mensajes en el fogón.",
+  pinSuccess: "Mensaje pineado.",
   togglePinError: "No pudimos actualizar el pin.",
+  unpinSuccess: "Mensaje despineado.",
   unpinButtonAriaLabel: "Despinear mensaje",
   messageButton: "Compartir",
   messageCancelButton: "Cancelar",
@@ -473,8 +479,8 @@ const TRIBE_ROUND_POLL = {
   minimumOptionCount: 2,
   multipleInputType: "checkbox",
   percentageBase: 100,
-  percentageStyleProperty: "--poll-result",
-  percentageSuffix: "%",
+  /** Custom property holding the result share as a 0-1 `scaleX` factor. */
+  resultScaleStyleProperty: "--poll-result-scale",
   singleInputType: "radio",
 } as const;
 
@@ -1690,6 +1696,17 @@ function isPendingMessage(message: TribeRoundVisibleMessageResult): boolean {
   );
 }
 
+/**
+ * Reports whether a reply is still the optimistic copy shown while its
+ * creation request is in flight.
+ *
+ * @param reply - Reply rendered in the message details dialog.
+ * @returns `true` until the server-confirmed reply replaces it.
+ */
+function isPendingReply(reply: TribeRoundReplyResult): boolean {
+  return reply.id.startsWith(TRIBE_ROUND_OPTIMISTIC.replyIdPrefix);
+}
+
 function padTwoDigits(value: number): string {
   return value.toString().padStart(DATE_TIME_LOCAL_INPUT.padLength, DATE_TIME_LOCAL_INPUT.padCharacter);
 }
@@ -1784,6 +1801,13 @@ function TribeRoundContent({
     onContentChange: () => setMessageComposerErrors([]),
   });
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  /**
+   * Maps a server-confirmed message or reply id to the optimistic id it was
+   * first rendered with, so animated lists keep one stable React key.
+   */
+  const [optimisticRenderKeys, setOptimisticRenderKeys] = useState<
+    Record<string, string>
+  >({});
   const [replyLoadStatuses, setReplyLoadStatuses] = useState<
     Record<string, ReplyLoadStatus | undefined>
   >({});
@@ -3565,6 +3589,13 @@ function TribeRoundContent({
       optimisticMessage,
     });
 
+    // Keep rendering the confirmed message under its optimistic key so the
+    // list swaps it in place instead of playing an exit and a new entrance.
+    setOptimisticRenderKeys((currentKeys) => ({
+      ...currentKeys,
+      [visibleCreatedMessage.id]: optimisticMessageId,
+    }));
+
     setMessages((currentMessages) => {
       const messagesWithoutOptimistic = currentMessages.filter(
         (message) =>
@@ -3787,6 +3818,12 @@ function TribeRoundContent({
     event.preventDefault();
     const content = (replyDrafts[messageId] ?? "").trim();
 
+    // The reply input stays editable while another action is in flight so the
+    // viewer keeps focus and can draft the next reply; only sending waits.
+    if (isBusy) {
+      return;
+    }
+
     if (!content) {
       toast.warning(TRIBE_ROUND_COPY.replyPlaceholder);
       return;
@@ -3865,6 +3902,12 @@ function TribeRoundContent({
         throw new Error(TRIBE_ROUND_COPY.submitReplyError);
       }
 
+      const createdReplyId = response.reply.id;
+
+      setOptimisticRenderKeys((currentKeys) => ({
+        ...currentKeys,
+        [createdReplyId]: optimisticReplyId,
+      }));
       setMessages((currentMessages) =>
         currentMessages.map((message) =>
           message.id === messageId
@@ -3894,10 +3937,15 @@ function TribeRoundContent({
             : message
         )
       );
-      setReplyDrafts((currentDrafts) => ({
-        ...currentDrafts,
-        [messageId]: content,
-      }));
+      // Restore the failed reply unless the viewer already started a new one.
+      setReplyDrafts((currentDrafts) =>
+        currentDrafts[messageId]
+          ? currentDrafts
+          : {
+              ...currentDrafts,
+              [messageId]: content,
+            }
+      );
     } finally {
       if (isCurrentAction(actionToken, actionTribeSlug)) {
         setPendingActionId(null);
@@ -4166,7 +4214,12 @@ function TribeRoundContent({
       if (latestPendingPinIntent.intendedIsPinned === response.isPinned) {
         applyMessagePinState(messageId, response.isPinned, responsePinnedAt);
         delete pendingPinIntentsRef.current[messageId];
-        toast.success(response.message ?? TRIBE_ROUND_COPY.togglePinError);
+        toast.success(
+          response.message ??
+            (response.isPinned
+              ? TRIBE_ROUND_COPY.pinSuccess
+              : TRIBE_ROUND_COPY.unpinSuccess)
+        );
         return;
       }
 
@@ -4909,8 +4962,9 @@ function TribeRoundContent({
                   <span
                     className={styles.TribeRound__pollBar}
                     style={{
-                      [TRIBE_ROUND_POLL.percentageStyleProperty]:
-                        String(option.percentage) + TRIBE_ROUND_POLL.percentageSuffix,
+                      [TRIBE_ROUND_POLL.resultScaleStyleProperty]: String(
+                        option.percentage / TRIBE_ROUND_POLL.percentageBase
+                      ),
                     } as CSSProperties}
                   />
                 ) : null}
@@ -6241,7 +6295,6 @@ function TribeRoundContent({
                           ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
                           : undefined
                       }
-                      aria-invalid={isMessageChannelInvalid}
                       aria-label={TRIBE_ROUND_COPY.tribeChannelLabel}
                       className={
                         isMessageChannelInvalid
@@ -6320,50 +6373,19 @@ function TribeRoundContent({
       ) : null}
 
       {round.channels.length > 0 ? (
-        <nav
-          aria-label={TRIBE_ROUND_COPY.tribeChannelLabel}
-          className={styles.TribeRound__channelFilters}
-        >
-          <Link
-            className={`${styles.TribeRound__channelFilter} ${
-              !round.activeChannelId ? styles["TribeRound__channelFilter--active"] : ""
-            }`}
-            href={buildTribeRoundPageHref({
-              channelSlug: null,
+        <RoundChannelFilters
+          activeChannelId={round.activeChannelId ?? null}
+          allChannelsLabel={TRIBE_ROUND_COPY.tribeChannelFilterAll}
+          buildChannelHref={(channelSlug) =>
+            buildTribeRoundPageHref({
+              channelSlug,
               page: 1,
               tribeSlug,
-            })}
-          >
-            <span className={styles.TribeRound__channelFilterText}>
-              {TRIBE_ROUND_COPY.tribeChannelFilterAll}
-            </span>
-          </Link>
-          {round.channels.map((channel) => (
-            <Link
-              className={`${styles.TribeRound__channelFilter} ${
-                round.activeChannelId === channel.id
-                  ? styles["TribeRound__channelFilter--active"]
-                  : ""
-              }`}
-              href={buildTribeRoundPageHref({
-                channelSlug: channel.slug,
-                page: 1,
-                tribeSlug,
-              })}
-              key={channel.id}
-            >
-              <span
-                aria-hidden={TRIBE_ROUND_ATTRIBUTES.channelFilterEmojiHidden}
-                className={styles.TribeRound__channelFilterEmoji}
-              >
-                {channel.emoji}
-              </span>
-              <span className={styles.TribeRound__channelFilterText}>
-                {channel.name}
-              </span>
-            </Link>
-          ))}
-        </nav>
+            })
+          }
+          channels={round.channels}
+          navigationLabel={TRIBE_ROUND_COPY.tribeChannelLabel}
+        />
       ) : null}
 
       {messages.length === 0 ? (
@@ -6377,8 +6399,18 @@ function TribeRoundContent({
         </div>
       ) : (
         <ol className={styles.TribeRound__messageList}>
+          <AnimatePresence initial={false}>
           {messages.map((message, messageIndex) => (
-            <li className={styles.TribeRound__message} key={message.id}>
+            <AnimatedListItem
+              aria-busy={isPendingMessage(message) || undefined}
+              className={
+                isPendingMessage(message)
+                  ? `${styles.TribeRound__message} ${styles["TribeRound__message--pending"]}`
+                  : styles.TribeRound__message
+              }
+              key={optimisticRenderKeys[message.id] ?? message.id}
+              layout={false}
+            >
               <Card
                 className={styles.TribeRound__messageCard}
                 onClick={() => {
@@ -6443,20 +6475,17 @@ function TribeRoundContent({
                         onTriggerClick={stopMessageDetailsOpening}
                         tribeSlug={tribeSlug}
                       >
-                        <Button
-                          aria-label={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${message.likeCount}`}
+                        <MessageLikeButton
+                          ariaLabel={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${message.likeCount}`}
                           className={getLikeButtonClassName(message.likedByViewer)}
-                          disabled={isLikeButtonDisabled(message)}
+                          isDisabled={isLikeButtonDisabled(message)}
+                          isLiked={message.likedByViewer}
+                          likeCount={message.likeCount}
                           onClick={(event) => {
                             stopMessageDetailsOpening(event);
                             handleToggleLike(message.id);
                           }}
-                          type={TRIBE_ROUND_FORM.buttonType}
-                          variant={TRIBE_ROUND_FORM.outlineVariant}
-                        >
-                          <HeartIcon />
-                          {message.likeCount}
-                        </Button>
+                        />
                       </MessageLikesHoverCard>
                       <Button
                         aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(message)}`}
@@ -6470,7 +6499,7 @@ function TribeRoundContent({
                         variant={TRIBE_ROUND_FORM.outlineVariant}
                       >
                         <MessageCircleIcon />
-                        {getCommentCount(message)}
+                        <AnimatedCount value={getCommentCount(message)} />
                       </Button>
                       {renderCommentAuthorsPreview(message)}
                     </div>
@@ -6480,8 +6509,9 @@ function TribeRoundContent({
                   })}
               </article>
               </Card>
-            </li>
+            </AnimatedListItem>
           ))}
+          </AnimatePresence>
         </ol>
       )}
       {visiblePagination.hasPreviousPage || visiblePagination.hasNextPage ? (
@@ -6607,21 +6637,18 @@ function TribeRoundContent({
                     messageId={selectedMessage.id}
                     tribeSlug={tribeSlug}
                   >
-                    <Button
-                      aria-label={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${selectedMessage.likeCount}`}
+                    <MessageLikeButton
+                      ariaLabel={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${selectedMessage.likeCount}`}
                       className={getLikeButtonClassName(
                         selectedMessage.likedByViewer
                       )}
-                      disabled={isLikeButtonDisabled(selectedMessage)}
+                      isDisabled={isLikeButtonDisabled(selectedMessage)}
+                      isLiked={selectedMessage.likedByViewer}
+                      likeCount={selectedMessage.likeCount}
                       onClick={() => {
                         handleToggleLike(selectedMessage.id);
                       }}
-                      type={TRIBE_ROUND_FORM.buttonType}
-                      variant={TRIBE_ROUND_FORM.outlineVariant}
-                    >
-                      <HeartIcon />
-                      {selectedMessage.likeCount}
-                    </Button>
+                    />
                   </MessageLikesHoverCard>
                   <Button
                     aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(selectedMessage)}`}
@@ -6631,7 +6658,7 @@ function TribeRoundContent({
                     variant={TRIBE_ROUND_FORM.outlineVariant}
                   >
                     <MessageCircleIcon />
-                    {getCommentCount(selectedMessage)}
+                    <AnimatedCount value={getCommentCount(selectedMessage)} />
                   </Button>
                   {renderCommentAuthorsPreview(selectedMessage)}
                 </div>
@@ -6669,8 +6696,18 @@ function TribeRoundContent({
                   ) : null}
                   {selectedMessage.replies.length > 0 ? (
                     <ol className={styles.TribeRound__replyList}>
+                      <AnimatePresence initial={false}>
                       {selectedMessage.replies.map((reply) => (
-                        <li className={styles.TribeRound__reply} key={reply.id}>
+                        <AnimatedListItem
+                          aria-busy={isPendingReply(reply) || undefined}
+                          className={
+                            isPendingReply(reply)
+                              ? `${styles.TribeRound__reply} ${styles["TribeRound__reply--pending"]}`
+                              : styles.TribeRound__reply
+                          }
+                          key={optimisticRenderKeys[reply.id] ?? reply.id}
+                          layout={false}
+                        >
                           {renderRoundAuthorAvatar(
                             reply.author,
                             styles.TribeRound__replyAvatar,
@@ -6685,8 +6722,9 @@ function TribeRoundContent({
                               {reply.content}
                             </p>
                           </div>
-                        </li>
+                        </AnimatedListItem>
                       ))}
+                      </AnimatePresence>
                     </ol>
                   ) : null}
                   {round.viewerPermissions.canReply ? (
@@ -6712,9 +6750,8 @@ function TribeRoundContent({
                           aria-label={TRIBE_ROUND_COPY.replyInputLabel}
                           className={styles.TribeRound__replyInput}
                           disabled={
-                            isBusy ||
                             selectedMessageReplyLoadStatus ===
-                              TRIBE_ROUND_REPLY_LOAD_STATUS.loading
+                            TRIBE_ROUND_REPLY_LOAD_STATUS.loading
                           }
                           onChange={(event) => {
                             const nextReplyDraft = event.currentTarget.value;

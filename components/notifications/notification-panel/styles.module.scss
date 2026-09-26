@@ -1,3 +1,11 @@
+@use "../../../src/styles/motion";
+
+// Body regions fade in as the load settles; kept short because they can mount
+// together with the popover or sheet, which animate themselves.
+$notification-panel-region-fade: 180ms;
+
+@include motion.define-keyframes;
+
 .NotificationPanel {
   display: flex;
   flex-direction: column;
@@ -18,8 +26,13 @@
     }
   }
 
-  &__markAll {
+  // Motion wrapper of the header action; keeps the button optically aligned.
+  &__markAllSlot {
+    display: inline-flex;
     margin-right: -0.5rem;
+  }
+
+  &__markAll {
     color: var(--muted-foreground);
     font-size: 0.8rem;
   }
@@ -32,6 +45,8 @@
     padding: 1rem;
     color: var(--muted-foreground);
     font-size: 0.9rem;
+
+    @include motion.fade($duration: $notification-panel-region-fade);
   }
 
   &__message {
@@ -46,12 +61,15 @@
     color: var(--muted-foreground);
     font-size: 0.9rem;
     text-align: center;
+
+    @include motion.fade($duration: $notification-panel-region-fade);
   }
 
   &__emptyIcon {
     width: 1.5rem;
     height: 1.5rem;
     margin-bottom: 0.25rem;
+    opacity: 0.8;
   }
 
   &__emptyHint {
@@ -68,6 +86,8 @@
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     list-style: none;
+
+    @include motion.fade($duration: $notification-panel-region-fade);
   }
 
   &__item + &__item {
@@ -83,8 +103,18 @@
     color: var(--foreground);
     text-decoration: none;
     outline: none;
+    -webkit-tap-highlight-color: transparent;
 
-    &:hover {
+    @include motion.interactive(background-color, box-shadow);
+
+    // Touch screens keep `:hover` after a tap; only real pointers get it.
+    @media (hover: hover) {
+      &:hover {
+        background-color: var(--accent);
+      }
+    }
+
+    &:active {
       background-color: var(--accent);
     }
 
@@ -98,14 +128,21 @@
     }
   }
 
+  // Always rendered so marking as read fades the dot out instead of cutting it.
   &__dot {
     width: 0.5rem;
     height: 0.5rem;
     margin-top: 0.4rem;
     border-radius: 999px;
+    background-color: var(--primary);
+    opacity: 0;
+    transform: scale(0.5);
+
+    @include motion.interactive(opacity, transform);
 
     &--unread {
-      background-color: var(--primary);
+      opacity: 1;
+      transform: none;
     }
   }
 

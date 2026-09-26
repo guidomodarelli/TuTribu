@@ -1,3 +1,18 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
+// Poll result bars grow from the start edge the first time results appear.
+@keyframes TribeRoundPollBarGrow {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(var(--poll-result-scale, 0));
+  }
+}
+
 // Opacity-only entrance/exit for the message details modal. It deliberately
 // avoids `transform` so the fixed close button is never dragged by a transient
 // containing block during the animation.
@@ -71,9 +86,20 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
 
   &__messageCard {
     cursor: pointer;
-    transition:
-      border-color 160ms ease,
-      box-shadow 160ms ease;
+    @include motion.interactive(border-color, box-shadow, opacity);
+
+    @media (hover: hover) {
+      &:hover {
+        border-color: color-mix(in oklch, var(--foreground) 16%, var(--border));
+        box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent);
+      }
+    }
+  }
+
+  // Optimistic message while its creation request is in flight.
+  &__message--pending &__messageCard {
+    cursor: progress;
+    opacity: 0.72;
   }
 
   &__messageDetailsTrigger {
@@ -329,6 +355,8 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   }
 
   &__composerError {
+    @include motion.enter($distance: 4px);
+
     display: grid;
     gap: 0.45rem;
     color: var(--destructive);
@@ -359,6 +387,8 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   }
 
   &__fieldError {
+    @include motion.fade;
+
     margin: 0.3rem 0 0;
     color: var(--destructive);
     font-size: 0.8rem;
@@ -399,7 +429,6 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   }
 
   &__channelTrigger,
-  &__channelFilter,
   &__pinnedBadge,
   &__channelBadge {
     display: inline-flex;
@@ -476,107 +505,6 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
     overflow-wrap: normal;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  &__channelFilters {
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    max-width: 100%;
-    min-width: 0;
-    width: 100%;
-    min-height: 3rem;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 0 0 0.65rem;
-    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 34%, transparent)
-      transparent;
-    scrollbar-width: thin;
-
-    &::-webkit-scrollbar {
-      height: 0.4rem;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      border: 0.12rem solid transparent;
-      border-radius: 999rem;
-      background-color: color-mix(
-        in oklch,
-        var(--muted-foreground) 34%,
-        transparent
-      );
-      background-clip: content-box;
-    }
-
-    &::-webkit-scrollbar-thumb:hover {
-      background-color: color-mix(
-        in oklch,
-        var(--muted-foreground) 48%,
-        transparent
-      );
-    }
-  }
-
-  &__channelFilter {
-    box-sizing: border-box;
-    flex: 0 0 auto;
-    justify-content: center;
-    min-width: 0;
-    height: 36px;
-    max-height: 36px;
-    min-height: 36px;
-    padding: 0 12px;
-    color: var(--muted-foreground);
-    cursor: pointer;
-    font-size: 15px;
-    text-decoration: none;
-    appearance: none;
-    transition:
-      background-color 160ms ease,
-      border-color 160ms ease,
-      box-shadow 160ms ease,
-      color 160ms ease;
-
-    &:hover {
-      border-color: color-mix(in oklch, var(--primary) 48%, var(--border));
-      background: color-mix(in oklch, var(--primary) 7%, var(--background));
-      color: var(--foreground);
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--ring);
-      outline-offset: 3px;
-    }
-
-    &--active {
-      border-color: color-mix(in oklch, var(--primary) 62%, var(--border));
-      background: color-mix(in oklch, var(--primary) 12%, var(--background));
-      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 18%, transparent);
-      color: var(--foreground);
-
-      &:hover {
-        border-color: color-mix(in oklch, var(--primary) 76%, var(--border));
-        background: color-mix(in oklch, var(--primary) 18%, var(--background));
-      }
-    }
-  }
-
-  &__channelFilterEmoji {
-    flex: 0 0 auto;
-    font-size: 16px;
-    line-height: 1;
-  }
-
-  &__channelFilterText {
-    display: block;
-    min-width: 0;
-    overflow: visible;
-    text-overflow: clip;
   }
 
   &__channelBadge {
@@ -698,6 +626,8 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   }
 
   &__imageDraft {
+    @include motion.pop;
+
     display: grid;
     grid-template-columns: 4.5rem minmax(0, 1fr) minmax(4rem, auto) auto;
     gap: 0.6rem;
@@ -806,6 +736,8 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   }
 
   &__fileDraft {
+    @include motion.pop;
+
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto minmax(4rem, auto) auto;
     gap: 0.6rem;
@@ -1120,6 +1052,8 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   }
 
   &__videoComposer {
+    @include motion.enter($distance: 4px);
+
     display: grid;
     gap: 0.3rem;
     position: relative;
@@ -1280,6 +1214,8 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   }
 
   &__pollComposer {
+    @include motion.enter($distance: 4px);
+
     display: grid;
     gap: 1rem;
     padding: 0.25rem 0 0.5rem;
@@ -1971,10 +1907,18 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
 
   &__pollBar {
     position: absolute;
-    inset: 0 auto 0 0;
-    width: var(--poll-result);
+    inset: 0;
     background: color-mix(in oklch, var(--primary) 14%, transparent);
     pointer-events: none;
+    // Scale instead of width so result changes stay on the compositor.
+    transform: scaleX(var(--poll-result-scale, 0));
+    transform-origin: left center;
+    animation: TribeRoundPollBarGrow 320ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    @include motion.interactive(transform);
+
+    @include motion.reduced {
+      animation: none;
+    }
   }
 
   &__pollActions {
@@ -2012,6 +1956,12 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     gap: 0.65rem;
+    @include motion.interactive(opacity);
+
+    // Optimistic reply while its creation request is in flight.
+    &--pending {
+      opacity: 0.6;
+    }
   }
 
   &__replyAvatar {

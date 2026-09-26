@@ -50,13 +50,13 @@ describe("AvatarSessionMenu", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
+    await user.click(screen.getByRole("button", { name: /menú de cuenta/i }));
 
-    expect(screen.getByRole("menuitem", { name: /iniciar sesion/i })).toHaveAttribute(
+    expect(screen.getByRole("menuitem", { name: /iniciar sesión/i })).toHaveAttribute(
       "href",
       "/auth/signin"
     );
-    expect(screen.queryByRole("menuitem", { name: /cerrar sesion/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /cerrar sesión/i })).not.toBeInTheDocument();
   });
 
   it("shows sign-out action when member is authenticated", async () => {
@@ -80,11 +80,11 @@ describe("AvatarSessionMenu", () => {
     expect(screen.queryByText("Grace Hopper")).not.toBeInTheDocument();
     expect(screen.queryByText("grace.hopper@example.com")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
+    await user.click(screen.getByRole("button", { name: /menú de cuenta/i }));
 
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
     expect(screen.getByText("grace.hopper@example.com")).toBeInTheDocument();
-    await user.click(screen.getByRole("menuitem", { name: /cerrar sesion/i }));
+    await user.click(screen.getByRole("menuitem", { name: /cerrar sesión/i }));
 
     expect(signOutMock).toHaveBeenCalledWith();
     expect(pushMock).toHaveBeenCalledWith("/auth/signin");
@@ -108,7 +108,7 @@ describe("AvatarSessionMenu", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
+    await user.click(screen.getByRole("button", { name: /menú de cuenta/i }));
 
     expect(document.body.querySelectorAll('[data-slot="avatar"]')).toHaveLength(1);
   });
@@ -156,8 +156,8 @@ describe("AvatarSessionMenu", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
-    const signOutItem = screen.getByRole("menuitem", { name: /cerrar sesion/i });
+    await user.click(screen.getByRole("button", { name: /menú de cuenta/i }));
+    const signOutItem = screen.getByRole("menuitem", { name: /cerrar sesión/i });
 
     await user.click(signOutItem);
     await user.click(signOutItem);
@@ -190,12 +190,12 @@ describe("AvatarSessionMenu", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /menu de cuenta/i }));
-    await user.click(screen.getByRole("menuitem", { name: /cerrar sesion/i }));
+    await user.click(screen.getByRole("button", { name: /menú de cuenta/i }));
+    await user.click(screen.getByRole("menuitem", { name: /cerrar sesión/i }));
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
-        "No pudimos cerrar la sesion. Intenta de nuevo."
+        "No pudimos cerrar la sesión. Intentá de nuevo."
       );
     });
     expect(pushMock).toHaveBeenCalledWith("/auth/error");

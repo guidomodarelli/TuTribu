@@ -8,6 +8,7 @@ import {
   TribeEventTypeBadge,
 } from "@/components/events/tribe-event-type-badge";
 import { TribeEventsAgendaDay } from "@/components/events/tribe-events-agenda-day";
+import { PresenceSwap } from "@/components/motion/presence-swap";
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresTime,
@@ -126,7 +127,8 @@ export function TribeEventsMonthGrid({
                     <span
                       className={cn(
                         styles.TribeEventsMonthGrid__dayNumber,
-                        !day.isCurrentMonth && styles["TribeEventsMonthGrid__dayNumber--muted"]
+                        !day.isCurrentMonth && styles["TribeEventsMonthGrid__dayNumber--muted"],
+                        isToday && styles["TribeEventsMonthGrid__dayNumber--today"]
                       )}
                     >
                       {day.dayNumber}
@@ -206,17 +208,22 @@ export function TribeEventsMonthGrid({
           ))}
         </TableBody>
       </Table>
-      {activeDayKey && activeDayEvents.length > 0 ? (
-        <TribeEventsAgendaDay
-          aria-label={COPY.dayEventsLabel}
-          className={styles.TribeEventsMonthGrid__daySummary}
-          dayKey={activeDayKey}
-          firstOccurrence={activeDayEvents[0]}
-          todayKey={todayKey}
-        >
-          {activeDayEvents.map(renderOccurrence)}
-        </TribeEventsAgendaDay>
-      ) : null}
+      {/* Phones only (hidden by CSS on wider screens): tapping another day
+          cross-fades the summary instead of swapping it in a single frame. */}
+      <div className={styles.TribeEventsMonthGrid__daySummary}>
+        {activeDayKey && activeDayEvents.length > 0 ? (
+          <PresenceSwap presenceKey={activeDayKey}>
+            <TribeEventsAgendaDay
+              aria-label={COPY.dayEventsLabel}
+              dayKey={activeDayKey}
+              firstOccurrence={activeDayEvents[0]}
+              todayKey={todayKey}
+            >
+              {activeDayEvents.map(renderOccurrence)}
+            </TribeEventsAgendaDay>
+          </PresenceSwap>
+        ) : null}
+      </div>
     </div>
   );
 }

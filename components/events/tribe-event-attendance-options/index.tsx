@@ -1,7 +1,10 @@
 "use client";
 
+import { useId } from "react";
+import { LayoutGroup, motion } from "motion/react";
 import { Button } from "beez-ui";
 
+import { SPRING_LAYOUT } from "@/lib/motion/tokens";
 import type {
   TribeEventAttendanceOption,
   TribeEventAttendanceStatus,
@@ -26,9 +29,10 @@ const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
   variantOutline: "outline",
-  variantSecondary: "secondary",
 } as const;
 const GROUP_ROLE = "group";
+/** Shared-layout id of the highlight that glides to the picked answer. */
+const SELECTION_INDICATOR_LAYOUT_ID = "tribe-event-attendance-selection";
 
 /**
  * Whether an answer button reads as selected. Being on the waitlist is a
@@ -48,7 +52,10 @@ function isOptionSelected(
 
 /**
  * "Voy / Tal vez / No voy" toggle buttons shared by the next event card and
- * the detail dialog. Tapping the selected answer clears it.
+ * the detail dialog. Tapping the selected answer clears it. The selected
+ * answer carries a highlight that glides between buttons when the answer
+ * changes; each group scopes its own highlight so two groups on screen never
+ * animate into each other.
  */
 export function TribeEventAttendanceOptions({
   isSaving,
@@ -56,25 +63,49 @@ export function TribeEventAttendanceOptions({
   onSelect,
   viewerStatus,
 }: TribeEventAttendanceOptionsProps) {
-  return (
-    <div aria-label={legend} className={styles.TribeEventAttendanceOptions} role={GROUP_ROLE}>
-      {TRIBE_EVENT_ATTENDANCE_OPTIONS.map((option) => {
-        const isSelected = isOptionSelected(option, viewerStatus);
+  const layoutGroupId = useId();
 
-        return (
-          <Button
-            aria-pressed={isSelected}
-            disabled={isSaving}
-            key={option}
-            size={BUTTON_ATTRIBUTE.sizeSmall}
-            type={BUTTON_ATTRIBUTE.typeButton}
-            variant={isSelected ? BUTTON_ATTRIBUTE.variantSecondary : BUTTON_ATTRIBUTE.variantOutline}
-            onClick={() => onSelect(isSelected ? null : option)}
-          >
-            {TRIBE_EVENT_ATTENDANCE_LABEL[option]}
-          </Button>
-        );
-      })}
-    </div>
+  return (
+    <LayoutGroup id={layoutGroupId}>
+      <div
+        aria-busy={isSaving}
+        aria-label={legend}
+        className={styles.TribeEventAttendanceOptions}
+        role={GROUP_ROLE}
+      >
+        {TRIBE_EVENT_ATTENDANCE_OPTIONS.map((option) => {
+          const isSelected = isOptionSelected(option, viewerStatus);
+
+          return (
+            <Button
+              aria-pressed={isSelected}
+              className={
+                isSelected
+                  ? `${styles.TribeEventAttendanceOptions__option} ${styles["TribeEventAttendanceOptions__option--selected"]}`
+                  : styles.TribeEventAttendanceOptions__option
+              }
+              disabled={isSaving}
+              key={option}
+              size={BUTTON_ATTRIBUTE.sizeSmall}
+              type={BUTTON_ATTRIBUTE.typeButton}
+              variant={BUTTON_ATTRIBUTE.variantOutline}
+              onClick={() => onSelect(isSelected ? null : option)}
+            >
+              {isSelected ? (
+                <motion.span
+                  aria-hidden
+                  className={styles.TribeEventAttendanceOptions__indicator}
+                  layoutId={SELECTION_INDICATOR_LAYOUT_ID}
+                  transition={SPRING_LAYOUT}
+                />
+              ) : null}
+              <span className={styles.TribeEventAttendanceOptions__label}>
+                {TRIBE_EVENT_ATTENDANCE_LABEL[option]}
+              </span>
+            </Button>
+          );
+        })}
+      </div>
+    </LayoutGroup>
   );
 }

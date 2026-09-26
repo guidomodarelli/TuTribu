@@ -1,0 +1,22 @@
+@use "../../../src/styles/motion";
+
+.MessageLikeButton {
+  &__heart {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    // Scale from the visual center so the pop does not drift the icon.
+    transform-origin: center;
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+      // The liked fill fades in with the color instead of snapping.
+      @include motion.interactive(fill, color);
+    }
+  }
+
+  &__count {
+    min-width: 1ch;
+  }
+}

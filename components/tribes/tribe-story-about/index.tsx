@@ -1,9 +1,11 @@
 import Image from "next/image";
+import { ArrowUpRightIcon } from "lucide-react";
 
 import { Link } from "@/components/navigation/link";
 import { Button } from "beez-ui";
 import { RichStoryContent } from "@/components/rich-text/rich-story-content";
 import { TribeStoryGallery } from "@/components/tribes/tribe-story-gallery";
+import { FreeJoinSubmitButton } from "@/components/tribes/tribe-story-about/free-join-submit-button";
 import type {
   TribeStoryResult,
   TribeStoryStatsResult,
@@ -17,10 +19,12 @@ const TRIBE_STORY_ABOUT_COPY = {
   createdLabel: "Creada en",
   emptyState: "El líder todavía no escribió la historia de la tribu.",
   freeJoinButton: "Unirse gratis",
+  freeJoinPendingButton: "Uniéndote...",
   joinButton: "Unirse a la tribu",
   logoAlt: (tribeName: string) => `Logo de ${tribeName}`,
   membersLabel: "Miembros",
   onlineLabel: "En línea",
+  onlineMembersLabel: "Miembros en línea",
   priceLabel: "Precio",
   privacyLabel: "Privacidad",
   privacyPrivate: "Privada",
@@ -227,7 +231,10 @@ export function TribeStoryAbout({
             ) : null}
           </dl>
           {onlineMembers.length > 0 ? (
-            <ul className={styles.TribeStoryAbout__onlineMembers}>
+            <ul
+              aria-label={TRIBE_STORY_ABOUT_COPY.onlineMembersLabel}
+              className={styles.TribeStoryAbout__onlineMembers}
+            >
               {onlineMembers.map((onlineMember, onlineMemberIndex) => (
                 <li
                   className={styles.TribeStoryAbout__onlineMember}
@@ -244,9 +251,17 @@ export function TribeStoryAbout({
                       width={ONLINE_AVATAR_SIZE}
                     />
                   ) : (
-                    <span className={styles.TribeStoryAbout__onlineInitials}>
-                      {buildOnlineMemberInitials(onlineMember.name)}
-                    </span>
+                    <>
+                      <span
+                        aria-hidden
+                        className={styles.TribeStoryAbout__onlineInitials}
+                      >
+                        {buildOnlineMemberInitials(onlineMember.name)}
+                      </span>
+                      <span className={styles.TribeStoryAbout__visuallyHidden}>
+                        {onlineMember.name}
+                      </span>
+                    </>
                   )}
                 </li>
               ))}
@@ -260,6 +275,10 @@ export function TribeStoryAbout({
               target={ABOUT_LINK_TARGET}
             >
               {TRIBE_STORY_ABOUT_COPY.websiteLabel}
+              <ArrowUpRightIcon
+                aria-hidden
+                className={styles.TribeStoryAbout__websiteIcon}
+              />
             </a>
           ) : null}
           {freeJoinAction ? (
@@ -267,13 +286,14 @@ export function TribeStoryAbout({
               action={freeJoinAction}
               className={styles.TribeStoryAbout__joinAction}
             >
-              <Button type="submit">
-                {TRIBE_STORY_ABOUT_COPY.freeJoinButton}
-              </Button>
+              <FreeJoinSubmitButton
+                label={TRIBE_STORY_ABOUT_COPY.freeJoinButton}
+                pendingLabel={TRIBE_STORY_ABOUT_COPY.freeJoinPendingButton}
+              />
             </form>
           ) : joinHref ? (
             <div className={styles.TribeStoryAbout__joinAction}>
-              <Button asChild>
+              <Button asChild className={styles.TribeStoryAbout__joinButton}>
                 <Link href={joinHref}>
                   {TRIBE_STORY_ABOUT_COPY.joinButton}
                 </Link>

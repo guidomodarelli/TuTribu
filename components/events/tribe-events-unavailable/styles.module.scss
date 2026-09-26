@@ -1,5 +1,10 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
 .TribeEventsUnavailable {
   display: grid;
+  align-content: start;
   gap: 0.75rem;
   min-width: 0;
   padding: clamp(1rem, 3vw, 2rem);
@@ -12,19 +17,38 @@
 
   &__description {
     margin: 0;
+    max-width: 40rem;
     color: var(--muted-foreground);
+    text-wrap: pretty;
+
+    @include motion.enter;
   }
 
   &__actions {
     display: flex;
     flex-wrap: wrap;
     gap: 1rem;
+
+    @include motion.enter(60ms);
   }
 
   &__link {
+    border-radius: 0.2rem;
     color: var(--foreground);
     font-weight: 600;
     text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
     text-underline-offset: 0.2em;
+
+    @include motion.interactive(text-decoration-color, color);
+
+    &:hover {
+      text-decoration-color: currentColor;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
   }
 }
