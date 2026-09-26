@@ -14,7 +14,7 @@ import {
 } from "../../../scripts/release/pending-migrations.mjs";
 import { MIGRATION_STATUS } from "../../../scripts/release/release-plan.mjs";
 import { collectReleaseState } from "../../../scripts/release/release-state.mjs";
-import { renderBox, resolveNumberKey, visibleWidth } from "../../../scripts/release/terminal-ui.mjs";
+import { countTerminalRows, renderBox, resolveNumberKey, visibleWidth } from "../../../scripts/release/terminal-ui.mjs";
 import { stripVTControlCharacters } from "node:util";
 
 /** Real Git fixtures with a bare remote can exceed the default timeout on Windows. */
@@ -237,5 +237,15 @@ describe("numbered prompt options", () => {
     expect(resolveNumberKey("0", 3)).toBe(-1);
     expect(resolveNumberKey("a", 3)).toBe(-1);
     expect(resolveNumberKey(undefined, 3)).toBe(-1);
+  });
+});
+
+describe("prompt redraw", () => {
+  it("should count the extra rows of lines wider than the terminal so the prompt erases all of them", () => {
+    const question = "? ¿Publicar beez-ui@0.6.2? Commitea package.json y CHANGELOG.md, valida todo (varios minutos), pushea a main y publica en npm.";
+    expect(countTerminalRows(["corta", "otra"], 80)).toBe(2);
+    expect(countTerminalRows([question, "  1. Sí", "  2. No"], 80)).toBe(4);
+    expect(countTerminalRows([`\x1b[1m${"x".repeat(80)}\x1b[22m`], 80)).toBe(1);
+    expect(countTerminalRows([""], 80)).toBe(1);
   });
 });

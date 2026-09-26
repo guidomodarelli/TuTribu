@@ -398,6 +398,19 @@ function exitOnInterrupt() {
   process.exit(INTERRUPTED_EXIT_CODE);
 }
 
+/**
+ * Counts the terminal rows that lines occupy, including the extra rows of
+ * lines wider than the terminal, so a prompt can erase exactly what it drew.
+ *
+ * @param {string[]} lines - Rendered lines, possibly styled.
+ * @param {number} columns - Terminal width in columns.
+ * @returns {number} Physical rows.
+ */
+export function countTerminalRows(lines, columns) {
+  const safeColumns = Math.max(columns, 1);
+  return lines.reduce((rows, line) => rows + Math.max(1, Math.ceil(visibleWidth(line) / safeColumns)), 0);
+}
+
 /** Options that can be picked with a single digit key (1-9). */
 const MAX_NUMBERED_OPTIONS = 9;
 
@@ -454,7 +467,8 @@ export function select({ message, options, defaultIndex = 0 }) {
         paint("gray", `  1-${Math.min(options.length, MAX_NUMBERED_OPTIONS)} para elegir · ↑/↓ y Enter para moverte y confirmar`),
       ];
       process.stdout.write(`${ANSI.cursorUp(renderedLineCount)}\r${ANSI.clearBelow}${lines.join("\n")}\n`);
-      renderedLineCount = lines.length;
+      // Long lines wrap in the terminal: count physical rows so the next redraw erases all of them.
+      renderedLineCount = countTerminalRows(lines, process.stdout.columns || FALLBACK_TERMINAL_WIDTH);
     };
 
     const finish = () => {
