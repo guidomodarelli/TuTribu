@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AccountMenu, toast } from "beez-ui";
 
+import { useMemberSessionKeepAlive } from "@/hooks/use-member-session-keep-alive";
 import { ROUTES } from "@/src/constants/routes";
 import { signOutMember } from "@/src/modules/auth/infrastructure/better-auth/client";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
@@ -32,9 +33,10 @@ type AvatarSessionMenuClientProps = {
 };
 
 /**
- * Client container of the account menu: owns the sign-out request, ignores
- * repeated clicks while it is in flight, and maps a failure to a Spanish toast
- * plus the auth error page. The menu itself is the shared `AccountMenu`.
+ * Client container of the account menu: keeps the member session alive, owns
+ * the sign-out request, ignores repeated clicks while it is in flight, and maps
+ * a failure to a Spanish toast plus the auth error page. The menu itself is the
+ * shared `AccountMenu`.
  */
 export function AvatarSessionMenuClient({
   authenticatedMember,
@@ -43,6 +45,7 @@ export function AvatarSessionMenuClient({
 }: AvatarSessionMenuClientProps) {
   const { push } = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  useMemberSessionKeepAlive(authenticatedMember !== null);
 
   const handleSignOut = async () => {
     if (isSigningOut) {

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sesiones de miembros</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf4e7;border-color:#d9a441;color:#7a571a;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Sesiones de miembros</div>
+  <div class="doc-sub">Duracion, renovacion y lectura de la sesion de Better Auth en un App Router que renderiza en el servidor.</div>
+  <div class="doc-meta"><span>Scope: Authentication</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decision</div>
+<p>La sesion de un miembro dura <strong>180 dias deslizantes</strong>: mientras use la app al menos una vez cada 180 dias, no vuelve a iniciar sesion. La fila de <code>session</code> y la cookie <code>session_token</code> comparten esa expiracion.</p>
+<p>La configuracion vive en <code>BETTER_AUTH_SESSION_OPTIONS</code> (<code>src/modules/auth/constants/session.ts</code>) y se pasa como <code>session</code> a <code>betterAuth</code> en <code>src/modules/auth/infrastructure/better-auth/auth.ts</code>:</p>
+<ul>
+  <li><code>expiresIn</code>: 180 dias. Es el <code>Max-Age</code> de la cookie y el corrimiento de <code>expiresAt</code> en cada renovacion.</li>
+  <li><code>updateAge</code>: 1 dia. Better Auth solo escribe la renovacion cuando paso al menos un dia desde la anterior; el resto de las lecturas no escribe.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Problema que resuelve</div>
+<p>Antes la sesion usaba los valores por defecto (7 dias) y solo se leia desde Server Components. Un Server Component no puede escribir cookies: el plugin <code>nextCookies</code> descarta en silencio el <code>Set-Cookie</code>. Resultado:</p>
+<ul>
+  <li>La cookie nunca se renovaba y vencia 7 dias despues del inicio de sesion, aunque el miembro usara la app todos los dias.</li>
+  <li>En cargas completas (sin header <code>RSC: 1</code>) Better Auth si renovaba <code>expiresAt</code> en la base, pero la cookie quedaba con su <code>Max-Age</code> viejo. Esa desincronizacion hacia que una renovacion posterior no encontrara nada que renovar.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Lectura en el servidor sin renovar</div>
+<p><code>getServerBetterAuthSession</code> (<code>server-auth-context.ts</code>) llama a <code>auth.api.getSession</code> con <code>query: { disableRefresh: true }</code>. Todo render de servidor (layouts, paginas, route handlers que resuelven al miembro) valida la sesion pero nunca la renueva, asi que la base y la cookie no se desincronizan.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Renovacion desde el cliente (keep-alive)</div>
+<p>La renovacion ocurre en el route handler <code>/api/auth/get-session</code>, que si devuelve la cookie renovada al navegador. Lo invoca el hook <code>useMemberSessionKeepAlive</code> (<code>hooks/use-member-session-keep-alive.ts</code>), montado por <code>AvatarSessionMenuClient</code> en el layout de plataforma solo cuando hay un miembro autenticado:</p>
+<ul>
+  <li>Una vez al cargar la plataforma y otra cada vez que la pestaña vuelve a estar visible, con un minimo de 1 hora entre pedidos (<code>MEMBER_SESSION_KEEP_ALIVE_MIN_INTERVAL_MS</code>). Los pedidos extra son lecturas: el servidor solo escribe cada <code>updateAge</code>.</li>
+  <li>El pedido se cancela con <code>AbortController</code> al desmontar.</li>
+  <li><code>refreshMemberSession</code> (<code>better-auth/client.ts</code>) mapea el resultado a <code>active</code>, <code>expired</code> o <code>failed</code>. Con <code>expired</code> el hook hace <code>router.refresh()</code>: es una excepcion documentada al rechazo de refrescos completos, porque cambio el estado de autenticacion y toda la vista renderizada en el servidor debe dejar de mostrar al miembro. Con <code>failed</code> no hace nada; el siguiente intento llega al volver a la pestaña.</li>
+</ul>
+<div class="callout c-info">No se usa <code>proxy.ts</code> para renovar la cookie: en Next.js 16 corre con runtime Node.js y OpenNext Cloudflare no lo soporta (ver <a href="deployment-targets.htm">Targets de despliegue</a>). El keep-alive funciona igual en Vercel y en Cloudflare Workers.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Migracion de sesiones existentes</div>
+<p>No requiere migracion SQL. Una sesion creada con la configuracion anterior vence en menos de 7 dias; en la primera visita posterior al deploy el keep-alive la renueva, porque ya paso mas de <code>updateAge</code> segun el nuevo <code>expiresIn</code>, y la base y la cookie pasan a 180 dias.</p>
+<p>Los efectos de la renovacion, como el refresco de la imagen de perfil (<a href="profile-image-sync.htm">Sincronizacion de la imagen de perfil</a>), ahora se disparan desde ese route handler.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Cobertura</div>
+<ul>
+  <li><code>tests/unit/modules/auth/infrastructure/better-auth-session-lifetime.test.ts</code>: Better Auth real con adapter en memoria. Verifica la cookie de 180 dias, la renovacion via <code>/api/auth/get-session</code> y que la lectura con <code>disableRefresh</code> no toca la base.</li>
+  <li><code>better-auth-server-auth-context.test.ts</code>, <code>better-auth-client.test.ts</code> y <code>avatar-session-menu.test.tsx</code>: wiring de la lectura sin renovar, los estados del keep-alive, el throttle y la cancelacion.</li>
+</ul>
+</div>
+
+</body>
+</html>

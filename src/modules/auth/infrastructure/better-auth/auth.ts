@@ -6,6 +6,7 @@ import { nextCookies } from "better-auth/next-js";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
+import { BETTER_AUTH_SESSION_OPTIONS } from "@/src/modules/auth/constants/session";
 import { scheduleMemberProfileImageRefresh } from "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh";
 import { createPostgresPool } from "@/src/modules/shared/infrastructure/database/postgres-pool";
 import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
@@ -118,6 +119,12 @@ export const auth = betterAuth({
   },
   plugins: [nextCookies()],
   secret: betterAuthEnvironment.secret,
+  /**
+   * Sliding 180-day session. Server renders read it without refreshing (they
+   * cannot write cookies), so the renewal reaches the browser through the
+   * `/api/auth/get-session` keep-alive issued by the platform client.
+   */
+  session: BETTER_AUTH_SESSION_OPTIONS,
   socialProviders: {
     [BETTER_AUTH_PROVIDER.google]: {
       accessType: GOOGLE_OFFLINE_ACCESS.accessType,

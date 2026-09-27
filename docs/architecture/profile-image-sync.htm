@@ -49,7 +49,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">02</div>
   <div class="section-title">El problema: imagen congelada</div>
-<p>La sesion de Better Auth usa los valores por defecto (expiracion 7 dias, refresco rotativo cada 1 dia). El refresco de sesion <strong>no</strong> vuelve a pedir el perfil a Google, por lo que la URL de <code>picture</code> queda congelada mientras la sesion siga viva.</p>
+<p>La sesion de Better Auth dura 180 dias deslizantes y se renueva como maximo una vez por dia (ver <a href="member-sessions.htm">Sesiones de miembros</a>). El refresco de sesion <strong>no</strong> vuelve a pedir el perfil a Google, por lo que la URL de <code>picture</code> queda congelada mientras la sesion siga viva.</p>
 <p>Consecuencia: si un usuario cambia su foto en Google despues de iniciar sesion (caso tipico de una cuenta nueva que arranca con avatar por defecto), la URL nueva nunca llega a la base de datos hasta que el usuario rehace el login. La imagen mostrada queda desactualizada por dias.</p>
 </div>
 
@@ -73,7 +73,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <p>El refresco requiere un refresh token de Google. El provider esta configurado con <code>accessType: "offline"</code> y <code>prompt: "consent"</code> para garantizar que Google emita un refresh token tanto a usuarios nuevos como existentes.</p>
 <div class="callout c-warn"><code>prompt: "consent"</code> muestra la pantalla de consentimiento de Google en cada inicio de sesion. Es el costo aceptado a cambio de cobertura completa del refresh token.</div>
 <ul>
-  <li>El refresco corre aproximadamente una vez por dia por usuario activo (cadencia de renovacion con <code>updateAge</code> por defecto).</li>
+  <li>El refresco corre aproximadamente una vez por dia por usuario activo (cadencia de renovacion con <code>updateAge</code> de 1 dia). La renovacion ocurre en el route handler <code>/api/auth/get-session</code> que llama el keep-alive del cliente; los Server Components leen la sesion sin renovarla, por lo que no disparan este hook.</li>
   <li>Si <code>getAccessToken</code> responde sin <code>accessToken</code>, o si Google userinfo responde <code>401</code>/<code>403</code> porque las credenciales guardadas ya no son utilizables, el refresco se omite sin actualizar la imagen. Si Better Auth falla al resolver el token o Google responde un fallo inesperado, el caso de uso registra el fallo como <code>failed</code> para mantener observabilidad.</li>
   <li>Los logs son estructurados y seguros: nunca se registran tokens ni la URL completa de la imagen, solo el host.</li>
 </ul>

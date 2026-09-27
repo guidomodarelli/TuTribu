@@ -133,14 +133,32 @@ function isRetryableBetterAuthSessionFailure(error: unknown) {
   );
 }
 
+/**
+ * Reads the session without renewing it. Server Components cannot write
+ * cookies, so a renewal here would push the database expiration forward while
+ * the browser cookie kept its old `Max-Age`: the member would be signed out
+ * when the cookie expired and the next keep-alive would find nothing left to
+ * renew. Renewals only happen in the `/api/auth/get-session` route handler,
+ * which returns the refreshed cookie to the browser.
+ */
+const SERVER_RENDER_SESSION_QUERY = { disableRefresh: true } as const;
+
+/**
+ * Resolves the Better Auth session for the current server request, retrying a
+ * transient lookup failure once.
+ *
+ * @returns The session of the signed-in member, or `null` for visitors.
+ */
 export async function getServerBetterAuthSession(): Promise<BetterAuthSession> {
   const requestHeaders = await headers();
   const { requestId } = resolveRequestContext(requestHeaders);
+  const sessionLookup = {
+    headers: requestHeaders,
+    query: SERVER_RENDER_SESSION_QUERY,
+  };
 
   try {
-    return await auth.api.getSession({
-      headers: requestHeaders,
-    });
+    return await auth.api.getSession(sessionLookup);
   } catch (error) {
     if (
       !isRetryableBetterAuthSessionFailure(error) ||
@@ -159,9 +177,7 @@ export async function getServerBetterAuthSession(): Promise<BetterAuthSession> {
       error,
     });
 
-    return auth.api.getSession({
-      headers: requestHeaders,
-    });
+    return auth.api.getSession(sessionLookup);
   }
 }
 

@@ -78,6 +78,10 @@ describe("Better Auth configuration", () => {
     expect(mockBetterAuth).toHaveBeenCalledWith(
       expect.objectContaining({
         database: adapterInstance,
+        session: {
+          expiresIn: 180 * 24 * 60 * 60,
+          updateAge: 24 * 60 * 60,
+        },
         socialProviders: {
           google: expect.objectContaining({
             accessType: "offline",

@@ -64,6 +64,13 @@ describe("Better Auth server auth context", () => {
 
     await expect(getServerBetterAuthSession()).resolves.toEqual(session);
     expect(getSession).toHaveBeenCalledTimes(2);
+    for (const [sessionLookup] of getSession.mock.calls) {
+      // Server renders cannot write cookies, so they must never renew the session.
+      expect(sessionLookup).toEqual({
+        headers: expect.any(Headers),
+        query: { disableRefresh: true },
+      });
+    }
     expect(createServerLogger).toHaveBeenCalledWith({
       feature: "auth",
       operation: "better_auth_session_lookup",

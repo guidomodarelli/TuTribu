@@ -3,9 +3,11 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 const socialSignInMock = vi.fn();
 const signOutMock = vi.fn();
+const getSessionMock = vi.fn();
 
 vi.mock("better-auth/client", () => ({
   createAuthClient: () => ({
+    getSession: (...args: unknown[]) => getSessionMock(...args),
     signIn: {
       social: (...args: unknown[]) => socialSignInMock(...args),
     },
@@ -84,5 +86,53 @@ describe("Better Auth client", () => {
     );
 
     await expect(signOutMember()).rejects.toThrow("sign_out_rejected");
+  });
+
+  it("reports an active session after the keep-alive request renews it", async () => {
+    const abortController = new AbortController();
+    getSessionMock.mockResolvedValue({
+      data: { session: { id: "session-1" }, user: { id: "member-1" } },
+      error: null,
+    });
+
+    const { refreshMemberSession } = await import(
+      "@/src/modules/auth/infrastructure/better-auth/client"
+    );
+
+    await expect(refreshMemberSession(abortController.signal)).resolves.toBe(
+      "active"
+    );
+    expect(getSessionMock).toHaveBeenCalledWith({
+      fetchOptions: { signal: abortController.signal },
+    });
+  });
+
+  it("reports an expired session when Better Auth no longer recognizes the cookie", async () => {
+    getSessionMock.mockResolvedValue({ data: null, error: null });
+
+    const { refreshMemberSession } = await import(
+      "@/src/modules/auth/infrastructure/better-auth/client"
+    );
+
+    await expect(
+      refreshMemberSession(new AbortController().signal)
+    ).resolves.toBe("expired");
+  });
+
+  it("reports a failed refresh when the session endpoint errors or the network drops", async () => {
+    getSessionMock
+      .mockResolvedValueOnce({ data: null, error: { status: 500 } })
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    const { refreshMemberSession } = await import(
+      "@/src/modules/auth/infrastructure/better-auth/client"
+    );
+
+    await expect(
+      refreshMemberSession(new AbortController().signal)
+    ).resolves.toBe("failed");
+    await expect(
+      refreshMemberSession(new AbortController().signal)
+    ).resolves.toBe("failed");
   });
 });
