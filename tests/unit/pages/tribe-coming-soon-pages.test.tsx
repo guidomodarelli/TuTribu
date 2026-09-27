@@ -2,7 +2,7 @@ import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { renderServerComponent } from "@/tests/render-server-component";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import TribeEventsPage from "@/app/(platform)/[slug]/eventos/page";
 import TribeMeritsPage from "@/app/(platform)/[slug]/meritos/page";
@@ -18,6 +18,7 @@ const errorMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
+  redirect: vi.fn(),
   useRouter: () => ({
     refresh: vi.fn(),
   }),
@@ -388,14 +389,14 @@ describe("tribe coming soon pages", () => {
     }
   });
 
-  it("returns 404 when the viewer is not authenticated", async () => {
+  it("sends a visitor without a session to sign-in and back to the same events deep link", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
       status: "hidden" as const,
       reason: "unauthenticated_hidden",
     });
-    (notFound as unknown as Mock).mockImplementation(function () {
-      throw new Error("NEXT_NOT_FOUND");
+    (redirect as unknown as Mock).mockImplementation(function () {
+      throw new Error("NEXT_REDIRECT");
     });
 
     await expect(
@@ -403,18 +404,34 @@ describe("tribe coming soon pages", () => {
         params: Promise.resolve({
           slug: "matematica-pro",
         }),
+        searchParams: Promise.resolve({ month: "2026-05" }),
       })
-    ).rejects.toThrow("NEXT_NOT_FOUND");
+    ).rejects.toThrow("NEXT_REDIRECT");
 
-    expect(notFound).toHaveBeenCalled();
-    expect(infoMock).toHaveBeenCalledWith({
-      message: "Tribe access hidden",
-      metadata: expect.objectContaining({
-        reason: "unauthenticated_hidden",
-        slug: "matematica-pro",
-        viewerId: null,
-      }),
+    expect(redirect).toHaveBeenCalledWith(
+      "/auth/signin?callbackUrl=%2Fmatematica-pro%2Feventos%3Fmonth%3D2026-05"
+    );
+    expect(notFound).not.toHaveBeenCalled();
+    expect(listTribeEvents).not.toHaveBeenCalled();
+  });
+
+  it("sends a visitor without a session on a coming-soon section back to it after sign-in", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden" as const,
+      reason: "unauthenticated_hidden",
     });
+    (redirect as unknown as Mock).mockImplementation(function () {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(
+      renderServerComponent(<TribeMeritsPage params={Promise.resolve({ slug: "matematica-pro" })} />)
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(redirect).toHaveBeenCalledWith(
+      "/auth/signin?callbackUrl=%2Fmatematica-pro%2Fmeritos"
+    );
   });
 
   it("returns 404 when tribe access is hidden", async () => {

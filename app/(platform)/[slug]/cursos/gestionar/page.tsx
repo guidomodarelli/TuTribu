@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { TribeCoursesCatalogManagement } from "@/components/courses/tribe-courses-catalog-management";
 import { TribeCoursesManagement } from "@/components/courses/tribe-courses-management";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../../tribe-page-access";
 
 const TRIBE_COURSES_MANAGE_PAGE = {
@@ -27,6 +28,7 @@ export default async function TribeCoursesManagePage({
   ]);
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({
+      callbackPath: ROUTES.tribes.coursesManage(slug),
       operation: TRIBE_COURSES_MANAGE_PAGE.operation,
       slug,
     });

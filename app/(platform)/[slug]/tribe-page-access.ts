@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
+import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { TRIBE_PAGE_ACCESS_STATUS } from "@/src/modules/tribes/application/results/tribe-page-access-result";
 import { createRequestModules } from "@/src/modules/setup";
@@ -17,15 +18,24 @@ const TRIBE_PAGE_ACCESS_LOG = {
   resolveAccessFailureMessage: "Failed to resolve tribe access",
 } as const;
 
-type ResolveVisibleTribePageAccessOptions = {
+type ResolveTribePageAccessOptions = {
   operation: string;
   slug: string;
+};
+
+type ResolveVisibleTribePageAccessOptions = ResolveTribePageAccessOptions & {
+  /**
+   * Internal path (with any query worth keeping) of the page being rendered.
+   * A visitor without a session is sent to sign-in with this path as the
+   * callback, so a member whose session expired lands back on the same page.
+   */
+  callbackPath: string;
 };
 
 export async function resolveTribePageAccess({
   operation,
   slug,
-}: ResolveVisibleTribePageAccessOptions) {
+}: ResolveTribePageAccessOptions) {
   const requestHeaders = await headers();
   const { requestId } = resolveRequestContext(requestHeaders);
   const logger = createServerLogger({
@@ -93,9 +103,21 @@ export async function resolveTribePageAccess({
   };
 }
 
-export async function resolveVisibleTribePageAccess(
-  options: ResolveVisibleTribePageAccessOptions
-) {
+/**
+ * Resolves the access of a tribe section page that only members can see.
+ *
+ * A visitor without a session is redirected to sign-in with `callbackPath`, the
+ * same rule the tribe home applies, so losing the session (or opening a saved
+ * link while signed out) never ends in a misleading 404. Signed-in viewers
+ * without access still get `notFound()` so hidden tribes stay hidden.
+ *
+ * @param options - Log operation, tribe slug, and the page's callback path.
+ * @returns The authenticated member, the visible tribe, and request modules.
+ */
+export async function resolveVisibleTribePageAccess({
+  callbackPath,
+  ...options
+}: ResolveVisibleTribePageAccessOptions) {
   const access = await resolveTribePageAccess(options).catch(() => {
     notFound();
   });
@@ -112,20 +134,20 @@ export async function resolveVisibleTribePageAccess(
     subscriptionReconciliationResult,
   } = access;
 
+  if (!authenticatedMember) {
+    redirect(buildSignInRedirectUrl(callbackPath));
+  }
+
   if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.hidden) {
     logger.info({
       message: TRIBE_PAGE_ACCESS_LOG.hiddenAccessMessage,
       metadata: {
         reason: accessResult.reason,
         slug: options.slug,
-        viewerId: authenticatedMember?.id ?? null,
+        viewerId: authenticatedMember.id,
       },
     });
 
-    notFound();
-  }
-
-  if (!authenticatedMember) {
     notFound();
   }
 

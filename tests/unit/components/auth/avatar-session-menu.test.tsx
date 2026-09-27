@@ -6,7 +6,7 @@ import { toast } from "beez-ui";
 
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 
-const pushMock = vi.fn();
+const replaceCurrentPageWithUrlMock = vi.fn();
 const toastErrorMock = vi.fn();
 const signOutMock = vi.fn();
 const refreshRouteMock = vi.fn();
@@ -24,6 +24,12 @@ vi.mock("beez-ui", async () => ({
   },
 }));
 
+// Project-owned browser boundary: jsdom cannot perform a full document navigation.
+vi.mock("@/lib/browser-navigation", () => ({
+  replaceCurrentPageWithUrl: (...args: unknown[]) =>
+    replaceCurrentPageWithUrlMock(...args),
+}));
+
 vi.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
   refreshMemberSession: (...args: unknown[]) => refreshMemberSessionMock(...args),
   signOutMember: (...args: unknown[]) => signOutMock(...args),
@@ -32,7 +38,7 @@ vi.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
 describe("AvatarSessionMenuClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    pushMock.mockReset();
+    replaceCurrentPageWithUrlMock.mockReset();
     signOutMock.mockReset();
     signOutMock.mockResolvedValue(undefined);
     refreshRouteMock.mockReset();
@@ -40,7 +46,6 @@ describe("AvatarSessionMenuClient", () => {
     refreshMemberSessionMock.mockResolvedValue("active");
 
     (useRouter as Mock).mockReturnValue({
-      push: pushMock,
       refresh: refreshRouteMock,
     });
     (toast.error as Mock).mockImplementation(toastErrorMock);
@@ -53,7 +58,7 @@ describe("AvatarSessionMenuClient", () => {
       <AvatarSessionMenuClient
         authenticatedMember={null}
         signInPath="/auth/signin"
-        signOutCallbackUrl="/auth/signin"
+        signOutCallbackUrl="/"
       />
     );
 
@@ -80,7 +85,7 @@ describe("AvatarSessionMenuClient", () => {
           image: null,
         }}
         signInPath="/auth/signin"
-        signOutCallbackUrl="/auth/signin"
+        signOutCallbackUrl="/"
       />
     );
 
@@ -94,7 +99,8 @@ describe("AvatarSessionMenuClient", () => {
     await user.click(screen.getByRole("menuitem", { name: /cerrar sesión/i }));
 
     expect(signOutMock).toHaveBeenCalledWith();
-    expect(pushMock).toHaveBeenCalledWith("/auth/signin");
+    // Full load that replaces the history entry: Back cannot reopen the signed-in page.
+    expect(replaceCurrentPageWithUrlMock).toHaveBeenCalledWith("/");
   });
 
   it("names the member avatar only on the menu trigger after opening the dropdown", async () => {
@@ -111,7 +117,7 @@ describe("AvatarSessionMenuClient", () => {
           image: "https://example.com/grace-hopper.jpg",
         }}
         signInPath="/auth/signin"
-        signOutCallbackUrl="/auth/signin"
+        signOutCallbackUrl="/"
       />
     );
 
@@ -134,7 +140,7 @@ describe("AvatarSessionMenuClient", () => {
           image: "https://example.com/grace-hopper.jpg",
         }}
         signInPath="/auth/signin"
-        signOutCallbackUrl="/auth/signin"
+        signOutCallbackUrl="/"
       />
     );
 
@@ -161,7 +167,7 @@ describe("AvatarSessionMenuClient", () => {
           image: null,
         }}
         signInPath="/auth/signin"
-        signOutCallbackUrl="/auth/signin"
+        signOutCallbackUrl="/"
       />
     );
 
@@ -176,11 +182,12 @@ describe("AvatarSessionMenuClient", () => {
     resolveSignOut();
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/auth/signin");
+      expect(replaceCurrentPageWithUrlMock).toHaveBeenCalledWith("/");
     });
+    expect(replaceCurrentPageWithUrlMock).toHaveBeenCalledTimes(1);
   });
 
-  it("shows feedback and redirects safely when sign-out fails", async () => {
+  it("keeps the member on the current page with feedback when sign-out fails", async () => {
     const user = userEvent.setup();
     signOutMock.mockRejectedValue(new Error("sign_out_failure"));
 
@@ -195,7 +202,7 @@ describe("AvatarSessionMenuClient", () => {
           image: null,
         }}
         signInPath="/auth/signin"
-        signOutCallbackUrl="/auth/signin"
+        signOutCallbackUrl="/"
       />
     );
 
@@ -207,7 +214,17 @@ describe("AvatarSessionMenuClient", () => {
         "No pudimos cerrar la sesión. Intentá de nuevo."
       );
     });
-    expect(pushMock).toHaveBeenCalledWith("/auth/error");
+    expect(replaceCurrentPageWithUrlMock).not.toHaveBeenCalled();
+
+    // The action is enabled again, so the member can retry from the same page.
+    signOutMock.mockResolvedValue(undefined);
+    await user.click(screen.getByRole("button", { name: /menú de cuenta/i }));
+    await user.click(screen.getByRole("menuitem", { name: /cerrar sesión/i }));
+
+    await waitFor(() => {
+      expect(replaceCurrentPageWithUrlMock).toHaveBeenCalledWith("/");
+    });
+    expect(signOutMock).toHaveBeenCalledTimes(2);
   });
 
   describe("session keep-alive", () => {
@@ -226,7 +243,7 @@ describe("AvatarSessionMenuClient", () => {
         <AvatarSessionMenuClient
           authenticatedMember={member}
           signInPath="/auth/signin"
-          signOutCallbackUrl="/auth/signin"
+          signOutCallbackUrl="/"
         />
       );
     }

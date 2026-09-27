@@ -4,6 +4,7 @@ import { TribeCoursesCatalog } from "@/components/courses/tribe-courses-catalog"
 import { TribeCoursesView } from "@/components/courses/tribe-courses-view";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import type { CourseWithModulesResult } from "@/src/modules/courses/application/results/course-results";
+import { buildTribeCoursesRoute } from "@/lib/courses/course-lesson-route";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
 const TRIBE_COURSES_PAGE = {
@@ -55,6 +56,11 @@ export default async function TribeCoursesPage({
   ]);
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({
+      // Keeps the open course and lesson so sign-in returns to the same view.
+      callbackPath: buildTribeCoursesRoute(slug, {
+        courseId: resolvedSearchParams?.curso,
+        lessonId: resolvedSearchParams?.leccion,
+      }),
       operation: TRIBE_COURSES_PAGE.operation,
       slug,
     });

@@ -12,6 +12,7 @@ import {
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
 const PRICE_MANAGEMENT_PAGE_LOG = {
@@ -141,6 +142,7 @@ export default async function TribePricesPage({
   const queryStatusMessage = resolveStatusMessage(status);
   const { authenticatedMember, tribe, logger, modules } =
     await resolveVisibleTribePageAccess({
+      callbackPath: ROUTES.tribes.prices(slug),
       operation: PRICE_MANAGEMENT_PAGE_LOG.operation,
       slug,
     });

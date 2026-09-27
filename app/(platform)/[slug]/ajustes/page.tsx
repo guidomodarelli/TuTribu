@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { TribeSettingsManagement } from "@/components/tribes/tribe-settings-management";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 import styles from "./page.module.scss";
 
@@ -25,6 +26,7 @@ export default async function TribeSettingsPage({
   const { slug } = await params;
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({
+      callbackPath: ROUTES.tribes.settings(slug),
       operation: TRIBE_SETTINGS_PAGE.operation,
       slug,
     });

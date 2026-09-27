@@ -1,9 +1,26 @@
+/** Navigation Timing type of a document reached with Back or Forward. */
+const BACK_FORWARD_NAVIGATION_TYPE = "back_forward";
+/** `TYPE_BACK_FORWARD` of the legacy `performance.navigation` API (older WebKit). */
+const LEGACY_BACK_FORWARD_NAVIGATION_TYPE = 2;
+
 export function reloadCurrentPage(): void {
   window.location.reload();
 }
 
 export function navigateToUrl(url: string): void {
   window.location.href = url;
+}
+
+/**
+ * Loads `url` as a full document and replaces the current history entry, so
+ * Back cannot return to the page being left. A full load also drops the
+ * client router cache and in-memory state, which is what a change of the
+ * authentication state (such as signing out) requires.
+ *
+ * @param url - Same-origin path or absolute URL to load.
+ */
+export function replaceCurrentPageWithUrl(url: string): void {
+  window.location.replace(url);
 }
 
 /**
@@ -51,4 +68,26 @@ export function replaceCurrentUrlSearchParamValues(
   }
 
   window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+}
+
+/**
+ * Tells whether the current document was loaded through Back or Forward. Uses
+ * Navigation Timing Level 2 when available and falls back to the legacy
+ * `performance.navigation` API for older WebKit; without either it reports
+ * `false`.
+ *
+ * @returns Whether the document load came from the history traversal.
+ */
+export function isBackForwardDocumentLoad(): boolean {
+  if (typeof performance.getEntriesByType === "function") {
+    const [navigationEntry] = performance.getEntriesByType("navigation");
+
+    if (navigationEntry && "type" in navigationEntry) {
+      return navigationEntry.type === BACK_FORWARD_NAVIGATION_TYPE;
+    }
+  }
+
+  return (
+    performance.navigation?.type === LEGACY_BACK_FORWARD_NAVIGATION_TYPE
+  );
 }

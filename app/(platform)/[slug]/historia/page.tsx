@@ -5,7 +5,7 @@ import { TribeStoryManagement } from "@/components/tribes/tribe-story-management
 import { buildRichMarkdownExcerpt } from "beez-ui";
 import { createRequestModules } from "@/src/modules/setup";
 import { getCachedPublicTribeStoryAbout } from "@/src/modules/tribes/infrastructure/cache/tribe-story-about-cache";
-import { QUERY_PARAMS } from "@/src/constants/query-params";
+import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { ROUTES } from "@/src/constants/routes";
 import { TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { TRIBE_FREE_JOIN_STATUS } from "@/src/modules/tribes/constants/tribe-story";
@@ -46,11 +46,7 @@ function canReadTribeStory(membershipStatus: string | null): boolean {
 }
 
 function buildStorySignInRedirect(slug: string): string {
-  const signInSearchParams = new URLSearchParams({
-    [QUERY_PARAMS.auth.callbackUrl]: ROUTES.tribes.history(slug),
-  });
-
-  return `${ROUTES.auth.signIn}?${signInSearchParams.toString()}`;
+  return buildSignInRedirectUrl(ROUTES.tribes.history(slug));
 }
 
 /**

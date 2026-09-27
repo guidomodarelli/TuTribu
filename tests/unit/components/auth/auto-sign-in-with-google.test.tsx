@@ -7,9 +7,15 @@ import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google
 
 const startGoogleSignInMock = vi.fn();
 const pushMock = vi.fn();
+const isBackForwardDocumentLoadMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: vi.fn(),
+}));
+
+// Project-owned browser boundary: jsdom has no Navigation Timing entries to fake.
+vi.mock("@/lib/browser-navigation", () => ({
+  isBackForwardDocumentLoad: () => isBackForwardDocumentLoadMock(),
 }));
 
 vi.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
@@ -22,6 +28,8 @@ describe("AutoSignInWithGoogle", () => {
     startGoogleSignInMock.mockReset();
     pushMock.mockReset();
     startGoogleSignInMock.mockResolvedValue(undefined);
+    isBackForwardDocumentLoadMock.mockReset();
+    isBackForwardDocumentLoadMock.mockReturnValue(false);
     (useRouter as Mock).mockReturnValue({
       push: pushMock,
     });
@@ -69,5 +77,25 @@ describe("AutoSignInWithGoogle", () => {
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith("/auth/error");
     });
+  });
+
+  it("offers only the manual button when the member comes back from Google with Back", async () => {
+    const user = userEvent.setup();
+    isBackForwardDocumentLoadMock.mockReturnValue(true);
+
+    render(<AutoSignInWithGoogle callbackUrl="/matematica-pro" />);
+
+    expect(
+      await screen.findByText(/iniciá sesión con tu cuenta de google para continuar/i)
+    ).toBeInTheDocument();
+    expect(startGoogleSignInMock).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /iniciar sesión con google/i,
+      })
+    );
+
+    expect(startGoogleSignInMock).toHaveBeenCalledWith("/matematica-pro");
   });
 });

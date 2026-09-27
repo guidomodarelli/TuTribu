@@ -4,10 +4,12 @@
  * @module tribe-subscription-page
  */
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { TribeSubscriptionPaymentStatus } from "@/components/subscriptions/tribe-subscription-payment-status";
 import { TribeSubscriptionSelfManagement } from "@/components/subscriptions/tribe-subscription-self-management";
+import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
+import { ROUTES } from "@/src/constants/routes";
 import type { TribeMemberSubscriptionStatusResult } from "@/src/modules/subscriptions/application/results/tribe-member-subscription-result";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import {
@@ -99,7 +101,7 @@ export default async function TribeSubscriptionPage({
   } = access;
 
   if (!authenticatedMember) {
-    notFound();
+    redirect(buildSignInRedirectUrl(ROUTES.tribes.subscription(slug)));
   }
 
   if (accessResult.status === TRIBE_PAGE_ACCESS_STATUS.visible) {

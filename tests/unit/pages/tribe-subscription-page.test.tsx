@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import TribeSubscriptionPage from "@/app/(platform)/[slug]/suscripcion/page";
 import { createRequestModules } from "@/src/modules/setup";
@@ -14,6 +14,7 @@ const reconcileCurrentTribeMemberSubscription = vi.fn();
 
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
+  redirect: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -212,18 +213,22 @@ describe("TribeSubscriptionPage", () => {
     }
   );
 
-  it("returns 404 for unauthenticated access", async () => {
+  it("sends a visitor without a session to sign-in and back to the subscription page", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
     getTribePageAccess.mockResolvedValue({
       status: "hidden" as const,
       reason: "unauthenticated_hidden",
     });
-    (notFound as unknown as Mock).mockImplementation(function () {
-      throw new Error("NEXT_NOT_FOUND");
+    (redirect as unknown as Mock).mockImplementation(function () {
+      throw new Error("NEXT_REDIRECT");
     });
 
     await expect(TribeSubscriptionPage(buildPageProps())).rejects.toThrow(
-      "NEXT_NOT_FOUND"
+      "NEXT_REDIRECT"
     );
+    expect(redirect).toHaveBeenCalledWith(
+      "/auth/signin?callbackUrl=%2Fmatematica-pro%2Fsuscripcion"
+    );
+    expect(notFound).not.toHaveBeenCalled();
   });
 });

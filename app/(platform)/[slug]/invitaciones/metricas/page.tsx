@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "beez-ui";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import type { TribeInvitationConversionMetricResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
+import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../../tribe-page-access";
 import styles from "./styles.module.scss";
 
@@ -117,6 +118,7 @@ export default async function TribeInvitationMetricsPage({
   const { slug } = await params;
   const { authenticatedMember, tribe, logger, modules } =
     await resolveVisibleTribePageAccess({
+      callbackPath: ROUTES.tribes.invitationMetrics(slug),
       operation: INVITATION_METRICS_PAGE_LOG.operation,
       slug,
     });

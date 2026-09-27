@@ -14,6 +14,7 @@ import {
   isPrivilegedTribeMemberRole,
 } from "@/src/modules/tribes/constants/tribe-member-role";
 import type { TribeMemberRole } from "@/src/modules/tribes/application/results/tribe-member-result";
+import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 import styles from "./page.module.scss";
 
@@ -55,6 +56,7 @@ export default async function TribeTribePage({
   const { slug } = await params;
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({
+      callbackPath: ROUTES.tribes.tribe(slug),
       operation: TRIBE_TRIBE_PAGE.operation,
       slug,
     });

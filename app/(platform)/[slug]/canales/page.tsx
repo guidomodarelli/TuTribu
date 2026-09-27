@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { TribeChannelManagement } from "@/components/tribe-round/tribe-channel-management";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
 const CHANNEL_MANAGEMENT_PAGE_LOG = {
@@ -24,6 +25,7 @@ export default async function TribeChannelsPage({
   const { slug } = await params;
   const { authenticatedMember, tribe, logger, modules } =
     await resolveVisibleTribePageAccess({
+      callbackPath: ROUTES.tribes.channels(slug),
       operation: CHANNEL_MANAGEMENT_PAGE_LOG.operation,
       slug,
     });

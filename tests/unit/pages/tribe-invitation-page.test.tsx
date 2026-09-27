@@ -114,7 +114,7 @@ describe("TribeInvitationPage", () => {
     await expect(TribeInvitationPage(buildPageProps())).rejects.toThrow("NEXT_REDIRECT");
 
     expect(redirect).toHaveBeenCalledWith(
-      "/auth/signin?callbackUrl=/matematica-pro/invitar/invitation-token"
+      "/auth/signin?callbackUrl=%2Fmatematica-pro%2Finvitar%2Finvitation-token"
     );
     expect(acceptTribeInvitation).not.toHaveBeenCalled();
   });
@@ -295,7 +295,7 @@ describe("TribeInvitationPage", () => {
     ).rejects.toThrow("NEXT_REDIRECT");
 
     expect(redirect).toHaveBeenCalledWith(
-      "/auth/signin?callbackUrl=/matematica-pro/invitar/invitation-token"
+      "/auth/signin?callbackUrl=%2Fmatematica-pro%2Finvitar%2Finvitation-token"
     );
     expect(startTribeMemberSubscription).not.toHaveBeenCalled();
   });

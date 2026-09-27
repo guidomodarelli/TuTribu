@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { TribeInvitationManagement } from "@/components/tribes/tribe-invitation-management";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
+import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
 const INVITATION_MANAGEMENT_PAGE_LOG = {
@@ -30,6 +31,7 @@ export default async function TribeInvitationsPage({
   const { slug } = await params;
   const { authenticatedMember, tribe, logger, modules } =
     await resolveVisibleTribePageAccess({
+      callbackPath: ROUTES.tribes.invitations(slug),
       operation: INVITATION_MANAGEMENT_PAGE_LOG.operation,
       slug,
     });

@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { replaceCurrentUrlSearchParams } from "@/lib/browser-navigation";
+import {
+  isBackForwardDocumentLoad,
+  replaceCurrentUrlSearchParams,
+} from "@/lib/browser-navigation";
 
 describe("replaceCurrentUrlSearchParams", () => {
   afterEach(() => {
@@ -31,5 +34,46 @@ describe("replaceCurrentUrlSearchParams", () => {
     expect(window.location.search).toBe("?month=2026-05");
     expect(window.location.hash).toBe("#detalle");
     expect(window.history.length).toBe(historyLength);
+  });
+});
+
+describe("isBackForwardDocumentLoad", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    Reflect.deleteProperty(performance, "navigation");
+  });
+
+  function stubNavigationEntries(entries: object[]) {
+    vi.spyOn(performance, "getEntriesByType").mockReturnValue(
+      entries as PerformanceEntryList
+    );
+  }
+
+  it("reports a document reached with Back or Forward", () => {
+    stubNavigationEntries([{ entryType: "navigation", type: "back_forward" }]);
+
+    expect(isBackForwardDocumentLoad()).toBe(true);
+  });
+
+  it("reports a regular navigation or reload as not coming from history", () => {
+    stubNavigationEntries([{ entryType: "navigation", type: "navigate" }]);
+
+    expect(isBackForwardDocumentLoad()).toBe(false);
+  });
+
+  it("falls back to the legacy navigation API when Navigation Timing has no entry", () => {
+    stubNavigationEntries([]);
+    Object.defineProperty(performance, "navigation", {
+      configurable: true,
+      value: { type: 2 },
+    });
+
+    expect(isBackForwardDocumentLoad()).toBe(true);
+  });
+
+  it("reports false when the browser exposes neither API", () => {
+    stubNavigationEntries([]);
+
+    expect(isBackForwardDocumentLoad()).toBe(false);
   });
 });

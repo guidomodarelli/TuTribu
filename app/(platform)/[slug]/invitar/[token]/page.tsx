@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { Link } from "@/components/navigation/link";
 import { Button } from "beez-ui";
-import { QUERY_PARAMS } from "@/src/constants/query-params";
+import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
 import { getServerBetterAuthSession as getSession } from "@/src/modules/auth/infrastructure/better-auth/server-auth-context";
@@ -85,15 +85,7 @@ type AcceptInvitationActionInput = {
 };
 
 function buildSignInRedirectPath(slug: string, token: string): string {
-  const callbackUrl = ROUTES.tribes.invitation(slug, token);
-
-  return (
-    ROUTES.auth.signIn +
-    INVITATION_PAGE_ROUTE.querySeparator +
-    QUERY_PARAMS.auth.callbackUrl +
-    INVITATION_PAGE_ROUTE.valueSeparator +
-    callbackUrl
-  );
+  return buildSignInRedirectUrl(ROUTES.tribes.invitation(slug, token));
 }
 
 function renderInvitationStatus(title: string, description: string) {

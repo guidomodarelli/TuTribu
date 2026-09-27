@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { TribeWelcomeManagement } from "@/components/tribes/tribe-welcome-management";
 import { TribeWelcomeSelectionModal } from "@/components/tribes/tribe-welcome-selection-modal";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import { ROUTES } from "@/src/constants/routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 import styles from "./page.module.scss";
 
@@ -34,6 +35,7 @@ export default async function TribeWelcomePage({
   const { slug } = await params;
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({
+      callbackPath: ROUTES.tribes.welcome(slug),
       operation: TRIBE_WELCOME_PAGE.operation,
       slug,
     });

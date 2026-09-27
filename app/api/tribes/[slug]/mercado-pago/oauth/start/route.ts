@@ -10,6 +10,7 @@ import { TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/con
 import { buildMercadoPagoAuthorizationUrl } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import { buildMercadoPagoOAuthState } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-oauth-state";
 import { createRequestModules } from "@/src/modules/setup";
+import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { ROUTES } from "@/src/constants/routes";
 
 const MERCADO_PAGO_OAUTH_ROLE = {
@@ -56,7 +57,8 @@ export async function GET(
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
-    redirect(ROUTES.auth.signIn);
+    // Back to the prices page: the leader restarts the connection from there.
+    redirect(buildSignInRedirectUrl(ROUTES.tribes.prices(slug)));
   }
 
   const currentMembership = (

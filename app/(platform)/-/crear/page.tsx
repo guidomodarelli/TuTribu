@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { TribeCreationBlocked } from "@/components/tribes/tribe-creation-blocked";
 import { CreateTribeForm } from "@/components/tribes/create-tribe-form";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
+import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { ROUTES } from "@/src/constants/routes";
 import {
   CREATE_TRIBE_ERROR_CODE,
@@ -16,16 +17,12 @@ import { resolveRequestContext } from "@/src/modules/shared/infrastructure/obser
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import styles from "./page.module.scss";
 
-const AUTH_CALLBACK_URL_SEARCH_PARAM = new URLSearchParams({
-  [QUERY_PARAMS.auth.callbackUrl]: ROUTES.tribes.create,
-});
 const CREATE_TRIBE_PAGE_LOG = {
   feature: "tribes",
   operation: "create-tribe-page",
   resolveEligibilityFailureMessage: "Failed to resolve tribe creation eligibility",
   resolveSessionFailureMessage: "Failed to resolve session for tribe creation page",
 } as const;
-const URL_QUERY_SEPARATOR = "?";
 
 type CreateTribeSearchParams = {
   [key: string]: string | string[] | undefined;
@@ -90,11 +87,7 @@ export default async function CreateTribePage({
     .catch(logSessionResolutionFailure);
 
   if (!authenticatedMember) {
-    redirect(
-      ROUTES.auth.signIn +
-        URL_QUERY_SEPARATOR +
-        AUTH_CALLBACK_URL_SEARCH_PARAM.toString()
-    );
+    redirect(buildSignInRedirectUrl(ROUTES.tribes.create));
   }
 
   const [eligibility, resolvedSearchParams] = await Promise.all([

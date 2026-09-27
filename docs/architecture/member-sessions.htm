@@ -86,10 +86,24 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 
 <div class="section">
   <div class="section-num">06</div>
+  <div class="section-title">Perdida de sesion, inicio y cierre</div>
+<p>Toda redireccion al inicio de sesion usa <code>buildSignInRedirectUrl</code> (<code>lib/auth/sign-in-redirect.ts</code>), que codifica la ruta de retorno en <code>callbackUrl</code> para que sobrevivan su query y los caracteres reservados. <code>resolveSafeCallbackUrl</code> (<code>app/auth/signin/sign-in-content.tsx</code>) solo acepta rutas del mismo origen, resueltas con el parser de URL del navegador.</p>
+<ul>
+  <li><strong>Secciones de una tribu sin sesion.</strong> <code>resolveVisibleTribePageAccess</code> recibe el <code>callbackPath</code> de cada pagina y, si no hay miembro autenticado, redirige al inicio de sesion con esa ruta en lugar de responder 404. Eventos conserva el mes, la ocurrencia y el filtro; cursos conserva el curso y la leccion abiertos. Un miembro autenticado sin acceso sigue recibiendo <code>notFound()</code>. Asi, cuando el keep-alive detecta la sesion vencida y hace <code>router.refresh()</code>, el miembro vuelve a la misma pagina despues de iniciar sesion. <code>/[slug]/suscripcion</code>, las acciones de invitacion y el inicio de la conexion con Mercado Pago aplican la misma regla.</li>
+  <li><strong>Cierre de sesion.</strong> Tras un <code>signOut</code> exitoso, <code>AvatarSessionMenuClient</code> carga <code>/</code> como documento completo con <code>replaceCurrentPageWithUrl</code> (<code>location.replace</code>). La carga completa descarta el cache del router y el estado del miembro en memoria; el reemplazo evita que Atras vuelva a la vista autenticada. No se usa <code>/auth/signin</code> como destino porque esa pagina arranca OAuth automaticamente.</li>
+  <li><strong>Fallo al cerrar sesion.</strong> El miembro se queda en la pagina actual con un toast y la accion habilitada para reintentar. No se navega a <code>/auth/error</code>: esa pagina describe fallos del acceso con Google y redirige al inicio a un miembro autenticado.</li>
+  <li><strong>Volver desde Google.</strong> <code>AutoSignInWithGoogle</code> no arranca OAuth si el documento se cargo con Atras o Adelante (<code>isBackForwardDocumentLoad</code>, con Navigation Timing y fallback a <code>performance.navigation</code> para WebKit anterior). Solo ofrece el boton manual, para no atrapar al usuario en un loop de redirecciones.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
   <div class="section-title">Cobertura</div>
 <ul>
   <li><code>tests/unit/modules/auth/infrastructure/better-auth-session-lifetime.test.ts</code>: Better Auth real con adapter en memoria. Verifica la cookie de 180 dias, la renovacion via <code>/api/auth/get-session</code> y que la lectura con <code>disableRefresh</code> no toca la base.</li>
-  <li><code>better-auth-server-auth-context.test.ts</code>, <code>better-auth-client.test.ts</code> y <code>avatar-session-menu.test.tsx</code>: wiring de la lectura sin renovar, los estados del keep-alive, el throttle y la cancelacion.</li>
+  <li><code>better-auth-server-auth-context.test.ts</code>, <code>better-auth-client.test.ts</code> y <code>avatar-session-menu.test.tsx</code>: wiring de la lectura sin renovar, los estados del keep-alive, el throttle, la cancelacion y el cierre de sesion (exito y fallo).</li>
+  <li><code>signin-page.test.tsx</code> y <code>auto-sign-in-with-google.test.tsx</code>: callbacks inseguros y el inicio automatico omitido al volver con Atras.</li>
+  <li><code>tribe-coming-soon-pages.test.tsx</code>, <code>tribe-subscription-page.test.tsx</code> y <code>tribe-invitation-page.test.tsx</code>: redireccion al inicio de sesion con la ruta de retorno cuando no hay sesion.</li>
 </ul>
 </div>
 

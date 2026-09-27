@@ -131,7 +131,7 @@ function PlatformLayoutShell({
               <AvatarSessionMenuClient
                 authenticatedMember={authenticatedMember}
                 signInPath={ROUTES.auth.signIn}
-                signOutCallbackUrl={ROUTES.auth.signIn}
+                signOutCallbackUrl={ROUTES.home}
               />
             </div>
           </header>

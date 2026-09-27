@@ -14,6 +14,7 @@ import {
   logRejectedTribeEventPublicDto,
   parseTribeEventPublicDto,
 } from "@/src/modules/events/infrastructure/api/tribe-event-public-response";
+import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
 const TRIBE_EVENTS_PAGE = {
@@ -55,6 +56,12 @@ export default async function TribeEventsPage({
   const pageQuery = parsedQuery.success ? parsedQuery.data : {};
   const { authenticatedMember, logger, modules } =
     await resolveVisibleTribePageAccess({
+      // Keeps the validated deep link so sign-in reopens the same month and event.
+      callbackPath: buildTribeEventsRoute(slug, {
+        eventTypes: pageQuery.type,
+        month: pageQuery.month,
+        occurrenceKey: pageQuery.event?.key,
+      }),
       operation: TRIBE_EVENTS_PAGE.operation,
       slug,
     });

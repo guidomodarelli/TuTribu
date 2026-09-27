@@ -11,7 +11,7 @@ import {
   TribeOpenJoin,
   TribeOpenJoinStatus,
 } from "@/components/subscriptions/tribe-open-join";
-import { QUERY_PARAMS } from "@/src/constants/query-params";
+import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { ROUTES } from "@/src/constants/routes";
 import { getServerBetterAuthSession as getSession } from "@/src/modules/auth/infrastructure/better-auth/server-auth-context";
 import { selectMessageIdsNeedingVideoThumbnail } from "@/src/modules/messages/application/use-cases/resolve-missing-video-thumbnails-use-case";
@@ -179,18 +179,8 @@ function buildSubscriptionReturnSignInRedirect(
   slug: string,
   mercadoPagoPreapprovalId: string
 ): string {
-  const callbackPath = buildSubscriptionReturnPath(
-    slug,
-    mercadoPagoPreapprovalId
-  );
-  const signInSearchParams = new URLSearchParams({
-    [QUERY_PARAMS.auth.callbackUrl]: callbackPath,
-  });
-
-  return (
-    ROUTES.auth.signIn +
-    SIGN_IN_REDIRECT_URL_TOKEN.querySeparator +
-    signInSearchParams.toString()
+  return buildSignInRedirectUrl(
+    buildSubscriptionReturnPath(slug, mercadoPagoPreapprovalId)
   );
 }
 
@@ -243,15 +233,7 @@ function renderOpenInExternalBrowserHandoff(
  * @returns Sign-in URL with the tribe link as the callback.
  */
 function buildJoinSignInRedirect(slug: string): string {
-  const signInSearchParams = new URLSearchParams({
-    [QUERY_PARAMS.auth.callbackUrl]: ROUTES.tribes.bySlug(slug),
-  });
-
-  return (
-    ROUTES.auth.signIn +
-    SIGN_IN_REDIRECT_URL_TOKEN.querySeparator +
-    signInSearchParams.toString()
-  );
+  return buildSignInRedirectUrl(ROUTES.tribes.bySlug(slug));
 }
 
 /**

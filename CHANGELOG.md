@@ -4,11 +4,18 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Al cerrar sesión volvés al inicio de TuTribu en lugar de ir directo a la pantalla de Google, y el botón Atrás ya no muestra tu cuenta.
+
 ### Fixed
 
 - La sesión ya no se cierra sola cada pocos días: mientras entres a TuTribu al menos una vez cada 180 días, seguís con la sesión iniciada.
 - Si tu sesión vence mientras tenés TuTribu abierto, la página se actualiza y te ofrece iniciar sesión de nuevo en lugar de mostrarte como conectado. También se actualiza si en otra pestaña iniciaste sesión con otra cuenta.
 - Si tu sesión se pierde justo antes de suscribirte desde una invitación, al volver a iniciar sesión regresás a esa invitación en lugar de ir al inicio.
+- Si tu sesión vence mientras estás en una sección de tu tribu (eventos, cursos, canales, ajustes y las demás), te pedimos iniciar sesión y volvés a la misma sección, en lugar de ver "Esta página no existe".
+- Si no se puede cerrar la sesión, seguís en la página donde estabas y podés reintentar desde ahí.
+- Si volvés con Atrás desde la pantalla de Google, TuTribu ya no te manda de nuevo a Google automáticamente: te muestra el botón para iniciar sesión cuando quieras.
 
 ### Security
 

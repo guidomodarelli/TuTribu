@@ -8,6 +8,7 @@ const TRIBE_ROUTE_SEGMENTS = {
   events: "eventos",
   welcome: "bienvenida",
   invitations: "invitaciones",
+  invitationMetrics: "invitaciones/metricas",
   invitation: "invitar",
   prices: "precios",
   subscription: "suscripcion",
@@ -45,6 +46,8 @@ export const ROUTES = {
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.welcome),
     invitations: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.invitations),
+    invitationMetrics: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.invitationMetrics),
     prices: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.prices),
     settings: (slug: string) =>
