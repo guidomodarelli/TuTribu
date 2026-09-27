@@ -1,8 +1,0 @@
-.AnimatedCollapse {
-  overflow: hidden;
-
-  // Released once the height settles so focus rings and popovers are not clipped.
-  &--settled {
-    overflow: visible;
-  }
-}
