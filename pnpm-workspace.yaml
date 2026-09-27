@@ -3,16 +3,6 @@ overrides:
   # functions (lab/oklch/color()) emitted by Tailwind v4, so screenshot capture
   # throws. html2canvas-pro is a drop-in v1-API fork that supports them.
   html2canvas: 'npm:html2canvas-pro@^1.5.13'
-peerDependencyRules:
-  # These exact plugin versions were exercised with ESLint 10.10.0 using the
-  # real config: full lint plus duplicate imports, missing alt, missing keys,
-  # and forbidden disable directives. Next presets retain fixupConfigRules.
-  # Revalidate before extending this compatibility allowance to newer versions.
-  allowedVersions:
-    'eslint-plugin-no-eslint-disable@3.0.2>eslint': '10.10.0'
-    'eslint-plugin-import@2.32.0>eslint': '10.10.0'
-    'eslint-plugin-jsx-a11y@6.10.2>eslint': '10.10.0'
-    'eslint-plugin-react@7.37.5>eslint': '10.10.0'
 allowBuilds:
   '@parcel/watcher': true
   esbuild: true

@@ -64,7 +64,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p>El hook corre mientras git ya abrió la conexión con el remoto. Por SSH, GitHub corta la conexión inactiva durante los ~10 minutos de <code>pnpm run ci</code> y el push falla aunque el gate haya pasado (código 141). Pushear por HTTPS (por ejemplo con <code>gh auth git-credential</code> como credential helper) o configurar <code>ServerAliveInterval</code> para <code>github.com</code> en <code>~/.ssh/config</code>.</p>
   <p>El script <code>commitlint</code> valida los últimos 30 mensajes contra <code>commitlint.config.mjs</code>. La configuración acepta el estilo real del repositorio: commits convencionales con prefijo, releases semver como <code>0.52.3</code> y títulos imperativos heredados sin prefijo.</p>
   <p>Los hooks <code>Stop</code> de agentes no deben duplicar el gate completo. Durante el trabajo, Codex y Claude ejecutan validaciones enfocadas al cambio; el <code>pre-push</code> corre el gate completo al pushear la rama.</p>
-  <p>Los outputs generados por builds, como <code>.next/</code> y <code>.open-next/</code>, no forman parte del código fuente validable y quedan fuera de ESLint. Los worktrees generados por agentes bajo <code>.claude/</code> tampoco: Vitest y ESLint los ignoran para que copias temporales no interfieran con la rama actual.</p>
+  <p>Los outputs generados por builds, como <code>.next/</code> y <code>.open-next/</code>, no forman parte del código fuente validable y quedan fuera de oxlint. Los worktrees generados por agentes bajo <code>.claude/</code> tampoco: Vitest y oxlint los ignoran para que copias temporales no interfieran con la rama actual.</p>
 </div>
 
 <div class="section">
