@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [0.94.6] - 2026-09-27
+
 ### Changed
 
 - Al cerrar sesión volvés al inicio de TuTribu en lugar de ir directo a la pantalla de Google, y el botón Atrás ya no muestra tu cuenta.
