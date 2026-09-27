@@ -3275,7 +3275,14 @@ describe("TribeRound", () => {
         expect(screen.getByRole("dialog")).toBeInTheDocument();
       });
 
-      expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+      // The failed optimistic message leaves through its exit animation: it is hidden from
+      // assistive technology at once and removed from the DOM when the exit finishes.
+      expect(
+        screen.queryByRole("heading", { name: "Nuevo encuentro" })
+      ).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByText("Nuevo encuentro")).not.toBeInTheDocument();
+      });
       expect(screen.getByRole("textbox", { name: "Título del mensaje" })).toHaveValue(
         "Nuevo encuentro"
       );
