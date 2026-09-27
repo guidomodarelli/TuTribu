@@ -52,6 +52,10 @@ $message-meta-mobile-reserved-width: 6rem;
 // at the top-right instead of rendering underneath it.
 $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
 
+// Scrim density of the media viewer overlay, which replaces the backdrop blur
+// (see the media viewer overlay rules at the end of this file).
+$media-viewer-overlay-opacity: 72%;
+
 .TribeRound {
   display: flex;
   flex-direction: column;
@@ -2073,6 +2077,22 @@ $feed-media-thumbnail-size: clamp(3.5rem, 16vw, 5rem);
   backdrop-filter: blur(5px);
   // Prevent iOS rubber-band scroll from chaining to the page behind the overlay.
   overscroll-behavior: contain;
+}
+
+// Media viewer: a playing video iframe repaints every frame and Chromium
+// re-filters the backdrop only inside that damaged rect, so the blurred page
+// behind shows straight seams. The viewer usually stacks on the message
+// details dialog, adding a second blurred overlay. While it is open, drop the
+// blur from every dialog overlay and give its own overlay a dense scrim so the
+// page behind stays out of focus without `backdrop-filter`.
+:global(body):has(.TribeRound__imageCarouselDialog)
+  :global([data-slot="dialog-overlay"]) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+:global([data-slot="dialog-overlay"]):has(+ .TribeRound__imageCarouselDialog) {
+  background: rgba(0, 0, 0, $media-viewer-overlay-opacity);
 }
 
 @media (max-width: 40rem) {

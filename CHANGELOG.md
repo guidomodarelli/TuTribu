@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- Al reproducir un video en el visor de medios de un mensaje ya no aparecen líneas sobre el fondo; ahora el visor se muestra sobre un fondo oscuro uniforme.
+
 ## [0.94.6] - 2026-09-27
 
 ### Changed
