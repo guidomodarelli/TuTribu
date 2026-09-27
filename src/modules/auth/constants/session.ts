@@ -1,6 +1,8 @@
-const SECONDS_PER_DAY = 86_400;
-const MILLISECONDS_PER_SECOND = 1_000;
-const SECONDS_PER_HOUR = 3_600;
+import {
+  MILLISECONDS_PER_SECOND,
+  SECONDS_PER_DAY,
+  SECONDS_PER_HOUR,
+} from "@/src/constants/time";
 
 /** Days a member stays signed in since their last visit before signing in again. */
 export const MEMBER_SESSION_LIFETIME_DAYS = 180;

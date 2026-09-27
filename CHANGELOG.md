@@ -7,7 +7,12 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Fixed
 
 - La sesión ya no se cierra sola cada pocos días: mientras entres a TuTribu al menos una vez cada 180 días, seguís con la sesión iniciada.
-- Si tu sesión vence mientras tenés TuTribu abierto, la página se actualiza y te ofrece iniciar sesión de nuevo en lugar de mostrarte como conectado.
+- Si tu sesión vence mientras tenés TuTribu abierto, la página se actualiza y te ofrece iniciar sesión de nuevo en lugar de mostrarte como conectado. También se actualiza si en otra pestaña iniciaste sesión con otra cuenta.
+- Si tu sesión se pierde justo antes de suscribirte desde una invitación, al volver a iniciar sesión regresás a esa invitación en lugar de ir al inicio.
+
+### Security
+
+- El inicio de sesión ya no acepta enlaces de retorno disfrazados que podían llevarte a un sitio fuera de TuTribu.
 
 ## [0.94.5] - 2026-09-27
 

@@ -45,7 +45,7 @@ export function AvatarSessionMenuClient({
 }: AvatarSessionMenuClientProps) {
   const { push } = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  useMemberSessionKeepAlive(authenticatedMember !== null);
+  useMemberSessionKeepAlive(authenticatedMember?.id ?? null);
 
   const handleSignOut = async () => {
     if (isSigningOut) {

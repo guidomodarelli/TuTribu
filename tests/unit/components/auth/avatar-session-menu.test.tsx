@@ -243,7 +243,10 @@ describe("AvatarSessionMenuClient", () => {
       await waitFor(() => {
         expect(refreshMemberSessionMock).toHaveBeenCalledTimes(1);
       });
-      expect(refreshMemberSessionMock).toHaveBeenCalledWith(expect.any(AbortSignal));
+      expect(refreshMemberSessionMock).toHaveBeenCalledWith(
+        expect.any(AbortSignal),
+        authenticatedMember.id
+      );
       // An active session keeps the rendered route: no full refresh.
       expect(refreshRouteMock).not.toHaveBeenCalled();
     });
@@ -300,6 +303,25 @@ describe("AvatarSessionMenuClient", () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it("retries on the next visible tab when the previous renewal failed", async () => {
+      refreshMemberSessionMock
+        .mockResolvedValueOnce("failed")
+        .mockResolvedValue("active");
+
+      renderMenu(authenticatedMember);
+      await waitFor(() => {
+        expect(refreshMemberSessionMock).toHaveBeenCalledTimes(1);
+      });
+
+      showDocument();
+
+      // A failed renewal must not consume the throttle window.
+      await waitFor(() => {
+        expect(refreshMemberSessionMock).toHaveBeenCalledTimes(2);
+      });
+      expect(refreshRouteMock).not.toHaveBeenCalled();
     });
 
     it("aborts the pending renewal when the menu unmounts", async () => {

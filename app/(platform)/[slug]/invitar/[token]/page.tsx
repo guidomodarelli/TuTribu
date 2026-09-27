@@ -307,14 +307,14 @@ export async function startInvitationSubscriptionAction({
   const session = await getSession();
 
   if (!session) {
-    redirect(ROUTES.auth.signIn);
+    redirect(buildSignInRedirectPath(slug, token));
   }
 
   const modules = await createRequestModules();
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (!authenticatedMember) {
-    redirect(ROUTES.auth.signIn);
+    redirect(buildSignInRedirectPath(slug, token));
   }
 
   const idempotencyKey = buildInvitationSubscriptionIdempotencyKey({

@@ -54,29 +54,42 @@ export async function signOutMember() {
 }
 
 /**
+ * Status Better Auth answers when the session disappeared while it was being
+ * renewed (for example, a concurrent sign-out); it also clears the cookie.
+ */
+const SESSION_REJECTED_HTTP_STATUS = 401;
+
+/**
  * Asks the Better Auth session endpoint to renew the member session. The route
  * handler slides the 180-day expiration and returns the refreshed cookie, which
  * Server Components cannot do. Failures map to a stable status because the
  * keep-alive is best-effort: the current page stays usable either way.
  *
  * @param signal - Aborts the request when the caller unmounts.
- * @returns `active` when the session is valid, `expired` when the server no
- * longer recognizes it, and `failed` when the endpoint or network errored.
+ * @param renderedMemberId - Member the server rendered the page for.
+ * @returns `active` when the session still belongs to the rendered member,
+ * `expired` when the server no longer recognizes it (or it now belongs to
+ * another member, so the rendered identity is stale), and `failed` when the
+ * endpoint or network errored.
  */
 export async function refreshMemberSession(
-  signal: AbortSignal
+  signal: AbortSignal,
+  renderedMemberId: string
 ): Promise<MemberSessionRefreshStatus> {
   try {
     const result = await authClient.getSession({ fetchOptions: { signal } });
 
     if (result.error) {
-      return MEMBER_SESSION_REFRESH_STATUS.failed;
+      return result.error.status === SESSION_REJECTED_HTTP_STATUS
+        ? MEMBER_SESSION_REFRESH_STATUS.expired
+        : MEMBER_SESSION_REFRESH_STATUS.failed;
     }
 
-    return result.data
+    return result.data?.user.id === renderedMemberId
       ? MEMBER_SESSION_REFRESH_STATUS.active
       : MEMBER_SESSION_REFRESH_STATUS.expired;
   } catch {
+    // Network failures and aborts are transient: keep the rendered page as is.
     return MEMBER_SESSION_REFRESH_STATUS.failed;
   }
 }

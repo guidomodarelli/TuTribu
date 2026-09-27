@@ -17,9 +17,14 @@ export type SignInSearchParams = {
 };
 
 const AUTH_SIGN_IN_PREFIX = {
-  doubleSlash: "//",
   slash: "/",
 } as const;
+/**
+ * Placeholder origin used only to resolve a callback path the way a browser
+ * would. A callback is accepted when it stays on this origin, which rejects
+ * protocol-relative tricks such as `//host`, `/\host` or `/<tab>/host`.
+ */
+const CALLBACK_URL_RESOLUTION_ORIGIN = "https://callback.invalid";
 const AUTH_SIGN_IN_UI = {
   ariaHidden: "true",
 } as const;
@@ -39,6 +44,16 @@ const SIGN_IN_URL_TOKEN = {
 } as const;
 const USER_AGENT_HEADER = "user-agent";
 
+/**
+ * Keeps only same-origin callback paths. The candidate is resolved with the
+ * WHATWG URL parser, the same one browsers apply to `Location` and meta
+ * refresh targets, so backslashes and stripped control characters cannot turn
+ * a path into a protocol-relative URL that leaves the app.
+ *
+ * @param rawCallbackUrl - Untrusted `callbackUrl` search param value.
+ * @param fallbackPath - Internal path used when the candidate is missing or unsafe.
+ * @returns The normalized internal path (with search and hash) or the fallback.
+ */
 function resolveSafeCallbackUrl(
   rawCallbackUrl: string | null,
   fallbackPath: string
@@ -49,14 +64,31 @@ function resolveSafeCallbackUrl(
 
   const trimmedCallbackUrl = rawCallbackUrl.trim();
 
-  if (
-    !trimmedCallbackUrl.startsWith(AUTH_SIGN_IN_PREFIX.slash) ||
-    trimmedCallbackUrl.startsWith(AUTH_SIGN_IN_PREFIX.doubleSlash)
-  ) {
+  if (!trimmedCallbackUrl.startsWith(AUTH_SIGN_IN_PREFIX.slash)) {
     return fallbackPath;
   }
 
-  return trimmedCallbackUrl;
+  let resolvedCallbackUrl: URL;
+
+  try {
+    resolvedCallbackUrl = new URL(
+      trimmedCallbackUrl,
+      CALLBACK_URL_RESOLUTION_ORIGIN
+    );
+  } catch {
+    // Unparseable input is untrusted: fall back to the internal default path.
+    return fallbackPath;
+  }
+
+  if (resolvedCallbackUrl.origin !== CALLBACK_URL_RESOLUTION_ORIGIN) {
+    return fallbackPath;
+  }
+
+  return (
+    resolvedCallbackUrl.pathname +
+    resolvedCallbackUrl.search +
+    resolvedCallbackUrl.hash
+  );
 }
 
 function readFirstSearchParamValue(
@@ -170,19 +202,12 @@ export async function SignInContent({
   const rawCallbackUrl = readFirstSearchParamValue(
     resolvedSearchParams[QUERY_PARAMS.auth.callbackUrl]
   );
-  const callbackUrlForAuthenticatedMember = resolveSafeCallbackUrl(
-    rawCallbackUrl,
-    ROUTES.home
-  );
-  const callbackUrlForSignIn = resolveSafeCallbackUrl(
-    rawCallbackUrl,
-    ROUTES.home
-  );
+  const callbackUrl = resolveSafeCallbackUrl(rawCallbackUrl, ROUTES.home);
   const modules = await createRequestModules();
   const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
 
   if (authenticatedMember) {
-    redirect(callbackUrlForAuthenticatedMember);
+    redirect(callbackUrl);
   }
 
   const requestHeaders = await headers();
@@ -194,10 +219,10 @@ export async function SignInContent({
     return (
       <OpenInBrowserView
         isIos={inAppBrowser.isIos}
-        signInUrl={buildAbsoluteSignInUrl(callbackUrlForSignIn)}
+        signInUrl={buildAbsoluteSignInUrl(callbackUrl)}
       />
     );
   }
 
-  return <SignInView callbackUrl={callbackUrlForSignIn} />;
+  return <SignInView callbackUrl={callbackUrl} />;
 }

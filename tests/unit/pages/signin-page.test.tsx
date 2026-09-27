@@ -163,6 +163,56 @@ describe("SignInPage", () => {
     expect(redirect).toHaveBeenCalledWith("/");
   });
 
+  it.each([
+    ["a backslash", "/\\evil.example.com/callback"],
+    ["an encoded backslash", "/%5Cevil.example.com"],
+    ["a tab between slashes", "/\t/evil.example.com"],
+    ["a protocol-relative URL", "//evil.example.com"],
+  ])(
+    "redirects authenticated users to root when the callback hides an external host behind %s",
+    async (_payloadDescription, callbackUrl) => {
+      getAuthenticatedMember.mockResolvedValue({
+        id: "member-1",
+        email: "grace.hopper@example.com",
+        name: "Grace Hopper",
+        role: "guardian",
+        avatarFallback: "GH",
+        image: null,
+      });
+      (redirect as unknown as Mock).mockImplementation(function () {
+        throw new Error("NEXT_REDIRECT");
+      });
+
+      await expect(
+        SignInContent({
+          searchParams: createSearchParams(
+            decodeURIComponent(callbackUrl)
+          ),
+        })
+      ).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(redirect).toHaveBeenCalledWith("/");
+    }
+  );
+
+  it("keeps the query string of a safe callback path", async () => {
+    getAuthenticatedMember.mockResolvedValue(null);
+
+    render(
+      await SignInContent({
+        searchParams: createSearchParams(
+          "/matematica-pro?preapproval_id=preapproval-1"
+        ),
+      })
+    );
+
+    await waitFor(() => {
+      expect(startGoogleSignInMock).toHaveBeenCalledWith(
+        "/matematica-pro?preapproval_id=preapproval-1"
+      );
+    });
+  });
+
   it("starts Google sign-in automatically with the default callback path", async () => {
     getAuthenticatedMember.mockResolvedValue(null);
 

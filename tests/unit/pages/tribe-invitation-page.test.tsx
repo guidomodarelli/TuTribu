@@ -281,6 +281,25 @@ describe("TribeInvitationPage", () => {
     );
   });
 
+  it("sends a member whose session was lost before starting the subscription back to the invitation after sign-in", async () => {
+    mockGetSession.mockResolvedValue(null);
+    (redirect as unknown as Mock).mockImplementation(function () {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    await expect(
+      startInvitationSubscriptionAction({
+        slug: "matematica-pro",
+        token: "invitation-token",
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(redirect).toHaveBeenCalledWith(
+      "/auth/signin?callbackUrl=/matematica-pro/invitar/invitation-token"
+    );
+    expect(startTribeMemberSubscription).not.toHaveBeenCalled();
+  });
+
   it("redirects unexpected payment start errors to a safe status page", async () => {
     startTribeMemberSubscription.mockRejectedValue(new Error("provider timeout"));
     (redirect as unknown as Mock).mockImplementation(function () {

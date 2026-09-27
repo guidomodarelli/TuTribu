@@ -99,9 +99,9 @@ describe("Better Auth client", () => {
       "@/src/modules/auth/infrastructure/better-auth/client"
     );
 
-    await expect(refreshMemberSession(abortController.signal)).resolves.toBe(
-      "active"
-    );
+    await expect(
+      refreshMemberSession(abortController.signal, "member-1")
+    ).resolves.toBe("active");
     expect(getSessionMock).toHaveBeenCalledWith({
       fetchOptions: { signal: abortController.signal },
     });
@@ -115,7 +115,37 @@ describe("Better Auth client", () => {
     );
 
     await expect(
-      refreshMemberSession(new AbortController().signal)
+      refreshMemberSession(new AbortController().signal, "member-1")
+    ).resolves.toBe("expired");
+  });
+
+  it("reports an expired session when the cookie now belongs to another member", async () => {
+    getSessionMock.mockResolvedValue({
+      data: { session: { id: "session-2" }, user: { id: "member-2" } },
+      error: null,
+    });
+
+    const { refreshMemberSession } = await import(
+      "@/src/modules/auth/infrastructure/better-auth/client"
+    );
+
+    await expect(
+      refreshMemberSession(new AbortController().signal, "member-1")
+    ).resolves.toBe("expired");
+  });
+
+  it("reports an expired session when Better Auth rejects the renewal because the session was deleted", async () => {
+    getSessionMock.mockResolvedValue({
+      data: null,
+      error: { status: 401, statusText: "UNAUTHORIZED" },
+    });
+
+    const { refreshMemberSession } = await import(
+      "@/src/modules/auth/infrastructure/better-auth/client"
+    );
+
+    await expect(
+      refreshMemberSession(new AbortController().signal, "member-1")
     ).resolves.toBe("expired");
   });
 
@@ -129,10 +159,10 @@ describe("Better Auth client", () => {
     );
 
     await expect(
-      refreshMemberSession(new AbortController().signal)
+      refreshMemberSession(new AbortController().signal, "member-1")
     ).resolves.toBe("failed");
     await expect(
-      refreshMemberSession(new AbortController().signal)
+      refreshMemberSession(new AbortController().signal, "member-1")
     ).resolves.toBe("failed");
   });
 });
