@@ -71,7 +71,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "beez-rp": "^0.2.0",
+    "beez-rp": "^0.4.0",
     "drizzle-kit": "^0.31.10",
     "eslint-plugin-no-magic": "^0.1.1",
     "husky": "^9.1.7",
