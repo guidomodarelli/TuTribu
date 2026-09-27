@@ -276,8 +276,8 @@ importers:
         specifier: ^6.1.1
         version: 6.1.1(oxc-transform-react@0.145.0)(vite@8.2.2(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.6.1)(sass@1.100.0)(terser@5.16.9)(tsx@4.21.0)(yaml@2.9.0))
       beez-rp:
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.5.0
+        version: 0.5.0
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
@@ -3962,8 +3962,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  beez-rp@0.4.0:
-    resolution: {integrity: sha512-cdjtrGkCxVqdx6eYJpIXGg2kUQdWVKzy/jJQ2opKatMQgkFOK2baXfvQRAcyOa20scAx6xytHHGiDR726DJDSw==}
+  beez-rp@0.5.0:
+    resolution: {integrity: sha512-QU8X5BXIMTod63eJUs/b4aK0W31r42VGheHifno1X8sBmc1O9ciKNagCT5oMSM/3PVCgMVD3B/pb0J5/ajG0aQ==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -9541,7 +9541,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.10: {}
 
-  beez-rp@0.4.0: {}
+  beez-rp@0.5.0: {}
 
   beez-ui@0.9.1(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     dependencies:
