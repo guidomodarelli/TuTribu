@@ -32,6 +32,9 @@ import { checkPendingMigrations, readMigrationJournalAt } from "./scripts/releas
  */
 const MIGRATION_JOURNAL_REVISIONS = ["HEAD", "origin/main"];
 
+/** Lint, typecheck (source and tests), tests and build shared with CI; a failure stops the release before the bump. */
+const RELEASE_CHECKS_COMMAND = "pnpm run ci";
+
 /** Runs `drizzle-kit migrate` (shared with `pnpm run db:migrate`) with the same Node binary as the release. */
 const MIGRATION_COMMAND = `"${process.execPath}" scripts/push-migrations.js`;
 
@@ -70,6 +73,7 @@ const createVersionConfig = {
     major: "Cambio grande o incompatible: flujos, datos o comportamiento que cambian para los usuarios.",
   },
   publishedLabel: "en producción",
+  checks: [RELEASE_CHECKS_COMMAND],
   migrations: {
     check: checkMigrations,
     apply: applyMigrations,
