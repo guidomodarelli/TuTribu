@@ -2,24 +2,8 @@
 
 import { type FormEvent, useState } from "react";
 
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Textarea,
-  cn,
-} from "beez-ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, cn, AnimatedCollapse } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
 import { buildBuenosAiresInstant } from "@/lib/date-time/buenos-aires-format";
 import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";
 import type { TribeEventType } from "@/src/modules/events/application/results/tribe-event-result";

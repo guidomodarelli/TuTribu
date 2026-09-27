@@ -3,26 +3,11 @@
 import { type ReactNode, useState } from "react";
 import { CalendarPlusIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, LinkIcon } from "lucide-react";
 
-import {
-  Badge,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "beez-ui";
+import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Tabs, TabsContent, TabsList, TabsTrigger, AnimatedCollapse, PresenceSwap } from "beez-ui";
 
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";
 import {
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY,

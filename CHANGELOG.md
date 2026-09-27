@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- El menú de cuenta muestra tu avatar junto al nombre y el correo al abrirse.
+
 ## [0.94.4] - 2026-09-26
 
 ### Fixed

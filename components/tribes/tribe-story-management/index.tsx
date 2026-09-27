@@ -24,17 +24,14 @@ import {
   VideoIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from "beez-ui";
+import { toast, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, cn } from "beez-ui";
 
 
 
 
 
 
-import { AnimatedCount } from "@/components/motion/animated-count";
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import { buildPlayerEmbedSource } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { parseExternalVideoUrl } from "@/src/modules/shared/domain/value-objects/external-video-url";
 import {
@@ -1158,7 +1155,7 @@ export function TribeStoryManagement({
                       </p>
                     ) : null}
                     <p
-                      className={joinClassNames(
+                      className={cn(
                         styles.TribeStoryManagement__counter,
                         isContentNearLimit &&
                           styles["TribeStoryManagement__counter--warning"]
@@ -1263,7 +1260,7 @@ export function TribeStoryManagement({
 
                       return (
                         <AnimatedListItem
-                          className={joinClassNames(
+                          className={cn(
                             styles.TribeStoryManagement__mediaItem,
                             draggedMediaClientId === mediaItem.clientId &&
                               styles["TribeStoryManagement__mediaItem--dragging"],

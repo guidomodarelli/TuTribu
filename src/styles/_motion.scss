@@ -5,7 +5,7 @@
 // CSS Modules localize `@keyframes` names per module, so each module that
 // animates calls `define-keyframes` once at its top level and then uses the
 // `enter` / `stagger` mixins inside its BEM blocks. Every animation is removed
-// under `prefers-reduced-motion: reduce`. Timing matches `lib/motion/tokens.ts`.
+// under `prefers-reduced-motion: reduce`. Timing matches the motion tokens exported by beez-ui.
 //
 // Usage (path relative to the module):
 //   @use "../../../src/styles/motion";

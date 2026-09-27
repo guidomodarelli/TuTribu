@@ -3,11 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { CheckCircle2Icon, PencilLineIcon } from "lucide-react";
 
-import { Button, Input } from "beez-ui";
+import { Button, Input, AnimatedCollapse, PresenceSwap, cn } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { PresenceSwap } from "@/components/motion/presence-swap";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import { normalizeTribeSlug } from "@/src/modules/tribes/domain/value-objects/tribe-slug";
 import styles from "./styles.module.scss";
 
@@ -183,7 +180,7 @@ export function CreateTribeForm({
         <div className={styles.CreateTribeForm__slugInputWrap}>
           <Input
             aria-describedby={isFeedbackVisible ? feedbackId : undefined}
-            className={joinClassNames(
+            className={cn(
               styles.CreateTribeForm__slugInput,
               normalizedNameSlug &&
                 (isSlugSynced
@@ -206,7 +203,7 @@ export function CreateTribeForm({
           {normalizedNameSlug ? (
             <span
               aria-live={CREATE_TRIBE_FORM_ARIA.livePolite}
-              className={joinClassNames(
+              className={cn(
                 styles.CreateTribeForm__statusInline,
                 isSlugSynced
                   ? styles["CreateTribeForm__statusInline--synced"]

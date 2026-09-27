@@ -1,14 +1,13 @@
 "use client";
 
 import { CalendarPlusIcon, ExternalLinkIcon, VideoIcon } from "lucide-react";
-import { Badge, cn } from "beez-ui";
+import { Badge, cn, AnimatedListItem } from "beez-ui";
 
 import {
   TRIBE_EVENT_ATTENDANCE_SUMMARY_VARIANT,
   TribeEventAttendanceSummary,
 } from "@/components/events/tribe-event-attendance-summary";
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { formatBuenosAiresTimeRange } from "@/lib/date-time/buenos-aires-format";
 import { formatViewerLocalTimeLabel } from "@/lib/date-time/viewer-local-time-format";
 import { buildTribeEventGoogleCalendarUrl } from "@/lib/events/tribe-event-calendar-links";

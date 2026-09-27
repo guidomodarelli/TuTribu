@@ -1,48 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { copyTextToClipboard } from "@/lib/browser-clipboard";
 import { replaceCurrentUrlSearchParams } from "@/lib/browser-navigation";
-
-const LINK = "https://dev-tutribu.app/matematica-pro/eventos?event=abc";
-
-describe("copyTextToClipboard", () => {
-  afterEach(() => {
-    Reflect.deleteProperty(navigator, "clipboard");
-    Reflect.deleteProperty(document, "execCommand");
-  });
-
-  it("uses the async Clipboard API when the browser exposes it", async () => {
-    const writeText = vi.fn(async () => undefined);
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-
-    await expect(copyTextToClipboard(LINK)).resolves.toBe(true);
-    expect(writeText).toHaveBeenCalledWith(LINK);
-  });
-
-  it("falls back to a selected textarea when the Clipboard API is missing", async () => {
-    let copiedText: string | null = null;
-    Object.defineProperty(document, "execCommand", {
-      configurable: true,
-      value: vi.fn(() => {
-        copiedText = document.querySelector("textarea")?.value ?? null;
-        return true;
-      }),
-    });
-
-    await expect(copyTextToClipboard(LINK)).resolves.toBe(true);
-    expect(copiedText).toBe(LINK);
-    expect(document.querySelector("textarea")).toBeNull();
-  });
-
-  it("reports failure when neither path can copy", async () => {
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText: vi.fn(async () => Promise.reject(new Error("denied"))) },
-    });
-
-    await expect(copyTextToClipboard(LINK)).resolves.toBe(false);
-  });
-});
 
 describe("replaceCurrentUrlSearchParams", () => {
   afterEach(() => {

@@ -3,10 +3,9 @@
 import type { ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { ChevronDownIcon } from "lucide-react";
-import { Button } from "beez-ui";
+import { Button, AnimatedListItem } from "beez-ui";
 
 import { TribeEventsAgendaDay } from "@/components/events/tribe-events-agenda-day";
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import type { TribeEventsAgendaDay as TribeEventsAgendaDayGroup } from "@/lib/events/tribe-events-calendar-grid";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import styles from "./styles.module.scss";

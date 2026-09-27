@@ -32,10 +32,8 @@ import {
   UserRoundXIcon,
   UsersRoundIcon,
 } from "lucide-react";
-import { toast, Badge, Button, Checkbox, Input, Separator, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "beez-ui";
+import { toast, Badge, Button, Checkbox, Input, Separator, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, AnimatedCount, cn } from "beez-ui";
 
-import { AnimatedCount } from "@/components/motion/animated-count";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import type {
   TribeSubscriberDiagnosticsResult,
   TribeMercadoPagoAccountResult,
@@ -2044,7 +2042,7 @@ export function TribeSubscriptionPriceManagement({
               >
                 <RefreshCwIcon
                   aria-hidden
-                  className={joinClassNames(
+                  className={cn(
                     isReconcilingSubscriberDiagnostics &&
                       styles.TribeSubscriptionPriceManagement__spinningIcon
                   )}
@@ -2055,7 +2053,7 @@ export function TribeSubscriptionPriceManagement({
           </div>
           {subscriberDiagnosticsMessage ? (
             <p
-              className={joinClassNames(
+              className={cn(
                 styles.TribeSubscriptionPriceManagement__status,
                 hasSubscriberDiagnosticsError &&
                   styles["TribeSubscriptionPriceManagement__status--error"]
@@ -2492,7 +2490,7 @@ export function TribeSubscriptionPriceManagement({
                     </span>
                     {providerSubscriberCountsByPriceId[price.id] !== undefined ? (
                       <span
-                        className={joinClassNames(
+                        className={cn(
                           styles.TribeSubscriptionPriceManagement__meta,
                           styles["TribeSubscriptionPriceManagement__meta--fresh"]
                         )}
@@ -2608,7 +2606,7 @@ export function TribeSubscriptionPriceManagement({
                       >
                         <RefreshCwIcon
                           aria-hidden
-                          className={joinClassNames(
+                          className={cn(
                             pendingAction ===
                               PRICE_MANAGEMENT_COPY.verifyProviderPlanButton +
                                 price.id &&
@@ -2631,7 +2629,7 @@ export function TribeSubscriptionPriceManagement({
                       >
                         <RefreshCwIcon
                           aria-hidden
-                          className={joinClassNames(
+                          className={cn(
                             pendingAction ===
                               PRICE_MANAGEMENT_COPY.verifyProviderSubscribersButton +
                                 price.id &&

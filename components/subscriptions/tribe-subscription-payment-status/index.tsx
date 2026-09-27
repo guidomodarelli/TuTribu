@@ -9,10 +9,8 @@
 import { useRef, useState } from "react";
 import { CreditCardIcon, LoaderCircleIcon } from "lucide-react";
 
-import { Button } from "beez-ui";
-import { PresenceSwap } from "@/components/motion/presence-swap";
+import { Button, PresenceSwap, cn } from "beez-ui";
 import { navigateToUrl } from "@/lib/browser-navigation";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import styles from "./styles.module.scss";
 
@@ -221,7 +219,7 @@ export function TribeSubscriptionPaymentStatus({
         {feedback ? (
           <PresenceSwap presenceKey={feedback.tone + feedback.message}>
             <p
-              className={joinClassNames(
+              className={cn(
                 styles.TribeSubscriptionPaymentStatus__feedback,
                 feedback.tone === SUBSCRIPTION_PAYMENT_FEEDBACK_TONE.error &&
                   styles["TribeSubscriptionPaymentStatus__feedback--error"]

@@ -3,10 +3,8 @@
 import { Fragment, useState } from "react";
 import { LoaderCircleIcon, Trash2Icon } from "lucide-react";
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "beez-ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCollapse, cn } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import type { TribeInvitationListItemResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import styles from "./styles.module.scss";
 
@@ -410,7 +408,7 @@ function LinkedInvitationsDeletionDialogBody({
                   isOpen={selection.action === ACTION_VALUE.revoke}
                 >
                   <p
-                    className={joinClassNames(
+                    className={cn(
                       styles.LinkedInvitationsDeletionDialog__notice,
                       styles["LinkedInvitationsDeletionDialog__notice--danger"]
                     )}

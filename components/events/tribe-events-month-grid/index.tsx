@@ -1,14 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, cn } from "beez-ui";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, cn, PresenceSwap } from "beez-ui";
 
 import {
   TRIBE_EVENT_TYPE_BADGE_VARIANT,
   TribeEventTypeBadge,
 } from "@/components/events/tribe-event-type-badge";
 import { TribeEventsAgendaDay } from "@/components/events/tribe-events-agenda-day";
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresTime,

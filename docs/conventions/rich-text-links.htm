@@ -43,7 +43,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">01</div>
   <div class="section-title">Overview</div>
-<p>La lógica de links de texto vive en una única capa compartida y se consume desde cualquier feature que necesite mostrar o editar contenido con enlaces. Hoy la usan el composer de mensajes (<code>components/tribe-round</code>) y la descripción de las lecciones de cursos.</p>
+<p>La lógica de links de texto vive en <code>beez-ui</code> y se consume desde cualquier feature que necesite mostrar o editar contenido con enlaces. Hoy la usan el composer de mensajes (<code>components/tribe-round</code>), la descripción de las lecciones de cursos y la historia de la tribu.</p>
 <p>El contenido se persiste como <strong>markdown crudo</strong>: links explícitos como <code>[texto](url)</code> y URLs sueltas como texto plano. Las URLs sueltas se convierten en enlaces clickeables solo al renderizar, no al guardar.</p>
 </div>
 
@@ -53,10 +53,10 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <table>
   <thead><tr><th>Pieza</th><th>Ubicación</th><th>Responsabilidad</th></tr></thead>
   <tbody>
-    <tr><td>Funciones puras + constantes + tipos</td><td><code>lib/rich-text/link-markdown*.ts</code></td><td>Parseo, normalización y (de)serialización de markdown de links. Sin DOM, sin reglas de negocio.</td></tr>
-    <tr><td>Helpers de DOM</td><td><code>lib/rich-text/rich-text-editor-dom.ts</code></td><td>Traducen offsets de texto a la API de <code>Selection</code>/<code>Range</code>. Separados para testear las puras sin DOM.</td></tr>
-    <tr><td>Renderer</td><td><code>components/rich-text/rich-text-content</code></td><td>Renderiza contenido persistido como texto + <code>&lt;a target="_blank" rel="noreferrer"&gt;</code>.</td></tr>
-    <tr><td>Editor</td><td><code>components/rich-text/rich-link-editor</code></td><td>Editor <code>contentEditable</code> con popover para crear/editar/remover links. Estado en <code>useRichLinkEditor</code>; presentación en <code>RichLinkEditor</code>.</td></tr>
+    <tr><td>Funciones puras + constantes + tipos</td><td><code>beez-ui</code> (<code>parseRichTextSegments</code>, <code>normalizeMarkdownUrl</code>, <code>RichLink</code>)</td><td>Parseo, normalización y (de)serialización de markdown de links. Sin DOM, sin reglas de negocio.</td></tr>
+    <tr><td>Renderer</td><td><code>RichTextContent</code> de <code>beez-ui</code></td><td>Renderiza contenido persistido como texto + <code>&lt;a target="_blank" rel="noreferrer"&gt;</code>.</td></tr>
+    <tr><td>Contenido largo</td><td><code>RichMarkdownContent</code> y <code>buildRichMarkdownExcerpt</code> de <code>beez-ui</code></td><td>Párrafos, listas, negrita y links para la historia de la tribu; el extracto en texto plano alimenta la descripción SEO.</td></tr>
+    <tr><td>Editor</td><td><code>RichLinkEditor</code> y <code>useRichLinkEditor</code> de <code>beez-ui</code></td><td>Editor <code>contentEditable</code> con popover para crear/editar/remover links. Estado en <code>useRichLinkEditor</code>; presentación en <code>RichLinkEditor</code>.</td></tr>
   </tbody>
 </table>
 </div>
@@ -65,7 +65,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">03</div>
   <div class="section-title">Rules</div>
 <ul>
-  <li>No dupliques la lógica de links: reutilizá <code>lib/rich-text</code>, <code>RichTextContent</code> y <code>RichLinkEditor</code> en lugar de reimplementar parseo o el editor.</li>
+  <li>No dupliques la lógica de links: reutilizá los helpers, <code>RichTextContent</code> y <code>RichLinkEditor</code> de <code>beez-ui</code> en lugar de reimplementar parseo o el editor.</li>
   <li>Para mostrar contenido con links usá <code>RichTextContent</code>; pasá <code>onLinkClick</code> solo si necesitás interceptar el click (por ejemplo, frenar la propagación).</li>
   <li>Para editar, creá el controller con <code>useRichLinkEditor</code> en el contenedor de la feature y pasáselo a <code>RichLinkEditor</code>. El controller expone <code>serialize()</code>, <code>reset(markdown?)</code>, <code>getDisplayState()</code> y <code>loadFromDisplay()</code>.</li>
   <li>El copy del popover (Editar, Remover, Guardar, Cancelar, etc.) lo inyecta cada feature vía la prop <code>copy</code>, en español.</li>
@@ -91,13 +91,12 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">05</div>
   <div class="section-title">Usage</div>
 <div class="code-block"><pre>// Mostrar contenido persistido con links.
-import { RichTextContent } from &quot;@/components/rich-text/rich-text-content&quot;;
+import { RichTextContent } from &quot;beez-ui&quot;;
 
 &lt;RichTextContent content={lesson.description} /&gt;
 
 // Editar contenido con el editor enriquecido.
-import { RichLinkEditor } from &quot;@/components/rich-text/rich-link-editor&quot;;
-import { useRichLinkEditor } from &quot;@/components/rich-text/rich-link-editor/use-rich-link-editor&quot;;
+import { RichLinkEditor, useRichLinkEditor } from &quot;beez-ui&quot;;
 
 const editor = useRichLinkEditor({ initialMarkdown: lesson.description });
 
@@ -116,7 +115,7 @@ const editor = useRichLinkEditor({ initialMarkdown: lesson.description });
   <div class="section-title">Notes</div>
 <ul>
   <li>La descripción de la lección se persiste como markdown crudo en la columna <code>course_lessons.description</code> (tipo <code>text</code>): el cambio de texto plano a markdown no requirió migración.</li>
-  <li>Las puras tienen tests en <code>tests/unit/lib/rich-text</code>; el renderer y el editor, en <code>tests/unit/components/rich-text</code>.</li>
+  <li>Las funciones puras, el renderer y el editor se testean en <code>beez-ui</code>; LaTribu cubre su uso en los tests de cada feature (mensajes, lecciones, historia).</li>
   <li>El editor controla el <code>contentEditable</code> a mano (no se actualiza su HTML vía React, solo se lee) y reaplica la selección con un <code>useLayoutEffect</code>; por eso el estado y los handlers viven en el hook y no en el componente de presentación.</li>
   <li>Con <code>isDisabled</code> (por ejemplo durante un envío o edición pendiente) el editor queda bloqueado por completo: además de quitar <code>contentEditable</code>, los links se renderizan como anclas inertes que no abren el popover ni exponen editar/remover, y cualquier popover abierto se cierra al bloquearse. Así un click en un link no puede mutar el borrador mientras el resto del composer está bloqueado.</li>
   <li>El editor renderiza cualquier carácter del contenido —incluidos los espacios— en el DOM: el placeholder (<code>:empty::before</code>) solo aparece cuando el contenido está realmente vacío. Si gateáramos el render por el texto recortado, los espacios quedarían en el estado mientras se muestra el placeholder, y el caret y <code>Backspace</code> actuarían sobre una selección vacía del DOM sin poder llegar a esos espacios ocultos.</li>

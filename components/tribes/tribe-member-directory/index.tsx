@@ -8,9 +8,8 @@ import {
   TribeMemberList,
   type TribeMemberSelectionBadge,
 } from "@/components/tribes/tribe-member-list";
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input } from "beez-ui";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, cn } from "beez-ui";
 
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
 import {
   buildMembersCsv,
@@ -334,7 +333,7 @@ export function TribeMemberDirectory({
                 filter.id
               ).length;
               const isEmptyCount = count === EMPTY_FILTER_COUNT && !isActive;
-              const filterButtonClasses = joinClassNames(
+              const filterButtonClasses = cn(
                 styles.TribeMemberDirectory__filterButton,
                 isFreeFilter && styles["TribeMemberDirectory__filterButton--free"],
                 isFreeFilter &&

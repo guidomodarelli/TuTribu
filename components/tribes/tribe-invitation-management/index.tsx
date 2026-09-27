@@ -11,14 +11,8 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "beez-ui";
+import { toast, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCollapse, AnimatedCount, AnimatedListItem, PresenceSwap, copyTextToClipboard, cn } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { AnimatedCount } from "@/components/motion/animated-count";
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
-import { PresenceSwap } from "@/components/motion/presence-swap";
-import { copyTextToClipboard } from "@/lib/browser-clipboard";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {
   TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE,
@@ -1329,7 +1323,7 @@ export function TribeInvitationManagement({
                                 {INVITATION_MANAGEMENT_COPY.associatedPlanLabel}
                               </dt>
                               <dd
-                                className={joinClassNames(
+                                className={cn(
                                   styles.TribeInvitationManagement__detailValue,
                                   styles["TribeInvitationManagement__detailValue--stacked"]
                                 )}
@@ -1378,7 +1372,7 @@ export function TribeInvitationManagement({
                         <div className={styles.TribeInvitationManagement__itemActions}>
                           {invitation.invitationUrl ? (
                             <Button
-                              className={joinClassNames(
+                              className={cn(
                                 styles.TribeInvitationManagement__copyButton,
                                 isCopied &&
                                   styles["TribeInvitationManagement__copyButton--copied"]

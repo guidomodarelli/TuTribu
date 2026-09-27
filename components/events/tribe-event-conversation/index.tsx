@@ -4,12 +4,8 @@ import { type FormEvent, useState } from "react";
 import { Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 
-import { Avatar, AvatarFallback, AvatarImage, Button, Textarea } from "beez-ui";
+import { Avatar, AvatarFallback, AvatarImage, Button, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap, cn } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
-import { PresenceSwap } from "@/components/motion/presence-swap";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 
 import {
   formatBuenosAiresShortDate,
@@ -183,7 +179,7 @@ export function TribeEventConversation({
           {loadState.comments.map((comment) => (
             <AnimatedListItem
               aria-busy={deletingCommentIds.has(comment.id) || undefined}
-              className={joinClassNames(
+              className={cn(
                 styles.TribeEventConversation__item,
                 deletingCommentIds.has(comment.id) &&
                   styles["TribeEventConversation__item--deleting"]

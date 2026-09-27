@@ -5,8 +5,11 @@ import nextTs from "eslint-config-next/typescript";
 import * as noEslintDisable from "eslint-plugin-no-eslint-disable";
 import noMagic, { recommendedMagicNumberOptions } from "eslint-plugin-no-magic";
 
-/** Prevents consumers from restoring UI copies or bypassing the shared public barrel. */
-const deprecatedUiImportPatterns = ["@/components/ui/*", "beez-ui/*"];
+/**
+ * Prevents consumers from restoring UI copies or bypassing the shared public barrel. The
+ * `beez-ui/hooks` entrypoint is the only public subpath besides the Next adapter.
+ */
+const deprecatedUiImportPatterns = ["@/components/ui/*", "beez-ui/*", "!beez-ui/hooks"];
 
 const deprecatedFeatureImportPatterns = ["@/src/features/*", "src/features/*"];
 const moduleSetupImportPatterns = [

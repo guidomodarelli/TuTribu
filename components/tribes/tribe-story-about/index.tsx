@@ -2,8 +2,7 @@ import Image from "next/image";
 import { ArrowUpRightIcon } from "lucide-react";
 
 import { Link } from "@/components/navigation/link";
-import { Button } from "beez-ui";
-import { RichStoryContent } from "@/components/rich-text/rich-story-content";
+import { Button, RichMarkdownContent } from "beez-ui";
 import { TribeStoryGallery } from "@/components/tribes/tribe-story-gallery";
 import { FreeJoinSubmitButton } from "@/components/tribes/tribe-story-about/free-join-submit-button";
 import type {
@@ -148,7 +147,7 @@ export function TribeStoryAbout({
           {story ? (
             <>
               <TribeStoryGallery media={story.media} />
-              <RichStoryContent content={story.content} />
+              <RichMarkdownContent content={story.content} />
             </>
           ) : (
             <p className={styles.TribeStoryAbout__emptyState}>

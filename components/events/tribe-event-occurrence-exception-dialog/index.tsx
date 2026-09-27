@@ -3,19 +3,8 @@
 import { type FormEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Textarea,
-} from "beez-ui";
+import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Textarea, AnimatedCollapse, MOTION_TIMING, MOTION_EASE } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
 import {
   addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
@@ -24,7 +13,6 @@ import {
   getBuenosAiresDateKey,
 } from "@/lib/date-time/buenos-aires-format";
 import type { TribeEventOccurrenceExceptionSubmission } from "@/lib/events/tribe-event-form-submissions";
-import { MOTION_DURATION_SECONDS, MOTION_EASE_OUT } from "@/lib/motion/tokens";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import {
   TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND,
@@ -81,9 +69,9 @@ type ExceptionFormValidationIssue = {
 /** Opacity-only fade for the end date that appears with «Termina otro día». */
 const CONDITIONAL_FIELD_MOTION = {
   animate: { opacity: 1 },
-  exit: { opacity: 0, transition: { duration: MOTION_DURATION_SECONDS.exit, ease: MOTION_EASE_OUT } },
+  exit: { opacity: 0, transition: { duration: MOTION_TIMING.exit, ease: MOTION_EASE } },
   initial: { opacity: 0 },
-  transition: { duration: MOTION_DURATION_SECONDS.enter, ease: MOTION_EASE_OUT },
+  transition: { duration: MOTION_TIMING.enter, ease: MOTION_EASE },
 } as const;
 const INPUT_TYPE = {
   date: "date",

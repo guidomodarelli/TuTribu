@@ -4,14 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WhatsappIcon } from "beez-ui";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WhatsappIcon, cn } from "beez-ui";
 
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import type { TribeSupportSettings } from "@/src/modules/tribes/domain/repositories/tribe-support-repository";
 import { TribeSupportConfigDialog } from "@/components/tribes/tribe-support-config-dialog";
 
-import { joinClassNames } from "@/lib/motion/join-class-names";
 
 import styles from "./styles.module.scss";
 
@@ -58,7 +57,7 @@ const SUPPORT_PHONE_NON_DIGIT_PATTERN = /\D/g;
 const SUPPORT_FETCH_TIMEOUT_MS = 15000;
 
 /** Icon shown once the support settings resolve; it pops in after the loader. */
-const RESOLVED_ICON_CLASS_NAME = joinClassNames(
+const RESOLVED_ICON_CLASS_NAME = cn(
   styles.TribeSupportButton__icon,
   styles["TribeSupportButton__icon--resolved"]
 );
@@ -254,7 +253,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
       >
         <LoaderIcon
           aria-hidden
-          className={joinClassNames(
+          className={cn(
             styles.TribeSupportButton__icon,
             styles["TribeSupportButton__icon--spinning"]
           )}

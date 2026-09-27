@@ -9,9 +9,8 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { toast, Avatar, AvatarFallback, AvatarImage, Button } from "beez-ui";
+import { toast, Avatar, AvatarFallback, AvatarImage, Button, AnimatedListItem } from "beez-ui";
 
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { LESSON_COMMENT_CONTENT } from "@/src/modules/courses/constants/courses";
 import type { LessonCommentResult } from "@/src/modules/courses/application/results/course-results";
 import styles from "./styles.module.scss";

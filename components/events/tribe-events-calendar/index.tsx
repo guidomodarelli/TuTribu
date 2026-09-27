@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { cn, toast, useIsMobile } from "beez-ui";
+import { cn, toast, AnimatedCollapse, copyTextToClipboard } from "beez-ui";
+import { useIsMobile, useHorizontalSwipe, useIsHydrated, useViewerTimeZone, HORIZONTAL_SWIPE_DIRECTION } from "beez-ui/hooks";
 
 import { TribeEventAgendaItem } from "@/components/events/tribe-event-agenda-item";
 import { TribeEventCalendarFeedDialog } from "@/components/events/tribe-event-calendar-feed-dialog";
@@ -32,16 +33,12 @@ import { TribeEventsEmptyState } from "@/components/events/tribe-events-empty-st
 import { TribeEventsMonthGrid } from "@/components/events/tribe-events-month-grid";
 import { TribeEventsTypeFilter } from "@/components/events/tribe-events-type-filter";
 import { TribeNextEvent } from "@/components/events/tribe-next-event";
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { useHorizontalSwipe } from "@/hooks/use-horizontal-swipe";
-import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { advanceMinuteClockTo, useMinuteClock } from "@/hooks/use-minute-clock";
 import { useOccurrenceFinishWatcher } from "@/hooks/use-occurrence-finish-watcher";
 import { useTribeEventAttendanceReport } from "@/hooks/use-tribe-event-attendance-report";
 import { useTribeEventCalendarFeed } from "@/hooks/use-tribe-event-calendar-feed";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
 import { useTribeEventProposals } from "@/hooks/use-tribe-event-proposals";
-import { useViewerTimeZone } from "@/hooks/use-viewer-time-zone";
 import {
   formatBuenosAiresTime,
   getBuenosAiresDateKey,
@@ -73,8 +70,6 @@ import {
   buildTribeEventAttendanceExportUrl,
   buildTribeEventsRoute,
 } from "@/lib/events/tribe-events-routes";
-import { HORIZONTAL_SWIPE_DIRECTION } from "@/lib/gestures/horizontal-swipe";
-import { copyTextToClipboard } from "@/lib/browser-clipboard";
 import {
   replaceCurrentUrlSearchParamValues,
   replaceCurrentUrlSearchParams,

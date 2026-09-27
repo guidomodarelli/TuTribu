@@ -2,15 +2,9 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Switch } from "beez-ui";
+import { toast, Button, Input, Switch, AnimatedCollapse, AnimatedListItem, formatFileSize, cn, RichLinkEditor, useRichLinkEditor } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { Link } from "@/components/navigation/link";
-import { RichLinkEditor } from "@/components/rich-text/rich-link-editor";
-import { useRichLinkEditor } from "@/components/rich-text/rich-link-editor/use-rich-link-editor";
-import { formatFileSize } from "@/lib/format-file-size";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import {
   ATTACHMENT_FILE,
   ATTACHMENT_FILE_INPUT_ACCEPT,
@@ -1121,7 +1115,7 @@ export function TribeCoursesManagement({
             return (
               <AnimatedListItem
                 aria-busy={isModulePending || undefined}
-                className={joinClassNames(
+                className={cn(
                   styles.TribeCoursesManagement__moduleItem,
                   isModulePending &&
                     styles["TribeCoursesManagement__moduleItem--pending"]
@@ -1219,7 +1213,7 @@ export function TribeCoursesManagement({
                       return (
                         <AnimatedListItem
                           aria-busy={isLessonPending || undefined}
-                          className={joinClassNames(
+                          className={cn(
                             styles.TribeCoursesManagement__lessonItem,
                             isLessonPending &&
                               styles["TribeCoursesManagement__lessonItem--pending"]
@@ -1492,7 +1486,7 @@ function ModuleForm({
   return (
     <form
       aria-busy={isSubmitting || undefined}
-      className={joinClassNames(
+      className={cn(
         styles.TribeCoursesManagement__form,
         isEditing && styles["TribeCoursesManagement__form--inline"]
       )}
@@ -1933,7 +1927,7 @@ function LessonForm({
   return (
     <form
       aria-busy={isSubmitting || undefined}
-      className={joinClassNames(
+      className={cn(
         styles.TribeCoursesManagement__form,
         isEditing && styles["TribeCoursesManagement__form--inline"]
       )}
@@ -1971,7 +1965,7 @@ function LessonForm({
           <FieldError id={videoUrlErrorId} message={videoUrlError} />
         ) : (
           <small
-            className={joinClassNames(
+            className={cn(
               styles.TribeCoursesManagement__formHelp,
               detectedProvider &&
                 styles["TribeCoursesManagement__formHelp--success"]

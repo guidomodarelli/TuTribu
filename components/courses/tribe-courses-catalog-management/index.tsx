@@ -2,12 +2,9 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Switch } from "beez-ui";
+import { toast, Button, Input, Switch, AnimatedCollapse, AnimatedListItem, cn } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { Link } from "@/components/navigation/link";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import { ROUTES } from "@/src/constants/routes";
 import {
   COURSE_DESCRIPTION,
@@ -531,7 +528,7 @@ export function TribeCoursesCatalogManagement({
             return (
               <AnimatedListItem
                 aria-busy={isCoursePending || undefined}
-                className={joinClassNames(
+                className={cn(
                   styles.TribeCoursesCatalogManagement__courseItem,
                   isCoursePending &&
                     styles["TribeCoursesCatalogManagement__courseItem--pending"]
@@ -709,7 +706,7 @@ function CourseForm({
   return (
     <form
       aria-busy={isSubmitting || undefined}
-      className={joinClassNames(
+      className={cn(
         styles.TribeCoursesCatalogManagement__form,
         isEditing && styles["TribeCoursesCatalogManagement__form--inline"]
       )}

@@ -26,7 +26,7 @@ vi.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
   signOutMember: (...args: unknown[]) => signOutMock(...args),
 }));
 
-describe("AvatarSessionMenu", () => {
+describe("AvatarSessionMenuClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pushMock.mockReset();
@@ -90,7 +90,7 @@ describe("AvatarSessionMenu", () => {
     expect(pushMock).toHaveBeenCalledWith("/auth/signin");
   });
 
-  it("keeps the avatar image only in the menu trigger after opening the dropdown", async () => {
+  it("names the member avatar only on the menu trigger after opening the dropdown", async () => {
     const user = userEvent.setup();
 
     render(
@@ -110,7 +110,9 @@ describe("AvatarSessionMenu", () => {
 
     await user.click(screen.getByRole("button", { name: /menú de cuenta/i }));
 
-    expect(document.body.querySelectorAll('[data-slot="avatar"]')).toHaveLength(1);
+    // The menu header repeats the avatar next to the visible name as decoration.
+    expect(screen.getAllByAltText("Grace Hopper")).toHaveLength(1);
+    expect(screen.getByRole("menu")).toHaveTextContent("Grace Hopper");
   });
 
   it("loads the trigger avatar eagerly when the member image is above the fold", () => {

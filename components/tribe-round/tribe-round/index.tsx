@@ -38,7 +38,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "beez-ui";
+import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
+import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
 
 import { Link } from "@/components/navigation/link";
 
@@ -46,18 +47,9 @@ import { Link } from "@/components/navigation/link";
 
 
 
-import { RichLinkEditor } from "@/components/rich-text/rich-link-editor";
-import { useRichLinkEditor } from "@/components/rich-text/rich-link-editor/use-rich-link-editor";
-import { RichTextContent } from "@/components/rich-text/rich-text-content";
-import type { RichLink } from "@/lib/rich-text/link-markdown-types";
-import { formatFileSize } from "@/lib/format-file-size";
 
 
 
-import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
-import { AnimatedCount } from "@/components/motion/animated-count";
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
-import { MessageLikeButton } from "@/components/tribe-round/message-like-button";
 import { MessageLikesHoverCard } from "@/components/tribe-round/message-likes-hover-card";
 import { RoundChannelFilters } from "@/components/tribe-round/round-channel-filters";
 import {
@@ -6475,12 +6467,13 @@ function TribeRoundContent({
                         onTriggerClick={stopMessageDetailsOpening}
                         tribeSlug={tribeSlug}
                       >
-                        <MessageLikeButton
+                        <ReactionButton
+                          activeColor="currentColor"
                           ariaLabel={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${message.likeCount}`}
                           className={getLikeButtonClassName(message.likedByViewer)}
                           isDisabled={isLikeButtonDisabled(message)}
-                          isLiked={message.likedByViewer}
-                          likeCount={message.likeCount}
+                          isActive={message.likedByViewer}
+                          count={message.likeCount}
                           onClick={(event) => {
                             stopMessageDetailsOpening(event);
                             handleToggleLike(message.id);
@@ -6637,14 +6630,15 @@ function TribeRoundContent({
                     messageId={selectedMessage.id}
                     tribeSlug={tribeSlug}
                   >
-                    <MessageLikeButton
+                    <ReactionButton
+                      activeColor="currentColor"
                       ariaLabel={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${selectedMessage.likeCount}`}
                       className={getLikeButtonClassName(
                         selectedMessage.likedByViewer
                       )}
                       isDisabled={isLikeButtonDisabled(selectedMessage)}
-                      isLiked={selectedMessage.likedByViewer}
-                      likeCount={selectedMessage.likeCount}
+                      isActive={selectedMessage.likedByViewer}
+                      count={selectedMessage.likeCount}
                       onClick={() => {
                         handleToggleLike(selectedMessage.id);
                       }}

@@ -4,16 +4,8 @@ import { useEffect, useId, useState } from "react";
 import Image from "next/image";
 import { motion } from "motion/react";
 
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-  type CarouselApi,
-} from "beez-ui";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi, SPRING_LAYOUT } from "beez-ui";
 import { TribeStoryVideoSlide } from "@/components/tribes/tribe-story-video-slide";
-import { SPRING_LAYOUT } from "@/lib/motion/tokens";
 import { TRIBE_STORY_MEDIA_TYPE } from "@/src/modules/tribes/constants/tribe-story";
 import type { TribeStoryMediaResult } from "@/src/modules/tribes/application/results/tribe-story-result";
 import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";

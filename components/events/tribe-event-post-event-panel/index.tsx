@@ -2,12 +2,8 @@
 
 import { ExternalLinkIcon, FileTextIcon, GraduationCapIcon, VideoIcon } from "lucide-react";
 
-import { Button } from "beez-ui";
+import { Button, AnimatedCollapse, AnimatedCount, PresenceSwap, cn } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { AnimatedCount } from "@/components/motion/animated-count";
-import { PresenceSwap } from "@/components/motion/presence-swap";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import {
   TRIBE_EVENT_POST_EVENT_LOAD_STATUS,
   type TribeEventLoadState,
@@ -244,7 +240,7 @@ function TribeEventPostEventPanelBody({
               <button
                 aria-label={COPY.reactionCount(display.label, count)}
                 aria-pressed={isSelected}
-                className={joinClassNames(
+                className={cn(
                   styles.TribeEventPostEventPanel__reaction,
                   isSelected && styles["TribeEventPostEventPanel__reaction--selected"]
                 )}

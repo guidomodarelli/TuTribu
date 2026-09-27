@@ -11,13 +11,11 @@ import {
   ListIcon,
   RssIcon,
 } from "lucide-react";
-import { Button, cn } from "beez-ui";
+import { Button, cn, AnimatedCount, SPRING_LAYOUT } from "beez-ui";
 
 import type { MonthTransitionDirection } from "@/components/events/tribe-events-calendar/use-month-transition-direction";
-import { AnimatedCount } from "@/components/motion/animated-count";
 import { Link } from "@/components/navigation/link";
 import { formatBuenosAiresMonthTitle } from "@/lib/date-time/buenos-aires-format";
-import { SPRING_LAYOUT } from "@/lib/motion/tokens";
 import styles from "./styles.module.scss";
 
 /**

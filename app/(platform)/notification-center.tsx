@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useIsMobile } from "beez-ui";
+import { useIsMobile, useIsHydrated } from "beez-ui/hooks";
 
 import {
   NOTIFICATION_BELL_SURFACE,
   NotificationBell,
   type NotificationBellSurface,
 } from "@/components/notifications/notification-bell";
-import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { useNotificationCenter } from "@/hooks/use-notification-center";
 import type { NotificationInboxResponse } from "@/src/modules/notifications/application/results/notification-public-dto-schemas";
 

@@ -3,10 +3,8 @@
 import { useId, useState } from "react";
 import Image from "next/image";
 import { ImageIcon, ImageOffIcon, UploadIcon } from "lucide-react";
-import { toast, Button, Input } from "beez-ui";
+import { toast, Button, Input, PresenceSwap, cn } from "beez-ui";
 
-import { PresenceSwap } from "@/components/motion/presence-swap";
-import { joinClassNames } from "@/lib/motion/join-class-names";
 import type { TribeIdentityResult } from "@/src/modules/tribes/application/results/tribe-identity-result";
 import styles from "./styles.module.scss";
 
@@ -371,7 +369,7 @@ function IdentityImageField({
         </p>
       </div>
       <div
-        className={joinClassNames(
+        className={cn(
           styles.TribeSettingsManagement__fieldBody,
           isLogo && styles["TribeSettingsManagement__fieldBody--logo"]
         )}

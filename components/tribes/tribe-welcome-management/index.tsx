@@ -4,10 +4,8 @@ import { useId, useMemo, useRef, useState } from "react";
 import { LoaderCircleIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Switch, Textarea } from "beez-ui";
+import { toast, Button, Input, Switch, Textarea, AnimatedCount, AnimatedListItem } from "beez-ui";
 
-import { AnimatedCount } from "@/components/motion/animated-count";
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { TribeWelcomeDisplay } from "@/components/tribes/tribe-welcome-display";
 import { TribeWelcomeSelectionModal } from "@/components/tribes/tribe-welcome-selection-modal";
 import type {

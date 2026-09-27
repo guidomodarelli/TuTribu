@@ -2,12 +2,9 @@
 
 import { BellOffIcon, CheckCheckIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { Button } from "beez-ui";
+import { Button, AnimatedListItem, cn, MOTION_TIMING, MOTION_EASE } from "beez-ui";
 
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
 import { Link } from "@/components/navigation/link";
-import { joinClassNames } from "@/lib/motion/join-class-names";
-import { MOTION_DURATION_SECONDS, MOTION_EASE_OUT } from "@/lib/motion/tokens";
 import { describeNotification } from "@/lib/notifications/notification-presentation";
 import type { NotificationItemResult } from "@/src/modules/notifications/application/results/notification-result";
 
@@ -42,7 +39,7 @@ const MARK_ALL_FADE = {
   animate: { opacity: 1 },
   exit: { opacity: 0 },
   initial: { opacity: 0 },
-  transition: { duration: MOTION_DURATION_SECONDS.enter, ease: MOTION_EASE_OUT },
+  transition: { duration: MOTION_TIMING.enter, ease: MOTION_EASE },
 } as const;
 
 /**
@@ -105,7 +102,7 @@ export function NotificationPanel({
   return (
     <div className={styles.NotificationPanel}>
       <div
-        className={joinClassNames(
+        className={cn(
           styles.NotificationPanel__header,
           reservesCloseButtonSpace && styles["NotificationPanel__header--withClose"]
         )}
@@ -172,7 +169,7 @@ export function NotificationPanel({
               return (
                 <AnimatedListItem className={styles.NotificationPanel__item} key={notification.id}>
                   <Link
-                    className={joinClassNames(
+                    className={cn(
                       styles.NotificationPanel__link,
                       isUnread && styles["NotificationPanel__link--unread"]
                     )}
@@ -181,7 +178,7 @@ export function NotificationPanel({
                   >
                     <span
                       aria-hidden="true"
-                      className={joinClassNames(
+                      className={cn(
                         styles.NotificationPanel__dot,
                         isUnread && styles["NotificationPanel__dot--unread"]
                       )}

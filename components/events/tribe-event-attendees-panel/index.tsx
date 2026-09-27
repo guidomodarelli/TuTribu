@@ -1,10 +1,9 @@
 "use client";
 
 import { DownloadIcon } from "lucide-react";
-import { Button } from "beez-ui";
+import { Button, PresenceSwap } from "beez-ui";
 
 import { TribeEventAttendanceTrend } from "@/components/events/tribe-event-attendance-trend";
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import { formatBuenosAiresDateTimeRange } from "@/lib/date-time/buenos-aires-format";
 import {
   TRIBE_EVENT_ATTENDANCE_REPORT_STATUS,

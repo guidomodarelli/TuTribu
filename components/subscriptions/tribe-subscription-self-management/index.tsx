@@ -8,9 +8,8 @@
 
 import { useRef, useState } from "react";
 import { LoaderCircleIcon, XCircleIcon } from "lucide-react";
-import { toast, Button } from "beez-ui";
+import { toast, Button, PresenceSwap } from "beez-ui";
 
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import styles from "./styles.module.scss";
 

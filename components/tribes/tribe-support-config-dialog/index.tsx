@@ -1,9 +1,8 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { toast, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from "beez-ui";
+import { toast, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, PresenceSwap } from "beez-ui";
 
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import { TRIBE_SUPPORT_CHANNEL } from "@/src/modules/tribes/constants/tribe-support";
 import type {
   TribeSupportChannel,

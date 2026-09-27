@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { TribeStoryAbout } from "@/components/tribes/tribe-story-about";
 import { TribeStoryManagement } from "@/components/tribes/tribe-story-management";
-import { buildStoryPlainTextExcerpt } from "@/lib/rich-text/story-markdown";
+import { buildRichMarkdownExcerpt } from "beez-ui";
 import { createRequestModules } from "@/src/modules/setup";
 import { getCachedPublicTribeStoryAbout } from "@/src/modules/tribes/infrastructure/cache/tribe-story-about-cache";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
@@ -78,7 +78,7 @@ export async function generateMetadata({
 
     const title = `${stats.name} — ${TRIBE_STORY_PAGE.metadataTitleSuffix}`;
     const description = story
-      ? buildStoryPlainTextExcerpt(
+      ? buildRichMarkdownExcerpt(
           story.content,
           TRIBE_STORY_PAGE.metadataDescriptionMaxLength
         )

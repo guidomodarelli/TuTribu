@@ -2,24 +2,8 @@
 
 import { type FormEvent, useState } from "react";
 
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Textarea,
-} from "beez-ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, AnimatedCollapse, PresenceSwap } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import { Link } from "@/components/navigation/link";
 import {
   TRIBE_EVENT_POST_EVENT_LOAD_STATUS,

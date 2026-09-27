@@ -18,16 +18,11 @@ import {
   type MouseEvent,
 } from "react";
 import { motion } from "motion/react";
-import { toast, Button } from "beez-ui";
+import { toast, Button, PresenceSwap, formatFileSize, cn, SPRING_LAYOUT, RichTextContent } from "beez-ui";
 
 import { LessonComments } from "@/components/courses/lesson-comments";
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import { Link } from "@/components/navigation/link";
-import { RichTextContent } from "@/components/rich-text/rich-text-content";
 
-import { formatFileSize } from "@/lib/format-file-size";
-import { joinClassNames } from "@/lib/motion/join-class-names";
-import { SPRING_LAYOUT } from "@/lib/motion/tokens";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   CourseTreeViewerPermissionsResult,
@@ -680,7 +675,7 @@ export function TribeCoursesView({
                               aria-current={
                                 isActive ? ARIA_CURRENT_PAGE : undefined
                               }
-                              className={joinClassNames(
+                              className={cn(
                                 styles.TribeCoursesView__lessonLink,
                                 isActive &&
                                   styles["TribeCoursesView__lessonLink--active"]

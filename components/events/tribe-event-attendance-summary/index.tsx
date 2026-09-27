@@ -1,8 +1,7 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage, cn } from "beez-ui";
+import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage, cn, PresenceSwap } from "beez-ui";
 
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import {
   formatAttendanceCounts,
   formatCapacityStatus,

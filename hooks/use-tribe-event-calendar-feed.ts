@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { toast } from "beez-ui";
+import { toast, copyTextToClipboard } from "beez-ui";
 
-import { copyTextToClipboard } from "@/lib/browser-clipboard";
 import {
   fetchTribeEventCalendarFeedRequest,
   issueTribeEventCalendarFeedRequest,

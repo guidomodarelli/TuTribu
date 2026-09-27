@@ -1,11 +1,10 @@
 "use client";
 
-import { Button } from "beez-ui";
+import { Button, PresenceSwap } from "beez-ui";
 
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import { formatMovedFromLabel } from "@/lib/events/tribe-event-occurrence-exception-copy";
 import {
   formatBuenosAiresLongDate,

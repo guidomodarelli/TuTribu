@@ -49,7 +49,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <table>
   <tr><th>Caso</th><th>Herramienta</th><th>Por qué</th></tr>
   <tr><td>Entrada de contenido renderizado en el servidor (secciones, listas iniciales, estados vacíos)</td><td>Mixins SCSS de <code>src/styles/_motion.scss</code></td><td>Corren sin JavaScript, no ocultan el HTML del servidor antes de hidratar y funcionan en Server Components.</td></tr>
-  <tr><td>Cambios en el cliente (ítems agregados o borrados, contadores, estados de envío, regiones que se expanden, indicadores que se deslizan)</td><td><code>motion/react</code> y las primitivas de <code>components/motion/*</code></td><td>Necesitan presencia (animar antes de desmontar), layout y dirección del cambio.</td></tr>
+  <tr><td>Cambios en el cliente (ítems agregados o borrados, contadores, estados de envío, regiones que se expanden, indicadores que se deslizan)</td><td><code>motion/react</code> y las primitivas de movimiento de <code>beez-ui</code></td><td>Necesitan presencia (animar antes de desmontar), layout y dirección del cambio.</td></tr>
 </table>
 </div>
 
@@ -63,7 +63,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li><strong>Reduced motion siempre.</strong> <code>BeezUIProvider</code> monta <code>MotionConfig reducedMotion="user"</code> para toda la app, y cada mixin SCSS se desactiva bajo <code>prefers-reduced-motion: reduce</code>. No agregar animaciones fuera de esos dos caminos.</li>
   <li><strong>No ocultar HTML del servidor.</strong> No usar <code>initial={{ opacity: 0 }}</code> de <code>motion</code> en contenido que llega renderizado: se ve vacío hasta que hidrata. Envolver listas cliente en <code>&lt;AnimatePresence initial={false}&gt;</code> para que solo animen los cambios posteriores.</li>
   <li><strong>No re-animar primitivos de <code>beez-ui</code>.</strong> Sí se pueden animar cambios internos de un diálogo (pasos, errores, listas).</li>
-  <li><strong>Valores con nombre.</strong> Duraciones, curvas y resortes salen de <code>lib/motion/tokens.ts</code>, que replica los tokens internos de <code>beez-ui</code>; mantener ambos alineados cuando la librería cambie su lenguaje de motion.</li>
+  <li><strong>Valores con nombre.</strong> Duraciones, curvas y resortes salen de los tokens que exporta <code>beez-ui</code> (<code>MOTION_TIMING</code>, <code>MOTION_EASE</code>, <code>MOTION_EASE_IN_OUT</code>, <code>SPRING_LAYOUT</code>, <code>SPRING_POP</code> y las distancias), los mismos que usan sus primitivas; no se copian en la aplicación.</li>
 </ul>
 </div>
 
@@ -71,7 +71,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">03</div>
   <div class="section-title">Primitivas cliente</div>
 <table>
-  <tr><th>Componente</th><th>Uso</th></tr>
+  <tr><th>Componente (desde <code>beez-ui</code>)</th><th>Uso</th></tr>
   <tr><td><code>AnimatedCollapse</code></td><td>Expande y colapsa una región animando altura y opacidad; libera <code>overflow</code> al terminar para no recortar anillos de foco ni popovers. El padding va dentro del contenido.</td></tr>
   <tr><td><code>PresenceSwap</code></td><td>Cross-fade entre estados de una misma región (sin cambios → guardando → guardado). Cambiar <code>presenceKey</code> dispara la transición; el primer render no anima.</td></tr>
   <tr><td><code>AnimatedCount</code></td><td>Contadores (me gusta, asistentes, no leídas): el número rueda hacia arriba al subir y hacia abajo al bajar.</td></tr>

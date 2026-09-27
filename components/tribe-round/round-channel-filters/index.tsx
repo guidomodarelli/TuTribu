@@ -9,11 +9,10 @@ import { LayoutGroup, motion } from "motion/react";
 import { type MouseEvent, useEffect, useId, useRef, useState } from "react";
 
 import { Link } from "@/components/navigation/link";
-import { joinClassNames } from "@/lib/motion/join-class-names";
-import { SPRING_LAYOUT } from "@/lib/motion/tokens";
 import type { TribeChannelResult } from "@/src/modules/messages/application/results/tribe-round-result";
 
 import styles from "./styles.module.scss";
+import { cn, SPRING_LAYOUT } from "beez-ui";
 
 /** Identifier of the "all channels" chip, which has no channel id. */
 const ALL_CHANNELS_FILTER_ID = "all";
@@ -143,7 +142,7 @@ export function RoundChannelFilters({
             <Link
               aria-current={isCurrentPage ? ROUND_CHANNEL_FILTERS_UI.ariaCurrentPage : undefined}
               data-slot={ROUND_CHANNEL_FILTERS_UI.chipSlot}
-              className={joinClassNames(
+              className={cn(
                 styles.RoundChannelFilters__chip,
                 isSelected && styles["RoundChannelFilters__chip--active"]
               )}

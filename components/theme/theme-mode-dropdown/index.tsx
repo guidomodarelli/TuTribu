@@ -4,11 +4,10 @@ import type { LucideIcon } from "lucide-react";
 import { MonitorIcon, MoonIcon, SunIcon, SunMoonIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, useTheme } from "beez-ui";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, useTheme, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "beez-ui";
+import { useIsHydrated } from "beez-ui/hooks";
 
-import { useIsHydrated } from "@/hooks/use-is-hydrated";
 import { isThemeMode } from "@/lib/theme-mode";
-import { MOTION_DURATION_SECONDS, MOTION_EASE_OUT, SPRING_POP } from "@/lib/motion/tokens";
 import {
   DARK_THEME_MODE,
   LIGHT_THEME_MODE,
@@ -47,7 +46,7 @@ const ICON_SWAP_MOTION = {
     opacity: 0,
     rotate: ICON_SWAP_ROTATION_DEGREES,
     scale: ICON_SWAP_HIDDEN_SCALE,
-    transition: { duration: MOTION_DURATION_SECONDS.exit, ease: MOTION_EASE_OUT },
+    transition: { duration: MOTION_TIMING.exit, ease: MOTION_EASE },
   },
   initial: { opacity: 0, rotate: -ICON_SWAP_ROTATION_DEGREES, scale: ICON_SWAP_HIDDEN_SCALE },
 } as const;

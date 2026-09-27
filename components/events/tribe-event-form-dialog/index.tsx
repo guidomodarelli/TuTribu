@@ -3,24 +3,8 @@
 import { type FormEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Textarea,
-} from "beez-ui";
+import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, AnimatedCollapse, MOTION_TIMING, MOTION_EASE } from "beez-ui";
 
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
 import {
   addDaysToBuenosAiresDateKey,
   buildBuenosAiresInstant,
@@ -44,7 +28,6 @@ import {
   TRIBE_EVENT_RECURRENCE_FREQUENCY,
   TRIBE_EVENT_TYPES,
 } from "@/src/modules/events/constants/tribe-events";
-import { MOTION_DURATION_SECONDS, MOTION_EASE_OUT } from "@/lib/motion/tokens";
 import styles from "./styles.module.scss";
 
 /**
@@ -170,9 +153,9 @@ type EventFormValidationIssue = {
  */
 const CONDITIONAL_FIELD_MOTION = {
   animate: { opacity: 1 },
-  exit: { opacity: 0, transition: { duration: MOTION_DURATION_SECONDS.exit, ease: MOTION_EASE_OUT } },
+  exit: { opacity: 0, transition: { duration: MOTION_TIMING.exit, ease: MOTION_EASE } },
   initial: { opacity: 0 },
-  transition: { duration: MOTION_DURATION_SECONDS.enter, ease: MOTION_EASE_OUT },
+  transition: { duration: MOTION_TIMING.enter, ease: MOTION_EASE },
 } as const;
 const INPUT_TYPE = {
   date: "date",

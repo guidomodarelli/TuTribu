@@ -170,7 +170,7 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 ### UI baseline
 
 - Use `beez-ui` as the only shared component library consumed by product code.
-- Group named imports from `beez-ui`; do not use component-specific subpaths.
+- Group named imports from `beez-ui`; do not use component-specific subpaths. General-purpose hooks (`useIsMobile`, `useIsHydrated`, `useViewerTimeZone`, `useHorizontalSwipe`) come from the `beez-ui/hooks` entrypoint.
 - `components/providers/app-providers/app-ui-provider.tsx` is the composition root allowed to import `BeezUIProvider` from `beez-ui/next`. Use `useTheme` from `beez-ui` for theme consumers and preserve the `tutribu-theme` storage key. Do not reintroduce document theme scripts or independent preference state.
 - The sibling `beez-ui` repository owns the extracted shadcn/ui components and their customizations.
 - Add new shadcn/ui components through its official CLI in that library, never in this application.
@@ -234,8 +234,8 @@ components/<scope>/<component>/
 
 ### Motion baseline
 
-- Use `motion` (`motion/react`) and the shared primitives in `components/motion/*` for client-side state changes, and the mixins in `src/styles/_motion.scss` for CSS-only entrances of server-rendered content.
-- Animate only `transform` and `opacity` (height only through `AnimatedCollapse`), keep durations between 120 and 320 ms, take timing from `lib/motion/tokens.ts`, and never hide server-rendered HTML behind a Motion `initial` state.
+- Use `motion` (`motion/react`) and the motion primitives exported by `beez-ui` (`PresenceSwap`, `AnimatedCount`, `AnimatedCollapse`, `AnimatedListItem`) for client-side state changes, and the mixins in `src/styles/_motion.scss` for CSS-only entrances of server-rendered content.
+- Animate only `transform` and `opacity` (height only through `AnimatedCollapse`), keep durations between 120 and 320 ms, take timing from the motion tokens exported by `beez-ui` (`MOTION_TIMING`, `MOTION_EASE`, springs and distances), and never hide server-rendered HTML behind a Motion `initial` state.
 - Do not re-animate `beez-ui` primitives, which already animate. Every animation must respect `prefers-reduced-motion`.
 - Follow the motion convention guide at `docs/conventions/motion.htm`.
 

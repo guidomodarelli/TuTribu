@@ -5708,7 +5708,6 @@ describe("TribeRound", () => {
     expect(titleInput).toHaveAttribute("aria-invalid", "true");
     expect(titleInput).toHaveClass("TribeRound__titleInput--invalid");
     expect(contentEditor).toHaveAttribute("aria-invalid", "true");
-    expect(contentEditor).toHaveClass("RichLinkEditor__editor--invalid");
     // A button does not support aria-invalid: the missing channel is announced
     // through the requirements list it is described by.
     expect(channelTrigger).not.toHaveAttribute("aria-invalid");

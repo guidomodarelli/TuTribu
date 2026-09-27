@@ -3,27 +3,14 @@
 import { useState } from "react";
 import { BellIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  Button,
-  cn,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-  SheetTrigger,
-} from "beez-ui";
+import { Button, cn, Popover, PopoverContent, PopoverTrigger, Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger, AnimatedCount, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "beez-ui";
 
-import { AnimatedCount } from "@/components/motion/animated-count";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 import {
   describeUnreadNotifications,
   formatUnreadBadge,
   NOTIFICATION_BADGE_MAX,
 } from "@/lib/notifications/notification-presentation";
-import { MOTION_DURATION_SECONDS, MOTION_EASE_OUT, SPRING_POP } from "@/lib/motion/tokens";
 
 import styles from "./styles.module.scss";
 
@@ -60,7 +47,7 @@ const BADGE_MOTION = {
   exit: {
     opacity: 0,
     scale: BADGE_HIDDEN_SCALE,
-    transition: { duration: MOTION_DURATION_SECONDS.exit, ease: MOTION_EASE_OUT },
+    transition: { duration: MOTION_TIMING.exit, ease: MOTION_EASE },
   },
   initial: { opacity: 0, scale: BADGE_HIDDEN_SCALE },
 } as const;
@@ -87,8 +74,8 @@ const BELL_NUDGE_ROTATION_DEGREES = [
 
 /** Timing of the bell swing, within the product's 320 ms reveal budget. */
 const BELL_NUDGE_TRANSITION = {
-  duration: MOTION_DURATION_SECONDS.reveal,
-  ease: MOTION_EASE_OUT,
+  duration: MOTION_TIMING.pop,
+  ease: MOTION_EASE,
 } as const;
 
 /**

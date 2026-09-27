@@ -3,21 +3,9 @@
 import { useState } from "react";
 import { AnimatePresence } from "motion/react";
 
-import {
-  Badge,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Textarea,
-} from "beez-ui";
+import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap } from "beez-ui";
 
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
-import { AnimatedCollapse } from "@/components/motion/animated-collapse";
-import { AnimatedListItem } from "@/components/motion/animated-list-item";
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import {
   formatBuenosAiresLongDate,
   formatBuenosAiresTime,

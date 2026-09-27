@@ -2,17 +2,8 @@
 
 import { useState } from "react";
 import { CalendarPlusIcon, CopyIcon, ShieldAlertIcon } from "lucide-react";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Input,
-} from "beez-ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, PresenceSwap } from "beez-ui";
 
-import { PresenceSwap } from "@/components/motion/presence-swap";
 import {
   TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS,
   type TribeEventCalendarFeedLoadState,
