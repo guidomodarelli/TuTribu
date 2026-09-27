@@ -65,7 +65,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run cf-typegen` | Generate Cloudflare binding types from `wrangler.jsonc`. |
 | `pnpm start` | Run the production build locally. |
 | `pnpm run ci` | Run the full quality gate (also run by the Husky `pre-push` hook on branches other than `main`): lint, application/test type checks, Vitest, and Next.js build. |
-| `pnpm run lint` | Run ESLint across the repo. |
+| `pnpm run lint` | Run oxlint across the repo (configured in `.oxlintrc.json`). |
 | `pnpm run typecheck` | Run `tsc --noEmit` over production code. |
 | `pnpm test` | Run Vitest unit and integration tests. |
 | `pnpm run test:watch` | Run Vitest in watch mode. |
