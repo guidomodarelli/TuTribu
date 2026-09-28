@@ -22,6 +22,8 @@ import {
   type TribeAccessModel,
 } from "@/src/modules/product-access/constants/product-access";
 import type {
+  ActivateAcademyCommand,
+  ActivateAcademyResult,
   AcademyGrantView,
   AcademyMemberAccessRow,
   AcademyPublicOffer,
@@ -171,6 +173,37 @@ async function lockActiveLeader(
 
 export class PostgresProductAccessRepository implements ProductAccessRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+
+  async activateAcademy(command: ActivateAcademyCommand): Promise<ActivateAcademyResult> {
+    return this.executeWithDatabase(async (database) => {
+      // The definer function checks the active leader, locks the tribe and the
+      // memberships, preserves every current member and writes the audit, all
+      // in this transaction.
+      const result = await database.execute(sql`
+        select public.academy_activate_by_leader(
+          ${command.tribeSlug},
+          ${command.expectedConfigVersion}
+        ) as status
+      `);
+      const status = (result.rows?.[0] as { status: string } | undefined)?.status;
+
+      if (status === "forbidden" || status === "not_found") {
+        return { status };
+      }
+
+      const tribeResult = await database.execute(sql`
+        select tribes.id from public.tribes where tribes.slug = ${command.tribeSlug} limit 1
+      `);
+      const tribeId = (tribeResult.rows?.[0] as { id: string }).id;
+      const settings = await this.readSettingsInTransaction(database, tribeId);
+
+      if (status === "activated" || status === "already_academy") {
+        return { settings, status };
+      }
+
+      return { settings, status: "conflict" };
+    });
+  }
 
   async readOwnAccessSnapshot({
     tribeSlug,

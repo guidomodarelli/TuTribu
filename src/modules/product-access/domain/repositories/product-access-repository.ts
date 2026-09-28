@@ -153,7 +153,22 @@ export type ListAcademyMembersResult =
   | { page: AcademyMembersPage; status: "ok" }
   | { status: "forbidden" | "not_found" };
 
+export type ActivateAcademyCommand = {
+  expectedConfigVersion: number;
+  tribeSlug: string;
+};
+
+/**
+ * Self-service activation by the active leader. Current members keep full
+ * access; only later entrants start as basic members.
+ */
+export type ActivateAcademyResult =
+  | { settings: AcademySettings; status: "activated" | "already_academy" }
+  | { settings: AcademySettings; status: "conflict" }
+  | { status: "forbidden" | "not_found" };
+
 export type ProductAccessRepository = {
+  activateAcademy(command: ActivateAcademyCommand): Promise<ActivateAcademyResult>;
   getAcademySettings(query: TribeSlugQuery): Promise<AcademySettings | null>;
   getPublicOffer(query: TribeSlugQuery): Promise<AcademyPublicOffer | null>;
   grantBonus(command: GrantAcademyBonusCommand): Promise<GrantAcademyBonusResult>;

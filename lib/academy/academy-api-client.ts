@@ -46,6 +46,7 @@ const HTTP_STATUS_CONFLICT = 409;
 
 const API_PATH = {
   academy: "/academy",
+  activation: "/activation",
   availability: "/availability",
   bonuses: "/bonuses",
   checkout: "/checkout",
@@ -202,6 +203,19 @@ export function saveAcademyOffer(
     body: input,
     method: HTTP_METHOD.put,
     path: tribePath(tribeSlug, API_PATH.academy + API_PATH.settings),
+    schema: academySettingsDtoSchema,
+  });
+}
+
+/**
+ * Switches the tribe to academy mode (active leader only). A 409 carries the
+ * current settings as conflictData.
+ */
+export function activateAcademy(tribeSlug: string, expectedConfigVersion: number) {
+  return requestAcademyApi<AcademySettingsDto>({
+    body: { expectedConfigVersion },
+    method: HTTP_METHOD.post,
+    path: tribePath(tribeSlug, API_PATH.academy + API_PATH.activation),
     schema: academySettingsDtoSchema,
   });
 }

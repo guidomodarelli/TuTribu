@@ -265,7 +265,9 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
           tribes.id as tribe_row_id,
           tribes.name,
           tribes.slug,
-          tribes.logo_url
+          tribes.logo_url,
+          public.tribe_uses_academy_access(tribes.id) as uses_academy_access,
+          public.can_access_tribe_community(tribes.id) as has_community_access
         from public.tribe_members
         inner join public.tribes
           on tribes.id = tribe_members.tribe_id
@@ -279,6 +281,8 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
 
       return ((result.rows ?? []) as Array<
         PostgresMembershipTribeRow & {
+          has_community_access?: boolean | null;
+          uses_academy_access?: boolean | null;
           tribe_row_id?: string | null;
           logo_url?: string | null;
           name?: string | null;
@@ -287,6 +291,8 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
       >).reduce<MemberTribeListItemResult[]>((membershipTribes, row) => {
         if (row.name && row.slug) {
           membershipTribes.push({
+            accessModel: row.uses_academy_access === true ? "academy" : "legacy",
+            hasCommunityAccess: row.has_community_access !== false,
             tribeId: row.tribe_row_id ?? row.tribe_id,
             logoUrl: row.logo_url ?? null,
             membershipStatus: row.membership_status,

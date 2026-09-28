@@ -54,6 +54,10 @@ export const academyOfferBodySchema = z.object({
   title: z.string().min(1).max(ACADEMY_OFFER_LIMITS.titleMaxLength),
 });
 
+export const academyActivationBodySchema = z.object({
+  expectedConfigVersion: z.number().int().min(0).max(MAX_VERSION),
+});
+
 export const academyAvailabilityBodySchema = z.object({
   admissionEnabled: z.boolean(),
   expectedConfigVersion: z.number().int().min(1).max(MAX_VERSION),

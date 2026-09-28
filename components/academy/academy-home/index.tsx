@@ -53,8 +53,8 @@ const ACADEMY_HOME_COPY = {
   expired: "Tu acceso a la academia finalizó. Tu cuenta y tu progreso siguen guardados.",
   joinButton: "Ingresar gratis",
   joinPending: "Ingresando…",
-  legacyMode:
-    "Esta tribu todavía no usa el modo academia. Configurá la oferta y los proveedores desde la gestión; la activación se hace con el procedimiento supervisado.",
+  legacyMode: "Esta tribu todavía no usa el modo academia. Podés activarla desde Ajustes.",
+  legacySettingsLink: "Ir a Ajustes",
   leaderPreview: "Ves la academia con la vista administrativa de líder; no es un acceso comercial.",
   manageLink: "Gestionar academia",
   offerHeading: "La academia",
@@ -280,7 +280,8 @@ export function AcademyHome({
 
       {access?.accessModel === "legacy" ? (
         <p className={styles.AcademyHome__notice} role="status">
-          {ACADEMY_HOME_COPY.legacyMode}
+          {ACADEMY_HOME_COPY.legacyMode}{" "}
+          <Link href={ROUTES.tribes.settings(tribeSlug)}>{ACADEMY_HOME_COPY.legacySettingsLink}</Link>
         </p>
       ) : null}
 

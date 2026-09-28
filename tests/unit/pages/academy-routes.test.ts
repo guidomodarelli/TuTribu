@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { GET as getAccess } from "@/app/api/tribes/[slug]/academy/access/route";
+import { POST as postActivation } from "@/app/api/tribes/[slug]/academy/activation/route";
 import { POST as postBonus } from "@/app/api/tribes/[slug]/academy/bonuses/route";
 import { POST as postCheckout } from "@/app/api/tribes/[slug]/academy/checkout/route";
 import { POST as postJoin } from "@/app/api/tribes/[slug]/academy/join/route";
@@ -15,6 +16,7 @@ const GRANT_ID = "8a7b6c5d-4e3f-4a1b-9c8d-7e6f5a4b3c2d";
 const IDEMPOTENCY_KEY = "7f5c9a0e-8d1b-4c3e-9a2f-1b2c3d4e5f60";
 
 const useCases = {
+  activateAcademy: vi.fn(),
   getAuthenticatedMember: vi.fn(),
   getOwnAcademyAccess: vi.fn(),
   grantAcademyBonus: vi.fn(),
@@ -48,6 +50,7 @@ beforeEach(() => {
     },
     productAccess: {
       useCases: {
+        activateAcademy: useCases.activateAcademy,
         getOwnAcademyAccess: useCases.getOwnAcademyAccess,
         grantAcademyBonus: useCases.grantAcademyBonus,
       },
@@ -233,5 +236,58 @@ describe("PATCH /verifications/[verificationId]", () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({ status: "verified", version: 3 });
+  });
+});
+
+describe("POST /academy/activation", () => {
+  const academySettings = {
+    accessModel: "academy" as const,
+    admissionEnabled: false,
+    benefits: [],
+    configVersion: 1,
+    description: "",
+    offerVersion: 1,
+    salesEnabled: false,
+    title: "",
+  };
+
+  it("rejects a missing expected version at the boundary", async () => {
+    const response = await postActivation(buildRequest({}), slugContext());
+
+    expect(response.status).toBe(400);
+    expect(useCases.activateAcademy).not.toHaveBeenCalled();
+  });
+
+  it("answers 403 when the viewer is not the active leader", async () => {
+    useCases.activateAcademy.mockResolvedValue({ status: "forbidden" });
+
+    const response = await postActivation(buildRequest({ expectedConfigVersion: 0 }), slugContext());
+
+    expect(response.status).toBe(403);
+  });
+
+  it("returns the academy settings after activating", async () => {
+    useCases.activateAcademy.mockResolvedValue({ settings: academySettings, status: "activated" });
+
+    const response = await postActivation(buildRequest({ expectedConfigVersion: 0 }), slugContext());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ accessModel: "academy", salesEnabled: false });
+    expect(useCases.activateAcademy).toHaveBeenCalledWith({
+      expectedConfigVersion: 0,
+      tribeSlug: "matematica-pro",
+    });
+  });
+
+  it("answers 409 with the current settings for a stale version", async () => {
+    useCases.activateAcademy.mockResolvedValue({
+      settings: { ...academySettings, accessModel: "legacy" as const, configVersion: 4 },
+      status: "conflict",
+    });
+
+    const response = await postActivation(buildRequest({ expectedConfigVersion: 2 }), slugContext());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ configVersion: 4 });
   });
 });

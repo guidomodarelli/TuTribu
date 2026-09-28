@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  activateAcademy,
   getOwnAcademyAccess,
   grantAcademyBonus,
   listAcademyMembers,
@@ -17,6 +18,7 @@ const IDEMPOTENCY_KEY = "7f5c9a0e-8d1b-4c3e-9a2f-1b2c3d4e5f60";
 
 function buildRepository(overrides: Partial<ProductAccessRepository> = {}): ProductAccessRepository {
   return {
+    activateAcademy: vi.fn(async () => ({ status: "forbidden" as const })),
     getAcademySettings: vi.fn(async () => null),
     getPublicOffer: vi.fn(async () => null),
     grantBonus: vi.fn(async () => ({ status: "forbidden" as const })),
@@ -233,5 +235,26 @@ describe("listAcademyMembers", () => {
       search: "a".repeat(80),
       tribeSlug: "x",
     });
+  });
+});
+
+describe("activateAcademy", () => {
+  it("normalizes the slug and forwards the expected version", async () => {
+    const activate = vi.fn(async () => ({ status: "forbidden" as const }));
+    const execute = activateAcademy({ productAccessRepository: buildRepository({ activateAcademy: activate }) });
+
+    await execute({ expectedConfigVersion: 0, tribeSlug: " Matematica-Pro " });
+
+    expect(activate).toHaveBeenCalledWith({ expectedConfigVersion: 0, tribeSlug: "matematica-pro" });
+  });
+
+  it("rejects an invalid expected version without touching the repository", async () => {
+    const activate = vi.fn();
+    const execute = activateAcademy({ productAccessRepository: buildRepository({ activateAcademy: activate }) });
+
+    await expect(execute({ expectedConfigVersion: -1, tribeSlug: "x" })).resolves.toEqual({
+      status: "invalid_input",
+    });
+    expect(activate).not.toHaveBeenCalled();
   });
 });
