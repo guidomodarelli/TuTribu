@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-28
+
 ### Added
 
 - Las tribus pueden funcionar en modo academia: se ingresa gratis, la conversación sigue en WhatsApp y los cursos de academia y el contenido interno de la tribu se habilitan con una suscripción o una bonificación del líder. Las tribus que no pasan a este modo siguen funcionando como siempre.
