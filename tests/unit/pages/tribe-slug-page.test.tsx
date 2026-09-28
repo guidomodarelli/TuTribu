@@ -345,6 +345,56 @@ describe("TribePage", () => {
     expect(listUpcomingTribeEvents).toHaveBeenCalledWith({ tribeSlug: "matematica-pro" });
   });
 
+  it("loads the upcoming events without waiting for the round", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "leader@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribePageAccess.mockResolvedValue({
+      status: "visible" as const,
+      tribe: {
+        id: "tribe-1",
+        name: "Matematica Pro",
+        slug: "matematica-pro",
+        visibility: "private",
+      },
+    });
+    let resolveRound: (round: unknown) => void = () => undefined;
+    listTribeRound.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRound = resolve;
+      })
+    );
+
+    const pageContent = TribePageContent({
+      params: Promise.resolve({ slug: "matematica-pro" }),
+    });
+
+    await vi.waitFor(() => {
+      expect(listTribeRound).toHaveBeenCalled();
+    });
+    expect(listUpcomingTribeEvents).toHaveBeenCalledWith({ tribeSlug: "matematica-pro" });
+
+    resolveRound({
+      activeChannelId: null,
+      channels: [tribeChannel],
+      viewerPermissions: {
+        canReply: true,
+        canCreateMessage: true,
+        canReact: true,
+      },
+      pagination: tribeRoundPagination,
+      messages: [],
+    });
+    render(await pageContent);
+
+    expect(screen.getByRole("region", { name: "Round de mensajes" })).toBeInTheDocument();
+  });
+
   it("keeps the tribe home when the upcoming events cannot be loaded", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",

@@ -108,6 +108,32 @@ describe("CreateTribePage", () => {
     expect(screen.getByLabelText(/slug/i)).toBeInTheDocument();
   });
 
+  it("marks the name field invalid when the redirect flow returns a name error", async () => {
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "leader@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getTribeCreationEligibility.mockResolvedValue({
+      canCreate: true,
+    });
+
+    render(
+      await CreateTribePage({
+        searchParams: Promise.resolve({ error: "invalid-name", slug: "algebra" }),
+      })
+    );
+
+    const nameInput = screen.getByLabelText(/nombre de la tribu/i);
+
+    expect(nameInput).toHaveAttribute("aria-invalid", "true");
+    expect(nameInput).toHaveAccessibleDescription("Define un nombre para tu tribu.");
+    expect(screen.getByLabelText(/^slug$/i)).not.toHaveAttribute("aria-invalid");
+  });
+
   it("renders a blocked state with a contact email for users outside the whitelist", async () => {
     getAuthenticatedMember.mockResolvedValue({
       id: "member-1",

@@ -173,6 +173,68 @@ function mockJsonResponse(body: Record<string, unknown>, ok = true) {
   });
 }
 
+const JUNE_OCCURRENCE = createOccurrence({
+  description: "Planificación mensual",
+  endsAt: "2026-06-10T19:00:00.000Z",
+  eventId: OTHER_EVENT_ID,
+  meetingUrl: null,
+  startsAt: "2026-06-10T18:00:00.000Z",
+  title: "Encuentro de junio",
+});
+const APRIL_OCCURRENCE = createOccurrence({
+  endsAt: "2026-04-20T19:00:00.000Z",
+  eventId: OTHER_EVENT_ID,
+  startsAt: "2026-04-20T18:00:00.000Z",
+  title: "Encuentro de abril",
+});
+const MAY_LISTING = { events: [createOccurrence()], month: MAY, recordedOccurrenceKeys: [] };
+const JUNE_LISTING = {
+  events: [JUNE_OCCURRENCE],
+  month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
+  recordedOccurrenceKeys: [],
+};
+const APRIL_LISTING = {
+  events: [APRIL_OCCURRENCE],
+  month: { current: "2026-04", next: "2026-05", previous: "2026-03" },
+  recordedOccurrenceKeys: [],
+};
+
+/**
+ * Body of `GET /api/tribes/[slug]/events?month=` (the public listing DTO).
+ * Its month-independent fields differ from the rendered props on purpose:
+ * the calendar must keep its own permissions and proposal count.
+ */
+function createMonthListingBody(listing: typeof JUNE_LISTING) {
+  return {
+    ...listing,
+    pendingProposalCount: 0,
+    selectedOccurrenceKey: null,
+    viewerPermissions: { canManageEvents: false, canProposeEvents: false },
+  };
+}
+
+function mockMonthListing(listing: typeof JUNE_LISTING) {
+  mockJsonResponse(createMonthListingBody(listing));
+}
+
+/**
+ * Month listing request whose answer the test releases later, to reproduce
+ * a slow response that a newer navigation overtakes.
+ */
+function deferMonthListing() {
+  let release: (listing: typeof JUNE_LISTING) => void = () => undefined;
+
+  apiFetch.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = (listing) =>
+          resolve({ json: async () => createMonthListingBody(listing), ok: true });
+      })
+  );
+
+  return (listing: typeof JUNE_LISTING) => release(listing);
+}
+
 describe("TribeEventsCalendar", () => {
   const occurrence = createOccurrence();
   const nextMonthOccurrence = createOccurrence({
@@ -921,6 +983,295 @@ describe("TribeEventsCalendar", () => {
     });
   });
 
+  describe("month navigation without a server render", () => {
+    const readUrlQuery = (name: string) => new URL(window.location.href).searchParams.get(name);
+
+    beforeEach(() => {
+      window.history.replaceState(null, "", "/matematica-pro/eventos?month=2026-05");
+    });
+
+    afterEach(() => {
+      window.history.replaceState(null, "", "/");
+    });
+
+    function goBackTo(url: string) {
+      act(() => {
+        window.history.replaceState(null, "", url);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+    }
+
+    it("loads the next month from the events endpoint and adds it to the history", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const historyLength = window.history.length;
+
+      renderCalendar();
+      mockMonthListing(JUNE_LISTING);
+
+      await user.click(screen.getByRole("link", { name: "Mes siguiente" }));
+
+      expect(await screen.findByRole("heading", { name: "Junio 2026" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /15:00\s*Encuentro de junio/ })
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Clase abierta")).not.toBeInTheDocument();
+      expect(apiFetch).toHaveBeenCalledTimes(1);
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/events?month=2026-06",
+        expect.objectContaining({ cache: "no-store" })
+      );
+      expect(window.location.pathname).toBe("/matematica-pro/eventos");
+      expect(readUrlQuery("month")).toBe("2026-06");
+      expect(window.history.length).toBe(historyLength + 1);
+      expect(screen.getByRole("link", { name: "Mes siguiente" })).toHaveAttribute(
+        "href",
+        "/matematica-pro/eventos?month=2026-07"
+      );
+      expect(router.push).not.toHaveBeenCalled();
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
+
+    it("keeps the streak, permissions, pending proposals, and type filter of the page", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar({
+        attendanceStreak: { attendedCount: 4, occurrenceCount: 5 },
+        pendingProposalCount: 2,
+      });
+      await user.click(
+        within(screen.getByRole("group", { name: "Filtrar por tipo de evento" })).getByRole(
+          "button",
+          { name: "Encuentro en vivo" }
+        )
+      );
+      mockMonthListing(JUNE_LISTING);
+
+      await user.click(screen.getByRole("link", { name: "Mes siguiente" }));
+
+      expect(await screen.findByRole("heading", { name: "Junio 2026" })).toBeInTheDocument();
+      expect(
+        within(await findNextEventRegion()).getByText("Fuiste a 4 de los últimos 5 encuentros 🔥")
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Propuestas (2)" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Crear evento" })).toBeInTheDocument();
+      expect(
+        within(screen.getByRole("group", { name: "Filtrar por tipo de evento" })).getByRole(
+          "button",
+          { name: "Encuentro en vivo" }
+        )
+      ).toHaveAttribute("aria-pressed", "true");
+      expect(new URL(window.location.href).searchParams.getAll("type")).toEqual(["live"]);
+      // Only the month listing was requested: no streak or proposals reads.
+      expect(apiFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("loads the current month from «Hoy» without leaving the page", async () => {
+      vi.setSystemTime(new Date("2026-06-15T12:00:00.000Z"));
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar({ events: [APRIL_OCCURRENCE], month: APRIL_LISTING.month });
+      mockMonthListing(JUNE_LISTING);
+
+      await user.click(screen.getByRole("link", { name: "Hoy" }));
+
+      expect(await screen.findByRole("heading", { name: "Junio 2026" })).toBeInTheDocument();
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/events?month=2026-06",
+        expect.objectContaining({ cache: "no-store" })
+      );
+      expect(readUrlQuery("month")).toBe("2026-06");
+      expect(router.push).not.toHaveBeenCalled();
+    });
+
+    it("leaves clicks that open a new tab to the browser", () => {
+      renderCalendar();
+
+      fireEvent.click(screen.getByRole("link", { name: "Mes siguiente" }), { ctrlKey: true });
+
+      expect(apiFetch).not.toHaveBeenCalled();
+      expect(screen.getByRole("heading", { name: "Mayo 2026" })).toBeInTheDocument();
+    });
+
+    it("restores the month of the history entry on Back and Forward", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar();
+      mockMonthListing(JUNE_LISTING);
+      await user.click(screen.getByRole("link", { name: "Mes siguiente" }));
+      await screen.findByRole("heading", { name: "Junio 2026" });
+      const historyLength = window.history.length;
+
+      mockMonthListing(MAY_LISTING);
+      goBackTo("/matematica-pro/eventos?month=2026-05");
+
+      expect(await screen.findByRole("heading", { name: "Mayo 2026" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /15:00\s*Clase abierta/ })
+      ).toBeInTheDocument();
+      expect(apiFetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/events?month=2026-05",
+        expect.objectContaining({ cache: "no-store" })
+      );
+      // The history entry already carries the month: nothing is pushed again.
+      expect(window.history.length).toBe(historyLength);
+      expect(readUrlQuery("month")).toBe("2026-05");
+
+      mockMonthListing(JUNE_LISTING);
+      goBackTo("/matematica-pro/eventos?month=2026-06");
+
+      expect(await screen.findByRole("heading", { name: "Junio 2026" })).toBeInTheDocument();
+      expect(window.history.length).toBe(historyLength);
+      expect(router.push).not.toHaveBeenCalled();
+    });
+
+    it("restores the server-rendered month on Back to an entry without month", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      window.history.replaceState(null, "", "/matematica-pro/eventos");
+      renderCalendar();
+      mockMonthListing(JUNE_LISTING);
+      await user.click(screen.getByRole("link", { name: "Mes siguiente" }));
+      await screen.findByRole("heading", { name: "Junio 2026" });
+
+      mockMonthListing(MAY_LISTING);
+      goBackTo("/matematica-pro/eventos");
+
+      expect(await screen.findByRole("heading", { name: "Mayo 2026" })).toBeInTheDocument();
+      expect(apiFetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/events?month=2026-05",
+        expect.objectContaining({ cache: "no-store" })
+      );
+    });
+
+    it("loads the month of the address when the page is restored with another one", async () => {
+      // Back from another page can restore the page rendered for an older
+      // entry while the address carries the month the viewer had loaded.
+      window.history.replaceState(null, "", "/matematica-pro/eventos?month=2026-06");
+      const historyLength = window.history.length;
+      mockMonthListing(JUNE_LISTING);
+
+      renderCalendar();
+
+      expect(await screen.findByRole("heading", { name: "Junio 2026" })).toBeInTheDocument();
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/events?month=2026-06",
+        expect.objectContaining({ cache: "no-store" })
+      );
+      expect(window.history.length).toBe(historyLength);
+    });
+
+    it("ignores a slower answer for a month the viewer already left", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar();
+      const releaseJune = deferMonthListing();
+      await user.click(screen.getByRole("link", { name: "Mes siguiente" }));
+      mockMonthListing(APRIL_LISTING);
+      await user.click(screen.getByRole("link", { name: "Mes anterior" }));
+
+      expect(await screen.findByRole("heading", { name: "Abril 2026" })).toBeInTheDocument();
+
+      const juneRequest = apiFetch.mock.calls[0]?.[1] as RequestInit;
+
+      expect(juneRequest.signal?.aborted).toBe(true);
+
+      await act(async () => {
+        releaseJune(JUNE_LISTING);
+      });
+
+      expect(screen.getByRole("heading", { name: "Abril 2026" })).toBeInTheDocument();
+      expect(screen.queryByText("Encuentro de junio")).not.toBeInTheDocument();
+      expect(readUrlQuery("month")).toBe("2026-04");
+    });
+
+    it("marks the month as loading while its events arrive", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar();
+      const releaseJune = deferMonthListing();
+      await user.click(screen.getByRole("link", { name: "Mes siguiente" }));
+
+      expect(await screen.findByText("Cargando los eventos del mes…")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Mayo 2026" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("table", { name: "Calendario mensual de eventos" }).closest("[aria-busy]")
+      ).toHaveAttribute("aria-busy", "true");
+
+      await act(async () => {
+        releaseJune(JUNE_LISTING);
+      });
+
+      expect(await screen.findByRole("heading", { name: "Junio 2026" })).toBeInTheDocument();
+      expect(screen.queryByText("Cargando los eventos del mes…")).not.toBeInTheDocument();
+    });
+
+    it("keeps the previous month and warns when the month cannot be loaded", async () => {
+      const { toast } = vi.mocked(await import("beez-ui"), true);
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar();
+      mockJsonResponse({ message: "No pudimos cargar los eventos." }, false);
+
+      await user.click(screen.getByRole("link", { name: "Mes siguiente" }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith("No pudimos cargar los eventos.")
+      );
+      expect(screen.getByRole("heading", { name: "Mayo 2026" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /15:00\s*Clase abierta/ })
+      ).toBeInTheDocument();
+      expect(readUrlQuery("month")).toBe("2026-05");
+    });
+
+    it("uses the safe fallback copy when the network fails or the answer is unusable", async () => {
+      const { toast } = vi.mocked(await import("beez-ui"), true);
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      renderCalendar();
+      apiFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      await user.click(screen.getByRole("link", { name: "Mes siguiente" }));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(
+          "No pudimos cargar los eventos de ese mes. Probá de nuevo."
+        )
+      );
+
+      mockJsonResponse({ events: null });
+      await user.click(screen.getByRole("link", { name: "Mes siguiente" }));
+
+      await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(2));
+      expect(toast.error).toHaveBeenLastCalledWith(
+        "No pudimos cargar los eventos de ese mes. Probá de nuevo."
+      );
+      expect(screen.getByRole("heading", { name: "Mayo 2026" })).toBeInTheDocument();
+    });
+
+    it("lets a new server render replace the month loaded on the client", async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const { rerender } = renderCalendar();
+
+      mockMonthListing(JUNE_LISTING);
+      await user.click(screen.getByRole("link", { name: "Mes siguiente" }));
+      await screen.findByRole("heading", { name: "Junio 2026" });
+
+      rerender(
+        <TribeEventsCalendar
+          events={[APRIL_OCCURRENCE]}
+          month={APRIL_LISTING.month}
+          tribeSlug="matematica-pro"
+          viewerPermissions={{ canManageEvents: true, canProposeEvents: false }}
+        />
+      );
+
+      expect(screen.getByRole("heading", { name: "Abril 2026" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /15:00\s*Encuentro de abril/ })
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("month swipe and day overflow", () => {
     const startPoint = { clientX: 200, clientY: 300, identifier: 1 };
 
@@ -934,16 +1285,31 @@ describe("TribeEventsCalendar", () => {
       });
     }
 
-    it("navigates to the next and previous month with horizontal touch swipes", () => {
+    afterEach(() => {
+      window.history.replaceState(null, "", "/");
+    });
+
+    it("loads the next and previous month in place with horizontal touch swipes", async () => {
       renderCalendar();
+      mockMonthListing(JUNE_LISTING);
 
-      const grid = screen.getByRole("table", { name: "Calendario mensual de eventos" });
+      swipe(screen.getByRole("table", { name: "Calendario mensual de eventos" }), -120);
 
-      swipe(grid, -120);
-      expect(router.push).toHaveBeenLastCalledWith("/matematica-pro/eventos?month=2026-06");
+      expect(await screen.findByRole("heading", { name: "Junio 2026" })).toBeInTheDocument();
+      expect(apiFetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/events?month=2026-06",
+        expect.objectContaining({ cache: "no-store" })
+      );
 
-      swipe(grid, 120);
-      expect(router.push).toHaveBeenLastCalledWith("/matematica-pro/eventos?month=2026-04");
+      mockMonthListing(MAY_LISTING);
+      swipe(screen.getByRole("table", { name: "Calendario mensual de eventos" }), 120);
+
+      expect(await screen.findByRole("heading", { name: "Mayo 2026" })).toBeInTheDocument();
+      expect(apiFetch).toHaveBeenLastCalledWith(
+        "/api/tribes/matematica-pro/events?month=2026-05",
+        expect.objectContaining({ cache: "no-store" })
+      );
+      expect(router.push).not.toHaveBeenCalled();
     });
 
     it("swipes the agenda too and ignores vertical drags and pinches", async () => {
@@ -963,10 +1329,17 @@ describe("TribeEventsCalendar", () => {
         changedTouches: [{ ...startPoint, clientX: 20 }],
         touches: [],
       });
-      expect(router.push).not.toHaveBeenCalled();
+      expect(apiFetch).not.toHaveBeenCalled();
 
+      mockMonthListing(JUNE_LISTING);
       swipe(agenda, -120);
-      expect(router.push).toHaveBeenCalledWith("/matematica-pro/eventos?month=2026-06");
+
+      expect(await screen.findByRole("heading", { name: "Junio 2026" })).toBeInTheDocument();
+      expect(apiFetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/events?month=2026-06",
+        expect.objectContaining({ cache: "no-store" })
+      );
+      expect(router.push).not.toHaveBeenCalled();
     });
 
     it("shows how many occurrences do not fit as dots", () => {

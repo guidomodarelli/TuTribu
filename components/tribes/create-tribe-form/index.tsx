@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { CheckCircle2Icon, PencilLineIcon } from "lucide-react";
 
 import { Button, Input, AnimatedCollapse, PresenceSwap, cn } from "beez-ui";
 
+import {
+  CREATE_TRIBE_FORM_ERROR_FIELD,
+  CREATE_TRIBE_FORM_SUBMIT_STATUS,
+  type CreateTribeFormErrorField,
+  type CreateTribeFormSubmitOutcome,
+  type CreateTribeFormValues,
+} from "@/lib/tribes/create-tribe-form-feedback";
 import { normalizeTribeSlug } from "@/src/modules/tribes/domain/value-objects/tribe-slug";
 import styles from "./styles.module.scss";
 
@@ -38,10 +45,28 @@ const SLUG_STATUS_KEY = {
 /** Browser event fired when a page is shown, including restores from the back-forward cache. */
 const PAGE_SHOW_EVENT = "pageshow";
 
-type CreateTribeFormProps = {
+/** Inline feedback of the last failed submission. */
+type CreateTribeFormFeedback = {
+  field: CreateTribeFormErrorField | null;
+  message: string;
+  suggestedSlug: string | null;
+};
+
+export type CreateTribeFormProps = {
+  /** Field that owns the server-rendered error (`null` for form-level errors). */
+  errorField?: CreateTribeFormErrorField | null;
   errorMessage?: string | null;
   initialName?: string;
   initialSlug?: string;
+  /**
+   * Enhanced submission. When present, the form submits through it instead of
+   * the native post and shows a failed outcome inline without navigating.
+   * The returned promise must resolve (never reject). Without it (or before
+   * hydration) the native form post and its redirect flow are used.
+   */
+  onSubmitTribe?: (
+    values: CreateTribeFormValues
+  ) => Promise<CreateTribeFormSubmitOutcome>;
   submitPath: string;
   suggestedSlug?: string | null;
 };
@@ -60,9 +85,11 @@ function normalizeTribeSlugDraft(input: string): string {
 }
 
 export function CreateTribeForm({
+  errorField = null,
   errorMessage = null,
   initialName = "",
   initialSlug = "",
+  onSubmitTribe,
   submitPath,
   suggestedSlug = null,
 }: CreateTribeFormProps) {
@@ -77,11 +104,24 @@ export function CreateTribeForm({
       normalizedInitialSlug !== normalizedInitialNameSlug
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<CreateTribeFormFeedback | null>(
+    errorMessage
+      ? { field: errorField, message: errorMessage, suggestedSlug }
+      : null
+  );
   const [isFeedbackDismissed, setIsFeedbackDismissed] = useState(false);
+  // Field to focus once a failed enhanced submission has re-rendered the form
+  // (the submit button is disabled until then, so it cannot take focus earlier).
+  const [focusRequest, setFocusRequest] = useState<{
+    field: CreateTribeFormErrorField | null;
+  } | null>(null);
   const feedbackId = useId();
+  const nameFeedbackId = useId();
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const slugInputRef = useRef<HTMLInputElement>(null);
-  // Synchronous guard: the native POST navigates away, so a second activation
-  // before the button re-renders as disabled would create the tribe twice.
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
+  // Synchronous guard: a second activation before the button re-renders as
+  // disabled would create the tribe twice (native post or enhanced request).
   const isSubmittingRef = useRef(false);
 
   useEffect(() => {
@@ -100,6 +140,24 @@ export function CreateTribeForm({
       window.removeEventListener(PAGE_SHOW_EVENT, handlePageShow);
     };
   }, []);
+
+  useEffect(() => {
+    if (!focusRequest) {
+      return;
+    }
+
+    switch (focusRequest.field) {
+      case CREATE_TRIBE_FORM_ERROR_FIELD.name:
+        nameInputRef.current?.focus();
+        break;
+      case CREATE_TRIBE_FORM_ERROR_FIELD.slug:
+        slugInputRef.current?.focus();
+        break;
+      default:
+        submitButtonRef.current?.focus();
+    }
+  }, [focusRequest]);
+
   const normalizedNameSlug = normalizeTribeSlug(name);
   const canonicalSlug = normalizeTribeSlug(slug);
   const isSlugSynced =
@@ -107,7 +165,64 @@ export function CreateTribeForm({
 
   const slugPreview =
     canonicalSlug || normalizedNameSlug || TRIBE_SLUG_PREVIEW_FALLBACK;
-  const isFeedbackVisible = Boolean(errorMessage) && !isFeedbackDismissed;
+  const isFeedbackVisible = Boolean(feedback) && !isFeedbackDismissed;
+  const visibleFeedbackField = isFeedbackVisible ? (feedback?.field ?? null) : null;
+  const isNameInvalid =
+    visibleFeedbackField === CREATE_TRIBE_FORM_ERROR_FIELD.name;
+  const isSlugInvalid =
+    visibleFeedbackField === CREATE_TRIBE_FORM_ERROR_FIELD.slug;
+  const isFormLevelFeedbackVisible =
+    isFeedbackVisible && feedback?.field === null;
+
+  /** Hides feedback that an edit to `field` made stale. */
+  const dismissFeedbackOwnedBy = (field: CreateTribeFormErrorField) => {
+    if (isFeedbackVisible && feedback?.field === field) {
+      setIsFeedbackDismissed(true);
+    }
+  };
+
+  const handleSubmitOutcome = (outcome: CreateTribeFormSubmitOutcome) => {
+    if (outcome.status === CREATE_TRIBE_FORM_SUBMIT_STATUS.navigating) {
+      // Keep the submit locked while the browser leaves the page; a bfcache
+      // restore re-enables it through `pageshow`.
+      return;
+    }
+
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
+    setFeedback({
+      field: outcome.field,
+      message: outcome.message,
+      suggestedSlug: outcome.suggestedSlug,
+    });
+    setIsFeedbackDismissed(false);
+    setFocusRequest({ field: outcome.field });
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (isSubmittingRef.current) {
+      event.preventDefault();
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
+    if (!onSubmitTribe) {
+      // Native post: the browser navigates and the route answers with redirects.
+      return;
+    }
+
+    event.preventDefault();
+    // The previous error no longer describes the values being submitted.
+    setIsFeedbackDismissed(true);
+    void onSubmitTribe({ name, slug: canonicalSlug }).then(handleSubmitOutcome);
+  };
+
+  const feedbackSuggestedSlug = feedback?.suggestedSlug ?? null;
+  const feedbackContent = feedback ? (
+    <p className={styles.CreateTribeForm__error}>{feedback.message}</p>
+  ) : null;
 
   return (
     <form
@@ -115,15 +230,7 @@ export function CreateTribeForm({
       aria-busy={isSubmitting || undefined}
       className={styles.CreateTribeForm}
       method={CREATE_TRIBE_FORM_FIELD.method}
-      onSubmit={(event) => {
-        if (isSubmittingRef.current) {
-          event.preventDefault();
-          return;
-        }
-
-        isSubmittingRef.current = true;
-        setIsSubmitting(true);
-      }}
+      onSubmit={handleSubmit}
     >
       <input
         name={CREATE_TRIBE_FORM_FIELD.slug}
@@ -139,20 +246,34 @@ export function CreateTribeForm({
           Nombre de la tribu
         </label>
         <Input
+          aria-describedby={isNameInvalid ? nameFeedbackId : undefined}
+          aria-invalid={isNameInvalid || undefined}
           id={nameInputId}
           name={CREATE_TRIBE_FORM_FIELD.name}
           onChange={(event) => {
             const nextName = event.currentTarget.value;
             setName(nextName);
+            dismissFeedbackOwnedBy(CREATE_TRIBE_FORM_ERROR_FIELD.name);
 
             if (!hasManualSlugChanges) {
               setSlug(normalizeTribeSlug(nextName));
+              dismissFeedbackOwnedBy(CREATE_TRIBE_FORM_ERROR_FIELD.slug);
             }
           }}
           placeholder="Ej. Creadoras que construyen futuro"
+          ref={nameInputRef}
           required
           value={name}
         />
+        <AnimatedCollapse isOpen={isNameInvalid}>
+          <div
+            aria-live={CREATE_TRIBE_FORM_ARIA.livePolite}
+            className={styles.CreateTribeForm__feedback}
+            id={nameFeedbackId}
+          >
+            {feedbackContent}
+          </div>
+        </AnimatedCollapse>
       </div>
 
       <div className={styles.CreateTribeForm__field}>
@@ -169,6 +290,7 @@ export function CreateTribeForm({
             onClick={() => {
               setHasManualSlugChanges(false);
               setSlug(normalizedNameSlug);
+              dismissFeedbackOwnedBy(CREATE_TRIBE_FORM_ERROR_FIELD.slug);
             }}
             size={CREATE_TRIBE_FORM_BUTTON.smallSize}
             type={CREATE_TRIBE_FORM_INTERACTION.buttonType}
@@ -179,7 +301,8 @@ export function CreateTribeForm({
         </div>
         <div className={styles.CreateTribeForm__slugInputWrap}>
           <Input
-            aria-describedby={isFeedbackVisible ? feedbackId : undefined}
+            aria-describedby={isSlugInvalid ? feedbackId : undefined}
+            aria-invalid={isSlugInvalid || undefined}
             className={cn(
               styles.CreateTribeForm__slugInput,
               normalizedNameSlug &&
@@ -194,6 +317,7 @@ export function CreateTribeForm({
             onChange={(event) => {
               setHasManualSlugChanges(true);
               setSlug(normalizeTribeSlugDraft(event.currentTarget.value));
+              dismissFeedbackOwnedBy(CREATE_TRIBE_FORM_ERROR_FIELD.slug);
             }}
             placeholder="creadoras-que-construyen-futuro"
             ref={slugInputRef}
@@ -233,19 +357,19 @@ export function CreateTribeForm({
         </p>
       </div>
 
-      <AnimatedCollapse isOpen={isFeedbackVisible}>
+      <AnimatedCollapse isOpen={isSlugInvalid || isFormLevelFeedbackVisible}>
         <div
           aria-live={CREATE_TRIBE_FORM_ARIA.livePolite}
           className={styles.CreateTribeForm__feedback}
           id={feedbackId}
         >
-          <p className={styles.CreateTribeForm__error}>{errorMessage}</p>
+          {feedbackContent}
 
-          {suggestedSlug ? (
+          {feedbackSuggestedSlug ? (
             <Button
               onClick={() => {
                 setHasManualSlugChanges(true);
-                setSlug(suggestedSlug);
+                setSlug(feedbackSuggestedSlug);
                 // The conflict is resolved: hide it and keep focus on the fixed field.
                 setIsFeedbackDismissed(true);
                 slugInputRef.current?.focus();
@@ -262,7 +386,9 @@ export function CreateTribeForm({
       <div className={styles.CreateTribeForm__actions}>
         <Button
           aria-busy={isSubmitting || undefined}
+          aria-describedby={isFormLevelFeedbackVisible ? feedbackId : undefined}
           disabled={isSubmitting}
+          ref={submitButtonRef}
           type={CREATE_TRIBE_FORM_BUTTON.submitType}
         >
           {isSubmitting ? "Creando tribu…" : "Crear tribu"}

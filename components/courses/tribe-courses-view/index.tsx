@@ -22,6 +22,8 @@ import { toast, Button, PresenceSwap, formatFileSize, cn, SPRING_LAYOUT, RichTex
 
 import { LessonComments } from "@/components/courses/lesson-comments";
 import { Link } from "@/components/navigation/link";
+import { useRevealViewHeadingOnMount } from "@/hooks/use-reveal-view-heading-on-mount";
+import { isInPageLinkClick } from "@/lib/plain-link-click";
 
 import { ROUTES } from "@/src/constants/routes";
 import type {
@@ -41,7 +43,6 @@ const LESSON_QUERY_PARAM = "leccion";
 const ARIA_CURRENT_PAGE = "page";
 const POPSTATE_EVENT = "popstate";
 const HISTORY_UNUSED_TITLE = "";
-const PRIMARY_MOUSE_BUTTON = 0;
 const PERCENT_MAX = 100;
 const PROGRESSBAR_ROLE = "progressbar";
 const IMAGE_ROLE = "img";
@@ -186,6 +187,21 @@ function formatUnlockDate(unlocksAt: string | null): string | null {
 
 type TribeCoursesViewProps = {
   course: CourseWithModulesResult;
+  /**
+   * Returns to the catalog inside the page. When provided, plain clicks on the
+   * back link call it instead of following the link.
+   */
+  onBackToCatalog?: () => void;
+  /** Reports each completion change (optimistic value and rollback) to shared state. */
+  onLessonCompletionChange?: (
+    courseId: string,
+    lessonId: string,
+    completed: boolean
+  ) => void;
+  /** Reports the lesson being viewed, so the resume point stays in sync. */
+  onLessonViewed?: (courseId: string, lessonId: string) => void;
+  /** Focuses the course heading on mount, after an in-page navigation. */
+  revealHeadingOnMount?: boolean;
   selectedLessonId: string | null;
   tribeSlug: string;
   viewerPermissions: CourseTreeViewerPermissionsResult;
@@ -240,18 +256,27 @@ function findInitialLesson(
 /**
  * Course player: video, lesson details, files, comments and a sidebar with
  * the module tree and progress. Lesson selection is client-side and mirrored
- * in the shareable URL through the History API.
+ * in the shareable URL through the History API. Inside `TribeCoursesBrowser`
+ * the back link returns to the catalog in-page and completion and resume
+ * changes are reported to the shared client state.
  *
- * @param props - Course tree, initial lesson, tribe slug and permissions.
+ * @param props - Course tree, initial lesson, in-page callbacks, tribe slug and permissions.
  * @returns Course view page content.
  */
 export function TribeCoursesView({
   course,
+  onBackToCatalog,
+  onLessonCompletionChange,
+  onLessonViewed,
+  revealHeadingOnMount = false,
   selectedLessonId,
   tribeSlug,
   viewerPermissions,
 }: TribeCoursesViewProps) {
   const lessonArticleRef = useRef<HTMLElement>(null);
+  const courseHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  useRevealViewHeadingOnMount(courseHeadingRef, revealHeadingOnMount);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(
     selectedLessonId
   );
@@ -316,14 +341,7 @@ export function TribeCoursesView({
   // etc.) fall through to the real link so the URL stays openable on its own.
   const handleLessonSelect = useCallback(
     (event: MouseEvent<HTMLAnchorElement>, lessonId: string) => {
-      if (
-        event.defaultPrevented ||
-        event.button !== PRIMARY_MOUSE_BUTTON ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey
-      ) {
+      if (!isInPageLinkClick(event)) {
         return;
       }
 
@@ -331,6 +349,18 @@ export function TribeCoursesView({
       navigateToLesson(lessonId);
     },
     [navigateToLesson]
+  );
+
+  const handleBackToCatalogClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!onBackToCatalog || !isInPageLinkClick(event)) {
+        return;
+      }
+
+      event.preventDefault();
+      onBackToCatalog();
+    },
+    [onBackToCatalog]
   );
 
   const activeLesson = findInitialLesson(course, activeLessonId);
@@ -392,6 +422,14 @@ export function TribeCoursesView({
     return () => abortController.abort();
   }, [trackedLessonId, course.id, tribeSlug]);
 
+  // Mirrors the resume point in the shared client state right away, so the
+  // catalog and a reopened course agree with the request sent above.
+  useEffect(() => {
+    if (trackedLessonId) {
+      onLessonViewed?.(course.id, trackedLessonId);
+    }
+  }, [course.id, onLessonViewed, trackedLessonId]);
+
   const toggleLessonCompletion = useCallback(
     async (lesson: LessonWithViewerStateResult) => {
       if (pendingCompletionLessonIds.has(lesson.id)) {
@@ -412,6 +450,18 @@ export function TribeCoursesView({
         next.set(lesson.id, nextValue);
         return next;
       });
+      onLessonCompletionChange?.(course.id, lesson.id, nextValue);
+
+      // Restores the previous value locally and in the shared client state.
+      const revertCompletion = () => {
+        setCompletionOverrides((current) => {
+          const next = new Map(current);
+          next.set(lesson.id, previousValue);
+          return next;
+        });
+        onLessonCompletionChange?.(course.id, lesson.id, previousValue);
+        toast.error(COURSES_COPY.completionError);
+      };
 
       try {
         const response = await fetch(
@@ -426,20 +476,11 @@ export function TribeCoursesView({
         );
 
         if (!response.ok) {
-          setCompletionOverrides((current) => {
-            const next = new Map(current);
-            next.set(lesson.id, previousValue);
-            return next;
-          });
-          toast.error(COURSES_COPY.completionError);
+          revertCompletion();
         }
       } catch {
-        setCompletionOverrides((current) => {
-          const next = new Map(current);
-          next.set(lesson.id, previousValue);
-          return next;
-        });
-        toast.error(COURSES_COPY.completionError);
+        // A network failure is recoverable: roll back and let the viewer retry.
+        revertCompletion();
       } finally {
         setPendingCompletionLessonIds((current) => {
           const next = new Set(current);
@@ -448,7 +489,13 @@ export function TribeCoursesView({
         });
       }
     },
-    [completionOverrides, pendingCompletionLessonIds, tribeSlug]
+    [
+      completionOverrides,
+      course.id,
+      onLessonCompletionChange,
+      pendingCompletionLessonIds,
+      tribeSlug,
+    ]
   );
 
   const hasLessons = visibleLessons.length > 0 || course.modules.length > 0;
@@ -605,12 +652,17 @@ export function TribeCoursesView({
             <Link
               className={styles.TribeCoursesView__backLink}
               href={ROUTES.tribes.courses(tribeSlug)}
+              onClick={handleBackToCatalogClick}
             >
               <ArrowLeft aria-hidden />
               {COURSES_COPY.backToCatalog}
             </Link>
             <div className={styles.TribeCoursesView__sidebarHeader}>
-              <h2 className={styles.TribeCoursesView__sidebarHeading}>
+              <h2
+                className={styles.TribeCoursesView__sidebarHeading}
+                ref={courseHeadingRef}
+                tabIndex={-1}
+              >
                 {course.title}
               </h2>
               {viewerPermissions.canManageCourses ? (
@@ -748,7 +800,11 @@ export function TribeCoursesView({
         </div>
       ) : (
         <section className={styles.TribeCoursesView__emptyState}>
-          <h2 className={styles.TribeCoursesView__emptyHeading}>
+          <h2
+            className={styles.TribeCoursesView__emptyHeading}
+            ref={courseHeadingRef}
+            tabIndex={-1}
+          >
             {COURSES_COPY.emptyHeading}
           </h2>
           <p className={styles.TribeCoursesView__emptyDescription}>

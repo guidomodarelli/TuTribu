@@ -6,12 +6,12 @@ import { Suspense } from "react";
 
 import { UpcomingTribeEvents } from "@/components/events/upcoming-tribe-events";
 import { OpenInExternalBrowser } from "@/components/subscriptions/open-in-external-browser";
-import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
 import {
   TribeOpenJoin,
   TribeOpenJoinStatus,
 } from "@/components/subscriptions/tribe-open-join";
 import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
+import { buildSubscriptionReturnPath } from "@/lib/subscriptions/subscription-return-path";
 import { ROUTES } from "@/src/constants/routes";
 import { getServerBetterAuthSession as getSession } from "@/src/modules/auth/infrastructure/better-auth/server-auth-context";
 import { selectMessageIdsNeedingVideoThumbnail } from "@/src/modules/messages/application/use-cases/resolve-missing-video-thumbnails-use-case";
@@ -29,11 +29,16 @@ import {
 import { detectInAppBrowser } from "@/src/modules/shared/infrastructure/http/in-app-browser-detection";
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 import {
-  TRIBE_MEMBERSHIP_STATUS_REASON,
   TRIBE_PAGE_ACCESS_REASON,
   TRIBE_PAGE_ACCESS_STATUS,
 } from "@/src/modules/tribes/application/results/tribe-page-access-result";
 import TribeLoadingPage from "./loading";
+import {
+  SUBSCRIPTION_RETURN_OUTCOME,
+  isSubscriptionRecoverableAccess,
+  resolveSubscriptionReturnOutcome,
+} from "./subscription-return-outcome";
+import { SubscriptionReturnStatusContainer } from "./subscription-return-status-container";
 import { resolveTribePageAccess } from "./tribe-page-access";
 import styles from "./page.module.scss";
 
@@ -101,18 +106,6 @@ const EXTERNAL_BROWSER_PLATFORM = {
   ios: "ios",
 } as const satisfies Record<string, ExternalBrowserPlatform>;
 
-const SUBSCRIPTION_RETURN_BLOCKED_REASONS: ReadonlySet<string> = new Set([
-  TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked,
-  TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive,
-]);
-
-const SUBSCRIPTION_RETURN_VISIBLE_STATUSES: ReadonlySet<string> = new Set([
-  TRIBE_MEMBER_SUBSCRIPTION_STATUS.canceled,
-  TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending,
-  TRIBE_MEMBER_SUBSCRIPTION_STATUS.providerUnavailable,
-  TRIBE_MEMBER_SUBSCRIPTION_STATUS.removedBySubscription,
-]);
-
 type TribePageSearchParams = {
   [TRIBE_PAGE_QUERY.channel]?: string | string[];
   [TRIBE_PAGE_QUERY.joinStatus]?: string | string[];
@@ -154,24 +147,17 @@ function readPositiveIntegerSearchParam(
   return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : 1;
 }
 
-function renderSubscriptionReturnStatus() {
-  return (
-    <main className={styles.TribePage}>
-      <SubscriptionReturnStatus />
-    </main>
-  );
-}
-
-function buildSubscriptionReturnPath(
+function renderSubscriptionReturnStatus(
   slug: string,
   mercadoPagoPreapprovalId: string
-): string {
+) {
   return (
-    ROUTES.tribes.bySlug(slug) +
-    SIGN_IN_REDIRECT_URL_TOKEN.querySeparator +
-    TRIBE_PAGE_QUERY.mercadoPagoPreapprovalId +
-    SIGN_IN_REDIRECT_URL_TOKEN.valueSeparator +
-    encodeURIComponent(mercadoPagoPreapprovalId)
+    <main className={styles.TribePage}>
+      <SubscriptionReturnStatusContainer
+        providerSubscriptionId={mercadoPagoPreapprovalId}
+        tribeSlug={slug}
+      />
+    </main>
   );
 }
 
@@ -468,59 +454,33 @@ export async function TribePageContent({
       redirect(fallbackSignInUrl);
     }
 
-    if (
-      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden &&
-      SUBSCRIPTION_RETURN_BLOCKED_REASONS.has(accessResult.blockedReason) &&
-      mercadoPagoPreapprovalId
-    ) {
-      const subscriptionConfirmationModules = await createRequestModules({
-        mercadoPagoWebhookVerified: true,
+    if (isSubscriptionRecoverableAccess(accessResult) && mercadoPagoPreapprovalId) {
+      const subscriptionReturnOutcome = await resolveSubscriptionReturnOutcome({
+        modules,
+        providerSubscriptionId: mercadoPagoPreapprovalId,
         requestId,
+        tribeSlug: slug,
       });
-      const resolveSubscriptionReturn =
-        subscriptionConfirmationModules.subscriptions.useCases
-          .resolveTribeMemberSubscriptionReturn;
-      const validatePendingSubscriptionReturn =
-        modules.subscriptions.useCases.validatePendingTribeMemberSubscriptionReturn;
-      const subscriptionReturn = resolveSubscriptionReturn
-        ? await resolveSubscriptionReturn({
-            providerSubscriptionId: mercadoPagoPreapprovalId,
-            tribeSlug: slug,
-          })
-          .catch((error: unknown) => {
-            logger.error({
-              message: TRIBE_PAGE_LOG.resolveSubscriptionReturnFailureMessage,
-              error,
-              metadata: {
-                reason:
-                  TRIBE_PAGE_LOG_REASON.unexpectedSubscriptionReturnRepositoryError,
-                slug,
-                viewerId: authenticatedMember?.id ?? null,
-              },
-            });
 
-            return null;
-          })
-        : (await validatePendingSubscriptionReturn({
-            providerSubscriptionId: mercadoPagoPreapprovalId,
-            tribeSlug: slug,
-          }))
-          ? { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending }
-          : null;
-
-      if (subscriptionReturn?.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.active) {
-        redirect(ROUTES.tribes.welcome(slug));
+      if (subscriptionReturnOutcome.kind === SUBSCRIPTION_RETURN_OUTCOME.failed) {
+        logger.error({
+          message: TRIBE_PAGE_LOG.resolveSubscriptionReturnFailureMessage,
+          error: subscriptionReturnOutcome.error,
+          metadata: {
+            reason:
+              TRIBE_PAGE_LOG_REASON.unexpectedSubscriptionReturnRepositoryError,
+            slug,
+            viewerId: authenticatedMember?.id ?? null,
+          },
+        });
       }
 
-      if (subscriptionReturn?.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.paused) {
-        redirect(ROUTES.tribes.subscription(slug));
+      if (subscriptionReturnOutcome.kind === SUBSCRIPTION_RETURN_OUTCOME.redirect) {
+        redirect(subscriptionReturnOutcome.path);
       }
 
-      if (
-        subscriptionReturn &&
-        SUBSCRIPTION_RETURN_VISIBLE_STATUSES.has(subscriptionReturn.status)
-      ) {
-        return renderSubscriptionReturnStatus();
+      if (subscriptionReturnOutcome.kind === SUBSCRIPTION_RETURN_OUTCOME.pending) {
+        return renderSubscriptionReturnStatus(slug, mercadoPagoPreapprovalId);
       }
     }
 
@@ -549,11 +509,10 @@ export async function TribePageContent({
     // A member blocked or removed by a failed payment can recover paid access by
     // re-subscribing through the same tokenless open-join offer, so surface it
     // instead of a 404. Conduct blocks (and any non-payment reason) stay hidden:
-    // SUBSCRIPTION_RETURN_BLOCKED_REASONS only covers payment_blocked and
+    // isSubscriptionRecoverableAccess only covers payment_blocked and
     // subscription_inactive, mirroring the RLS open-join recovery policies.
     const canRecoverPaidAccessViaOpenJoin =
-      accessResult.reason === TRIBE_PAGE_ACCESS_REASON.blockedHidden &&
-      SUBSCRIPTION_RETURN_BLOCKED_REASONS.has(accessResult.blockedReason);
+      isSubscriptionRecoverableAccess(accessResult);
 
     // The open-join offer is the raw-link entry point only. When a Mercado Pago
     // return is in flight (preapproval_id present) its terminal return handling
@@ -597,47 +556,50 @@ export async function TribePageContent({
     redirect(ROUTES.tribes.welcome(slug));
   }
 
-  const round = await modules.messages.useCases.listTribeRound({
-    channelSlug,
-    page,
-    tribeSlug: accessResult.tribe.slug,
-    viewerId: authenticatedMember.id,
-  }).catch((error: unknown) => {
-    logger.error({
-      message: TRIBE_PAGE_LOG.resolveRoundFailureMessage,
-      error,
-      metadata: {
-        reason: TRIBE_PAGE_LOG_REASON.unexpectedRoundRepositoryError,
-        slug,
-        viewerId: authenticatedMember?.id ?? null,
-      },
-    });
-    notFound();
-  });
+  // The round and the agenda are independent reads (each checks out its own
+  // pooled connection), so they load in parallel instead of back to back.
+  const [round, upcomingEvents] = await Promise.all([
+    modules.messages.useCases.listTribeRound({
+      channelSlug,
+      page,
+      tribeSlug: accessResult.tribe.slug,
+      viewerId: authenticatedMember.id,
+    }).catch((error: unknown) => {
+      logger.error({
+        message: TRIBE_PAGE_LOG.resolveRoundFailureMessage,
+        error,
+        metadata: {
+          reason: TRIBE_PAGE_LOG_REASON.unexpectedRoundRepositoryError,
+          slug,
+          viewerId: authenticatedMember?.id ?? null,
+        },
+      });
+      notFound();
+    }),
+    // The agenda is a secondary block: a failure to load it must never take
+    // the feed down, so it degrades to an empty list after logging the cause.
+    modules.events.useCases
+      .listUpcomingTribeEvents({ tribeSlug: accessResult.tribe.slug })
+      .catch((error: unknown) => {
+        logger.error({
+          message: TRIBE_PAGE_LOG.resolveUpcomingEventsFailureMessage,
+          error,
+          metadata: {
+            reason: TRIBE_PAGE_LOG_REASON.unexpectedEventRepositoryError,
+            slug,
+            viewerId: authenticatedMember.id,
+          },
+        });
+
+        return { events: [] };
+      }),
+  ]);
 
   scheduleMissingVideoThumbnailBackfill({
     messageIds: selectMessageIdsNeedingVideoThumbnail(round.messages),
     tribeSlug: accessResult.tribe.slug,
     viewerId: authenticatedMember.id,
   });
-
-  // The agenda is a secondary block: a failure to load it must never take the
-  // feed down, so it degrades to an empty list after logging the cause.
-  const upcomingEvents = await modules.events.useCases
-    .listUpcomingTribeEvents({ tribeSlug: accessResult.tribe.slug })
-    .catch((error: unknown) => {
-      logger.error({
-        message: TRIBE_PAGE_LOG.resolveUpcomingEventsFailureMessage,
-        error,
-        metadata: {
-          reason: TRIBE_PAGE_LOG_REASON.unexpectedEventRepositoryError,
-          slug,
-          viewerId: authenticatedMember.id,
-        },
-      });
-
-      return { events: [] };
-    });
 
   return (
     <main className={styles.TribePage}>

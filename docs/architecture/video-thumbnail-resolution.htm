@@ -59,7 +59,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">03</div>
   <div class="section-title">Backfill perezoso al ver la ronda</div>
-<p>La resolucion oEmbed no corre en el camino de render. Tras cargar la ronda, <code>page.tsx</code> calcula con <code>selectMessageIdsNeedingVideoThumbnail</code> que mensajes visibles tienen videos no-YouTube sin thumbnail, y agenda el trabajo con <code>after()</code> de <code>next/server</code> (post-respuesta, sin bloquear) mediante <code>scheduleMissingVideoThumbnailBackfill</code>.</p>
+<p>La resolucion oEmbed no corre en el camino de render. Tras cargar la ronda, <code>page.tsx</code> calcula con <code>selectMessageIdsNeedingVideoThumbnail</code> que mensajes visibles tienen videos no-YouTube sin thumbnail, y agenda el trabajo con <code>after()</code> de <code>next/server</code> (post-respuesta, sin bloquear) mediante <code>scheduleMissingVideoThumbnailBackfill</code>. <code>GET /api/tribes/[slug]/messages</code>, que sirve los cambios de canal y de página en el cliente, agenda el mismo backfill para los mensajes que devuelve.</p>
 <p>El flujo respeta los limites hexagonales del modulo <code>messages</code>:</p>
 <ul>
   <li><strong>Dominio</strong>: puertos <code>VideoThumbnailResolver</code> y <code>MessageVideoThumbnailRepository</code>.</li>

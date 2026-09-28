@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { cn, toast, AnimatedCollapse, copyTextToClipboard } from "beez-ui";
 import { useIsMobile, useHorizontalSwipe, useIsHydrated, useViewerTimeZone, HORIZONTAL_SWIPE_DIRECTION } from "beez-ui/hooks";
 
@@ -39,6 +38,7 @@ import { useTribeEventAttendanceReport } from "@/hooks/use-tribe-event-attendanc
 import { useTribeEventCalendarFeed } from "@/hooks/use-tribe-event-calendar-feed";
 import { useTribeEventMutations } from "@/hooks/use-tribe-event-mutations";
 import { useTribeEventProposals } from "@/hooks/use-tribe-event-proposals";
+import { useTribeEventsMonthNavigation } from "@/hooks/use-tribe-events-month-navigation";
 import {
   formatBuenosAiresTime,
   getBuenosAiresDateKey,
@@ -180,6 +180,7 @@ const NO_RECORDED_OCCURRENCES: readonly string[] = [];
 const TIME_LABEL_SUFFIX = " Buenos Aires";
 const COPY = {
   filteredEmpty: "No hay eventos de los tipos elegidos este mes.",
+  monthLoading: "Cargando los eventos del mes…",
   linkCopied: "Link copiado.",
   linkCopyFailure: "No pudimos copiar el link.",
 } as const;
@@ -235,8 +236,43 @@ export function TribeEventsCalendar({
   // its own directional entrance instead.
   const [enteredView, setEnteredView] = useState<EnteredViewState | null>(null);
   const renderedViewModes = shouldRenderBothViews ? AUTO_VIEW_MODES : [viewMode];
-  const router = useRouter();
   const viewerTimeZone = useViewerTimeZone();
+  // A new deep link from the route (another `event` query) replaces the
+  // local selection, the same way new server events replace local mutations.
+  const [occurrenceSelection, setOccurrenceSelection] = useState<OccurrenceSelectionState>({
+    occurrenceKey: initialOccurrenceKey,
+    sourceOccurrenceKey: initialOccurrenceKey,
+  });
+  const selectedOccurrenceKey =
+    occurrenceSelection.sourceOccurrenceKey === initialOccurrenceKey
+      ? occurrenceSelection.occurrenceKey
+      : initialOccurrenceKey;
+  // Occurrence whose "Asistentes" tab is open; the report only loads for it.
+  const [attendeesOccurrenceKey, setAttendeesOccurrenceKey] = useState<string | null>(null);
+  // The server renders the first month; later months are loaded in place
+  // from the events endpoint, so only the month listing below changes.
+  const serverMonthListing = useMemo(
+    () => ({ events, month, recordedOccurrenceKeys }),
+    [events, month, recordedOccurrenceKeys]
+  );
+  const {
+    listing: monthListing,
+    loadingMonth,
+    navigateToMonth,
+  } = useTribeEventsMonthNavigation({
+    // Another month never lists the open occurrence, so its detail closes
+    // (the loaded month is pushed without `event`) and "Asistentes" resets.
+    onMonthLoaded: () => {
+      setAttendeesOccurrenceKey(null);
+      setOccurrenceSelection({
+        occurrenceKey: null,
+        sourceOccurrenceKey: initialOccurrenceKey,
+      });
+    },
+    serverListing: serverMonthListing,
+    tribeSlug,
+  });
+  const visibleMonth = monthListing.month;
   const {
     applyEventOccurrences,
     beginSeriesMutation,
@@ -256,10 +292,11 @@ export function TribeEventsCalendar({
   } = useTribeEventMutations({
     attendanceStreak: serverAttendanceStreak,
     attendanceStreakNextRefreshAt: serverAttendanceStreakNextRefreshAt,
-    // Every server render stamps a new instant, so it replaces local streak state.
+    // Every server render stamps a new instant, so it replaces local streak
+    // state; a month loaded on the client keeps it (the streak spans months).
     attendanceStreakSourceVersion: attendanceStreakComputedAt,
-    events,
-    month: month.current,
+    events: monthListing.events,
+    month: visibleMonth.current,
     // The server checks the exact time: when it already considers the
     // occurrence ended, move the clock to that end so the UI shows it
     // finished without reloading the route, even if the local clock lags.
@@ -300,7 +337,7 @@ export function TribeEventsCalendar({
   const proposals = useTribeEventProposals({
     beginSeriesMutation,
     initialPendingCount: pendingProposalCount,
-    month: month.current,
+    month: visibleMonth.current,
     onEventCreated: applyEventOccurrences,
     // Every server render stamps a new instant, so it replaces the local count.
     pendingCountSourceVersion: attendanceStreakComputedAt,
@@ -322,15 +359,13 @@ export function TribeEventsCalendar({
     eventTypeSelection.sourceTypes === initialEventTypes
       ? eventTypeSelection.selectedTypes
       : initialEventTypes;
-  const serverRecordedKeys = useMemo(
-    () => new Set(recordedOccurrenceKeys),
-    [recordedOccurrenceKeys]
-  );
+  const listedRecordedKeys = monthListing.recordedOccurrenceKeys;
+  const serverRecordedKeys = useMemo(() => new Set(listedRecordedKeys), [listedRecordedKeys]);
   const [recordedOccurrenceState, setRecordedOccurrenceState] = useState<RecordedOccurrenceState>(
-    () => ({ keys: serverRecordedKeys, sourceKeys: recordedOccurrenceKeys })
+    () => ({ keys: serverRecordedKeys, sourceKeys: listedRecordedKeys })
   );
   const recordedKeys =
-    recordedOccurrenceState.sourceKeys === recordedOccurrenceKeys
+    recordedOccurrenceState.sourceKeys === listedRecordedKeys
       ? recordedOccurrenceState.keys
       : serverRecordedKeys;
   const filteredEvents = useMemo(
@@ -340,28 +375,16 @@ export function TribeEventsCalendar({
   const [formSession, setFormSession] = useState<EventFormSession>({
     mode: FORM_MODE.closed,
   });
-  // A new deep link from the route (another `event` query) replaces the
-  // local selection, the same way new server events replace local mutations.
-  const [occurrenceSelection, setOccurrenceSelection] = useState<OccurrenceSelectionState>({
-    occurrenceKey: initialOccurrenceKey,
-    sourceOccurrenceKey: initialOccurrenceKey,
-  });
-  const selectedOccurrenceKey =
-    occurrenceSelection.sourceOccurrenceKey === initialOccurrenceKey
-      ? occurrenceSelection.occurrenceKey
-      : initialOccurrenceKey;
   const [pendingDeleteOccurrence, setPendingDeleteOccurrence] =
     useState<TribeEventOccurrenceResult | null>(null);
   const formSessionCounterRef = useRef(0);
   const [arePastEventsVisible, setArePastEventsVisible] = useState(false);
   const [daySelection, setDaySelection] = useState<DaySelectionState>({
     dayKey: null,
-    month: month.current,
+    month: visibleMonth.current,
   });
-  // Occurrence whose "Asistentes" tab is open; the report only loads for it.
-  const [attendeesOccurrenceKey, setAttendeesOccurrenceKey] = useState<string | null>(null);
 
-  const currentMonth = month.current;
+  const currentMonth = visibleMonth.current;
   const monthTransitionDirection = useMonthTransitionDirection(tribeSlug, currentMonth);
   // A day tapped in another month is not on this grid, so it falls back to today.
   const selectedDayKey = daySelection.month === currentMonth ? daySelection.dayKey : null;
@@ -414,11 +437,12 @@ export function TribeEventsCalendar({
   // Before hydration there is no clock, so "Hoy" leaves the month to the
   // route (which defaults to the current Buenos Aires month) instead of
   // computing one on the server that could differ from the client's.
+  const todayMonth = nowTime === null ? null : getBuenosAiresMonthKey(new Date(nowTime));
   const todayHref = buildTribeEventsRoute(
     tribeSlug,
-    nowTime === null
+    todayMonth === null
       ? { eventTypes: selectedEventTypes }
-      : { eventTypes: selectedEventTypes, month: getBuenosAiresMonthKey(new Date(nowTime)) }
+      : { eventTypes: selectedEventTypes, month: todayMonth }
   );
 
   // The open detail is mirrored in the `event` query so the URL can be shared;
@@ -451,13 +475,15 @@ export function TribeEventsCalendar({
     }
   }, [currentMonth, initialOccurrenceKey]);
 
+  // Real links, so a new tab or a page without JavaScript still opens the
+  // month; the header handles plain clicks in place.
   const previousMonthHref = buildTribeEventsRoute(tribeSlug, {
     eventTypes: selectedEventTypes,
-    month: month.previous,
+    month: visibleMonth.previous,
   });
   const nextMonthHref = buildTribeEventsRoute(tribeSlug, {
     eventTypes: selectedEventTypes,
-    month: month.next,
+    month: visibleMonth.next,
   });
 
   // The filter is client-side: toggling a chip never refetches; the URL
@@ -467,10 +493,10 @@ export function TribeEventsCalendar({
     replaceCurrentUrlSearchParamValues(TRIBE_EVENTS_ROUTE_QUERY.type, nextTypes);
   };
   // Phones flip months with a horizontal swipe over the grid or the agenda,
-  // landing on the same routes as the header chevrons.
+  // loading the same months as the header chevrons.
   const monthSwipeHandlers = useHorizontalSwipe((direction) => {
-    router.push(
-      direction === HORIZONTAL_SWIPE_DIRECTION.next ? nextMonthHref : previousMonthHref
+    navigateToMonth(
+      direction === HORIZONTAL_SWIPE_DIRECTION.next ? visibleMonth.next : visibleMonth.previous
     );
   });
 
@@ -655,7 +681,7 @@ export function TribeEventsCalendar({
   const setOccurrenceRecordingAvailability = (occurrenceKey: string, hasRecording: boolean) => {
     setRecordedOccurrenceState((currentState) => {
       const currentKeys =
-        currentState.sourceKeys === recordedOccurrenceKeys ? currentState.keys : serverRecordedKeys;
+        currentState.sourceKeys === listedRecordedKeys ? currentState.keys : serverRecordedKeys;
 
       if (currentKeys.has(occurrenceKey) === hasRecording && currentKeys === currentState.keys) {
         return currentState;
@@ -669,7 +695,7 @@ export function TribeEventsCalendar({
         nextKeys.delete(occurrenceKey);
       }
 
-      return { keys: nextKeys, sourceKeys: recordedOccurrenceKeys };
+      return { keys: nextKeys, sourceKeys: listedRecordedKeys };
     });
   };
 
@@ -731,13 +757,16 @@ export function TribeEventsCalendar({
       <TribeEventsCalendarHeader
         canManageEvents={canManageEvents}
         canProposeEvents={canProposeEvents}
-        month={month.current}
+        month={currentMonth}
         monthTransitionDirection={monthTransitionDirection}
+        nextMonth={visibleMonth.next}
         nextMonthHref={nextMonthHref}
         pendingProposalCount={proposals.pendingCount}
+        previousMonth={visibleMonth.previous}
         previousMonthHref={previousMonthHref}
         timeLabel={timeLabel}
         todayHref={todayHref}
+        todayMonth={todayMonth}
         typeFilter={
           <TribeEventsTypeFilter
             selectedTypes={selectedEventTypes}
@@ -751,6 +780,7 @@ export function TribeEventsCalendar({
         shouldAnimateViewMode={chosenViewMode !== null}
         onChooseViewMode={chooseViewMode}
         onCreateEvent={() => openCreateForm()}
+        onNavigateMonth={navigateToMonth}
         onOpenProposals={openProposalsPanel}
         onProposeEvent={openProposalForm}
         onSubscribeCalendar={openCalendarFeed}
@@ -772,7 +802,20 @@ export function TribeEventsCalendar({
         ) : null}
       </AnimatedCollapse>
 
-      <div className={styles.TribeEventsCalendar__swipeArea} {...monthSwipeHandlers}>
+      {loadingMonth === null ? null : (
+        <p className={styles.TribeEventsCalendar__monthStatus} role={ROLE_STATUS}>
+          {COPY.monthLoading}
+        </p>
+      )}
+      {/* The previous month stays on screen, dimmed, until the next one arrives. */}
+      <div
+        aria-busy={loadingMonth !== null}
+        className={cn(
+          styles.TribeEventsCalendar__swipeArea,
+          loadingMonth !== null && styles["TribeEventsCalendar__swipeArea--loading"]
+        )}
+        {...monthSwipeHandlers}
+      >
         {/* Keyed by month so a new month replays its directional entrance. */}
         <div
           className={styles.TribeEventsCalendar__monthView}

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   isBackForwardDocumentLoad,
+  pushCurrentUrlSearchParams,
   replaceCurrentUrlSearchParams,
 } from "@/lib/browser-navigation";
 
@@ -34,6 +35,33 @@ describe("replaceCurrentUrlSearchParams", () => {
     expect(window.location.search).toBe("?month=2026-05");
     expect(window.location.hash).toBe("#detalle");
     expect(window.history.length).toBe(historyLength);
+  });
+});
+
+describe("pushCurrentUrlSearchParams", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("adds a history entry with the new query and keeps the previous one for Back", async () => {
+    window.history.replaceState(null, "", "/matematica-pro/eventos?month=2026-05&type=live#grilla");
+    const historyLength = window.history.length;
+
+    pushCurrentUrlSearchParams({ event: null, month: "2026-06" });
+
+    expect(window.location.pathname).toBe("/matematica-pro/eventos");
+    expect(window.location.search).toBe("?month=2026-06&type=live");
+    expect(window.location.hash).toBe("#grilla");
+    expect(window.history.length).toBe(historyLength + 1);
+
+    const popState = new Promise((resolve) => {
+      window.addEventListener("popstate", resolve, { once: true });
+    });
+
+    window.history.back();
+    await popState;
+
+    expect(window.location.search).toBe("?month=2026-05&type=live");
   });
 });
 

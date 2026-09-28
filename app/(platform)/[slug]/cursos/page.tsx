@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 
-import { TribeCoursesCatalog } from "@/components/courses/tribe-courses-catalog";
-import { TribeCoursesView } from "@/components/courses/tribe-courses-view";
+import { TribeCoursesBrowser } from "@/components/courses/tribe-courses-browser";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
-import type { CourseWithModulesResult } from "@/src/modules/courses/application/results/course-results";
+import { resolveSelectedCourse } from "@/src/modules/courses/application/course-selection";
 import { buildTribeCoursesRoute } from "@/lib/courses/course-lesson-route";
 import { resolveVisibleTribePageAccess } from "../tribe-page-access";
 
@@ -20,26 +19,6 @@ function canReadTribeCourses(membershipStatus: string | null): boolean {
   return (
     membershipStatus === TRIBE_MEMBERSHIP_STATUS.active ||
     membershipStatus === TRIBE_MEMBERSHIP_STATUS.muted
-  );
-}
-
-function findCourseById(
-  courses: CourseWithModulesResult[],
-  courseId: string
-): CourseWithModulesResult | null {
-  return courses.find((course) => course.id === courseId) ?? null;
-}
-
-function findCourseByLessonId(
-  courses: CourseWithModulesResult[],
-  lessonId: string
-): CourseWithModulesResult | null {
-  return (
-    courses.find((course) =>
-      course.modules.some((courseModule) =>
-        courseModule.lessons.some((lesson) => lesson.id === lessonId)
-      )
-    ) ?? null
   );
 }
 
@@ -94,30 +73,22 @@ export default async function TribeCoursesPage({
   };
   const requestedCourseId = resolvedSearchParams?.curso ?? null;
   const requestedLessonId = resolvedSearchParams?.leccion ?? null;
-  const selectedCourse = requestedCourseId
-    ? findCourseById(courseTree.courses, requestedCourseId)
-    : requestedLessonId
-      ? findCourseByLessonId(courseTree.courses, requestedLessonId)
-      : null;
+  const selectedCourse = resolveSelectedCourse(courseTree.courses, {
+    courseId: requestedCourseId,
+    lessonId: requestedLessonId,
+  });
 
   if (requestedCourseId && !selectedCourse) {
     notFound();
   }
 
-  if (selectedCourse) {
-    return (
-      <TribeCoursesView
-        course={selectedCourse}
-        selectedLessonId={requestedLessonId}
-        tribeSlug={tribe.slug}
-        viewerPermissions={viewerPermissions}
-      />
-    );
-  }
-
+  // The first view (catalog or course) is server-rendered from the URL; later
+  // switches between them happen on the client from the same course tree.
   return (
-    <TribeCoursesCatalog
+    <TribeCoursesBrowser
       courses={courseTree.courses}
+      initialCourseId={selectedCourse?.id ?? null}
+      initialLessonId={requestedLessonId}
       tribeSlug={tribe.slug}
       viewerPermissions={viewerPermissions}
     />

@@ -1,14 +1,17 @@
 "use client";
 
 /**
- * Horizontal channel chips that filter the round through server-rendered
- * pages. The active chip is marked with a shared highlight that glides to the
- * chip the viewer taps while the filtered page loads.
+ * Horizontal channel chips that filter the round. Each chip is a real link to
+ * the filtered page; when the round loads pages in place (`onChannelSelect`),
+ * a plain click is handled without a server navigation. The active chip is
+ * marked with a shared highlight that glides to the chip the viewer taps
+ * while the filtered page loads.
  */
 import { LayoutGroup, motion } from "motion/react";
 import { type MouseEvent, useEffect, useId, useRef, useState } from "react";
 
 import { Link } from "@/components/navigation/link";
+import { isInPageLinkClick } from "@/lib/plain-link-click";
 import type { TribeChannelResult } from "@/src/modules/messages/application/results/tribe-round-result";
 
 import styles from "./styles.module.scss";
@@ -24,7 +27,6 @@ const ROUND_CHANNEL_FILTERS_UI = {
   // partial opacity would lift the gliding indicator above neighbor chips.
   chipSlot: "round-channel-filter-chip",
   indicatorLayoutId: "round-channel-filter-indicator",
-  primaryMouseButton: 0,
 } as const;
 
 /** Share of the free space kept on each side when centering the active chip. */
@@ -37,24 +39,13 @@ type RoundChannelFiltersProps = {
   buildChannelHref: (channelSlug: string | null) => string;
   channels: TribeChannelResult[];
   navigationLabel: string;
+  /**
+   * Loads the channel's first page in place instead of following the link.
+   * Resolves once that navigation settles; a failed or superseded one leaves
+   * the highlight on `activeChannelId` again.
+   */
+  onChannelSelect?: (channelSlug: string | null) => Promise<void>;
 };
-
-/**
- * Reports whether a click opens the link in the same tab, the only case where
- * the chip should show the pending selection right away.
- *
- * @param event - Click on a channel chip.
- * @returns `true` for a plain primary-button click.
- */
-function isSameTabNavigationClick(event: MouseEvent<HTMLAnchorElement>): boolean {
-  return (
-    event.button === ROUND_CHANNEL_FILTERS_UI.primaryMouseButton &&
-    !event.metaKey &&
-    !event.ctrlKey &&
-    !event.shiftKey &&
-    !event.altKey
-  );
-}
 
 /**
  * Scrolls the chip strip horizontally, without moving the page, so the active
@@ -92,10 +83,12 @@ export function RoundChannelFilters({
   buildChannelHref,
   channels,
   navigationLabel,
+  onChannelSelect,
 }: RoundChannelFiltersProps) {
   const serverActiveFilterId = activeChannelId ?? ALL_CHANNELS_FILTER_ID;
   const [pendingFilterId, setPendingFilterId] = useState<string | null>(null);
   const [renderedServerFilterId, setRenderedServerFilterId] = useState(serverActiveFilterId);
+  const channelSelectionSequenceRef = useRef(0);
 
   // A new server filter settles the optimistic highlight; otherwise a later
   // back/forward navigation would keep highlighting the previously tapped chip.
@@ -117,14 +110,51 @@ export function RoundChannelFilters({
   }, [serverActiveFilterId]);
 
   const filters = [
-    { emoji: null, href: buildChannelHref(null), id: ALL_CHANNELS_FILTER_ID, name: allChannelsLabel },
+    {
+      emoji: null,
+      href: buildChannelHref(null),
+      id: ALL_CHANNELS_FILTER_ID,
+      name: allChannelsLabel,
+      slug: null,
+    },
     ...channels.map((channel) => ({
       emoji: channel.emoji,
       href: buildChannelHref(channel.slug),
       id: channel.id,
       name: channel.name,
+      slug: channel.slug,
     })),
   ];
+
+  /**
+   * Shows the tapped chip as selected right away. With in-place loading it
+   * also takes over the click and clears the highlight when that selection
+   * settles without becoming the active channel (failure or a newer tap).
+   */
+  const handleChipClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    filter: { id: string; slug: string | null }
+  ) => {
+    if (!isInPageLinkClick(event)) {
+      return;
+    }
+
+    setPendingFilterId(filter.id);
+
+    if (!onChannelSelect) {
+      return;
+    }
+
+    event.preventDefault();
+    channelSelectionSequenceRef.current += 1;
+    const channelSelectionSequence = channelSelectionSequenceRef.current;
+
+    void onChannelSelect(filter.slug).finally(() => {
+      if (channelSelectionSequenceRef.current === channelSelectionSequence) {
+        setPendingFilterId(null);
+      }
+    });
+  };
 
   return (
     <LayoutGroup id={layoutGroupId}>
@@ -149,9 +179,7 @@ export function RoundChannelFilters({
               href={filter.href}
               key={filter.id}
               onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-                if (isSameTabNavigationClick(event)) {
-                  setPendingFilterId(filter.id);
-                }
+                handleChipClick(event, filter);
               }}
               ref={isCurrentPage ? activeChipRef : undefined}
             >

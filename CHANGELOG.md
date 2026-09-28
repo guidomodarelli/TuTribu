@@ -4,6 +4,14 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Cambiar de mes en Eventos (flechas, «Hoy» o deslizando en el teléfono) ahora es instantáneo: solo se cargan los eventos de ese mes, sin recargar la página ni perder el filtro de tipos, y los botones Atrás y Adelante del navegador te llevan por los meses que recorriste.
+- Cambiar de canal o de página en la ronda de la tribu ahora es instantáneo: se mantiene el borrador del mensaje que estabas escribiendo y los botones Atrás y Adelante del navegador siguen funcionando.
+- Abrir un curso desde el catálogo y volver a «Todos los cursos» ahora es instantáneo, y el progreso que marcaste dentro de un curso se ve al volver al catálogo sin recargar.
+- Al volver de Mercado Pago, la pantalla que confirma tu suscripción consulta el estado sin recargar la página, espera cada vez más entre consultas y, si la confirmación tarda, te ofrece el botón «Actualizar estado» en lugar de seguir intentando indefinidamente.
+- Al crear una tribu, los errores de nombre o de enlace (incluido un enlace ya en uso con su sugerencia) se muestran en el mismo formulario, sin recargar la página y con el foco en el campo a corregir.
+
 ## [0.94.7] - 2026-09-28
 
 ### Fixed

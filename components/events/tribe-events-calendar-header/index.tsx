@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { motion } from "motion/react";
 import {
   CalendarDaysIcon,
@@ -16,6 +16,7 @@ import { Button, cn, AnimatedCount, SPRING_LAYOUT } from "beez-ui";
 import type { MonthTransitionDirection } from "@/components/events/tribe-events-calendar/use-month-transition-direction";
 import { Link } from "@/components/navigation/link";
 import { formatBuenosAiresMonthTitle } from "@/lib/date-time/buenos-aires-format";
+import { isInPageLinkClick } from "@/lib/plain-link-click";
 import styles from "./styles.module.scss";
 
 /**
@@ -37,9 +38,17 @@ type TribeEventsCalendarHeaderProps = {
   month: string;
   /** Side the month title slides in from after a month change. */
   monthTransitionDirection?: MonthTransitionDirection;
+  /** `YYYY-MM` month the "Mes siguiente" link leads to. */
+  nextMonth: string;
   nextMonthHref: string;
   onChooseViewMode: (viewMode: TribeEventsViewMode) => void;
   onCreateEvent: () => void;
+  /**
+   * Loads a month in place. Plain clicks on the month links and "Hoy" call it
+   * instead of following the link; modified clicks (new tab or window) and
+   * pages without JavaScript keep the real link.
+   */
+  onNavigateMonth?: (month: string) => void;
   /** Opens the proposals panel (manager queue or the member's own list). */
   onOpenProposals?: () => void;
   onProposeEvent?: () => void;
@@ -47,6 +56,8 @@ type TribeEventsCalendarHeaderProps = {
   onSubscribeCalendar?: () => void;
   /** Pending proposals waiting for review (managers). */
   pendingProposalCount?: number;
+  /** `YYYY-MM` month the "Mes anterior" link leads to. */
+  previousMonth: string;
   previousMonthHref: string;
   /**
    * Glide the active view marker when the view changes. Off while the view
@@ -55,6 +66,8 @@ type TribeEventsCalendarHeaderProps = {
   shouldAnimateViewMode?: boolean;
   /** "HH:MM Buenos Aires" label, or null before hydration. */
   timeLabel: string | null;
+  /** Current Buenos Aires `YYYY-MM` month, or null before the clock is known. */
+  todayMonth: string | null;
   todayHref: string;
   /** Type filter chips, rendered as the last row of the toolbar. */
   typeFilter?: ReactNode;
@@ -106,20 +119,36 @@ export function TribeEventsCalendarHeader({
   canProposeEvents = false,
   month,
   monthTransitionDirection,
+  nextMonth,
   nextMonthHref,
   onChooseViewMode,
   onCreateEvent,
+  onNavigateMonth,
   onOpenProposals,
   onProposeEvent,
   onSubscribeCalendar,
   pendingProposalCount = 0,
+  previousMonth,
   previousMonthHref,
   shouldAnimateViewMode = true,
   timeLabel,
   todayHref,
+  todayMonth,
   typeFilter = null,
   viewMode,
 }: TribeEventsCalendarHeaderProps) {
+  // Returns the click handler of a month link: a plain click loads the month
+  // in place, anything else (or a link without a known month) navigates.
+  const handleMonthLinkClick =
+    (targetMonth: string | null) => (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!onNavigateMonth || targetMonth === null || !isInPageLinkClick(event)) {
+        return;
+      }
+
+      event.preventDefault();
+      onNavigateMonth(targetMonth);
+    };
+
   return (
     <header className={styles.TribeEventsCalendarHeader}>
       <div className={styles.TribeEventsCalendarHeader__monthNavigation}>
@@ -130,6 +159,7 @@ export function TribeEventsCalendarHeader({
             styles["TribeEventsCalendarHeader__iconLink--previous"]
           )}
           href={previousMonthHref}
+          onClick={handleMonthLinkClick(previousMonth)}
         >
           <ChevronLeftIcon aria-hidden />
         </Link>
@@ -148,13 +178,18 @@ export function TribeEventsCalendarHeader({
             styles["TribeEventsCalendarHeader__iconLink--next"]
           )}
           href={nextMonthHref}
+          onClick={handleMonthLinkClick(nextMonth)}
         >
           <ChevronRightIcon aria-hidden />
         </Link>
       </div>
       <div className={styles.TribeEventsCalendarHeader__toolbar}>
         <div className={styles.TribeEventsCalendarHeader__todayGroup}>
-          <Link className={styles.TribeEventsCalendarHeader__todayLink} href={todayHref}>
+          <Link
+            className={styles.TribeEventsCalendarHeader__todayLink}
+            href={todayHref}
+            onClick={handleMonthLinkClick(todayMonth)}
+          >
             {COPY.today}
           </Link>
           {timeLabel ? (

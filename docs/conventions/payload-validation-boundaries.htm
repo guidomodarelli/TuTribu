@@ -115,6 +115,8 @@ return createTribeEventPublicResponse({
   schema: publicDtoSchema,
   status: HTTP_STATUS.ok,
 });</pre></div>
+  <p><strong>Otras rutas que aplican la regla.</strong> Además de eventos, validan input y DTO público: <code>GET /api/tribes/[slug]/messages</code> (ronda por canal y página, DTO <code>tribeRoundSchema</code>), <code>GET /api/tribes/[slug]/subscriptions/return-status</code> (estado del retorno de Mercado Pago, con <code>redirectPath</code> restringido a rutas internas) y la respuesta JSON de <code>POST /api/tribes</code>. Sus adapters del navegador (<code>lib/messages</code>, <code>lib/subscriptions</code>, <code>lib/tribes</code>) vuelven a validar el body antes de usarlo.</p>
+  <p><strong>Formularios con mejora progresiva.</strong> Un formulario nativo que postea a una ruta puede mantener el redirect para el envío sin JavaScript y ofrecer una respuesta JSON cuando el cliente la pide con <code>Accept: application/json</code>. La rama JSON valida su DTO público como cualquier otra respuesta; los errores de validación viajan como categorías que el cliente muestra inline, y una URL de destino solo se acepta si es interna (se rechazan <code>//</code> y <code>/\</code>). <code>POST /api/tribes</code> es el ejemplo.</p>
 </div>
 </body>
 </html>

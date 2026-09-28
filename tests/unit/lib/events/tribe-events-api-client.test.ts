@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   deleteTribeEventRequest,
   fetchTribeEventAttendanceStreakRequest,
+  fetchTribeEventMonthListingRequest,
   fetchTribeEventOccurrencesRequest,
   saveTribeEventAttendanceRequest,
   saveTribeEventRequest,
@@ -198,6 +199,95 @@ describe("fetchTribeEventOccurrencesRequest", () => {
     await expect(
       fetchTribeEventOccurrencesRequest({ month, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ isSuccess: false });
+  });
+});
+
+describe("fetchTribeEventMonthListingRequest", () => {
+  const originalFetch = global.fetch;
+  const month = "2026-06";
+  const juneOccurrence = {
+    attendance: {
+      goingCount: 3,
+      goingPreview: [],
+      maybeCount: 1,
+      viewerStatus: "going",
+      viewerWaitlistPosition: null,
+      waitlistedCount: 0,
+    },
+    capacity: null,
+    description: null,
+    endsAt: "2026-06-10T19:00:00.000Z",
+    eventId: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+    eventType: "live",
+    exception: null,
+    meetingUrl: null,
+    occurrenceKey: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d@2026-06-10T18:00:00.000Z",
+    originalStartsAt: "2026-06-10T18:00:00.000Z",
+    recurrenceFrequency: "none",
+    recurrenceRule: null,
+    recurrenceUntil: null,
+    seriesEndsAt: null,
+    seriesStartsAt: "2026-06-10T18:00:00.000Z",
+    startsAt: "2026-06-10T18:00:00.000Z",
+    title: "Encuentro de junio",
+  };
+  const juneListing = {
+    events: [juneOccurrence],
+    month: { current: "2026-06", next: "2026-07", previous: "2026-05" },
+    recordedOccurrenceKeys: [juneOccurrence.occurrenceKey],
+  };
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it("reads the listing of the requested month without caching", async () => {
+    const abortController = new AbortController();
+
+    answerRequest({
+      ...juneListing,
+      pendingProposalCount: 2,
+      selectedOccurrenceKey: null,
+      viewerPermissions: { canManageEvents: true, canProposeEvents: false },
+    });
+
+    await expect(
+      fetchTribeEventMonthListingRequest({
+        month,
+        signal: abortController.signal,
+        tribeSlug: TRIBE_SLUG,
+      })
+    ).resolves.toEqual({ isSuccess: true, listing: juneListing, message: null });
+    expect(global.fetch).toHaveBeenCalledWith(`/api/tribes/${TRIBE_SLUG}/events?month=${month}`, {
+      cache: "no-store",
+      signal: abortController.signal,
+    });
+  });
+
+  it("returns the safe route message when the route answers with an error status", async () => {
+    answerRequest({ message: "No pudimos cargar los eventos." }, false);
+
+    await expect(
+      fetchTribeEventMonthListingRequest({ month, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({ isSuccess: false, message: "No pudimos cargar los eventos." });
+  });
+
+  it("returns a failed read without message when the body breaks the public DTO", async () => {
+    answerRequest({ ...juneListing, month: { current: "junio" } });
+
+    await expect(
+      fetchTribeEventMonthListingRequest({ month, tribeSlug: TRIBE_SLUG })
+    ).resolves.toEqual({ isSuccess: false, message: null });
+  });
+
+  it("rethrows an aborted request for the caller to ignore", async () => {
+    const abortError = new DOMException("The operation was aborted.", "AbortError");
+
+    global.fetch = vi.fn(async () => Promise.reject(abortError)) as unknown as typeof fetch;
+
+    await expect(
+      fetchTribeEventMonthListingRequest({ month, tribeSlug: TRIBE_SLUG })
+    ).rejects.toBe(abortError);
   });
 });
 

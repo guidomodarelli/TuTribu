@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { RoundChannelFilters } from "@/components/tribe-round/round-channel-filters";
@@ -121,5 +121,96 @@ describe("RoundChannelFilters", () => {
 
     expect(screen.getByRole("link", { name: "Ronda" })).not.toHaveClass(ACTIVE_CHIP_CLASS);
     expect(screen.getByRole("link", { name: "Todos" })).toHaveClass(ACTIVE_CHIP_CLASS);
+  });
+
+  it("hands a plain click to the in-place loader instead of following the link", async () => {
+    const user = userEvent.setup();
+    const onChannelSelect = vi.fn(() => Promise.resolve());
+    const followedLinks: boolean[] = [];
+    const recordDefaultAction = (event: MouseEvent) => {
+      followedLinks.push(!event.defaultPrevented);
+    };
+    document.addEventListener("click", recordDefaultAction);
+
+    render(
+      <RoundChannelFilters
+        activeChannelId={null}
+        allChannelsLabel="Todos"
+        buildChannelHref={buildChannelHref}
+        channels={channels}
+        navigationLabel="Canal del mensaje"
+        onChannelSelect={onChannelSelect}
+      />
+    );
+
+    await user.click(screen.getByRole("link", { name: "Recursos" }));
+    await user.click(screen.getByRole("link", { name: "Todos" }));
+
+    document.removeEventListener("click", recordDefaultAction);
+    expect(onChannelSelect.mock.calls).toEqual([["recursos"], [null]]);
+    expect(followedLinks).toEqual([false, false]);
+  });
+
+  it("returns the highlight to the active channel when the in-place load does not land", async () => {
+    const user = userEvent.setup();
+    let settleSelection: () => void = () => undefined;
+    const onChannelSelect = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          settleSelection = resolve;
+        })
+    );
+
+    render(
+      <RoundChannelFilters
+        activeChannelId={null}
+        allChannelsLabel="Todos"
+        buildChannelHref={buildChannelHref}
+        channels={channels}
+        navigationLabel="Canal del mensaje"
+        onChannelSelect={onChannelSelect}
+      />
+    );
+
+    await user.click(screen.getByRole("link", { name: "Ronda" }));
+    expect(screen.getByRole("link", { name: "Ronda" })).toHaveClass(ACTIVE_CHIP_CLASS);
+
+    await act(async () => {
+      settleSelection();
+    });
+
+    expect(screen.getByRole("link", { name: "Ronda" })).not.toHaveClass(ACTIVE_CHIP_CLASS);
+    expect(screen.getByRole("link", { name: "Todos" })).toHaveClass(ACTIVE_CHIP_CLASS);
+  });
+
+  it("keeps the newest tapped chip highlighted when an older selection settles", async () => {
+    const user = userEvent.setup();
+    const settleSelections: Array<() => void> = [];
+    const onChannelSelect = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          settleSelections.push(resolve);
+        })
+    );
+
+    render(
+      <RoundChannelFilters
+        activeChannelId={null}
+        allChannelsLabel="Todos"
+        buildChannelHref={buildChannelHref}
+        channels={channels}
+        navigationLabel="Canal del mensaje"
+        onChannelSelect={onChannelSelect}
+      />
+    );
+
+    await user.click(screen.getByRole("link", { name: "Ronda" }));
+    await user.click(screen.getByRole("link", { name: "Recursos" }));
+    await act(async () => {
+      settleSelections[0]();
+    });
+
+    expect(screen.getByRole("link", { name: "Recursos" })).toHaveClass(ACTIVE_CHIP_CLASS);
+    expect(screen.getByRole("link", { name: "Ronda" })).not.toHaveClass(ACTIVE_CHIP_CLASS);
   });
 });

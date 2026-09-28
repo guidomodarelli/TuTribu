@@ -23,6 +23,7 @@ import type {
   TribeEventAttendanceOption,
   TribeEventAttendanceReportResult,
   TribeEventAttendanceStreakResult,
+  TribeEventMonthResult,
   TribeEventOccurrenceResult,
 } from "@/src/modules/events/application/results/tribe-event-result";
 import {
@@ -190,6 +191,27 @@ const tribeEventAttendanceStreakReadSchema = tribeEventAttendanceStreakResponseS
  * Occurrence part of the month listing, the only field a month re-read uses.
  */
 const tribeEventOccurrencesReadSchema = tribeEventListResponseSchema.pick({ events: true });
+
+/**
+ * Month-dependent part of the month listing, the fields a client-side month
+ * change replaces. Permissions and the pending proposal count do not depend
+ * on the month, so the calendar keeps the ones the page rendered.
+ */
+const tribeEventMonthListingReadSchema = tribeEventListResponseSchema.pick({
+  events: true,
+  month: true,
+  recordedOccurrenceKeys: true,
+});
+
+/**
+ * Occurrences, month navigation keys, and recorded occurrences of one month,
+ * as a client-side month change reads them.
+ */
+export type TribeEventMonthListing = {
+  events: TribeEventOccurrenceResult[];
+  month: TribeEventMonthResult;
+  recordedOccurrenceKeys: readonly string[];
+};
 
 export type TribeEventResponseRead<TDto> =
   | { dto: TDto; isUsable: true }
@@ -410,6 +432,33 @@ export async function fetchTribeEventOccurrencesRequest(input: {
   return result.isUsable
     ? { isSuccess: true, occurrences: result.dto.events }
     : { isSuccess: false };
+}
+
+/**
+ * Reads the listing of another month for a client-side month change (month
+ * links, "Hoy", swipe, Back and Forward) without rendering the page again.
+ * An error status or a body that is not the public listing DTO resolves to a
+ * failed read, with the route's safe message when it sent one.
+ *
+ * @param input - Tribe slug, requested `YYYY-MM` month, and an abort signal
+ * that cancels the read when the viewer moves to another month.
+ * @returns The month listing, or a failed read and its safe message.
+ * @throws The fetch rejection (network failure or abort) for the caller to classify.
+ */
+export async function fetchTribeEventMonthListingRequest(input: {
+  month: string;
+  signal?: AbortSignal;
+  tribeSlug: string;
+}): Promise<TribeEventRequestResult<{ listing: TribeEventMonthListing }>> {
+  const response = await fetch(buildTribeEventsApiEndpoint(input.tribeSlug, input.month), {
+    cache: "no-store",
+    signal: input.signal,
+  });
+  const result = await readTribeEventResponse(response, tribeEventMonthListingReadSchema);
+
+  return result.isUsable
+    ? { isSuccess: true, listing: result.dto, message: null }
+    : { isSuccess: false, message: result.message };
 }
 
 /**

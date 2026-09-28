@@ -11,6 +11,7 @@ export const CREATE_TRIBE_MEMBER_ROLE = {
 } as const;
 
 export const CREATE_TRIBE_ERROR_CODE = {
+  unauthenticated: "unauthenticated",
   unexpected: "unexpected",
 } as const;
 

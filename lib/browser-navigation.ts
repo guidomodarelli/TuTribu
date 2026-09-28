@@ -24,16 +24,12 @@ export function replaceCurrentPageWithUrl(url: string): void {
 }
 
 /**
- * Sets (or removes, with `null`) query parameters of the current URL in a
- * single `history.replaceState`, which the Next.js router tracks, so the
- * address bar reflects UI state without a navigation or a history entry.
- * Parameters not listed keep their current value, as do the path and hash.
- *
- * @param searchParams - New value per query parameter name, or null to remove it.
+ * Builds the path, query, and hash of the current URL with some query
+ * parameters set, or removed with `null`; the others keep their value.
  */
-export function replaceCurrentUrlSearchParams(
+function buildCurrentUrlWithSearchParams(
   searchParams: Readonly<Record<string, string | null>>
-): void {
+): string {
   const url = new URL(window.location.href);
 
   for (const [name, value] of Object.entries(searchParams)) {
@@ -44,7 +40,36 @@ export function replaceCurrentUrlSearchParams(
     }
   }
 
-  window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  return url.pathname + url.search + url.hash;
+}
+
+/**
+ * Sets (or removes, with `null`) query parameters of the current URL in a
+ * single `history.replaceState`, which the Next.js router tracks, so the
+ * address bar reflects UI state without a navigation or a history entry.
+ * Parameters not listed keep their current value, as do the path and hash.
+ *
+ * @param searchParams - New value per query parameter name, or null to remove it.
+ */
+export function replaceCurrentUrlSearchParams(
+  searchParams: Readonly<Record<string, string | null>>
+): void {
+  window.history.replaceState(null, "", buildCurrentUrlWithSearchParams(searchParams));
+}
+
+/**
+ * Sets (or removes, with `null`) query parameters of the current URL through
+ * `history.pushState`, which the Next.js router tracks: the address bar
+ * changes without a navigation or a server render, and a new history entry
+ * lets Back return to the previous state (the page restores it from
+ * `popstate`). Parameters not listed keep their value, as do path and hash.
+ *
+ * @param searchParams - New value per query parameter name, or null to remove it.
+ */
+export function pushCurrentUrlSearchParams(
+  searchParams: Readonly<Record<string, string | null>>
+): void {
+  window.history.pushState(null, "", buildCurrentUrlWithSearchParams(searchParams));
 }
 
 /**

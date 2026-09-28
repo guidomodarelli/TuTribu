@@ -40,3 +40,18 @@ export type CreateTribeResult =
   | CreateTribeConflictResult
   | CreateTribeInvalidResult
   | CreateTribeNotAllowedResult;
+
+/**
+ * Public JSON body of `POST /api/tribes` for enhanced (JavaScript) form
+ * submissions. Success and sign-in outcomes carry the same-origin path the
+ * native redirect flow would have used; failures carry a safe Spanish
+ * message, plus the suggested slug on a conflict.
+ */
+export type CreateTribePublicResponse =
+  | { status: "created"; redirectUrl: string }
+  | { status: "unauthenticated"; redirectUrl: string }
+  | { status: "slug-conflict"; message: string; suggestedSlug: string }
+  | {
+      status: "invalid-name" | "invalid-slug" | "not-allowed" | "unexpected";
+      message: string;
+    };

@@ -1,7 +1,13 @@
+"use client";
+
 import { ArrowRight, Settings } from "lucide-react";
 import Image from "next/image";
+import { useRef, type MouseEvent } from "react";
 
 import { Link } from "@/components/navigation/link";
+import { useRevealViewHeadingOnMount } from "@/hooks/use-reveal-view-heading-on-mount";
+import { buildTribeCoursesRoute } from "@/lib/courses/course-lesson-route";
+import { isInPageLinkClick } from "@/lib/plain-link-click";
 import { ROUTES } from "@/src/constants/routes";
 import type {
   CourseTreeViewerPermissionsResult,
@@ -27,7 +33,6 @@ const CATALOG_COPY = {
   startCta: "Empezar",
 } as const;
 
-const COURSE_QUERY_PARAM = "curso";
 const PERCENT_MAX = 100;
 const PROGRESSBAR_ROLE = "progressbar";
 
@@ -46,11 +51,18 @@ function buildProgressFillStyle(progressPercent: number) {
  * Builds the shareable URL of a course inside the tribe courses section.
  */
 export function buildCourseHref(tribeSlug: string, courseId: string): string {
-  return `${ROUTES.tribes.courses(tribeSlug)}?${COURSE_QUERY_PARAM}=${courseId}`;
+  return buildTribeCoursesRoute(tribeSlug, { courseId });
 }
 
 type TribeCoursesCatalogProps = {
   courses: CourseWithModulesResult[];
+  /**
+   * Opens a course inside the page. When provided, plain clicks on a card
+   * call it instead of following the link; modified clicks still open the URL.
+   */
+  onCourseSelect?: (courseId: string) => void;
+  /** Focuses the heading on mount, after an in-page navigation to the catalog. */
+  revealHeadingOnMount?: boolean;
   tribeSlug: string;
   viewerPermissions: CourseTreeViewerPermissionsResult;
 };
@@ -89,20 +101,43 @@ function CourseManagementLink({ tribeSlug }: { tribeSlug: string }) {
 }
 
 /**
- * Server-rendered catalog of the tribe courses with the viewer progress.
+ * Catalog of the tribe courses with the viewer progress. Each card is a real,
+ * shareable link to its course.
  *
- * @param props - Visible courses, tribe slug and viewer permissions.
+ * @param props - Visible courses, in-page course selection, tribe slug and viewer permissions.
  * @returns Courses catalog page content.
  */
 export function TribeCoursesCatalog({
   courses,
+  onCourseSelect,
+  revealHeadingOnMount = false,
   tribeSlug,
   viewerPermissions,
 }: TribeCoursesCatalogProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useRevealViewHeadingOnMount(headingRef, revealHeadingOnMount);
+
+  const handleCourseClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    courseId: string
+  ) => {
+    if (!onCourseSelect || !isInPageLinkClick(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    onCourseSelect(courseId);
+  };
+
   return (
     <main className={styles.TribeCoursesCatalog}>
       <header className={styles.TribeCoursesCatalog__header}>
-        <h1 className={styles.TribeCoursesCatalog__heading}>
+        <h1
+          className={styles.TribeCoursesCatalog__heading}
+          ref={headingRef}
+          tabIndex={-1}
+        >
           {CATALOG_COPY.heading}
         </h1>
         {viewerPermissions.canManageCourses ? (
@@ -132,6 +167,7 @@ export function TribeCoursesCatalog({
                 <Link
                   className={styles.TribeCoursesCatalog__card}
                   href={buildCourseHref(tribeSlug, course.id)}
+                  onClick={(event) => handleCourseClick(event, course.id)}
                 >
                   <div className={styles.TribeCoursesCatalog__coverFrame}>
                     {course.coverImageUrl ? (

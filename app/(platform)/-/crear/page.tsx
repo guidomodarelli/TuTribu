@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { TribeCreationBlocked } from "@/components/tribes/tribe-creation-blocked";
-import { CreateTribeForm } from "@/components/tribes/create-tribe-form";
+import { resolveCreateTribeErrorField } from "@/lib/tribes/create-tribe-form-feedback";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { ROUTES } from "@/src/constants/routes";
@@ -15,6 +15,7 @@ import { getContactEmail } from "@/src/modules/tribes/infrastructure/config/trib
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { CreateTribeFormContainer } from "./create-tribe-form-container";
 import styles from "./page.module.scss";
 
 const CREATE_TRIBE_PAGE_LOG = {
@@ -109,6 +110,9 @@ export default async function CreateTribePage({
     searchParams,
   ]);
   const contactEmail = getContactEmail();
+  const errorCode = readFirstSearchParamValue(
+    resolvedSearchParams[QUERY_PARAMS.tribes.error]
+  );
 
   if (!eligibility.canCreate) {
     return (
@@ -130,12 +134,9 @@ export default async function CreateTribePage({
           </p>
         </header>
         <div className={styles.CreateTribePage__content}>
-          <CreateTribeForm
-            errorMessage={resolveErrorMessage(
-              readFirstSearchParamValue(
-                resolvedSearchParams[QUERY_PARAMS.tribes.error]
-              )
-            )}
+          <CreateTribeFormContainer
+            errorField={resolveCreateTribeErrorField(errorCode)}
+            errorMessage={resolveErrorMessage(errorCode)}
             initialName={
               readFirstSearchParamValue(resolvedSearchParams[QUERY_PARAMS.tribes.name]) ??
               ""

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ronda de la tribu: carga y navegación</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">TuTribu — Arquitectura</div>
+  <div class="doc-title">Ronda de la tribu: carga y navegación</div>
+  <div class="doc-sub">Cómo se carga la ronda de mensajes en el primer render y cómo se cambia de canal o de página sin volver a renderizar la página en el servidor.</div>
+  <div class="doc-meta"><span>Fecha: 2026-09-28</span><span>Estado: Vigente</span><span>Módulo: src/modules/messages</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Primer render en el servidor</div>
+  <p><code>app/(platform)/[slug]/page.tsx</code> resuelve el acceso con <code>resolveTribePageAccess</code> y después carga en paralelo (<code>Promise.all</code>) la ronda (<code>listTribeRound</code>, detrás del loader cacheado de <code>tribe-round-shared-data-cache.ts</code>) y la agenda de próximos eventos (<code>listUpcomingTribeEvents</code>), que no depende del canal ni de la página. Los deep links <code>?channel=&amp;page=</code> se sirven así, igual que el callback de sign-in. Tras cargar la ronda, la página agenda el backfill de miniaturas de video (ver <em>video-thumbnail-resolution</em>).</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Cambio de canal y de página en el cliente</div>
+  <p>Los chips de canal (<code>round-channel-filters</code>) y los links «Anterior»/«Siguiente» de <code>tribe-round</code> siguen siendo anchors con <code>href</code> real. Un click primario sin modificadores (<code>isInPageLinkClick</code> de <code>lib/plain-link-click.ts</code>) lo toma <code>useTribeRoundNavigation</code>, que pide solo esa página a <code>GET /api/tribes/[slug]/messages?channel=&amp;page=</code> con el adapter <code>lib/messages/tribe-round-api-client.ts</code> y reemplaza los mensajes en el lugar. Ctrl/Cmd/Shift/Alt y el botón del medio abren el link real.</p>
+  <table>
+    <tr><th>Aspecto</th><th>Decisión</th></tr>
+    <tr><td>Endpoint</td><td>Exige sesión y el mismo acceso visible que la página (<code>getTribePageAccess</code>); quien no puede ver la tribu recibe 404. Query y slug validados con Zod (400 en español si son inválidos), respuesta validada contra <code>tribeRoundSchema</code>, fallos a 500 con mensaje seguro y log estructurado, <code>Cache-Control: private, no-store</code>. Agenda el mismo backfill de miniaturas para los mensajes devueltos.</td></tr>
+    <tr><td>Reconciliación de suscripción</td><td>El endpoint no la ejecuta: es una llamada a Mercado Pago más una escritura, y no debe repetirse en cada cambio de página. Queda en el render de la página.</td></tr>
+    <tr><td>URL e historial</td><td><code>?channel=&amp;page=</code> se escribe con <code>pushState</code> recién cuando la página cargó, así la URL siempre describe lo que se ve. <code>popstate</code> carga la página de la entrada del historial.</td></tr>
+    <tr><td>Estado que se conserva</td><td>El borrador del compositor (incluido el canal elegido), los borradores de respuesta y los votos en curso.</td></tr>
+    <tr><td>Estado que se cierra</td><td>Los diálogos atados a un mensaje que no está en la nueva página: hilo, galería, borrar y cambiar fecha (estos dos no se cierran con una acción en curso).</td></tr>
+    <tr><td>Carreras</td><td>Cada carga aborta la anterior (<code>AbortController</code>) y una respuesta vieja nunca se aplica. Un mensaje que se está publicando no escribe su éxito ni su rollback sobre otra página.</td></tr>
+    <tr><td>Carga y error</td><td>Los mensajes anteriores quedan visibles y atenuados con «Cargando mensajes...». Si falla, queda la página anterior con un error y «Reintentar»; la URL no cambia (salvo en Atrás/Adelante, donde la URL ya cambió y «Reintentar» vuelve a pedir esa página).</td></tr>
+    <tr><td>Remount por key</td><td>El componente solo se vuelve a montar cuando cambian las props del servidor (por ejemplo tras el <code>router.refresh()</code> de mover la fecha de un mensaje); la navegación en el lugar no lo dispara.</td></tr>
+  </table>
+</div>
+
+</body>
+</html>

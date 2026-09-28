@@ -1477,6 +1477,35 @@ $media-viewer-overlay-opacity: 72%;
     border-top: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
     margin-top: 4px;
     padding-top: 16px;
+    @include motion.interactive(opacity);
+
+    // Previous page kept on screen while another one loads in place.
+    &--loading {
+      opacity: 0.6;
+    }
+  }
+
+  // Loading and error feedback of an in-place channel or page change.
+  &__navigationStatus {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 0.25rem 0;
+  }
+
+  &__navigationError {
+    display: grid;
+    gap: 0.5rem;
+    justify-items: flex-start;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  &__navigationErrorText {
+    margin: 0;
   }
 
   &__emptyTitle {
@@ -1491,6 +1520,15 @@ $media-viewer-overlay-opacity: 72%;
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+
+  &__messageList {
+    @include motion.interactive(opacity);
+
+    // Previous page kept on screen while another one loads in place.
+    &--loading {
+      opacity: 0.6;
+    }
   }
 
   &__messageArticle {

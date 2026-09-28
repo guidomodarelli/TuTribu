@@ -53,6 +53,25 @@ $tribe-events-calendar-view-duration: 220ms;
     // Clips the horizontal travel of an entering month so it never adds a
     // transient horizontal scrollbar; vertical overflow stays visible.
     overflow-x: clip;
+
+    @include motion.interactive(opacity);
+  }
+
+  // The previous month stays visible, dimmed, while the next one loads.
+  &__swipeArea--loading {
+    opacity: 0.6;
+  }
+
+  // Announces the month load to assistive technology only; the dimmed month
+  // is the visual cue.
+  &__monthStatus {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
   }
 
   &__monthView,

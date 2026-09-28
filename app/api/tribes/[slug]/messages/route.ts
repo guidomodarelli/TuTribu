@@ -10,8 +10,24 @@ import type {
   MessageFileDraftCommand,
   MessageMediaDraftCommand,
 } from "@/src/modules/messages/application/commands/tribe-message-command";
+import { tribeRoundPageResponseSchema } from "@/src/modules/messages/application/results/tribe-round-public-dto-schemas";
+import { selectMessageIdsNeedingVideoThumbnail } from "@/src/modules/messages/application/use-cases/resolve-missing-video-thumbnails-use-case";
+import { TRIBE_ROUND_FIRST_PAGE } from "@/src/modules/messages/constants/tribe-round-query";
+import {
+  tribeRoundQuerySchema,
+  tribeRoundRouteParamsSchema,
+} from "@/src/modules/messages/infrastructure/api/schemas/tribe-round-request-schemas";
+import {
+  TRIBE_ROUND_ROUTE_HTTP_STATUS,
+  TRIBE_ROUND_ROUTE_RESPONSE,
+  createTribeRoundJsonResponse,
+  createTribeRoundPublicResponse,
+  parseTribeRoundRouteInput,
+} from "@/src/modules/messages/infrastructure/api/tribe-round-route-http";
 import { revalidateTribeRoundCache } from "@/src/modules/messages/infrastructure/cache/tribe-round-cache-revalidation";
+import { scheduleMissingVideoThumbnailBackfill } from "@/src/modules/messages/infrastructure/composition/video-thumbnail-backfill";
 import { createRequestModules } from "@/src/modules/setup";
+import { TRIBE_PAGE_ACCESS_STATUS } from "@/src/modules/tribes/application/results/tribe-page-access-result";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -57,6 +73,13 @@ const CREATE_MESSAGE_ROUTE_LOG = {
   createFailureMessage: "Tribe message creation failed",
   feature: "messages",
   operation: "create-tribe-message",
+} as const;
+
+const LIST_ROUND_ROUTE_LOG = {
+  accessFailureMessage: "Tribe round access lookup failed",
+  feature: "messages",
+  listFailureMessage: "Tribe round page read failed",
+  operation: "list-tribe-round-page",
 } as const;
 
 const CREATE_MESSAGE_ROUTE_RESPONSE = {
@@ -461,6 +484,110 @@ export async function POST(
     return createJsonResponse(
       { message: CREATE_MESSAGE_ROUTE_RESPONSE.unexpectedMessage },
       HTTP_STATUS.serverError
+    );
+  }
+}
+
+/**
+ * One page of the round (`?channel=&page=`) for in-place channel and page
+ * navigation on the tribe home, so the client never re-renders the whole
+ * page on the server. It applies the tribe page authorization: only a signed-in
+ * viewer who can open the tribe page reads its round; anyone else gets the
+ * same 404 as an unknown tribe.
+ */
+export async function GET(
+  request: Request,
+  context: {
+    params: Promise<{
+      slug: string;
+    }>;
+  }
+) {
+  const { requestId } = resolveRequestContext(request.headers);
+  const logger = createServerLogger({
+    feature: LIST_ROUND_ROUTE_LOG.feature,
+    operation: LIST_ROUND_ROUTE_LOG.operation,
+    requestId,
+  });
+  const modules = await createRequestModules({ requestId });
+  const authenticatedMember = await modules.auth.useCases.getAuthenticatedMember();
+
+  if (!authenticatedMember) {
+    return createTribeRoundJsonResponse(
+      { message: TRIBE_ROUND_ROUTE_RESPONSE.unauthorizedMessage },
+      TRIBE_ROUND_ROUTE_HTTP_STATUS.unauthorized
+    );
+  }
+
+  const input = await parseTribeRoundRouteInput({
+    logger,
+    params: context.params,
+    request,
+    schemas: { params: tribeRoundRouteParamsSchema, query: tribeRoundQuerySchema },
+  });
+
+  if (!input.isValid) {
+    return input.response;
+  }
+
+  const channelSlug = input.query.channel ?? null;
+  const page = input.query.page ?? TRIBE_ROUND_FIRST_PAGE;
+  const metadata = {
+    channelSlug,
+    page,
+    tribeSlug: input.params.slug,
+    viewerId: authenticatedMember.id,
+  };
+  let access: Awaited<ReturnType<typeof modules.tribes.useCases.getTribePageAccess>>;
+
+  try {
+    access = await modules.tribes.useCases.getTribePageAccess({
+      isAuthenticated: true,
+      slug: input.params.slug,
+    });
+  } catch (error) {
+    logger.error({ message: LIST_ROUND_ROUTE_LOG.accessFailureMessage, error, metadata });
+
+    return createTribeRoundJsonResponse(
+      { message: TRIBE_ROUND_ROUTE_RESPONSE.unexpectedRoundMessage },
+      TRIBE_ROUND_ROUTE_HTTP_STATUS.serverError
+    );
+  }
+
+  if (access.status !== TRIBE_PAGE_ACCESS_STATUS.visible) {
+    return createTribeRoundJsonResponse(
+      { message: TRIBE_ROUND_ROUTE_RESPONSE.tribeNotFoundMessage },
+      TRIBE_ROUND_ROUTE_HTTP_STATUS.notFound
+    );
+  }
+
+  try {
+    const round = await modules.messages.useCases.listTribeRound({
+      channelSlug,
+      page,
+      tribeSlug: access.tribe.slug,
+      viewerId: authenticatedMember.id,
+    });
+
+    scheduleMissingVideoThumbnailBackfill({
+      messageIds: selectMessageIdsNeedingVideoThumbnail(round.messages),
+      tribeSlug: access.tribe.slug,
+      viewerId: authenticatedMember.id,
+    });
+
+    return createTribeRoundPublicResponse({
+      body: { round },
+      failureMessage: TRIBE_ROUND_ROUTE_RESPONSE.unexpectedRoundMessage,
+      logger,
+      metadata,
+      schema: tribeRoundPageResponseSchema,
+    });
+  } catch (error) {
+    logger.error({ message: LIST_ROUND_ROUTE_LOG.listFailureMessage, error, metadata });
+
+    return createTribeRoundJsonResponse(
+      { message: TRIBE_ROUND_ROUTE_RESPONSE.unexpectedRoundMessage },
+      TRIBE_ROUND_ROUTE_HTTP_STATUS.serverError
     );
   }
 }

@@ -42,6 +42,12 @@ import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, 
 import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
 
 import { Link } from "@/components/navigation/link";
+import { isInPageLinkClick } from "@/lib/plain-link-click";
+import { useTribeRoundNavigation } from "@/hooks/use-tribe-round-navigation";
+import {
+  buildTribeRoundPageHref,
+  type TribeRoundLocation,
+} from "@/lib/messages/tribe-round-location";
 
 
 
@@ -58,6 +64,7 @@ import {
   isAllowedAttachmentMimeType,
 } from "@/src/constants/attachment-files";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
+import { TRIBE_ROUND_FIRST_PAGE } from "@/src/modules/messages/constants/tribe-round-query";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import {
   MESSAGE_FILES,
@@ -89,10 +96,6 @@ import styles from "./styles.module.scss";
 
 const TRIBE_ROUND_ROUTE = {
   apiTribes: "/api/tribes/",
-  channelQueryParam: "channel",
-  pageQueryParam: "page",
-  platformTribeSegment: "/",
-  querySeparator: "?",
   repliesSegment: "/replies",
   likeSegment: "/like",
   pinSegment: "/pin",
@@ -187,6 +190,8 @@ const TRIBE_ROUND_COPY = {
   repliesLoading: "Cargando respuestas...",
   repliesLoadError: "No pudimos cargar las respuestas.",
   repliesRetry: "Reintentar",
+  roundPageLoading: "Cargando mensajes...",
+  roundPageRetry: "Reintentar",
   messageDetailsDialogDescription: "Detalle del mensaje y sus respuestas.",
   messageDetailsDialogTitle: "Mensaje",
   messageDetailsContentLabel: "Contenido del mensaje",
@@ -340,10 +345,6 @@ const TRIBE_ROUND_COPY = {
   toggleLikeError: "No pudimos actualizar la reaccion.",
 } as const;
 
-const TRIBE_ROUND_PATH = {
-  tribe: (tribeSlug: string) => TRIBE_ROUND_ROUTE.platformTribeSegment + tribeSlug,
-} as const;
-
 const TRIBE_ROUND_FORM = {
   buttonType: "button",
   contentTypeHeader: "Content-Type",
@@ -425,6 +426,14 @@ const TRIBE_ROUND_CAROUSEL_EVENT = {
   reInit: "reInit",
   select: "select",
   settle: "settle",
+} as const;
+
+/** Scroll back to the round top after a page loads in place. */
+const TRIBE_ROUND_NAVIGATION_SCROLL = {
+  block: "start",
+  instantBehavior: "auto",
+  reducedMotionQuery: "(prefers-reduced-motion: reduce)",
+  smoothBehavior: "smooth",
 } as const;
 
 const COMPOSER_BODY_SCROLL = {
@@ -1340,30 +1349,18 @@ function getPinButtonClassName(isPinned: boolean): string {
   ].join(TRIBE_ROUND_FORMAT.standardSpace);
 }
 
-function buildTribeRoundPageHref({
-  channelSlug,
-  page,
-  tribeSlug,
-}: {
-  channelSlug: string | null;
-  page: number;
-  tribeSlug: string;
-}): string {
-  const searchParams = new URLSearchParams();
-
-  if (channelSlug) {
-    searchParams.set(TRIBE_ROUND_ROUTE.channelQueryParam, channelSlug);
-  }
-
-  if (page > 1) {
-    searchParams.set(TRIBE_ROUND_ROUTE.pageQueryParam, String(page));
-  }
-
-  const queryString = searchParams.toString();
-
-  return queryString
-    ? `${TRIBE_ROUND_PATH.tribe(tribeSlug)}${TRIBE_ROUND_ROUTE.querySeparator}${queryString}`
-    : TRIBE_ROUND_PATH.tribe(tribeSlug);
+/**
+ * Location (channel filter and page) of a round as the server rendered it.
+ *
+ * @param round - Round page.
+ * @returns The channel slug of the active filter (or `null`) and the page.
+ */
+function getTribeRoundLocation(round: TribeRoundResult): TribeRoundLocation {
+  return {
+    channelSlug:
+      round.channels.find((channel) => channel.id === round.activeChannelId)?.slug ?? null,
+    page: round.pagination.currentPage,
+  };
 }
 
 function renderAuthorRoleAccessibleLabel(
@@ -1759,7 +1756,7 @@ function getOptimisticPinnedAt(
 function TribeRoundContent({
   authenticatedMember,
   tribeSlug,
-  round,
+  round: serverRound,
 }: TribeRoundProps) {
   const router = useRouter();
   useRelativeTimeElementDefinition();
@@ -1772,6 +1769,18 @@ function TribeRoundContent({
   const pendingPinIntentsRef = useRef<PendingPinIntents>({});
   const pollVoteDebounceTimersRef = useRef<PollVoteDebounceTimers>({});
   const pendingPollVoteIntentsRef = useRef<PendingPollVoteIntents>({});
+  /**
+   * Round page on screen: the server-rendered one until a channel chip, a
+   * pagination link, or Back/Forward loads another page in place.
+   */
+  const [round, setRound] = useState(serverRound);
+  /**
+   * Bumped whenever another round page replaces the visible one, so an
+   * in-flight message creation never writes its optimistic outcome (or its
+   * rollback snapshot) into a page it was not started from.
+   */
+  const roundViewVersionRef = useRef(0);
+  const roundSectionRef = useRef<HTMLElement | null>(null);
   const [messages, setMessages] =
     useState<TribeRoundVisibleMessageResult[]>(round.messages);
   const [visiblePagination, setVisiblePagination] = useState(round.pagination);
@@ -2038,6 +2047,104 @@ function TribeRoundContent({
   const selectedMessageRepliesId = selectedMessage?.id;
   const activeChannel =
     round.channels.find((channel) => channel.id === round.activeChannelId) ?? null;
+
+  /**
+   * After a page loaded in place, brings the top of the round back into view
+   * when the viewer scrolled past it (for example, pressing "Siguiente" at the
+   * end of a long page). It runs on the next frame so the new list is laid
+   * out, and jumps instead of scrolling smoothly under reduced motion.
+   */
+  const revealRoundSection = () => {
+    window.requestAnimationFrame(() => {
+      const roundSection = roundSectionRef.current;
+
+      if (!roundSection || roundSection.getBoundingClientRect().top >= 0) {
+        return;
+      }
+
+      const prefersReducedMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia(TRIBE_ROUND_NAVIGATION_SCROLL.reducedMotionQuery).matches;
+
+      roundSection.scrollIntoView({
+        behavior: prefersReducedMotion
+          ? TRIBE_ROUND_NAVIGATION_SCROLL.instantBehavior
+          : TRIBE_ROUND_NAVIGATION_SCROLL.smoothBehavior,
+        block: TRIBE_ROUND_NAVIGATION_SCROLL.block,
+      });
+    });
+  };
+
+  /**
+   * Shows a round page loaded in place. The page's list, pagination, channel
+   * filter, and permissions replace the previous ones; what the viewer is
+   * writing (composer, reply drafts, poll choices) stays. Overlays tied to a
+   * message that is not on the new page (thread, gallery, delete or date
+   * dialogs) close, since their message is no longer visible behind them.
+   */
+  const applyNavigatedRound = (nextRound: TribeRoundResult) => {
+    const nextMessageIds = new Set(nextRound.messages.map((message) => message.id));
+
+    roundViewVersionRef.current += 1;
+    setRound(nextRound);
+    setMessages(nextRound.messages);
+    setVisiblePagination(nextRound.pagination);
+
+    if (selectedMessageId && !nextMessageIds.has(selectedMessageId)) {
+      setIsMessageDetailsOpen(false);
+      setSelectedMessageId(null);
+    }
+
+    if (activeImageCarousel && !nextMessageIds.has(activeImageCarousel.messageId)) {
+      handleImageCarouselOpenChange(false);
+    }
+
+    if (
+      messagePendingDeletion &&
+      !isBusy &&
+      !nextMessageIds.has(messagePendingDeletion.id)
+    ) {
+      setMessagePendingDeletion(null);
+    }
+
+    if (
+      editingCreatedAtMessageId &&
+      !isBusy &&
+      !nextMessageIds.has(editingCreatedAtMessageId)
+    ) {
+      closeEditCreatedAtDialog();
+    }
+
+    revealRoundSection();
+  };
+
+  const roundNavigation = useTribeRoundNavigation({
+    initialLocation: getTribeRoundLocation(serverRound),
+    onRoundLoaded: applyNavigatedRound,
+    tribeSlug,
+  });
+
+  /**
+   * Loads another round page in place when a pagination link gets a plain
+   * click; modified clicks keep the real link so it can open in a new tab.
+   */
+  const previousRoundPage = Math.max(
+    TRIBE_ROUND_FIRST_PAGE,
+    visiblePagination.currentPage - 1
+  );
+  const nextRoundPage = visiblePagination.currentPage + 1;
+
+  const handleRoundPageLinkClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    location: TribeRoundLocation
+  ) => {
+    if (!isInPageLinkClick(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    void roundNavigation.navigateToLocation(location);
+  };
   const selectedMessageReplyLoadStatus = selectedMessage
     ? replyLoadStatuses[selectedMessage.id] ??
       (selectedMessage.replyCount > 0 && selectedMessage.hasLoadedReplies === false
@@ -3571,11 +3678,23 @@ function TribeRoundContent({
     createdMessage,
     optimisticMessage,
     optimisticMessageId,
+    roundViewVersion,
   }: {
     createdMessage: TribeRoundMessageResult;
     optimisticMessage: TribeRoundVisibleMessageResult | null;
     optimisticMessageId: string;
+    /** {@link roundViewVersionRef} when the creation started. */
+    roundViewVersion: number;
   }) => {
+    if (roundViewVersionRef.current !== roundViewVersion) {
+      // Another round page replaced the one the message was composed on: that
+      // page came from the server, so only drop a leftover optimistic copy.
+      setMessages((currentMessages) =>
+        currentMessages.filter((message) => message.id !== optimisticMessageId)
+      );
+      return;
+    }
+
     const visibleCreatedMessage = getCreatedMessageWithStableImages({
       createdMessage,
       optimisticMessage,
@@ -3671,6 +3790,7 @@ function TribeRoundContent({
     });
     const baselineMessages = messages;
     const baselinePagination = visiblePagination;
+    const roundViewVersion = roundViewVersionRef.current;
     const createMessageIntent: PendingCreateMessageIntent = {
       baselineMessages,
       baselinePagination,
@@ -3743,6 +3863,7 @@ function TribeRoundContent({
         createdMessage,
         optimisticMessage,
         optimisticMessageId,
+        roundViewVersion,
       });
       if (
         !shouldKeepOptimisticImagePreviewUrls({
@@ -3769,14 +3890,24 @@ function TribeRoundContent({
         return;
       }
 
-      setMessages((currentMessages) =>
-        getMessagesAfterOptimisticCreationFailure({
-          baselineMessages: createMessageIntent.baselineMessages,
-          currentMessages,
-          optimisticMessageId: createMessageIntent.optimisticMessageId,
-        })
-      );
-      setVisiblePagination(createMessageIntent.baselinePagination);
+      // The rollback snapshot belongs to the page the message was composed on;
+      // after an in-place page change only the optimistic copy is dropped.
+      if (roundViewVersionRef.current === roundViewVersion) {
+        setMessages((currentMessages) =>
+          getMessagesAfterOptimisticCreationFailure({
+            baselineMessages: createMessageIntent.baselineMessages,
+            currentMessages,
+            optimisticMessageId: createMessageIntent.optimisticMessageId,
+          })
+        );
+        setVisiblePagination(createMessageIntent.baselinePagination);
+      } else {
+        setMessages((currentMessages) =>
+          currentMessages.filter(
+            (message) => message.id !== createMessageIntent.optimisticMessageId
+          )
+        );
+      }
       cleanupPersistingMessageImages(persistingImageAssetIds, actionTribeSlug);
       cleanupPersistingMessageFiles(persistingFileAssetIds, actionTribeSlug);
       pendingCreateMessageIntentRef.current = null;
@@ -5874,6 +6005,7 @@ function TribeRoundContent({
       <section
         className={styles.TribeRound}
         aria-label={TRIBE_ROUND_COPY.sectionLabel}
+        ref={roundSectionRef}
       >
         <Dialog
           open={Boolean(messagePendingDeletion)}
@@ -6377,11 +6509,47 @@ function TribeRoundContent({
           }
           channels={round.channels}
           navigationLabel={TRIBE_ROUND_COPY.tribeChannelLabel}
+          onChannelSelect={(channelSlug) =>
+            roundNavigation.navigateToLocation({
+              channelSlug,
+              page: TRIBE_ROUND_FIRST_PAGE,
+            })
+          }
         />
       ) : null}
 
+      {roundNavigation.isLoading ? (
+        <div className={styles.TribeRound__navigationStatus}>
+          <BouncingDotsLoader
+            label={TRIBE_ROUND_COPY.roundPageLoading}
+            size="sm"
+          />
+        </div>
+      ) : null}
+      {roundNavigation.errorMessage ? (
+        <div className={styles.TribeRound__navigationError} role="alert">
+          <p className={styles.TribeRound__navigationErrorText}>
+            {roundNavigation.errorMessage}
+          </p>
+          <Button
+            onClick={roundNavigation.retry}
+            type={TRIBE_ROUND_FORM.buttonType}
+            variant={TRIBE_ROUND_FORM.outlineVariant}
+          >
+            {TRIBE_ROUND_COPY.roundPageRetry}
+          </Button>
+        </div>
+      ) : null}
+
       {messages.length === 0 ? (
-        <div className={styles.TribeRound__empty}>
+        <div
+          aria-busy={roundNavigation.isLoading || undefined}
+          className={
+            roundNavigation.isLoading
+              ? `${styles.TribeRound__empty} ${styles["TribeRound__empty--loading"]}`
+              : styles.TribeRound__empty
+          }
+        >
           <h3 className={styles.TribeRound__emptyTitle}>
             {TRIBE_ROUND_COPY.emptyTitle}
           </h3>
@@ -6390,7 +6558,14 @@ function TribeRoundContent({
           </p>
         </div>
       ) : (
-        <ol className={styles.TribeRound__messageList}>
+        <ol
+          aria-busy={roundNavigation.isLoading || undefined}
+          className={
+            roundNavigation.isLoading
+              ? `${styles.TribeRound__messageList} ${styles["TribeRound__messageList--loading"]}`
+              : styles.TribeRound__messageList
+          }
+        >
           <AnimatePresence initial={false}>
           {messages.map((message, messageIndex) => (
             <AnimatedListItem
@@ -6517,9 +6692,15 @@ function TribeRoundContent({
                   aria-label={TRIBE_ROUND_PAGINATION_LABEL.previous}
                   href={buildTribeRoundPageHref({
                     channelSlug: activeChannel?.slug ?? null,
-                    page: Math.max(1, visiblePagination.currentPage - 1),
+                    page: previousRoundPage,
                     tribeSlug,
                   })}
+                  onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+                    handleRoundPageLinkClick(event, {
+                      channelSlug: activeChannel?.slug ?? null,
+                      page: previousRoundPage,
+                    });
+                  }}
                   text={TRIBE_ROUND_PAGINATION_LABEL.previous}
                 />
               ) : (
@@ -6543,9 +6724,15 @@ function TribeRoundContent({
                   aria-label={TRIBE_ROUND_PAGINATION_LABEL.next}
                   href={buildTribeRoundPageHref({
                     channelSlug: activeChannel?.slug ?? null,
-                    page: visiblePagination.currentPage + 1,
+                    page: nextRoundPage,
                     tribeSlug,
                   })}
+                  onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+                    handleRoundPageLinkClick(event, {
+                      channelSlug: activeChannel?.slug ?? null,
+                      page: nextRoundPage,
+                    });
+                  }}
                   text={TRIBE_ROUND_PAGINATION_LABEL.next}
                 />
               ) : (

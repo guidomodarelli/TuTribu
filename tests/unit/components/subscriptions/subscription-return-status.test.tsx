@@ -1,35 +1,38 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { vi, describe, it, expect } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { SubscriptionReturnStatus } from "@/components/subscriptions/subscription-return-status";
-import * as browserNavigation from "@/lib/browser-navigation";
-
-vi.mock("@/lib/browser-navigation", () => ({
-  reloadCurrentPage: vi.fn(),
-}));
 
 describe("SubscriptionReturnStatus", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.mocked(browserNavigation.reloadCurrentPage).mockReset();
-  });
+  it("announces a busy confirmation while Mercado Pago is being checked", () => {
+    render(<SubscriptionReturnStatus onRetry={vi.fn()} phase="checking" />);
 
-  afterEach(() => {
-    vi.clearAllTimers();
-    vi.useRealTimers();
-  });
+    const heading = screen.getByRole("heading", {
+      name: "Estamos confirmando tu suscripción",
+    });
+    const liveRegion = heading.closest("section");
 
-  it("should reload the page while Mercado Pago confirmation is pending", () => {
-    render(<SubscriptionReturnStatus />);
-
+    expect(liveRegion).toHaveAttribute("aria-live", "polite");
+    expect(liveRegion).toHaveAttribute("aria-busy", "true");
     expect(
-      screen.getByRole("heading", {
-        name: "Estamos confirmando tu suscripción",
-      })
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Actualizar estado" })
+    ).not.toBeInTheDocument();
+  });
 
-    vi.advanceTimersByTime(3_000);
+  it("offers a manual refresh once automatic checks stop", () => {
+    const onRetry = vi.fn();
 
-    expect(browserNavigation.reloadCurrentPage).toHaveBeenCalledTimes(1);
+    render(<SubscriptionReturnStatus onRetry={onRetry} phase="exhausted" />);
+
+    const heading = screen.getByRole("heading", {
+      name: "Todavía no recibimos la confirmación",
+    });
+
+    expect(heading.closest("section")).toHaveAttribute("aria-busy", "false");
+    expect(heading.closest("section")).toHaveAttribute("aria-live", "polite");
+
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar estado" }));
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

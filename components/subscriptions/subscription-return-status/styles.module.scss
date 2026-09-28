@@ -1,5 +1,5 @@
-// No entrance animation on purpose: this screen reloads itself every few
-// seconds while Mercado Pago confirms, and a replayed entrance would flicker.
+// No entrance animation on purpose: this screen swaps its copy in place while
+// Mercado Pago confirms, and a replayed entrance would flicker.
 .SubscriptionReturnStatus {
   align-content: center;
   display: grid;
@@ -29,5 +29,11 @@
     line-height: 1.7;
     max-width: 36rem;
     text-wrap: pretty;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
   }
 }
