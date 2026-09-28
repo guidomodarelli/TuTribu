@@ -671,6 +671,7 @@ export const courses = pgTable("courses", {
   coverImageUrl: text("cover_image_url"),
   sortOrder: integer("sort_order").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  accessRequirement: text("access_requirement").notNull().default("membership"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
@@ -1322,6 +1323,7 @@ export const tribeSubscriptionPrices = pgTable("tribe_subscription_prices", {
   paymentIntegrationId: uuid("payment_integration_id"),
   trialFrequency: integer("trial_frequency"),
   trialFrequencyType: text("trial_frequency_type"),
+  productKey: text("product_key").notNull().default("membership"),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),
@@ -1367,6 +1369,12 @@ export const tribeMemberSubscriptions = pgTable("tribe_member_subscriptions", {
   status: text("status").notNull(),
   statusReason: text("status_reason").notNull().default("none"),
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  productKey: text("product_key").notNull().default("membership"),
+  offerVersionSnapshot: integer("offer_version_snapshot"),
+  termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+  billingAnchorAt: timestamp("billing_anchor_at", { withTimezone: true }),
+  cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
+  coverageReconciledAt: timestamp("coverage_reconciled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
@@ -1479,4 +1487,194 @@ export const sitepingAnnotations = pgTable("siteping_annotations", {
     .default(UTC_NOW_SQL),
 }, (table) => ({
   feedbackIndex: index("idx_siteping_annotations_feedback").on(table.feedbackId),
+}));
+
+// Academy access (database/migrations/20260928120000..125000). Policies,
+// CHECK constraints and owner-only functions live in the SQL migrations.
+export const tribeAcademySettings = pgTable("tribe_academy_settings", {
+  tribeId: uuid("tribe_id")
+    .primaryKey()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  accessModel: text("access_model").notNull().default("legacy"),
+  admissionEnabled: boolean("admission_enabled").notNull().default(false),
+  salesEnabled: boolean("sales_enabled").notNull().default(false),
+  title: text("title").notNull().default(""),
+  description: text("description").notNull().default(""),
+  benefits: jsonb("benefits").notNull().default(sql`'[]'::jsonb`),
+  offerVersion: integer("offer_version").notNull().default(1),
+  configVersion: integer("config_version").notNull().default(1),
+  activatedAt: timestamp("activated_at", { withTimezone: true }),
+  activationManifestId: text("activation_manifest_id"),
+  updatedBy: text("updated_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+});
+
+export const memberAccessGrants = pgTable("member_access_grants", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  productKey: text("product_key").notNull(),
+  sourceType: text("source_type").notNull(),
+  sourceKey: text("source_key").notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  revokedBy: text("revoked_by").references(() => users.id, { onDelete: "set null" }),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+}, (table) => ({
+  sourceKey: uniqueIndex("member_access_grants_source_key").on(
+    table.tribeId,
+    table.productKey,
+    table.sourceType,
+    table.sourceKey
+  ),
+  memberProductIndex: index("idx_member_access_grants_member_product").on(
+    table.tribeId,
+    table.userId,
+    table.productKey
+  ),
+}));
+
+export const memberProductEnrollments = pgTable("member_product_enrollments", {
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  productKey: text("product_key").notNull(),
+  firstActivatedAt: timestamp("first_activated_at", { withTimezone: true }).notNull(),
+  activationOrigin: text("activation_origin").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+}, (table) => ({
+  memberProductKey: uniqueIndex("member_product_enrollments_pkey").on(
+    table.tribeId,
+    table.userId,
+    table.productKey
+  ),
+}));
+
+export const academyAuditEvents = pgTable("academy_audit_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  actorUserId: text("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+  subjectUserId: text("subject_user_id").references(() => users.id, { onDelete: "set null" }),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  fromState: text("from_state"),
+  toState: text("to_state"),
+  reason: text("reason"),
+  correlationId: text("correlation_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+}, (table) => ({
+  tribeCreatedIndex: index("idx_academy_audit_events_tribe_created").on(
+    table.tribeId,
+    table.createdAt
+  ),
+  entityIndex: index("idx_academy_audit_events_entity").on(table.entityType, table.entityId),
+}));
+
+export const verificationProviders = pgTable("verification_providers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  key: text("key").notNull(),
+  displayName: text("display_name").notNull(),
+  instructions: text("instructions").notNull().default(""),
+  linkUrl: text("link_url"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+}, (table) => ({
+  tribeKey: uniqueIndex("verification_providers_tribe_key").on(table.tribeId, table.key),
+  idTribeKey: uniqueIndex("verification_providers_id_tribe_key").on(table.id, table.tribeId),
+}));
+
+export const memberVerifications = pgTable("member_verifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  providerId: uuid("provider_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  declaredEmail: text("declared_email"),
+  decisionReason: text("decision_reason"),
+  version: integer("version").notNull().default(1),
+  reviewedBy: text("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+}, (table) => ({
+  memberProviderKey: uniqueIndex("member_verifications_member_provider_key").on(
+    table.tribeId,
+    table.userId,
+    table.providerId
+  ),
+  queueIndex: index("idx_member_verifications_queue").on(
+    table.tribeId,
+    table.status,
+    table.createdAt
+  ),
+  providerTribeForeignKey: foreignKey({
+    columns: [table.providerId, table.tribeId],
+    foreignColumns: [verificationProviders.id, verificationProviders.tribeId],
+    name: "member_verifications_provider_tribe_fkey",
+  }),
+}));
+
+export const subscriptionPaymentPeriods = pgTable("subscription_payment_periods", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tribeId: uuid("tribe_id")
+    .notNull()
+    .references(() => tribes.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  subscriptionId: uuid("subscription_id")
+    .notNull()
+    .references(() => tribeMemberSubscriptions.id, { onDelete: "cascade" }),
+  paymentIntegrationId: uuid("payment_integration_id").notNull(),
+  productKey: text("product_key").notNull(),
+  providerSubscriptionId: text("provider_subscription_id").notNull(),
+  providerInvoiceId: text("provider_invoice_id").notNull(),
+  providerPaymentId: text("provider_payment_id"),
+  paymentStatus: text("payment_status").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  currency: text("currency").notNull(),
+  debitAt: timestamp("debit_at", { withTimezone: true }),
+  serviceStartsAt: timestamp("service_starts_at", { withTimezone: true }),
+  serviceEndsAt: timestamp("service_ends_at", { withTimezone: true }),
+  providerLastModifiedAt: timestamp("provider_last_modified_at", { withTimezone: true }),
+  grantId: uuid("grant_id").references(() => memberAccessGrants.id, { onDelete: "set null" }),
+  reviewReason: text("review_reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(UTC_NOW_SQL),
+}, (table) => ({
+  invoiceKey: uniqueIndex("subscription_payment_periods_invoice_key").on(
+    table.paymentIntegrationId,
+    table.providerInvoiceId
+  ),
+  subscriptionIndex: index("idx_subscription_payment_periods_subscription").on(
+    table.subscriptionId,
+    table.serviceStartsAt
+  ),
+  integrationTribeForeignKey: foreignKey({
+    columns: [table.paymentIntegrationId, table.tribeId],
+    foreignColumns: [tribePaymentIntegrations.id, tribePaymentIntegrations.tribeId],
+    name: "subscription_payment_periods_integration_tribe_fkey",
+  }),
 }));

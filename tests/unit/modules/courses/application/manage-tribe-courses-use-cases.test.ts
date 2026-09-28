@@ -22,6 +22,7 @@ const COURSE_FIXTURE = {
   isActive: true,
   sortOrder: 0,
   title: "C",
+  accessRequirement: "membership" as const,
 };
 
 function buildRepository(
@@ -137,6 +138,7 @@ describe("manage tribe courses use cases", () => {
     });
 
     expect(repository.createCourse).toHaveBeenCalledWith({
+      accessRequirement: "membership",
       coverImageUrl: "https://example.com/portada.jpg",
       description: "Curso base",
       sortOrder: 1,
@@ -192,6 +194,8 @@ describe("manage tribe courses use cases", () => {
     });
 
     expect(repository.updateCourse).toHaveBeenCalledWith({
+      // Omitted requirement keeps the stored value.
+      accessRequirement: null,
       courseId: "c1",
       coverImageUrl: null,
       description: null,

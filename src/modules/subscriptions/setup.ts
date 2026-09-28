@@ -38,6 +38,15 @@ import {
   startTribeOpenJoinSubscription,
   validatePendingTribeMemberSubscriptionReturn,
 } from "@/src/modules/subscriptions/application/use-cases/manage-tribe-member-subscription-use-cases";
+import {
+  cancelOwnAcademyRenewal,
+  getOwnAcademyRenewalStatus,
+  handleAcademyAuthorizedPaymentWebhook,
+  reconcileAcademySubscriptionCoverage,
+  reconcileOwnAcademyCoverage,
+  startAcademySubscription,
+} from "@/src/modules/subscriptions/application/use-cases/manage-academy-subscription-use-cases";
+import type { AcademySubscriptionRepository } from "@/src/modules/subscriptions/domain/repositories/academy-subscription-repository";
 import type { TribeProviderSubscriberReconciliationRepository } from "@/src/modules/subscriptions/application/ports/tribe-provider-subscriber-reconciliation-repository";
 import type { TribeSubscriberDiagnosticsRepository } from "@/src/modules/subscriptions/application/ports/tribe-subscriber-diagnostics-repository";
 import type { TribeMemberSubscriptionRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-member-subscription-repository";
@@ -45,6 +54,8 @@ import type { TribePaymentIntegrationRepository } from "@/src/modules/subscripti
 import type { TribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/domain/repositories/tribe-subscription-price-repository";
 
 type SubscriptionsModuleDependencies = {
+  academySubscriptionRepository: AcademySubscriptionRepository;
+  isAcademySalesActivationAllowed: () => boolean;
   tribeMemberSubscriptionRepository: TribeMemberSubscriptionRepository;
   tribePaymentIntegrationRepository: TribePaymentIntegrationRepository;
   tribeProviderSubscriberReconciliationRepository: TribeProviderSubscriberReconciliationRepository;
@@ -59,6 +70,8 @@ type SubscriptionsModuleDependencies = {
  * @returns Subscription module use cases.
  */
 export function buildSubscriptionsModule({
+  academySubscriptionRepository,
+  isAcademySalesActivationAllowed,
   tribeMemberSubscriptionRepository,
   tribePaymentIntegrationRepository,
   tribeProviderSubscriberReconciliationRepository,
@@ -67,6 +80,19 @@ export function buildSubscriptionsModule({
 }: SubscriptionsModuleDependencies) {
   return {
     useCases: {
+      cancelOwnAcademyRenewal: cancelOwnAcademyRenewal({ academySubscriptionRepository }),
+      getOwnAcademyRenewalStatus: getOwnAcademyRenewalStatus({ academySubscriptionRepository }),
+      handleAcademyAuthorizedPaymentWebhook: handleAcademyAuthorizedPaymentWebhook({
+        academySubscriptionRepository,
+      }),
+      reconcileAcademySubscriptionCoverage: reconcileAcademySubscriptionCoverage({
+        academySubscriptionRepository,
+      }),
+      reconcileOwnAcademyCoverage: reconcileOwnAcademyCoverage({ academySubscriptionRepository }),
+      startAcademySubscription: startAcademySubscription({
+        academySubscriptionRepository,
+        isAcademySalesActivationAllowed,
+      }),
       connectTribePaymentIntegration: connectTribePaymentIntegration({
         tribePaymentIntegrationRepository,
       }),

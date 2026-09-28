@@ -108,3 +108,19 @@ export const TRIBE_COURSES_ROUTE_QUERY = {
   course: "curso",
   lesson: "leccion",
 } as const;
+
+/** Who can consume a course: any readable member, or academy access holders. */
+export type CourseAccessRequirement = "academy" | "membership";
+
+export const COURSE_ACCESS_REQUIREMENT = {
+  academy: "academy",
+  membership: "membership",
+} as const satisfies Record<string, CourseAccessRequirement>;
+
+/** Whether the viewer can open a course or only sees its catalog metadata. */
+export type CourseViewerAccessStatus = "academy_required" | "available";
+
+export const COURSE_VIEWER_ACCESS_STATUS = {
+  academyRequired: "academy_required",
+  available: "available",
+} as const satisfies Record<string, CourseViewerAccessStatus>;

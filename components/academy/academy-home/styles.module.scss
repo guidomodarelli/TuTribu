@@ -1,0 +1,129 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
+.AcademyHome {
+  display: grid;
+  gap: clamp(1.25rem, 4vw, 2rem);
+  margin: 0 auto;
+  width: min(100%, 48rem);
+  min-width: 0;
+  padding-block: 0.25rem 1.5rem;
+
+  &__header {
+    @include motion.enter;
+
+    display: grid;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--foreground);
+    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-size: clamp(2rem, 6vw, 3rem);
+    font-weight: 600;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+
+  &__description,
+  &__text,
+  &__muted,
+  &__notice,
+  &__error {
+    margin: 0;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+
+  &__description {
+    max-width: 60ch;
+    color: var(--muted-foreground);
+    white-space: pre-line;
+  }
+
+  &__muted {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+  }
+
+  &__notice {
+    padding-block: 0.5rem;
+    border-block: 1px solid var(--border);
+    color: var(--foreground);
+  }
+
+  &__error {
+    color: var(--destructive);
+  }
+
+  &__section {
+    display: grid;
+    gap: 0.75rem;
+    min-width: 0;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+
+  &__sectionTitle {
+    margin: 0;
+    color: var(--foreground);
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  &__benefits {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+    padding-inline-start: 1.25rem;
+    overflow-wrap: anywhere;
+  }
+
+  &__price {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  &__priceValue {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  &__primaryLink,
+  &__secondaryLink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    border-radius: min(var(--radius-md), 0.75rem);
+    font-weight: 500;
+    text-decoration: none;
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+  }
+
+  &__primaryLink {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  &__secondaryLink {
+    border: 1px solid var(--border);
+    color: var(--foreground);
+  }
+}

@@ -1,5 +1,8 @@
 const PLATFORM_ROUTE_PREFIX = "/-/";
 const TRIBE_ROUTE_SEGMENTS = {
+  academy: "academia",
+  academyManage: "academia/gestionar",
+  academyVerification: "academia/verificacion",
   history: "historia",
   settings: "ajustes",
   channels: "canales",
@@ -30,6 +33,12 @@ export const ROUTES = {
     signIn: "/auth/signin",
   },
   tribes: {
+    academy: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.academy),
+    academyManage: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.academyManage),
+    academyVerification: (slug: string) =>
+      buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.academyVerification),
     history: (slug: string) =>
       buildTribeSectionRoute(slug, TRIBE_ROUTE_SEGMENTS.history),
     bySlug: (slug: string) => `/${slug}`,

@@ -1,4 +1,8 @@
 import type { VideoProvider } from "@/src/modules/shared/domain/value-objects/video-provider";
+import type {
+  CourseAccessRequirement,
+  CourseViewerAccessStatus,
+} from "@/src/modules/courses/constants/courses";
 import type { Course } from "@/src/modules/courses/domain/entities/course";
 import type { CourseModule } from "@/src/modules/courses/domain/entities/course-module";
 import type { Lesson } from "@/src/modules/courses/domain/entities/lesson";
@@ -9,6 +13,7 @@ export type GetTribeCoursesQuery = {
 };
 
 export type CreateCourseRepositoryCommand = {
+  accessRequirement: CourseAccessRequirement;
   coverImageUrl: string | null;
   description: string | null;
   sortOrder: number;
@@ -16,7 +21,12 @@ export type CreateCourseRepositoryCommand = {
   tribeSlug: string;
 };
 
-export type UpdateCourseRepositoryCommand = CreateCourseRepositoryCommand & {
+export type UpdateCourseRepositoryCommand = Omit<
+  CreateCourseRepositoryCommand,
+  "accessRequirement"
+> & {
+  /** Null keeps the stored requirement. */
+  accessRequirement: CourseAccessRequirement | null;
   courseId: string;
   isActive: boolean;
 };
@@ -108,10 +118,21 @@ export type CourseModuleWithLessonsResult = CourseModuleResult & {
   viewerAccess: CourseModuleViewerAccessResult;
 };
 
+export type CourseViewerAccessResult = {
+  /** Own completed lessons; readable even after academy access ends. */
+  completedLessonCount: number;
+  /**
+   * `academy_required` courses only carry catalog metadata: no modules,
+   * lessons, videos, files or last viewed lesson are serialized.
+   */
+  status: CourseViewerAccessStatus;
+};
+
 export type CourseWithModulesResult = CourseResult & {
   /** Last lesson the viewer opened inside this course, when any. */
   lastViewedLessonId: string | null;
   modules: CourseModuleWithLessonsResult[];
+  viewerAccess: CourseViewerAccessResult;
 };
 
 export type CourseTreeViewerPermissionsResult = {

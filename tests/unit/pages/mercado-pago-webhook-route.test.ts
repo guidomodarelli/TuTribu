@@ -10,6 +10,8 @@ import {
 
 const handleMercadoPagoSubscriptionWebhook = vi.fn();
 const syncMercadoPagoSubscriptionProviderPlanWebhook = vi.fn();
+const handleAcademyAuthorizedPaymentWebhook = vi.fn();
+const reconcileAcademySubscriptionCoverage = vi.fn();
 const mockServerLogger = {
   error: vi.fn(),
   info: vi.fn(),
@@ -89,10 +91,14 @@ describe("Mercado Pago webhook route", () => {
     syncMercadoPagoSubscriptionProviderPlanWebhook.mockResolvedValue({
       status: "verified" as const,
     });
+    handleAcademyAuthorizedPaymentWebhook.mockResolvedValue({ status: "processed" as const });
+    reconcileAcademySubscriptionCoverage.mockResolvedValue({ appliedInvoices: 0, status: "not_found" as const });
     (createRequestModules as Mock).mockResolvedValue({
       subscriptions: {
         useCases: {
+          handleAcademyAuthorizedPaymentWebhook,
           handleMercadoPagoSubscriptionWebhook,
+          reconcileAcademySubscriptionCoverage,
           syncMercadoPagoSubscriptionProviderPlanWebhook,
         },
       },
@@ -211,6 +217,73 @@ describe("Mercado Pago webhook route", () => {
       resourceId: "preapproval-1",
       topic: "subscription_preapproval.created",
     });
+  });
+
+  it("reconciles academy coverage after a subscription notification without failing it", async () => {
+    const timestamp = String(Date.now());
+    const requestId = "request-academy";
+    reconcileAcademySubscriptionCoverage.mockRejectedValueOnce(new Error("provider down"));
+
+    const response = await POST(
+      buildWebhookRequest({
+        [REQUEST_ID_HEADER]: requestId,
+        "x-signature": buildWebhookSignature("preapproval-1", requestId, timestamp),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(reconcileAcademySubscriptionCoverage).toHaveBeenCalledWith({
+      correlationId: requestId,
+      providerSubscriptionId: "preapproval-1",
+    });
+  });
+
+  it("routes recurring invoice notifications to the academy ledger with the seller account", async () => {
+    const timestamp = String(Date.now());
+    const requestId = "request-invoice";
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          [REQUEST_ID_HEADER]: requestId,
+          "x-signature": buildWebhookSignature("7001", requestId, timestamp),
+        },
+        undefined,
+        {
+          action: "created",
+          data: { id: "7001" },
+          id: "event-invoice",
+          type: "subscription_authorized_payment",
+          user_id: 998877,
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(handleAcademyAuthorizedPaymentWebhook).toHaveBeenCalledWith({
+      correlationId: requestId,
+      providerAccountId: "998877",
+      resourceId: "7001",
+    });
+    expect(handleMercadoPagoSubscriptionWebhook).not.toHaveBeenCalled();
+  });
+
+  it("asks Mercado Pago to retry an invoice notification when the provider is unreachable", async () => {
+    const timestamp = String(Date.now());
+    const requestId = "request-invoice-retry";
+    handleAcademyAuthorizedPaymentWebhook.mockResolvedValueOnce({ status: "retryable" as const });
+
+    const response = await POST(
+      buildWebhookRequest(
+        {
+          [REQUEST_ID_HEADER]: requestId,
+          "x-signature": buildWebhookSignature("7002", requestId, timestamp),
+        },
+        undefined,
+        { action: "created", data: { id: "7002" }, type: "subscription_authorized_payment" }
+      )
+    );
+
+    expect(response.status).toBe(503);
   });
 
   it("preserves numeric Mercado Pago event ids for idempotency", async () => {

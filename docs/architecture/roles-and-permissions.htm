@@ -312,5 +312,23 @@ type TribeStatus = &quot;active&quot; | &quot;muted&quot; | &quot;blocked&quot;;
   <li>si RLS niega una operacion, la app no debe asumir que la UI la vuelve valida</li>
 </ul>
 </div>
+<div class="section">
+  <div class="section-num">23</div>
+  <div class="section-title">Permisos de academia</div>
+<p>La academia no agrega roles: el nivel comercial vive en <code>member_access_grants</code> y nunca modifica <code>tribe_members</code>.</p>
+<table>
+  <thead><tr><th>Acción</th><th>Integrante</th><th>Guardián activo</th><th>Líder activo</th></tr></thead>
+  <tbody>
+    <tr><td>Ver estado y progreso propios</td><td>Sí</td><td>Sí</td><td>Sí</td></tr>
+    <tr><td>Solicitar verificación propia</td><td>Con membresía legible</td><td>Sí</td><td>Sí</td></tr>
+    <tr><td>Revisar vinculaciones de la tribu</td><td>No</td><td>Sí</td><td>Sí</td></tr>
+    <tr><td>Otorgar o revocar bonificaciones, ver sus motivos</td><td>No</td><td>No</td><td>Sí</td></tr>
+    <tr><td>Configurar oferta, proveedores, admisiones, ventas y precio</td><td>No</td><td>No</td><td>Sí</td></tr>
+    <tr><td>Consumir la academia</td><td>Con concesión</td><td>Con concesión</td><td>Previsualización administrativa</td></tr>
+    <tr><td>Contenido comunitario en modo academia</td><td>Con concesión</td><td>Sí (modera)</td><td>Sí</td></tr>
+  </tbody>
+</table>
+<p>Los permisos de gestión requieren <code>status = active</code>: un guardián silenciado no revisa. Una persona silenciada conserva lectura y progreso, y gestiona su propia facturación; una bloqueada no consume contenido, pero puede cancelar sus propios cobros.</p>
+</div>
 </body>
 </html>

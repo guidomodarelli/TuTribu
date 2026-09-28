@@ -17,9 +17,15 @@ import {
   countCourseLessons,
   getCourseProgressPercent,
 } from "@/src/modules/courses/application/course-progress";
+import { COURSE_VIEWER_ACCESS_STATUS } from "@/src/modules/courses/constants/courses";
 import styles from "./styles.module.scss";
 
 const CATALOG_COPY = {
+  academyBadge: "Academia",
+  academyCta: "Ver la academia",
+  academyLockedDescription: "Disponible con acceso a la academia.",
+  completedLessonsSuffixPlural: "lecciones completadas",
+  completedLessonsSuffixSingular: "lección completada",
   continueCta: "Continuar",
   emptyDescription: "Todavía no hay cursos cargados para esta tribu.",
   emptyHeading: "Aún no hay cursos",
@@ -80,6 +86,82 @@ function formatLessonCount(lessonCount: number): string {
       : CATALOG_COPY.lessonCountSuffixPlural;
 
   return `${lessonCount} ${suffix}`;
+}
+
+/**
+ * Formats the own completed lessons kept after academy access ends.
+ *
+ * @param completedLessonCount - Completed lessons of the viewer.
+ * @returns Spanish label.
+ */
+function formatCompletedLessons(completedLessonCount: number): string {
+  const suffix =
+    completedLessonCount === 1
+      ? CATALOG_COPY.completedLessonsSuffixSingular
+      : CATALOG_COPY.completedLessonsSuffixPlural;
+
+  return `${completedLessonCount} ${suffix}`;
+}
+
+/**
+ * Catalog card of an academy course the viewer cannot open. It only carries
+ * catalog metadata and links to the academy page (offer and next step).
+ *
+ * @param props - Course metadata and tribe slug.
+ * @returns Locked course card.
+ */
+function LockedAcademyCourseCard({
+  course,
+  tribeSlug,
+}: {
+  course: CourseWithModulesResult;
+  tribeSlug: string;
+}) {
+  return (
+    <Link
+      className={styles.TribeCoursesCatalog__card}
+      href={ROUTES.tribes.academy(tribeSlug)}
+    >
+      <div className={styles.TribeCoursesCatalog__coverFrame}>
+        {course.coverImageUrl ? (
+          <Image
+            alt=""
+            className={styles.TribeCoursesCatalog__coverImage}
+            fill
+            sizes="(min-width: 64rem) 20rem, 100vw"
+            src={course.coverImageUrl}
+            unoptimized
+          />
+        ) : (
+          <div aria-hidden className={styles.TribeCoursesCatalog__coverFallback}>
+            {course.title.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className={styles.TribeCoursesCatalog__cardBody}>
+        <h2 className={styles.TribeCoursesCatalog__cardTitle}>
+          {course.title}
+          <span className={styles.TribeCoursesCatalog__inactiveBadge}>
+            {CATALOG_COPY.academyBadge}
+          </span>
+        </h2>
+        {course.description ? (
+          <p className={styles.TribeCoursesCatalog__cardDescription}>
+            {course.description}
+          </p>
+        ) : null}
+        <p className={styles.TribeCoursesCatalog__cardMeta}>
+          {course.viewerAccess.completedLessonCount > 0
+            ? formatCompletedLessons(course.viewerAccess.completedLessonCount)
+            : CATALOG_COPY.academyLockedDescription}
+        </p>
+        <span className={styles.TribeCoursesCatalog__cardCta}>
+          {CATALOG_COPY.academyCta}
+          <ArrowRight aria-hidden className={styles.TribeCoursesCatalog__cardCtaIcon} />
+        </span>
+      </div>
+    </Link>
+  );
 }
 
 /**
@@ -157,6 +239,17 @@ export function TribeCoursesCatalog({
       ) : (
         <ul className={styles.TribeCoursesCatalog__grid}>
           {courses.map((course) => {
+            if (
+              course.viewerAccess.status ===
+              COURSE_VIEWER_ACCESS_STATUS.academyRequired
+            ) {
+              return (
+                <li className={styles.TribeCoursesCatalog__cardItem} key={course.id}>
+                  <LockedAcademyCourseCard course={course} tribeSlug={tribeSlug} />
+                </li>
+              );
+            }
+
             const lessonCount = countCourseLessons(course);
             const progressPercent = getCourseProgressPercent(course);
             const hasProgress =

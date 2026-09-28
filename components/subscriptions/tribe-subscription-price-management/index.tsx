@@ -147,6 +147,11 @@ const PRICE_MANAGEMENT_COPY = {
   title: "Precios",
   trialDaysLabel: "Días de prueba gratis",
   trialDaysToggleLabel: "Agregar prueba gratis",
+  academyBadge: "Academia",
+  academyTrialNotice: "Los precios de academia se cobran mensualmente y no tienen prueba gratis.",
+  productAcademyOption: "Academia",
+  productLabel: "Producto",
+  productMembershipOption: "Membresía",
   trialDaysPlaceholder: "7",
   trialDaysRangeError: "La prueba gratis debe ser de entre 1 y 14 días.",
   trialDaySuffix: "día",
@@ -207,6 +212,26 @@ const PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX = {
   name: "-edit-name",
   trialFrequency: "-edit-trial-frequency",
 } as const;
+
+/** Product of a price; `membership` keeps the historical tribe entry. */
+const PRICE_PRODUCT = {
+  academy: "academy",
+  membership: "membership",
+} as const;
+
+type PriceProduct = "academy" | "membership";
+
+/**
+ * Product of a price; prices created before the academy are membership.
+ *
+ * @param price - Price result.
+ * @returns Product key.
+ */
+function readPriceProduct(price: TribeSubscriptionPriceResult): PriceProduct {
+  return price.productKey === PRICE_PRODUCT.academy
+    ? PRICE_PRODUCT.academy
+    : PRICE_PRODUCT.membership;
+}
 
 const PRICE_MANAGEMENT_ELEMENT_ID = {
   createPriceTitle: "create-subscription-price-title",
@@ -781,6 +806,8 @@ export function TribeSubscriptionPriceManagement({
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [isTrialEnabled, setIsTrialEnabled] = useState(false);
+  const [priceProduct, setPriceProduct] = useState<PriceProduct>(PRICE_PRODUCT.membership);
+  const isAcademyPriceSelected = priceProduct === PRICE_PRODUCT.academy;
   const [trialFrequency, setTrialFrequency] = useState("");
   const [selectedPaymentIntegrationId, setSelectedPaymentIntegrationId] =
     useState(() => availableMercadoPagoAccounts[0]?.id ?? "");
@@ -817,6 +844,7 @@ export function TribeSubscriptionPriceManagement({
   const nameInputId = useId();
   const amountInputId = useId();
   const trialFrequencyToggleId = useId();
+  const priceProductSelectId = useId();
   const trialFrequencyInputId = useId();
   const amountErrorId = useId();
   const trialFrequencyErrorId = useId();
@@ -1091,10 +1119,11 @@ export function TribeSubscriptionPriceManagement({
           : [price, ...currentPrices];
 
         return price.isCurrent
-          ? updatedPrices.map((currentPrice) => ({
-              ...currentPrice,
-              isCurrent: currentPrice.id === price.id,
-            }))
+          ? updatedPrices.map((currentPrice) =>
+              readPriceProduct(currentPrice) === readPriceProduct(price)
+                ? { ...currentPrice, isCurrent: currentPrice.id === price.id }
+                : currentPrice
+            )
           : updatedPrices;
       });
     },
@@ -1284,7 +1313,8 @@ export function TribeSubscriptionPriceManagement({
     setFieldErrors({});
 
     try {
-      const submittedTrialFrequency = isTrialEnabled ? trialFrequency : "";
+      const submittedTrialFrequency =
+        isTrialEnabled && !isAcademyPriceSelected ? trialFrequency : "";
       const response = await submitPriceRequest(
         buildPricesEndpoint(tribeSlug),
         PRICE_MANAGEMENT_REQUEST.postMethod,
@@ -1294,6 +1324,7 @@ export function TribeSubscriptionPriceManagement({
           ...(effectiveSelectedPaymentIntegrationId
             ? { paymentIntegrationId: effectiveSelectedPaymentIntegrationId }
             : {}),
+          ...(isAcademyPriceSelected ? { productKey: PRICE_PRODUCT.academy } : {}),
           trialFrequency: submittedTrialFrequency,
           trialFrequencyType: PRICE_MANAGEMENT_FORMAT.trialFrequencyType,
         }
@@ -1305,6 +1336,7 @@ export function TribeSubscriptionPriceManagement({
 
       setAmount("");
       setName("");
+      setPriceProduct(PRICE_PRODUCT.membership);
       setIsTrialEnabled(false);
       setTrialFrequency("");
       toast.success(response.message ?? PRICE_MANAGEMENT_COPY.createButton);
@@ -1506,7 +1538,9 @@ export function TribeSubscriptionPriceManagement({
       setIsFreeJoinCurrent(true);
       setPriceItems((currentPrices) =>
         currentPrices.map((price) =>
-          price.isCurrent ? { ...price, isCurrent: false } : price
+          price.isCurrent && readPriceProduct(price) === PRICE_PRODUCT.membership
+            ? { ...price, isCurrent: false }
+            : price
         )
       );
 
@@ -2198,6 +2232,49 @@ export function TribeSubscriptionPriceManagement({
                 </div>
               </div>
 
+              <div className={styles.TribeSubscriptionPriceManagement__field}>
+                <label
+                  className={styles.TribeSubscriptionPriceManagement__label}
+                  htmlFor={priceProductSelectId}
+                >
+                  {PRICE_MANAGEMENT_COPY.productLabel}
+                </label>
+                <Select
+                  disabled={isMercadoPagoConnectionRequired}
+                  onValueChange={(value) => {
+                    const nextProduct =
+                      value === PRICE_PRODUCT.academy
+                        ? PRICE_PRODUCT.academy
+                        : PRICE_PRODUCT.membership;
+
+                    setPriceProduct(nextProduct);
+
+                    if (nextProduct === PRICE_PRODUCT.academy) {
+                      setIsTrialEnabled(false);
+                      setTrialFrequency("");
+                    }
+                  }}
+                  value={priceProduct}
+                >
+                  <SelectTrigger id={priceProductSelectId}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={PRICE_PRODUCT.membership}>
+                      {PRICE_MANAGEMENT_COPY.productMembershipOption}
+                    </SelectItem>
+                    <SelectItem value={PRICE_PRODUCT.academy}>
+                      {PRICE_MANAGEMENT_COPY.productAcademyOption}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isAcademyPriceSelected ? (
+                <p className={styles.TribeSubscriptionPriceManagement__notice}>
+                  {PRICE_MANAGEMENT_COPY.academyTrialNotice}
+                </p>
+              ) : (
               <div
                 className={styles.TribeSubscriptionPriceManagement__trialBlock}
               >
@@ -2294,6 +2371,7 @@ export function TribeSubscriptionPriceManagement({
                   ) : null}
                 </div>
               </div>
+              )}
 
               <div
                 className={styles.TribeSubscriptionPriceManagement__formActions}
@@ -2512,6 +2590,11 @@ export function TribeSubscriptionPriceManagement({
                 </TableCell>
                 <TableCell>
                   <span className={styles.TribeSubscriptionPriceManagement__badges}>
+                    {readPriceProduct(price) === PRICE_PRODUCT.academy ? (
+                      <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
+                        {PRICE_MANAGEMENT_COPY.academyBadge}
+                      </Badge>
+                    ) : null}
                     {price.isCurrent ? (
                       <Badge
                         className={

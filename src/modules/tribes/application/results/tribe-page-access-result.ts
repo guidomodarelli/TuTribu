@@ -16,7 +16,16 @@ import {
 export type TribePageAccessResult =
   | {
       status: typeof TRIBE_PAGE_ACCESS_STATUS.visible;
+      /**
+       * False only for academy-mode basic members on allowlisted surfaces
+       * (academy, courses, billing); community surfaces never see it false.
+       */
+      communityAccess: boolean;
       tribe: TribeResult;
+    }
+  | {
+      status: typeof TRIBE_PAGE_ACCESS_STATUS.hidden;
+      reason: typeof TRIBE_PAGE_ACCESS_REASON.academyAccessRequired;
     }
   | {
       status: typeof TRIBE_PAGE_ACCESS_STATUS.hidden;

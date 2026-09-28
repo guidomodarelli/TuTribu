@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Academia: acceso pago o bonificado</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
+.c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+.c-red{background:#fef8f6;border-color:#e8917a;color:#9e3d25;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px;letter-spacing:0.05em;}
+.b-green{background:#e8f7f2;color:#1a6b52;border:1px solid #4aaa8c;}
+.b-amber{background:#fdf5e0;color:#7a5510;border:1px solid #d4a44c;}
+.b-red{background:#fef8f6;color:#9e3d25;border:1px solid #e8917a;}
+.b-gray{background:#f0ede6;color:#666;border:1px solid #ccc;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">ARCHITECTURE</div>
+  <div class="doc-title">Academia: acceso pago o bonificado por tribu</div>
+  <div class="doc-sub">Modo opcional por tribu: ingreso básico gratuito, verificación manual de vinculaciones, academia por suscripción o bonificación y cobertura derivada de cobros verificados.</div>
+  <div class="doc-meta"><span>Scope: Access · Billing · Courses</span><span>Status: Implementado (ventas deshabilitadas)</span><span>Módulos: product-access · member-verifications · subscriptions · courses · tribes</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Decisión</div>
+<p>Una tribu puede operar en modo <code>legacy</code> (comportamiento histórico, valor por defecto) o <code>academy</code>. En modo academia la entrada básica es gratuita, la conversación ocurre en WhatsApp y la academia (cursos marcados como de academia y el contenido comunitario privado previo) requiere una <strong>concesión vigente</strong>. Las tribus legacy no cambian: sin fila en <code>tribe_academy_settings</code> o con <code>access_model = legacy</code>, todas las funciones nuevas devuelven exactamente el resultado anterior.</p>
+<p>El modelo separa cuatro dimensiones independientes: identidad (Better Auth), pertenencia y moderación (<code>tribe_members</code>), verificación de vinculaciones (<code>member_verifications</code>) y acceso al producto (<code>member_access_grants</code>). Ningún rol nuevo representa el nivel comercial y el estado del pago nunca reemplaza a la moderación.</p>
+<div class="callout c-warn"><strong>Ventas apagadas por diseño.</strong> Ninguna tribu puede habilitar ventas mientras el despliegue no defina <code>ACADEMY_SALES_ACTIVATION_ENABLED=true</code>. Aunque una fila tuviera <code>sales_enabled = true</code>, el checkout responde <code>sales_closed</code> y la oferta no es comprable. La activación requiere validar antes el contrato de facturas del proveedor (sección 09).</div>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PARTE A</div>
+  <div class="part-header-title">Modelo y autorización</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Módulos y límites</div>
+<table>
+  <thead><tr><th>Módulo</th><th>Responsabilidad</th><th>Piezas</th></tr></thead>
+  <tbody>
+    <tr><td><code>product-access</code></td><td>Configuración de academia, concesiones, evaluación de acceso, bonificaciones, oferta pública, auditoría</td><td>Política pura <code>academy-access-policy.ts</code> y <code>academy-access-status.ts</code>; <code>PostgresProductAccessRepository</code>; SQL compartido <code>academy-access-sql.ts</code></td></tr>
+    <tr><td><code>member-verifications</code></td><td>Proveedores configurables y solicitudes con máquina de estados y compare-and-swap</td><td><code>member-verification-transitions.ts</code>; <code>PostgresMemberVerificationRepository</code></td></tr>
+    <tr><td><code>subscriptions</code></td><td>Precios y suscripciones por producto, checkout de academia, ledger de facturas, cancelación y reconciliación</td><td><code>monthly-billing-cycle.ts</code>, <code>academy-invoice-policy.ts</code>, <code>PostgresAcademySubscriptionRepository</code></td></tr>
+    <tr><td><code>courses</code></td><td><code>access_requirement</code> por curso, árbol con metadatos para cursos bloqueados, drip de academia</td><td><code>can_read_course_content</code>, <code>can_read_course_lesson</code></td></tr>
+    <tr><td><code>tribes</code></td><td>Ingreso básico y límite comunitario en el acceso de página</td><td><code>PostgresTribeAcademyAdmissionRepository</code>, <code>getTribePageAccess</code></td></tr>
+  </tbody>
+</table>
+<p>La composición entre módulos ocurre solo en <code>src/modules/setup.ts</code>: <code>product-access</code> lee verificaciones y renovación mediante los puertos <code>OwnVerificationStatesReader</code> y <code>OwnAcademyRenewalReader</code>, y <code>subscriptions</code> y <code>member-verifications</code> reciben como colaboradores de infraestructura el escritor de concesiones y el de auditoría, para escribir en la misma transacción sin importar repositorios ajenos.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Datos</div>
+<table>
+  <thead><tr><th>Tabla</th><th>Contenido</th><th>Restricciones clave</th></tr></thead>
+  <tbody>
+    <tr><td><code>tribe_academy_settings</code></td><td>Modo, admisión, ventas, oferta (título, descripción, beneficios), <code>offer_version</code>, <code>config_version</code>, manifiesto de activación</td><td>Admisión y ventas solo en modo academia; versión para compare-and-swap</td></tr>
+    <tr><td><code>member_access_grants</code></td><td>Fuentes de acceso: <code>subscription_payment</code>, <code>manual_bonus</code>, <code>legacy</code></td><td>Único por fuente de negocio <code>(tribe, product, source_type, source_key)</code>; <code>[starts_at, ends_at)</code>; <code>ends_at NULL</code> solo para <code>legacy</code></td></tr>
+    <tr><td><code>member_product_enrollments</code></td><td><code>first_activated_at</code> y su procedencia</td><td>Una fila por miembro y producto; nunca se reinicia</td></tr>
+    <tr><td><code>academy_audit_events</code></td><td>Decisiones, concesiones, checkouts, pagos, cutover</td><td>Guarda IDs y transiciones; los motivos privados solo los lee el líder</td></tr>
+    <tr><td><code>verification_providers</code>, <code>member_verifications</code></td><td>Proveedores por tribu y relaciones <code>(tribe, user, provider)</code></td><td>FK compuesta de misma tribu; motivo obligatorio para rechazar o revocar; <code>version</code></td></tr>
+    <tr><td><code>subscription_payment_periods</code></td><td>Ledger de facturas verificadas con estado, importe, moneda e intervalo de servicio</td><td>Único por <code>(integración, factura)</code>; aprobado exige intervalo resuelto</td></tr>
+  </tbody>
+</table>
+<p><code>tribe_subscription_prices</code> y <code>tribe_member_subscriptions</code> suman <code>product_key</code> (<code>membership</code> por defecto, sin reclasificación global). El precio actual y la suscripción viva única pasan a ser por producto, y un trigger impide que una suscripción apunte a un precio de otro producto. Las suscripciones de academia congelan importe, moneda, frecuencia, versión de la oferta y momento de aceptación.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Evaluación de acceso</div>
+<p>Hay acceso a la academia si la membresía es legible (<code>active</code> o <code>muted</code>) <strong>y</strong> existe al menos una concesión no revocada con <code>starts_at &lt;= now() &lt; ends_at</code>. La política de dominio recibe un snapshot y un reloj inyectable; el SQL repite la regla en <code>has_active_product_grant</code>, porque el rol de runtime elude RLS.</p>
+<ul>
+  <li>Las fuentes se acumulan y revocar una no anula otra; dos bonificaciones simultáneas no suman días.</li>
+  <li>El vencimiento visible es el fin de la unión continua de intervalos que contiene el instante actual; un hueco corta la cadena (nunca <code>MAX(ends_at)</code>).</li>
+  <li>Un miembro bloqueado, removido o sin pertenencia no consume contenido aunque tenga concesiones vigentes.</li>
+  <li>La previsualización del líder activo es una capacidad administrativa separada; no es una concesión ni cuenta como conversión.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Límite comunitario (RF-09)</div>
+<p>En modo academia el contenido comunitario privado previo requiere academia además de los permisos actuales. El límite es común y se aplica en tres capas:</p>
+<table>
+  <thead><tr><th>Capa</th><th>Punto</th><th>Superficies cubiertas</th></tr></thead>
+  <tbody>
+    <tr><td>SQL</td><td><code>can_read_tribe_content</code> e <code>is_active_tribe_member</code> suman <code>can_access_tribe_community</code></td><td>Feed, respuestas y likes, canales, eventos (lectura y escritura), comentarios y reacciones de eventos, feeds de calendario, notificaciones (<code>can_receive_tribe_notifications</code>), archivos de mensajes, directorio (<code>list_visible_tribe_members_by_slug</code>)</td></tr>
+    <tr><td>Aplicación</td><td><code>getTribePageAccess</code> devuelve <code>academy_access_required</code> salvo en la allowlist</td><td>Todas las páginas de la tribu y las rutas de mensajes; la portada y las secciones comunitarias redirigen a <code>/[slug]/academia</code></td></tr>
+    <tr><td>Repositorios</td><td>Guardas explícitas donde antes solo había RLS</td><td>Listado de canales, descarga firmada de archivos de mensajes y de lecciones, CTEs de respuestas y likes</td></tr>
+  </tbody>
+</table>
+<p><strong>Allowlist gratuita:</strong> oferta y estado propio (<code>/academia</code>), verificación propia, cursos con <code>access_requirement = membership</code>, historia pública, bienvenida (onboarding y grupo externo de WhatsApp), soporte y facturación propia. Los líderes y guardianes activos conservan el acceso comunitario para moderar. No hay búsqueda general ni tiempo real en el producto al momento de esta implementación.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Cursos, progreso y drip</div>
+<ul>
+  <li><code>courses.access_requirement</code> (<code>membership</code> | <code>academy</code>) solo tiene efecto con la tribu en modo academia; el líder puede clasificar antes del cutover sin cambiar lo que leen los miembros.</li>
+  <li>El árbol de cursos envía los cursos de academia sin acceso como metadatos (título, descripción, portada, orden, estado de acceso y cantidad de lecciones completadas propias). Nunca serializa módulos, lecciones, videos, archivos ni la última lección.</li>
+  <li>Progreso, comentarios, última lección, descargas firmadas y las policies usan <code>can_read_course_lesson</code>: sin acceso vigente no se puede consumir ni registrar actividad nueva, pero el resumen propio se conserva.</li>
+  <li>El drip de cursos de academia parte de <code>member_product_enrollments.first_activated_at</code>; los cursos básicos conservan <code>tribe_members.created_at</code>.</li>
+  <li>El silenciamiento impide publicar comentarios, no registrar aprendizaje.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">07</div>
+  <div class="section-title">Verificaciones y bonificaciones</div>
+<p>Estados <code>pending → verified | rejected</code>, <code>verified → revoked</code>, <code>rejected | revoked → pending</code>. Reenviar una solicitud pendiente es idempotente; cambiar el email declarado de una relación verificada la vuelve a <code>pending</code>. Las decisiones exigen la versión esperada: la segunda decisión concurrente recibe 409 con el estado actual. Seleccionar un proveedor o abrir su enlace nunca verifica.</p>
+<p>Solo el líder activo concede o revoca bonificaciones: inicio fijado por el servidor, fin futuro de hasta 366 días, motivo y clave de idempotencia. Una bonificación para alguien sin vinculación verificada exige la excepción explícita y queda auditada como <code>granted_unverified_exception</code>. Reemplazar una bonificación revoca la anterior y crea la nueva en la misma transacción. La respuesta advierte si hay una renovación activa: la bonificación no detiene cobros ni reembolsa.</p>
+<p>Las mutaciones bloquean la membresía de quien actúa (<code>FOR SHARE</code>) antes de evaluar el permiso y la del destinatario antes de conceder: una degradación o un bloqueo concurrente espera o se ve, y nunca se confirma una operación con permisos revocados.</p>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PARTE B</div>
+  <div class="part-header-title">Cobros y cobertura</div>
+</div>
+
+<div class="section">
+  <div class="section-num">08</div>
+  <div class="section-title">Checkout para miembros existentes</div>
+<ol>
+  <li>La reserva local (producto academia, snapshot del precio actual de academia y de la versión de oferta aceptada) se persiste bloqueando la membresía del comprador. Exige modo academia, ventas abiertas, versión de oferta vigente, vinculación verificada y ausencia de cobertura o renovación en curso.</li>
+  <li>La suscripción del proveedor se crea con la clave de idempotencia <code>academy-checkout:&lt;reserva&gt;</code>: un doble clic o un timeout ambiguo reutilizan la reserva y reciben la misma suscripción. La reserva no se libera a ciegas.</li>
+  <li>El identificador del proveedor se vincula a la reserva antes de redirigir (el índice único de <code>mercado_pago_preapproval_id</code> impide adjuntar uno ajeno).</li>
+</ol>
+<p>El estado <code>authorized</code> del proveedor solo informa la renovación; nunca concede acceso. Las suscripciones de academia no modifican la membresía básica: todas las consultas y efectos del flujo histórico están acotados a <code>product_key = membership</code>, incluido el cálculo de <code>tribe_members.status</code> desde webhooks.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">09</div>
+  <div class="section-title">Ledger de facturas y política de servicio</div>
+<p>El webhook existente despacha el tópico <code>subscription_authorized_payment</code>: con la cuenta vendedora (<code>user_id</code>) resuelve la integración, lee la factura servidor a servidor, exige que pertenezca a una suscripción de academia de esa misma integración y reconcilia la suscripción completa (búsqueda paginada de facturas). Cada factura se aplica en su propia transacción con la suscripción bloqueada: fila del ledger, concesión <code>subscription_payment</code> (o su revocación) y auditoría.</p>
+<ul>
+  <li>Cada cuota paga el ciclo mensual al que pertenece su <code>debit_date</code>, anclado en la primera factura aprobada, preservando el día ancla y el fin de mes (31 → 28/29 → 31). No suma treinta días desde el webhook.</li>
+  <li>Importe y moneda se validan contra el snapshot del contrato, no contra el catálogo.</li>
+  <li>Un <code>debit_date</code> que no coincide con la recurrencia (tolerancia de 3 días) queda en <code>needs_reconciliation</code> sin concesión.</li>
+  <li>Una devolución total o un contracargo revocan solo la concesión de ese pago y son terminales: una aprobación vieja entregada después no la resucita. Una devolución parcial queda para revisión manual.</li>
+  <li>Un rechazo o una caída temporal no extienden ni quitan cobertura confirmada.</li>
+</ul>
+<div class="callout c-red"><strong>Validación externa pendiente.</strong> Los contratos de <code>GET /authorized_payments/{id}</code> y <code>/authorized_payments/search</code> se tomaron de la referencia oficial de Mercado Pago y se probaron con fixtures sintéticos. Falta verificar en sandbox: que la notificación incluya <code>user_id</code>, la semántica real de <code>debit_date</code> y reintentos, los estados de <code>payment.status</code>/<code>status_detail</code> en reembolsos parciales y el orden de <code>last_modified</code>. Hasta entonces las ventas deben quedar apagadas.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">10</div>
+  <div class="section-title">Cancelación y reconciliación</div>
+<p>La cancelación reutiliza <code>DELETE /api/tribes/[slug]/subscriptions/current?product=academy</code>. Marca la solicitud, cancela en el proveedor y solo informa “cancelada” con confirmación; si el proveedor no confirma, la marca se deshace para que la persona reintente. El acceso ya pagado se conserva hasta su fin. Es accesible para miembros bloqueados (solo su facturación).</p>
+<p><code>POST /academy/reconcile</code> reconcilia la cobertura propia con un límite de una vez por minuto por suscripción; el webhook de suscripción también dispara la reconciliación de academia como best effort.</p>
+</div>
+
+<div class="part-header">
+  <div class="part-header-label">PARTE C</div>
+  <div class="part-header-title">Migración y operación</div>
+</div>
+
+<div class="section">
+  <div class="section-num">11</div>
+  <div class="section-title">Preflight, manifiesto y cutover</div>
+<p>Las funciones <code>academy_preflight(slug)</code> y <code>academy_apply_cutover(slug, manifiesto)</code> son owner-only y se ejecutan con <code>scripts/academy-cutover.mjs</code> (conexión de mantenimiento). El preflight es de solo lectura: clasifica miembros (<code>staff</code>, <code>free_member</code>, <code>paid_subscription</code>, <code>ambiguous_payment</code>, <code>excluded</code>), lista precios, invitaciones activas, cursos con drip, contenido privado y bloqueos, y devuelve un <code>fingerprint</code>.</p>
+<div class="code-block"><pre>node scripts/academy-cutover.mjs --slug mi-tribu            # dry run
+node scripts/academy-cutover.mjs --slug mi-tribu --apply manifest.json --confirm</pre></div>
+<p>Manifiesto: <code>manifestId</code>, <code>expectedConfigVersion</code>, <code>fingerprint</code>, <code>academyCourseIds</code>, <code>academyPriceIds</code>, <code>defaultFreeMemberDecision</code> y <code>members[]</code> con <code>decision</code> (<code>basic_only</code>, <code>preserve_unbounded</code> solo para derechos gratuitos comprobados, <code>preserve_until</code>, <code>reclassify_subscription</code>, <code>approved_exception</code> con nota), <code>endsAt</code> y <code>note</code>.</p>
+<ul>
+  <li>Todo ocurre en una transacción con la tribu y las membresías bloqueadas; cualquier validación fallida deja la tribu en legacy sin cambios parciales.</li>
+  <li>Un <code>fingerprint</code> distinto (miembros o pagos cambiaron) rechaza el manifiesto.</li>
+  <li>Aplicar el mismo manifiesto dos veces devuelve <code>already_applied</code> sin tocar concesiones ni fechas.</li>
+  <li>No llama al proveedor, no reactiva bloqueos, preserva el origen del drip (<code>migration_preserved</code>) y deja admisión y ventas cerradas.</li>
+  <li>Las invitaciones pagas históricas, en modo academia, solo dan ingreso básico (si la admisión está abierta) y nunca academia.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">12</div>
+  <div class="section-title">Pausa y reversión</div>
+<p>Pausar admisiones o ventas (<code>PUT /academy/availability</code>) no cancela renovaciones, concesiones ni bonificaciones y no relaja el paywall: el límite depende de <code>access_model</code>, no de los interruptores. Webhooks, reconciliación y cancelación propia siguen operativos. No existe un camino automático de vuelta a legacy; por defecto se corrige hacia adelante manteniendo las políticas.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">13</div>
+  <div class="section-title">Seguridad y privacidad</div>
+<ul>
+  <li>Las tablas que conceden acceso no aceptan escrituras de roles de request; el único escritor es el owner, con excepción de owner bajo <code>FORCE ROW LEVEL SECURITY</code>. Los miembros leen solo sus filas; el guardián revisa verificaciones pero no lee concesiones ni motivos de bonificación.</li>
+  <li>Las funciones que revelan datos de otra persona (<code>has_active_product_grant</code>, <code>can_user_access_tribe_community</code>, <code>is_member_verified_for_academy</code>, procedimientos de migración) tienen <code>EXECUTE</code> revocado a <code>PUBLIC</code>.</li>
+  <li>Las rutas validan params, query y body con Zod una vez, validan cada DTO público y responden con <code>Cache-Control: private, no-store</code>.</li>
+  <li>Los enlaces firmados de adjuntos (R2) se emiten solo tras comprobar la lección y duran 60 segundos: esa es la ventana residual tras una revocación. Los videos externos no se vuelven privados por ocultarlos.</li>
+  <li>No se guardan DNI, claves ni saldos. El email declarado es opcional y solo lo ven su titular y los revisores.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">14</div>
+  <div class="section-title">Evidencia de validación</div>
+<p>Las seis migraciones se aplicaron (y re-aplicaron, idempotentes) sobre una rama efímera de Neon con el esquema real, y los repositorios reales se ejercitaron con conexiones concurrentes: ingreso concurrente, decisiones concurrentes, bonificación durante una degradación concurrente, ledger con reembolso y aprobación fuera de orden, RLS con un rol sin <code>BYPASSRLS</code>, tribu legacy intacta y cutover con bloqueo atómico e idempotencia. La rama se eliminó al finalizar. La lógica pura (intervalos, ciclo mensual, facturas, transiciones) tiene tests unitarios.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">15</div>
+  <div class="section-title">Diferencias con el commit de referencia</div>
+<p>La especificación se escribió sobre <code>e19f35c0</code>; la implementación partió de <code>e5ffbcad</code> (0.94.8), dos commits después. Las diferencias relevantes (feed y eventos con navegación en cliente, retorno de suscripción con polling, catálogo de cursos en cliente, alta de tribus) no cambiaron los puntos de integración. Ajustes respecto de la especificación: las rutas visibles son <code>/[slug]/academia</code>, <code>/[slug]/academia/verificacion</code> y <code>/[slug]/academia/gestionar</code> para seguir la convención de segmentos en español; el ingreso gratuito histórico requiere <code>free_join_is_current</code> y por eso la admisión de academia usa su propia función en vez de reutilizarlo; la cancelación extiende la ruta existente con <code>?product=academy</code>.</p>
+</div>
+</body>
+</html>

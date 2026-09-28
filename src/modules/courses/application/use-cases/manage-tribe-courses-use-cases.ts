@@ -29,10 +29,12 @@ import {
   COURSE_LESSON_TITLE,
   COURSE_MODULE_UNLOCK_AFTER_DAYS,
   COURSE_MUTATION_STATUS,
+  COURSE_ACCESS_REQUIREMENT,
   COURSE_TITLE,
   LESSON_FILE_PREPARATION_STATUS,
 } from "@/src/modules/courses/constants/courses";
 import type { CourseRepository } from "@/src/modules/courses/domain/repositories/course-repository";
+import { parseCourseAccessRequirement } from "@/src/modules/courses/domain/value-objects/course-access-requirement";
 import type {
   LessonFileAttachmentDraft,
   LessonFileRepository,
@@ -167,16 +169,22 @@ export function createCourse({
     const title = normalizeText(command.title);
     const description = normalizeOptionalText(command.description);
     const coverImageUrl = normalizeOptionalText(command.coverImageUrl);
+    const accessRequirement =
+      command.accessRequirement === undefined
+        ? COURSE_ACCESS_REQUIREMENT.membership
+        : parseCourseAccessRequirement(command.accessRequirement);
 
     if (
       !isValidCourseTitle(title) ||
       !isValidCourseDescription(command.description) ||
-      !isValidCoverImageUrl(coverImageUrl)
+      !isValidCoverImageUrl(coverImageUrl) ||
+      accessRequirement === null
     ) {
       return { status: COURSE_MUTATION_STATUS.invalidInput };
     }
 
     return courseRepository.createCourse({
+      accessRequirement,
       coverImageUrl,
       description,
       sortOrder: command.sortOrder,
@@ -193,16 +201,22 @@ export function updateCourse({
     const title = normalizeText(command.title);
     const description = normalizeOptionalText(command.description);
     const coverImageUrl = normalizeOptionalText(command.coverImageUrl);
+    const accessRequirement =
+      command.accessRequirement === undefined
+        ? null
+        : parseCourseAccessRequirement(command.accessRequirement);
 
     if (
       !isValidCourseTitle(title) ||
       !isValidCourseDescription(command.description) ||
-      !isValidCoverImageUrl(coverImageUrl)
+      !isValidCoverImageUrl(coverImageUrl) ||
+      (command.accessRequirement !== undefined && accessRequirement === null)
     ) {
       return { status: COURSE_MUTATION_STATUS.invalidInput };
     }
 
     return courseRepository.updateCourse({
+      accessRequirement,
       courseId: normalizeText(command.courseId),
       coverImageUrl,
       description,

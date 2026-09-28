@@ -29,6 +29,7 @@ const MERCADO_PAGO_ENV = {
 
 const MERCADO_PAGO_URL = {
   apiBase: "https://api.mercadopago.com",
+  authorizedPayments: "https://api.mercadopago.com/authorized_payments",
   authorization: "https://auth.mercadopago.com.ar/authorization",
   oauthToken: "https://api.mercadopago.com/oauth/token",
   preapproval: "https://api.mercadopago.com/preapproval",
@@ -70,6 +71,8 @@ const MERCADO_PAGO_PAYMENT_OPERATION = {
   createPreapprovalPlan: "create-mercado-pago-preapproval-plan",
   createPreapprovalSubscription: "create-mercado-pago-preapproval-subscription",
   exchangeOAuthCode: "exchange-mercado-pago-oauth-code",
+  getAuthorizedPayment: "get-mercado-pago-authorized-payment",
+  searchAuthorizedPayments: "search-mercado-pago-authorized-payments",
   getPreapprovalDetails: "get-mercado-pago-preapproval-details",
   getPreapprovalPlan: "get-mercado-pago-preapproval-plan",
   getPreapprovalPlanStatus: "get-mercado-pago-preapproval-plan-status",
@@ -1380,4 +1383,219 @@ export async function getMercadoPagoPreapprovalDetails(
   });
 
   return providerPreapprovalDetails;
+}
+
+/**
+ * Normalized recurring invoice ("authorized payment") of a Mercado Pago
+ * subscription. Only the fields the academy ledger consumes are read; the
+ * provider contract is not revalidated (see payload validation boundaries).
+ * Source: GET /authorized_payments/{id} and /authorized_payments/search.
+ */
+export type MercadoPagoAuthorizedPayment = {
+  currencyId: string | null;
+  /** Scheduled debit date of the invoice (not the webhook arrival). */
+  debitDate: string | null;
+  id: string;
+  lastModified: string | null;
+  paymentId: string | null;
+  paymentStatus: string | null;
+  paymentStatusDetail: string | null;
+  preapprovalId: string | null;
+  /** Invoice status (for example `scheduled`, `processed`, `recycling`). */
+  status: string | null;
+  transactionAmount: number | null;
+};
+
+export type MercadoPagoAuthorizedPaymentInput = {
+  accessToken: string;
+  authorizedPaymentId: string;
+  traceContext?: PaymentOperationTraceContext;
+};
+
+export type MercadoPagoAuthorizedPaymentSearchInput = {
+  accessToken: string;
+  preapprovalId: string;
+  traceContext?: PaymentOperationTraceContext;
+};
+
+type MercadoPagoAuthorizedPaymentResponse = {
+  currency_id?: string | null;
+  debit_date?: string | null;
+  id?: number | string;
+  last_modified?: string | null;
+  payment?: {
+    id?: number | string | null;
+    status?: string | null;
+    status_detail?: string | null;
+  } | null;
+  preapproval_id?: string | null;
+  status?: string | null;
+  transaction_amount?: number | string | null;
+};
+
+type MercadoPagoAuthorizedPaymentSearchResponse = {
+  paging?: { limit?: number; offset?: number; total?: number };
+  results?: MercadoPagoAuthorizedPaymentResponse[];
+};
+
+const MERCADO_PAGO_AUTHORIZED_PAYMENT_SEARCH = {
+  maxPages: 50,
+  pageSize: 50,
+} as const;
+
+function readOptionalProviderString(value: unknown): string | null {
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+
+  return typeof value === "number" && Number.isFinite(value) ? String(value) : null;
+}
+
+function readOptionalProviderNumber(value: unknown): number | null {
+  const numeric = typeof value === "string" ? Number(value) : value;
+
+  return typeof numeric === "number" && Number.isFinite(numeric) ? numeric : null;
+}
+
+function mapMercadoPagoAuthorizedPayment(
+  body: MercadoPagoAuthorizedPaymentResponse
+): MercadoPagoAuthorizedPayment | null {
+  const id = readOptionalProviderString(body.id);
+
+  if (!id) {
+    return null;
+  }
+
+  return {
+    currencyId: readOptionalProviderString(body.currency_id),
+    debitDate: readOptionalProviderString(body.debit_date),
+    id,
+    lastModified: readOptionalProviderString(body.last_modified),
+    paymentId: readOptionalProviderString(body.payment?.id),
+    paymentStatus: readOptionalProviderString(body.payment?.status),
+    paymentStatusDetail: readOptionalProviderString(body.payment?.status_detail),
+    preapprovalId: readOptionalProviderString(body.preapproval_id),
+    status: readOptionalProviderString(body.status),
+    transactionAmount: readOptionalProviderNumber(body.transaction_amount),
+  };
+}
+
+/**
+ * Reads one recurring invoice server-to-server (never from a URL of the
+ * webhook payload).
+ *
+ * @param input - Invoice identifier and account token.
+ * @returns The invoice, or null when it does not exist for this account.
+ */
+export async function getMercadoPagoAuthorizedPayment(
+  input: MercadoPagoAuthorizedPaymentInput
+): Promise<MercadoPagoAuthorizedPayment | null> {
+  const operation = MERCADO_PAGO_PAYMENT_OPERATION.getAuthorizedPayment;
+  const response = await fetchMercadoPago(
+    operation,
+    `${MERCADO_PAGO_URL.authorizedPayments}/${encodeURIComponent(input.authorizedPaymentId)}`,
+    {
+      headers: {
+        [MERCADO_PAGO_HTTP.authorizationHeader]:
+          MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
+      },
+      method: MERCADO_PAGO_HTTP.getMethod,
+    },
+    input.traceContext
+  );
+
+  if (response.status === HTTP_STATUS_NOT_FOUND) {
+    logMercadoPagoOperationResult({
+      metadata: { status: response.status },
+      operation,
+      result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.notFound,
+      traceContext: input.traceContext,
+    });
+
+    return null;
+  }
+
+  const body = await readMercadoPagoResponse<MercadoPagoAuthorizedPaymentResponse>(
+    operation,
+    response,
+    input.traceContext
+  );
+  const authorizedPayment = mapMercadoPagoAuthorizedPayment(body);
+
+  logMercadoPagoOperationResult({
+    metadata: { providerStatus: authorizedPayment?.status ?? null, status: response.status },
+    operation,
+    preapprovalId: authorizedPayment?.preapprovalId ?? null,
+    result: authorizedPayment
+      ? MERCADO_PAGO_PAYMENT_OPERATION_RESULT.success
+      : MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
+    traceContext: input.traceContext,
+  });
+
+  return authorizedPayment;
+}
+
+/**
+ * Lists every recurring invoice of a subscription, following the provider
+ * pagination (the first page is not assumed to hold the whole history).
+ *
+ * @param input - Subscription identifier and account token.
+ * @returns All invoices found, up to the page guard.
+ */
+export async function searchMercadoPagoAuthorizedPayments(
+  input: MercadoPagoAuthorizedPaymentSearchInput
+): Promise<MercadoPagoAuthorizedPayment[]> {
+  const operation = MERCADO_PAGO_PAYMENT_OPERATION.searchAuthorizedPayments;
+  const authorizedPayments: MercadoPagoAuthorizedPayment[] = [];
+
+  for (let pageIndex = 0; pageIndex < MERCADO_PAGO_AUTHORIZED_PAYMENT_SEARCH.maxPages; pageIndex++) {
+    const offset = pageIndex * MERCADO_PAGO_AUTHORIZED_PAYMENT_SEARCH.pageSize;
+    const searchParams = new URLSearchParams({
+      limit: String(MERCADO_PAGO_AUTHORIZED_PAYMENT_SEARCH.pageSize),
+      offset: String(offset),
+      preapproval_id: input.preapprovalId,
+    });
+    const response = await fetchMercadoPago(
+      operation,
+      `${MERCADO_PAGO_URL.authorizedPayments}/search?${searchParams.toString()}`,
+      {
+        headers: {
+          [MERCADO_PAGO_HTTP.authorizationHeader]:
+            MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
+        },
+        method: MERCADO_PAGO_HTTP.getMethod,
+      },
+      input.traceContext
+    );
+    const body = await readMercadoPagoResponse<MercadoPagoAuthorizedPaymentSearchResponse>(
+      operation,
+      response,
+      input.traceContext
+    );
+    const pageResults = Array.isArray(body.results) ? body.results : [];
+
+    for (const result of pageResults) {
+      const authorizedPayment = mapMercadoPagoAuthorizedPayment(result);
+
+      if (authorizedPayment) {
+        authorizedPayments.push(authorizedPayment);
+      }
+    }
+
+    const total = readOptionalProviderNumber(body.paging?.total) ?? 0;
+
+    if (pageResults.length === 0 || offset + pageResults.length >= total) {
+      break;
+    }
+  }
+
+  logMercadoPagoOperationResult({
+    metadata: { invoiceCount: authorizedPayments.length },
+    operation,
+    preapprovalId: input.preapprovalId,
+    result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.success,
+    traceContext: input.traceContext,
+  });
+
+  return authorizedPayments;
 }

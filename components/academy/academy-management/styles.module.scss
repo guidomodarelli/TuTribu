@@ -1,0 +1,188 @@
+@use "../../../src/styles/motion";
+
+@include motion.define-keyframes;
+
+.AcademyManagement {
+  display: grid;
+  gap: clamp(1.25rem, 4vw, 2rem);
+  margin: 0 auto;
+  width: min(100%, 56rem);
+  min-width: 0;
+  padding-block: 0.25rem 1.5rem;
+
+  &__header {
+    @include motion.enter;
+
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  &__title {
+    margin: 0;
+    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  &__section {
+    display: grid;
+    gap: 0.9rem;
+    min-width: 0;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+
+  &__sectionHeader {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__sectionTitle,
+  &__subTitle {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  &__sectionTitle {
+    font-size: 1.15rem;
+  }
+
+  &__subTitle {
+    font-size: 1rem;
+  }
+
+  &__hint,
+  &__error,
+  &__warning {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  &__hint {
+    color: var(--muted-foreground);
+  }
+
+  &__error {
+    color: var(--destructive);
+  }
+
+  &__warning {
+    padding-block: 0.4rem;
+    border-block: 1px solid var(--border);
+    color: var(--foreground);
+  }
+
+  &__link {
+    justify-self: start;
+    color: var(--foreground);
+    text-underline-offset: 2px;
+  }
+
+  &__switches,
+  &__actions,
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: end;
+  }
+
+  &__switch {
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+    min-height: 2.5rem;
+  }
+
+  &__form {
+    display: grid;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  &__field {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+    width: min(100%, 28rem);
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+
+  &__textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--input);
+    border-radius: min(var(--radius-md), 0.75rem);
+    background-color: transparent;
+    color: var(--foreground);
+    font: inherit;
+    font-size: 1rem;
+    resize: vertical;
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
+    }
+
+    @media (min-width: 48rem) {
+      font-size: 0.9rem;
+    }
+  }
+
+  &__rows {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__row {
+    display: grid;
+    gap: 0.6rem;
+    min-width: 0;
+    padding-block: 0.9rem;
+    border-bottom: 1px solid var(--border);
+
+    @media (min-width: 48rem) {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+    }
+  }
+
+  &__rowMain {
+    display: grid;
+    gap: 0.2rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  &__decision {
+    display: grid;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  &__grants {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0.35rem 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.875rem;
+  }
+
+  &__grant {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+}

@@ -547,10 +547,18 @@ export class R2LessonFileRepository implements LessonFileRepository {
         where course_lesson_files.id = ${command.fileId}
           and tribes.slug = ${command.tribeSlug}
           and (
-            course_lesson_files.status = ${LESSON_FILE_STATUS.attached}
+            -- The runtime role bypasses RLS: repeat the lesson read rule
+            -- (membership, drip and the course access requirement) before a
+            -- signed URL is issued.
+            (
+              course_lesson_files.status = ${LESSON_FILE_STATUS.attached}
+              and course_lesson_files.lesson_id is not null
+              and public.can_read_course_lesson(course_lesson_files.lesson_id)
+            )
             or (
               course_lesson_files.status = ${LESSON_FILE_STATUS.draft}
               and course_lesson_files.uploaded_by = ${command.userId}
+              and public.can_manage_tribe_courses(course_lesson_files.tribe_id)
             )
           )
         limit 1

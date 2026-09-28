@@ -14,6 +14,7 @@ import { createRouteObservation } from "@/src/modules/shared/infrastructure/obse
 
 const WEBHOOK_FIELD = {
   action: "action",
+  userId: "user_id",
   data: "data",
   dataIdQuery: "data.id",
   dataIdUrlQuery: "data.id_url",
@@ -24,6 +25,7 @@ const WEBHOOK_FIELD = {
 } as const;
 
 const WEBHOOK_TOPIC = {
+  subscriptionAuthorizedPaymentPrefix: "subscription_authorized_payment",
   subscriptionPreapprovalPlanPrefix: "subscription_preapproval_plan",
   subscriptionPreapprovalPrefix: "subscription_preapproval",
 } as const;
@@ -122,6 +124,17 @@ function isSubscriptionWebhookTopic(topic: string): boolean {
 }
 
 /**
+ * Determines whether the webhook topic is a recurring invoice (authorized
+ * payment). Academy coverage is derived from these invoices.
+ *
+ * @param topic - Mercado Pago action, type, or topic field.
+ * @returns Whether the topic should be handled by the academy invoice use case.
+ */
+function isAuthorizedPaymentWebhookTopic(topic: string): boolean {
+  return topic.startsWith(WEBHOOK_TOPIC.subscriptionAuthorizedPaymentPrefix);
+}
+
+/**
  * Determines whether the webhook topic belongs to Mercado Pago subscription plans.
  *
  * @param topic - Mercado Pago action, type, or topic field.
@@ -217,7 +230,8 @@ export async function POST(request: Request) {
 
     if (
       !isSubscriptionWebhookTopic(topic) &&
-      !isSubscriptionPlanWebhookTopic(topic)
+      !isSubscriptionPlanWebhookTopic(topic) &&
+      !isAuthorizedPaymentWebhookTopic(topic)
     ) {
       return routeObservation.createJsonResponse(
         { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed },
@@ -238,6 +252,34 @@ export async function POST(request: Request) {
       mercadoPagoWebhookVerified: true,
       requestId,
     });
+
+    if (isAuthorizedPaymentWebhookTopic(topic)) {
+      // The notification only names the invoice: the use case reads it
+      // server-to-server and reconciles the whole academy subscription.
+      const result =
+        await modules.subscriptions.useCases.handleAcademyAuthorizedPaymentWebhook({
+          correlationId: requestId,
+          providerAccountId: readScalarString(body[WEBHOOK_FIELD.userId]) || null,
+          resourceId,
+        });
+
+      return routeObservation.createJsonResponse(
+        result.status === "retryable"
+          ? { message: WEBHOOK_RESPONSE.unexpectedMessage }
+          : { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed },
+        result.status === "retryable" ? HTTP_STATUS.serviceUnavailable : HTTP_STATUS.ok,
+        {
+          message:
+            result.status === "retryable"
+              ? WEBHOOK_LOG.retryableMessage
+              : WEBHOOK_LOG.processedMessage,
+          metadata: { eventId, resourceId, result: result.status, topic },
+          outcome: result.status,
+          ...(result.status === "retryable" ? { level: WEBHOOK_LOG_LEVEL.warn } : {}),
+        }
+      );
+    }
+
     if (isSubscriptionPlanWebhookTopic(topic)) {
       const result =
         await modules.subscriptions.useCases.syncMercadoPagoSubscriptionProviderPlanWebhook(
@@ -287,6 +329,25 @@ export async function POST(request: Request) {
         eventId,
         resourceId,
         topic,
+      });
+
+    // Academy subscriptions: a recurrence change may come with new invoices.
+    // Best effort; a failure never blocks the membership webhook contract.
+    await Promise.resolve()
+      .then(() =>
+        modules.subscriptions.useCases.reconcileAcademySubscriptionCoverage({
+          correlationId: requestId,
+          providerSubscriptionId: resourceId,
+        })
+      )
+      .catch((error: unknown) => {
+        routeObservation.logRouteError({
+          error,
+          message: WEBHOOK_LOG.failureMessage,
+          metadata: { eventId, requestId, resourceId, topic },
+          outcome: "academy_reconciliation_failed",
+          status: HTTP_STATUS.ok,
+        });
       });
 
     if (result.status === TRIBE_MEMBER_SUBSCRIPTION_STATUS.retryableWebhook) {

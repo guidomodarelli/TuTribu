@@ -156,6 +156,8 @@ describe("Tribe welcome routes", () => {
 
     expect(response.status).toBe(200);
     expect(getTribePageAccess).toHaveBeenCalledWith({
+      // Onboarding is part of the academy free allowlist.
+      allowWithoutCommunityAccess: true,
       isAuthenticated: true,
       slug: "matematica-pro",
     });

@@ -98,6 +98,7 @@ describe("manage tribe subscription prices use cases", () => {
       frequency: "monthly",
       name: "Plan mensual",
       paymentIntegrationId: PAYMENT_INTEGRATION_ID,
+      productKey: "membership",
       trialFrequency: 7,
       trialFrequencyType: "days",
       tribeSlug: "matematica-pro",

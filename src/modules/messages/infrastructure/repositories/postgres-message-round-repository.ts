@@ -989,6 +989,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             on target_tribe.id = tribe_members.tribe_id
           where tribe_members.user_id = ${viewerId}
             and tribe_members.status in ('active', 'muted')
+            and public.can_user_access_tribe_community(target_tribe.id, ${viewerId})
           limit 1
         ),
         target_message as (
@@ -1065,6 +1066,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             on target_tribe.id = tribe_members.tribe_id
           where tribe_members.user_id = ${viewerId}
             and tribe_members.status in ('active', 'muted')
+            and public.can_user_access_tribe_community(target_tribe.id, ${viewerId})
           limit 1
         ),
         target_message as (
@@ -1146,6 +1148,7 @@ export class PostgresMessageRoundRepository implements MessageRoundReadRepositor
             on target_tribe.id = tribe_members.tribe_id
           where tribe_members.user_id = ${viewerId}
             and tribe_members.status in ('active', 'muted')
+            and public.can_user_access_tribe_community(target_tribe.id, ${viewerId})
           limit 1
         ),
         liked_messages as (

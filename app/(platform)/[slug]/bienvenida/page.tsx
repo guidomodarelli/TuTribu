@@ -35,6 +35,9 @@ export default async function TribeWelcomePage({
   const { slug } = await params;
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({
+      // Onboarding (welcome rules and the external WhatsApp group) is part of
+      // the academy free allowlist.
+      allowWithoutCommunityAccess: true,
       callbackPath: ROUTES.tribes.welcome(slug),
       operation: TRIBE_WELCOME_PAGE.operation,
       slug,

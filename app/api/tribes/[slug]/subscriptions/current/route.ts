@@ -5,6 +5,7 @@
  */
 
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
+import { ACADEMY_ROUTE_COPY } from "@/src/modules/product-access/constants/academy-route-copy";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -23,6 +24,10 @@ const CURRENT_SUBSCRIPTION_ROUTE_RESPONSE = {
   unauthorizedMessage: "Iniciá sesión para gestionar tu suscripción.",
   unexpectedMessage: "No pudimos cancelar la suscripción. Intentá de nuevo.",
 } as const;
+
+/** `?product=academy` cancels the academy renewal instead of the membership. */
+const PRODUCT_QUERY_PARAM = "product";
+const ACADEMY_PRODUCT = "academy";
 
 const HTTP_STATUS = {
   notFound: 404,
@@ -65,6 +70,32 @@ export async function DELETE(
   }
 
   try {
+    if (new URL(request.url).searchParams.get(PRODUCT_QUERY_PARAM) === ACADEMY_PRODUCT) {
+      // Academy renewal: stops future charges only; the access already paid
+      // stays until it ends, and membership, role and progress are untouched.
+      const academyResult = await modules.subscriptions.useCases.cancelOwnAcademyRenewal({
+        correlationId: requestId,
+        tribeSlug: slug,
+      });
+
+      if (academyResult.status === "canceled") {
+        return createJsonResponse(
+          { message: ACADEMY_ROUTE_COPY.cancelConfirmed, status: academyResult.status },
+          HTTP_STATUS.ok
+        );
+      }
+
+      return academyResult.status === "provider_unavailable"
+        ? createJsonResponse(
+            { message: CURRENT_SUBSCRIPTION_ROUTE_RESPONSE.providerUnavailableMessage },
+            HTTP_STATUS.serviceUnavailable
+          )
+        : createJsonResponse(
+            { message: ACADEMY_ROUTE_COPY.cancelNotFound },
+            HTTP_STATUS.notFound
+          );
+    }
+
     const result =
       await modules.subscriptions.useCases.cancelOwnTribeMemberSubscription({
         tribeSlug: slug,

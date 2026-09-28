@@ -30,8 +30,10 @@ import {
   TRIBE_SUBSCRIPTION_CURRENCY,
   TRIBE_SUBSCRIPTION_PRICE_LIMIT,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
+  TRIBE_SUBSCRIPTION_PRODUCT_KEY,
   TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
   TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS,
+  type TribeSubscriptionProductKey,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
   TribeProviderSubscriberReconciliationCommand,
@@ -101,6 +103,7 @@ type MercadoPagoAccountConnectionStatus = {
 
 type SubscriptionPriceRow = {
   active_subscribers_count: number | string | null;
+  product_key?: TribeSubscriptionProductKey | null;
   amount_cents: number;
   created_at: Date | string;
   currency: "ARS";
@@ -750,6 +753,7 @@ function mapSubscriptionPrice(row: SubscriptionPriceRow): TribeSubscriptionPrice
     mercadoPagoAccountLabel: row.mercado_pago_account_label,
     name: row.name,
     paymentIntegrationId: row.payment_integration_id,
+    productKey: row.product_key ?? TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership,
     providerAccountId: row.provider_account_id,
     status: row.status,
     trial:
@@ -1164,6 +1168,7 @@ export class PostgresTribeSubscriptionPriceRepository
             tribe_subscription_prices.frequency,
             tribe_subscription_prices.status,
             tribe_subscription_prices.is_current,
+            tribe_subscription_prices.product_key,
             tribe_subscription_prices.payment_integration_id,
             price_payment_integration.account_label as mercado_pago_account_label,
             price_payment_integration.provider_account_email as mercado_pago_account_email,
@@ -1197,6 +1202,7 @@ export class PostgresTribeSubscriptionPriceRepository
           price_rows.frequency,
           price_rows.status,
           price_rows.is_current,
+          price_rows.product_key,
           price_rows.payment_integration_id,
           price_rows.mercado_pago_account_label,
           price_rows.mercado_pago_account_email,
@@ -1628,7 +1634,8 @@ export class PostgresTribeSubscriptionPriceRepository
       "price" in activationResult
     ) {
       const promotedPriceId = await this.markSoleActivePaidPriceAsCurrent(
-        creationContext.tribe_id
+        creationContext.tribe_id,
+        command.productKey ?? TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership
       );
 
       if (promotedPriceId === activationResult.price.id) {
@@ -1661,7 +1668,8 @@ export class PostgresTribeSubscriptionPriceRepository
    * @returns Identifier of the promoted price, or null when none was promoted.
    */
   private async markSoleActivePaidPriceAsCurrent(
-    tribeId: string
+    tribeId: string,
+    productKey: TribeSubscriptionProductKey
   ): Promise<string | null> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
@@ -1669,6 +1677,7 @@ export class PostgresTribeSubscriptionPriceRepository
           select tribe_subscription_prices.id
           from public.tribe_subscription_prices
           where tribe_subscription_prices.tribe_id = ${tribeId}
+            and tribe_subscription_prices.product_key = ${productKey}
             and tribe_subscription_prices.status = 'active'
             and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
         ),
@@ -1687,6 +1696,9 @@ export class PostgresTribeSubscriptionPriceRepository
           update public.tribes
           set free_join_is_current = false
           where tribes.id = ${tribeId}
+            -- Only the membership product replaces the free entry (AC-37):
+            -- an academy price never closes the basic free join.
+            and ${productKey} = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and exists (select 1 from promoted_price)
             and public.can_manage_tribe_subscription_prices(tribes.id)
           returning id
@@ -1736,6 +1748,7 @@ export class PostgresTribeSubscriptionPriceRepository
             trial_frequency,
             trial_frequency_type,
             mercado_pago_preapproval_plan_id,
+            product_key,
             created_by,
             created_at
           )
@@ -1751,6 +1764,7 @@ export class PostgresTribeSubscriptionPriceRepository
             ${command.trialFrequency},
             ${command.trialFrequencyType},
             null,
+            ${command.productKey ?? TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership},
             public.current_app_user_id(),
             timezone('utc', now())
           from target_tribe
@@ -2156,6 +2170,7 @@ export class PostgresTribeSubscriptionPriceRepository
             tribe_subscription_prices.frequency,
             tribe_subscription_prices.status,
             tribe_subscription_prices.is_current,
+            tribe_subscription_prices.product_key,
             tribe_subscription_prices.created_at
           from public.tribe_subscription_prices
           inner join target_tribe
@@ -2179,6 +2194,7 @@ export class PostgresTribeSubscriptionPriceRepository
           target_price.frequency,
           target_price.status,
           target_price.is_current,
+          target_price.product_key,
           target_price.created_at,
           0 as active_subscribers_count
         from (select 1) result
@@ -2188,6 +2204,8 @@ export class PostgresTribeSubscriptionPriceRepository
       const targetRow = (targetResult.rows?.[0] ?? null) as
         | SubscriptionPriceMutationRow
         | null;
+      const targetProductKey =
+        targetRow?.product_key ?? TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership;
 
       if (targetRow?.status_result !== TRIBE_SUBSCRIPTION_PRICE_STATUS.current) {
         return mapPriceMutationResult(
@@ -2207,6 +2225,7 @@ export class PostgresTribeSubscriptionPriceRepository
         set is_current = false
         where tribe_subscription_prices.tribe_id = (select id from target_tribe)
           and tribe_subscription_prices.id <> ${command.priceId}
+          and tribe_subscription_prices.product_key = ${targetProductKey}
           and tribe_subscription_prices.is_current = true
           and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
       `);
@@ -2235,12 +2254,16 @@ export class PostgresTribeSubscriptionPriceRepository
         );
       }
 
-      await database.execute(sql`
-        update public.tribes
-        set free_join_is_current = false
-        where tribes.slug = ${command.tribeSlug}
-          and public.can_manage_tribe_subscription_prices(tribes.id)
-      `);
+      // Only a membership price replaces the free entry; an academy price is
+      // an independent product and keeps the basic free join (AC-37).
+      if (targetProductKey === TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership) {
+        await database.execute(sql`
+          update public.tribes
+          set free_join_is_current = false
+          where tribes.slug = ${command.tribeSlug}
+            and public.can_manage_tribe_subscription_prices(tribes.id)
+        `);
+      }
 
       return mapPriceMutationResult(
         currentRow,
@@ -2325,6 +2348,7 @@ export class PostgresTribeSubscriptionPriceRepository
         update public.tribe_subscription_prices
         set is_current = false
         where tribe_subscription_prices.tribe_id = (select id from target_tribe)
+          and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
           and tribe_subscription_prices.is_current = true
           and public.can_manage_tribe_subscription_prices(tribe_subscription_prices.tribe_id)
       `);
@@ -3021,7 +3045,8 @@ export class PostgresTribeSubscriptionPriceRepository
           select
             tribe_subscription_prices.id,
             tribe_subscription_prices.tribe_id,
-            tribe_subscription_prices.is_current
+            tribe_subscription_prices.is_current,
+            tribe_subscription_prices.product_key
           from public.tribe_subscription_prices
           where tribe_subscription_prices.id = ${input.priceId}
             and tribe_subscription_prices.status in ${LIVE_PROVIDER_PLAN_PRICE_STATUSES}
@@ -3044,6 +3069,7 @@ export class PostgresTribeSubscriptionPriceRepository
               select 1
               from target_price
               where target_price.is_current = true
+                and target_price.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             )
             and not exists (
               select 1
@@ -3051,6 +3077,7 @@ export class PostgresTribeSubscriptionPriceRepository
               where tribe_subscription_prices.tribe_id = (select tribe_id from target_price)
                 and tribe_subscription_prices.id <> (select id from target_price)
                 and tribe_subscription_prices.is_current = true
+                and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
                 and tribe_subscription_prices.status = 'active'
                 and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
             )
@@ -3655,7 +3682,8 @@ export class PostgresTribeSubscriptionPriceRepository
           select
             tribe_subscription_prices.id,
             tribe_subscription_prices.tribe_id,
-            tribe_subscription_prices.is_current
+            tribe_subscription_prices.is_current,
+            tribe_subscription_prices.product_key
           from public.tribe_subscription_prices
           where tribe_subscription_prices.tribe_id = (select id from target_tribe)
             and tribe_subscription_prices.id = ${input.priceId}
@@ -3680,6 +3708,7 @@ export class PostgresTribeSubscriptionPriceRepository
               select 1
               from target_price
               where target_price.is_current = true
+                and target_price.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             )
             and not exists (
               select 1
@@ -3687,6 +3716,7 @@ export class PostgresTribeSubscriptionPriceRepository
               where tribe_subscription_prices.tribe_id = (select id from target_tribe)
                 and tribe_subscription_prices.id <> (select id from target_price)
                 and tribe_subscription_prices.is_current = true
+                and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
                 and tribe_subscription_prices.status = 'active'
                 and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
             )
@@ -3943,6 +3973,7 @@ export class PostgresTribeSubscriptionPriceRepository
             select 1
             from public.tribe_subscription_prices existing_current_price
             where existing_current_price.tribe_id = tribe_subscription_prices.tribe_id
+              and existing_current_price.product_key = tribe_subscription_prices.product_key
               and existing_current_price.status = 'active'
               and existing_current_price.is_current = true
           )
@@ -4007,7 +4038,8 @@ export class PostgresTribeSubscriptionPriceRepository
           select
             tribe_subscription_prices.id,
             tribe_subscription_prices.tribe_id,
-            tribe_subscription_prices.is_current
+            tribe_subscription_prices.is_current,
+            tribe_subscription_prices.product_key
           from public.tribe_subscription_prices
           where tribe_subscription_prices.id = ${input.priceId}
             and tribe_subscription_prices.status in ${LIVE_PROVIDER_PLAN_PRICE_STATUSES}
@@ -4030,6 +4062,7 @@ export class PostgresTribeSubscriptionPriceRepository
               select 1
               from target_price
               where target_price.is_current = true
+                and target_price.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             )
             and not exists (
               select 1
@@ -4037,6 +4070,7 @@ export class PostgresTribeSubscriptionPriceRepository
               where tribe_subscription_prices.tribe_id = (select tribe_id from target_price)
                 and tribe_subscription_prices.id <> (select id from target_price)
                 and tribe_subscription_prices.is_current = true
+                and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
                 and tribe_subscription_prices.status = 'active'
                 and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
             )

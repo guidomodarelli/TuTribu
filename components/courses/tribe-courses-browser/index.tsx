@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { TribeCoursesCatalog } from "@/components/courses/tribe-courses-catalog";
 import { TribeCoursesView } from "@/components/courses/tribe-courses-view";
+import { LockedAcademyCourseNotice } from "@/components/courses/locked-academy-course-notice";
 import { buildTribeCoursesRoute } from "@/lib/courses/course-lesson-route";
 import {
   resolveSelectedCourse,
@@ -14,7 +15,10 @@ import type {
   CourseWithModulesResult,
   LessonWithViewerStateResult,
 } from "@/src/modules/courses/application/results/course-results";
-import { TRIBE_COURSES_ROUTE_QUERY } from "@/src/modules/courses/constants/courses";
+import {
+  COURSE_VIEWER_ACCESS_STATUS,
+  TRIBE_COURSES_ROUTE_QUERY,
+} from "@/src/modules/courses/constants/courses";
 
 const POPSTATE_EVENT = "popstate";
 const HISTORY_UNUSED_TITLE = "";
@@ -201,6 +205,21 @@ export function TribeCoursesBrowser({
   );
 
   const selectedCourse = resolveSelectedCourse(viewerCourses, selection);
+
+  // A direct link to an academy course without access shows the reason; the
+  // server never sent its modules, lessons, videos or files.
+  if (
+    selectedCourse?.viewerAccess.status ===
+    COURSE_VIEWER_ACCESS_STATUS.academyRequired
+  ) {
+    return (
+      <LockedAcademyCourseNotice
+        courseTitle={selectedCourse.title}
+        onBackToCatalog={openCatalog}
+        tribeSlug={tribeSlug}
+      />
+    );
+  }
 
   if (selectedCourse) {
     return (

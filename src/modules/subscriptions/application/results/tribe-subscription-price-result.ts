@@ -11,6 +11,7 @@ import type {
   TRIBE_SUBSCRIPTION_FREQUENCY,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
   TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
+  TribeSubscriptionProductKey,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 
 export type TribeSubscriptionPriceResult = {
@@ -25,6 +26,8 @@ export type TribeSubscriptionPriceResult = {
   mercadoPagoAccountLabel?: string | null;
   name: string;
   paymentIntegrationId?: string | null;
+  /** `membership` (entry) or `academy` (academy access); defaults to membership. */
+  productKey?: TribeSubscriptionProductKey;
   providerAccountId?: string | null;
   status: "active" | "canceled" | "deleted" | "paused";
   trial: {

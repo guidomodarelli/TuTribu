@@ -8,6 +8,7 @@ import {
   FlameKindlingIcon,
   GraduationCapIcon,
   HandHeartIcon,
+  LibraryBigIcon,
   MailPlusIcon,
   MedalIcon,
   ReceiptTextIcon,
@@ -34,6 +35,14 @@ const discoverTribesNavigationItem = {
   label: "Descubrir tribus",
 } as const;
 const tribeMemberNavigation = [
+  {
+    hrefBuilder: ROUTES.tribes.academy,
+    icon: LibraryBigIcon,
+    label: "Academia",
+    matchPath: (pathname: string, tribeSlug: string) =>
+      pathname === ROUTES.tribes.academy(tribeSlug) ||
+      isSameOrNestedPath(pathname, ROUTES.tribes.academyVerification(tribeSlug)),
+  },
   {
     hrefBuilder: ROUTES.tribes.bySlug,
     icon: FlameKindlingIcon,
@@ -86,6 +95,13 @@ const tribeMemberNavigation = [
   },
 ] as const;
 const tribeAdminNavigation = [
+  {
+    hrefBuilder: ROUTES.tribes.academyManage,
+    icon: LibraryBigIcon,
+    label: "Gestionar academia",
+    matchPath: (pathname: string, tribeSlug: string) =>
+      isSameOrNestedPath(pathname, ROUTES.tribes.academyManage(tribeSlug)),
+  },
   {
     hrefBuilder: ROUTES.tribes.invitations,
     icon: MailPlusIcon,

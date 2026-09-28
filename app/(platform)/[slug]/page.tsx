@@ -490,6 +490,12 @@ export async function TribePageContent({
       redirect(buildJoinSignInRedirect(slug));
     }
 
+    // Academy mode: a basic member lands on the academy offer and personal
+    // steps, never on the private feed (RF-09).
+    if (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.academyAccessRequired) {
+      redirect(ROUTES.tribes.academy(slug));
+    }
+
     // The open-join action redirects non-checkout outcomes back with a
     // join_status query. A failed checkout can leave the member blocked or
     // payment-blocked, so this terminal status screen must render for both the
@@ -542,6 +548,16 @@ export async function TribePageContent({
             <TribeOpenJoin offer={offer.price} startAction={startOpenJoin} />
           </main>
         );
+      }
+
+      // Academy mode: the public link leads to the minimum academy offer (no
+      // private tribe data) where the visitor can take the basic entry.
+      const academyOffer = await modules.productAccess.useCases
+        .getAcademyPublicOffer({ tribeSlug: slug })
+        .catch(() => null);
+
+      if (academyOffer) {
+        redirect(ROUTES.tribes.academy(slug));
       }
     }
 

@@ -235,6 +235,7 @@ export async function GET(
 
   try {
     const accessResult = await modules.tribes.useCases.getTribePageAccess({
+      allowWithoutCommunityAccess: true,
       isAuthenticated: true,
       slug,
     });

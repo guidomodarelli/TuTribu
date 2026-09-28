@@ -3,6 +3,12 @@ export type GetTribeCoursesQuery = {
 };
 
 export type CreateCourseCommand = {
+  /**
+   * Raw requirement submitted by the leader (`membership` | `academy`).
+   * Omitted keeps the historical behavior on create and the stored value on
+   * update.
+   */
+  accessRequirement?: unknown;
   coverImageUrl: string;
   description: string;
   sortOrder: number;

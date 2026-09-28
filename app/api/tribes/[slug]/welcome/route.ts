@@ -296,6 +296,9 @@ export async function GET(
 
     viewerId = authenticatedMember.id;
     const accessResult = await modules.tribes.useCases.getTribePageAccess({
+      // Onboarding (welcome rules and the external WhatsApp group) is part of
+      // the academy free allowlist.
+      allowWithoutCommunityAccess: true,
       isAuthenticated: true,
       slug,
     });

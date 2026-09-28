@@ -18,6 +18,11 @@ export const TRIBE_PAGE_ACCESS_STATUS = {
 } as const;
 
 export const TRIBE_PAGE_ACCESS_REASON = {
+  /**
+   * Academy-mode basic member: the membership is valid, but the private
+   * community content requires academy access (RF-09 allowlist).
+   */
+  academyAccessRequired: "academy_access_required",
   blockedHidden: "blocked_hidden",
   notFoundOrNotVisible: "not_found_or_not_visible",
   unauthenticatedHidden: "unauthenticated_hidden",

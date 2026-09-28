@@ -142,3 +142,40 @@ export const TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON = {
   paymentBlocked: "payment_blocked",
   subscriptionInactive: "subscription_inactive",
 } as const;
+
+/**
+ * Product a price or a member subscription belongs to. `membership` is the
+ * historical behavior (tribe entry); `academy` is the paid academy access.
+ */
+export type TribeSubscriptionProductKey = "academy" | "membership";
+
+export const TRIBE_SUBSCRIPTION_PRODUCT_KEY = {
+  academy: "academy",
+  membership: "membership",
+} as const satisfies Record<string, TribeSubscriptionProductKey>;
+
+/** Renewal state of an academy subscription as confirmed locally. */
+export type AcademySubscriptionRenewalStatus =
+  | "active"
+  | "canceled"
+  | "canceling"
+  | "none"
+  | "pending";
+
+export const ACADEMY_SUBSCRIPTION_RENEWAL_STATUS = {
+  active: "active",
+  canceled: "canceled",
+  canceling: "canceling",
+  none: "none",
+  pending: "pending",
+} as const satisfies Record<string, AcademySubscriptionRenewalStatus>;
+
+/** Minimum time between two self-service coverage reconciliations. */
+export const ACADEMY_COVERAGE_RECONCILIATION_THROTTLE_SECONDS = 60;
+
+/** Monthly academy billing cycle policy. */
+export const ACADEMY_BILLING_CYCLE = {
+  /** Maximum drift between a scheduled debit date and its cycle start. */
+  debitToleranceDays: 3,
+  millisecondsPerDay: 86_400_000,
+} as const;

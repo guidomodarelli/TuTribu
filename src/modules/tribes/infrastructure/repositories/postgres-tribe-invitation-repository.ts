@@ -1,6 +1,8 @@
 import { createHash } from "crypto";
 import { sql } from "drizzle-orm";
 
+import { TRIBE_SUBSCRIPTION_PRODUCT_KEY } from "@/src/modules/subscriptions/constants/subscriptions";
+
 import {
   TRIBE_INVITATION_STATUS,
   TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE,
@@ -592,6 +594,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           inner join target_tribe
             on target_tribe.id = tribe_subscription_prices.tribe_id
           where tribe_subscription_prices.id = ${subscriptionPriceId}
+            -- Invitations only ever reference membership prices (AC-38).
+            and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_subscription_prices.status = 'active'
             and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
           limit 1
@@ -722,6 +726,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           inner join target_tribe
             on target_tribe.id = tribe_subscription_prices.tribe_id
           where tribe_subscription_prices.id = ${subscriptionPriceId}
+            -- Invitations only ever reference membership prices (AC-38).
+            and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_subscription_prices.status = 'active'
             and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
           limit 1
@@ -1000,7 +1006,16 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         target_tribe as (
           select
             tribes.id,
-            tribes.free_join_is_current
+            tribes.free_join_is_current,
+            public.tribe_uses_academy_access(tribes.id) as uses_academy_access,
+            coalesce(
+              (
+                select tribe_academy_settings.admission_enabled
+                from public.tribe_academy_settings
+                where tribe_academy_settings.tribe_id = tribes.id
+              ),
+              false
+            ) as academy_admission_enabled
           from public.tribes
           inner join target_invitation
             on target_invitation.tribe_id = tribes.id
@@ -1025,6 +1040,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           inner join target_invitation
             on true
           where tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
+            and target_tribe.uses_academy_access = false
             and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
             and (
               (
@@ -1043,11 +1060,18 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           select 1
           from target_invitation, target_tribe
           where (
-            target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.free}
+            target_tribe.uses_academy_access = true
+            and target_tribe.academy_admission_enabled = true
           )
           or (
-            target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current}
-            and target_tribe.free_join_is_current = true
+            target_tribe.uses_academy_access = false
+            and (
+              target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.free}
+              or (
+                target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.current}
+                and target_tribe.free_join_is_current = true
+              )
+            )
           )
         ),
         inserted_membership as (
@@ -1177,7 +1201,16 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         target_tribe as (
           select
             tribes.id,
-            tribes.free_join_is_current
+            tribes.free_join_is_current,
+            public.tribe_uses_academy_access(tribes.id) as uses_academy_access,
+            coalesce(
+              (
+                select tribe_academy_settings.admission_enabled
+                from public.tribe_academy_settings
+                where tribe_academy_settings.tribe_id = tribes.id
+              ),
+              false
+            ) as academy_admission_enabled
           from public.tribes
           inner join target_invitation
             on target_invitation.tribe_id = tribes.id
@@ -1195,6 +1228,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         inner join target_invitation
           on true
         where tribe_subscription_prices.status = 'active'
+          and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
+          and target_tribe.uses_academy_access = false
           and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
           and target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
           and (

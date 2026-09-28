@@ -4,6 +4,24 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Added
+
+- Las tribus pueden funcionar en modo academia: se ingresa gratis, la conversación sigue en WhatsApp y los cursos de academia y el contenido interno de la tribu se habilitan con una suscripción o una bonificación del líder. Las tribus que no pasan a este modo siguen funcionando como siempre.
+- Nueva página Academia con tu estado de acceso (bonificado, pago o ambos, con su fecha de fin), la oferta de la tribu y el siguiente paso; si tu acceso vence, conservás tu cuenta y tu progreso.
+- Podés solicitar la verificación de tu vinculación con los proveedores que configura el líder, ver si está en revisión, verificada, rechazada o revocada (con su motivo) y volver a solicitarla. Nunca se piden DNI, claves ni datos de tus inversiones.
+- Los líderes y guardianes revisan las solicitudes de verificación desde Gestionar academia; si otra persona decidió antes, ven el estado actual en lugar de pisarlo.
+- Los líderes configuran la oferta de la academia, los proveedores de verificación, las admisiones y la venta, y pueden bonificar o revocar el acceso de una persona con fecha de fin y motivo, con aviso cuando esa persona tiene una renovación activa.
+- Los cursos pueden marcarse como de academia: quien no tiene acceso ve su título, descripción y portada, y el desbloqueo gradual empieza con la primera activación de la academia.
+- Al crear un precio se puede elegir el producto Academia (mensual, sin prueba gratuita), sin que marcarlo como actual cierre el ingreso gratuito.
+
+### Changed
+
+- En las tribus en modo academia, una invitación histórica solo permite el ingreso gratuito y nunca da acceso a la academia ni inicia un pago de membresía.
+
+### Security
+
+- Las descargas de archivos de mensajes y de lecciones, el listado de canales y el árbol de cursos vuelven a comprobar en el servidor que puedas ver ese contenido antes de responder.
+
 ## [0.94.8] - 2026-09-28
 
 ### Changed

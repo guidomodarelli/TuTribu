@@ -1200,6 +1200,72 @@ describe("TribeSubscriptionPriceManagement", () => {
     });
   });
 
+  it("creates an academy price without free trial and keeps the membership current price", async () => {
+    const user = userEvent.setup();
+    const currentMembershipPrice = { ...activePrice, id: "price-membership", isCurrent: true };
+    global.fetch = vi.fn(async () => ({
+      json: async () => ({
+        message: "Precio creado.",
+        price: {
+          ...activePrice,
+          id: "price-academy",
+          isCurrent: true,
+          name: "Academia mensual",
+          productKey: "academy",
+          trial: null,
+        },
+      }),
+      ok: true,
+    })) as Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[currentMembershipPrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Producto" }));
+    await user.click(await screen.findByRole("option", { name: "Academia" }));
+
+    expect(screen.queryByRole("checkbox", { name: "Agregar prueba gratis" })).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Los precios de academia se cobran mensualmente y no tienen prueba gratis.")
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Nombre"), "Academia mensual");
+    await user.type(screen.getByLabelText("Precio mensual"), "15000");
+    await user.click(screen.getByRole("button", { name: "Crear precio" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/tribes/matematica-pro/subscriptions/prices",
+        expect.objectContaining({
+          body: JSON.stringify({
+            amount: "15000",
+            name: "Academia mensual",
+            productKey: "academy",
+            trialFrequency: "",
+            trialFrequencyType: "days",
+          }),
+          method: "POST",
+        })
+      );
+    });
+
+    const academyRow = (await screen.findByText("Academia mensual")).closest("tr") as HTMLElement;
+    const membershipRow = screen.getByText("Plan mensual").closest("tr") as HTMLElement;
+
+    expect(academyRow).toHaveTextContent("Academia");
+    // An academy price never replaces the current membership price.
+    expect(membershipRow).toHaveTextContent("Actual");
+  });
+
   it("should enable trial days and create a price with a valid free trial", async () => {
     const user = userEvent.setup();
     global.fetch = vi.fn(async () => ({
