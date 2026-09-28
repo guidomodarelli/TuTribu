@@ -663,6 +663,8 @@ describe("AppSidebar", () => {
     const user = userEvent.setup();
     (usePathname as Mock).mockReturnValue("/matematica-pro");
     const tribe = {
+      accessModel: "academy" as const,
+      hasCommunityAccess: true,
       logoUrl: null,
       membershipStatus: "active" as const,
       name: "Matematica Pro",
@@ -682,6 +684,63 @@ describe("AppSidebar", () => {
     await user.click(screen.getByRole("button", { name: "Gestionar academia" }));
 
     expect(pushMock).toHaveBeenCalledWith("/matematica-pro/academia/gestionar");
+  });
+
+  it("does not link the academy in a classic tribe, not even for the leader", () => {
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
+
+    render(
+      <AppSidebar
+        authenticatedMember={null}
+        memberTribes={[
+          {
+            accessModel: "legacy" as const,
+            hasCommunityAccess: true,
+            logoUrl: null,
+            membershipStatus: "active" as const,
+            name: "Matematica Pro",
+            role: "leader" as const,
+            slug: "matematica-pro",
+            tribeId: "tribe-1",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "Academia" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Gestionar academia" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /fogón/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /ajustes/i })).toBeInTheDocument();
+  });
+
+  it("shows a basic academy member only the sections they can open", () => {
+    (usePathname as Mock).mockReturnValue("/matematica-pro/academia");
+
+    render(
+      <AppSidebar
+        authenticatedMember={null}
+        memberTribes={[
+          {
+            accessModel: "academy" as const,
+            hasCommunityAccess: false,
+            logoUrl: null,
+            membershipStatus: "active" as const,
+            name: "Matematica Pro",
+            role: "tribemate" as const,
+            slug: "matematica-pro",
+            tribeId: "tribe-1",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Academia" })).toHaveAttribute("data-active", "true");
+    expect(screen.getByRole("button", { name: /cursos/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /bienvenida/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /historia/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /fogón/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /eventos/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /la tribu/i })).not.toBeInTheDocument();
   });
 
   it("shows the welcome section for every member role inside a tribe", () => {

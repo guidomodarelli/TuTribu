@@ -36,6 +36,7 @@ const discoverTribesNavigationItem = {
 } as const;
 const tribeMemberNavigation = [
   {
+    academyOnly: true,
     hrefBuilder: ROUTES.tribes.academy,
     icon: LibraryBigIcon,
     label: "Academia",
@@ -44,6 +45,7 @@ const tribeMemberNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.academyVerification(tribeSlug)),
   },
   {
+    communityOnly: true,
     hrefBuilder: ROUTES.tribes.bySlug,
     icon: FlameKindlingIcon,
     label: "Fogón",
@@ -58,6 +60,7 @@ const tribeMemberNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.welcome(tribeSlug)),
   },
   {
+    communityOnly: true,
     hrefBuilder: ROUTES.tribes.events,
     icon: CalendarDaysIcon,
     label: "Eventos",
@@ -72,6 +75,7 @@ const tribeMemberNavigation = [
       isSameOrNestedPath(pathname, ROUTES.tribes.courses(tribeSlug)),
   },
   {
+    communityOnly: true,
     hrefBuilder: ROUTES.tribes.tribe,
     icon: UsersIcon,
     label: "La tribu",
@@ -80,6 +84,7 @@ const tribeMemberNavigation = [
   },
   {
     comingSoon: true,
+    communityOnly: true,
     hrefBuilder: ROUTES.tribes.merits,
     icon: MedalIcon,
     label: "Méritos",
@@ -96,6 +101,7 @@ const tribeMemberNavigation = [
 ] as const;
 const tribeAdminNavigation = [
   {
+    academyOnly: true,
     hrefBuilder: ROUTES.tribes.academyManage,
     icon: LibraryBigIcon,
     label: "Gestionar academia",
@@ -163,6 +169,28 @@ function canManageTribe(tribe: MemberTribeListItemResult): boolean {
     tribe.role === TRIBE_ADMIN_ROLE.leader ||
     tribe.role === TRIBE_ADMIN_ROLE.guardian
   );
+}
+
+const TRIBE_ACCESS_MODEL_ACADEMY = "academy";
+
+/**
+ * Hides academy entries in classic tribes and community entries from basic
+ * academy members (the server enforces the same rules; this only avoids
+ * links that would redirect).
+ *
+ * @param item - Navigation item with its optional visibility flags.
+ * @param tribe - Active tribe of the member.
+ * @returns Whether the item applies to this member and tribe.
+ */
+function isNavigationItemVisible(
+  item: object,
+  tribe: MemberTribeListItemResult
+): boolean {
+  if ("academyOnly" in item && item.academyOnly && tribe.accessModel !== TRIBE_ACCESS_MODEL_ACADEMY) {
+    return false;
+  }
+
+  return !("communityOnly" in item && item.communityOnly && tribe.hasCommunityAccess === false);
 }
 
 function isSameOrNestedPath(pathname: string, routePath: string): boolean {
@@ -275,7 +303,9 @@ export function AppSidebar({
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {tribeMemberNavigation.map((item) => {
+                  {tribeMemberNavigation
+                    .filter((item) => isNavigationItemVisible(item, activeTribe))
+                    .map((item) => {
                     const sectionPath = item.hrefBuilder(activeTribe.slug);
                     const isSectionActive = item.matchPath(
                       pathname,
@@ -318,8 +348,9 @@ export function AppSidebar({
                     {tribeAdminNavigation
                       .filter(
                         (item) =>
-                          !("leaderOnly" in item && item.leaderOnly) ||
-                          activeTribe.role === TRIBE_ADMIN_ROLE.leader
+                          (!("leaderOnly" in item && item.leaderOnly) ||
+                            activeTribe.role === TRIBE_ADMIN_ROLE.leader) &&
+                          isNavigationItemVisible(item, activeTribe)
                       )
                       .map((item) => {
                       const sectionPath = item.hrefBuilder(activeTribe.slug);

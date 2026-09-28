@@ -12,6 +12,7 @@ const getTribePageAccess = vi.fn();
 const getCurrentTribeMembershipStatus = vi.fn();
 const getMemberTribes = vi.fn();
 const getTribeIdentity = vi.fn();
+const getAcademySettings = vi.fn();
 
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
@@ -44,8 +45,19 @@ function buildPageProps() {
 describe("TribeSettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getAcademySettings.mockResolvedValue({
+      accessModel: "legacy",
+      admissionEnabled: false,
+      benefits: [],
+      configVersion: 0,
+      description: "",
+      offerVersion: 1,
+      salesEnabled: false,
+      title: "",
+    });
     (createRequestModules as Mock).mockResolvedValue({
       auth: { useCases: { getAuthenticatedMember } },
+      productAccess: { useCases: { getAcademySettings } },
       tribes: {
         useCases: {
           getCurrentTribeMembershipStatus,
@@ -105,6 +117,24 @@ describe("TribeSettingsPage", () => {
     expect(getTribeIdentity).toHaveBeenCalledWith({
       tribeSlug: "matematica-pro",
     });
+  });
+
+  it("offers the leader to activate the academy in a classic tribe", async () => {
+    render(await TribeSettingsPage(buildPageProps()));
+
+    expect(screen.getByRole("heading", { name: "Academia" })).toBeInTheDocument();
+    expect(screen.getByText("Modo clásico")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Activar academia" })).toBeInTheDocument();
+    expect(getAcademySettings).toHaveBeenCalledWith({ tribeSlug: "matematica-pro" });
+  });
+
+  it("keeps the identity settings usable when the academy settings fail", async () => {
+    getAcademySettings.mockRejectedValue(new Error("pool exhausted"));
+
+    render(await TribeSettingsPage(buildPageProps()));
+
+    expect(screen.getByLabelText("Logo")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Academia" })).not.toBeInTheDocument();
   });
 
   it("returns 404 for a guardian", async () => {

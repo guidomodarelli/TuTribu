@@ -204,6 +204,25 @@ node scripts/academy-cutover.mjs --slug mi-tribu --apply manifest.json --confirm
 </div>
 
 <div class="section">
+  <div class="section-num">11B</div>
+  <div class="section-title">Activación desde Ajustes (líder)</div>
+<p>El líder activo puede pasar su tribu a modo academia desde <code>/[slug]/ajustes</code>, sin manifiesto de operador: <code>POST /api/tribes/[slug]/academy/activation</code> con <code>expectedConfigVersion</code> ejecuta <code>academy_activate_by_leader(slug, version)</code> (migración <code>20260928126000_add_leader_academy_activation.sql</code>) en una sola transacción.</p>
+<ul>
+  <li>Verifica en SQL que quien llama sea el líder activo, con su membresía bloqueada <code>FOR SHARE</code>, y bloquea la tribu y las membresías.</li>
+  <li>Cada integrante actual <code>active</code> o <code>muted</code> (salvo el líder, que tiene la previsualización) recibe una concesión <code>legacy</code> sin vencimiento (<code>source_key = leader-activation:&lt;user&gt;</code>) y conserva el origen del drip (<code>migration_preserved</code>): nadie pierde lo que tenía. Solo quienes entran después empiezan como básicos.</li>
+  <li>No toca membresías, roles, moderación, precios ni suscripciones: las suscripciones de membresía siguen cobrando igual.</li>
+  <li>Admisión y venta quedan cerradas. Una versión desactualizada devuelve <code>conflict</code> (409 con la configuración actual) y una tribu ya en academia devuelve <code>already_academy</code> sin cambios. Se audita como <code>academy_activated_by_leader</code>.</li>
+</ul>
+<p>El procedimiento de operador (sección 11) sigue disponible para tribus que necesitan decisiones por integrante, como reclasificar suscripciones pagas o limitar el acceso preservado.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">11C</div>
+  <div class="section-title">Navegación</div>
+<p><code>listVisibleMembershipTribes</code> expone <code>accessModel</code> y <code>hasCommunityAccess</code> por tribu. La sidebar muestra “Academia” y “Gestionar academia” solo en tribus en modo academia, y a los miembros básicos les oculta Fogón, Eventos, La tribu y Méritos. Es solo navegación: el servidor aplica las mismas reglas.</p>
+</div>
+
+<div class="section">
   <div class="section-num">12</div>
   <div class="section-title">Pausa y reversión</div>
 <p>Pausar admisiones o ventas (<code>PUT /academy/availability</code>) no cancela renovaciones, concesiones ni bonificaciones y no relaja el paywall: el límite depende de <code>access_model</code>, no de los interruptores. Webhooks, reconciliación y cancelación propia siguen operativos. No existe un camino automático de vuelta a legacy; por defecto se corrige hacia adelante manteniendo las políticas.</p>

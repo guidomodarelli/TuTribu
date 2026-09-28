@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 
+import { AcademyActivation } from "@/components/academy/academy-activation";
 import { TribeSettingsManagement } from "@/components/tribes/tribe-settings-management";
+import { toAcademySettingsDto } from "@/src/modules/product-access/application/results/academy-dto-mappers";
+import { academySettingsDtoSchema } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { ROUTES } from "@/src/constants/routes";
@@ -9,6 +12,7 @@ import styles from "./page.module.scss";
 
 const TRIBE_SETTINGS_PAGE = {
   operation: "tribe-settings-page",
+  resolveAcademySettingsFailureMessage: "Failed to resolve academy settings",
   resolveIdentityFailureMessage: "Failed to resolve tribe identity",
 } as const;
 
@@ -59,9 +63,29 @@ export default async function TribeSettingsPage({
       notFound();
     });
 
+  // The academy section is optional: a failure is logged and the rest of the
+  // settings stay usable.
+  const academySettings = await modules.productAccess.useCases
+    .getAcademySettings({ tribeSlug: tribe.slug })
+    .then((settings) =>
+      settings ? academySettingsDtoSchema.parse(toAcademySettingsDto(settings)) : null
+    )
+    .catch((error: unknown) => {
+      logger.error({
+        error,
+        message: TRIBE_SETTINGS_PAGE.resolveAcademySettingsFailureMessage,
+        metadata: { slug, viewerId: authenticatedMember.id },
+      });
+
+      return null;
+    });
+
   return (
     <main className={styles.TribeSettingsPage}>
       <TribeSettingsManagement identity={identity} tribeSlug={tribe.slug} />
+      {academySettings ? (
+        <AcademyActivation settings={academySettings} tribeSlug={tribe.slug} />
+      ) : null}
     </main>
   );
 }

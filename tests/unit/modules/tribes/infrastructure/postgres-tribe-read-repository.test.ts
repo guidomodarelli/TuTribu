@@ -138,6 +138,8 @@ describe("PostgresTribeReadRepository", () => {
           name: "Beta Club",
           role: "tribemate",
           slug: "beta-club",
+          has_community_access: false,
+          uses_academy_access: true,
         },
       ],
     }); });
@@ -150,6 +152,9 @@ describe("PostgresTribeReadRepository", () => {
 
     await expect(repository.listVisibleMembershipTribes()).resolves.toEqual([
       {
+        // Rows without the academy columns behave as classic tribes.
+        accessModel: "legacy",
+        hasCommunityAccess: true,
         tribeId: "tribe-1",
         logoUrl: null,
         membershipStatus: "active",
@@ -158,6 +163,8 @@ describe("PostgresTribeReadRepository", () => {
         slug: "alpha-club",
       },
       {
+        accessModel: "academy",
+        hasCommunityAccess: false,
         tribeId: "tribe-2",
         logoUrl: null,
         membershipStatus: "muted",

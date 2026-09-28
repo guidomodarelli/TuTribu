@@ -9,6 +9,7 @@ import type {
   OwnVerificationStatesReader,
 } from "@/src/modules/product-access/application/ports/academy-cross-module-readers";
 import {
+  activateAcademy,
   getAcademyPublicOffer,
   getAcademySettings,
   getOwnAcademyAccess,
@@ -38,6 +39,7 @@ export function buildProductAccessModule({
 }: ProductAccessModuleDependencies) {
   return {
     useCases: {
+      activateAcademy: activateAcademy({ productAccessRepository }),
       getAcademyPublicOffer: getAcademyPublicOffer({ productAccessRepository }),
       getAcademySettings: getAcademySettings({ productAccessRepository }),
       getOwnAcademyAccess: getOwnAcademyAccess({

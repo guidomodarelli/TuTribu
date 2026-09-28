@@ -18,6 +18,7 @@ import {
   type TribeAccessModel,
 } from "@/src/modules/product-access/constants/product-access";
 import type {
+  ActivateAcademyResult,
   AcademyPublicOffer,
   AcademySettings,
   AcademySettingsMutationResult,
@@ -126,6 +127,27 @@ export function getOwnAcademyAccess({
       accessModel: snapshot.accessModel,
       status: "ok",
     };
+  };
+}
+
+/**
+ * Switches a legacy tribe to academy mode from the tribe settings. Only the
+ * active leader can do it (enforced in SQL); current members keep full access
+ * and admissions and sales start closed.
+ */
+export function activateAcademy({ productAccessRepository }: ProductAccessDependencies) {
+  return async (command: {
+    expectedConfigVersion: number;
+    tribeSlug: string;
+  }): Promise<ActivateAcademyResult | AcademyUseCaseInvalidInput> => {
+    if (!Number.isInteger(command.expectedConfigVersion) || command.expectedConfigVersion < 0) {
+      return { status: "invalid_input" };
+    }
+
+    return productAccessRepository.activateAcademy({
+      expectedConfigVersion: command.expectedConfigVersion,
+      tribeSlug: normalizeSlug(command.tribeSlug),
+    });
   };
 }
 
