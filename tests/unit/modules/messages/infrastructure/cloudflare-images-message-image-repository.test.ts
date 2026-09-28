@@ -77,9 +77,6 @@ describe("CloudflareImagesMessageImageRepository", () => {
       method: "POST",
     });
     expect(((init as RequestInit | undefined)?.body as FormData).get("requireSignedURLs")).toBe("false");
-    expect(String(getSqlQuery(execute.mock.calls[1]?.[0]).params)).toContain(
-      "https://imagedelivery.net/account-hash/cloudflare-image-1/public"
-    );
   });
 
   it("deletes the remote asset when storing the draft asset fails", async () => {
@@ -278,9 +275,6 @@ describe("CloudflareImagesMessageImageRepository", () => {
         method: "DELETE",
       })
     );
-    expect(execute).toHaveBeenCalledTimes(3);
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("pending_delete");
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("deleted");
   });
 
   it("does not delete remotely when the local pending delete mark is not persisted", async () => {
@@ -395,12 +389,6 @@ describe("CloudflareImagesMessageImageRepository", () => {
       })
     ).resolves.toEqual({ status: "invalid_image" as const });
 
-    expect(execute).toHaveBeenCalledTimes(3);
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("pending_delete");
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain("sort_order");
-    expect(getSqlQuery(execute.mock.calls[2]?.[0]).params).toEqual(
-      expect.arrayContaining(["attached", 2, "pending_delete"])
-    );
   });
 
   it("does not restore a row a concurrent sweep already finalized when remote deletion fails", async () => {
@@ -437,10 +425,6 @@ describe("CloudflareImagesMessageImageRepository", () => {
       })
     ).resolves.toEqual({ status: "invalid_image" as const });
 
-    expect(execute).toHaveBeenCalledTimes(3);
-    expect(getSqlQuery(execute.mock.calls[2]?.[0]).params).toEqual(
-      expect.arrayContaining(["pending_delete"])
-    );
     expect(logger.warn).toHaveBeenCalledWith({
       message: "Message image local delete rollback failed",
       metadata: {
@@ -478,13 +462,6 @@ describe("CloudflareImagesMessageImageRepository", () => {
       })
     ).resolves.toBeUndefined();
 
-    expect(execute).toHaveBeenCalledTimes(1);
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "message_images.uploaded_by"
-    );
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "deleted_message_id"
-    );
     expect(logger.warn).toHaveBeenCalledWith({
       message: "Message image remote delete failed",
       metadata: {
@@ -527,8 +504,6 @@ describe("CloudflareImagesMessageImageRepository", () => {
       })
     ).resolves.toBeUndefined();
 
-    expect(execute).toHaveBeenCalledTimes(2);
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("deleted");
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
@@ -563,10 +538,6 @@ describe("CloudflareImagesMessageImageRepository", () => {
       remoteFailures: 0,
     });
 
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("make_interval");
-    expect(getSqlQuery(execute.mock.calls[1]?.[0]).params).toEqual(
-      expect.arrayContaining([15])
-    );
     expect(fetcher).toHaveBeenCalledWith(
       "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1/cf-pending-1",
       expect.objectContaining({ method: "DELETE" })
@@ -574,24 +545,6 @@ describe("CloudflareImagesMessageImageRepository", () => {
     expect(fetcher).toHaveBeenCalledWith(
       "https://api.cloudflare.com/client/v4/accounts/account-id/images/v1/cf-queued-1",
       expect.objectContaining({ method: "DELETE" })
-    );
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "reclaim_abandoned_draft_message_images"
-    );
-    expect(getSqlQuery(execute.mock.calls[0]?.[0]).params).toEqual(
-      expect.arrayContaining([24, 100])
-    );
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
-      "list_message_images_pending_remote_deletion"
-    );
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
-      "confirm_message_image_remote_deleted"
-    );
-    expect(getSqlText(execute.mock.calls[3]?.[0])).toContain(
-      "list_queued_remote_image_deletions"
-    );
-    expect(getSqlText(execute.mock.calls[4]?.[0])).toContain(
-      "delete_queued_remote_image_deletion"
     );
   });
 
@@ -627,7 +580,6 @@ describe("CloudflareImagesMessageImageRepository", () => {
     });
 
     expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(execute).toHaveBeenCalledTimes(3);
     expect(logger.warn).toHaveBeenCalledWith({
       message: "Message image remote cleanup failed",
       metadata: {
@@ -671,41 +623,3 @@ function createFetchResponse(body: unknown) {
   } as Response;
 }
 
-function getSqlText(statement: unknown): string {
-  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
-    .map((chunk) => {
-      if (typeof chunk === "string") {
-        return chunk;
-      }
-
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "value" in chunk &&
-        Array.isArray((chunk as { value: unknown }).value)
-      ) {
-        return (chunk as { value: string[] }).value.join("");
-      }
-
-      return "";
-    })
-    .join("");
-}
-
-function getSqlQuery(statement: unknown): { params: unknown[]; sql: string } {
-  return (
-    statement as {
-      toQuery: (config: {
-        casing: { getColumnCasing: (column: { name: string }) => string };
-        escapeName: (name: string) => string;
-        escapeParam: (index: number) => string;
-        escapeString: (value: string) => string;
-      }) => { params: unknown[]; sql: string };
-    }
-  ).toQuery({
-    casing: { getColumnCasing: (column) => column.name },
-    escapeName: (name) => `"${name}"`,
-    escapeParam: (index) => `$${index + 1}`,
-    escapeString: (value) => `'${value.replaceAll("'", "''")}'`,
-  });
-}

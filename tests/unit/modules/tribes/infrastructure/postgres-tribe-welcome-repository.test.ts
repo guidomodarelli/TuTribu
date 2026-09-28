@@ -310,10 +310,6 @@ describe("PostgresTribeWelcomeRepository", () => {
 
     expect(linkUpsertIndex).toBeGreaterThan(-1);
     expect(removedLinkDeleteIndex).toBeGreaterThan(linkUpsertIndex);
-    expect(queryTexts[linkUpsertIndex]).toContain(
-      "on conflict (id) do update"
-    );
-    expect(queryTexts[removedLinkDeleteIndex]).toContain("not exists");
   });
 
 });

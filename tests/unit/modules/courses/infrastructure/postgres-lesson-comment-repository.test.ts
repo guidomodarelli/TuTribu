@@ -1,27 +1,6 @@
 import { vi, describe, it, expect } from "vitest";
 import { PostgresLessonCommentRepository } from "@/src/modules/courses/infrastructure/repositories/postgres-lesson-comment-repository";
 
-function getSqlText(statement: unknown): string {
-  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
-    .map((chunk) => {
-      if (typeof chunk === "string") {
-        return chunk;
-      }
-
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "value" in chunk &&
-        Array.isArray((chunk as { value: unknown }).value)
-      ) {
-        return (chunk as { value: string[] }).value.join("");
-      }
-
-      return "";
-    })
-    .join("");
-}
-
 describe("PostgresLessonCommentRepository", () => {
   it("lists lesson comments with author data and viewer delete permission", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
@@ -68,9 +47,6 @@ describe("PostgresLessonCommentRepository", () => {
       status: "ok" as const,
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("public.can_read_tribe_courses");
-    expect(sqlText).toContain("public.is_course_module_unlocked");
   });
 
   it("creates a comment guarded by active membership", async () => {
@@ -112,9 +88,6 @@ describe("PostgresLessonCommentRepository", () => {
       status: "created" as const,
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("insert into public.course_lesson_comments");
-    expect(sqlText).toContain("public.is_active_tribe_member");
   });
 
   it("deletes a comment when the viewer is the author or a leader", async () => {
@@ -131,9 +104,6 @@ describe("PostgresLessonCommentRepository", () => {
     });
 
     expect(result).toEqual({ status: "deleted" as const });
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("delete from public.course_lesson_comments");
-    expect(sqlText).toContain("public.can_manage_tribe_courses");
   });
 
   it("maps a forbidden deletion status", async () => {

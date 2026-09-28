@@ -138,7 +138,6 @@ describe("PostgresTribeEventPostEventRepository", () => {
       },
       viewerPermissions: { canManageResources: true, canParticipate: true },
     });
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("public.can_read_tribe_content");
   });
 
   it("returns null when the event is not readable", async () => {

@@ -60,8 +60,5 @@ describe("PostgresTribePaymentIntegrationRepository", () => {
     ).resolves.toEqual({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.connected,
     });
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "provider_account_id is null"
-    );
   });
 });

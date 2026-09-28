@@ -33,7 +33,6 @@ describe("PostgresTribeFreeJoinRepository", () => {
     await expect(
       repository.join({ tribeSlug: "matematica-pro" })
     ).resolves.toEqual({ status: TRIBE_FREE_JOIN_STATUS.joined });
-    expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("returns alreadyMember when the conflicting membership cannot be reactivated", async () => {

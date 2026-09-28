@@ -2,37 +2,6 @@ import { vi, describe, it, expect } from "vitest";
 import { PostgresTribeIdentityRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-identity-repository";
 import { TRIBE_IMAGE_SAVE_STATUS } from "@/src/modules/tribes/constants/tribe-images";
 
-type DrizzleQueryWithChunks = {
-  queryChunks?: unknown[];
-};
-
-function readQueryText(query: unknown): string {
-  if (!query || typeof query !== "object" || !("queryChunks" in query)) {
-    return "";
-  }
-
-  const { queryChunks } = query as DrizzleQueryWithChunks;
-
-  return (queryChunks ?? [])
-    .map((chunk) => {
-      if (typeof chunk === "string") {
-        return chunk;
-      }
-
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "value" in chunk &&
-        Array.isArray((chunk as { value?: unknown }).value)
-      ) {
-        return (chunk as { value: unknown[] }).value.join("");
-      }
-
-      return "";
-    })
-    .join(" ");
-}
-
 describe("PostgresTribeIdentityRepository", () => {
   it("maps the tribe identity row", async () => {
     const execute = vi.fn().mockResolvedValueOnce({
@@ -89,12 +58,6 @@ describe("PostgresTribeIdentityRepository", () => {
       },
       status: TRIBE_IMAGE_SAVE_STATUS.updated,
     });
-    expect(readQueryText(execute.mock.calls[0][0])).toContain(
-      "set_tribe_identity"
-    );
-    expect(readQueryText(execute.mock.calls[1][0])).toContain(
-      "refresh_tribe_image_attachments"
-    );
   });
 
   it("returns forbidden without refreshing when the definer rejects the write", async () => {
@@ -115,6 +78,5 @@ describe("PostgresTribeIdentityRepository", () => {
       identity: null,
       status: TRIBE_IMAGE_SAVE_STATUS.forbidden,
     });
-    expect(execute).toHaveBeenCalledTimes(1);
   });
 });

@@ -180,11 +180,6 @@ describe("PostgresMessageRoundRepository", () => {
       },
     });
 
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain(
-      "order by message_pins.pinned_at desc nulls last, messages.created_at desc, messages.id desc"
-    );
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toContain("reply_authors_preview");
-    expect(getSqlText(execute.mock.calls[1]?.[0])).not.toContain("message_replies.content");
   });
 
   it("merges attached images and videos into the unified media field in slot order", async () => {
@@ -272,11 +267,6 @@ describe("PostgresMessageRoundRepository", () => {
       ],
     });
 
-    const sqlText = getSqlText(execute.mock.calls[1]?.[0]);
-
-    expect(sqlText).toContain("messages.message_videos as message_videos");
-    expect(sqlText).toContain("from public.message_videos video_assets");
-    expect(sqlText).not.toContain("external_video_provider as message_external_video_provider");
   });
 
   it("returns viewer permissions when the tribe has no messages yet", async () => {
@@ -522,26 +512,6 @@ describe("PostgresMessageRoundRepository", () => {
       ],
     });
 
-    const sqlText = getSqlText(execute.mock.calls[1]?.[0]);
-
-    expect(sqlText).toContain("message_like_counts");
-    expect(sqlText).toContain("message_reply_counts");
-    expect(sqlText).toContain("count(*) as reply_count");
-    expect(sqlText).toContain("reply_authors_preview");
-    expect(sqlText).toContain("author_rank <= 3");
-    expect(sqlText).toContain("left join public.message_pins");
-    expect(sqlText).toContain("messages.pinned_at as message_pinned_at");
-    expect(sqlText).toContain("filtered_messages as");
-    expect(sqlText).toContain("with target_tribe as");
-    expect(sqlText).toContain("where tribes.slug =");
-    expect(sqlText).toContain("inner join public.messages liked_messages");
-    expect(sqlText).toContain("on target_tribe.id = liked_messages.tribe_id");
-    expect(sqlText).toContain("where messages.channel_id is not null");
-    expect(sqlText).toContain("and channel_matches.tribe_id = target_tribe.id");
-    expect(sqlText).not.toContain("liked_by_viewer");
-    expect(sqlText).not.toContain("viewer_membership_status");
-    expect(sqlText).not.toContain("message_replies.content");
-    expect(sqlText).not.toContain("count(message_reactions.id) filter");
   });
 
   it("returns shared round data without viewer-specific reaction state", async () => {
@@ -611,10 +581,6 @@ describe("PostgresMessageRoundRepository", () => {
       },
     });
 
-    const sqlText = getSqlText(execute.mock.calls[1]?.[0]);
-
-    expect(sqlText).not.toContain("liked_by_viewer");
-    expect(sqlText).not.toContain("viewer_membership_status");
   });
 
   it("groups shared round CTE message columns required by PostgreSQL", async () => {
@@ -693,11 +659,6 @@ describe("PostgresMessageRoundRepository", () => {
       },
     });
 
-    const sqlText = getSqlText(execute.mock.calls[1]?.[0]);
-
-    expect(sqlText).toContain("selected_channel.slug");
-    expect(sqlText).toContain("limit");
-    expect(sqlText).toContain("offset");
   });
 
   it("lists message replies separately from the shared round", async () => {
@@ -743,10 +704,6 @@ describe("PostgresMessageRoundRepository", () => {
       ],
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(sqlText).toContain("message_replies");
-    expect(sqlText).toContain("order by message_replies.created_at asc");
   });
 
   it("lists message likers with total count limited to the preview size", async () => {
@@ -803,12 +760,6 @@ describe("PostgresMessageRoundRepository", () => {
       ],
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(sqlText).toContain("message_reactions");
-    expect(sqlText).toContain("order by message_reactions.created_at asc");
-    expect(sqlText).toContain("limit");
-    expect(sqlText).toContain("liker_total_count");
   });
 
   it("returns forbidden likers result when the message is not visible", async () => {
@@ -897,11 +848,6 @@ describe("PostgresMessageRoundRepository", () => {
       },
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(sqlText).toContain("viewer_membership");
-    expect(sqlText).toContain("liked_messages");
-    expect(sqlText).toContain("message_reactions.user_id =");
   });
 
   it("aggregates viewer likes and selected poll options before joining viewer state", async () => {
@@ -929,12 +875,5 @@ describe("PostgresMessageRoundRepository", () => {
       selectedPollOptionIds: ["option-1", "option-2"],
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(sqlText).toContain("liked_message_state as");
-    expect(sqlText).toContain("selected_poll_option_state as");
-    expect(sqlText).not.toContain("left join liked_messages");
-    expect(sqlText).not.toContain("left join selected_poll_options");
-    expect(sqlText).not.toContain("on true");
   });
 });

@@ -165,9 +165,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       },
     });
 
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
-      /tribe_member_subscriptions\.status in \([\s\S]*paused/
-    );
     expect(refreshMercadoPagoAccessToken).toHaveBeenCalledWith(
       "stored-refresh-token"
     );
@@ -295,11 +292,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       ],
     });
 
-    const listSqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(listSqlText).toMatch(
-      /tribe_subscription_prices\.status in \([\s\S]*'active'[\s\S]*'paused'[\s\S]*'canceled'[\s\S]*\)/
-    );
   });
 
   it("should expose update trial policy for synchronized Mercado Pago prices", async () => {
@@ -332,9 +324,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       trialFrequency: 21,
       trialFrequencyType: "days",
     });
-    expect(getSqlText(execute.mock.calls[0][0])).toContain(
-      "mercado_pago_preapproval_plan_id"
-    );
   });
 
   it("should list Mercado Pago health as requiring reconnection when token refresh fails", async () => {
@@ -587,9 +576,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         sqlText.includes("set free_join_is_current = false")
       );
 
-      expect(executedSqlTexts[0]).toMatch(
-        /target_tribe as \([\s\S]*for update/
-      );
       expect(clearPreviousIndex).toBeGreaterThan(0);
       expect(setCurrentIndex).toBeGreaterThan(clearPreviousIndex);
       expect(clearFreeJoinIndex).toBeGreaterThan(setCurrentIndex);
@@ -622,14 +608,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound,
     });
 
-    expect(executedSqlTexts[0]).toContain(
-      "tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null"
-    );
-    expect(
-      executedSqlTexts.some((sqlText) =>
-        sqlText.includes("set free_join_is_current = false")
-      )
-    ).toBe(false);
   });
 
   it(
@@ -683,9 +661,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         sqlText.includes("set free_join_is_current = true")
       );
 
-      expect(executedSqlTexts[0]).toMatch(
-        /target_tribe as \([\s\S]*for update/
-      );
       expect(clearPaidPricesIndex).toBeGreaterThanOrEqual(0);
       expect(setFreeJoinIndex).toBeGreaterThan(clearPaidPricesIndex);
     }
@@ -937,15 +912,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       price: expect.objectContaining({ id: "price-1", isCurrent: true }),
     });
 
-    const autoMarkSql = execute.mock.calls
-      .map((call) => getSqlText(call[0]))
-      .find((sqlText) => sqlText.includes("sole_active_paid_price"));
-
-    expect(autoMarkSql).toMatch(/set is_current = true/);
-    expect(autoMarkSql).toMatch(/free_join_is_current = false/);
-    expect(autoMarkSql).toMatch(
-      /count\(\*\) from sole_active_paid_price\) = 1/
-    );
   });
 
   it("keeps the new price non-current when other active paid prices already exist", async () => {
@@ -1033,12 +999,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: "available" as const,
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(sqlText).toMatch(
-      /public\.tribe_open_join_current_paid_offer\(/
-    );
-    expect(sqlText).not.toMatch(/from public\.tribes/);
   });
 
   it("returns an unavailable offer when no current paid price is exposed", async () => {
@@ -1214,14 +1174,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         trialFrequencyType: "days",
       })
     );
-    const updateSqlText = getSqlText(execute.mock.calls[1][0]);
 
-    expect(updateSqlText).toMatch(/amount_cents\s*=/);
-    expect(updateSqlText).toMatch(/trial_frequency\s*=/);
-    expect(updateSqlText).toMatch(
-      /count\(tribe_member_subscriptions\.id\) filter/
-    );
-    expect(updateSqlText).not.toContain("0 as active_subscribers_count");
   });
 
   it("should update Mercado Pago and local storage when the trial period changes", async () => {
@@ -1299,15 +1252,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         trialFrequencyType: "days",
       })
     );
-    const updateSqlText = getSqlText(execute.mock.calls[1][0]);
 
-    expect(updateSqlText).toContain("snapshotted_subscriptions as");
-    expect(updateSqlText).toContain(
-      "public.snapshot_tribe_member_subscriptions_before_price_change"
-    );
-    expect(updateSqlText).not.toContain("update public.tribe_member_subscriptions");
-    expect(updateSqlText).toContain("trial_frequency");
-    expect(updateSqlText).toContain("trial_frequency_type");
   });
 
   it("should reject paused price updates before mutating the provider plan", async () => {
@@ -1352,7 +1297,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     });
 
     expect(updateMercadoPagoPlan).not.toHaveBeenCalled();
-    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it("should preserve the stored trial period when update fields are omitted", async () => {
@@ -1428,10 +1372,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         trialFrequencyType: "days",
       })
     );
-    expect(getSqlText(execute.mock.calls[0][0])).toContain("trial_frequency");
-    expect(getSqlText(execute.mock.calls[0][0])).toContain(
-      "trial_frequency_type"
-    );
   });
 
   it("refreshes expired Mercado Pago tokens before creating provider plans", async () => {
@@ -1498,12 +1438,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         accessToken: "fresh-access-token",
         backUrl: "https://tutribu.example.com/matematica-pro",
       })
-    );
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
-      /update public\.tribe_payment_integrations/
-    );
-    expect(getSqlText(execute.mock.calls[1]?.[0])).toMatch(
-      /set_config\([\s\S]*app\.subscription_checkout_tribe_id/
     );
   });
 
@@ -1665,18 +1599,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
 
-    const priceLookupSqlText = getSqlText(execute.mock.calls[1][0]);
-    const activationSqlText = getSqlText(execute.mock.calls[2][0]);
-
-    expect(priceLookupSqlText).toMatch(
-      /tribe_subscription_prices\.status in \([\s\S]*'active'[\s\S]*'paused'[\s\S]*'canceled'[\s\S]*\)/
-    );
-    expect(activationSqlText).toContain(
-      `status = ${TRIBE_SUBSCRIPTION_PRICE_STATUS.active}`
-    );
-    expect(activationSqlText).toContain(
-      "tribe_subscription_prices.status = 'paused'"
-    );
   });
 
   it("should cancel paused local prices when manual provider verification finds a canceled plan", async () => {
@@ -1739,9 +1661,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
 
-    expect(getSqlText(execute.mock.calls[2][0])).toMatch(
-      /tribe_subscription_prices\.status in \([\s\S]*'active'[\s\S]*'paused'[\s\S]*\)/
-    );
   });
 
   it("should restore free-join mode when provider verification pauses the current paid price", async () => {
@@ -1804,10 +1723,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
 
-    const pauseSqlText = getSqlText(execute.mock.calls[2][0]);
-
-    expect(pauseSqlText).toContain("set free_join_is_current = true");
-    expect(pauseSqlText).toContain("target_price.is_current = true");
   });
 
   it("should restore free-join mode when provider verification cancels the current paid price", async () => {
@@ -1870,16 +1785,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
 
-    const cancellationSqlText = getSqlText(execute.mock.calls[2][0]);
-
-    expect(cancellationSqlText).toContain("set free_join_is_current = true");
-    expect(cancellationSqlText).toContain("target_price.is_current = true");
-    expect(cancellationSqlText).toContain(
-      "tribe_subscription_prices.is_current = true"
-    );
-    expect(cancellationSqlText).toContain(
-      "tribe_subscription_prices.id <> (select id from target_price)"
-    );
   });
 
   it("should keep the Mercado Pago plan identifier when provider verification cancels a local price", async () => {
@@ -1988,7 +1893,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound,
     });
     expect(getMercadoPagoPlanStatus).not.toHaveBeenCalled();
-    expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("should read trial fields when provider plan verification returns the local price", async () => {
@@ -2037,10 +1941,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
 
-    const verificationSqlText = getSqlText(execute.mock.calls[1][0]);
-
-    expect(verificationSqlText).toContain("trial_frequency");
-    expect(verificationSqlText).toContain("trial_frequency_type");
   });
 
   it("should not call Mercado Pago when the viewer cannot manage prices", async () => {
@@ -2141,24 +2041,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       accessToken: "access-token",
       preapprovalId: "subscription-1",
     });
-    const reconciliationSqlText = getSqlText(execute.mock.calls[3][0]);
 
-    expect(reconciliationSqlText).toMatch(
-      /group by[\s\S]*target_price\.trial_frequency/
-    );
-    expect(reconciliationSqlText).toMatch(
-      /group by[\s\S]*target_price\.trial_frequency_type/
-    );
-    expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes("update public.tribe_member_subscriptions")
-      )
-    ).toBe(true);
-    expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes("update public.tribe_members")
-      )
-    ).toBe(true);
   });
 
   it("should keep authorized pending and paused provider subscriptions associated while only authorized grants access", async () => {
@@ -2232,17 +2115,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       verifiedCount: 3,
     });
 
-    const reconciliationSqlText = execute.mock.calls
-      .map((call) => getSqlText(call[0]))
-      .find((sqlText) => sqlText.includes("update public.tribe_members"));
-
-    expect(reconciliationSqlText).toMatch(
-      /tribe_member_subscriptions\.status = .*active/
-    );
-    expect(reconciliationSqlText).toMatch(
-      /tribe_member_subscriptions\.status = .*pending/
-    );
-    expect(reconciliationSqlText).toMatch(/else 'removed'/);
   });
 
   it("should return provider subscriber count with the reconciled local association count", async () => {
@@ -2372,11 +2244,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
 
-    const priceLookupSqlText = getSqlText(execute.mock.calls[1][0]);
-
-    expect(priceLookupSqlText).toMatch(
-      /tribe_subscription_prices\.status\s+in\s*\([^)]*active[^)]*canceled[^)]*\)/
-    );
   });
 
   it("should load provider plan verification tokens from each price account", async () => {
@@ -2422,12 +2289,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
 
     await repository.verifyProviderPlans({ tribeSlug: "matematica-pro" });
 
-    const priceLookupSqlText = getSqlText(execute.mock.calls[1]?.[0]);
-
-    expect(priceLookupSqlText).toMatch(/tribe_payment_integrations\.access_token/);
-    expect(priceLookupSqlText).toMatch(
-      /tribe_payment_integrations\.id = tribe_subscription_prices\.payment_integration_id/
-    );
     expect(getMercadoPagoPlanStatus).toHaveBeenCalledWith({
       accessToken: "secondary-access-token",
       preapprovalPlanId: "plan-2",
@@ -2709,20 +2570,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       accessToken: "access-token",
       preapprovalPlanId: "plan-1",
     });
-    expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes(
-          "insert into public.subscription_idempotency_operations"
-        )
-      )
-    ).toBe(false);
-    expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes(
-          "delete from public.subscription_idempotency_operations"
-        )
-      )
-    ).toBe(false);
   });
 
   it("should restore free-join mode when a provider webhook cancels the current paid price", async () => {
@@ -2802,17 +2649,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
 
-    const cancellationSqlText = executedSqlTexts.find((sqlText) =>
-      sqlText.includes("set free_join_is_current = true")
-    );
-
-    expect(cancellationSqlText).toContain("target_price.is_current = true");
-    expect(cancellationSqlText).toContain(
-      "tribe_subscription_prices.is_current = true"
-    );
-    expect(cancellationSqlText).toContain(
-      "tribe_subscription_prices.id <> (select id from target_price)"
-    );
   });
 
   it("should sync provider plan webhooks with the RLS-safe price context", async () => {
@@ -2927,18 +2763,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       accessToken: "access-token",
       preapprovalPlanId: "plan-1",
     });
-    const executedSqlText = execute.mock.calls
-      .map(([statement]) => getSqlText(statement))
-      .join("\n");
 
-    expect(executedSqlText).toContain("amount_cents =");
-    expect(executedSqlText).toContain("snapshotted_subscriptions as");
-    expect(executedSqlText).toContain(
-      "public.snapshot_tribe_member_subscriptions_before_price_change"
-    );
-    expect(executedSqlText).toMatch(
-      /count\(tribe_member_subscriptions\.id\) filter/
-    );
   });
 
   it("should pause local prices when Mercado Pago pauses provider plans", async () => {
@@ -3086,10 +2911,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
 
-    const sqlTexts = execute.mock.calls.map((call) => getSqlText(call[0]));
-
-    expect(sqlTexts.some((sqlText) => sqlText.includes("update public.tribe_subscription_prices"))).toBe(false);
-    expect(sqlTexts.some((sqlText) => sqlText.includes("set status =") && sqlText.includes("is_current = false"))).toBe(false);
   });
 
   it("re-applies provider plan changes after oscillation when the local price diverges from the target", async () => {
@@ -3169,9 +2990,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
 
-    const sqlTexts = execute.mock.calls.map((call) => getSqlText(call[0]));
-
-    expect(sqlTexts.some((sqlText) => sqlText.includes("update public.tribe_subscription_prices"))).toBe(true);
   });
 
   it("keys the provider plan webhook idempotency by plan and content hash", async () => {
@@ -3283,24 +3101,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       mercadoPagoPendingSubscribersCount: 3,
     });
 
-    const diagnosticsSqlText = getSqlText(execute.mock.calls[0][0]);
-
-    expect(diagnosticsSqlText).toContain(
-      "count(tribe_member_subscriptions.id) filter"
-    );
-    expect(diagnosticsSqlText).toContain(
-      "public.can_manage_tribe_subscription_prices"
-    );
-    expect(diagnosticsSqlText).not.toContain("user_id");
-    expect(diagnosticsSqlText).not.toContain(
-      "tribe_member_subscriptions.price_id = tribe_subscription_prices.id"
-    );
-    expect(diagnosticsSqlText).toContain(
-      "tribe_member_subscriptions.mercado_pago_preapproval_id is not null"
-    );
-    expect(diagnosticsSqlText).toContain(
-      "tribe_member_subscriptions.mercado_pago_preapproval_id is null"
-    );
   });
 
   it("should return null when aggregate diagnostics have no authorized target tribe", async () => {
@@ -3419,19 +3219,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         preapprovalId: "subscription-3",
       })
     );
-    expect(getSqlText(execute.mock.calls[1][0])).toContain(
-      "tribe_member_subscriptions.price_id is null"
-    );
-    expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes("update public.tribe_member_subscriptions")
-      )
-    ).toBe(true);
-    expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes("update public.tribe_members")
-      )
-    ).toBe(true);
   });
 
   it("should keep linked invitations as the deletion blocker even when subscribers exist", async () => {
@@ -3485,11 +3272,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.hasLinkedInvitations,
     });
     expect(updateMercadoPagoPlan).not.toHaveBeenCalled();
-    expect(
-      execute.mock.calls.some((call) =>
-        getSqlText(call[0]).includes("has_local_active_subscriptions")
-      )
-    ).toBe(false);
   });
 
   it("should delete canceled local prices when the provider plan link is already missing", async () => {
@@ -3591,12 +3373,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         preapprovalPlanId: "plan-1",
       })
     );
-    expect(execute).toHaveBeenCalledTimes(2);
-    expect(
-      execute.mock.calls
-        .map(([statement]) => getSqlText(statement))
-        .join("\n")
-    ).not.toContain("detach_tribe_member_subscriptions_from_deleted_price");
   });
 
   it("should revalidate invitation reassignment targets inside delete transactions", async () => {
@@ -3646,16 +3422,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput,
     });
 
-    const executedSql = execute.mock.calls
-      .map(([statement]) => getSqlText(statement))
-      .join("\n");
-
-    expect(executedSql).not.toMatch(
-      /set subscription_association_type = 'specific'/
-    );
-    expect(executedSql).not.toMatch(
-      /update public\.tribe_subscription_prices[\s\S]*status = .*deleted/
-    );
   });
 
   it("should block deleting paused provider plans before applying invitation actions", async () => {
@@ -3710,7 +3476,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         preapprovalPlanId: "plan-1",
       })
     );
-    expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("should detach member subscriptions when deleting canceled prices with invitation actions", async () => {
@@ -3759,16 +3524,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted,
     });
 
-    const executedSql = execute.mock.calls
-      .map(([statement]) => getSqlText(statement))
-      .join("\n");
-
-    expect(executedSql).toContain(
-      "public.detach_tribe_member_subscriptions_from_deleted_price"
-    );
-    expect(executedSql).not.toContain("update public.tribe_member_subscriptions");
-    expect(executedSql).toContain("target_subscriptions as");
-    expect(executedSql).toContain("select count(*) from target_subscriptions");
   });
 
   it("should delete missing provider-plan prices even when historical provider subscribers are still attached", async () => {

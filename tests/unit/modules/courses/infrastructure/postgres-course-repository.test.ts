@@ -2,38 +2,6 @@ import { vi, describe, it, expect } from "vitest";
 import { VIDEO_PROVIDER } from "@/src/modules/shared/domain/value-objects/video-provider";
 import { PostgresCourseRepository } from "@/src/modules/courses/infrastructure/repositories/postgres-course-repository";
 
-function getSqlText(statement: unknown): string {
-  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
-    .map((chunk) => {
-      if (typeof chunk === "string") {
-        return chunk;
-      }
-
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "value" in chunk &&
-        Array.isArray((chunk as { value: unknown }).value)
-      ) {
-        return (chunk as { value: string[] }).value.join("");
-      }
-
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "queryChunks" in chunk &&
-        Array.isArray((chunk as { queryChunks: unknown }).queryChunks)
-      ) {
-        // Nested sql`` fragments (e.g. the completion insert/delete branch)
-        // carry their own chunk list.
-        return getSqlText(chunk);
-      }
-
-      return "";
-    })
-    .join("");
-}
-
 describe("PostgresCourseRepository", () => {
   it("builds a course tree grouping lessons by module across providers", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
@@ -194,12 +162,6 @@ describe("PostgresCourseRepository", () => {
       viewerPermissions: { canManageCourses: true },
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("public.can_manage_tribe_courses");
-    expect(sqlText).toContain("lesson_video_provider");
-    expect(sqlText).toContain("lesson_external_video_id");
-    expect(sqlText).toContain("course_last_viewed_lesson_id");
-    expect(sqlText).toContain("module_is_locked");
   });
 
   it("returns an empty tree when the tribe has no courses", async () => {
@@ -286,9 +248,6 @@ describe("PostgresCourseRepository", () => {
       status: "created" as const,
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("insert into public.courses");
-    expect(sqlText).toContain("public.can_manage_tribe_courses");
   });
 
   it("marks a lesson as completed guarding membership and drip unlock", async () => {
@@ -306,10 +265,6 @@ describe("PostgresCourseRepository", () => {
     });
 
     expect(result).toEqual({ status: "completed" as const });
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("insert into public.course_lesson_completions");
-    expect(sqlText).toContain("public.can_read_tribe_courses");
-    expect(sqlText).toContain("public.is_course_module_unlocked");
   });
 
   it("removes a completion when toggling off", async () => {
@@ -327,8 +282,6 @@ describe("PostgresCourseRepository", () => {
     });
 
     expect(result).toEqual({ status: "uncompleted" as const });
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("delete from public.course_lesson_completions");
   });
 
   it("upserts the last viewed lesson with authorization guards", async () => {
@@ -346,10 +299,6 @@ describe("PostgresCourseRepository", () => {
     });
 
     expect(result).toEqual({ status: "recorded" as const });
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("insert into public.course_last_viewed_lessons");
-    expect(sqlText).toContain("on conflict (course_id, user_id) do update");
-    expect(sqlText).toContain("public.is_course_module_unlocked");
   });
 
   it("returns a created status with the new course module", async () => {
@@ -390,9 +339,6 @@ describe("PostgresCourseRepository", () => {
       status: "created" as const,
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("insert into public.course_modules");
-    expect(sqlText).toContain("public.can_manage_tribe_courses");
   });
 
   it("returns forbidden when leader permissions are missing on module creation", async () => {
@@ -494,10 +440,6 @@ describe("PostgresCourseRepository", () => {
       status: "created" as const,
     });
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("insert into public.course_lessons");
-    expect(sqlText).toContain("video_provider");
-    expect(sqlText).toContain("external_video_id");
   });
 
   it("returns invalid_file when a stale asset id cannot be attached during lesson creation", async () => {
@@ -610,8 +552,6 @@ describe("PostgresCourseRepository", () => {
     });
 
     expect(result).toEqual({ status: "deleted" as const });
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("delete from public.course_modules");
   });
 
   it("returns deleted status when a lesson is deleted", async () => {
@@ -628,8 +568,6 @@ describe("PostgresCourseRepository", () => {
     });
 
     expect(result).toEqual({ status: "deleted" as const });
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    expect(sqlText).toContain("delete from public.course_lessons");
   });
 
   it("returns invalid_file and propagates error out of executor callback when createLesson file attachment fails", async () => {

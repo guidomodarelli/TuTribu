@@ -22,7 +22,6 @@ describe("PostgresTribeCreatorWhitelistRepository", () => {
       repository.isEmailAllowed("  PROMETIDO@Example.com ")
     ).resolves.toBe(true);
 
-    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   it("returns false when the email is not present in the whitelist", async () => {

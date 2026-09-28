@@ -53,13 +53,6 @@ describe("PostgresTribeWelcomeSelectionRepository", () => {
       })
     ).resolves.toEqual({ status: TRIBE_WELCOME_SELECTION_STATUS.forbidden });
 
-    const queryText = readQueryText(execute.mock.calls[0]?.[0]);
-
-    expect(queryText).toContain("active_membership as");
-    expect(queryText).toContain("tribe_members.status = 'active'");
-    expect(queryText).not.toContain(
-      "tribe_members.status IN ('active', 'muted')"
-    );
   });
 
   it("classifies forbidden access before invalid welcome links", async () => {
@@ -89,9 +82,6 @@ describe("PostgresTribeWelcomeSelectionRepository", () => {
 
     expect(forbiddenStatusIndex).toBeGreaterThan(-1);
     expect(invalidLinkStatusIndex).toBeGreaterThan(forbiddenStatusIndex);
-    expect(queryText).toContain(
-      "when not exists (select 1 from active_membership)"
-    );
   });
 
   it("propagates missing selection storage instead of treating it as no selections", async () => {

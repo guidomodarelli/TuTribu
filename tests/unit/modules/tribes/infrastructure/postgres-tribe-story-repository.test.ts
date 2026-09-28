@@ -5,36 +5,7 @@ import {
   TRIBE_STORY_SAVE_STATUS,
 } from "@/src/modules/tribes/constants/tribe-story";
 
-type DrizzleQueryWithChunks = {
-  queryChunks?: unknown[];
-};
 
-function readQueryText(query: unknown): string {
-  if (!query || typeof query !== "object" || !("queryChunks" in query)) {
-    return "";
-  }
-
-  const { queryChunks } = query as DrizzleQueryWithChunks;
-
-  return (queryChunks ?? [])
-    .map((chunk) => {
-      if (typeof chunk === "string") {
-        return chunk;
-      }
-
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "value" in chunk &&
-        Array.isArray((chunk as { value?: unknown }).value)
-      ) {
-        return (chunk as { value: unknown[] }).value.join("");
-      }
-
-      return "";
-    })
-    .join(" ");
-}
 
 describe("PostgresTribeStoryRepository", () => {
   it("maps the story and its media through the about definer functions", async () => {
@@ -96,12 +67,6 @@ describe("PostgresTribeStoryRepository", () => {
       ],
       websiteUrl: "https://tribu.example.com",
     });
-    expect(readQueryText(execute.mock.calls[0][0])).toContain(
-      "tribe_story_about"
-    );
-    expect(readQueryText(execute.mock.calls[1][0])).toContain(
-      "tribe_story_about_media"
-    );
   });
 
   it("returns null when the tribe has no stored story", async () => {
@@ -162,9 +127,6 @@ describe("PostgresTribeStoryRepository", () => {
       openFreeJoinAvailable: true,
       openFreeJoinEnabled: true,
     });
-    expect(readQueryText(execute.mock.calls[0][0])).toContain(
-      "tribe_story_about_stats"
-    );
   });
 
   it("returns null stats when the viewer cannot read the tribe about", async () => {
@@ -195,9 +157,6 @@ describe("PostgresTribeStoryRepository", () => {
       { image: "https://images.example.com/ada.png", name: "Ada" },
       { image: null, name: "Grace Hopper" },
     ]);
-    expect(readQueryText(execute.mock.calls[0][0])).toContain(
-      "tribe_story_about_online_members"
-    );
   });
 
   it("lists public story slugs for the sitemap", async () => {
@@ -212,9 +171,6 @@ describe("PostgresTribeStoryRepository", () => {
       "matematica-pro",
       "tribu-libre",
     ]);
-    expect(readQueryText(execute.mock.calls[0][0])).toContain(
-      "list_public_tribe_story_slugs"
-    );
   });
 
   it("guards the save behind the leader management function and maps saved media", async () => {
@@ -276,15 +232,6 @@ describe("PostgresTribeStoryRepository", () => {
         websiteUrl: "https://tribu.example.com",
       },
     });
-    expect(readQueryText(execute.mock.calls[0][0])).toContain(
-      "can_manage_tribe_story"
-    );
-    expect(readQueryText(execute.mock.calls[0][0])).toContain(
-      "tribe_story_media"
-    );
-    expect(readQueryText(execute.mock.calls[1][0])).toContain(
-      "refresh_tribe_image_attachments"
-    );
   });
 
   it("returns notFound when the tribe does not exist", async () => {

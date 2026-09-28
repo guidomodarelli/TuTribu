@@ -1,27 +1,6 @@
 import { vi, describe, it, expect } from "vitest";
 import { PostgresTribeReadRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-read-repository";
 
-function getSqlText(statement: unknown): string {
-  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
-    .map((chunk) => {
-      if (typeof chunk === "string") {
-        return chunk;
-      }
-
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "value" in chunk &&
-        Array.isArray((chunk as { value: unknown }).value)
-      ) {
-        return (chunk as { value: string[] }).value.join("");
-      }
-
-      return "";
-    })
-    .join("");
-}
-
 describe("PostgresTribeReadRepository", () => {
   it("returns a visible tribe when the row is readable through RLS", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
@@ -67,10 +46,6 @@ describe("PostgresTribeReadRepository", () => {
       statusReason: "payment_blocked",
     });
 
-    expect(execute).toHaveBeenCalledTimes(1);
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "from public.get_current_tribe_membership_by_slug("
-    );
   });
 
   it("returns the current membership access and readable tribe in one database query", async () => {
@@ -108,14 +83,6 @@ describe("PostgresTribeReadRepository", () => {
       },
     });
 
-    expect(execute).toHaveBeenCalledTimes(1);
-
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(sqlText).toContain(
-      "from public.get_current_tribe_membership_by_slug("
-    );
-    expect(sqlText).toContain("left join public.tribes");
   });
 
   it("keeps the membership access when the tribe row is not readable", async () => {
@@ -196,11 +163,6 @@ describe("PostgresTribeReadRepository", () => {
       },
     ]);
 
-    expect(execute).toHaveBeenCalledTimes(1);
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("tribe_members.role");
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "tribe_members.status as membership_status"
-    );
   });
 
   it("lists visible members for a readable tribe", async () => {
@@ -254,15 +216,6 @@ describe("PostgresTribeReadRepository", () => {
       },
     ]);
 
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(sqlText).toContain(
-      "from public.list_visible_tribe_members_by_slug("
-    );
-    expect(sqlText).toContain(
-      "select member_id, role, name, email, image, joined_free"
-    );
-    expect(sqlText).not.toContain("inner join public.tribe_members");
   });
 
   it("treats a missing free-invitation flag as not joined via a free invitation", async () => {

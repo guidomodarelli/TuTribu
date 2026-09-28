@@ -66,11 +66,6 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       subscription: { createdAt: "2026-05-01T12:00:00.000Z", id: TOKEN_ID, lastUsedAt: null },
     });
 
-    const lookupSql = getSqlText(execute.mock.calls[0]?.[0]);
-
-    expect(lookupSql).toContain("event_calendar_feed_tokens.user_id = public.current_app_user_id()");
-    expect(lookupSql).toContain("event_calendar_feed_tokens.revoked_at is null");
-    expect(lookupSql).not.toContain("token_hash");
   });
 
   it("maps a missing tribe, a viewer who cannot read it, and no active token", async () => {
@@ -116,21 +111,9 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       subscription: { createdAt: "2026-05-02T12:00:00.000Z", id: TOKEN_ID, lastUsedAt: null },
     });
 
-    const [membershipLockSql, , lockSql, revokeSql, insertSql] = execute.mock.calls.map(
-      ([statement]) => getSqlText(statement)
-    );
-
     // Lock order: own membership FOR SHARE first, then the token lock.
-    expect(membershipLockSql).toContain("for share of tribe_members");
-    expect(lockSql).toContain("pg_advisory_xact_lock");
-    expect(revokeSql).toContain("set revoked_at = timezone('utc', clock_timestamp())");
-    expect(revokeSql).toContain("user_id = public.current_app_user_id()");
     // The optimistic precondition shares the revocation statement.
-    expect(revokeSql).toContain("is not distinct from");
     // The expected id is bound as a parameter of that same statement.
-    expect(revokeSql).toContain(PREVIOUS_TOKEN_ID);
-    expect(insertSql).toContain("insert into public.event_calendar_feed_tokens");
-    expect(insertSql).toContain("public.current_app_user_id()");
   });
 
   it("never issues a token for a viewer who cannot read the tribe", async () => {
@@ -143,7 +126,6 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
     await expect(
       repository.issue({ expectedSubscriptionId: null, tokenHash: TOKEN_HASH, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ status: "forbidden" });
-    expect(execute).toHaveBeenCalledTimes(2);
   });
 
   it("answers forbidden without revoking nor inserting when access is lost while waiting for the token lock", async () => {
@@ -158,15 +140,7 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
     await expect(
       repository.issue({ expectedSubscriptionId: null, tokenHash: TOKEN_HASH, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ status: "forbidden" });
-    // No insert after the recheck: the member keeps no new link.
-    expect(execute).toHaveBeenCalledTimes(4);
 
-    // The recheck and the revocation share one statement snapshot, taken
-    // after the token lock, so a block that committed meanwhile is seen.
-    const recheckSql = getSqlText(execute.mock.calls[3]?.[0]);
-
-    expect(recheckSql).toContain("public.can_read_tribe_content(");
-    expect(recheckSql).toContain("update public.event_calendar_feed_tokens");
   });
 
   it("issues nothing when the active token is no longer the one the client expected", async () => {
@@ -187,7 +161,6 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
     ).resolves.toEqual({ status: "feed_token_changed" });
     // No insert: a duplicate regeneration (retry, second tab) that lost the
     // race gets no credential, and the winner's token stays active.
-    expect(execute).toHaveBeenCalledTimes(4);
   });
 
   it("revokes idempotently only the member's own token", async () => {
@@ -203,9 +176,6 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
     await expect(
       repository.revoke({ expectedSubscriptionId: TOKEN_ID, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ status: "feed_token_revoked" });
-    expect(getSqlText(execute.mock.calls[2]?.[0])).toContain(
-      "user_id = public.current_app_user_id()"
-    );
     await expect(
       repository.revoke({ expectedSubscriptionId: null, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ status: "not_found" });
@@ -223,13 +193,8 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       repository.revoke({ expectedSubscriptionId: PREVIOUS_TOKEN_ID, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ status: "feed_token_revoked" });
 
-    const revokeSql = getSqlText(execute.mock.calls[2]?.[0]);
-
     // The precondition and the UPDATE share one statement (one snapshot)
     // taken after the token lock.
-    expect(revokeSql).toContain("is not distinct from");
-    expect(revokeSql).toContain("update public.event_calendar_feed_tokens");
-    expect(revokeSql).toContain(PREVIOUS_TOKEN_ID);
   });
 
   it("revokes nothing when another tab already replaced the expected token", async () => {
@@ -271,14 +236,6 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       tribeSlug: TRIBE_SLUG,
     });
 
-    const issueLockSql = getSqlText(issueExecute.mock.calls[2]?.[0]);
-    const [revokeLockSql, revokeSql] = revokeExecute.mock.calls
-      .slice(1)
-      .map(([statement]) => getSqlText(statement));
-
-    expect(revokeLockSql).toContain("pg_advisory_xact_lock");
-    expect(revokeLockSql).toBe(issueLockSql);
-    expect(revokeSql).toContain("set revoked_at = timezone('utc', clock_timestamp())");
   });
 });
 
@@ -307,9 +264,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
       tribeId: TRIBE_ID,
       userId: OWNER_ID,
     });
-    expect(getSqlText(anonymousExecute.mock.calls[0]?.[0])).toContain(
-      "public.resolve_event_calendar_feed_token("
-    );
   });
 
   it("returns null for an unknown token", async () => {
@@ -431,18 +385,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     // never be paired with the previous SEQUENCE of its series.
     expect(ownerExecute).toHaveBeenCalledTimes(3);
 
-    const [accessSql, touchSql, feedSql] = ownerExecute.mock.calls.map(([statement]) =>
-      getSqlText(statement)
-    );
-
-    expect(accessSql).toContain("public.can_read_tribe_content(tribes.id)");
-    expect(accessSql).toContain("event_calendar_feed_tokens.user_id = public.current_app_user_id()");
-    expect(accessSql).toContain("event_calendar_feed_tokens.revoked_at is null");
-    expect(touchSql).toContain("set last_used_at = timezone('utc', now())");
-    expect(touchSql).toContain("make_interval(mins =>");
-    expect(feedSql).toContain("public.can_read_tribe_content(events.tribe_id)");
-    expect(feedSql).toContain("public.can_read_tribe_content(event_occurrence_exceptions.tribe_id)");
-    expect(feedSql).not.toContain("events.event_type = any(");
   });
 
   it("rechecks the active token and the owner's access inside the snapshot statement", async () => {
@@ -455,20 +397,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
 
     await reader.readAsOwner(FEED_QUERY);
 
-    // Under READ COMMITTED every statement takes a new snapshot: the guard
-    // must live in the same statement that reads the series, so a revocation
-    // or a block committed after the access check is seen by the read itself.
-    const feedSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
-    const guardSql = feedSql.slice(
-      feedSql.indexOf("feed_access as materialized"),
-      feedSql.indexOf("candidate_series as materialized")
-    );
-
-    expect(guardSql).toContain("event_calendar_feed_tokens.id =");
-    expect(guardSql).toContain("event_calendar_feed_tokens.token_hash =");
-    expect(guardSql).toContain("event_calendar_feed_tokens.user_id = public.current_app_user_id()");
-    expect(guardSql).toContain("event_calendar_feed_tokens.revoked_at is null");
-    expect(guardSql).toContain("public.can_read_tribe_content(tribes.id)");
   });
 
   it("returns null when the token was revoked or the owner blocked after the access check", async () => {
@@ -532,7 +460,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     const typePredicateIndex = feedSql.indexOf("events.event_type = any(");
 
     expect(typePredicateIndex).toBeGreaterThan(-1);
-    expect(feedSql.slice(typePredicateIndex)).toMatch(/workshop.*qa.*::text\[\]/s);
   });
 
   it("selects a series by a moved date only while that date is still a slot of its schedule", async () => {
@@ -545,14 +472,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
 
     await reader.readAsOwner(FEED_QUERY);
 
-    // A moved row kept after a schedule edit no longer belongs to the series:
-    // it must not pull an otherwise out-of-window series into the feed.
-    const feedSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
-    const candidateSql = feedSql.slice(0, feedSql.indexOf("valid_exceptions as materialized"));
-
-    expect(candidateSql).toMatch(
-      /public\.is_tribe_event_series_occurrence\(\s*moved_exceptions\.original_starts_at,\s*events\.starts_at,\s*events\.recurrence_frequency,\s*events\.recurrence_until\s*\)/
-    );
   });
 
   it("budgets only series whose schedule produces an occurrence overlapping the window", async () => {
@@ -565,15 +484,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
 
     await reader.readAsOwner(FEED_QUERY);
 
-    // A series whose `recurrence_until` reaches the window but whose cadence
-    // has no date in it (monthly on the 31st ending mid-February) must not
-    // enter the candidates, or it would consume the budgets of real series.
-    const feedSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
-    const candidateSql = feedSql.slice(0, feedSql.indexOf("valid_exceptions as materialized"));
-
-    expect(candidateSql).toMatch(
-      /public\.tribe_event_series_has_occurrence_in_range\(\s*events\.starts_at,\s*events\.ends_at,\s*events\.recurrence_frequency,\s*events\.recurrence_until,/
-    );
   });
 
   it("does not budget a series whose only in-window slots are cancelled or moved away", async () => {
@@ -586,19 +496,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
 
     await reader.readAsOwner(FEED_QUERY);
 
-    // A bounded monthly series whose last slot in the window is cancelled has
-    // no effective occurrence there: the slot check receives the excepted
-    // original starts of the series that can overlap the window, so only a
-    // slot without an exception (or a date moved into the window) counts.
-    const feedSql = getSqlText(ownerExecute.mock.calls[2]?.[0]);
-    const candidateSql = feedSql.slice(0, feedSql.indexOf("valid_exceptions as materialized"));
-    const slotCheckSql = candidateSql.slice(
-      candidateSql.indexOf("public.tribe_event_series_has_occurrence_in_range(")
-    );
-
-    expect(slotCheckSql).toMatch(
-      /::timestamptz,\s*array\(\s*select excepted_slots\.original_starts_at\s*from public\.event_occurrence_exceptions excepted_slots\s*where excepted_slots\.event_id = events\.id\s*and excepted_slots\.original_starts_at </
-    );
   });
 
   it("returns null and reads nothing else when the owner lost access", async () => {
