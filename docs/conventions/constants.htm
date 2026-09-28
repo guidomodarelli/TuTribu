@@ -115,9 +115,9 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li>Group constants by domain ownership, not by generic technical category.</li>
   <li>Prefer <code>UPPER_CASE</code> naming for constants.</li>
   <li>Use configuration only for environment, integration, or deployment values.</li>
-  <li>oxlint already enforces objective parts of this policy such as forbidden magic behavior values and restricted imports. This document covers the structural decision criteria that still require engineering judgment.</li>
-  <li>The magic-value rules (<code>no-magic/no-magic-strings</code> and <code>no-magic-numbers</code>) run across the whole product surface: <code>app/</code>, <code>components/</code>, <code>hooks/</code>, <code>src/</code>, and <code>lib/</code>, including each module's <code>infrastructure/</code> layer.</li>
-  <li>Los componentes compartidos y sus constantes pertenecen a <code>beez-ui</code>; el producto ya no contiene <code>components/ui</code>. El esquema Drizzle (<code>**/infrastructure/database/schema.ts</code>) mantiene la excepción de <code>no-magic-strings</code> para nombres físicos de columnas y acciones referenciales declarativas. Los números con significado funcional siguen sujetos a la regla.</li>
+  <li>oxlint enforces magic numbers (<code>no-magic-numbers</code>) and restricted imports. Magic strings have no lint rule: they are reviewed with the criteria in this document.</li>
+  <li><code>no-magic-numbers</code> runs across the whole product surface: <code>app/</code>, <code>components/</code>, <code>hooks/</code>, <code>src/</code>, and <code>lib/</code>, including each module's <code>infrastructure/</code> layer.</li>
+  <li>Los componentes compartidos y sus constantes pertenecen a <code>beez-ui</code>; el producto ya no contiene <code>components/ui</code>. Los números con significado funcional del esquema Drizzle también están sujetos a <code>no-magic-numbers</code>.</li>
 </ul>
 </div>
 </body>
