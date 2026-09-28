@@ -274,24 +274,6 @@
         "lib/**/*.{ts,tsx}"
       ],
       "rules": {
-        "no-magic/no-magic-strings": [
-          "error",
-          {
-            "sinks": [
-              "track",
-              "trackEvent",
-              "sendEvent",
-              "logEvent",
-              "captureEvent",
-              "getItem",
-              "setItem",
-              "removeItem",
-              "isFeatureEnabled",
-              "isEnabled",
-              "getFlag"
-            ]
-          }
-        ],
         "no-magic-numbers": [
           "error",
           {
@@ -311,19 +293,7 @@
         "no-lint-disable/no-lint-disable": "error"
       },
       "jsPlugins": [
-        "./scripts/oxlint/no-lint-disable-plugin.mjs",
-        "eslint-plugin-no-magic"
-      ]
-    },
-    {
-      "files": [
-        "**/infrastructure/database/schema.ts"
-      ],
-      "rules": {
-        "no-magic/no-magic-strings": "off"
-      },
-      "jsPlugins": [
-        "eslint-plugin-no-magic"
+        "./scripts/oxlint/no-lint-disable-plugin.mjs"
       ]
     }
   ]

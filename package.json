@@ -73,7 +73,6 @@
     "@vitejs/plugin-react": "^6.1.1",
     "beez-rp": "^0.5.0",
     "drizzle-kit": "^0.31.10",
-    "eslint-plugin-no-magic": "^0.1.1",
     "husky": "^9.1.7",
     "ical.js": "^2.2.1",
     "jsdom": "^29.1.1",
