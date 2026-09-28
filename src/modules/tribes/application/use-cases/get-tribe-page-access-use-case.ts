@@ -66,9 +66,15 @@ export function getTribePageAccess({
   tribeReadRepository,
 }: GetTribePageAccessDependencies) {
   return async ({
+    allowWithoutCommunityAccess = false,
     isAuthenticated,
     slug,
   }: {
+    /**
+     * Surfaces of the academy free allowlist (academy pages, courses,
+     * billing) accept basic members without community access.
+     */
+    allowWithoutCommunityAccess?: boolean;
     isAuthenticated: boolean;
     slug: string;
   }): Promise<TribePageAccessResult> => {
@@ -117,12 +123,23 @@ export function getTribePageAccess({
       };
     }
 
+    const communityAccess =
+      pageAccessLookup.membershipAccess?.communityAccess ?? true;
+
+    if (!communityAccess && !allowWithoutCommunityAccess) {
+      return {
+        status: TRIBE_PAGE_ACCESS_STATUS.hidden,
+        reason: TRIBE_PAGE_ACCESS_REASON.academyAccessRequired,
+      };
+    }
+
     const tribe = pageAccessLookup.includesTribe
       ? pageAccessLookup.tribe
       : await tribeReadRepository.findBySlug(normalizedSlug);
 
     if (tribe) {
       return {
+        communityAccess,
         status: TRIBE_PAGE_ACCESS_STATUS.visible,
         tribe,
       };

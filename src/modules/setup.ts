@@ -13,6 +13,17 @@ import { PostgresTribeStoryRepository } from "./tribes/infrastructure/repositori
 import { PostgresTribeSupportRepository } from "./tribes/infrastructure/repositories/postgres-tribe-support-repository";
 import { PostgresTribeWelcomeRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-repository";
 import { PostgresTribeWelcomeSelectionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository";
+import { PostgresTribeAcademyAdmissionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-academy-admission-repository";
+import { buildProductAccessModule } from "./product-access/setup";
+import { PostgresProductAccessRepository } from "./product-access/infrastructure/repositories/postgres-product-access-repository";
+import {
+  insertAcademyGrantWithEnrollment,
+  recordAcademyAuditEvent,
+} from "./product-access/infrastructure/repositories/academy-access-sql";
+import { isAcademySalesActivationAllowed } from "./product-access/infrastructure/config/academy-sales-activation";
+import { buildMemberVerificationsModule } from "./member-verifications/setup";
+import { PostgresMemberVerificationRepository } from "./member-verifications/infrastructure/repositories/postgres-member-verification-repository";
+import { PostgresAcademySubscriptionRepository } from "./subscriptions/infrastructure/repositories/postgres-academy-subscription-repository";
 import { PostgresMessageRoundRepository } from "./messages/infrastructure/repositories/postgres-message-round-repository";
 import { PostgresTribeChannelRepository } from "./messages/infrastructure/repositories/postgres-tribe-channel-repository";
 import { PostgresMessageMutationRepository } from "./messages/infrastructure/repositories/postgres-message-mutation-repository";
@@ -50,8 +61,10 @@ import {
   getMercadoPagoPreapprovalDetails,
   getMercadoPagoPreapprovalPlan,
   getMercadoPagoPreapprovalPlanStatus,
+  getMercadoPagoAuthorizedPayment,
   getMercadoPagoPreapprovalStatus,
   refreshMercadoPagoAccessToken,
+  searchMercadoPagoAuthorizedPayments,
   updateMercadoPagoPreapprovalBackUrl,
   updateMercadoPagoPreapprovalPlan,
   updateMercadoPagoPreapprovalSubscriptionStatus,
@@ -133,6 +146,25 @@ export async function createRequestModules(
       }),
     }
   );
+  const memberVerifications = buildMemberVerificationsModule({
+    memberVerificationRepository: new PostgresMemberVerificationRepository(
+      executeWithRequestContext,
+      recordAcademyAuditEvent
+    ),
+  });
+  const academySubscriptionRepository = new PostgresAcademySubscriptionRepository(
+    executeWithRequestContext,
+    {
+      cancelPreapproval: updateMercadoPagoPreapprovalSubscriptionStatus,
+      createPreapproval: createMercadoPagoPreapprovalSubscription,
+      getAuthorizedPayment: getMercadoPagoAuthorizedPayment,
+      getPreapprovalStatus: getMercadoPagoPreapprovalStatus,
+      refreshAccessToken: refreshMercadoPagoAccessToken,
+      searchAuthorizedPayments: searchMercadoPagoAuthorizedPayments,
+    },
+    insertAcademyGrantWithEnrollment,
+    recordAcademyAuditEvent
+  );
   const messageFileRepository = new R2MessageFileRepository(
     executeWithRequestContext,
     {
@@ -145,10 +177,26 @@ export async function createRequestModules(
   );
 
   return {
+    memberVerifications,
+    productAccess: buildProductAccessModule({
+      isAcademySalesActivationAllowed,
+      now: () => new Date(),
+      ownAcademyRenewalReader: {
+        getOwnAcademyRenewalStatus: ({ tribeSlug }) =>
+          academySubscriptionRepository.getOwnRenewalStatus({ tribeSlug }),
+      },
+      ownVerificationStatesReader: {
+        listOwnVerificationStates: memberVerifications.useCases.listOwnVerificationStates,
+      },
+      productAccessRepository: new PostgresProductAccessRepository(executeWithRequestContext),
+    }),
     auth: buildAuthModule({
       authSessionRepository: new BetterAuthSessionRepository(),
     }),
     tribes: buildTribesModule({
+      tribeAcademyAdmissionRepository: new PostgresTribeAcademyAdmissionRepository(
+        executeWithRequestContext
+      ),
       tribeReadRepository: new PostgresTribeReadRepository(
         executeWithRequestContext
       ),
@@ -293,6 +341,8 @@ export async function createRequestModules(
       ),
     }),
     subscriptions: buildSubscriptionsModule({
+      academySubscriptionRepository,
+      isAcademySalesActivationAllowed,
       tribeMemberSubscriptionRepository:
         new PostgresTribeMemberSubscriptionRepository(
           executeWithRequestContext,

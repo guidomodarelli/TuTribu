@@ -38,9 +38,12 @@ import type {
 import type { LessonFileAttachmentDraft } from "@/src/modules/courses/domain/repositories/lesson-file-repository";
 import type { LessonFile } from "@/src/modules/courses/domain/entities/lesson-file";
 import {
+  COURSE_ACCESS_REQUIREMENT,
   COURSE_ENGAGEMENT_STATUS,
+  COURSE_VIEWER_ACCESS_STATUS,
   LESSON_FILE_STATUS,
 } from "@/src/modules/courses/constants/courses";
+import { normalizeCourseAccessRequirement } from "@/src/modules/courses/domain/value-objects/course-access-requirement";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 type DatabaseExecutor = <T>(
@@ -67,6 +70,7 @@ class LessonFileAttachmentConflictError extends Error {
 }
 
 type CourseRow = {
+  access_requirement: string | null;
   cover_image_url: string | null;
   description: string | null;
   id: string;
@@ -154,6 +158,9 @@ type MutationStatusOnlyRow = {
 
 type CourseTreeRow = {
   can_manage_courses: boolean | null;
+  course_access_requirement: string | null;
+  course_completed_lesson_count: number | string | null;
+  course_content_accessible: boolean | null;
   course_cover_image_url: string | null;
   course_description: string | null;
   course_id: string | null;
@@ -183,6 +190,7 @@ type CourseTreeRow = {
 
 function mapCourse(row: CourseRow): CourseResult {
   return {
+    accessRequirement: normalizeCourseAccessRequirement(row.access_requirement),
     coverImageUrl: row.cover_image_url,
     description: row.description,
     id: row.id,
@@ -379,6 +387,9 @@ function buildCourseTree(rows: CourseTreeRow[]): CourseTreeResult {
     let course = courseMap.get(row.course_id);
     if (!course) {
       course = {
+        accessRequirement: normalizeCourseAccessRequirement(
+          row.course_access_requirement
+        ),
         coverImageUrl: row.course_cover_image_url,
         description: row.course_description,
         id: row.course_id,
@@ -387,6 +398,13 @@ function buildCourseTree(rows: CourseTreeRow[]): CourseTreeResult {
         modules: [],
         sortOrder: row.course_sort_order ?? 0,
         title: row.course_title ?? "",
+        viewerAccess: {
+          completedLessonCount: Number(row.course_completed_lesson_count ?? 0),
+          status:
+            row.course_content_accessible === false
+              ? COURSE_VIEWER_ACCESS_STATUS.academyRequired
+              : COURSE_VIEWER_ACCESS_STATUS.available,
+        },
       };
       courseMap.set(row.course_id, course);
       courseOrder.push(row.course_id);
@@ -469,6 +487,7 @@ export class PostgresCourseRepository implements CourseRepository {
             cover_image_url,
             sort_order,
             is_active,
+            access_requirement,
             created_at,
             updated_at
           )
@@ -479,11 +498,12 @@ export class PostgresCourseRepository implements CourseRepository {
             ${command.coverImageUrl},
             ${command.sortOrder},
             true,
+            ${command.accessRequirement},
             timezone('utc', now()),
             timezone('utc', now())
           from target_tribe
           where public.can_manage_tribe_courses(target_tribe.id)
-          returning id, title, description, cover_image_url, sort_order, is_active
+          returning id, title, description, cover_image_url, sort_order, is_active, access_requirement
         )
         select
           case
@@ -496,7 +516,8 @@ export class PostgresCourseRepository implements CourseRepository {
           inserted_course.description,
           inserted_course.cover_image_url,
           inserted_course.sort_order,
-          inserted_course.is_active
+          inserted_course.is_active,
+          inserted_course.access_requirement
         from (select 1) result
         left join inserted_course
           on true
@@ -533,12 +554,13 @@ export class PostgresCourseRepository implements CourseRepository {
             cover_image_url = ${command.coverImageUrl},
             sort_order = ${command.sortOrder},
             is_active = ${command.isActive},
+            access_requirement = coalesce(${command.accessRequirement}, courses.access_requirement),
             updated_at = timezone('utc', now())
           from target_tribe
           where courses.id = ${command.courseId}
             and courses.tribe_id = target_tribe.id
             and public.can_manage_tribe_courses(target_tribe.id)
-          returning courses.id, courses.title, courses.description, courses.cover_image_url, courses.sort_order, courses.is_active
+          returning courses.id, courses.title, courses.description, courses.cover_image_url, courses.sort_order, courses.is_active, courses.access_requirement
         )
         select
           case
@@ -552,7 +574,8 @@ export class PostgresCourseRepository implements CourseRepository {
           updated_course.description,
           updated_course.cover_image_url,
           updated_course.sort_order,
-          updated_course.is_active
+          updated_course.is_active,
+          updated_course.access_requirement
         from (select 1) result
         left join updated_course
           on true
@@ -1269,15 +1292,24 @@ export class PostgresCourseRepository implements CourseRepository {
           select coalesce(public.can_manage_tribe_courses((select id from target_tribe)), false) as can_manage_courses
         ),
         membership as (
-          select tribe_members.created_at as joined_at
+          select
+            tribe_members.created_at as joined_at,
+            member_product_enrollments.first_activated_at as academy_activated_at
           from public.tribe_members
           inner join target_tribe
             on target_tribe.id = tribe_members.tribe_id
+          left join public.member_product_enrollments
+            on member_product_enrollments.tribe_id = tribe_members.tribe_id
+            and member_product_enrollments.user_id = tribe_members.user_id
+            and member_product_enrollments.product_key = ${COURSE_ACCESS_REQUIREMENT.academy}
           where tribe_members.user_id = (select user_id from viewer)
             and tribe_members.status in ('active', 'muted')
           limit 1
         ),
         course_rows as (
+          -- The runtime role bypasses RLS: only readable memberships (or the
+          -- course manager) see the catalog, and course content is resolved
+          -- per course with can_read_course_content (academy requirement).
           select
             courses.id,
             courses.title,
@@ -1285,13 +1317,26 @@ export class PostgresCourseRepository implements CourseRepository {
             courses.cover_image_url,
             courses.sort_order,
             courses.is_active,
-            courses.created_at
+            courses.access_requirement,
+            courses.created_at,
+            public.can_read_course_content(courses.id) as content_accessible,
+            (
+              courses.access_requirement = ${COURSE_ACCESS_REQUIREMENT.academy}
+              and public.tribe_uses_academy_access(courses.tribe_id)
+            ) as drips_from_academy_activation
           from public.courses
           inner join target_tribe
             on target_tribe.id = courses.tribe_id
-          where ${includeInactive} or courses.is_active = true
+          where (${includeInactive} or courses.is_active = true)
+            and (
+              public.can_read_tribe_courses(target_tribe.id)
+              or (select can_manage_courses from viewer_permissions)
+            )
         ),
-        module_rows as (
+        module_origin as (
+          -- Drip origin: academy courses start at the first academy activation,
+          -- basic courses at the membership creation. Modules of a course whose
+          -- content the viewer cannot read are never selected.
           select
             course_modules.id,
             course_modules.course_id,
@@ -1301,27 +1346,44 @@ export class PostgresCourseRepository implements CourseRepository {
             course_modules.is_active,
             course_modules.created_at,
             case
+              when course_rows.drips_from_academy_activation
+                then (select academy_activated_at from membership)
+              else (select joined_at from membership)
+            end as drip_origin
+          from public.course_modules
+          inner join course_rows
+            on course_rows.id = course_modules.course_id
+            and course_rows.content_accessible = true
+          where ${includeInactive} or course_modules.is_active = true
+        ),
+        module_rows as (
+          select
+            module_origin.id,
+            module_origin.course_id,
+            module_origin.title,
+            module_origin.sort_order,
+            module_origin.unlock_after_days,
+            module_origin.is_active,
+            module_origin.created_at,
+            case
               when (select can_manage_courses from viewer_permissions) then false
-              when course_modules.unlock_after_days is null then false
-              when (select joined_at from membership) is null then true
-              when (select joined_at from membership)
-                + make_interval(days => course_modules.unlock_after_days)
+              when module_origin.unlock_after_days is null then false
+              when module_origin.drip_origin is null then true
+              when module_origin.drip_origin
+                + make_interval(days => module_origin.unlock_after_days)
                 <= timezone('utc', now()) then false
               else true
             end as is_locked,
             case
-              when course_modules.unlock_after_days is null then null
-              when (select joined_at from membership) is null then null
+              when module_origin.unlock_after_days is null then null
+              when module_origin.drip_origin is null then null
               else to_char(
-                ((select joined_at from membership)
-                  + make_interval(days => course_modules.unlock_after_days)) at time zone 'utc',
+                (module_origin.drip_origin
+                  + make_interval(days => module_origin.unlock_after_days)) at time zone 'utc',
                 'YYYY-MM-DD"T"HH24:MI:SS"Z"'
               )
             end as unlocks_at
-          from public.course_modules
-          inner join target_tribe
-            on target_tribe.id = course_modules.tribe_id
-          where ${includeInactive} or course_modules.is_active = true
+          from module_origin
         ),
         lesson_rows as (
           select
@@ -1351,9 +1413,26 @@ export class PostgresCourseRepository implements CourseRepository {
             course_last_viewed_lessons.course_id,
             course_last_viewed_lessons.lesson_id
           from public.course_last_viewed_lessons
-          inner join target_tribe
-            on target_tribe.id = course_last_viewed_lessons.tribe_id
+          inner join course_rows
+            on course_rows.id = course_last_viewed_lessons.course_id
+            and course_rows.content_accessible = true
           where course_last_viewed_lessons.user_id = (select user_id from viewer)
+        ),
+        viewer_course_progress as (
+          -- Own progress summary stays readable after access ends (only a
+          -- count, never lesson content).
+          select
+            course_modules.course_id,
+            count(*)::int as completed_lesson_count
+          from public.course_lesson_completions
+          inner join public.course_lessons
+            on course_lessons.id = course_lesson_completions.lesson_id
+          inner join public.course_modules
+            on course_modules.id = course_lessons.course_module_id
+          inner join target_tribe
+            on target_tribe.id = course_lesson_completions.tribe_id
+          where course_lesson_completions.user_id = (select user_id from viewer)
+          group by course_modules.course_id
         )
         select
           viewer_permissions.can_manage_courses,
@@ -1363,6 +1442,9 @@ export class PostgresCourseRepository implements CourseRepository {
           course_rows.cover_image_url    as course_cover_image_url,
           course_rows.sort_order         as course_sort_order,
           course_rows.is_active          as course_is_active,
+          course_rows.access_requirement as course_access_requirement,
+          course_rows.content_accessible as course_content_accessible,
+          coalesce(viewer_course_progress.completed_lesson_count, 0) as course_completed_lesson_count,
           viewer_last_viewed.lesson_id   as course_last_viewed_lesson_id,
           module_rows.id                 as module_id,
           module_rows.course_id          as module_course_id,
@@ -1387,6 +1469,8 @@ export class PostgresCourseRepository implements CourseRepository {
           on true
         left join viewer_last_viewed
           on viewer_last_viewed.course_id = course_rows.id
+        left join viewer_course_progress
+          on viewer_course_progress.course_id = course_rows.id
         left join module_rows
           on module_rows.course_id = course_rows.id
         left join lesson_rows

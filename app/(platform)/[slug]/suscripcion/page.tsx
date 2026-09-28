@@ -83,6 +83,8 @@ export default async function TribeSubscriptionPage({
 }) {
   const { slug } = await params;
   const access = await resolveTribePageAccess({
+    // Billing stays reachable so every member can manage their own charges.
+    allowWithoutCommunityAccess: true,
     operation: SUBSCRIPTION_PAGE_LOG.operation,
     slug,
   }).catch(() => {

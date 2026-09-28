@@ -616,6 +616,9 @@ export class R2MessageFileRepository implements MessageFileRepository {
           on tribes.id = message_files.tribe_id
         where message_files.id = ${command.assetId}
           and tribes.slug = ${command.tribeSlug}
+          -- The runtime role bypasses RLS: repeat the read rule (membership
+          -- plus the academy community boundary) before signing a URL.
+          and public.can_read_tribe_content(tribes.id)
           and (
             message_files.status = ${MESSAGE_FILE_STATUS.attached}
             or (

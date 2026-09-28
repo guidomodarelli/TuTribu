@@ -39,6 +39,8 @@ import {
   saveTribeStory,
 } from "@/src/modules/tribes/application/use-cases/manage-tribe-story-use-cases";
 import { joinTribeFree } from "@/src/modules/tribes/application/use-cases/join-tribe-free-use-case";
+import { joinTribeAcademyAdmission } from "@/src/modules/tribes/application/use-cases/join-tribe-academy-admission-use-case";
+import type { TribeAcademyAdmissionRepository } from "@/src/modules/tribes/domain/repositories/tribe-academy-admission-repository";
 import { touchTribePresence } from "@/src/modules/tribes/application/use-cases/manage-tribe-presence-use-cases";
 import {
   cleanupOrphanTribeImages,
@@ -63,6 +65,7 @@ import type { TribeWelcomeRepository } from "@/src/modules/tribes/domain/reposit
 import type { TribeWelcomeSelectionRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-selection-repository";
 
 type TribesModuleDependencies = {
+  tribeAcademyAdmissionRepository: TribeAcademyAdmissionRepository;
   tribeReadRepository: TribeReadRepository;
   tribeCreationRepository: TribeCreationRepository;
   tribeCreatorWhitelistRepository: TribeCreatorWhitelistRepository;
@@ -78,6 +81,7 @@ type TribesModuleDependencies = {
 };
 
 export function buildTribesModule({
+  tribeAcademyAdmissionRepository,
   tribeReadRepository,
   tribeCreationRepository,
   tribeCreatorWhitelistRepository,
@@ -93,6 +97,9 @@ export function buildTribesModule({
 }: TribesModuleDependencies) {
   return {
     useCases: {
+      joinTribeAcademyAdmission: joinTribeAcademyAdmission({
+        tribeAcademyAdmissionRepository,
+      }),
       createTribe: createTribe({
         tribeCreatorWhitelistRepository,
         tribeCreationRepository,

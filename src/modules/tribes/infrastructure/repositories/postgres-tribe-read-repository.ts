@@ -52,6 +52,7 @@ type PostgresTribeMemberRow = {
 };
 
 type PostgresMembershipAccessRow = {
+  community_access?: boolean | null;
   status: string | null;
   status_reason: string | null;
 };
@@ -188,6 +189,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
         select
           membership_access.status,
           membership_access.status_reason,
+          coalesce(public.can_access_tribe_community(tribes.id), false) as community_access,
           tribes.id,
           tribes.name,
           tribes.slug,
@@ -208,6 +210,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
 
       return {
         membershipAccess: {
+          communityAccess: data.community_access === true,
           status,
           statusReason: normalizeMembershipStatusReason(data.status_reason),
         },
@@ -221,8 +224,13 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
   ): Promise<TribeMembershipAccess | null> {
     return this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        select status, status_reason
-        from public.get_current_tribe_membership_by_slug(${slug})
+        select
+          membership_access.status,
+          membership_access.status_reason,
+          coalesce(public.can_access_tribe_community(tribes.id), false) as community_access
+        from public.get_current_tribe_membership_by_slug(${slug}) as membership_access
+        left join public.tribes
+          on tribes.slug = ${slug}
       `);
       const data = (result.rows?.[0] ?? null) as PostgresMembershipAccessRow | null;
       const status = normalizeMembershipStatus(data?.status ?? null);
@@ -232,6 +240,7 @@ export class PostgresTribeReadRepository implements TribeReadRepository {
       }
 
       return {
+        communityAccess: data?.community_access === true,
         status,
         statusReason: normalizeMembershipStatusReason(data?.status_reason ?? null),
       };

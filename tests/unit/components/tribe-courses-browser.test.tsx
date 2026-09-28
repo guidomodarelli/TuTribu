@@ -40,11 +40,13 @@ function buildCourse(
   const moduleId = `${courseId}-module`;
 
   return {
+    accessRequirement: "membership",
     coverImageUrl: null,
     description: null,
     id: courseId,
     isActive: true,
     lastViewedLessonId: null,
+    viewerAccess: { completedLessonCount: 0, status: "available" },
     modules: [
       {
         courseId,

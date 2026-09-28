@@ -35,6 +35,9 @@ export default async function TribeCoursesPage({
   ]);
   const { authenticatedMember, logger, modules, tribe } =
     await resolveVisibleTribePageAccess({
+      // Courses are in the academy free allowlist: each course applies its
+      // own access requirement in the repository.
+      allowWithoutCommunityAccess: true,
       // Keeps the open course and lesson so sign-in returns to the same view.
       callbackPath: buildTribeCoursesRoute(slug, {
         courseId: resolvedSearchParams?.curso,

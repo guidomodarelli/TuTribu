@@ -106,5 +106,17 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="callout c-ok">Validado en rama efímera de Neon: tres conversiones concurrentes de la misma ocurrencia en el mismo curso producen una sola lección (<code>created</code>, <code>existing</code>, <code>existing</code>) y un guardián recibe <code>forbidden</code>.</div>
 </div>
 
+<div class="section">
+  <div class="section-num">06</div>
+  <div class="section-title">Requisito de acceso por curso (academia)</div>
+<p><code>courses.access_requirement</code> vale <code>membership</code> (por defecto) o <code>academy</code> y solo tiene efecto cuando la tribu funciona en modo academia. <code>can_read_course_content(course_id)</code> suma al permiso de lectura la concesión vigente de academia (o la gestión de cursos del líder activo), y <code>can_read_course_lesson(lesson_id)</code> la combina con lección y módulo activos y drip.</p>
+<ul>
+  <li><code>readCourseTree</code> ahora exige membresía legible o permiso de gestión, y los cursos de academia sin acceso llegan como metadatos (<code>viewerAccess.status = academy_required</code>, lecciones completadas propias) sin módulos, lecciones, videos, archivos ni última lección.</li>
+  <li><code>is_course_module_unlocked</code> exige un curso legible y, para cursos de academia, toma el origen del drip de <code>member_product_enrollments.first_activated_at</code>.</li>
+  <li>Las policies de módulos, lecciones, completados, última lección, comentarios y archivos usan esas funciones; los repositorios repiten la regla (el runtime elude RLS), incluida la descarga firmada de archivos de lección.</li>
+  <li>Los comentarios de cursos exigen <code>has_active_tribe_membership</code> (membresía activa, sin el límite comunitario) más la lección legible, así los cursos básicos siguen comentables en modo academia y los silenciados no publican.</li>
+</ul>
+<p>Detalles del modelo de acceso: <a href="academy-access.htm">academy-access.htm</a>.</p>
+</div>
 </body>
 </html>

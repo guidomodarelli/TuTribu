@@ -100,6 +100,8 @@ describe("PostgresCourseRepository", () => {
     expect(result).toEqual({
       courses: [
         {
+          // Rows without the new columns keep the historical requirement.
+          accessRequirement: "membership",
           coverImageUrl: null,
           description: "Curso base",
           id: "c1",
@@ -157,6 +159,7 @@ describe("PostgresCourseRepository", () => {
           ],
           sortOrder: 0,
           title: "Inversiones",
+          viewerAccess: { completedLessonCount: 0, status: "available" },
         },
       ],
       viewerPermissions: { canManageCourses: true },
@@ -217,6 +220,7 @@ describe("PostgresCourseRepository", () => {
           description: "Curso base",
           id: "c1",
           is_active: true,
+          access_requirement: "academy",
           sort_order: 0,
           status: "created" as const,
           title: "Inversiones",
@@ -228,6 +232,7 @@ describe("PostgresCourseRepository", () => {
     );
 
     const result = await repository.createCourse({
+      accessRequirement: "academy",
       coverImageUrl: "https://example.com/portada.jpg",
       description: "Curso base",
       sortOrder: 0,
@@ -237,6 +242,7 @@ describe("PostgresCourseRepository", () => {
 
     expect(result).toEqual({
       course: {
+        accessRequirement: "academy",
         coverImageUrl: "https://example.com/portada.jpg",
         description: "Curso base",
         id: "c1",

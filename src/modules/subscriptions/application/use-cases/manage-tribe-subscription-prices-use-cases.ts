@@ -13,6 +13,8 @@ import {
   TRIBE_SUBSCRIPTION_TRIAL_MAXIMUM_DAYS,
   TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
   TRIBE_SUBSCRIPTION_TRIAL_MINIMUM_DAYS,
+  TRIBE_SUBSCRIPTION_PRODUCT_KEY,
+  type TribeSubscriptionProductKey,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
   CreateTribeSubscriptionPriceCommand,
@@ -35,12 +37,17 @@ type CreateTribeSubscriptionPriceInput = {
   amount: string;
   name: string;
   paymentIntegrationId?: string;
+  /** Raw product: `membership` (default) or `academy`. */
+  productKey?: string;
   trialFrequency?: string;
   trialFrequencyType?: string;
   tribeSlug: string;
 };
 
-type UpdateTribeSubscriptionPriceInput = CreateTribeSubscriptionPriceInput & {
+type UpdateTribeSubscriptionPriceInput = Omit<
+  CreateTribeSubscriptionPriceInput,
+  "productKey"
+> & {
   priceId: string;
 };
 
@@ -275,6 +282,23 @@ function toRepositoryUpdateCommand(
  * @param input - Raw price creation input from the route or UI.
  * @returns Normalized command, or null when user input is invalid.
  */
+/**
+ * Parses the product of a new price; omitted means the historical membership.
+ *
+ * @param value - Raw product key.
+ * @returns Product key, or null when invalid.
+ */
+function parseProductKey(value: string | undefined): TribeSubscriptionProductKey | null {
+  if (value === undefined || value === "") {
+    return TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership;
+  }
+
+  return value === TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy ||
+    value === TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership
+    ? value
+    : null;
+}
+
 function buildCreateCommand(
   input: CreateTribeSubscriptionPriceInput
 ): CreateTribeSubscriptionPriceCommand | null {
@@ -283,8 +307,18 @@ function buildCreateCommand(
   const paymentIntegrationId = normalizeUuid(input.paymentIntegrationId);
   const trialPeriod = parseTrialPeriod(input);
   const tribeSlug = normalizeText(input.tribeSlug);
+  const productKey = parseProductKey(input.productKey);
 
-  if (!amountCents || !name || !paymentIntegrationId || !trialPeriod || !tribeSlug) {
+  if (
+    !amountCents ||
+    !name ||
+    !paymentIntegrationId ||
+    !trialPeriod ||
+    !tribeSlug ||
+    !productKey ||
+    // Academy billing is monthly without free trials in this release.
+    (productKey === TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy && trialPeriod.trialFrequency !== null)
+  ) {
     return null;
   }
 
@@ -294,6 +328,7 @@ function buildCreateCommand(
     frequency: TRIBE_SUBSCRIPTION_FREQUENCY.monthly,
     name,
     paymentIntegrationId,
+    productKey,
     ...trialPeriod,
     tribeSlug,
   };

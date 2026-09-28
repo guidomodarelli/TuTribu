@@ -185,6 +185,8 @@ export class PostgresTribeChannelRepository implements TribeChannelRepository {
           select tribes.id
           from public.tribes
           where tribes.slug = ${tribeSlug}
+            -- The runtime role bypasses RLS: repeat the read rule here.
+            and public.can_read_tribe_content(tribes.id)
           limit 1
         )
         select

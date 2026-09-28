@@ -18,6 +18,7 @@ const PRICE_ROUTE_FIELD = {
   amount: "amount",
   name: "name",
   paymentIntegrationId: "paymentIntegrationId",
+  productKey: "productKey",
   trialFrequency: "trialFrequency",
   trialFrequencyType: "trialFrequencyType",
 } as const;
@@ -345,6 +346,7 @@ export async function POST(
         body,
         PRICE_ROUTE_FIELD.paymentIntegrationId
       ),
+      productKey: readOptionalStringField(body, PRICE_ROUTE_FIELD.productKey),
       trialFrequency: readOptionalStringField(
         body,
         PRICE_ROUTE_FIELD.trialFrequency

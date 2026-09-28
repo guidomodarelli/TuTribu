@@ -50,6 +50,7 @@ export const COURSE_ROUTE_RESPONSE = {
 } as const;
 
 export const COURSE_ROUTE_FIELD = {
+  accessRequirement: "accessRequirement",
   assetId: "assetId",
   completed: "completed",
   content: "content",
@@ -103,6 +104,22 @@ export function readStringField(body: unknown, field: string): string {
 
   const value = (body as Record<string, unknown>)[field];
   return typeof value === "string" ? value : "";
+}
+
+/**
+ * Reads a field that may be omitted. The use case validates its value, and
+ * `undefined` means "not sent" (keep the stored value on update).
+ *
+ * @param body - Parsed request body.
+ * @param field - Field name.
+ * @returns The raw value, or undefined when absent.
+ */
+export function readOptionalField(body: unknown, field: string): unknown {
+  if (!body || typeof body !== "object" || !(field in body)) {
+    return undefined;
+  }
+
+  return (body as Record<string, unknown>)[field];
 }
 
 export function readNumberField(body: unknown, field: string): number {

@@ -10,6 +10,7 @@ import {
   createJsonResponse,
   mapMutationStatusResponse,
   readNumberField,
+  readOptionalField,
   readStringField,
 } from "./route-helpers";
 
@@ -38,6 +39,7 @@ export async function POST(
   try {
     const body = await request.json().catch(() => null);
     const result = await modules.courses.useCases.createCourse({
+      accessRequirement: readOptionalField(body, COURSE_ROUTE_FIELD.accessRequirement),
       coverImageUrl: readStringField(body, COURSE_ROUTE_FIELD.coverImageUrl),
       description: readStringField(body, COURSE_ROUTE_FIELD.description),
       sortOrder: readNumberField(body, COURSE_ROUTE_FIELD.sortOrder),

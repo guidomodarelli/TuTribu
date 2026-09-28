@@ -134,6 +134,8 @@ export default async function TribeHistoryPage({
 }) {
   const { slug } = await params;
   const access = await resolveTribePageAccess({
+    // The public story stays visible to basic academy members.
+    allowWithoutCommunityAccess: true,
     operation: TRIBE_STORY_PAGE.operation,
     slug,
   }).catch(() => {

@@ -11,11 +11,13 @@ function buildCourse(
   overrides: Partial<CourseWithModulesResult> = {}
 ): CourseWithModulesResult {
   return {
+    accessRequirement: "membership",
     coverImageUrl: null,
     description: null,
     id: "course-1",
     isActive: true,
     lastViewedLessonId: null,
+    viewerAccess: { completedLessonCount: 0, status: "available" },
     modules: [],
     sortOrder: 0,
     title: "Inversiones",

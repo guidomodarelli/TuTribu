@@ -7,9 +7,13 @@ import { toast, Button, Input, Switch, AnimatedCollapse, AnimatedListItem, cn } 
 import { Link } from "@/components/navigation/link";
 import { ROUTES } from "@/src/constants/routes";
 import {
+  COURSE_ACCESS_REQUIREMENT,
   COURSE_DESCRIPTION,
   COURSE_TITLE,
+  COURSE_VIEWER_ACCESS_STATUS,
+  type CourseAccessRequirement,
 } from "@/src/modules/courses/constants/courses";
+import { normalizeCourseAccessRequirement } from "@/src/modules/courses/domain/value-objects/course-access-requirement";
 import type {
   CourseResult,
   CourseWithModulesResult,
@@ -17,6 +21,10 @@ import type {
 import styles from "./styles.module.scss";
 
 const CATALOG_MANAGEMENT_COPY = {
+  academyBadge: "Academia",
+  academyRequirementHint:
+    "Solo aplica cuando la tribu funciona en modo academia. En modo clásico todos los integrantes siguen viendo el curso.",
+  academyRequirementLabel: "Requiere academia",
   activeLabel: "Activo",
   backLink: "Ver vista pública",
   cancelButton: "Cancelar",
@@ -160,6 +168,9 @@ function readCourseFromResponse(payload: unknown): CourseResult | null {
     return null;
   }
   return {
+    accessRequirement: normalizeCourseAccessRequirement(
+      typeof entry.accessRequirement === "string" ? entry.accessRequirement : null
+    ),
     coverImageUrl:
       typeof entry.coverImageUrl === "string" ? entry.coverImageUrl : null,
     description:
@@ -172,6 +183,7 @@ function readCourseFromResponse(payload: unknown): CourseResult | null {
 }
 
 type CourseFormState = {
+  accessRequirement: CourseAccessRequirement;
   coverImageUrl: string;
   description: string;
   isActive: boolean;
@@ -192,11 +204,17 @@ function sortCourses(
   );
 }
 
+const MANAGER_VIEWER_ACCESS = {
+  completedLessonCount: 0,
+  status: COURSE_VIEWER_ACCESS_STATUS.available,
+} as const;
+
 function toCourseWithModules(course: CourseResult): CourseWithModulesResult {
   return {
     ...course,
     lastViewedLessonId: null,
     modules: [],
+    viewerAccess: MANAGER_VIEWER_ACCESS,
   };
 }
 
@@ -282,6 +300,7 @@ export function TribeCoursesCatalogManagement({
   const submitNewCourse = async (form: CourseFormState) => {
     const optimisticId = generateOptimisticId();
     const optimisticCourse: CourseWithModulesResult = {
+      accessRequirement: form.accessRequirement,
       coverImageUrl: form.coverImageUrl || null,
       description: form.description || null,
       id: optimisticId,
@@ -290,6 +309,7 @@ export function TribeCoursesCatalogManagement({
       modules: [],
       sortOrder: form.sortOrder,
       title: form.title,
+      viewerAccess: MANAGER_VIEWER_ACCESS,
     };
     setCourses((current) => sortCourses([...current, optimisticCourse]));
     markCoursePending(optimisticId);
@@ -297,6 +317,7 @@ export function TribeCoursesCatalogManagement({
     try {
       const response = await fetch(buildCoursesApiUrl(tribeSlug), {
         body: JSON.stringify({
+          accessRequirement: form.accessRequirement,
           coverImageUrl: form.coverImageUrl,
           description: form.description,
           sortOrder: form.sortOrder,
@@ -363,6 +384,7 @@ export function TribeCoursesCatalogManagement({
           course.id === courseId
             ? {
                 ...course,
+                accessRequirement: form.accessRequirement,
                 coverImageUrl: form.coverImageUrl || null,
                 description: form.description || null,
                 isActive: form.isActive,
@@ -378,6 +400,7 @@ export function TribeCoursesCatalogManagement({
     try {
       const response = await fetch(buildCourseApiUrl(tribeSlug, courseId), {
         body: JSON.stringify({
+          accessRequirement: form.accessRequirement,
           coverImageUrl: form.coverImageUrl,
           description: form.description,
           isActive: form.isActive,
@@ -500,6 +523,7 @@ export function TribeCoursesCatalogManagement({
         <CourseForm
           headingLabel={CATALOG_MANAGEMENT_COPY.createCourseHeading}
           initialState={{
+            accessRequirement: COURSE_ACCESS_REQUIREMENT.membership,
             coverImageUrl: "",
             description: "",
             isActive: true,
@@ -539,6 +563,7 @@ export function TribeCoursesCatalogManagement({
                   <CourseForm
                     headingLabel={`${EDIT_HEADING_PREFIX}${course.title}`}
                     initialState={{
+                      accessRequirement: course.accessRequirement,
                       coverImageUrl: course.coverImageUrl ?? "",
                       description: course.description ?? "",
                       isActive: course.isActive,
@@ -561,6 +586,16 @@ export function TribeCoursesCatalogManagement({
                             }
                           >
                             {CATALOG_MANAGEMENT_COPY.inactiveBadge}
+                          </span>
+                        ) : null}
+                        {course.accessRequirement ===
+                        COURSE_ACCESS_REQUIREMENT.academy ? (
+                          <span
+                            className={
+                              styles.TribeCoursesCatalogManagement__inactiveBadge
+                            }
+                          >
+                            {CATALOG_MANAGEMENT_COPY.academyBadge}
                           </span>
                         ) : null}
                         {isCoursePending ? (
@@ -664,6 +699,10 @@ function CourseForm({
   );
   const [sortOrder, setSortOrder] = useState(initialState.sortOrder);
   const [isActive, setIsActive] = useState(initialState.isActive);
+  const [accessRequirement, setAccessRequirement] = useState(
+    initialState.accessRequirement
+  );
+  const academyHintId = useId();
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Guards against a second submit landing before the disabled state renders.
   const isSubmittingRef = useRef(false);
@@ -691,6 +730,7 @@ function CourseForm({
     setIsSubmitting(true);
     try {
       await onSubmit({
+        accessRequirement,
         coverImageUrl: coverImageUrl.trim(),
         description,
         isActive,
@@ -780,6 +820,26 @@ function CourseForm({
           <span>{CATALOG_MANAGEMENT_COPY.activeLabel}</span>
         </label>
       ) : null}
+      <label className={styles.TribeCoursesCatalogManagement__formSwitch}>
+        <Switch
+          aria-describedby={academyHintId}
+          checked={accessRequirement === COURSE_ACCESS_REQUIREMENT.academy}
+          onCheckedChange={(checked) =>
+            setAccessRequirement(
+              checked
+                ? COURSE_ACCESS_REQUIREMENT.academy
+                : COURSE_ACCESS_REQUIREMENT.membership
+            )
+          }
+        />
+        <span>{CATALOG_MANAGEMENT_COPY.academyRequirementLabel}</span>
+      </label>
+      <p
+        className={styles.TribeCoursesCatalogManagement__courseMeta}
+        id={academyHintId}
+      >
+        {CATALOG_MANAGEMENT_COPY.academyRequirementHint}
+      </p>
       <div className={styles.TribeCoursesCatalogManagement__formActions}>
         <Button
           aria-busy={isSubmitting || undefined}

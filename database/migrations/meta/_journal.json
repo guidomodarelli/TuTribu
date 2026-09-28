@@ -659,6 +659,48 @@
       "when": 1790274000000,
       "tag": "20260927123000_add_course_lesson_event_source",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1790277600000,
+      "tag": "20260928120000_create_academy_access_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1790281200000,
+      "tag": "20260928121000_create_member_verifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1790284800000,
+      "tag": "20260928122000_add_course_access_requirement",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1790288400000,
+      "tag": "20260928123000_add_subscription_product_key_and_payment_periods",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1790292000000,
+      "tag": "20260928124000_scope_legacy_join_paths_by_product",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1790295600000,
+      "tag": "20260928125000_create_academy_cutover_procedures",
+      "breakpoints": true
     }
   ]
 }

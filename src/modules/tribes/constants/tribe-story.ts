@@ -20,3 +20,6 @@ export const TRIBE_FREE_JOIN_STATUS = {
   forbidden: "forbidden",
   joined: "joined",
 } as const;
+
+/** `tribe_members.joined_via` of the basic academy admission. */
+export const TRIBE_MEMBER_ACADEMY_ADMISSION_SOURCE = "academy_admission";

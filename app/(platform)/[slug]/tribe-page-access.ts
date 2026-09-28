@@ -3,7 +3,11 @@ import { notFound, redirect } from "next/navigation";
 
 import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
-import { TRIBE_PAGE_ACCESS_STATUS } from "@/src/modules/tribes/application/results/tribe-page-access-result";
+import { ROUTES } from "@/src/constants/routes";
+import {
+  TRIBE_PAGE_ACCESS_REASON,
+  TRIBE_PAGE_ACCESS_STATUS,
+} from "@/src/modules/tribes/application/results/tribe-page-access-result";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
@@ -19,6 +23,11 @@ const TRIBE_PAGE_ACCESS_LOG = {
 } as const;
 
 type ResolveTribePageAccessOptions = {
+  /**
+   * Academy free allowlist surfaces (academy pages, courses, billing) accept a
+   * basic member of an academy-mode tribe. Community surfaces leave it off.
+   */
+  allowWithoutCommunityAccess?: boolean;
   operation: string;
   slug: string;
 };
@@ -33,6 +42,7 @@ type ResolveVisibleTribePageAccessOptions = ResolveTribePageAccessOptions & {
 };
 
 export async function resolveTribePageAccess({
+  allowWithoutCommunityAccess = false,
   operation,
   slug,
 }: ResolveTribePageAccessOptions) {
@@ -77,6 +87,7 @@ export async function resolveTribePageAccess({
 
   const accessResult = await modules.tribes.useCases
     .getTribePageAccess({
+      allowWithoutCommunityAccess,
       isAuthenticated: Boolean(authenticatedMember),
       slug,
     })
@@ -148,11 +159,18 @@ export async function resolveVisibleTribePageAccess({
       },
     });
 
+    // A basic academy member has a valid membership: guide them to the
+    // academy page (offer and personal steps) instead of a 404.
+    if (accessResult.reason === TRIBE_PAGE_ACCESS_REASON.academyAccessRequired) {
+      redirect(ROUTES.tribes.academy(options.slug));
+    }
+
     notFound();
   }
 
   return {
     authenticatedMember,
+    communityAccess: accessResult.communityAccess,
     tribe: accessResult.tribe,
     logger,
     modules,

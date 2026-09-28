@@ -131,6 +131,8 @@ const visibleTribeAccess = {
 };
 
 const courseFixture = {
+  accessRequirement: "membership" as const,
+  viewerAccess: { completedLessonCount: 0, status: "available" as const },
   coverImageUrl: null,
   description: null,
   id: "course-1",

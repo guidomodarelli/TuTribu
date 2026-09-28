@@ -16,6 +16,7 @@ const resolveTribeMemberSubscriptionReturn = vi.fn();
 const reconcileCurrentTribeMemberSubscription = vi.fn();
 const validatePendingTribeMemberSubscriptionReturn = vi.fn();
 const getTribeCurrentSubscriptionOffer = vi.fn();
+const getAcademyPublicOffer = vi.fn();
 const infoMock = vi.fn();
 const errorMock = vi.fn();
 
@@ -121,6 +122,8 @@ describe("TribePage", () => {
     validatePendingTribeMemberSubscriptionReturn.mockReset();
     getTribeCurrentSubscriptionOffer.mockReset();
     getTribeCurrentSubscriptionOffer.mockResolvedValue({ status: "unavailable" as const });
+    getAcademyPublicOffer.mockReset();
+    getAcademyPublicOffer.mockResolvedValue(null);
     infoMock.mockReset();
     errorMock.mockReset();
 
@@ -143,6 +146,11 @@ describe("TribePage", () => {
       messages: {
         useCases: {
           listTribeRound,
+        },
+      },
+      productAccess: {
+        useCases: {
+          getAcademyPublicOffer,
         },
       },
       subscriptions: {
@@ -528,6 +536,8 @@ describe("TribePage", () => {
       tribeSlug: "matematica-pro",
     });
     expect(getTribePageAccess).toHaveBeenCalledWith({
+      // The feed is community content: basic academy members never pass.
+      allowWithoutCommunityAccess: false,
       isAuthenticated: true,
       slug: "matematica-pro",
     });
@@ -644,6 +654,48 @@ describe("TribePage", () => {
       tribeSlug: "matematica-pro",
       viewerId: "member-1",
     });
+  });
+
+  it("sends a basic academy member to the academy page instead of the private feed (RF-09)", async () => {
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden" as const,
+      reason: "academy_access_required",
+    });
+
+    await expect(
+      TribePageContent({
+        params: Promise.resolve({
+          slug: "matematica-pro",
+        }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(redirect).toHaveBeenCalledWith("/matematica-pro/academia");
+    expect(listTribeRound).not.toHaveBeenCalled();
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
+  it("sends a non-member of an academy-mode tribe to the public academy offer", async () => {
+    getTribePageAccess.mockResolvedValue({
+      status: "hidden" as const,
+      reason: "not_found_or_not_visible",
+    });
+    getAcademyPublicOffer.mockResolvedValue({
+      admissionEnabled: true,
+      benefits: [],
+      description: "",
+      offerVersion: 1,
+      price: null,
+      salesEnabled: false,
+      title: "Academia",
+      tribeName: "Matematica Pro",
+    });
+
+    await expect(
+      TribePageContent({ params: Promise.resolve({ slug: "matematica-pro" }) })
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(redirect).toHaveBeenCalledWith("/matematica-pro/academia");
   });
 
   it("redirects unauthenticated visitors to sign-in so the public join link can resolve", async () => {

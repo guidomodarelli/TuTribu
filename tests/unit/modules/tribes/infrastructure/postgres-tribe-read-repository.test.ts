@@ -42,6 +42,8 @@ describe("PostgresTribeReadRepository", () => {
     await expect(
       repository.findCurrentMembershipAccessBySlug("matematica-pro")
     ).resolves.toEqual({
+      // A blocked member never has community access.
+      communityAccess: false,
       status: "blocked" as const,
       statusReason: "payment_blocked",
     });
@@ -53,6 +55,7 @@ describe("PostgresTribeReadRepository", () => {
         {
           id: "tribe-1",
           name: "Matematica Pro",
+          community_access: true,
           slug: "matematica-pro",
           status: "active" as const,
           status_reason: "none",
@@ -71,6 +74,7 @@ describe("PostgresTribeReadRepository", () => {
       repository.findCurrentMembershipAccessWithTribeBySlug("matematica-pro")
     ).resolves.toEqual({
       membershipAccess: {
+        communityAccess: true,
         status: "active" as const,
         statusReason: "none",
       },
@@ -107,6 +111,8 @@ describe("PostgresTribeReadRepository", () => {
       repository.findCurrentMembershipAccessWithTribeBySlug("matematica-pro")
     ).resolves.toEqual({
       membershipAccess: {
+        // Without a readable tribe row the boundary cannot be evaluated: closed.
+        communityAccess: false,
         status: "active" as const,
         statusReason: "none",
       },

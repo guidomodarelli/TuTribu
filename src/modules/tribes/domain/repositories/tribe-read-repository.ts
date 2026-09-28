@@ -10,6 +10,12 @@ export type TribeMembershipStatusReason =
   | "subscription_inactive";
 
 export type TribeMembershipAccess = {
+  /**
+   * Whether the member may read the private community content. In academy
+   * mode it requires academy access (or an active leader or guardian role);
+   * in legacy tribes it always matches the membership. Missing means legacy.
+   */
+  communityAccess?: boolean;
   status: TribeMembershipStatus;
   statusReason: TribeMembershipStatusReason;
 };

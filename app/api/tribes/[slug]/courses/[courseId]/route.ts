@@ -11,6 +11,7 @@ import {
   mapMutationStatusResponse,
   readBooleanField,
   readNumberField,
+  readOptionalField,
   readStringField,
   readUuidValue,
 } from "../route-helpers";
@@ -53,6 +54,7 @@ export async function PATCH(
 
     const result = await modules.courses.useCases.updateCourse({
       courseId,
+      accessRequirement: readOptionalField(body, COURSE_ROUTE_FIELD.accessRequirement),
       coverImageUrl: readStringField(body, COURSE_ROUTE_FIELD.coverImageUrl),
       description: readStringField(body, COURSE_ROUTE_FIELD.description),
       isActive,

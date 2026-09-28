@@ -17,6 +17,7 @@ import type {
   TRIBE_SUBSCRIPTION_CURRENCY,
   TRIBE_SUBSCRIPTION_FREQUENCY,
   TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
+  TribeSubscriptionProductKey,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 
 export type CreateTribeSubscriptionPriceCommand = {
@@ -25,6 +26,8 @@ export type CreateTribeSubscriptionPriceCommand = {
   frequency: typeof TRIBE_SUBSCRIPTION_FREQUENCY.monthly;
   name: string;
   paymentIntegrationId: string;
+  /** Omitted means `membership`, the historical behavior. */
+  productKey?: TribeSubscriptionProductKey;
   trialFrequency: number | null;
   trialFrequencyType:
     | typeof TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE.days
@@ -35,7 +38,7 @@ export type CreateTribeSubscriptionPriceCommand = {
 
 export type UpdateTribeSubscriptionPriceCommand = Omit<
   CreateTribeSubscriptionPriceCommand,
-  "paymentIntegrationId" | "trialFrequency" | "trialFrequencyType"
+  "paymentIntegrationId" | "productKey" | "trialFrequency" | "trialFrequencyType"
 > & {
   priceId: string;
   trialFrequency?: CreateTribeSubscriptionPriceCommand["trialFrequency"];

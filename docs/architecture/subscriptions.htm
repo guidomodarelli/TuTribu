@@ -330,5 +330,18 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
 </ul>
 </div>
 
+<div class="section">
+  <div class="section-num">11</div>
+  <div class="section-title">Producto de precios y suscripciones</div>
+<p><code>tribe_subscription_prices.product_key</code> y <code>tribe_member_subscriptions.product_key</code> distinguen <code>membership</code> (comportamiento histórico, valor por defecto) de <code>academy</code>. Las filas existentes no se reclasifican: solo el cutover por tribu puede reclasificar precios y suscripciones que su manifiesto aprobado identifique como academia.</p>
+<ul>
+  <li>El precio actual es único por <code>(tribe_id, product_key)</code> y la suscripción viva por <code>(tribe_id, user_id, product_key)</code>.</li>
+  <li>Oferta de open join, checkout por invitación o reintento, reconciliación en cada página, cancelación y el cálculo de <code>tribe_members.status</code> desde webhooks consideran solo <code>membership</code>: una suscripción de academia nunca cambia la membresía básica, su rol ni su moderación.</li>
+  <li>El auto-marcado del único precio pago (sección 10) es por producto y solo el producto <code>membership</code> pone <code>free_join_is_current = false</code>: un precio de academia nunca cierra el ingreso gratuito. Lo mismo vale para “Hacer actual” y para la restauración del gratis al cancelar o pausar un plan.</li>
+  <li>Un precio de academia se crea con <code>productKey: "academy"</code>, es mensual en ARS y no admite prueba gratuita.</li>
+  <li>Las invitaciones solo pueden asociarse a precios <code>membership</code>; en modo academia no inician checkout ni conceden academia.</li>
+</ul>
+<p>El checkout, el ledger de facturas y la cobertura de academia se describen en <a href="academy-access.htm">academy-access.htm</a>.</p>
+</div>
 </body>
 </html>

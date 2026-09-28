@@ -659,6 +659,31 @@ describe("AppSidebar", () => {
     expect(pushMock).toHaveBeenCalledWith("/matematica-pro/tribu");
   });
 
+  it("links the academy for members and its management only for leaders and guardians", async () => {
+    const user = userEvent.setup();
+    (usePathname as Mock).mockReturnValue("/matematica-pro");
+    const tribe = {
+      logoUrl: null,
+      membershipStatus: "active" as const,
+      name: "Matematica Pro",
+      slug: "matematica-pro",
+      tribeId: "tribe-1",
+    };
+    const { rerender } = render(
+      <AppSidebar authenticatedMember={null} memberTribes={[{ ...tribe, role: "tribemate" as const }]} />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Academia" }));
+
+    expect(pushMock).toHaveBeenCalledWith("/matematica-pro/academia");
+    expect(screen.queryByRole("button", { name: "Gestionar academia" })).not.toBeInTheDocument();
+
+    rerender(<AppSidebar authenticatedMember={null} memberTribes={[{ ...tribe, role: "guardian" as const }]} />);
+    await user.click(screen.getByRole("button", { name: "Gestionar academia" }));
+
+    expect(pushMock).toHaveBeenCalledWith("/matematica-pro/academia/gestionar");
+  });
+
   it("shows the welcome section for every member role inside a tribe", () => {
     (usePathname as Mock).mockReturnValue("/matematica-pro/bienvenida");
 

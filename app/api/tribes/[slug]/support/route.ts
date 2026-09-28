@@ -150,6 +150,8 @@ export async function GET(
 
   try {
     const accessResult = await modules.tribes.useCases.getTribePageAccess({
+      // Support contact stays reachable for basic academy members.
+      allowWithoutCommunityAccess: true,
       isAuthenticated: true,
       slug,
     });

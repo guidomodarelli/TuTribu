@@ -16,6 +16,7 @@ import type {
 import {
   TRIBE_MEMBER_SUBSCRIPTION_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON,
+  TRIBE_SUBSCRIPTION_PRODUCT_KEY,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import type {
   MercadoPagoSubscriptionWebhookCommand,
@@ -493,6 +494,7 @@ export class PostgresTribeMemberSubscriptionRepository
           inner join target_tribe
             on target_tribe.id = tribe_member_subscriptions.tribe_id
           where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
             and tribe_member_subscriptions.mercado_pago_preapproval_id = ${query.providerSubscriptionId}
         ) as has_pending_subscription_return
@@ -520,6 +522,7 @@ export class PostgresTribeMemberSubscriptionRepository
           inner join public.tribes
             on tribes.id = tribe_member_subscriptions.tribe_id
           where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.mercado_pago_preapproval_id = ${query.providerSubscriptionId}
             and tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
           order by tribe_member_subscriptions.updated_at desc
@@ -533,6 +536,7 @@ export class PostgresTribeMemberSubscriptionRepository
           inner join public.tribes
             on tribes.id = tribe_member_subscriptions.tribe_id
           where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
             and tribe_member_subscriptions.mercado_pago_preapproval_id is null
           order by tribe_member_subscriptions.updated_at desc
@@ -604,6 +608,7 @@ export class PostgresTribeMemberSubscriptionRepository
         inner join target_tribe
           on target_tribe.id = tribe_member_subscriptions.tribe_id
         where tribe_member_subscriptions.user_id = public.current_app_user_id()
+          and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
           and tribe_member_subscriptions.mercado_pago_preapproval_id = ${input.providerSubscriptionId}
         order by tribe_member_subscriptions.updated_at desc
         limit 1
@@ -968,6 +973,7 @@ export class PostgresTribeMemberSubscriptionRepository
           inner join target_tribe
             on target_tribe.id = tribe_member_subscriptions.tribe_id
           where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
             and (
               ${input.providerSubscriptionId ?? ""} = ''
@@ -1034,6 +1040,7 @@ export class PostgresTribeMemberSubscriptionRepository
           inner join target_tribe
             on target_tribe.id = tribe_member_subscriptions.tribe_id
           where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
           order by tribe_member_subscriptions.updated_at desc
           limit 1
@@ -1084,6 +1091,7 @@ export class PostgresTribeMemberSubscriptionRepository
           inner join target_tribe
             on target_tribe.id = tribe_subscription_prices.tribe_id
           where tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_subscription_prices.is_current = true
           limit 1
         ),
@@ -1388,6 +1396,7 @@ export class PostgresTribeMemberSubscriptionRepository
           left join active_invitation
             on true
           where tribe_subscription_prices.status = 'active'
+            and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and (
               (
                 ${input.requiresActiveInvitation} = true
@@ -1420,6 +1429,7 @@ export class PostgresTribeMemberSubscriptionRepository
           inner join target_tribe
             on target_tribe.id = tribe_member_subscriptions.tribe_id
           where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
           limit 1
         ),
@@ -1437,6 +1447,7 @@ export class PostgresTribeMemberSubscriptionRepository
             and subscription_idempotency_operations.operation_type = 'start_member_subscription'
             and subscription_idempotency_operations.response_body ? 'checkoutUrl'
           where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
           order by subscription_idempotency_operations.created_at desc
           limit 1
@@ -1447,6 +1458,7 @@ export class PostgresTribeMemberSubscriptionRepository
           inner join target_tribe
             on target_tribe.id = tribe_member_subscriptions.tribe_id
           where tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
             and tribe_member_subscriptions.status in ${LIVE_PROVIDER_SUBSCRIPTION_STATUSES}
           order by tribe_member_subscriptions.updated_at desc
@@ -2091,6 +2103,7 @@ export class PostgresTribeMemberSubscriptionRepository
           from public.tribe_member_subscriptions
           where tribe_member_subscriptions.tribe_id = ${input.tribeId}
             and tribe_member_subscriptions.user_id = public.current_app_user_id()
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
             and tribe_member_subscriptions.mercado_pago_preapproval_id is null
             and tribe_member_subscriptions.updated_at <
@@ -2119,6 +2132,7 @@ export class PostgresTribeMemberSubscriptionRepository
               from public.tribe_member_subscriptions
               where tribe_member_subscriptions.tribe_id = ${input.tribeId}
                 and tribe_member_subscriptions.user_id = public.current_app_user_id()
+                and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
                 and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
                 and tribe_member_subscriptions.price_id = ${input.currentPriceId}
                 and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
@@ -2443,6 +2457,7 @@ export class PostgresTribeMemberSubscriptionRepository
           from public.tribe_member_subscriptions
           where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
             and tribe_member_subscriptions.user_id = tribe_members.user_id
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
         ) then 'active'
         when exists (
@@ -2450,6 +2465,7 @@ export class PostgresTribeMemberSubscriptionRepository
           from public.tribe_member_subscriptions
           where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
             and tribe_member_subscriptions.user_id = tribe_members.user_id
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
         ) then 'blocked'
         else 'removed'
@@ -2460,6 +2476,7 @@ export class PostgresTribeMemberSubscriptionRepository
           from public.tribe_member_subscriptions
           where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
             and tribe_member_subscriptions.user_id = tribe_members.user_id
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
         ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none}
         when exists (
@@ -2467,6 +2484,7 @@ export class PostgresTribeMemberSubscriptionRepository
           from public.tribe_member_subscriptions
           where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
             and tribe_member_subscriptions.user_id = tribe_members.user_id
+            and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
         ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
         else ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
@@ -2476,6 +2494,7 @@ export class PostgresTribeMemberSubscriptionRepository
         from public.tribe_member_subscriptions
         where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
           and tribe_member_subscriptions.user_id = tribe_members.user_id
+          and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
           and tribe_member_subscriptions.mercado_pago_preapproval_id = ${providerSubscriptionId}
       )
         and not (

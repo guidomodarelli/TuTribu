@@ -192,7 +192,7 @@ export class PostgresLessonCommentRepository implements LessonCommentRepository 
             ${command.content}
           from target_lesson
           where (select user_id from viewer) is not null
-            and public.is_active_tribe_member(target_lesson.tribe_id)
+            and public.has_active_tribe_membership(target_lesson.tribe_id)
           returning id, lesson_id, author_id, content, created_at
         )
         select
@@ -285,7 +285,7 @@ export class PostgresLessonCommentRepository implements LessonCommentRepository 
               (select can_manage from viewer)
               or (
                 target_comment.author_id = (select user_id from viewer)
-                and public.is_active_tribe_member(target_comment.tribe_id)
+                and public.has_active_tribe_membership(target_comment.tribe_id)
               )
             )
           returning course_lesson_comments.id
