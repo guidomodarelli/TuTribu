@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-28
+
 ### Added
 
 - El líder puede activar la academia de su tribu desde Ajustes. Al activarla, los integrantes actuales conservan todo su acceso y solo quienes entren después empiezan con acceso básico; las admisiones y la venta empiezan cerradas.
