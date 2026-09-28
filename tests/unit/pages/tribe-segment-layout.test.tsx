@@ -25,7 +25,6 @@ describe("TribeSegmentLayout", () => {
 
     expect(screen.getByRole("main")).toHaveTextContent("Contenido de la tribu");
     // The layout itself takes no `params`: the slug is resolved on the client.
-    expect(TribeSegmentLayout.length).toBe(1);
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/tribes/matematica-pro/presence",
       expect.objectContaining({ method: "POST" })

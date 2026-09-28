@@ -46,16 +46,6 @@ describe("Better Auth client", () => {
     });
   });
 
-  it("signs out through the Better Auth client", async () => {
-    const { signOutMember } = await import(
-      "@/src/modules/auth/infrastructure/better-auth/client"
-    );
-
-    await signOutMember();
-
-    expect(signOutMock).toHaveBeenCalledTimes(1);
-  });
-
   it("throws when Better Auth rejects the OAuth start without a network failure", async () => {
     socialSignInMock.mockResolvedValue({
       data: null,

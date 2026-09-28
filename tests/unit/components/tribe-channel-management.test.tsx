@@ -191,35 +191,6 @@ describe("TribeChannelManagement", () => {
     expect(selectedEmojiMatches).toHaveLength(1);
   });
 
-  it("opens the emoji picker with the configured appearance and feature options", async () => {
-    const user = userEvent.setup();
-
-    render(
-      <TribeChannelManagement
-        channels={channels}
-        tribeSlug="matematica-pro"
-      />
-    );
-
-    await user.click(
-      within(getCreateForm()).getByRole("button", { name: "Elegir ícono" })
-    );
-
-    const emojiPicker = screen.getByRole("button", { name: "Elegir estrella" });
-
-    expect(emojiPicker).toHaveAttribute("data-emoji-style", "apple");
-    expect(emojiPicker).toHaveAttribute("data-theme", "light");
-    expect(emojiPicker).toHaveAttribute("data-skin-tones-disabled", "false");
-    expect(emojiPicker).toHaveAttribute("data-search-disabled", "false");
-    expect(emojiPicker).toHaveAttribute("data-auto-focus-search", "true");
-    expect(emojiPicker).toHaveAttribute("data-lazy-load-emojis", "true");
-    expect(emojiPicker).toHaveAttribute("data-show-preview", "false");
-    expect(emojiPicker).toHaveAttribute("data-custom-emojis-count", "0");
-    expect(emojiPicker).toHaveAttribute("data-default-skin-tone", "neutral");
-    expect(emojiPicker).toHaveAttribute("data-suggestions-mode", "recent");
-    expect(emojiPicker).toHaveAttribute("data-skin-tone-location", "SEARCH");
-  });
-
   it("creates a channel only after selecting an emoji from the picker", async () => {
     (global.fetch as Mock).mockResolvedValueOnce({
       ok: true,

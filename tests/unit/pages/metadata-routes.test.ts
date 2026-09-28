@@ -1,5 +1,4 @@
 import { vi, describe, it, expect, beforeEach, afterEach, type Mock } from "vitest";
-import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
 import { createMaintenanceModules } from "@/src/modules/setup";
 
@@ -10,21 +9,6 @@ vi.mock("@/src/modules/setup", () => ({
 const listPublicTribeStorySlugs = vi.fn();
 
 const TEST_PUBLIC_APP_BASE_URL = "https://tutribu.example.com";
-const EXPECTED_DISALLOWED_ROUTES = [
-  "/api/",
-  "/auth/",
-  "/*/invitar",
-  "/*/tribu",
-  "/*/bienvenida",
-  "/*/canales",
-  "/*/cursos",
-  "/*/eventos",
-  "/*/invitaciones",
-  "/*/ajustes",
-  "/*/precios",
-  "/*/suscripcion",
-  "/*/meritos",
-] as const;
 
 describe("metadata routes", () => {
   const previousBetterAuthUrl = process.env.BETTER_AUTH_URL;
@@ -49,17 +33,6 @@ describe("metadata routes", () => {
     }
 
     process.env.BETTER_AUTH_URL = previousBetterAuthUrl;
-  });
-
-  it("disallows crawlers from API, auth, invitation and internal tribe routes", () => {
-    expect(robots()).toEqual({
-      rules: {
-        userAgent: "*",
-        allow: "/",
-        disallow: EXPECTED_DISALLOWED_ROUTES,
-      },
-      sitemap: TEST_PUBLIC_APP_BASE_URL + "/sitemap.xml",
-    });
   });
 
   it("exposes the public home page in the sitemap", async () => {

@@ -446,7 +446,7 @@ describe("TribeEventsCalendar attendance", () => {
       apiFetch.mockResolvedValue({ json: async () => ({}), ok: false });
     }
 
-    it("hides the attendance controls at the exact end even when the page opened mid-minute", () => {
+    it("hides the attendance controls at the exact end even when the page opened mid-minute", async () => {
       // Plain fake timers: the clock must not drift with real time so the
       // boundary can be asserted to the millisecond.
       vi.useRealTimers();
@@ -473,6 +473,15 @@ describe("TribeEventsCalendar attendance", () => {
       expect(within(dialog).queryByRole("button", { name: "Voy" })).not.toBeInTheDocument();
       expect(within(dialog).getByText("Finalizado")).toBeInTheDocument();
       expect(router.refresh).not.toHaveBeenCalled();
+      // The frozen clock above keeps the post-event and conversation sections
+      // behind their loading swap; release it so both settle inside the test.
+      vi.useRealTimers();
+      expect(
+        await within(dialog).findByText("Todavía no hay grabación ni materiales.")
+      ).toBeInTheDocument();
+      expect(
+        await within(dialog).findByText("Todavía no hay comentarios. Contá cómo te fue.")
+      ).toBeInTheDocument();
     });
 
     it("marks the occurrence finished when the server reports it ended before the local clock", async () => {

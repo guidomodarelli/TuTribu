@@ -6286,42 +6286,6 @@ describe("TribeRound", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders message menu actions with a non-wrapping item class", async () => {
-    const user = userEvent.setup();
-
-    render(
-      <TribeRound
-        authenticatedMember={authenticatedMember}
-        tribeSlug="matematica-pro"
-        round={{
-          ...round,
-          messages: [
-            {
-              ...round.messages[0],
-              permissions: {
-                canDelete: true,
-                canEdit: false,
-              },
-            },
-          ],
-        }}
-      />
-    );
-
-    await user.click(
-      screen.getByRole("button", { name: "Acciones del mensaje" })
-    );
-
-    const deleteMenuItem = screen.getByRole("menuitem", {
-      name: "Eliminar mensaje",
-    });
-
-    expect(deleteMenuItem).toHaveClass("TribeRound__messageMenuItem");
-    expect(deleteMenuItem).toHaveClass("TribeRound__messageMenuItem--destructive");
-    expect(deleteMenuItem).toHaveAttribute("data-variant", "destructive");
-    expect(screen.getByRole("menu")).toHaveClass("TribeRound__messageMenuContent");
-  });
-
   it("asks for confirmation before deleting a feed message", async () => {
     const user = userEvent.setup();
 

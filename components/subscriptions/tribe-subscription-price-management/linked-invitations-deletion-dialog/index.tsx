@@ -321,7 +321,7 @@ function LinkedInvitationsDeletionDialogBody({
                   onValueChange={(value) =>
                     handleActionChange(invitation.id, value)
                   }
-                  value={selection.action || undefined}
+                  value={selection.action}
                 >
                   <SelectTrigger id={ACTION_INPUT_ID_PREFIX + invitation.id}>
                     <SelectValue
@@ -368,7 +368,7 @@ function LinkedInvitationsDeletionDialogBody({
                       onValueChange={(value) =>
                         handleTargetChange(invitation.id, value)
                       }
-                      value={selection.targetPriceId || undefined}
+                      value={selection.targetPriceId}
                     >
                       <SelectTrigger
                         id={TARGET_INPUT_ID_PREFIX + invitation.id}

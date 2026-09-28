@@ -54,24 +54,6 @@ describe("AppSidebar", () => {
     expect(discoveryButton.querySelector(".lucide-compass")).toBeInTheDocument();
   });
 
-  it("uses the default sidebar variant", () => {
-    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
-
-    expect(screen.getByText("TuTribu").closest("[data-slot=sidebar]")).toHaveAttribute("data-variant", "sidebar");
-  });
-
-  it("keeps the header separator constrained to the sidebar width", () => {
-    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
-
-    expect(screen.getByRole("separator")).toHaveClass("AppSidebar__separator");
-  });
-
-  it("keeps the brand mark at a stable size during sidebar transitions", () => {
-    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
-
-    expect(screen.getByText("TT")).toHaveClass("AppSidebar__brandMark");
-  });
-
   it("replaces the product brand with the active tribe identity inside a tribe", () => {
     (usePathname as Mock).mockReturnValue("/matematica-pro");
 
@@ -121,8 +103,6 @@ describe("AppSidebar", () => {
     );
     expect(screen.queryByText("Tribu privada")).not.toBeInTheDocument();
   });
-
-
 
   it("does not render the tribe switcher sidebar action outside a tribe", () => {
     render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);

@@ -9,6 +9,9 @@ import { TribeCoursesView } from "@/components/courses/tribe-courses-view";
 import type { CourseWithModulesResult } from "@/src/modules/courses/application/results/course-results";
 
 const TRIBE_SLUG = "matematica-pro";
+/** Rendered once the lesson comments request settles, so the test ends after that state update. */
+const LESSON_COMMENTS_EMPTY_STATE =
+  "Todavía no hay comentarios. Sé la primera persona en comentar.";
 
 function buildCourse(
   overrides: Partial<CourseWithModulesResult> = {}
@@ -150,7 +153,7 @@ describe("TribeCoursesView", () => {
     pushStateSpy.mockRestore();
   });
 
-  it("resumes from the last viewed lesson when no lesson is selected", () => {
+  it("resumes from the last viewed lesson when no lesson is selected", async () => {
     render(
       <TribeCoursesView
         course={buildCourse({ lastViewedLessonId: "lesson-2" })}
@@ -163,6 +166,7 @@ describe("TribeCoursesView", () => {
     expect(
       screen.getByRole("heading", { name: "Segunda clase" })
     ).toBeInTheDocument();
+    expect(await screen.findByText(LESSON_COMMENTS_EMPTY_STATE)).toBeInTheDocument();
   });
 
   it("records the opened lesson so the next visit can resume", async () => {
@@ -317,7 +321,7 @@ describe("TribeCoursesView", () => {
     ).toBeInTheDocument();
   });
 
-  it("marks completed lessons with a check in the sidebar", () => {
+  it("marks completed lessons with a check in the sidebar", async () => {
     render(
       <TribeCoursesView
         course={buildCourse()}
@@ -330,6 +334,7 @@ describe("TribeCoursesView", () => {
     const completedMarks = screen.getAllByLabelText("Completada");
     expect(completedMarks).toHaveLength(1);
     expect(screen.getByText("50% completado")).toBeInTheDocument();
+    expect(await screen.findByText(LESSON_COMMENTS_EMPTY_STATE)).toBeInTheDocument();
   });
 
   it("updates the named course progress bar when a lesson is completed", async () => {

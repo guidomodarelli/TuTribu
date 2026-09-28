@@ -64,6 +64,17 @@ function installMatchMediaMock() {
   });
 }
 
+/**
+ * Waits until the menu released the trigger and it shows a single icon, so the
+ * exit animation of the previous icon (an `AnimatePresence` state update)
+ * settles inside the test.
+ */
+async function waitForTriggerIconSwap() {
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /cambiar tema/i }).querySelectorAll("svg")).toHaveLength(1)
+  );
+}
+
 describe("ThemeModeDropdown", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -96,7 +107,7 @@ describe("ThemeModeDropdown", () => {
     await user.click(screen.getByRole("button", { name: /cambiar tema/i }));
     await user.click(screen.getByRole("menuitemradio", { name: /oscuro/i }));
 
-    expect(await screen.findByRole("button", { name: "Cambiar tema, actual: Oscuro" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Cambiar tema, actual: Oscuro" })).toBeInTheDocument();    await waitForTriggerIconSwap();
   });
 
   it("names the stored mode on the trigger when a preference already exists", () => {
@@ -200,7 +211,7 @@ describe("ThemeModeDropdown", () => {
     await userEvent.click(screen.getByRole("menuitemradio", { name: /claro/i }));
     act(() => emitSystemThemeChange(true));
     expect(document.documentElement).not.toHaveClass("dark");
-    expect(screen.getByLabelText("Tema compartido")).toHaveTextContent("light:light");
+    expect(screen.getByLabelText("Tema compartido")).toHaveTextContent("light:light");    await waitForTriggerIconSwap();
   });
 
   it("should follow a preference changed in another tab", async () => {

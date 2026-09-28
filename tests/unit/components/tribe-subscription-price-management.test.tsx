@@ -1739,7 +1739,7 @@ describe("TribeSubscriptionPriceManagement", () => {
     });
   });
 
-  it("keeps the open free join toggle disabled while the free entry is not current", () => {
+  it("keeps the open free join toggle disabled while the free entry is not current", async () => {
     render(
       <TribeSubscriptionPriceManagement
         availableMercadoPagoAccounts={[mercadoPagoAccount]}
@@ -1756,5 +1756,6 @@ describe("TribeSubscriptionPriceManagement", () => {
     expect(
       screen.getByRole("switch", { name: /permitir unirse sin invitación/i })
     ).toBeDisabled();
+    await waitForLoadVerification();
   });
 });

@@ -95,7 +95,7 @@ describe("TribeStoryVideoSlide", () => {
 });
 
 describe("TribeStoryGallery", () => {
-  it("renders one position indicator per resource with the first one current", () => {
+  it("renders one position indicator per resource with the first one current", async () => {
     render(
       <TribeStoryGallery
         media={[
@@ -107,7 +107,7 @@ describe("TribeStoryGallery", () => {
     );
 
     const indicators = within(
-      screen.getByRole("group", { name: "Recursos de la galería" })
+      await screen.findByRole("group", { name: "Recursos de la galería" })
     ).getAllByRole("button");
 
     expect(indicators.map((indicator) => indicator.getAttribute("aria-label"))).toEqual([
@@ -119,10 +119,12 @@ describe("TribeStoryGallery", () => {
     expect(indicators[1]).not.toHaveAttribute("aria-current");
   });
 
-  it("omits navigation and indicators for a single resource", () => {
+  it("omits navigation and indicators for a single resource", async () => {
     render(<TribeStoryGallery media={[buildImageMedia("unica", 0)]} />);
 
-    expect(screen.getByAltText("Imagen 1 de la tribu")).toBeInTheDocument();
+    // The carousel syncs its scroll state in a microtask after mounting; the
+    // async query lets that update land inside `act`.
+    expect(await screen.findByAltText("Imagen 1 de la tribu")).toBeInTheDocument();
     expect(
       screen.queryByRole("group", { name: "Recursos de la galería" })
     ).not.toBeInTheDocument();
