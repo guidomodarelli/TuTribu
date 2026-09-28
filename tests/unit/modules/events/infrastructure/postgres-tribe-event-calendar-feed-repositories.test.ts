@@ -65,7 +65,6 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       status: "found",
       subscription: { createdAt: "2026-05-01T12:00:00.000Z", id: TOKEN_ID, lastUsedAt: null },
     });
-
   });
 
   it("maps a missing tribe, a viewer who cannot read it, and no active token", async () => {
@@ -140,7 +139,6 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
     await expect(
       repository.issue({ expectedSubscriptionId: null, tokenHash: TOKEN_HASH, tribeSlug: TRIBE_SLUG })
     ).resolves.toEqual({ status: "forbidden" });
-
   });
 
   it("issues nothing when the active token is no longer the one the client expected", async () => {
@@ -235,7 +233,6 @@ describe("PostgresTribeEventCalendarFeedTokenRepository", () => {
       expectedSubscriptionId: TOKEN_ID,
       tribeSlug: TRIBE_SLUG,
     });
-
   });
 });
 
@@ -384,7 +381,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     // from the same statement snapshot, so a concurrent exception change can
     // never be paired with the previous SEQUENCE of its series.
     expect(ownerExecute).toHaveBeenCalledTimes(3);
-
   });
 
   it("rechecks the active token and the owner's access inside the snapshot statement", async () => {
@@ -396,7 +392,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
     await reader.readAsOwner(FEED_QUERY);
-
   });
 
   it("returns null when the token was revoked or the owner blocked after the access check", async () => {
@@ -471,7 +466,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
     await reader.readAsOwner(FEED_QUERY);
-
   });
 
   it("budgets only series whose schedule produces an occurrence overlapping the window", async () => {
@@ -483,7 +477,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
     await reader.readAsOwner(FEED_QUERY);
-
   });
 
   it("does not budget a series whose only in-window slots are cancelled or moved away", async () => {
@@ -495,7 +488,6 @@ describe("PostgresTribeEventCalendarFeedReader", () => {
     const reader = createReader(new Map([[OWNER_ID, ownerExecute]]));
 
     await reader.readAsOwner(FEED_QUERY);
-
   });
 
   it("returns null and reads nothing else when the owner lost access", async () => {

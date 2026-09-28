@@ -52,7 +52,6 @@ describe("PostgresTribeWelcomeSelectionRepository", () => {
         welcomeLinkId: "11111111-1111-4111-8111-111111111111",
       })
     ).resolves.toEqual({ status: TRIBE_WELCOME_SELECTION_STATUS.forbidden });
-
   });
 
   it("classifies forbidden access before invalid welcome links", async () => {
@@ -103,5 +102,4 @@ describe("PostgresTribeWelcomeSelectionRepository", () => {
       })
     ).rejects.toBe(missingStorageError);
   });
-
 });

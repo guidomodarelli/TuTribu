@@ -75,7 +75,6 @@ describe("PostgresMessageMutationRepository", () => {
       },
       status: "created" as const,
     });
-
   });
 
   it("returns inserted poll options when creating a message with a poll", async () => {
@@ -162,7 +161,6 @@ describe("PostgresMessageMutationRepository", () => {
       },
       status: "created" as const,
     });
-
   });
 
   it("creates messages with attached external videos as media", async () => {
@@ -232,7 +230,6 @@ describe("PostgresMessageMutationRepository", () => {
       },
       status: "created" as const,
     });
-
   });
 
   it("attaches prepared images when creating a message", async () => {
@@ -302,7 +299,6 @@ describe("PostgresMessageMutationRepository", () => {
       },
       status: "created" as const,
     });
-
   });
 
   it("aborts message creation when prepared images cannot all be attached", async () => {
@@ -402,7 +398,6 @@ describe("PostgresMessageMutationRepository", () => {
       likeCount: 3,
       status: "liked" as const,
     });
-
   });
 
   it("returns like failures without message state fields", async () => {
@@ -480,7 +475,6 @@ describe("PostgresMessageMutationRepository", () => {
       pinnedAt: "2026-04-26T13:00:00.000Z",
       status: "pinned" as const,
     });
-
   });
 
   it("returns pin failures without message state fields", async () => {
@@ -588,7 +582,6 @@ describe("PostgresMessageMutationRepository", () => {
       pinnedAt: "2026-04-26T13:00:00.000Z",
       status: "pinned" as const,
     });
-
   });
 
   it("unpins an already pinned message", async () => {
@@ -680,7 +673,6 @@ describe("PostgresMessageMutationRepository", () => {
       },
       status: "voted" as const,
     });
-
   });
 
   it("returns forbidden before validating options when the viewer cannot write poll votes", async () => {
@@ -708,7 +700,6 @@ describe("PostgresMessageMutationRepository", () => {
     ).resolves.toEqual({
       status: "forbidden" as const,
     });
-
   });
 
   it("deletes a full message through author or staff permissions", async () => {
@@ -726,7 +717,6 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "author-1",
       })
     ).resolves.toEqual({ status: "deleted" as const });
-
   });
 
   it("maps missing and unauthorized message deletion outcomes", async () => {
@@ -811,7 +801,6 @@ describe("PostgresMessageMutationRepository", () => {
     ).resolves.toMatchObject({
       status: "voted" as const,
     });
-
   });
 
   it("creates replies with the returned reply view model", async () => {
@@ -855,7 +844,6 @@ describe("PostgresMessageMutationRepository", () => {
       },
       status: "created" as const,
     });
-
   });
 
   it("updates the message created_at through the leader-guarded statement", async () => {
@@ -882,7 +870,6 @@ describe("PostgresMessageMutationRepository", () => {
       createdAt: "2026-04-01T10:00:00.000Z",
       status: "updated" as const,
     });
-
   });
 
   it("returns not_found when the message does not exist", async () => {
@@ -967,7 +954,6 @@ describe("PostgresMessageMutationRepository", () => {
       status: "updated" as const,
       title: "Titulo editado",
     });
-
   });
 
   it("returns forbidden when RLS blocks the message content update", async () => {
@@ -1067,7 +1053,6 @@ describe("PostgresMessageMutationRepository", () => {
       status: "updated" as const,
       title: "Titulo editado",
     });
-
   });
 
   it("returns poll_has_votes when a vote arrives before poll option replacement", async () => {
@@ -1106,7 +1091,6 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "author-1",
       })
     ).resolves.toEqual({ status: "poll_has_votes" as const });
-
   });
 
   it("returns poll_has_votes when the poll already received votes", async () => {
@@ -1141,7 +1125,6 @@ describe("PostgresMessageMutationRepository", () => {
         userId: "author-1",
       })
     ).resolves.toEqual({ status: "poll_has_votes" as const });
-
   });
 
   it("returns poll_missing when there is no poll attached to edit", async () => {

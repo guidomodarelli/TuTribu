@@ -43,7 +43,6 @@ describe("PostgresMessageVideoThumbnailRepository", () => {
     ).resolves.toEqual([
       { externalId: "123456789", id: "video-1", provider: "vimeo" },
     ]);
-
   });
 
   it("returns an empty list without querying when there are no message ids", async () => {

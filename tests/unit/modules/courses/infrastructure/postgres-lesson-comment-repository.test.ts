@@ -46,7 +46,6 @@ describe("PostgresLessonCommentRepository", () => {
       ],
       status: "ok" as const,
     });
-
   });
 
   it("creates a comment guarded by active membership", async () => {
@@ -87,7 +86,6 @@ describe("PostgresLessonCommentRepository", () => {
       },
       status: "created" as const,
     });
-
   });
 
   it("deletes a comment when the viewer is the author or a leader", async () => {

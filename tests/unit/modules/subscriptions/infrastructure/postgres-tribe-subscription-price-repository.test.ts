@@ -291,7 +291,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         },
       ],
     });
-
   });
 
   it("should expose update trial policy for synchronized Mercado Pago prices", async () => {
@@ -607,7 +606,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).resolves.toEqual({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.notFound,
     });
-
   });
 
   it(
@@ -911,7 +909,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.created,
       price: expect.objectContaining({ id: "price-1", isCurrent: true }),
     });
-
   });
 
   it("keeps the new price non-current when other active paid prices already exist", async () => {
@@ -998,7 +995,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       },
       status: "available" as const,
     });
-
   });
 
   it("returns an unavailable offer when no current paid price is exposed", async () => {
@@ -1174,7 +1170,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         trialFrequencyType: "days",
       })
     );
-
   });
 
   it("should update Mercado Pago and local storage when the trial period changes", async () => {
@@ -1252,7 +1247,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
         trialFrequencyType: "days",
       })
     );
-
   });
 
   it("should reject paused price updates before mutating the provider plan", async () => {
@@ -1598,7 +1592,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
-
   });
 
   it("should cancel paused local prices when manual provider verification finds a canceled plan", async () => {
@@ -1660,7 +1653,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
-
   });
 
   it("should restore free-join mode when provider verification pauses the current paid price", async () => {
@@ -1722,7 +1714,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
-
   });
 
   it("should restore free-join mode when provider verification cancels the current paid price", async () => {
@@ -1784,7 +1775,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
-
   });
 
   it("should keep the Mercado Pago plan identifier when provider verification cancels a local price", async () => {
@@ -1940,7 +1930,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
-
   });
 
   it("should not call Mercado Pago when the viewer cannot manage prices", async () => {
@@ -2041,7 +2030,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       accessToken: "access-token",
       preapprovalId: "subscription-1",
     });
-
   });
 
   it("should keep authorized pending and paused provider subscriptions associated while only authorized grants access", async () => {
@@ -2114,7 +2102,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
       verifiedCount: 3,
     });
-
   });
 
   it("should return provider subscriber count with the reconciled local association count", async () => {
@@ -2243,7 +2230,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).resolves.toMatchObject({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
-
   });
 
   it("should load provider plan verification tokens from each price account", async () => {
@@ -2648,7 +2634,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       },
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
-
   });
 
   it("should sync provider plan webhooks with the RLS-safe price context", async () => {
@@ -2763,7 +2748,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       accessToken: "access-token",
       preapprovalPlanId: "plan-1",
     });
-
   });
 
   it("should pause local prices when Mercado Pago pauses provider plans", async () => {
@@ -2910,7 +2894,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).resolves.toMatchObject({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
-
   });
 
   it("re-applies provider plan changes after oscillation when the local price diverges from the target", async () => {
@@ -2989,7 +2972,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).resolves.toMatchObject({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified,
     });
-
   });
 
   it("keys the provider plan webhook idempotency by plan and content hash", async () => {
@@ -3100,7 +3082,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       mercadoPagoPausedSubscribersCount: 4,
       mercadoPagoPendingSubscribersCount: 3,
     });
-
   });
 
   it("should return null when aggregate diagnostics have no authorized target tribe", async () => {
@@ -3421,7 +3402,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).resolves.toEqual({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.invalidInput,
     });
-
   });
 
   it("should block deleting paused provider plans before applying invitation actions", async () => {
@@ -3523,7 +3503,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     ).resolves.toEqual({
       status: TRIBE_SUBSCRIPTION_PRICE_STATUS.deleted,
     });
-
   });
 
   it("should delete missing provider-plan prices even when historical provider subscribers are still attached", async () => {

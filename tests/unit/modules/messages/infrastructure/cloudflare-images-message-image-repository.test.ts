@@ -388,7 +388,6 @@ describe("CloudflareImagesMessageImageRepository", () => {
         userId: "member-1",
       })
     ).resolves.toEqual({ status: "invalid_image" as const });
-
   });
 
   it("does not restore a row a concurrent sweep already finalized when remote deletion fails", async () => {

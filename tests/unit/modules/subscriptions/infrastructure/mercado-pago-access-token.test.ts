@@ -49,6 +49,5 @@ describe("Mercado Pago access token refresh", () => {
         },
       })
     ).resolves.toBe("fresh-access-token");
-
   });
 });

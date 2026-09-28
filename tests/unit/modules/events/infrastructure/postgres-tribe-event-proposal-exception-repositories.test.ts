@@ -181,7 +181,6 @@ describe("PostgresTribeEventOccurrenceExceptionRepository", () => {
       originalStartsAt: "2026-05-14T21:00:00.000Z",
       tribeSlug: TRIBE_SLUG,
     });
-
   });
 
   it("maps a missing event and a viewer who cannot manage events", async () => {
@@ -383,7 +382,6 @@ describe("PostgresTribeEventProposalRepository", () => {
     const repository = new PostgresTribeEventProposalRepository(createExecutor(execute));
 
     await expect(repository.create(createCommand)).resolves.toEqual({ status: "forbidden" });
-
   });
 
   it("creates a proposal under the cap and reads it back with the author name", async () => {

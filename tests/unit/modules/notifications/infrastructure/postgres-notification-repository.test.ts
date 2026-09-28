@@ -105,7 +105,6 @@ describe("PostgresNotificationRepository", () => {
       ],
       unreadCount: 1,
     });
-
   });
 
   it("keeps the cancelled time on a cancellation notice even after the date is moved", async () => {
@@ -211,7 +210,6 @@ describe("PostgresNotificationRepository", () => {
         type: "event_waitlist_promoted",
       },
     });
-
   });
 
   it("skips and logs notifications whose payload ids are not UUIDs so the public inbox still parses", async () => {
@@ -300,7 +298,6 @@ describe("PostgresNotificationRepository", () => {
     const repository = new PostgresNotificationRepository(createExecutor(execute));
 
     await expect(repository.countUnread({ unreadCountCap: 100 })).resolves.toBe(2);
-
   });
 
   it("marks an own notification and reports not found for anyone else's", async () => {
@@ -317,7 +314,6 @@ describe("PostgresNotificationRepository", () => {
     await expect(
       repository.markRead({ notificationId: NOTIFICATION_ID, unreadCountCap: 100 })
     ).resolves.toEqual({ status: "not_found" });
-
   });
 
   it("marks every unread notification of the user", async () => {
@@ -340,6 +336,5 @@ describe("PostgresNotificationRepository", () => {
     await expect(
       repository.purgeReadBatch({ batchSize: 1000, readBefore: "2026-02-05T12:00:00.000Z" })
     ).resolves.toBe(12);
-
   });
 });

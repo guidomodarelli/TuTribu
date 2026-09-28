@@ -72,7 +72,6 @@ describe("PostgresTribeEventReminderRepository", () => {
     const repository = new PostgresTribeEventReminderRepository(createExecutor(execute));
 
     await repository.listSeriesInRange({ afterEventId: null, limit: 200, rangeEnd, rangeStart });
-
   });
 
   it("returns an empty last page without querying exceptions", async () => {

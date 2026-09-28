@@ -45,7 +45,6 @@ describe("PostgresTribeReadRepository", () => {
       status: "blocked" as const,
       statusReason: "payment_blocked",
     });
-
   });
 
   it("returns the current membership access and readable tribe in one database query", async () => {
@@ -82,7 +81,6 @@ describe("PostgresTribeReadRepository", () => {
         visibility: "private",
       },
     });
-
   });
 
   it("keeps the membership access when the tribe row is not readable", async () => {
@@ -162,7 +160,6 @@ describe("PostgresTribeReadRepository", () => {
         slug: "beta-club",
       },
     ]);
-
   });
 
   it("lists visible members for a readable tribe", async () => {
@@ -215,7 +212,6 @@ describe("PostgresTribeReadRepository", () => {
         role: "guardian",
       },
     ]);
-
   });
 
   it("treats a missing free-invitation flag as not joined via a free invitation", async () => {

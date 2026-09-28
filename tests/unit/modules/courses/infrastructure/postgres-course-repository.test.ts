@@ -161,7 +161,6 @@ describe("PostgresCourseRepository", () => {
       ],
       viewerPermissions: { canManageCourses: true },
     });
-
   });
 
   it("returns an empty tree when the tribe has no courses", async () => {
@@ -247,7 +246,6 @@ describe("PostgresCourseRepository", () => {
       },
       status: "created" as const,
     });
-
   });
 
   it("marks a lesson as completed guarding membership and drip unlock", async () => {
@@ -338,7 +336,6 @@ describe("PostgresCourseRepository", () => {
       },
       status: "created" as const,
     });
-
   });
 
   it("returns forbidden when leader permissions are missing on module creation", async () => {
@@ -439,7 +436,6 @@ describe("PostgresCourseRepository", () => {
       },
       status: "created" as const,
     });
-
   });
 
   it("returns invalid_file when a stale asset id cannot be attached during lesson creation", async () => {

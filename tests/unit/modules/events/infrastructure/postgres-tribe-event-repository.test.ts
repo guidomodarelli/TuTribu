@@ -228,7 +228,6 @@ describe("PostgresTribeEventRepository", () => {
       event: { id: EVENT_ID, recurrenceFrequency: "weekly", title: "Clase abierta" },
       status: "created" as const,
     });
-
   });
 
   it("locks the manager membership before the event row on update and delete", async () => {
@@ -318,7 +317,6 @@ describe("PostgresTribeEventRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: "schedule_removes_post_event_content" });
-
   });
 
   it("answers through the definer function and returns the fresh occurrence summary", async () => {
@@ -528,7 +526,6 @@ describe("PostgresTribeEventRepository", () => {
       await expect(repository.update(updateCommand)).resolves.toMatchObject({
         status: "updated",
       });
-
     });
 
     it("locks the event row first and compares the UPDATE with the locked version", async () => {
@@ -616,7 +613,6 @@ describe("PostgresTribeEventRepository", () => {
           eventType: null,
         })
       ).resolves.toMatchObject({ event: { eventType: "workshop" }, status: "updated" });
-
     });
 
     it("writes an explicit event type", async () => {
@@ -643,7 +639,6 @@ describe("PostgresTribeEventRepository", () => {
           eventType: "qa",
         })
       ).resolves.toMatchObject({ event: { eventType: "qa" }, status: "updated" });
-
     });
 
     it("writes an explicit capacity removal and refills when the change is reported", async () => {
@@ -664,7 +659,6 @@ describe("PostgresTribeEventRepository", () => {
       await expect(
         repository.update({ ...updateCommand, capacity: { capacity: null, kind: "set" } })
       ).resolves.toMatchObject({ event: { capacity: null }, status: "updated" });
-
     });
 
     it("skips the refill call when no waitlisted occurrence is still valid", async () => {

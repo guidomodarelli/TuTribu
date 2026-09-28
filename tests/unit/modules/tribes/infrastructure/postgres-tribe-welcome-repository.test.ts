@@ -311,5 +311,4 @@ describe("PostgresTribeWelcomeRepository", () => {
     expect(linkUpsertIndex).toBeGreaterThan(-1);
     expect(removedLinkDeleteIndex).toBeGreaterThan(linkUpsertIndex);
   });
-
 });

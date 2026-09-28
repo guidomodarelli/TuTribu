@@ -12,7 +12,6 @@ describe("PostgresMemberProfileRepository", () => {
     );
 
     await expect(repository.getImage(MEMBER_ID)).resolves.toBe(IMAGE_URL);
-
   });
 
   it("returns null when the member has no stored image", async () => {
@@ -22,5 +21,4 @@ describe("PostgresMemberProfileRepository", () => {
 
     await expect(repository.getImage(MEMBER_ID)).resolves.toBeNull();
   });
-
 });

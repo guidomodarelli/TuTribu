@@ -90,7 +90,6 @@ describe("PostgresTribeInvitationRepository", () => {
       invitationUrl: "https://tutribu.example.com/matematica-pro/invitar/plain-token",
       status: "created" as const,
     });
-
   });
 
   it("only creates specific-price invitations for active provider-backed prices", async () => {
@@ -131,7 +130,6 @@ describe("PostgresTribeInvitationRepository", () => {
     ).resolves.toMatchObject({
       status: "created" as const,
     });
-
   });
 
   it("maps missing invitation storage during creation to setup_required", async () => {
@@ -242,7 +240,6 @@ describe("PostgresTribeInvitationRepository", () => {
         subscriptionAssociation: { type: "current" },
       },
     ]);
-
   });
 
   it("includes the Mercado Pago account and trial period for specific-price associations", async () => {
@@ -302,7 +299,6 @@ describe("PostgresTribeInvitationRepository", () => {
         },
       },
     ]);
-
   });
 
   it("updates referral metadata through the metadata-only database function", async () => {
@@ -362,7 +358,6 @@ describe("PostgresTribeInvitationRepository", () => {
       },
       status: "updated" as const,
     });
-
   });
 
   it("reads conversion metrics grouped by invitation and payment account", async () => {
@@ -406,7 +401,6 @@ describe("PostgresTribeInvitationRepository", () => {
         signups: 3,
       },
     ]);
-
   });
 
   it("returns null acceptance links when decryption fails for a stored row", async () => {
@@ -502,7 +496,6 @@ describe("PostgresTribeInvitationRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: "revoked" as const });
-
   });
 
   it("maps malformed invitation identifiers to not_found before querying Postgres", async () => {
@@ -558,7 +551,6 @@ describe("PostgresTribeInvitationRepository", () => {
     ).resolves.toMatchObject({
       status: "updated" as const,
     });
-
   });
 
   it("accepts invitations idempotently without persisting the plain token", async () => {
@@ -575,7 +567,6 @@ describe("PostgresTribeInvitationRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: "accepted" as const });
-
   });
 
   it("rechecks membership after insert conflicts so concurrent accepts stay idempotent", async () => {
@@ -639,7 +630,6 @@ describe("PostgresTribeInvitationRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: "accepted" as const });
-
   });
 
   it(
@@ -692,7 +682,6 @@ describe("PostgresTribeInvitationRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: "revoked" as const });
-
   });
 
   it("resolves revoked invitations before requiring visible tribe access", async () => {
@@ -753,7 +742,6 @@ describe("PostgresTribeInvitationRepository", () => {
       },
       status: "available" as const,
     });
-
   });
 
   it("returns unavailable when the invitation has no active current subscription offer", async () => {

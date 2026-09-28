@@ -163,7 +163,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toBe(true);
-
   });
 
   it("resolves Mercado Pago return paths from stored provider subscription ids", async () => {
@@ -177,7 +176,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         providerSubscriptionId: "preapproval-1",
       })
     ).resolves.toBe("/matematica-pro?preapproval_id=preapproval-1");
-
   });
 
   it("reads an already stored return status without calling Mercado Pago", async () => {
@@ -457,7 +455,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     ).resolves.toEqual({
       status: "not_found" as const,
     });
-
   });
 
   it("recovers a provider plan checkout return as pending when the local reservation is missing", async () => {
@@ -525,7 +522,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       accessToken: "access-token",
       preapprovalId: "preapproval-2",
     });
-
   });
 
   it("does not recover a missing local reservation from a different provider plan", async () => {
@@ -1033,7 +1029,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledWith(
       expect.objectContaining({ preapprovalPlanId: "specific-provider-plan" })
     );
-
   });
 
   it("cancels an old pending checkout before starting a specific invitation plan", async () => {
@@ -1130,7 +1125,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(createMercadoPagoPreapprovalSubscription).toHaveBeenCalledTimes(1);
-
   });
 
   it("releases the reserved pending subscription when the provider access token cannot be resolved", async () => {
@@ -1177,7 +1171,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     // The provider checkout is never attempted without a usable access token,
     // and the reserved pending row is released for an immediate retry.
     expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
-
   });
 
   it("short-circuits with alreadySubscribed and reconciles membership when the member already has a live provider subscription", async () => {
@@ -1220,7 +1213,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     });
 
     expect(createMercadoPagoPreapprovalSubscription).not.toHaveBeenCalled();
-
   });
 
   it("short-circuits direct retries with alreadySubscribed when the member already has a live provider subscription", async () => {
@@ -1675,7 +1667,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
       checkoutUrl: CREATED_PREAPPROVAL_CHECKOUT_URL,
       status: "pending" as const,
     });
-
   });
 
   it("rejects conduct-blocked members even when old subscriptions were payment-blocked", async () => {
@@ -2181,7 +2172,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     ).resolves.toEqual({
       status: "processed" as const,
     });
-
   });
 
   it("marks paused subscriptions as removed access by subscription inactivity", async () => {
@@ -2215,7 +2205,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     ).resolves.toEqual({
       status: "processed" as const,
     });
-
   });
 
   it("refreshes expired Mercado Pago tokens before reconciling webhooks", async () => {
@@ -2301,7 +2290,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     ).resolves.toEqual({
       status: "processed" as const,
     });
-
   });
 
   it("keeps webhooks retryable when the local subscription is not stored yet", async () => {
@@ -2406,7 +2394,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     ).resolves.toEqual({
       status: "duplicate_webhook" as const,
     });
-
   });
 
   it("re-applies state changes after oscillation even when the idempotent key already exists", async () => {
@@ -2451,7 +2438,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     ).resolves.toEqual({
       status: "processed" as const,
     });
-
   });
 
   it("collapses webhook events with the same target state under a single idempotent key", async () => {
@@ -2533,7 +2519,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     ).resolves.toEqual({
       status: "not_found" as const,
     });
-
   });
 
   it("returns paused when current reconciliation finds a paused provider subscription", async () => {

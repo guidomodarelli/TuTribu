@@ -179,7 +179,6 @@ describe("PostgresMessageRoundRepository", () => {
         pageSize: 15,
       },
     });
-
   });
 
   it("merges attached images and videos into the unified media field in slot order", async () => {
@@ -266,7 +265,6 @@ describe("PostgresMessageRoundRepository", () => {
         },
       ],
     });
-
   });
 
   it("returns viewer permissions when the tribe has no messages yet", async () => {
@@ -511,7 +509,6 @@ describe("PostgresMessageRoundRepository", () => {
         },
       ],
     });
-
   });
 
   it("returns shared round data without viewer-specific reaction state", async () => {
@@ -580,7 +577,6 @@ describe("PostgresMessageRoundRepository", () => {
         pageSize: 15,
       },
     });
-
   });
 
   it("groups shared round CTE message columns required by PostgreSQL", async () => {
@@ -658,7 +654,6 @@ describe("PostgresMessageRoundRepository", () => {
         pageSize: 15,
       },
     });
-
   });
 
   it("lists message replies separately from the shared round", async () => {
@@ -703,7 +698,6 @@ describe("PostgresMessageRoundRepository", () => {
         },
       ],
     });
-
   });
 
   it("lists message likers with total count limited to the preview size", async () => {
@@ -759,7 +753,6 @@ describe("PostgresMessageRoundRepository", () => {
         },
       ],
     });
-
   });
 
   it("returns forbidden likers result when the message is not visible", async () => {
@@ -847,7 +840,6 @@ describe("PostgresMessageRoundRepository", () => {
         canReply: true,
       },
     });
-
   });
 
   it("aggregates viewer likes and selected poll options before joining viewer state", async () => {
@@ -874,6 +866,5 @@ describe("PostgresMessageRoundRepository", () => {
       likedMessageIds: ["message-1", "message-2"],
       selectedPollOptionIds: ["option-1", "option-2"],
     });
-
   });
 });

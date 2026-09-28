@@ -35,7 +35,6 @@ describe("PostgresTribeCreationRepository", () => {
       visibility: "private",
     });
 
-
   });
 
   it("surfaces SQL errors without splitting the create flow across statements", async () => {

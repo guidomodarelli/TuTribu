@@ -32,7 +32,6 @@ describe("PostgresTribeChannelRepository", () => {
         sortOrder: 20,
       },
     ]);
-
   });
 
   it("creates channels guarded by leader or guardian membership", async () => {
@@ -66,7 +65,6 @@ describe("PostgresTribeChannelRepository", () => {
       },
       status: "created" as const,
     });
-
 
   });
 
@@ -132,7 +130,6 @@ describe("PostgresTribeChannelRepository", () => {
         sortOrder: 30,
       })
     ).resolves.toEqual({ status: "duplicate_slug" as const });
-
   });
 
   it("maps unique violations to duplicate_slug during channel updates", async () => {
@@ -179,7 +176,6 @@ describe("PostgresTribeChannelRepository", () => {
       })
     ).resolves.toEqual({ status: "not_found" as const });
 
-
   });
 
   it("moves messages before deleting a channel when a target is provided", async () => {
@@ -201,7 +197,6 @@ describe("PostgresTribeChannelRepository", () => {
         targetChannelId: "channel-ronda",
       })
     ).resolves.toEqual({ status: "moved_and_deleted" as const });
-
 
   });
 });
