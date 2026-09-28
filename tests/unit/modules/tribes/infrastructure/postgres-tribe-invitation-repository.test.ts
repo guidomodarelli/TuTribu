@@ -422,6 +422,9 @@ describe("PostgresTribeInvitationRepository", () => {
         },
       ],
     }); });
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(function () { return undefined; });
     const repository = new PostgresTribeInvitationRepository(async (callback) =>
       callback({ execute } as never)
     );
@@ -440,6 +443,19 @@ describe("PostgresTribeInvitationRepository", () => {
         subscriptionAssociation: { type: "current" },
       },
     ]);
+
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    const loggedEntry = JSON.parse(String(consoleErrorSpy.mock.calls[0]?.[0]));
+    expect(loggedEntry).toMatchObject({
+      level: "error",
+      message: "Failed to decrypt stored tribe invitation token; falling back to null invitationUrl",
+      metadata: {
+        invitationId: "550e8400-e29b-41d4-a716-446655440000",
+        tribeSlug: "matematica-pro",
+      },
+    });
+    expect(JSON.stringify(loggedEntry)).not.toContain("v1.bad.bad.bad");
+    consoleErrorSpy.mockRestore();
   });
 
   it("returns an empty list when invitation storage has not been migrated yet", async () => {

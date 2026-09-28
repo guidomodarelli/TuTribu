@@ -146,6 +146,9 @@ describe("Mercado Pago OAuth routes", () => {
       ok: false,
       status: 400,
     });
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(function () { return undefined; });
 
     const callbackRedirect = await CALLBACK_GET(
       {
@@ -158,5 +161,14 @@ describe("Mercado Pago OAuth routes", () => {
       "/matematica-pro/precios?status=setup_required&statusOrigin=mercado_pago_oauth"
     );
     expect(connectTribePaymentIntegration).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+    const loggedEntry = JSON.parse(String(consoleErrorSpy.mock.calls[0]?.[0]));
+    expect(loggedEntry).toMatchObject({
+      level: "error",
+      message: "Mercado Pago OAuth callback token exchange failed",
+      metadata: { tribeSlug: "matematica-pro" },
+    });
+    expect(JSON.stringify(loggedEntry)).not.toContain("expired-code");
+    consoleErrorSpy.mockRestore();
   });
 });

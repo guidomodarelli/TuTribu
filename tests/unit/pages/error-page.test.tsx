@@ -9,16 +9,18 @@ describe("ErrorPage", () => {
     vi.clearAllMocks();
   });
 
-  it("renders a safe Spanish fallback and retries on demand", async () => {
+  it("renders a safe Spanish fallback, logs the error and retries on demand", async () => {
     const user = userEvent.setup();
     const retry = vi.fn();
+    const error = new Error("unexpected_failure");
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(function () { return undefined; });
 
-    render(
-      <ErrorPage
-        error={new Error("unexpected_failure")}
-        unstable_retry={retry}
-      />
-    );
+    render(<ErrorPage error={error} unstable_retry={retry} />);
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(error);
+    consoleErrorSpy.mockRestore();
 
     expect(screen.getByText(/error inesperado/i)).toBeInTheDocument();
     expect(
