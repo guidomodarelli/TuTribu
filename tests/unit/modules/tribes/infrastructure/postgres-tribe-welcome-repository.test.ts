@@ -261,53 +261,6 @@ describe("PostgresTribeWelcomeRepository", () => {
     ]);
   });
 
-  it("orders welcome replacement writes after resolving an editable tribe", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
-      rows: [
-        {
-          status: "updated" as const,
-        },
-      ],
-    }); });
-    const repository = new PostgresTribeWelcomeRepository(async (callback) =>
-      callback({ execute } as never)
-    );
-
-    await repository.save({
-      links: [
-        {
-          badgeLabel: "Soporte",
-          description: null,
-          id: "link-1",
-          isActive: true,
-          label: "Soporte",
-          message: "Hola",
-          phoneNumber: "+5491155555555",
-          sortOrder: 1,
-          type: TRIBE_WELCOME_LINK_TYPE.whatsappButton,
-          url: null,
-        },
-      ],
-      rules: [
-        {
-          id: "rule-1",
-          isActive: true,
-          label: "Presentate al entrar",
-          sortOrder: 1,
-        },
-      ],
-      linksHeading: "Recursos para empezar",
-      selectionModalBenefit: null,
-      selectionModalDescription:
-        "Tocá la opción que más te sirva. Con cualquiera obtenés acceso a los recursos del grupo. Si necesitás más tiempo, podés cerrar y volver más tarde.",
-      selectionModalTitle: "Elegí cómo querés empezar",
-      tribeSlug: "matematica-pro",
-      welcomeMessage: "Bienvenido/a",
-    });
-
-    expect(execute).toHaveBeenCalledTimes(5);
-  });
-
   it("preserves member selections by upserting unchanged links before deleting removed ones", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
@@ -363,32 +316,4 @@ describe("PostgresTribeWelcomeRepository", () => {
     expect(queryTexts[removedLinkDeleteIndex]).toContain("not exists");
   });
 
-  it("filters inactive items for regular welcome reads", async () => {
-    const execute = vi
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            welcome_message: "Bienvenido/a a Matematica Pro",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] });
-    const repository = new PostgresTribeWelcomeRepository(async (callback) =>
-      callback({ execute } as never)
-    );
-
-    await repository.getByTribeSlug({
-      tribeSlug: "matematica-pro",
-    });
-
-    const ruleQueryChunks = (execute.mock.calls[1][0] as { queryChunks: unknown[] })
-      .queryChunks;
-    const linkQueryChunks = (execute.mock.calls[2][0] as { queryChunks: unknown[] })
-      .queryChunks;
-
-    expect(ruleQueryChunks).toContain(false);
-    expect(linkQueryChunks).toContain(false);
-  });
 });

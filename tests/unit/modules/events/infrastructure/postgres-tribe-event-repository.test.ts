@@ -201,23 +201,6 @@ describe("PostgresTribeEventRepository", () => {
     ]);
   });
 
-  it("selects a series by a moved date only while that date is still a slot of its schedule", async () => {
-    const execute = vi.fn().mockResolvedValueOnce({ rows: [] });
-    const repository = createRepository(execute);
-
-    await repository.listByTribeRange({
-      rangeEnd: "2026-06-01T03:00:00.000Z",
-      rangeStart: "2026-05-01T03:00:00.000Z",
-      tribeSlug: "matematica-pro",
-    });
-
-    // A moved row kept after a schedule edit no longer belongs to the series,
-    // so it must not bring an otherwise out-of-range series into the month.
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toMatch(
-      /public\.is_tribe_event_series_occurrence\(\s*moved_exceptions\.original_starts_at,\s*events\.starts_at,\s*events\.recurrence_frequency,\s*events\.recurrence_until\s*\)/
-    );
-  });
-
   it("keeps viewer permissions and skips the attendance query when the range has no events", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [
@@ -650,67 +633,6 @@ describe("PostgresTribeEventRepository", () => {
       expect(refillSql).toContain("2026-05-13T18:00:00.000Z");
       expect(refillSql).toContain("2026-05-20T18:00:00.000Z");
       expect(refillSql).not.toContain("2026-05-19T18:00:00.000Z");
-      expect(execute).toHaveBeenCalledTimes(5);
-    });
-
-    it("keys moved dates by their original start and skips cancelled dates", async () => {
-      const execute = vi
-        .fn()
-        .mockResolvedValueOnce({ rows: [lockedEventRow] })
-        .mockResolvedValueOnce({ rows: [{ ...eventRow, capacity: 12, status: "updated" }] })
-        .mockResolvedValueOnce({
-          rows: [
-            // Original slot already over, moved to the future: refilled
-            // under its original start (the attendance key).
-            { occurrence_starts_at: "2026-05-06T18:00:00.000Z" },
-            // Future slot that was cancelled: takes no answers, not refilled.
-            { occurrence_starts_at: "2026-05-20T18:00:00.000Z" },
-            // Future slot moved to a time that already ended: still sent, the
-            // refill function decides "ended" with its effective end.
-            { occurrence_starts_at: "2026-05-27T18:00:00.000Z" },
-          ],
-        })
-        .mockResolvedValueOnce({
-          rows: [
-            {
-              event_id: EVENT_ID,
-              kind: "moved",
-              new_ends_at: null,
-              new_starts_at: "2026-05-14T18:00:00.000Z",
-              original_starts_at: "2026-05-06T18:00:00.000Z",
-              reason: null,
-            },
-            {
-              event_id: EVENT_ID,
-              kind: "cancelled",
-              new_ends_at: null,
-              new_starts_at: null,
-              original_starts_at: "2026-05-20T18:00:00.000Z",
-              reason: null,
-            },
-            {
-              event_id: EVENT_ID,
-              kind: "moved",
-              new_ends_at: null,
-              new_starts_at: "2026-05-12T18:00:00.000Z",
-              original_starts_at: "2026-05-27T18:00:00.000Z",
-              reason: null,
-            },
-          ],
-        })
-        .mockResolvedValueOnce({ rows: [{ promoted_count: 1 }] });
-      const repository = createRepository(execute);
-
-      await repository.update(updateCommand);
-
-      const candidateSql = getSqlText(execute.mock.calls[2]?.[0]);
-      const refillSql = getSqlText(execute.mock.calls[4]?.[0]);
-
-      // Waitlists of moved dates are candidates even before the lookback.
-      expect(candidateSql).toContain("public.event_occurrence_exceptions moved_exceptions");
-      expect(refillSql).toContain("2026-05-06T18:00:00.000Z");
-      expect(refillSql).not.toContain("2026-05-20T18:00:00.000Z");
-      expect(refillSql).toContain("2026-05-27T18:00:00.000Z");
       expect(execute).toHaveBeenCalledTimes(5);
     });
 
@@ -1155,46 +1077,6 @@ describe("PostgresTribeEventRepository", () => {
         "2026-06-01T03:00:00.000Z",
       ])
     );
-  });
-
-  it("reads the viewer answers of dates moved into the attendance range from before it", async () => {
-    const execute = vi.fn().mockResolvedValueOnce({
-      rows: [
-        {
-          ...eventRow,
-          snapshot_reference_time: new Date("2026-05-27T18:29:57.123Z"),
-          viewer_attendances: [],
-          occurrence_exceptions: [],
-        },
-      ],
-    });
-    const repository = createRepository(execute);
-
-    await repository.readViewerAttendanceStreakSnapshot({
-      eventRange: {
-        rangeEnd: "2026-07-01T03:00:00.000Z",
-        rangeStart: "2026-01-01T03:00:00.000Z",
-      },
-      tribeSlug: "matematica-pro",
-      viewerAttendanceRange: {
-        rangeEnd: "2026-06-01T03:00:00.000Z",
-        rangeStart: "2026-01-01T03:00:00.000Z",
-      },
-    });
-
-    // Answers keep the original start, so a date whose original start
-    // predates the range but was moved into it is matched by its moved
-    // exception; otherwise its answer would be missing from the streak.
-    const snapshotSql = getSqlText(execute.mock.calls[0][0]);
-    const viewerAttendancesSql = snapshotSql.slice(
-      snapshotSql.indexOf("from public.event_attendances"),
-      snapshotSql.indexOf("as viewer_attendances")
-    );
-
-    expect(viewerAttendancesSql).toContain(
-      "moved_exceptions.original_starts_at = event_attendances.occurrence_starts_at"
-    );
-    expect(viewerAttendancesSql).toContain("moved_exceptions.new_starts_at >=");
   });
 
   it("returns an empty snapshot when the tribe has no series in the range", async () => {

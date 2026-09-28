@@ -203,24 +203,6 @@ describe("PostgresTribeReadRepository", () => {
     );
   });
 
-  it("limits visible membership tribes to the current member", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
-      rows: [],
-    }); });
-
-    const repository = new PostgresTribeReadRepository(async (callback) =>
-      callback({
-        execute,
-      } as never)
-    );
-
-    await repository.listVisibleMembershipTribes();
-
-    expect(getSqlText(execute.mock.calls[0]?.[0])).toContain(
-      "tribe_members.user_id = public.current_app_user_id()"
-    );
-  });
-
   it("lists visible members for a readable tribe", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
       rows: [

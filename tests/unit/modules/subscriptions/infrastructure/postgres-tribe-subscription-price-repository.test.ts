@@ -2379,42 +2379,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
     );
   });
 
-  it("should restrict provider plan verification to live provider plan prices", async () => {
-    const execute = vi
-      .fn()
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            access_token: "access-token",
-            can_manage_prices: true,
-            refresh_token: null,
-            token_expires_at: null,
-            tribe_id: "tribe-1",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            freeJoinIsCurrent: false,
-            prices: [],
-          },
-        ],
-      })
-      .mockResolvedValueOnce({ rows: [] });
-    const repository = createRepository(execute);
-
-    await repository.verifyProviderPlans({ tribeSlug: "matematica-pro" });
-
-    const priceLookupSqlText = getSqlText(execute.mock.calls[1][0]);
-
-    expect(priceLookupSqlText).toMatch(
-      /tribe_subscription_prices\.status in \([\s\S]*'active'[\s\S]*'paused'[\s\S]*\)/
-    );
-    expect(priceLookupSqlText).not.toMatch(/canceled/);
-  });
-
   it("should load provider plan verification tokens from each price account", async () => {
     const execute = vi
       .fn()

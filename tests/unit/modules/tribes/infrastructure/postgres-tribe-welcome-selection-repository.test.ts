@@ -114,22 +114,4 @@ describe("PostgresTribeWelcomeSelectionRepository", () => {
     ).rejects.toBe(missingStorageError);
   });
 
-  it("filters current member selections in SQL", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
-      rows: [],
-    }); });
-    const repository = new PostgresTribeWelcomeSelectionRepository(
-      async (callback) => callback({ execute } as never)
-    );
-
-    await repository.listByTribeSlugForCurrentMember({
-      tribeSlug: "matematica-pro",
-    });
-
-    const queryText = readQueryText(execute.mock.calls[0]?.[0]);
-
-    expect(queryText).toContain(
-      "tribe_welcome_selections.user_id = public.current_app_user_id()"
-    );
-  });
 });

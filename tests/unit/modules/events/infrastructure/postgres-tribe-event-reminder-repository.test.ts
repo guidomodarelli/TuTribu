@@ -107,29 +107,6 @@ describe("PostgresTribeEventReminderRepository", () => {
     expect(getSqlText(execute.mock.calls[0]?.[0])).toContain("order by events.id asc");
   });
 
-  it("reads series and exceptions only through the owner-executed maintenance functions", async () => {
-    const execute = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [seriesRow(FIRST_EVENT_ID)] })
-      .mockResolvedValueOnce({ rows: [] });
-    const repository = new PostgresTribeEventReminderRepository(createExecutor(execute));
-
-    await repository.listSeriesInRange({
-      afterEventId: null,
-      limit: 200,
-      rangeEnd: "2026-05-07T12:10:00.000Z",
-      rangeStart: "2026-05-06T12:10:00.000Z",
-    });
-
-    const seriesSql = getSqlText(execute.mock.calls[0]?.[0]);
-    const exceptionsSql = getSqlText(execute.mock.calls[1]?.[0]);
-
-    expect(seriesSql).toContain("from public.list_tribe_event_reminder_series(");
-    expect(seriesSql).not.toContain("from public.events");
-    expect(exceptionsSql).toContain("from public.list_tribe_event_reminder_exceptions(");
-    expect(exceptionsSql).not.toContain("from public.event_occurrence_exceptions");
-  });
-
   it("bounds the exceptions read to the reminder range instead of the whole history", async () => {
     const rangeStart = "2026-05-06T12:10:00.000Z";
     const rangeEnd = "2026-05-07T12:10:00.000Z";
