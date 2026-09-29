@@ -262,19 +262,21 @@ describe("TribeCoursesBrowser", () => {
     ).toBeInTheDocument();
   });
 
-  it("ignores history entries of other pages", () => {
+  it("ignores history entries of other pages", async () => {
     renderBrowser({ initialCourseId: "course-1" });
 
     traverseHistoryTo(`/${TRIBE_SLUG}/ronda?curso=course-2`);
 
     expect(screen.getByRole("heading", { name: "Inversiones" })).toBeInTheDocument();
+    expect(await screen.findByText(LESSON_COMMENTS_EMPTY_STATE)).toBeInTheDocument();
   });
 
-  it("cancels the default action of plain clicks it handles in the page", () => {
+  it("cancels the default action of plain clicks it handles in the page", async () => {
     renderBrowser();
 
     expect(clickAndReportPageCancel(getCourseCard("Ahorro"), {})).toBe(true);
     expect(screen.getByRole("heading", { name: "Ahorro" })).toBeInTheDocument();
+    expect(await screen.findByText(LESSON_COMMENTS_EMPTY_STATE)).toBeInTheDocument();
   });
 
   it.each([
@@ -297,7 +299,7 @@ describe("TribeCoursesBrowser", () => {
     ).toBeInTheDocument();
   });
 
-  it("leaves modified clicks on the back link to the browser", () => {
+  it("leaves modified clicks on the back link to the browser", async () => {
     const pushStateSpy = vi.spyOn(window.history, "pushState");
 
     renderBrowser({ initialCourseId: "course-1" });
@@ -310,6 +312,7 @@ describe("TribeCoursesBrowser", () => {
     ).toBe(false);
     expect(pushStateSpy).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: "Inversiones" })).toBeInTheDocument();
+    expect(await screen.findByText(LESSON_COMMENTS_EMPTY_STATE)).toBeInTheDocument();
   });
 
   it("keeps progress and resume point consistent after switching courses", async () => {
