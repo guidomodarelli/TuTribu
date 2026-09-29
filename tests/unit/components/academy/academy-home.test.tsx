@@ -221,4 +221,58 @@ describe("AcademyHome", () => {
 
     expect(screen.getByText("La venta de la academia está pausada.")).toBeInTheDocument();
   });
+
+  it("shows the leader preview without asking the leader to verify or buy", () => {
+    render(
+      <AcademyHome
+        access={access({ isLeaderPreview: true })}
+        canManage
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    expect(screen.getByText("Vista de líder")).toBeInTheDocument();
+    expect(screen.getByText("Como líder ves todo el contenido de la academia.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Solicitar verificación" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Pasos para acceder a la academia" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir a los cursos" })).toHaveAttribute("href", "/tribu/cursos");
+  });
+
+  it("marks the verification step as done and the purchase as the current step", () => {
+    render(
+      <AcademyHome
+        access={access({ canStartCheckout: true, eligibility: "verified", nextAction: "view_offer" })}
+        canManage={false}
+        isCheckoutReturn={false}
+        offer={offer}
+        tribeSlug="tribu"
+      />
+    );
+
+    const steps = screen.getAllByRole("listitem").filter((item) => item.closest("ol"));
+
+    expect(steps[0]).toHaveTextContent("Tu vinculación está verificada.");
+    expect(steps[1]).toHaveAttribute("aria-current", "step");
+    expect(steps[1]).toContainElement(screen.getByRole("button", { name: "Contratar academia" }));
+  });
+
+  it("guides the leader to configure an empty offer", () => {
+    render(
+      <AcademyHome
+        access={access({ isLeaderPreview: true })}
+        canManage
+        isCheckoutReturn={false}
+        offer={{ ...offer, benefits: [], description: "", price: null, title: "" }}
+        tribeSlug="tribu"
+      />
+    );
+
+    expect(screen.getByText(/Todavía no cargaste la oferta/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Configurar la oferta" })).toHaveAttribute(
+      "href",
+      "/tribu/academia/gestionar"
+    );
+  });
 });

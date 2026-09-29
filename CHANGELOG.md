@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- La página Academia muestra tu estado con una etiqueta clara (Academia activa, Acceso básico, Acceso finalizado o Vista de líder) y, si tu acceso es básico, los pasos para sumar la academia marcando cuáles ya completaste. Si la oferta todavía no está cargada, el líder ve un aviso para configurarla.
+
 ## [1.0.1] - 2026-09-28
 
 ### Added

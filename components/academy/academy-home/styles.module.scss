@@ -2,20 +2,43 @@
 
 @include motion.define-keyframes;
 
+// Mid-width breakpoint where the header places the management link beside
+// the title (matches the 48rem layout breakpoint used across the app).
+$academy-home-wide: 48rem;
+
 .AcademyHome {
   display: grid;
-  gap: clamp(1.25rem, 4vw, 2rem);
+  gap: clamp(1.5rem, 4vw, 2.25rem);
   margin: 0 auto;
   width: min(100%, 48rem);
   min-width: 0;
-  padding-block: 0.25rem 1.5rem;
+  padding-block: 0.25rem 2rem;
 
   &__header {
     @include motion.enter;
 
     display: grid;
+    gap: 1rem;
+    min-width: 0;
+
+    @media (min-width: $academy-home-wide) {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+    }
+  }
+
+  &__heading {
+    display: grid;
     gap: 0.5rem;
     min-width: 0;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
   }
 
   &__title {
@@ -31,8 +54,9 @@
   &__description,
   &__text,
   &__muted,
-  &__notice,
-  &__error {
+  &__error,
+  &__statusText,
+  &__stepTitle {
     margin: 0;
     line-height: 1.6;
     overflow-wrap: anywhere;
@@ -41,18 +65,73 @@
   &__description {
     max-width: 60ch;
     color: var(--muted-foreground);
+    font-size: 1rem;
     white-space: pre-line;
+  }
+
+  &__text {
+    color: var(--foreground);
   }
 
   &__muted {
     color: var(--muted-foreground);
-    font-size: 0.9rem;
+    font-size: 0.875rem;
+  }
+
+  &__icon {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+  }
+
+  &__manageLink {
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-self: start;
+    min-height: 2.25rem;
+    padding: 0 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: min(var(--radius-md), 0.75rem);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    @include motion.interactive(background-color, border-color);
+
+    &:hover {
+      background-color: var(--muted);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
   }
 
   &__notice {
-    padding-block: 0.5rem;
-    border-block: 1px solid var(--border);
+    display: flex;
+    gap: 0.625rem;
+    align-items: flex-start;
+    margin: 0;
+    padding: 0.75rem 0.875rem;
+    border-inline-start: 3px solid var(--primary);
+    border-radius: min(var(--radius-md), 0.5rem);
+    background-color: color-mix(in oklab, var(--primary) 8%, transparent);
     color: var(--foreground);
+    line-height: 1.5;
+
+    .AcademyHome__icon {
+      margin-top: 0.2rem;
+      color: var(--primary);
+    }
+  }
+
+  &__inlineLink {
+    color: var(--primary);
+    font-weight: 500;
+    text-underline-offset: 2px;
   }
 
   &__error {
@@ -61,37 +140,163 @@
 
   &__section {
     display: grid;
-    gap: 0.75rem;
+    gap: 1.25rem;
     min-width: 0;
-    padding-top: 1.25rem;
+    padding-top: 1.5rem;
     border-top: 1px solid var(--border);
   }
 
   &__sectionTitle {
     margin: 0;
     color: var(--foreground);
-    font-size: 1.1rem;
+    font-size: 1.125rem;
     font-weight: 600;
+    line-height: 1.3;
   }
 
-  &__benefits {
+  &__status {
     display: grid;
-    gap: 0.35rem;
-    margin: 0;
-    padding-inline-start: 1.25rem;
-    overflow-wrap: anywhere;
-  }
-
-  &__price {
-    display: flex;
-    flex-wrap: wrap;
     gap: 0.5rem;
-    margin: 0;
+    justify-items: start;
+    min-width: 0;
   }
 
-  &__priceValue {
-    margin: 0;
+  &__statusBadge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.5rem;
+    padding: 0 0.625rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.75rem;
     font-weight: 600;
+    letter-spacing: 0.01em;
+
+    &--success {
+      border-color: color-mix(in oklab, var(--primary) 35%, transparent);
+      background-color: color-mix(in oklab, var(--primary) 14%, transparent);
+      color: var(--foreground);
+    }
+
+    &--neutral {
+      border-color: var(--border);
+      background-color: var(--secondary);
+      color: var(--secondary-foreground);
+    }
+
+    &--muted {
+      border-color: var(--border);
+      background-color: var(--muted);
+      color: var(--muted-foreground);
+    }
+
+    &--warning {
+      border-color: color-mix(in oklab, var(--destructive) 40%, transparent);
+      background-color: color-mix(in oklab, var(--destructive) 12%, transparent);
+      color: var(--foreground);
+    }
+  }
+
+  &__statusText {
+    color: var(--foreground);
+    font-size: 1.0625rem;
+    font-weight: 500;
+  }
+
+  &__steps {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: 0.875rem;
+    padding-bottom: 1.25rem;
+
+    // Connector between markers; the last step has none.
+    &:not(:last-child)::before {
+      content: "";
+      position: absolute;
+      top: 2.25rem;
+      bottom: 0.25rem;
+      left: calc(1rem - 1px);
+      width: 2px;
+      border-radius: 1px;
+      background-color: var(--border);
+    }
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    &--done .AcademyHome__stepMarker {
+      border-color: var(--primary);
+      background-color: var(--primary);
+      color: var(--primary-foreground);
+    }
+
+    &--current .AcademyHome__stepMarker {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    &--waiting .AcademyHome__stepMarker {
+      border-style: dashed;
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    &--upcoming {
+      .AcademyHome__stepMarker {
+        color: var(--muted-foreground);
+      }
+
+      .AcademyHome__stepTitle {
+        color: var(--muted-foreground);
+      }
+    }
+  }
+
+  &__stepMarker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 2px solid var(--border);
+    border-radius: 999px;
+    background-color: var(--background);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  &__stepBody {
+    display: grid;
+    gap: 0.25rem;
+    justify-items: start;
+    min-width: 0;
+    padding-top: 0.25rem;
+
+    > a,
+    > button {
+      margin-top: 0.5rem;
+    }
+  }
+
+  &__stepTitle {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  // Buttons share the height of the action links so a row of mixed actions
+  // stays aligned.
+  &__actionButton {
+    min-height: 2.5rem;
   }
 
   &__actions {
@@ -104,12 +309,15 @@
   &__primaryLink,
   &__secondaryLink {
     display: inline-flex;
+    gap: 0.5rem;
     align-items: center;
     min-height: 2.5rem;
     padding: 0 1rem;
-    border-radius: min(var(--radius-md), 0.75rem);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
     font-weight: 500;
     text-decoration: none;
+    @include motion.interactive(background-color, border-color, opacity);
 
     &:focus-visible {
       outline: 2px solid var(--ring);
@@ -120,10 +328,88 @@
   &__primaryLink {
     background-color: var(--primary);
     color: var(--primary-foreground);
+
+    &:hover {
+      opacity: 0.92;
+    }
   }
 
   &__secondaryLink {
     border: 1px solid var(--border);
     color: var(--foreground);
+
+    &:hover {
+      background-color: var(--muted);
+    }
+  }
+
+  &__benefits {
+    display: grid;
+    gap: 0.625rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__benefit {
+    display: flex;
+    gap: 0.625rem;
+    align-items: flex-start;
+    color: var(--foreground);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  &__benefitIcon {
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0.15rem;
+    color: var(--primary);
+  }
+
+  &__price {
+    display: grid;
+    gap: 0.125rem;
+    margin: 0;
+  }
+
+  &__priceLabel {
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+  }
+
+  &__priceValue {
+    margin: 0;
+    color: var(--foreground);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  &__empty {
+    display: grid;
+    gap: 0.75rem;
+    justify-items: start;
+    padding: 1rem;
+    border: 1px dashed var(--border);
+    border-radius: min(var(--radius-md), 0.75rem);
+  }
+
+  &__notes {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__note {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.5;
   }
 }
