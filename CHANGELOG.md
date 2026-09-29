@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-09-29
+
 ### Changed
 
 - Gestionar academia se reorganizó: cada sección explica para qué sirve, las admisiones y la venta se activan con interruptores que describen su efecto, y los estados de verificaciones, proveedores e integrantes se muestran como etiquetas. Los filtros quedan en una sola línea y la página se lee mejor en el teléfono.
