@@ -61,8 +61,17 @@ export type TribeChannelProjection = {
   sortOrder: number | string | null;
 };
 
+/**
+ * Canonical ISO 8601 instant for a message timestamp. Drizzle over
+ * node-postgres keeps `timestamptz` as PostgreSQL text
+ * (`2026-06-10 00:58:55.66666+00`), which the public round DTO rejects, so
+ * both `Date` values and database text are normalized.
+ *
+ * @param value - Timestamp read from the database.
+ * @returns The instant as `YYYY-MM-DDTHH:mm:ss.sssZ`.
+ */
 export function formatMessageDateTimeValue(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : value;
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
 function createAvatarFallback(name: string): string {

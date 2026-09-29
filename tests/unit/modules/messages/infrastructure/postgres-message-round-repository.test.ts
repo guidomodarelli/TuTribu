@@ -656,6 +656,80 @@ describe("PostgresMessageRoundRepository", () => {
     });
   });
 
+  it("returns ISO 8601 instants when PostgreSQL sends timestamptz as text", async () => {
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: channelRows })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            channel_access_scope: "tribemates",
+            channel_emoji: "🔥",
+            channel_id: "channel-ronda",
+            channel_name: "Ronda",
+            channel_slug: "ronda",
+            channel_sort_order: 20,
+            message_id: "message-1",
+            message_content: "Bienvenida",
+            // node-postgres through Drizzle keeps timestamptz as PostgreSQL text.
+            message_created_at: "2026-06-10 00:58:55.66666+00",
+            message_title: "Anuncio inicial",
+            author_id: "leader-1",
+            author_name: "Ada Lovelace",
+            author_image: null,
+            author_role: "leader",
+            like_count: "0",
+            message_pinned_at: "2026-06-11 09:30:00-03",
+          },
+        ],
+      });
+    const repository = new PostgresMessageRoundRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    const sharedData = await repository.listSharedDataByTribeSlug({
+      channelSlug: "ronda",
+      page: 1,
+      tribeSlug: "matematica-pro",
+      viewerId: "member-1",
+    });
+
+    expect(sharedData.messages[0]).toMatchObject({
+      createdAt: "2026-06-10T00:58:55.666Z",
+      pinnedAt: "2026-06-11T12:30:00.000Z",
+    });
+  });
+
+  it("returns ISO 8601 reply instants when PostgreSQL sends timestamptz as text", async () => {
+    const execute = vi.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          status_result: "found",
+          reply_id: "reply-1",
+          reply_content: "Gracias",
+          reply_created_at: "2026-06-05 12:47:19.547017+00",
+          reply_author_id: "member-1",
+          reply_author_name: "Grace Hopper",
+          reply_author_image: null,
+          reply_author_role: "tribemate",
+        },
+      ],
+    });
+    const repository = new PostgresMessageRoundRepository(async (callback) =>
+      callback({ execute } as never)
+    );
+
+    await expect(
+      repository.listRepliesByMessageId({
+        messageId: "message-1",
+        tribeSlug: "matematica-pro",
+        viewerId: "member-1",
+      })
+    ).resolves.toMatchObject({
+      replies: [expect.objectContaining({ createdAt: "2026-06-05T12:47:19.547Z" })],
+    });
+  });
+
   it("lists message replies separately from the shared round", async () => {
     const execute = vi.fn().mockResolvedValueOnce({
       rows: [

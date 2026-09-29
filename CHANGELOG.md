@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- Cambiar de canal o de página en la ronda de la tribu vuelve a mostrar los mensajes en lugar de «No pudimos cargar los mensajes».
+
 ## [1.0.3] - 2026-09-29
 
 ### Changed
