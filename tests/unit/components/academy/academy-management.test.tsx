@@ -80,6 +80,41 @@ describe("AcademyManagement", () => {
     expect(screen.getByRole("heading", { name: "Solicitudes de verificación" })).toBeInTheDocument();
   });
 
+  it("points a legacy tribe to Ajustes and labels an inactive provider", () => {
+    render(
+      <AcademyManagement
+        {...props({
+          providers: [
+            {
+              displayName: "Broker B",
+              id: "8e4f5c2b-9b7f-4d2e-8a3f-4c5b6d7e8f90",
+              instructions: "",
+              isActive: false,
+              key: "broker-b",
+              linkUrl: null,
+            },
+          ],
+          settings: {
+            accessModel: "legacy",
+            admissionEnabled: false,
+            benefits: [],
+            configVersion: 1,
+            description: "",
+            offerVersion: 1,
+            salesEnabled: false,
+            title: "Academia",
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Ajustes" })).toHaveAttribute("href", "/tribu/ajustes");
+    expect(screen.getByRole("switch", { name: "Admisiones abiertas" })).toBeDisabled();
+    const providerRow = screen.getByText("Broker B").closest("li") as HTMLElement;
+
+    expect(within(providerRow).getByText("Inactivo")).toBeInTheDocument();
+  });
+
   it("requires a reason to reject a request", async () => {
     const user = userEvent.setup();
     render(<AcademyManagement {...props()} />);

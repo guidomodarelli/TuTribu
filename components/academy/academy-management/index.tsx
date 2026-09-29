@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { ArrowLeftIcon, PlusIcon, SearchIcon } from "lucide-react";
 import {
   Badge,
   Button,
@@ -48,9 +49,12 @@ import styles from "./styles.module.scss";
 const MANAGEMENT_COPY = {
   accessColumn: "Acceso",
   accessNo: "Sin academia",
+  admissionDescription: "Permite que nuevas personas ingresen gratis a la tribu.",
+  availabilityTitle: "Disponibilidad",
   accessYes: "Con academia",
   actionsColumn: "Acciones",
   activeLabel: "Activo",
+  inactiveLabel: "Inactivo",
   admissionLabel: "Admisiones abiertas",
   allStatuses: "Todos los estados",
   availabilityHint:
@@ -89,9 +93,18 @@ const MANAGEMENT_COPY = {
   linkLabel: "Enlace HTTPS (opcional)",
   memberColumn: "Integrante",
   membersTitle: "Accesos de integrantes",
-  modeAcademy: "Modo: academia",
-  modeLegacy: "Modo: clásico",
-  modeNote: "La activación del modo academia se hace con el procedimiento de migración supervisado.",
+  modeAcademy: "Academia activa",
+  modeLegacy: "Modo clásico",
+  modeLegacyNote: "La academia todavía no está activa en esta tribu. Podés activarla desde",
+  modeLegacyLink: "Ajustes",
+  offerDescription: "Es lo que ven tus integrantes en la página de la academia.",
+  pageDescription: "Configurá la oferta, revisá las verificaciones y administrá el acceso de cada integrante.",
+  pageEyebrow: "Academia de la tribu",
+  providersDescription: "Son las entidades con las que tus integrantes confirman su vinculación.",
+  queueDescription: "Verificá o rechazá las vinculaciones que pidieron tus integrantes.",
+  membersDescription: "Revisá quién tiene la academia y bonificá el acceso cuando haga falta.",
+  reasonPlaceholder: "Obligatorio para rechazar o revocar",
+  salesDescription: "Permite contratar la academia desde su página.",
   newProvider: "Nuevo proveedor",
   next: "Siguiente",
   offerSaved: "Oferta guardada.",
@@ -116,9 +129,8 @@ const MANAGEMENT_COPY = {
   statusColumn: "Estado",
   statusFilterLabel: "Estado",
   titleLabel: "Título",
-  verifiedColumn: "Verificada",
-  verifiedNo: "No",
-  verifiedYes: "Sí",
+  verifiedNo: "Sin verificar",
+  verifiedYes: "Verificada",
   verify: "Verificar",
   edit: "Editar",
 } as const;
@@ -169,10 +181,13 @@ export function AcademyManagement({
   return (
     <main className={styles.AcademyManagement}>
       <header className={styles.AcademyManagement__header}>
-        <h1 className={styles.AcademyManagement__title}>{MANAGEMENT_COPY.pageTitle}</h1>
-        <Link className={styles.AcademyManagement__link} href={ROUTES.tribes.academy(tribeSlug)}>
+        <Link className={styles.AcademyManagement__backLink} href={ROUTES.tribes.academy(tribeSlug)}>
+          <ArrowLeftIcon aria-hidden className={styles.AcademyManagement__icon} />
           {MANAGEMENT_COPY.backLink}
         </Link>
+        <p className={styles.AcademyManagement__eyebrow}>{MANAGEMENT_COPY.pageEyebrow}</p>
+        <h1 className={styles.AcademyManagement__title}>{MANAGEMENT_COPY.pageTitle}</h1>
+        <p className={styles.AcademyManagement__description}>{MANAGEMENT_COPY.pageDescription}</p>
       </header>
       {isLeader && settings ? <SettingsSection initialSettings={settings} tribeSlug={tribeSlug} /> : null}
       {isLeader && providers ? <ProvidersSection initialProviders={providers} tribeSlug={tribeSlug} /> : null}
@@ -287,39 +302,54 @@ function SettingsSection({
   const isAcademyMode = settings.accessModel === "academy";
 
   return (
-    <section aria-labelledby={`${titleId}-section`} className={styles.AcademyManagement__section}>
+    <section
+      aria-labelledby={`${titleId}-section`}
+      className={`${styles.AcademyManagement__section} ${styles["AcademyManagement__section--spacious"]}`}
+    >
       <div className={styles.AcademyManagement__sectionHeader}>
         <h2 className={styles.AcademyManagement__sectionTitle} id={`${titleId}-section`}>
           {MANAGEMENT_COPY.settingsTitle}
         </h2>
-        <Badge variant="secondary">
+        <Badge variant={isAcademyMode ? "default" : "secondary"}>
           {isAcademyMode ? MANAGEMENT_COPY.modeAcademy : MANAGEMENT_COPY.modeLegacy}
         </Badge>
       </div>
-      <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.modeNote}</p>
+      {isAcademyMode ? null : (
+        <p className={styles.AcademyManagement__hint}>
+          {`${MANAGEMENT_COPY.modeLegacyNote} `}
+          <Link className={styles.AcademyManagement__inlineLink} href={ROUTES.tribes.settings(tribeSlug)}>
+            {MANAGEMENT_COPY.modeLegacyLink}
+          </Link>
+          .
+        </p>
+      )}
 
-      <div className={styles.AcademyManagement__switches}>
-        <label className={styles.AcademyManagement__switch}>
-          <Switch
+      <div className={styles.AcademyManagement__group}>
+        <h3 className={styles.AcademyManagement__subTitle}>{MANAGEMENT_COPY.availabilityTitle}</h3>
+        <ul className={styles.AcademyManagement__toggles}>
+          <AvailabilityToggle
             checked={settings.admissionEnabled}
+            description={MANAGEMENT_COPY.admissionDescription}
             disabled={!isAcademyMode || pending !== null}
+            label={MANAGEMENT_COPY.admissionLabel}
             onCheckedChange={(checked) => toggleAvailability({ admissionEnabled: checked })}
           />
-          <span>{MANAGEMENT_COPY.admissionLabel}</span>
-        </label>
-        <label className={styles.AcademyManagement__switch}>
-          <Switch
+          <AvailabilityToggle
             checked={settings.salesEnabled}
+            description={MANAGEMENT_COPY.salesDescription}
             disabled={!isAcademyMode || pending !== null}
+            label={MANAGEMENT_COPY.salesLabel}
             onCheckedChange={(checked) => toggleAvailability({ salesEnabled: checked })}
           />
-          <span>{MANAGEMENT_COPY.salesLabel}</span>
-        </label>
+        </ul>
+        <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.availabilityHint}</p>
       </div>
-      <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.availabilityHint}</p>
 
       <form className={styles.AcademyManagement__form} noValidate onSubmit={handleOfferSubmit}>
-        <h3 className={styles.AcademyManagement__subTitle}>{MANAGEMENT_COPY.offerTitle}</h3>
+        <div className={styles.AcademyManagement__groupHeading}>
+          <h3 className={styles.AcademyManagement__subTitle}>{MANAGEMENT_COPY.offerTitle}</h3>
+          <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.offerDescription}</p>
+        </div>
         <label className={styles.AcademyManagement__field} htmlFor={titleId}>
           <span>{MANAGEMENT_COPY.titleLabel}</span>
           <Input id={titleId} maxLength={120} onChange={(event) => setTitle(event.currentTarget.value)} required value={title} />
@@ -349,9 +379,11 @@ function SettingsSection({
         <p className={styles.AcademyManagement__hint} id={benefitsHelpId}>
           {MANAGEMENT_COPY.benefitsHelp}
         </p>
-        <Button aria-busy={pending === "offer" || undefined} disabled={pending !== null || !title.trim()} type="submit">
-          {pending === "offer" ? MANAGEMENT_COPY.saving : MANAGEMENT_COPY.save}
-        </Button>
+        <div className={styles.AcademyManagement__actions}>
+          <Button aria-busy={pending === "offer" || undefined} disabled={pending !== null || !title.trim()} type="submit">
+            {pending === "offer" ? MANAGEMENT_COPY.saving : MANAGEMENT_COPY.save}
+          </Button>
+        </div>
       </form>
       {feedback ? (
         <p
@@ -362,6 +394,49 @@ function SettingsSection({
         </p>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * One availability switch with its label and a short explanation.
+ *
+ * @param props - Switch state, copy and change handler.
+ * @returns Toggle row.
+ */
+function AvailabilityToggle({
+  checked,
+  description,
+  disabled,
+  label,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  description: string;
+  disabled: boolean;
+  label: string;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  const switchId = useId();
+  const descriptionId = useId();
+
+  return (
+    <li className={styles.AcademyManagement__toggle}>
+      <span className={styles.AcademyManagement__toggleText}>
+        <label className={styles.AcademyManagement__toggleLabel} htmlFor={switchId}>
+          {label}
+        </label>
+        <span className={styles.AcademyManagement__hint} id={descriptionId}>
+          {description}
+        </span>
+      </span>
+      <Switch
+        aria-describedby={descriptionId}
+        checked={checked}
+        disabled={disabled}
+        id={switchId}
+        onCheckedChange={onCheckedChange}
+      />
+    </li>
   );
 }
 
@@ -445,10 +520,12 @@ function ProvidersSection({
         <h2 className={styles.AcademyManagement__sectionTitle} id={sectionId}>
           {MANAGEMENT_COPY.providersTitle}
         </h2>
-        <Button disabled={draft !== null} onClick={() => setDraft(EMPTY_PROVIDER)} type="button" variant="outline">
+        <Button disabled={draft !== null} onClick={() => setDraft(EMPTY_PROVIDER)} size="sm" type="button" variant="outline">
+          <PlusIcon aria-hidden />
           {MANAGEMENT_COPY.newProvider}
         </Button>
       </div>
+      <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.providersDescription}</p>
       {providers.length === 0 ? (
         <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.emptyProviders}</p>
       ) : (
@@ -456,13 +533,17 @@ function ProvidersSection({
           {providers.map((provider) => (
             <li className={styles.AcademyManagement__row} key={provider.id}>
               <span className={styles.AcademyManagement__rowMain}>
-                <strong>{provider.displayName}</strong>
-                <span className={styles.AcademyManagement__hint}>{provider.key}</span>
+                <span className={styles.AcademyManagement__rowTitle}>
+                  <strong>{provider.displayName}</strong>
+                  <Badge variant={provider.isActive ? "secondary" : "outline"}>
+                    {provider.isActive ? MANAGEMENT_COPY.activeLabel : MANAGEMENT_COPY.inactiveLabel}
+                  </Badge>
+                </span>
+                <code className={styles.AcademyManagement__code}>{provider.key}</code>
               </span>
-              <Badge variant="secondary">
-                {provider.isActive ? MANAGEMENT_COPY.activeLabel : QUEUE_STATUS_LABEL.revoked}
-              </Badge>
               <Button
+                className={styles.AcademyManagement__rowAction}
+                size="sm"
                 disabled={draft !== null}
                 onClick={() =>
                   setDraft({
@@ -484,7 +565,7 @@ function ProvidersSection({
         </ul>
       )}
       {draft ? (
-        <form className={styles.AcademyManagement__form} noValidate onSubmit={handleSubmit}>
+        <form className={styles.AcademyManagement__panel} noValidate onSubmit={handleSubmit}>
           <label className={styles.AcademyManagement__field} htmlFor={keyInputId}>
             <span>{MANAGEMENT_COPY.keyLabel}</span>
             <Input id={keyInputId} maxLength={40} onChange={(event) => setDraft({ ...draft, key: event.currentTarget.value })} value={draft.key} />
@@ -508,10 +589,14 @@ function ProvidersSection({
             <span>{MANAGEMENT_COPY.linkLabel}</span>
             <Input id={linkInputId} onChange={(event) => setDraft({ ...draft, linkUrl: event.currentTarget.value })} type="url" value={draft.linkUrl} />
           </label>
-          <label className={styles.AcademyManagement__switch}>
-            <Switch checked={draft.isActive} onCheckedChange={(checked) => setDraft({ ...draft, isActive: checked })} />
-            <span>{MANAGEMENT_COPY.activeLabel}</span>
-          </label>
+          <div className={styles.AcademyManagement__switch}>
+            <Switch
+              checked={draft.isActive}
+              id={`${keyInputId}-active`}
+              onCheckedChange={(checked) => setDraft({ ...draft, isActive: checked })}
+            />
+            <label htmlFor={`${keyInputId}-active`}>{MANAGEMENT_COPY.activeLabel}</label>
+          </div>
           <div className={styles.AcademyManagement__actions}>
             <Button aria-busy={isSaving || undefined} disabled={isSaving} type="submit">
               {isSaving ? MANAGEMENT_COPY.saving : MANAGEMENT_COPY.save}
@@ -547,7 +632,7 @@ function Pagination({
   }
 
   return (
-    <div className={styles.AcademyManagement__actions}>
+    <div className={styles.AcademyManagement__pagination}>
       <Button disabled={page <= 1} onClick={() => onPageChange(page - 1)} type="button" variant="outline">
         {MANAGEMENT_COPY.previous}
       </Button>
@@ -608,6 +693,7 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
       <h2 className={styles.AcademyManagement__sectionTitle} id={sectionId}>
         {MANAGEMENT_COPY.queueTitle}
       </h2>
+      <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.queueDescription}</p>
       <form
         className={styles.AcademyManagement__filters}
         onSubmit={(event) => {
@@ -616,7 +702,7 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
         }}
         role="search"
       >
-        <label className={styles.AcademyManagement__field}>
+        <label className={styles.AcademyManagement__filterStatus}>
           <span>{MANAGEMENT_COPY.statusFilterLabel}</span>
           <Select onValueChange={setStatus} value={status}>
             <SelectTrigger aria-label={MANAGEMENT_COPY.statusFilterLabel}>
@@ -632,11 +718,12 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
             </SelectContent>
           </Select>
         </label>
-        <label className={styles.AcademyManagement__field} htmlFor={searchId}>
+        <label className={styles.AcademyManagement__filterSearch} htmlFor={searchId}>
           <span>{MANAGEMENT_COPY.searchLabel}</span>
           <Input id={searchId} maxLength={80} onChange={(event) => setSearch(event.currentTarget.value)} value={search} />
         </label>
         <Button type="submit" variant="outline">
+          <SearchIcon aria-hidden />
           {MANAGEMENT_COPY.searchSubmit}
         </Button>
       </form>
@@ -722,32 +809,43 @@ function ReviewQueueRow({
   return (
     <li className={styles.AcademyManagement__row}>
       <span className={styles.AcademyManagement__rowMain}>
-        <strong>{item.memberDisplayName}</strong>
-        <span>{item.providerDisplayName}</span>
-        {item.declaredEmail ? <span className={styles.AcademyManagement__hint}>{item.declaredEmail}</span> : null}
-        <span className={styles.AcademyManagement__hint}>
-          {QUEUE_STATUS_LABEL[item.status]}
-          {item.decisionReason ? `: ${item.decisionReason}` : ""}
+        <span className={styles.AcademyManagement__rowTitle}>
+          <strong>{item.memberDisplayName}</strong>
+          <Badge variant={item.status === "verified" ? "default" : item.status === "pending" ? "secondary" : "outline"}>
+            {QUEUE_STATUS_LABEL[item.status]}
+          </Badge>
         </span>
+        <span className={styles.AcademyManagement__meta}>
+          {[item.providerDisplayName, item.declaredEmail].filter(Boolean).join(" · ")}
+        </span>
+        {item.decisionReason ? (
+          <span className={styles.AcademyManagement__hint}>{item.decisionReason}</span>
+        ) : null}
       </span>
       {item.status === "pending" || item.status === "verified" ? (
         <div className={styles.AcademyManagement__decision}>
           <label className={styles.AcademyManagement__field} htmlFor={reasonId}>
             <span>{MANAGEMENT_COPY.decisionReasonLabel}</span>
-            <Input id={reasonId} maxLength={500} onChange={(event) => setReason(event.currentTarget.value)} value={reason} />
+            <Input
+              id={reasonId}
+              maxLength={500}
+              onChange={(event) => setReason(event.currentTarget.value)}
+              placeholder={MANAGEMENT_COPY.reasonPlaceholder}
+              value={reason}
+            />
           </label>
           <div className={styles.AcademyManagement__actions}>
             {item.status === "pending" ? (
               <>
-                <Button disabled={isSubmitting} onClick={() => decide("verified")} type="button">
+                <Button disabled={isSubmitting} onClick={() => decide("verified")} size="sm" type="button">
                   {MANAGEMENT_COPY.verify}
                 </Button>
-                <Button disabled={isSubmitting} onClick={() => decide("rejected")} type="button" variant="outline">
+                <Button disabled={isSubmitting} onClick={() => decide("rejected")} size="sm" type="button" variant="outline">
                   {MANAGEMENT_COPY.reject}
                 </Button>
               </>
             ) : (
-              <Button disabled={isSubmitting} onClick={() => decide("revoked")} type="button" variant="outline">
+              <Button disabled={isSubmitting} onClick={() => decide("revoked")} size="sm" type="button" variant="outline">
                 {MANAGEMENT_COPY.revoke}
               </Button>
             )}
@@ -755,7 +853,7 @@ function ReviewQueueRow({
         </div>
       ) : null}
       {feedback ? (
-        <p className={styles.AcademyManagement__error} role="alert">
+        <p className={styles.AcademyManagement__rowError} role="alert">
           {feedback}
         </p>
       ) : null}
@@ -763,18 +861,34 @@ function ReviewQueueRow({
   );
 }
 
-function describeGrant(grant: AcademyMemberRowDto["grants"][number]): string {
-  const source =
-    grant.sourceType === "manual_bonus"
-      ? MANAGEMENT_COPY.grantBonus
-      : grant.sourceType === "subscription_payment"
-        ? MANAGEMENT_COPY.grantPaid
-        : MANAGEMENT_COPY.grantLegacy;
+type AcademyGrantDto = AcademyMemberRowDto["grants"][number];
+
+/**
+ * Short label of the grant origin (bonus, payment or legacy).
+ *
+ * @param grant - Access grant of a member.
+ * @returns Spanish label.
+ */
+function describeGrantSource(grant: AcademyGrantDto): string {
+  return grant.sourceType === "manual_bonus"
+    ? MANAGEMENT_COPY.grantBonus
+    : grant.sourceType === "subscription_payment"
+      ? MANAGEMENT_COPY.grantPaid
+      : MANAGEMENT_COPY.grantLegacy;
+}
+
+/**
+ * Coverage range of a grant, marking it when it was revoked.
+ *
+ * @param grant - Access grant of a member.
+ * @returns Spanish range text.
+ */
+function describeGrantRange(grant: AcademyGrantDto): string {
   const range = grant.endsAt
     ? `${MANAGEMENT_COPY.grantUntil} ${formatAcademyDate(grant.endsAt)}`
     : MANAGEMENT_COPY.grantUnbounded;
 
-  return `${source} ${range}${grant.revokedAt ? ` (${MANAGEMENT_COPY.grantRevoked})` : ""}`;
+  return `${range}${grant.revokedAt ? ` (${MANAGEMENT_COPY.grantRevoked})` : ""}`;
 }
 
 function MembersSection({
@@ -849,6 +963,7 @@ function MembersSection({
       <h2 className={styles.AcademyManagement__sectionTitle} id={sectionId}>
         {MANAGEMENT_COPY.membersTitle}
       </h2>
+      <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.membersDescription}</p>
       <form
         className={styles.AcademyManagement__filters}
         onSubmit={(event) => {
@@ -857,11 +972,12 @@ function MembersSection({
         }}
         role="search"
       >
-        <label className={styles.AcademyManagement__field} htmlFor={searchId}>
+        <label className={styles.AcademyManagement__filterSearch} htmlFor={searchId}>
           <span>{MANAGEMENT_COPY.searchLabel}</span>
           <Input id={searchId} maxLength={80} onChange={(event) => setSearch(event.currentTarget.value)} value={search} />
         </label>
         <Button type="submit" variant="outline">
+          <SearchIcon aria-hidden />
           {MANAGEMENT_COPY.searchSubmit}
         </Button>
       </form>
@@ -878,20 +994,28 @@ function MembersSection({
             <li className={styles.AcademyManagement__row} key={member.userId}>
               <span className={styles.AcademyManagement__rowMain}>
                 <strong>{member.displayName}</strong>
-                <span className={styles.AcademyManagement__hint}>
-                  {`${MANAGEMENT_COPY.verifiedColumn}: ${member.isVerified ? MANAGEMENT_COPY.verifiedYes : MANAGEMENT_COPY.verifiedNo} · ${member.hasAcademyAccess ? MANAGEMENT_COPY.accessYes : MANAGEMENT_COPY.accessNo}`}
+                <span className={styles.AcademyManagement__badges}>
+                  <Badge variant={member.hasAcademyAccess ? "default" : "outline"}>
+                    {member.hasAcademyAccess ? MANAGEMENT_COPY.accessYes : MANAGEMENT_COPY.accessNo}
+                  </Badge>
+                  <Badge variant={member.isVerified ? "secondary" : "outline"}>
+                    {member.isVerified ? MANAGEMENT_COPY.verifiedYes : MANAGEMENT_COPY.verifiedNo}
+                  </Badge>
+                  {member.renewalStatus === "active" ? (
+                    <Badge variant="secondary">{MANAGEMENT_COPY.renewalActive}</Badge>
+                  ) : null}
                 </span>
-                {member.renewalStatus === "active" ? (
-                  <span className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.renewalActive}</span>
-                ) : null}
                 {isLeader && member.grants.length > 0 ? (
                   <ul className={styles.AcademyManagement__grants}>
                     {member.grants.map((grant) => (
                       <li className={styles.AcademyManagement__grant} key={grant.id}>
-                        <span>{describeGrant(grant)}</span>
-                        {grant.note ? <span className={styles.AcademyManagement__hint}>{` — ${grant.note}`}</span> : null}
+                        <span className={styles.AcademyManagement__grantText}>
+                          <span className={styles.AcademyManagement__grantSource}>{describeGrantSource(grant)}</span>
+                          <span>{describeGrantRange(grant)}</span>
+                          {grant.note ? <span className={styles.AcademyManagement__hint}>{grant.note}</span> : null}
+                        </span>
                         {grant.sourceType === "manual_bonus" && !grant.revokedAt ? (
-                          <Button onClick={() => handleRevoke(grant.id)} size="sm" type="button" variant="outline">
+                          <Button onClick={() => handleRevoke(grant.id)} size="sm" type="button" variant="ghost">
                             {MANAGEMENT_COPY.revoke}
                           </Button>
                         ) : null}
@@ -901,7 +1025,7 @@ function MembersSection({
                 ) : null}
               </span>
               {isLeader && (member.membershipStatus === "active" || member.membershipStatus === "muted") ? (
-                <Button onClick={() => setBonusRecipient(member)} type="button" variant="outline">
+                <Button className={styles.AcademyManagement__rowAction} onClick={() => setBonusRecipient(member)} size="sm" type="button" variant="outline">
                   {MANAGEMENT_COPY.bonusButton}
                 </Button>
               ) : null}
