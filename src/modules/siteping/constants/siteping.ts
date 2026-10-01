@@ -51,3 +51,9 @@ export const SITEPING_IDENTITY_ENDPOINT = "/api/siteping/identity";
  * the row can never become permanently undeletable.
  */
 export const SITEPING_SCREENSHOT_UPLOAD_RACE_WINDOW_MS = 300_000;
+
+/** TuTribu currently stores individual reports, without discussion threads. */
+export const SITEPING_WIDGET_CAPABILITIES = { comments: false } as const;
+
+/** Ownership management is individual; the API does not implement bulk deletion. */
+export const SITEPING_WIDGET_LIST_PERMISSIONS = { canDeleteAll: false } as const;

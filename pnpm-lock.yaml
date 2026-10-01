@@ -162,9 +162,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  html2canvas: npm:html2canvas-pro@^1.5.13
-
 importers:
 
   .:
@@ -178,6 +175,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1063.0
         version: 3.1063.0
+      '@beezping/widget':
+        specifier: 0.12.0
+        version: 0.12.0(react@19.3.0)
       '@better-auth/drizzle-adapter':
         specifier: ^1.6.11
         version: 1.6.11(@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.3.6))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.0)(drizzle-orm@0.45.2(@types/pg@8.20.0)(kysely@0.28.17)(pg@8.21.0))
@@ -187,9 +187,6 @@ importers:
       '@next/env':
         specifier: ^16.3.4
         version: 16.3.4
-      '@siteping/widget':
-        specifier: 0.9.12
-        version: 0.9.12(react@19.3.0)
       beez-ui:
         specifier: ^0.9.1
         version: 0.9.1(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -205,9 +202,6 @@ importers:
       files-sdk:
         specifier: ^1.8.0
         version: 1.8.0(@aws-sdk/client-s3@3.1063.0)(@aws-sdk/s3-presigned-post@3.1063.0)(@aws-sdk/s3-request-presigner@3.1063.0)(supports-color@10.2.2)(zod@4.3.6)
-      html2canvas:
-        specifier: npm:html2canvas-pro@^1.5.13
-        version: html2canvas-pro@1.6.7
       libphonenumber-js:
         specifier: ^1.13.3
         version: 1.13.3
@@ -696,6 +690,15 @@ packages:
       react-dom: ^17 || ^18 || ^19
     peerDependenciesMeta:
       '@types/react':
+        optional: true
+
+  '@beezping/widget@0.12.0':
+    resolution: {integrity: sha512-93pH62xLbB2URWFDxXv2qQwsLZYgB8ciVPEDSJ2dVWbUPJUihlwrINf93mCgqk8DGDJknbtlxhkZ6uS6yQBjSQ==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      react: '>=18'
+    peerDependenciesMeta:
+      react:
         optional: true
 
   '@better-auth/core@1.6.11':
@@ -2101,8 +2104,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
 
-  '@medv/finder@3.2.0':
-    resolution: {integrity: sha512-JmU7JIBwyL8RAzefvzALT4sP2M0biGk8i2invAgpQmma/QgfsaqoHIvJ7S0YC8n9hUVG8X3Leul2nGa06PvhbQ==}
+  '@medv/finder@4.0.2':
+    resolution: {integrity: sha512-RraNY9SCcx4KZV0Dh6BEW6XEW2swkqYca74pkFFRw6hHItSHiy+O/xMnpbofjYbzXj0tSpBGthUF1hHTsr3vIQ==}
 
   '@modelcontextprotocol/sdk@1.29.0':
     resolution: {integrity: sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ==}
@@ -3374,15 +3377,6 @@ packages:
   '@sindresorhus/is@7.2.0':
     resolution: {integrity: sha512-P1Cz1dWaFfR4IR+U13mqqiGsLFf1KbayybWwdd2vfctdV6hDpUkgCY0nKOLLTMSoRd/jJNjtbqzf13K8DCCXQw==}
     engines: {node: '>=18'}
-
-  '@siteping/widget@0.9.12':
-    resolution: {integrity: sha512-zuzxU1WsHiu4e2VI0S2wkAt74me3L9IXKkbMjwh6HinYc1E5JnttOuDpsAuML8bZ5XJvbNJwIBk3JN+Q6OzjMA==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      react: '>=18'
-    peerDependenciesMeta:
-      react:
-        optional: true
 
   '@smithy/config-resolver@4.5.5':
     resolution: {integrity: sha512-HehAZr4sq2m+4zHgEqDvtWENy/B5yywMKA8Pl4gBcU3F4ekelpZqDLDxQHdJlguaKNyTq31cZYjLWomzdujQrA==}
@@ -4723,8 +4717,8 @@ packages:
     resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
 
-  html2canvas-pro@1.6.7:
-    resolution: {integrity: sha512-BzuCTXx0jf2TfnrJrtjMCY1FR9rxlPdy7yLWt9ZMhZm7Ylaw9MLb7agSheqv2mT/ARduBHDAqvJIFlbxrZfyOA==}
+  html2canvas-pro@2.5.0:
+    resolution: {integrity: sha512-+xuLQWcYMGvbXtlIzVOLvNJEXqL/dY7Dbn2T4qYtJvqfPVtJ8BcNr1CrrUp/uCxne9DE/F+eZHsf1khb1dbMyg==}
     engines: {node: '>=16.0.0'}
 
   http-errors@2.0.1:
@@ -6755,6 +6749,13 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
 
+  '@beezping/widget@0.12.0(react@19.3.0)':
+    dependencies:
+      '@medv/finder': 4.0.2
+      html2canvas-pro: 2.5.0
+    optionalDependencies:
+      react: 19.3.0
+
   '@better-auth/core@1.6.11(@better-auth/utils@0.4.0)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.3.6))(jose@6.2.2)(kysely@0.28.17)(nanostores@1.3.0)':
     dependencies:
       '@better-auth/utils': 0.4.0
@@ -7659,7 +7660,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@medv/finder@3.2.0': {}
+  '@medv/finder@4.0.2': {}
 
   '@modelcontextprotocol/sdk@1.29.0(supports-color@10.2.2)(zod@4.3.6)':
     dependencies:
@@ -8776,13 +8777,6 @@ snapshots:
   '@simple-libs/stream-utils@1.2.0': {}
 
   '@sindresorhus/is@7.2.0': {}
-
-  '@siteping/widget@0.9.12(react@19.3.0)':
-    dependencies:
-      '@medv/finder': 3.2.0
-      html2canvas: html2canvas-pro@1.6.7
-    optionalDependencies:
-      react: 19.3.0
 
   '@smithy/config-resolver@4.5.5':
     dependencies:
@@ -10002,7 +9996,7 @@ snapshots:
     transitivePeerDependencies:
       - '@noble/hashes'
 
-  html2canvas-pro@1.6.7:
+  html2canvas-pro@2.5.0:
     dependencies:
       css-line-break: 2.1.0
       text-segmentation: 1.0.3

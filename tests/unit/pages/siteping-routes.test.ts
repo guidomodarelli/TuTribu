@@ -18,26 +18,6 @@ const listFeedback = vi.fn();
 const updateFeedbackStatus = vi.fn();
 const originalSitepingEnabled = process.env.SITEPING_ENABLED;
 
-class MockJsonResponse {
-  headers: Headers;
-  status: number;
-
-  constructor(
-    private readonly body: Record<string, unknown>,
-    init?: ResponseInit
-  ) {
-    this.headers = new Headers(init?.headers);
-    this.status = init?.status ?? 200;
-  }
-
-  static json(body: Record<string, unknown>, init?: ResponseInit) {
-    return new MockJsonResponse(body, init);
-  }
-
-  async json() {
-    return this.body;
-  }
-}
 
 vi.mock("@/src/modules/setup", () => ({
   createRequestModules: vi.fn(),
@@ -118,7 +98,6 @@ describe("Siteping routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.SITEPING_ENABLED = "true";
-    global.Response = MockJsonResponse as unknown as typeof Response;
     getAuthenticatedMember.mockResolvedValue({
       avatarFallback: "LE",
       email: "leader@example.com",
@@ -370,6 +349,14 @@ describe("Siteping routes", () => {
     expect(createRequestModules).not.toHaveBeenCalled();
     expect(getAuthenticatedMember).not.toHaveBeenCalled();
     expect(getMemberTribes).not.toHaveBeenCalled();
+  });
+
+  it("should disable unavailable Beezping actions in the public list response", async () => {
+    const response = await GET(new Request("https://tutribu.example.com/api/siteping"));
+    const payload = await response.json();
+    expect(response.status).toBe(200);
+    expect(payload.capabilities).toEqual({ comments: false });
+    expect(payload.permissions).toEqual({ canDeleteAll: false });
   });
 
   it("lists feedback for the authorized Siteping project", async () => {

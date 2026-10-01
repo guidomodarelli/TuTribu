@@ -1,13 +1,13 @@
-import type { AnnotationPayload } from "@siteping/widget";
-
 import { createRequestModules } from "@/src/modules/setup";
 import {
   SITEPING_FEEDBACK_STATUS,
   SITEPING_FEEDBACK_TYPE,
+  SITEPING_WIDGET_CAPABILITIES,
+  SITEPING_WIDGET_LIST_PERMISSIONS,
 } from "@/src/modules/siteping/constants/siteping";
 import type { SitepingDiagnosticsSnapshot } from "@/src/modules/siteping/domain/entities/siteping-diagnostics";
 import { createRouteObservation } from "@/src/modules/shared/infrastructure/observability/route-observation";
-import type { SitepingFeedbackCommand } from "@/src/modules/siteping/application/commands/siteping-feedback-command";
+import type { SitepingAnnotationCommand, SitepingFeedbackCommand } from "@/src/modules/siteping/application/commands/siteping-feedback-command";
 import type {
   SitepingFeedbackStatus,
   SitepingFeedbackType,
@@ -59,11 +59,7 @@ const SITEPING_QUERY_PARAM = {
   urlPattern: "urlPattern",
 } as const;
 
-type SitepingAnnotationRequestPayload = Omit<AnnotationPayload, "anchor"> & {
-  anchor: Omit<AnnotationPayload["anchor"], "elementId"> & {
-    elementId?: string | null;
-  };
-};
+type SitepingAnnotationRequestPayload = SitepingAnnotationCommand;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -201,7 +197,7 @@ function isAnnotationPayload(value: unknown): value is SitepingAnnotationRequest
 
 function normalizeAnnotationPayload(
   annotation: SitepingAnnotationRequestPayload
-): AnnotationPayload {
+): SitepingAnnotationCommand {
   const { elementId, ...anchor } = annotation.anchor;
 
   return {
@@ -415,7 +411,7 @@ export async function GET(request: Request) {
         requestUrl.searchParams.get(SITEPING_QUERY_PARAM.urlPattern) ?? undefined,
     });
 
-    return observation.createJsonResponse(feedbackPage, HTTP_STATUS.ok);
+    return observation.createJsonResponse({ ...feedbackPage, capabilities: SITEPING_WIDGET_CAPABILITIES, permissions: SITEPING_WIDGET_LIST_PERMISSIONS }, HTTP_STATUS.ok);
   } catch (error) {
     observation.logRouteError({
       error,

@@ -1,8 +1,3 @@
-overrides:
-  # SitePing imports html2canvas@1.4.1, which cannot parse modern CSS color
-  # functions (lab/oklch/color()) emitted by Tailwind v4, so screenshot capture
-  # throws. html2canvas-pro is a drop-in v1-API fork that supports them.
-  html2canvas: 'npm:html2canvas-pro@^1.5.13'
 allowBuilds:
   '@parcel/watcher': true
   esbuild: true
@@ -19,3 +14,4 @@ minimumReleaseAgeExclude:
   - '@types/react-dom@19.3.0'
   - '@types/react@19.3.0'
   - '@types/node@24.13.4 || 26.5.1'
+  - '@beezping/widget@0.12.0'
