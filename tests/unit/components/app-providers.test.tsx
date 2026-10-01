@@ -45,7 +45,7 @@ describe("AppProviders", () => {
     );
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith("/api/siteping/identity")
+      expect(fetchMock).toHaveBeenCalledWith("/api/siteping/identity", { signal: expect.any(AbortSignal) })
     );
   });
 });
