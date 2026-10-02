@@ -5,7 +5,7 @@ import { toast } from "beez-ui";
 import type { BeezpingConfig, BeezpingInstance } from "@beezping/widget";
 import { SITEPING_API_ENDPOINT, SITEPING_IDENTITY_ENDPOINT } from "@/src/modules/siteping/constants/siteping";
 import type { SitepingIdentityResult } from "@/src/modules/siteping/application/results/siteping-feedback-result";
-import { sitepingIdentityResultSchema } from "@/src/modules/siteping/infrastructure/api/dto/siteping-identity-result-schema";
+import { SITEPING_IDENTITY_REQUEST_RESULT, fetchSitepingIdentityRequest } from "@/lib/siteping/siteping-identity-api-client";
 import "./siteping-overlay.scss";
 
 /** TuTribu mounts the published widget with its own authenticated backend. */
@@ -13,9 +13,6 @@ const BEEZPING_PROVIDER_CONFIG = {
   captureDiagnostics: true, deepLink: true, enableScreenshot: true,
   locale: "es", position: "bottom-right", theme: "auto",
 } as const;
-
-/** Expected identity-access rejections do not surface as dependency failures. */
-const BEEZPING_IDENTITY_HTTP_STATUS = { unauthorized: 401, forbidden: 403 } as const;
 
 /** Notifications belong to the optional reporting tools, not the page's main flow. */
 const BEEZPING_PROVIDER_NOTIFICATION = {
@@ -57,18 +54,14 @@ export function SitepingProvider() {
   useEffect(() => {
     const controller = new AbortController();
     let isActive = true;
-    void fetch(SITEPING_IDENTITY_ENDPOINT, { signal: controller.signal }).then(async (response) => {
-      if (response.status === BEEZPING_IDENTITY_HTTP_STATUS.unauthorized || response.status === BEEZPING_IDENTITY_HTTP_STATUS.forbidden) {
-        if (isActive && !controller.signal.aborted) { setIdentity(null); toast.dismiss(BEEZPING_PROVIDER_NOTIFICATION.id); }
+    void fetchSitepingIdentityRequest({ signal: controller.signal }).then((result) => {
+      if (!isActive || controller.signal.aborted) return;
+      if (result.kind !== SITEPING_IDENTITY_REQUEST_RESULT.failed) {
+        setIdentity(result.kind === SITEPING_IDENTITY_REQUEST_RESULT.loaded ? result.identity : null);
+        toast.dismiss(BEEZPING_PROVIDER_NOTIFICATION.id);
         return;
       }
-      if (!response.ok) throw new Error("BeezpingProvider: identity request failed (HTTP " + response.status + ")");
-      const parsed = sitepingIdentityResultSchema.safeParse(await response.json());
-      if (!parsed.success) throw new Error("BeezpingProvider: identity response does not match the public DTO", { cause: parsed.error });
-      if (isActive && !controller.signal.aborted) { setIdentity(parsed.data); toast.dismiss(BEEZPING_PROVIDER_NOTIFICATION.id); }
-    }).catch((error: unknown) => {
-      if (!isActive || controller.signal.aborted) return;
-      console.error("BeezpingProvider: identity loading failed", { endpoint: SITEPING_IDENTITY_ENDPOINT, errorName: error instanceof Error ? error.name : "UnknownError" });
+      console.error("BeezpingProvider: identity loading failed", { endpoint: SITEPING_IDENTITY_ENDPOINT, reason: result.reason, status: result.status });
       setIdentity(null);
       toast.error(BEEZPING_PROVIDER_NOTIFICATION.identityError, {
         id: BEEZPING_PROVIDER_NOTIFICATION.id,

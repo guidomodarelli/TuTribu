@@ -47,6 +47,15 @@ describe("SitepingProvider with the published Beezping widget", () => {
     view.unmount();
     expect(options?.signal?.aborted).toBe(true);
   });
+  it("should keep the widget absent without an error notification when the member is not authenticated", async () => {
+    const request = vi.fn(async () => new Response(null, { status: 401 }));
+    vi.stubGlobal("fetch", request);
+    render(<><SitepingProvider /><Toaster /></>);
+    await waitFor(() => expect(request).toHaveBeenCalled());
+    await waitFor(() => expect(document.querySelector("beezping-widget")).toBeNull());
+    expect(screen.queryByText("No pudimos cargar las herramientas para reportar problemas.")).toBeNull();
+  });
+
   it("should reject a malformed public identity instead of mounting the widget", async () => {
     serveIdentity({ ...identity, enabled: "yes" });
     render(<><SitepingProvider /><Toaster /></>);
