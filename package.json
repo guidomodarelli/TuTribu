@@ -31,6 +31,7 @@
     "test:e2e": "playwright test",
     "test:ui": "pnpm build && playwright test --config playwright.ui.config.ts",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:beezping": "playwright test --config playwright.beezping.config.ts",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
