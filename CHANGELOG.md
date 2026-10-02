@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Las herramientas para reportar problemas usan Beezping y aprovechan sus mejoras de interacción en modales, formularios y reintentos de envío. Las acciones no disponibles en TuTribu dejan de mostrarse y los errores al cargar las herramientas permiten reintentar.
+
 ## [1.0.4] - 2026-09-29
 
 ### Fixed

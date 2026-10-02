@@ -2,6 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  // The Beezping widget spec needs SITEPING_ENABLED and the portless route; it
+  // runs only through playwright.beezping.config.ts (`pnpm test:e2e:beezping`).
+  testIgnore: "beezping-provider.spec.ts",
   fullyParallel: true,
   reporter: "html",
   use: {
