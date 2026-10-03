@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- La barra lateral se anima al colapsarse y expandirse: queda como una columna de íconos, resalta la sección actual con un fondo que se desliza entre opciones y en el teléfono se abre como panel lateral que se cierra con Escape o al elegir una sección.
+
 ## [1.1.0] - 2026-10-02
 
 ### Changed

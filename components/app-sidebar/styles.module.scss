@@ -1,26 +1,68 @@
 @use "../../src/styles/motion";
 
+// Mirrors the beui animated sidebar: neutral brand tile, the same hover pill as
+// the menu items, muted secondary text and one icon column in both states.
+$app-sidebar-pill-radius: 0.75rem;
+$app-sidebar-tile-size: 1.75rem;
+$app-sidebar-tile-radius: 0.5rem;
+$app-sidebar-muted-foreground: color-mix(in oklab, var(--sidebar-foreground) 70%, transparent);
+$app-sidebar-pill-background: color-mix(in oklab, var(--sidebar-accent) 70%, transparent);
+
 .AppSidebar {
+  // Brand row: tribe switcher trigger inside a tribe, home link elsewhere. The
+  // 0.5rem inline padding centers the tile on the menu icon column of the rail.
+  &__brand {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.5rem;
+    align-items: center;
+    gap: 0.75rem;
+    border: 0;
+    border-radius: $app-sidebar-pill-radius;
+    padding: 0.375rem 0.5rem;
+    background: transparent;
+    color: var(--sidebar-foreground);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    outline: none;
+
+    @include motion.interactive(background-color, box-shadow);
+
+    &:hover,
+    &[data-state="open"] {
+      background-color: $app-sidebar-pill-background;
+    }
+
+    &:focus-visible {
+      background-color: $app-sidebar-pill-background;
+      box-shadow: 0 0 0 2px var(--sidebar-ring);
+    }
+  }
+
   &__brandLogo {
-    height: 2rem;
-    width: 2rem;
+    height: $app-sidebar-tile-size;
+    width: $app-sidebar-tile-size;
     flex-shrink: 0;
-    border-radius: var(--radius-md);
+    border-radius: $app-sidebar-tile-radius;
     object-fit: cover;
   }
 
   &__brandMark {
     display: inline-flex;
-    height: 2rem;
-    width: 2rem;
+    height: $app-sidebar-tile-size;
+    width: $app-sidebar-tile-size;
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-md);
-    background-color: var(--sidebar-primary);
+    border-radius: $app-sidebar-tile-radius;
+    background-color: var(--sidebar-foreground);
+    color: var(--sidebar);
     font-size: 0.75rem;
     font-weight: 600;
-    color: var(--sidebar-primary-foreground);
   }
 
   &__brandName {
@@ -31,36 +73,20 @@
     white-space: nowrap;
   }
 
-  // Long tribe names truncate instead of pushing the check mark or badge out.
-  &__itemLabel {
-    display: block;
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   &__brandChevron {
-    width: 1rem;
-    height: 1rem;
+    width: 0.875rem;
+    height: 0.875rem;
     flex: 0 0 auto;
     margin-left: auto;
-    color: var(--sidebar-foreground);
-    opacity: 0.72;
+    color: $app-sidebar-muted-foreground;
 
-    @include motion.interactive(transform, opacity);
+    @include motion.interactive(transform, color);
   }
 
   // The brand button is the tribe menu trigger; its chevron flips while open.
   :global([data-state="open"]) > &__brandChevron {
-    opacity: 1;
+    color: var(--sidebar-foreground);
     transform: rotate(180deg);
-  }
-
-  &__separator {
-    width: calc(100% - 1rem);
-    margin-inline: 0.5rem;
   }
 
   &__tribeSwitcher {
@@ -69,35 +95,38 @@
   }
 
   &__activeIcon {
-    margin-left: auto;
+    display: block;
+    width: 0.875rem;
+    height: 0.875rem;
   }
 
+  // Quiet tag in the place of beui's counters; 0.75rem is the product's minimum text size.
   &__comingSoonBadge {
-    border: 1px solid color-mix(in oklab, var(--coming-soon) 45%, transparent);
-    border-radius: 999rem;
-    padding-inline: 0.45rem;
-    background-color: color-mix(in oklab, var(--coming-soon) 16%, transparent);
-    color: var(--coming-soon-foreground);
+    display: inline-block;
+    border-radius: 0.375rem;
+    padding: 0.0625rem 0.375rem;
+    background-color: var(--sidebar-accent);
+    color: $app-sidebar-muted-foreground;
     font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+    font-weight: 500;
+    line-height: 1.25rem;
   }
 
+  // Indented like the menu labels so the copy starts on the same text column.
   &__emptyState {
     margin: 0.5rem 0 0;
-    padding-inline: 0.5rem;
-    font-size: 0.8125rem;
-    line-height: 1.4;
-    color: color-mix(in oklab, var(--sidebar-foreground) 72%, transparent);
+    padding-inline: 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: $app-sidebar-muted-foreground;
   }
 }
 
-:global(.group[data-collapsible="icon"]) .AppSidebar {
+// Menu labels and badges fade out on their own; the brand row and the empty
+// state are product markup, so the icon rail hides them here.
+:global([data-slot="sidebar"][data-state="collapsed"]) .AppSidebar {
   &__brandName,
   &__brandChevron,
-  &__itemLabel,
-  &__activeIcon,
   &__emptyState {
     display: none;
   }

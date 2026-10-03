@@ -27,7 +27,7 @@ import { ROUTES } from "@/src/constants/routes";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
 import styles from "./styles.module.scss";
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarSeparator, useSidebar } from "beez-ui";
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar } from "beez-ui";
 
 const discoverTribesNavigationItem = {
   href: ROUTES.home,
@@ -139,20 +139,17 @@ const tribeAdminNavigation = [
   },
 ] as const;
 const APP_SIDEBAR_UI = {
-  brandButtonSize: "lg",
+  brandButtonType: "button",
   brandMarkLength: 2,
   adminSectionLabel: "Gestión",
   collapsible: "icon",
   comingSoonBadgeLabel: "Pronto",
-  createTribeTooltip: "Nueva tribu",
+  createTribeLabel: "Nueva tribu",
   nestedRouteSeparator: "/",
   variant: "sidebar",
 } as const;
 
 const TRIBE_LOGO_SIZE = 32;
-
-/** `aria-current` token of the section being viewed, so its state is not only visual. */
-const ACTIVE_SECTION_CURRENT = "page";
 
 const TRIBE_ADMIN_ROLE = {
   guardian: "guardian",
@@ -200,15 +197,6 @@ function isSameOrNestedPath(pathname: string, routePath: string): boolean {
   );
 }
 
-/**
- * Exposes the active navigation item to assistive technology.
- * @param isActive - Whether the item matches the current route.
- * @returns The `aria-current` value, or `undefined` for inactive items.
- */
-function getAriaCurrent(isActive: boolean): typeof ACTIVE_SECTION_CURRENT | undefined {
-  return isActive ? ACTIVE_SECTION_CURRENT : undefined;
-}
-
 function getTribeBrandMark(tribeName: string): string {
   return tribeName
     .trim()
@@ -244,6 +232,23 @@ export function AppSidebar({
     push(href);
     closeMobileSidebar();
   };
+  const brandIdentity = (
+    <>
+      {activeTribe?.logoUrl ? (
+        <Image
+          alt=""
+          className={styles.AppSidebar__brandLogo}
+          height={TRIBE_LOGO_SIZE}
+          src={activeTribe.logoUrl}
+          unoptimized
+          width={TRIBE_LOGO_SIZE}
+        />
+      ) : (
+        <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
+      )}
+      <span className={styles.AppSidebar__brandName}>{brandName}</span>
+    </>
+  );
 
   return (
     <Sidebar
@@ -252,51 +257,36 @@ export function AppSidebar({
       className={styles.AppSidebar}
     >
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            {activeTribe ? (
-              <TribeSwitcher
-                className={styles.AppSidebar__tribeSwitcher}
-                dropdownTrigger={
-                  <SidebarMenuButton
-                    size={APP_SIDEBAR_UI.brandButtonSize}
-                    isActive={pathname === brandPath}
-                  >
-                    {activeTribe?.logoUrl ? (
-                      <Image
-                        alt=""
-                        className={styles.AppSidebar__brandLogo}
-                        height={TRIBE_LOGO_SIZE}
-                        src={activeTribe.logoUrl}
-                        unoptimized
-                        width={TRIBE_LOGO_SIZE}
-                      />
-                    ) : (
-                      <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
-                    )}
-                    <span className={styles.AppSidebar__brandName}>{brandName}</span>
-                    <ChevronDownIcon aria-hidden="true" className={styles.AppSidebar__brandChevron} />
-                  </SidebarMenuButton>
-                }
-                memberTribes={memberTribes}
-                onNavigate={closeMobileSidebar}
-                showPrivateBadge={false}
-              />
-            ) : (
-              <SidebarMenuButton
-                size={APP_SIDEBAR_UI.brandButtonSize}
-                tooltip={brandName}
-                isActive={pathname === brandPath}
-                onClick={() => navigateFromSidebar(brandPath)}
+        {activeTribe ? (
+          <TribeSwitcher
+            className={styles.AppSidebar__tribeSwitcher}
+            dropdownTrigger={
+              <button
+                type={APP_SIDEBAR_UI.brandButtonType}
+                className={styles.AppSidebar__brand}
+                data-active={pathname === brandPath}
               >
-                <span className={styles.AppSidebar__brandMark}>{brandMark}</span>
-                <span className={styles.AppSidebar__brandName}>{brandName}</span>
-              </SidebarMenuButton>
-            )}
-          </SidebarMenuItem>
-        </SidebarMenu>
+                {brandIdentity}
+                <ChevronDownIcon aria-hidden="true" className={styles.AppSidebar__brandChevron} />
+              </button>
+            }
+            memberTribes={memberTribes}
+            onNavigate={closeMobileSidebar}
+            showPrivateBadge={false}
+          />
+        ) : (
+          <button
+            type={APP_SIDEBAR_UI.brandButtonType}
+            aria-label={brandName}
+            title={brandName}
+            className={styles.AppSidebar__brand}
+            data-active={pathname === brandPath}
+            onClick={() => navigateFromSidebar(brandPath)}
+          >
+            {brandIdentity}
+          </button>
+        )}
       </SidebarHeader>
-      <SidebarSeparator className={styles.AppSidebar__separator} />
       <SidebarContent>
         {activeTribe ? (
           <>
@@ -315,23 +305,19 @@ export function AppSidebar({
                     return (
                       <SidebarMenuItem key={item.label}>
                         <SidebarMenuButton
-                          aria-current={getAriaCurrent(isSectionActive)}
-                          tooltip={item.label}
+                          icon={<item.icon />}
                           isActive={isSectionActive}
-                          onClick={() => navigateFromSidebar(sectionPath)}
+                          onSelect={() => push(sectionPath)}
+                          badge={
+                            "comingSoon" in item && item.comingSoon ? (
+                              <span className={styles.AppSidebar__comingSoonBadge}>
+                                {APP_SIDEBAR_UI.comingSoonBadgeLabel}
+                              </span>
+                            ) : undefined
+                          }
                         >
-                          <item.icon />
-                          <span className={styles.AppSidebar__itemLabel}>
-                            {item.label}
-                          </span>
+                          {item.label}
                         </SidebarMenuButton>
-                        {"comingSoon" in item && item.comingSoon ? (
-                          <SidebarMenuBadge
-                            className={styles.AppSidebar__comingSoonBadge}
-                          >
-                            {APP_SIDEBAR_UI.comingSoonBadgeLabel}
-                          </SidebarMenuBadge>
-                        ) : null}
                       </SidebarMenuItem>
                     );
                   })}
@@ -362,15 +348,11 @@ export function AppSidebar({
                       return (
                         <SidebarMenuItem key={item.label}>
                           <SidebarMenuButton
-                            aria-current={getAriaCurrent(isSectionActive)}
-                            tooltip={item.label}
+                            icon={<item.icon />}
                             isActive={isSectionActive}
-                            onClick={() => navigateFromSidebar(sectionPath)}
+                            onSelect={() => push(sectionPath)}
                           >
-                            <item.icon />
-                            <span className={styles.AppSidebar__itemLabel}>
-                              {item.label}
-                            </span>
+                            {item.label}
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );
@@ -388,26 +370,20 @@ export function AppSidebar({
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    aria-current={getAriaCurrent(isCreateTribeActive)}
-                    tooltip={APP_SIDEBAR_UI.createTribeTooltip}
+                    icon={<PlusCircleIcon />}
                     isActive={isCreateTribeActive}
-                    onClick={() => navigateFromSidebar(ROUTES.tribes.create)}
+                    onSelect={() => push(ROUTES.tribes.create)}
                   >
-                    <PlusCircleIcon />
-                    <span className={styles.AppSidebar__itemLabel}>Nueva tribu</span>
+                    {APP_SIDEBAR_UI.createTribeLabel}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    aria-current={getAriaCurrent(pathname === discoverTribesNavigationItem.href)}
-                    tooltip={discoverTribesNavigationItem.label}
+                    icon={<discoverTribesNavigationItem.icon />}
                     isActive={pathname === discoverTribesNavigationItem.href}
-                    onClick={() => navigateFromSidebar(discoverTribesNavigationItem.href)}
+                    onSelect={() => push(discoverTribesNavigationItem.href)}
                   >
-                    <discoverTribesNavigationItem.icon />
-                    <span className={styles.AppSidebar__itemLabel}>
-                      {discoverTribesNavigationItem.label}
-                    </span>
+                    {discoverTribesNavigationItem.label}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 {memberTribes.map((tribe) => {
@@ -417,18 +393,16 @@ export function AppSidebar({
                   return (
                     <SidebarMenuItem key={tribe.tribeId}>
                       <SidebarMenuButton
-                        aria-current={getAriaCurrent(isTribeActive)}
-                        tooltip={tribe.name}
+                        icon={<UsersIcon />}
                         isActive={isTribeActive}
-                        onClick={() => navigateFromSidebar(tribePath)}
+                        onSelect={() => push(tribePath)}
+                        badge={
+                          isTribeActive ? (
+                            <CheckIcon aria-hidden="true" className={styles.AppSidebar__activeIcon} />
+                          ) : undefined
+                        }
                       >
-                        <UsersIcon />
-                        <span className={styles.AppSidebar__itemLabel}>
-                          {tribe.name}
-                        </span>
-                        {isTribeActive ? (
-                          <CheckIcon aria-hidden="true" className={styles.AppSidebar__activeIcon} />
-                        ) : null}
+                        {tribe.name}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
