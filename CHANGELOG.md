@@ -4,9 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
-### Changed
+## [1.1.1] - 2026-10-03
 
-- La barra lateral se anima al colapsarse y expandirse: queda como una columna de íconos, resalta la sección actual con un fondo que se desliza entre opciones y en el teléfono se abre como panel lateral que se cierra con Escape o al elegir una sección.
+- 8b94b15 actualiza la dependencia «beez-ui» a la versión 0.10.0
+- c4b4165 agrega actualización de la dependencia «beez-rp» a la versión 0.6.1
 
 ## [1.1.0] - 2026-10-02
 
