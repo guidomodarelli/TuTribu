@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-04
+
 ### Fixed
 
 - Las devoluciones completas de cuotas de academia actualizan el acceso al recibir la notificación del pago, aunque el detalle de la cuota tarde en actualizarse, conservando la membresía básica y las otras fuentes de acceso.
