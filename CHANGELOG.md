@@ -6,6 +6,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Las devoluciones completas de cuotas de academia actualizan el acceso al recibir la notificación del pago, conservando la membresía básica y las otras fuentes de acceso.
 - La academia consulta el historial completo de cuotas de una suscripción sin omitir pagos y evita confirmar una revisión cuando el historial está incompleto.
 - Las notificaciones de Mercado Pago llegan al receptor de TuTribu en lugar de redirigirse a la portada.
 - La academia abre el pago en Mercado Pago sin exigir una tarjeta antes de entrar al checkout y evita crear suscripciones duplicadas por solicitudes simultáneas o fallos de conexión.

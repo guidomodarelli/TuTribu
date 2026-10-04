@@ -36,6 +36,8 @@ import type {
   AcademyAuthorizedPaymentWebhookCommand,
   AcademyAuthorizedPaymentWebhookResult,
   AcademyCoverageReconciliationResult,
+  AcademyPaymentWebhookCommand,
+  AcademyPaymentWebhookResult,
   AcademySubscriptionRepository,
   CancelAcademyRenewalResult,
   StartAcademyCheckoutCommand,
@@ -550,6 +552,46 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
     }
 
     return { appliedInvoices, status: "reconciled" };
+  }
+
+  /**
+   * Reconciles known academy subscriptions when their recorded payment changes.
+   * The notification selects records only; verified provider invoices determine access.
+   * @param command - Signed payment identifier, optional seller hint, and correlation id.
+   * @returns Processing status, or a retry request when an authoritative read fails.
+   */
+  async handlePaymentWebhook(command: AcademyPaymentWebhookCommand): Promise<AcademyPaymentWebhookResult> {
+    const subscriptions = await this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        select distinct tribe_member_subscriptions.mercado_pago_preapproval_id as provider_subscription_id
+        from public.subscription_payment_periods
+        inner join public.tribe_member_subscriptions
+          on tribe_member_subscriptions.id = subscription_payment_periods.subscription_id
+          and tribe_member_subscriptions.payment_integration_id = subscription_payment_periods.payment_integration_id
+        inner join public.tribe_payment_integrations
+          on tribe_payment_integrations.id = subscription_payment_periods.payment_integration_id
+          and tribe_payment_integrations.tribe_id = subscription_payment_periods.tribe_id
+        where subscription_payment_periods.provider_payment_id = ${command.providerPaymentId}
+          and subscription_payment_periods.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy}
+          and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy}
+          and tribe_payment_integrations.provider = ${PAYMENT_PROVIDER}
+          and (${command.providerAccountId}::text is null or tribe_payment_integrations.provider_account_id = ${command.providerAccountId})
+          and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
+      `);
+      return (result.rows ?? []) as Array<{ provider_subscription_id: string }>;
+    });
+
+    if (subscriptions.length === 0) return { status: "ignored" };
+
+    let hadRetryableFailure = false;
+    for (const subscription of subscriptions) {
+      const reconciliation = await this.reconcileSubscriptionCoverage({
+        correlationId: command.correlationId,
+        providerSubscriptionId: subscription.provider_subscription_id,
+      });
+      hadRetryableFailure ||= reconciliation.status !== "reconciled";
+    }
+    return { status: hadRetryableFailure ? "retryable" : "processed" };
   }
 
   async handleAuthorizedPaymentWebhook(

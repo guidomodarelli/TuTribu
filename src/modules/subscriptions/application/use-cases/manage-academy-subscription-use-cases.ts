@@ -8,6 +8,8 @@
 import type {
   AcademyAuthorizedPaymentWebhookResult,
   AcademyCoverageReconciliationResult,
+  AcademyPaymentWebhookCommand,
+  AcademyPaymentWebhookResult,
   AcademySubscriptionRepository,
   CancelAcademyRenewalResult,
   StartAcademyCheckoutResult,
@@ -96,4 +98,14 @@ export function handleAcademyAuthorizedPaymentWebhook({
     resourceId: string;
   }): Promise<AcademyAuthorizedPaymentWebhookResult> =>
     academySubscriptionRepository.handleAuthorizedPaymentWebhook(command);
+}
+
+/**
+ * Reconciles invoices associated with a signed payment update through the recorded ledger.
+ * @param dependencies - Academy repository owning authoritative payment reconciliation.
+ * @returns A handler that preserves retryable failures and never trusts the notification state.
+ */
+export function handleAcademyPaymentWebhook({ academySubscriptionRepository }: Dependencies) {
+  return async (command: AcademyPaymentWebhookCommand): Promise<AcademyPaymentWebhookResult> =>
+    academySubscriptionRepository.handlePaymentWebhook(command);
 }

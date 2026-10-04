@@ -10,6 +10,7 @@ function buildRepository(
     cancelOwnRenewal: vi.fn(),
     getOwnRenewalStatus: vi.fn(),
     handleAuthorizedPaymentWebhook: vi.fn(),
+    handlePaymentWebhook: vi.fn(),
     reconcileOwnCoverage: vi.fn(),
     reconcileSubscriptionCoverage: vi.fn(),
     startCheckout: vi.fn(async () => ({ status: "sales_closed" as const })),

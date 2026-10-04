@@ -165,6 +165,72 @@ describe.skipIf(!validationDatabaseUrl)("academy checkout provider creation", ()
     expect(periods.rows).toEqual([{ payment_status: "approved", has_grant: true }]);
   });
 
+  it("should revoke only the refunded payment grant when a payment update arrives", async () => {
+    const debitDate = new Date().toISOString();
+    const approvedInvoice = { id: "synthetic-refund-invoice", preapprovalId: "synthetic-refundable", currencyId: "ARS", debitDate,
+      lastModified: debitDate, paymentId: "synthetic-refund-payment", paymentStatus: "approved", paymentStatusDetail: "accredited",
+      status: "processed", transactionAmount: 30 };
+    let providerInvoice = approvedInvoice;
+    const repository = buildRepository(buildGateway({
+      createPreapproval: async () => ({ providerSubscriptionId: "synthetic-refundable", checkoutUrl: "https://checkout.example/refundable" }),
+      searchAuthorizedPayments: async () => [providerInvoice], getPreapprovalStatus: async () => "authorized",
+    }));
+    await repository.startCheckout({ acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug });
+    expect(await repository.reconcileSubscriptionCoverage({ correlationId: randomUUID(), providerSubscriptionId: approvedInvoice.preapprovalId }))
+      .toEqual({ appliedInvoices: 1, status: "reconciled" });
+
+    providerInvoice = { ...approvedInvoice, lastModified: new Date(Date.now() + 1000).toISOString(), paymentStatus: "refunded", paymentStatusDetail: "refunded" };
+    const command = { correlationId: randomUUID(), providerAccountId: "synthetic-seller", providerPaymentId: approvedInvoice.paymentId };
+    expect(await repository.handlePaymentWebhook(command)).toEqual({ status: "processed" });
+    providerInvoice = approvedInvoice;
+    expect(await repository.handlePaymentWebhook(command)).toEqual({ status: "processed" });
+
+    const grants = await pool.query("select p.payment_status,g.revoked_at is not null as revoked,m.status as membership_status from public.subscription_payment_periods p join public.member_access_grants g on g.id=p.grant_id join public.tribe_members m on m.tribe_id=p.tribe_id and m.user_id=p.user_id where p.tribe_id=$1", [tribeId]);
+    expect(grants.rows).toEqual([{ payment_status: "refunded", revoked: true, membership_status: "active" }]);
+  });
+
+  it("should ignore a payment update outside the recorded seller integration", async () => {
+    const debitDate = new Date().toISOString();
+    const invoice = { id: "synthetic-owned-invoice", preapprovalId: "synthetic-owned", currencyId: "ARS", debitDate,
+      lastModified: debitDate, paymentId: "synthetic-owned-payment", paymentStatus: "approved", paymentStatusDetail: "accredited",
+      status: "processed", transactionAmount: 30 };
+    const search = vi.fn(async () => [invoice]);
+    const repository = buildRepository(buildGateway({
+      createPreapproval: async () => ({ providerSubscriptionId: invoice.preapprovalId, checkoutUrl: "https://checkout.example/owned" }),
+      searchAuthorizedPayments: search, getPreapprovalStatus: async () => "authorized",
+    }));
+    await repository.startCheckout({ acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug });
+    await repository.reconcileSubscriptionCoverage({ correlationId: randomUUID(), providerSubscriptionId: invoice.preapprovalId });
+    search.mockClear();
+
+    expect(await repository.handlePaymentWebhook({ correlationId: randomUUID(), providerAccountId: "unrelated-seller", providerPaymentId: invoice.paymentId }))
+      .toEqual({ status: "ignored" });
+    expect(search).not.toHaveBeenCalled();
+    const grants = await pool.query("select revoked_at is not null as revoked from public.member_access_grants where tribe_id=$1", [tribeId]);
+    expect(grants.rows).toEqual([{ revoked: false }]);
+  });
+
+  it("should preserve paid coverage and request redelivery when the provider is unavailable", async () => {
+    const debitDate = new Date().toISOString();
+    const invoice = { id: "synthetic-unavailable-invoice", preapprovalId: "synthetic-unavailable", currencyId: "ARS", debitDate,
+      lastModified: debitDate, paymentId: "synthetic-unavailable-payment", paymentStatus: "approved", paymentStatusDetail: "accredited",
+      status: "processed", transactionAmount: 30 };
+    let providerUnavailable = false;
+    const repository = buildRepository(buildGateway({
+      createPreapproval: async () => ({ providerSubscriptionId: invoice.preapprovalId, checkoutUrl: "https://checkout.example/unavailable" }),
+      searchAuthorizedPayments: async () => { if (providerUnavailable) throw new Error("Provider temporarily unavailable"); return [invoice]; },
+      getPreapprovalStatus: async () => "authorized",
+    }));
+    await repository.startCheckout({ acceptedOfferVersion: 1, correlationId: randomUUID(), tribeSlug });
+    await repository.reconcileSubscriptionCoverage({ correlationId: randomUUID(), providerSubscriptionId: invoice.preapprovalId });
+    providerUnavailable = true;
+
+    expect(await repository.handlePaymentWebhook({ correlationId: randomUUID(), providerAccountId: "synthetic-seller", providerPaymentId: invoice.paymentId }))
+      .toEqual({ status: "retryable" });
+    const periods = await pool.query("select p.payment_status,g.revoked_at is not null as revoked from public.subscription_payment_periods p join public.member_access_grants g on g.id=p.grant_id where p.tribe_id=$1", [tribeId]);
+    expect(periods.rows).toEqual([{ payment_status: "approved", revoked: false }]);
+  });
+
   it("should request redelivery when an invoice arrives before the checkout is linked", async () => {
     let releaseCreation: () => void = () => {};
     let notifyCreation: () => void = () => {};

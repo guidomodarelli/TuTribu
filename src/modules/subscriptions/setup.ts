@@ -42,6 +42,7 @@ import {
   cancelOwnAcademyRenewal,
   getOwnAcademyRenewalStatus,
   handleAcademyAuthorizedPaymentWebhook,
+  handleAcademyPaymentWebhook,
   reconcileAcademySubscriptionCoverage,
   reconcileOwnAcademyCoverage,
   startAcademySubscription,
@@ -85,6 +86,7 @@ export function buildSubscriptionsModule({
       handleAcademyAuthorizedPaymentWebhook: handleAcademyAuthorizedPaymentWebhook({
         academySubscriptionRepository,
       }),
+      handleAcademyPaymentWebhook: handleAcademyPaymentWebhook({ academySubscriptionRepository }),
       reconcileAcademySubscriptionCoverage: reconcileAcademySubscriptionCoverage({
         academySubscriptionRepository,
       }),

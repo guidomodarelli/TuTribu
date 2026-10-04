@@ -25,6 +25,8 @@ const WEBHOOK_FIELD = {
 } as const;
 
 const WEBHOOK_TOPIC = {
+  payment: "payment",
+  paymentActionPrefix: "payment.",
   subscriptionAuthorizedPaymentPrefix: "subscription_authorized_payment",
   subscriptionPreapprovalPlanPrefix: "subscription_preapproval_plan",
   subscriptionPreapprovalPrefix: "subscription_preapproval",
@@ -135,6 +137,15 @@ function isAuthorizedPaymentWebhookTopic(topic: string): boolean {
 }
 
 /**
+ * Recognizes payment signals that may indicate a refund or dispute of an academy invoice.
+ * @param topic - Provider type or action selected at the webhook boundary.
+ * @returns Whether the recorded payment must be reconciled authoritatively.
+ */
+function isPaymentWebhookTopic(topic: string): boolean {
+  return topic === WEBHOOK_TOPIC.payment || topic.startsWith(WEBHOOK_TOPIC.paymentActionPrefix);
+}
+
+/**
  * Determines whether the webhook topic belongs to Mercado Pago subscription plans.
  *
  * @param topic - Mercado Pago action, type, or topic field.
@@ -231,7 +242,8 @@ export async function POST(request: Request) {
     if (
       !isSubscriptionWebhookTopic(topic) &&
       !isSubscriptionPlanWebhookTopic(topic) &&
-      !isAuthorizedPaymentWebhookTopic(topic)
+      !isAuthorizedPaymentWebhookTopic(topic) &&
+      !isPaymentWebhookTopic(topic)
     ) {
       return routeObservation.createJsonResponse(
         { status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed },
@@ -253,13 +265,20 @@ export async function POST(request: Request) {
       requestId,
     });
 
-    if (isAuthorizedPaymentWebhookTopic(topic)) {
-      // The notification only names the invoice: the use case reads it
-      // server-to-server and reconciles the whole academy subscription.
-      const result =
-        await modules.subscriptions.useCases.handleAcademyAuthorizedPaymentWebhook({
-          correlationId: requestId,
-          providerAccountId: readScalarString(body[WEBHOOK_FIELD.userId]) || null,
+    if (isAuthorizedPaymentWebhookTopic(topic) || isPaymentWebhookTopic(topic)) {
+      // Only provider reads determine payment state. Payment signals first
+      // resolve the known invoice through the ledger; invoice signals name it directly.
+      const webhookContext = {
+        correlationId: requestId,
+        providerAccountId: readScalarString(body[WEBHOOK_FIELD.userId]) || null,
+      };
+      const result = isPaymentWebhookTopic(topic)
+        ? await modules.subscriptions.useCases.handleAcademyPaymentWebhook({
+          ...webhookContext,
+          providerPaymentId: resourceId,
+        })
+        : await modules.subscriptions.useCases.handleAcademyAuthorizedPaymentWebhook({
+          ...webhookContext,
           resourceId,
         });
 

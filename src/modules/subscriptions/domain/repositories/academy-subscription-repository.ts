@@ -45,9 +45,19 @@ export type AcademyAuthorizedPaymentWebhookCommand = {
   resourceId: string;
 };
 
-export type AcademyAuthorizedPaymentWebhookResult = {
+/** Identifies a signed payment whose previously verified invoice may have changed. */
+export type AcademyPaymentWebhookCommand = {
+  correlationId: string;
+  providerAccountId: string | null;
+  providerPaymentId: string;
+};
+
+/** Reports whether authoritative reconciliation completed or requires redelivery. */
+export type AcademyPaymentWebhookResult = {
   status: "ignored" | "processed" | "retryable";
 };
+
+export type AcademyAuthorizedPaymentWebhookResult = AcademyPaymentWebhookResult;
 
 export type AcademySubscriptionRepository = {
   cancelOwnRenewal(command: {
@@ -58,6 +68,7 @@ export type AcademySubscriptionRepository = {
   handleAuthorizedPaymentWebhook(
     command: AcademyAuthorizedPaymentWebhookCommand
   ): Promise<AcademyAuthorizedPaymentWebhookResult>;
+  handlePaymentWebhook(command: AcademyPaymentWebhookCommand): Promise<AcademyPaymentWebhookResult>;
   reconcileOwnCoverage(command: {
     correlationId: string;
     tribeSlug: string;

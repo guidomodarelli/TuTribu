@@ -11,6 +11,7 @@ import {
 const handleMercadoPagoSubscriptionWebhook = vi.fn();
 const syncMercadoPagoSubscriptionProviderPlanWebhook = vi.fn();
 const handleAcademyAuthorizedPaymentWebhook = vi.fn();
+const handleAcademyPaymentWebhook = vi.fn();
 const reconcileAcademySubscriptionCoverage = vi.fn();
 const mockServerLogger = {
   error: vi.fn(),
@@ -92,11 +93,13 @@ describe("Mercado Pago webhook route", () => {
       status: "verified" as const,
     });
     handleAcademyAuthorizedPaymentWebhook.mockResolvedValue({ status: "processed" as const });
+    handleAcademyPaymentWebhook.mockResolvedValue({ status: "processed" as const });
     reconcileAcademySubscriptionCoverage.mockResolvedValue({ appliedInvoices: 0, status: "not_found" as const });
     (createRequestModules as Mock).mockResolvedValue({
       subscriptions: {
         useCases: {
           handleAcademyAuthorizedPaymentWebhook,
+          handleAcademyPaymentWebhook,
           handleMercadoPagoSubscriptionWebhook,
           reconcileAcademySubscriptionCoverage,
           syncMercadoPagoSubscriptionProviderPlanWebhook,
@@ -384,7 +387,33 @@ describe("Mercado Pago webhook route", () => {
     });
   });
 
-  it("ignores signed webhook payloads for non-subscription topics", async () => {
+  it("should reconcile a signed payment update through the academy ledger", async () => {
+    const requestId = "payment-update-request";
+    const response = await POST(buildWebhookRequest({
+      "x-request-id": requestId,
+      "x-signature": buildWebhookSignature("payment-1", requestId, String(Date.now())),
+    }, undefined, { type: "payment", action: "payment.updated", data: { id: "payment-1" }, user_id: "seller-1" }));
+
+    expect(response.status).toBe(200);
+    expect(handleAcademyPaymentWebhook).toHaveBeenCalledWith({
+      correlationId: requestId, providerAccountId: "seller-1", providerPaymentId: "payment-1",
+    });
+    expect(handleAcademyAuthorizedPaymentWebhook).not.toHaveBeenCalled();
+  });
+
+  it("should request redelivery when an academy payment update cannot be reconciled", async () => {
+    handleAcademyPaymentWebhook.mockResolvedValueOnce({ status: "retryable" });
+    const requestId = "payment-retry-request";
+    const response = await POST(buildWebhookRequest({
+      "x-request-id": requestId,
+      "x-signature": buildWebhookSignature("payment-1", requestId, String(Date.now())),
+    }, undefined, { type: "payment", action: "payment.updated", data: { id: "payment-1" } }));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ message: "No pudimos procesar el webhook." });
+  });
+
+  it("ignores signed webhook payloads for unrelated topics", async () => {
     const timestamp = String(Date.now());
     const requestId = "request-1";
     const response = await POST(
@@ -395,7 +424,7 @@ describe("Mercado Pago webhook route", () => {
         },
         undefined,
         {
-          action: "payment.created",
+          action: "unrelated.created",
           data: {
             id: "payment-1",
           },
