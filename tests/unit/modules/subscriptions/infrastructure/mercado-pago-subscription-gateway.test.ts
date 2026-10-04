@@ -249,6 +249,21 @@ describe("mercado pago subscription gateway", () => {
     })).rejects.toThrow("incomplete invoice history");
   });
 
+  it("should reject an incomplete history while a paid invoice has no provider identifier", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true, status: 200, json: async () => ({
+        paging: { offset: 0, limit: 12, total: 2 },
+        results: [
+          { id: "invoice-ready", payment: { id: "payment-ready", status: "approved" } },
+          { preapproval_id: "preapproval-1", status: "processed", payment: { id: "payment-new", status: "approved" } },
+        ],
+      }),
+    });
+
+    await expect(searchMercadoPagoAuthorizedPayments({ accessToken: "synthetic-token", preapprovalId: "preapproval-1" }))
+      .rejects.toThrow("without a usable identifier");
+  });
+
   it("should reject an incomplete history when the pagination guard is exhausted", async () => {
     fetchMock.mockResolvedValue({
       ok: true,

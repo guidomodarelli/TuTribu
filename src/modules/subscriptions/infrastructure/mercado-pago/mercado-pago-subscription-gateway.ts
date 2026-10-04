@@ -1749,9 +1749,11 @@ export async function searchMercadoPagoAuthorizedPayments(
     for (const result of pageResults) {
       const authorizedPayment = mapMercadoPagoAuthorizedPayment(result);
 
-      if (authorizedPayment) {
-        authorizedPayments.push(authorizedPayment);
+      if (!authorizedPayment) {
+        throw new Error("Mercado Pago invoice search returned an invoice without a usable identifier; retry the complete history");
       }
+
+      authorizedPayments.push(authorizedPayment);
     }
 
     const total = readOptionalProviderNumber(body.paging?.total) ?? 0;
