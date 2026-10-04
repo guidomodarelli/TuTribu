@@ -5,6 +5,7 @@
  */
 
 export const ACADEMY_ROUTE_COPY = {
+  checkoutUnresolved: "Estamos verificando si Mercado Pago creó tu suscripción. Esperá unos instantes y volvé a intentar. Si el problema continúa, contactá al líder.",
   admissionClosed: "Las admisiones de esta tribu no están abiertas en este momento.",
   alreadyMember: "Ya formás parte de esta tribu.",
   alreadyRevoked: "Esa bonificación ya estaba revocada.",

@@ -26,6 +26,7 @@ import {
 const OPERATION = "academy-checkout";
 
 const CHECKOUT_FAILURE_RESPONSE = {
+  checkout_unresolved: { message: ACADEMY_ROUTE_COPY.checkoutUnresolved, status: ACADEMY_HTTP_STATUS.conflict },
   already_subscribed: { message: ACADEMY_ROUTE_COPY.alreadySubscribed, status: ACADEMY_HTTP_STATUS.conflict },
   covered: { message: ACADEMY_ROUTE_COPY.covered, status: ACADEMY_HTTP_STATUS.conflict },
   forbidden: { message: ACADEMY_ROUTE_MESSAGE.forbidden, status: ACADEMY_HTTP_STATUS.forbidden },
@@ -88,10 +89,10 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
 
     const failure = CHECKOUT_FAILURE_RESPONSE[result.status];
 
-    if (result.status === "provider_unavailable") {
+    if (result.status === "provider_unavailable" || result.status === "checkout_unresolved") {
       scope.logger.warn({
         message: "Academy checkout provider unavailable",
-        metadata: { requestId: scope.requestId, tribeSlug: params.data.slug },
+        metadata: { requestId: scope.requestId, tribeSlug: params.data.slug, checkoutStatus: result.status },
       });
     }
 

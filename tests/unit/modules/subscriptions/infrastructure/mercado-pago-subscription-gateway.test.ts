@@ -2,11 +2,14 @@ import { vi, describe, it, expect, beforeEach, afterEach, afterAll } from "vites
 import {
   createMercadoPagoPreapprovalPlan,
   createMercadoPagoPreapprovalSubscription,
+  createMercadoPagoPendingPreapprovalSubscription,
+  findMercadoPagoSubscriptionCheckoutByReference,
   getMercadoPagoPreapprovalDetails,
   getMercadoPagoPreapprovalPlan,
   getMercadoPagoPreapprovalPlanStatus,
   getMercadoPagoPreapprovalStatus,
   refreshMercadoPagoAccessToken,
+  searchMercadoPagoAuthorizedPayments,
   searchMercadoPagoPreapprovalPlans,
   updateMercadoPagoPreapprovalBackUrl,
   updateMercadoPagoPreapprovalPlan,
@@ -52,6 +55,188 @@ describe("mercado pago subscription gateway", () => {
     } else {
       process.env.MERCADO_PAGO_CLIENT_SECRET = previousClientSecret;
     }
+  });
+
+  it("should create a hosted pending subscription from the frozen monthly terms without a card token", async () => {
+    fetchMock.mockImplementation(async (_requestUrl: string, options: RequestInit) => {
+      const body = JSON.parse(String(options.body));
+      const recurring = body.auto_recurring;
+      const isHostedPendingCheckout =
+        body.status === "pending" &&
+        !("preapproval_plan_id" in body) &&
+        !("card_token_id" in body) &&
+        recurring?.frequency === 1 &&
+        recurring?.frequency_type === "months" &&
+        recurring?.transaction_amount === 30 &&
+        recurring?.currency_id === "ARS" &&
+        !("free_trial" in recurring);
+      return {
+        ok: isHostedPendingCheckout,
+        status: isHostedPendingCheckout ? 201 : 400,
+        json: async () => isHostedPendingCheckout
+          ? { id: "pending-subscription-1", init_point: "https://checkout.example/pending-subscription-1" }
+          : { message: "card_token_id is required" },
+      };
+    });
+
+    await expect(createMercadoPagoPendingPreapprovalSubscription({
+      accessToken: "access-token",
+      amountCents: 3000,
+      backUrl: "https://tutribu.example.com/tribe/academia",
+      currency: "ARS",
+      externalReference: "academy-reservation-1",
+      idempotencyKey: "academy-checkout:reservation-1",
+      payerEmail: "buyer@example.com",
+      reason: "Academia mensual",
+    })).resolves.toEqual({
+      checkoutUrl: "https://checkout.example/pending-subscription-1",
+      providerSubscriptionId: "pending-subscription-1",
+    });
+  });
+
+  it("should recover only the checkout matching the reservation reference", async () => {
+    fetchMock.mockImplementation(async (requestUrl: string) => {
+      const url = new URL(requestUrl);
+      const body = url.pathname.endsWith("/search")
+        ? (url.searchParams.get("q") === "reservation-1"
+          ? { paging: { total: 1 }, results: [{ id: "recovered-1", external_reference: "reservation-1" }] }
+          : { paging: { total: 2 }, results: [{ id: "unrelated", external_reference: "other" }, { id: "recovered-1", external_reference: "reservation-1" }] })
+        : { id: "recovered-1", external_reference: "reservation-1", status: "pending", init_point: "https://checkout.example/recovered" };
+      return { ok: true, status: 200, json: async () => body };
+    });
+    await expect(findMercadoPagoSubscriptionCheckoutByReference({ accessToken: "access-token", externalReference: "reservation-1" }))
+      .resolves.toEqual({ providerSubscriptionId: "recovered-1", checkoutUrl: "https://checkout.example/recovered" });
+  });
+
+  it("should not retry subscription creation after an ambiguous transport failure", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Connection lost after sending request"));
+    await expect(createMercadoPagoPendingPreapprovalSubscription({
+      accessToken: "access-token", amountCents: 3000, backUrl: "https://tutribu.example.com/academy", currency: "ARS",
+      externalReference: "reservation-1", idempotencyKey: "checkout-1", payerEmail: "buyer@example.com", reason: "Academia",
+    })).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("should refuse ambiguous recovery when multiple subscriptions share the reference", async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ paging: { total: 2 }, results: [
+      { id: "first", external_reference: "reservation-1" }, { id: "second", external_reference: "reservation-1" },
+    ] }) });
+    await expect(findMercadoPagoSubscriptionCheckoutByReference({ accessToken: "access-token", externalReference: "reservation-1" })).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("should retain the HTTP status and operation when the provider rejects a request", async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 400, json: async () => ({ message: "Invalid request" }) });
+    await expect(getMercadoPagoPreapprovalStatus({ accessToken: "access-token", preapprovalId: "preapproval-1" }))
+      .rejects.toMatchObject({ statusCode: 400, operation: "get-mercado-pago-preapproval-status" });
+  });
+
+  it("should translate local cancellation into the provider cancelled status", async () => {
+    fetchMock.mockImplementation(async (_requestUrl: string, options: RequestInit) => {
+      const accepted = JSON.parse(String(options.body)).status === "cancelled";
+      return { ok: accepted, status: accepted ? 200 : 400, json: async () => ({ status: accepted ? "cancelled" : "invalid" }) };
+    });
+    await expect(updateMercadoPagoPreapprovalSubscriptionStatus({ accessToken: "access-token", preapprovalId: "subscription-1", status: "canceled" }))
+      .resolves.toBe("cancelled");
+  });
+
+  it("should confirm cancellation when a repeated cancellation is rejected but the subscription is already cancelled", async () => {
+    fetchMock.mockImplementation(async (_requestUrl: string, options: RequestInit) => ({
+      ok: options.method === "GET", status: options.method === "GET" ? 200 : 400,
+      json: async () => options.method === "GET" ? { status: "cancelled" } : { message: "Subscription already cancelled" },
+    }));
+    await expect(updateMercadoPagoPreapprovalSubscriptionStatus({ accessToken: "access-token", preapprovalId: "subscription-1", status: "canceled" }))
+      .resolves.toBe("cancelled");
+  });
+
+  it("should retrieve every invoice when the provider rejects unsupported page sizes", async () => {
+    const providerPageSize = 12;
+    const invoices = Array.from({ length: 13 }, (_, invoiceIndex) => ({
+      id: `invoice-${invoiceIndex}`,
+      preapproval_id: "preapproval-1",
+      transaction_amount: "15.00",
+      currency_id: "ARS",
+      payment: { id: `payment-${invoiceIndex}`, status: "approved", status_detail: "accredited" },
+    }));
+    fetchMock.mockImplementation(async (requestUrl: string) => {
+      const query = new URL(requestUrl).searchParams;
+      const limit = Number(query.get("limit"));
+      const offset = Number(query.get("offset"));
+      if (limit !== providerPageSize) {
+        return { ok: false, status: 400, json: async () => ({ message: "Invalid value for limit" }) };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          paging: { limit: providerPageSize, offset, total: invoices.length },
+          results: invoices.slice(offset, offset + limit),
+        }),
+      };
+    });
+
+    const result = await searchMercadoPagoAuthorizedPayments({
+      accessToken: "access-token",
+      preapprovalId: "preapproval-1",
+    });
+
+    expect(result.map((invoice) => invoice.id)).toEqual(invoices.map((invoice) => invoice.id));
+    expect(result.at(-1)).toMatchObject({ transactionAmount: 15, paymentStatus: "approved" });
+  });
+
+  it("should not skip invoices when the provider returns smaller pages than requested", async () => {
+    const providerPageSize = 2;
+    const invoices = Array.from({ length: 5 }, (_, invoiceIndex) => ({ id: `invoice-${invoiceIndex}` }));
+    fetchMock.mockImplementation(async (requestUrl: string) => {
+      const offset = Number(new URL(requestUrl).searchParams.get("offset"));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          paging: { limit: providerPageSize, offset, total: invoices.length },
+          results: invoices.slice(offset, offset + providerPageSize),
+        }),
+      };
+    });
+
+    const result = await searchMercadoPagoAuthorizedPayments({
+      accessToken: "access-token",
+      preapprovalId: "preapproval-1",
+    });
+
+    expect(result.map((invoice) => invoice.id)).toEqual(invoices.map((invoice) => invoice.id));
+  });
+
+  it("should reject an incomplete history when the provider stops returning remaining invoices", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ paging: { total: 2 }, results: [{ id: "invoice-1" }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ paging: { total: 2 }, results: [] }),
+      });
+
+    await expect(searchMercadoPagoAuthorizedPayments({
+      accessToken: "access-token",
+      preapprovalId: "preapproval-1",
+    })).rejects.toThrow("incomplete invoice history");
+  });
+
+  it("should reject an incomplete history when the pagination guard is exhausted", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ paging: { total: 51 }, results: [{ id: "invoice-1" }] }),
+    });
+
+    await expect(searchMercadoPagoAuthorizedPayments({
+      accessToken: "access-token",
+      preapprovalId: "preapproval-1",
+    })).rejects.toThrow("maximum page count");
   });
 
   it("reads the provider preapproval status from Mercado Pago", async () => {
@@ -542,7 +727,7 @@ describe("mercado pago subscription gateway", () => {
       "https://api.mercadopago.com/preapproval/preapproval-1",
       expect.objectContaining({
         body: JSON.stringify({
-          status: "canceled" as const,
+          status: "cancelled" as const,
         }),
         headers: {
           Authorization: "Bearer access-token",

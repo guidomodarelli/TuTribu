@@ -3,11 +3,9 @@
  *
  * Checkout: a pending local reservation (product `academy`, frozen price and
  * offer snapshot) is persisted first, the provider subscription is created
- * with an idempotency key derived from that reservation, and the provider id
- * is linked to the reservation before the browser is redirected. A double
- * click or an ambiguous timeout reuses the same reservation and key, so the
- * provider returns the same subscription instead of a second charge; the
- * reservation is never released blindly.
+ * once under a durable local creation claim, and the provider id is linked
+ * before redirecting. Ambiguous retries search the seller's subscriptions
+ * by reservation reference; they never repeat creation blindly.
  *
  * Coverage: access comes only from verified invoices. Every invoice
  * notification triggers a server-to-server reconciliation of the whole
@@ -24,6 +22,7 @@
  */
 
 import { sql } from "drizzle-orm";
+import { MercadoPagoRequestError, type MercadoPagoCheckoutReferenceInput } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 
 import {
   ACADEMY_COVERAGE_RECONCILIATION_THROTTLE_SECONDS,
@@ -56,7 +55,7 @@ import type {
   MercadoPagoAuthorizedPaymentInput,
   MercadoPagoAuthorizedPaymentSearchInput,
   MercadoPagoPreapprovalStatusInput,
-  MercadoPagoSubscriptionInput,
+  MercadoPagoPendingSubscriptionInput,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
 import { mapMercadoPagoSubscriptionStatus } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-status-mapper";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
@@ -99,13 +98,14 @@ export type AcademySubscriptionAuditWriter = (
 ) => Promise<void>;
 
 export type AcademySubscriptionGateway = {
+  findCheckoutByReference(input: MercadoPagoCheckoutReferenceInput): Promise<{ checkoutUrl: string; providerSubscriptionId: string } | null>;
   cancelPreapproval(input: {
     accessToken: string;
     preapprovalId: string;
     status: "canceled";
   }): Promise<string>;
   createPreapproval(
-    input: MercadoPagoSubscriptionInput
+    input: MercadoPagoPendingSubscriptionInput
   ): Promise<{ checkoutUrl: string; providerSubscriptionId: string }>;
   getAuthorizedPayment(
     input: MercadoPagoAuthorizedPaymentInput
@@ -129,6 +129,8 @@ const ACADEMY_SUBSCRIPTION_AUDIT_ENTITY = {
 } as const;
 
 const ACADEMY_OPERATION = {
+  creationKeyPrefix: "academy-provider-creation:",
+  creationType: "create_academy_provider_subscription",
   checkoutKeyPrefix: "academy-checkout:",
   checkoutType: "start_academy_subscription",
   externalReferencePrefix: "tutribu:academy-subscription:",
@@ -138,6 +140,8 @@ const ACADEMY_OPERATION = {
 const PAYMENT_PROVIDER = "mercado_pago";
 const PAID_GRANT_SOURCE = "subscription_payment";
 const PREAPPROVAL_QUERY_PARAM = "preapproval_id";
+const CHECKOUT_REJECTION_HTTP_STATUS = { badRequest: 400, unauthorized: 401, forbidden: 403, notFound: 404, unprocessable: 422 } as const;
+const DEFINITE_CHECKOUT_REJECTION_STATUSES: ReadonlySet<number> = new Set(Object.values(CHECKOUT_REJECTION_HTTP_STATUS));
 
 type SubscriptionContextRow = {
   access_token: string | null;
@@ -288,23 +292,55 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
     }
 
     let providerCheckout: { checkoutUrl: string; providerSubscriptionId: string };
+    const externalReference = `${ACADEMY_OPERATION.externalReferencePrefix}${row.subscription_id}`;
+    const claimed = await this.executeWithDatabase(async (database) => {
+      const result = await database.execute(sql`
+        insert into public.subscription_idempotency_operations
+          (operation_key, operation_type, tribe_id, user_id, payload_hash, response_body)
+        select ${ACADEMY_OPERATION.creationKeyPrefix + row.subscription_id}, ${ACADEMY_OPERATION.creationType},
+          tribe_id, user_id, id::text, '{}'::jsonb
+        from public.tribe_member_subscriptions
+        where id = ${row.subscription_id} and user_id = public.current_app_user_id()
+        on conflict (operation_key) do nothing returning id
+      `);
+      return (result.rows ?? []).length > 0;
+    });
 
     try {
-      // Same key for every retry of this reservation: an ambiguous timeout or
-      // a double click gets the same provider subscription back.
-      providerCheckout = await this.gateway.createPreapproval({
+      // The durable local claim protects creation even when the provider ignores its header.
+      if (!claimed) {
+        const recovered = await this.gateway.findCheckoutByReference({ accessToken, externalReference, traceContext: { operationKey: ACADEMY_OPERATION.checkoutKeyPrefix + row.subscription_id, requestId: command.correlationId, tribeSlug: command.tribeSlug } });
+        if (!recovered) return { status: "checkout_unresolved" };
+        providerCheckout = recovered;
+      } else {
+        providerCheckout = await this.gateway.createPreapproval({
         accessToken,
         amountCents: row.amount_cents,
         backUrl: buildAcademyBackUrl(command.tribeSlug),
         currency: row.currency,
-        externalReference: `${ACADEMY_OPERATION.externalReferencePrefix}${row.subscription_id}`,
+        externalReference,
         idempotencyKey: `${ACADEMY_OPERATION.checkoutKeyPrefix}${row.subscription_id}`,
         payerEmail: row.payer_email,
-        preapprovalPlanId: row.provider_plan_id,
         reason: row.price_name,
+        traceContext: {
+          operationKey: `${ACADEMY_OPERATION.checkoutKeyPrefix}${row.subscription_id}`,
+          providerPlanId: row.provider_plan_id,
+          requestId: command.correlationId,
+          tribeSlug: command.tribeSlug,
+        },
       });
-    } catch {
-      return { status: "provider_unavailable" };
+      }
+    } catch (error) {
+      // Release only a definite input/auth rejection, never a timeout or upstream failure.
+      if (claimed && error instanceof MercadoPagoRequestError && DEFINITE_CHECKOUT_REJECTION_STATUSES.has(error.statusCode)) {
+        await this.executeWithDatabase((database) => database.execute(sql`
+          delete from public.subscription_idempotency_operations
+          where operation_key = ${ACADEMY_OPERATION.creationKeyPrefix + row.subscription_id}
+            and user_id = public.current_app_user_id()
+        `));
+        return { status: "provider_unavailable" };
+      }
+      return { status: "checkout_unresolved" };
     }
 
     return this.linkCheckout({
@@ -519,13 +555,9 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
   async handleAuthorizedPaymentWebhook(
     command: AcademyAuthorizedPaymentWebhookCommand
   ): Promise<AcademyAuthorizedPaymentWebhookResult> {
-    if (!command.providerAccountId) {
-      return { status: "ignored" };
-    }
-
-    // The seller account of the notification selects the integrations; the
-    // invoice is then read server-to-server with each integration token and
-    // must belong to a local academy subscription of that same integration.
+    // Invoice notifications omit user_id in the real provider contract.
+    // Restrict discovery to integrations with local academy subscriptions;
+    // authoritative invoice ownership and local integration binding remain mandatory.
     const integrations = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
         select
@@ -533,23 +565,42 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
           tribe_payment_integrations.tribe_id,
           tribe_payment_integrations.access_token,
           tribe_payment_integrations.refresh_token,
-          tribe_payment_integrations.token_expires_at
+          tribe_payment_integrations.token_expires_at,
+          exists (
+            select 1 from public.tribe_member_subscriptions
+            where tribe_member_subscriptions.payment_integration_id = tribe_payment_integrations.id
+              and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy}
+              and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
+              and tribe_member_subscriptions.mercado_pago_preapproval_id is null
+          ) as has_unlinked_checkout
         from public.tribe_payment_integrations
         where tribe_payment_integrations.provider = ${PAYMENT_PROVIDER}
-          and tribe_payment_integrations.provider_account_id = ${command.providerAccountId}
+          and (${command.providerAccountId}::text is null or tribe_payment_integrations.provider_account_id = ${command.providerAccountId})
+          and exists (
+            select 1 from public.tribe_member_subscriptions
+            where tribe_member_subscriptions.payment_integration_id = tribe_payment_integrations.id
+              and tribe_member_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.academy}
+          )
+        order by exists (
+          select 1 from public.subscription_payment_periods
+          where subscription_payment_periods.payment_integration_id = tribe_payment_integrations.id
+            and subscription_payment_periods.provider_invoice_id = ${command.resourceId}
+        ) desc
       `);
 
-      return (result.rows ?? []) as Array<Pick<
+      return (result.rows ?? []) as Array<{ has_unlinked_checkout: boolean } & Pick<
         SubscriptionContextRow,
         "access_token" | "payment_integration_id" | "refresh_token" | "token_expires_at" | "tribe_id"
       >>;
     });
 
+    let hadProviderFailure = false;
     for (const integration of integrations) {
       const accessToken = await this.resolveToken(integration).catch(() => null);
 
       if (!accessToken) {
-        return { status: "retryable" };
+        hadProviderFailure = true;
+        continue;
       }
 
       let invoice: MercadoPagoAuthorizedPayment | null;
@@ -560,7 +611,8 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
           authorizedPaymentId: command.resourceId,
         });
       } catch {
-        return { status: "retryable" };
+        hadProviderFailure = true;
+        continue;
       }
 
       if (!invoice?.preapprovalId) {
@@ -569,7 +621,11 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
 
       const context = await this.readSubscriptionContext(invoice.preapprovalId);
 
-      if (!context || context.payment_integration_id !== integration.payment_integration_id) {
+      if (!context) {
+        hadProviderFailure ||= integration.has_unlinked_checkout;
+        continue;
+      }
+      if (context.payment_integration_id !== integration.payment_integration_id) {
         continue;
       }
 
@@ -584,7 +640,7 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
       };
     }
 
-    return { status: "ignored" };
+    return { status: hadProviderFailure ? "retryable" : "ignored" };
   }
 
   private async reserveCheckout(

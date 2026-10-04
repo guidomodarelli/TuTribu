@@ -4,6 +4,14 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- La academia consulta el historial completo de cuotas de una suscripción sin omitir pagos y evita confirmar una revisión cuando el historial está incompleto.
+- Las notificaciones de Mercado Pago llegan al receptor de TuTribu en lugar de redirigirse a la portada.
+- La academia abre el pago en Mercado Pago sin exigir una tarjeta antes de entrar al checkout y evita crear suscripciones duplicadas por solicitudes simultáneas o fallos de conexión.
+- Las cuotas de academia se procesan también cuando la notificación de Mercado Pago no informa la cuenta vendedora.
+- Cancelar una suscripción detiene su renovación y confirma correctamente una cancelación ya realizada en Mercado Pago.
+
 ## [1.1.1] - 2026-10-03
 
 - 8b94b15 actualiza la dependencia «beez-ui» a la versión 0.10.0
@@ -170,4 +178,3 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El diagnóstico de precios ya no muestra un check mientras se actualiza o si falla, y dice "1 miembro asociado" en singular.
 - Los errores de invitaciones, ajustes y soporte se muestran en español y corresponden a la acción que falló.
 - Los ajustes avisan cuando la imagen de una URL no carga y cuando falta guardar tras subirla.
-

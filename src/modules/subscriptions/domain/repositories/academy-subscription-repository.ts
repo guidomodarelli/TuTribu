@@ -19,6 +19,7 @@ export type StartAcademyCheckoutResult =
   | {
       status:
         | "already_subscribed"
+        | "checkout_unresolved"
         | "covered"
         | "forbidden"
         | "not_eligible"
@@ -39,7 +40,7 @@ export type AcademyCoverageReconciliationResult = {
 
 export type AcademyAuthorizedPaymentWebhookCommand = {
   correlationId: string;
-  /** Seller account (`user_id` of the notification), resolves the integration. */
+  /** Optional seller hint; real invoice notifications can omit user_id. */
   providerAccountId: string | null;
   resourceId: string;
 };

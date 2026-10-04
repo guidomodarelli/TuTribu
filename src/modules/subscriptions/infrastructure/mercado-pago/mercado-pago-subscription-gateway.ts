@@ -21,6 +21,48 @@ import {
   logPaymentOperation,
   type PaymentOperationTraceContext,
 } from "@/src/modules/subscriptions/infrastructure/observability/payment-operation-logger";
+import { MERCADO_PAGO_SUBSCRIPTION_STATUS } from "./mercado-pago-subscription-status-mapper";
+
+/** Preserves transport metadata without retaining the provider response or credentials. */
+export class MercadoPagoRequestError extends Error {
+  /**
+   * Constructs a provider rejection safe for server diagnostics.
+   * @param message - Sanitized diagnostic message.
+   * @param statusCode - Provider HTTP status.
+   * @param operation - Stable adapter operation name.
+   */
+  constructor(message: string, readonly statusCode: number, readonly operation: string) {
+    super(message);
+    this.name = "MercadoPagoRequestError";
+  }
+}
+
+/** Arguments for recovering a checkout under its original seller account. */
+export type MercadoPagoCheckoutReferenceInput = {
+  accessToken: string;
+  externalReference: string;
+  traceContext?: PaymentOperationTraceContext;
+};
+
+/**
+ * Recovers one authoritative pending checkout by reservation reference.
+ * @param input - Seller credentials and the original reservation reference.
+ * @returns Matching pending checkout, or null if absent or ambiguous.
+ */
+export async function findMercadoPagoSubscriptionCheckoutByReference(input: MercadoPagoCheckoutReferenceInput): Promise<{ checkoutUrl: string; providerSubscriptionId: string } | null> {
+  const operation = MERCADO_PAGO_PAYMENT_OPERATION.recoverSubscriptionCheckout;
+  const url = new URL(`${MERCADO_PAGO_URL.preapproval}/search`);
+  url.searchParams.set("q", input.externalReference);
+  const init = { headers: { [MERCADO_PAGO_HTTP.authorizationHeader]: MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken }, method: MERCADO_PAGO_HTTP.getMethod };
+  const response = await fetchMercadoPago(operation, url.toString(), init, input.traceContext);
+  const body = await readMercadoPagoResponse<{ paging?: { total?: number }; results?: MercadoPagoPreapprovalResponse[] }>(operation, response, input.traceContext);
+  const matches = (body.results ?? []).filter((subscription) => subscription.external_reference === input.externalReference);
+  if (matches.length !== 1 || (body.paging?.total ?? matches.length) !== 1 || !matches[0].id) return null;
+  const detailResponse = await fetchMercadoPago(operation, `${MERCADO_PAGO_URL.preapproval}/${encodeURIComponent(matches[0].id)}`, init, input.traceContext);
+  const detail = await readMercadoPagoResponse<MercadoPagoSubscriptionResponse & MercadoPagoPreapprovalResponse>(operation, detailResponse, input.traceContext);
+  if (detail.external_reference !== input.externalReference || detail.id !== matches[0].id || detail.status !== MERCADO_PAGO_SUBSCRIPTION_STATUS.pending || !detail.init_point) return null;
+  return { checkoutUrl: detail.init_point, providerSubscriptionId: detail.id };
+}
 
 const MERCADO_PAGO_ENV = {
   clientId: "MERCADO_PAGO_CLIENT_ID",
@@ -58,8 +100,11 @@ const MERCADO_PAGO_RESPONSE_ERROR_MESSAGE = {
 } as const;
 
 const HTTP_STATUS_NOT_FOUND = 404;
+const HTTP_STATUS_BAD_REQUEST = 400;
 
 const CENTS_PER_CURRENCY_UNIT = 100;
+/** Calendar month unit used by Mercado Pago recurring charges. */
+const MERCADO_PAGO_MONTHLY_FREQUENCY_TYPE = "months";
 
 const MERCADO_PAGO_FETCH_RESILIENCE = {
   maxRetries: 1,
@@ -70,6 +115,8 @@ const MERCADO_PAGO_FETCH_RESILIENCE = {
 const MERCADO_PAGO_PAYMENT_OPERATION = {
   createPreapprovalPlan: "create-mercado-pago-preapproval-plan",
   createPreapprovalSubscription: "create-mercado-pago-preapproval-subscription",
+  createPendingPreapprovalSubscription: "create-mercado-pago-pending-preapproval-subscription",
+  recoverSubscriptionCheckout: "recover-mercado-pago-subscription-checkout",
   exchangeOAuthCode: "exchange-mercado-pago-oauth-code",
   getAuthorizedPayment: "get-mercado-pago-authorized-payment",
   searchAuthorizedPayments: "search-mercado-pago-authorized-payments",
@@ -148,6 +195,12 @@ export type MercadoPagoSubscriptionInput = {
   reason: string;
   traceContext?: PaymentOperationTraceContext;
 };
+
+/** Frozen terms for a hosted checkout without a provider plan or card token. */
+export type MercadoPagoPendingSubscriptionInput = Omit<
+  MercadoPagoSubscriptionInput,
+  "preapprovalPlanId"
+>;
 
 export type MercadoPagoPreapprovalStatusInput = {
   accessToken: string;
@@ -479,6 +532,8 @@ async function fetchMercadoPago(
 
   return fetchWithResilience(mercadoPagoFetch, url, init, {
     ...MERCADO_PAGO_FETCH_RESILIENCE,
+    maxRetries: operation === MERCADO_PAGO_PAYMENT_OPERATION.createPendingPreapprovalSubscription
+      ? 0 : MERCADO_PAGO_FETCH_RESILIENCE.maxRetries,
     lifecycleLogger: buildMercadoPagoLifecycleLogger(operation, traceContext),
   });
 }
@@ -608,8 +663,10 @@ async function readMercadoPagoResponse<T>(
       traceContext,
     });
 
-    throw new Error(
-      buildMercadoPagoRequestFailureMessage(response.status ?? 0, body)
+    throw new MercadoPagoRequestError(
+      buildMercadoPagoRequestFailureMessage(response.status ?? 0, body),
+      response.status ?? 0,
+      operation
     );
   }
 
@@ -1054,19 +1111,73 @@ export async function getMercadoPagoPreapprovalPlanStatus(
 export async function createMercadoPagoPreapprovalSubscription(
   input: MercadoPagoSubscriptionInput
 ) {
-  const operation = MERCADO_PAGO_PAYMENT_OPERATION.createPreapprovalSubscription;
+  return createMercadoPagoSubscriptionCheckout(
+    input,
+    {
+      back_url: input.backUrl,
+      external_reference: input.externalReference,
+      payer_email: input.payerEmail,
+      preapproval_plan_id: input.preapprovalPlanId,
+      reason: input.reason,
+      status: MERCADO_PAGO_SUBSCRIPTION_STATUS.pending,
+    },
+    MERCADO_PAGO_PAYMENT_OPERATION.createPreapprovalSubscription,
+    input.preapprovalPlanId
+  );
+}
+
+/**
+ * Creates a cardless pending checkout with the member's frozen monthly terms.
+ * Mercado Pago collects the card on its hosted checkout; associating a plan
+ * here would instead require a card token before that redirect exists.
+ *
+ * @param input - Frozen contract, buyer identity and stable reservation key.
+ * @returns Provider subscription identifier and hosted checkout URL.
+ * @throws When Mercado Pago rejects creation or omits the checkout identity.
+ */
+export async function createMercadoPagoPendingPreapprovalSubscription(
+  input: MercadoPagoPendingSubscriptionInput
+) {
+  return createMercadoPagoSubscriptionCheckout(
+    input,
+    {
+      auto_recurring: {
+        currency_id: input.currency,
+        frequency: 1,
+        frequency_type: MERCADO_PAGO_MONTHLY_FREQUENCY_TYPE,
+        transaction_amount: input.amountCents / CENTS_PER_CURRENCY_UNIT,
+      },
+      back_url: input.backUrl,
+      external_reference: input.externalReference,
+      payer_email: input.payerEmail,
+      reason: input.reason,
+      status: MERCADO_PAGO_SUBSCRIPTION_STATUS.pending,
+    },
+    MERCADO_PAGO_PAYMENT_OPERATION.createPendingPreapprovalSubscription
+  );
+}
+
+/**
+ * Sends a controlled creation payload and maps the provider checkout identity.
+ *
+ * @param input - Authentication, idempotency and tracing data.
+ * @param requestBody - Payload built by the corresponding checkout variant.
+ * @param operation - Operation name used by safe provider diagnostics.
+ * @param providerPlanId - Optional associated plan for legacy tracing.
+ * @returns Provider subscription identifier and checkout URL.
+ * @throws When the provider rejects the request or cannot supply a checkout.
+ */
+async function createMercadoPagoSubscriptionCheckout(
+  input: MercadoPagoPendingSubscriptionInput,
+  requestBody: Record<string, unknown>,
+  operation: string,
+  providerPlanId?: string
+) {
   const response = await fetchMercadoPago(
     operation,
     MERCADO_PAGO_URL.preapproval,
     {
-      body: JSON.stringify({
-        back_url: input.backUrl,
-        external_reference: input.externalReference,
-        payer_email: input.payerEmail,
-        preapproval_plan_id: input.preapprovalPlanId,
-        reason: input.reason,
-        status: "pending",
-      }),
+      body: JSON.stringify(requestBody),
       headers: {
         [MERCADO_PAGO_HTTP.authorizationHeader]:
           MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken,
@@ -1089,7 +1200,7 @@ export async function createMercadoPagoPreapprovalSubscription(
     logMercadoPagoOperationResult({
       level: SERVER_LOG_LEVEL.error,
       operation,
-      providerPlanId: input.preapprovalPlanId,
+      providerPlanId,
       result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.invalidProviderResponse,
       traceContext: input.traceContext,
     });
@@ -1105,7 +1216,7 @@ export async function createMercadoPagoPreapprovalSubscription(
     },
     operation,
     preapprovalId: body.id,
-    providerPlanId: input.preapprovalPlanId,
+    providerPlanId,
     result: MERCADO_PAGO_PAYMENT_OPERATION_RESULT.success,
     traceContext: input.traceContext,
   });
@@ -1186,7 +1297,7 @@ export async function updateMercadoPagoPreapprovalSubscriptionStatus(input: {
     `${MERCADO_PAGO_URL.preapproval}/${input.preapprovalId}`,
     {
       body: JSON.stringify({
-        status: input.status,
+        status: MERCADO_PAGO_SUBSCRIPTION_STATUS.cancelled,
       }),
       headers: {
         [MERCADO_PAGO_HTTP.authorizationHeader]:
@@ -1198,6 +1309,12 @@ export async function updateMercadoPagoPreapprovalSubscriptionStatus(input: {
     },
     input.traceContext
   );
+  if (!response.ok && response.status === HTTP_STATUS_BAD_REQUEST) {
+    const currentStatus = await getMercadoPagoPreapprovalStatus(input);
+    if (currentStatus === MERCADO_PAGO_SUBSCRIPTION_STATUS.cancelled || currentStatus === MERCADO_PAGO_SUBSCRIPTION_STATUS.canceled) {
+      return currentStatus;
+    }
+  }
   const body = await readMercadoPagoResponse<MercadoPagoPreapprovalResponse>(
     operation,
     response,
@@ -1438,9 +1555,10 @@ type MercadoPagoAuthorizedPaymentSearchResponse = {
   results?: MercadoPagoAuthorizedPaymentResponse[];
 };
 
+/** Uses the invoice page size verified against Mercado Pago's subscription API. */
 const MERCADO_PAGO_AUTHORIZED_PAYMENT_SEARCH = {
   maxPages: 50,
-  pageSize: 50,
+  pageSize: 12,
 } as const;
 
 function readOptionalProviderString(value: unknown): string | null {
@@ -1540,16 +1658,18 @@ export async function getMercadoPagoAuthorizedPayment(
  * pagination (the first page is not assumed to hold the whole history).
  *
  * @param input - Subscription identifier and account token.
- * @returns All invoices found, up to the page guard.
+ * @returns The complete invoice history.
+ * @throws When the provider stops pagination early or the page guard is exhausted.
  */
 export async function searchMercadoPagoAuthorizedPayments(
   input: MercadoPagoAuthorizedPaymentSearchInput
 ): Promise<MercadoPagoAuthorizedPayment[]> {
   const operation = MERCADO_PAGO_PAYMENT_OPERATION.searchAuthorizedPayments;
   const authorizedPayments: MercadoPagoAuthorizedPayment[] = [];
+  let offset = 0;
+  let isHistoryComplete = false;
 
   for (let pageIndex = 0; pageIndex < MERCADO_PAGO_AUTHORIZED_PAYMENT_SEARCH.maxPages; pageIndex++) {
-    const offset = pageIndex * MERCADO_PAGO_AUTHORIZED_PAYMENT_SEARCH.pageSize;
     const searchParams = new URLSearchParams({
       limit: String(MERCADO_PAGO_AUTHORIZED_PAYMENT_SEARCH.pageSize),
       offset: String(offset),
@@ -1583,10 +1703,24 @@ export async function searchMercadoPagoAuthorizedPayments(
     }
 
     const total = readOptionalProviderNumber(body.paging?.total) ?? 0;
+    offset += pageResults.length;
 
-    if (pageResults.length === 0 || offset + pageResults.length >= total) {
+    if (offset >= total) {
+      isHistoryComplete = true;
       break;
     }
+
+    if (pageResults.length === 0) {
+      throw new Error(
+        `Mercado Pago invoice search returned an incomplete invoice history (offset=${offset}; total=${total})`
+      );
+    }
+  }
+
+  if (!isHistoryComplete) {
+    throw new Error(
+      `Mercado Pago invoice search exceeded its maximum page count (${MERCADO_PAGO_AUTHORIZED_PAYMENT_SEARCH.maxPages}) before completing the invoice history`
+    );
   }
 
   logMercadoPagoOperationResult({
