@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mercado Pago · Referencia de integración</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;max-width:960px;margin:auto;padding:3rem 1.5rem 5rem}header{border-bottom:2px solid #1a1a1a;padding-bottom:1.5rem}h1{font-size:1.75rem;line-height:1.2}h2{font-size:1.25rem;border-bottom:1px solid #e0ddd6;padding-bottom:.5rem;margin-top:2.5rem}h3{font-size:1rem}p,li,td{font-size:.875rem;line-height:1.7;color:#333}li{margin-bottom:.4rem}a{color:#1a4f7a;text-underline-offset:3px}code,.label{font-family:'DM Mono',monospace;font-size:.75rem;overflow-wrap:anywhere}code{background:#f0ede6;padding:.1rem .25rem;border-radius:3px}.label{color:#555;letter-spacing:.1em;text-transform:uppercase}nav{margin:1.5rem 0}nav ul{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;padding-left:1rem}.table-scroll{overflow-x:auto;max-width:100%}table{width:100%;border-collapse:collapse;margin:1rem 0}th{text-align:left;background:#f0ede6;font-size:.75rem;padding:.6rem;color:#555}td{padding:.6rem;vertical-align:top;border-bottom:1px solid #e0ddd6}pre{overflow:auto;background:#1a1a2e;color:#e2e8f0;padding:1.25rem;border-radius:8px;font-size:.75rem;line-height:1.7}pre code{background:none;color:inherit;padding:0}.callout{background:#eaf3fb;border-left:3px solid #5a9fd4;padding:1rem}.warning{background:#fdf5e0;border-color:#d4a44c}section{scroll-margin-top:1rem}footer{margin-top:3rem;border-top:2px solid #1a1a1a;padding-top:1rem}@media(max-width:480px){body{padding:1.5rem 1rem 3rem}h1{font-size:1.5rem}th,td{padding:.5rem}}
+</style>
+</head>
+<body>
+<header>
+<p class="label">Arquitectura · Integraciones</p>
+<h1>Mercado Pago: referencia para implementar y mantener</h1>
+<p>Endpoints utilizados, contratos mínimos, decisiones y pruebas de TuTribu. Base reutilizable para otro proyecto de suscripciones; no es un catálogo de todas las APIs de Mercado Pago.</p>
+<p class="label">Revisado: 4 de octubre de 2026 · Implementación de referencia: v1.1.3</p>
+</header>
+<nav aria-label="Secciones"><ul>
+<li><a href="#scope">Alcance</a></li><li><a href="#oauth">OAuth y configuración</a></li><li><a href="#endpoints">Endpoints externos</a></li><li><a href="#contracts">Contratos</a></li><li><a href="#webhooks">Webhooks</a></li><li><a href="#consistency">Consistencia y errores</a></li><li><a href="#application">API de TuTribu</a></li><li><a href="#evidence">Pruebas y pendientes</a></li><li><a href="#reuse">Otro proyecto</a></li><li><a href="#sources">Fuentes</a></li>
+</ul></nav>
+<main>
+<section id="scope"><h2>1. Alcance y separación de responsabilidades</h2>
+<p>El proveedor administra planes, autorizaciones recurrentes, facturas y pagos. TuTribu administra membresía, vinculación verificada, habilitación de ventas y períodos de acceso. Un <code>preapproval</code> autorizado permite cobrar; por sí solo no acredita una cuota ni concede acceso pago a la academia.</p>
+<p>La arquitectura específica está en <a href="subscriptions.htm">Suscripciones por tribu</a> y <a href="academy-access.htm">Acceso a la academia</a>. El segundo documento conserva la evidencia detallada, las limitaciones y el historial de investigación. Los recorridos para usuarios están en <a href="../user-manual/academy.htm">Academia</a> y <a href="../../user-guides/payment-methods.html">Medios de pago</a>.</p>
+<p>El adapter externo pertenece a <code>src/modules/subscriptions/infrastructure/mercado-pago/</code>. Los casos de uso consumen puertos y resultados internos; la UI recibe DTO propios. Validar inputs y DTO públicos en sus fronteras; mapear solamente los campos upstream utilizados, sin volver a validar con esquemas completos las respuestas del proveedor o filas de PostgreSQL. Véase <a href="../conventions/payload-validation-boundaries.htm">Validación de payloads</a>.</p>
+</section>
+<section id="oauth"><h2>2. OAuth, cuentas y configuración</h2>
+<div class="table-scroll"><table><caption>Configuración del servidor</caption><thead><tr><th>Nombre</th><th>Uso</th></tr></thead><tbody>
+<tr><td><code>MERCADO_PAGO_CLIENT_ID</code></td><td>Aplicación que solicita la autorización del vendedor.</td></tr>
+<tr><td><code>MERCADO_PAGO_CLIENT_SECRET</code></td><td>Intercambio y renovación de tokens; secreto del servidor.</td></tr>
+<tr><td><code>MERCADO_PAGO_WEBHOOK_SECRET</code></td><td>Secreto de firma correspondiente a la aplicación que emite la notificación.</td></tr>
+<tr><td><code>MERCADO_PAGO_BACK_URL</code></td><td>Base HTTPS pública de retorno. Si está vacía, la aplicación utiliza <code>BETTER_AUTH_URL</code>; desarrollo necesita una URL pública válida.</td></tr>
+<tr><td><code>ACADEMY_SALES_ACTIVATION_ENABLED</code></td><td>Control operativo propio de TuTribu: solamente <code>"true"</code> permite el recorrido de activación de ventas. No es una opción de Mercado Pago.</td></tr>
+</tbody></table></div>
+<ol><li>Iniciar OAuth con el líder autenticado y autorizado para la tribu; construir <code>state</code> firmado que identifica miembro y tribu.</li><li>Redirigir a <code>https://auth.mercadopago.com.ar/authorization</code> con <code>client_id</code>, <code>response_type=code</code>, <code>platform_id=mp</code>, <code>redirect_uri</code> y <code>state</code>.</li><li>En el callback, comprobar firma de <code>state</code>, sesión y permisos antes de asociar la cuenta. Intercambiar <code>code</code> con el mismo <code>redirect_uri</code> registrado.</li><li>Persistir tokens únicamente en almacenamiento del servidor de la integración correspondiente. Renovar mediante <code>refresh_token</code>; reemplazar los tokens devueltos y actualizar el vencimiento.</li></ol>
+<pre><code>// POST https://api.mercadopago.com/oauth/token
+// Authorization code: server-side JSON request
+{
+  "client_id": "&lt;application-id&gt;",
+  "client_secret": "&lt;server-secret&gt;",
+  "grant_type": "authorization_code",
+  "code": "&lt;one-time-code&gt;",
+  "redirect_uri": "https://example.com/api/mercado-pago/oauth/callback"
+}
+// Refresh: grant_type="refresh_token" and refresh_token,
+// together with client_id and client_secret.
+// Private internal result:
+// {accessToken, expiresIn, providerAccountId, refreshToken}</code></pre>
+<p>El vendedor que posee el recurso determina el token para todas sus consultas y modificaciones. <code>providerAccountId</code> procede de <code>user_id</code> del intercambio OAuth; no aceptar una cuenta indicada por el navegador como autorización.</p>
+<p class="callout warning">Mantener separados aplicación, vendedor, comprador y entorno. Una credencial de cuenta ficticia puede comenzar con <code>APP_USR-</code>: el prefijo solo no demuestra movimientos de dinero real. <code>test_token: true</code> y tokens <code>TEST-</code> corresponden a experimentos de sandbox; no son el flujo de producción del adapter. <code>client_credentials</code> no reemplaza la autorización delegada del vendedor. Confirmar identidades y compatibilidad de participantes; se observó error <code>2034</code> al mezclar participantes de prueba y producción.</p>
+<p>En otro proyecto, completar la protección de OAuth con caducidad y uso único del estado, rotación de secretos y controles de acceso adecuados. El estado firmado actual de TuTribu no debe describirse como un registro persistido de nonce de un solo uso.</p>
+</section>
+<section id="endpoints"><h2>3. Endpoints externos utilizados</h2>
+<p>Base REST: <code>https://api.mercadopago.com</code>. Recursos del vendedor: <code>Authorization: Bearer &lt;seller-access-token&gt;</code>. Escrituras JSON: <code>Content-Type: application/json</code>. Creación de planes y suscripciones envía <code>X-Idempotency-Key</code>; la reserva local sigue siendo necesaria.</p>
+<div class="table-scroll"><table><caption>Inventario del gateway de producción</caption><thead><tr><th>Método y ruta</th><th>Contrato consumido / finalidad</th></tr></thead><tbody>
+<tr><td><code>POST /oauth/token</code></td><td>Intercambio o renovación. Leer <code>access_token</code>, <code>expires_in</code>, <code>user_id</code> y <code>refresh_token</code>.</td></tr>
+<tr><td><code>POST /preapproval_plan</code></td><td>Crear template: <code>reason</code>, <code>external_reference</code>, <code>back_url</code>, <code>auto_recurring</code>. Resultado requerido: <code>id</code>.</td></tr>
+<tr><td><code>GET /preapproval_plan/{id}</code></td><td>Obtener plan y estado. Mapear monto, moneda, referencia, motivo y prueba gratuita. 404 produce ausencia controlada.</td></tr>
+<tr><td><code>PUT /preapproval_plan/{id}</code></td><td>Actualizar monto, frecuencia, prueba, motivo, referencia, retorno y estado. Las suscripciones existentes conservan condiciones ya emitidas; ver la política local de precios.</td></tr>
+<tr><td><code>GET /preapproval_plan/search?external_reference=…</code></td><td>Búsqueda de templates en el adapter actual. Este query no debe confundirse con la recuperación de suscripciones.</td></tr>
+<tr><td><code>POST /preapproval</code></td><td>Crear suscripción clásica con <code>preapproval_plan_id</code>, o academia con condiciones congeladas sin plan asociado. Leer <code>id</code> e <code>init_point</code>.</td></tr>
+<tr><td><code>GET /preapproval/{id}</code></td><td>Consultar estado, identidad, referencia y plan asociado; recuperación también requiere <code>init_point</code>. No confundir suscripción con factura.</td></tr>
+<tr><td><code>PUT /preapproval/{id}</code></td><td>Actualizar <code>back_url</code> o estado. Para cancelar: <code>{"status":"cancelled"}</code>.</td></tr>
+<tr><td><code>GET /preapproval/search?q=…</code></td><td>Recuperar checkout por referencia. Filtrar coincidencia exacta y volver a consultar el recurso por ID antes de reutilizarlo.</td></tr>
+<tr><td><code>GET /authorized_payments/{id}</code></td><td>Consultar factura y pago anidado. 404 se representa como ausencia; en reconciliación de un recurso conocido puede requerir reintento.</td></tr>
+<tr><td><code>GET /authorized_payments/search?preapproval_id=…&amp;limit=12&amp;offset=…</code></td><td>Historial completo de facturas. Consumir <code>results</code> y <code>paging.total</code>; ver controles de completitud.</td></tr>
+<tr><td><code>GET /v1/payments/{id}</code></td><td>Estado actual del pago, <code>collector_id</code> y <code>date_last_updated</code>. Necesario para detectar reembolso mientras la factura sigue informando aprobación.</td></tr>
+</tbody></table></div>
+<p>Operaciones auxiliares de investigación, <strong>sin recorrido de producto implementado para ejecutarlas</strong>: <code>POST /v1/payments/{id}/refunds</code> (reembolso), <code>POST /v1/card_tokens</code> (tarjeta ficticia), <code>POST /v1/payments</code>, <code>GET /v1/payments/search</code> y <code>GET /users/me</code> (diagnóstico de identidad). No convertir los scripts temporales en API de producto ni trasladar datos de tarjeta a este repositorio.</p>
+</section>
+<section id="contracts"><h2>4. Contratos mínimos y ejemplos</h2>
+<h3>Plan y suscripción: recursos distintos</h3>
+<p>El template usa <code>auto_recurring</code> con moneda, monto, frecuencia mensual y <code>free_trial</code> opcional (<code>frequency</code> y <code>frequency_type</code>, en días o meses). Crear retorna el ID; leer o actualizar mapea <code>{id,status,reason,externalReference,amountCents,currency,trial}</code>, con términos anulables cuando no están disponibles. Los detalles de suscripción normalizan <code>{id,status,externalReference,preapprovalPlanId}</code>. Ambos IDs deben persistirse por separado.</p>
+<h3>Checkout de academia sin tarjeta previa</h3>
+<pre><code>// POST /preapproval — synthetic data; illustrative amount
+{
+  "reason": "Academia de ejemplo",
+  "external_reference": "example:academy:checkout-reservation-001",
+  "payer_email": "buyer@example.com",
+  "back_url": "https://example.com/subscriptions/return",
+  "status": "pending",
+  "auto_recurring": {
+    "currency_id": "ARS",
+    "frequency": 1,
+    "frequency_type": "months",
+    "transaction_amount": 1000
+  }
+}
+// Minimum response: {"id":"&lt;subscription-id&gt;","init_point":"&lt;https-checkout-url&gt;"}</code></pre>
+<p>El monto local está en centavos: <code>amountCents / 100</code> al enviar al proveedor. Las condiciones se congelan al reservar el checkout. Esta variante omite <code>card_token_id</code> y <code>preapproval_plan_id</code>; la tarjeta se elige en el checkout hospedado. El flujo clásico sigue enviando <code>preapproval_plan_id</code>, <code>reason</code>, <code>payer_email</code>, <code>external_reference</code>, <code>back_url</code> y <code>status=pending</code>. No generalizar la prueba real de academia como validación nueva de todos los planes clásicos.</p>
+<h3>Facturas y pagos normalizados</h3>
+<pre><code>// AuthorizedPayment: required identity; remaining fields nullable
+{
+  id: "&lt;invoice-id&gt;",
+  preapprovalId: "&lt;subscription-id&gt;",
+  currencyId: "ARS",
+  transactionAmount: 1000,
+  debitDate: "&lt;scheduled-cycle-date&gt;",
+  lastModified: "&lt;provider-modification-date&gt;",
+  status: "processed",
+  paymentId: "&lt;payment-id&gt;",
+  paymentStatus: "approved",
+  paymentStatusDetail: "accredited"
+}
+// Payment: required identity; remaining fields nullable
+{
+  id: "&lt;payment-id&gt;", collectorId: "&lt;seller-id&gt;",
+  status: "refunded", statusDetail: "&lt;provider-detail&gt;",
+  lastModified: "&lt;date_last_updated&gt;"
+}</code></pre>
+<p>La factura mapea <code>currency_id</code>, <code>debit_date</code>, <code>last_modified</code>, <code>preapproval_id</code>, <code>transaction_amount</code> y <code>payment.{id,status,status_detail}</code>. El pago mapea <code>collector_id</code>, <code>date_last_updated</code>, <code>id</code>, <code>status</code> y <code>status_detail</code>. Los IDs numéricos utilizables se normalizan a strings. Una factura sin ID utilizable invalida la lectura completa; no inventar su identidad ni descartar silenciosamente esa cuota.</p>
+<p>Los estados <code>scheduled</code>, <code>processed</code> y <code>recycling</code> de la factura describen procesamiento, no equivalen al estado del pago. Los DTO internos del gateway son privados; no devolver credenciales, payloads completos, correo ni IDs de pago al miembro.</p>
+</section>
+<section id="webhooks"><h2>5. Webhooks: autenticidad y procesamiento</h2>
+<p>TuTribu recibe <code>POST https://www.tutribu.app/api/mercado-pago/webhooks</code>. Configurar el destino canónico HTTPS directamente, evitando redirecciones de dominio o una portada. En un nuevo proyecto, registrar su propio destino y secreto en la aplicación emisora, separando prueba y producción.</p>
+<p>Headers: <code>x-signature: ts=&lt;timestamp&gt;,v1=&lt;hex-hmac&gt;</code> y <code>x-request-id</code>. El verificador utiliza HMAC-SHA256, comparación de buffers con <code>timingSafeEqual</code> y el siguiente manifiesto; normaliza el ID con <code>trim().toLowerCase()</code>.</p>
+<pre><code>id:&lt;resource-id&gt;;request-id:&lt;x-request-id&gt;;ts:&lt;timestamp&gt;;</code></pre>
+<p>La política local acepta timestamps en segundos o milisegundos y una tolerancia de cinco minutos. Es una política de TuTribu; comprobar compatibilidad con los reintentos del proveedor en cada implementación. Extraer tema e ID de la notificación de forma consistente con la firma; consultar la resolución exacta en <code>app/api/mercado-pago/webhooks/route.ts</code>.</p>
+<div class="table-scroll"><table><caption>Enrutamiento de notificaciones</caption><thead><tr><th>Tema</th><th>Acción confiable</th></tr></thead><tbody>
+<tr><td><code>payment</code> / <code>payment.*</code></td><td>Resolver pago ya conocido por el ledger y consultar pago más factura con el token del vendedor. Un pago desconocido no se asocia por suposición.</td></tr>
+<tr><td><code>subscription_authorized_payment*</code></td><td>Consultar factura e historial para reconciliar cobertura; la notificación puede omitir <code>user_id</code>.</td></tr>
+<tr><td><code>subscription_preapproval*</code></td><td>Sincronizar recurrencia; reconciliación de academia adicional de mejor esfuerzo, con error registrado si falla.</td></tr>
+<tr><td><code>subscription_preapproval_plan*</code></td><td>Sincronizar template. Evaluar esta rama antes que el prefijo general de suscripciones.</td></tr>
+</tbody></table></div>
+<p><code>user_id</code> es contexto opcional, no autorización. La firma autentica la señal; la consulta al proveedor y el vínculo local determinan su pertenencia. Comparar integración, tribu, suscripción, factura, pago y vendedor antes de aplicar cambios.</p>
+<p>Respuesta pública: 400 si faltan tema o recurso; 401 si la firma es inválida o antigua; 200 con <code>{"status":"processed"}</code> para resultados atendidos o ignorados y <code>duplicate_webhook</code> cuando corresponde a duplicación del flujo clásico; 503 ante resultados reintentables; 500 ante fallos inesperados, con mensaje seguro en español. <strong>Un 200 no demuestra que se haya otorgado acceso.</strong> El detalle del resultado permanece en logs seguros y almacenamiento local.</p>
+</section>
+<section id="consistency"><h2>6. Consistencia, errores e idempotencia</h2>
+<h3>Creación ambigua</h3>
+<p>Reservar la operación en PostgreSQL antes de pedir el checkout, con referencia e idempotency key estables. El adapter actual desactiva reintentos automáticos específicamente para la creación pendiente de academia; otras operaciones mantienen la configuración compartida de hasta un reintento, espera de 100 ms y timeout de 5000 ms. No asumir que toda escritura POST tiene la misma protección.</p>
+<p>Ante timeout o respuesta ambigua, conservar la reserva y recuperar con <code>/preapproval/search?q=…</code>. Se observó que <code>external_reference</code> no filtraba correctamente esa búsqueda; <code>q</code> funcionó. Exigir un resultado único, referencia exacta y detalle consistente con checkout pendiente reutilizable. Una búsqueda fallida no demuestra ausencia del recurso. El resultado local <code>checkout_unresolved</code> devuelve 409 y evita crear una segunda suscripción. Rechazos definitivos 400/401/403/404/422 permiten liberar la reserva según el caso de uso.</p>
+<h3>Historial completo</h3>
+<p>Solicitar páginas de 12, avanzar el offset por la cantidad original de filas y contrastar <code>paging.total</code>. Fallar ante una página vacía antes de completar el total, más de 50 páginas o cualquier fila sin identidad utilizable. Se observaron HTTP 400 con límites 20 y 50, y 200 con 12; eso no demuestra un máximo universal del proveedor. No devolver historia parcial como completa ni suponer orden global o timestamps estrictamente crecientes.</p>
+<h3>Reembolsos y acceso</h3>
+<p>En las pruebas auxiliares, el reembolso se solicita al pago, no al ID de factura: <code>POST /v1/payments/{paymentId}/refunds</code> con token del vendedor e idempotency key. Un <code>amount</code> indica devolución parcial; omitirlo solicita devolución total. Leer el recurso resultante y volver a consultar el pago; el éxito de la solicitud no sustituye la reconciliación de acceso. El importe está expresado en unidades de moneda, no centavos. No hay botón ni endpoint propio de producto para emitir reembolsos en este trabajo.</p>
+<p>Se observó <code>/v1/payments.status=refunded</code> mientras la factura seguía mostrando <code>payment.status=approved</code>. Combinar ambas lecturas: reembolso total y contracargo prevalecen sobre aprobación retrasada; un reembolso parcial queda en revisión. Conservar monto, moneda y fecha programada de la factura; usar la fecha de modificación válida más reciente. No resucitar un grant revocado con una aprobación vieja.</p>
+<p>Las llamadas HTTP ocurren fuera de los locks de PostgreSQL. Ledger, grant y auditoría se actualizan transaccionalmente. Los rechazos no extienden cobertura ni eliminan períodos ya acreditados. Cancelar renovación conserva el período pago; reembolsar una cuota revoca el grant correspondiente, sin eliminar la membresía básica.</p>
+<h3>Cancelación y diagnóstico</h3>
+<p>Enviar <code>cancelled</code> al proveedor; el dominio local usa <code>canceled</code>. Se observó 400 al enviar la grafía local y 200 con la grafía del proveedor. Una repetición con 400 cuenta como cancelación exitosa solamente si una nueva consulta confirma el estado cancelado.</p>
+<p>Separar errores definitivos, transitorios y resultados ambiguos. Registrar operación, correlación, HTTP status y metadatos mínimos sanitizados. Nunca registrar token, header de autorización, cookie, tarjeta, connection string o payload íntegro. Un 404 de lectura no implica éxito de reconciliación de una identidad ya conocida.</p>
+</section>
+<section id="application"><h2>7. Fronteras de la aplicación y contratos públicos</h2>
+<p>Las rutas propias requieren sesión y autorización local; no son endpoints de Mercado Pago. Los contratos ejecutables están en <code>src/modules/product-access/infrastructure/api/academy-request-schemas.ts</code> y <code>src/modules/product-access/application/results/academy-public-dto-schemas.ts</code>. Consultarlos antes de crear otro cliente.</p>
+<div class="table-scroll"><table><caption>Rutas principales del flujo de integración</caption><thead><tr><th>Ruta propia</th><th>Contrato / responsabilidad</th></tr></thead><tbody>
+<tr><td><code>GET /api/tribes/{slug}/mercado-pago/oauth/start</code></td><td>Inicio autorizado del líder y redirección OAuth.</td></tr>
+<tr><td><code>GET /api/mercado-pago/oauth/callback</code></td><td><code>code</code> y <code>state</code>; asociación server-side y retorno a configuración. No devuelve tokens al cliente.</td></tr>
+<tr><td><code>POST /api/mercado-pago/webhooks</code></td><td>Firma y señales de recursos; respuesta de recepción, sin DTO de pago.</td></tr>
+<tr><td><code>GET /api/tribes/{slug}/academy/offer</code></td><td>Oferta pública propia: título, descripción, beneficios, precio, versión y disponibilidad.</td></tr>
+<tr><td><code>POST /api/tribes/{slug}/academy/checkout</code></td><td>Input <code>{acceptedOfferVersion}</code>; éxito 200 <code>{checkoutUrl}</code>. Requiere miembro existente y condiciones habilitadas; no crea membresía.</td></tr>
+<tr><td><code>POST /api/tribes/{slug}/academy/reconcile</code></td><td>Reconciliar cobertura propia por consulta al proveedor; respuesta <code>{message,status}</code>.</td></tr>
+<tr><td><code>GET /api/tribes/{slug}/academy/access</code></td><td>Acceso efectivo, cobertura, verificación, recurrencia y siguiente acción mediante DTO permitido.</td></tr>
+<tr><td><code>GET /api/tribes/{slug}/subscriptions/return-status</code></td><td>Verificación del retorno clásico; el retorno del comprador no acredita un pago de academia.</td></tr>
+</tbody></table></div>
+<p>Checkout puede devolver 409 (<code>offer_changed</code>, <code>sales_closed</code>, <code>checkout_unresolved</code>, <code>already_subscribed</code>, <code>covered</code>), 422 (<code>not_eligible</code>), 503 (<code>provider_unavailable</code>), y 400/403/404 según input, autorización o ausencia. El cliente debe mostrar el mensaje seguro y recuperar según el estado; no repetir un POST ciegamente.</p>
+<p>El DTO de acceso permite <code>accessModel</code>, <code>level</code>, <code>eligibility</code>, <code>renewalStatus</code>, <code>accessEndsAt</code>, <code>firstActivatedAt</code>, <code>hasBonusCoverage</code>, <code>hasPaidCoverage</code>, <code>isLeaderPreview</code>, <code>canStartCheckout</code> y <code>nextAction</code>. Ver las uniones exactas en el esquema. Los endpoints administrativos de planes, activación, disponibilidad y bonificaciones, sus permisos y el almacenamiento se documentan en las dos decisiones arquitectónicas enlazadas; no son contratos reutilizables del proveedor.</p>
+</section>
+<section id="evidence"><h2>8. Qué se verificó y qué falta demostrar</h2>
+<div class="table-scroll"><table><caption>Evidencia disponible al 4 de octubre de 2026</caption><thead><tr><th>Escenario</th><th>Alcance comprobado</th></tr></thead><tbody>
+<tr><td>Checkout, aprobación y cancelación</td><td>API real con cuentas ficticias; cancelación con <code>cancelled</code>. No es una transacción de dinero real.</td></tr>
+<tr><td>Reembolso completo</td><td>API real, gateway y PostgreSQL aislado: factura retrasada aprobada, pago reembolsado, ledger actualizado y grant revocado; membresía básica conservada.</td></tr>
+<tr><td>Firma y URL pública</td><td>Verificador probado y endpoint público ejercitado con señales firmadas localmente. Falta demostrar entrega automática original del proveedor y efecto de acceso en el mismo recorrido completo.</td></tr>
+<tr><td>Paginación y factura sin ID</td><td>API real: página de 12 y siguiente vacía; factura recién creada sin ID y posteriormente con ID. Prueba de más de 12 filas mediante doble del borde HTTP propio, no historial real largo.</td></tr>
+<tr><td>Rechazo seguido de recuperación</td><td>Rechazo de validación de tarjeta observado, pero no una misma factura rechazada y luego aprobada por un reintento diferido. Los intentos con <code>TEST</code> y <code>X-scope: stage</code> terminaron en 503 vacío tanto al crear como al buscar; no hay ID confirmado para cancelar.</td></tr>
+<tr><td>Validación del cierre v1.1.3</td><td>CI: 3094 tests aprobados y 14 omitidos; ejecución separada de 14 pruebas PostgreSQL reales aprobadas. Los escenarios omitidos o simulados no cuentan como pruebas externas realizadas.</td></tr>
+</tbody></table></div>
+<p>Consultar <a href="academy-access.htm">la evidencia detallada</a> para referencias de operaciones ambiguas y seguimiento. Una creación sin ID confirmado queda sin resolución verificable; eliminar la base aislada no cancela automáticamente recursos del proveedor.</p>
+<p>Pruebas reproducibles: <code>tests/unit/modules/subscriptions/infrastructure/mercado-pago-subscription-gateway.test.ts</code>, <code>tests/unit/modules/subscriptions/domain/academy-invoice-policy.test.ts</code>, <code>tests/unit/pages/mercado-pago-webhook-route.test.ts</code>, <code>tests/unit/pages/academy-routes.test.ts</code> y <code>tests/integration/modules/subscriptions/academy-checkout-idempotency.test.ts</code>. Leer requisitos de entorno del test de integración; la suite general no sustituye su ejecución con una base temporal.</p>
+</section>
+<section id="reuse"><h2>9. Preparación para otro proyecto</h2>
+<ol><li>Crear su propia aplicación y destinos HTTPS; registrar callback, retorno y temas webhook. No copiar secretos, IDs de cuentas ni URLs de TuTribu.</li><li>Definir quién cobra y quién puede autorizar una integración. Separar sesión, autorización OAuth y permisos de venta propios del producto.</li><li>Modelar suscripción, factura y pago como identidades distintas; persistir cuenta propietaria, referencia estable, reserva de checkout, ledger, grants y auditoría.</li><li>Implementar renovación de tokens, protección OAuth con caducidad y uso único, firma webhook y lectura autenticada de recursos con el vendedor correcto.</li><li>Elegir reglas propias de acceso: cobertura, cancelación, rechazo, reembolso parcial, total y contracargo. No heredar permisos de academia o Fogón sin decisión de producto.</li><li>Usar migraciones versionadas y políticas RLS simples; probar efectos reales en una base efímera, sin ejecutar diagnósticos destructivos en producción.</li><li>Probar doble clic, concurrencia, timeout tras envío, recuperación exacta, páginas incompletas, recursos temporalmente ausentes, eventos duplicados y fuera de orden, firma inválida y cuenta incorrecta.</li><li>Completar los tres pendientes externos: reintento real de la misma cuota, entrega automática original de webhook y un historial real que abarque varias páginas. Revalidar documentación oficial, límites y sandbox antes de lanzar.</li><li>Limpiar recursos propios: cancelar recurrencias confirmadas, reembolsar cobros ficticios cuando corresponda, eliminar bases temporales y destruir credenciales temporales. Conservar referencias de operaciones ambiguas para seguimiento, sin secretos.</li></ol>
+</section>
+<section id="sources"><h2>10. Fuentes oficiales y mantenimiento</h2>
+<ul>
+<li><a href="https://www.mercadopago.com.ar/developers/es/reference/authentication/oauth/_oauth_token/post">Crear y refrescar tokens OAuth</a> y <a href="https://www.mercadopago.com.ar/developers/es/docs/security/oauth/creation">Flujo OAuth</a>.</li>
+<li><a href="https://www.mercadopago.com.ar/developers/es/reference/online-payments/subscriptions/create-preapproval/post">Crear suscripción</a> y <a href="https://www.mercadopago.com.ar/developers/es/docs/subscriptions/integration-configuration/subscription-no-associated-plan/pending-payments">Suscripciones pendientes sin plan asociado</a>.</li>
+<li><a href="https://www.mercadopago.com.ar/developers/es/reference/online-payments/subscriptions/get-authorized-payment/get">Consultar factura</a> y <a href="https://www.mercadopago.com.ar/developers/es/reference/online-payments/subscriptions/authorized-payment-search/get">Buscar facturas</a>.</li>
+<li><a href="https://www.mercadopago.com.ar/developers/es/reference/online-payments/subscriptions/get-payment/get">Consultar pago</a> y <a href="https://www.mercadopago.com.ar/developers/es/docs/subscriptions/subscription-management">Administrar suscripciones</a>.</li>
+<li><a href="https://www.mercadopago.com.ar/developers/es/docs/checkout-bricks/additional-content/your-integrations/notifications/webhooks">Configurar y verificar webhooks</a>.</li>
+<li><a href="https://www.mercadopago.com.ar/developers/en/docs/your-integrations/test/cards">Tarjetas de prueba</a> y <a href="https://www.mercadopago.com.ar/developers/es/docs/subscriptions/integration-test/payment-approval">Prueba de aprobación de suscripciones</a>.</li>
+</ul>
+<p>Las referencias oficiales definen contratos del proveedor; las observaciones de esta página describen lo comprobado en este proyecto y no garantizan comportamiento universal. Al cambiar endpoints, campos utilizados, estados, estrategias de recuperación o configuración, actualizar esta referencia junto con la decisión arquitectónica y los tests afectados.</p>
+</section>
+</main>
+<footer><p>Ejemplos sintéticos, sin credenciales ni datos de tarjeta. Código de referencia: <code>src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway.ts</code>, <code>mercado-pago-webhook-signature.ts</code>, <code>src/modules/subscriptions/domain/services/academy-invoice-policy.ts</code> y <code>app/api/mercado-pago/webhooks/route.ts</code>.</p></footer>
+</body>
+</html>
