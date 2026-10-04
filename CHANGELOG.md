@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-10-04
+
 ### Fixed
 
 - La academia permite reintentar la confirmación cuando Mercado Pago todavía no identifica una cuota, en lugar de omitirla y dar la revisión por terminada.

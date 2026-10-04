@@ -1,6 +1,6 @@
 {
   "name": "tutribu",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "private": true,
   "packageManager": "pnpm@12.6.0",
   "engines": {
