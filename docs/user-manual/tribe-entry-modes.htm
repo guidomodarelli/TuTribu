@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Una explicación simple de los modos clásico y academia de TuTribu, con ejemplos de entrada gratuita, pagos e invitaciones.">
+  <title>Ingresar a una tribu: clásico y academia · TuTribu</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+    * { box-sizing: border-box; }
+    html { scroll-padding-top: 1.5rem; }
+    body { margin: 0; background: #f8f7f4; color: #1a1a1a; font-family: 'DM Sans', sans-serif; font-size: .875rem; line-height: 1.7; }
+    .Guide { max-width: 53.75rem; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+    .Guide__header { border-bottom: 2px solid #1a1a1a; padding-bottom: 1.25rem; margin-bottom: 2.5rem; }
+    .Guide__label, .Guide__number, .Guide__exampleLabel { font-family: 'DM Mono', monospace; font-size: .6875rem; letter-spacing: .12em; text-transform: uppercase; color: #555; }
+    .Guide__title { font-size: clamp(1.75rem, 4vw, 2rem); font-weight: 600; line-height: 1.2; margin: .5rem 0; }
+    .Guide__subtitle { color: #555; margin: 0; }
+    .Guide__nav { margin-bottom: 2.5rem; border-bottom: 1px solid #e0ddd6; padding-bottom: 1.25rem; }
+    .Guide__navList { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; list-style: none; padding: 0; margin: .5rem 0 0; }
+    .Guide__link { color: #1a4f7a; text-underline-offset: .2em; overflow-wrap: anywhere; }
+    .Guide__link:focus-visible { outline: 2px solid #1a4f7a; outline-offset: 4px; }
+    .Guide__section { margin-bottom: 2.5rem; }
+    .Guide__heading { font-size: 1.25rem; line-height: 1.3; font-weight: 600; margin: .375rem 0 1rem; padding-bottom: .5rem; border-bottom: 1px solid #e0ddd6; }
+    .Guide__paragraph { color: #333; margin: 0 0 .75rem; }
+    .Guide__callout { border-radius: .5rem; padding: .875rem 1.125rem; margin: 1rem 0; background: #eaf3fb; color: #1a4f7a; border-left: 3px solid #5a9fd4; }
+    .Guide__callout--warning { background: #fdf5e0; color: #7a5510; border-color: #d4a44c; }
+    .Guide__tableWrap { overflow-x: auto; margin: 1rem 0; }
+    .Guide__table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
+    .Guide__caption { text-align: left; color: #555; margin-bottom: .5rem; }
+    .Guide__tableHeading { background: #f0ede6; color: #555; text-align: left; font-family: 'DM Mono', monospace; font-size: .625rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 500; }
+    .Guide__tableHeading, .Guide__cell { padding: .625rem .75rem; border-bottom: 1px solid #e0ddd6; vertical-align: top; line-height: 1.5; }
+    .Guide__cell { color: #333; }
+    .Guide__list { padding-left: 1.375rem; margin: .75rem 0; color: #333; }
+    .Guide__listItem { margin-bottom: .5rem; }
+    .Guide__flow { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: 0; list-style: none; margin: 1rem 0; }
+    .Guide__flowStep { background: #f0ede6; padding: .5rem .75rem; border: 1px solid #d0cdc6; border-radius: .375rem; }
+    .Guide__flowStep--result { background: #e8f7f2; color: #1a6b52; border-color: #4aaa8c; }
+    .Guide__example { background: #fff; border: 1px solid #d0cdc6; border-radius: .625rem; padding: 1.125rem 1.375rem; margin: 1rem 0; }
+    .Guide__exampleTitle { font-size: 1rem; font-weight: 600; margin: .375rem 0 .75rem; line-height: 1.4; }
+    .Guide__answer { margin: 0; color: #1a6b52; }
+    .Guide__footer { border-top: 2px solid #1a1a1a; padding-top: 1.25rem; color: #555; }
+    strong { font-weight: 600; }
+    @media (max-width: 30rem) {
+      .Guide { padding: 1.5rem 1rem 3rem; }
+      .Guide__tableHeading, .Guide__cell { padding: .5rem .375rem; }
+      .Guide__example { padding: 1rem; }
+      .Guide__flow { align-items: stretch; flex-direction: column; }
+    }
+    @media print {
+      body { background: #fff; }
+      .Guide { max-width: none; padding: 0; }
+      .Guide__nav { display: none; }
+      .Guide__example { break-inside: avoid; }
+      .Guide__link { color: #1a1a1a; }
+    }
+  </style>
+</head>
+<body>
+<main class="Guide" id="top">
+  <header class="Guide__header">
+    <div class="Guide__label">TuTribu · Guía explicativa</div>
+    <h1 class="Guide__title">Ingresar a una tribu: clásico y academia</h1>
+    <p class="Guide__subtitle">Qué significa entrar, qué podés usar y por qué aparecen invitaciones, pagos y bonificaciones.</p>
+  </header>
+  <nav class="Guide__nav" aria-label="Contenido">
+    <strong>Contenido</strong>
+    <ul class="Guide__navList">
+      <li><a class="Guide__link" href="#difference">La diferencia</a></li>
+      <li><a class="Guide__link" href="#classic">Modo clásico</a></li>
+      <li><a class="Guide__link" href="#academy">Modo academia</a></li>
+      <li><a class="Guide__link" href="#examples">Ejemplos</a></li>
+      <li><a class="Guide__link" href="#choices">Por qué hay varias opciones</a></li>
+    </ul>
+  </nav>
+  <section class="Guide__section" id="difference" aria-labelledby="difference-title">
+    <div class="Guide__number">01</div>
+    <h2 class="Guide__heading" id="difference-title">La diferencia</h2>
+    <p class="Guide__paragraph">En <strong>modo clásico</strong>, entrás a una comunidad que puede ser gratuita o paga. En <strong>modo academia</strong>, entrás gratis con acceso básico y después podés obtener acceso a la academia.</p>
+    <div class="Guide__callout"><strong>Formar parte de la tribu y tener acceso a todo su contenido son cosas distintas en modo academia.</strong> Por eso ingresar gratis no habilita el Fogón.</div>
+    <div class="Guide__tableWrap">
+      <table class="Guide__table">
+        <caption class="Guide__caption">Comparación para una persona que se suma por primera vez</caption>
+        <thead><tr><th class="Guide__tableHeading" scope="col">Pregunta</th><th class="Guide__tableHeading" scope="col">Clásico</th><th class="Guide__tableHeading" scope="col">Academia</th></tr></thead>
+        <tbody>
+          <tr><th class="Guide__cell" scope="row">¿Entrar cuesta?</th><td class="Guide__cell">Depende del plan: gratis o pago.</td><td class="Guide__cell">La entrada es gratuita, cuando las admisiones están abiertas.</td></tr>
+          <tr><th class="Guide__cell" scope="row">¿Qué puedo usar al entrar?</th><td class="Guide__cell">La comunidad y sus contenidos, según tus permisos.</td><td class="Guide__cell">Bienvenida, Historia y cursos básicos, además de consultar tu estado y la oferta de academia.</td></tr>
+          <tr><th class="Guide__cell" scope="row">¿Puedo entrar al Fogón?</th><td class="Guide__cell">Sí, con una membresía habilitada.</td><td class="Guide__cell">Solo con acceso vigente a la academia.</td></tr>
+          <tr><th class="Guide__cell" scope="row">¿Qué se cobra?</th><td class="Guide__cell">La membresía de la tribu, si el plan es pago.</td><td class="Guide__cell">El acceso a la academia: cursos de academia, Fogón, canales y eventos.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="Guide__section" id="classic" aria-labelledby="classic-title">
+    <div class="Guide__number">02</div>
+    <h2 class="Guide__heading" id="classic-title">Modo clásico</h2>
+    <p class="Guide__paragraph">Pensalo como una comunidad con una puerta de entrada. El líder decide si el ingreso es gratuito o si requiere un plan pago.</p>
+    <ol class="Guide__flow" aria-label="Pasos del ingreso clásico">
+      <li class="Guide__flowStep">1. Accedés por un enlace habilitado</li>
+      <li class="Guide__flowStep">2. Te sumás con el plan correspondiente</li>
+      <li class="Guide__flowStep Guide__flowStep--result">3. Usás la comunidad</li>
+    </ol>
+    <ul class="Guide__list">
+      <li class="Guide__listItem"><strong>Entrada gratuita:</strong> no pagás por sumarte. El líder configura si se permite entrar sin invitación.</li>
+      <li class="Guide__listItem"><strong>Entrada paga:</strong> contratás una membresía. El enlace público puede ofrecer el plan pago marcado como actual.</li>
+      <li class="Guide__listItem"><strong>Invitación:</strong> usás un enlace creado por el líder o un guardián. Puede estar asociado al plan actual, a un plan específico o al plan gratuito.</li>
+    </ul>
+    <div class="Guide__callout Guide__callout--warning"><strong>Una invitación no significa necesariamente entrada gratis.</strong> El plan asociado al enlace determina las condiciones de ingreso.</div>
+  </section>
+  <section class="Guide__section" id="academy" aria-labelledby="academy-title">
+    <div class="Guide__number">03</div>
+    <h2 class="Guide__heading" id="academy-title">Modo academia</h2>
+    <p class="Guide__paragraph">Acá hay dos pasos: <strong>sumarte gratis</strong> y <strong>obtener acceso a la academia</strong>. Podés quedarte en el nivel básico sin contratarla.</p>
+    <ol class="Guide__flow" aria-label="Pasos del ingreso en modo academia">
+      <li class="Guide__flowStep">1. Ingresás gratis</li>
+      <li class="Guide__flowStep">2. Tenés acceso básico</li>
+      <li class="Guide__flowStep Guide__flowStep--result">3. Con pago o bonificación, accedés a la academia</li>
+    </ol>
+    <p class="Guide__paragraph"><strong>Con acceso básico:</strong> podés ver Bienvenida, Historia y cursos básicos. Los cursos de academia pueden aparecer en el catálogo, pero su contenido permanece cerrado. El Fogón, los canales y los eventos tampoco están incluidos.</p>
+    <p class="Guide__paragraph"><strong>Con acceso vigente a la academia:</strong> se habilitan los cursos de academia y el contenido interno de la tribu, incluido el Fogón. Tus permisos siguen determinando qué acciones podés realizar.</p>
+    <p class="Guide__paragraph"><strong>Para contratar:</strong> necesitás una vinculación verificada con un proveedor configurado por el líder, y la venta debe estar habilitada. La suscripción de academia es mensual y no tiene prueba gratis.</p>
+    <p class="Guide__paragraph"><strong>Si el líder te bonifica:</strong> obtenés acceso sin contratar una suscripción paga, por el período que te otorgue.</p>
+    <div class="Guide__callout Guide__callout--warning"><strong>Activar la academia no abre el ingreso automáticamente.</strong> Las admisiones y la venta empiezan cerradas; el líder las habilita desde Gestionar academia.</div>
+  </section>
+  <section class="Guide__section" id="examples" aria-labelledby="examples-title">
+    <div class="Guide__number">04</div>
+    <h2 class="Guide__heading" id="examples-title">Ejemplos</h2>
+    <p class="Guide__paragraph">Son situaciones ilustrativas con personas ficticias.</p>
+    <article class="Guide__example">
+      <div class="Guide__exampleLabel">Ejemplo A · Clásico gratuito</div>
+      <h3 class="Guide__exampleTitle">Ana entra a una comunidad de lectura</h3>
+      <p class="Guide__paragraph">El líder habilitó el ingreso gratuito sin invitación. Ana se suma y participa en el Fogón sin pagar una membresía.</p>
+      <p class="Guide__answer"><strong>Resultado:</strong> entra gratis y tiene acceso a la comunidad.</p>
+    </article>
+    <article class="Guide__example">
+      <div class="Guide__exampleLabel">Ejemplo B · Clásico pago</div>
+      <h3 class="Guide__exampleTitle">Bruno entra a una tribu con membresía</h3>
+      <p class="Guide__paragraph">Bruno abre el enlace público, contrata el plan vigente y, cuando su membresía queda habilitada, accede al Fogón y al contenido de la comunidad.</p>
+      <p class="Guide__answer"><strong>Resultado:</strong> paga por la membresía de la tribu.</p>
+    </article>
+    <article class="Guide__example">
+      <div class="Guide__exampleLabel">Ejemplo C · Academia básica</div>
+      <h3 class="Guide__exampleTitle">Carla quiere conocer la propuesta antes de pagar</h3>
+      <p class="Guide__paragraph">Las admisiones están abiertas. Carla elige Ingresar gratis, lee la bienvenida y hace un curso básico. Puede consultar la oferta de academia, pero todavía no entrar al Fogón ni abrir las lecciones de academia.</p>
+      <p class="Guide__answer"><strong>Resultado:</strong> es integrante de la tribu con acceso básico.</p>
+    </article>
+    <article class="Guide__example">
+      <div class="Guide__exampleLabel">Ejemplo D · Academia paga</div>
+      <h3 class="Guide__exampleTitle">Carla decide contratar la academia</h3>
+      <p class="Guide__paragraph">Obtiene la verificación requerida y contrata la academia con la venta habilitada. Cuando se confirma su acceso, puede usar el Fogón y abrir los cursos de academia.</p>
+      <p class="Guide__answer"><strong>Resultado:</strong> sigue siendo la misma integrante, ahora con acceso a la academia.</p>
+    </article>
+    <article class="Guide__example">
+      <div class="Guide__exampleLabel">Ejemplo E · Academia bonificada</div>
+      <h3 class="Guide__exampleTitle">El líder le da acceso a Diego sin cobrarle</h3>
+      <p class="Guide__paragraph">Diego ya ingresó gratis. El líder le otorga una bonificación con vencimiento. Durante ese período, Diego puede usar el Fogón y los cursos de academia sin contratar una suscripción paga.</p>
+      <p class="Guide__answer"><strong>Resultado:</strong> tiene acceso a la academia mientras la bonificación esté vigente.</p>
+    </article>
+    <article class="Guide__example">
+      <div class="Guide__exampleLabel">Ejemplo F · Una tribu activa la academia</div>
+      <h3 class="Guide__exampleTitle">Elena ya era integrante antes del cambio</h3>
+      <p class="Guide__paragraph">Su tribu clásica activa el modo academia. Elena conserva su acceso completo sin vencimiento por ese cambio. Quienes ingresen después empiezan con acceso básico.</p>
+      <p class="Guide__paragraph">Las suscripciones que ya existían no cambian ni se cancelan al activar la academia.</p>
+      <p class="Guide__answer"><strong>Resultado:</strong> el cambio de modo no le quita el acceso que ya tenía.</p>
+    </article>
+  </section>
+  <section class="Guide__section" id="choices" aria-labelledby="choices-title">
+    <div class="Guide__number">05</div>
+    <h2 class="Guide__heading" id="choices-title">Por qué hay varias opciones</h2>
+    <p class="Guide__paragraph">Cada opción responde a una pregunta distinta. Al verlas juntas parecen muchos tipos de ingreso, pero hay <strong>dos modos de tribu</strong> y varias condiciones para entrar o acceder al contenido.</p>
+    <ul class="Guide__list">
+      <li class="Guide__listItem"><strong>Modo clásico o academia:</strong> ¿cómo funciona esta tribu?</li>
+      <li class="Guide__listItem"><strong>Entrada gratuita o plan pago en clásico:</strong> ¿cuesta formar parte?</li>
+      <li class="Guide__listItem"><strong>Enlace público o invitación:</strong> ¿por qué enlace me sumo y con qué plan?</li>
+      <li class="Guide__listItem"><strong>Pago o bonificación en academia:</strong> ¿cómo obtengo acceso al contenido de academia?</li>
+      <li class="Guide__listItem"><strong>Admisiones y ventas en academia:</strong> ¿se pueden sumar nuevas personas y se puede contratar ahora?</li>
+    </ul>
+    <div class="Guide__callout"><strong>Clásico:</strong> una comunidad gratuita o paga.<br><strong>Academia:</strong> una entrada gratuita con contenido básico y un acceso adicional, pago o bonificado, que también incluye el Fogón.</div>
+    <p class="Guide__paragraph">El modo clásico sirve para organizar una comunidad. El modo academia permite que las personas conozcan la propuesta y usen contenido básico antes de contratar el acceso adicional.</p>
+  </section>
+  <footer class="Guide__footer">
+    <p class="Guide__paragraph">Para ampliar: <a class="Guide__link" href="academy.htm">Academia de la tribu</a> · <a class="Guide__link" href="tribe-invitations.htm">Invitaciones</a> · <a class="Guide__link" href="subscription-pricing-management.htm">Precios y suscripciones</a>.</p>
+    <a class="Guide__link" href="#top">Volver al inicio</a>
+  </footer>
+</main>
+</body>
+</html>
