@@ -39,6 +39,17 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Whenever a change is undocumented, or documentation needs to be improved, modified, edited, transformed, added, deleted, relocated, redefined, restructured, or adjusted in any similar way, update the corresponding document in the same work item before closing the task.
 - Do not close a task while the relevant `docs/` page is stale, missing, outside the required section, or in the wrong format.
 
+### Internal flow manuals governance
+
+- Mantener los manuales internos de `user-guides/` actualizados en el mismo trabajo que crea, modifica o elimina un flujo de la aplicación, sus permisos, condiciones de visibilidad, validaciones, límites, pagos, estados o recuperación ante errores.
+- Antes de trabajar en un flujo, consultar el manual temático correspondiente y leer [user-guides/AGENTS.md](user-guides/AGENTS.md), que define la organización, el formato y las validaciones de estos manuales.
+- Documentar cada tema en un archivo `.html` independiente. No volver a reunir todos los flujos en un único manual extenso; enlazar los recorridos relacionados entre temas.
+- Usar [user-guides/index.html](user-guides/index.html) como menú principal. Actualizarlo junto con el manual afectado; conservar `user-guides/application-flows.html` para el índice detallado y la compatibilidad de enlaces anteriores.
+- Si un flujo nuevo no tiene manual, crear el archivo temático y enlazarlo desde el menú. Si se mueve o elimina un flujo, actualizar sus referencias y evitar enlaces rotos o instrucciones obsoletas.
+- Aplicar la skill `user-manual`, conservar la trazabilidad del código documentado y validar los archivos y su navegación según `user-guides/AGENTS.md` antes de cerrar el trabajo. Distinguir capturas reales de esquemas y funciones implementadas de capacidades sin recorrido disponible.
+- Los manuales internos complementan la documentación bajo `docs/`; no reemplazan `docs/architecture/` como fuente de decisiones arquitectónicas ni cambian el formato `.htm` exigido allí. `AGENTS.md` sigue siendo un archivo de control Markdown.
+- Un cambio sin efecto en los flujos documentados no exige reescribir manuales ajenos al cambio. No modificar su política de seguimiento, publicar, commitear ni subir los manuales sin instrucciones del usuario.
+
 ### Changelog governance
 
 - Every change that alters product behavior, user-facing UI or copy, data handling, permissions, or deployed configuration must update `CHANGELOG.md` in the same work item.

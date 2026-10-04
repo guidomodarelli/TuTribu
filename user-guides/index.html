@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="heritage:source-repo" content="guidomodarelli/TuTribu">
+<meta name="heritage:source-ref" content="origin/main">
+<meta name="heritage:source-commit" content="2748d0ee068906e6af794c5147d9dca11ba21ed5">
+<meta name="heritage:source-files" content="app components hooks lib src/constants src/modules docs/architecture docs/user-manual database/migrations DESIGN.md package.json">
+<meta name="heritage:source-commit-url" content="https://github.com/guidomodarelli/TuTribu/commit/2748d0ee068906e6af794c5147d9dca11ba21ed5">
+<title>TuTribu · Manuales por tema</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --primary:#1a1a1a;--body:#333;--muted:#555;--label:#6b6b6b;--link:#1a4f7a;--focus-ring:#1a4f7a;
+  --background:#f8f7f4;--surface-alt:#f0ede6;--surface-card:#fff;
+  --border:#e0ddd6;--border-strong:#d0cdc6;--border-neutral:#ccc;--border-ink:#1a1a1a;
+  --surface-dark:#1a1a2e;--on-dark:#e2e8f0;
+  --info-bg:#eaf3fb;--info-border:#5a9fd4;--info-text:#1a4f7a;
+  --warn-bg:#fdf5e0;--warn-border:#d4a44c;--warn-text:#7a5510;
+  --ok-bg:#e8f7f2;--ok-border:#4aaa8c;--ok-text:#1a6b52;
+  --red-bg:#fef8f6;--red-border:#e8917a;--red-text:#9e3d25;
+  --syntax-comment:#7c8ba1;--syntax-keyword:#7dd3fc;--syntax-string:#86efac;
+  --syntax-number:#fbbf24;--syntax-function:#c084fc;--syntax-tag:#f9a8d4;
+  --sans:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'DM Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --motion-duration-fast:120ms;--motion-duration-base:200ms;--motion-easing-standard:cubic-bezier(0.2, 0, 0, 1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--sans);background:var(--background);color:var(--primary);padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+h1,h2,th,strong{font-weight:600;}
+.doc-header{border-bottom:2px solid var(--border-ink);padding-bottom:20px;margin-bottom:40px;}
+.doc-label,.part-header-label,.example-label{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:var(--label);margin-bottom:8px;}
+.doc-title{font-size:28px;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;line-height:1.5;color:var(--muted);}
+.doc-meta{display:flex;flex-wrap:wrap;gap:8px 24px;margin-top:16px;font-family:var(--mono);font-size:11px;color:var(--label);}
+.doc-footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--label);}
+.part-header{border-top:2px solid var(--border-ink);margin-top:56px;padding-top:32px;margin-bottom:40px;}
+.part-header-title{font-size:22px;line-height:1.2;}
+.section{margin-bottom:40px;}
+.section-num,.acc-num{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--label);}
+.section-num{margin-bottom:6px;}
+.section-title{font-size:20px;line-height:1.3;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+p{font-size:14px;line-height:1.7;color:var(--body);margin-bottom:12px;}
+ul,ol{padding-left:24px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:var(--body);margin-bottom:6px;}
+strong{color:var(--primary);}
+a{color:var(--link);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px;}
+a:hover{text-decoration-thickness:2px;}
+:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:2px;}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.callout p,.callout li{font-size:inherit;line-height:inherit;color:inherit;}
+.callout strong{color:inherit;}
+.callout>:last-child{margin-bottom:0;}
+.c-info{background:var(--info-bg);border-color:var(--info-border);color:var(--info-text);}
+.c-warn{background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn-text);}
+.c-ok{background:var(--ok-bg);border-color:var(--ok-border);color:var(--ok-text);}
+.c-red{background:var(--red-bg);border-color:var(--red-border);color:var(--red-text);}
+.table-wrap{overflow-x:auto;margin:16px 0;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--label);text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface-alt);}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.5;color:var(--body);}
+tr:last-child td{border-bottom:none;}
+.badge{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:500;padding:2px 8px;border-radius:4px;letter-spacing:0.05em;border:1px solid;white-space:nowrap;}
+.b-green{background:var(--ok-bg);color:var(--ok-text);border-color:var(--ok-border);}
+.b-amber{background:var(--warn-bg);color:var(--warn-text);border-color:var(--warn-border);}
+.b-red{background:var(--red-bg);color:var(--red-text);border-color:var(--red-border);}
+.b-gray{background:var(--surface-alt);color:var(--muted);border-color:var(--border-neutral);}
+.steps{list-style:none;padding:0;margin:16px 0;}
+.step-item{display:flex;gap:16px;padding-bottom:24px;margin:0;position:relative;}
+.step-item::before{content:'';position:absolute;left:15px;top:32px;bottom:0;width:1px;background:var(--border);}
+.step-item:last-child{padding-bottom:0;}
+.step-item:last-child::before{display:none;}
+.step-circle{width:32px;height:32px;border-radius:50%;background:var(--surface-dark);color:var(--surface-card);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:500;flex-shrink:0;}
+.step-body{padding-top:4px;flex:1;}
+.step-label{font-size:14px;font-weight:600;margin-bottom:4px;}
+.step-desc{font-size:13px;color:var(--muted);line-height:1.6;}
+code{font-family:var(--mono);background:var(--surface-alt);color:var(--primary);padding:1px 6px;border-radius:3px;font-size:12px;}
+.code-block{background:var(--surface-dark);border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--on-dark);white-space:pre;}
+.c-comment{color:var(--syntax-comment);} .c-key{color:var(--syntax-keyword);} .c-str{color:var(--syntax-string);}
+.c-num{color:var(--syntax-number);} .c-fn{color:var(--syntax-function);} .c-tag{color:var(--syntax-tag);}
+.mockup{background:var(--surface-card);border:1.5px solid var(--border-strong);border-radius:10px;overflow:hidden;margin:16px 0;isolation:isolate;}
+.mockup-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface-alt);border-bottom:1px solid var(--border-strong);font-family:var(--mono);font-size:11px;color:var(--label);}
+.mockup-dots{display:flex;gap:6px;flex-shrink:0;}
+.mockup-dots span{width:10px;height:10px;border-radius:50%;}
+.mockup-dots span:nth-child(1){background:var(--red-border);}
+.mockup-dots span:nth-child(2){background:var(--warn-border);}
+.mockup-dots span:nth-child(3){background:var(--ok-border);}
+.mockup-url{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mockup-body{padding:20px;}
+.mockup--mobile{max-width:410px;margin-left:auto;margin-right:auto;}
+.figcap{margin:-8px 0 16px;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--label);text-align:center;}
+.example-box{background:var(--surface-card);border:1.5px solid var(--border-strong);border-radius:10px;padding:16px 20px;margin:16px 0;}
+.example-box>:last-child{margin-bottom:0;}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:16px 0;}
+.flow-arrow{font-family:var(--mono);color:var(--label);}
+.pill{display:inline-block;font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:6px;border:1px solid var(--border-strong);}
+.pill-neutral{background:var(--surface-alt);color:var(--primary);}
+.pill-success{background:var(--ok-bg);color:var(--ok-text);border-color:var(--ok-border);}
+.pill-stale{background:var(--surface-alt);color:var(--red-text);text-decoration:line-through;}
+.pill-stale del{text-decoration:inherit;}
+.toc{margin-bottom:40px;}
+.toc-label{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:var(--label);margin-bottom:8px;}
+.toc ol{list-style:none;padding:0;margin:0;columns:2;column-gap:40px;}
+.toc li{break-inside:avoid;margin:0;}
+.toc li .toc-label{margin:12px 0 4px;}
+.toc a{display:flex;align-items:baseline;gap:10px;padding:4px 0;font-size:13px;line-height:1.5;color:var(--primary);text-decoration:none;}
+.toc a:hover{text-decoration:underline;text-underline-offset:2px;}
+.toc-num{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.12em;color:var(--label);flex-shrink:0;}
+.divider{height:1px;background:var(--border);border:0;margin:28px 0;}
+.acc{background:var(--surface-card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;}
+.acc>summary{list-style:none;display:flex;align-items:baseline;gap:10px;padding:12px 16px;cursor:pointer;font-size:16px;font-weight:600;line-height:1.4;color:var(--primary);}
+.acc>summary::-webkit-details-marker{display:none;}
+.acc>summary::after{content:'+';margin-left:auto;font-family:var(--mono);font-size:16px;font-weight:400;color:var(--label);}
+.acc[open]>summary{border-bottom:1px solid var(--border);}
+.acc[open]>summary::after{content:'–';}
+.acc>summary:focus-visible{outline-offset:-2px;}
+.acc-body{padding:12px 16px 4px;color:var(--body);}
+/* Mientras el script anima la apertura o el cierre, el cuerpo recorta lo que todavía no entra. */
+.acc-body.is-animating{overflow:hidden;}
+.back-to-top{position:fixed;right:24px;bottom:24px;display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9999px;background:var(--surface-dark);color:var(--surface-card);font-family:var(--mono);font-size:12px;font-weight:500;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,0.04);z-index:10;}
+.back-to-top:hover{text-decoration:underline;text-underline-offset:2px;}
+.back-to-top[hidden]{display:none;}
+.section-num{display:flex;align-items:center;gap:8px;}
+.visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+.section-link{margin-left:auto;padding:2px 4px;border:0;background:none;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.05em;text-transform:none;color:var(--link);text-decoration:underline;text-underline-offset:2px;cursor:pointer;opacity:0;}
+.section:hover .section-link,.section-link:focus-visible,.section-link.is-copied{opacity:1;}
+.section-rail{position:fixed;left:24px;top:50%;transform:translateY(-50%);z-index:10;}
+.section-rail[hidden],.section-rail-preview[hidden],.section-rail-preview [hidden],.term-card[hidden],.section-pill[hidden]{display:none;}
+.section-rail ol{list-style:none;padding:0;margin:0;}
+.section-rail li{margin:0;}
+.section-rail-tick{display:flex;align-items:center;gap:4px;width:48px;padding:4px 0;}
+.section-rail-tick::before{content:'';flex-shrink:0;width:var(--tick-width,12px);height:2px;border-radius:9999px;background:var(--label);}
+.section-rail-tick:hover::before,.section-rail-tick:focus-visible::before{background:var(--primary);}
+.section-rail-tick[aria-current="location"]::before{width:var(--tick-width,24px);background:linear-gradient(90deg,var(--primary) var(--tick-progress,0%),var(--label) 0);}
+/* Inicio del documento: un punto separado de las marcas, para que la primera sección siga siendo la primera raya. */
+.section-rail li:has(.is-start){margin-bottom:8px;}
+.section-rail-tick.is-start::before{width:6px!important;height:6px;}
+.section-rail-tick.is-start[aria-current="location"]::before{background:var(--primary);}
+.section-rail-preview,.term-card{position:fixed;z-index:11;width:280px;max-width:calc(100vw - 32px);padding:12px 16px;background:var(--surface-card);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,0.04);}
+.section-rail-preview{left:88px;pointer-events:none;}
+.section-rail-preview-meta{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.section-rail-preview-meta:empty{display:none;}
+.section-rail-preview-num{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--label);}
+.section-rail-preview-title,.term-card-title{font-size:13px;font-weight:600;line-height:1.4;color:var(--primary);}
+.section-rail-preview-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.section-rail-preview-summary,.term-card-text{margin-top:4px;font-size:13px;line-height:1.6;color:var(--muted);}
+.section-rail-preview-summary{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.section-rail-preview-hint{margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--label);}
+.section-pill{position:fixed;left:24px;bottom:24px;z-index:10;display:inline-flex;align-items:center;gap:8px;max-width:min(360px, calc(100vw - 168px));padding:8px 16px;border:1px solid var(--border-strong);border-radius:9999px;background:var(--surface-card);color:var(--primary);font-family:var(--sans);font-size:13px;line-height:1.4;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.04);}
+.section-pill-num{flex-shrink:0;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.12em;color:var(--label);}
+.section-pill-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.toc-sheet{position:fixed;inset:auto 0 0 0;width:100%;max-width:none;max-height:70vh;margin:0;padding:0;border:0;border-top:1px solid var(--border-strong);border-radius:10px 10px 0 0;background:var(--surface-card);color:var(--primary);}
+.toc-sheet::backdrop{background:rgba(26,26,46,0.32);}
+.toc-sheet-body{max-height:70vh;overflow-y:auto;padding:20px 24px 24px;}
+.toc-sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.toc-sheet-head .toc-label{margin:0;}
+.toc-sheet-close{padding:4px 8px;border:0;background:none;font-family:var(--mono);font-size:12px;font-weight:500;color:var(--link);text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
+.toc-sheet ol{list-style:none;padding:0;margin:0;}
+.toc-sheet li{margin:0;}
+.toc-sheet li .toc-label{margin:16px 0 4px;}
+.toc-sheet a{display:flex;align-items:baseline;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;line-height:1.5;color:var(--primary);text-decoration:none;}
+.toc-sheet a[aria-current="location"]{font-weight:600;}
+.toc-sheet-start{font-weight:500;}
+.section-pill-num[hidden]{display:none;}
+.term{color:inherit;text-decoration:underline dotted;text-decoration-color:var(--label);text-decoration-thickness:1px;text-underline-offset:3px;cursor:help;}
+.term:hover{text-decoration-color:var(--primary);}
+.term-card{pointer-events:auto;}
+.glossary{margin:16px 0;}
+.glossary dt{margin-top:12px;font-size:14px;font-weight:600;color:var(--primary);}
+.glossary dt:first-child{margin-top:0;}
+.glossary dd{margin:4px 0 0;font-size:14px;line-height:1.7;color:var(--body);}
+.glossary-mentions{margin-left:6px;font-family:var(--mono);font-size:11px;font-weight:400;line-height:1;vertical-align:super;}
+.glossary-mentions a{display:inline-block;min-width:16px;padding:0 2px;color:var(--link);text-align:center;text-decoration:none;border-radius:4px;}
+.glossary-mentions a:hover{text-decoration:underline;}
+.glossary-mentions a:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px;}
+/* Destino de un salto del glosario (término ↔ mención): late como un punto, sin fondo. */
+/* Se aplica antes de centrar: el término no cambia de lugar al empezar a latir. */
+.term.is-text-revealed{display:inline-block;}
+dt.is-text-pulsing{transform-origin:left center;}
+dt.is-text-revealed{width:fit-content;}
+/* Lugar al pie para centrar destinos del final (el glosario); lo agrega y lo achica el script. */
+.scroll-spacer{pointer-events:none;}
+.hotspot-stage{position:relative;}
+.hotspot,.hotspot-ref{display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;background:var(--surface-dark);color:var(--surface-card);font-family:var(--mono);font-weight:500;}
+.hotspot{position:absolute;left:var(--x);top:var(--y);z-index:1;width:24px;height:24px;transform:translate(-50%,-50%);border:2px solid var(--surface-card);font-size:12px;}
+.hotspot-ref{width:20px;height:20px;font-size:11px;vertical-align:1px;}
+.hotspot.is-highlighted,.hotspot-ref.is-highlighted,.step-item.is-highlighted .step-circle{outline:2px solid var(--focus-ring);outline-offset:2px;}
+/* Se puede tocar: el círculo que está bajo el puntero o con foco crece apenas. */
+.hotspot:hover,.hotspot-ref:hover,.hotspot-ref:focus-visible,.step-item[data-hotspot]:hover .step-circle{scale:1.1;}
+.figcap+.figcap-hint{margin-top:-12px;}
+/* Selector de idioma: píldora segmentada fija arriba a la derecha, siempre a mano mientras se lee. */
+.lang-switch{position:fixed;top:16px;right:24px;z-index:10;display:inline-flex;gap:2px;padding:3px;border:1px solid var(--border-strong);border-radius:9999px;background:color-mix(in srgb,var(--surface-dark) 4%,var(--surface-card));box-shadow:0 1px 2px rgba(0,0,0,0.04);}
+.lang-switch button{padding:6px 14px;border:1.5px solid transparent;border-radius:9999px;background:none;font-family:var(--sans);font-size:13px;font-weight:500;line-height:1.2;color:var(--muted);cursor:pointer;}
+.lang-switch button:hover{color:var(--primary);}
+.lang-switch button[aria-checked="true"]{border-color:var(--link);background:var(--surface-card);color:var(--primary);font-weight:600;}
+/* Ir al menú: fijo arriba a la izquierda, espejo del selector de idioma y de su mismo alto. */
+.menu-back{position:fixed;top:16px;left:24px;z-index:10;display:inline-flex;align-items:center;gap:6px;padding:10.5px 16px 10.5px 12px;border:1px solid var(--border-strong);border-radius:9999px;background:color-mix(in srgb,var(--surface-dark) 4%,var(--surface-card));box-shadow:0 1px 2px rgba(0,0,0,0.04);font-family:var(--sans);font-size:13px;font-weight:500;line-height:1.2;color:var(--primary);text-decoration:none;}
+.menu-back:hover{border-color:var(--link);color:var(--link);}
+/* Menú de manuales: la captura real del menú de la app, con un link sobre cada tarjeta. */
+.menu-stage{position:relative;}
+.menu-link{position:absolute;display:block;border-radius:10px;color:inherit;text-decoration:none;}
+/* Hover: crece la tarjeta de la captura (el script la marca); con teclado además el anillo de foco. */
+.menu-link.is-active{scale:1.05;}
+.menu-link:focus-visible{box-shadow:0 0 0 2px var(--link);}
+/* Sin manual: el script pone en gris y semitransparente el ícono de la tarjeta; nada se superpone a sus textos. */
+.menu-link[aria-disabled="true"]{cursor:default;}
+/* Foco temporal: la página se desenfoca y una burbuja se cierra sobre el destino de un salto. */
+@property --spot-radius{syntax:'<length>';inherits:false;initial-value:0px;}
+.hotspot-spotlight{position:fixed;inset:0;z-index:30;pointer-events:none;opacity:0;--spot-radius:150vmax;background:color-mix(in srgb,var(--surface-dark) 15%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-mask-image:radial-gradient(circle at var(--spot-x) var(--spot-y),transparent var(--spot-radius),#000 calc(var(--spot-radius) + 18px));mask-image:radial-gradient(circle at var(--spot-x) var(--spot-y),transparent var(--spot-radius),#000 calc(var(--spot-radius) + 18px));}
+.hotspot-spotlight.is-on{opacity:1;--spot-radius:var(--spot-target);}
+.hotspot-spotlight.is-leaving{opacity:0;--spot-radius:var(--spot-target);}
+.has-hotspot-highlight .hotspot:not(.is-highlighted),.has-hotspot-highlight .hotspot-ref:not(.is-highlighted),.has-hotspot-highlight .step-item[data-hotspot]:not(.is-highlighted) .step-circle{opacity:0.4;}
+.step-item[data-hotspot],.hotspot-ref,.hotspot{cursor:pointer;}
+/* Manito de los pasos con punto: indica que el círculo se toca. Inclinada -35°, con el índice adentro del círculo. */
+.step-circle{position:relative;}
+.tap-hand{position:absolute;right:-7px;bottom:-8px;width:18px;height:18px;overflow:visible;pointer-events:none;rotate:-35deg;transform-origin:30% 20%;}
+.tap-hand g{fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.tap-hand-halo{stroke:var(--surface-card);stroke-width:5;}
+.tap-hand-fill path{fill:var(--surface-card);}
+.tap-hand-line{stroke:var(--surface-dark);stroke-width:1.8;}
+.tap-hand-rays{stroke:var(--surface-card);stroke-width:1.6;opacity:0;}
+/* Vuelta al paso: burbuja en la esquina inferior derecha del punto, al pasar el puntero o al llegar desde un paso. */
+.hotspot-return{position:absolute;right:-7px;bottom:-7px;width:16px;height:16px;border-radius:9999px;background:var(--surface-card);border:1px solid var(--border-strong);color:var(--surface-dark);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;}
+.hotspot-return svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}
+.hotspot:hover .hotspot-return,.hotspot.is-revealed .hotspot-return{opacity:1;}
+.compare{margin:16px 0;}
+.compare-stage{position:relative;isolation:isolate;display:grid;overflow:hidden;border:1.5px solid var(--border-strong);border-radius:10px;background:var(--surface-card);}
+.compare-before,.compare-after{grid-area:1/1;min-width:0;}
+.compare-after{clip-path:inset(0 0 0 var(--compare-position,50%));}
+.compare-handle{position:absolute;top:0;bottom:0;left:var(--compare-position,50%);width:2px;margin-left:-1px;background:var(--surface-dark);pointer-events:none;}
+.compare-handle::after{content:'‹ ›';position:absolute;top:50%;left:50%;display:flex;align-items:center;justify-content:center;width:32px;height:32px;transform:translate(-50%,-50%);border-radius:9999px;background:var(--surface-dark);color:var(--surface-card);font-family:var(--mono);font-size:12px;}
+.compare-range{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize;}
+.compare-stage:has(.compare-range:focus-visible){outline:2px solid var(--focus-ring);outline-offset:2px;}
+.compare-labels{display:flex;justify-content:space-between;margin-top:8px;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:var(--label);}
+@media (prefers-reduced-motion:no-preference){
+  html{scroll-behavior:smooth;}
+  a{transition:text-decoration-thickness var(--motion-duration-fast) var(--motion-easing-standard),color var(--motion-duration-fast) var(--motion-easing-standard);}
+  .back-to-top:not([hidden]){animation:heritage-fade-in var(--motion-duration-base) var(--motion-easing-standard);}
+  .section-rail-tick::before{transition:background-color var(--motion-duration-fast) var(--motion-easing-standard);}
+  .section-rail-preview:not([hidden]),.term-card:not([hidden]){animation:heritage-fade-in var(--motion-duration-fast) var(--motion-easing-standard);}
+  .section-pill:not([hidden]){animation:heritage-fade-in var(--motion-duration-base) var(--motion-easing-standard);}
+  /* Hoja del índice: sube desde abajo al abrir y baja al cerrar; el fondo aparece y se va con ella. */
+  .toc-sheet[open]{animation:heritage-sheet-in calc(var(--motion-duration-base) * 1.5) var(--motion-easing-standard);}
+  .toc-sheet[open]::backdrop{animation:heritage-fade-in calc(var(--motion-duration-base) * 1.5) var(--motion-easing-standard);}
+  .toc-sheet.is-closing{animation:heritage-sheet-out calc(var(--motion-duration-base) * 1.5) var(--motion-easing-standard) forwards;}
+  .toc-sheet.is-closing::backdrop{animation:heritage-fade-out calc(var(--motion-duration-base) * 1.5) var(--motion-easing-standard) forwards;}
+  @keyframes heritage-sheet-in{from{transform:translateY(100%);}to{transform:none;}}
+  @keyframes heritage-sheet-out{from{transform:none;}to{transform:translateY(100%);}}
+  @keyframes heritage-fade-out{from{opacity:1;}to{opacity:0;}}
+  .section-link,.hotspot{transition:opacity var(--motion-duration-fast) var(--motion-easing-standard);}
+  .hotspot,.hotspot-ref,.step-circle{transition:opacity var(--motion-duration-fast) var(--motion-easing-standard),scale var(--motion-duration-fast) var(--motion-easing-standard);}
+  .hotspot-return{transition:opacity var(--motion-duration-fast) var(--motion-easing-standard);}
+  /* Cambio de idioma en la misma página (document.startViewTransition): funde el antes y el después en 1,5 × base. */
+  ::view-transition-old(root),::view-transition-new(root){animation-duration:calc(var(--motion-duration-base) * 1.5);animation-timing-function:var(--motion-easing-standard);}
+  .lang-switch button{transition:color var(--motion-duration-fast) var(--motion-easing-standard),background-color var(--motion-duration-fast) var(--motion-easing-standard),border-color var(--motion-duration-fast) var(--motion-easing-standard);}
+  .menu-back{transition:color var(--motion-duration-fast) var(--motion-easing-standard),border-color var(--motion-duration-fast) var(--motion-easing-standard);}
+  .menu-link{transition:box-shadow var(--motion-duration-fast) var(--motion-easing-standard),scale var(--motion-duration-fast) var(--motion-easing-standard);}
+  /* Entre documentos (menú ↔ manuales): se desvanece en motion.duration-base antes de irse y aparece en lo mismo al llegar. */
+  html.is-leaving body{opacity:0;transition:opacity var(--motion-duration-base) var(--motion-easing-standard);}
+  html.is-arriving body{animation:heritage-fade-in var(--motion-duration-base) var(--motion-easing-standard);}
+  /* Abre en 500ms y cierra en 500ms (2,5 × motion.duration-base cada uno). */
+  .hotspot-spotlight.is-on{transition:--spot-radius calc(var(--motion-duration-base) * 2.5) var(--motion-easing-standard),opacity calc(var(--motion-duration-base) * 2.5) var(--motion-easing-standard);}
+  .hotspot-spotlight.is-leaving{transition:opacity calc(var(--motion-duration-base) * 2.5) var(--motion-easing-standard);}
+  .term{transition:text-decoration-color var(--motion-duration-fast) var(--motion-easing-standard);}
+  @keyframes heritage-reveal{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
+  @keyframes heritage-fade-in{from{opacity:0;}to{opacity:1;}}
+  @keyframes heritage-rise{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  /* Latido de destino: `scale` (no `transform`) para no pisar el translate que centra el punto. */
+  .is-pulsing{animation:heritage-pulse calc(var(--motion-duration-base) * 2) var(--motion-easing-standard) 3;}
+  .is-text-pulsing{animation:heritage-text-pulse calc(var(--motion-duration-base) * 2) var(--motion-easing-standard) 3;}
+  /* Gesto de toque: se repite mientras el puntero sigue sobre el paso; el índice baja y destella. */
+  .step-item[data-hotspot]:hover .tap-hand{animation:heritage-tap-press calc(var(--motion-duration-base) * 3) var(--motion-easing-standard) infinite;}
+  .step-item[data-hotspot]:hover .tap-hand-rays{animation:heritage-tap-rays calc(var(--motion-duration-base) * 3) var(--motion-easing-standard) infinite;}
+  @keyframes heritage-tap-press{0%,60%,100%{translate:0 0;}30%{translate:-2px -2px;}}
+  @keyframes heritage-tap-rays{0%,20%{opacity:0;}35%{opacity:1;}70%,100%{opacity:0;}}
+  @keyframes heritage-pulse{0%,100%{scale:1;}50%{scale:1.25;}}
+  @keyframes heritage-text-pulse{0%,100%{scale:1;}50%{scale:1.08;}}
+}
+@media (max-width:719px){
+  .lang-switch{top:12px;right:16px;}
+  .lang-switch ~ .doc-header{padding-top:28px;}
+  .lang-switch button{padding:5px 12px;font-size:12px;}
+  .menu-back{top:12px;left:16px;padding:9.5px 14px 9.5px 10px;font-size:12px;}
+  body{padding-left:16px;padding-right:16px;}
+  .back-to-top{right:16px;bottom:16px;}
+  .section-pill{left:16px;bottom:16px;max-width:calc(100vw - 152px);}
+  .toc-sheet-body{padding:20px 16px 24px;}
+  .toc ol{columns:1;}
+  .code-block{padding:16px;}
+}
+@media (max-width:1023px){
+  .section-rail,.section-rail-preview{display:none;}
+}
+/* Hasta 1199px "Ir al menú" cae sobre la columna: el doc-header baja para no tapar la etiqueta. */
+@media (min-width:720px) and (max-width:1199px){
+  .menu-back ~ .doc-header{padding-top:28px;}
+}
+@media (max-width:719px){
+  .menu-back ~ .doc-header{padding-top:28px;}
+}
+@media (hover:none){
+  .section-link{opacity:1;}
+}
+@media print{
+  .scroll-spacer{display:none;}
+  body{background:#fff;padding:0;max-width:none;}
+  .callout,.example-box,.mockup,.step-item,.code-block,tr{break-inside:avoid;}
+  .section-title,.part-header,.acc>summary{break-after:avoid;}
+  .acc>summary::after{display:none;}
+  .back-to-top,.section-rail,.section-rail-preview,.section-pill,.toc-sheet,.section-link,.term-card,.compare-handle,.compare-range,.figcap-hint,.tap-hand,.hotspot-return,.hotspot-spotlight,.lang-switch,.menu-back,.glossary-mentions{display:none;}
+  a.menu-link[href^="http"]::after{content:none;}
+  .term{text-decoration:none;}
+  .compare-stage{grid-template-columns:1fr 1fr;gap:16px;border:0;}
+  .compare-before,.compare-after{grid-area:auto;border:1.5px solid var(--border-strong);border-radius:10px;overflow:hidden;}
+  .compare-after{clip-path:none;}
+  *,*::before,*::after{transition:none!important;animation:none!important;}
+  a[href^="http"]::after{content:" (" attr(href) ")";font-size:11px;color:var(--label);}
+}
+
+.journey-title{font-size:16px;font-weight:600;line-height:1.4;margin:24px 0 12px;}
+.diagram-row{position:relative;padding:12px 16px 12px 48px;}
+.diagram-row .diagram-label{display:inline-block;font-weight:600;font-size:14px;}
+.diagram-row p{margin:4px 0 0;font-size:13px;}
+.diagram-row .hotspot{cursor:pointer;}
+td, .step-desc, p{overflow-wrap:anywhere;}
+.topic-return{display:inline-block;margin-bottom:16px;font-family:var(--mono);font-size:12px;}
+
+.manual-list{list-style:none;padding:0;margin:16px 0;}
+.manual-list__item{margin:0;}
+.manual-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;padding:16px 0;color:var(--primary);text-decoration:none;border-bottom:1px solid var(--border);}
+.manual-entry__title{font-size:16px;font-weight:500;color:var(--link);text-decoration:underline;text-underline-offset:2px;}
+.manual-entry__description{grid-column:1;font-size:13px;line-height:1.6;color:var(--muted);}
+.manual-entry__arrow{grid-column:2;grid-row:1/3;align-self:center;color:var(--link);font-family:var(--mono);}
+.manual-entry:hover .manual-entry__title{text-decoration-thickness:2px;}
+.manual-menu__title{font-size:20px;line-height:1.3;margin-bottom:16px;}
+</style>
+</head>
+<body><header class="doc-header" id="top" tabindex="-1"><div class="doc-label">TuTribu · Manuales internos</div><h1 class="doc-title">Manuales por tema</h1><p class="doc-sub">Elegí el tema que necesitás. Cada manual explica los pasos, permisos, reglas y situaciones de error de sus flujos.</p><div class="doc-meta"><span>Fecha: 2026-10-03</span><span>14 temas · 84 flujos</span><span>Español · Escritorio</span></div></header><main><nav aria-labelledby="topics"><h2 class="manual-menu__title" id="topics">Elegí un tema</h2><ul class="manual-list"><li class="manual-list__item"><a class="manual-entry" href="academy-mode.html" aria-label="Abrir el manual de Modo academia"><span class="manual-entry__title">Modo academia</span><span class="manual-entry__description">Activación, ingreso básico, verificación, acceso pago o bonificado, renovación y gestión.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="classic-mode.html" aria-label="Abrir el manual de Modo clásico"><span class="manual-entry__title">Modo clásico</span><span class="manual-entry__description">Membresía gratuita o paga, suscripción clásica, recuperación de pagos y cancelación.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="joining-options.html" aria-label="Abrir el manual de Formas de ingreso e invitaciones"><span class="manual-entry__title">Formas de ingreso e invitaciones</span><span class="manual-entry__description">Ingreso por pago, enlace público, invitación y entrada gratuita, con atribución de campañas.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="courses.html" aria-label="Abrir el manual de Cursos"><span class="manual-entry__title">Cursos</span><span class="manual-entry__description">Catálogo, aula, progreso personal, desbloqueo gradual, comentarios y gestión de contenido.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="members.html" aria-label="Abrir el manual de Miembros"><span class="manual-entry__title">Miembros</span><span class="manual-entry__description">Directorio, búsqueda, filtros de Bienvenida, emails autorizados y exportación.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="tribe-story.html" aria-label="Abrir el manual de Historia y ajustes de identidad"><span class="manual-entry__title">Historia y ajustes de identidad</span><span class="manual-entry__description">Presentación pública, texto, galería, sitio web, logo y portada.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="welcome.html" aria-label="Abrir el manual de Bienvenida"><span class="manual-entry__title">Bienvenida</span><span class="manual-entry__description">Acuerdos, recursos iniciales, modal de selección, registro de elecciones y configuración.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="campfire.html" aria-label="Abrir el manual de Fogón y canales"><span class="manual-entry__title">Fogón y canales</span><span class="manual-entry__description">Lectura, publicaciones, respuestas, edición, borrado, reacciones, pins, encuestas y canales.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="media-and-files.html" aria-label="Abrir el manual de Medios y archivos adjuntos"><span class="manual-entry__title">Medios y archivos adjuntos</span><span class="manual-entry__description">Imágenes, videos, enlaces y documentos: subidas, edición, descargas y limpieza.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="payment-methods.html" aria-label="Abrir el manual de Medios de pago y precios"><span class="manual-entry__title">Medios de pago y precios</span><span class="manual-entry__description">Cuentas de Mercado Pago, catálogo de precios, opción actual, ingreso gratuito y diagnóstico.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="events.html" aria-label="Abrir el manual de Eventos"><span class="manual-entry__title">Eventos</span><span class="manual-entry__description">Calendario, asistencia, cupos, propuestas, series, calendarios externos, grabaciones y conversación.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="account-and-navigation.html" aria-label="Abrir el manual de Cuenta, navegación y creación de tribus"><span class="manual-entry__title">Cuenta, navegación y creación de tribus</span><span class="manual-entry__description">Google, recuperación de sesión, selección de comunidad, tema, cierre de sesión y Nueva tribu.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="notifications-and-support.html" aria-label="Abrir el manual de Notificaciones, soporte y reportes"><span class="manual-entry__title">Notificaciones, soporte y reportes</span><span class="manual-entry__description">Campanita, avisos de encuentros, marcas de lectura, WhatsApp de soporte y Beezping.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li><li class="manual-list__item"><a class="manual-entry" href="internal-operations.html" aria-label="Abrir el manual de Procesos internos y disponibilidad"><span class="manual-entry__title">Procesos internos y disponibilidad</span><span class="manual-entry__description">Cobros, desbloqueos, presencia, sesión, limpieza, recordatorios y capacidades sin recorrido disponible.</span><span class="manual-entry__arrow" aria-hidden="true">→</span></a></li></ul></nav><p>Todos los recorridos explican el funcionamiento del código documentado. Los esquemas de los manuales son ilustraciones; no son capturas reales de la app.</p><p><a href="application-flows.html#reading-paths">Ver recorridos recomendados y mapa de páginas</a></p></main><footer class="doc-footer">Para el equipo técnico · Código: <a href="https://github.com/guidomodarelli/TuTribu/commit/2748d0ee068906e6af794c5147d9dca11ba21ed5" target="_blank" rel="noopener noreferrer">main @ 2748d0e</a></footer></body></html>
