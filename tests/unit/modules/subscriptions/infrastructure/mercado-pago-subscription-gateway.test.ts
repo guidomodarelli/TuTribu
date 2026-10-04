@@ -5,6 +5,7 @@ import {
   createMercadoPagoPendingPreapprovalSubscription,
   findMercadoPagoSubscriptionCheckoutByReference,
   getMercadoPagoPreapprovalDetails,
+  getMercadoPagoPayment,
   getMercadoPagoPreapprovalPlan,
   getMercadoPagoPreapprovalPlanStatus,
   getMercadoPagoPreapprovalStatus,
@@ -147,6 +148,28 @@ describe("mercado pago subscription gateway", () => {
     }));
     await expect(updateMercadoPagoPreapprovalSubscriptionStatus({ accessToken: "access-token", preapprovalId: "subscription-1", status: "canceled" }))
       .resolves.toBe("cancelled");
+  });
+
+  it("should retrieve the authoritative payment state independently of a subscription invoice", async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({
+      id: 12345, collector_id: 98765, status: "refunded", status_detail: "refunded",
+      date_last_updated: "2026-10-04T16:00:00Z", transaction_amount: 30, currency_id: "ARS",
+    }) });
+    await expect(getMercadoPagoPayment({ accessToken: "synthetic-token", paymentId: "12345" })).resolves.toEqual({
+      id: "12345", collectorId: "98765", status: "refunded", statusDetail: "refunded",
+      lastModified: "2026-10-04T16:00:00Z",
+    });
+    expect(fetchMock).toHaveBeenCalledWith("https://api.mercadopago.com/v1/payments/12345", expect.objectContaining({ method: "GET" }));
+  });
+
+  it("should return no payment when the seller cannot find it", async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 404 });
+    await expect(getMercadoPagoPayment({ accessToken: "synthetic-token", paymentId: "missing" })).resolves.toBeNull();
+  });
+
+  it("should reject an unavailable payment lookup without exposing the seller token", async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 503, json: async () => ({ message: "Unavailable" }) });
+    await expect(getMercadoPagoPayment({ accessToken: "synthetic-private-token", paymentId: "12345" })).rejects.toThrow();
   });
 
   it("should retrieve every invoice when the provider rejects unsupported page sizes", async () => {

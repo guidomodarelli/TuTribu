@@ -129,6 +129,37 @@ export function mapInvoicePaymentStatus(
 }
 
 /**
+ * Combines verified invoice terms with the independently verified payment state.
+ * Terminal reversals and partial refunds cannot be erased by a lagging approval
+ * from either provider resource. The latest revision guards later stale deliveries.
+ * @param invoice - Verified recurring invoice preserving its scheduled service cycle.
+ * @param payment - Current payment state read with the invoice seller credentials.
+ * @returns Invoice terms with the confirmed payment outcome and latest revision.
+ */
+export function mergeAcademyInvoicePaymentState(
+  invoice: VerifiedAcademyInvoice,
+  payment: { lastModified: string | null; status: string | null; statusDetail: string | null }
+): VerifiedAcademyInvoice {
+  const invoiceStatus = mapInvoicePaymentStatus(invoice);
+  const paymentStatus = mapInvoicePaymentStatus({ paymentStatus: payment.status, paymentStatusDetail: payment.statusDetail });
+  const keepInvoiceState =
+    (TERMINAL_LEDGER_STATUSES.has(invoiceStatus) && !TERMINAL_LEDGER_STATUSES.has(paymentStatus)) ||
+    (invoiceStatus === PARTIALLY_REFUNDED_DETAIL && paymentStatus === PROVIDER_PAYMENT_STATUS.approved);
+  const invoiceUpdatedAt = parseOptionalDate(invoice.lastModified);
+  const paymentUpdatedAt = parseOptionalDate(payment.lastModified);
+  const lastModified = paymentUpdatedAt && (!invoiceUpdatedAt || paymentUpdatedAt > invoiceUpdatedAt)
+    ? payment.lastModified
+    : invoice.lastModified;
+
+  return {
+    ...invoice,
+    lastModified,
+    paymentStatus: keepInvoiceState ? invoice.paymentStatus : payment.status,
+    paymentStatusDetail: keepInvoiceState ? invoice.paymentStatusDetail : payment.statusDetail,
+  };
+}
+
+/**
  * Decides the ledger and grant effect of one verified invoice.
  *
  * @param input - Invoice, contract snapshot and current ledger entry.

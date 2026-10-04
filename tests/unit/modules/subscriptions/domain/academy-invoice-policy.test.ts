@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   decideAcademyInvoiceEffect,
+  mergeAcademyInvoicePaymentState,
   type AcademyContractSnapshot,
   type VerifiedAcademyInvoice,
 } from "@/src/modules/subscriptions/domain/services/academy-invoice-policy";
@@ -29,6 +30,30 @@ function invoice(overrides: Partial<VerifiedAcademyInvoice> = {}): VerifiedAcade
 }
 
 describe("decideAcademyInvoiceEffect", () => {
+  it("should revoke a payment refunded before the invoice state catches up", () => {
+    const updatedInvoice = mergeAcademyInvoicePaymentState(invoice(), {
+      lastModified: "2026-02-28T17:00:00.000Z", status: "refunded", statusDetail: "refunded",
+    });
+    expect(decideAcademyInvoiceEffect({ contract, existing: null, invoice: updatedInvoice }))
+      .toMatchObject({ ledgerStatus: "refunded", grantAction: "revoke", providerLastModifiedAt: new Date("2026-02-28T17:00:00.000Z") });
+  });
+
+  it("should retain a terminal invoice state when Payments still reports approved", () => {
+    const updatedInvoice = mergeAcademyInvoicePaymentState(invoice({ paymentStatus: "refunded", paymentStatusDetail: "refunded" }), {
+      lastModified: "2026-02-28T17:00:00.000Z", status: "approved", statusDetail: "accredited",
+    });
+    expect(decideAcademyInvoiceEffect({ contract, existing: null, invoice: updatedInvoice }))
+      .toMatchObject({ ledgerStatus: "refunded", grantAction: "revoke" });
+  });
+
+  it("should retain the most recent provider revision and review a partial refund", () => {
+    const updatedInvoice = mergeAcademyInvoicePaymentState(invoice(), {
+      lastModified: "2026-02-28T15:00:00.000Z", status: "approved", statusDetail: "partially_refunded",
+    });
+    expect(decideAcademyInvoiceEffect({ contract, existing: null, invoice: updatedInvoice }))
+      .toMatchObject({ ledgerStatus: "partially_refunded", grantAction: "none", providerLastModifiedAt: new Date("2026-02-28T16:00:00.000Z") });
+  });
+
   it("grants the invoice cycle from the scheduled debit date (AC-25)", () => {
     expect(decideAcademyInvoiceEffect({ contract, existing: null, invoice: invoice() })).toMatchObject({
       grantAction: "create",

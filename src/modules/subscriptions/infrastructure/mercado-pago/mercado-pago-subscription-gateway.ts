@@ -74,6 +74,7 @@ const MERCADO_PAGO_URL = {
   authorizedPayments: "https://api.mercadopago.com/authorized_payments",
   authorization: "https://auth.mercadopago.com.ar/authorization",
   oauthToken: "https://api.mercadopago.com/oauth/token",
+  payments: "https://api.mercadopago.com/v1/payments",
   preapproval: "https://api.mercadopago.com/preapproval",
   preapprovalPlan: "https://api.mercadopago.com/preapproval_plan",
 } as const;
@@ -119,6 +120,7 @@ const MERCADO_PAGO_PAYMENT_OPERATION = {
   recoverSubscriptionCheckout: "recover-mercado-pago-subscription-checkout",
   exchangeOAuthCode: "exchange-mercado-pago-oauth-code",
   getAuthorizedPayment: "get-mercado-pago-authorized-payment",
+  getPayment: "get-mercado-pago-payment",
   searchAuthorizedPayments: "search-mercado-pago-authorized-payments",
   getPreapprovalDetails: "get-mercado-pago-preapproval-details",
   getPreapprovalPlan: "get-mercado-pago-preapproval-plan",
@@ -1528,6 +1530,56 @@ export type MercadoPagoAuthorizedPaymentInput = {
   authorizedPaymentId: string;
   traceContext?: PaymentOperationTraceContext;
 };
+
+/** Contains only the current outcome and ownership of one provider payment. */
+export type MercadoPagoPayment = {
+  collectorId: string | null;
+  id: string;
+  lastModified: string | null;
+  status: string | null;
+  statusDetail: string | null;
+};
+
+/** Selects a payment using its owning seller integration. */
+export type MercadoPagoPaymentInput = {
+  accessToken: string;
+  paymentId: string;
+  traceContext?: PaymentOperationTraceContext;
+};
+
+/** Describes the consumed fields of GET /v1/payments/{id}, without revalidation. */
+type MercadoPagoPaymentResponse = {
+  collector_id?: number | string | null;
+  date_last_updated?: string | null;
+  id?: number | string;
+  status?: string | null;
+  status_detail?: string | null;
+};
+
+/**
+ * Reads a payment whose invoice may not yet reflect its refund or dispute.
+ * @param input - Payment identifier and owning seller credentials.
+ * @returns The normalized payment, or null when it is absent or has no identifier.
+ * @throws When the provider request cannot be completed.
+ */
+export async function getMercadoPagoPayment(input: MercadoPagoPaymentInput): Promise<MercadoPagoPayment | null> {
+  const operation = MERCADO_PAGO_PAYMENT_OPERATION.getPayment;
+  const response = await fetchMercadoPago(operation, `${MERCADO_PAGO_URL.payments}/${encodeURIComponent(input.paymentId)}`, {
+    headers: { [MERCADO_PAGO_HTTP.authorizationHeader]: MERCADO_PAGO_HTTP.bearerPrefix + input.accessToken },
+    method: MERCADO_PAGO_HTTP.getMethod,
+  }, input.traceContext);
+  if (response.status === HTTP_STATUS_NOT_FOUND) return null;
+  const body = await readMercadoPagoResponse<MercadoPagoPaymentResponse>(operation, response, input.traceContext);
+  const id = readOptionalProviderString(body.id);
+  if (!id) return null;
+  return {
+    collectorId: readOptionalProviderString(body.collector_id),
+    id,
+    lastModified: readOptionalProviderString(body.date_last_updated),
+    status: readOptionalProviderString(body.status),
+    statusDetail: readOptionalProviderString(body.status_detail),
+  };
+}
 
 export type MercadoPagoAuthorizedPaymentSearchInput = {
   accessToken: string;

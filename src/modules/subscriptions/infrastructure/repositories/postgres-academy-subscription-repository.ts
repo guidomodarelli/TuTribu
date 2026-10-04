@@ -45,6 +45,7 @@ import type {
 } from "@/src/modules/subscriptions/domain/repositories/academy-subscription-repository";
 import {
   decideAcademyInvoiceEffect,
+  mergeAcademyInvoicePaymentState,
   type AcademyLedgerPaymentStatus,
   type VerifiedAcademyInvoice,
 } from "@/src/modules/subscriptions/domain/services/academy-invoice-policy";
@@ -56,6 +57,8 @@ import type {
   MercadoPagoAuthorizedPayment,
   MercadoPagoAuthorizedPaymentInput,
   MercadoPagoAuthorizedPaymentSearchInput,
+  MercadoPagoPayment,
+  MercadoPagoPaymentInput,
   MercadoPagoPreapprovalStatusInput,
   MercadoPagoPendingSubscriptionInput,
 } from "@/src/modules/subscriptions/infrastructure/mercado-pago/mercado-pago-subscription-gateway";
@@ -112,6 +115,7 @@ export type AcademySubscriptionGateway = {
   getAuthorizedPayment(
     input: MercadoPagoAuthorizedPaymentInput
   ): Promise<MercadoPagoAuthorizedPayment | null>;
+  getPayment(input: MercadoPagoPaymentInput): Promise<MercadoPagoPayment | null>;
   getPreapprovalStatus(input: MercadoPagoPreapprovalStatusInput): Promise<string | null>;
   refreshAccessToken: MercadoPagoAccessTokenRefresher;
   searchAuthorizedPayments(
@@ -555,19 +559,34 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
   }
 
   /**
-   * Reconciles known academy subscriptions when their recorded payment changes.
-   * The notification selects records only; verified provider invoices determine access.
+   * Reconciles the recorded invoice and its independently verified payment outcome.
+   * The notification selects records only; provider reads determine access, even
+   * when the invoice has not yet received a payment refund or dispute update.
    * @param command - Signed payment identifier, optional seller hint, and correlation id.
    * @returns Processing status, or a retry request when an authoritative read fails.
    */
   async handlePaymentWebhook(command: AcademyPaymentWebhookCommand): Promise<AcademyPaymentWebhookResult> {
-    const subscriptions = await this.executeWithDatabase(async (database) => {
+    const recordedPayments = await this.executeWithDatabase(async (database) => {
       const result = await database.execute(sql`
-        select distinct tribe_member_subscriptions.mercado_pago_preapproval_id as provider_subscription_id
+        select distinct
+          tribe_member_subscriptions.id as subscription_id,
+          tribe_member_subscriptions.tribe_id,
+          tribe_member_subscriptions.user_id,
+          tribe_member_subscriptions.mercado_pago_preapproval_id,
+          tribe_member_subscriptions.payment_integration_id,
+          tribe_member_subscriptions.price_snapshot_amount_cents as amount_cents,
+          tribe_member_subscriptions.price_snapshot_currency as currency,
+          tribe_member_subscriptions.billing_anchor_at,
+          tribe_payment_integrations.access_token,
+          tribe_payment_integrations.refresh_token,
+          tribe_payment_integrations.token_expires_at,
+          tribe_payment_integrations.provider_account_id,
+          subscription_payment_periods.provider_invoice_id
         from public.subscription_payment_periods
         inner join public.tribe_member_subscriptions
           on tribe_member_subscriptions.id = subscription_payment_periods.subscription_id
           and tribe_member_subscriptions.payment_integration_id = subscription_payment_periods.payment_integration_id
+          and tribe_member_subscriptions.tribe_id = subscription_payment_periods.tribe_id
         inner join public.tribe_payment_integrations
           on tribe_payment_integrations.id = subscription_payment_periods.payment_integration_id
           and tribe_payment_integrations.tribe_id = subscription_payment_periods.tribe_id
@@ -578,20 +597,38 @@ export class PostgresAcademySubscriptionRepository implements AcademySubscriptio
           and (${command.providerAccountId}::text is null or tribe_payment_integrations.provider_account_id = ${command.providerAccountId})
           and tribe_member_subscriptions.mercado_pago_preapproval_id is not null
       `);
-      return (result.rows ?? []) as Array<{ provider_subscription_id: string }>;
+      return (result.rows ?? []) as Array<SubscriptionContextRow & { provider_account_id: string; provider_invoice_id: string }>;
     });
 
-    if (subscriptions.length === 0) return { status: "ignored" };
+    if (recordedPayments.length === 0) return { status: "ignored" };
 
     let hadRetryableFailure = false;
-    for (const subscription of subscriptions) {
-      const reconciliation = await this.reconcileSubscriptionCoverage({
-        correlationId: command.correlationId,
-        providerSubscriptionId: subscription.provider_subscription_id,
-      });
-      hadRetryableFailure ||= reconciliation.status !== "reconciled";
+    let processedPayment = false;
+    for (const recordedPayment of recordedPayments) {
+      const accessToken = await this.resolveToken(recordedPayment).catch(() => null);
+      if (!accessToken) { hadRetryableFailure = true; continue; }
+      let invoice: MercadoPagoAuthorizedPayment | null;
+      let payment: MercadoPagoPayment | null;
+      try {
+        [invoice, payment] = await Promise.all([
+          this.gateway.getAuthorizedPayment({ accessToken, authorizedPaymentId: recordedPayment.provider_invoice_id }),
+          this.gateway.getPayment({ accessToken, paymentId: command.providerPaymentId }),
+        ]);
+      } catch {
+        hadRetryableFailure = true;
+        continue;
+      }
+      if (!invoice || !payment) { hadRetryableFailure = true; continue; }
+      if (invoice.id !== recordedPayment.provider_invoice_id ||
+        invoice.preapprovalId !== recordedPayment.mercado_pago_preapproval_id ||
+        invoice.paymentId !== command.providerPaymentId || payment.id !== command.providerPaymentId ||
+        payment.collectorId !== recordedPayment.provider_account_id) continue;
+
+      const updatedInvoice = { ...invoice, ...mergeAcademyInvoicePaymentState(toVerifiedInvoice(invoice), payment) };
+      await this.applyInvoice(recordedPayment.subscription_id, updatedInvoice, command.correlationId);
+      processedPayment = true;
     }
-    return { status: hadRetryableFailure ? "retryable" : "processed" };
+    return { status: hadRetryableFailure ? "retryable" : processedPayment ? "processed" : "ignored" };
   }
 
   async handleAuthorizedPaymentWebhook(

@@ -1,3 +1,4 @@
+/** Sets up browser test APIs while preserving native HTTP in Node integration suites. */
 import { vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
@@ -128,4 +129,8 @@ if (
   );
 }
 
-global.fetch = vi.fn();
+// Browser suites isolate HTTP at their transport boundary. Node integration
+// suites retain native fetch to exercise real provider and database contracts.
+if (typeof window !== "undefined") {
+  global.fetch = vi.fn();
+}
