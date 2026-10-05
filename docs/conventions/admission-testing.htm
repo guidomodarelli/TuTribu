@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pruebas de admisión a academias</title>
+<style>
+*{box-sizing:border-box}body{margin:0 auto;max-width:860px;padding:48px 24px 80px;background:#f8f7f4;color:#333;font:14px/1.7 system-ui,sans-serif}h1,h2{color:#1a1a1a;line-height:1.3}h1{font-size:28px;margin:8px 0}h2{font-size:20px;margin-top:32px;padding-bottom:8px;border-bottom:1px solid #e0ddd6}header{border-bottom:2px solid #1a1a1a;padding-bottom:20px}.label{color:#888;font:11px/1.5 monospace;letter-spacing:.14em;text-transform:uppercase}.meta{color:#555}code,pre{font-family:monospace}code{background:#f0ede6;padding:2px 4px;overflow-wrap:anywhere}pre{padding:16px;background:#1a1a2e;color:#e2e8f0;overflow:auto}pre code{padding:0;background:transparent}a{color:#1a4f7a;overflow-wrap:anywhere}.note{border-left:3px solid #d4a44c;background:#fdf5e0;padding:14px 18px;color:#7a5510}li{margin-bottom:6px}
+</style>
+</head>
+<body>
+<header>
+<div class="label">TuTribu · Convenciones de testing</div>
+<h1>Pruebas de admisión a academias</h1>
+<p class="meta">Preparación para <code>001-academy-admissions</code>. El arnés está implementado; los recorridos del producto y los gates operativos aún no están acreditados.</p>
+</header>
+<main>
+<h2>Transporte cerrado y dependencias reales</h2>
+<p><code>tests/support/admission-provider-transport.ts</code> ofrece un fetch propio con registro exacto de origen, pathname y método. Rechaza cualquier ruta no registrada, sin recurrir a la red real. Sus observaciones contienen método, ruta registrada, estado HTTP y outcome; no guardan bodies, destinatarios, headers, tokens ni respuestas del proveedor.</p>
+<p>Las pruebas usan el SDK oficial Zavu <code>0.57.0</code>, el verificador Google de Better Auth y Web Crypto reales. Las claves y firmas de prueba se generan durante la ejecución. La pérdida de respuesta puede ocurrir después de un efecto aceptado; abortar la espera no acredita cancelar un envío ya iniciado. El scope de fetch global se restaura en <code>finally</code> y rechaza scopes superpuestos dentro del mismo worker.</p>
+<pre><code>pnpm test tests/support/admission-provider-transport.test.ts</code></pre>
+<h2>Postgres en una rama propia</h2>
+<p><code>tests/support/academy-admission-database.ts</code> crea una rama con nombre impredecible en el proyecto autorizado <code>cold-firefly-92947172</code>. Verifica que sea su propio hijo y que no sea default. <code>DATABASE_URL</code> aporta únicamente nombres de base y rol; el host y las credenciales de SQL se solicitan explícitamente para la rama recién creada. La conexión mantiene verificación TLS completa.</p>
+<p>El arnés lee la autorización local existente de Neon CLI o <code>NEON_API_KEY</code>, sin persistirla ni registrarla. Ante una respuesta de creación incierta, consulta el nombre único; no repite el POST. No cambia la rama default, los datos del entorno local ni la configuración de la aplicación.</p>
+<p>Las transacciones usan <code>createPostgresPool</code> y <code>runWithGuardedTransaction</code>, con timeout de abandono y contexto local por cuenta. Se consulta la metadata real del rol runtime y se crea un rol temporal <code>NOLOGIN NOSUPERUSER NOBYPASSRLS</code>; los tests conceden únicamente las tablas que necesitan. <code>applyMigration</code> ejecuta el archivo versionado real en esa rama, sin comprobar strings de SQL como sustituto del comportamiento.</p>
+<p>Al salir, se cierra el pool y se elimina la rama cuya propiedad fue confirmada, también cuando falla el callback. Una falla de cleanup conserva el error de trabajo e identifica el recurso pendiente. Si se pierden la respuesta de creación y la de reconciliación, el error <code>neon_branch_creation_unknown</code> conserva ambas causas y el nombre único para una reconciliación posterior; no repite el POST ni borra una rama no acreditada. El helper devuelve un resultado exitoso solo después de comprobar que su rama ya no está presente.</p>
+<pre><code>$env:RUN_ADMISSION_SQL_TESTS = '1'
+pnpm test tests/support/academy-admission-database.test.ts</code></pre>
+<div class="note">La suite SQL exige opt-in explícito y credenciales locales vigentes. Sin <code>RUN_ADMISSION_SQL_TESTS=1</code> queda salteada y no cuenta como evidencia de SQL. Las suites futuras que modifiquen persistencia deben ejecutarse en la rama propia antes de dar su tarea por terminada.</div>
+<h2>Fixtures y evidencia</h2>
+<p><code>tests/support/academy-admission-fixtures.ts</code> genera cuentas A/B, tribus distintas, roles y estados alternativos, snapshots comerciales conocidos o desconocidos y un reloj por escenario. La lista, invitación y política de uso parten de versión uno; países vacíos y época de verificación se mantienen separados. Las membresías son casos alternativos, no un lote que siembre dos líderes en la misma tribu. No se inventan credenciales ni URLs de invitación.</p>
+<p>Los fixtures ayudan a ejercer las matrices; no autorizan autoingreso ni acreditan un canal productivo. Los gates OG-01 a OG-06 y sus pruebas pendientes se registran en <a href="../../specs/001-academy-admissions/validation/operational-gates.md">operational-gates.md</a>. Para los boundaries de payload y los guards compartidos, consultar <a href="payload-validation-boundaries.htm">validación de payloads</a> y <a href="concurrency-observability-performance.htm">concurrencia y observabilidad</a>.</p>
+</main>
+</body>
+</html>

@@ -67,11 +67,11 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
 <a id="t003"></a>
 
-- [ ] T003 Preparar el borde de pruebas SQL con `pg` real y helpers protegidos: rama Neon propia, metadata de rol runtime/no-bypass, fixtures sintéticos y cleanup en finally; no usar default/producción ni registrar conexiones o filas personales. Archivos: `tests/support/academy-admission-database.ts`. Dependencias: `T001`. Trazabilidad: `FR-141`, `D-24`, `TC-026`.
+- [X] T003 Preparar el borde de pruebas SQL con `pg` real y helpers protegidos: rama Neon propia, metadata de rol runtime/no-bypass, fixtures sintéticos y cleanup en finally; no usar default/producción ni registrar conexiones o filas personales. Archivos: `tests/support/academy-admission-database.ts`. Dependencias: `T001`. Trazabilidad: `FR-141`, `D-24`, `TC-026`.
 
 <a id="t004"></a>
 
-- [ ] T004 Construir fixtures deterministas de cuentas A/B, líder/guardián/tribemate, active/muted, causas comerciales/conducta, snapshots desconocidos, políticas/lista/invitaciones y reloj; compartirlos solo en el borde propio y conservar mocks existentes de protección runtime. Archivos: `tests/support/academy-admission-fixtures.ts`. Dependencias: `T003`. Trazabilidad: `FR-141`, `D-24`, `TC-026`.
+- [X] T004 Construir fixtures deterministas de cuentas A/B, líder/guardián/tribemate, active/muted, causas comerciales/conducta, snapshots desconocidos, políticas/lista/invitaciones y reloj; compartirlos solo en el borde propio y conservar mocks existentes de protección runtime. Archivos: `tests/support/academy-admission-fixtures.ts`. Dependencias: `T003`. Trazabilidad: `FR-141`, `D-24`, `TC-026`.
 
 <a id="t005"></a>
 
