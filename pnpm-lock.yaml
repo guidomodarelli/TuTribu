@@ -187,6 +187,9 @@ importers:
       '@next/env':
         specifier: ^16.3.4
         version: 16.3.4
+      '@zavudev/sdk':
+        specifier: 0.57.0
+        version: 0.57.0
       beez-ui:
         specifier: ^0.10.0
         version: 0.10.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -3783,6 +3786,9 @@ packages:
 
   '@vitest/spy@5.0.0':
     resolution: {integrity: sha512-uy+luWBAPw9XfthoHi5AkfHUnuPYEESjl0p/r+meoBnU8bxg5GDQ3Ey8MjcJ6sqahkL4PFyrvfMJJBw7LbU06g==}
+
+  '@zavudev/sdk@0.57.0':
+    resolution: {integrity: sha512-TmFaFhSmiaPNfJ90NUOe6fjWkY7hT5cs3FzWliz+By6w+VUe+1ytHJm0vSe7nja5+Fa3GnFbjAQ6PydZGrZAAg==}
 
   abort-controller@3.0.0:
     resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
@@ -9159,6 +9165,8 @@ snapshots:
       vite: 8.2.2(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.6.1)(sass@1.100.0)(terser@5.16.9)(tsx@4.21.0)(yaml@2.9.0)
 
   '@vitest/spy@5.0.0': {}
+
+  '@zavudev/sdk@0.57.0': {}
 
   abort-controller@3.0.0:
     dependencies:

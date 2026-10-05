@@ -11,7 +11,7 @@ description: "Tareas de implementación de admisiones a academias y mensajería 
 
 **Prerrequisitos**: constitución 1.0.0, AGENTS, rule canónica de payloads, arquitectura propietaria y plantilla activa `.specify/templates/tasks-template.md`, resuelta por `setup-tasks.ps1 -Json`. No reinicializar Spec Kit ni crear otra feature.
 
-**Alcance de esta ejecución**: generar tareas y trazabilidad. Todas las casillas quedan pendientes; no se implementó código, instaló SDK, ejecutó SQL, envió mensajes, configuró servicios ni hizo commit/push. Las rutas nuevas son propuestas para implementación. Los documentos normativos y sus checklists conservan su contenido.
+**Estado de ejecución**: implementación iniciada sobre `7198047f126bcde6b0a5f0cdb60abf4191903e10`; se marcan únicamente tareas con evidencia comprobada. Preparación y gates en [operational-gates.md](validation/operational-gates.md). Las rutas futuras siguen pendientes hasta su implementación; los documentos normativos y sus checklists conservan su contenido. El usuario autorizó commit y push de avances con `--no-verify`.
 
 **Pruebas**: obligatorias por la constitución IV, AGENTS, FR-141 y TC-026. Cada bloque empieza por casos de comportamiento en rojo, sigue con código mínimo y refactor, y termina en verde. SDK/Better Auth/Zod/beez-ui/Web Crypto reales; dobles solo en puertos o transporte propios. SQL contra los artefactos versionados reales en rama efímera Neon, runtime y rol no-bypass. Sin tests de strings de fuentes/SQL, imports aislados, configuración artificial o mocks de plataforma.
 
@@ -57,13 +57,13 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
 <a id="t001"></a>
 
-- [ ] T001 Revalidar el inventario R-02 sobre HEAD, pins, helpers, manuales y gates OG-01 a OG-06; registrar cualquier cambio real respecto del diseño sin alterar decisiones cerradas ni habilitar capacidades. Archivos: `specs/001-academy-admissions/research.md`, `specs/001-academy-admissions/plan.md`. Trazabilidad: `TC-026`.
+- [X] T001 Revalidar el inventario R-02 sobre HEAD, pins, helpers, manuales y gates OG-01 a OG-06; registrar cualquier cambio real respecto del diseño sin alterar decisiones cerradas ni habilitar capacidades. Archivos: `specs/001-academy-admissions/research.md`, `specs/001-academy-admissions/plan.md`. Trazabilidad: `TC-026`.
 
 ### Implementación
 
 <a id="t002"></a>
 
-- [ ] T002 Alinear el runtime con `.nvmrc` y pnpm 12.6.0; incorporar el SDK oficial `@zavudev/sdk@0.57.0` coordinando manifest/lockfile, edad mínima y `pnpm install --frozen-lockfile`, sin actualizar dependencias ajenas. Archivos: `package.json`, `pnpm-lock.yaml`. Dependencias: `T001`. Trazabilidad: `FR-141`, `TC-026`.
+- [X] T002 Alinear el runtime con `.nvmrc` y pnpm 12.6.0; incorporar el SDK oficial `@zavudev/sdk@0.57.0` coordinando manifest/lockfile, edad mínima y `pnpm install --frozen-lockfile`, sin actualizar dependencias ajenas. Archivos: `package.json`, `pnpm-lock.yaml`. Dependencias: `T001`. Trazabilidad: `FR-141`, `TC-026`.
 
 <a id="t003"></a>
 
@@ -75,13 +75,13 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
 <a id="t005"></a>
 
-- [ ] T005 [P] Preparar un transporte HTTP/JWKS controlado propio para ejercer Better Auth, SDK Zavu y Web Crypto reales; registrar efectos/request metadata seguros, simular pérdida de respuesta/crash y denegar cualquier salida real de esta suite. Archivos: `tests/support/admission-provider-transport.ts`. Dependencias: `T002`. Trazabilidad: `FR-071`, `FR-141`, `D-24`, `TC-026`.
+- [X] T005 [P] Preparar un transporte HTTP/JWKS controlado propio para ejercer Better Auth, SDK Zavu y Web Crypto reales; registrar efectos/request metadata seguros, simular pérdida de respuesta/crash y denegar cualquier salida real de esta suite. Archivos: `tests/support/admission-provider-transport.ts`. Dependencias: `T002`. Trazabilidad: `FR-071`, `FR-141`, `D-24`, `TC-026`.
 
 ### Preparación
 
 <a id="t006"></a>
 
-- [ ] T006 [P] Registrar disponibilidad y evidencia requerida de cada gate, autorización del pagador/recursos, keyrings externos, claims Google y scheduler; distinguir preparación de prueba aprobada y permitir el desarrollo local con capacidades externas cerradas. Archivos: `specs/001-academy-admissions/validation/operational-gates.md`. Dependencias: `T001`. Trazabilidad: `TC-026`.
+- [X] T006 [P] Registrar disponibilidad y evidencia requerida de cada gate, autorización del pagador/recursos, keyrings externos, claims Google y scheduler; distinguir preparación de prueba aprobada y permitir el desarrollo local con capacidades externas cerradas. Archivos: `specs/001-academy-admissions/validation/operational-gates.md`. Dependencias: `T001`. Trazabilidad: `TC-026`.
 
 **Punto de control**: confirmar el bloque con evidencia real y conservar pendientes las condiciones no ejecutadas.
 
