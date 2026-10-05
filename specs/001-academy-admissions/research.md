@@ -40,7 +40,7 @@ Se verificaron los helpers `createPostgresPool`, `runWithGuardedTransaction` y `
 
 Para la preparación se usaron Node `24.21.0` y pnpm `12.6.0`. Se incorporó únicamente `@zavudev/sdk@0.57.0`, publicado el 2026-09-14, con integridad npm en el lockfile; `pnpm install --frozen-lockfile` pasó sin actualizar dependencias ajenas. El transporte propio de `tests/support/admission-provider-transport.ts` ejecuta el SDK y el verificador Google de Better Auth reales contra endpoints registrados, con siete casos verdes de despacho sintético, firma/audience/nonce, pérdida de respuesta, cancelación, cierre de red y restauración del fetch. Ningún caso envía mensajes reales ni acredita un canal Zavu productivo.
 
-La sesión local de Neon se renovó y la API confirmó el proyecto `TuTribu` (`cold-firefly-92947172`). La preparación SQL y los ensayos de ambos roles permanecen pendientes hasta ejecutarse en una rama propia. El estado de los gates se registra en [operational-gates.md](validation/operational-gates.md).
+La sesión local de Neon se renovó y la API confirmó el proyecto `TuTribu` (`cold-firefly-92947172`). El arnés SQL de T003 ejecutó `pg` real en ramas propias, consultó la metadata del rol runtime, creó un rol temporal sin bypass y comprobó contexto local, rollback y cleanup incluso ante errores falsy. T004 aporta fixtures sintéticos y reloj independiente. La suite conjunta de preparación pasó 14 tests, incluido el caso controlado de pérdida de creación y reconciliación que conserva ambas causas y el nombre único sin repetir POST; el SQL de negocio de la feature sigue pendiente y OG-06 permanece cerrado. El estado de los gates se registra en [operational-gates.md](validation/operational-gates.md).
 
 ## R-03 — Membresía, roles y acceso comercial
 
