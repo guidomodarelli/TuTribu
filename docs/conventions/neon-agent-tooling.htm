@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon: herramientas para agentes</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">Convenciones · Herramientas locales</div>
+  <h1 class="doc-title">Neon: herramientas para agentes</h1>
+  <p class="doc-sub">Configuración de Codex y autenticación para validar migraciones en ramas aisladas.</p>
+</div>
+<div class="section">
+  <h2 class="section-title">Instalación y alcance</h2>
+  <p>La CLI global <code>neon</code> permite administrar el proyecto existente. Las skills del repositorio están en <code>.agents/skills/neon/</code>, <code>.agents/skills/neon-postgres/</code> y <code>.agents/skills/neon-postgres-branches/</code>; <code>skills-lock.json</code> registra su origen. Instalar solamente las skills necesarias para la tarea.</p>
+  <p>El MCP remoto de Neon está configurado para Codex en <code>.codex/config.toml</code>, con OAuth y limitado al proyecto <code>cold-firefly-92947172</code> (TuTribu). La configuración del repositorio contiene la URL, sin credenciales. Las sesiones se mantienen fuera del repositorio mediante las herramientas correspondientes.</p>
+  <p>Esta configuración complementa los servidores globales de Codex. Las nuevas skills y herramientas requieren que Codex vuelva a cargar su configuración antes de estar disponibles en una conversación existente.</p>
+</div>
+<div class="section">
+  <h2 class="section-title">Renovar y comprobar las sesiones</h2>
+  <p>La CLI y el MCP tienen sesiones independientes. Si la CLI devuelve <code>401</code> y la renovación falla con <code>invalid_grant</code>, ejecutar <code>neon auth</code> y completar la autorización en el navegador. Comprobar después con <code>neon projects list</code>. Para el MCP, usar <code>codex mcp login Neon</code> y comprobar su estado con <code>codex mcp list</code>.</p>
+  <p>Para instalar las piezas en otro checkout, usar <code>npm install --global neon</code>, <code>neon skills -s neon -s neon-postgres -s neon-postgres-branches --agent codex -y</code> y <code>neon mcp --oauth --project --agent codex --project-id cold-firefly-92947172 -y</code>, después de revisar lo que ya está instalado.</p>
+  <p>La actualización oficial es <code>neon skills update -y</code>. Si falla por rutas ambiguas o por una instalación anterior sin <code>skillPath</code>, respaldar la skill afectada y reinstalarla por nombre con <code>neon skills -s &lt;skill-name&gt; --agent codex -y</code>. Conservar las personalizaciones antes de cualquier actualización.</p>
+</div>
+<div class="section">
+  <h2 class="section-title">Validación de migraciones</h2>
+  <p>Usar la CLI autenticada y una rama efímera con fecha de expiración. Consultar <code>neon branches create --help</code> y pasar explícitamente el proyecto y la rama padre. Ejecutar las migraciones y sus comprobaciones solamente contra la conexión de esa rama; eliminarla al finalizar.</p>
+  <p>Preservar las variables de entorno existentes. No usar <code>neon init</code>, <code>link</code> ni <code>checkout</code> indiscriminadamente: pueden escribir configuración o descargar variables. Si hace falta vincular o cambiar de rama conservando las variables, usar <code>--no-env-pull</code>. No registrar tokens ni cadenas de conexión en logs o documentación.</p>
+  <p>El acceso administrativo confirmado y la instalación de herramientas no sustituyen la ejecución de las migraciones ni validan su resultado.</p>
+</div>
+<div class="section">
+  <h2 class="section-title">Referencias</h2>
+  <p><a href="https://neon.com/.well-known/agent-skills/neon/SKILL.md">Skill oficial de Neon</a> · <a href="https://developers.openai.com/codex/mcp">Configuración MCP de Codex</a> · <a href="../architecture/migrating-to-neon.htm">Arquitectura de autenticación y datos</a></p>
+</div>
+</body>
+</html>
