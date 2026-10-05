@@ -15,6 +15,8 @@ Error público: `code`, `message` de catálogo español, `requestId`, `fields?` 
 | `permission_denied` | 403 | Revalidar cuenta/rol; sin acceso cruzado ni retry de disponibilidad |
 | `resource_unavailable`, `invitation_unavailable` | 404 o 403 genérico según recorrido | No identificar destinatario/cuenta ni distinguir recurso ajeno de ausente |
 | `policy_conflict`, `request_conflict`, `idempotency_conflict` | 409 | Estado mínimo actual autorizado; nueva confirmación explícita, no reemplazar versión |
+| `allowlist_conflict`, `invitation_conflict`, `usage_policy_conflict` | 409 | expectedVersion obsoleta de recurso propio: sin efectos, lectura vigente y nueva confirmación/operación; metadata/version solo a audiencia autorizada |
+| `recipient_not_allowed` | 422 al solicitar; suppressed en entrega aún no autorizada | País vacío/prohibido o restricción comprobada: no RPC ni sustitución de destino/canal; mensaje seguro de país no habilitado. No invalida por sí solo código/prueba ya válida |
 | `contact_evidence_required`, `additional_verification_required` | 409 | Paso de prueba pertinente; OFF no inicia código oculto |
 | `contact_binding_conflict` | 409 | Recuperación de cuenta/ayuda segura; no reclamar contacto ni revelar owner |
 | `challenge_expired`, `challenge_invalidated`, `proof_unavailable` | 409 | Pedir nuevo desafío solo por acción y cupos; no reset de pendientes |
@@ -33,6 +35,14 @@ Error público: `code`, `message` de catálogo español, `requestId`, `fields?` 
 | `public_contract_unusable`, `unexpected_failure` | 500 en boundary servidor | Fallo propio de DTO/invariante; log sanitizado/correlation y browser conserva último estado con feedback recuperable |
 
 El catálogo final vive en constantes/copy del owner, reutilizando convenciones de HTTP/logger existentes. La tabla es mapping propio por operación, no copia automática de status upstream. Razones específicas del proveedor se conservan solo dentro del adapter y se traducen según audience.
+
+## Conflicto de versión y replay (U1)
+
+`expectedVersion` valida entero positivo para recurso existente; cero/negativo/fracción/valor no seguro falla en input antes de efectos. Creación server-side usa `version=1` sin sentinel `0`. Después de autorización vigente e identidad/huella normalizada, el replay confirmado se resuelve antes del CAS: mismo operation/intent devuelve el resultado y versión del commit original sin incrementar ni repetir. Esa versión histórica no se trata como estado actual; el cliente consulta/reconcilia la proyección vigente sin sobrescribir una más nueva.
+
+Una operación nueva con versión vieja da conflicto `409`, incluso si el valor coincide. Con versión vigente, no-op conserva versión y cambio efectivo incrementa una vez en la misma transacción. Cambiar `expectedVersion` para reintentar con la misma identidad modifica el intent y produce `idempotency_conflict`; no se refresca/reenvía silenciosamente. Reintentar creación de invitación devuelve metadata, nunca URL/token inicial. Solicitudes/canje de audiencia no administrativa conservan el mensaje genérico cuando no pueden conocer recurso/version/destinatario.
+
+Para país retirado, distinguir petición rechazada antes de emitir, entrega en cola suprimida antes del marker y posible intento externo ya iniciado. `accepted/unknown` conserva presupuesto/identidad y no se cambia por `suppressed` como si nunca hubiese salido. En todos los casos siguen disponibles los recorridos internos y la validación local vigente según contexto/época.
 
 ## Clasificación del adapter
 
@@ -63,4 +73,4 @@ Abort intencional de lectura/polling: limpiar controller/listeners/timers, no to
 
 Feedback español persistente por campo/acción más toast cuando corresponde; distinguir pendiente, conflicto, error, progreso parcial e incierto. No borrar rows/resultado aceptado al mostrar error ni cerrar el formulario silenciosamente. Limpiar feedback obsoleto al corregir y separar error de consulta de fallo de escritura.
 
-Casos: unknown throw/string/null; status sobre mensaje; DTO público inválido/extra secreto; 4xx con texto timeout; todos/algunos/cero outcomes; respuesta perdida tras commit; CSV con bloque fallido; cuotas y última reserva concurrentes; abort sin toast; nonce/tribu/propósito cruzados; resultado SDK incierto y 409 no correlacionable; rol perdido; lease vencida antes/después del marker; logs/DTO sin secretos o nota interna. Usar validadores/SDK reales y dobles solo en puertos/transporte propios, sin tests de texto interno de archivos.
+Casos: creación 1, versión inválida/no-op/stale, dos writers con la misma versión, replay previo a CAS tras commit perdido y cambios posteriores, misma identidad con expectedVersion cambiado, canje/revocación, países vacíos/prohibidos/reducidos antes/después del marker; unknown throw/string/null; status sobre mensaje; DTO público inválido/extra secreto; 4xx con texto timeout; todos/algunos/cero outcomes; respuesta perdida tras commit; CSV con bloque fallido; cuotas y última reserva concurrentes; abort sin toast; nonce/tribu/propósito cruzados; resultado SDK incierto y 409 no correlacionable; rol perdido; lease vencida antes/después del marker; logs/DTO sin secretos o nota interna. Usar validadores/SDK reales y dobles solo en puertos/transporte propios, sin tests de texto interno de archivos.

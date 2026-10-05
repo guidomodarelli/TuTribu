@@ -29,6 +29,14 @@ Contexto interno obligatorio: usuario/actor apropiado, tribu, propósito, recurs
 
 Proyectar solo datos necesarios propios. `Sender.channels` indica capacidades; phone/email aislados no bastan. Plantilla OTP es AUTHENTICATION aprobada para sender, con idioma del recurso. Nunca retornar `webhook.secret` u objeto completo. No inventar `senders:read`; comprobar acceso efectivo de operaciones y capacidades reales. [Senders](https://docs.zavu.dev/api-reference/list-senders), [tipos de sender](https://github.com/zavudev/sdk-typescript/blob/ecd7329a08a03f7751afe319a5d5f170af1f48a9/src/resources/senders/senders.ts), [tipos de plantilla](https://github.com/zavudev/sdk-typescript/blob/ecd7329a08a03f7751afe319a5d5f170af1f48a9/src/resources/templates.ts).
 
+## Política propia de países y versión de uso (I1/U1)
+
+`MessagingUsagePolicy.allowedCountries` es la única lista editable por tribu, inicialmente `[]`; su `version` positiva empieza en `1`. El [contrato HTTP](http-api.md) permite inicializar/leer/editar la política antes de tener una conexión o AdmissionPolicy. El asistente guarda países antes del primer diagnóstico SMS/WhatsApp. `AdmissionPolicy` consume un snapshot por `MessagingUsagePolicyReader`, sin copiar una lista mutable ni recibir un DTO del SDK.
+
+Para SMS/WhatsApp de `admission` y `connection_diagnostic`, principal o SMS alternativo, resolver país inequívoco del teléfono normalizado y comparar con la lista propia vigente y restricciones de plataforma/proveedor comprobadas. `[]` bloquea nuevos despachos telefónicos; correo preparado y manual/teléfono/OFF común conservan sus reglas. No inventar API/catálogo de países Zavu, derivar destinos admitidos del país del sender ni prometer todos los países por una prueba limitada.
+
+La versión en cola es solo auditoría (`queuedUsagePolicyVersion`); el intento registra la vigente al autorizar (`authorizedUsagePolicyVersion`). Actualizar países/cupos usa CAS con `expectedVersion`: incrementa una vez por cambio efectivo, no por reserva/envío/replay/no-op. No cambia `verificationEpoch`/`connectionVersion` ni reinicia consumo. [Modelo de países](../data-model.md#country-policy), [versionado](../data-model.md#resource-versioning).
+
 ## Mapping de mensajes
 
 | Propósito/canal | Request del adapter, derivado en servidor |
@@ -47,11 +55,11 @@ Sandbox realiza envíos reales limitados, no pruebas gratuitas universales ni va
 
 1. Persistir evento/desafío y entrega con unique lógico y versión fija; ninguna RPC dentro de esa transacción.
 2. Claim acotado de due work con `leaseToken/leaseUntil/version`; commit.
-3. Transacción nueva revalida estado/época/capacidad, actor/rol/preferencia y presupuesto/vigencia. Reserva cupo y persiste `attemptId/sendAuthorizedAt/in_flight` antes de salir.
+3. Transacción nueva revalida estado/época/capacidad, actor/rol/preferencia, país permitido y política de uso vigente, presupuesto/vigencia. Lee/ordena locks de esa política antes de reservar: `queuedUsagePolicyVersion` no autoriza. Reserva cupo y persiste `attemptId/sendAuthorizedAt/in_flight`, país y `authorizedUsagePolicyVersion` antes de salir.
 4. Recuperar secreto autorizado y ejecutar SDK real fuera de locks, con timeout y sin retries internos. Preservar payload/huella del mismo intent.
 5. Finalizar con CAS del mismo attempt/lease. Respuesta tardía aporta evidencia al intento correcto; no pisa una versión más nueva. Código/envelope se purga cuando deja de necesitarse y al vencer como máximo a diez minutos.
 
-Después del marker se considera posible despacho incluso si murió antes del fetch. Lease sin marker puede reencolar; con marker incierto mantiene cuota y `unknown`. Falta clave/rol antes de autorización no envía. Reducir cupo no cancela mensajes aceptados; revalidar nuevas salidas.
+Después del marker se considera posible despacho incluso si murió antes del fetch. Lease sin marker puede reencolar; con marker incierto mantiene cuota y `unknown`. Falta clave/rol antes de autorización no envía. País retirado antes del marker deja trabajo pendiente `suppressed/recipient_not_allowed` sin RPC ni consumo de intento externo. Cambiar países/cupos después de inicio/accepted/unknown no prueba ausencia de envío ni libera cupo; no promete cancelar lo aceptado. Validar localmente un código ya emitido sigue siendo posible con contexto/TTL/época válidos; pedir otro envío revalida el país actual.
 
 ## Consulta, idempotencia y webhook
 
@@ -67,6 +75,6 @@ AES-GCM/HMAC/keyrings y AAD siguen el modelo; credencial nunca vuelve al UI tras
 
 ## Verificación requerida
 
-SDK real con fetch propio inyectado: auth/sender/canal/false-fallback correctos; defaults/global headers no alteran contexto; sin retry automático; recursos paginados/filtrados; status/código antes de texto; 409 no correlacionable; abort/timeout y marker anterior; A/B intercalado; key/AAD/epoch cruzados; ningún secreto en DTO/log.
+Antes de ensayos externos: país vacío/prohibido, configuración sin conexión, SMS/WhatsApp/diagnóstico/alternativa y correo independiente; reducción con cola antes/después del marker, código vigente validable y policy version actual registrada sin reset de cupo. SDK real con fetch propio inyectado: auth/sender/canal/false-fallback correctos; defaults/global headers no alteran contexto; sin retry automático; recursos paginados/filtrados; status/código antes de texto; 409 no correlacionable; abort/timeout y marker anterior; A/B intercalado; key/AAD/epoch cruzados; ningún secreto en DTO/log.
 
 Ensayos reales separados y autorizados: producción de correo/SMS/WhatsApp, sender/template/idioma exactos, no fallback bajo fallo, clave/permisos/env, dedupe/ventana, consulta por ID, rotación/retiro/costos/países. Un doble valida reglas propias, no entrega externa. La cuenta del líder puede mostrar contenido en el proveedor; no se promete ocultar allí OTP ni borrar su historial.

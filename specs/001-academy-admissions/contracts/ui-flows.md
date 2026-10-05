@@ -34,14 +34,22 @@ Usar Link compartido con prefetch false por defecto; la visita/prefetch es lectu
 
 ## Administración
 
-- **Política:** modalidad/contacto antes de activar, check adicional, excepciones/apertura independientes. Mostrar impacto/defaults/versiones; lista telefónica OFF no guarda. Tipo fijado no cambia. Feature activa sin política no vuelve a ingreso abierto.
+- **Política:** modalidad/contacto antes de activar, check adicional, excepciones/apertura independientes. Resumen de países derivado por puerto de la política de uso, con una sola edición en mensajería. Mostrar impacto/defaults/versiones; lista telefónica OFF no guarda. Tipo fijado no cambia. Feature activa sin política no vuelve a ingreso abierto.
 - **Lista/importación:** buscar/filtrar por tribu, alta/estado, CSV y preview con selección/outcome por fila. Deshabilitar no expulsa; reimport no borra/reactiva/reasigna. Nombre orientativo no sustituye identidad. Reporte trata fórmulas/HTML como datos.
 - **Invitaciones:** nombre interno y destinatario exacto, casilla de lista, expiry o sin vencimiento advertido; mostrar URL una sola vez. Solo nombre editable. Reemplazo/revocación explícitos; canje terminal nunca reciclado.
 - **Bandeja:** más antiguas primero, filtros, fuente/evidencia/eligibilidad y motivo seguro. Liderazgo/guardianes activos deciden; guardián no administra claves/lista/preferencias ajenas. Aprobar no dispensa lista nominativa; rechazo/motivo interno y mensaje externo son campos distintos.
 - **Lote:** hasta 50 filas visibles elegidas; selección e impacto confirmados. Mostrar éxitos/conflictos/pendientes reales, conservar resultados; ninguna fila oculta/repetición silenciosa ni éxito global mixed.
-- **Conexión:** clave protegida en campo efímero, validación sin mensaje, sender/canal/template/idioma y requisitos reales. Form vacío tras guardar; no recupera key. Guardar/editar no prueba. Cada diagnóstico tiene destino y advertencia de consumo más código recibido; versión/canal exactos.
+- **Conexión:** inicio explícito de configuración crea política de uso predeterminada si faltaba, sin exigir key/conexión/AdmissionPolicy; leer/abrir no crea recursos. Para SMS/WhatsApp, elegir y guardar países permitidos antes del primer diagnóstico de candidata. Lista inicial vacía con feedback que impide probar/activar teléfono hasta guardarla; correo sigue independiente. Clave protegida en campo efímero, validación sin mensaje, sender/canal/template/idioma y requisitos reales. Form vacío tras guardar; no recupera key. Guardar/editar no prueba. Cada diagnóstico tiene destino y advertencia de consumo más código recibido; versión/canal exactos.
 - **Rotación/suspensión:** candidata no reemplaza activa antes de confirmación; mostrar dependencias/cupos/historia. Stop urgente disponible; no promete retirar mensaje aceptado. Transferencia suspende antes de nuevos despachos y nuevo líder no ve key anterior.
-- **Consumo:** UTC/ventana y cupos diferenciados, países explícitos, no gasto exacto inferido. Incremento requiere confirmación; reducción afecta cola futura y no aceptación previa. Cuota cero detiene envíos, no dispensa ON.
+- **Consumo:** UTC/ventana y cupos diferenciados, mismos países de MessagingUsagePolicy ya configurables antes del diagnóstico; reutilizar la misma proyección/edición sin otro estado independiente en policy. No gasto exacto inferido. Incremento requiere confirmación; reducción afecta cola futura y no aceptación previa. Cuota cero detiene envíos, no dispensa ON.
+
+## Versiones y conflictos en la interacción (U1)
+
+Lista, metadata de invitación y política de uso reciben `version` positiva del servidor. El container guarda la versión del snapshot mostrado y envía `expectedVersion` junto a operación estable al confirmar cambios sobre ese recurso. Crear recibe `1`, sin versiones inventadas del browser. Un no-op conserva versión; cambio confirmado actualiza la fila/form y su versión desde el resultado propio.
+
+Un `409` conserva draft/selección/progreso, muestra conflicto persistente y permite leer el recurso vigente y confirmar otra operación. No reemplazar el token y reintentar automáticamente con la misma clave. La respuesta de replay conserva versión histórica del commit; el container reconcilia por consulta y no pisa estado más nuevo. Revocación tras canje concurrente muestra el estado actual y exige nueva confirmación del impacto de retirar autorización pendiente.
+
+País retirado con cola muestra supresión de nuevo envío y cómo corregir configuración por líder; no anuncia cancelación del mensaje aceptado ni borra un código/prueba válidos. Países/cupos muestran versión propia, distinta de conexión/época, sin presentar consumo reiniciado al guardar.
 
 ## Feedback, polling y accesibilidad
 
