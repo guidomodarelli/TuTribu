@@ -4,7 +4,7 @@
 
 **Input**: Contrato funcional completo, [technical-contract.md](technical-contract.md), [handoff.md](handoff.md), [traceability.md](traceability.md) y checklist del paquete. Selección efectiva: `.specify/feature.json`, independiente de la rama Git.
 
-**Estado**: fases 0 y 1 de diseño completadas; revisión I1/U1 incorporada sobre los artefactos existentes, 2026-10-05, HEAD de partida `01c0d0fe14caa0b97cd148cf29a9fe75395cfa09`; implementación, recursos y pruebas operativas pendientes. Esta revisión actualiza únicamente diseño; `tasks.md` y su trazabilidad de tareas existentes requieren sincronización mediante el siguiente `$speckit-tasks`. No se implementa código ni se instalan dependencias, ejecutan migraciones, envían mensajes o publica esta entrega.
+**Estado**: fases 0 y 1 de diseño completadas; revisión I1/U1 incorporada y tareas/trazabilidad sincronizadas en `7198047f126bcde6b0a5f0cdb60abf4191903e10`. Implementación iniciada con preparación del entorno y transporte de pruebas; ver [evidencia](research.md#evidencia-de-preparación-t001t002t005--2026-10-05) y [gates](validation/operational-gates.md). Las capacidades de producto, migraciones y pruebas operativas siguen pendientes; ninguna capacidad externa fue activada. El usuario autorizó commit y push de avances con `--no-verify`.
 
 ## Summary
 
@@ -16,9 +16,9 @@ Módulos verticales `academy-admissions` y `messaging` con puertos propios, exte
 
 ## Technical Context
 
-**Language/Version**: TypeScript 7; Next.js 16.3.4 App Router y React 19.3; Node 24, pin `.nvmrc` 24.21.0 y pnpm 12.6.0. El runtime observado 24.14.1 está dentro de engines pero se alinea al pin antes de implementar/validar. Lockfile es autoridad de versiones.
+**Language/Version**: TypeScript 7; Next.js 16.3.4 App Router y React 19.3; Node `24.21.0` según `.nvmrc` y pnpm `12.6.0`, usados en la preparación y validación. Lockfile es autoridad de versiones.
 
-**Primary Dependencies**: Better Auth 1.6.11/Drizzle adapter, Drizzle 0.45.2, pg 8.21 y pg-cloudflare 1.4, Zod 4, beez-ui 0.10, motion 12, libphonenumber-js 1.13.3, OpenNext Cloudflare 1.20.6. Dependencia nueva propuesta: SDK oficial `@zavudev/sdk@0.57.0`, package+lock juntos durante implementación y age/frozen install respetados; no se instala en planificación. Reutilizar verificador Google existente, sin agregar otra librería JWT por duplicación.
+**Primary Dependencies**: Better Auth 1.6.11/Drizzle adapter, Drizzle 0.45.2, pg 8.21 y pg-cloudflare 1.4, Zod 4, beez-ui 0.10, motion 12, libphonenumber-js 1.13.3, OpenNext Cloudflare 1.20.6. SDK oficial `@zavudev/sdk@0.57.0` incorporado con manifest/lockfile coordinados y age/frozen install respetados. Su instalación no acredita la integración productiva ni OG-03. Reutilizar verificador Google existente, sin agregar otra librería JWT por duplicación.
 
 **Storage**: Neon Postgres shared schema; SQL versionado como fuente de policies/guards. Nuevos recursos de admisión/mensajería/auth y extensiones de membresía/notificaciones; crypto envelopes privados, keyrings/época externa en secretos del hosting. R2 es integración existente, no ledger de revocación ya provisto; alternativa no seleccionada.
 

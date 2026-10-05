@@ -1,6 +1,6 @@
 # Research: Academy Admissions and Tenant Messaging
 
-**Fecha**: 2026-10-05. **Fuente local**: `73d289511ba1dcef13ae9204504e780fce421f4b`, más los artefactos locales de esta feature. **Alcance**: inspección estática de código/tipos y documentación pública; sin implementación, instalación de dependencias, consultas a bases reales, APIs autenticadas ni envíos.
+**Fecha**: 2026-10-05. **Fuente de diseño**: `73d289511ba1dcef13ae9204504e780fce421f4b`, más los artefactos locales de esta feature. **Revalidación de implementación**: `7198047f126bcde6b0a5f0cdb60abf4191903e10`. La investigación original fue estática; la preparación posterior y su evidencia se distinguen abajo, sin convertir los gates operativos en pruebas aprobadas.
 
 La investigación resuelve las elecciones del diseño. Los gates operativos al final requieren evidencia posterior y no se presentan como recursos preparados o pruebas aprobadas. El contrato funcional de [spec.md](spec.md) y TC-001 a TC-027 de [technical-contract.md](technical-contract.md) siguen completos y normativos.
 
@@ -31,6 +31,16 @@ La investigación resuelve las elecciones del diseño. Los gates operativos al f
 **Motivo.** Una UI protegida no cierra SQL, acciones antiguas ni reconciliaciones. Se agregará una guarda estructural de procedencia para altas/recuperaciones protegidas y se migrarán los escritores, manteniendo la evaluación compleja en application/domain. El marcador monotónico de activación se almacena separado de la fila de política, en el registro durable de la tribu, y se confirma junto con la activación. El runtime documentado elude RLS ([academy-access.htm:106](../../docs/architecture/academy-access.htm)); la autorización explícita del escritor es obligatoria. RLS sigue cubriendo roles que no la eluden y debe probarse realmente.
 
 **Alternativas.** Solo ocultar el botón, confiar en las policies antiguas o volver al writer abierto en rollback: descartados. No se promete protección frente a un superusuario de base comprometido.
+
+### Evidencia de preparación T001/T002/T005 — 2026-10-05
+
+El inventario R-02 fue revalidado sobre `7198047f126bcde6b0a5f0cdb60abf4191903e10`: persisten el alta directa en `PostgresTribeAcademyAdmissionRepository.join`, la aceptación histórica en `PostgresTribeInvitationRepository.accept`, el cierre legacy y los dos reconciliadores que aún requieren filtro de producto. No hubo cambios de código de negocio entre el diseño revisado y este punto de partida. Los manuales propietarios siguen siendo `user-guides/academy-mode.html` y `user-guides/joining-options.html`; no se presenta la feature futura como un recorrido disponible.
+
+Se verificaron los helpers `createPostgresPool`, `runWithGuardedTransaction` y `withRequestContext`. El único checkout explícito de `src` sigue dentro del helper compartido; Better Auth, refresco de imágenes y backfill de thumbnails usan el pool protegido. No se agregó un pool ni una llamada de proveedor a un render. Esto es evidencia estática y no sustituye OG-06.
+
+Para la preparación se usaron Node `24.21.0` y pnpm `12.6.0`. Se incorporó únicamente `@zavudev/sdk@0.57.0`, publicado el 2026-09-14, con integridad npm en el lockfile; `pnpm install --frozen-lockfile` pasó sin actualizar dependencias ajenas. El transporte propio de `tests/support/admission-provider-transport.ts` ejecuta el SDK y el verificador Google de Better Auth reales contra endpoints registrados, con siete casos verdes de despacho sintético, firma/audience/nonce, pérdida de respuesta, cancelación, cierre de red y restauración del fetch. Ningún caso envía mensajes reales ni acredita un canal Zavu productivo.
+
+La sesión local de Neon se renovó y la API confirmó el proyecto `TuTribu` (`cold-firefly-92947172`). La preparación SQL y los ensayos de ambos roles permanecen pendientes hasta ejecutarse en una rama propia. El estado de los gates se registra en [operational-gates.md](validation/operational-gates.md).
 
 ## R-03 — Membresía, roles y acceso comercial
 
