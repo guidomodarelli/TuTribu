@@ -14,6 +14,19 @@ vi.mock("@/lib/browser-navigation", () => ({
 
 const fetchMock = global.fetch as Mock;
 
+/**
+ * Finds the current status without matching an inert outgoing animation state.
+ *
+ * @param statusText - User-visible synchronization status to assert.
+ * @returns The status exposed to users and assistive technology.
+ */
+function getAccessibleSlugStatus(statusText: RegExp) {
+  return screen.getByText((content, element) =>
+    statusText.test(content) && element !== null &&
+    element.closest('[aria-hidden="true"], [inert]') === null,
+  );
+}
+
 function respondWithJson(body: unknown, status: number) {
   fetchMock.mockResolvedValueOnce(
     new Response(JSON.stringify(body), {
@@ -56,7 +69,7 @@ describe("CreateTribeForm", () => {
 
     expect(screen.getByLabelText(/slug/i)).toHaveValue("tribu-de-algebra");
     expect(screen.getByText(/\/tribu-de-algebra/i)).toBeInTheDocument();
-    expect(screen.getByText(/^sincronizado$/i)).toBeInTheDocument();
+    expect(getAccessibleSlugStatus(/^sincronizado$/i)).toBeInTheDocument();
   });
 
   it("stops syncing the slug once the user edits it manually", async () => {
@@ -71,7 +84,7 @@ describe("CreateTribeForm", () => {
     await user.type(screen.getByLabelText(/nombre de la tribu/i), "Tribu de Historia");
 
     expect(screen.getByLabelText(/slug/i)).toHaveValue("algebra-pro");
-    expect(screen.getByText(/^editado$/i)).toBeInTheDocument();
+    expect(getAccessibleSlugStatus(/^editado$/i)).toBeInTheDocument();
   });
 
   it("keeps syncing when the initial slug already matches the initial name", async () => {
@@ -89,7 +102,7 @@ describe("CreateTribeForm", () => {
     await user.type(screen.getByLabelText(/nombre de la tribu/i), "Tribu de Historia");
 
     expect(screen.getByLabelText(/slug/i)).toHaveValue("tribu-de-historia");
-    expect(screen.getByText(/^sincronizado$/i)).toBeInTheDocument();
+    expect(getAccessibleSlugStatus(/^sincronizado$/i)).toBeInTheDocument();
   });
 
   it("lets the user resync the slug from the tribe name", async () => {
@@ -104,7 +117,8 @@ describe("CreateTribeForm", () => {
 
     expect(screen.getByLabelText(/slug/i)).toHaveValue("tribu-de-algebra");
     expect(screen.getByText(/\/tribu-de-algebra/i)).toBeInTheDocument();
-    expect(screen.getByText(/^sincronizado$/i)).toBeInTheDocument();
+    expect(getAccessibleSlugStatus(/^sincronizado$/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sincronizar con el nombre/i })).toBeDisabled();
   });
 
   it("lets the user apply the suggested slug from a conflict response", async () => {

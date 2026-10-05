@@ -1055,11 +1055,17 @@ describe("TribeEventOccurrenceActivity", () => {
     const user = userEvent.setup();
 
     renderActivity();
+    // The composer loads before the wait-mode list finishes its presence swap.
+    // This scenario requires the replayed comment to already be on screen.
+    const conversation = within(screen.getByRole("region", { name: "Conversación" }));
+    expect(await conversation.findByText("¿Suben las slides?", { selector: "p" })).toBeInTheDocument();
     await user.type(await screen.findByLabelText("Escribí un comentario"), "¿Suben las slides?");
     await user.click(screen.getByRole("button", { name: "Publicar" }));
 
-    await waitFor(() => expect(screen.getByLabelText("Escribí un comentario")).toHaveValue(""));
-    expect(screen.getAllByText("¿Suben las slides?", { selector: "p" })).toHaveLength(1);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Escribí un comentario")).toHaveValue("");
+      expect(conversation.getAllByText("¿Suben las slides?", { selector: "p" })).toHaveLength(1);
+    });
   });
 
   it("retries a failed comment with the same client request id and uses a new one afterwards", async () => {
