@@ -24,14 +24,26 @@
 | `AdmissionOutcomeDto` | Discriminante `outcome:pending/admitted/already_member`; `operationId`, `request?`, `membership?:{status,role}`, `safeMessage`, `nextHref?`. Se actualiza estado local; pertenencia básica no implica grants |
 | `VerificationChallengeDto` | `challengeId,purpose,channel,maskedDestination,expiresAt,resendAllowedAt,deliveryState`, `allowedAlternative?`. Sin código, MAC, envelope, cuenta ajena o cuota consumida en otra tribu |
 | `VerificationResultDto` | `result:verified`, `proofId` opaco solo para admisión y `applyBefore`; diagnóstico devuelve su resultado/versión y no proof de admisión |
-| `AdmissionPolicyDto` | Configuración propia, `version,verificationEpoch`, estado de control/pausa y capacidades necesarias; sin configuración secreta. Su audiencia es leader |
+| `AdmissionPolicyDto` | Configuración propia, `version,verificationEpoch`, estado de control/pausa y capacidades necesarias; resumen de países/versión de uso derivado por puerto propio, sin segunda lista editable. Su audiencia es leader |
 | `MessagingConnectionDto` | `id,providerId,version,state`, máscara genérica, `credentialState,environment`, capacidades/diagnósticos seleccionados, fechas/requisitos faltantes/consumo propio agregado. Sin key completa, project/team/key privados, webhook o ciphertext |
 | `ProviderResourcePageDto` | `items:{id,label,channels,readiness}[]`, `nextCursor?`; plantillas añaden categoría/idioma/aptitud propios. IDs externos se proyectan como referencias autorizadas propias; no retornar el objeto SDK |
 | `AdmissionBatchResultDto` | `operationId,state`, `result:all_succeeded/mixed/all_rejected/incomplete`, `completedCount,failedCount,unresolvedCount`, `items:{requestId,status,version?,code?,safeMessage}[]`. Solo selección explícita, orden estable y resultados confirmados |
 | `AllowlistImportDto` | `importId,expiresAt,sourceVersion`, filas/selección con índices, errores de campos seguros y counts; confirmación devuelve added/unchanged/skipped/conflict por fila y estado de operación |
-| `OperationStateDto` | Identidad/tipo/estado y resultado ya confirmado o indeterminado. Reconciliación del mismo actor/tribu antes de repetir; no request raw, token ni motivos ajenos |
+| `OperationStateDto` | Identidad/tipo/estado y resultado ya confirmado o indeterminado, con versión del commit original cuando aplica. Esa versión no afirma estado vigente; consultar recurso actual por separado. Reconciliación del mismo actor/tribu antes de repetir; no request raw, token ni motivos ajenos |
+| `AllowlistEntryDto` | `id,version,contactType,identity,displayName?,status,source,createdAt,updatedAt`; solo leader de la tribu. `version` entero positivo, sin fingerprint/MAC ni identidad ajena en proyecciones del solicitante |
+| `PersonalInvitationDto` | Metadata privada de leader: `id,version,internalName,recipient,requiresAllowlist,expiresAt,status`, canje/revocación autorizados; sin token. Creación inicial añade `invitationUrl` una sola vez; replay devuelve metadata sin URL |
+| `MessagingUsagePolicyDto` | `version,allowedCountries,verificationDailyLimit,notificationDailyLimit`, máximos de plataforma y consumo propio agregado por separado; version positiva de configuración, sin contadores globales ajenos |
+| `MessagingUsagePolicyStateDto` | `state:not_configured/configured`, `policy:MessagingUsagePolicyDto/null`, defaults de presentación separados cuando falta recurso. No inventar versión persistida al leer ausencia |
 
 `AdmissionReviewDto` amplía únicamente para reviewer actual: cuenta identificada, contacto/evidencia con fuente/fecha/alcance, restricciones nominativas, motivos internos y acciones elegibles. El renderer nunca confunde dato declarado con comprobado. Los DTOs tienen schemas discriminados concretos por operación, no `Record<string,unknown>` público.
+
+## Versiones propias, CAS y recuperación
+
+Aplicar la [regla común de versión](../data-model.md#resource-versioning) para `AllowlistEntry`, `PersonalInvitation` y `MessagingUsagePolicy`: creación server-side en `1`; lecturas y outcomes autorizados incluyen `version`. PATCH/PUT/revoke sobre recurso existente requieren `expectedVersion` entero positivo. No-op con versión vigente conserva el valor; cambio efectivo confirmado incrementa una vez. Las consultas, reservas/contadores y replays no incrementan la versión de configuración. Una versión obsoleta produce `409` sin efectos, incluso si el valor deseado coincide.
+
+Autorización actual e intent normalizado preceden al ledger. Un replay confirmado del mismo `operationId` se resuelve antes del CAS y recupera la versión/outcome del commit original; no se clasifica como conflicto solo por conservar su `expectedVersion` antiguo. Otro intent o `expectedVersion` cambiado con esa identidad es `idempotency_conflict`. Un intent nuevo con versión vieja recibe conflicto de recurso; exige lectura y nueva confirmación/operación. Mantener resultado histórico y vista actual separados para no sobrescribir UI más nueva.
+
+La creación no utiliza `expectedVersion=0`: POST crea versión `1` y está protegido por operation/unique. El canje por `/submissions` conserva su input público y realiza CAS interno de invitación bajo el writer; no expone destinatario ni añade requisito de versión de invitación al solicitante.
 
 ## Solicitante y prueba de contacto
 
@@ -58,20 +70,20 @@ Antes de crear desafío/presentación se devuelve membresía legítima o pendien
 | Método y sufijo | Audience/input | Resultado |
 | --- | --- | --- |
 | GET `/policy` | leader | Policy/configuración sin secreto |
-| PUT `/policy` | sensitiveLeader; campos de política del spec, `expectedVersion,operationId` | Versión nueva/CAS, impacto y épocas. Contact type no cambia una vez activado |
+| PUT `/policy` | sensitiveLeader; campos propios de admisión, `expectedVersion,operationId` | Versión nueva/CAS, impacto y épocas. Contact type no cambia una vez activado. Países se editan en usage-policy, no se acepta aquí una segunda lista |
 | POST `/policy/activate` | sensitiveLeader; `expectedVersion,operationId`, confirmación explícita | Marcador durable y policy se activan juntos tras preflight; nunca activar solo por abrir página |
 | POST `/policy/pause` | sensitiveLeader; `expectedVersion,operationId`, motivo | Cierre de presentaciones/aprobaciones, consulta/rechazo/cancelación disponible |
-| GET `/allowlist` | leader; query/estado/cursor/page-size propios | Lista autorizada paginada; no acceso de solicitante/guardián |
-| POST `/allowlist` | sensitiveLeader; contacto canónico/nombre opcional/operation | Entrada nueva o resultado idempotente; ninguna membership |
-| PATCH `/allowlist/[entryId]` | sensitiveLeader; nombre/estado, expectedVersion/operation | Habilitar/deshabilitar con impacto; no reasignar ni expulsar |
+| GET `/allowlist` | leader; query/estado/cursor/page-size propios | Lista autorizada paginada de AllowlistEntryDto con version; no acceso de solicitante/guardián |
+| POST `/allowlist` | sensitiveLeader; contacto canónico/nombre opcional/operation | Entrada nueva version 1 o replay confirmado; ninguna membership ni version elegida por cliente |
+| PATCH `/allowlist/[entryId]` | sensitiveLeader; nombre/estado, expectedVersion/operation | CAS: cambio efectivo incrementa una vez, no-op vigente conserva version, stale 409; no reasignar ni expulsar |
 | POST `/allowlist/imports` | sensitiveLeader; CSV dentro de límites | Vista previa temporal, sin efectos de lista |
 | GET `/allowlist/imports/[importId]` | mismo leader/contexto autorizado | Estado/filas de preview o progreso conservado |
 | POST `/allowlist/imports/[importId]/confirm` | sensitiveLeader; índices explícitos/version/operation | Revalidación y outcomes por fila; resume solo unidades no confirmadas |
 | GET `/allowlist/imports/[importId]/report` | leader autorizado | Reporte sanitizado, sin fórmulas ejecutables; retención 24 h |
-| GET `/invitations` | leader | Metadata privada autorizada, sin token recuperable |
-| POST `/invitations` | sensitiveLeader; nombre/destinatario/lista/expiry nullable, operation y confirmaciones | Metadata más URL secreta solo en esta respuesta inicial; no invita al portador |
-| PATCH `/invitations/[invitationId]` | sensitiveLeader; solo nombre/expectedVersion/operation | Cambiar destinatario/lista/expiry exige otra emisión |
-| POST `/invitations/[invitationId]/revoke` | sensitiveLeader; expectedVersion/operation/motivo | Revocar activa o autorización canjeada con pendiente; notificación/cancelación atomizadas |
+| GET `/invitations` | leader | PersonalInvitationDto versionado, metadata privada autorizada, sin token recuperable |
+| POST `/invitations` | sensitiveLeader; nombre/destinatario/lista/expiry nullable, operation y confirmaciones | Nueva version 1; URL secreta solo en respuesta inicial. Replay metadata sin URL; no invita al portador |
+| PATCH `/invitations/[invitationId]` | sensitiveLeader; solo nombre/expectedVersion/operation | Rename con CAS/resultado versionado; stale 409. Cambiar destinatario/lista/expiry exige otra emisión |
+| POST `/invitations/[invitationId]/revoke` | sensitiveLeader; expectedVersion/operation/motivo | CAS de acción confirmada; revocar activa o autorización canjeada incrementa y atomiza notificación/cancelación. Cambio de estado concurrente exige nueva lectura/confirmación |
 
 CSV: UTF-8/coma, `identity,display_name`, nombre opcional, 10.000 filas y 5 MiB. Los demás límites de copy y fechas son los del spec. El reintento de creación con URL perdida devuelve metadata y recuperación por revocar/reemitir, no reconstruye token.
 
@@ -95,7 +107,7 @@ Base `/api/tribes/[slug]/messaging`.
 
 | Método y sufijo | Audience/input | Resultado |
 | --- | --- | --- |
-| GET `/configuration` | leader; guardián solo alerta operativa mínima | Metadata propia, ninguna clave |
+| GET `/configuration` | leader; guardián solo alerta operativa mínima | Metadata propia, ninguna clave; estado de política de uso disponible para leader aunque no exista conexión |
 | POST `/connections` | sensitiveLeader; providerId zavu, key efímera, nombre/capacidades requeridas, operation | Candidata/draft cifrada; guardar no despacha ni activa |
 | POST `/connections/[connectionId]/validate` | sensitiveLeader; version/operation | `me.retrieve` autentica/entorno; no canal probado ni mensaje |
 | GET `/connections/[connectionId]/senders` | sensitiveLeader; cursor/limit propio | Página segura; acceso efectivo, continuation y contexto de versión |
@@ -106,9 +118,13 @@ Base `/api/tribes/[slug]/messaging`.
 | POST `/connections/[connectionId]/activate` | sensitiveLeader; version/operation/confirmación | Reemplazo coherente solo tras capacidades dependientes probadas |
 | POST `/connections/[connectionId]/suspend` | sensitiveLeader; motivo y operation | Stop inmediato; compromiso invalida pruebas según scope; no cancela mensaje aceptado |
 | POST `/connections/[connectionId]/disconnect` | sensitiveLeader; resolución de dependencias/operation | Uso cerrado/purga operativa; revocación externa separada |
-| PUT `/usage-policy` | sensitiveLeader; cupos/países dentro de máximos, expectedVersion/operation y confirmación de incremento | Política/impacto; no altera historia ni reinicia contadores |
+| GET `/usage-policy` | leader de la tribu; no exige conexión ni AdmissionPolicy | MessagingUsagePolicyStateDto; consulta sin efectos, version solo de recurso existente |
+| POST `/usage-policy` | sensitiveLeader; operation e inicio explícito de configuración | Crea defaults del spec, allowedCountries vacío y version 1 si falta; si ya existe devuelve estado actual sin sobrescribir/resetear/incrementar. Unique por tribu/replay; sin SDK/envío ni dependencia de conexión |
+| PUT `/usage-policy` | sensitiveLeader; allowedCountries/cupos dentro de máximos, expectedVersion/operation y confirmación de incremento | CAS: cambio efectivo incrementa, no-op vigente conserva version y stale 409; no altera historia ni reinicia contadores |
 | GET `/deliveries/[deliveryId]` | leader o propietario de su desafío, proyección mínima | Transporte propio sin cuerpo/código/credencial |
 | POST `/deliveries/[deliveryId]/recover` | sensitiveLeader; acción compatible/evidencia/motivo/operation | Recuperación autorizada de avisos; sin cambio silencioso de versión ni resend OTP ciego |
+
+`allowedCountries` se guarda mediante usage-policy antes del primer diagnóstico SMS/WhatsApp y de la activación telefónica. El inicio explícito del asistente inicializa defaults si faltaba el recurso; abrir la página/GET no lo crea. Se puede configurar sin key, conexión activa o AdmissionPolicy; solo permisos/recencia de gestión vigentes. Todo envío telefónico admission/connection_diagnostic y SMS alternativo revalida la lista propia vigente y restricciones comprobadas antes del marker de intento. País retirado con trabajo no autorizado: suppressed/recipient_not_allowed sin RPC; intento iniciado/accepted/unknown conserva su tratamiento/cupo. Correo y manual/teléfono/OFF común siguen sus reglas independientes. [Detalle del modelo](../data-model.md#country-policy).
 
 Selección manual de recurso existe cuando la enumeración no está permitida: identificador propio se verifica mediante detalle y/o diagnóstico autorizado que demuestre recurso/canal efectivos. Si no puede validarse, permanece incompleto; escribir un ID no basta. No se aprovisionan recursos ni se modifica el sender por defecto en Zavu.
 
@@ -126,4 +142,4 @@ Una importación conserva filas confirmadas si falla un bloque posterior. La sel
 
 ## Invariantes que deben ejercer los tests del contrato
 
-Inputs extra/ajenos rechazados; schemas públicos reales; cuenta/tribu cruzadas denegadas; GET sin efectos; stale versions/conflictos; códigos locales no globales; secretos/notas internos ausentes; invitación perdida no recuperable; datos declarados nunca vinculantes; sin refresh global salvo excepción de cambio real de contexto de seguridad documentada; abort de consulta sin toast ni estado stale; operación/rows confirmadas preservadas y ninguna repetida por resultado incierto.
+Inputs extra/ajenos rechazados; schemas públicos reales; creación version 1/no sentinel 0, no-op, replay previo al CAS, intent distinto con misma clave, writers competidores/stale 409, canje/revocación e historial vs vista actual; lista de países vacía/prohibidos/reducción en cola y política de uso disponible antes de conexión; cuenta/tribu cruzadas denegadas; GET sin efectos; stale versions/conflictos; códigos locales no globales; secretos/notas internos ausentes; invitación perdida no recuperable; datos declarados nunca vinculantes; sin refresh global salvo excepción de cambio real de contexto de seguridad documentada; abort de consulta sin toast ni estado stale; operación/rows confirmadas preservadas y ninguna repetida por resultado incierto.

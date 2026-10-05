@@ -144,6 +144,28 @@ Barrido estático de pools del repositorio: el checkout explícito está en el h
 
 **Alternativas.** Certificar sandbox como producción, marcar la checklist temática completa o implementar antes de generar/revisar tareas: descartados. MCP `memory` no está disponible; se usó evidencia versionada y fuentes primarias.
 
+## R-15 — Países con owner único y preparación anterior al diagnóstico (I1)
+
+**Decisión.** `MessagingUsagePolicy.allowedCountries`, inicialmente `[]`, es la única lista editable por tribu. `AdmissionPolicy` consulta hechos vigentes mediante `MessagingUsagePolicyReader`, puerto de su dominio con snapshot propio; no guarda otra lista ni importa resultados de otra application/SDK. Lectura/inicio/configuración de uso no requieren conexión ni política de admisión. El inicio explícito del asistente inicializa los defaults; elegir y guardar países precede al primer diagnóstico SMS/WhatsApp de la candidata.
+
+**Motivo.** Evita listas divergentes y una dependencia circular de onboarding respecto de la gestión tardía de consumo. Aplica a todo envío telefónico admission/connection_diagnostic y SMS alternativo; correo y manual/teléfono/OFF común siguen independientes. Revalidar bajo la transacción que autoriza intento/reserva, registrando versión de uso efectiva; el snapshot de cola no autoriza. País retirado antes del marker suprime el nuevo despacho sin RPC, después del inicio no cancela lo aceptado/unknown ni libera cupo. No invalida por sí solo código vigente/prueba/solicitud/membresía.
+
+**Restricciones comprobadas.** Validar país inequívoco de E.164 y reglas conocidas de plataforma/cuenta/canal. No inventar una operación Zavu de países, asumir destinos por país del sender o ampliar alcance por una única prueba; las fuentes versionadas de R-06 siguen siendo la referencia para capacidades reales y los ensayos de OG-03 permanecen pendientes. [Modelo](data-model.md#country-policy), [HTTP](contracts/http-api.md), [mensajería](contracts/messaging-provider.md), [UI](contracts/ui-flows.md).
+
+**Alternativas.** Dos listas editables con precedencia implícita; editar países solo después del diagnóstico/activación; inferir apertura mundial por ausencia de catálogo externo: descartadas. No se introduce otro proveedor o aprovisionamiento.
+
+## R-16 — Versiones mutables, CAS y replay antes del conflicto (U1)
+
+**Decisión.** `AllowlistEntry`, `PersonalInvitation` y `MessagingUsagePolicy` incorporan `version` positiva no nullable, inicialmente `1`, publicada en DTOs autorizados. Mutaciones de recurso existente requieren `expectedVersion`: CAS e incremento único por cambio efectivo dentro del commit. No-op con versión vigente y replay confirmado no incrementan; una versión vieja en operación nueva da `409` incluso si coincide el valor. Creación no pide versión inexistente ni sentinel `0`.
+
+**Recuperación.** Autorización actual → identidad/huella de operación → replay confirmado del mismo intent → CAS para trabajo nuevo. El replay devuelve resultado/versión del commit original, sin presentarlos como estado actual; consulta vigente separada para reconciliar UI. Cambiar expectedVersion con la misma identidad altera intent y da idempotency_conflict. Creación de nominativa recupera solo metadata, nunca URL/token. Se conservan atomicidad, plazos, invocación explícita y checks de audiencia.
+
+**Efectos propios.** Lista: nombre/estado, sin reasignar/editar por reimport. Invitación: rename/revoke/redeem/expiry materializada, revocación separada de autorización canjeada y reemisión como nuevo recurso en `1`; canje realiza CAS interno con input público existente. Uso: solo configuración de países/cupos, no reserva/contadores/envío; versión independiente de verificationEpoch/connectionVersion, con consumo intacto.
+
+**Motivo y fuentes.** Concretar TC-019/022 y el contrato expectedVersion ya previsto, haciendo reproducibles las carreras y recuperación. Se reutilizan transacciones/locks/helpers y reglas de [concurrencia del repositorio](../../docs/conventions/concurrency-observability-performance.htm); sin otra librería o servicio. [Modelo](data-model.md#resource-versioning), [errores](contracts/errors-and-recovery.md), [HTTP](contracts/http-api.md), [quickstart](quickstart.md). Investigación adicional de solo lectura por los agentes de evidencia/mensajería; sin SQL, SDK autenticado o ensayos ejecutados.
+
+**Alternativas.** Última escritura gana; versionar reservas/consumo como configuración; actualizar expectedVersion y repetir automáticamente; rechazar un replay ya confirmado por CAS antiguo: descartadas.
+
 ## Gates operativos conocidos
 
 | Gate | Evidencia requerida antes de activar la capacidad | Resultado mientras falta |

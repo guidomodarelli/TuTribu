@@ -4,7 +4,7 @@
 
 **Input**: Contrato funcional completo, [technical-contract.md](technical-contract.md), [handoff.md](handoff.md), [traceability.md](traceability.md) y checklist del paquete. Selección efectiva: `.specify/feature.json`, independiente de la rama Git.
 
-**Estado**: fases 0 y 1 de diseño completadas; implementación, recursos y pruebas operativas pendientes. No se genera `tasks.md`, no se implementa código ni se instalan dependencias, ejecutan migraciones, envían mensajes o publica esta entrega.
+**Estado**: fases 0 y 1 de diseño completadas; revisión I1/U1 incorporada sobre los artefactos existentes, 2026-10-05, HEAD de partida `01c0d0fe14caa0b97cd148cf29a9fe75395cfa09`; implementación, recursos y pruebas operativas pendientes. Esta revisión actualiza únicamente diseño; `tasks.md` y su trazabilidad de tareas existentes requieren sincronización mediante el siguiente `$speckit-tasks`. No se implementa código ni se instalan dependencias, ejecutan migraciones, envían mensajes o publica esta entrega.
 
 ## Summary
 
@@ -34,7 +34,7 @@ Módulos verticales `academy-admissions` y `messaging` con puertos propios, exte
 
 **Scale/Scope**: Una feature y entrega completa: doce recorridos, tres canales previstos de código, solo correo de avisos, una conexión seleccionada y una candidata por tribu, lotes cincuenta, CSV 10.000/5 MiB. Scope por producto academia; legacy/pagos y derechos existentes se conservan, sin roles globales nuevos.
 
-**Unknowns Resolved**: No quedan decisiones técnicas abiertas. La ausencia de recursos/claims/rol medidos es un gate operativo explícito OG-01 a OG-06; no se transforma en éxito documental ni se omite un requisito.
+**Unknowns Resolved**: I1/U1 se concretan en R-15/R-16, con owner único de países y versiones/CAS/replay explícitos; no quedan decisiones técnicas abiertas en esta revisión. La ausencia de recursos/claims/rol medidos es un gate operativo explícito OG-01 a OG-06; no se transforma en éxito documental ni se omite un requisito.
 
 ## Constitution Check
 
@@ -49,7 +49,7 @@ Gates antes de investigación y reevaluados después del diseño, contra constit
 | RLS/autoridad de writer | Docs de academia indican bypass runtime | Conforme a fuente vigente: guardas explícitas/estructura y pruebas con ambos roles; no confiar solo en RLS |
 | TDD/comportamiento | Casos se definen antes de code | Conforme: matriz individual/test files propuestos; no tests de texto, mocks de plataforma ni prueba ficticia |
 | UI/español/a11y/mobile | DESIGN/primitivas/conventions vigentes | Conforme: presenters/containers, beez-ui, BEM, feedback, hydration/loading y ambos motores |
-| Concurrencia/recuperación/observabilidad | Necesaria por canje/OTP/lotes | Conforme: unicidad/CAS/ledger, outbox/leases, marker antes RPC, unknown/cupo conservados, logs mínimos |
+| Concurrencia/recuperación/observabilidad | Necesaria por canje/OTP/lotes | Conforme: unicidad/CAS/ledger, replay confirmado antes de CAS, versiones propias de recursos, país/versión de uso vigentes antes de marker, unknown/cupo conservados, logs mínimos |
 | Documentación/CHANGELOG | Actualizar junto a comportamiento implementado | Conforme: owners previstos .htm/.html, índices/trazabilidad y Unreleased; artefactos tooling .md aquí |
 | Versiones/entorno/publicación | Pins/lockfile y gates respetados | Conforme: no instalación/deploy/migración/commit en este trabajo; validación real antes de activar |
 
@@ -80,7 +80,7 @@ specs/001-academy-admissions/
     admission-review.md
 ```
 
-`tasks.md` pertenece al siguiente comando, no se crea. Spec/TC normativos no se reescriben; la trazabilidad añade diseño/casos previstos, sin marcar ejecución. Checklist temática conserva sus pendientes.
+`tasks.md` existente pertenece a la etapa de tareas: después de esta revisión debe regenerarse para incorporar países antes de diagnóstico y nuevas reglas de versión; no se reescribe durante planificación. Spec/TC normativos no se reescriben; la trazabilidad añade diseño/casos previstos, sin marcar ejecución. Checklist temática conserva sus pendientes.
 
 ### Source Code (repository root)
 
@@ -160,6 +160,12 @@ Política, lista, excepcionalidad, nominativas y cambios de época siguen cada f
 
 Auth decora/verifica el proveedor instalado y captura mediante AsyncLocalStorage run/getStore, con nonce/intención/recencia para operaciones sensibles. Correo externo o ausencia de hd/autoridad conserva login normal y evidencia insuficiente; falta/antigüedad de auth_time cierra solo la operación sensible, sin abortar login global. No creer `emailVerified`/iat/sesión nueva ni agregar un autenticador global por inferencia. [auth-evidence.md](contracts/auth-evidence.md) concreta ese contrato.
 
+### Países y versiones de recursos (revisión I1/U1)
+
+`messaging` posee `MessagingUsagePolicy.allowedCountries=[]` y su versión positiva inicial `1`; admisión usa el puerto propio `MessagingUsagePolicyReader` y recibe hechos actuales, sin otra lista persistida ni dependencias outward. Lectura/inicio/configuración de uso se habilitan sin conexión/AdmissionPolicy. El asistente inicializa defaults por acción explícita y guarda países antes del primer diagnóstico SMS/WhatsApp de US6, no solo en la gestión de consumo de US11. Todo envío telefónico de admisión/diagnóstico/alternativa revalida país actual y restricciones comprobadas antes de reserva/marker, con versión efectiva auditada; correo y manual/teléfono/OFF común siguen sus reglas.
+
+`AllowlistEntry`, `PersonalInvitation` y `MessagingUsagePolicy` exponen `version` positiva en lecturas. Cambios efectivos CAS incrementan una vez; no-op vigente/replay no incrementan. Una operación nueva con expectedVersion vieja da `409` sin escritura, mientras replay confirmado del mismo intent se resuelve antes del CAS y conserva versión histórica del commit, separada de consulta actual. La versión de uso no modifica épocas/conexión ni consumo; quitar país suprime trabajo no autorizado y conserva códigos vigentes/intentos iniciados conforme al modelo. [R-15/R-16](research.md), [países](data-model.md#country-policy), [versionado](data-model.md#resource-versioning).
+
 ### Cierre de caminos antiguos y fundamento básico
 
 Inventario R-02 cubre API/action/SQL/invitación vieja, checkout abierto, webhook y ambos reconciliadores. Runtime bypass exige writer autoritativo más guarda estructural de fuente/versión/consumo; rules complejas permanecen en app/domain. Marcador de control separado de policy en la tribu; borrar policy/flag no vuelve a writer abierto.
@@ -185,7 +191,7 @@ La siguiente fase transforma este diseño en tareas dependency-ordered con tests
 1. Fijar baseline de contratos/rutas/datos/roles; preflight histórico y gates externos. Definir casos mínimos de autoridad, crypto y writer antes de adaptarlos.
 2. Infraestructura/DDL versionada, campos de moderación/fundamento/control, pruebas reales del SQL y ports/domain de admisión/auth/mensajería. Rollout todavía cerrado.
 3. Casos de configuración/evidencia/solicitud/lista/import/nominativa/decisión y puertos de notification/outbox; migrar todos los writers antiguos/pagos necesarios, probar rollback y carreras.
-4. SDK/capacidades/diagnósticos/rotación/dispatcher y consumers/clientes de resultados propios. No se marca canal como probado con dobles ni se habilita retry ambiguo por arquitectura solamente.
+4. Política de uso consultable/inicializable sin conexión, selección y guardado de países antes de diagnóstico telefónico; SDK/capacidades/diagnósticos/rotación/dispatcher y consumers/clientes de resultados propios. No se marca canal como probado con dobles ni se habilita retry ambiguo por arquitectura solamente.
 5. Entry points SSR/containers/presenters, alertas/preferencias/copy/móvil y ambos motores; integración y regresiones de Membership/Academy/course/legacy.
 6. Ensayos autorizados y medición SC, documentos/manuales/CHANGELOG, activación explícita por tribu solo después del inventario completo. Las prioridades no autorizan entregar scope parcial como feature completa.
 
@@ -205,6 +211,8 @@ No nuevas violaciones de constitución. Complejidad necesaria: dos slices cohesi
 
 ## Estado de cierre del diseño
 
-Investigación/resoluciones y modelo/interfaces/guía completados. Speckit selecciona esta carpeta mediante feature.json; hooks before/after_plan no están registrados. El siguiente comando es `$speckit-tasks`, con alcance completo y gates/casos pendientes conservados. Esta entrega no acredita funcionamiento de la feature ni recursos externos preparados.
+Investigación/resoluciones y modelo/interfaces/guía completados; R-15/R-16 incorporan las decisiones aprobadas para I1/U1. Speckit selecciona esta carpeta mediante feature.json; hooks before/after_plan no están registrados. El siguiente comando es `$speckit-tasks`: sincronizar tareas/IDs/dependencias/trazabilidad con la configuración temprana de países y versiones/CAS/replay, conservando todos los IDs normativos y gates/casos pendientes. Esta entrega no acredita funcionamiento de la feature ni recursos externos preparados.
 
-Validación de artefactos: cuerpo normativo y TC sin cambios; 142 FR, 71 AC, 45 EC, 21 SC, 24 D y 27 TC presentes individualmente en trazabilidad; tablas Markdown y 655 enlaces relativos comprobados. El checker instalado reconoce research/data-model/contracts/quickstart. `pnpm run lint` y `pnpm run typecheck` pasaron. No se ejecutaron tests nuevos, SQL, ensayos de proveedor ni UI de esta feature; sus archivos todavía son propuestos. MCP memory no disponible; contexto versionado y fuentes públicas documentadas. Todo quedó local, sin commit/push.
+Validación registrada en la planificación original: cuerpo normativo y TC sin cambios; 142 FR, 71 AC, 45 EC, 21 SC, 24 D y 27 TC presentes individualmente en trazabilidad; tablas Markdown y 655 enlaces relativos comprobados. El checker instalado reconoce research/data-model/contracts/quickstart. `pnpm run lint` y `pnpm run typecheck` pasaron. No se ejecutaron tests nuevos, SQL, ensayos de proveedor ni UI de esta feature; sus archivos todavía son propuestos. MCP memory no disponible; contexto versionado y fuentes públicas documentadas. Todo quedó local, sin commit/push.
+
+La revisión I1/U1 preserva el resto del diseño y los artefactos normativos. La validación actual comprueba cambios acotados, enlaces/tablas y conservación; los casos nuevos de país/versionado de quickstart siguen previstos, sin ejecución de producto. `tasks.md`/`traceability.md` y checklists se conservan sin modificar en este comando para su siguiente etapa.

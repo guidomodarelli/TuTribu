@@ -48,16 +48,56 @@ En la rama efímera:
 | V-02 Identidad | Google firmado Gmail/Workspace/external, hd ausente, header/issuer/aud/sub/nonce/exp incorrectos; callbacks A/B | Base solo acreditada, global login separado, datos browser sin autoridad |
 | V-03 Recencia | auth_time reciente/antiguo/ausente, sesión renovada, cuenta distinta, intento repetido y liderazgo perdido | Diez minutos acreditados o cierre de acción sensible; ningún OTP BYOK global |
 | V-04 Contacto/código | Correo/SMS/WhatsApp, ON/OFF, cinco fallos, ventanas globales, resend/SMS alternativo, cuota agotada | Uso único/contexto/época correctos; anteriores inválidos; código vigente validable sin nuevo envío |
-| V-05 Lista/CSV | 10.000 filas, cinco MiB, datos/formato inválidos, HTML/fórmulas, duplicados/deshabilitados/reimport/concurrencia | Preview sin efectos, outcomes por fila, sin reasignar/reactivar/eliminar, reporte seguro/purga |
-| V-06 Invitación | Personal/common/historical, lista obligatoria/dispensa, expiry opcional, wrong-account/preview, perdido/revocado/canjeado | Un canje válido máximo; token una vez; no vía común silenciosa ni reciclar terminal |
+| V-05 Lista/CSV | 10.000 filas, cinco MiB, datos/formato inválidos, HTML/fórmulas, duplicados/deshabilitados/reimport/concurrencia y version de entrada/no-op/stale | Preview sin efectos, outcomes por fila, sin reasignar/reactivar/eliminar, CAS 409 sin overwrite, reporte seguro/purga |
+| V-06 Invitación | Personal/common/historical, lista obligatoria/dispensa, expiry opcional, wrong-account/preview, perdido/revocado/canjeado y versiones/canje-revoke concurrentes | Un canje válido máximo, CAS interno/admin 409 y metadata versionada; token una vez; no vía común silenciosa ni reciclar terminal |
 | V-07 Decisiones | Individual/lote 50, motivos/versiones, aprobar/rechazar concurrentes, pausa/expiry, proof adjunta días después | Una terminal coherente con membresía/eventos; mixed real, sin inventar commits |
-| V-08 Conexión/secretos | me, recursos paginados, candidata, prueba por versión/canal, rotación/compromiso/retiro/transferencia | Credencial distinta de canal probado; nunca key/OTP/DTO raw en salida; permisos actuales |
-| V-09 Entrega/cupos | Marker antes RPC, crash/timeout/lease, 409, A/B, último cupo concurrente, reducción/cambio key | Unknown conserva identidad/cupo y no rePOST ciego; no cruce de contexto ni cambio de pagador |
+| V-08 Conexión/secretos | Inicialización/países sin conexión antes de diagnóstico telefónico, me, recursos paginados, candidata, prueba por versión/canal, rotación/compromiso/retiro/transferencia | Credencial distinta de canal probado; nunca key/OTP/DTO raw en salida; permisos actuales |
+| V-09 Entrega/cupos | Marker antes RPC, crash/timeout/lease, 409, A/B, último cupo concurrente, reducción/cambio key, países/version de uso vigente | Unknown conserva identidad/cupo y no rePOST ciego; país retirado antes de marker suprime sin RPC; no cruce de contexto/pagador/reset |
 | V-10 Avisos/scheduler | Sin proveedor, email independiente/preferencias/rol perdido, grupo/diario/reminder, poll/lista/cursor | Estado interno persistente y propio; no historial retroactivo; correo no revierte decisiones |
 | V-11 Regresión/corte | Vías gratuitas/pagas/directSQL/invitación vieja/reconcile, grants, muted, fundamentos y rollout/restore | Ningún bypass; solo base; moderación/fuentes comerciales preservadas; cierre posterior a activar |
 | V-12 UI/seguridad/operación | Teclado/lector, 390/1280, Chrome/WebKit, hydration/loading/errors, métricas/retención | Estados/copy recuperables, sin datos/roles ajenos ni información sensible |
 
 La matriz no sustituye los 71 escenarios, 45 EC, 21 SC ni 142 FR. `traceability.md` conserva cada uno individualmente y los relaciona con estos grupos, archivos/casos propuestos y documentación.
+
+## 4.1. Revisión I1: países antes de diagnóstico y por intento
+
+Casos previstos; ejecutarlos después de sincronizar tareas/implementar. [Modelo](data-model.md#country-policy), [HTTP](contracts/http-api.md) y [mensajería](contracts/messaging-provider.md) fijan el contrato completo. Usar transporte propio/puertos para reglas y SDK real en su borde; ensayos externos siguen sujetos a OG-03/autorización.
+
+| Precondición / acción | Resultado requerido | Grupo |
+| --- | --- | --- |
+| Leader válido, ninguna conexión/AdmissionPolicy; leer usage-policy | not_configured/defaults sin versión persistida ni efectos/SDK | V-08 |
+| Inicio explícito del asistente; inicializar uso | Defaults del spec, allowedCountries [], version 1; carrera de inicialización devuelve existente sin reset/duplicado | V-08/V-09 |
+| [] y candidata SMS/WhatsApp preparada; pedir diagnóstico o activar teléfono | Sin despacho/activación telefónica; feedback de países antes de la prueba; sin consumo de intento externo | V-01/V-08 |
+| Guardar países con expectedVersion antes del primer diagnóstico | Un único owner, nueva versión efectiva, usable sin conexión activa; AdmissionPolicy lee por puerto | V-01/V-08 |
+| Número ambiguo o país body incoherente con E.164 | Corrección/denegación; nunca adivinar país ni usar el body para evitar restricciones | V-04/V-09 |
+| País fuera de lista o restricción de plataforma/proveedor comprobada; código/diagnóstico/SMS alternativo | Sin RPC ni sustitución de canal/destino; no catálogo Zavu inventado | V-04/V-08/V-09 |
+| [] en manual/teléfono/OFF común y correo preparado | Solicitud manual/avisos internos y correo autorizado independientes; no nueva nominativa phone OFF | V-01/V-04/V-10 |
+| Cola creada con país permitido; quitarlo antes de marker | Reload de uso actual, suppressed/recipient_not_allowed sin RPC ni cupo externo; request/abuse counts conservados | V-09 |
+| Retirar país después de inicio/accepted/unknown | Estado/cupo/identidad conservados, sin prometer cancelación ni rePOST | V-09 |
+| Código válido ya emitido o prueba aplicada; quitar país | Validación local/evidencia conserva contexto/TTL/época; nuevos envíos/reenvíos restringidos, sin borrar pending/membership | V-04/V-09 |
+| Cambiar países o cupos y revisar consumo/épocas/conexión | Incremento de configuración único; sin reset, cambio de verificationEpoch o connectionVersion; registrar versión efectiva del intento | V-08/V-09 |
+
+## 4.2. Revisión U1: versiones, no-op, CAS y replay
+
+Ejercer los mismos casos para lista, metadata de invitación y política de uso, con SQL real y DTOs propios/validators reales. Las precondiciones incluyen audiencia y rol/estado vigentes. [Regla común](data-model.md#resource-versioning), [recuperación](contracts/errors-and-recovery.md).
+
+| Precondición / acción | Resultado requerido | Grupo |
+| --- | --- | --- |
+| Crear recurso nuevo mediante acción autorizada | version 1 positiva no nullable; DTO de lectura/result la expone; sin expectedVersion 0 | V-05/V-06/V-08 |
+| Input expectedVersion 0/negativo/fracción/no seguro en actualización | Rechazo de input antes de efectos; ningún recurso/operación aceptada inventados | V-05/V-06/V-08/V-12 |
+| Misma versión vigente, valores normalizados iguales | unchanged, versión/counters intactos y sin evento/entrega duplicados | V-05/V-06/V-09 |
+| Misma versión vigente, varios campos efectivos cambiados | Un commit y un incremento por comando, resultado/versión confirmados | V-05/V-06/V-09 |
+| Nueva operación con versión antigua, incluso valor ahora coincidente | 409 conflict de recurso; sin overwrite/auto retry, draft conservado | V-05/V-06/V-09/V-12 |
+| Dos writers con misma versión y cambios efectivos distintos | Solo un commit; otro 409, nueva lectura/confirmación con otra identidad | V-05/V-06/V-09 |
+| Se pierde respuesta tras commit; replay del mismo operation/intent esperado antiguo | Resultado/versión del commit original antes de CAS; cero incremento/efecto adicional | V-05/V-06/V-09 |
+| Cambia recurso después del commit original; llega replay/response tardía | Versión histórica distinguida de consulta vigente; UI no pisa versión más nueva | V-05/V-06/V-12 |
+| Misma identidad con expectedVersion/payload cambiado | idempotency_conflict; no nueva aceptación ni actualización silenciosa | V-05/V-06/V-09 |
+| Invitación rename/revoke/redeem/expiry materializada; canje-revoke competidores | Incremento una vez por transición efectiva; CAS interno de canje, admin stale 409, terminales/cancelación/eventos atómicos | V-06/V-07 |
+| GET deriva expiry o invitación ya canjeada alcanza plazo viejo | Sin escritura/incremento por lectura; canjeada no vence ni se recicla | V-06 |
+| Reemitir o repetir creación con enlace inicial perdido | Nuevo recurso version 1 por reemisión; replay original solo metadata, nunca URL/token recuperado | V-06 |
+| Importar duplicados, aplicar binding, reservar/consumir cupo o consultar | Semántica original conservada; no incremento si el recurso configurado no cambia ni reset de contadores | V-05/V-09 |
+
+Estos casos concretan FR-009/065/066/070/072/086/089/098/131, EC-10/11/17/28/35/36, SC-001/005/009/010/011/017 y TC-019/020/021/022/024/026 según corresponda; no renumeran ni sustituyen sus obligaciones. La próxima etapa de tareas debe crear/asignar los casos concretos por archivo y actualizar trazabilidad. Todos siguen pendientes.
 
 ## 5. Carreras que no pueden omitirse
 
@@ -68,6 +108,8 @@ La matriz no sustituye los 71 escenarios, 45 EC, 21 SC ni 142 FR. `traceability.
 - Rol/estado del actor o solicitante cambia con locks retenidos; comprobar autoridad y reloj después de esperar, no solo al entrar.
 - Respuesta perdida después de commit: mismo operation id devuelve resultado, no crea otra solicitud/decisión/invitación/claim.
 - CSV bloque posterior falla: resultados previos se conservan; retry solo pendientes elegibles. Lote DB-only rollback no reporta éxitos inventados.
+- Cambio de países/cupos mientras espera la reserva/marker: evaluar versión/política vigente bajo locks, suprimir solo trabajo aún no autorizado y conservar cupo de intento iniciado.
+- Dos cambios de entrada/invitación/uso con expectedVersion igual; respuesta perdida/replay frente a cambios posteriores: un efecto, CAS para nuevos intents y replay confirmado antes de CAS.
 - Crash entre `send_authorized_at` y RPC/finalización: unknown conservador. Lease local no habilita otro POST; payload distinto con misma idempotencia no se toma como éxito.
 
 ## 6. Regresiones de pertenencia y fuentes
@@ -99,7 +141,7 @@ Recorrer manual común OFF sin Zavu, lista de correo base, teléfono lista invá
 
 No ejecutarlos sin autorización y recursos del pagador. Separar producción de sandbox, que también envía realmente y no prueba sender productivo/email/SMS. Por cada canal/versión registrar actor, fecha, request id, resultado e IDs sanitizados, sin key/código/destinatario completo.
 
-Probar me/autenticación/permisos, sender/capacidad, template/idioma, diagnóstico con código recibido, A/B intercalado, ausencia de fallback bajo fallo WhatsApp, restricciones de país/destino, saldo/degradación/rotación y retirada. Sin recurso preparado, marcar pendiente y no sustituirlo por un mock productivo.
+Inicializar la política de uso y guardar allowedCountries/version antes de cualquier diagnóstico telefónico; comprobar []/país rechazado mediante transporte controlado sin enviar a destinos no autorizados. Probar me/autenticación/permisos, sender/capacidad, template/idioma, diagnóstico con código recibido, A/B intercalado, ausencia de fallback bajo fallo WhatsApp, restricciones de país/destino, saldo/degradación/rotación y retirada. Sin recurso preparado, marcar pendiente y no sustituirlo por un mock productivo.
 
 Deduplicación exige evidencia de ventana/scope, mismo payload y payload distinto, timeout/409 original. Sin ella mantener unknown/no rePOST. Consulta por ID propio; no enumerar historial para buscar una clave que la API no consulta.
 

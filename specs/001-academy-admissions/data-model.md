@@ -37,7 +37,9 @@ No almacena otro JWT, access/refresh token ni respuesta completa. El adapter ver
 
 ### `AdmissionPolicy` → `academy_admission_policies`
 
-Una fila por tribu: `mode`, `contact_type`, `is_open`, `allow_common_exceptions`, `requires_additional_verification`, canal telefónico principal, SMS alternativo permitido, países permitidos, referencias autorizadas de conexión/capacidad, `verification_epoch`, `version`, `activated_at`, timestamps/actor del cambio. El marcador monotónico `tribes.admissions_control_activated_at` está separado de esta fila y se escribe en el mismo commit de primera activación. Admisión, conexión y correo de notificaciones siguen siendo configuraciones independientes.
+Una fila por tribu: `mode`, `contact_type`, `is_open`, `allow_common_exceptions`, `requires_additional_verification`, canal telefónico principal, SMS alternativo permitido, referencias autorizadas de conexión/capacidad, `verification_epoch`, `version`, `activated_at`, timestamps/actor del cambio. El marcador monotónico `tribes.admissions_control_activated_at` está separado de esta fila y se escribe en el mismo commit de primera activación. Admisión, conexión y correo de notificaciones siguen siendo configuraciones independientes.
+
+`AdmissionPolicy` no almacena otra lista editable de países. Application obtiene la política de uso actual mediante el puerto propio `MessagingUsagePolicyReader`, definido en el dominio de admisión con una proyección interna mínima: `tribeId`, `version`, `allowedCountries` y restricciones de plataforma comprobadas necesarias para decidir. El dominio recibe hechos propios; no importa application/infrastructure de mensajería ni DTOs Zavu. La proyección se resuelve por tribu autorizada y no se usa como permiso aportado por el cliente. [Países y despacho](#country-policy).
 
 - Defaults y combinaciones son exactamente la matriz del spec. Teléfono/lista/OFF es inválido; manual/teléfono/OFF admite enlace común con advertencia, sin nuevas invitaciones telefónicas.
 - `contact_type` queda fijado al activar. Cambios restantes usan expected version y CAS. OFF→ON incrementa época; ON→OFF invalida desafíos/pruebas no aplicadas y no aprueba pendientes.
@@ -46,9 +48,9 @@ Una fila por tribu: `mode`, `contact_type`, `is_open`, `allow_common_exceptions`
 
 ### `AllowlistEntry` → `academy_allowlist_entries`
 
-`id`, `tribe_id`, tipo/contacto normalizado, fingerprint protegido, `display_name` opcional, `enabled/disabled`, origen, importación/actor y timestamps. Único por tribu/tipo/contacto canónico. Índices de búsqueda/estado dentro de la tribu; no se colapsan puntos, etiquetas o alias. Teléfono requiere país inequívoco y E.164 mediante el `libphonenumber-js` ya declarado.
+`id`, `tribe_id`, tipo/contacto normalizado, fingerprint protegido, `display_name` opcional, `enabled/disabled`, `version` entero positivo no nullable con valor inicial `1`, origen, importación/actor y timestamps. Único por tribu/tipo/contacto canónico. Índices de búsqueda/estado dentro de la tribu; no se colapsan puntos, etiquetas o alias. Teléfono requiere país inequívoco y E.164 mediante el `libphonenumber-js` ya declarado.
 
-Nombre orientativo no es identidad. Deshabilitar no libera vínculo ni expulsa miembros. El lector de lista es líder activo; el solicitante no recibe coincidencias ni identidades ajenas. La importación no sustituye toda la lista ni reactiva filas.
+Nombre orientativo no es identidad. Cambiar nombre o `enabled/disabled` usa `expectedVersion` y CAS; un cambio efectivo incrementa `version` una vez por comando, mientras un no-op con versión vigente conserva el valor. Importar una entrada nueva crea versión `1`; duplicados conservan `unchanged/conflict`, sin editar/reactivar automáticamente. El vínculo pertenece a otra entidad: su aplicación no incrementa esta versión si la entrada no cambia. [Regla común de versiones](#resource-versioning). Deshabilitar no libera vínculo ni expulsa miembros. El lector de lista es líder activo; el solicitante no recibe coincidencias ni identidades ajenas. La importación no sustituye toda la lista ni reactiva filas.
 
 ### `AdmissionContactBinding` → `academy_admission_contact_bindings`
 
@@ -78,7 +80,7 @@ Pertenece a `messaging`: actor líder, tribu, conexión/versión, canal/template
 
 ### `PersonalInvitation` → `academy_personal_invitations`
 
-`id`, tribu, creador, nombre interno, tipo/destinatario normalizado, fingerprint, `requires_allowlist`, `expires_at` nullable, `active/revoked/expired/redeemed`, hash de token y keyId, timestamps, cuenta/solicitud de canje y revocación de autorización separada.
+`id`, tribu, creador, nombre interno, tipo/destinatario normalizado, fingerprint, `requires_allowlist`, `expires_at` nullable, `active/revoked/expired/redeemed`, `version` entero positivo no nullable con valor inicial `1`, hash de token y keyId, timestamps, cuenta/solicitud de canje y revocación de autorización separada.
 
 - Token de alta entropía; no plaintext ni ciphertext recuperable. Enlace completo solo en la respuesta inicial de creación. Si se pierde la respuesta/enlace, consultar metadata y revocar/reemitir; no reconstruir el token desde el historial.
 - Una invitación utilizable no canjeada por destinatario/tribu. Reemplazo requiere confirmación. Solo nombre interno es editable; resto se revoca/reemite.
@@ -86,6 +88,8 @@ Pertenece a `messaging`: actor líder, tribu, conexión/versión, canal/template
 - Canje exige evidencia del destinatario/política y confirmación; apertura/preview/login/OTP no consume. Pendiente/membresía existente devuelve su estado antes de consumir otra.
 - Canje y solicitud/decisión/vínculo/eventos son una transacción. Rechazo/cancelación/expiración no recicla enlace. Revocar autorización de canje con pendiente cancela esa solicitud; no expulsa después de admitir.
 - Tabla distinta de la invitación comercial histórica: sus asociaciones y token recuperable no satisfacen este contrato.
+- Renombrar, revocar, canjear y materializar `active → expired` son cambios efectivos: incrementan una vez por comando confirmado. Revocar la autorización canjeada incrementa la versión y conserva `redeemed`, atomizando la cancelación/notificación de una pendiente. Reemitir crea otro recurso en versión `1`. Leer el vencimiento deriva la disponibilidad sin escribir/incrementar; el mantenimiento materializa la transición una sola vez. Una canjeada no vence por el plazo antiguo del enlace.
+- Las mutaciones administrativas exigen `expectedVersion`. El canje conserva el input público existente: el writer lee la versión de la invitación y aplica CAS interno bajo locks, junto a solicitud/decisión/vínculo/eventos. No requiere una nueva versión de invitación enviada por el solicitante. Una carrera revocación/canje permite una transición; si cambia el estado antes de una revocación administrativa, la versión antigua produce `409` y requiere lectura/confirmación nueva, sin convertir el intento en otra acción automáticamente. [Regla común](#resource-versioning).
 
 ### `AdmissionRequest` → `academy_admission_requests`
 
@@ -135,7 +139,7 @@ Keyrings server-only externos a la base; no son `vars`, DTOs, fixtures reales ni
 
 ### `MessageDelivery` / `MessageDeliveryAttempt`
 
-Entrega: evento/desafío/diagnóstico autorizado, tribu, conexión/versión y época fijadas, canal, destinatario por referencia privada, identidad lógica/idempotency key, huella del payload con `payload_mac_key_id`, datos mínimos congelados para el mismo intent, estado, due/deadline, `lease_token/lease_until/version` y último outcome. Intento: `attempt_id`, secuencia única, reserva, `send_authorized_at` y estado `in_flight` persistidos antes de RPC, fin, correlation id, provider message id cuando existe y razón técnica sanitizada. Un proceso muerto después del marcador es posible envío aunque haya muerto antes de llamar; nunca se interpreta como ausencia demostrada de despacho.
+Entrega: evento/desafío/diagnóstico autorizado, tribu, conexión/versión y época fijadas, `queued_usage_policy_version`, canal, destinatario por referencia privada, identidad lógica/idempotency key, huella del payload con `payload_mac_key_id`, datos mínimos congelados para el mismo intent, estado, due/deadline, `lease_token/lease_until/version` y último outcome. Intento: `attempt_id`, secuencia única, reserva, `send_authorized_at`, `authorized_usage_policy_version`, país telefónico normalizado cuando aplica y estado `in_flight` persistidos antes de RPC, fin, correlation id, provider message id cuando existe y razón técnica sanitizada. Un proceso muerto después del marcador es posible envío aunque haya muerto antes de llamar; nunca se interpreta como ausencia demostrada de despacho.
 
 `queued/accepted/delivered/failed/unknown/suppressed/cancelled` conservan la semántica del spec. `sent/read` del proveedor solo informa transporte; jamás crea prueba ni membresía. Unique de evento/destinatario/propósito evita obligaciones duplicadas; ID del proveedor se correlaciona solo dentro de su conexión/tribu.
 
@@ -145,9 +149,25 @@ El envelope OTP permanece separado, solo durante necesidad de despacho/reconcili
 
 ### `MessagingUsagePolicy` / `MessagingUsageReservation`
 
-Política por tribu: cupos separados de verificaciones/notificaciones, países y máximos de plataforma. Reservas/contadores por desafío, actor, fingerprint de contacto con `fingerprint_key_id`, tribu, propósito y ventana, con unique por intento externo. Ventanas horarias móviles y día UTC; agregado entre tribus para cuenta/contacto. Puentes de keyring mantienen comparación/consumo durante rotación. No hay consulta pública que revele dónde se consumió el límite.
+Política por tribu: cupos separados de verificaciones/notificaciones, `allowedCountries` —campo persistido `allowed_countries`, única lista editable de países por tribu, inicialmente `[]`—, máximos de plataforma y `version` entero positivo no nullable con valor inicial `1`. Reservas/contadores por desafío, actor, fingerprint de contacto con `fingerprint_key_id`, tribu, propósito y ventana, con unique por intento externo. Ventanas horarias móviles y día UTC; agregado entre tribus para cuenta/contacto. Puentes de keyring mantienen comparación/consumo durante rotación. No hay consulta pública que revele dónde se consumió el límite.
 
 Todas las cifras/defaults son las del spec. Diagnósticos/SMS alternativo comparten cuota de verificación; validación de credencial tiene su propio límite sin enviar. Reservar consistentemente el último cupo; revalidar reducción antes de despacho. Solo liberar con evidencia de ausencia de despacho. Clave/canal/versión no reinicia contadores. Rotación de la clave de índices debe conservar puentes/contadores durante todas las ventanas; si no se puede mantener continuidad, cerrar nuevos envíos hasta reconciliar o vencer esas ventanas, no empezar presupuesto desde cero.
+
+<a id="country-policy"></a>
+
+#### Países, configuración inicial y despacho (I1)
+
+El owner `messaging` crea la política de uso con los defaults del spec y `version=1` durante una acción explícita de inicio de configuración; no requiere conexión ni `AdmissionPolicy`. La inicialización concurrente usa unicidad por tribu: si ya existe devuelve la política vigente, sin reemplazar defaults/países/cupos ni reiniciar versión/consumo. GET solo consulta: si aún no existe, retorna ausencia y defaults de presentación separados, sin persistir ni fingir una versión de recurso existente. La posterior elección de países se guarda con `expectedVersion`; el asistente ofrece este paso antes del primer diagnóstico SMS/WhatsApp y antes de activar teléfono.
+
+`allowedCountries` es un conjunto normalizado de códigos de país inequívocos del normalizador adoptado, sin duplicados ni orden significativo. El teléfono se normaliza a E.164 y su país se comprueba coherente; el servidor no usa un país arbitrario del body para eludir una restricción. Comparar el conjunto normalizado permite distinguir cambios efectivos de reordenamientos/no-op.
+
+Todo envío SMS/WhatsApp de `admission` o `connection_diagnostic`, incluido SMS alternativo, debe pertenecer a ese conjunto y cumplir restricciones de plataforma/cuenta/canal efectivamente comprobadas. No se inventa un endpoint/catálogo Zavu de países ni se infiere alcance por el país del sender, el prefijo de una key o una única entrega exitosa. Ausencia de una lista publicada no habilita envíos mundiales: la lista propia sigue siendo obligatoria y los requisitos de recurso/capacidad se comprueban según el contrato.
+
+`[]` impide nuevos despachos telefónicos y la primera activación de verificación por teléfono. No impide correo preparado ni enlace común manual/teléfono/OFF con contacto declarado opcional; no vuelve canjeable una nominativa telefónica OFF ni dispensa otra condición.
+
+Cada nuevo intento lee la política de uso vigente bajo el límite transaccional que autoriza reserva/marker, antes de SecretStore/RPC. La entrega conserva `queued_usage_policy_version` como dato de auditoría; el intento registra `authorized_usage_policy_version` vigente y país normalizado. Una copia en cola o enviada por cliente no autoriza el despacho. Si se retiró el país antes del marker, la entrega pendiente queda `suppressed` con razón segura, sin RPC ni presupuesto de intento externo consumido; los contadores de solicitud/abuso ya aplicados conservan su vigencia. Un intento iniciado/aceptado/`unknown` conserva su identidad/estado y cupo; no se promete cancelarlo ni se rePOSTea.
+
+Cambiar países incrementa solo la versión de configuración de uso cuando cambia el conjunto. No modifica `verification_epoch` ni `connectionVersion`, no reinicia consumo y no invalida por sí solo un código vigente/prueba aplicada/solicitud/membresía. La validación local mantiene contexto/TTL/época y controles existentes; un nuevo envío/reenvío vuelve a comprobar la restricción actual.
 
 ## H. Notificaciones, auditoría y medición
 
@@ -173,9 +193,23 @@ Actor/tribu/recurso, operación/regla, causa, versión, transiciones y tiempo; m
 - `notifications`: ampliar tipos/payloads propios, predicado de visibilidad para solicitante, productores y DTOs/copy; mantener contratos existentes para otros tipos. Referencias a recursos retirados conservan estado propio mínimo sin abrir datos.
 - Ninguna tabla existente se presupone ya provista de esos campos. Todas las modificaciones requieren migraciones versionadas y adaptación de schema/repositorios/pruebas en la implementación.
 
+<a id="resource-versioning"></a>
+
+## Versionado de recursos mutables (U1)
+
+`AllowlistEntry`, `PersonalInvitation` y `MessagingUsagePolicy` tienen `version` server-side, entero positivo seguro, no nullable, inicial `1`. Se define como entero positivo en el schema SQL futuro y en el DTO propio; body/query no pueden fijar la versión del recurso. Sus lecturas y resultados autorizados exponen la versión correspondiente al recurso. Crear usa operación estable y unicidad, sin pedir una versión inexistente ni un sentinel `0`.
+
+Para una operación nueva sobre recurso existente, `expectedVersion` es obligatorio, entero positivo, y se compara con la fila bloqueada en el writer. Una diferencia produce conflicto `409`, sin escritura/efecto/notificación ni actualización automática del token del cliente, incluso si los valores deseados coinciden con el estado actual. Con versión vigente, un comando que cambia campos/estado incrementa una sola vez dentro del mismo commit; cambiar varios campos no suma varias versiones. Un no-op devuelve `unchanged` con la versión vigente, sin duplicar efectos.
+
+Orden semántico de recuperación: autorización actual → identidad/huella normalizada de operación → replay confirmado del mismo intent → CAS para trabajo nuevo. El ledger conserva el resultado y la versión del commit original. El replay con el mismo `operationId`/intent recupera ese resultado aunque su `expectedVersion` ya sea antiguo; no ejecuta otro CAS/cambio ni incrementa. Modificar `expectedVersion` o el intent con esa misma identidad produce `idempotency_conflict`. Resultado indeterminado se reconcilia antes de repetir. La versión del resultado histórico no se presenta como versión actual: obtener una proyección autorizada vigente por consulta separada y no sobrescribir estado más nuevo en UI.
+
+Dos comandos nuevos con la misma versión inicial y cambios efectivos distintos permiten como máximo un commit; el otro recibe conflicto y necesita nueva lectura/confirmación con otra identidad de operación. La comprobación de actor/rol no se omite para recuperar un resultado. El ledger de creación de invitación devuelve solo metadata al reintentar; no conserva/reconstruye URL secreta.
+
+En la política de uso solo cambios efectivos de cupos/países/configuración incrementan `version`. Reservas, contadores, consultas, envíos e intentos no la incrementan ni reinician consumos. Esta versión es independiente de `verification_epoch` y `connectionVersion`; el dispatcher evalúa límites/países actuales y registra la versión utilizada al autorizar cada intento.
+
 ## Orden transaccional y recuperación
 
-Orden común documentado para evitar deadlocks: política/tribu → actor/sesión/evidencia necesaria → operación → solicitudes y miembros ordenados → invitaciones/pruebas/vínculos → efectos/eventos. Revalidar reloj después de esperas por lock. Cada writer conserva el mismo orden y usa el helper de checkout protegido. Admisión no mantiene locks mientras consulta proveedor.
+Orden común documentado para evitar deadlocks: tribu y políticas aplicables (incluida política de uso) → actor/sesión/evidencia necesaria → operación → solicitudes y miembros ordenados → invitaciones/pruebas/vínculos → efectos/eventos. Revalidar reloj después de esperas por lock. Cada writer conserva el mismo orden y usa el helper de checkout protegido. Admisión no mantiene locks mientras consulta proveedor.
 
 Decisión persistida, membresía, vínculo/canje y eventos deben aparecer juntos o no aparecer. Unicidad/CAS resuelven la carrera; lectura previa no basta. Al cambiar política se toman los mismos locks y época. El resultado desconocido de un commit se consulta por identidad estable antes de repetir. Los handlers/clientes reciben solo resultados propios mínimos validados.
 
