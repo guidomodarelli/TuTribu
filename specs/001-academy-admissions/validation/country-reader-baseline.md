@@ -1,6 +1,6 @@
 # Lectura vigente de países por el puerto de admisión
 
-**Feature**: `001-academy-admissions`. **Base**: `c448f2d619ac31fbeb9d8b6f9b36fb199733d89f`. T017/T046 continúan pendientes hasta completar dependencias y consumidores de historias.
+**Feature**: `001-academy-admissions`. **Base**: `c448f2d619ac31fbeb9d8b6f9b36fb199733d89f`. T046 continúa pendiente hasta completar dependencias y consumidores de historias. T017 se completó al verificar la definición de puertos/contratos y su consumidor, según [admission-authorization-baseline.md](admission-authorization-baseline.md).
 
 ## Responsabilidades y comportamiento
 
