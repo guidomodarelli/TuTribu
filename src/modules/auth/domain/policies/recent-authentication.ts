@@ -7,6 +7,7 @@ import {
   RECENT_AUTHENTICATION_REASON,
   RECENT_AUTHENTICATION_SCOPE_FIELDS,
   RECENT_AUTHENTICATION_WINDOW_MS,
+  GLOBAL_REAUTHENTICATION_INTENT_STATE,
 } from "@/src/modules/auth/constants/recent-authentication";
 import type { GlobalReauthenticationIntentFacts } from "@/src/modules/auth/domain/entities/global-reauthentication-intent";
 import type { RecentAuthenticationEvidence, RecentAuthenticationScope } from "@/src/modules/auth/domain/entities/recent-authentication-evidence";
@@ -32,7 +33,7 @@ export function evaluateGlobalReauthenticationCallback(input: {
   if (input.currentLeaderUserId !== input.scope.userId) return { allowed: false, reason: RECENT_AUTHENTICATION_REASON.leaderChanged };
   const intent = input.intent;
   const nowMs = input.now.getTime();
-  if (!intent || !intent.nonceVerified || intent.consumedAt !== null || !Number.isFinite(nowMs) || !Number.isFinite(intent.expiresAt.getTime()) || nowMs >= intent.expiresAt.getTime()) {
+  if (!intent || intent.status !== GLOBAL_REAUTHENTICATION_INTENT_STATE.authorizing || !Number.isInteger(intent.version) || intent.version < 1 || !intent.nonceVerified || intent.consumedAt !== null || !Number.isFinite(nowMs) || !Number.isFinite(intent.expiresAt.getTime()) || nowMs >= intent.expiresAt.getTime()) {
     return { allowed: false, reason: RECENT_AUTHENTICATION_REASON.intentUnusable };
   }
   for (const field of RECENT_AUTHENTICATION_SCOPE_FIELDS) {

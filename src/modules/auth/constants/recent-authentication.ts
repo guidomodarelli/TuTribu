@@ -13,5 +13,8 @@ export const RECENT_AUTHENTICATION_REASON = {
   sessionInactive: "session_inactive",
   leaderChanged: "leader_changed",
 } as const;
+export const GLOBAL_REAUTHENTICATION_INTENT_STATE = {
+  created: "created", authorizing: "authorizing", consumed: "consumed", expired: "expired",
+} as const;
 /** Fields that bind evidence to a sensitive operation instead of a generic login marker. */
 export const RECENT_AUTHENTICATION_SCOPE_FIELDS = ["userId", "sessionId", "accountId", "subject", "tribeId", "operation", "resourceId"] as const;

@@ -9,6 +9,8 @@ import type { RecentAuthenticationScope } from "./recent-authentication-evidence
 export type GlobalReauthenticationIntentFacts = Omit<RecentAuthenticationScope, "sessionId"> & {
   id: string;
   originalSessionId: string;
+  status: "created" | "authorizing" | "consumed" | "expired";
+  version: number;
   nonceVerified: boolean;
   consumedAt: Date | null;
   expiresAt: Date;
@@ -18,6 +20,5 @@ export type GlobalReauthenticationIntentFacts = Omit<RecentAuthenticationScope, 
 export type GlobalReauthenticationIntent = Omit<GlobalReauthenticationIntentFacts, "nonceVerified"> & {
   nonceHash: Uint8Array | null;
   createdAt: Date;
-  status: "created" | "authorizing" | "consumed" | "expired";
   returnPath: string;
 };
