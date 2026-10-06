@@ -20,8 +20,12 @@ La suite se escribió y ejecutó antes de crear los módulos; inicialmente falta
 
 La revisión nativa detectó que el schema de creación exigía países/cupos del browser. Se reprodujo el fallo con la solicitud válida de inicio `{ operationId, confirmed: true }`, luego se separó inicialización de edición. La versión corregida acepta el inicio y rechaza países/cupos aportados a ese POST.
 
+## Ampliación de persistencia y ledger
+
+Sobre `c448f2d6`, los contratos existentes se ejercieron junto con los defaults/CHECK reales de los tres recursos: crear sin version devuelve 1; version 0 devuelve 23514 y null devuelve 23502, con rollback de cada intento inválido. Pasaron 25 casos sin skips en 18,97 segundos en una rama propia. El caso adicional del ledger comprueba actor actual, tribu y tipo distintos sin divulgar replay de otra operación ni repetir efectos; pasó focalmente en 18,37 segundos. Los trece casos anteriores del ledger ya habían pasado sin skips en 210,53 segundos, incluido replay anterior a CAS obsoleto, intent/expectedVersion cambiado, histórico posterior, DTO sin URL y permiso actual en cada fase. La revisión nativa del bloque final cerró con cero hallazgos accionables y ocho hashes estables; lint y ambos tipos finales verdes, cero ramas propias restantes.
+
 ## Trabajo pendiente
 
-T014, T016 y T044 permanecen abiertos. Faltan los demás DTOs/guards HTTP, handlers y audiences actuales, errores safe por boundary, SQL defaults/CHECK, writer CAS atómico, ledger/replay previo al CAS y conflictos 409. No se afirma que estos schemas solos generen versión 1, eviten una carrera o autoricen una lectura sensible.
+T014 ya está completada por sus pruebas de HTTP/contexto. T016 está completada por contratos, defaults/CHECK y replay real con namespace/actor actuales. T044 conserva los demás DTOs/guards HTTP, handlers y audiences actuales pendientes. Los writers CAS específicos de cada historia y sus rutas/conflictos 409 siguen pendientes, aunque defaults/CHECK y replay del ledger ya tengan evidencia SQL. No se afirma que estos schemas solos eviten una carrera o autoricen una lectura sensible.
 
 El incremento efectivo y la continuidad de consumo deben confirmarse mediante persistencia real; editar países no debe invalidar un código vigente ni resetear cuota. No se conectó una ruta ni se habilitó envío. Los gates siguen en [operational-gates.md](operational-gates.md). `spec.md`, `technical-contract.md`, identificadores normativos y checklists permanecen íntegros.
