@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import { BETTER_AUTH_SESSION_OPTIONS } from "@/src/modules/auth/constants/session";
+import { googleIdentityEvidencePlugin } from "@/src/modules/auth/infrastructure/better-auth/google-identity-evidence-plugin";
 import { scheduleMemberProfileImageRefresh } from "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh";
 import { createPostgresPool } from "@/src/modules/shared/infrastructure/database/postgres-pool";
 import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
@@ -117,7 +118,7 @@ export const auth = betterAuth({
       },
     },
   },
-  plugins: [nextCookies()],
+  plugins: [googleIdentityEvidencePlugin(),nextCookies()],
   secret: betterAuthEnvironment.secret,
   /**
    * Sliding 180-day session. Server renders read it without refreshing (they
