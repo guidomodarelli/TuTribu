@@ -8,30 +8,30 @@ import type { google } from "better-auth/social-providers";
 import {
   GOOGLE_EMAIL_AUTHORITY, GOOGLE_EVIDENCE_ALGORITHM,
   GOOGLE_EVIDENCE_FAILURE, GOOGLE_EVIDENCE_STATUS,
-  GOOGLE_GMAIL_SUFFIX, GOOGLE_JWT_HEADER_INDEX,
+  GOOGLE_GMAIL_SUFFIX, GOOGLE_JWT_HEADER_INDEX, GOOGLE_JWT_PAYLOAD_INDEX,
 } from "@/src/modules/auth/constants/google-identity-evidence";
 import { MILLISECONDS_PER_SECOND } from "@/src/constants/time";
 import type { GoogleIdentityEvidenceCandidate } from "@/src/modules/auth/domain/entities/global-identity-evidence";
 
-type NativeGoogleProvider = Pick<ReturnType<typeof google>, "verifyIdToken" | "getUserInfo">;
+type NativeGoogleProvider = Pick<ReturnType<typeof google>, "verifyIdToken">;
 export type GoogleIdentityEvidenceVerificationResult =
   | { status: "verified"; evidence: GoogleIdentityEvidenceCandidate }
   | { status: "insufficient"; reason: (typeof GOOGLE_EVIDENCE_FAILURE)[keyof typeof GOOGLE_EVIDENCE_FAILURE] };
 
 /**
- * Reads only the header algorithm before signature verification.
+ * Decodes one token segment without interpreting its authority.
  *
  * @param token - Token already obtained through the global auth boundary.
- * @returns The algorithm label or null for an unusable protected header.
+ * @param segmentIndex - Header before verification, or payload after verification.
+ * @returns Parsed JSON or null for an unusable segment.
  */
-function readProtectedAlgorithm(token: string): string | null {
+function readTokenSegment(token: string, segmentIndex: number): unknown {
   try {
-    const headerSegment = token.split(".")[GOOGLE_JWT_HEADER_INDEX];
-    const decoded = atob(headerSegment.replaceAll("-", "+").replaceAll("_", "/"));
+    const segment = token.split(".")[segmentIndex];
+    if (!segment) return null;
+    const decoded = atob(segment.replaceAll("-", "+").replaceAll("_", "/"));
     const bytes = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
-    const header: unknown = JSON.parse(new TextDecoder().decode(bytes));
-    return typeof header === "object" && header !== null && !Array.isArray(header)
-      && "alg" in header && typeof header.alg === "string" ? header.alg : null;
+    return JSON.parse(new TextDecoder().decode(bytes));
   } catch (error) {
     if (error instanceof SyntaxError || (error instanceof DOMException && error.name === "InvalidCharacterError")) return null;
     throw error;
@@ -55,13 +55,17 @@ export async function verifyGoogleIdTokenEvidence(
   provider: NativeGoogleProvider,
 ): Promise<GoogleIdentityEvidenceVerificationResult> {
   const insufficient = (reason: (typeof GOOGLE_EVIDENCE_FAILURE)[keyof typeof GOOGLE_EVIDENCE_FAILURE]): GoogleIdentityEvidenceVerificationResult => ({ status: GOOGLE_EVIDENCE_STATUS.insufficient, reason });
-  const algorithm = readProtectedAlgorithm(token);
+  const header = readTokenSegment(token, GOOGLE_JWT_HEADER_INDEX);
+  const algorithm = typeof header === "object" && header !== null && !Array.isArray(header)
+    && "alg" in header && typeof header.alg === "string" ? header.alg : null;
   if (!algorithm) return insufficient(GOOGLE_EVIDENCE_FAILURE.malformedToken);
   if (algorithm !== GOOGLE_EVIDENCE_ALGORITHM) return insufficient(GOOGLE_EVIDENCE_FAILURE.unsupportedAlgorithm);
   if (!await provider.verifyIdToken(token, undefined)) return insufficient(GOOGLE_EVIDENCE_FAILURE.notVerified);
-  const userInfo = await provider.getUserInfo({ idToken: token });
-  if (!userInfo) return insufficient(GOOGLE_EVIDENCE_FAILURE.claimsUnavailable);
-  const claims = userInfo.data;
+  // The native mapper can mutate its decoded profile. Derive authority only
+  // from the unchanged token whose signature/protocol were just verified.
+  const payload = readTokenSegment(token, GOOGLE_JWT_PAYLOAD_INDEX);
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return insufficient(GOOGLE_EVIDENCE_FAILURE.claimsUnavailable);
+  const claims = payload as Record<string, unknown>;
   // Narrow only the fields consumed for capture. The provider contract is not
   // revalidated with a schema, and unconsumed profile fields are never forwarded.
   if (typeof claims.sub !== "string" || !claims.sub || typeof claims.email !== "string" || !claims.email
