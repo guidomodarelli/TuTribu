@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Persistencia de mensajería por tribu</title>
+<style>
+*{box-sizing:border-box}body{margin:0 auto;max-width:860px;padding:48px 24px 80px;background:#f8f7f4;color:#333;font:14px/1.7 system-ui,sans-serif}h1,h2{color:#1a1a1a;line-height:1.3}h1{font-size:28px;margin:8px 0}h2{font-size:20px;margin-top:32px;padding-bottom:8px;border-bottom:1px solid #e0ddd6}header{border-bottom:2px solid #1a1a1a;padding-bottom:20px}.label{color:#888;font:11px/1.5 monospace;letter-spacing:.14em;text-transform:uppercase}.meta{color:#555}code{font-family:monospace;background:#f0ede6;padding:2px 4px;overflow-wrap:anywhere}a{color:#1a4f7a;overflow-wrap:anywhere}.note{border-left:3px solid #d4a44c;background:#fdf5e0;padding:14px 18px;color:#7a5510}li{margin-bottom:6px}
+</style>
+</head>
+<body>
+<header><div class="label">TuTribu · Arquitectura</div><h1>Persistencia de mensajería por tribu</h1><p class="meta">Base privada de <code>001-academy-admissions</code>. Implementación en curso.</p></header>
+<main>
+<div class="note">Estas tablas y funciones todavía no habilitan rutas, mensajes ni un dispatcher. La integración con credenciales, autorización de aplicación y proveedor permanece pendiente; los gates operativos siguen cerrados.</div>
+<h2>Owner y composición</h2>
+<p><code>messaging/infrastructure/database/messaging-schema.ts</code> proyecta las trece tablas privadas del módulo mediante una factory que recibe las tablas padre. La composición compartida conserva sus nombres públicos para los adapters. Las migraciones versionadas son la autoridad de los triggers, relaciones diferidas, grants y <code>FORCE ROW LEVEL SECURITY</code>.</p>
+<p>Las relaciones compuestas fijan tribu, conexión y versión. Los enlaces de admisión se agregan en SQL después de crear ambas familias de tablas, para resolver los ciclos sin importar infraestructura de otro owner desde el dominio. Código, entrega y desafío mantienen una relación exacta y el mismo plazo original; la prueba de admisión sigue separada del diagnóstico.</p>
+<h2>Países y versiones</h2>
+<p><code>messaging_usage_policies</code> es la única configuración editable de países. Puede existir antes de la primera conexión o política de admisión y empieza con países vacíos, versión 1 y cupos de verificación/notificación 100/200. El puerto <code>MessagingUsagePolicyReader</code> entrega los hechos necesarios al owner de admisión, según <a href="academy-admissions.htm">su contrato</a>.</p>
+<p>El trigger de configuración compara los países como conjunto normalizado. Un cambio efectivo exige exactamente un incremento; un no-op conserva la versión. El CAS del comando y su replay corresponden al writer de aplicación. Las reservas y los intentos no actualizan la versión de esta política ni reinician consumos.</p>
+<p>La entrega conserva <code>queued_usage_policy_version</code> como auditoría. Antes del marker, la primitiva privada vuelve a leer países/cupos y registra <code>authorized_usage_policy_version</code>. País vacío, prohibido o retirado suprime un despacho telefónico pendiente sin reservar un intento. Un cambio posterior no invalida por sí solo el desafío ni cancela un mensaje ya iniciado.</p>
+<h2>Recursos y secretos</h2>
+<p>Las conexiones permiten una seleccionada y una candidata por tribu incluso en estados suspendidos o degradados. Los datos efectivos de configuración pertenecen a una versión inmutable; cambiar sender, plantilla o referencia de credencial requiere otra versión. Retirar una versión es irreversible.</p>
+<p>Las credenciales sandbox no autorizan entregas productivas. Su diagnóstico limitado conserva las restricciones y el consentimiento del proveedor. La prueba de las últimas veinticuatro horas es una condición para activar la candidata; una conexión ya activa, preparada y sin cambios no exige repetir diariamente esa prueba humana.</p>
+<p>Los envelopes privados guardan únicamente ciphertext con IV, formato y keyId y su ámbito de tribu/conexión/versión/entorno/época. Los keyrings permanecen fuera de PostgreSQL. El material OTP tiene el plazo del desafío y como máximo diez minutos. La recuperación autorizada y la purga todavía deben conectarse al Store y al mantenimiento reales.</p>
+<p>Las tablas revocan acceso público y fuerzan RLS. La policy del owner permite el writer privado; los roles ordinarios no obtienen acceso a secretos. Esto no sustituye la autorización actual que deberá resolver el backend: sesión, rol canónico, propósito, recurso, preferencias y época externa. Ver <a href="rls-simple.htm">RLS simple</a> y <a href="multi-tenancy.htm">ámbito de tribu</a>.</p>
+<h2>Intentos y recuperación</h2>
+<p><code>claim_messaging_deliveries</code> toma un lote acotado con <code>SKIP LOCKED</code>, lease y versión. El claim se confirma antes de autorizar. La primitiva de autorización vuelve a comprobar lease y versión, liderazgo, recursos y contexto, y persiste el intento <code>in_flight</code>, marker y reserva indivisibles. Ninguna función SQL recupera credenciales o realiza RPC.</p>
+<p>Una lease vencida sin marker puede volver a cola. Con marker, la pérdida del worker vuelve incierto el intento y conserva el cupo. La reconciliación procesa como máximo cien registros por llamada. No genera otro POST y no toma un resultado perdido como evidencia de ausencia de envío.</p>
+<p><code>complete_messaging_delivery_attempt</code> aplica CAS al intento y lease originales. Una respuesta tardía puede aportar evidencia a ese intento; un resultado antiguo no reemplaza un estado posterior. Aceptación y entrega son estados distintos. Esta finalización conserva la reserva: liberar cupo requerirá evidencia explícita y autorizada de ausencia de despacho.</p>
+<h2>Evidencia y alcance pendiente</h2>
+<p>La suite <code>delivery-attempts-and-usage.test.ts</code> ejerce el SQL real en ramas Neon propias con fixtures sintéticos y cleanup verificado. El último cupo se prueba con cien transacciones concurrentes: una autorización y noventa y nueve rechazos por cuota. La pérdida posterior del worker conserva una reserva consumida y estado incierto.</p>
+<p>Los repositorios de aplicación, contadores de abuso agregados, preferencias, SecretStore, transportes y dispatcher todavía deben completar T013/T022/T041–T043. La evidencia estructural no acredita entrega externa, producción, rePOST idempotente ni los gates de <a href="../../specs/001-academy-admissions/validation/operational-gates.md">operational-gates.md</a>. No se modifican bases default/producción ni se envían mensajes reales.</p>
+</main>
+</body>
+</html>

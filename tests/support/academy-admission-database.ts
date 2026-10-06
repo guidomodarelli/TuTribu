@@ -37,6 +37,8 @@ export type AcademyAdmissionDatabaseOptions = {
   authorization?: string;
   databaseSelection?: { databaseName: string; roleName: string };
   fetch?: typeof globalThis.fetch;
+  /** Bounds only this owned branch's real pool for SQL concurrency scenarios. */
+  concurrentTransactions?: number;
 };
 
 /** Exposes only branch-scoped SQL execution and safe resource metadata. */
@@ -227,6 +229,13 @@ export async function withAcademyAdmissionDatabase<Result>(
     const branchConnection = new URL(connection.uri);
     branchConnection.searchParams.set("sslmode", "verify-full");
     pool = createPostgresPool({ connectionString: branchConnection.toString(), operation: "academy_admission_validation" });
+    if (options.concurrentTransactions !== undefined) {
+      if (!Number.isInteger(options.concurrentTransactions) || options.concurrentTransactions < 1 || options.concurrentTransactions > 100) throw new Error("AcademyAdmissionDatabase.configure failed: invalid_concurrency");
+      // pg exposes Pool.options; these are read by each subsequent checkout.
+      // Preserve the shared connection guard and configure only this own pool.
+      pool.options.max = options.concurrentTransactions;
+      pool.options.connectionTimeoutMillis = NEON_ADMIN_TIMEOUT_MS * 4;
+    }
     const runtimeMetadata = await pool.query<{ name: string; bypassesRls: boolean; isSuperuser: boolean }>(
       'select rolname as name, rolbypassrls as "bypassesRls", rolsuper as "isSuperuser" from pg_roles where rolname = current_user',
     );

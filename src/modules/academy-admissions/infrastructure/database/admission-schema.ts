@@ -4,11 +4,19 @@ import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable,
 import type { AnyPgColumn, PgTableExtraConfig } from "drizzle-orm/pg-core";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 
+/** Resolves cross-owner columns after both table factories have finished. */
+export type AdmissionMessagingSchemaReferences = {
+  versions: { connectionId: AnyPgColumn; tribeId: AnyPgColumn; version: AnyPgColumn };
+  deliveries: { id: AnyPgColumn; tribeId: AnyPgColumn; connectionId: AnyPgColumn; connectionVersion: AnyPgColumn };
+  codeEnvelopes: { id: AnyPgColumn; challengeId: AnyPgColumn; deliveryId: AnyPgColumn; tribeId: AnyPgColumn; connectionId: AnyPgColumn; connectionVersion: AnyPgColumn };
+};
+
 /** Existing table references are injected by the shared schema composition root. */
 type AdmissionSchemaParents = {
   users: { id: AnyPgColumn }; tribes: { id: AnyPgColumn };
   globalIdentityEvidence: { id: AnyPgColumn; userId: AnyPgColumn };
   tribeInvitations: { id: AnyPgColumn; tribeId: AnyPgColumn };
+  messaging: () => AdmissionMessagingSchemaReferences;
 };
 
 /** Maps only the PostgreSQL binary representation consumed by the adapter. */
@@ -26,6 +34,18 @@ const binaryData = customType<{ data: Uint8Array; driverData: Buffer }>({
  */
 function parentReference(name: string, column: AnyPgColumn, parent: AnyPgColumn, onDelete: "cascade" | "restrict" | "set null" = "cascade") {
   return foreignKey({ name, columns: [column], foreignColumns: [parent] }).onDelete(onDelete);
+}
+
+/**
+ * Builds the exact tenant/version relationship from lazily composed parents.
+ * @param name - Constraint name shared with the versioned SQL migration.
+ * @param columns - Child connection, tribe and version in reference order.
+ * @param parents - Factory parents resolved after both owners are composed.
+ * @returns A foreign key whose deferred timing remains owned by SQL.
+ */
+function messagingVersionReference(name: string,columns: [AnyPgColumn,AnyPgColumn,AnyPgColumn],parents: AdmissionSchemaParents) {
+  const versions=parents.messaging().versions;
+  return foreignKey({name,columns,foreignColumns:[versions.connectionId,versions.tribeId,versions.version]});
 }
 
 /**
@@ -52,6 +72,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
   }, (table): PgTableExtraConfig => ({
     tribeForeignKey: parentReference("admission_policy_tribe_fkey",table.tribeId,parents.tribes.id),
     changerForeignKey: parentReference("admission_policy_changer_fkey",table.changedByUserId,parents.users.id,"set null"),
+    messagingVersionForeignKey: messagingVersionReference("admission_policy_messaging_version_fkey",[table.messagingConnectionId,table.tribeId,table.messagingConnectionVersion],parents),
     modeCheck: check("admission_policy_mode_check", sql`${table.mode} in ('manual_review','allowlist')`),
     contactCheck: check("admission_policy_contact_check", sql`${table.contactType} in ('email','phone')`),
     channelCheck: check("admission_policy_channel_check", sql`${table.phoneChannel} in ('whatsapp','sms')`),
@@ -134,6 +155,10 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     userForeignKey: parentReference("admission_challenge_user_fkey",table.userId,parents.users.id),
     tribeForeignKey: parentReference("admission_challenge_tribe_fkey",table.tribeId,parents.tribes.id),
     scopeKey: unique("admission_challenge_scope_key").on(table.id,table.tribeId,table.userId),
+    messagingTenantScopeKey: uniqueIndex("messaging_challenge_tenant_scope_key").on(table.id,table.tribeId),
+    messagingVersionForeignKey: messagingVersionReference("admission_challenge_messaging_version_fkey",[table.connectionId,table.tribeId,table.connectionVersion],parents),
+    deliveryForeignKey: foreignKey({name:"admission_challenge_delivery_fkey",columns:[table.deliveryId,table.tribeId,table.connectionId,table.connectionVersion],foreignColumns:[parents.messaging().deliveries.id,parents.messaging().deliveries.tribeId,parents.messaging().deliveries.connectionId,parents.messaging().deliveries.connectionVersion]}),
+    codeEnvelopeForeignKey: foreignKey({name:"admission_challenge_otp_fkey",columns:[table.codeEnvelopeId,table.id,table.deliveryId,table.tribeId,table.connectionId,table.connectionVersion],foreignColumns:[parents.messaging().codeEnvelopes.id,parents.messaging().codeEnvelopes.challengeId,parents.messaging().codeEnvelopes.deliveryId,parents.messaging().codeEnvelopes.tribeId,parents.messaging().codeEnvelopes.connectionId,parents.messaging().codeEnvelopes.connectionVersion]}),
     currentKey: uniqueIndex("admission_challenge_current_key").on(table.userId,table.tribeId,table.contactType,table.normalizedContact,table.purpose).where(sql`${table.isCurrent}`),
     expiryIndex: index("admission_challenge_expiry_idx").on(table.expiresAt).where(sql`${table.state}='issued'`),
     contactCheck: check("admission_challenge_contact_check", sql`${table.contactType} in ('email','phone')`),
@@ -160,6 +185,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     scopeKey: unique("admission_proof_scope_key").on(table.id,table.tribeId,table.userId),
     applicationScopeKey: unique("admission_proof_application_scope_key").on(table.id,table.appliedRequestId,table.tribeId,table.userId),
     challengeForeignKey: foreignKey({ name: "admission_proof_challenge_fkey", columns: [table.challengeId,table.tribeId,table.userId], foreignColumns: [challenges.id,challenges.tribeId,challenges.userId] }),
+    messagingVersionForeignKey: messagingVersionReference("admission_proof_messaging_version_fkey",[table.connectionId,table.tribeId,table.connectionVersion],parents),
     requestForeignKey: foreignKey({ name: "admission_proof_request_fkey", columns: [table.appliedRequestId,table.tribeId,table.userId], foreignColumns: [requests.id,requests.tribeId,requests.userId] }),
     contactCheck: check("admission_proof_contact_check", sql`${table.contactType} in ('email','phone')`),
     epochCheck: check("admission_proof_epoch_check", sql`${table.verificationEpoch}>0`), connectionVersionCheck: check("admission_proof_connection_version_check", sql`${table.connectionVersion}>0`),
