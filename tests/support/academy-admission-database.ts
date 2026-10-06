@@ -4,9 +4,11 @@
  * @module academy-admission-database
  */
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { access, readFile, realpath } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { loadEnvConfig } from "@next/env";
 import { sql } from "drizzle-orm";
 
@@ -17,11 +19,13 @@ import {
   type RequestDatabaseContext,
 } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
+import { NEON_AUTHORIZATION_EXPIRY_MARGIN_MS, resolveNeonAuthorization, type NeonCliValidationCredentials } from "./neon-authorization";
 
 /** Fixes the project allowed by the repository's standing validation authorization. */
 const ADMISSION_NEON_PROJECT_ID = "cold-firefly-92947172";
 /** Bounds administrative HTTP requests without retrying uncertain mutations. */
 const NEON_ADMIN_TIMEOUT_MS = 15_000;
+const runExecutable = promisify(execFile);
 
 /** Describes consumed branch metadata; no provider schema validation is performed. */
 type NeonBranch = { id: string; name: string; parent_id: string; default: boolean };
@@ -50,16 +54,61 @@ export type AcademyAdmissionTestDatabase = {
 };
 
 /**
- * Reads existing local authorization without writing or logging credentials.
+ * Resolves local authorization through the native CLI's profile manager.
  *
- * @returns The configured API key or the existing Neon CLI access token.
+ * The CLI owns locked rotating-token renewal and persistence. This harness
+ * neither refreshes tokens itself nor logs credentials or command output.
+ *
+ * @returns The configured API key or current Neon CLI access token.
  * @throws When local authentication is absent or unusable.
  */
 async function readNeonAuthorization(): Promise<string> {
   if (process.env.NEON_API_KEY?.trim()) return process.env.NEON_API_KEY.trim();
-  const credentials = JSON.parse(await readFile(join(homedir(), ".config", "neonctl", "credentials.json"), "utf8")) as { access_token?: string };
-  if (!credentials.access_token) throw new Error("AcademyAdmissionDatabase.authenticate failed: neon_authentication_required");
-  return credentials.access_token;
+  const credentialPath = join(homedir(), ".config", "neonctl", "credentials.json");
+  const readCredentials = async () => JSON.parse(await readFile(credentialPath, "utf8")) as NeonCliValidationCredentials;
+  const credentials = await readCredentials();
+  const remainingMs = typeof credentials.expires_at === "number" ? credentials.expires_at - Date.now() : 0;
+  // The official manager renews only expired tokens. Wait for the short remaining
+  // lifetime instead of forcing a grant or changing the CLI. No SQL transaction
+  // is held here; each administrative request, including cleanup, resolves anew.
+  if (remainingMs > 0 && remainingMs <= NEON_AUTHORIZATION_EXPIRY_MARGIN_MS) {
+    await new Promise<void>((resolve) => setTimeout(resolve, remainingMs));
+  }
+  return resolveNeonAuthorization(await readCredentials(), async () => {
+    const entrypoint = await findNeonCliEntrypoint();
+    // Native CLI owns its refresh lock and rotating-token persistence. Do not
+    // issue a manual OAuth refresh and discard the returned replacement token.
+    await runExecutable(process.execPath, [entrypoint, "projects", "get", ADMISSION_NEON_PROJECT_ID, "--profile", "DEFAULT", "--output", "json"], {
+      windowsHide: true,
+      timeout: NEON_ADMIN_TIMEOUT_MS,
+    });
+    return readCredentials();
+  });
+}
+
+/**
+ * Finds the installed native CLI without a repository dependency or user-specific path.
+ *
+ * @returns A verified JavaScript entrypoint for the installed Neon CLI.
+ * @throws When no CLI is available and an explicit NEON_CLI_PATH is needed.
+ */
+async function findNeonCliEntrypoint(): Promise<string> {
+  if (process.env.NEON_CLI_PATH) {
+    await access(process.env.NEON_CLI_PATH);
+    return process.env.NEON_CLI_PATH;
+  }
+  for (const directory of (process.env.PATH ?? process.env.Path ?? "").split(delimiter)) {
+    const entrypoint = join(directory, "node_modules", "neon", "dist", "cli.js");
+    try { await access(entrypoint); return entrypoint; } catch (error) {
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+    }
+    if (process.platform !== "win32") {
+      try { return await realpath(join(directory, "neon")); } catch (error) {
+        if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+      }
+    }
+  }
+  throw new Error("AcademyAdmissionDatabase.authenticate failed: neon_cli_unavailable; set NEON_CLI_PATH or NEON_API_KEY");
 }
 
 /**
@@ -104,7 +153,6 @@ export async function withAcademyAdmissionDatabase<Result>(
     };
   }
   const { roleName, databaseName } = selection;
-  const authorization = options.authorization ?? await readNeonAuthorization();
   const adminFetch = options.fetch ?? globalThis.fetch;
   const projectPath = `/projects/${ADMISSION_NEON_PROJECT_ID}`;
 
@@ -118,6 +166,7 @@ export async function withAcademyAdmissionDatabase<Result>(
    * @throws A safe HTTP status or the real transport cause, never a provider body.
    */
   async function adminRequest<Data>(path: string, init?: RequestInit): Promise<Data> {
+    const authorization = options.authorization ?? await readNeonAuthorization();
     const response = await adminFetch(`https://console.neon.tech/api/v2${path}`, {
       ...init,
       headers: { Authorization: `Bearer ${authorization}`, "Content-Type": "application/json" },

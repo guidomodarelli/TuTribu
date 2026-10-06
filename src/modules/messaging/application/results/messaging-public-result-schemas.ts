@@ -3,6 +3,9 @@ import { z } from "zod";
 import { isSupportedCountry, type CountryCode } from "libphonenumber-js/max";
 import { MESSAGING_USAGE_LIMIT, MESSAGING_USAGE_POLICY_STATE } from "@/src/modules/messaging/constants/messaging-limits";
 import type { MessagingUsagePolicyResult, MessagingUsagePolicyStateResult } from "./messaging-usage-policy-result";
+import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
+import { OPERATION_STATE } from "@/src/constants/operation-state";
+import type { MessagingPublicError } from "./messaging-errors";
 
 const countSchema = z.int().nonnegative();
 const countrySchema = z.string().refine((country) => isSupportedCountry(country as CountryCode));
@@ -20,3 +23,11 @@ export const messagingUsagePolicyStateSchema = z.discriminatedUnion("state", [
   z.object({ state: z.literal(MESSAGING_USAGE_POLICY_STATE.notConfigured), policy: z.null() }),
   z.object({ state: z.literal(MESSAGING_USAGE_POLICY_STATE.configured), policy: messagingUsagePolicySchema }),
 ]) satisfies z.ZodType<MessagingUsagePolicyStateResult>;
+
+/** Error DTOs contain only catalogue copy and progress already authorized by its owner. */
+export const messagingPublicErrorSchema = z.object({
+  code: z.enum(MESSAGING_ERROR_CODE), message: z.string(), requestId: z.string().min(1),
+  retryAt: z.iso.datetime({ offset: true }).optional(),
+  operation: z.object({ operationId: z.uuid(), state: z.enum(OPERATION_STATE) }).optional(),
+}).refine((error) => error.message === MESSAGING_ERROR_MESSAGE[error.code])
+  .refine((error) => error.code !== MESSAGING_ERROR_CODE.operationUnresolved || error.operation?.state === OPERATION_STATE.started) satisfies z.ZodType<MessagingPublicError>;
