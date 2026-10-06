@@ -369,6 +369,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalDetails = vi.fn(async () => ({
@@ -496,6 +497,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] })
       .mockResolvedValueOnce({ rows: [] });
@@ -2069,6 +2071,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]})
       .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
@@ -2096,6 +2100,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
   it("processes verified webhooks with the RLS-safe subscription context", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
+      if(sqlText.includes("select status as local_status,status_reason as local_status_reason")) return {rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]};
 
       if (
         sqlText.includes("from public.tribe_member_subscriptions") &&
@@ -2155,6 +2160,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]})
       .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
@@ -2188,6 +2195,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]})
       .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
@@ -2227,6 +2236,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
         ],
       })
       .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]})
       .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
@@ -2273,6 +2284,8 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]})
       .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
@@ -2355,6 +2368,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
   it("returns duplicate when the idempotent key already records the same business state", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
+      if(sqlText.includes("select status as local_status,status_reason as local_status_reason")) return {rows:[{local_status:"active",local_status_reason:"none"}]};
 
       if (
         sqlText.includes("from public.tribe_member_subscriptions") &&
@@ -2399,6 +2413,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
   it("re-applies state changes after oscillation even when the idempotent key already exists", async () => {
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
+      if(sqlText.includes("select status as local_status,status_reason as local_status_reason")) return {rows:[{local_status:"paused",local_status_reason:"subscription_inactive"}]};
 
       if (
         sqlText.includes("from public.tribe_member_subscriptions") &&
@@ -2444,6 +2459,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
     const insertedKeys: string[] = [];
     const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (statement) => {
       const sqlText = getSqlText(statement);
+      if(sqlText.includes("select status as local_status,status_reason as local_status_reason")) return {rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]};
 
       if (
         sqlText.includes("from public.tribe_member_subscriptions") &&

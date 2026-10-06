@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 
 import { sql } from "drizzle-orm";
+import {buildReconciledSubscriptionsSql,buildSubscriptionMembershipUpdateSql,lockSubscriptionMembershipTribes} from "@/src/modules/subscriptions/infrastructure/repositories/subscription-membership-reconciliation-sql";
 
 import type {
   TribeCurrentSubscriptionOfferResult,
@@ -26,7 +27,6 @@ import {
   SUBSCRIPTION_PRICE_INVITATION_ACTION,
   TRIBE_CURRENT_SUBSCRIPTION_OFFER_STATUS,
   TRIBE_MEMBER_SUBSCRIPTION_STATUS,
-  TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON,
   TRIBE_SUBSCRIPTION_CURRENCY,
   TRIBE_SUBSCRIPTION_PRICE_LIMIT,
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
@@ -3259,6 +3259,7 @@ export class PostgresTribeSubscriptionPriceRepository
     );
 
     return this.executeWithDatabase(async (database) => {
+      await lockSubscriptionMembershipTribes(database,{tribeSlug:input.tribeSlug});
       const result = await database.execute(sql`
         with target_tribe as (
           select tribes.id
@@ -3269,6 +3270,7 @@ export class PostgresTribeSubscriptionPriceRepository
         target_price as (
           select
             tribe_subscription_prices.id,
+            tribe_subscription_prices.product_key,
             tribe_subscription_prices.name,
             tribe_subscription_prices.amount_cents,
             tribe_subscription_prices.currency,
@@ -3308,64 +3310,24 @@ export class PostgresTribeSubscriptionPriceRepository
           where tribe_member_subscriptions.price_id = target_price.id
             and tribe_member_subscriptions.mercado_pago_preapproval_id =
               provider_statuses.provider_subscription_id
-          returning
-            tribe_member_subscriptions.tribe_id,
-            tribe_member_subscriptions.user_id
+          returning tribe_member_subscriptions.id,tribe_member_subscriptions.tribe_id,tribe_member_subscriptions.user_id,
+            tribe_member_subscriptions.price_id,tribe_member_subscriptions.status,tribe_member_subscriptions.product_key
         ),
+        ${buildReconciledSubscriptionsSql()},
         affected_members as (
           select distinct
             updated_subscriptions.tribe_id,
             updated_subscriptions.user_id
           from updated_subscriptions
+          where updated_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
         ),
         updated_members as (
-          update public.tribe_members
-          set
-            status = case
-              when exists (
-                select 1
-                from public.tribe_member_subscriptions
-                where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                  and tribe_member_subscriptions.user_id = tribe_members.user_id
-                  and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
-              ) then 'active'
-              when exists (
-                select 1
-                from public.tribe_member_subscriptions
-                where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                  and tribe_member_subscriptions.user_id = tribe_members.user_id
-                  and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-              ) then 'blocked'
-              else 'removed'
-            end,
-            status_reason = case
-              when exists (
-                select 1
-                from public.tribe_member_subscriptions
-                where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                  and tribe_member_subscriptions.user_id = tribe_members.user_id
-                  and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
-              ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none}
-              when exists (
-                select 1
-                from public.tribe_member_subscriptions
-                where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                  and tribe_member_subscriptions.user_id = tribe_members.user_id
-                  and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-              ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-              else ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
-            end
-          from affected_members
-          where tribe_members.tribe_id = affected_members.tribe_id
-            and tribe_members.user_id = affected_members.user_id
-            and not (
-              tribe_members.status = 'blocked'
-              and tribe_members.status_reason <> ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-            )
+          ${buildSubscriptionMembershipUpdateSql()}
           returning tribe_members.user_id
         )
         select
           target_price.id,
+          target_price.product_key,
           target_price.name,
           target_price.amount_cents,
           target_price.currency,
@@ -3379,10 +3341,11 @@ export class PostgresTribeSubscriptionPriceRepository
             where tribe_member_subscriptions.status in ${CURRENT_MEMBER_SUBSCRIPTION_STATUSES}
           ) as active_subscribers_count
         from target_price
-        left join public.tribe_member_subscriptions
+        left join reconciled_subscriptions tribe_member_subscriptions
           on tribe_member_subscriptions.price_id = target_price.id
         group by
           target_price.id,
+          target_price.product_key,
           target_price.name,
           target_price.amount_cents,
           target_price.currency,
@@ -3573,6 +3536,7 @@ export class PostgresTribeSubscriptionPriceRepository
     );
 
     await this.executeWithDatabase(async (database) => {
+      await lockSubscriptionMembershipTribes(database,{tribeSlug:input.tribeSlug});
       await database.execute(sql`
         with target_tribe as (
           select tribes.id
@@ -3603,59 +3567,18 @@ export class PostgresTribeSubscriptionPriceRepository
             and tribe_member_subscriptions.mercado_pago_preapproval_id =
               provider_statuses.provider_subscription_id
             and public.can_manage_tribe_subscription_prices(target_tribe.id)
-          returning
-            tribe_member_subscriptions.tribe_id,
-            tribe_member_subscriptions.user_id
+          returning tribe_member_subscriptions.id,tribe_member_subscriptions.tribe_id,tribe_member_subscriptions.user_id,
+            tribe_member_subscriptions.price_id,tribe_member_subscriptions.status,tribe_member_subscriptions.product_key
         ),
+        ${buildReconciledSubscriptionsSql()},
         affected_members as (
           select distinct
             updated_subscriptions.tribe_id,
             updated_subscriptions.user_id
           from updated_subscriptions
+          where updated_subscriptions.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
         )
-        update public.tribe_members
-        set
-          status = case
-            when exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                and tribe_member_subscriptions.user_id = tribe_members.user_id
-                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
-            ) then 'active'
-            when exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                and tribe_member_subscriptions.user_id = tribe_members.user_id
-                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-            ) then 'blocked'
-            else 'removed'
-          end,
-          status_reason = case
-            when exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                and tribe_member_subscriptions.user_id = tribe_members.user_id
-                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.active}
-            ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.none}
-            when exists (
-              select 1
-              from public.tribe_member_subscriptions
-              where tribe_member_subscriptions.tribe_id = tribe_members.tribe_id
-                and tribe_member_subscriptions.user_id = tribe_members.user_id
-                and tribe_member_subscriptions.status = ${TRIBE_MEMBER_SUBSCRIPTION_STATUS.pending}
-            ) then ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-            else ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.subscriptionInactive}
-          end
-        from affected_members
-        where tribe_members.tribe_id = affected_members.tribe_id
-          and tribe_members.user_id = affected_members.user_id
-          and not (
-            tribe_members.status = 'blocked'
-            and tribe_members.status_reason <> ${TRIBE_MEMBER_SUBSCRIPTION_STATUS_REASON.paymentBlocked}
-          )
+        ${buildSubscriptionMembershipUpdateSql()}
       `);
     });
   }

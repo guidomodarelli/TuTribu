@@ -1992,6 +1992,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           createSubscriptionPriceRow({
@@ -2067,6 +2068,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           createSubscriptionPriceRow({
@@ -2138,6 +2140,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           createSubscriptionPriceRow({
@@ -2205,6 +2208,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           createSubscriptionPriceRow({
@@ -2457,6 +2461,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
@@ -3144,6 +3149,7 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       .mockResolvedValueOnce({
         rows: [],
       })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           {
