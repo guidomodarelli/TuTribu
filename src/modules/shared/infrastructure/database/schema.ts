@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { createAdmissionSchema } from "@/src/modules/academy-admissions/infrastructure/database/admission-schema";
 import {
   bigint,
   boolean,
@@ -102,6 +103,7 @@ export const globalIdentityEvidence = pgTable("global_identity_evidence", {
   accountScopeForeignKey: foreignKey({ columns: [table.accountId,table.userId,table.providerId,table.providerSubject], foreignColumns: [accounts.id,accounts.userId,accounts.providerId,accounts.accountId], name: "global_identity_account_scope_fkey" }).onDelete("cascade"),
   currentAccountKey: uniqueIndex("global_identity_current_account_key").on(table.accountId,table.providerId).where(sql`${table.invalidatedAt} is null`),
   historyIndex: index("global_identity_user_history_idx").on(table.userId,table.verifiedAt.desc()),
+  userScopeKey: uniqueIndex("global_identity_evidence_user_key").on(table.id,table.userId),
   versionCheck: check("global_identity_version_check", sql`${table.version}>0`),
   providerCheck: check("global_identity_provider_check", sql`${table.providerId}='google'`),
   emailCheck: check("global_identity_email_check", sql`${table.normalizedEmail}<>'' and ${table.normalizedEmail}=lower(btrim(${table.normalizedEmail}))`),
@@ -241,6 +243,7 @@ export const tribeInvitations = pgTable("tribe_invitations", {
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
 }, (table) => ({
   tokenHashKey: uniqueIndex("tribe_invitations_token_hash_key").on(table.tokenHash),
+  admissionScopeKey: uniqueIndex("admission_legacy_invitation_scope_key").on(table.id,table.tribeId),
   tribeStatusIndex: index("idx_tribe_invitations_tribe_status").on(
     table.tribeId,
     table.status
@@ -1757,3 +1760,20 @@ export const subscriptionPaymentPeriods = pgTable("subscription_payment_periods"
     name: "subscription_payment_periods_integration_tribe_fkey",
   }),
 }));
+
+/** Composes admission-owned projections after all existing parent tables exist. */
+export const {
+  policies: academyAdmissionPolicies,
+  allowlistEntries: academyAllowlistEntries,
+  personalInvitations: academyPersonalInvitations,
+  challenges: contactVerificationChallenges,
+  proofs: academyAdmissionVerificationProofs,
+  requests: academyAdmissionRequests,
+  bindings: academyAdmissionContactBindings,
+  decisions: academyAdmissionDecisions,
+  operations: academyAdmissionOperations,
+  imports: academyAllowlistImports,
+  importRows: academyAllowlistImportRows,
+  auditEvents: academyAdmissionAuditEvents,
+  notificationObligations: academyAdmissionNotificationObligations,
+} = createAdmissionSchema({ users, tribes, globalIdentityEvidence, tribeInvitations });

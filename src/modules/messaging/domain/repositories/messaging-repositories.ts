@@ -30,13 +30,30 @@ export interface MessagingSecurityFactsProvider {
   /** Reads external security state for each operation; PostgreSQL cannot restore this authority. */
   getCurrentSecurityFacts(): Promise<MessagingSecurityFacts>;
 }
-export type AuthorizedMessagingContext = {
-  actorUserId: string; sessionId: string; accountId: string; subject: string;
+/** Private common identity; a context is not a public permission token. */
+export type MessagingSecretResourceScope = {
   tribeId: string; connectionId: string; connectionVersion: number;
-  environment: string; securityEpoch: string; operation: string; requestId: string;
-  authenticatedAt: Date; validUntil: Date; secretRef: string;
+  environment: string; securityEpoch: string; requestId: string; secretRef: string;
 };
+/** Human credential operations require scoped global recency and a current session. */
+export type AuthorizedMessagingContext = MessagingSecretResourceScope & {
+  authorizationPurpose: "sensitive_leader"; resourceId: string;
+  actorUserId: string; sessionId: string; accountId: string; subject: string;
+  operation: string; authenticatedAt: Date; validUntil: Date;
+};
+/**
+ * A writer emits this only after committing the attempt marker and budget.
+ * SecretStore must reread that attempt, scope, version, lease, current leader,
+ * resource retirement and external epoch. A worker does not reuse human recency.
+ */
+export type AuthorizedDeliveryMessagingContext = MessagingSecretResourceScope & {
+  authorizationPurpose: "authorized_delivery";
+  contributingLeaderUserId: string; deliveryId: string; attemptId: string;
+  attemptVersion: number; leaseOwner: string; sendAuthorizedAt: Date;
+  authorizedUsagePolicyVersion: number; operation: "dispatch_delivery";
+};
+export type MessagingSecretAccessContext = AuthorizedMessagingContext | AuthorizedDeliveryMessagingContext;
 export interface MessagingSecretStore {
-  /** Revalidates this scope/retirement/current role before returning backend-only material. */
-  loadAuthorizedSecret(context: AuthorizedMessagingContext): Promise<string>;
+  /** Revalidates the purpose-specific authority before returning backend-only material. */
+  loadAuthorizedSecret(context: MessagingSecretAccessContext): Promise<string>;
 }

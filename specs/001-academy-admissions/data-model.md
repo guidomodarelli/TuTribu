@@ -1,6 +1,6 @@
 # Data Model: Academy Admissions and Tenant Messaging
 
-**Estado**: diseño de 2026-10-05, con implementación en curso. La migración de evidencia global y su reflejo Drizzle tienen pruebas ejecutadas en ramas Neon efímeras propias; repositorios, recorrido de auth y restante persistencia siguen pendientes. Ver [auth-baseline.md](validation/auth-baseline.md). [spec.md](spec.md) define todas las matrices, estados y límites; este modelo no los reduce.
+**Estado**: diseño de 2026-10-05, con implementación en curso. Evidencia global y primeras restricciones de admisión tienen SQL/reflejo Drizzle y pruebas en ramas Neon efímeras propias. Repositorios, recorrido de auth, integración de mensajería/pertenencia y restante cobertura siguen pendientes. Ver [auth-baseline.md](validation/auth-baseline.md) y [persistence-baseline.md](validation/persistence-baseline.md). [spec.md](spec.md) define todas las matrices, estados y límites; este modelo no los reduce.
 
 ## Owners y reglas transversales
 
