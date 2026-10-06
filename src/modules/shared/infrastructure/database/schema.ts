@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
-import { createAdmissionSchema } from "@/src/modules/academy-admissions/infrastructure/database/admission-schema";
+import { createAdmissionSchema, type AdmissionMessagingSchemaReferences } from "@/src/modules/academy-admissions/infrastructure/database/admission-schema";
+import { createMessagingSchema } from "@/src/modules/messaging/infrastructure/database/messaging-schema";
 import {
   bigint,
   boolean,
@@ -1776,4 +1777,14 @@ export const {
   importRows: academyAllowlistImportRows,
   auditEvents: academyAdmissionAuditEvents,
   notificationObligations: academyAdmissionNotificationObligations,
-} = createAdmissionSchema({ users, tribes, globalIdentityEvidence, tribeInvitations });
+} = createAdmissionSchema({ users, tribes, globalIdentityEvidence, tribeInvitations,
+  messaging: (): AdmissionMessagingSchemaReferences => ({versions:messagingConnectionVersions,deliveries:messageDeliveries,codeEnvelopes:verificationCodeEnvelopes}),
+});
+
+/** Composes private messaging models after the admission challenge parent exists. */
+export const {
+  messagingUsagePolicies, tenantMessagingConnections, messagingConnectionVersions,
+  messagingSecretEnvelopes, messagingConnectionCapabilities, messagingConnectionDiagnostics,
+  messagingContactBudgetSubjects, messagingContactFingerprintAliases, messageDeliveries,
+  verificationCodeEnvelopes, messageDeliveryAttempts, messagingUsageReservations, messagingUsageEvents,
+} = createMessagingSchema({ tribes, user: users, contactVerificationChallenges });
