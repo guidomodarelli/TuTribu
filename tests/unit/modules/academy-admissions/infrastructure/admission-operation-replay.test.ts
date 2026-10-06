@@ -84,6 +84,19 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission operatio
     });
   }, 120_000);
 
+  it("should isolate replay by current actor, tribe and operation type", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareOperation(database);
+      await fixture.repository.run(fixture.command, resultSchema, fixture.work);
+      expect(await fixture.repository.read({ ...fixture.command, operationType: "rename_personal_invitation" }, resultSchema)).toBeNull();
+      await expect(fixture.repository.read({ ...fixture.command, actorUserId: randomUUID() }, resultSchema)).rejects.toMatchObject({ code: "permission_denied" });
+      const foreign = { ...fixture.command, tribeId: randomUUID() };
+      const scoped = new PostgresAdmissionOperationRepository((run) => database.withContext(fixture.own, run), async (transaction, command) => command.tribeId === fixture.tribeId && await fixture.authorize(transaction), async () => fixture.config);
+      await expect(scoped.read(foreign, resultSchema)).rejects.toMatchObject({ code: "permission_denied" });
+      expect(fixture.effectCount()).toBe(1);
+    });
+  }, 120_000);
+
   it("should keep operation identity and a completed public snapshot immutable", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareOperation(database);

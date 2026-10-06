@@ -1,6 +1,6 @@
 # Ledger de operaciones: claim, resultado y recuperación
 
-**Feature**: `001-academy-admissions`. **Base**: `747a1754be7dd7e3150987ed4d152631d5290721`. T007/T016/T039 permanecen abiertos hasta completar sus dependencias y consumidores.
+**Feature**: `001-academy-admissions`. **Base**: `747a1754be7dd7e3150987ed4d152631d5290721`. T007/T039 permanecen abiertos hasta completar sus dependencias y consumidores. T016 se completó con la ampliación de contratos/storage/namespace sobre `c448f2d6`, registrada en [resource-contract-baseline.md](resource-contract-baseline.md).
 
 ## Implementado
 

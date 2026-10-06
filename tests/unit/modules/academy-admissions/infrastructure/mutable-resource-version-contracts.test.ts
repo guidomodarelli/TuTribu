@@ -1,7 +1,10 @@
 /** @vitest-environment node */
 
 /** Exercises own input/DTO contracts with real Zod, without schema-validating storage or providers. */
+import { randomBytes, randomUUID } from "node:crypto";
+import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
+import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { allowlistEntryCreateSchema, allowlistEntryUpdateSchema, personalInvitationCreateSchema, personalInvitationRenameSchema, personalInvitationRevokeSchema } from "@/src/modules/academy-admissions/infrastructure/api/admission-request-schemas";
 import { messagingUsagePolicyUpdateSchema, messagingUsagePolicyCreateSchema } from "@/src/modules/messaging/infrastructure/api/messaging-request-schemas";
 import { allowlistEntrySchema, personalInvitationSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
@@ -80,4 +83,31 @@ describe("mutable admission resource versions", () => {
     expect(allowlistEntryCreateSchema.safeParse(creation).success).toBe(true);
     expect(allowlistEntryCreateSchema.safeParse({ ...creation, version: 2 }).success).toBe(false);
   });
+});
+
+describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("mutable resource storage versions", () => {
+  it("should assign one to new entries, invitations and usage while rejecting zero and null storage versions", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql"]) await database.applyMigration(migration);
+      const actorId = randomUUID(), tribeId = randomUUID();
+      const own = { userId: actorId, email: null };
+      await database.withContext(own, async (transaction) => {
+        await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${actorId},'Synthetic version owner',${`${actorId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic version tribe',${`version-${tribeId}`},${actorId})`);
+      });
+      const createResource = (resource: "entry" | "invitation" | "usage", version?: number | null) => database.withContext(own, async (transaction) => {
+        const contact = `${randomUUID()}@example.test`;
+        const versionColumn = version === undefined ? sql`` : sql`,version`;
+        const versionValue = version === undefined ? sql`` : sql`,${version}`;
+        if (resource === "entry") return (await transaction.execute(sql`insert into public.academy_allowlist_entries(tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id${versionColumn}) values (${tribeId},'email',${contact},${randomBytes(32)},${randomUUID()}${versionValue}) returning version`)).rows[0];
+        if (resource === "invitation") return (await transaction.execute(sql`insert into public.academy_personal_invitations(tribe_id,created_by_user_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,token_hash,token_key_id${versionColumn}) values (${tribeId},${actorId},'email',${contact},${randomBytes(32)},${randomUUID()},${randomBytes(32)},${randomUUID()}${versionValue}) returning version`)).rows[0];
+        return (await transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id${versionColumn}) values (${tribeId}${versionValue}) returning version`)).rows[0];
+      });
+      for (const resource of ["entry", "invitation", "usage"] as const) {
+        await expect(createResource(resource, 0)).rejects.toMatchObject({ cause: { code: "23514" } });
+        await expect(createResource(resource, null)).rejects.toMatchObject({ cause: { code: "23502" } });
+        expect(await createResource(resource)).toEqual({ version: 1 });
+      }
+    });
+  }, 120_000);
 });
