@@ -22,6 +22,22 @@ Pasaron `pnpm lint`, `pnpm typecheck` y `pnpm typecheck:tests`. La revisión nat
 
 ## Pendientes y límites
 
-T010, T011, T018, T019 y T029 continúan abiertos: faltan la captura request-scoped en el flujo real de Better Auth, los repositorios y el escritor que consume y emite en la misma transacción, adapter de cuenta, rutas/interfaz de reautenticación y purga. Las restricciones de almacenamiento ya tienen validación SQL aislada; no habilitan por sí solas el recorrido ni completan las dependencias de esas tareas.
+T010, T011, T018, T019 y T029 continúan abiertos: faltan conectar la captura al handler productivo y a la sesión/cuenta correctas, completar la integración de repositorios y el escritor que consume y emite recencia en la misma transacción, adapter de cuenta, rutas/interfaz de reautenticación y purga. Las restricciones de almacenamiento ya tienen validación SQL aislada; no habilitan por sí solas el recorrido ni completan las dependencias de esas tareas.
 
 No se cambia el login existente, no se envían mensajes, no se leen secretos de mensajería y no se activa una capacidad externa. OG-01 requiere verificar los claims reales del cliente Google; los tokens sintéticos de prueba no acreditan ese gate. Los demás gates mantienen el estado de [operational-gates.md](operational-gates.md). `spec.md`, `technical-contract.md`, identificadores normativos y checklists permanecen íntegros.
+
+## Preparación del decorador y contexto por request
+
+Sobre la base `c70d5ee6ef522a02466cf902fb31cf0da1350b1a` se implementó `googleIdentityEvidencePlugin`, que conserva las referencias originales del proveedor y su resultado de login. Verifica el mismo token mediante el verificador existente y consume el perfil original una sola vez. Después del pin/verificación nativa deriva la evidencia desde el payload de ese token, independientemente del perfil mapeado. `AuthEvidenceContext` usa exclusivamente `AsyncLocalStorage.run/getStore`, almacena el resultado mínimo y no conserva token ni profile. Sin scope explícito no hay captura ni fallback global.
+
+Los diez casos del plugin ejercen la API pública de Better Auth con su adapter de memoria publicado, sin mockear la biblioteca. Incluyen callback OAuth completo con state/PKCE y transporte propio, correo Gmail/Workspace/externo/señales ausentes, sign-ins concurrentes y login fuera de scope. La revisión reprodujo que un `mapProfileToUser` soportado mutaba email/email_verified/hd y confería autoridad Gmail desde un token externo; la corrección conserva el login mapeado pero deriva evidencia original insuficiente del token firmado. Las firmas/JWKS y tokens son sintéticos y el transporte deniega salidas reales. La regresión conjunta con los doce casos del verificador pasó 22 pruebas; lint y ambos chequeos de tipos pasaron.
+
+El plugin todavía no se agrega a la configuración productiva ni se envuelve la ruta existente. La captura transitoria no acredita usuario/account/session, no persiste evidencia, no consume una intención ni autoriza reautenticación. La integración debe comprobar el `newSession` y el estado OAuth acreditado, revalidar las relaciones bajo locks y comparar el nonce firmado con el hash del intento antes de emitir recencia. T029/T030 y sus dependencias permanecen pendientes; OG-01 no se acredita con esta preparación.
+
+## Repositorio privado de identidad vigente
+
+El puerto `GlobalIdentityEvidenceRepository` y su adapter PostgreSQL guardan una captura mínima ya verificada sólo cuando actor actual, usuario, cuenta Google, sujeto, correo actual y sesión viva coinciden. Toman locks de usuario/cuenta/sesión, serializan por cuenta y comprueban el vencimiento de la sesión con reloj posterior a las esperas. Reemplazar la captura vigente conserva historia mínima invalidada; cada nueva fila tiene su propio id y version inicial 1. No guarda nonce, recencia ni otro token.
+
+La lectura propia une captura y relaciones actuales, no llama a OAuth y no convierte el vencimiento histórico del token en una sesión de una hora. Un correo, sujeto, cuenta o sesión incompatibles dejan de exponer esa captura. Esta lectura no constituye un permiso durable ni acredita el lifecycle de invalidación permanente de T033.
+
+Los cuatro casos SQL pasaron en PostgreSQL real de ramas Neon propias con cleanup: captura derivada del verificador Google real, cuentas/sesiones/claims cruzados, sesión vencida, dos capturas concurrentes con una sola vigente y cambio de correo/actor. Las credenciales/tokens/JWKS de prueba son sintéticos. El repositorio todavía no se conecta al hook ni a `AuthenticatedAccountProvider`, y no emite recencia ni consume nonce/intención. T030/T033 conservan esos pendientes y sus dependencias.
