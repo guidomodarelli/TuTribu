@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admisión básica a academias</title>
+<style>
+*{box-sizing:border-box}body{margin:0 auto;max-width:860px;padding:48px 24px 80px;background:#f8f7f4;color:#333;font:14px/1.7 system-ui,sans-serif}h1,h2{color:#1a1a1a;line-height:1.3}h1{font-size:28px;margin:8px 0}h2{font-size:20px;margin-top:32px;padding-bottom:8px;border-bottom:1px solid #e0ddd6}header{border-bottom:2px solid #1a1a1a;padding-bottom:20px}.label{color:#888;font:11px/1.5 monospace;letter-spacing:.14em;text-transform:uppercase}.meta{color:#555}code{font-family:monospace;background:#f0ede6;padding:2px 4px;overflow-wrap:anywhere}a{color:#1a4f7a;overflow-wrap:anywhere}.note{border-left:3px solid #d4a44c;background:#fdf5e0;padding:14px 18px;color:#7a5510}li{margin-bottom:6px}
+</style>
+</head>
+<body>
+<header><div class="label">TuTribu · Arquitectura</div><h1>Admisión básica a academias</h1><p class="meta">Primitivas de dominio de <code>001-academy-admissions</code>. Implementación en curso.</p></header>
+<main>
+<div class="note">La base pura está implementada y probada. Los escritores, migraciones y rutas de admisión siguen pendientes; los enlaces existentes todavía no incorporan este nuevo control. Los gates operativos permanecen cerrados hasta reunir su evidencia real.</div>
+<h2>Responsabilidad del módulo</h2>
+<p><code>src/modules/academy-admissions/domain</code> decide compatibilidad y elegibilidad a partir de hechos propios actuales. El login global sigue siendo obligatorio. La comprobación adicional de contacto depende de la tribu; el dominio no usa credenciales del líder como identidad global. Los casos de uso resolverán los hechos mediante puertos y confirmarán los efectos mediante un escritor atómico.</p>
+<p>El dominio no importa SDKs de mensajería, HTTP, repositorios concretos ni DTOs de otro módulo. Reutiliza la normalización telefónica pura de <code>libphonenumber-js/max</code>. Conserva los puntos y etiquetas del correo y rechaza país incoherente o número sin país inequívoco. Normalizar un dato no verifica su control ni crea un vínculo.</p>
+<h2>Configuración y países</h2>
+<p><code>AdmissionPolicy</code> inicia en manual, correo, códigos OFF, excepciones OFF y admisiones cerradas. El contacto queda fijo después de activación. Una propuesta de cambio comprueba la versión esperada, distingue un no-op de un cambio efectivo y aumenta la época solo al pasar de OFF a ON. El escritor futuro debe hacer CAS e incremento en el mismo commit, después de resolver el replay de una operación confirmada.</p>
+<p><code>MessagingUsagePolicy.allowedCountries</code> es la única lista editable de países. El puerto <code>MessagingUsagePolicyReader</code> entrega al dominio una proyección mínima de tribu, versión, países y restricciones comprobadas; no existe otra lista en <code>AdmissionPolicy</code>. Al configurar teléfono ON se exige selección explícita y capacidad/cupo preparado. La autorización de cada despacho y la revalidación de mensajes en cola aún deben implementarse en <code>messaging</code>.</p>
+<h2>Ingreso y pertenencia</h2>
+<p><code>evaluateAdmissionSubmission</code> evalúa las matrices de enlace común o nominativo, lista o revisión manual, evidencia base o prueba local y restricciones de pertenencia. Devuelve una propuesta sin insertar ni recuperar miembros. El consumidor debe resolver primero el estado existente y aplicar confirmación, cuotas, replay, locks y efectos indivisibles.</p>
+<p>Los miembros <code>active/muted</code> se conservan. Solo se propone recuperar un <code>tribemate</code> con causa exclusivamente comercial y snapshot legible acreditado. Conducta, remoción administrativa, privilegios históricos y estado comercial desconocido no se reactivan automáticamente. Las concesiones y suscripciones conservan sus owners, según <a href="academy-access.htm">acceso a academia</a>.</p>
+<p>Una configuración ausente, inválida, no activada o con evaluador/recuperación cerrados impide propuestas de nueva admisión. El marcador monotónico de activación todavía debe persistirse en la tribu y todas las rutas antiguas deben cerrarse mediante los writers y guards previstos; el chequeo puro no sustituye esa protección.</p>
+<h2>Revisión y permisos actuales</h2>
+<p><code>evaluatePendingAdmissionReview</code> conserva la decisión explícita del responsable. Una prueba aplicada pertenece a una solicitud exacta: puede sostener su revisión después de los quince minutos de frescura inicial, mientras scope, época y vigencia sigan siendo válidos. La rotación ordinaria no exige repetirla. Una invitación ya canjeada no vuelve a vencer por su antiguo plazo; revocar la autorización sí impide resolverla.</p>
+<p>Los permisos usan el rol y estado actuales por tribu. El solicitante puede consultar/cancelar su estado sin una membresía ficticia; el líder o guardián activo puede revisar, con prohibición de autoaprobación. Gestionar conexiones requiere además un scope reciente acreditado por <code>auth</code>; un booleano del browser no constituye ese scope. No hay permiso público para recuperar el secreto guardado ni para conceder productos o roles desde admisión.</p>
+<h2>Evidencia y próximos límites</h2>
+<p>Se ejecutaron 96 casos de dominio, lint y ambos chequeos de tipos. La evidencia y las limitaciones están en <a href="../../specs/001-academy-admissions/validation/domain-baseline.md">domain-baseline.md</a>. Las pruebas SQL, HTTP, auth, interfaz y proveedor de la feature no se infieren de este resultado. Consultar la <a href="../conventions/admission-testing.htm">convención de pruebas</a> y el <a href="../../specs/001-academy-admissions/validation/operational-gates.md">registro de gates</a>.</p>
+</main>
+</body>
+</html>

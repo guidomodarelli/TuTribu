@@ -4,7 +4,7 @@
 
 **Input**: Contrato funcional completo, [technical-contract.md](technical-contract.md), [handoff.md](handoff.md), [traceability.md](traceability.md) y checklist del paquete. Selección efectiva: `.specify/feature.json`, independiente de la rama Git.
 
-**Estado**: fases 0 y 1 de diseño completadas; revisión I1/U1 incorporada y tareas/trazabilidad sincronizadas en `7198047f126bcde6b0a5f0cdb60abf4191903e10`. Implementación iniciada con preparación del entorno y transporte de pruebas; ver [evidencia](research.md#evidencia-de-preparación-t001t002t005--2026-10-05) y [gates](validation/operational-gates.md). Las capacidades de producto, migraciones y pruebas operativas siguen pendientes; ninguna capacidad externa fue activada. El usuario autorizó commit y push de avances con `--no-verify`.
+**Estado**: fases 0 y 1 de diseño completadas; revisión I1/U1 incorporada y tareas/trazabilidad sincronizadas en `7198047f126bcde6b0a5f0cdb60abf4191903e10`. Preparación T001–T006 completada; base de dominio en construcción con 96 casos ejecutados, ver [evidencia](validation/domain-baseline.md) y [gates](validation/operational-gates.md). Los escritores, rutas, migraciones y pruebas operativas de producto siguen pendientes; ninguna capacidad externa fue activada. El usuario autorizó commit y push de avances con `--no-verify` y confirmó la revisión humana completa.
 
 ## Summary
 
