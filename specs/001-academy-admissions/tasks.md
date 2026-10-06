@@ -101,7 +101,7 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
 <a id="t007"></a>
 
-- [ ] T007 [P] Escribir primero casos SQL de FK de misma tribu, una pendiente, vínculo no reasignable, canje/prueba únicos, decisión+efecto+evento indivisibles y ledger; ejecutar contra el baseline para observar fallos y luego contra las migraciones reales. Archivos: `tests/unit/modules/academy-admissions/infrastructure/admission-persistence.test.ts`. Trazabilidad: `FR-094`–`FR-095`, `FR-141`, `D-12`, `D-24`, `TC-019`, `TC-026`.
+- [ ] T007 [P] Escribir primero casos SQL de FK de misma tribu, una pendiente, vínculo no reasignable, canje/prueba únicos, decisión+efecto+evento indivisibles y ledger; ejecutar contra el baseline para observar fallos y luego contra las migraciones reales. Archivos: `tests/unit/modules/academy-admissions/infrastructure/admission-persistence.test.ts`, `tests/unit/modules/academy-admissions/infrastructure/admission-proof-persistence.test.ts`, `tests/unit/modules/academy-admissions/infrastructure/admission-redemption-persistence.test.ts`. Trazabilidad: `FR-094`–`FR-095`, `FR-141`, `D-12`, `D-24`, `TC-019`, `TC-026`.
 
 <a id="t008"></a>
 
@@ -159,7 +159,7 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
 <a id="t021"></a>
 
-- [ ] T021 Crear tablas/constraints/índices/FK tenant y grants/RLS de política, lista/vínculo, invitación, request/decisión/operación, desafío/proof, importación y audit; respetar nullable/estados/índices parciales y orden diferido decisión-membership del modelo B–E/H. SQL fuente de verdad, sin validar texto de migración. Lista/invitación incorporan version entera positiva no nullable DEFAULT 1; en la misma transacción se aplica CAS de cambio efectivo, sin volver reimport/binding una edición oculta. Archivos: `database/migrations/20261005091000_create_academy_admission_core.sql`, `src/modules/shared/infrastructure/database/schema.ts`. Dependencias: `T020`, `T019`, `T007`. Trazabilidad: `SC-013`.
+- [ ] T021 Crear tablas/constraints/índices/FK tenant y grants/RLS de política, lista/vínculo, invitación, request/decisión/operación, desafío/proof, importación y audit; respetar nullable/estados/índices parciales y orden diferido decisión-membership del modelo B–E/H. SQL fuente de verdad, sin validar texto de migración. Lista/invitación incorporan version entera positiva no nullable DEFAULT 1; en la misma transacción se aplica CAS de cambio efectivo, sin volver reimport/binding una edición oculta. Archivos: `database/migrations/20261005091000_create_academy_admission_core.sql`, `database/migrations/20261005091500_guard_admission_evidence_transitions.sql`, `src/modules/academy-admissions/infrastructure/database/admission-schema.ts`, `src/modules/shared/infrastructure/database/schema.ts`. Dependencias: `T020`, `T019`, `T007`. Trazabilidad: `SC-013`.
 
 <a id="t022"></a>
 

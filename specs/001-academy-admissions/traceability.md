@@ -455,7 +455,7 @@ Países/cupos backend T087 y formulario T088 preceden al diagnóstico T089 de US
 
 | Tarea | Tipo | Archivos de caso / procedimiento / evidencia | Estado |
 | --- | --- | --- | --- |
-| <a id="t007"></a>[T007](tasks.md#t007) | integración SQL | `tests/unit/modules/academy-admissions/infrastructure/admission-persistence.test.ts` | Pendiente de ejecución |
+| <a id="t007"></a>[T007](tasks.md#t007) | integración SQL | `tests/unit/modules/academy-admissions/infrastructure/admission-persistence.test.ts`; `tests/unit/modules/academy-admissions/infrastructure/admission-proof-persistence.test.ts`; `tests/unit/modules/academy-admissions/infrastructure/admission-redemption-persistence.test.ts` | Evidencia estructural parcial en [persistence-baseline.md](validation/persistence-baseline.md); pendiente de efecto de membresía y writers/replay |
 | <a id="t008"></a>[T008](tasks.md#t008) | domain / matrices | `tests/unit/modules/academy-admissions/domain/admission-policy.test.ts`; `tests/unit/modules/academy-admissions/domain/admission-contact.test.ts` | Pendiente de ejecución |
 | <a id="t009"></a>[T009](tasks.md#t009) | integración SQL / regresión | `tests/unit/modules/tribes/infrastructure/academy-admission-cutover.test.ts` | Pendiente de ejecución |
 | <a id="t010"></a>[T010](tasks.md#t010) | contrato Better Auth / crypto | `tests/unit/modules/auth/infrastructure/google-identity-evidence.test.ts` | Pendiente de ejecución |
