@@ -11,12 +11,18 @@ export type AdmissionMessagingSchemaReferences = {
   codeEnvelopes: { id: AnyPgColumn; challengeId: AnyPgColumn; deliveryId: AnyPgColumn; tribeId: AnyPgColumn; connectionId: AnyPgColumn; connectionVersion: AnyPgColumn };
 };
 
+/** Resolves the membership owner after the decision table has been composed. */
+export type AdmissionMembershipSchemaReferences = {
+  id:AnyPgColumn;decisionId:AnyPgColumn;requestId:AnyPgColumn;tribeId:AnyPgColumn;userId:AnyPgColumn;outcome:AnyPgColumn;
+};
+
 /** Existing table references are injected by the shared schema composition root. */
 type AdmissionSchemaParents = {
   users: { id: AnyPgColumn }; tribes: { id: AnyPgColumn };
   globalIdentityEvidence: { id: AnyPgColumn; userId: AnyPgColumn };
   tribeInvitations: { id: AnyPgColumn; tribeId: AnyPgColumn };
   messaging: () => AdmissionMessagingSchemaReferences;
+  membershipEffects: () => AdmissionMembershipSchemaReferences;
 };
 
 /** Maps only the PostgreSQL binary representation consumed by the adapter. */
@@ -249,6 +255,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     actorCheck: check("admission_decision_actor_check", sql`${table.actorKind} in ('user','system')`), policyVersionCheck: check("admission_decision_policy_version_check", sql`${table.policyVersion}>0`), epochCheck: check("admission_decision_epoch_check", sql`${table.verificationEpoch}>0`),
     reasonCheck: check("admission_decision_reason_check", sql`char_length(${table.internalReason})<=${ADMISSION_LIMIT.internalMessageCharacters}`.inlineParams()), messageCheck: check("admission_decision_message_check", sql`char_length(${table.externalMessage})<=${ADMISSION_LIMIT.externalMessageCharacters}`.inlineParams()),
     effectCheck: check("admission_decision_effect_check", sql`(${table.outcome}='approved')=(${table.membershipEffectId} is not null)`),
+    membershipEffectForeignKey: foreignKey({name:"admission_decision_membership_effect_fkey",columns:[table.membershipEffectId,table.id,table.requestId,table.tribeId,table.userId,table.outcome],foreignColumns:[parents.membershipEffects().id,parents.membershipEffects().decisionId,parents.membershipEffects().requestId,parents.membershipEffects().tribeId,parents.membershipEffects().userId,parents.membershipEffects().outcome]}),
   }));
   const operations = pgTable("academy_admission_operations", {
     id: uuid("id").defaultRandom().primaryKey(), actorUserId: text("actor_user_id").notNull(), tribeId: uuid("tribe_id").notNull(), operationType: text("operation_type").notNull(), idempotencyKey: uuid("idempotency_key").notNull(),
