@@ -5,7 +5,7 @@ import {GLOBAL_REAUTHENTICATION_INTENT_STATE,GLOBAL_REAUTHENTICATION_OUTCOME,REC
 import {GOOGLE_IDENTITY_PROVIDER} from "@/src/modules/auth/constants/google-identity-evidence";
 import type {GlobalReauthenticationIntent} from "@/src/modules/auth/domain/entities/global-reauthentication-intent";
 import type {RecentAuthenticationEvidence,RecentAuthenticationScope} from "@/src/modules/auth/domain/entities/recent-authentication-evidence";
-import type {CompleteGlobalReauthenticationCommand,CreateReauthenticationIntentCommand,IssueReauthenticationNonceCommand,ReauthenticationResourceAuthorizer,RecentAuthenticationRepository} from "@/src/modules/auth/domain/repositories/recent-authentication-repository";
+import type {CompleteGlobalReauthenticationCommand,CreateReauthenticationIntentCommand,IssueReauthenticationNonceCommand,ReadReauthenticationIntentCommand,ReauthenticationResourceAuthorizer,RecentAuthenticationRepository} from "@/src/modules/auth/domain/repositories/recent-authentication-repository";
 import {evaluateGlobalReauthenticationCallback,evaluateRecentAuthentication} from "@/src/modules/auth/domain/policies/recent-authentication";
 import {issueGlobalReauthenticationNonce,matchesGlobalReauthenticationNonce} from "@/src/modules/auth/infrastructure/verification/global-reauthentication-nonce";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
@@ -63,6 +63,28 @@ export class PostgresRecentAuthenticationRepository implements RecentAuthenticat
    * @param createAuthorizer - Owned resource/return reader using that same transaction.
    */
   constructor(private readonly executeWithDatabase:DatabaseExecutor,private readonly createAuthorizer:(database:RequestDatabase)=>ReauthenticationResourceAuthorizer) {}
+
+  /**
+   * Reads only the current account's intent with a live session and active canonical leadership.
+   * @param command - Private current identity and opaque intent reference.
+   * @returns Authorized intent facts or null, with no mutation or callback consumption.
+   */
+  read(command:ReadReauthenticationIntentCommand):Promise<GlobalReauthenticationIntent|null> {
+    return this.executeWithDatabase(async(database)=>{
+      const row=(await database.execute<IntentRow>(sql`
+        select intent.* from public.global_reauthentication_intents intent
+        inner join public.session current_session on current_session.id=${command.sessionId} and current_session."userId"=intent.user_id and current_session."expiresAt">clock_timestamp()
+        inner join public.account current_account on current_account.id=intent.account_id and current_account."userId"=intent.user_id and current_account."accountId"=intent.provider_subject and current_account."providerId"=${GOOGLE_IDENTITY_PROVIDER}
+        where intent.id=${command.intentId} and intent.user_id=${command.userId} and intent.account_id=${command.accountId} and intent.provider_subject=${command.subject}
+          and public.current_app_user_id()=${command.userId}
+          and exists(select 1 from public.tribe_members leader where leader.tribe_id=intent.tribe_id and leader.user_id=intent.user_id and leader.role=${TRIBE_MEMBER_ROLE.leader} and leader.status=${TRIBE_MEMBERSHIP_STATUS.active})
+      `)).rows[0];
+      if(!row) return null;
+      const scope={userId:command.userId,sessionId:command.sessionId,accountId:command.accountId,subject:command.subject,tribeId:row.tribe_id,operation:row.operation,resourceId:row.resource_id};
+      const resource=await this.createAuthorizer(database).resolve(scope);
+      return resource?.allowedReturnPaths.includes(row.return_path)?mapIntent(row):null;
+    });
+  }
 
   /**
    * Creates a one-use intent only for a current leader's authorized resource/return.

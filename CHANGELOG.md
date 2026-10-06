@@ -7,6 +7,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Added
 
 - El inicio de sesión con Google guarda evidencia del correo autenticado para las comprobaciones de contacto de academias; si esa comprobación adicional no está disponible, se conserva el acceso a la cuenta.
+- Las comprobaciones sensibles distinguen la cuenta Google usada en cada sesión y dejan de reconocer una verificación anterior cuando cambia el correo de la cuenta.
 
 ### Fixed
 

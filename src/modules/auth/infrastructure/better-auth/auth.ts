@@ -9,6 +9,7 @@ import { Pool } from "pg";
 import { BETTER_AUTH_SESSION_OPTIONS } from "@/src/modules/auth/constants/session";
 import { isMissingProviderAccountError } from "@/src/modules/auth/infrastructure/better-auth/provider-account-errors";
 import { googleIdentityEvidencePlugin } from "@/src/modules/auth/infrastructure/better-auth/google-identity-evidence-plugin";
+import {authorizeGlobalReauthenticationIntent} from "@/src/modules/auth/reauthentication-setup";
 import { scheduleMemberProfileImageRefresh } from "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh";
 import { withDevSignIn } from "@/src/modules/auth/infrastructure/dev-sign-in/dev-sign-in-auth-options";
 import { createPostgresPool } from "@/src/modules/shared/infrastructure/database/postgres-pool";
@@ -125,7 +126,7 @@ export const auth = betterAuth(withDevSignIn({
       },
     },
   },
-  plugins: [googleIdentityEvidencePlugin(),nextCookies()],
+  plugins: [googleIdentityEvidencePlugin({authorizeIntent:authorizeGlobalReauthenticationIntent}),nextCookies()],
   secret: betterAuthEnvironment.secret,
   /**
    * Sliding 180-day session. Server renders read it without refreshing (they

@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import {createAuthenticatedAccountSchema} from "@/src/modules/auth/infrastructure/database/authenticated-account-schema";
 import { createAdmissionSchema, type AdmissionMessagingSchemaReferences, type AdmissionMembershipSchemaReferences } from "@/src/modules/academy-admissions/infrastructure/database/admission-schema";
 import { createMessagingSchema } from "@/src/modules/messaging/infrastructure/database/messaging-schema";
 import { createAdmissionMembershipEffectsSchema } from "@/src/modules/tribes/infrastructure/database/admission-membership-schema";
@@ -91,6 +92,8 @@ export const verifications = pgTable("verification", {
 }));
 
 /** Private verified captures; no additional OAuth token or full provider profile is persisted. */
+export const {globalSessionIdentityBindings}=createAuthenticatedAccountSchema({sessions,accounts});
+
 export const globalIdentityEvidence = pgTable("global_identity_evidence", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: text("user_id").notNull(),

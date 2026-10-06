@@ -4,7 +4,7 @@ import {toNextJsHandler} from "better-auth/next-js";
 import {AUTH_EVIDENCE_CAPTURE_LOG} from "@/src/modules/auth/constants/auth-evidence-capture";
 import {createScopedAuthEvidenceHandler,type AuthEvidenceFailureDiagnostic} from "@/src/modules/auth/infrastructure/better-auth/scoped-auth-evidence-handler";
 import type {CompletedGoogleLogin} from "@/src/modules/auth/infrastructure/better-auth/auth-evidence-context";
-import {PostgresGlobalIdentityEvidenceRepository} from "@/src/modules/auth/infrastructure/repositories/postgres-global-identity-evidence-repository";
+import {persistCompletedGlobalAuthentication} from "@/src/modules/auth/infrastructure/composition/complete-global-authentication";
 import {createServerDatabaseClient} from "@/src/modules/shared/infrastructure/database/server-database-client";
 import {createServerLogger} from "@/src/modules/shared/infrastructure/observability/server-logger";
 
@@ -15,9 +15,7 @@ import {createServerLogger} from "@/src/modules/shared/infrastructure/observabil
  */
 async function persistCompletedIdentity(completion:CompletedGoogleLogin):Promise<{status:"stored"|"identity_mismatch"}> {
   const database=await createServerDatabaseClient();
-  const repository=new PostgresGlobalIdentityEvidenceRepository((run)=>database.withRequestContext({userId:completion.userId,email:completion.evidence.normalizedEmail},run));
-  const result=await repository.capture(completion);
-  return {status:result.status};
+  return database.withRequestContext({userId:completion.userId,email:completion.evidence.normalizedEmail},(transaction)=>persistCompletedGlobalAuthentication(transaction,completion));
 }
 
 /**

@@ -64,6 +64,7 @@ export class PostgresGlobalIdentityEvidenceRepository implements GlobalIdentityE
         values (${command.userId},${command.accountId},${GOOGLE_IDENTITY_PROVIDER},${command.evidence.subject},${command.evidence.normalizedEmail},${command.evidence.emailVerifiedClaim},${command.evidence.hostedDomain},${command.evidence.classification},${command.evidence.issuer},${command.evidence.audience},${command.evidence.tokenIssuedAt},${command.evidence.tokenExpiresAt},clock_timestamp())
         returning *
       `)).rows[0];
+      await database.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${command.sessionId},${command.userId},${command.accountId},${command.evidence.subject},${command.evidence.normalizedEmail}) on conflict(session_id) do nothing`);
       return {status:GLOBAL_IDENTITY_CAPTURE_STATUS.stored,evidence:mapEvidence(captured)};
     });
   }

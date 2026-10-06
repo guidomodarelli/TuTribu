@@ -1,5 +1,6 @@
 import { buildAuthModule } from "./auth/setup";
 import { BetterAuthSessionRepository } from "./auth/infrastructure/repositories/better-auth-session-repository";
+import {createRequestAuthenticatedAccountProvider} from "./auth/infrastructure/composition/authenticated-account-provider";
 import { buildTribesModule } from "./tribes/setup";
 import { PostgresTribeCreationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creation-repository";
 import { PostgresTribeCreatorWhitelistRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository";
@@ -197,6 +198,7 @@ export async function createRequestModules(
     }),
     auth: buildAuthModule({
       authSessionRepository: new BetterAuthSessionRepository(),
+      authenticatedAccountProvider:createRequestAuthenticatedAccountProvider(),
     }),
     tribes: buildTribesModule({
       tribeAcademyAdmissionRepository: new PostgresTribeAcademyAdmissionRepository(
