@@ -12,6 +12,8 @@ Los errores del SDK se clasifican por status antes de mensaje: 400/422 continúa
 
 El resolver privado usa account/session/subject actuales, líder canónico y membresía activa, tribu/recurso/contribuyente, versión, entorno y época externa. Relee cuenta y liderazgo después de las esperas, y evalúa los diez minutos de recencia desde auth_time firmado. Los casos reproducidos antes de corregir incluyen sesión retirada, liderazgo perdido, conexión suspendida/desconectada y vencimiento de sesión inválido, todos antes de SecretStore. El Store concreto todavía debe revalidar bajo sus propios locks antes de descifrar.
 
+El contexto privado agrega recurso y `authorizationPurpose: sensitive_leader` explícitos, con un caso reproducido antes de la corrección. El contrato de Store distingue ese contexto de `authorized_delivery`, emitido por el writer después del marker y presupuesto. Este último contiene intento/versión/lease/líder contribuyente/época; no reutiliza sesión o recencia humana para cada trabajo programado. La emisión durable del contexto y su revalidación en Store siguen pendientes.
+
 Pasaron la suite de 51 casos, lint y ambos typechecks. La regresión previa de las otras ocho suites contiene 270 casos; se conserva su cobertura y se repite la base conjunta al publicar. La revisión nativa aceptó y verificó el hallazgo de HTTP 408, se reprodujeron los dos fallos y se corrigieron; el rerun terminó sin hallazgos accionables y con 21 hashes estables.
 
 ## Estado de tareas y límites

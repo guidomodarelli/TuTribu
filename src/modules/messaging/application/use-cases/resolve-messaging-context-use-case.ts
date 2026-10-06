@@ -3,7 +3,7 @@ import { evaluateRecentAuthentication } from "@/src/modules/auth/domain/policies
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
-import { MESSAGING_CREDENTIAL_USABLE_STATES } from "@/src/modules/messaging/constants/messaging-connection";
+import { MESSAGING_AUTHORIZATION_PURPOSE, MESSAGING_CREDENTIAL_USABLE_STATES } from "@/src/modules/messaging/constants/messaging-connection";
 import { messagingFailure, type MessagingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
 import type { AuthorizedMessagingContext, MessagingAccountProvider, MessagingAuthorizationReader, MessagingLeadershipFacts, MessagingSecretStore, MessagingSecurityFactsProvider } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 
@@ -63,7 +63,8 @@ export class ResolveMessagingContextUseCase {
     const scope = { userId: account.userId, sessionId: account.session.id, accountId: account.googleAccount.id, subject: account.googleAccount.subject, tribeId: command.tribeId, operation: command.operation, resourceId: command.connectionId };
     const evidence = account.recentAuthentication.find((candidate) => evaluateRecentAuthentication({ now, scope, evidence: candidate, sessionActive: true, currentLeaderUserId: leadership.leaderUserId }).allowed);
     if (!evidence?.authenticatedAt) return deny(MESSAGING_ERROR_CODE.reauthenticationRequired);
-    return { allowed: true, context: { actorUserId: account.userId, sessionId: account.session.id, accountId: account.googleAccount.id, subject: account.googleAccount.subject,
+    return { allowed: true, context: { authorizationPurpose: MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader, resourceId: command.connectionId,
+      actorUserId: account.userId, sessionId: account.session.id, accountId: account.googleAccount.id, subject: account.googleAccount.subject,
       tribeId: command.tribeId, connectionId: connection.id, connectionVersion: connection.version, environment: security.environment, securityEpoch: security.securityEpoch,
       operation: command.operation, requestId: command.requestId, authenticatedAt: evidence.authenticatedAt, validUntil: evidence.validUntil, secretRef: connection.secretRef,
     } };

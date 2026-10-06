@@ -1,0 +1,27 @@
+# Base de persistencia de admisiones
+
+**Feature**: `001-academy-admissions`. **Base publicada**: `36df2ddfcf7e7a98e321e4c34ecf0f3ccfe2b912`. Implementación parcial de T007/T021; no acredita OG-06.
+
+## Alcance
+
+El SQL versionado agrega política, lista, vínculos, invitaciones, desafíos/pruebas, solicitudes/decisiones, operaciones, importación, auditoría y obligaciones internas. Drizzle refleja columnas, defaults, índices y relaciones mediante una factory del owner, compuesta con las tablas existentes desde el schema compartido. Las FKs diferidas del ciclo solicitud/decisión/canje/prueba, FORCE RLS, grants y triggers siguen siendo autoridad del SQL.
+
+Los recursos de lista e invitación comienzan en versión 1. Un trigger verifica incremento único ante cambios efectivos y conserva la versión ante no-op. La identidad de lista, invitación, vínculo y solicitud no puede reasignarse. Los roles SQL de request tienen lecturas propias y ninguna policy de escritura; el backend debe resolver autoridad actual en sus escritores.
+
+El CHECK de alternativa SMS exige teléfono, WhatsApp principal y verificación ON, igual que la política de dominio. Se reprodujeron la combinación OFF incorrectamente permitida y el bypass por canal NULL; el CHECK ahora produce false para canal ausente. Sin alternativa, un borrador cerrado conserva la preparación incompleta permitida por el dominio hasta la validación de activación; no se agregó una regla más estricta para ese borrador.
+
+La transición terminal y su decisión coinciden al terminar la transacción. Emitir una decisión requiere además la obligación de su resultado y un evento de auditoría del mismo recurso/tribu. La guarda se evalúa de forma diferida para permitir ambos órdenes de inserción; su validación inicial no renueva plazos ni impone conservar avisos materializados durante toda la historia.
+
+## Evidencia ejecutada
+
+El baseline sin la migración reprodujo `42P01`. En ramas Neon efímeras propias, el artefacto real pasó defaults cerrado/manual/correo/OFF, FK de invitación de misma tribu, pendiente única, vínculo no reasignable, versión de lista, rechazo de edición sin incremento y de incremento sin cambios, dos CAS con un solo ganador y lectura por Drizzle real. No se escribió membresía al insertar estos registros.
+
+Se reprodujo el INSERT de decisión huérfana permitido y se agregó la guarda diferida. Pasó su rechazo y rollback del par solicitud/decisión, el rechazo incompleto sin obligación, el commit completo de rechazo con obligación/auditoría y la prohibición de reabrirlo. La operación lógica duplicada fue rechazada por su clave compuesta. El rol sin bypass leyó exclusivamente la solicitud propia y no pudo editarla directamente. Las suites de persistencia de auth siguieron pasando con el schema compuesto.
+
+Se ejecutan las suites con `RUN_ADMISSION_SQL_TESTS=1` y `APPLY_ADMISSION_MIGRATIONS=1`, exclusivamente mediante el helper protegido. Cada ejecución crea su propia rama, utiliza datos sintéticos y elimina esa rama en `finally`. No se aplica SQL en default/producción ni se accede a secretos del proveedor.
+
+## Pendientes
+
+T007 y T021 siguen abiertos: falta completar cobertura de canje/prueba única, efecto de membresía y ledger/replay con escritores reales, además de las relaciones y policies de integración de mensajería/pertenencia. Los repositorios, las rutas y la autorización compleja no se infieren de estas restricciones. T009, T013, T016, T022–T028, T038–T043 y T048 mantienen sus obligaciones completas.
+
+No se habilitan academias ni mensajes. Los gates de [operational-gates.md](operational-gates.md) siguen pendientes; las pruebas estructurales aisladas no cierran la validación operativa ni convierten casillas de checklist en implementación terminada. `spec.md`, `technical-contract.md` y los identificadores normativos se conservan íntegros.

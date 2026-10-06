@@ -192,7 +192,7 @@ describe("current messaging authority before SecretStore", () => {
 
   it("should load a credential only after resolving the current leader and exact recent scope", async () => {
     const { state, command, loader } = createAuthority();
-    expect(await loader.execute(command)).toMatchObject({ allowed: true, context: { actorUserId: "leader-a", tribeId: command.tribeId, connectionId: command.connectionId, connectionVersion: 1 } });
+    expect(await loader.execute(command)).toMatchObject({ allowed: true, context: { authorizationPurpose: "sensitive_leader", resourceId: command.connectionId, actorUserId: "leader-a", tribeId: command.tribeId, connectionId: command.connectionId, connectionVersion: 1 } });
     expect(state.secretLoads).toBe(1);
   });
 
