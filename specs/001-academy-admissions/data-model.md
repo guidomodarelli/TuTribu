@@ -117,6 +117,8 @@ El escritor confirma conjuntamente decisión, efecto básico, canje/vínculo cua
 
 Identidad opaca de cliente validada, actor/tribu/tipo, huella protegida del intent, claim/lease/version, estado iniciado/finalizado y resultado público mínimo. Unique `(actor,tribe,type,idempotency_key)`. El claim durable precede al trabajo; finalización y efecto de negocio son atómicos. La misma clave con otro intent es conflicto. Una pérdida de commit/HTTP se reconcilia antes de repetir; bloquear/consultar la fila impide competir por un efecto ya confirmado.
 
+La implementación distingue el `id` interno del ledger del `idempotency_key` generado por cliente y conocido antes de un POST perdido. El resultado/progreso propio usa esa identidad cliente dentro del namespace actor/tribu/tipo; los callbacks usan el id interno para relaciones de auditoría. La lectura de reconciliación recibe el namespace y el intent original del owner, revalida autorización/huella y no crea ni renueva claims. El lookup HTTP por id aún requiere su composición de owner y no se habilita por esta primitive. Identidad/huella/origen y snapshot completado son inmutables; cambios efectivos de lease/finalización incrementan exactamente una versión, sin incremento por replay/no-op.
+
 Lotes contienen máximo cincuenta IDs explícitos con versiones y motivos pertinentes. Se ordenan locks; cada fila tiene outcome de negocio. En una transacción DB-only pueden confirmarse éxitos junto con conflictos previstos. Una falla inesperada de persistencia revierte esa transacción: no publicar éxitos no confirmados. Resultado perdido se recupera por operación; repetir no duplica decisiones/avisos. No se agrega un framework de jobs para decidir cada solicitud.
 
 ### `AllowlistImport` / `AllowlistImportRow`

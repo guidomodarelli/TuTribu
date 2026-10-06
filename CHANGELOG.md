@@ -16,6 +16,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Security
 
+- Los resultados confirmados de las operaciones de admisión quedan protegidos contra sobrescrituras y cambios de identidad.
 - Las credenciales de mensajería retiradas o vinculadas a una cuenta o recurso sin autorización quedan fuera de uso; su eliminación conserva el historial de la conexión.
 
 ## [1.1.3] - 2026-10-04
