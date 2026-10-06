@@ -14,6 +14,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - La revisión de suscripciones de academia conserva la membresía básica; las revisiones de membresía respetan silenciamientos y bloqueos y muestran el estado confirmado en esa revisión.
 
+### Security
+
+- Las credenciales de mensajería retiradas o vinculadas a una cuenta o recurso sin autorización quedan fuera de uso; su eliminación conserva el historial de la conexión.
+
 ## [1.1.3] - 2026-10-04
 
 ### Fixed

@@ -12,7 +12,8 @@ import { allowlistEntryUpdateSchema } from "@/src/modules/academy-admissions/inf
 import { normalizeMessagingProviderFailure } from "@/src/modules/messaging/infrastructure/api/messaging-route-http";
 import { createAdmissionProviderTransport } from "@/tests/support/admission-provider-transport";
 import { LoadAuthorizedMessagingSecretUseCase, ResolveMessagingContextUseCase } from "@/src/modules/messaging/application/use-cases/resolve-messaging-context-use-case";
-import type { MessagingAuthenticatedAccount, MessagingConnectionAuthorizationFacts, MessagingLeadershipFacts } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import type { MessagingAuthenticatedAccount, MessagingConnectionAuthorizationFacts, MessagingLeadershipFacts, MessagingSecretStore } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 
 describe("admission own HTTP boundary", () => {
   const createRequest = (body: unknown) => new Request("https://tutribu.example.test/api/tribes/synthetic/admissions/allowlist", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -172,7 +173,7 @@ describe("real messaging failure classification", () => {
 
 describe("current messaging authority before SecretStore", () => {
   /** Own port facts are detached from browser inputs; no auth/database/SDK library is replaced. */
-  function createAuthority() {
+  function createAuthority(secretStore?: MessagingSecretStore) {
     const now = new Date("2026-10-05T12:00:00.000Z");
     const command = { tribeId: "tribe-a", connectionId: "connection-a", operation: "validate_messaging_connection", requestId: randomUUID() };
     const evidence = { id: "recent-evidence", userId: "leader-a", sessionId: "session-a", accountId: "google-account-a", subject: "google-subject-a", tribeId: command.tribeId, operation: command.operation, resourceId: command.connectionId, intentId: "consumed-intent", authenticatedAt: new Date(now.getTime() - 60_000), verifiedAt: now, validUntil: new Date(now.getTime() + 540_000), invalidatedAt: null };
@@ -186,7 +187,7 @@ describe("current messaging authority before SecretStore", () => {
       { getCurrentLeadership: async () => state.leadership ? structuredClone(state.leadership) : null, getConnection: async () => { state.afterResourceRead(); return state.connection ? structuredClone(state.connection) : null; } },
       { getCurrentSecurityFacts: async () => ({ ...state.security }) }, () => state.now,
     );
-    const loader = new LoadAuthorizedMessagingSecretUseCase(resolver, { loadAuthorizedSecret: async () => { state.secretLoads += 1; return randomUUID(); } });
+    const loader = new LoadAuthorizedMessagingSecretUseCase(resolver, secretStore ?? { loadAuthorizedSecret: async () => { state.secretLoads += 1; return randomUUID(); } });
     return { state, command, loader };
   }
 
@@ -194,6 +195,12 @@ describe("current messaging authority before SecretStore", () => {
     const { state, command, loader } = createAuthority();
     expect(await loader.execute(command)).toMatchObject({ allowed: true, context: { authorizationPurpose: "sensitive_leader", resourceId: command.connectionId, actorUserId: "leader-a", tribeId: command.tribeId, connectionId: command.connectionId, connectionVersion: 1 } });
     expect(state.secretLoads).toBe(1);
+  });
+
+  it.each(["permission_denied", "reauthentication_required", "resource_unavailable"] as const)("should preserve a current Store %s failure without claiming private credential access", async (code) => {
+    const failure = new MessagingSecretAccessError(code);
+    const { command, loader } = createAuthority({ loadAuthorizedSecret: async () => { throw failure; } });
+    expect(await loader.execute(command)).toEqual({ allowed: false, failure: { code, cause: failure } });
   });
 
   it.each(["missing_session", "guardian", "muted", "wrong_tribe", "wrong_resource", "previous_leader", "retired", "suspended", "disconnected", "old_epoch", "recovery_lock", "expired_session", "invalid_session_expiry", "old_authentication", "wrong_account", "wrong_subject", "wrong_operation"] as const)("should reject %s before calling SecretStore", async (changed) => {
