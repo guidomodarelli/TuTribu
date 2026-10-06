@@ -6,6 +6,7 @@ import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messagin
 import { MESSAGING_AUTHORIZATION_PURPOSE, MESSAGING_CREDENTIAL_USABLE_STATES } from "@/src/modules/messaging/constants/messaging-connection";
 import { messagingFailure, type MessagingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
 import type { AuthorizedMessagingContext, MessagingAccountProvider, MessagingAuthorizationReader, MessagingLeadershipFacts, MessagingSecretStore, MessagingSecurityFactsProvider } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 
 /** Checks the authoritative tribe leader and current active membership, not a cached role. */
 function hasCurrentLeadership(leadership: MessagingLeadershipFacts | null, tribeId: string, userId: string): leadership is MessagingLeadershipFacts {
@@ -84,7 +85,12 @@ export class LoadAuthorizedMessagingSecretUseCase {
   async execute(command: Parameters<ResolveMessagingContextUseCase["execute"]>[0]) {
     const authorization = await this.resolver.execute(command);
     if (!authorization.allowed) return authorization;
-    const secret = await this.secrets.loadAuthorizedSecret(authorization.context);
-    return { allowed: true as const, context: authorization.context, secret };
+    try {
+      const secret = await this.secrets.loadAuthorizedSecret(authorization.context);
+      return { allowed: true as const, context: authorization.context, secret };
+    } catch (error) {
+      if (error instanceof MessagingSecretAccessError) return { allowed: false as const, failure: messagingFailure(error.code, { cause: error }) };
+      throw error;
+    }
   }
 }

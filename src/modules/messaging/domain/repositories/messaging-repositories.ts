@@ -49,7 +49,7 @@ export type AuthorizedMessagingContext = MessagingSecretResourceScope & {
 export type AuthorizedDeliveryMessagingContext = MessagingSecretResourceScope & {
   authorizationPurpose: "authorized_delivery";
   contributingLeaderUserId: string; deliveryId: string; attemptId: string;
-  attemptVersion: number; leaseOwner: string; sendAuthorizedAt: Date;
+  attemptVersion: number; leaseToken: string; sendAuthorizedAt: Date;
   authorizedUsagePolicyVersion: number; operation: "dispatch_delivery";
 };
 export type MessagingSecretAccessContext = AuthorizedMessagingContext | AuthorizedDeliveryMessagingContext;
