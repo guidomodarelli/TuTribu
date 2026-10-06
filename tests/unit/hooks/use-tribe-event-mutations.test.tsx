@@ -528,9 +528,9 @@ describe("useTribeEventMutations streak refresh serialization", () => {
     expect(getStreakRequests()).toHaveLength(1);
   });
   it("retries a passed deadline the server keeps returning with a bounded backoff", async () => {
-    // Timers are faked too: the retries of a repeated passed deadline wait.
+    // Advance retries only from this test, independently of wall-clock CI load.
     vi.useRealTimers();
-    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"], shouldAdvanceTime: false });
     vi.setSystemTime(new Date(CLIENT_NOW));
     const { result } = renderMutations();
     const lateStreak = { attendedCount: 4, occurrenceCount: 5 };
