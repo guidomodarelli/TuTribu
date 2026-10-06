@@ -10,6 +10,7 @@ import {createAdmissionGoogleTokenFixture} from "@/tests/support/admission-googl
 import {createAdmissionProviderTransport,withAdmissionProviderTransport} from "@/tests/support/admission-provider-transport";
 import {googleIdentityEvidencePlugin} from "@/src/modules/auth/infrastructure/better-auth/google-identity-evidence-plugin";
 import {getAuthEvidenceContext,runWithAuthEvidenceContext} from "@/src/modules/auth/infrastructure/better-auth/auth-evidence-context";
+import {createScopedAuthEvidenceHandler} from "@/src/modules/auth/infrastructure/better-auth/scoped-auth-evidence-handler";
 
 /** Creates a real auth instance with its published in-memory adapter and synthetic credentials. */
 function createTestAuth(clientId:string,mapProfileToUser?:Parameters<typeof google>[0]["mapProfileToUser"]) {
@@ -30,11 +31,50 @@ async function signIn(auth:ReturnType<typeof createTestAuth>,token:string) {
       body:JSON.stringify({provider:"google",idToken:{token}}),
     }));
     const capture=getAuthEvidenceContext()?.googleEvidence??null;
-    return {response,capture};
+    const completion=getAuthEvidenceContext()?.completedGoogleLogin??null;
+    return {response,capture,completion};
   });
 }
 
 describe("Google evidence plugin",()=>{
+  it.each([false,true])("should persist native completion without changing global login when persistence fails=%s",async(fails)=>{
+    const signer=await createAdmissionGoogleTokenFixture();const clientId=randomUUID();const subject=randomUUID();
+    const instant=Math.floor(Date.now()/1000);const email=`${subject}@gmail.com`;const requestId=randomUUID();
+    const token=await signer.sign({iss:"https://accounts.google.com",aud:clientId,sub:subject,iat:instant,exp:instant+3600,email,name:"Synthetic account",email_verified:true});
+    const auth=createTestAuth(clientId);const persisted:unknown[]=[];const failures:unknown[]=[];
+    const handler=createScopedAuthEvidenceHandler(auth.handler,{
+      persist:async(completion)=>{persisted.push(completion);if(fails) throw new Error(`Synthetic private failure ${token}`);return {status:"stored"};},
+      reportFailure:(failure)=>{failures.push(failure);},
+    });
+    const transport=createAdmissionProviderTransport([{origin:"https://www.googleapis.com",pathname:"/oauth2/v3/certs",method:"GET",respond:()=>Response.json(signer.jwks)}]);
+    const response=await withAdmissionProviderTransport(transport,()=>handler(new Request("https://auth.example.test/api/auth/sign-in/social",{method:"POST",headers:{"Content-Type":"application/json",Origin:"https://auth.example.test","x-request-id":requestId},body:JSON.stringify({provider:"google",idToken:{token}})})));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({user:{email}});
+    expect(response.headers.getSetCookie().length).toBeGreaterThan(0);
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0]).toMatchObject({evidence:{subject,normalizedEmail:email},reauthenticationIntentId:null});
+    expect(failures).toEqual(fails?[{requestId,traceId:requestId,code:"capture_persistence_failed",failureKind:"exception"}]:[]);
+    expect(JSON.stringify(failures)).not.toContain(token);
+    expect(getAuthEvidenceContext()).toBeUndefined();
+  });
+
+  it("should bind a verified login to the native account and newly created session",async()=>{
+    const signer=await createAdmissionGoogleTokenFixture();const clientId=randomUUID();const subject=randomUUID();
+    const instant=Math.floor(Date.now()/1000);const email=`${subject}@gmail.com`;
+    const token=await signer.sign({iss:"https://accounts.google.com",aud:clientId,sub:subject,iat:instant,exp:instant+3600,email,name:"Synthetic account",email_verified:true});
+    const auth=createTestAuth(clientId);
+    const transport=createAdmissionProviderTransport([{origin:"https://www.googleapis.com",pathname:"/oauth2/v3/certs",method:"GET",respond:()=>Response.json(signer.jwks)}]);
+    const result=await withAdmissionProviderTransport(transport,()=>signIn(auth,token));
+    expect(result.response.status).toBe(200);
+    const cookie=result.response.headers.getSetCookie().map((value)=>value.split(";")[0]).join("; ");
+    const headers=new Headers({Cookie:cookie});
+    const session=await auth.api.getSession({headers});
+    const accounts=await auth.api.listUserAccounts({headers});
+    expect(session).not.toBeNull();
+    expect(result.completion).toMatchObject({userId:session?.user.id,sessionId:session?.session.id,accountId:accounts[0].id,reauthenticationIntentId:null,evidence:{subject,normalizedEmail:email}});
+    expect(JSON.stringify(result.completion)).not.toContain(token);
+  });
+
   it("should preserve a mapped global login without granting authority to mutated profile claims",async()=>{
     const signer=await createAdmissionGoogleTokenFixture();const clientId=randomUUID();const subject=randomUUID();
     const originalEmail=`${subject}@external.example.test`;const mappedEmail=`${subject}@gmail.com`;const instant=Math.floor(Date.now()/1000);
@@ -48,6 +88,7 @@ describe("Google evidence plugin",()=>{
     expect(result.response.status).toBe(200);
     expect(await result.response.json()).toMatchObject({user:{email:mappedEmail,emailVerified:true}});
     expect(result.capture).toMatchObject({status:"verified",evidence:{subject,normalizedEmail:originalEmail,emailVerifiedClaim:false,hostedDomain:null,classification:"insufficient"}});
+    expect(result.completion).toBeNull();
   });
 
   it.each([
@@ -76,13 +117,20 @@ describe("Google evidence plugin",()=>{
       const callback=new URL("https://auth.example.test/api/auth/callback/google");
       callback.searchParams.set("state",authorizationUrl.searchParams.get("state")??"");
       callback.searchParams.set("code",randomUUID());
-      return runWithAuthEvidenceContext(async()=>{
-        const response=await auth.handler(new Request(callback,{headers:{Cookie:cookies}}));
-        return {response,capture:getAuthEvidenceContext()?.googleEvidence};
+      const persisted:unknown[]=[];const failures:unknown[]=[];
+      let capture:unknown;
+      const handler=createScopedAuthEvidenceHandler(auth.handler,{
+        persist:async(completion)=>{persisted.push(completion);capture=getAuthEvidenceContext()?.googleEvidence;return {status:"stored"};},
+        reportFailure:(failure)=>{failures.push(failure);},
       });
+      const response=await handler(new Request(callback,{headers:{Cookie:cookies}}));
+      return {response,capture,persisted,failures};
     });
     expect(result.response.status).toBe(302);
     expect(result.response.headers.get("location")).toBe(callbackURL);
+    expect(result.persisted).toHaveLength(1);
+    expect(result.persisted[0]).toMatchObject({evidence:{subject,normalizedEmail:email},reauthenticationIntentId:null});
+    expect(result.failures).toEqual([]);
     expect(result.capture).toMatchObject({status:"verified",evidence:{subject,normalizedEmail:email,classification:scenario.classification}});
     expect(getAuthEvidenceContext()).toBeUndefined();
     expect(transport.deniedRequests).toBe(0);

@@ -18,3 +18,8 @@ export const GLOBAL_REAUTHENTICATION_INTENT_STATE = {
 } as const;
 /** Fields that bind evidence to a sensitive operation instead of a generic login marker. */
 export const RECENT_AUTHENTICATION_SCOPE_FIELDS = ["userId", "sessionId", "accountId", "subject", "tribeId", "operation", "resourceId"] as const;
+/** Gives the global OAuth nonce 256 unpredictable bits without storing it in plaintext. */
+export const GLOBAL_REAUTHENTICATION_NONCE_BYTES=32;
+export const GLOBAL_REAUTHENTICATION_NONCE_HASH_ALGORITHM="SHA-256";
+/** Names private writer outcomes; a consumed callback can still have insufficient recency. */
+export const GLOBAL_REAUTHENTICATION_OUTCOME={created:"created",authorizing:"authorizing",consumed:"consumed",contextUnavailable:"context_unavailable",intentUnusable:"intent_unusable"} as const;
