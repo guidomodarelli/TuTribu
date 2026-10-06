@@ -11,7 +11,7 @@ description: "Tareas de implementación de admisiones a academias y mensajería 
 
 **Prerrequisitos**: constitución 1.0.0, AGENTS, rule canónica de payloads, arquitectura propietaria y plantilla activa `.specify/templates/tasks-template.md`, resuelta por `setup-tasks.ps1 -Json`. No reinicializar Spec Kit ni crear otra feature.
 
-**Estado de ejecución**: implementación iniciada sobre `7198047f126bcde6b0a5f0cdb60abf4191903e10`; T001–T006 y T008 completadas (7 de 212). Se marcan únicamente tareas con evidencia comprobada. Preparación y gates en [operational-gates.md](validation/operational-gates.md); matrices puras en [domain-baseline.md](validation/domain-baseline.md). Las rutas futuras siguen pendientes hasta su implementación; los documentos normativos y sus checklists conservan su contenido. El usuario autorizó commit y push de avances con `--no-verify`.
+**Estado de ejecución**: implementación iniciada sobre `7198047f126bcde6b0a5f0cdb60abf4191903e10`; T001–T006, T008 y T014 completadas (8 de 212). Se marcan únicamente tareas con evidencia comprobada. Preparación y gates en [operational-gates.md](validation/operational-gates.md); matrices puras en [domain-baseline.md](validation/domain-baseline.md) y contratos en [http-boundary-baseline.md](validation/http-boundary-baseline.md). Las rutas futuras siguen pendientes hasta su implementación; los documentos normativos y sus checklists conservan su contenido. El usuario autorizó commit y push de avances con `--no-verify`.
 
 **Pruebas**: obligatorias por la constitución IV, AGENTS, FR-141 y TC-026. Cada bloque empieza por casos de comportamiento en rojo, sigue con código mínimo y refactor, y termina en verde. SDK/Better Auth/Zod/beez-ui/Web Crypto reales; dobles solo en puertos o transporte propios. SQL contra los artefactos versionados reales en rama efímera Neon, runtime y rol no-bypass. Sin tests de strings de fuentes/SQL, imports aislados, configuración artificial o mocks de plataforma.
 
@@ -129,7 +129,7 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
 <a id="t014"></a>
 
-- [ ] T014 [P] Ejercer Zod y guards públicos reales, props/respuestas/browser, status sobre mensaje, unknown/null/string, ausencia de secrets/causes y recurso/cuenta/tribu cruzados antes de SecretStore; no revalidar schemas de SDK o filas Postgres. Archivos: `tests/unit/modules/academy-admissions/infrastructure/admission-http-boundaries.test.ts`. Trazabilidad: `FR-046`–`FR-047`, `FR-062`, `FR-120`, `FR-130`, `EC-32`, `D-15`, `TC-002`.
+- [X] T014 [P] Ejercer Zod y guards públicos reales, props/respuestas/browser, status sobre mensaje, unknown/null/string, ausencia de secrets/causes y recurso/cuenta/tribu cruzados antes de SecretStore; no revalidar schemas de SDK o filas Postgres. Archivos: `tests/unit/modules/academy-admissions/infrastructure/admission-http-boundaries.test.ts`. Trazabilidad: `FR-046`–`FR-047`, `FR-062`, `FR-120`, `FR-130`, `EC-32`, `D-15`, `TC-002`.
 
 <a id="t015"></a>
 
