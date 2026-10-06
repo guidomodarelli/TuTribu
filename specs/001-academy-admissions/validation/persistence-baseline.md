@@ -24,8 +24,16 @@ La revisión agregó dos regresiones de invalidación formal: un desafío verifi
 
 Se ejecutan las suites con `RUN_ADMISSION_SQL_TESTS=1` y `APPLY_ADMISSION_MIGRATIONS=1`, exclusivamente mediante el helper protegido. Cada ejecución crea su propia rama, utiliza datos sintéticos y elimina esa rama en `finally`. No se aplica SQL en default/producción ni se accede a secretos del proveedor.
 
+## Composición atómica ampliada
+
+Sobre `1974e760`, el archivo de persistencia ejerce el ledger y el colaborador real de pertenencia en una academia sintética protegida. Una aprobación confirma solicitud versión 2, decisión, efecto consumido, miembro tribemate activo, obligación de aviso, auditoría ligada a la operación y DTO mínimo del ledger. Repetir el mismo intent devuelve el snapshot confirmado sin otra decisión, miembro, fuente, aviso o auditoría.
+
+Los dos casos de obligación faltante llegan al COMMIT diferido real: sin aviso o sin auditoría se obtiene 23514. Se revierte solicitud/decisión/miembro/fuente/obligaciones/auditoría y finalización del ledger; sólo persiste el claim previo registrado, sin resultado público inventado. La consulta read-only acredita started y no repite la mutación. No se simula la base ni el colaborador de pertenencia.
+
+La ejecución conjunta de persistencia, proof y canje pasó seis casos SQL en tres suites sin skips, en 116,11 segundos, con fixtures sintéticos y cleanup comprobado. Lint y ambos typechecks pasaron. La revisión nativa del bloque cerró sin hallazgos accionables, con dos hashes estables y todos sus comandos finalizados. Estas pruebas completan T007; T021/T025/T039 y los writers/rutas operables conservan sus obligaciones de integración y gates.
+
 ## Pendientes
 
-T007 y T021 siguen abiertos: falta efecto de membresía y ledger/replay con escritores reales, además de las relaciones y policies de integración de mensajería/pertenencia. Canje/prueba tienen evidencia estructural; sus use cases y autorización vigente todavía deben completarse. Los repositorios, las rutas y la autorización compleja no se infieren de estas restricciones. T009, T013, T016, T022–T028, T038–T043 y T048 mantienen sus obligaciones completas.
+T007 está completada en su alcance de pruebas estructurales; T021 mantiene sus dependencias y cobertura de integración pendientes. Canje/prueba tienen evidencia estructural; sus use cases y autorización vigente todavía deben completarse. Los repositorios, las rutas y la autorización compleja no se infieren de estas restricciones. T016/T017 ya están completadas; T009, T013, T022–T028, T038–T043 y T048 mantienen sus obligaciones completas.
 
 No se habilitan academias ni mensajes. Los gates de [operational-gates.md](operational-gates.md) siguen pendientes; las pruebas estructurales aisladas no cierran la validación operativa ni convierten casillas de checklist en implementación terminada. `spec.md`, `technical-contract.md` y los identificadores normativos se conservan íntegros.

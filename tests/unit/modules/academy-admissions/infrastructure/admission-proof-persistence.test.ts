@@ -58,10 +58,17 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof pe
         await transaction.execute(sql`
           with instant as (select clock_timestamp() as now)
           insert into public.academy_admission_requests (id,tribe_id,user_id,source,contact_type,normalized_contact,evidence_source,proof_id,submitted_at,expires_at)
-          select ${requestId},${tribeId},${userId},'common','email',${contact},'local',${proofId},now,now+interval '30 days' from instant
+          select ${requestId},${tribeId},${userId},'common','email',${contact},'declared',null,now,now+interval '30 days' from instant
         `);
+      });
+      const originalRequest = await database.withContext(own, async (transaction) => (await transaction.execute(sql`select submitted_at,expires_at,status,version from public.academy_admission_requests where id=${requestId}`)).rows[0]);
+      expect(originalRequest).toMatchObject({ status: "pending", version: 1 });
+      await database.withContext(own, async (transaction) => {
+        await transaction.execute(sql`update public.academy_admission_requests set proof_id=${proofId},evidence_source='local',version=version+1 where id=${requestId} and status='pending' and version=1`);
         await transaction.execute(sql`update public.academy_admission_verification_proofs set status='applied',applied_request_id=${requestId},applied_at=clock_timestamp() where id=${proofId}`);
       });
+      const attachedRequest = await database.withContext(own, async (transaction) => (await transaction.execute(sql`select submitted_at,expires_at,status,version,proof_id from public.academy_admission_requests where id=${requestId}`)).rows[0]);
+      expect(attachedRequest).toEqual({ ...originalRequest, version: 2, proof_id: proofId });
       await expect(database.withContext(own, async (transaction) => transaction.execute(sql`update public.academy_admission_verification_proofs set applied_request_id=${randomUUID()} where id=${proofId}`))).rejects.toMatchObject({ cause: { code: "23514" } });
       await expect(database.withContext(own, async (transaction) => transaction.execute(sql`update public.academy_admission_verification_proofs set status='available',applied_request_id=null,applied_at=null where id=${proofId}`))).rejects.toMatchObject({ cause: { code: "23514" } });
       const result = await database.withContext(own, async (transaction) => (await transaction.execute(sql`select status,applied_request_id from public.academy_admission_verification_proofs where id=${proofId}`)).rows);

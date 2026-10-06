@@ -11,7 +11,7 @@ description: "Tareas de implementación de admisiones a academias y mensajería 
 
 **Prerrequisitos**: constitución 1.0.0, AGENTS, rule canónica de payloads, arquitectura propietaria y plantilla activa `.specify/templates/tasks-template.md`, resuelta por `setup-tasks.ps1 -Json`. No reinicializar Spec Kit ni crear otra feature.
 
-**Estado de ejecución**: implementación iniciada sobre `7198047f126bcde6b0a5f0cdb60abf4191903e10`; T001–T006, T008, T014, T016 y T017 completadas (10 de 212). Se marcan únicamente tareas con evidencia comprobada. Preparación y gates en [operational-gates.md](validation/operational-gates.md); matrices puras en [domain-baseline.md](validation/domain-baseline.md), contratos en [http-boundary-baseline.md](validation/http-boundary-baseline.md) y versiones/ledger en [resource-contract-baseline.md](validation/resource-contract-baseline.md). Las rutas futuras siguen pendientes hasta su implementación; los documentos normativos y sus checklists conservan su contenido. El usuario autorizó commit y push de avances con `--no-verify`.
+**Estado de ejecución**: implementación iniciada sobre `7198047f126bcde6b0a5f0cdb60abf4191903e10`; T001–T008, T010 y T014–T017 completadas (13 de 212). Se marcan únicamente tareas con evidencia comprobada. Preparación y gates en [operational-gates.md](validation/operational-gates.md); matrices puras en [domain-baseline.md](validation/domain-baseline.md), contratos en [http-boundary-baseline.md](validation/http-boundary-baseline.md) y versiones/ledger en [resource-contract-baseline.md](validation/resource-contract-baseline.md). Las rutas futuras siguen pendientes hasta su implementación; los documentos normativos y sus checklists conservan su contenido. El usuario autorizó commit y push de avances con `--no-verify`.
 
 **Pruebas**: obligatorias por la constitución IV, AGENTS, FR-141 y TC-026. Cada bloque empieza por casos de comportamiento en rojo, sigue con código mínimo y refactor, y termina en verde. SDK/Better Auth/Zod/beez-ui/Web Crypto reales; dobles solo en puertos o transporte propios. SQL contra los artefactos versionados reales en rama efímera Neon, runtime y rol no-bypass. Sin tests de strings de fuentes/SQL, imports aislados, configuración artificial o mocks de plataforma.
 
@@ -101,7 +101,7 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
 <a id="t007"></a>
 
-- [ ] T007 [P] Escribir primero casos SQL de FK de misma tribu, una pendiente, vínculo no reasignable, canje/prueba únicos, decisión+efecto+evento indivisibles y ledger; ejecutar contra el baseline para observar fallos y luego contra las migraciones reales. Archivos: `tests/unit/modules/academy-admissions/infrastructure/admission-persistence.test.ts`, `tests/unit/modules/academy-admissions/infrastructure/admission-proof-persistence.test.ts`, `tests/unit/modules/academy-admissions/infrastructure/admission-redemption-persistence.test.ts`. Trazabilidad: `FR-094`–`FR-095`, `FR-141`, `D-12`, `D-24`, `TC-019`, `TC-026`.
+- [X] T007 [P] Escribir primero casos SQL de FK de misma tribu, una pendiente, vínculo no reasignable, canje/prueba únicos, decisión+efecto+evento indivisibles y ledger; ejecutar contra el baseline para observar fallos y luego contra las migraciones reales. Archivos: `tests/unit/modules/academy-admissions/infrastructure/admission-persistence.test.ts`, `tests/unit/modules/academy-admissions/infrastructure/admission-proof-persistence.test.ts`, `tests/unit/modules/academy-admissions/infrastructure/admission-redemption-persistence.test.ts`. Trazabilidad: `FR-094`–`FR-095`, `FR-141`, `D-12`, `D-24`, `TC-019`, `TC-026`.
 
 <a id="t008"></a>
 
@@ -113,7 +113,7 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
 <a id="t010"></a>
 
-- [ ] T010 [P] Cubrir tokens Google firmados, RS256/issuer/audience/exp/sub, Gmail/Workspace/external/hd ausente, email/cuenta cambiados y callbacks A/B; login válido sin autoridad de contacto, sin confiar en booleano/JWT decodificado. Archivos: `tests/unit/modules/auth/infrastructure/google-identity-evidence.test.ts`. Trazabilidad: `FR-014`–`FR-015`, `FR-017`–`FR-018`, `FR-020`–`FR-021`, `US-02-AC-01`, `EC-02`–`EC-03`, `SC-003`, `D-06`, `D-09`, `TC-008`, `RG-05`, `OG-01`.
+- [X] T010 [P] Cubrir tokens Google firmados, RS256/issuer/audience/exp/sub, Gmail/Workspace/external/hd ausente, email/cuenta cambiados y callbacks A/B; login válido sin autoridad de contacto, sin confiar en booleano/JWT decodificado. Archivos: `tests/unit/modules/auth/infrastructure/google-identity-evidence.test.ts`. Trazabilidad: `FR-014`–`FR-015`, `FR-017`–`FR-018`, `FR-020`–`FR-021`, `US-02-AC-01`, `EC-02`–`EC-03`, `SC-003`, `D-06`, `D-09`, `TC-008`, `RG-05`, `OG-01`.
 
 <a id="t011"></a>
 
@@ -133,7 +133,7 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
 <a id="t015"></a>
 
-- [ ] T015 [P] Cubrir desafío actual por cuenta/contacto/tribu/propósito, TTL/uso/fallos, separación diagnóstico/admisión y proof aplicada una vez; validar localmente pese a caída/cuota y aportar a pendiente sin reiniciar plazo. Archivos: `tests/unit/modules/academy-admissions/domain/verification-challenge.test.ts`. Trazabilidad: `FR-057`–`FR-059`, `TC-009`–`TC-010`.
+- [X] T015 [P] Cubrir desafío actual por cuenta/contacto/tribu/propósito, TTL/uso/fallos, separación diagnóstico/admisión y proof aplicada una vez; validar localmente pese a caída/cuota y aportar a pendiente sin reiniciar plazo. Archivos: `tests/unit/modules/academy-admissions/domain/verification-challenge.test.ts`. Trazabilidad: `FR-057`–`FR-059`, `TC-009`–`TC-010`.
 
 <a id="t016"></a>
 

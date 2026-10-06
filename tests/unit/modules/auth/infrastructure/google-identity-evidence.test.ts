@@ -85,4 +85,16 @@ describe("Google identity evidence", () => {
     expect(transport.receipts).toEqual([]);
     expect(transport.deniedRequests).toBe(0);
   });
+
+  it.each([undefined, null, "", 37])("should keep a signed unusable subject %s insufficient without exposing token material", async (subject) => {
+    const signer = await createAdmissionGoogleTokenFixture(), clientId = randomUUID();
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const token = await signer.sign({ iss: "https://accounts.google.com", aud: clientId, sub: subject, iat: nowSeconds, exp: nowSeconds + 3600, email: `synthetic-${randomUUID()}@gmail.com`, email_verified: true });
+    const transport = createAdmissionProviderTransport([{ origin: "https://www.googleapis.com", pathname: "/oauth2/v3/certs", method: "GET", respond: () => Response.json(signer.jwks) }]);
+    const result = await withAdmissionProviderTransport(transport, () => verifyGoogleIdTokenEvidence(token, google({ clientId, clientSecret: randomUUID() })));
+    expect(result).toMatchObject({ status: "insufficient" });
+    expect(result).not.toHaveProperty("evidence");
+    expect(result).not.toHaveProperty("cause");
+    expect(JSON.stringify(result)).not.toContain(token);
+  });
 });

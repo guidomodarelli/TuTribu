@@ -1,15 +1,110 @@
 /** @vitest-environment node */
 
 /** Exercises actual persisted admission invariants on owned disposable Neon branches. */
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
-import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 import { createAcademyAdmissionFixtures } from "@/tests/support/academy-admission-fixtures";
 import { academyAdmissionPolicies } from "@/src/modules/shared/infrastructure/database/schema";
+import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
+import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
+import { createMessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+
+/**
+ * Seeds a pending request in an explicitly protected synthetic academy.
+ * @param database - Disposable branch owned by the current SQL validation run.
+ * @returns Actual private ledger and fixture identities, without external credentials.
+ */
+async function prepareAtomicAdmission(database: AcademyAdmissionTestDatabase) {
+  for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005101000_guard_admission_operation_identity.sql"]) await database.applyMigration(migration);
+  const tribeId = randomUUID(), leaderId = randomUUID(), applicantId = randomUUID(), requestId = randomUUID();
+  const own = { userId: leaderId, email: null };
+  await database.withContext(own, async (transaction) => {
+    for (const userId of [leaderId, applicantId]) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic atomic admission',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
+    await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic atomic academy',${`atomic-${tribeId}`},${leaderId})`);
+    await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
+    await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${leaderId},'leader','active')`);
+    const instant = (await transaction.execute(sql`select clock_timestamp() as now`)).rows[0].now;
+    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,activated_at) values (${tribeId},true,${instant})`);
+    await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${instant} where id=${tribeId}`);
+    await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,expires_at) values (${requestId},${tribeId},${applicantId},'common',clock_timestamp()+interval '29 days')`);
+  });
+  const keyrings = {} as Parameters<typeof createMessagingSecurityConfig>[0]["keyrings"];
+  for (const purpose of Object.values(MESSAGING_KEY_PURPOSE)) { const keyId = randomUUID(); keyrings[purpose] = { activeKeyId: keyId, keys: [{ id: keyId, material: randomBytes(32) }] }; }
+  const config = await createMessagingSecurityConfig({ environment: randomUUID(), securityEpoch: randomUUID(), recoveryLocked: false, keyrings });
+  const authorize = async (transaction: RequestDatabase) => {
+    await transaction.execute(sql`select id from public.tribes where id=${tribeId} for update`);
+    return Boolean((await transaction.execute(sql`select id from public.tribe_members where tribe_id=${tribeId} and user_id=${leaderId} and role='leader' and status='active' for share`)).rows[0]);
+  };
+  const ledger = new PostgresAdmissionOperationRepository((run) => database.withContext(own, run), authorize, async () => config);
+  const command = { actorUserId: leaderId, tribeId, operationType: "decide_admission_request", idempotencyKey: randomUUID(), intent: { requestId, expectedVersion: 1, decision: "approve", internalReason: "Synthetic atomic review" } };
+  const resultSchema = z.strictObject({ requestId: z.uuid(), version: z.int().positive(), membership: z.strictObject({ id: z.uuid(), role: z.literal("tribemate"), status: z.literal("active") }) });
+  return { tribeId, leaderId, applicantId, requestId, own, ledger, command, resultSchema };
+}
+
+/**
+ * Stages the actual protected membership collaborator and all decision obligations in one transaction.
+ * @param transaction - The ledger's existing guarded business transaction.
+ * @param ledgerId - Registered operation identity used by the audit event.
+ * @param fixture - Current request, account and tribe identities from the owned branch.
+ * @param obligations - Whether the fixture intentionally omits one deferred commit requirement.
+ * @returns A proposed minimal result that becomes public only after a successful commit.
+ * @throws Error when the synthetic CAS or actual protected membership cannot apply.
+ */
+async function approveAtomicAdmission(transaction: RequestDatabase, ledgerId: string, fixture: Awaited<ReturnType<typeof prepareAtomicAdmission>>, obligations: "complete" | "missing_notice" | "missing_audit") {
+  const decisionId = randomUUID(), effectId = randomUUID();
+  const pending = (await transaction.execute(sql`select id from public.academy_admission_requests where id=${fixture.requestId} and tribe_id=${fixture.tribeId} and user_id=${fixture.applicantId} and status='pending' and version=1 for update`)).rows[0];
+  if (!pending) throw new Error("Synthetic atomic admission CAS conflict");
+  await transaction.execute(sql`insert into public.academy_admission_decisions(id,request_id,tribe_id,user_id,request_version,outcome,actor_user_id,actor_kind,rule,policy_version,verification_epoch,membership_effect_id,internal_reason) values (${decisionId},${fixture.requestId},${fixture.tribeId},${fixture.applicantId},1,'approved',${fixture.leaderId},'user','manual_review',1,1,${effectId},'Synthetic atomic review')`);
+  await transaction.execute(sql`update public.academy_admission_requests set status='approved',decision_id=${decisionId},version=version+1 where id=${fixture.requestId} and version=1`);
+  const applied = await createAcademyApprovedMembershipWriter(transaction).apply({ tribeId: fixture.tribeId, userId: fixture.applicantId, decisionId });
+  if (applied.status !== "joined" || applied.member.role !== "tribemate" || applied.member.status !== "active") throw new Error("Synthetic protected membership did not apply");
+  if (obligations !== "missing_notice") await transaction.execute(sql`insert into public.academy_admission_notification_obligations(tribe_id,request_id,applicant_user_id,event_type) values (${fixture.tribeId},${fixture.requestId},${fixture.applicantId},'approved')`);
+  if (obligations !== "missing_audit") await transaction.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type) values (${fixture.tribeId},${fixture.leaderId},'admission_request',${fixture.requestId},${ledgerId},'approved')`);
+  return { requestId: fixture.requestId, version: 2, membership: { id: applied.member.id, role: applied.member.role, status: applied.member.status } };
+}
+
+/**
+ * Reads persisted effects after commit/rollback, never the callback's proposed result.
+ * @param database - The same disposable branch used for the mutation.
+ * @param fixture - Exact request/operation identities being reconciled.
+ * @returns Confirmed request, business effect counts and ledger progress/result.
+ */
+async function readAtomicAdmission(database: AcademyAdmissionTestDatabase, fixture: Awaited<ReturnType<typeof prepareAtomicAdmission>>) {
+  return database.withContext(fixture.own, async (transaction) => {
+    const request = (await transaction.execute(sql`select status,version from public.academy_admission_requests where id=${fixture.requestId}`)).rows[0];
+    const counts = (await transaction.execute(sql`select (select count(*)::integer from public.academy_admission_decisions where request_id=${fixture.requestId}) as decisions,(select count(*)::integer from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.applicantId}) as members,(select count(*)::integer from public.academy_admission_membership_effects where request_id=${fixture.requestId}) as effects,(select count(*)::integer from public.academy_admission_notification_obligations where request_id=${fixture.requestId}) as notices,(select count(*)::integer from public.academy_admission_audit_events where resource_id=${fixture.requestId}) as audits`)).rows[0];
+    const operation = (await transaction.execute(sql`select state,public_result from public.academy_admission_operations where idempotency_key=${fixture.command.idempotencyKey}`)).rows[0];
+    return { request, counts, operation };
+  });
+}
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission persistence", () => {
+  it("should commit decision, membership, obligations and a replayable result together exactly once", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareAtomicAdmission(database);
+      const first = await fixture.ledger.run(fixture.command, fixture.resultSchema, (transaction, ledgerId) => approveAtomicAdmission(transaction, ledgerId, fixture, "complete"));
+      expect(first).toMatchObject({ state: "completed", replayed: false, result: { requestId: fixture.requestId, version: 2, membership: { role: "tribemate", status: "active" } } });
+      const replay = await fixture.ledger.run(fixture.command, fixture.resultSchema, (transaction, ledgerId) => approveAtomicAdmission(transaction, ledgerId, fixture, "complete"));
+      expect(replay).toEqual({ ...first, replayed: true });
+      expect(await readAtomicAdmission(database, fixture)).toMatchObject({ request: { status: "approved", version: 2 }, counts: { decisions: 1, members: 1, effects: 1, notices: 1, audits: 1 }, operation: { state: "completed", public_result: expect.objectContaining({ version: 2 }) } });
+    });
+  }, 120_000);
+
+  it.each(["missing_notice", "missing_audit"] as const)("should roll back the decision and member when %s prevents the deferred commit", async (missing) => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareAtomicAdmission(database);
+      await expect(fixture.ledger.run(fixture.command, fixture.resultSchema, (transaction, ledgerId) => approveAtomicAdmission(transaction, ledgerId, fixture, missing))).rejects.toMatchObject({ code: "operation_unresolved", cause: { code: "23514" } });
+      expect(await readAtomicAdmission(database, fixture)).toEqual({ request: { status: "pending", version: 1 }, counts: { decisions: 0, members: 0, effects: 0, notices: 0, audits: 0 }, operation: { state: "started", public_result: null } });
+      expect(await fixture.ledger.read(fixture.command, fixture.resultSchema)).toEqual({ state: "started", operationId: fixture.command.idempotencyKey });
+    });
+  }, 120_000);
+
   it("should preserve admission identity, uniqueness and versions without creating membership", async () => {
     // Arrange: baseline first reproduces the missing storage; real artifacts are
     // applied when present, never substituted by SQL rewritten inside this test.
