@@ -268,6 +268,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     stateCheck: check("admission_operation_state_check", sql`${table.state} in ('started','completed')`), versionCheck: check("admission_operation_version_check", sql`${table.version}>0`),
     resultCheck: check("admission_operation_result_check", sql`(${table.state}='completed' and ${table.publicResult} is not null and ${table.completedAt} is not null) or (${table.state}='started' and ${table.publicResult} is null and ${table.completedAt} is null)`),
     leasePairCheck: check("admission_operation_lease_pair_check", sql`(${table.leaseOwner} is null)=(${table.leaseUntil} is null)`),
+    completedClaimCheck: check("admission_operation_completed_claim_check", sql`${table.state}<>'completed' or (${table.leaseOwner} is null and ${table.leaseUntil} is null)`),
   }));
   const imports = pgTable("academy_allowlist_imports", {
     id: uuid("id").defaultRandom().primaryKey(), tribeId: uuid("tribe_id").notNull(), actorUserId: text("actor_user_id").notNull(), contactType: text("contact_type").notNull(), policyVersion: integer("policy_version").notNull(),
