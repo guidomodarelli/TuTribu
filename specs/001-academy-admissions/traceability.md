@@ -1,6 +1,13 @@
 # Traceability: Academy Admissions and Tenant Messaging
 
-**Estado**: diseño y tareas previstos, sincronizados con la revisión I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) contiene 212 tareas pendientes y todos los IDs de tareas fueron recalculados. Ninguna prueba de feature ejecutada está certificada por este archivo.
+**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: T001–T006 y T008 completadas; 205 pendientes. La evidencia parcial ejecutada está abajo y en `validation/`; las filas normativas mantienen su validación de recorridos pendiente hasta la integración real.
+
+## Evidencia parcial ejecutada
+
+| Alcance | Observado | Entorno / base | Límites |
+| --- | --- | --- | --- |
+| T008: contacto, configuración, elegibilidad/revisión y permisos puros | 146 casos verdes; ocho filas de configuración cruzadas con vías, seis filas de admisión, acciones/estados y lectura sin efectos. Lint y ambos typechecks verdes; revisión nativa sin hallazgos | Node 24.21.0 / pnpm 12.6.0; base `3c18cf11abde80a15ded5fdca9741835a532de90` | Propuestas puras. No acredita writers, CAS/ledger SQL, rutas, UI ni gates; ver [domain-baseline.md](validation/domain-baseline.md) |
+| Bases parciales adicionales | 270 casos verdes en ocho suites de dominio/desafíos/auth/crypto/contratos | Mismo entorno; mismos archivos de la implementación actual | Los alcances parciales conservan sus tareas abiertas y limitaciones en [auth](validation/auth-baseline.md), [desafíos/crypto](validation/challenge-crypto-baseline.md) y [contratos](validation/resource-contract-baseline.md) |
 
 ## Cómo usar esta matriz
 

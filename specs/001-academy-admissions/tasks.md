@@ -11,7 +11,7 @@ description: "Tareas de implementación de admisiones a academias y mensajería 
 
 **Prerrequisitos**: constitución 1.0.0, AGENTS, rule canónica de payloads, arquitectura propietaria y plantilla activa `.specify/templates/tasks-template.md`, resuelta por `setup-tasks.ps1 -Json`. No reinicializar Spec Kit ni crear otra feature.
 
-**Estado de ejecución**: implementación iniciada sobre `7198047f126bcde6b0a5f0cdb60abf4191903e10`; se marcan únicamente tareas con evidencia comprobada. Preparación y gates en [operational-gates.md](validation/operational-gates.md). Las rutas futuras siguen pendientes hasta su implementación; los documentos normativos y sus checklists conservan su contenido. El usuario autorizó commit y push de avances con `--no-verify`.
+**Estado de ejecución**: implementación iniciada sobre `7198047f126bcde6b0a5f0cdb60abf4191903e10`; T001–T006 y T008 completadas (7 de 212). Se marcan únicamente tareas con evidencia comprobada. Preparación y gates en [operational-gates.md](validation/operational-gates.md); matrices puras en [domain-baseline.md](validation/domain-baseline.md). Las rutas futuras siguen pendientes hasta su implementación; los documentos normativos y sus checklists conservan su contenido. El usuario autorizó commit y push de avances con `--no-verify`.
 
 **Pruebas**: obligatorias por la constitución IV, AGENTS, FR-141 y TC-026. Cada bloque empieza por casos de comportamiento en rojo, sigue con código mínimo y refactor, y termina en verde. SDK/Better Auth/Zod/beez-ui/Web Crypto reales; dobles solo en puertos o transporte propios. SQL contra los artefactos versionados reales en rama efímera Neon, runtime y rol no-bypass. Sin tests de strings de fuentes/SQL, imports aislados, configuración artificial o mocks de plataforma.
 
@@ -105,7 +105,7 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
 <a id="t008"></a>
 
-- [ ] T008 [P] Ejercer todas las filas de configuración/evidencia/admisión/revisión/permisos y valores iniciales con reloj/hechos propios; correo sin colapsar puntos/etiquetas, teléfono inequívoco y lectura sin efectos; no testear texto de fuentes ni valores aislados. Archivos: `tests/unit/modules/academy-admissions/domain/admission-policy.test.ts`, `tests/unit/modules/academy-admissions/domain/admission-contact.test.ts`. Trazabilidad: `FR-003`–`FR-009`, `FR-013`, `FR-020`–`FR-021`, `US-02-AC-03`, `US-02-AC-06`, `EC-04`–`EC-05`, `SC-001`, `D-01`, `D-03`, `D-07`–`D-08`, `D-21`.
+- [X] T008 [P] Ejercer todas las filas de configuración/evidencia/admisión/revisión/permisos y valores iniciales con reloj/hechos propios; correo sin colapsar puntos/etiquetas, teléfono inequívoco y lectura sin efectos; no testear texto de fuentes ni valores aislados. Archivos: `tests/unit/modules/academy-admissions/domain/admission-policy.test.ts`, `tests/unit/modules/academy-admissions/domain/admission-contact.test.ts`, `tests/unit/modules/academy-admissions/domain/admission-eligibility.test.ts`. Trazabilidad: `FR-003`–`FR-009`, `FR-013`, `FR-020`–`FR-021`, `US-02-AC-03`, `US-02-AC-06`, `EC-04`–`EC-05`, `SC-001`, `D-01`, `D-03`, `D-07`–`D-08`, `D-21`.
 
 <a id="t009"></a>
 

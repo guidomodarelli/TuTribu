@@ -227,7 +227,7 @@ export function canPerformAdmissionAction(actor: AdmissionActorFacts | null, act
   const isLeader = actor.status === TRIBE_MEMBERSHIP_STATUS.active && actor.role === TRIBE_MEMBER_ROLE.leader;
   const isReviewer = actor.status === TRIBE_MEMBERSHIP_STATUS.active && (actor.role === TRIBE_MEMBER_ROLE.leader || actor.role === TRIBE_MEMBER_ROLE.guardian);
   if (action === ADMISSION_ACTION.decideRequest || action === ADMISSION_ACTION.rejectRequest) return isReviewer && Boolean(resource.applicantUserId) && actor.userId !== resource.applicantUserId;
-  if (action === ADMISSION_ACTION.readInbox || action === ADMISSION_ACTION.readReviewHistory || action === ADMISSION_ACTION.updateOwnNotificationPreferences) return isReviewer;
+  if (action === ADMISSION_ACTION.readInbox || action === ADMISSION_ACTION.readReviewHistory || action === ADMISSION_ACTION.readConnectionAlert || action === ADMISSION_ACTION.updateOwnNotificationPreferences) return isReviewer;
   if (action === ADMISSION_ACTION.manageConnection) return isLeader && resource.hasRecentAuthentication === true;
   return isLeader && (
     action === ADMISSION_ACTION.configurePolicy || action === ADMISSION_ACTION.manageAllowlist
