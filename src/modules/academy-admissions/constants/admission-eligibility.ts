@@ -37,6 +37,7 @@ export const ADMISSION_ACTION = {
   configurePolicy: "configure_policy", manageAllowlist: "manage_allowlist",
   manageInvitations: "manage_invitations", manageConnection: "manage_connection",
   readConnectionMetadata: "read_connection_metadata", readSecret: "read_secret",
+  readConnectionAlert: "read_connection_alert",
   readInbox: "read_inbox", decideRequest: "decide_request", rejectRequest: "reject_request",
   cancelByManagement: "cancel_by_management", allowEarlyRetry: "allow_early_retry",
   readAudit: "read_audit", readReviewHistory: "read_review_history",

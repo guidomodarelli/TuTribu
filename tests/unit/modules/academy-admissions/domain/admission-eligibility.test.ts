@@ -33,6 +33,43 @@ function submissionFacts(): AdmissionSubmissionFacts {
 }
 
 describe("new admission evidence and pathway matrix", () => {
+  const configurationRows = [
+    { mode: "manual_review", contactType: "email", verification: false, commonOutcome: "pending", personalOutcome: "pending" },
+    { mode: "manual_review", contactType: "phone", verification: false, commonOutcome: "pending", personalOutcome: "denied" },
+    { mode: "allowlist", contactType: "email", verification: false, commonOutcome: "admitted", personalOutcome: "admitted" },
+    { mode: "allowlist", contactType: "phone", verification: false, commonOutcome: "denied", personalOutcome: "denied" },
+    { mode: "manual_review", contactType: "email", verification: true, commonOutcome: "pending", personalOutcome: "pending" },
+    { mode: "manual_review", contactType: "phone", verification: true, commonOutcome: "pending", personalOutcome: "pending" },
+    { mode: "allowlist", contactType: "email", verification: true, commonOutcome: "admitted", personalOutcome: "admitted" },
+    { mode: "allowlist", contactType: "phone", verification: true, commonOutcome: "admitted", personalOutcome: "admitted" },
+  ] as const;
+  const pathwayRows = configurationRows.flatMap((configuration) => [
+    { ...configuration, source: "common" as const, requiresAllowlist: false, expectedOutcome: configuration.commonOutcome },
+    { ...configuration, source: "personal" as const, requiresAllowlist: true, expectedOutcome: configuration.personalOutcome },
+    { ...configuration, source: "personal" as const, requiresAllowlist: false, expectedOutcome: configuration.personalOutcome },
+  ]);
+
+  it.each(pathwayRows)("should preserve the $mode/$contactType/ON=$verification/$source/list=$requiresAllowlist contract row", (row) => {
+    const facts = submissionFacts();
+    facts.policy = { ...facts.policy!, mode: row.mode, contactType: row.contactType, requiresAdditionalVerification: row.verification, phoneChannel: row.contactType === "phone" ? "sms" : null };
+    if (row.contactType === "phone") facts.contact = { type: "phone", value: "+14155552671", country: "US" };
+    facts.allowlistEntry = { tribeId: facts.tribe.id, contact: facts.contact!, enabled: true, boundUserId: null };
+    if (row.verification) {
+      facts.currentConnection = { id: "selected-connection", version: 1, securityEpoch: "external-epoch" };
+      facts.policy.messagingConnectionId = facts.currentConnection.id;
+      facts.policy.messagingConnectionVersion = facts.currentConnection.version;
+      facts.localProof = { id: "fresh-proof", appliedRequestId: null, userId: facts.account!.userId, tribeId: facts.tribe.id, contact: facts.contact!, purpose: "admission", verificationEpoch: facts.policy.verificationEpoch, connectionId: facts.currentConnection.id, connectionVersion: facts.currentConnection.version, securityEpoch: facts.currentConnection.securityEpoch, status: "available", verifiedAt: facts.now, applyBefore: new Date(facts.now.getTime() + 900_000) };
+    }
+    if (row.source === "personal") {
+      facts.source = { kind: "personal", invitation: { tribeId: facts.tribe.id, contact: facts.contact!, requiresAllowlist: row.requiresAllowlist, status: "active", authorizationRevoked: false, expiresAt: null } };
+      if (!row.requiresAllowlist) facts.allowlistEntry = null;
+    }
+    const result = evaluateAdmissionSubmission(facts);
+    expect(result.outcome).toBe(row.expectedOutcome);
+    if (row.contactType === "phone" && !row.verification && row.source === "common" && result.outcome === "pending") expect(result).toMatchObject({ evidenceKind: "declared", bindContact: false });
+    if (row.verification && result.outcome !== "denied") expect(result).toMatchObject({ evidenceKind: "local" });
+  });
+
   it.each([
     { mode: "allowlist", source: "common", requiresAllowlist: true, outcome: "admitted" },
     { mode: "allowlist", source: "personal", requiresAllowlist: true, outcome: "admitted" },
@@ -58,6 +95,14 @@ describe("new admission evidence and pathway matrix", () => {
     facts.baseEvidence = null;
     facts.contact = null;
     expect(evaluateAdmissionSubmission(facts)).toMatchObject({ outcome: "pending", evidenceKind: "none" });
+  });
+
+  it("should leave membership, evidence, policy and contact snapshots unchanged when reading eligibility", () => {
+    const facts = submissionFacts();
+    const original = structuredClone(facts);
+    expect(evaluateAdmissionSubmission(facts)).toMatchObject({ outcome: "pending" });
+    expect(evaluatePendingAdmissionReview({ ...facts, request: { id: "pending-request", userId: facts.account!.userId, expiresAt: new Date(facts.now.getTime() + 60_000), source: facts.source, attachedEvidence: null }, reviewer: { userId: "leader", tribeId: facts.tribe.id, role: "leader", status: "active" } })).toMatchObject({ eligible: true });
+    expect(facts).toEqual(original);
   });
 
   it("should offer an exception only when common allowlist policy explicitly permits it", () => {
@@ -204,6 +249,43 @@ describe("new admission evidence and pathway matrix", () => {
     facts.policy!.mode = "allowlist";
     facts.membership = { ...row, tribeId: facts.tribe.id, userId: facts.account!.userId };
     expect(evaluateAdmissionSubmission(facts)).toMatchObject({ outcome: "denied", reason: row.reason });
+  });
+
+  it.each([
+    { action: "configure_policy", leader: true, guardian: false, applicant: false },
+    { action: "manage_allowlist", leader: true, guardian: false, applicant: false },
+    { action: "manage_invitations", leader: true, guardian: false, applicant: false },
+    { action: "manage_connection", leader: true, guardian: false, applicant: false },
+    { action: "read_connection_metadata", leader: true, guardian: false, applicant: false },
+    { action: "read_connection_alert", leader: true, guardian: true, applicant: false },
+    { action: "read_secret", leader: false, guardian: false, applicant: false },
+    { action: "read_inbox", leader: true, guardian: true, applicant: false },
+    { action: "decide_request", leader: true, guardian: true, applicant: false },
+    { action: "reject_request", leader: true, guardian: true, applicant: false },
+    { action: "cancel_by_management", leader: true, guardian: false, applicant: false },
+    { action: "allow_early_retry", leader: true, guardian: false, applicant: false },
+    { action: "read_audit", leader: true, guardian: false, applicant: false },
+    { action: "read_review_history", leader: true, guardian: true, applicant: false },
+    { action: "read_own_request", leader: false, guardian: false, applicant: true },
+    { action: "cancel_own_request", leader: false, guardian: false, applicant: true },
+    { action: "attach_own_proof", leader: false, guardian: false, applicant: true },
+    { action: "update_own_notification_preferences", leader: true, guardian: true, applicant: false },
+    { action: "grant_product_or_role", leader: false, guardian: false, applicant: false },
+  ] as const)("should apply the complete actor matrix for $action", (row) => {
+    const resource = { tribeId: "tribe-a", applicantUserId: "applicant", hasRecentAuthentication: true };
+    expect(canPerformAdmissionAction({ userId: "leader", tribeId: resource.tribeId, role: "leader", status: "active" }, row.action, resource)).toBe(row.leader);
+    expect(canPerformAdmissionAction({ userId: "guardian", tribeId: resource.tribeId, role: "guardian", status: "active" }, row.action, resource)).toBe(row.guardian);
+    expect(canPerformAdmissionAction({ userId: "applicant", tribeId: resource.tribeId, role: null, status: null }, row.action, resource)).toBe(row.applicant);
+  });
+
+  it.each([
+    { role: "leader", status: "muted" }, { role: "leader", status: "blocked" }, { role: "leader", status: "removed" },
+    { role: "guardian", status: "muted" }, { role: "guardian", status: "blocked" }, { role: "guardian", status: "removed" },
+  ] as const)("should withdraw administrative alerts and review from a $status $role", (row) => {
+    const actor = { userId: "former-reviewer", tribeId: "tribe-a", ...row };
+    expect(canPerformAdmissionAction(actor, "read_connection_alert", { tribeId: actor.tribeId })).toBe(false);
+    expect(canPerformAdmissionAction(actor, "read_inbox", { tribeId: actor.tribeId })).toBe(false);
+    expect(canPerformAdmissionAction(actor, "decide_request", { tribeId: actor.tribeId, applicantUserId: "applicant" })).toBe(false);
   });
 });
 

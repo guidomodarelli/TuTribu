@@ -4,7 +4,7 @@
 
 **Input**: Contrato funcional completo, [technical-contract.md](technical-contract.md), [handoff.md](handoff.md), [traceability.md](traceability.md) y checklist del paquete. Selección efectiva: `.specify/feature.json`, independiente de la rama Git.
 
-**Estado**: fases 0 y 1 de diseño completadas; revisión I1/U1 incorporada y tareas/trazabilidad sincronizadas en `7198047f126bcde6b0a5f0cdb60abf4191903e10`. Preparación T001–T006 completada; bases parciales de dominio, auth, desafíos, crypto y contratos con 220 casos ejecutados, ver [dominio](validation/domain-baseline.md), [auth](validation/auth-baseline.md), [desafíos/crypto](validation/challenge-crypto-baseline.md), [contratos](validation/resource-contract-baseline.md) y [gates](validation/operational-gates.md). Los escritores, rutas, migraciones y pruebas operativas de producto siguen pendientes; ninguna capacidad externa fue activada. El usuario autorizó commit y push de avances con `--no-verify` y confirmó la revisión humana completa.
+**Estado**: fases 0 y 1 de diseño completadas; revisión I1/U1 incorporada y tareas/trazabilidad sincronizadas en `7198047f126bcde6b0a5f0cdb60abf4191903e10`. T001–T006 y T008 completadas (7 de 212); bases parciales de dominio, auth, desafíos, crypto y contratos con 270 casos ejecutados, ver [dominio](validation/domain-baseline.md), [auth](validation/auth-baseline.md), [desafíos/crypto](validation/challenge-crypto-baseline.md), [contratos](validation/resource-contract-baseline.md) y [gates](validation/operational-gates.md). Los escritores, rutas, migraciones y pruebas operativas de producto siguen pendientes; ninguna capacidad externa fue activada. El usuario autorizó commit y push de avances con `--no-verify` y confirmó la revisión humana completa.
 
 ## Summary
 
