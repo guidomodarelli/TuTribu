@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
-import { createAdmissionSchema, type AdmissionMessagingSchemaReferences } from "@/src/modules/academy-admissions/infrastructure/database/admission-schema";
+import { createAdmissionSchema, type AdmissionMessagingSchemaReferences, type AdmissionMembershipSchemaReferences } from "@/src/modules/academy-admissions/infrastructure/database/admission-schema";
 import { createMessagingSchema } from "@/src/modules/messaging/infrastructure/database/messaging-schema";
+import { createAdmissionMembershipEffectsSchema } from "@/src/modules/tribes/infrastructure/database/admission-membership-schema";
 import {
   bigint,
   boolean,
@@ -180,6 +181,7 @@ export const tribes = pgTable("tribes", {
     .default(false),
   logoUrl: text("logo_url"),
   coverUrl: text("cover_url"),
+  admissionsControlActivatedAt: timestamp("admissions_control_activated_at",{withTimezone:true}),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),
@@ -201,6 +203,8 @@ export const tribeMembers = pgTable("tribe_members", {
   role: text("role").notNull(),
   status: text("status").notNull(),
   statusReason: text("status_reason").notNull().default("none"),
+  commercialRecoveryStatus: text("commercial_recovery_status"),
+  admissionMembershipEffectId: uuid("admission_membership_effect_id"),
   joinedVia: text("joined_via").notNull().default("unknown"),
   joinedViaInvitationId: uuid("joined_via_invitation_id").references(
     () => tribeInvitations.id,
@@ -215,6 +219,9 @@ export const tribeMembers = pgTable("tribe_members", {
     table.tribeId,
     table.userId
   ),
+  admissionScopeKey: uniqueIndex("tribe_member_admission_scope_key").on(table.id,table.tribeId,table.userId),
+  commercialRecoveryCheck: check("tribe_member_commercial_recovery_check",sql`${table.commercialRecoveryStatus} in ('active','muted')`),
+  admissionEffectForeignKey: foreignKey({name:"tribe_member_admission_effect_fkey",columns:[table.admissionMembershipEffectId,table.tribeId,table.userId,table.id],foreignColumns:[academyAdmissionMembershipEffects.id,academyAdmissionMembershipEffects.tribeId,academyAdmissionMembershipEffects.userId,academyAdmissionMembershipEffects.memberId]}),
   joinedViaInvitationIndex: index("idx_tribe_members_joined_via_invitation").on(
     table.joinedViaInvitationId
   ),
@@ -1779,6 +1786,7 @@ export const {
   notificationObligations: academyAdmissionNotificationObligations,
 } = createAdmissionSchema({ users, tribes, globalIdentityEvidence, tribeInvitations,
   messaging: (): AdmissionMessagingSchemaReferences => ({versions:messagingConnectionVersions,deliveries:messageDeliveries,codeEnvelopes:verificationCodeEnvelopes}),
+  membershipEffects: (): AdmissionMembershipSchemaReferences => academyAdmissionMembershipEffects,
 });
 
 /** Composes private messaging models after the admission challenge parent exists. */
@@ -1788,3 +1796,6 @@ export const {
   messagingContactBudgetSubjects, messagingContactFingerprintAliases, messageDeliveries,
   verificationCodeEnvelopes, messageDeliveryAttempts, messagingUsageReservations, messagingUsageEvents,
 } = createMessagingSchema({ tribes, user: users, contactVerificationChallenges });
+
+/** Composes the private membership source after both owners' tables exist. */
+export const academyAdmissionMembershipEffects=createAdmissionMembershipEffectsSchema({tribes,users,members:tribeMembers,decisions:academyAdmissionDecisions});
