@@ -7,8 +7,8 @@ import { evaluateGlobalReauthenticationCallback, evaluateRecentAuthentication } 
 describe("recent global authentication", () => {
   const now = new Date("2026-10-05T12:00:00.000Z");
   const scope = { userId: "synthetic-user", sessionId: "session-after-callback", accountId: "google-account", subject: "google-subject", tribeId: "tribe", operation: "save_messaging_credentials", resourceId: "connection" };
-  const intent = { id: "intent", ...scope, originalSessionId: "original-session", nonceVerified: true, consumedAt: null as Date | null, expiresAt: new Date(now.getTime() + 60_000) };
-  const evidence = { ...scope, intentId: intent.id, authenticatedAt: new Date(now.getTime() - 60_000), verifiedAt: now, validUntil: new Date(now.getTime() + 540_000), invalidatedAt: null as Date | null };
+  const intent = { id: "intent", ...scope, originalSessionId: "original-session", status: "authorizing" as const, version: 1, nonceVerified: true, consumedAt: null as Date | null, expiresAt: new Date(now.getTime() + 60_000) };
+  const evidence = { id: "evidence", ...scope, intentId: intent.id, authenticatedAt: new Date(now.getTime() - 60_000), verifiedAt: now, validUntil: new Date(now.getTime() + 540_000), invalidatedAt: null as Date | null };
 
   it("should accept the current account and exact operation when signed authentication is recent", () => {
     expect(evaluateRecentAuthentication({ now, scope, evidence, sessionActive: true, currentLeaderUserId: scope.userId })).toEqual({ allowed: true });
@@ -48,6 +48,14 @@ describe("recent global authentication", () => {
 
   it("should accept an unused verified callback intent before issuing evidence", () => {
     expect(evaluateGlobalReauthenticationCallback({ now, scope, intent, sessionActive: true, currentLeaderUserId: scope.userId })).toEqual({ allowed: true });
+  });
+
+  it.each(["created", "consumed", "expired"] as const)("should reject a callback whose intent state is %s even if nonce facts are stale", (status) => {
+    expect(evaluateGlobalReauthenticationCallback({ now, scope, intent: { ...intent, status }, sessionActive: true, currentLeaderUserId: scope.userId })).toMatchObject({ allowed: false, reason: "reauthentication_intent_unusable" });
+  });
+
+  it.each([0, -1, 1.5])("should close a callback with an unusable intent version %s", (version) => {
+    expect(evaluateGlobalReauthenticationCallback({ now, scope, intent: { ...intent, version }, sessionActive: true, currentLeaderUserId: scope.userId })).toMatchObject({ allowed: false });
   });
 
   it.each(["missing_nonce", "consumed", "expired", "wrong_account", "wrong_operation", "missing_intent", "invalid_expiry", "revoked_session", "lost_leadership"] as const)(

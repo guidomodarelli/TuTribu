@@ -1,6 +1,6 @@
 # Data Model: Academy Admissions and Tenant Messaging
 
-**Estado**: diseño propuesto, 2026-10-05. No se creó schema ni se ejecutó SQL. Las migraciones versionadas, Drizzle y pruebas reales se producen durante implementación. [spec.md](spec.md) define todas las matrices, estados y límites; este modelo no los reduce.
+**Estado**: diseño de 2026-10-05, con implementación en curso. La migración de evidencia global y su reflejo Drizzle tienen pruebas ejecutadas en ramas Neon efímeras propias; repositorios, recorrido de auth y restante persistencia siguen pendientes. Ver [auth-baseline.md](validation/auth-baseline.md). [spec.md](spec.md) define todas las matrices, estados y límites; este modelo no los reduce.
 
 ## Owners y reglas transversales
 
