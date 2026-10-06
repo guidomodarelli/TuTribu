@@ -18,8 +18,12 @@ Los casos incluyen TTL exacto, fecha inválida/futura, cinco fallos, desafíos a
 
 Las suites se escribieron y ejecutaron antes de crear los módulos: inicialmente no pudieron cargar esos imports ausentes. Después de implementarlos se ejercieron los comportamientos descritos. Pasaron lint y ambos chequeos de tipos; la evidencia SQL y Workers no se sustituye por estos resultados Node.
 
+## Adjunción a pendiente existente
+
+Sobre `1974e760`, la prueba SQL crea y confirma primero una solicitud pending con contacto declarado y proof null. Registra submitted_at/expires_at/status/version, y después adjunta proof local y cambia la versión junto con el consumo aplicado de esa prueba. El snapshot posterior conserva ambas fechas y status pending, sube sólo a versión 2 y mantiene el proof exacto. Los checks previos de diagnóstico/prueba/consumo/invalidez siguen ejercitándose. La ejecución con los 33 casos de dominio pasó 34 casos sin skips en 34,16 segundos; lint y tipos de tests posteriores verdes. La revisión nativa final de esta ampliación cerró sin hallazgos, con los tres hashes de tests estables y todos sus comandos terminados. T015 queda completada como cobertura de reglas y persistencia de adjunción.
+
 ## Trabajo pendiente
 
-T012, T015, T034, T036 y T037 permanecen abiertos por sus dependencias y escenarios restantes. Faltan SecretStore/contextos autorizados, almacenamiento/purga durable, CAS y contadores globales, emisión/adjunción de pruebas con solicitud y auditoría, configuración de keyrings del hosting y ensayo real en Workers. Todavía no se cambia una ruta, el login, una cuenta ni una membresía.
+T012, T034, T036 y T037 permanecen abiertos por sus dependencias y escenarios restantes. El Store privado ya tiene su evidencia en [secret-store-baseline.md](secret-store-baseline.md), y T015 cierra reglas de desafío/proof y plazo de la pendiente. Siguen pendientes los writers completos de emisión/validación/adjunción, contadores globales, productores/mantenimiento, configuración de keyrings del hosting y ensayo real en Workers. Esta ampliación de tests no cambia una ruta ni habilita un flujo.
 
 Todos los gates mantienen el registro de [operational-gates.md](operational-gates.md), especialmente OG-02. `spec.md`, `technical-contract.md`, identificadores normativos y checklists permanecen íntegros. El owner arquitectónico es [academy-admissions.htm](../../../docs/architecture/academy-admissions.htm).
