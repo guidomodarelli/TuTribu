@@ -9,12 +9,15 @@ export interface ReauthenticationResourceAuthorizer {
 }
 export type CreateReauthenticationIntentCommand=RecentAuthenticationScope&{returnPath:string};
 export type IssueReauthenticationNonceCommand=RecentAuthenticationScope&{intentId:string};
+/** Current account/session scope for reading only an owned, currently authorized intent. */
+export type ReadReauthenticationIntentCommand=Pick<RecentAuthenticationScope,"userId"|"sessionId"|"accountId"|"subject">&{intentId:string};
 /** Signed candidate and effective session originate only in the native completion hook. */
 export type CompleteGlobalReauthenticationCommand={intentId:string;userId:string;accountId:string;sessionId:string;evidence:GoogleIdentityEvidenceCandidate};
 export type ReauthenticationClosedOutcome={status:"context_unavailable"|"intent_unusable"};
 
 /** Keeps nonce issuance, one-use consumption and recency emission behind the auth owner. */
 export interface RecentAuthenticationRepository {
+  read(command:ReadReauthenticationIntentCommand):Promise<GlobalReauthenticationIntent|null>;
   create(command:CreateReauthenticationIntentCommand):Promise<{status:"created";intent:GlobalReauthenticationIntent}|ReauthenticationClosedOutcome>;
   issueNonce(command:IssueReauthenticationNonceCommand):Promise<{status:"authorizing";nonce:string}|ReauthenticationClosedOutcome>;
   complete(command:CompleteGlobalReauthenticationCommand):Promise<{status:"consumed";evidence:RecentAuthenticationEvidence|null}|ReauthenticationClosedOutcome>;
