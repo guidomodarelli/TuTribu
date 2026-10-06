@@ -1,0 +1,18 @@
+.ReauthenticationStatus {
+  width: min(100%, 42rem);
+  min-height: 100svh;
+  margin-inline: auto;
+  padding: clamp(1.25rem, 5vw, 3.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2rem;
+
+  &__header { display: grid; gap: 0.75rem; }
+  &__eyebrow { color: var(--muted-foreground); font-size: 0.875rem; }
+  &__title { font-family: var(--font-display); font-size: clamp(1.75rem, 4vw, 2.5rem); line-height: 1.2; }
+  &__description, &__help { color: var(--muted-foreground); line-height: 1.6; }
+  &__content { display: grid; gap: 1rem; overflow-wrap: anywhere; }
+  &__error { color: var(--destructive); line-height: 1.5; }
+  &__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+}
