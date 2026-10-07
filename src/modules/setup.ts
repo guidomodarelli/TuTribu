@@ -20,9 +20,9 @@ import { buildAcademyAdmissionsModule, createPaidAdmissionResolutionWriter } fro
 import { PostgresAdmissionActivationRepository } from "./academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
 import {PostgresMessagingSelectionDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
 import { buildMessagingModule, buildMessagingWorkModule, type MessagingWorkDependencies } from "./messaging/setup";
-import { ZavuCredentialInspectorFactory } from "./messaging/infrastructure/zavu/zavu-credential-inspector-factory";
+import {createRegisteredMessagingAdapters} from "./messaging/infrastructure/composition/messaging-provider-adapters";
+import {MESSAGING_AUTHORIZATION_PURPOSE} from "./messaging/constants/messaging-connection";
 import {ScopedConnectionDiagnosticDispatcher} from "./messaging/infrastructure/composition/connection-diagnostic-dispatcher";
-import {ZavuMessageDeliverySender} from "./messaging/infrastructure/zavu/zavu-message-delivery-sender";
 import {CONNECTION_DIAGNOSTIC_DISPATCH_LOG} from "./messaging/constants/connection-diagnostic";
 import {MessagingDeliveryStorageError} from "./messaging/domain/errors/messaging-delivery-storage-error";
 import {REAUTHENTICATION_OPERATION} from "./auth/constants/reauthentication-resources";
@@ -516,6 +516,11 @@ export async function createMessagingConnectionManagementRequestModule(usage: Da
   return { connections: connections.useCases, resolveTribe: routing.resolveTribe };
 }
 
+/** @param databaseClient - Native guarded checkout selected by this composition root. @returns Explicit implemented provider ports with current actor/purpose/resource reads and no credential cache. */
+function createRequestMessagingProviderAdapters(databaseClient:Awaited<ReturnType<typeof createServerDatabaseClient>>){
+  return createRegisteredMessagingAdapters({execute:(context,run)=>databaseClient.withRequestContext({userId:context.authorizationPurpose===MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader?context.actorUserId:context.contributingLeaderUserId,email:null},run),readSecurityFacts:async()=>readMessagingHostingSecurityFacts(),fetch:globalThis.fetch});
+}
+
 /** @param usage - Native guarded connection purpose; the mutation retains exact current human authority. @returns Only staged credential inspection and canonical routing, without message or activation capabilities. */
 export async function createMessagingCredentialValidationRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.maintenance) {
   const databaseClient = await createServerDatabaseClient(usage);
@@ -525,7 +530,7 @@ export async function createMessagingCredentialValidationRequestModule(usage: Da
   };
   const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
   const request = buildMessagingModule(dependencies).createRequestModule({ selection: "management", readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  return { validation: request.createCredentialValidation(new ZavuCredentialInspectorFactory(globalThis.fetch)), resolveTribe: routing.resolveTribe };
+  return { validation: request.createCredentialValidation(createRequestMessagingProviderAdapters(databaseClient).inspectors), resolveTribe: routing.resolveTribe };
 }
 
 /** @param usage - Native read connection purpose; this path does not load keyrings or contact a provider. @returns Current leader/guardian configuration and canonical tenant routing. */
@@ -543,7 +548,7 @@ export async function createMessagingResourceRequestModule(usage:DatabaseConnect
   const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
   const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
   const request=buildMessagingModule(dependencies).createRequestModule({selection:"management",readSecurityConfig:()=>readMessagingHostingSecurityConfig()});
-  return{resources:request.createResourceListing(new ZavuCredentialInspectorFactory(globalThis.fetch)),resolveTribe:routing.resolveTribe};
+  return{resources:request.createResourceListing(createRequestMessagingProviderAdapters(databaseClient).inspectors),resolveTribe:routing.resolveTribe};
 }
 
 /** @param usage - Native protected write purpose. @returns Only versioned configuration and canonical routing with explicitly scoped inspectors. */
@@ -552,7 +557,7 @@ export async function createMessagingConnectionConfigurationRequestModule(usage:
   const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
   const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
   const request=buildMessagingModule(dependencies).createRequestModule({selection:"management",readSecurityConfig:()=>readMessagingHostingSecurityConfig()});
-  return{configuration:request.createConnectionConfiguration(new ZavuCredentialInspectorFactory(globalThis.fetch)),resolveTribe:routing.resolveTribe};
+  return{configuration:request.createConnectionConfiguration(createRequestMessagingProviderAdapters(databaseClient).inspectors),resolveTribe:routing.resolveTribe};
 }
 
 /** @param requestContext - Native boundary correlation, with no client permission facts. @returns Exact diagnostic issuance/verification with focal original dispatch and canonical routing. */
@@ -562,7 +567,8 @@ export async function createMessagingDiagnosticRequestModule(requestContext:Requ
   const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
   const request=buildMessagingModule(dependencies).createRequestModule({selection:"management",readSecurityConfig:()=>readMessagingHostingSecurityConfig()});
   const logger=createServerLogger({feature:CONNECTION_DIAGNOSTIC_DISPATCH_LOG.feature,operation:REAUTHENTICATION_OPERATION.diagnoseMessagingConnection,...requestContext});
-  const dispatcher=new ScopedConnectionDiagnosticDispatcher({readSecurityFacts:async()=>readMessagingHostingSecurityFacts(),createDispatcher:(diagnosticScope,authorize)=>buildMessagingWorkModule({diagnosticScope,authorize,execute:(actorUserId,run)=>databaseClient.withRequestContext({userId:actorUserId,email:null},run),readSecurityConfig:()=>readMessagingHostingSecurityConfig(),createSender:(preparation)=>new ZavuMessageDeliverySender(preparation,globalThis.fetch),runtime:{now:Date.now,createId:()=>crypto.randomUUID(),defer:(work)=>{after(()=>work);},report:(diagnostic)=>{const code=diagnostic.cause instanceof MessagingDeliveryStorageError||diagnostic.cause instanceof MessagingSecretAccessError?diagnostic.cause.code:MESSAGING_ERROR_CODE.unexpectedFailure;logger.error({message:CONNECTION_DIAGNOSTIC_DISPATCH_LOG.message,metadata:{stage:diagnostic.stage,code,deliveryId:diagnostic.deliveryId,attemptId:diagnostic.attemptId}});}}}).useCases.dispatch});
+  const adapters=createRequestMessagingProviderAdapters(databaseClient);
+  const dispatcher=new ScopedConnectionDiagnosticDispatcher({readSecurityFacts:async()=>readMessagingHostingSecurityFacts(),createDispatcher:(diagnosticScope,authorize)=>buildMessagingWorkModule({diagnosticScope,authorize,execute:(actorUserId,run)=>databaseClient.withRequestContext({userId:actorUserId,email:null},run),readSecurityConfig:()=>readMessagingHostingSecurityConfig(),createSender:adapters.createSender,runtime:{now:Date.now,createId:()=>crypto.randomUUID(),defer:(work)=>{after(()=>work);},report:(diagnostic)=>{const code=diagnostic.cause instanceof MessagingDeliveryStorageError||diagnostic.cause instanceof MessagingSecretAccessError?diagnostic.cause.code:MESSAGING_ERROR_CODE.unexpectedFailure;logger.error({message:CONNECTION_DIAGNOSTIC_DISPATCH_LOG.message,metadata:{stage:diagnostic.stage,code,deliveryId:diagnostic.deliveryId,attemptId:diagnostic.attemptId}});}}}).useCases.dispatch});
   return{issue:request.createDiagnosticIssuance(dispatcher),verify:request.useCases.verifyDiagnostic,resolveTribe:routing.resolveTribe};
 }
 

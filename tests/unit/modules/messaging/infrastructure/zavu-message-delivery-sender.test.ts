@@ -105,4 +105,13 @@ describe("real SDK message sender", () => {
     expect(preparations).toBe(0);
     expect(transport.receipts).toEqual([]);
   });
+  it("should reject a missing scoped credential even when the SDK environment offers a global key",async()=>{
+    const fixture=preparedFixture(),transport=createAdmissionProviderTransport([]),previousKey=process.env.ZAVUDEV_API_KEY;
+    process.env.ZAVUDEV_API_KEY=randomUUID();
+    try{
+      const sender=new ZavuMessageDeliverySender({prepare:async()=>({...fixture.prepared,credential:""})},transport.fetch);
+      await expect(sender.send(fixture.context,new AbortController().signal)).rejects.toMatchObject({code:"resource_unavailable"});
+      expect(transport.receipts).toEqual([]);expect(transport.deniedRequests).toBe(0);
+    }finally{if(previousKey===undefined)delete process.env.ZAVUDEV_API_KEY;else process.env.ZAVUDEV_API_KEY=previousKey;}
+  });
 });

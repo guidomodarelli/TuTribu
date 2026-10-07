@@ -3,7 +3,7 @@ import { z } from "zod";
 import { isSupportedCountry, type CountryCode } from "libphonenumber-js/max";
 import { MESSAGING_INPUT_CATEGORY } from "@/src/modules/messaging/constants/messaging-input";
 import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messaging-limits";
-import { MESSAGING_PUBLIC_CHANNEL, MESSAGING_INITIAL_PROVIDER_ID } from "@/src/modules/messaging/constants/messaging-public-contract";
+import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { ADMISSION_QUERY_LIMIT, ADMISSION_QUERY_INTEGER_PATTERN, ADMISSION_PUBLIC_CODE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { TRIBE_SLUG_PATTERN } from "@/src/modules/tribes/domain/value-objects/tribe-slug";
@@ -40,7 +40,7 @@ const resourceCursorSchema=z.strictObject({tribeId:z.uuid(),connectionId:z.uuid(
 const resourceCursorInput=z.string().min(1).max(ADMISSION_QUERY_LIMIT.cursorCharacters).transform((value,context)=>{try{return JSON.parse(value) as unknown;}catch{context.addIssue({code:"custom",message:MESSAGING_INPUT_CATEGORY.version});return z.NEVER;}}).pipe(resourceCursorSchema);
 export const messagingResourceQuerySchema = z.strictObject({ limit: z.union([z.int(), z.string().regex(ADMISSION_QUERY_INTEGER_PATTERN).transform(Number)]).pipe(z.int().min(1).max(ADMISSION_QUERY_LIMIT.maximumPageSize)).default(ADMISSION_QUERY_LIMIT.defaultPageSize), cursor: resourceCursorInput.optional() });
 /** Saving a key does not validate, activate, diagnose or return it. */
-export const messagingConnectionCreateSchema = z.strictObject({ ...operationFields, providerId: z.literal(MESSAGING_INITIAL_PROVIDER_ID), apiKey: z.string().trim().min(1), name: z.string().trim().min(1).max(ADMISSION_LIMIT.displayNameCharacters) });
+export const messagingConnectionCreateSchema = z.strictObject({ ...operationFields, providerId: z.string().trim().min(1), apiKey: z.string().trim().min(1), name: z.string().trim().min(1).max(ADMISSION_LIMIT.displayNameCharacters) });
 export const messagingConnectionValidateSchema = z.strictObject({ ...operationFields, expectedVersion: z.int().positive() });
 /** Authorized own resource references must still be verified by the integration owner. */
 export const messagingConnectionConfigureSchema = z.strictObject({ ...operationFields, expectedVersion: z.int().positive(), channel: z.enum(MESSAGING_PUBLIC_CHANNEL), senderId: z.string().trim().min(1), templateId: z.string().trim().min(1).optional(), templateLanguage: z.string().trim().min(1).optional() }).refine((configuration)=>configuration.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?Boolean(configuration.templateId&&configuration.templateLanguage):configuration.templateId===undefined&&configuration.templateLanguage===undefined,{message:MESSAGING_INPUT_CATEGORY.template});
