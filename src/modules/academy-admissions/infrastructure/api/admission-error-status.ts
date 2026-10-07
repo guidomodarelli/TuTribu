@@ -14,6 +14,7 @@ export const ADMISSION_ERROR_HTTP_STATUS = {
   [ADMISSION_ERROR_CODE.allowlistConflict]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.invitationConflict]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.usagePolicyConflict]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.connectionConflict]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.recipientNotAllowed]: HTTP_STATUS.unprocessableEntity,
   [ADMISSION_ERROR_CODE.contactEvidenceRequired]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.additionalVerificationRequired]: HTTP_STATUS.conflict,

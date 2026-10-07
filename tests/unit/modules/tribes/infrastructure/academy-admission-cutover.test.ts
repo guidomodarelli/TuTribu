@@ -9,6 +9,7 @@ import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from 
 
 /** Creates historical rows before the new migration without inventing recovery snapshots. */
 async function prepareCutover(database: AcademyAdmissionTestDatabase) {
+  expect(database.runtimeRole.bypassesRls || database.runtimeRole.isSuperuser).toBe(true);
   for (const artifact of ["20261005090000_create_admission_identity_evidence.sql","20261005091000_create_academy_admission_core.sql","20261005091500_guard_admission_evidence_transitions.sql","20261005092000_create_tenant_messaging.sql","20261005092500_guard_messaging_attempts.sql"]) await database.applyMigration(artifact);
   const tribeId=randomUUID(); const leaderId=randomUUID(); const applicantId=randomUUID(); const mutedId=randomUUID(); const unknownId=randomUUID();
   const own={userId:leaderId,email:null};
@@ -18,6 +19,8 @@ async function prepareCutover(database: AcademyAdmissionTestDatabase) {
     await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason) values (${tribeId},${leaderId},'leader','active','none'),(${tribeId},${mutedId},'tribemate','muted','none'),(${tribeId},${unknownId},'tribemate','removed','subscription_inactive')`);
   });
   await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
+  await database.applyMigration("20261006180000_guard_subscription_membership_sources.sql");
+  await database.applyMigration("20261006200000_scope_admission_audit_operations.sql");
   return {tribeId,leaderId,applicantId,mutedId,unknownId,own};
 }
 
@@ -146,7 +149,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("academy membership c
       await database.grantTablesToNonBypass(["tribe_members"]);
       await database.withContext(fixture.own,async (transaction)=>transaction.execute(sql`grant select on public.tribes,public.tribe_invitations,public.tribe_subscription_prices to ${sql.identifier(database.nonBypassRole.name)}`));
       await database.withContext(fixture.own,async (transaction)=>transaction.execute(sql`grant execute on function public.can_open_join_tribe_free(uuid),public.can_open_join_tribe_paid_plan(uuid) to ${sql.identifier(database.nonBypassRole.name)}`));
-      await expect(database.withContext({userId:fixture.applicantId,email:null},async (transaction)=>transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${fixture.tribeId},${fixture.applicantId},'tribemate','active')`),"non_bypass")).rejects.toMatchObject({cause:{code:"23514",message:"protected membership requires a basic admission source"}});
+      await expect(database.withContext({userId:fixture.applicantId,email:null},async (transaction)=>transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${fixture.tribeId},${fixture.applicantId},'tribemate','active')`),"non_bypass")).rejects.toMatchObject({cause:{code:"23514"}});
       await database.withContext(fixture.own,async (transaction)=>transaction.execute(sql`delete from public.academy_admission_policies where tribe_id=${fixture.tribeId}`));
       await expect(write()).rejects.toMatchObject({cause:{code:"23514"}});
       expect(await database.withContext(fixture.own,async (transaction)=>(await transaction.execute(sql`select id from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.applicantId}`)).rows)).toEqual([]);

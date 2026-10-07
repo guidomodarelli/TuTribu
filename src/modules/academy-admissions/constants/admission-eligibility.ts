@@ -34,7 +34,7 @@ export const ADMISSION_PROOF_STATUS = { available: "available", applied: "applie
 export const ADMISSION_VERIFICATION_PURPOSE = { admission: "admission", connectionDiagnostic: "connection_diagnostic" } as const;
 export const ADMISSION_GLOBAL_EMAIL_AUTHORITY = { gmail: "gmail", workspace: "workspace", insufficient: "insufficient" } as const;
 export const ADMISSION_ACTION = {
-  configurePolicy: "configure_policy", manageAllowlist: "manage_allowlist",
+  readPolicy: "read_policy", configurePolicy: "configure_policy", manageAllowlist: "manage_allowlist",
   manageInvitations: "manage_invitations", manageConnection: "manage_connection",
   readConnectionMetadata: "read_connection_metadata", readSecret: "read_secret",
   readConnectionAlert: "read_connection_alert",

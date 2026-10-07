@@ -22,7 +22,7 @@ Pasaron `pnpm lint`, `pnpm typecheck` y `pnpm typecheck:tests`. La revisión nat
 
 ## Pendientes y límites
 
-T010, T011, T018, T019 y T029 continúan abiertos por sus dependencias y validación restante. La captura, el escritor de recencia, el catálogo autorizado, el comienzo/callback de OAuth, el adapter de cuenta, las rutas API y la página de reautenticación ya están conectados, según la evidencia de los últimos apartados. Faltan el acceso desde las acciones sensibles, la purga y la cobertura restante de lifecycle/restore. Las pruebas aisladas no completan por sí solas el recorrido ni sus gates.
+T010, T011, T018, T019, T029 y T030 están completadas como cobertura de contrato, modelos, persistencia de identidad, decorador verificado y captura por request. El último apartado registra la revalidación que completa sus dependencias. T031/T032/T033 y sus integraciones todavía conservan sus obligaciones de entrada desde acciones sensibles, purga y cobertura de lifecycle/restore; OG-01 sigue pendiente de claims/clientes Google reales y runtime Workers. La evidencia local no acredita esos gates.
 
 Se conserva el resultado y las cookies del login existente. No se envían mensajes, no se leen secretos de mensajería y no se activa una capacidad externa. OG-01 requiere verificar los claims reales del cliente Google; los tokens sintéticos de prueba no acreditan ese gate. Los demás gates mantienen el estado de [operational-gates.md](operational-gates.md). `spec.md`, `technical-contract.md`, identificadores normativos y checklists permanecen íntegros.
 
@@ -38,7 +38,7 @@ La composición persiste la captura mínima mediante el repositorio y guard exis
 
 El build local Turbopack quedó estancado en compile sin avance de CPU/diagnóstico y se cerró sólo su proceso propio con ownership verificado. Los intentos documentados de Webpack requirieron desactivar temporalmente flags de compiler y terminaron por incompatibilidades previas de selector global SCSS y export estrella de beez-ui; no validan el build normal. Se restauraron los bytes de `next.config.ts`, no se instalaron dependencias ni se modificó SDK/config persistente. Los tipos generados por ese intento se limpiaron dentro del workspace. Las dos corridas de CI del HEAD base `fa477edf` terminaron verdes; la CI del próximo commit debe verificar el comando normal con la configuración original.
 
-En el bloque publicado sobre `fa477edf` todavía no se conectaba nonce/recencia a esos handlers; el último apartado documenta esa conexión posterior. Ninguna referencia opaca del browser ni un completion de login por sí solos autorizan una acción sensible. T029/T030 y sus dependencias permanecen pendientes; OG-01 no se acredita con esta integración.
+En el bloque publicado sobre `fa477edf` todavía no se conectaba nonce/recencia a esos handlers; el último apartado documenta esa conexión posterior y la revalidación de T029/T030. Ninguna referencia opaca del browser ni un completion de login por sí solos autorizan una acción sensible; OG-01 no se acredita con esta integración.
 
 ## Repositorio privado de identidad vigente
 
@@ -46,7 +46,7 @@ El puerto `GlobalIdentityEvidenceRepository` y su adapter PostgreSQL guardan una
 
 La lectura propia une captura y relaciones actuales, no llama a OAuth y no convierte el vencimiento histórico del token en una sesión de una hora. Un correo, sujeto, cuenta o sesión incompatibles dejan de exponer esa captura. Esta lectura no constituye un permiso durable ni acredita el lifecycle de invalidación permanente de T033.
 
-Los cuatro casos SQL iniciales pasaron en PostgreSQL real de ramas Neon propias con cleanup: captura derivada del verificador Google real, cuentas/sesiones/claims cruzados, sesión vencida, dos capturas concurrentes con una sola vigente y cambio de correo/actor. Las credenciales/tokens/JWKS de prueba son sintéticos. El último apartado registra la posterior integración de `AuthenticatedAccountProvider`, la invalidación por correo y el retiro al desvincular una cuenta; T030/T033 conservan la cobertura restante de lifecycle/restore y sus dependencias.
+Los cuatro casos SQL iniciales pasaron en PostgreSQL real de ramas Neon propias con cleanup: captura derivada del verificador Google real, cuentas/sesiones/claims cruzados, sesión vencida, dos capturas concurrentes con una sola vigente y cambio de correo/actor. Las credenciales/tokens/JWKS de prueba son sintéticos. Los últimos apartados registran la integración de `AuthenticatedAccountProvider`, la invalidación por correo, el retiro al desvincular una cuenta y el cierre del contrato de captura T030. T033 conserva sus dependencias y cobertura restante de lifecycle/restore.
 
 ## Escritor de nonce y recencia
 
@@ -93,3 +93,37 @@ El build normal `pnpm run build` pasó después del fix, con config original, Re
 Sobre `1974e760`, cuatro casos adicionales firman sub ausente, null, vacío y numérico. El verificador nativo real de Google/Better Auth con JWKS sintético conserva insufficient sin evidencia, causa inventada o token expuesto. La suite de dieciséis casos cubre además RS256/signature/issuer/audience/exp, Gmail, Workspace, externo, hd ausente y callbacks A/B intercalados.
 
 La ejecución conjunta pasó 143 pruebas sin skips: dieciséis de token, dieciséis de integración OAuth/plugin y 111 de elegibilidad. El callback real sintético conserva login/state/PKCE aunque no aporte autoridad de contacto. La evidencia de cuenta/correo cambiados se obtiene tanto de esas políticas actuales como de los ocho casos SQL de provider/captura registrados arriba; no se hace backfill desde emailVerified. Lint y ambos typechecks pasaron. La revisión nativa cerró sin hallazgos accionables, con dos hashes estables y todos sus comandos finalizados. T010 está completada como tarea de pruebas; los claims/clientes Google reales y OG-01 permanecen sin acreditar.
+
+## Revalidación y cierre de la base de identidad
+
+Sobre `dc9479db759481455349aef936573967b2b14a0a`, el recorrido autenticado adicional ejerce una sesión Better Auth real, intención SQL propia y el comienzo nativo de OAuth desde Next en Chromium/WebKit, escritorio/móvil. Pasó en 136,04 segundos: la página conserva sesión/intención antes de confirmar; la confirmación agrega nonce/claims, conserva state/PKCE y deja el intento authorizing con hash. Google está interceptado por un transporte de prueba y no se presenta ese resultado como callback externo aprobado ni recencia Google real. Los dos E2E existentes de input inválido/sesión ausente conservan su evidencia anterior de ocho combinaciones.
+
+La regresión local de auth/admisión/mensajería pasó 422 tests en diecinueve suites; los SQL omitidos por opt-in no cuentan como evidencia. Con opt-in, la primera ejecución de captura/estado/concurrencia pasó catorce casos: una prueba adicional omitía su migración por el antiguo flag de baseline y obtuvo 42P01, y otra obtuvo un 401 administrativo al obtener la conexión de la rama. Se retiró el flag de baseline, manteniendo las comprobaciones de FK/CHECK/unicidad/recencia; no se modificó el algoritmo de consumo para ocultar un error externo.
+
+La repetición pasó doce casos SQL sin skips en cuatro suites, en 322,32 segundos, incluyendo los seis del writer de nonce/recencia y el contrato de evidencia. Los ocho de cuenta/captura y el de estado/concurrencia de la primera ejecución también pasaron completos. Las ramas son propias, los recursos sintéticos y el cleanup forma parte del helper protegido. Lint y ambos typechecks pasaron. La revisión nativa aislada cerró sin hallazgos accionables y con los once hashes del target estables.
+
+T011 completa su cobertura de contrato/recencia y recorridos locales; T018 el modelado privado, T019 su persistencia/grants/RLS y T029/T030 el decorador del mismo token y captura por request. Sus dependencias T007/T010/T014/T017 están acreditadas. T031 conserva T028 e integración completa; T032/T033 y mantenimiento/purga/restore, runtime Workers y gates permanecen abiertos. No se configuró un proyecto Google, no se usaron credenciales Zavu como autenticación global y no se habilitó una capacidad operativa.
+
+## Cierre T031 sobre dc9479db
+
+Se reprodujeron cuatro fallos de aplicación: create/begin/read admitían sesión vencida y read proyectaba pending tras vencer durante la consulta. Los use cases ahora usan la policy pura de vigencia antes de persistencia/nonce y después de resource waits. El quinto fallo se observó en PostgreSQL real: read devolvía la intención tras expirar la sesión durante el authorizer. Se revalidan contexto/liderazgo/cuenta/sesiones y clock SQL final antes de mapear.
+
+La regresión final pasó siete SQL y catorce locales, veintiuno sin skips/fallos en 216,98 s, con ramas propias eliminadas. Los 71 auth/plugin/page/client también están verdes; build normal de cuarenta páginas, lint y ambos tipos pasan. La revisión de siete archivos terminó sin hallazgos, hashes estables. T030/T011/T028 están satisfechas y T031 queda completada como intención/consumo/recencia locales.
+
+Se actualizaron arquitectura, manual de producto y tema interno de cuenta con su menú. Checker sin errores, sólo advertencias de visor local sin URL publicada y catálogo de traducción ausente; enlaces relativos sin fallos. Chromium/WebKit a390/1280 verifican render, recarga de ancla/foco, índice/Escape, Inicio y regreso al menú. La trazabilidad conserva cambios locales y las ilustraciones siguen siendo esquemas. El login global y los contratos Google/state/PKCE no se alteraron. Google real, Workers y OG-01 permanecen sin acreditar.
+
+El recorrido autenticado real de Next/SQL/SDK pasó de nuevo en106,83s, con sesión conservada antes de confirmar y nonce emitido sólo por la acción explícita en ambos motores/viewport. No se presenta la página interceptada de Google como autenticación externa acreditada.
+
+## Cierre T033 de proyección privada actual
+
+Sobre dc9479db, los ocho SQL de identidad/captura/provider pasaron sin skips/fallos en153,76s. Acreditan snapshot mínimo, sesión/account/subject/email actuales, cuenta concreta del completion con otra Google vinculada, unlink sin fallback, cambio/restauración de correo sin revivir evidencia, aislamiento y concurrencia de capturas. El getter no devuelve roles/JWT/tokens/claims completos ni hace OAuth/refresh/escrituras; la composición de server session conserva disableRefresh.
+
+La revisión de cuatro archivos no encontró hallazgos y mantuvo hashes estables. T030/T031 están satisfechas y T033 queda completada en su alcance privado, sin convertir AuthenticatedMemberResult en autoridad. Las ramas propias fueron eliminadas con verificación; provider externo, restore/retención/Workers y gates conservan sus tareas.
+
+## Cierre T032 con restauración segura
+
+La revisión reprodujo un P2 real: después de start→started, pageshow.persisted y read fallido volvían a habilitar Confirmar con Google con el snapshot SSR created. El container ahora bloquea el comienzo desde el primer intento/restauración hasta una lectura ready autorizada. La prueba usa presenter/container reales y un puerto propio: confirma una sola llamada start tras el fallo y sólo admite otra tras read ready. No se mockearon React, beez-ui, Next o SDK.
+
+Los34UI/page/client pasan, con cancelación, reset de feedback, inicio ambiguo, hidratación y vencimiento. El re-review cerró el P2 y no encontró hallazgos nuevos (dos hashes estables). El browser autenticado real de Next/PG/SDK volvió a pasar en108,05s sobre rama propia y cuatro combinaciones Chromium/WebKit escritorio/móvil. Conserva sesión/intención hasta confirmar explícitamente, mantiene state/PKCE y no representa el proveedor interceptado como Google real aprobado. El build final de cuarenta páginas, tipos/lint y render/navegación de manuales en ambos motores a390/1280 pasan; referencias relativas sin errores.
+
+T031 está satisfecha y T032 queda completada como recorrido global ya operable mediante intención legítima. La integración desde los controles sensibles de cada historia, Google real, Workers y OG-01 permanecen pendientes. No hay nuevo botón de menú o permiso público desde la pantalla.

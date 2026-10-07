@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 
 import { sql } from "drizzle-orm";
 import {buildReconciledSubscriptionsSql,buildSubscriptionMembershipUpdateSql,lockSubscriptionMembershipTribes} from "@/src/modules/subscriptions/infrastructure/repositories/subscription-membership-reconciliation-sql";
+import { recoverProtectedSubscriptionMemberships, type PaidAdmissionResolutionFactory } from "./subscription-membership-source-writer";
 
 import type {
   TribeCurrentSubscriptionOfferResult,
@@ -1061,6 +1062,7 @@ export class PostgresTribeSubscriptionPriceRepository
    * @param refreshMercadoPagoAccessToken - Adapter that refreshes provider tokens.
    * @param getMercadoPagoPlanStatus - Adapter that reads provider plan status.
    * @param getMercadoPagoSubscriptionStatus - Adapter that reads provider subscription status.
+   * @param createAdmissionResolution - Admission owner factory bound to the same payment transaction.
    * @param requestId - Optional request correlation identifier for payment traces.
    */
   constructor(
@@ -1071,6 +1073,7 @@ export class PostgresTribeSubscriptionPriceRepository
     private readonly refreshMercadoPagoAccessToken: MercadoPagoAccessTokenRefresher,
     private readonly getMercadoPagoPlanStatus: MercadoPagoPlanStatusGetter,
     private readonly getMercadoPagoSubscriptionStatus: MercadoPagoSubscriptionStatusGetter,
+    private readonly createAdmissionResolution: PaidAdmissionResolutionFactory,
     private readonly requestId?: string
   ) {}
 
@@ -3356,6 +3359,7 @@ export class PostgresTribeSubscriptionPriceRepository
           target_price.trial_frequency_type,
           target_price.created_at
       `);
+      await recoverProtectedSubscriptionMemberships(database, { providerSubscriptionIds: input.providerSubscriberStatusUpdates.map((update) => update.provider_subscription_id), tribeSlug: input.tribeSlug, priceId: input.priceId }, this.createAdmissionResolution);
       const row = (result.rows?.[0] ?? null) as SubscriptionPriceRow | null;
 
       return row ? mapSubscriptionPrice(row) : null;
@@ -3580,6 +3584,7 @@ export class PostgresTribeSubscriptionPriceRepository
         )
         ${buildSubscriptionMembershipUpdateSql()}
       `);
+      await recoverProtectedSubscriptionMemberships(database, { providerSubscriptionIds: input.providerSubscriberStatusUpdates.map((update) => update.provider_subscription_id), tribeSlug: input.tribeSlug }, this.createAdmissionResolution);
     });
   }
 

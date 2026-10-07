@@ -3,12 +3,23 @@
 /** Runs the SQL harness only after an explicit local opt-in to disposable Neon branches. */
 import { sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import { withAcademyAdmissionDatabase } from "./academy-admission-database";
 import { createAdmissionProviderTransport, withAdmissionProviderTransport } from "./admission-provider-transport";
 
 describe("academy admission database creation recovery", () => {
+  it("should require explicit authorization for an injected transport before accessing native credentials or creating resources",async()=>{
+    const transport=createAdmissionProviderTransport([]);
+    const run=vi.fn(async()=>undefined);
+    await expect(withAcademyAdmissionDatabase(run,{fetch:transport.fetch,databaseSelection:{databaseName:"neondb",roleName:"synthetic_runtime"}})).rejects.toThrow("explicit_transport_requires_authorization");
+    expect(run).not.toHaveBeenCalled();
+    expect(transport.receipts).toEqual([]);
+    expect(transport.deniedRequests).toBe(0);
+  });
+
   it("should preserve both failures and the resource name when creation and reconciliation responses are lost", async () => {
     // Arrange: effects are simulated at the own HTTP boundary, before any SQL.
     const creationError = new TypeError("Controlled creation response loss");
@@ -76,6 +87,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("academy admission 
       expect(database.branch.isDefault).toBe(false);
       expect(database.branch.id).not.toBe(database.branch.parentId);
       expect(database.branch.name).toMatch(/^codex-academy-admissions-/);
+      const receipts = (await readFile(join(process.cwd(), "tests", "support", ".academy-admission-branches.log"), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+      const receipt = receipts.find((item) => item.branch?.id === database.branch.id);
+      expect(receipt).toEqual({ phase: "owned_branch", workflow: "academy_admission_sql", projectId: "cold-firefly-92947172", branch: database.branch });
+      expect(Object.keys(receipt)).toEqual(["phase", "workflow", "projectId", "branch"]);
       expect(database.nonBypassRole.bypassesRls).toBe(false);
       expect(database.nonBypassRole.isSuperuser).toBe(false);
       console.info("Academy admission SQL role metadata", { runtime: database.runtimeRole, nonBypass: database.nonBypassRole });

@@ -21,6 +21,7 @@ const useCases = {
   getOwnAcademyAccess: vi.fn(),
   grantAcademyBonus: vi.fn(),
   joinTribeAcademyAdmission: vi.fn(),
+  getAcademyPublicOffer: vi.fn(async () => null),
   reviewMemberVerification: vi.fn(),
   startAcademySubscription: vi.fn(),
 };
@@ -53,6 +54,7 @@ beforeEach(() => {
         activateAcademy: useCases.activateAcademy,
         getOwnAcademyAccess: useCases.getOwnAcademyAccess,
         grantAcademyBonus: useCases.grantAcademyBonus,
+        getAcademyPublicOffer: useCases.getAcademyPublicOffer,
       },
     },
     subscriptions: { useCases: { startAcademySubscription: useCases.startAcademySubscription } },

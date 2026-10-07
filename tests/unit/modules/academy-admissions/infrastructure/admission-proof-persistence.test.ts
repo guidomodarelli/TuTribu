@@ -11,7 +11,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof pe
     await withAcademyAdmissionDatabase(async (database) => {
       await database.applyMigration("20261005090000_create_admission_identity_evidence.sql");
       await database.applyMigration("20261005091000_create_academy_admission_core.sql");
-      if (process.env.APPLY_ADMISSION_EVIDENCE_GUARDS === "1") await database.applyMigration("20261005091500_guard_admission_evidence_transitions.sql");
+      await database.applyMigration("20261005091500_guard_admission_evidence_transitions.sql");
       const userId = randomUUID();
       const tribeId = randomUUID();
       const connectionId = randomUUID();

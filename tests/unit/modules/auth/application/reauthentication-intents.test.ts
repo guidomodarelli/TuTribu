@@ -18,6 +18,21 @@ function scenario() {
 }
 
 describe("reauthentication intent use cases",()=>{
+  it.each(["create","begin","read"] as const)("should reject an expired session before %s persistence or nonce access",async(action)=>{
+    const fixture=scenario();fixture.account.session.expiresAt=new Date(0);let calls=0;
+    const repository:RecentAuthenticationRepository={...fixture.repository,create:async()=>{calls+=1;return{status:"created",intent:fixture.intent};},read:async()=>{calls+=1;return fixture.intent;},issueNonce:async()=>{calls+=1;return{status:"authorizing",nonce:"synthetic-owned-nonce"};}};
+    const accounts={getAuthenticatedAccount:async()=>fixture.account};
+    const result=action==="create"?await new CreateReauthenticationIntentUseCase(accounts,repository).execute(fixture.command):action==="begin"?await new BeginGlobalReauthenticationUseCase(accounts,repository).execute({intentId:fixture.intent.id}):await new ReadReauthenticationIntentUseCase(accounts,repository,()=>fixture.now).execute({intentId:fixture.intent.id});
+    expect(result).toMatchObject(action==="begin"?{allowed:false}:{ok:false,failure:{code:"not_authenticated"}});expect(calls).toBe(0);
+  });
+
+  it("should reject a session that expires while reading the intent rather than return stale pending metadata",async()=>{
+    const fixture=scenario();let now=fixture.now;
+    fixture.repository.read=async()=>{now=new Date(fixture.account.session.expiresAt.getTime()+1);return fixture.intent;};
+    const useCase=new ReadReauthenticationIntentUseCase({getAuthenticatedAccount:async()=>fixture.account},fixture.repository,()=>now);
+    expect(await useCase.execute({intentId:fixture.intent.id})).toMatchObject({ok:false,failure:{code:"not_authenticated"}});
+  });
+
   it("should issue a nonce only from the current account and the owned stored intent",async()=>{
     const fixture=scenario();const issued:unknown[]=[];
     fixture.repository.issueNonce=async(command)=>{issued.push(command);return {status:"authorizing",nonce:"synthetic-owned-nonce"};};

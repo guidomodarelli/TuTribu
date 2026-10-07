@@ -69,7 +69,9 @@ Antes de crear desafío/presentación se devuelve membresía legítima o pendien
 
 | Método y sufijo | Audience/input | Resultado |
 | --- | --- | --- |
-| GET `/policy` | leader | Policy/configuración sin secreto |
+| GET `/policy` | leader actual, sin recencia | Estado `not_configured/draft/active/paused/unavailable`, policy nullable sin versión ficticia, países/version del owner de uso e impacto en pending. La preparación se declara `not_evaluated` hasta componer un evaluator real; leer no inicializa ni activa |
+| GET `/policy/preflight` | leader actual, sin recencia de mutación | Motivos y contadores agregados del inventario actual. No publica nombres de storage, miembros, secretos ni un permiso reutilizable; el writer repite el inventario bajo locks al activar |
+| POST `/policy` | sensitiveLeader; `operationId`, confirmación explícita, sin versión/campos/countries elegidos | Preparación inicial explícita con defaults cerrados version1; conserva una existente y no recrea ausencia después del marker. GET nunca inicializa |
 | PUT `/policy` | sensitiveLeader; campos propios de admisión, `expectedVersion,operationId` | Versión nueva/CAS, impacto y épocas. Contact type no cambia una vez activado. Países se editan en usage-policy, no se acepta aquí una segunda lista |
 | POST `/policy/activate` | sensitiveLeader; `expectedVersion,operationId`, confirmación explícita | Marcador durable y policy se activan juntos tras preflight; nunca activar solo por abrir página |
 | POST `/policy/pause` | sensitiveLeader; `expectedVersion,operationId`, motivo | Cierre de presentaciones/aprobaciones, consulta/rechazo/cancelación disponible |

@@ -41,6 +41,43 @@ async function signedCallback(fixture:Awaited<ReturnType<typeof prepareRecentAut
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("recent authentication writer",()=>{
+  it("should permit usage configuration returns only for the exact current tribe and usage action",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareRecentAuthentication(database),returnPath=`${fixture.returnPath}/academia/admissions/messaging`;
+      for(const operation of [REAUTHENTICATION_OPERATION.initializeMessagingUsage,REAUTHENTICATION_OPERATION.updateMessagingUsage]) {
+        expect(await fixture.repository.create({...fixture.scope,operation,returnPath})).toMatchObject({status:"created",intent:{returnPath,operation}});
+        expect(await fixture.repository.create({...fixture.scope,operation,returnPath:"/another-academy/academia/admissions/messaging"})).toEqual({status:"context_unavailable"});
+      }
+      expect(await fixture.repository.create({...fixture.scope,operation:REAUTHENTICATION_OPERATION.updateAdmissionPolicy,returnPath})).toEqual({status:"context_unavailable"});
+    });
+  },120_000);
+
+  it("should allow the exact policy settings return for owned policy actions while rejecting foreign paths and unrelated operations",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareRecentAuthentication(database),settingsPath=`${fixture.returnPath}/academia/admissions/settings`;
+      for(const operation of [REAUTHENTICATION_OPERATION.updateAdmissionPolicy,REAUTHENTICATION_OPERATION.activateAdmissionPolicy,REAUTHENTICATION_OPERATION.pauseAdmissionPolicy]) {
+        const created=await fixture.repository.create({...fixture.scope,operation,returnPath:settingsPath});
+        expect(created).toMatchObject({status:"created",intent:{returnPath:settingsPath,operation}});
+        expect(await fixture.repository.create({...fixture.scope,operation,returnPath:"/another-academy/academia/admissions/settings"})).toEqual({status:"context_unavailable"});
+      }
+      expect(await fixture.repository.create({...fixture.scope,operation:REAUTHENTICATION_OPERATION.saveMessagingCredentials,returnPath:settingsPath})).toEqual({status:"context_unavailable"});
+    });
+  },120_000);
+
+  it("should close an intent read when the current session expires during the resource read",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareRecentAuthentication(database);
+      const created=await fixture.repository.create({...fixture.scope,returnPath:fixture.returnPath});
+      if(created.status!=="created")throw new Error("Synthetic intent creation failed");
+      const repository=new PostgresRecentAuthenticationRepository((run)=>database.withContext(fixture.own,run),(transaction)=>({resolve:async(scope)=>{
+        const resource=await new PostgresReauthenticationResourceAuthorizer(transaction).resolve(scope);
+        await transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.originalSessionId}`);
+        return resource;
+      }}));
+      expect(await repository.read({intentId:created.intent.id,userId:fixture.userId,sessionId:fixture.originalSessionId,accountId:fixture.accountId,subject:fixture.subject})).toBeNull();
+    });
+  },120_000);
+
   it("should co-commit the native session binding, identity capture and exact nonce recency",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await prepareRecentAuthentication(database);

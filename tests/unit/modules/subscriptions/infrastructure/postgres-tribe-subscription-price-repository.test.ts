@@ -1,3 +1,4 @@
+import { createPaidAdmissionResolutionWriter } from "@/src/modules/academy-admissions/setup";
 import { vi, describe, it, expect, beforeEach, afterAll, type Mock } from "vitest";
 import {
   TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE,
@@ -62,14 +63,21 @@ function createRepository(
     status: "active" as const,
   }))
 ) {
+  // These legacy own-port fixtures have no protected tribe. Actual source writes are exercised by the SQL suite.
+  const executeLegacyDatabase = (statement: unknown, ...parameters: unknown[]) => {
+    const query = getSqlText(statement).trim();
+    if (query.startsWith("select ") && query.includes("tribe.admissions_control_activated_at")) return Promise.resolve({ rows: [] });
+    return execute(statement, ...parameters);
+  };
   return new PostgresTribeSubscriptionPriceRepository(
-    async (callback) => callback({ execute } as never),
+    async (callback) => callback({ execute: executeLegacyDatabase } as never),
     createMercadoPagoPlan,
     updateMercadoPagoPlan,
     getMercadoPagoPlan,
     refreshMercadoPagoAccessToken,
     getMercadoPagoPlanStatus,
-    getMercadoPagoSubscriptionStatus
+    getMercadoPagoSubscriptionStatus,
+    createPaidAdmissionResolutionWriter
   );
 }
 
@@ -817,7 +825,8 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
       })),
       vi.fn(),
       vi.fn(async () => "active"),
-      vi.fn(async () => "authorized")
+      vi.fn(async () => "authorized"),
+      createPaidAdmissionResolutionWriter
     );
 
     await repository.create({ paymentIntegrationId: "integration-1",

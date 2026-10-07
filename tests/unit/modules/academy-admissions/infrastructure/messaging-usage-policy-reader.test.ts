@@ -97,4 +97,29 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission messagin
       });
     });
   }, 120_000);
+
+  it("should keep candidate restrictions scoped to its exact live version without replacing admission's selected facts", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareCountries(database);
+      const selectedId = randomUUID(), candidateId = randomUUID();
+      await database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id,allowed_countries) values (${fixture.tribeId},ARRAY['AR','US'])`);
+        await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,contributed_by_user_id,state,environment,security_epoch,is_selected,is_candidate,selected_version,candidate_version) values (${selectedId},${fixture.tribeId},${fixture.actorId},'active','synthetic','synthetic',true,false,1,null),(${candidateId},${fixture.tribeId},${fixture.actorId},'draft','synthetic','synthetic',false,true,null,1)`);
+        for (const connectionId of [selectedId, candidateId]) {
+          await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,sms_sender_id) values (${connectionId},${fixture.tribeId},1,'synthetic','synthetic','synthetic-sender')`);
+        }
+        await transaction.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,checked_at,platform_restrictions) values (${fixture.tribeId},${selectedId},1,'sms','synthetic-sender',clock_timestamp(),'[{"country":"AR","channel":"sms","allowed":false}]'),(${fixture.tribeId},${candidateId},1,'sms','synthetic-sender',clock_timestamp(),'[{"country":"US","channel":"sms","allowed":false}]')`);
+        const messaging = new PostgresMessagingUsageRepository(transaction, fixture.authorize);
+        const admission = new AdmissionMessagingUsagePolicyReader(messaging);
+        expect((await admission.readForTribe(fixture.tribeId))?.platformRestrictions).toEqual([{ country: "AR", channel: "sms", allowed: false }]);
+        expect((await messaging.readCountryPolicyForConnection({ tribeId: fixture.tribeId, connectionId: candidateId, connectionVersion: 1, slot: "candidate" }))?.platformRestrictions).toEqual([{ country: "US", channel: "sms", allowed: false }]);
+        await expect(messaging.readCountryPolicyForConnection({ tribeId: fixture.tribeId, connectionId: candidateId, connectionVersion: 1, slot: "selected" })).rejects.toMatchObject({ code: "resource_unavailable" });
+        await expect(messaging.readCountryPolicyForConnection({ tribeId: fixture.foreignTribeId, connectionId: candidateId, connectionVersion: 1, slot: "candidate" })).rejects.toMatchObject({ code: "permission_denied" });
+        await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,sms_sender_id) values (${candidateId},${fixture.tribeId},2,'synthetic','synthetic','synthetic-sender')`);
+        await transaction.execute(sql`update public.tenant_messaging_connections set candidate_version=2,version=version+1 where id=${candidateId}`);
+        await expect(messaging.readCountryPolicyForConnection({ tribeId: fixture.tribeId, connectionId: candidateId, connectionVersion: 1, slot: "candidate" })).rejects.toMatchObject({ code: "resource_unavailable" });
+        expect((await admission.readForTribe(fixture.tribeId))?.platformRestrictions).toEqual([{ country: "AR", channel: "sms", allowed: false }]);
+      });
+    });
+  }, 120_000);
 });

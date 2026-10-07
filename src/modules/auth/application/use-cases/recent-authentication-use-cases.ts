@@ -3,6 +3,7 @@ import type {AuthenticatedAccountProvider} from "@/src/modules/auth/domain/repos
 import type {RecentAuthenticationRepository} from "@/src/modules/auth/domain/repositories/recent-authentication-repository";
 import type {GlobalReauthenticationIntent} from "@/src/modules/auth/domain/entities/global-reauthentication-intent";
 import {evaluateRecentAuthentication} from "@/src/modules/auth/domain/policies/recent-authentication";
+import {isAuthenticatedSessionLive} from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import {GLOBAL_REAUTHENTICATION_INTENT_STATE} from "@/src/modules/auth/constants/recent-authentication";
 import {REAUTHENTICATION_ERROR_CODE,REAUTHENTICATION_INTENT_MESSAGE,REAUTHENTICATION_INTENT_OUTCOME} from "@/src/modules/auth/constants/reauthentication-intents";
 import type {ReauthenticationIntentResult,ReauthenticationIntentUseCaseResult} from "@/src/modules/auth/application/results/reauthentication-intent-result";
@@ -15,8 +16,8 @@ function projectIntent(intent:GlobalReauthenticationIntent,outcome:Reauthenticat
 
 /** Creates one explicitly requested intent from current private auth facts. */
 export class CreateReauthenticationIntentUseCase {
-  /** @param accounts - Current private auth projection. @param intents - Authoritative current resource/identity writer. */
-  constructor(private readonly accounts:AuthenticatedAccountProvider,private readonly intents:RecentAuthenticationRepository) {}
+  /** @param accounts - Current private auth projection. @param intents - Authoritative current resource/identity writer. @param clock - Current time after identity reads. */
+  constructor(private readonly accounts:AuthenticatedAccountProvider,private readonly intents:RecentAuthenticationRepository,private readonly clock:()=>Date=()=>new Date()) {}
   /**
    * Derives account/session identity from the server and lets the writer revalidate resource/return.
    * @param command - Validated action/resource/return only; no browser identity or permission flag.
@@ -24,7 +25,7 @@ export class CreateReauthenticationIntentUseCase {
    */
   async execute(command:{tribeId:string;operation:string;resourceId:string;returnPath:string}):Promise<ReauthenticationIntentUseCaseResult> {
     const account=await this.accounts.getAuthenticatedAccount();
-    if(!account) return {ok:false,failure:{code:REAUTHENTICATION_ERROR_CODE.notAuthenticated}};
+    if(!account||!isAuthenticatedSessionLive(account.session.expiresAt,this.clock())) return {ok:false,failure:{code:REAUTHENTICATION_ERROR_CODE.notAuthenticated}};
     if(!account.googleAccount) return {ok:false,failure:{code:REAUTHENTICATION_ERROR_CODE.required}};
     const result=await this.intents.create({...command,userId:account.userId,sessionId:account.session.id,accountId:account.googleAccount.id,subject:account.googleAccount.subject});
     if(result.status!=="created") return {ok:false,failure:{code:REAUTHENTICATION_ERROR_CODE.contextUnavailable}};
@@ -34,8 +35,8 @@ export class CreateReauthenticationIntentUseCase {
 
 /** Begins only a current owned intent, handing plaintext nonce exclusively to the native OAuth adapter. */
 export class BeginGlobalReauthenticationUseCase {
-  /** @param accounts - Current private auth context. @param intents - Transactional nonce issuer. */
-  constructor(private readonly accounts:AuthenticatedAccountProvider,private readonly intents:RecentAuthenticationRepository) {}
+  /** @param accounts - Current private auth context. @param intents - Transactional nonce issuer. @param clock - Current time after identity/resource waits. */
+  constructor(private readonly accounts:AuthenticatedAccountProvider,private readonly intents:RecentAuthenticationRepository,private readonly clock:()=>Date=()=>new Date()) {}
   /**
    * Re-resolves the opaque browser reference before issuing a server-controlled nonce.
    * @param command - Validated intent id, without browser identity or nonce.
@@ -43,9 +44,10 @@ export class BeginGlobalReauthenticationUseCase {
    */
   async execute(command:{intentId:string}):Promise<{allowed:true;nonce:string}|{allowed:false}> {
     const account=await this.accounts.getAuthenticatedAccount();
-    if(!account?.googleAccount) return {allowed:false};
+    if(!account?.googleAccount||!isAuthenticatedSessionLive(account.session.expiresAt,this.clock())) return {allowed:false};
     const identity={userId:account.userId,sessionId:account.session.id,accountId:account.googleAccount.id,subject:account.googleAccount.subject};
     const intent=await this.intents.read({...command,...identity});
+    if(!isAuthenticatedSessionLive(account.session.expiresAt,this.clock())) return {allowed:false};
     if(!intent||intent.originalSessionId!==account.session.id||intent.status!==GLOBAL_REAUTHENTICATION_INTENT_STATE.created) return {allowed:false};
     const issued=await this.intents.issueNonce({...identity,intentId:intent.id,tribeId:intent.tribeId,operation:intent.operation,resourceId:intent.resourceId});
     return issued.status===GLOBAL_REAUTHENTICATION_INTENT_STATE.authorizing?{allowed:true,nonce:issued.nonce}:{allowed:false};
@@ -63,11 +65,12 @@ export class ReadReauthenticationIntentUseCase {
    */
   async execute(command:{intentId:string}):Promise<ReauthenticationIntentUseCaseResult> {
     const account=await this.accounts.getAuthenticatedAccount();
-    if(!account) return {ok:false,failure:{code:REAUTHENTICATION_ERROR_CODE.notAuthenticated}};
+    if(!account||!isAuthenticatedSessionLive(account.session.expiresAt,this.clock())) return {ok:false,failure:{code:REAUTHENTICATION_ERROR_CODE.notAuthenticated}};
     if(!account.googleAccount) return {ok:false,failure:{code:REAUTHENTICATION_ERROR_CODE.required}};
     const intent=await this.intents.read({...command,userId:account.userId,sessionId:account.session.id,accountId:account.googleAccount.id,subject:account.googleAccount.subject});
     if(!intent) return {ok:false,failure:{code:REAUTHENTICATION_ERROR_CODE.notFound}};
     const now=this.clock();
+    if(!isAuthenticatedSessionLive(account.session.expiresAt,now))return {ok:false,failure:{code:REAUTHENTICATION_ERROR_CODE.notAuthenticated}};
     if(intent.status===GLOBAL_REAUTHENTICATION_INTENT_STATE.expired||(intent.status!==GLOBAL_REAUTHENTICATION_INTENT_STATE.consumed&&now.getTime()>=intent.expiresAt.getTime())) return {ok:true,value:projectIntent({...intent,status:GLOBAL_REAUTHENTICATION_INTENT_STATE.expired},REAUTHENTICATION_INTENT_OUTCOME.expired)};
     if(intent.status!==GLOBAL_REAUTHENTICATION_INTENT_STATE.consumed) return {ok:true,value:projectIntent(intent,REAUTHENTICATION_INTENT_OUTCOME.pending)};
     const scope={userId:account.userId,sessionId:account.session.id,accountId:account.googleAccount.id,subject:account.googleAccount.subject,tribeId:intent.tribeId,operation:intent.operation,resourceId:intent.resourceId};

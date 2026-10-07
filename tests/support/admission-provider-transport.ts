@@ -36,18 +36,20 @@ let isGlobalTransportInstalled = false;
  *
  * @param request - Request whose signal bounds the controlled provider work.
  * @param route - Registered endpoint that supplies the synthetic response.
+ * @param signal - Exact original transport cancellation signal, retained across Request construction and GC.
  * @returns The response produced before cancellation.
  * @throws The caller's abort reason or the registered handler's real error.
  */
 async function respondToControlledRequest(
   request: Request,
   route: AdmissionProviderTestRoute,
+  signal: AbortSignal,
 ): Promise<Response> {
-  request.signal.throwIfAborted();
+  signal.throwIfAborted();
   let onAbort = () => undefined as void;
   const aborted = new Promise<never>((_resolve, reject) => {
-    onAbort = () => reject(request.signal.reason);
-    request.signal.addEventListener("abort", onAbort, { once: true });
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 
   try {
@@ -56,7 +58,7 @@ async function respondToControlledRequest(
       aborted,
     ]);
   } finally {
-    request.signal.removeEventListener("abort", onAbort);
+    signal.removeEventListener("abort", onAbort);
   }
 }
 
@@ -99,7 +101,7 @@ export function createAdmissionProviderTransport(
       receipts.push(receipt);
 
       try {
-        const response = await respondToControlledRequest(request, route);
+        const response = await respondToControlledRequest(request, route, init?.signal ?? request.signal);
         receipt.outcome = "responded";
         receipt.status = response.status;
         return response;

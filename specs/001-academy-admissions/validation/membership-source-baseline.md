@@ -24,9 +24,17 @@ La revisión nativa detectó y se reprodujeron dos P2 adicionales: trasladar una
 
 La suite `academy-admission-cutover.test.ts` aplica los artefactos versionados, fixtures sintéticos y el helper protegido sólo en ramas Neon propias, con cleanup verificado. El export real de Drizzle emitió las relaciones compuestas entre decisión, fuente e instancia; no se usó `push` ni se aplicó SQL en default/producción.
 
+## Cierre de T009/T023 con las guardas actuales
+
+Sobre `dc9479db`, el fixture aplica también la procedencia paga 1800 y la FK de auditoría 2000. El rol runtime se acredita con metadata PostgreSQL: bypass RLS o superuser real, sin asumirlo por ownership. La regresión de ocho casos terminó con siete verdes y un rojo de oráculo textual: la guarda nueva conserva 23514 pero cambia su mensaje interno. Se mantuvo el código de rechazo y las comprobaciones de marcador/ausencia de miembro; el caso corregido pasó completo en 34,10 s. No se cambió producción para satisfacer un mensaje antiguo.
+
+El conjunto observado confirma los ocho escenarios: competencia/cleanup, selector de producto, cierre persistente con flags/policy ausentes, bootstrap, snapshot muted/NULL, fuente consumible, revocación y archivo. La cobertura paga se complementa con veinte SQL de T026 y el corte de entradas con once SQL de T027, ya ejecutados sobre las mismas guardas actuales y bases propias. Lint y tipos de tests pasan. La revisión de estructura/matriz devuelve cero brechas y ocho hashes finales estables.
+
+T009 queda completada como regresión y T023 como procedencia estructural, con T022/T009 satisfechas. No se declara el preflight o activación operativos aprobados.
+
 ## Pendientes completos
 
-T009/T023 permanecen abiertos hasta completar todos sus casos y sus dependencias. Los writers de admisión/pertenencia, los dos reconciliadores, la procedencia paga legítima, el corte de todas las entradas y el preflight no se infieren de estas guardas. Las resoluciones autorizadas de históricos desconocidos, permisos de moderación, eliminación/retención y salida legítima de modo requieren sus owners y auditoría; no se agrega una UI general inexistente.
+T009/T023 están completadas en los alcances anteriores. Los dos reconciliadores, la procedencia paga y las entradas históricas registran sus cierres T026/T027; el writer de admisión completo, el preflight y la activación operativos conservan sus tareas. Las resoluciones autorizadas de históricos desconocidos, permisos de moderación, eliminación/retención y salida legítima de modo requieren sus owners y auditoría; no se agrega una UI general inexistente.
 
 No hay una ruta de activación de este control ni un nuevo recorrido disponible. Los manuales actuales siguen describiendo los flujos operables, y la documentación arquitectónica distingue este almacenamiento de su integración pendiente. El gate de activación sigue cerrado y las tablas no conceden contenido, cursos, pagos, grants, roles ni mensajes externos.
 

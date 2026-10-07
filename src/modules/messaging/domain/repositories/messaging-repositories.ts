@@ -17,7 +17,7 @@ export type MessagingLeadershipFacts = {
 export type MessagingConnectionAuthorizationFacts = {
   id: string; tribeId: string; version: number; contributedByUserId: string;
   state: "draft" | "ready" | "active" | "degraded" | "suspended" | "disconnected";
-  securityEpoch: string; retiredAt: Date | null; secretRef: string | null;
+  environment: string; securityEpoch: string; retiredAt: Date | null; secretRef: string | null;
 };
 export interface MessagingAuthorizationReader {
   /** Reads current membership and authoritative leader for the current account under own request context. */

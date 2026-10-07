@@ -1,6 +1,6 @@
 # Reconciliación comercial y membresía básica
 
-**Feature**: `001-academy-admissions`. **Base**: `567d53603702521c128bec87bc7291528147cec6`. Avance de T026; mantiene las dependencias, procedencia paga y OG-06 pendientes.
+**Feature**: `001-academy-admissions`. **Base inicial**: `567d53603702521c128bec87bc7291528147cec6`. Ampliación sobre `dc9479db759481455349aef936573967b2b14a0a`: procedencia paga propia y lifecycle de T026. Dependencias e integración operativa/OG-06 mantienen su alcance.
 
 ## Cambio y evidencia
 
@@ -20,6 +20,16 @@ La documentación y los manuales relacionados se mantienen en el mismo trabajo. 
 
 ## Alcance pendiente
 
-T026 no queda completada por esta corrección. Faltan completar T025, la fuente paga propia consumible en academias ya protegidas y los casos restantes de todos los escritores/lifecycle. El control de admisión y su preflight permanecen sin habilitar; las guardas actuales no permiten restaurar una academia protegida mediante un flag del cliente. La recuperación histórica desconocida no se acredita desde estas pruebas ni se inventa una interfaz de resolución.
+La procedencia paga ya está implementada mediante `subscription_membership_effects`, privada y consumida junto a la instancia. FK/unique/guards ligan cuenta/tribu/instancia/suscripción membership/precio/integración y el timestamp exacto del estado confirmado. El writer posterior a la persistencia de proveedor toma hechos visibles de una nueva sentencia, usa elegibilidad de dominio y conserva snapshot conocido, rol, fecha y moderación. El timestamp se obtiene como texto para no perder microsegundos; actor/manager/webhook actuales preceden a la fuente. Una flag del cliente no crea procedencia.
+
+La primera prueba de las tres vías públicas reprodujo `23514`: la guarda anterior sólo aceptaba admisión. Los tres casos corregidos pasaron focalmente en 63,35 segundos. La ampliación completa mantuvo verdes diecinueve casos y encontró un 401 administrativo antes del escenario de lifecycle. La revisión reprodujo además un P2 real: después de dos recuperaciones, el DELETE intentaba archivar un efecto histórico no revocado. La metadata de pg confirmó `23514` desde la guarda de transición ejecutada por la FK SET NULL. Remoción/borrado ahora revocan todas las fuentes de la misma instancia/cuenta/tribu; el caso exige ambas revocadas y luego archivadas, y pasó en 45,90 segundos.
+
+El arnés leía una ruta legacy de credenciales mientras el CLI instalado usa perfiles. Se sustituyó por la API nativa del CLI, con argv sin shell, stdout privado, scope/ownership intactos y sin retry de red/mutación incierta. Se retiró el lector obsoleto y sus tests; cuatro casos actuales del arnés pasaron en 25,38 segundos (dos HTTP controlados y dos SQL de aislamiento/rollback/cleanup). Su revisión final cerró con cero hallazgos y dos hashes estables.
+
+La ejecución final de veinte SQL de pagos pasó sin skips en 533,73 segundos usando la autenticación nativa y cleanup verificado. Cubre las tres vías, desconocidos, conducta, remoción administrativa, privilegios, producto academy, billing actual/histórico, fundamento básico, dos fuentes consumidas y archivo. Los 117 unitarios anteriores siguen verdes en 1,93 segundos; sólo su executor propio declara ausencia de tribus protegidas para esas fixtures legacy, sin mockear plataformas ni cambiar expectativas. La revisión final cerró con cero hallazgos accionables y diez hashes estables.
+
+T026 queda completada por el alcance comprobado de sus tres métodos y procedencia paga. El control de admisión y su preflight permanecen sin habilitar; los restantes writers, alta/recuperación por nuevas presentaciones y el gate operativo no se deducen de estos casos. No se acredita recuperación histórica desconocida ni se inventa una interfaz de resolución.
+
+Documentación/changelog/manual e índice están actualizados. La build normal Node 24.21.0/Next 16.3.4, con config original y variables sintéticas de proceso hacia loopback inaccesible, compiló en 41 segundos, terminó tipos y generó las 40 páginas. El manual y el índice detallado tienen cero errores de validación; las advertencias corresponden a documentos locales sin URL de visor y ausencia de catálogo de traducciones. Se normalizó la copia del script de navegación contra Heritage Spec. Chromium/WebKit a 390/1280 verificaron menú, ancla/recarga, rendered QA, hoja/Escape, teclado/Inicio y regreso al menú, sin desbordes ni errores de página y con cierre de navegadores. La traza registra HEAD más cambios locales revisados; las ilustraciones siguen siendo los esquemas existentes, sin afirmar capturas nuevas.
 
 La entrega completa conserva sus 212 tareas, documentos normativos, matrices e identificadores. No se ejecutan migraciones en default/producción ni se configura un proveedor externo.

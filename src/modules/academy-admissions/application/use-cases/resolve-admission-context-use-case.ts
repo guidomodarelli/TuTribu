@@ -1,6 +1,7 @@
 /** Resolves current global account and admission-owned actor/resource facts before private operations. */
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
+import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import { evaluateRecentAuthentication } from "@/src/modules/auth/domain/policies/recent-authentication";
 import { canPerformAdmissionAction, type AdmissionActorFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import type { AdmissionAuthorizationReader, AdmissionContextCommand, AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
@@ -10,16 +11,6 @@ import { ADMISSION_DECISION_ACTIONS, ADMISSION_OWN_REQUEST_ACTIONS, ADMISSION_RE
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { REAUTHENTICATION_OPERATION_RESOURCE, REAUTHENTICATION_RESOURCE_KIND } from "@/src/modules/auth/constants/reauthentication-resources";
-
-/**
- * Checks the session at a current clock rather than trusting its initial cached presence.
- * @param account - Current private global account facts.
- * @param now - Time sampled after awaited facts.
- * @returns Whether the current session deadline has not passed.
- */
-function sessionIsLive(account: AuthenticatedAccount, now: Date): boolean {
-  return Number.isFinite(now.getTime()) && Number.isFinite(account.session.expiresAt.getTime()) && account.session.expiresAt > now;
-}
 
 /** Own private resolver; its context is not a browser permission token or a substitute for writer authority. */
 export class ResolveAdmissionContextUseCase {
@@ -39,7 +30,7 @@ export class ResolveAdmissionContextUseCase {
   async execute(command: AdmissionContextCommand): Promise<{ allowed: true; context: AuthorizedAdmissionContext } | { allowed: false; failure: AdmissionFailure }> {
     const deny = (code: AdmissionFailure["code"]) => ({ allowed: false as const, failure: admissionFailure(code) });
     const initialAccount = await this.accounts.getAuthenticatedAccount();
-    if (!initialAccount || !sessionIsLive(initialAccount, this.clock())) return deny(ADMISSION_ERROR_CODE.authenticationRequired);
+    if (!initialAccount || !isAuthenticatedSessionLive(initialAccount.session.expiresAt, this.clock())) return deny(ADMISSION_ERROR_CODE.authenticationRequired);
     const initialActor = await this.authorization.getCurrentActor(command.tribeId, initialAccount.userId);
     const hasActor = (actor: AdmissionActorFacts | null): actor is AdmissionActorFacts => Boolean(actor && actor.userId === initialAccount.userId && actor.tribeId === command.tribeId);
     const ownRequest = ADMISSION_OWN_REQUEST_ACTIONS.has(command.action);
@@ -60,7 +51,7 @@ export class ResolveAdmissionContextUseCase {
     if (!account || account.userId !== initialAccount.userId || account.session.id !== initialAccount.session.id) return deny(ADMISSION_ERROR_CODE.authenticationRequired);
     const actor = await this.authorization.getCurrentActor(command.tribeId, account.userId);
     const now = this.clock();
-    if (!sessionIsLive(account, now)) return deny(ADMISSION_ERROR_CODE.authenticationRequired);
+    if (!isAuthenticatedSessionLive(account.session.expiresAt, now)) return deny(ADMISSION_ERROR_CODE.authenticationRequired);
     const target = { tribeId: command.tribeId, ...(resource?.applicantUserId ? { applicantUserId: resource.applicantUserId } : {}), hasRecentAuthentication: Boolean(command.sensitiveOperation) };
     if (!hasActor(actor) || !canPerformAdmissionAction(actor, command.action, target)) return deny(ADMISSION_ERROR_CODE.permissionDenied);
     const resourceId = resource?.id ?? command.tribeId;

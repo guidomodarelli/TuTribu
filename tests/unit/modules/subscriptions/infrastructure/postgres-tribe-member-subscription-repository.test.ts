@@ -1,6 +1,8 @@
+import { createPaidAdmissionResolutionWriter } from "@/src/modules/academy-admissions/setup";
 import { vi, describe, it, expect, beforeEach, afterAll, type Mock } from "vitest";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { PostgresTribeMemberSubscriptionRepository } from "@/src/modules/subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
+import { createLegacyMembershipExecutorFixture } from "@/tests/support/legacy-membership-executor-fixture";
 
 const pgDialect = new PgDialect();
 
@@ -93,8 +95,15 @@ function createRepository(
     refreshMercadoPagoAccessToken?: Mock;
   } = {}
 ) {
+  // These legacy own-port fixtures have no protected tribe. Actual source writes are exercised by the SQL suite.
+  const executeWithResourceLocks = createLegacyMembershipExecutorFixture(execute);
+  const executeLegacyDatabase = (statement: unknown, ...parameters: unknown[]) => {
+    const query = getSqlText(statement).trim();
+    if (query.startsWith("select ") && query.includes("tribe.admissions_control_activated_at")) return Promise.resolve({ rows: [] });
+    return executeWithResourceLocks(statement, ...parameters);
+  };
   return new PostgresTribeMemberSubscriptionRepository(
-    async (callback) => callback({ execute } as never),
+    async (callback) => callback({ execute: executeLegacyDatabase } as never),
     options.createMercadoPagoPreapprovalSubscription ??
       vi.fn(async () => ({
         checkoutUrl:
@@ -105,7 +114,8 @@ function createRepository(
     options.getMercadoPagoPreapprovalStatus ?? vi.fn(),
     options.updateMercadoPagoPreapprovalStatus ?? vi.fn(),
     options.updateMercadoPagoPreapprovalBackUrl ?? vi.fn(async () => undefined),
-    options.refreshMercadoPagoAccessToken ?? vi.fn()
+    options.refreshMercadoPagoAccessToken ?? vi.fn(),
+    createPaidAdmissionResolutionWriter
   );
 }
 
@@ -497,7 +507,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] })
       .mockResolvedValueOnce({ rows: [] });

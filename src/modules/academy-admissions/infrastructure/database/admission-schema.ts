@@ -213,6 +213,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     scopeKey: unique("admission_request_scope_key").on(table.id,table.tribeId,table.userId),
     pendingKey: uniqueIndex("admission_request_pending_key").on(table.tribeId,table.userId).where(sql`${table.status}='pending'`),
     inboxIndex: index("admission_request_inbox_idx").on(table.tribeId,table.status,table.submittedAt),
+    accountHistoryIndex: index("admission_request_account_history_idx").on(table.tribeId,table.userId,table.submittedAt.desc(),table.id.desc()),
     sourceCheck: check("admission_request_source_check", sql`${table.source} in ('common','personal','legacy')`), contactCheck: check("admission_request_contact_check", sql`${table.contactType} in ('email','phone')`),
     evidenceCheck: check("admission_request_evidence_check", sql`${table.evidenceSource} in ('none','declared','base','local')`),
     messageCheck: check("admission_request_message_check", sql`char_length(${table.applicantMessage})<=${ADMISSION_LIMIT.internalMessageCharacters}`.inlineParams()),
@@ -265,6 +266,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
   }, (table): PgTableExtraConfig => ({
     actorForeignKey: parentReference("admission_operation_actor_fkey",table.actorUserId,parents.users.id), tribeForeignKey: parentReference("admission_operation_tribe_fkey",table.tribeId,parents.tribes.id),
     identityKey: unique("admission_operation_identity_key").on(table.actorUserId,table.tribeId,table.operationType,table.idempotencyKey),
+    scopeKey: unique("admission_operation_scope_key").on(table.id,table.tribeId),
     stateCheck: check("admission_operation_state_check", sql`${table.state} in ('started','completed')`), versionCheck: check("admission_operation_version_check", sql`${table.version}>0`),
     resultCheck: check("admission_operation_result_check", sql`(${table.state}='completed' and ${table.publicResult} is not null and ${table.completedAt} is not null) or (${table.state}='started' and ${table.publicResult} is null and ${table.completedAt} is null)`),
     leasePairCheck: check("admission_operation_lease_pair_check", sql`(${table.leaseOwner} is null)=(${table.leaseUntil} is null)`),
@@ -297,6 +299,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   }, (table): PgTableExtraConfig => ({
     tribeForeignKey: parentReference("admission_audit_tribe_fkey",table.tribeId,parents.tribes.id,"restrict"), actorForeignKey: parentReference("admission_audit_actor_fkey",table.actorUserId,parents.users.id,"set null"),
+    operationForeignKey: foreignKey({name:"admission_audit_operation_fkey",columns:[table.operationId,table.tribeId],foreignColumns:[operations.id,operations.tribeId]}).onDelete("restrict"),
     historyIndex: index("admission_audit_history_idx").on(table.tribeId,table.createdAt.desc()),
   }));
   const notificationObligations = pgTable("academy_admission_notification_obligations", {
@@ -305,6 +308,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
   }, (table): PgTableExtraConfig => ({
     tribeForeignKey: parentReference("admission_obligation_tribe_fkey",table.tribeId,parents.tribes.id), applicantForeignKey: parentReference("admission_obligation_applicant_fkey",table.applicantUserId,parents.users.id),
     eventKey: unique("admission_obligation_event_key").on(table.requestId,table.eventType), eventCheck: check("admission_obligation_event_check", sql`${table.eventType} in ('pending_created','approved','rejected','cancelled','expired','reminder')`),
+    tenantKey: unique("admission_obligation_tenant_key").on(table.id,table.tribeId),
     requestForeignKey: foreignKey({ name: "admission_obligation_request_fkey", columns: [table.requestId,table.tribeId,table.applicantUserId], foreignColumns: [requests.id,requests.tribeId,requests.userId] }).onDelete("cascade"),
   }));
   return {

@@ -3,6 +3,7 @@ import type { AdmissionPolicy } from "@/src/modules/academy-admissions/domain/en
 import type { AdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 import type { AdmissionActorFacts, AdmissionSubmissionFacts, PendingAdmissionReviewFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import type { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import type { AdmissionOperationResult } from "../entities/admission-operation";
 
 /** Account/tenant/correlation originate at the server boundary, never body permissions. */
 export type AdmissionCommandScope = { userId: string; sessionId: string; tribeId: string; requestId: string };
@@ -42,11 +43,13 @@ export interface AdmissionPolicyRepository {
  * redemption/binding, audit and notification obligations in one transaction.
  * No method may use a caller-provided paid/verified/eligible flag as authority.
  */
-export interface AdmissionCommandWriter {
-  submit(intent: AdmissionSubmissionIntent): Promise<{ committed: true; result: AdmissionCommittedOutcome } | { committed: false; failure: AdmissionWriterFailure }>;
-  decide(intent: AdmissionDecisionIntent): Promise<{ committed: true; admissionRequestId: string; version: number; status: "approved" | "rejected" } | { committed: false; failure: AdmissionWriterFailure }>;
-  cancel(intent: AdmissionCancellationIntent): Promise<{ committed: true; admissionRequestId: string; version: number; status: "cancelled" } | { committed: false; failure: AdmissionWriterFailure }>;
+export interface AdmissionCommandWriter<SubmissionResult extends AdmissionCommittedOutcome = AdmissionCommittedOutcome> {
+  submit(intent: AdmissionSubmissionIntent): Promise<AdmissionOperationResult<SubmissionResult>>;
+  decide(intent: AdmissionDecisionIntent): Promise<AdmissionOperationResult<AdmissionTransitionResult>>;
+  cancel(intent: AdmissionCancellationIntent): Promise<AdmissionOperationResult<AdmissionTransitionResult>>;
 }
+/** Minimal committed transition snapshot does not claim the historical version is today's state. */
+export type AdmissionTransitionResult = { admissionRequestId: string; version: number; status: "approved" | "rejected" | "cancelled" };
 /** Membership owner facts; admission never writes courses, subscriptions or privileged roles. */
 export interface AdmissionMembershipReader {
   getMembership(userId: string, tribeId: string): Promise<AdmissionSubmissionFacts["membership"]>;

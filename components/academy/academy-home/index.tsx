@@ -20,6 +20,7 @@ import {
 } from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
+import { buildAdmissionEntryRoute } from "@/lib/academy-admissions/admission-routes";
 import {
   cancelAcademyRenewal,
   fetchOwnAcademyAccess,
@@ -597,6 +598,7 @@ export function AcademyHome({
           {access === null ? (
             offer.admissionEnabled ? (
               <div className={styles.AcademyHome__actions}>
+                {offer.admissionRequiresRequest ? <Link className={styles.AcademyHome__secondaryLink} href={buildAdmissionEntryRoute(tribeSlug)}>Solicitar ingreso</Link> :
                 <Button
                   aria-busy={pendingAction === "join" || undefined}
                   disabled={pendingAction !== null}
@@ -605,6 +607,7 @@ export function AcademyHome({
                 >
                   {pendingAction === "join" ? ACADEMY_HOME_COPY.joinPending : ACADEMY_HOME_COPY.joinButton}
                 </Button>
+                }
               </div>
             ) : (
               <p className={styles.AcademyHome__text}>{ACADEMY_HOME_COPY.admissionClosed}</p>

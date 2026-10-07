@@ -179,12 +179,12 @@ describe("current messaging authority before SecretStore", () => {
     const evidence = { id: "recent-evidence", userId: "leader-a", sessionId: "session-a", accountId: "google-account-a", subject: "google-subject-a", tribeId: command.tribeId, operation: command.operation, resourceId: command.connectionId, intentId: "consumed-intent", authenticatedAt: new Date(now.getTime() - 60_000), verifiedAt: now, validUntil: new Date(now.getTime() + 540_000), invalidatedAt: null };
     const account: MessagingAuthenticatedAccount = { userId: evidence.userId, session: { id: evidence.sessionId, expiresAt: new Date(now.getTime() + 3_600_000) }, googleAccount: { id: evidence.accountId, subject: evidence.subject }, recentAuthentication: [evidence] };
     const leadership: MessagingLeadershipFacts = { tribeId: command.tribeId, leaderUserId: account.userId, membership: { userId: account.userId, role: "leader", status: "active" } };
-    const connection: MessagingConnectionAuthorizationFacts = { id: command.connectionId, tribeId: command.tribeId, version: 1, contributedByUserId: account.userId, state: "active", securityEpoch: "epoch-a", retiredAt: null, secretRef: "secret-a" };
+    const connection: MessagingConnectionAuthorizationFacts = { id: command.connectionId, tribeId: command.tribeId, version: 1, contributedByUserId: account.userId, state: "active", environment: "synthetic-local", securityEpoch: "epoch-a", retiredAt: null, secretRef: "secret-a" };
     const security = { environment: "synthetic-local", securityEpoch: "epoch-a", recoveryLocked: false };
-    const state = { account: account as MessagingAuthenticatedAccount | null, leadership: leadership as MessagingLeadershipFacts | null, connection: connection as MessagingConnectionAuthorizationFacts | null, security, now, secretLoads: 0, afterResourceRead: () => undefined as void };
+    const state = { account: account as MessagingAuthenticatedAccount | null, leadership: leadership as MessagingLeadershipFacts | null, connection: connection as MessagingConnectionAuthorizationFacts | null, security, now, secretLoads: 0, connectionReads: 0, afterResourceRead: () => undefined as void };
     const resolver = new ResolveMessagingContextUseCase(
       { getAuthenticatedAccount: async () => state.account ? structuredClone(state.account) : null },
-      { getCurrentLeadership: async () => state.leadership ? structuredClone(state.leadership) : null, getConnection: async () => { state.afterResourceRead(); return state.connection ? structuredClone(state.connection) : null; } },
+      { getCurrentLeadership: async () => state.leadership ? structuredClone(state.leadership) : null, getConnection: async () => { state.connectionReads += 1; state.afterResourceRead(); return state.connection ? structuredClone(state.connection) : null; } },
       { getCurrentSecurityFacts: async () => ({ ...state.security }) }, () => state.now,
     );
     const loader = new LoadAuthorizedMessagingSecretUseCase(resolver, secretStore ?? { loadAuthorizedSecret: async () => { state.secretLoads += 1; return randomUUID(); } });
@@ -201,6 +201,22 @@ describe("current messaging authority before SecretStore", () => {
     const failure = new MessagingSecretAccessError(code);
     const { command, loader } = createAuthority({ loadAuthorizedSecret: async () => { throw failure; } });
     expect(await loader.execute(command)).toEqual({ allowed: false, failure: { code, cause: failure } });
+  });
+
+  it.each(["expired_session","invalid_session_expiry","invalid_clock"] as const)("should reject initial %s before reading a connection",async(changed)=>{
+    const {state,command,loader}=createAuthority();
+    if(changed==="expired_session") state.account!.session.expiresAt=state.now;
+    if(changed==="invalid_session_expiry") state.account!.session.expiresAt=new Date(Number.NaN);
+    if(changed==="invalid_clock") state.now=new Date(Number.NaN);
+    expect(await loader.execute(command)).toMatchObject({allowed:false,failure:{code:"authentication_required"}});
+    expect(state.connectionReads).toBe(0);
+    expect(state.secretLoads).toBe(0);
+  });
+
+  it("should reject a resource from another environment before SecretStore",async()=>{
+    const {state,command,loader}=createAuthority();state.connection!.environment="another-environment";
+    expect(await loader.execute(command)).toMatchObject({allowed:false,failure:{code:"connection_incomplete"}});
+    expect(state.secretLoads).toBe(0);
   });
 
   it.each(["missing_session", "guardian", "muted", "wrong_tribe", "wrong_resource", "previous_leader", "retired", "suspended", "disconnected", "old_epoch", "recovery_lock", "expired_session", "invalid_session_expiry", "old_authentication", "wrong_account", "wrong_subject", "wrong_operation"] as const)("should reject %s before calling SecretStore", async (changed) => {

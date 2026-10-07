@@ -230,7 +230,7 @@ export function canPerformAdmissionAction(actor: AdmissionActorFacts | null, act
   if (action === ADMISSION_ACTION.readInbox || action === ADMISSION_ACTION.readReviewHistory || action === ADMISSION_ACTION.readConnectionAlert || action === ADMISSION_ACTION.updateOwnNotificationPreferences) return isReviewer;
   if (action === ADMISSION_ACTION.manageConnection) return isLeader && resource.hasRecentAuthentication === true;
   return isLeader && (
-    action === ADMISSION_ACTION.configurePolicy || action === ADMISSION_ACTION.manageAllowlist
+    action === ADMISSION_ACTION.readPolicy || action === ADMISSION_ACTION.configurePolicy || action === ADMISSION_ACTION.manageAllowlist
     || action === ADMISSION_ACTION.manageInvitations || action === ADMISSION_ACTION.readConnectionMetadata
     || action === ADMISSION_ACTION.cancelByManagement || action === ADMISSION_ACTION.allowEarlyRetry
     || action === ADMISSION_ACTION.readAudit

@@ -34,6 +34,7 @@ export function ReauthenticationContainer({ initialState, client = reauthenticat
   const readStatus = useCallback(async (restored = false) => {
     const snapshot = currentState.current;
     if (snapshot.kind !== "ready" || (busy.current && !restored)) return;
+    if(restored)setStartBlocked(true);
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
@@ -87,6 +88,7 @@ export function ReauthenticationContainer({ initialState, client = reauthenticat
     busy.current = true;
     setErrorMessage(null);
     setPhase(REAUTHENTICATION_UI_PHASE.redirecting);
+    setStartBlocked(true);
     const result = await client.start(state.intent.intentId, controller.signal);
     if (!active.current || controller.signal.aborted || request.current !== controller) return;
     if (result.status === "started") return;

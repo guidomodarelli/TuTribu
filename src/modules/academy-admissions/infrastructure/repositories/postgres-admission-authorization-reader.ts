@@ -32,6 +32,10 @@ export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizat
   async getCurrentActor(tribeId: string, userId: string): Promise<AdmissionActorFacts | null> {
     const actor = (await this.database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
     if (!actor || actor !== userId) return null;
+    if (this.action === ADMISSION_ACTION.readInbox || this.action === ADMISSION_ACTION.decideRequest || this.action === ADMISSION_ACTION.rejectRequest) {
+      const current = (await this.database.execute<{ user_id: string; role: AdmissionActorFacts["role"]; status: AdmissionActorFacts["status"] }>(sql`select user_id,role,status from public.read_admission_reviewer_context(${tribeId},${this.sessionId})`)).rows[0];
+      return current ? { userId: current.user_id, tribeId, role: current.role, status: current.status } : null;
+    }
     const tribe = (await this.database.execute(sql`select id from public.tribes where id=${tribeId} for share`)).rows[0];
     if (!tribe) return null;
     const session = (await this.database.execute(sql`select id from public.session where id=${this.sessionId} and "userId"=${userId} for share`)).rows[0];
@@ -59,7 +63,9 @@ export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizat
     switch (resource.kind) {
       case ADMISSION_RESOURCE_KIND.request: {
         if (!ownRequest && !(ADMISSION_DECISION_ACTIONS.has(this.action) ? reviewer : permission)) return null;
-        const row = (await this.database.execute<{ id: string; tribe_id: string; user_id: string }>(sql`select id,tribe_id,user_id from public.academy_admission_requests where tribe_id=${tribeId} and id=${resource.id} and (${!ownRequest} or user_id=${userId}) for share`)).rows[0];
+        const row = (await this.database.execute<{ id: string; tribe_id: string; user_id: string }>(this.action === ADMISSION_ACTION.readInbox || ADMISSION_DECISION_ACTIONS.has(this.action)
+          ? sql`select record->'request'->>'id' as id,record->'request'->>'tribeId' as tribe_id,record->'request'->>'userId' as user_id from public.read_admission_reviews(${tribeId},${this.sessionId},${resource.id},1)`
+          : sql`select id,tribe_id,user_id from public.academy_admission_requests where tribe_id=${tribeId} and id=${resource.id} and (${!ownRequest} or user_id=${userId}) for share`)).rows[0];
         if (row) result = { id: row.id, tribeId: row.tribe_id, applicantUserId: row.user_id };
         break;
       }

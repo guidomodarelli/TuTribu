@@ -64,7 +64,10 @@ import type { TribeSupportRepository } from "@/src/modules/tribes/domain/reposit
 import type { TribeWelcomeRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-repository";
 import type { TribeWelcomeSelectionRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-selection-repository";
 
-type TribesModuleDependencies = {
+import type { AcademyAdmissionEntry } from "./domain/repositories/academy-admission-entry";
+
+type TribesModuleDependencies<AdmissionResult> = {
+  academyAdmissionEntry: AcademyAdmissionEntry<AdmissionResult>;
   tribeAcademyAdmissionRepository: TribeAcademyAdmissionRepository;
   tribeReadRepository: TribeReadRepository;
   tribeCreationRepository: TribeCreationRepository;
@@ -80,7 +83,8 @@ type TribesModuleDependencies = {
   tribeWelcomeSelectionRepository: TribeWelcomeSelectionRepository;
 };
 
-export function buildTribesModule({
+export function buildTribesModule<AdmissionResult>({
+  academyAdmissionEntry,
   tribeAcademyAdmissionRepository,
   tribeReadRepository,
   tribeCreationRepository,
@@ -94,11 +98,12 @@ export function buildTribesModule({
   tribeSupportRepository,
   tribeWelcomeRepository,
   tribeWelcomeSelectionRepository,
-}: TribesModuleDependencies) {
+}: TribesModuleDependencies<AdmissionResult>) {
   return {
     useCases: {
       joinTribeAcademyAdmission: joinTribeAcademyAdmission({
         tribeAcademyAdmissionRepository,
+        academyAdmissionEntry,
       }),
       createTribe: createTribe({
         tribeCreatorWhitelistRepository,

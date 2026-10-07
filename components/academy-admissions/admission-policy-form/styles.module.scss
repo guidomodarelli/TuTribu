@@ -1,0 +1,19 @@
+.AdmissionPolicyForm {
+  display: grid;
+  gap: 1.5rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 48rem;
+
+  &__header { display: grid; gap: 0.75rem; }
+  &__title { font-family: var(--font-display); font-size: clamp(1.5rem, 5vw, 2.25rem); font-weight: 600; line-height: 1.25; }
+  &__fields { display: grid; gap: 1.25rem; min-width: 0; border: 0; padding: 0; margin: 0; }
+  &__legend { font-weight: 600; margin-bottom: 1rem; }
+  &__field { display: grid; gap: 0.5rem; min-width: 0; }
+  &__sectionTitle { font-size: 1rem; font-weight: 600; }
+  &__check { display: flex; align-items: flex-start; gap: 0.75rem; line-height: 1.5; }
+  &__help { color: var(--muted-foreground); font-size: 0.875rem; line-height: 1.6; }
+  &__impact { display: grid; gap: 0.75rem; line-height: 1.6; }
+  &__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+  &__error { display: grid; gap: 0.75rem; color: var(--destructive); line-height: 1.5; }
+}

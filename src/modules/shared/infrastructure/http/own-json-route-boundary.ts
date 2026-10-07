@@ -84,11 +84,15 @@ export function createOwnJsonRouteBoundary<Failure extends { code: string }, Pub
       if (!claimPart(part)) return { usable: false, response: failureResponse(input.unexpectedFailure(undefined)) };
       return validateClaimed(schema, value);
     },
-    /** Claims and reads JSON body once; malformed JSON is a safe input failure. */
-    async readBody<Value>(schema: z.ZodType<Value>): Promise<OwnInputResult<Value>> {
+    /** Claims JSON once; an explicitly selected empty-body value still passes the same real input schema. */
+    async readBody<Value>(schema: z.ZodType<Value>, options?: { emptyBodyValue: unknown }): Promise<OwnInputResult<Value>> {
       if (!claimPart(INPUT_BODY_PART)) return { usable: false, response: failureResponse(input.unexpectedFailure(undefined)) };
       try {
-        const body: unknown = await input.request.json();
+        let body: unknown;
+        if (options) {
+          const text = await input.request.text();
+          body = text.length === 0 ? options.emptyBodyValue : JSON.parse(text);
+        } else body = await input.request.json();
         return validateClaimed(schema, body);
       } catch (error) {
         if (input.request.signal.aborted) throw input.request.signal.reason;
