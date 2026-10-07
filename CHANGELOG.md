@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Los líderes pueden activar una conexión productiva comprobada y reemplazar la anterior, conservando cupos y pruebas de admisión ya aplicadas, sin encender verificaciones automáticamente.
+
 - Los líderes pueden solicitar y confirmar una prueba de conexión por canal, con destino y consumo explícitos, y consultar su entrega sin convertirla en verificación de admisión ni activar la conexión.
 
 - Los líderes pueden guardar remitentes y plantillas por canal en una nueva versión candidata, conservando la conexión seleccionada y requiriendo nuevas comprobaciones antes de activarla.
@@ -30,6 +32,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La confirmación con Google tiene una pantalla propia que conserva la solicitud y muestra si falta iniciar sesión, confirmar o volver a solicitarla.
 
 ### Fixed
+
+- Una conexión no se activa si su diagnóstico vence mientras espera la confirmación en la base de datos.
 
 - Las consultas y los envíos de mensajería cierran al alcanzar el tiempo límite, sin repetir operaciones cuyo resultado sigue incierto.
 

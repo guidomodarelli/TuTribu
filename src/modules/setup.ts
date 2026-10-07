@@ -18,6 +18,7 @@ import { PostgresTribeWelcomeSelectionRepository } from "./tribes/infrastructure
 import { PostgresTribeAcademyAdmissionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-academy-admission-repository";
 import { buildAcademyAdmissionsModule, createPaidAdmissionResolutionWriter } from "./academy-admissions/setup";
 import { PostgresAdmissionActivationRepository } from "./academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
+import {PostgresMessagingSelectionDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
 import { buildMessagingModule, buildMessagingWorkModule, type MessagingWorkDependencies } from "./messaging/setup";
 import { ZavuCredentialInspectorFactory } from "./messaging/infrastructure/zavu/zavu-credential-inspector-factory";
 import {ScopedConnectionDiagnosticDispatcher} from "./messaging/infrastructure/composition/connection-diagnostic-dispatcher";
@@ -571,4 +572,13 @@ export async function createMessageDeliveryReadRequestModule(){
   const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
   const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
   return{delivery:buildMessagingModule(dependencies).createDeliveryReadModule().useCases,resolveTribe:routing.resolveTribe};
+}
+
+/** @returns Current native candidate activation with feature-owned metadata/evidence changes in one protected transaction, without provider calls. */
+export async function createMessagingConnectionActivationRequestModule(){
+  const databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
+  const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
+  const request=buildMessagingModule(dependencies).createRequestModule({selection:"management",readSecurityConfig:()=>readMessagingHostingSecurityConfig()});
+  return{activation:request.createConnectionActivation((database)=>new PostgresMessagingSelectionDependencies(database)),resolveTribe:routing.resolveTribe};
 }
