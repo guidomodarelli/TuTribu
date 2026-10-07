@@ -10,6 +10,7 @@ import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database
 /** @param database - Owned ephemeral branch. @returns Real identity/recency and a guarded connection owner without provider access. */
 export async function prepareMessagingConnectionCreation(database: AcademyAdmissionTestDatabase) {
   const fixture = await prepareContactVerificationDatabase(database);
+  await database.applyMigration("20261007231500_bind_verification_operation_purpose.sql");
   for (const migration of ["20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql"]) await database.applyMigration(migration);
   const tribeId = randomUUID(), sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID(), sessionToken = randomUUID();
   const context = await database.withContext(fixture.own, async (transaction): Promise<MessagingConnectionCreationContext> => {
@@ -26,4 +27,3 @@ export async function prepareMessagingConnectionCreation(database: AcademyAdmiss
   const execute = <Result>(_context: MessagingConnectionCreationContext, run: (transaction: RequestDatabase) => Promise<Result>) => database.withContext(fixture.own, run);
   return { fixture, context, execute, sessionToken, repository: new PostgresMessagingConnectionRepository(execute, async () => fixture.config) };
 }
-
