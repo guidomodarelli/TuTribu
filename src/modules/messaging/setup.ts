@@ -30,6 +30,10 @@ import {PostgresConnectionDiagnosticIssuance} from "./infrastructure/repositorie
 import type {ConnectionDiagnosticDispatcher} from "./domain/repositories/connection-diagnostic-issuance";
 import {ReadMessageDeliveryUseCase} from "./application/use-cases/read-message-delivery-use-case";
 import {PostgresMessageDeliveryReader} from "./infrastructure/repositories/postgres-message-delivery-reader";
+import {ActivateMessagingConnectionUseCase} from "./application/use-cases/activate-messaging-connection-use-case";
+import {PostgresMessagingConnectionActivation} from "./infrastructure/repositories/postgres-messaging-connection-activation";
+import type {MessagingSelectionDependencies} from "./domain/repositories/messaging-connection-activation";
+import type {AuthorizedMessagingContext} from "./domain/repositories/messaging-repositories";
 import { ReserveMessagingUsageUseCase } from "./application/use-cases/reserve-messaging-usage-use-case";
 import { DispatchMessageDeliveriesUseCase } from "./application/use-cases/dispatch-message-deliveries-use-case";
 import { PostgresMessagingAuthorizationReader } from "./infrastructure/repositories/postgres-messaging-authorization-reader";
@@ -141,6 +145,8 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
         createConnectionConfiguration(inspectors:MessagingConfigurationInspectorFactory){return new ConfigureMessagingConnectionUseCase(resolveContext,new PostgresMessagingConnectionConfiguration(executeActor,options.readSecurityConfig),secrets,inspectors);},
         /** @param dispatcher - Explicit backend focal launch for the committed result. @returns Actual current-account diagnostic issuance with shared budgets/outbox, followed by bounded dispatch. */
         createDiagnosticIssuance(dispatcher:ConnectionDiagnosticDispatcher){return new IssueConnectionDiagnosticUseCase(resolveContext,new PostgresConnectionDiagnosticIssuance(executeActor,options.readSecurityConfig),dispatcher);},
+        /** @param composeDependencies - Feature-owned reference/evidence owner bound to the existing activation transaction. @returns Sensitive atomic selection based on current local production evidence, with no SDK/SecretStore load. */
+        createConnectionActivation(composeDependencies:(database:RequestDatabase,context:AuthorizedMessagingContext)=>MessagingSelectionDependencies){return new ActivateMessagingConnectionUseCase(resolveContext,new PostgresMessagingConnectionActivation(executeActor,options.readSecurityConfig,composeDependencies));},
         useCases: {
           resolveContext,
           manageUsage: createUsage(options.readSecurityConfig).useCases,
