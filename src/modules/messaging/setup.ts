@@ -7,6 +7,8 @@ import type { MessagingSecurityConfig } from "./infrastructure/config/messaging-
 import { ResolveMessagingContextUseCase, LoadAuthorizedMessagingSecretUseCase } from "./application/use-cases/resolve-messaging-context-use-case";
 import { ManageMessagingUsageUseCases } from "./application/use-cases/manage-messaging-usage-use-cases";
 import { ManageMessagingConnectionsUseCases } from "./application/use-cases/manage-messaging-connections-use-cases";
+import {ReadMessagingConnectionOperationUseCase} from "./application/use-cases/read-messaging-connection-operation-use-case";
+import {PostgresMessagingConnectionOperationReader} from "./infrastructure/repositories/postgres-messaging-connection-operation-reader";
 import { PostgresMessagingConnectionRepository } from "./infrastructure/repositories/postgres-messaging-connection-repository";
 import { PostgresMessagingCredentialValidation } from "./infrastructure/repositories/postgres-messaging-credential-validation";
 import { ValidateMessagingConnectionUseCase } from "./application/use-cases/validate-messaging-connection-use-case";
@@ -100,6 +102,8 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
   return {
     /** @param options - Ledger security only; reading does not load it. @returns Independent current country/quota management without connection or admission policy. */
     createUsageModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) { return createUsage(options.readSecurityConfig); },
+    /** @returns Original connection recovery with current native session/leadership, independently of keyrings, current slot or mutation recency. */
+    createConnectionOperationReadModule(){const{executeActor,leadership}=createManagement();return{useCases:new ReadMessagingConnectionOperationUseCase(dependencies.accounts,leadership,new PostgresMessagingConnectionOperationReader(executeActor),dependencies.clock)};},
     /** @param options - Non-secret live recovery state, without keyrings/provider access. @returns Read-only current leader/guardian metadata and the single usage projection. */
     createConfigurationModule(options:{readSecurityFacts:()=>Promise<MessagingSecurityFacts>}){
       const{executeActor,leadership}=createManagement();

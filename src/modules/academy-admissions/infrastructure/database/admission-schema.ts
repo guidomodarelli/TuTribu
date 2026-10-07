@@ -3,6 +3,8 @@ import { sql } from "drizzle-orm";
 import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { AnyPgColumn, PgTableExtraConfig } from "drizzle-orm/pg-core";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import {ADMISSION_VERIFICATION_PURPOSE} from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import {VERIFICATION_ISSUANCE_OPERATION} from "@/src/modules/academy-admissions/constants/verification-issuance";
 
 /** Resolves cross-owner columns after both table factories have finished. */
 export type AdmissionMessagingSchemaReferences = {
@@ -260,13 +262,14 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
   }));
   const operations = pgTable("academy_admission_operations", {
     id: uuid("id").defaultRandom().primaryKey(), actorUserId: text("actor_user_id").notNull(), tribeId: uuid("tribe_id").notNull(), operationType: text("operation_type").notNull(), idempotencyKey: uuid("idempotency_key").notNull(),
-    intentFingerprint: binaryData("intent_fingerprint").notNull(), fingerprintKeyId: text("fingerprint_key_id").notNull(), state: text("state").notNull().default("started"),
+    intentFingerprint: binaryData("intent_fingerprint").notNull(), fingerprintKeyId: text("fingerprint_key_id").notNull(), state: text("state").notNull().default("started"), verificationPurpose:text("verification_purpose"),
     leaseOwner: uuid("lease_owner"), leaseUntil: timestamp("lease_until", { withTimezone: true }), version: integer("version").notNull().default(1), publicResult: jsonb("public_result"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`), completedAt: timestamp("completed_at", { withTimezone: true }),
   }, (table): PgTableExtraConfig => ({
     actorForeignKey: parentReference("admission_operation_actor_fkey",table.actorUserId,parents.users.id), tribeForeignKey: parentReference("admission_operation_tribe_fkey",table.tribeId,parents.tribes.id),
     identityKey: unique("admission_operation_identity_key").on(table.actorUserId,table.tribeId,table.operationType,table.idempotencyKey),
     scopeKey: unique("admission_operation_scope_key").on(table.id,table.tribeId),
+    verificationPurposeCheck:check("admission_operation_verification_purpose_check",sql`${table.verificationPurpose} is null or (${table.operationType} in (${VERIFICATION_ISSUANCE_OPERATION.issue},${VERIFICATION_ISSUANCE_OPERATION.resend}) and ${table.verificationPurpose} in (${ADMISSION_VERIFICATION_PURPOSE.admission},${ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic}))`.inlineParams()),
     stateCheck: check("admission_operation_state_check", sql`${table.state} in ('started','completed')`), versionCheck: check("admission_operation_version_check", sql`${table.version}>0`),
     resultCheck: check("admission_operation_result_check", sql`(${table.state}='completed' and ${table.publicResult} is not null and ${table.completedAt} is not null) or (${table.state}='started' and ${table.publicResult} is null and ${table.completedAt} is null)`),
     leasePairCheck: check("admission_operation_lease_pair_check", sql`(${table.leaseOwner} is null)=(${table.leaseUntil} is null)`),

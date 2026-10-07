@@ -13,6 +13,8 @@ import {ScopedConnectionDiagnosticDispatcher} from "@/src/modules/messaging/infr
 import {ZavuMessageDeliverySender} from "@/src/modules/messaging/infrastructure/zavu/zavu-message-delivery-sender";
 import {VERIFICATION_MESSAGE_COPY} from "@/src/modules/messaging/constants/zavu-delivery";
 import {PostgresMessageDeliveryReader} from "@/src/modules/messaging/infrastructure/repositories/postgres-message-delivery-reader";
+import {connectionDiagnosticIssuanceSchema} from "@/src/modules/messaging/application/results/connection-diagnostic-issuance-result";
+import {VERIFICATION_ISSUANCE_OPERATION} from "@/src/modules/academy-admissions/constants/verification-issuance";
 import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type {MessagingDispatchDiagnostic} from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 
@@ -39,7 +41,7 @@ async function workflowFixture(database:AcademyAdmissionTestDatabase,phone=false
   }}]);
   const deferred:Promise<void>[]=[],diagnostics:MessagingDispatchDiagnostic[]=[];
   const dispatcher=new ScopedConnectionDiagnosticDispatcher({readSecurityFacts:async()=>({environment:fixture.config.environment,securityEpoch:fixture.config.securityEpoch,recoveryLocked:false}),createDispatcher:(diagnosticScope,authorize)=>buildMessagingWorkModule({execute:withActor,authorize,readSecurityConfig:async()=>fixture.config,diagnosticScope,createSender:(preparation)=>new ZavuMessageDeliverySender(preparation,transport.fetch),runtime:{now:Date.now,createId:randomUUID,defer:(work)=>{deferred.push(work);},report:(diagnostic)=>{diagnostics.push(diagnostic);}}}).useCases.dispatch});
-  return{...fixture,sessionId,originalIssue:fixture.issue,request,usage:messagingModule.createUsageModule({readSecurityConfig:async()=>fixture.config}).useCases,delivery:messagingModule.createDeliveryReadModule().useCases,issue:request.createDiagnosticIssuance(dispatcher),transport,deferred,diagnostics,get sentCode(){return sentCode;},input:{tribeId:fixture.scope.tribeId,connectionId:fixture.scope.connectionId,requestId:randomUUID(),operationId:randomUUID(),expectedVersion:1,confirmed:true as const,channel:fixture.scope.channel,recipient:fixture.scope.contact.value,...(phone?{country:"AR"}:{})}};
+  return{...fixture,sessionId,originalIssue:fixture.issue,request,operation:messagingModule.createConnectionOperationReadModule().useCases,usage:messagingModule.createUsageModule({readSecurityConfig:async()=>fixture.config}).useCases,delivery:messagingModule.createDeliveryReadModule().useCases,issue:request.createDiagnosticIssuance(dispatcher),transport,deferred,diagnostics,get sentCode(){return sentCode;},input:{tribeId:fixture.scope.tribeId,connectionId:fixture.scope.connectionId,requestId:randomUUID(),operationId:randomUUID(),expectedVersion:1,confirmed:true as const,channel:fixture.scope.channel,recipient:fixture.scope.contact.value,...(phone?{country:"AR"}:{})}};
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native diagnostic issue workflow",()=>{
@@ -47,11 +49,28 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native diagnostic is
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await workflowFixture(database),issued=await fixture.issue.execute(fixture.input);expect(issued).toMatchObject({ok:true,value:{state:"completed",result:{outcome:"issued",connectionVersion:1}}});
       if(!issued.ok||issued.value.state!=="completed"||issued.value.result.outcome!=="issued")throw new Error("Expected issued diagnostic");const result=issued.value.result;
+      expect(await fixture.operation.execute({tribeId:fixture.scope.tribeId,operationId:fixture.input.operationId,requestId:randomUUID()})).toMatchObject({ok:true,value:{type:"diagnose_messaging_connection",state:"completed",result}});
+      const admissionCommand={actorUserId:fixture.userId,tribeId:fixture.scope.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.resend,idempotencyKey:fixture.input.operationId,intent:{purpose:"admission"}};
+      await fixture.ledger.run(admissionCommand,connectionDiagnosticIssuanceSchema,async()=>({outcome:"denied",code:"recipient_not_allowed"}));
+      expect(await fixture.operation.execute({tribeId:fixture.scope.tribeId,operationId:fixture.input.operationId,requestId:randomUUID()})).toMatchObject({ok:true,value:{type:"diagnose_messaging_connection",result}});
+      const pendingId=randomUUID(),pendingEntered=Promise.withResolvers<void>(),releasePending=Promise.withResolvers<void>();let released=false;
+      const pending=fixture.ledger.run({...admissionCommand,operationType:VERIFICATION_ISSUANCE_OPERATION.issue,idempotencyKey:pendingId,intent:{purpose:"connection_diagnostic"}},connectionDiagnosticIssuanceSchema,async(transaction)=>{
+        pendingEntered.resolve();releasePending.promise.then(()=>{released=true;});while(!released)await transaction.execute(sql`select pg_sleep(0.25)`);return{outcome:"denied",code:"recipient_not_allowed"};
+      });
+      await pendingEntered.promise;
+      try{expect(await fixture.operation.execute({tribeId:fixture.scope.tribeId,operationId:pendingId,requestId:randomUUID()})).toMatchObject({ok:true,value:{type:"diagnose_messaging_connection",state:"started"}});}finally{releasePending.resolve();}
+      await pending;expect(await fixture.operation.execute({tribeId:fixture.scope.tribeId,operationId:pendingId,requestId:randomUUID()})).toMatchObject({ok:true,value:{type:"diagnose_messaging_connection",state:"completed",result:{outcome:"denied",code:"recipient_not_allowed"}}});
+      const legacyId=randomUUID();await fixture.ledger.run({...admissionCommand,operationType:VERIFICATION_ISSUANCE_OPERATION.issue,idempotencyKey:legacyId,intent:{}},connectionDiagnosticIssuanceSchema,async()=>({outcome:"denied",code:"recipient_not_allowed"}));
+      expect(await fixture.operation.execute({tribeId:fixture.scope.tribeId,operationId:legacyId,requestId:randomUUID()})).toMatchObject({ok:false,failure:{code:"resource_unavailable"}});
+      await expect(database.withContext(fixture.own,(transaction)=>transaction.execute(sql`update public.academy_admission_operations set verification_purpose='admission' where tribe_id=${fixture.scope.tribeId} and idempotency_key=${pendingId}`))).rejects.toMatchObject({cause:{code:"23514"}});
       await Promise.all(fixture.deferred);expect(fixture.transport.receipts).toHaveLength(1);expect(fixture.diagnostics).toEqual([]);expect(JSON.stringify(issued)).not.toContain(fixture.credential);expect(JSON.stringify(issued)).not.toContain(fixture.sentCode);
       expect(await fixture.delivery.execute({tribeId:fixture.scope.tribeId,deliveryId:result.deliveryId,requestId:randomUUID()})).toMatchObject({ok:true,value:{id:result.deliveryId,state:"accepted",purpose:"connection_diagnostic",channel:"email"}});expect(fixture.transport.receipts).toHaveLength(1);
       expect(await fixture.issue.execute(fixture.input)).toMatchObject({ok:true,value:{replayed:true,result}});expect(fixture.transport.receipts).toHaveLength(1);
       const verified=await fixture.request.useCases.verifyDiagnostic.execute({tribeId:fixture.scope.tribeId,connectionId:fixture.scope.connectionId,diagnosticId:result.diagnosticId,operationId:randomUUID(),code:fixture.sentCode,requestId:randomUUID()});expect(verified).toMatchObject({ok:true,value:{state:"completed",result:{outcome:"verified",connectionVersion:1,channel:"email",capabilityState:"prepared"}}});
       const counts=await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select (select count(*)::int from public.message_delivery_attempts where delivery_id=${result.deliveryId}) as attempts,(select count(*)::int from public.messaging_usage_reservations where delivery_id=${result.deliveryId}) as reservations,(select count(*)::int from public.academy_admission_verification_proofs where challenge_id=${result.challengeId}) as proofs,(select count(*)::int from public.global_identity_evidence where user_id=${fixture.userId}) as global_evidence`)).rows[0]);expect(counts).toEqual({attempts:1,reservations:1,proofs:0,global_evidence:0});
+      await advanceVerificationRequestCooldown(database,fixture);const resendId=randomUUID(),resent=await fixture.issue.execute({...fixture.input,currentChallengeId:result.challengeId,operationId:resendId});expect(resent).toMatchObject({ok:true,value:{state:"completed",result:{outcome:"issued"}}});
+      if(!resent.ok||resent.value.state!=="completed")throw new Error("Expected original resend commit");
+      await Promise.all(fixture.deferred);expect(await fixture.operation.execute({tribeId:fixture.scope.tribeId,operationId:resendId,requestId:randomUUID()})).toMatchObject({ok:true,value:{type:"diagnose_messaging_connection",state:"completed",result:resent.value.result}});expect(fixture.transport.receipts).toHaveLength(2);
     });
   },360_000);
   it("should block a phone diagnostic while countries are empty before generating code, consuming request budget or calling SDK",async()=>{

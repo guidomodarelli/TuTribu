@@ -30,6 +30,7 @@ export const contactVerificationIssuanceSnapshotSchema = z.union([
  */
 export async function prepareContactVerificationIssuer(database: AcademyAdmissionTestDatabase, purpose: VerificationChallengeScope["purpose"] = "admission", phone = false) {
   const fixture = await prepareContactVerificationDatabase(database);
+  await database.applyMigration("20261007231500_bind_verification_operation_purpose.sql");
   await database.applyMigration("20261005101000_guard_admission_operation_identity.sql");
   await database.applyMigration("20261006120000_index_messaging_contact_windows.sql");
   const tribeId = randomUUID(), connectionId = randomUUID(), secretRef = randomUUID(),credential=randomUUID();
