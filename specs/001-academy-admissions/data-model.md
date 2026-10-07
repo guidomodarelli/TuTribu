@@ -111,6 +111,8 @@ La elegibilidad combina política actual, época/evidencia, restricciones de inv
 
 El escritor confirma conjuntamente decisión, efecto básico, canje/vínculo cuando corresponda y obligación de notificar. Motivos internos no se exponen al solicitante. Aprobación sin lista por excepción exige motivo incluso en lote; una lista requerida por invitación nunca se dispensa desde Aprobar.
 
+La evidencia mínima de las nuevas decisiones se representa como `AdmissionDecisionEvidence {kind, referenceId, verifiedAt}`. Es un snapshot privado separado, derivado de la presentación exacta y su versión; no incluye contacto, payload de proveedor, token ni código. Los writers manuales y los eventos SQL lo capturan una sola vez. Un replay no lo reemplaza y un dato histórico ausente permanece desconocido.
+
 ## E. Operaciones e importación
 
 ### `AdmissionOperation` → `academy_admission_operations`
@@ -185,11 +187,15 @@ Cambiar países incrementa solo la versión de configuración de uso cuando camb
 
 Evento de pendiente/decisión/cancelación/recordatorio, cuenta receptora, recurso autorizado, clave lógica de dedupe y metadata mínima. Insertar junto al hecho. Preadmisión propia no exige contenido comunitario; aviso a reviewer exige rol activo actual. Externo opcional solo por correo confiable y capacidad probada, con preferencias individuales/grupo cinco minutos/diario/omitido y zona del spec. Habilitar correo no despacha todo el pasado.
 
+La base T024 implementa `notifications.admission_obligation_id/admission_audience`: FK compuesta a `(obligation.id,tribe_id)`, fuente y destinatario inmutables, payload vacío y unique por obligación/destinatario además del dedupe general. La primitiva privada materializa en la transacción original, valida propietario/reviewer actual y conserva `read_at` durante replay. SELECT/UPDATE aplican destinatario y recurso propio o rol activo; los tipos comunitarios conservan su permiso de contenido. La integración con reader/DTO/copy y casos de uso pertenece a T057; no se atribuye ese recorrido a la migración.
+
 Las entregas externas viven en outbox; fallarlas no revierte el hecho. Agrupar por receptor/tribu/preferencia/ventana y congelar intent al despachar, respetando cancelación de preferencia y rol. Reminder lógico único a tres días. No enviar nota interna ni links que decidan por GET. Polling focal visible de quince segundos e invalidación inmediata de acciones propias satisfacen el diseño de aparición; su p95 y scheduler se miden antes de activar.
 
 ### `AdmissionAuditEvent` / métricas
 
 Actor/tribu/recurso, operación/regla, causa, versión, transiciones y tiempo; metadata allowlisted, sin API key, ciphertext, cuerpos OTP o payloads completos. Auditoría de seguridad 365 días. Métricas agregadas por tribu de admisión/revisión/verificación/intentos/entregas/antigüedad/errores/consumo, sin labels de cuenta/contacto o datos de otra tribu. Medir queue age, unknown, leases, last successful run y tiempos SC; no una métrica por excepción/ID.
+
+La procedencia de operación se liga por FK compuesta `(operation_id,tribe_id)` a `academy_admission_operations(id,tribe_id)`, con unique de ese ámbito. `operation_id` puede ser NULL para un evento sin ledger; una referencia presente no cruza tribus ni apunta a una operación ausente. El borrado es RESTRICT mientras la auditoría conserve esa relación: la minimización o eliminación autorizada del registro dependiente precede a purgar el ledger, sin cascada que pierda procedencia.
 
 ## I. Cambios sobre tablas existentes y guards
 
@@ -199,6 +205,8 @@ Actor/tribu/recurso, operación/regla, causa, versión, transiciones y tiempo; m
 - `tribe_members` conserva referencia a un fundamento básico vigente derivado de la decisión, asociado a cuenta/tribu/instancia de pertenencia, con aplicación/revocación y consumo único. No es una concesión comercial. Reconciliar una suscripción antigua inactiva no revoca ese fundamento. Salida o remoción no comercial lo extingue; una decisión antigua no autoriza otro reingreso.
 - FK/unique y orden diferido resuelven el ciclo decisión/membresía. Una nueva alta/recuperación protegida requiere procedencia distinta de una admisión previa. La guarda estructural comprueba relación/consumo del efecto, no reemplaza la máquina de decisión de application.
 - Writers de `tribes` consumen decisión válida en la misma transacción. Bootstrap y pago real `membership` usan procedencia propia; un booleano público no la crea. Guardas de modo/producto se ejecutan también bajo el rol de runtime.
+
+La procedencia paga implementada utiliza `subscription_membership_effects`, privada del owner `subscriptions`: referencia de suscripción nullable sólo para archivo, tribu/cuenta/instancia, referencia privada del proveedor, `source_updated_at` exacto, destino legible y fechas de consumo/revocación. FK compuestas y unique `(subscription_id,member_id,source_updated_at)` impiden cruce y reutilización de ese estado confirmado. La fuente nueva se consume junto al `tribe_members.subscription_membership_effect_id`; no es una decisión ni un derecho básico independiente de billing. El writer toma hechos actuales después del UPDATE de proveedor y conserva moderación, rol/fecha y snapshot conocido. El borrado archiva la instancia tras revocar todas sus fuentes históricas. Source timestamps se leen como texto para preservar microsegundos de PostgreSQL, sin schema-validar filas.
 - Actualizar funciones/policies históricas para cerrar academia protegida, conservando casos `legacy`. Dos reconciliaciones administrativas y checkout clásico directo se incluyen expresamente; no borran moderación ni producen pertenencia por `academy`.
 - `notifications`: ampliar tipos/payloads propios, predicado de visibilidad para solicitante, productores y DTOs/copy; mantener contratos existentes para otros tipos. Referencias a recursos retirados conservan estado propio mínimo sin abrir datos.
 - Ninguna tabla existente se presupone ya provista de esos campos. Todas las modificaciones requieren migraciones versionadas y adaptación de schema/repositorios/pruebas en la implementación.

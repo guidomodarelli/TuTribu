@@ -1,6 +1,6 @@
 # Lectura privada de credenciales y ciclo de material
 
-**Feature**: `001-academy-admissions`. **Base**: `60986ca569fafe8b03f7d02bd33321ffb6b1b7e6`. T034/T035 y las dependencias/gates conservan su estado pendiente.
+**Feature**: `001-academy-admissions`. **Base**: `60986ca569fafe8b03f7d02bd33321ffb6b1b7e6`. T034/T035 están completadas como crypto/Store privado; la composición y los gates operativos conservan sus tareas.
 
 ## Alcance
 
@@ -27,3 +27,13 @@ Se revisó el uso de pools: la única adquisición directa de la aplicación es 
 ## Límites
 
 No se guardaron credenciales Zavu reales ni se configuró hosting/keyrings, epoch, cron o proveedor externo. No se activa envío, rePOST, lectura pública de secreto, recuperación por backup ni una garantía de purga operativa. Las pruebas Node/Workers, restore, productor de rotación, mantenimiento de candidatas/OTP y el driver siguen pendientes con OG-02/OG-05/OG-06. Las 212 tareas, spec.md, technical-contract.md, identificadores y checklists permanecen íntegros.
+
+## Adaptador privado de mantenimiento sobre dc9479db
+
+PostgresSecretMaterialMaintenance integra la primitiva SQL de purga con un puerto del owner y autorización viva. Valida límites antes de trabajar, exige bearer antes del checkout y lo revalida antes/después del SQL en el mismo guard. No necesita SecretStore/crypto/SDK para destruir bytes retirados ni expone sus referencias. Invalid input/permission se distinguen de operation_unresolved con causa real privada.
+
+Dos SQL nuevos pasan en 44,91 s: bytes físicos eliminados con referencia/metadata retenidas y replay0; retirada de bearer después del SQL revierte la purga, y un body maintenance=true no adquiere una conexión. El caso adicional de respuesta perdida pasó en 22,06 s: el error conserva operation_unresolved/cause, los bytes ya purgados no reaparecen y el replay confirma0. Los tests usan Request/cron verification/PG/Drizzle/Web Crypto reales y sólo interceptan un executor propio para perder la confirmación.
+
+La regresión de diez SQL del Store pasó sin skips/fallos en 260,88 s; la revisión del adaptador cerró sin hallazgos con cinco hashes estables. La revisión previa de siete archivos crypto/Store cerró sin hallazgos; 86crypto/HTTP, lint y tipos pasan. Este adaptador no configura un cron ni acredita la eliminación en hosting dentro del plazo operativo.
+
+T035 quedó completada con T034/T022 satisfechas. Tipos/lint, build normal de cuarenta páginas y cuatro renders Chromium/WebKit a 390/1280 están verdes. Los trece escenarios observados de Store/purga usan ramas propias con cleanup verificado; no se configuraron secretos, cron o proveedores productivos.

@@ -6,6 +6,7 @@ import {
   formatUnreadBadge,
 } from "@/lib/notifications/notification-presentation";
 import type { NotificationItemResult } from "@/src/modules/notifications/application/results/notification-result";
+import type { NotificationEventOccurrenceType } from "@/src/modules/notifications/domain/entities/notification";
 
 const EVENT_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
 const PROPOSAL_ID = "5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e";
@@ -17,7 +18,7 @@ const TRIBE = { name: "Matemática Pro", slug: "matematica-pro" };
 const DEEP_LINK = `/matematica-pro/eventos?event=${encodeURIComponent(`${EVENT_ID}@${OCCURRENCE}`)}`;
 
 function eventItem(
-  type: Exclude<NotificationItemResult["type"], "event_proposal_reviewed">,
+  type: NotificationEventOccurrenceType,
   overrides: Partial<{ eventTitle: string | null; startsAt: string }> = {},
   createdAt = "2026-05-06T15:00:00.000Z"
 ): NotificationItemResult {
@@ -38,6 +39,13 @@ function eventItem(
 }
 
 describe("describeNotification", () => {
+  it("should link an applicant notice to its own request and a reviewer notice to the scoped review inbox", () => {
+    const base = { createdAt: "2026-10-06T15:00:00Z", id: PROPOSAL_ID, readAt: null, tribe: TRIBE, type: "admission_pending_created" as const };
+    expect(describeNotification({ ...base, admission: { requestId: EVENT_ID, audience: "applicant" } })).toMatchObject({ title: "Solicitud de ingreso enviada", detail: TRIBE.name, href: `/admissions/requests/${EVENT_ID}?tribe=matematica-pro` });
+    expect(describeNotification({ ...base, admission: { requestId: EVENT_ID, audience: "reviewer" } })).toMatchObject({ title: "Nueva solicitud de ingreso", detail: TRIBE.name, href: `/matematica-pro/academia/admissions?request=${EVENT_ID}` });
+    expect(describeNotification({ ...base, type: "admission_rejected", admission: { requestId: EVENT_ID, audience: "applicant" } }).title).toBe("Tu solicitud de ingreso no fue aprobada");
+  });
+
   it("builds reminder copy in Buenos Aires time with the occurrence deep link", () => {
     expect(describeNotification(eventItem("event_reminder_24h"))).toEqual({
       detail: "Jueves 7 de mayo a las 18:00 · Matemática Pro",

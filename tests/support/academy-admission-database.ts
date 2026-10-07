@@ -4,10 +4,9 @@
  * @module academy-admission-database
  */
 import { randomUUID } from "node:crypto";
-import { access, readFile, realpath } from "node:fs/promises";
+import { access, appendFile, readFile, realpath } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
 import { loadEnvConfig } from "@next/env";
 import { sql } from "drizzle-orm";
@@ -19,7 +18,7 @@ import {
   type RequestDatabaseContext,
 } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
-import { NEON_AUTHORIZATION_EXPIRY_MARGIN_MS, resolveNeonAuthorization, type NeonCliValidationCredentials } from "./neon-authorization";
+import { confirmOwnedBranchRemoval } from "./confirm-owned-branch-removal";
 
 /** Fixes the project allowed by the repository's standing validation authorization. */
 const ADMISSION_NEON_PROJECT_ID = "cold-firefly-92947172";
@@ -53,40 +52,9 @@ export type AcademyAdmissionTestDatabase = {
   ) => Promise<Result>;
   applyMigration: (fileName: string) => Promise<void>;
   grantTablesToNonBypass: (tableNames: readonly string[]) => Promise<void>;
+  /** Passes only this owned branch's private connection to a bounded local server fixture. */
+  withServerEnvironment: <Result>(run: (environment: Readonly<{ DATABASE_URL: string; DATABASE_MAINTENANCE_URL: string }>) => Promise<Result>) => Promise<Result>;
 };
-
-/**
- * Resolves local authorization through the native CLI's profile manager.
- *
- * The CLI owns locked rotating-token renewal and persistence. This harness
- * neither refreshes tokens itself nor logs credentials or command output.
- *
- * @returns The configured API key or current Neon CLI access token.
- * @throws When local authentication is absent or unusable.
- */
-async function readNeonAuthorization(): Promise<string> {
-  if (process.env.NEON_API_KEY?.trim()) return process.env.NEON_API_KEY.trim();
-  const credentialPath = join(homedir(), ".config", "neonctl", "credentials.json");
-  const readCredentials = async () => JSON.parse(await readFile(credentialPath, "utf8")) as NeonCliValidationCredentials;
-  const credentials = await readCredentials();
-  const remainingMs = typeof credentials.expires_at === "number" ? credentials.expires_at - Date.now() : 0;
-  // The official manager renews only expired tokens. Wait for the short remaining
-  // lifetime instead of forcing a grant or changing the CLI. No SQL transaction
-  // is held here; each administrative request, including cleanup, resolves anew.
-  if (remainingMs > 0 && remainingMs <= NEON_AUTHORIZATION_EXPIRY_MARGIN_MS) {
-    await new Promise<void>((resolve) => setTimeout(resolve, remainingMs));
-  }
-  return resolveNeonAuthorization(await readCredentials(), async () => {
-    const entrypoint = await findNeonCliEntrypoint();
-    // Native CLI owns its refresh lock and rotating-token persistence. Do not
-    // issue a manual OAuth refresh and discard the returned replacement token.
-    await runExecutable(process.execPath, [entrypoint, "projects", "get", ADMISSION_NEON_PROJECT_ID, "--profile", "DEFAULT", "--output", "json"], {
-      windowsHide: true,
-      timeout: NEON_ADMIN_TIMEOUT_MS,
-    });
-    return readCredentials();
-  });
-}
 
 /**
  * Finds the installed native CLI without a repository dependency or user-specific path.
@@ -168,7 +136,22 @@ export async function withAcademyAdmissionDatabase<Result>(
    * @throws A safe HTTP status or the real transport cause, never a provider body.
    */
   async function adminRequest<Data>(path: string, init?: RequestInit): Promise<Data> {
-    const authorization = options.authorization ?? await readNeonAuthorization();
+    if (!options.authorization) {
+      if (options.fetch) throw new Error("AcademyAdmissionDatabase.authenticate failed: explicit_transport_requires_authorization");
+      const entrypoint = await findNeonCliEntrypoint();
+      const requestUrl = new URL(path, "https://console.neon.tech/api/v2");
+      const argumentsList = [entrypoint, "api", requestUrl.pathname, "--profile", "DEFAULT", "--output", "json", "--method", init?.method ?? "GET"];
+      for (const [name, value] of requestUrl.searchParams) argumentsList.push("--query", `${name}=${value}`);
+      if (init?.body !== undefined && init.body !== null) {
+        if (typeof init.body !== "string") throw new Error("AcademyAdmissionDatabase.admin failed: unsupported_native_request_body");
+        argumentsList.push("--data", init.body);
+      }
+      // The installed official manager owns profiles, 401 recovery and rotating-token locks.
+      // Its generic API request has no retry on network/uncertain mutation; stdout remains private.
+      const response = await runExecutable(process.execPath, argumentsList, { windowsHide: true, timeout: NEON_ADMIN_TIMEOUT_MS });
+      return JSON.parse(response.stdout) as Data;
+    }
+    const authorization = options.authorization;
     const response = await adminFetch(`https://console.neon.tech/api/v2${path}`, {
       ...init,
       headers: { Authorization: `Bearer ${authorization}`, "Content-Type": "application/json" },
@@ -200,6 +183,10 @@ export async function withAcademyAdmissionDatabase<Result>(
       });
       assertOwnedBranch(created.branch, name, parent.id);
       ownedBranch = created.branch;
+      // Preserve the exact receipt even when a runner buffers console output or interrupts its worker.
+      const receipt = { phase: "owned_branch", workflow: "academy_admission_sql", projectId: ADMISSION_NEON_PROJECT_ID, branch: { id: ownedBranch.id, name: ownedBranch.name, parentId: ownedBranch.parent_id, isDefault: false } };
+      await appendFile(join(process.cwd(), "tests", "support", ".academy-admission-branches.log"), `${JSON.stringify(receipt)}\n`, "utf8");
+      console.info(JSON.stringify(receipt));
     } catch (error) {
       // Reconcile by the exact unique name before cleanup; never retry the POST.
       let afterCreate: { branches: NeonBranch[] };
@@ -297,6 +284,15 @@ export async function withAcademyAdmissionDatabase<Result>(
           await branchPool.query(`grant select, insert, update, delete on table public."${tableName}" to "${nonBypassName}"`);
         }
       },
+      /**
+       * Supplies server-only process environment without persisting or printing its connection.
+       * @param run - Bounded fixture that must close its local server before returning.
+       * @returns The fixture result while this disposable branch is still owned and alive.
+       */
+      async withServerEnvironment(run) {
+        assertOwnedBranch(ownedBranch!, name, parent.id);
+        return run({ DATABASE_URL: branchConnection.toString(), DATABASE_MAINTENANCE_URL: branchConnection.toString() });
+      },
     };
     result = await run(database);
   } catch (error) {
@@ -309,9 +305,11 @@ export async function withAcademyAdmissionDatabase<Result>(
   if (ownedBranch) {
     try {
       assertOwnedBranch(ownedBranch, name, parent.id);
-      await adminRequest(`${projectPath}/branches/${ownedBranch.id}`, { method: "DELETE" });
-      const remaining = await adminRequest<{ branches: NeonBranch[] }>(`${projectPath}/branches`);
-      if (remaining.branches.some((branch) => branch.id === ownedBranch.id)) throw new Error("AcademyAdmissionDatabase.cleanup failed: branch_still_present");
+      const branchId = ownedBranch.id;
+      await confirmOwnedBranchRemoval(() => adminRequest(`${projectPath}/branches/${branchId}`, { method: "DELETE" }), async () => {
+        const remaining = await adminRequest<{ branches: NeonBranch[] }>(`${projectPath}/branches`);
+        return remaining.branches.some((branch) => branch.id === branchId);
+      });
     } catch (error) { cleanupErrors.push(error); }
   }
   if (cleanupErrors.length) throw new AggregateError([...(didWorkFail ? [workError] : []), ...cleanupErrors], `AcademyAdmissionDatabase.cleanup failed: owned_resource_cleanup_incomplete branchId=${ownedBranch?.id ?? "unknown"}`);

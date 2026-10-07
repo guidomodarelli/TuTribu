@@ -46,6 +46,7 @@ export function toAcademyAccessStatusDto(
 export function toAcademyOfferDto(offer: AcademyPublicOffer): AcademyOfferDto {
   return {
     admissionEnabled: offer.admissionEnabled,
+    admissionRequiresRequest: offer.admissionRequiresRequest,
     benefits: offer.benefits,
     description: offer.description,
     offerVersion: offer.offerVersion,

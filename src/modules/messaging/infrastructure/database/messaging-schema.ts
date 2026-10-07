@@ -1,8 +1,11 @@
 /** Projects versioned messaging SQL; migrations own deferred FKs, grants, FORCE RLS and triggers. */
 import { sql } from "drizzle-orm";
+import { CODE_REQUEST_EVENT } from "@/src/modules/messaging/constants/code-request-budget";
+import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { AnyPgColumn, PgTableExtraConfig } from "drizzle-orm/pg-core";
 import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messaging-limits";
+import { MESSAGING_DEFAULT_CONNECTION_NAME } from "@/src/modules/messaging/constants/messaging-connection";
 
 type MessagingSchemaParents = {
   tribes: { id: AnyPgColumn };
@@ -43,6 +46,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
   }));
   const tenantMessagingConnections = pgTable("tenant_messaging_connections", {
     id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull().default(MESSAGING_DEFAULT_CONNECTION_NAME),
     tribeId: uuid("tribe_id").notNull(),
     provider: text("provider").notNull().default("zavu"),
     contributedByUserId: text("contributed_by_user_id"),
@@ -71,6 +75,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingSelectedVersionFkey: foreignKey({name:"messaging_selected_version_fkey",columns:[table.id,table.tribeId,table.selectedVersion],foreignColumns:[messagingConnectionVersions.connectionId,messagingConnectionVersions.tribeId,messagingConnectionVersions.version]}),
     messagingCandidateVersionFkey: foreignKey({name:"messaging_candidate_version_fkey",columns:[table.id,table.tribeId,table.candidateVersion],foreignColumns:[messagingConnectionVersions.connectionId,messagingConnectionVersions.tribeId,messagingConnectionVersions.version]}),
     messagingConnectionSelectedKey: uniqueIndex("messaging_connection_selected_key").on(table.tribeId).where(sql.raw("is_selected")),
+    messagingConnectionNameCheck: check("messaging_connection_name_check",sql.raw("char_length(btrim(name)) BETWEEN 1 AND 100")),
     messagingConnectionCandidateKey: uniqueIndex("messaging_connection_candidate_key").on(table.tribeId).where(sql.raw("is_candidate")),
   }));
   const messagingConnectionVersions = pgTable("messaging_connection_versions", {
@@ -188,6 +193,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
   }, (table): PgTableExtraConfig => ({
     messagingContactAliasSubjectFkey: foreignKey({name:"messaging_contact_alias_subject_fkey",columns:[table.subjectId],foreignColumns:[messagingContactBudgetSubjects.id]}).onDelete("restrict"),
     messagingContactFingerprintAliasesPkey: primaryKey({name:"messaging_contact_fingerprint_aliases_pkey",columns:[table.fingerprintKeyId,table.contactFingerprint]}),
+    messagingContactAliasSubjectKeyIdx: index("messaging_contact_alias_subject_key_idx").on(table.subjectId,table.fingerprintKeyId),
   }));
   const messageDeliveries = pgTable("message_deliveries", {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -232,6 +238,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingDeliveryPhoneCountryCheck: check("messaging_delivery_phone_country_check",sql.raw("channel='email' OR (recipient_country IS NOT NULL AND recipient_country ~ '^[A-Z]{2}$')")),
     messagingDeliveryDeadlineCheck: check("messaging_delivery_deadline_check",sql.raw("deadline_at>created_at AND deadline_at<=created_at+interval '24 hours'")),
     messagingDeliveryDueIdx: index("messaging_delivery_due_idx").on(table.dueAt,table.id).where(sql.raw("state='queued'")),
+    messagingDeliveryTenantDueIdx: index("messaging_delivery_tenant_due_idx").on(table.tribeId,table.dueAt,table.id).where(sql.raw("state='queued'")),
   }));
   const verificationCodeEnvelopes = pgTable("verification_code_envelopes", {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -324,6 +331,8 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     channel: text("channel"),
     eventType: text("event_type").notNull(),
     operationId: uuid("operation_id").notNull(),
+    credentialConnectionId: uuid("credential_connection_id"),
+    credentialConnectionVersion: integer("credential_connection_version"),
     occurredAt: timestamp("occurred_at",{withTimezone:true}).notNull().default(sql.raw("clock_timestamp()")),
   }, (table): PgTableExtraConfig => ({
     messagingUsageEventTribeFkey: foreignKey({name:"messaging_usage_event_tribe_fkey",columns:[table.tribeId],foreignColumns:[parents.tribes.id]}).onDelete("cascade"),
@@ -331,8 +340,21 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingUsageEventSubjectFkey: foreignKey({name:"messaging_usage_event_subject_fkey",columns:[table.contactSubjectId],foreignColumns:[messagingContactBudgetSubjects.id]}),
     messagingUsageEventTypeCheck: check("messaging_usage_event_type_check",sql.raw("event_type IN ('code_request','code_failure','diagnostic_request','credential_validation')")),
     messagingUsageEventOperationKey: unique("messaging_usage_event_operation_key").on(table.eventType,table.operationId),
+    messagingUsageCredentialVersionFkey: foreignKey({ name:"messaging_usage_credential_version_fkey",columns:[table.credentialConnectionId,table.tribeId,table.credentialConnectionVersion],foreignColumns:[messagingConnectionVersions.connectionId,messagingConnectionVersions.tribeId,messagingConnectionVersions.version] }).onDelete("restrict"),
+    messagingUsageCredentialScopeCheck: check("messaging_usage_credential_scope_check",sql`
+      (${table.eventType}=${CODE_REQUEST_EVENT.credential} and (
+        (${table.credentialConnectionId} is null and ${table.credentialConnectionVersion} is null)
+        or (${table.credentialConnectionId} is not null and ${table.credentialConnectionVersion} is not null
+          and ${table.credentialConnectionVersion}>0
+          and ${table.purpose}=${REAUTHENTICATION_OPERATION.validateMessagingConnection} and ${table.channel} is null
+          and ${table.challengeId} is null and ${table.contactSubjectId} is null)
+      ))
+      or (${table.eventType}<>${CODE_REQUEST_EVENT.credential} and ${table.credentialConnectionId} is null and ${table.credentialConnectionVersion} is null)
+    `.inlineParams()),
+    messagingUsageCredentialWindowIdx: index("messaging_usage_credential_window_idx").on(table.tribeId,table.occurredAt).where(sql`${table.eventType}=${CODE_REQUEST_EVENT.credential}`.inlineParams()),
     messagingUsageAccountWindowIdx: index("messaging_usage_account_window_idx").on(table.actorUserId,table.eventType,table.occurredAt),
     messagingUsageContactWindowIdx: index("messaging_usage_contact_window_idx").on(table.contactSubjectId,table.eventType,table.occurredAt),
+    messagingUsageActiveContactIdx: index("messaging_usage_active_contact_idx").on(table.eventType,table.occurredAt,table.contactSubjectId).where(sql`${table.contactSubjectId} is not null`),
     messagingUsageTribeWindowIdx: index("messaging_usage_tribe_window_idx").on(table.tribeId,table.eventType,table.channel,table.occurredAt),
   }));
   return {

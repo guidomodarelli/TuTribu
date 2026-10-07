@@ -27,10 +27,11 @@ export function messagingSecretLifetimeIsCurrent(authorization: LockedMessagingS
  * Locks current actor/tenant/resource before inspecting any recoverable bytes.
  * @param database - Existing guarded transaction, with a server-derived actor.
  * @param context - Private scope that must be independently revalidated.
+ * @param lockResourcesForWrite - Acquires exclusive resource locks immediately for a DB-only metadata mutation, avoiding shared-lock upgrades.
  * @returns Locked external/resource identity and the applicable time bounds.
  * @throws MessagingSecretAccessError when any current relationship is insufficient.
  */
-export async function authorizeMessagingSecret(database: RequestDatabase, context: MessagingSecretAccessContext): Promise<LockedMessagingSecret> {
+export async function authorizeMessagingSecret(database: RequestDatabase, context: MessagingSecretAccessContext, lockResourcesForWrite = false): Promise<LockedMessagingSecret> {
   const human = context.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader;
   const actorUserId = human ? context.actorUserId : context.contributingLeaderUserId;
   const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
@@ -50,12 +51,13 @@ export async function authorizeMessagingSecret(database: RequestDatabase, contex
   if (!tribe) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
   const leaders = (await database.execute<{ user_id: string }>(sql`select user_id from public.tribe_members where tribe_id=${context.tribeId} and role=${TRIBE_MEMBER_ROLE.leader} and status=${TRIBE_MEMBERSHIP_STATUS.active} order by user_id for share`)).rows;
   if (leaders.length !== 1 || leaders[0].user_id !== actorUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
-  const connection = (await database.execute<{ state: string; contributed_by_user_id: string | null; environment: string; security_epoch: string; retired_at: DatabaseInstant | null; candidate_version: number | null; selected_version: number | null; is_selected: boolean; is_candidate: boolean }>(sql`select state,contributed_by_user_id,environment,security_epoch,retired_at,candidate_version,selected_version,is_selected,is_candidate from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId} for share`)).rows[0];
+  const resourceLock=lockResourcesForWrite?sql`for update`:sql`for share`;
+  const connection = (await database.execute<{ state: string; contributed_by_user_id: string | null; environment: string; security_epoch: string; retired_at: DatabaseInstant | null; candidate_version: number | null; selected_version: number | null; is_selected: boolean; is_candidate: boolean }>(sql`select state,contributed_by_user_id,environment,security_epoch,retired_at,candidate_version,selected_version,is_selected,is_candidate from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId} ${resourceLock}`)).rows[0];
   if (!connection || connection.contributed_by_user_id !== actorUserId || connection.retired_at !== null || !MESSAGING_CREDENTIAL_USABLE_STATES.has(connection.state) || connection.environment !== context.environment || connection.security_epoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
   const candidate = connection.is_candidate && connection.candidate_version === context.connectionVersion;
   const selected = connection.is_selected && connection.selected_version === context.connectionVersion;
   if (!candidate && !selected) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-  const version = (await database.execute<{ secret_ref: string | null; last_activity_at: DatabaseInstant; retired_at: DatabaseInstant | null }>(sql`select secret_ref,last_activity_at,retired_at from public.messaging_connection_versions where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and version=${context.connectionVersion} and environment=${context.environment} and security_epoch=${context.securityEpoch} for share`)).rows[0];
+  const version = (await database.execute<{ secret_ref: string | null; last_activity_at: DatabaseInstant; retired_at: DatabaseInstant | null }>(sql`select secret_ref,last_activity_at,retired_at from public.messaging_connection_versions where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and version=${context.connectionVersion} and environment=${context.environment} and security_epoch=${context.securityEpoch} ${resourceLock}`)).rows[0];
   if (!version || version.secret_ref !== context.secretRef || version.retired_at !== null) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
   if (candidate && !selected) expiresAt.push(new Date(instant(version.last_activity_at).getTime() + MESSAGING_CANDIDATE_IDLE_LIFETIME_MS));
   if (human) {

@@ -30,6 +30,14 @@ describe("resolve admission operation", () => {
     expect(await useCase.execute(command)).toEqual({ ok: false, failure: { code: "operation_unresolved", cause: error, operation: { operationId: command.idempotencyKey, state: "started" } } });
   });
 
+  it("should reject a current account with an expired session before claiming or mutating",async()=>{
+    const resolve=vi.fn(async()=>({state:"started" as const,operationId:command.idempotencyKey}));
+    const expired={...account,session:{...account.session,expiresAt:new Date(0)}};
+    const useCase=new ResolveAdmissionOperationUseCase({getAuthenticatedAccount:async()=>expired},{resolve});
+    expect(await useCase.execute(command)).toMatchObject({ok:false,failure:{code:"authentication_required"}});
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
   it("should not invent durable progress for an unrelated exception", async () => {
     const useCase = new ResolveAdmissionOperationUseCase({ getAuthenticatedAccount: async () => { throw new Error("Private lookup failure"); } }, { resolve: vi.fn() });
     const result = await useCase.execute(command);

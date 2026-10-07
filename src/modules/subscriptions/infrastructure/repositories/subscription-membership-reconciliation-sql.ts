@@ -50,6 +50,8 @@ export function buildSubscriptionMembershipUpdateSql() {
     status_reason=case when ${hasActive} then ${TRIBE_MEMBERSHIP_STATUS_REASON.none} when ${hasPending} then ${TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked} else ${TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive} end
     from affected_members where tribe_members.tribe_id=affected_members.tribe_id and tribe_members.user_id=affected_members.user_id
       and tribe_members.role=${TRIBE_MEMBER_ROLE.tribemate}
+      and (not exists(select 1 from public.tribes protected_tribe where protected_tribe.id=tribe_members.tribe_id and protected_tribe.admissions_control_activated_at is not null)
+        or tribe_members.status in (${TRIBE_MEMBERSHIP_STATUS.active},${TRIBE_MEMBERSHIP_STATUS.muted}) or not ${hasActive})
       and (tribe_members.status in (${TRIBE_MEMBERSHIP_STATUS.active},${TRIBE_MEMBERSHIP_STATUS.muted})
         or (tribe_members.status=${TRIBE_MEMBERSHIP_STATUS.blocked} and tribe_members.status_reason=${TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked})
         or (tribe_members.status=${TRIBE_MEMBERSHIP_STATUS.removed} and tribe_members.status_reason=${TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive}))

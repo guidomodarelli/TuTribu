@@ -8,6 +8,11 @@
  */
 
 import type { z } from "zod";
+import { admissionApiClient } from "@/lib/academy-admissions/admission-api-client";
+import { legacyAcademyJoinSchema, type LegacyAcademyJoinDto } from "@/src/modules/academy-admissions/application/results/academy-entry-result";
+import type { AdmissionBrowserSubmission, AdmissionBrowserResult, AdmissionStartedResponse } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
+import type { AdmissionOutcomeDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 
 import {
   academyAccessStatusDtoSchema,
@@ -141,11 +146,19 @@ async function requestAcademyApi<TData>(input: {
 
 type MessageBody = { message?: string | null; status?: string };
 
-export function joinAcademy(tribeSlug: string) {
-  return requestAcademyApi<MessageBody>({
+/** Explicit confirmed entry returns the real admission contract and requires the caller's lifecycle signal. */
+export function joinAcademy(tribeSlug: string, input: AdmissionBrowserSubmission, signal: AbortSignal): Promise<AdmissionBrowserResult<AdmissionOutcomeDto | AdmissionStartedResponse>>;
+/** Historical unprotected entry cannot consume a new pending response as successful membership. */
+export function joinAcademy(tribeSlug: string): Promise<AcademyApiResult<LegacyAcademyJoinDto>>;
+export function joinAcademy(tribeSlug: string, input?: AdmissionBrowserSubmission, signal?: AbortSignal) {
+  if (input) {
+    if (!signal) return Promise.resolve({ status: "failed" as const, code: ADMISSION_ERROR_CODE.invalidInput, message: ADMISSION_ERROR_MESSAGE.invalid_input, uncertain: false });
+    return admissionApiClient.submitAcademyEntry(tribeSlug, input, signal);
+  }
+  return requestAcademyApi<LegacyAcademyJoinDto>({
     method: HTTP_METHOD.post,
     path: tribePath(tribeSlug, API_PATH.academy + API_PATH.join),
-    schema: null,
+    schema: legacyAcademyJoinSchema,
   });
 }
 

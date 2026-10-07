@@ -28,6 +28,6 @@ La revisión nativa del diff de cierre terminó con cero hallazgos accionables y
 
 ## Trabajo todavía pendiente
 
-T017 y T020 continúan abiertos: sus dependencias de persistencia y contratos completos no están terminadas. Faltan puertos/contextos completos, los demás contratos HTTP, migraciones/constraints, writers, integración de auth y escenarios de persistencia/concurrencia. El resultado de T008 no certifica esos recorridos ni los gates OG-01 a OG-06, que conservan el estado indicado en [operational-gates.md](operational-gates.md).
+T017 y T020 están completadas en su alcance de puertos y dominio puro. La revalidación sobre `dc9479db759481455349aef936573967b2b14a0a` pasó los 179 casos de contacto, configuración, elegibilidad y desafíos/proof; las dependencias T007/T008/T017 de T020 están acreditadas. T036 también completa los modelos y transiciones puras por propósito, uso, fallos, época y reloj. Los writers, factories, contratos/rutas restantes y las pruebas operativas mantienen sus tareas y gates abiertos; las propuestas puras no sustituyen esos recorridos.
 
 La convención de pruebas y el alcance de esta base están en [admission-testing.htm](../../../docs/conventions/admission-testing.htm) y [academy-admissions.htm](../../../docs/architecture/academy-admissions.htm). `spec.md`, `technical-contract.md`, los identificadores normativos y las checklists conservan su contenido.

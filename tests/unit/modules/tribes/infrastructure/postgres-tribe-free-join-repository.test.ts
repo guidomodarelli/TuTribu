@@ -2,6 +2,7 @@ import { vi, describe, it, expect } from "vitest";
 import { PostgresTribeFreeJoinRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-free-join-repository";
 import { PostgresTribePresenceRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-presence-repository";
 import { TRIBE_FREE_JOIN_STATUS } from "@/src/modules/tribes/constants/tribe-story";
+import { createLegacyMembershipExecutorFixture } from "@/tests/support/legacy-membership-executor-fixture";
 
 describe("PostgresTribeFreeJoinRepository", () => {
   it("returns joined when the membership insert succeeds", async () => {
@@ -9,7 +10,7 @@ describe("PostgresTribeFreeJoinRepository", () => {
       rows: [{ joined: true, tribe_available: true }],
     });
     const repository = new PostgresTribeFreeJoinRepository(async (callback) =>
-      callback({ execute } as never)
+      callback({ execute:createLegacyMembershipExecutorFixture(execute) } as never)
     );
 
     await expect(
@@ -27,7 +28,7 @@ describe("PostgresTribeFreeJoinRepository", () => {
         rows: [{ id: "member-row-1" }],
       });
     const repository = new PostgresTribeFreeJoinRepository(async (callback) =>
-      callback({ execute } as never)
+      callback({ execute:createLegacyMembershipExecutorFixture(execute) } as never)
     );
 
     await expect(
@@ -35,15 +36,15 @@ describe("PostgresTribeFreeJoinRepository", () => {
     ).resolves.toEqual({ status: TRIBE_FREE_JOIN_STATUS.joined });
   });
 
-  it("returns alreadyMember when the conflicting membership cannot be reactivated", async () => {
+  it("returns alreadyMember when the conflicting membership is still readable", async () => {
     const execute = vi
       .fn()
       .mockResolvedValueOnce({
-        rows: [{ joined: false, tribe_available: true }],
+        rows: [{ joined: false, tribe_available: true,member_readable:true }],
       })
       .mockResolvedValueOnce({ rows: [] });
     const repository = new PostgresTribeFreeJoinRepository(async (callback) =>
-      callback({ execute } as never)
+      callback({ execute:createLegacyMembershipExecutorFixture(execute) } as never)
     );
 
     await expect(
@@ -56,7 +57,7 @@ describe("PostgresTribeFreeJoinRepository", () => {
       rows: [{ joined: false, tribe_available: false }],
     });
     const repository = new PostgresTribeFreeJoinRepository(async (callback) =>
-      callback({ execute } as never)
+      callback({ execute:createLegacyMembershipExecutorFixture(execute) } as never)
     );
 
     await expect(
@@ -70,7 +71,7 @@ describe("PostgresTribeFreeJoinRepository", () => {
     });
     const execute = vi.fn().mockRejectedValueOnce(rlsError);
     const repository = new PostgresTribeFreeJoinRepository(async (callback) =>
-      callback({ execute } as never)
+      callback({ execute:createLegacyMembershipExecutorFixture(execute) } as never)
     );
 
     await expect(

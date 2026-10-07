@@ -8,6 +8,12 @@ import type { AllowlistEntryResult, PersonalInvitationResult } from "./admission
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { AdmissionPublicError } from "./admission-errors";
+import { ADMISSION_INVITATION_PUBLIC_PATH_PREFIX, ADMISSION_PUBLIC_URL_PROTOCOL } from "@/src/modules/academy-admissions/constants/admission-management-contract";
+
+export { admissionRequestSchema, admissionReviewSchema, admissionOverviewSchema, admissionOutcomeSchema, admissionBatchResultSchema, createAdmissionOperationStateSchema } from "./admission-flow-result-schemas";
+export type { AdmissionRequestDto, AdmissionReviewDto, AdmissionOverviewDto, AdmissionOutcomeDto, AdmissionBatchResultDto, OperationStateDto } from "./admission-flow-result-schemas";
+export { admissionPolicySchema, allowlistImportSchema } from "./admission-management-result-schemas";
+export type { AdmissionPolicyDto, AllowlistImportDto } from "./admission-management-result-schemas";
 
 const resourceIdSchema = z.uuid();
 const versionSchema = z.int().positive();
@@ -28,6 +34,26 @@ export const personalInvitationSchema = z.object({
   recipient: z.object({ type: contactTypeSchema, value: z.string().min(1), country: z.string().optional() }),
   requiresAllowlist: z.boolean(), expiresAt: instantSchema.nullable(), status: z.enum(ADMISSION_INVITATION_STATUS),
 }) satisfies z.ZodType<PersonalInvitationResult>;
+
+/**
+ * Binds the one-time creation URL to configured origin and the public token route; replay uses metadata above.
+ * @param trustedOrigin - Deployment origin supplied by server configuration, never request headers/body.
+ * @returns The initial creation contract, including a server-created version-one invitation.
+ */
+export function createPersonalInvitationCreationSchema(trustedOrigin: string) {
+  const origin = new URL(trustedOrigin).origin;
+  return z.object({ invitation: personalInvitationSchema.extend({ version: z.literal(1) }), invitationUrl: z.url().refine((value) => {
+    const url = new URL(value);
+    const tokenPath = url.pathname.startsWith(ADMISSION_INVITATION_PUBLIC_PATH_PREFIX)
+      ? url.pathname.slice(ADMISSION_INVITATION_PUBLIC_PATH_PREFIX.length) : "";
+    return url.origin === origin && !url.username && !url.password
+      && (url.protocol === ADMISSION_PUBLIC_URL_PROTOCOL.secure || url.protocol === ADMISSION_PUBLIC_URL_PROTOCOL.local)
+      && tokenPath.length > 0 && !tokenPath.includes("/") && !url.search && !url.hash;
+  }) });
+}
+/** Typed own metadata used by props and browser consumers. */
+export type AllowlistEntryDto = z.infer<typeof allowlistEntrySchema>;
+export type PersonalInvitationDto = z.infer<typeof personalInvitationSchema>;
 
 /** Public error copy comes only from the own catalogue, never an upstream exception message. */
 export const admissionPublicErrorSchema = z.object({

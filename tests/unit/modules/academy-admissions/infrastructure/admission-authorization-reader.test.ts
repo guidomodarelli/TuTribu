@@ -9,6 +9,7 @@ import { PostgresAdmissionAuthorizationReader } from "@/src/modules/academy-admi
 /** Seeds real synthetic sessions and a preadmission request without granting membership to its applicant. */
 async function prepareAuthorization(database: AcademyAdmissionTestDatabase) {
   for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql"]) await database.applyMigration(migration);
+  for (const migration of ["20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005093000_guard_academy_membership_sources.sql", "20261007005000_read_admission_reviews.sql"]) await database.applyMigration(migration);
   const leaderId = randomUUID(), applicantId = randomUUID(), guardianId = randomUUID(), tribeId = randomUUID(), foreignTribeId = randomUUID(), requestId = randomUUID();
   const sessions = { leader: randomUUID(), applicant: randomUUID(), guardian: randomUUID() };
   await database.withContext({ userId: leaderId, email: null }, async (transaction) => {
@@ -70,8 +71,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission current 
   it("should retain retired connection metadata for current authorized readers while closing sensitive use", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAuthorization(database), connectionId = randomUUID();
-      await database.applyMigration("20261005091500_guard_admission_evidence_transitions.sql");
-      await database.applyMigration("20261005092000_create_tenant_messaging.sql");
       await database.withContext({ userId: fixture.leaderId, email: null }, async (transaction) => {
         await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,contributed_by_user_id,state,environment,security_epoch,is_candidate,retired_at) values (${connectionId},${fixture.tribeId},${fixture.leaderId},'disconnected','synthetic','synthetic',false,clock_timestamp())`);
         const metadata = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.leader, "read_connection_metadata");

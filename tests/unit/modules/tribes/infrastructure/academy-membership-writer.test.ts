@@ -11,7 +11,7 @@ import {createAcademyApprovedMembershipWriter} from "@/src/modules/tribes/infras
 
 /** Creates an active leader and an explicitly protected policy on an owned test branch. */
 async function prepareWriter(database:AcademyAdmissionTestDatabase,existing?:{role:"guardian"|"tribemate";status:"active"|"muted"|"blocked"|"removed";reason?:string}) {
-  for(const migration of ["20261005090000_create_admission_identity_evidence.sql","20261005091000_create_academy_admission_core.sql","20261005091500_guard_admission_evidence_transitions.sql","20261005092000_create_tenant_messaging.sql","20261005092500_guard_messaging_attempts.sql","20261005093000_guard_academy_membership_sources.sql"]) await database.applyMigration(migration);
+  for(const migration of ["20261005090000_create_admission_identity_evidence.sql","20261005091000_create_academy_admission_core.sql","20261005091500_guard_admission_evidence_transitions.sql","20261005092000_create_tenant_messaging.sql","20261005092500_guard_messaging_attempts.sql","20261005093000_guard_academy_membership_sources.sql","20261006180000_guard_subscription_membership_sources.sql","20261006200000_scope_admission_audit_operations.sql"]) await database.applyMigration(migration);
   const tribeId=randomUUID();const leaderId=randomUUID();const applicantId=randomUUID();const own={userId:leaderId,email:null};
   await database.withContext(own,async(transaction)=>{
     for(const id of [leaderId,applicantId]) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${id},'Synthetic writer account',${`${id}@example.test`},false,clock_timestamp(),clock_timestamp())`);

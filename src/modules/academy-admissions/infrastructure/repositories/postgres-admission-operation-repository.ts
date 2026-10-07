@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { z } from "zod";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import type {AdmissionBatchItem,AdmissionBatchOperationCommand} from "@/src/modules/academy-admissions/domain/entities/admission-operation";
+import {ADMISSION_LIMIT} from "@/src/modules/academy-admissions/constants/admission-limits";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
@@ -18,6 +20,19 @@ type OperationClaim<Result> = AdmissionOperationResult<Result> | { state: "claim
 
 /** Reads the database clock after locks and local crypto rather than before an awaited operation. */
 async function clock(database: RequestDatabase): Promise<Date> { return new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now); }
+
+/**
+ * Canonicalizes a fixed batch before both execution and read-only recovery.
+ * @param command - Owner-normalized context and explicitly selected resources/versions.
+ * @returns Stable ordered items and the exact intent protected by the ledger fingerprint.
+ * @throws AdmissionOperationError for empty, oversized or duplicate selection.
+ */
+function normalizeBatch(command:AdmissionBatchOperationCommand):{items:AdmissionBatchItem[];command:AdmissionOperationCommand}{
+  if(command.intent.items.length<1||command.intent.items.length>ADMISSION_LIMIT.batchRequestCount)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+  const items=command.intent.items.map((item)=>({...item,resourceId:item.resourceId.toLowerCase()})).sort((first,second)=>first.resourceId<second.resourceId?-1:first.resourceId>second.resourceId?1:0);
+  if(new Set(items.map((item)=>item.resourceId)).size!==items.length)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+  return{items,command:{...command,intent:{context:command.intent.context,items:items.map((item)=>({resourceId:item.resourceId,expectedVersion:item.expectedVersion,intent:item.intent}))}}};
+}
 
 /**
  * Owns a durable operation only; the business owner supplies current locked authorization and mutation.
@@ -96,6 +111,33 @@ export class PostgresAdmissionOperationRepository {
       if (!matches) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict, { operationId: command.idempotencyKey });
       return this.project(command, row, schema);
     });
+  }
+
+  /**
+   * Processes explicit bounded items in stable resource order inside one registered business transaction.
+   * @param command - Boundary-normalized items/context; every expected version remains part of the intent.
+   * @param schema - Own minimal batch result contract containing the per-row results.
+   * @param mutateItem - Owner's DB-only writer; it locks that item and returns expected business conflicts as outcomes.
+   * @returns Registered progress or confirmed row outcomes; an unexpected throw rolls back every item.
+   * @remarks The owner supplies its permission/CAS rules. This method adds no jobs, retries or provider operations.
+   */
+  async runBatch<Result>(command:AdmissionBatchOperationCommand,schema:z.ZodType<Result>,mutateItem:(database:RequestDatabase,ledgerId:string,item:AdmissionBatchItem)=>Promise<unknown>):Promise<AdmissionOperationResult<Result>>{
+    const normalized=normalizeBatch(command);
+    return this.run(normalized.command,schema,async(database,ledgerId)=>{
+      const results:unknown[]=[];
+      for(const item of normalized.items)results.push(await mutateItem(database,ledgerId,item));
+      return {results};
+    });
+  }
+
+  /**
+   * Recovers a registered batch using the same stable intent without claiming or repeating row work.
+   * @param command - Original boundary-normalized batch context, items and versions.
+   * @param schema - Own minimal batch result contract.
+   * @returns Historical confirmed result or registered progress, including null before any claim.
+   */
+  async readBatch<Result>(command:AdmissionBatchOperationCommand,schema:z.ZodType<Result>):Promise<AdmissionOperationResult<Result>|null>{
+    return this.read(normalizeBatch(command).command,schema);
   }
 
   /**

@@ -7,6 +7,9 @@ import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/mes
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { MessagingPublicError } from "./messaging-errors";
 
+export { messagingConnectionSchema, providerResourcePageSchema, verificationChallengeSchema, verificationResultSchema, messageDeliverySchema } from "./messaging-flow-result-schemas";
+export type { MessagingConnectionDto, ProviderResourcePageDto, VerificationChallengeDto, VerificationResultDto } from "./messaging-flow-result-schemas";
+
 const countSchema = z.int().nonnegative();
 const countrySchema = z.string().refine((country) => isSupportedCountry(country as CountryCode));
 
@@ -23,6 +26,10 @@ export const messagingUsagePolicyStateSchema = z.discriminatedUnion("state", [
   z.object({ state: z.literal(MESSAGING_USAGE_POLICY_STATE.notConfigured), policy: z.null() }),
   z.object({ state: z.literal(MESSAGING_USAGE_POLICY_STATE.configured), policy: messagingUsagePolicySchema }),
 ]) satisfies z.ZodType<MessagingUsagePolicyStateResult>;
+
+/** Existing versioned policy and missing-resource state are separate own DTOs. */
+export type MessagingUsagePolicyDto = z.infer<typeof messagingUsagePolicySchema>;
+export type MessagingUsagePolicyStateDto = z.infer<typeof messagingUsagePolicyStateSchema>;
 
 /** Error DTOs contain only catalogue copy and progress already authorized by its owner. */
 export const messagingPublicErrorSchema = z.object({

@@ -9,7 +9,7 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("auth evidence persistence", () => {
   it("should bind identity and recent evidence to the same user, account, subject, session and intent scope", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      if (process.env.APPLY_ADMISSION_MIGRATIONS === "1") await database.applyMigration("20261005090000_create_admission_identity_evidence.sql");
+      await database.applyMigration("20261005090000_create_admission_identity_evidence.sql");
       const userA = randomUUID();
       const userB = randomUUID();
       const accountA = randomUUID();

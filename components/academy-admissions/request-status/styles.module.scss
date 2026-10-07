@@ -1,0 +1,16 @@
+.RequestStatus {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+
+  &__facts { display: grid; gap: 0.75rem; }
+  &__fact { display: grid; gap: 0.25rem; }
+  &__label { color: var(--muted-foreground); font-size: 0.875rem; }
+  &__value { margin: 0; }
+  &__help { color: var(--muted-foreground); line-height: 1.6; }
+  &__message { line-height: 1.6; white-space: pre-wrap; }
+  &__confirmation { display: flex; align-items: flex-start; gap: 0.75rem; line-height: 1.5; }
+  &__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+  &__error { color: var(--destructive); line-height: 1.5; }
+}

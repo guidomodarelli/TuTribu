@@ -5,6 +5,8 @@ import {
   formatBuenosAiresWeekdayDay,
 } from "@/lib/date-time/buenos-aires-format";
 import { buildTribeEventsRoute } from "@/lib/events/tribe-events-routes";
+import { buildOwnAdmissionRequestRoute, buildAdmissionReviewRoute } from "@/lib/academy-admissions/admission-routes";
+import { ADMISSION_NOTIFICATION_COPY, ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
 import { buildTribeEventOccurrenceKey } from "@/src/modules/events/application/services/tribe-event-occurrences";
 import { TRIBE_EVENT_REMINDER } from "@/src/modules/events/constants/tribe-event-reminders";
 import type { NotificationItemResult } from "@/src/modules/notifications/application/results/notification-result";
@@ -185,6 +187,15 @@ function describeProposalNotification(
  */
 export function describeNotification(item: NotificationItemResult): NotificationPresentation {
   const sentAtLabel = formatSentAt(item.createdAt);
+
+  if ("admission" in item) {
+    return {
+      title: ADMISSION_NOTIFICATION_COPY[item.admission.audience][item.type],
+      detail: item.tribe.name,
+      href: item.admission.audience === ADMISSION_NOTIFICATION_AUDIENCE.applicant ? buildOwnAdmissionRequestRoute(item.tribe.slug, item.admission.requestId) : buildAdmissionReviewRoute(item.tribe.slug, item.admission.requestId),
+      sentAtLabel,
+    };
+  }
 
   if (item.type === NOTIFICATION_TYPE.eventProposalReviewed) {
     return { ...describeProposalNotification(item), sentAtLabel };

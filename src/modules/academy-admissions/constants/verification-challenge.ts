@@ -15,6 +15,8 @@ export const VERIFICATION_CHALLENGE_REASON = {
 export const VERIFICATION_TRANSITION_OUTCOME = {
   denied: "denied", wrongCode: "wrong_code", verified: "verified", applied: "applied",
 } as const;
+/** Distinguishes a confirmed failure replay from an unused or conflicting operation identity. */
+export const VERIFICATION_FAILURE_REPLAY_STATE = { absent: "absent", recorded: "recorded", conflict: "conflict" } as const;
 /** Bounds rejection sampling so decimal reduction does not bias generated codes. */
 export const VERIFICATION_CODE_GENERATION = { decimalRange: 1_000_000, uint32Range: 4_294_967_296 } as const;
 /** Scope fields that must come from current authoritative readers, never a browser marker. */

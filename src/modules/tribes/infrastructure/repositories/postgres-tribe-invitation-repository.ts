@@ -1,7 +1,11 @@
+/** Persists and evaluates reusable invitations within their current tenant and admission scope. @module postgres-tribe-invitation-repository */
 import { createHash } from "crypto";
 import { sql } from "drizzle-orm";
 
 import { TRIBE_SUBSCRIPTION_PRODUCT_KEY } from "@/src/modules/subscriptions/constants/subscriptions";
+import { lockLegacyTribeEntry } from "./legacy-tribe-entry-lock";
+import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
+import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 
 import {
   TRIBE_INVITATION_STATUS,
@@ -977,10 +981,16 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     });
   }
 
+  /**
+   * Preserves readable membership and accepts legacy entry only outside protected admission.
+   * @param command - Server-normalized slug and opaque invitation token; token is never logged.
+   * @returns A stable acceptance/revocation/rejection or payment-required outcome.
+   */
   async accept(
     command: AcceptTribeInvitationCommand
   ): Promise<TribeInvitationAcceptanceResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockLegacyTribeEntry(database,command.tribeSlug);
       const tokenHash = hashInvitationToken(command.token);
       const result = await database.execute(sql`
         with invitation_acceptance_context as (
@@ -1007,6 +1017,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           select
             tribes.id,
             tribes.free_join_is_current,
+            tribes.admissions_control_activated_at,
             public.tribe_uses_academy_access(tribes.id) as uses_academy_access,
             coalesce(
               (
@@ -1042,6 +1053,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
           where tribe_subscription_prices.status = 'active'
             and tribe_subscription_prices.product_key = ${TRIBE_SUBSCRIPTION_PRODUCT_KEY.membership}
             and target_tribe.uses_academy_access = false
+            and target_tribe.admissions_control_activated_at is null
             and tribe_subscription_prices.mercado_pago_preapproval_plan_id is not null
             and (
               (
@@ -1059,7 +1071,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         invitation_grants_free_access as (
           select 1
           from target_invitation, target_tribe
-          where (
+          where target_tribe.admissions_control_activated_at is null and ((
             target_tribe.uses_academy_access = true
             and target_tribe.academy_admission_enabled = true
           )
@@ -1072,7 +1084,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
                 and target_tribe.free_join_is_current = true
               )
             )
-          )
+          ))
         ),
         inserted_membership as (
           insert into public.tribe_members (
@@ -1105,7 +1117,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         reactivated_membership as (
           update public.tribe_members
           set
-            status = 'active',
+            status = tribe_members.commercial_recovery_status,
             status_reason = 'none',
             joined_via_invitation_id = target_invitation.id,
             joined_via = 'free_invitation'
@@ -1117,6 +1129,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             and target_invitation.status = ${TRIBE_INVITATION_STATUS.active}
             and public.current_app_user_id() <> ''
             and exists (select 1 from invitation_grants_free_access)
+            and tribe_members.role=${TRIBE_MEMBER_ROLE.tribemate}
+            and tribe_members.commercial_recovery_status in (${TRIBE_MEMBERSHIP_STATUS.active},${TRIBE_MEMBERSHIP_STATUS.muted})
             and exists (
               select 1 from existing_membership
               where (

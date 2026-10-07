@@ -8,6 +8,7 @@ import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from 
 import { createMessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import type {AdmissionBatchItem} from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 
 const resultSchema = z.strictObject({ entryId: z.uuid(), version: z.int().positive(), displayName: z.string() });
 
@@ -40,6 +41,56 @@ async function prepareOperation(database: AcademyAdmissionTestDatabase) {
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission operation replay", () => {
+  it("should commit fifty ordered row outcomes including a current CAS conflict and replay the original batch without another edit",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareOperation(database);
+      const ids=[fixture.entryId,...Array.from({length:49},()=>randomUUID())];
+      await database.withContext(fixture.own,async(transaction)=>{
+        await transaction.execute(sql`insert into public.academy_allowlist_entries(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,display_name,created_by_user_id) select row_id,${fixture.tribeId},'email',row_id::text||'@example.test',decode('01','hex'),'synthetic-batch','Original',${fixture.actorUserId} from unnest(${sql.param(ids.slice(1))}::uuid[]) row_id`);
+        await transaction.execute(sql`update public.academy_allowlist_entries set display_name='Already changed',version=version+1 where id=${fixture.entryId}`);
+      });
+      const command={...fixture.command,operationType:"update_allowlist_batch",intent:{context:{action:"disable"},items:[...ids].reverse().map((resourceId)=>({resourceId,expectedVersion:1,intent:{status:"disabled"}}))}};
+      const schema=z.strictObject({results:z.array(z.strictObject({resourceId:z.uuid(),outcome:z.enum(["updated","conflict"]),version:z.int().positive()})).length(50)});
+      const order:string[]=[];
+      const work=async(transaction:RequestDatabase,_ledgerId:string,item:AdmissionBatchItem)=>{
+        order.push(item.resourceId);
+        const current=(await transaction.execute<{version:number}>(sql`select version from public.academy_allowlist_entries where id=${item.resourceId} and tribe_id=${fixture.tribeId} for update`)).rows[0];
+        if(current.version!==item.expectedVersion)return{resourceId:item.resourceId,outcome:"conflict",version:current.version};
+        const updated=(await transaction.execute<{version:number}>(sql`update public.academy_allowlist_entries set status='disabled',version=version+1 where id=${item.resourceId} and version=${item.expectedVersion} returning version`)).rows[0];
+        return{resourceId:item.resourceId,outcome:"updated",version:updated.version};
+      };
+      const first=await fixture.repository.runBatch(command,schema,work);
+      expect(first).toMatchObject({state:"completed",replayed:false});
+      if(first.state!=="completed")throw new Error("Synthetic batch did not commit");
+      expect(first.result.results.filter((row)=>row.outcome==="updated")).toHaveLength(49);
+      expect(first.result.results.filter((row)=>row.outcome==="conflict")).toEqual([{resourceId:fixture.entryId,outcome:"conflict",version:2}]);
+      expect(order).toEqual([...ids].sort());
+      const replay=await fixture.repository.runBatch({...command,intent:{...command.intent,items:[...command.intent.items].reverse()}},schema,work);
+      expect(replay).toEqual({...first,replayed:true});expect(order).toHaveLength(50);
+      await expect(fixture.repository.runBatch({...command,intent:{...command.intent,items:command.intent.items.map((item)=>({...item,expectedVersion:2}))}},schema,work)).rejects.toMatchObject({code:"idempotency_conflict"});
+      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select status,count(*)::integer as count from public.academy_allowlist_entries where tribe_id=${fixture.tribeId} group by status order by status`)).rows)).toEqual([{status:"disabled",count:49},{status:"enabled",count:1}]);
+    });
+  },180_000);
+
+  it("should rollback every row after an unexpected batch failure and reject oversized or duplicate selections before claiming",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareOperation(database),secondId=randomUUID();
+      await database.withContext(fixture.own,(transaction)=>transaction.execute(sql`insert into public.academy_allowlist_entries(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id) values (${secondId},${fixture.tribeId},'email',${`${secondId}@example.test`},decode('01','hex'),'synthetic-batch')`));
+      const command={...fixture.command,operationType:"update_allowlist_batch",intent:{context:{action:"disable"},items:[fixture.entryId,secondId].map((resourceId)=>({resourceId,expectedVersion:1,intent:{status:"disabled"}}))}};
+      const schema=z.strictObject({results:z.array(z.unknown())});let calls=0;
+      await expect(fixture.repository.runBatch(command,schema,async(transaction,_ledgerId,item)=>{
+        calls+=1;await transaction.execute(sql`update public.academy_allowlist_entries set status='disabled',version=version+1 where id=${item.resourceId}`);
+        if(calls===2)throw new Error("Synthetic second-row persistence failure");return{resourceId:item.resourceId};
+      })).rejects.toMatchObject({code:"operation_unresolved",cause:{message:"Synthetic second-row persistence failure"}});
+      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select status,version,count(*)::integer as count from public.academy_allowlist_entries where tribe_id=${fixture.tribeId} group by status,version`)).rows)).toEqual([{status:"enabled",version:1,count:2}]);
+      expect(await fixture.repository.readBatch(command,schema)).toMatchObject({state:"started"});
+      for(const items of [[],Array.from({length:51},()=>({resourceId:randomUUID(),expectedVersion:1,intent:null})),[command.intent.items[0],{...command.intent.items[0],resourceId:command.intent.items[0].resourceId.toUpperCase()}]]){
+        await expect(fixture.repository.runBatch({...command,idempotencyKey:randomUUID(),intent:{...command.intent,items}},schema,async()=>{throw new Error("Invalid selection reached work");})).rejects.toMatchObject({code:"invalid_input"});
+      }
+      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select count(*)::integer as count from public.academy_admission_operations where tribe_id=${fixture.tribeId}`)).rows)).toEqual([{count:1}]);
+    });
+  },180_000);
+
   it("should recover the original committed result before checking an obsolete resource version", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareOperation(database);

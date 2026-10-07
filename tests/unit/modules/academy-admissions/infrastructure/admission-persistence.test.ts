@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 import { createAcademyAdmissionFixtures } from "@/tests/support/academy-admission-fixtures";
-import { academyAdmissionPolicies } from "@/src/modules/shared/infrastructure/database/schema";
+import { academyAdmissionPolicies, academyAdmissionAuditEvents, academyAllowlistImports, academyAllowlistImportRows, academyAllowlistEntries } from "@/src/modules/shared/infrastructure/database/schema";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
@@ -21,7 +21,7 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
  * @returns Actual private ledger and fixture identities, without external credentials.
  */
 async function prepareAtomicAdmission(database: AcademyAdmissionTestDatabase) {
-  for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005101000_guard_admission_operation_identity.sql"]) await database.applyMigration(migration);
+  for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql"]) await database.applyMigration(migration);
   const tribeId = randomUUID(), leaderId = randomUUID(), applicantId = randomUUID(), requestId = randomUUID();
   const own = { userId: leaderId, email: null };
   await database.withContext(own, async (transaction) => {
@@ -85,6 +85,63 @@ async function readAtomicAdmission(database: AcademyAdmissionTestDatabase, fixtu
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission persistence", () => {
+  it("should retain an audit operation in its own tribe and prevent losing referenced provenance", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareAtomicAdmission(database);
+      const otherTribeId = randomUUID(), ownOperationId = randomUUID(), otherOperationId = randomUUID();
+      await database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${otherTribeId},'Synthetic audit scope',${`audit-${otherTribeId}`},${fixture.leaderId})`);
+        for (const [operationId, tribeId] of [[ownOperationId, fixture.tribeId], [otherOperationId, otherTribeId]]) {
+          await transaction.execute(sql`insert into public.academy_admission_operations(id,actor_user_id,tribe_id,operation_type,idempotency_key,intent_fingerprint,fingerprint_key_id) values (${operationId},${fixture.leaderId},${tribeId},'synthetic_audit',${randomUUID()},decode('01','hex'),'synthetic-audit')`);
+        }
+      });
+      const recordAudit = (operationId: string | null) => database.withContext(fixture.own, (transaction) => transaction.insert(academyAdmissionAuditEvents).values({ tribeId: fixture.tribeId, actorUserId: fixture.leaderId, resourceType: "admission_request", resourceId: fixture.requestId, operationId, eventType: "pending_created" }).returning({ id: academyAdmissionAuditEvents.id, operationId: academyAdmissionAuditEvents.operationId }));
+      await expect(recordAudit(otherOperationId)).rejects.toMatchObject({ cause: { code: "23503" } });
+      await expect(recordAudit(randomUUID())).rejects.toMatchObject({ cause: { code: "23503" } });
+      const [recorded] = await recordAudit(ownOperationId);
+      expect(recorded).toEqual({ id: expect.any(String), operationId: ownOperationId });
+      expect(await recordAudit(null)).toEqual([{ id: expect.any(String), operationId: null }]);
+      await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`delete from public.academy_admission_operations where id=${ownOperationId}`))).rejects.toMatchObject({ cause: { code: "23503" } });
+      const retained = await database.withContext(fixture.own, (transaction) => transaction.select({ operationId: academyAdmissionAuditEvents.operationId }).from(academyAdmissionAuditEvents).where(eq(academyAdmissionAuditEvents.id, recorded.id)));
+      expect(retained).toEqual([{ operationId: ownOperationId }]);
+    });
+  }, 120_000);
+
+  it("should persist import previews without list effects and retain tenant-scoped committed rows without hidden entry edits", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture=await prepareAtomicAdmission(database);
+      const otherTribeId=randomUUID(),otherImportId=randomUUID(),otherEntryId=randomUUID();
+      const contact=`preview-${randomUUID()}@example.test`;
+      const preview=await database.withContext(fixture.own,async(transaction)=>{
+        const [imported]=await transaction.insert(academyAllowlistImports).values({tribeId:fixture.tribeId,actorUserId:fixture.leaderId,contactType:"email",policyVersion:1,fileFingerprint:new Uint8Array([1]),fingerprintKeyId:"synthetic-import",expiresAt:new Date(Date.now()+60_000),purgeAfter:new Date(Date.now()+3_600_000)}).returning({id:academyAllowlistImports.id,state:academyAllowlistImports.state,version:academyAllowlistImports.version,selectedRows:academyAllowlistImports.selectedRows});
+        const [row]=await transaction.insert(academyAllowlistImportRows).values({importId:imported.id,tribeId:fixture.tribeId,rowNumber:1,inputData:{email:contact,displayName:"Synthetic preview"},validationResult:{valid:true}}).returning({outcome:academyAllowlistImportRows.outcome,entryId:academyAllowlistImportRows.entryId,committedAt:academyAllowlistImportRows.committedAt});
+        expect((await transaction.select({id:academyAllowlistEntries.id}).from(academyAllowlistEntries).where(eq(academyAllowlistEntries.tribeId,fixture.tribeId)))).toEqual([]);
+        return {imported,row};
+      });
+      expect(preview).toEqual({imported:{id:expect.any(String),state:"preview",version:1,selectedRows:[]},row:{outcome:null,entryId:null,committedAt:null}});
+      await database.withContext(fixture.own,async(transaction)=>{
+        await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${otherTribeId},'Synthetic import scope',${`import-${otherTribeId}`},${fixture.leaderId})`);
+        await transaction.execute(sql`insert into public.academy_allowlist_imports(id,tribe_id,actor_user_id,contact_type,policy_version,file_fingerprint,fingerprint_key_id,expires_at,purge_after) values (${otherImportId},${otherTribeId},${fixture.leaderId},'email',1,decode('01','hex'),'synthetic-import',clock_timestamp()+interval '1 hour',clock_timestamp()+interval '2 hours')`);
+        await transaction.execute(sql`insert into public.academy_allowlist_entries(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,origin,import_id) values (${otherEntryId},${otherTribeId},'email',${contact},decode('01','hex'),'synthetic-import','import',${otherImportId})`);
+      });
+      const insertRow=(tribeId:string,rowNumber:number,entryId:string|null=null)=>database.withContext(fixture.own,(transaction)=>transaction.insert(academyAllowlistImportRows).values({importId:preview.imported.id,tribeId,rowNumber,entryId,inputData:{email:contact},validationResult:{valid:true}}));
+      await expect(insertRow(otherTribeId,2)).rejects.toMatchObject({cause:{code:"23503"}});
+      await expect(insertRow(fixture.tribeId,2,otherEntryId)).rejects.toMatchObject({cause:{code:"23503"}});
+      await expect(insertRow(fixture.tribeId,1)).rejects.toMatchObject({cause:{code:"23505"}});
+      await expect(insertRow(fixture.tribeId,0)).rejects.toMatchObject({cause:{code:"23514"}});
+      await expect(insertRow(fixture.tribeId,10_001)).rejects.toMatchObject({cause:{code:"23514"}});
+      const ownEntryId=randomUUID();
+      await database.withContext(fixture.own,async(transaction)=>{
+        await transaction.insert(academyAllowlistEntries).values({id:ownEntryId,tribeId:fixture.tribeId,contactType:"email",normalizedContact:contact,contactFingerprint:new Uint8Array([1]),fingerprintKeyId:"synthetic-import",origin:"import",importId:preview.imported.id});
+        await transaction.execute(sql`update public.academy_allowlist_import_rows set entry_id=${ownEntryId},outcome='added',committed_at=clock_timestamp() where import_id=${preview.imported.id} and row_number=1`);
+      });
+      const recorded=await database.withContext(fixture.own,(transaction)=>transaction.select({version:academyAllowlistEntries.version,status:academyAllowlistEntries.status,importId:academyAllowlistEntries.importId}).from(academyAllowlistEntries).where(eq(academyAllowlistEntries.id,ownEntryId)));
+      expect(recorded).toEqual([{version:1,status:"enabled",importId:preview.imported.id}]);
+      await expect(database.withContext(fixture.own,(transaction)=>transaction.update(academyAllowlistEntries).set({importId:otherImportId}).where(eq(academyAllowlistEntries.id,ownEntryId)))).rejects.toMatchObject({cause:{code:"23514"}});
+      expect(await database.withContext(fixture.own,(transaction)=>transaction.select({version:academyAllowlistEntries.version,importId:academyAllowlistEntries.importId}).from(academyAllowlistEntries).where(eq(academyAllowlistEntries.id,ownEntryId)))).toEqual([{version:1,importId:preview.imported.id}]);
+    });
+  },120_000);
+
   it("should commit decision, membership, obligations and a replayable result together exactly once", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAtomicAdmission(database);
@@ -106,13 +163,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission persiste
   }, 120_000);
 
   it("should preserve admission identity, uniqueness and versions without creating membership", async () => {
-    // Arrange: baseline first reproduces the missing storage; real artifacts are
-    // applied when present, never substituted by SQL rewritten inside this test.
+    // Apply the shipped artifacts before checking their persisted behavior.
     await withAcademyAdmissionDatabase(async (database) => {
-      if (process.env.APPLY_ADMISSION_MIGRATIONS === "1") {
-        await database.applyMigration("20261005090000_create_admission_identity_evidence.sql");
-        await database.applyMigration("20261005091000_create_academy_admission_core.sql");
-      }
+      await database.applyMigration("20261005090000_create_admission_identity_evidence.sql");
+      await database.applyMigration("20261005091000_create_academy_admission_core.sql");
       const fixtures = createAcademyAdmissionFixtures(database.branch.name);
       await database.withContext({ userId: null, email: null }, async (transaction) => {
         for (const account of [fixtures.accounts.leaderA, fixtures.accounts.leaderB, fixtures.accounts.applicantA]) {

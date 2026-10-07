@@ -35,3 +35,21 @@ export const ADMISSION_POLICY_EDITABLE_FIELDS = [
 
 /** Distinguishes a new proposal from a no-op, stale version, or invalid configuration. */
 export const ADMISSION_POLICY_CHANGE_OUTCOME = { changed: "changed", unchanged: "unchanged", conflict: "conflict", invalid: "invalid" } as const;
+
+/** Closes activation when its actual platform/tenant preparation is unavailable. */
+export const ADMISSION_POLICY_ACTIVATION_ERROR = {
+  policyMissing: "policy_unavailable", notAcademy: "academy_unavailable", preflightIncomplete: "admission_preflight_incomplete",
+  evaluatorUnavailable: "admission_evaluator_unavailable", recoveryLocked: "admission_recovery_locked", clockInvalid: "admission_clock_invalid",
+} as const;
+
+/** Original ledger namespaces keep creation, edit, activation and pause intents distinct. */
+export const ADMISSION_POLICY_OPERATION = { initialize: "initialize_admission_policy", update: "update_admission_policy", activate: "activate_admission_policy", pause: "pause_admission_policy" } as const;
+/** Recovery is read-only and requires current leadership, independently of mutation recency. */
+export const ADMISSION_POLICY_RECOVERABLE_OPERATIONS: readonly string[] = Object.values(ADMISSION_POLICY_OPERATION);
+
+/** Own audit vocabulary distinguishes durable configuration changes from request decisions. */
+export const ADMISSION_POLICY_AUDIT = { resourceType: "admission_policy", invalidationRule: "policy_verification_context_changed" } as const;
+/** Public lifecycle distinguishes real absence from a protected but unavailable resource. */
+export const ADMISSION_POLICY_PUBLIC_STATE = { notConfigured: "not_configured", draft: "draft", active: "active", paused: "paused", unavailable: "unavailable" } as const;
+/** An informational query never represents an unperformed preflight as successful. */
+export const ADMISSION_POLICY_PREPARATION_STATE = { notEvaluated: "not_evaluated", evaluated: "evaluated" } as const;

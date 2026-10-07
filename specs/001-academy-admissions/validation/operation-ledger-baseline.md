@@ -24,4 +24,14 @@ La revisión reprodujo un P2 temporal: el permiso podía vencer durante locks/HM
 
 La suite SQL completa posterior a la corrección pasó trece casos, sin skips, en 210,53 segundos. El reporte JSON confirma trece passed y cero failed/pending; una lectura final del CLI acredita cero ramas propias restantes. La revisión nativa final cerró sin hallazgos accionables, con diez hashes estables y todos sus comandos finalizados.
 
-Las pruebas SQL usan PostgreSQL/Web Crypto reales en ramas Neon propias, fixtures sintéticos y cleanup. No se activaron rutas, mutaciones de usuarios reales, URLs/tokens nominativos, mensajes, hosting/keyrings o gates. No se acredita aún batch/importación ni la autorización concreta de cada historia. Las 212 tareas, IDs, spec.md, technical-contract.md y checklists permanecen íntegros.
+Las pruebas SQL usan PostgreSQL/Web Crypto reales en ramas Neon propias, fixtures sintéticos y cleanup. No se activaron rutas, mutaciones de usuarios reales, URLs/tokens nominativos, mensajes, hosting/keyrings o gates. La evidencia de batch se amplía abajo; importación operable y autorización concreta de cada historia conservan sus tareas. Las 212 tareas, IDs, spec.md, technical-contract.md y checklists permanecen íntegros.
+
+## Ampliación T039 sobre dc9479db
+
+Se reprodujo una sesión vencida que todavía llegaba al runner. La aplicación ahora exige vigencia después de leer auth, mediante la política pura del owner. Los cinco casos locales pasan, con identidad derivada del servidor y progreso sólo realmente registrado.
+
+runBatch/readBatch utilizan el mismo claim/huella/commit del ledger. El lote tiene entre uno y cincuenta IDs explícitos únicos, expectedVersion e intent por fila, contexto normalizado y orden ASCII estable. La misma canonicalización se usa al recuperar, sin otro claim. El owner ejecuta su callback DB-only/lock/CAS en ese orden; conflictos esperados son outcomes, throws inesperados revierten toda la transacción. No se agregó un sistema de jobs.
+
+Los dos primeros SQL de lote pasaron en 67,31 s: cincuenta filas (49 cambios + 1 conflicto CAS), replay sin cambios, expectedVersion distinto con misma identidad rechazado, rollback tras falla en segunda fila y selecciones vacías/sobredimensionadas/duplicadas sin claim. La regresión previa de ledger/application pasó dieciocho casos en 300,58 s. La regresión final con readBatch explícito y la política nueva de sesión pasó dieciséis SQL y cinco de aplicación, veintiuno en total sin skips/fallos, en 366,32 s. Todas las ramas propias se eliminaron con verificación.
+
+Lint, ambos typechecks, build normal de cuarenta páginas y cuatro renders Chromium/WebKit a 390/1280 están verdes. La revisión de cinco archivos no encontró hallazgos y conservó hashes estables. T021/T007/T016 están satisfechas; T039 queda completada como ledger y capacidad de lotes. La semántica específica de cada acción, creación de nominativas, endpoints y UI conservan sus historias y gates.

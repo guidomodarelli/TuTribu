@@ -143,6 +143,11 @@ export function validateAdmissionPolicyConfiguration(
   return validatePolicyConfiguration(policy, facts, true);
 }
 
+/** @param policy - Proposed inactive settings. @param facts - Current scoped owner facts, without permission supplied by the browser. @returns Structural compatibility for a draft; it never proves operational readiness or activates control. */
+export function validateAdmissionPolicyDraftConfiguration(policy: AdmissionPolicyConfiguration, facts: AdmissionPolicyConfigurationFacts): AdmissionPolicyConfigurationResult {
+  return validatePolicyConfiguration(policy, facts, false);
+}
+
 export type AdmissionPolicyPatch = Partial<Pick<AdmissionPolicy, (typeof ADMISSION_POLICY_EDITABLE_FIELDS)[number]>>;
 export type AdmissionPolicyChangeResult =
   | { outcome: "conflict" }
@@ -183,7 +188,7 @@ export function proposeAdmissionPolicyChange(
     && ADMISSION_POLICY_EDITABLE_FIELDS.every((field) => field === "isOpen" || current[field] === next[field]);
   const validation = validatePolicyConfiguration(next, {
     ...facts, lockedContactType: current.activatedAt ? current.contactType : facts.lockedContactType,
-  }, !isOnlyPausing);
+  }, current.activatedAt !== null && !isOnlyPausing);
   if (!validation.valid) return { outcome: ADMISSION_POLICY_CHANGE_OUTCOME.invalid, reason: validation.reason };
   const verificationChanged = current.requiresAdditionalVerification !== next.requiresAdditionalVerification;
   const verificationContextChanged = current.phoneChannel !== next.phoneChannel

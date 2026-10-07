@@ -1,5 +1,6 @@
 /** Resolves current server-owned scope before any secret access or provider operation. */
 import { evaluateRecentAuthentication } from "@/src/modules/auth/domain/policies/recent-authentication";
+import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
@@ -44,14 +45,14 @@ export class ResolveMessagingContextUseCase {
   async execute(command: { tribeId: string; connectionId: string; operation: string; requestId: string }): Promise<{ context: AuthorizedMessagingContext; allowed: true } | { allowed: false; failure: MessagingFailure }> {
     const deny = (code: MessagingFailure["code"]) => ({ allowed: false as const, failure: messagingFailure(code) });
     const initialAccount = await this.accounts.getAuthenticatedAccount();
-    if (!initialAccount) return deny(MESSAGING_ERROR_CODE.authenticationRequired);
+    if (!initialAccount || !isAuthenticatedSessionLive(initialAccount.session.expiresAt, this.clock())) return deny(MESSAGING_ERROR_CODE.authenticationRequired);
     const initialLeadership = await this.authorization.getCurrentLeadership(command.tribeId, initialAccount.userId);
     if (!hasCurrentLeadership(initialLeadership, command.tribeId, initialAccount.userId)) return deny(MESSAGING_ERROR_CODE.permissionDenied);
     const connection = await this.authorization.getConnection(command.tribeId, command.connectionId);
     if (!connection || connection.tribeId !== command.tribeId || connection.id !== command.connectionId || connection.contributedByUserId !== initialAccount.userId || connection.retiredAt !== null || !connection.secretRef || !Number.isInteger(connection.version) || connection.version < 1) return deny(MESSAGING_ERROR_CODE.resourceUnavailable);
     if (!MESSAGING_CREDENTIAL_USABLE_STATES.has(connection.state)) return deny(MESSAGING_ERROR_CODE.connectionIncomplete);
     const security = await this.security.getCurrentSecurityFacts();
-    if (security.recoveryLocked !== false || !security.environment || !security.securityEpoch || connection.securityEpoch !== security.securityEpoch) return deny(MESSAGING_ERROR_CODE.connectionIncomplete);
+    if (security.recoveryLocked !== false || !security.environment || !security.securityEpoch || connection.environment !== security.environment || connection.securityEpoch !== security.securityEpoch) return deny(MESSAGING_ERROR_CODE.connectionIncomplete);
     // Resource/security reads may wait. Resolve current session/leadership again;
     // the concrete writer/SecretStore repeats these facts under its own locks.
     const account = await this.accounts.getAuthenticatedAccount();
@@ -59,7 +60,7 @@ export class ResolveMessagingContextUseCase {
     const leadership = await this.authorization.getCurrentLeadership(command.tribeId, account.userId);
     if (!hasCurrentLeadership(leadership, command.tribeId, account.userId)) return deny(MESSAGING_ERROR_CODE.permissionDenied);
     const now = this.clock();
-    if (!Number.isFinite(now.getTime()) || !Number.isFinite(account.session.expiresAt.getTime()) || now.getTime() >= account.session.expiresAt.getTime()) return deny(MESSAGING_ERROR_CODE.authenticationRequired);
+    if (!isAuthenticatedSessionLive(account.session.expiresAt, now)) return deny(MESSAGING_ERROR_CODE.authenticationRequired);
     if (!account.googleAccount) return deny(MESSAGING_ERROR_CODE.reauthenticationRequired);
     const scope = { userId: account.userId, sessionId: account.session.id, accountId: account.googleAccount.id, subject: account.googleAccount.subject, tribeId: command.tribeId, operation: command.operation, resourceId: command.connectionId };
     const evidence = account.recentAuthentication.find((candidate) => evaluateRecentAuthentication({ now, scope, evidence: candidate, sessionActive: true, currentLeaderUserId: leadership.leaderUserId }).allowed);
@@ -75,7 +76,7 @@ export class ResolveMessagingContextUseCase {
 /** Private backend operation; its secret must never be projected to a page or JSON response. */
 export class LoadAuthorizedMessagingSecretUseCase {
   /** Injects the own resolver and store; no provider operation is performed by this use case. */
-  constructor(private readonly resolver: ResolveMessagingContextUseCase, private readonly secrets: MessagingSecretStore) {}
+  constructor(private readonly resolver: Pick<ResolveMessagingContextUseCase, "execute">, private readonly secrets: MessagingSecretStore) {}
 
   /**
    * Gates backend-only credential access on current account/resource authorization.

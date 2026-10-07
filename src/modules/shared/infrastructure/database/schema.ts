@@ -3,6 +3,8 @@ import {createAuthenticatedAccountSchema} from "@/src/modules/auth/infrastructur
 import { createAdmissionSchema, type AdmissionMessagingSchemaReferences, type AdmissionMembershipSchemaReferences } from "@/src/modules/academy-admissions/infrastructure/database/admission-schema";
 import { createMessagingSchema } from "@/src/modules/messaging/infrastructure/database/messaging-schema";
 import { createAdmissionMembershipEffectsSchema } from "@/src/modules/tribes/infrastructure/database/admission-membership-schema";
+import { createSubscriptionMembershipEffectsSchema } from "@/src/modules/subscriptions/infrastructure/database/subscription-membership-schema";
+import { ADMISSION_NOTIFICATION_AUDIENCE, ADMISSION_NOTIFICATION_TYPES } from "@/src/modules/notifications/constants/admission-notifications";
 import {
   bigint,
   boolean,
@@ -208,6 +210,7 @@ export const tribeMembers = pgTable("tribe_members", {
   statusReason: text("status_reason").notNull().default("none"),
   commercialRecoveryStatus: text("commercial_recovery_status"),
   admissionMembershipEffectId: uuid("admission_membership_effect_id"),
+  subscriptionMembershipEffectId: uuid("subscription_membership_effect_id"),
   joinedVia: text("joined_via").notNull().default("unknown"),
   joinedViaInvitationId: uuid("joined_via_invitation_id").references(
     () => tribeInvitations.id,
@@ -225,6 +228,7 @@ export const tribeMembers = pgTable("tribe_members", {
   admissionScopeKey: uniqueIndex("tribe_member_admission_scope_key").on(table.id,table.tribeId,table.userId),
   commercialRecoveryCheck: check("tribe_member_commercial_recovery_check",sql`${table.commercialRecoveryStatus} in ('active','muted')`),
   admissionEffectForeignKey: foreignKey({name:"tribe_member_admission_effect_fkey",columns:[table.admissionMembershipEffectId,table.tribeId,table.userId,table.id],foreignColumns:[academyAdmissionMembershipEffects.id,academyAdmissionMembershipEffects.tribeId,academyAdmissionMembershipEffects.userId,academyAdmissionMembershipEffects.memberId]}),
+  subscriptionEffectForeignKey: foreignKey({name:"tribe_member_subscription_effect_fkey",columns:[table.subscriptionMembershipEffectId,table.tribeId,table.userId,table.id],foreignColumns:[subscriptionMembershipEffects.id,subscriptionMembershipEffects.tribeId,subscriptionMembershipEffects.userId,subscriptionMembershipEffects.memberId]}),
   joinedViaInvitationIndex: index("idx_tribe_members_joined_via_invitation").on(
     table.joinedViaInvitationId
   ),
@@ -1340,11 +1344,29 @@ export const notifications = pgTable("notifications", {
   type: text("type").notNull(),
   payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
   dedupeKey: text("dedupe_key").notNull(),
+  admissionObligationId: uuid("admission_obligation_id"),
+  admissionAudience: text("admission_audience"),
   readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(UTC_NOW_SQL),
 }, (table) => ({
+  admissionObligationForeignKey: foreignKey({
+    name: "notifications_admission_obligation_fkey",
+    columns: [table.admissionObligationId, table.tribeId],
+    foreignColumns: [academyAdmissionNotificationObligations.id, academyAdmissionNotificationObligations.tribeId],
+  }).onDelete("cascade"),
+  admissionAudienceCheck: check("notifications_admission_scope_check", sql`
+    (${table.type} in (${sql.join(ADMISSION_NOTIFICATION_TYPES.map((type) => sql`${type}`), sql`, `)})
+      and ${table.admissionObligationId} is not null and ${table.admissionAudience} is not null
+      and ${table.admissionAudience} in (${ADMISSION_NOTIFICATION_AUDIENCE.applicant},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer})
+      and ${table.payload}='{}'::jsonb)
+    or (${table.type} not in (${sql.join(ADMISSION_NOTIFICATION_TYPES.map((type) => sql`${type}`), sql`, `)})
+      and ${table.admissionObligationId} is null and ${table.admissionAudience} is null)
+  `.inlineParams()),
+  admissionRecipientKey: uniqueIndex("notifications_admission_recipient_key")
+    .on(table.admissionObligationId, table.recipientUserId)
+    .where(sql`${table.admissionObligationId} is not null`),
   recipientDedupeKey: uniqueIndex("notifications_recipient_dedupe_key").on(
     table.recipientUserId,
     table.dedupeKey
@@ -1476,6 +1498,7 @@ export const tribeMemberSubscriptions = pgTable("tribe_member_subscriptions", {
     .default(UTC_NOW_SQL),
 }, (table) => ({
   priceIndex: index("idx_tribe_member_subscriptions_price").on(table.priceId),
+  membershipOriginScopeKey: unique("subscription_membership_origin_scope_key").on(table.id,table.tribeId,table.userId),
   paymentIntegrationIndex: index("idx_tribe_member_subscriptions_payment_integration").on(
     table.paymentIntegrationId
   ),
@@ -1802,3 +1825,4 @@ export const {
 
 /** Composes the private membership source after both owners' tables exist. */
 export const academyAdmissionMembershipEffects=createAdmissionMembershipEffectsSchema({tribes,users,members:tribeMembers,decisions:academyAdmissionDecisions});
+export const subscriptionMembershipEffects=createSubscriptionMembershipEffectsSchema({tribes,users,members:tribeMembers,subscriptions:tribeMemberSubscriptions});

@@ -82,7 +82,10 @@ export class PostgresRecentAuthenticationRepository implements RecentAuthenticat
       if(!row) return null;
       const scope={userId:command.userId,sessionId:command.sessionId,accountId:command.accountId,subject:command.subject,tribeId:row.tribe_id,operation:row.operation,resourceId:row.resource_id};
       const resource=await this.createAuthorizer(database).resolve(scope);
-      return resource?.allowedReturnPaths.includes(row.return_path)?mapIntent(row):null;
+      if(!resource?.allowedReturnPaths.includes(row.return_path))return null;
+      const context=await lockCurrentContext(database,scope);
+      if(!context||!sessionsRemainLive(context,await readClock(database)))return null;
+      return mapIntent(row);
     });
   }
 

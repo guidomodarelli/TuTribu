@@ -20,8 +20,12 @@ La revisión detectó una carrera reproducida con PostgreSQL real: otra transacc
 
 La suite completa corregida pasó sus trece casos SQL en 210,05 segundos, con eliminación comprobada de cada rama propia. La regresión conjunta pasó 164 casos: los 122 de elegibilidad y los dos archivos de componentes señalados por el usuario. Lint y ambos chequeos de tipos pasaron. La CI del HEAD base también terminó correctamente; ese resultado corresponde a la base y no sustituye la CI del siguiente commit.
 
+## Cierre del colaborador T025
+
+Sobre `dc9479db`, el fixture aplica las guardas actuales de procedencia paga1800 y la relación de auditoría2000. La regresión de dos suites confirma trece casos SQL y once puros, veinticuatro en total sin skips/fallos en 313,13 segundos. Las ramas propias se eliminaron con verificación. La revisión de cinco archivos no encontró hallazgos y conservó hashes estables. T023/T009 están satisfechas; T025 queda completada como colaborador de pertenencia.
+
 ## Alcance pendiente
 
-T025 conserva pendiente la integración con el escritor autoritativo de admisión y sus dependencias. Este colaborador no evalúa por sí solo contacto, allowlist, invitación, proof, replay, recovery lock externo ni todos los efectos del dominio de admisión. El caller debe autorizar y confirmar esos efectos en el mismo commit, y manejar explícitamente el rollback de un staged rechazado. No hay un nuevo endpoint ni un flujo público habilitado.
+La integración desde el escritor autoritativo de admisión conserva sus tareas posteriores, sin cambiar el cierre del colaborador T025. Este colaborador no evalúa por sí solo contacto, allowlist, invitación, proof, replay, recovery lock externo ni todos los efectos del dominio de admisión. El caller debe autorizar y confirmar esos efectos en el mismo commit, y manejar explícitamente el rollback de un staged rechazado. No hay un nuevo endpoint ni un flujo público habilitado.
 
-T009/T023/T026, procedencia paga, preflight y gates operativos no quedan acreditados por estos casos. Se preservan los documentos normativos, las checklists y los identificadores. No se ejecuta SQL en default/producción ni se envían mensajes reales.
+T009/T023/T026/T027 registran sus cierres y evidencia propios. El preflight y los gates operativos no quedan acreditados por estos casos. Se preservan los documentos normativos, las checklists y los identificadores. No se ejecuta SQL en default/producción ni se envían mensajes reales.

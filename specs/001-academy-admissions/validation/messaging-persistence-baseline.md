@@ -28,9 +28,23 @@ La revisión nativa encontró dos comportamientos incorrectos, reproducidos por 
 
 Los 54 tests de componentes relacionados también pasaron en orden aleatorio, incluyendo foco después de retirar un material y los dos fallos reportados. El fallo de CI en el foco se debía a comprobar antes del `requestAnimationFrame`; se conserva la expectativa y se espera su efecto observable. Los documentos de arquitectura se comprobaron en Chromium y WebKit, a 390/1280, sin desborde ni enlaces locales rotos.
 
+## Ampliación de almacenamiento privado de T022
+
+Sobre `dc9479db`, dos escenarios adicionales ejercen Drizzle y PostgreSQL reales con estado suspended/degraded, ambas posiciones seleccionada/candidata ocupadas e índices que rechazan otra conexión con 23505. Una versión de conexión de otra tribu se rechaza con 23503. El rol real sin bypass, aunque use la identidad del mismo líder, no obtiene conexión, versión/referencia de secreto ni ciphertext privado. Los dos casos pasan en 54,24 segundos, con cleanup de sus ramas propias y typecheck de tests verde. No se envía ni recupera una credencial para el proveedor.
+
+La revisión estructural de T022 terminó sin hallazgos, con cuatro hashes estables. T021/T013/T012 están satisfechas. T022 queda completada como almacenamiento privado; no habilita gestión, activación de canales ni lecturas de secretos en UI.
+
+## Cierre de la matriz de T013
+
+La regresión final de tres suites pasó veinte escenarios SQL en 451,37 segundos, sin skips ni fallos y con todas las ramas propias eliminadas. Se añadieron a las primitivas los repositorios reales, issuer, Web Crypto, SecretStore, dispatcher y SDK nativo con transporte HTTP cerrado. El caso nuevo de cuota reducida a cero después de encolar devuelve quotaDeferred: no registra attempt/reserva ni hace RPC; desafío, plazo y época se conservan. La versión de uso vigente se comprueba al marker; países/cupos posteriores no alteran un envío ya iniciado ni reinician consumo.
+
+Los dieciocho casos locales de driver/SDK volvieron a pasar: marker anterior a RPC, plazo, stop de sender no cooperativo, trabajo tardío ligado al intento original, clasificación de outcomes y ausencia de un segundo POST. La revisión de la matriz T013 no encontró faltantes, con cuatro hashes estables. Lint y tipos de tests pasan; el build de cuarenta páginas y ambos typechecks de producción ya están verdes en el mismo estado de código (este cierre agrega cobertura).
+
+T013 queda completada como pruebas de la matriz y T022 como almacenamiento. La entrega externa, la composición de hosting/Workers, el scheduler y los gates operativos conservan su alcance pendiente.
+
 ## Pendientes conservados
 
-T013 y T022 siguen abiertos. Faltan cerrar todos sus casos con los repositorios/SecretStore/transportes reales y autorización actual completa. T041/T042/T043 aún requieren los writers/puertos de aplicación, counters agregados y ventanas de abuso, preferencias, ausencia acreditada antes de liberar, fairness, scheduler y pruebas del marker frente al SDK fuera de transacción.
+T013 y T022 están completadas en los alcances descritos. La composición de permisos actuales en cada ruta/driver operativo conserva sus tareas y gates. T041/T042/T043 aún requieren los writers/puertos de aplicación, counters agregados y ventanas de abuso, preferencias, ausencia acreditada antes de liberar, fairness, scheduler y pruebas del marker frente al SDK fuera de transacción.
 
 Estas primitivas SQL no sustituyen reglas complejas de aplicación ni el protocolo de restore externo. La policy privada del owner no concede audiencia pública. No se habilitan endpoints, academias, canales o rePOST de resultados inciertos. Los ensayos externos siguen requiriendo los gates y recursos reales de [operational-gates.md](operational-gates.md).
 

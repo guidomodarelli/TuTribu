@@ -44,6 +44,24 @@ describe("global reauthentication screen", () => {
     expect(client.read).toHaveBeenCalledOnce();
   });
 
+  it("should keep an emitted start blocked after history restoration and a failed read until the server confirms another start is allowed",async()=>{
+    const client=createClient();
+    vi.mocked(client.read).mockResolvedValueOnce({status:"failed",code:"unexpected_failure"});
+    render(<ReauthenticationContainer initialState={{kind:"ready",intent,oauthFailed:false}} client={client}/>);
+    fireEvent.click(screen.getByRole("button",{name:"Confirmar con Google"}));
+    await waitFor(()=>expect(client.start).toHaveBeenCalledOnce());
+    fireEvent(window,Object.assign(new Event("pageshow"),{persisted:true}));
+    await waitFor(()=>expect(screen.getByRole("alert")).toBeVisible());
+    expect(screen.getByRole("button",{name:"Confirmar con Google"})).toBeDisabled();
+    fireEvent.click(screen.getByRole("button",{name:"Confirmar con Google"}));
+    expect(client.start).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button",{name:"Consultar estado"}));
+    await waitFor(()=>expect(screen.getByRole("button",{name:"Confirmar con Google"})).toBeEnabled());
+    expect(client.read).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("button",{name:"Confirmar con Google"}));
+    await waitFor(()=>expect(client.start).toHaveBeenCalledTimes(2));
+  });
+
   it.each([
     { state: "consumed" as const, outcome: "reauthentication_required" as const, safeMessage: "No pudimos acreditar una autenticación reciente. Volvé a intentarlo." },
     { state: "expired" as const, outcome: "expired" as const, safeMessage: "La solicitud de autenticación venció. Iniciá una nueva." },

@@ -12,3 +12,7 @@ export const MESSAGING_CREDENTIAL_USABLE_STATES = new Set<string>([
 export const MESSAGING_AUTHORIZATION_PURPOSE = {
   sensitiveLeader: "sensitive_leader", authorizedDelivery: "authorized_delivery",
 } as const;
+/** Fixed internal resource slots; an inactive candidate never becomes selected by a read. */
+export const MESSAGING_CONNECTION_SLOT = { selected: "selected", candidate: "candidate" } as const;
+/** Provides an orientation label for legacy metadata without inventing provider validation. */
+export const MESSAGING_DEFAULT_CONNECTION_NAME = "Conexión de mensajería";

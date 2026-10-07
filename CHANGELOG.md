@@ -6,16 +6,63 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Los líderes pueden solicitar y confirmar una prueba de conexión por canal, con destino y consumo explícitos, y consultar su entrega sin convertirla en verificación de admisión ni activar la conexión.
+
+- Los líderes pueden guardar remitentes y plantillas por canal en una nueva versión candidata, conservando la conexión seleccionada y requiriendo nuevas comprobaciones antes de activarla.
+
+- Los líderes pueden consultar remitentes y plantillas disponibles con una confirmación reciente de cuenta, sin enviar códigos ni activar canales.
+
+- Los líderes pueden comprobar la credencial de una conexión y consultar su estado sin preparar canales ni enviar códigos; los guardianes reciben sólo una alerta operativa mínima.
+
+- Los líderes pueden guardar una conexión candidata de mensajería con nombre y credenciales protegidas, sin sustituir la conexión seleccionada, activar códigos ni reiniciar cupos.
+
+- Los líderes tienen una pantalla para preparar países y cupos antes de conectar la mensajería, conservar el borrador ante conflictos y recuperar un guardado incierto sin reiniciar el consumo.
+
+- Los líderes tienen una pantalla para preparar reglas de admisión, revisar requisitos, conservar el borrador ante cambios concurrentes y volver de la confirmación con Google sin repetir un guardado incierto.
+- Los líderes pueden preparar y pausar borradores de admisión con confirmación reciente; guardarlos no activa la academia ni envía comprobaciones de contacto.
+- Los líderes pueden consultar el estado actual de admisión de su academia y conservar los resultados originales de cambios de configuración si se pierde una respuesta.
+- La oferta de una academia con control de admisión ofrece Solicitar ingreso y abre la solicitud sin intentar un ingreso gratuito directo.
+- Líderes y guardianes activos pueden revisar solicitudes comunes de admisión manual, separar el motivo interno del mensaje al solicitante y conservar la decisión original si se pierde una respuesta.
+- La admisión tiene una página de solicitud y un estado propio fuera del contenido privado de la academia, con confirmación, cancelación y conservación del envío cuando se pierde una respuesta.
+- La bandeja incorpora avisos propios de admisión y avisos de revisión para responsables activos, con mensajes internos que conservan la privacidad del contacto y de la revisión.
 - El inicio de sesión con Google guarda evidencia del correo autenticado para las comprobaciones de contacto de academias; si esa comprobación adicional no está disponible, se conserva el acceso a la cuenta.
 - Las comprobaciones sensibles distinguen la cuenta Google usada en cada sesión y dejan de reconocer una verificación anterior cuando cambia el correo de la cuenta.
 - La confirmación con Google tiene una pantalla propia que conserva la solicitud y muestra si falta iniciar sesión, confirmar o volver a solicitarla.
 
 ### Fixed
 
+- Las consultas y los envíos de mensajería cierran al alcanzar el tiempo límite, sin repetir operaciones cuyo resultado sigue incierto.
+
+- Las solicitudes pendientes se cierran ante la salida de academia, la eliminación de pertenencia o un bloqueo no recuperable, y no se reabren al volver al estado anterior.
+- La recuperación paga de una membresía cierra su solicitud de admisión pendiente y avisa el resultado, sin agregar otra aprobación ni perder el silenciamiento.
+- Volver a confirmar el ingreso con una membresía ya recuperada cierra la solicitud anterior sin fingir una aprobación; conserva su vencimiento y los resultados de envíos anteriores.
+- El ingreso anterior a una academia con control no informa una membresía creada cuando el resultado real es una solicitud pendiente.
+- Los resultados tardíos de envío conservan el intento pendiente para su reconciliación, sin repetir el mensaje ni alterar un resultado ya informado.
+- Volver de Google con Atrás no permite repetir una confirmación si todavía no se pudo consultar el estado del intento anterior.
+- La recuperación de operaciones de admisión conserva los resultados confirmados de un lote sin repetir cambios; una falla inesperada revierte el lote completo.
+- Las academias con control protegido rechazan ingresos por enlaces antiguos y conservan las restricciones de recuperación; el modo clásico y los reintentos de membresías pagas mantienen sus recorridos.
+- Una solicitud de pago malformada se rechaza sin iniciar un reintento de suscripción.
 - La revisión de suscripciones de academia conserva la membresía básica; las revisiones de membresía respetan silenciamientos y bloqueos y muestran el estado confirmado en esa revisión.
+- La recuperación paga de membresías protegidas conserva el silenciamiento y la fecha de ingreso, sin levantar bloqueos por conducta ni reutilizar una admisión anterior.
 
 ### Security
 
+- El historial de decisiones de admisión conserva la evidencia mínima usada al decidir, sin guardar códigos ni datos privados del proveedor.
+- La recuperación de una admisión permite consultar el resultado propio sin pertenecer todavía a la academia y conserva los permisos actuales de sus responsables.
+- Adelantar un reintento requiere un líder activo y una confirmación reciente de cuenta; conserva la decisión original y rechaza la corrección si la sesión vence durante la operación.
+- Las consultas de admisión permiten leer sólo la solicitud propia sin exigir pertenencia; conservan el estado existente cuando la configuración de una academia protegida deja de estar disponible.
+- Los reintentos de presentación conservan el resultado originalmente confirmado, y las mutaciones rechazan peticiones desde un origen web ajeno antes de ejecutar cambios.
+- Las operaciones sensibles de mensajería conservan la sesión y cuenta originales; si vencen durante la operación, informan que hace falta iniciar sesión sin confirmar cambios pendientes.
+- La comprobación de países de mensajería distingue la conexión seleccionada de la candidata y deja de usar restricciones de una versión reemplazada.
+- Las respuestas de admisión separan los datos del solicitante de la revisión y rechazan progreso no confirmado o pruebas de contacto de otro propósito.
+- Los diagnósticos de errores de envío conservan sólo la referencia del intento y no incluyen su autorización privada completa.
+- Las comprobaciones de credenciales de mensajería comparten un límite por academia aunque cambie la clave, y los reintentos conservan su consumo original.
+- Los avisos de admisión quedan ligados a la solicitud y tribu de origen; su acceso distingue al solicitante de los responsables activos y evita duplicados.
+- Un código de verificación que vence mientras espera una comprobación se rechaza sin confirmar el contacto ni consumirlo.
+- Las solicitudes de confirmación de cuenta dejan de crearse, iniciarse o consultarse si la sesión vence, incluso cuando ocurre durante una espera.
+- Las operaciones de purga de credenciales retiradas requieren autorización vigente y conservan sus referencias e historial al eliminar el material privado.
+- Los controles de mensajería rechazan sesiones vencidas y recursos de otro entorno antes de consultar material privado.
+- El historial de admisiones conserva la relación con su tribu y sus operaciones, evitando referencias cruzadas entre comunidades.
 - Los resultados confirmados de las operaciones de admisión quedan protegidos contra sobrescrituras y cambios de identidad.
 - Las credenciales de mensajería retiradas o vinculadas a una cuenta o recurso sin autorización quedan fuera de uso; su eliminación conserva el historial de la conexión.
 

@@ -58,7 +58,7 @@ export function startTribeMemberSubscription({
     tribeMemberSubscriptionRepository.startCurrentPriceSubscription({
       idempotencyKey: normalizeText(command.idempotencyKey),
       invitationToken: normalizeText(command.invitationToken),
-      tribeSlug: normalizeText(command.tribeSlug),
+      tribeSlug: normalizeSlug(command.tribeSlug),
     });
 }
 
@@ -143,7 +143,7 @@ export function retryTribeMemberSubscriptionPayment({
   return async (command: RetryCurrentPriceSubscriptionPaymentCommand) =>
     tribeMemberSubscriptionRepository.retryCurrentPriceSubscriptionPayment({
       idempotencyKey: normalizeText(command.idempotencyKey),
-      tribeSlug: normalizeText(command.tribeSlug),
+      tribeSlug: normalizeSlug(command.tribeSlug),
     });
 }
 
