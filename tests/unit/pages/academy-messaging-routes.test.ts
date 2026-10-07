@@ -23,10 +23,14 @@ describe("protected connection creation route",()=>{
     expect(published).toMatchObject({state:"completed",result:{name:"Conexión de prueba",version:1,configurationVersion:1,state:"draft",maskedCredential:"••••••••"}});
     expect(JSON.stringify(published)).not.toContain(fixture.body.apiKey);
   });
-  it.each([{apiHost:"https://other.example.test"},{role:"leader"},{expectedVersion:1},{confirmed:false},{providerId:"other"},{apiKey:""}])("should reject unsupported creation authority or fields before opening services",async(extra)=>{
+  it.each([{apiHost:"https://other.example.test"},{role:"leader"},{expectedVersion:1},{confirmed:false},{apiKey:""}])("should reject unsupported creation authority or fields before opening services",async(extra)=>{
     const fixture=creationRouteFixture();
     expect((await fixture.handlers.create(fixture.request({...fixture.body,...extra}),fixture.context)).status).toBe(400);
     expect(fixture.open).not.toHaveBeenCalled();
+  });
+  it("should reject an unimplemented provider as missing capability before opening services or storing a key",async()=>{
+    const fixture=creationRouteFixture(),response=await fixture.handlers.create(fixture.request({...fixture.body,providerId:"unimplemented"}),fixture.context);
+    expect(response.status).toBe(409);expect(await response.json()).toMatchObject({code:"missing_capability"});expect(fixture.open).not.toHaveBeenCalled();expect(fixture.create).not.toHaveBeenCalled();
   });
   it("should deny a foreign origin without resolving an account or storing a credential",async()=>{
     const fixture=creationRouteFixture();
