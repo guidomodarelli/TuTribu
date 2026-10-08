@@ -1,11 +1,15 @@
 /** @vitest-environment node */
 /** Exercises actual SQL stages, budget/SecretStore and the pinned SDK through an owned HTTP boundary. @module messaging-credential-validation-tests */
+import {setTimeout as delay} from "node:timers/promises";
+import {MESSAGING_CREDENTIAL_RECOVERY_GRACE_MS} from "@/src/modules/messaging/constants/messaging-credential-validation";
 import {randomBytes,randomUUID} from "node:crypto";
 import {sql} from "drizzle-orm";
 import {describe,expect,it} from "vitest";
 import {withAcademyAdmissionDatabase} from "@/tests/support/academy-admission-database";
 import {prepareMessagingConnectionCreation} from "@/tests/support/messaging-connection-fixture";
 import {createAdmissionProviderTransport} from "@/tests/support/admission-provider-transport";
+import {PostgresAdmissionOperationRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
+import {messagingCredentialValidationSchema} from "@/src/modules/messaging/application/results/messaging-credential-validation-result";
 import {PostgresMessagingCredentialValidation} from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation";
 import {PostgresCredentialValidationBudget} from "@/src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget";
 import {PostgresEncryptedSecretStore} from "@/src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store";
@@ -99,4 +103,28 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("private credential i
       expect(counts).toEqual({prepared:1,checks:0});
     });
   },300_000);
+  it.each(["absent","claimed"] as const)("should close an abandoned reserved inspection for %s final state and freeze the result against late success",async(finalState)=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareMessagingConnectionCreation(database),credential=randomUUID();await database.applyMigration("20261006230000_bind_credential_validation_usage.sql");
+      const created=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Comprobación abandonada",apiKey:credential});if(created.state!=="completed")throw new Error("Expected protected candidate");const connectionId=created.result.id;
+      await database.withContext(fixture.fixture.own,async(transaction)=>{const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000),intentId=randomUUID();await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.tribeId},'validate_messaging_connection',${connectionId},'/synthetic-validation-recovery',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.context.actorUserId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.sessionId},${fixture.context.tribeId},'validate_messaging_connection',${connectionId},${now},${now},${validUntil})`);});
+      const execute=<Result>(_context:AuthorizedMessagingContext,run:(transaction:RequestDatabase)=>Promise<Result>)=>database.withContext(fixture.fixture.own,run),accounts=new PostgresAuthenticatedAccountProvider(async()=>({userId:fixture.context.actorUserId,sessionId:fixture.context.sessionId}),(_identity,run)=>database.withContext(fixture.fixture.own,run));
+      const resolver={execute:async(command:Parameters<ResolveMessagingContextUseCase["execute"]>[0])=>database.withContext(fixture.fixture.own,(transaction)=>new ResolveMessagingContextUseCase(accounts,new PostgresMessagingAuthorizationReader(transaction,fixture.context.sessionId,"candidate"),{getCurrentSecurityFacts:async()=>({environment:fixture.fixture.config.environment,securityEpoch:fixture.fixture.config.securityEpoch,recoveryLocked:false})},()=>new Date()).execute(command))};
+      const input={tribeId:fixture.context.tribeId,connectionId,operationId:randomUUID(),confirmed:true as const,expectedVersion:1,requestId:randomUUID()},authorized=await resolver.execute({...input,operation:"validate_messaging_connection"});if(!authorized.allowed)throw new Error("Expected native validation authority");
+      const context=authorized.context,operations=new PostgresMessagingCredentialValidation(execute,async()=>fixture.fixture.config),budget=new ReserveMessagingUsageUseCase(new PostgresCredentialValidationBudget(execute,async()=>fixture.fixture.config),()=>new Date()),prepared=await operations.prepare(context,input);if(prepared.state!=="prepared")throw new Error("Expected committed preparation");expect((await budget.execute({context,operationId:prepared.validationId})).outcome).toBe("reserved");
+      if(finalState==="claimed"){
+        const command={actorUserId:context.actorUserId,tribeId:context.tribeId,operationType:"validate_messaging_connection",idempotencyKey:input.operationId,intent:{connectionId,expectedVersion:input.expectedVersion,confirmed:input.confirmed}};
+        const ledger=new PostgresAdmissionOperationRepository((run)=>database.withContext(fixture.fixture.own,run),async()=>true,async()=>fixture.fixture.config);
+        await expect(ledger.run(command,messagingCredentialValidationSchema,async()=>{throw new Error("Synthetic final validation transaction interrupted");})).rejects.toMatchObject({code:"operation_unresolved"});
+        const pending=await operations.prepare(context,input);expect(pending.state).toBe("prepared");
+      }
+      await delay(MESSAGING_CREDENTIAL_RECOVERY_GRACE_MS/2);await delay(MESSAGING_CREDENTIAL_RECOVERY_GRACE_MS/2);
+      const transport=createAdmissionProviderTransport([]),secrets=new PostgresEncryptedSecretStore((actorUserId,run)=>database.withContext({userId:actorUserId,email:fixture.fixture.own.email},run),accounts,async()=>fixture.fixture.config,"sensitive_leader"),useCase=new ValidateMessagingConnectionUseCase(resolver,operations,budget,secrets,{create:(scope,key)=>new ZavuConnectionInspector({...scope,credential:key},transport.fetch)});
+      const result=await useCase.execute(input,new AbortController().signal);expect(result).toMatchObject({ok:true,value:{state:"completed",replayed:false,result:{id:connectionId,version:2,configurationVersion:1,credentialState:"unavailable",credentialMode:"unknown",failureCode:"dependency_unavailable"}}});expect(transport.receipts).toHaveLength(0);expect(transport.deniedRequests).toBe(0);
+      const late=await operations.complete(context,input,prepared.validationId,{ok:true,inspection:{isTestMode:false,apiKeyId:randomUUID(),projectId:randomUUID(),teamId:randomUUID()}});expect(late).toMatchObject({state:"completed",replayed:true,result:{credentialState:"unavailable",failureCode:"dependency_unavailable"}});
+      expect(await useCase.execute(input,new AbortController().signal)).toMatchObject({ok:true,value:{state:"completed",replayed:true,result:{credentialState:"unavailable"}}});expect(transport.receipts).toHaveLength(0);
+      const stored=await database.withContext(fixture.fixture.own,async(transaction)=>({facts:(await transaction.execute(sql`select credential_validation_status,is_test_mode,provider_project_ref,provider_team_ref,provider_key_ref from public.messaging_connection_versions where connection_id=${connectionId} and version=1`)).rows[0],counts:(await transaction.execute(sql`select (select count(*)::int from public.messaging_usage_events where tribe_id=${fixture.context.tribeId} and event_type='credential_validation') as checks,(select count(*)::int from public.message_deliveries where tribe_id=${fixture.context.tribeId}) as deliveries`)).rows[0]}));expect(stored.facts).toEqual({credential_validation_status:"unavailable",is_test_mode:null,provider_project_ref:null,provider_team_ref:null,provider_key_ref:null});expect(stored.counts).toEqual({checks:1,deliveries:0});
+    });
+  },600_000);
+
 });
