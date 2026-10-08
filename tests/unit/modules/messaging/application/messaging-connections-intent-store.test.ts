@@ -48,5 +48,8 @@ describe("connection intent metadata storage",()=>{
   it("should reject private diagnostic metadata without replacing the previously retained reference",()=>{
     const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),reference={operationId:randomUUID(),connectionId:randomUUID(),configurationVersion:2,channel:"email" as const};expect(store.writeDiagnostic(viewerId,"synthetic",reference)).toBe(true);expect(store.writeDiagnostic(viewerId,"synthetic",{...reference,operationId:randomUUID(),recipient:"private@example.test",verificationCode:"123456"} as typeof reference)).toBe(false);expect(store.diagnostics(viewerId,"synthetic")).toEqual([reference]);
   });
+  it("should preserve an activation's original candidate and CAS without permitting a client readiness claim",()=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),intent={type:"activate_messaging_connection" as const,operationId:randomUUID(),original:{connectionId:randomUUID(),configurationVersion:2,expectedVersion:4}};expect(store.write(viewerId,"synthetic",intent)).toBe(true);expect(store.read(viewerId,"synthetic")).toEqual(intent);expect(store.write(viewerId,"synthetic",{...intent,original:{...intent.original,ready:true}} as typeof intent)).toBe(false);expect(store.read(viewerId,"synthetic")).toEqual(intent);
+  });
 
 });

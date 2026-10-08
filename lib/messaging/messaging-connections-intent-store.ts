@@ -14,6 +14,7 @@ const intentSchema=z.discriminatedUnion("type",[
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.saveMessagingCredentials),operationId:z.uuid(),original:z.strictObject({name:z.string().trim().min(1).max(ADMISSION_LIMIT.displayNameCharacters)}).optional()}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.validateMessagingConnection),operationId:z.uuid(),original:resourceOriginal.optional()}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.configureMessagingConnection),operationId:z.uuid(),original:configurationOriginal.optional()}),
+  z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.activateMessagingConnection),operationId:z.uuid(),original:resourceOriginal}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.diagnoseMessagingConnection),operationId:z.uuid(),original:resourceOriginal.extend({channel:z.enum(MESSAGING_PUBLIC_CHANNEL)})}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.verifyMessagingDiagnostic),operationId:z.uuid(),original:z.strictObject({connectionId:z.uuid(),configurationVersion:z.int().positive(),diagnosticId:z.uuid(),channel:z.enum(MESSAGING_PUBLIC_CHANNEL)})}),
 ]);
