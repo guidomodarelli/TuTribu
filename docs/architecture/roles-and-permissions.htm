@@ -30,7 +30,8 @@ table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
 th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
 td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
 tr:last-child td{border-bottom:none;}
-code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;overflow-wrap:anywhere;}
+.table-wrap{max-width:100%;overflow-x:auto;}
 .code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
 .code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
 .divider{height:1px;background:#e0ddd6;margin:28px 0;}
@@ -316,7 +317,7 @@ type TribeStatus = &quot;active&quot; | &quot;muted&quot; | &quot;blocked&quot;;
   <div class="section-num">23</div>
   <div class="section-title">Permisos de academia</div>
 <p>La academia no agrega roles: el nivel comercial vive en <code>member_access_grants</code> y nunca modifica <code>tribe_members</code>.</p>
-<table>
+<div class="table-wrap"><table>
   <thead><tr><th>Acción</th><th>Integrante</th><th>Guardián activo</th><th>Líder activo</th></tr></thead>
   <tbody>
     <tr><td>Ver estado y progreso propios</td><td>Sí</td><td>Sí</td><td>Sí</td></tr>
@@ -327,8 +328,9 @@ type TribeStatus = &quot;active&quot; | &quot;muted&quot; | &quot;blocked&quot;;
     <tr><td>Consumir la academia</td><td>Con concesión</td><td>Con concesión</td><td>Previsualización administrativa</td></tr>
     <tr><td>Contenido comunitario en modo academia</td><td>Con concesión</td><td>Sí (modera)</td><td>Sí</td></tr>
   </tbody>
-</table>
+</table></div>
 <p>Los permisos de gestión requieren <code>status = active</code>: un guardián silenciado no revisa. Una persona silenciada conserva lectura y progreso, y gestiona su propia facturación; una bloqueada no consume contenido, pero puede cancelar sus propios cobros.</p>
 </div>
+<div class="section"><div class="section-num">Liderazgo y mensajería</div><h2 class="section-title" id="messaging-leadership-guard">Cambio canónico de líder y credenciales</h2><p>El liderazgo vigente pertenece a <code>tribe_members.role = leader</code> con membresía activa. El campo histórico <code>tribes.created_by</code> no concede permisos. La guarda versionada de mensajería suspende las conexiones previas dentro de la misma transacción que cambia o elimina ese liderazgo, y revierte la suspensión si la transacción falla.</p><p>Las membresías y las invitaciones de la tribu conservan identidad, estado y plazos; el rol anterior deja de autorizar secretos y el siguiente líder debe aportar su conexión. Esta guarda de almacenamiento no crea una pantalla general de transferencia. El caso de uso de transferencia y las carreras de acceso a secretos conservan su validación pendiente. Ver <a href="tenant-messaging.htm#leadership-database-guard">la decisión de mensajería por tribu</a>.</p></div>
 </body>
 </html>
