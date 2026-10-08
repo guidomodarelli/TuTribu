@@ -1,0 +1,11 @@
+# Recuperación de operaciones sin resultado registrado
+
+Brecha de T092 confirmada por auditoría readonly del código después de bc1dc046, sin modificar el target de recursos ni su Native58398.
+
+El container sólo limpia pending después de un completed confirmado seguido de metadata actual. Un request perdido antes del registro conserva UUID/tipo y bloquea nuevos guardados, comprobaciones, configuración, Google y lectura actual. Recargar restaura la misma referencia. No hay recorrido explícito para continuar desde esa ausencia o una preparación abandonada.
+
+GET original autoriza al líder antes/después, distingue permiso/ambigüedad y devuelve ausencia de un registro recuperable. El404 no demuestra rollback ni ausencia de trabajo: validate puede tener prepare_messaging_credential_validation y consumo reservado sin registro final. La configuración vigente tampoco demuestra que una escritura anterior no pueda completar tarde. started no se cierra por leer o por vencer el lease; reclaim pertenece al ledger al repetir la intención autorizada.
+
+No se debe limpiar automáticamente pending por404 ni generar otro UUID/repetir una key silenciosamente. La futura recuperación necesita evidencia del backend, acciones explícitas y preservación de intentos/consumos, con lectura actual disponible sin prometer cancelación. Falta cubrir request perdido antes de registro y preparación de validación sin resultado final. La auditoría no ejecutó tests ni acreditó una solución. Esta brecha queda pendiente después del checkpoint de recursos; T092 no se marca completa.
+
+Verificación del source: PostgresMessagingCredentialValidation.prepare completa el namespace privado y obtiene validationId; ReserveMessagingUsage guarda consumo por ese ID. Ante already_reserved, ValidateMessagingConnectionUseCase vuelve a read del namespace final o devuelve started. El reader HTTP enumera sólo namespaces públicos directos y los diagnósticos con purpose válido: no ve prepare. Por eso una repetición original no garantiza resolver una preparación consumida sin resultado; la solución debe contemplar su cierre explícito conservador y un resultado inmutable que también cierre una llegada tardía, sin nueva RPC ni reset de consumo. Es una dirección a validar con SQL/SDK reales, no una solución implementada o aprobada.
