@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El asistente ofrece Seguridad y retiro para elegir una conexión, revisar el motivo y el impacto, renovar la confirmación y consultar un resultado perdido antes de continuar.
+
 - Los líderes pueden suspender una conexión con una confirmación reciente específica o retirarla cuando se resuelven sus dependencias, y recuperar el resultado original sin consultar al proveedor.
 
 - Los líderes pueden confirmar la activación de una candidata productiva comprobada desde el asistente, recuperar la selección si se pierde la respuesta y conservar los ajustes de admisión y avisos.
