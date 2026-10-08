@@ -43,6 +43,9 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import { ADMISSION_RETRY_AUDIT } from "@/src/modules/academy-admissions/constants/admission-decision";
 import type { AdmissionExecutionCapabilitiesReader, AdmissionExecutionCapabilities } from "../../domain/repositories/admission-execution-capabilities";
 import { MANUAL_ADMISSION_EXECUTION_CAPABILITIES } from "../../constants/admission-execution-capabilities";
+import { PostgresAdmissionSubmissionProofReader } from "./postgres-admission-submission-proof-reader";
+import { PostgresAdmissionVerificationProofWriter } from "./postgres-admission-verification-proof-writer";
+import { ADMISSION_PROOF_APPLICATION_OUTCOME } from "../../constants/admission-proof";
 
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -160,7 +163,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     await database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type,rule,resource_version) values (${scope.tribeId},${scope.userId},${ADMISSION_RESOURCE_KIND.request},${request.id},${ledgerId},${event},${rule ?? null},${request.version})`);
   }
 
-  /** Submits only a current common manual/OFF request; existing membership/pending precedes new source effects. */
+  /** Submits a current common manual request with declared or owned local evidence; existing membership/pending precedes new proof effects. */
   async submit(input: AdmissionSubmissionIntent) {
     const command = { actorUserId: input.userId, tribeId: input.tribeId, operationType: ADMISSION_OPERATION_TYPE.submit, idempotencyKey: input.operationId, intent: { expectedPolicyVersion: input.expectedPolicyVersion, source: input.source, contact: input.contact, proofId: input.proofId, message: input.message, confirmed: input.confirmed } };
     return this.run(input, command, admissionCommittedOutcomeSchema, async (database, ledgerId): Promise<AdmissionSubmissionResult> => {
@@ -181,12 +184,30 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       if (facts.policy.requiresAdditionalVerification && !coverage.additionalVerification) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.additionalVerificationRequired);
       if (!coverage.policyModes.includes(facts.policy.mode)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       if (facts.policy.contactType === ADMISSION_CONTACT_TYPE.phone && input.contact?.type === ADMISSION_CONTACT_TYPE.email) facts.contact = null;
+      const local = facts.policy.requiresAdditionalVerification && input.proofId ? await new PostgresAdmissionSubmissionProofReader(database, this.readSecurityConfig).read(input, input.proofId, facts) : null;
+      if (facts.policy.requiresAdditionalVerification && input.proofId && !local) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
+      if (local) { facts.localProof = local.proof; facts.currentConnection = local.currentConnection; facts.contactBinding = local.contactBinding; }
+      facts.now = await databaseNow(database);
       const eligibility = evaluateAdmissionSubmission(facts);
+      if (eligibility.outcome === ADMISSION_OUTCOME.verificationRequired) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.additionalVerificationRequired);
       if (eligibility.outcome !== ADMISSION_OUTCOME.pending) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       const request = createPendingAdmissionRequest({ id: randomUUID(), tribeId: input.tribeId, userId: input.userId, source: ADMISSION_REQUEST_SOURCE.common, contact: facts.contact, evidence: { kind: eligibility.evidenceKind === ADMISSION_EVIDENCE_KIND.none ? ADMISSION_EVIDENCE_KIND.none : ADMISSION_EVIDENCE_KIND.declared }, policy: facts.policy, message: input.message, now: await databaseNow(database) });
       await database.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,contact_type,normalized_contact,evidence_source,original_policy_snapshot,applicant_message,submitted_at,expires_at) values (${request.id},${request.tribeId},${request.userId},${request.source},${request.contact?.type ?? null},${request.contact?.value ?? null},${request.evidence.kind},${JSON.stringify(request.originalPolicy)}::jsonb,${request.applicantMessage},${request.submittedAt},${request.expiresAt})`);
-      await this.record(database, input, request, ledgerId, ADMISSION_REQUEST_EVENT.pendingCreated);
-      return this.pendingResult(database, input, request, true);
+      let committed = request;
+      if (local && input.proofId) {
+        const applied = await new PostgresAdmissionVerificationProofWriter(database, async (current, candidate) => {
+          if (current !== database || candidate.userId !== input.userId || candidate.tribeId !== input.tribeId || candidate.purpose !== local.scope.purpose || candidate.contact.type !== local.scope.contact.type || candidate.contact.value !== local.scope.contact.value) return false;
+          if (!await this.authorize(current, input, ADMISSION_OPERATION_TYPE.submit)) return false;
+          const policy = await this.policy(current, input.tribeId);
+          return Boolean(policy?.requiresAdditionalVerification && policy.verificationEpoch === candidate.verificationEpoch && policy.messagingConnectionId === candidate.connectionId && policy.messagingConnectionVersion === candidate.connectionVersion);
+        }, this.readSecurityConfig).applyToPending({ scope: local.scope, requestId: request.id, proofId: input.proofId, expectedRequestVersion: request.version, operationId: input.operationId, ledgerId, operationType: ADMISSION_OPERATION_TYPE.submit });
+        if (applied.outcome !== ADMISSION_PROOF_APPLICATION_OUTCOME.applied) throw new AdmissionOperationError(applied.code);
+        const current = await this.request(database, input.tribeId, request.id);
+        if (!current || current.version !== applied.requestVersion || current.proofId?.toLowerCase() !== input.proofId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+        committed = current;
+      }
+      await this.record(database, input, committed, ledgerId, ADMISSION_REQUEST_EVENT.pendingCreated);
+      return this.pendingResult(database, input, committed, true);
     });
   }
 

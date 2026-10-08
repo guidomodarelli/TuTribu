@@ -2,6 +2,8 @@
 import type { VerificationChallengeScope } from "@/src/modules/academy-admissions/domain/entities/contact-verification-challenge";
 import type { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import type { AdmissionVerificationAccountScope } from "./admission-contact-verification";
+import type { ADMISSION_PROOF_OPERATION } from "../../constants/admission-proof";
+import type { ADMISSION_OPERATION_TYPE } from "../../constants/admission-request";
 
 /** The native owner resolves proof/contact/resource authority; input selects only the original own request and proof references. */
 export type AdmissionProofApplicationIntent = AdmissionVerificationAccountScope & { admissionRequestId: string; proofId: string; expectedRequestVersion: number; operationId: string };
@@ -19,6 +21,8 @@ export type ApplyAdmissionVerificationProofCommand = {
   expectedRequestVersion: number;
   operationId: string;
   ledgerId: string;
+  /** Attachment remains the default owner; an initial submission explicitly names its original ledger namespace. */
+  operationType?: typeof ADMISSION_PROOF_OPERATION | typeof ADMISSION_OPERATION_TYPE.submit;
 };
 /** Includes only the incremental pending state; contact, internal audit and private identity stay in their owners. */
 export type AdmissionProofApplicationResult =
