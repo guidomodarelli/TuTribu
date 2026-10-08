@@ -1,0 +1,11 @@
+/** Names the wizard route, original metadata transport and UI state without a global key or automatic mutation. @module messaging-connections-browser */
+/** Leaf navigation is independent from the existing early countries/usage page. */
+export const MESSAGING_CONNECTIONS_SETTINGS_SEGMENT="academia/admissions/messaging/connections";
+/** Own endpoint fragments cannot be supplied by the browser as provider destinations. */
+export const MESSAGING_CONNECTIONS_BROWSER_PATH={tribePrefix:"/api/tribes",configuration:"messaging/configuration",connections:"messaging/connections",operations:"messaging/operations"} as const;
+/** Writing and readonly recovery have distinct effects; aborting observation never asserts rollback. */
+export const MESSAGING_CONNECTIONS_BROWSER_PHASE={checking:"checking",idle:"idle",confirming:"confirming",writing:"writing",recovering:"recovering",unavailable:"unavailable"} as const;
+/** Only original UUID/type metadata is stored under viewer/route scope. */
+export const MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX="tutribu:messaging-connection-intent";
+/** Clear localized feedback without provider/internal errors or optimistic claims of a committed write. */
+export const MESSAGING_CONNECTIONS_UI_COPY={nameRequired:"Ingresá un nombre para la conexión.",nameTooLong:"El nombre de la conexión es demasiado largo.",keyRequired:"Ingresá la clave antes de guardar.",confirmationRequired:"Confirmá que querés guardar la credencial.",writing:"Guardando la conexión…",saved:"La conexión candidata quedó guardada.",pending:"No pudimos confirmar el guardado. Consultá su resultado antes de volver a guardar.",reading:"Consultando el resultado del guardado…",viewerChanged:"La cuenta cambió. Volvé a abrir esta página para continuar.",clearFailed:"No pudimos limpiar la referencia local del guardado. Consultá el guardado para continuar.",storageUnavailable:"No pudimos conservar la referencia del guardado. Reintentá antes de guardar.",reauthenticationFailed:"No pudimos preparar la confirmación con Google. Reintentá.",keyAfterReauthentication:"Ingresá la clave después de confirmar tu cuenta con Google.",reauthenticationReady:"La confirmación está preparada. Continuá con Google."} as const;
