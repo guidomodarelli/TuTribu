@@ -6,7 +6,7 @@ import {MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX} from "@/src/modules/messagi
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 
 /** Browser metadata is untrusted input and never an authorization token. */
-const intentSchema=z.strictObject({type:z.enum([REAUTHENTICATION_OPERATION.saveMessagingCredentials,REAUTHENTICATION_OPERATION.validateMessagingConnection]),operationId:z.uuid()});
+const intentSchema=z.strictObject({type:z.enum([REAUTHENTICATION_OPERATION.saveMessagingCredentials,REAUTHENTICATION_OPERATION.validateMessagingConnection,REAUTHENTICATION_OPERATION.configureMessagingConnection]),operationId:z.uuid()});
 /** @returns An owned session-only metadata store; construction never reads browser state during SSR. */
 export function createMessagingConnectionsIntentStore():MessagingConnectionsIntentStore{
   const key=(viewerId:string,slug:string)=>`${MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX}:${encodeURIComponent(viewerId)}:${encodeURIComponent(slug)}`;
