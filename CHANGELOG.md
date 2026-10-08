@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Los códigos de ingreso conservan el resultado original ante una respuesta perdida; su prueba puede adjuntarse a la solicitud pendiente sin renovar el plazo ni conceder membresía.
+
 - El asistente ofrece Seguridad y retiro para elegir una conexión, revisar el motivo y el impacto, renovar la confirmación y consultar un resultado perdido antes de continuar.
 
 - Los líderes pueden suspender una conexión con una confirmación reciente específica o retirarla cuando se resuelven sus dependencias, y recuperar el resultado original sin consultar al proveedor.

@@ -24,15 +24,15 @@ export class ApplyAdmissionProofUseCase {
       if (!account || !isAuthenticatedSessionLive(account.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const raw = await this.operations.apply({ userId: account.userId, sessionId: account.session.id, tribeId: input.tribeId, requestId: input.requestId, purpose: ADMISSION_VERIFICATION_PURPOSE.admission, admissionRequestId: input.admissionRequestId, proofId: input.proofId, expectedRequestVersion: input.expectedRequestVersion, operationId: input.operationId });
       const parsed = admissionProofApplicationOperationSchema.safeParse(raw);
-      if (!parsed.success || parsed.data.operationId !== input.operationId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+      if (!parsed.success || parsed.data.operationId.toLowerCase() !== input.operationId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       const value = parsed.data;
       if (value.state === OPERATION_STATE.completed) {
         if (value.result.outcome === ADMISSION_PROOF_APPLICATION_OUTCOME.denied) return { ok: false as const, failure: admissionFailure(value.result.code, { operation: { operationId: input.operationId, state: OPERATION_STATE.completed } }) };
-        if (value.result.requestId !== input.admissionRequestId || value.result.proofId !== input.proofId || value.result.requestVersion !== input.expectedRequestVersion + 1) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+        if (value.result.requestId.toLowerCase() !== input.admissionRequestId.toLowerCase() || value.result.proofId.toLowerCase() !== input.proofId.toLowerCase() || value.result.requestVersion !== input.expectedRequestVersion + 1) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       }
       return { ok: true as const, value };
     } catch (error) {
-      if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.operationUnresolved && error.operationId && error.operationId !== input.operationId) return admissionOperationFailure(new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable, { cause: error }));
+      if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.operationUnresolved && error.operationId && error.operationId.toLowerCase() !== input.operationId.toLowerCase()) return admissionOperationFailure(new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable, { cause: error }));
       return admissionOperationFailure(error);
     }
   }

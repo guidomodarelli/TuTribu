@@ -18,6 +18,12 @@ function proofFixture() {
 }
 
 describe("apply original admission proof", () => {
+  it("should treat uppercase request, proof and original operation UUIDs as the same committed identity", async () => {
+    const fixture = proofFixture(), input = { ...fixture.input, admissionRequestId: fixture.input.admissionRequestId.toUpperCase(), proofId: fixture.input.proofId.toUpperCase(), operationId: fixture.input.operationId.toUpperCase() };
+    expect(await new ApplyAdmissionProofUseCase(fixture.accounts, fixture.operations, () => fixture.now).execute(input)).toEqual({ ok: true, value: fixture.confirmed });
+    fixture.operations.apply.mockRejectedValueOnce(new AdmissionOperationError("operation_unresolved", { operationId: fixture.input.operationId }));
+    expect(await new ApplyAdmissionProofUseCase(fixture.accounts, fixture.operations, () => fixture.now).execute(input)).toMatchObject({ ok: false, failure: { code: "operation_unresolved", operation: { operationId: fixture.input.operationId, state: "started" } } });
+  });
   it("should derive native identity and allowlist the attachment proposal without caller contact or permissions", async () => {
     const fixture = proofFixture(), useCase = new ApplyAdmissionProofUseCase(fixture.accounts, fixture.operations, () => fixture.now);
     const injected = { ...fixture.input, userId: randomUUID(), sessionId: randomUUID(), purpose: "connection_diagnostic", contact: "foreign@example.test", verified: true, bypass: true };
