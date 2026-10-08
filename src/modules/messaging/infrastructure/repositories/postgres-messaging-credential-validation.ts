@@ -19,6 +19,7 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { messagingCredentialPreparationSchema,messagingCredentialValidationSchema } from "@/src/modules/messaging/application/results/messaging-credential-validation-result";
 import { authorizeMessagingSecret,messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
 import { executeMessagingLedger } from "./execute-messaging-ledger";
+import { readMessagingCandidatePreparationState } from "./postgres-messaging-candidate-preparation";
 
 /** Each callback is an actual guarded transaction; none may run a provider request. */
 export type CredentialValidationDatabaseExecutor=<Result>(context:AuthorizedMessagingContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
@@ -100,7 +101,8 @@ export class PostgresMessagingCredentialValidation implements MessagingCredentia
         const now=await this.authorize(database,context,true);
         const credentialState=outcome.ok?MESSAGING_CREDENTIAL_PUBLIC_STATE.valid:outcome.code===MESSAGING_ERROR_CODE.invalidCredentials?MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid:MESSAGING_CREDENTIAL_PUBLIC_STATE.unavailable;
         await database.execute(sql`update public.messaging_connection_versions set credential_validation_status=${credentialState},credential_validated_at=${now},is_test_mode=${outcome.ok?outcome.inspection.isTestMode:null},provider_project_ref=${outcome.ok?outcome.inspection.projectId:null},provider_team_ref=${outcome.ok?outcome.inspection.teamId:null},provider_key_ref=${outcome.ok?outcome.inspection.apiKeyId:null},last_activity_at=${now} where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and version=${context.connectionVersion}`);
-        await database.execute(sql`update public.tenant_messaging_connections set version=version+1,updated_at=${now} where id=${context.connectionId} and tribe_id=${context.tribeId} and version=${input.expectedVersion}`);
+        const candidateState=await readMessagingCandidatePreparationState(database,context);
+        await database.execute(sql`update public.tenant_messaging_connections set state=coalesce(${candidateState},state),version=version+1,updated_at=${now} where id=${context.connectionId} and tribe_id=${context.tribeId} and version=${input.expectedVersion}`);
         await this.authorize(database,context,true);
         return{id:context.connectionId,version:input.expectedVersion+1,configurationVersion:context.connectionVersion,credentialState,credentialMode:outcome.ok?outcome.inspection.isTestMode?MESSAGING_CREDENTIAL_MODE.test:MESSAGING_CREDENTIAL_MODE.production:MESSAGING_CREDENTIAL_MODE.unknown,validatedAt:now.toISOString(),...(!outcome.ok?{failureCode:outcome.code}:{})};
       });

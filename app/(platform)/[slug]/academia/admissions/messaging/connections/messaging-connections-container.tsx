@@ -116,7 +116,7 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
     busy.current=true;const controller=new AbortController();observation.current=controller;setReauthenticationHref(null);
     try{if(!await checkViewer(controller.signal))return;const intent:MessagingConnectionsPendingIntent={type:REAUTHENTICATION_OPERATION.saveMessagingCredentials,operationId:newAdmissionOperationId(),original:{name:name.trim()}};if(!retain(intent))return;setPhase(PHASE.writing);setMessage({kind:"status",text:COPY.writing});const result=await client.create(ready.slug,{operationId:intent.operationId,confirmed:true,providerId:MESSAGING_INITIAL_PROVIDER_ID,name:name.trim(),apiKey:apiKey.trim()},controller.signal);if(controller.signal.aborted||!mounted.current)return;setApiKey("");if(!await checkViewer(controller.signal))return;if(result.status==="ready"&&result.value.state===OPERATION_STATE.completed){applyCreated(result.value.result);toast.success(COPY.saved);return;}if(result.status==="failed"&&!result.uncertain){if(result.code===MESSAGING_ERROR_CODE.connectionConflict)setNeedsCurrent(true);if(retain(null))setMessage({kind:"alert",text:result.message});toast.error(result.message);}else setMessage({kind:"alert",text:COPY.pending});}finally{busy.current=false;if(mounted.current)setPhase((current)=>current===PHASE.unavailable?current:PHASE.idle);}
   };
-  /** @returns Nothing after one explicit candidate CAS check; its result cannot prepare or activate a channel. */
+  /** @returns Nothing after one explicit candidate CAS check and current lifecycle reconciliation; it cannot activate a channel. */
   const validate=async()=>{
     const candidate=configuration?.audience===TRIBE_MEMBER_ROLE.leader?configuration.candidate:null;
     if(!ready||!candidate||!validationConfirmed||busy.current||phase!==PHASE.idle||pending||needsCurrent)return;
@@ -130,7 +130,9 @@ export function MessagingConnectionsContainer({initialState,client=messagingConn
       if(outcome.status==="ready"&&outcome.value.state===OPERATION_STATE.completed){
         const result=outcome.value.result;
         if(result.configurationVersion!==candidate.configurationVersion){setMessage({kind:"alert",text:CHECK_COPY.pending});return;}
-        setConfiguration((current)=>current?.audience===TRIBE_MEMBER_ROLE.leader&&current.candidate?.id===candidate.id&&current.candidate.configurationVersion===candidate.configurationVersion?{...current,candidate:{...current.candidate,version:result.version,credentialState:result.credentialState,credentialMode:result.credentialMode}}:current);
+        // Credential changes can retire candidate readiness; the minimal result cannot reconstruct the current lifecycle.
+        const current=await client.read(ready.slug,controller.signal);if(controller.signal.aborted||!mounted.current)return;if(!await checkViewer(controller.signal))return;
+        if(current.status!=="ready"){setMessage({kind:"alert",text:CHECK_COPY.pending});return;}setConfiguration(current.value);
         if(retain(null))setMessage(result.failureCode?{kind:"alert",text:MESSAGING_ERROR_MESSAGE[result.failureCode]}:{kind:"status",text:CHECK_COPY.checked});
         return;
       }

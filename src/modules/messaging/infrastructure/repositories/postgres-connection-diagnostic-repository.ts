@@ -17,6 +17,7 @@ import type { ConnectionDiagnosticVerifier, ConnectionDiagnosticVerificationResu
 import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { authorizeConnectionDiagnostic } from "./postgres-connection-diagnostic-authorizer";
+import { readMessagingCandidatePreparationState } from "./postgres-messaging-candidate-preparation";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 /** Consumes only the identity and result fields necessary to confirm the owned diagnostic. */
@@ -89,6 +90,8 @@ export class PostgresConnectionDiagnosticRepository implements ConnectionDiagnos
     const capabilityState = capability.state === VERIFICATION_CAPABILITY_STATE.unavailable ? VERIFICATION_CAPABILITY_STATE.unavailable : VERIFICATION_CAPABILITY_STATE.prepared;
     await this.database.execute(sql`update public.messaging_connection_diagnostics set outcome=${CONNECTION_DIAGNOSTIC_OUTCOME.verified},validated_at=${verification.verifiedAt} where id=${diagnostic.id}`);
     await this.database.execute(sql`update public.messaging_connection_capabilities set state=${capabilityState},tested_at=${verification.verifiedAt} where id=${capability.id}`);
+    const candidateState = await readMessagingCandidatePreparationState(this.database, context);
+    if (candidateState !== null) await this.database.execute(sql`update public.tenant_messaging_connections set state=${candidateState},version=version+1,updated_at=${verification.verifiedAt} where id=${context.connectionId} and tribe_id=${context.tribeId} and is_candidate and not is_selected and candidate_version=${context.connectionVersion} and state<>${candidateState}`);
     await this.authorize(command);
     return { outcome: CONNECTION_DIAGNOSTIC_VERIFICATION_OUTCOME.verified, diagnosticId: diagnostic.id, connectionVersion: context.connectionVersion, channel: diagnostic.channel, validatedAt: verification.verifiedAt, capabilityState };
   }
