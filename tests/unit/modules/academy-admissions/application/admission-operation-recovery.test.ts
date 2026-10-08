@@ -16,6 +16,12 @@ function recoveryFixture() {
 }
 
 describe("original admission operation read", () => {
+  it.each(["applied", "denied"])("should recover the original proof attachment outcome: %s", async (outcome) => {
+    const fixture = recoveryFixture();
+    const snapshot = outcome === "applied" ? { outcome, requestId: randomUUID(), requestVersion: 2, status: "pending", proofId: randomUUID() } : { outcome, code: "proof_unavailable" };
+    fixture.reader.read.mockResolvedValue({ operationType: "attach_admission_proof", operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });
+    expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toEqual({ ok: true, value: { type: "attach_admission_proof", state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });
+  });
   it.each(["issue_contact_challenge", "resend_contact_challenge"])("should recover original %s with masked admission contact and no private transport material", async (operationType) => {
     const fixture = recoveryFixture();
     fixture.reader.read.mockResolvedValue({ operationType, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: { purpose: "admission", challengeId: randomUUID(), channel: "email", maskedDestination: "a•••@example.test", expiresAt: "2026-10-07T00:10:00Z", resendAllowedAt: "2026-10-07T00:01:00Z", deliveryState: "queued", codeEnvelope: "synthetic-private", destination: fixture.account.normalizedEmail } } });
