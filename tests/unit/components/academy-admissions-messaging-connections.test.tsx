@@ -6,7 +6,7 @@ import {describe,expect,it,vi} from "vitest";
 import {MessagingConnections} from "@/components/academy-admissions/messaging-connections";
 
 /** @returns Controlled own view state without session, SDK, HTTP adapter or a stored credential. */
-function presenterFixture(){return{configuration:{audience:"leader" as const,selected:null,candidate:null,usage:{state:"not_configured" as const,policy:null}},name:"",apiKey:"",confirmed:false,busy:false,canSave:false,canReauthenticate:true,fieldErrors:{},message:null,onNameChange:vi.fn(),onApiKeyChange:vi.fn(),onConfirmationChange:vi.fn(),onSave:vi.fn(),onReauthenticate:vi.fn()};}
+function presenterFixture(){return{configuration:{audience:"leader" as const,selected:null,candidate:null,usage:{state:"not_configured" as const,policy:null}},name:"",apiKey:"",confirmed:false,busy:false,canSave:false,canReauthenticate:true,validationConfirmed:false,canValidate:false,fieldErrors:{},message:null,onNameChange:vi.fn(),onApiKeyChange:vi.fn(),onConfirmationChange:vi.fn(),onSave:vi.fn(),onReauthenticate:vi.fn(),onValidationReauthenticate:vi.fn(),onValidationConfirmationChange:vi.fn(),onValidate:vi.fn()};}
 describe("messaging connection first step",()=>{
   it("should show only the operational alert to a guardian without credential controls",()=>{
     const props=presenterFixture();render(<MessagingConnections {...props} configuration={{audience:"guardian",operationalAlert:"attention_required"}} />);

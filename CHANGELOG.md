@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Los líderes pueden comprobar la credencial candidata desde la pantalla de conexión, distinguir cuentas de prueba y recuperar la comprobación sin repetirla; ante cambios concurrentes consultan el estado actual y confirman nuevamente.
+
 - Los líderes tienen un primer paso de conexión para guardar una candidata de Zavu, borrar la clave del formulario y recuperar una respuesta perdida sin repetir el guardado; los guardianes consultan sólo su alerta de disponibilidad.
 
 - Los líderes pueden consultar el resultado original de un guardado de conexión sin reenviar la clave ni repetir el cambio.

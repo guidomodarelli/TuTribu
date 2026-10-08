@@ -14,4 +14,8 @@ describe("connection intent metadata storage",()=>{
     window.sessionStorage.setItem(key,JSON.stringify({type:"save_messaging_credentials",operationId:randomUUID(),apiKey:randomUUID()}));expect(store.read(viewerId,"synthetic")).toBeNull();expect(window.sessionStorage.getItem(key)).toBeNull();
     window.sessionStorage.setItem(key,"{broken");expect(store.read(viewerId,"synthetic")).toBeNull();expect(window.sessionStorage.getItem(key)).toBeNull();
   });
+  it("should retain the original credential-check type without storing its connection or input",()=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),intent={type:"validate_messaging_connection" as const,operationId:randomUUID()};expect(store.write(viewerId,"synthetic",intent)).toBe(true);expect(store.read(viewerId,"synthetic")).toEqual(intent);expect(JSON.parse(window.sessionStorage.getItem(`${MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX}:${viewerId}:synthetic`)!)).toEqual(intent);
+  });
+
 });
