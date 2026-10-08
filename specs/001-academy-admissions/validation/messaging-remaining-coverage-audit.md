@@ -97,3 +97,9 @@ La auditoría Codex sobre4c3ec071 acredita T090/T091/T092: registry sóloZavu, f
 T093 detectó texto obsoleto de asistentes, países y suspensión en tenant-messaging.htm, recencia en member-sessions.htm y una nota que confundía entrada de gestión con ensayo Google en account-and-navigation.html; academy-admissions.htm mezclaba endpoints diagnósticos conectados con admisión pública pendiente. Se actualizan sólo esas declaraciones, conservando los gates externos y la distinción de esquemas. El manual de cuenta registra source-trace4c3ec071 con11paths verificados, sin recapturar sus esquemas. Check-manual pasó0errores con las dos advertencias locales conocidas. QA67962 final pasó44renders de11documentos en Chromium/WebKit1280/390, sin overflow, pins inválidos ni pageerrors; índices y navegación siguen funcionando.
 
 Se marcan T090→T091→T092→T093:94/212 completas118 pendientes. Los criterios/IDs se conservan. T094 y los gates tienen evaluación propia; no se usan las nuevas ejecuciones73163/54921/25919 ni WIP de capturas/rotación para acreditar este cierre.
+
+## Validación local T094
+
+La auditoría Codex sobre df4315be y zavu-channels.md acredita T094 en su alcance local: SDK/SQL/UI con transporte cerrado, países guardados por UI antes del primer diagnóstico telefónico y builds Node54885 y OpenNextLinux25919 completos. La fuente compilada4c3ec071 es el mismo producto del HEAD actual. Preview40225 sólo acredita el input boundary de Workers; sus procesos y materiales propios fueron limpiados y la ausencia confirmada.
+
+Sólo T094 se marca completa:95/212 completas117 pendientes. OG01/02/03 y la entrega externa siguen pendientes. El informe conserva los rojos53055/86683 y excluye matrix73163/late98673 sin resultado. Todos los IDs y criterios normativos se mantienen.
