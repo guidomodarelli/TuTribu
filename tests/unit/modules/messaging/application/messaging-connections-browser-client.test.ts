@@ -24,4 +24,11 @@ describe("connection wizard own browser transport",()=>{
     const response=new Response(new ReadableStream<Uint8Array>({start(stream){body=stream;}})),fetch=vi.fn<typeof globalThis.fetch>(async()=>response),client=createMessagingConnectionsBrowserClient({fetch,viewer:async()=>({status:"ready",value:null})});
     const reading=client.operation("synthetic",operationId,controller.signal);await Promise.resolve();controller.abort();body.error(new DOMException("synthetic abort","AbortError"));expect(await reading).toEqual({status:"aborted"});
   });
+  it("should validate the current candidate once without a key and reject a result from another connection or version",async()=>{
+    const connectionId=randomUUID(),operationId=randomUUID(),input={operationId,expectedVersion:3,confirmed:true as const},value={state:"completed",operationId,replayed:false,result:{id:connectionId,version:4,configurationVersion:2,credentialState:"valid",credentialMode:"test",validatedAt:new Date().toISOString()}},fetch=vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(Response.json(value)),client=createMessagingConnectionsBrowserClient({fetch,viewer:async()=>({status:"ready",value:null})});
+    expect(await client.validate("synthetic",connectionId,input,new AbortController().signal)).toEqual({status:"ready",value});expect(fetch).toHaveBeenCalledTimes(1);expect(fetch.mock.calls[0]).toEqual([`/api/tribes/synthetic/messaging/connections/${connectionId}/validate`,expect.objectContaining({method:"POST",body:JSON.stringify(input),cache:"no-store"})]);
+    fetch.mockResolvedValueOnce(Response.json({...value,result:{...value.result,id:randomUUID()}}));expect(await client.validate("synthetic",connectionId,input,new AbortController().signal)).toMatchObject({status:"failed",uncertain:true,code:"public_contract_unusable"});
+    fetch.mockResolvedValueOnce(Response.json({...value,result:{...value.result,version:3}}));expect(await client.validate("synthetic",connectionId,input,new AbortController().signal)).toMatchObject({status:"failed",uncertain:true,code:"public_contract_unusable"});
+  });
+
 });

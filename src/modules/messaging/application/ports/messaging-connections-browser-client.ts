@@ -5,6 +5,7 @@ import type {MessagingConnectionOperationRecovery} from "../results/messaging-co
 import type {MessagingConnectionMutationResult} from "../results/messaging-connection-mutation-result";
 import type {MessagingConnectionCreationInput} from "../../domain/repositories/messaging-connection-management";
 import type {AdmissionOperationResult} from "@/src/modules/academy-admissions/domain/entities/admission-operation";
+import type {MessagingCredentialValidationInput,MessagingCredentialValidationResult} from "../../domain/repositories/messaging-credential-validation";
 
 /** A lost/aborted write retains its original identity; an observation cannot claim rollback. */
 export type MessagingConnectionsBrowserResult<Value>=MessagingUsageBrowserResult<Value>;
@@ -15,6 +16,8 @@ export interface MessagingConnectionsBrowserClient{
   read(slug:string,signal:AbortSignal):Promise<MessagingConnectionsBrowserResult<MessagingConfigurationResult>>;
   /** @param slug - Current canonical route. @param input - Explicit original key held only in memory. @param signal - Write observation. @returns Original protected candidate result or uncertainty, without a retry. */
   create(slug:string,input:MessagingConnectionCreationInput,signal:AbortSignal):Promise<MessagingConnectionsBrowserResult<AdmissionOperationResult<MessagingConnectionMutationResult>>>;
+  /** @param slug - Current route scope. @param connectionId - Explicit candidate. @param input - Original confirmation and observed CAS; no key. @param signal - Observation lifetime. @returns Credential facts only, without sending or preparing channels. */
+  validate(slug:string,connectionId:string,input:MessagingCredentialValidationInput,signal:AbortSignal):Promise<MessagingConnectionsBrowserResult<AdmissionOperationResult<MessagingCredentialValidationResult>>>;
   /** @param slug - Current canonical route. @param operationId - Original client UUID. @param signal - Read lifetime. @returns Original mutation metadata without another key or lease. */
   operation(slug:string,operationId:string,signal:AbortSignal):Promise<MessagingConnectionsBrowserResult<MessagingConnectionOperationRecovery>>;
 }

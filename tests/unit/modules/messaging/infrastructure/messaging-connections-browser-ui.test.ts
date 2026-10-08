@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises actual Next/UI/auth/SQL in both engines with closed provider HTTP and ephemeral synthetic key input. @module messaging-connections-browser-ui-tests */
-import {randomUUID} from "node:crypto";
+import {randomBytes,randomUUID} from "node:crypto";
 import {join} from "node:path";
 import {chromium,webkit} from "@playwright/test";
 import {sql} from "drizzle-orm";
@@ -15,7 +15,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS!=="1")("native connectio
   it.each([{name:"chromium",engine:chromium,width:1280},{name:"chromium",engine:chromium,width:390},{name:"webkit",engine:webkit,width:1280},{name:"webkit",engine:webkit,width:390}])("should preserve key privacy and reconcile a lost creation response on $name at $width",async({name,engine,width})=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await prepareMessagingConnectionCreation(database),tribeId=fixture.context.tribeId,slug=`connection-${tribeId}`,credential=randomUUID();
-      for(const migration of["20261005092500_guard_messaging_attempts.sql","20261005093000_guard_academy_membership_sources.sql","20261007001000_read_public_admission_overview.sql"])await database.applyMigration(migration);
+      for(const migration of["20261005092500_guard_messaging_attempts.sql","20261005093000_guard_academy_membership_sources.sql","20261007001000_read_public_admission_overview.sql","20261006230000_bind_credential_validation_usage.sql"])await database.applyMigration(migration);
       await database.withContext(fixture.fixture.own,(transaction)=>transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`));let providerRequests=0;
       await database.withServerEnvironment((environment)=>withAdmissionNextServer(environment,slug,async(origin,secret)=>{
         const browser=await engine.launch({headless:true}),context=await browser.newContext({viewport:{width,height:900},reducedMotion:"reduce"}),page=await context.newPage(),errors:string[]=[];page.on("pageerror",(error)=>errors.push(error.message));
@@ -30,7 +30,20 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS!=="1")("native connectio
           await page.unroute(`**/api/tribes/${slug}/messaging/connections`);await page.getByRole("button",{name:"Consultar guardado",exact:true}).click();await page.getByRole("heading",{name:"Conexión candidata",exact:true}).waitFor({timeout:120_000});expect(await page.getByText("Zavu de la academia",{exact:true}).count()).toBe(1);expect(providerRequests).toBe(0);
           expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);expect(errors).toEqual([]);
           if(name==="chromium"&&width===1280)await captureAdmissionReview(page,"connection-candidate",[credential,fixture.sessionToken,secret,fixture.fixture.own.email,fixture.context.actorUserId],"connection-captures.json");
-          const counts=await database.withContext(fixture.fixture.own,async(transaction)=>(await transaction.execute(sql`select (select count(*)::int from public.tenant_messaging_connections where tribe_id=${tribeId}) as connections,(select count(*)::int from public.message_deliveries where tribe_id=${tribeId}) as deliveries`)).rows[0]);expect(counts).toEqual({connections:1,deliveries:0});
+          const connectionId=await database.withContext(fixture.fixture.own,async(transaction)=>(await transaction.execute<{id:string}>(sql`select id from public.tenant_messaging_connections where tribe_id=${tribeId}`)).rows[0].id);
+          await database.withContext(fixture.fixture.own,async(transaction)=>{
+            const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000),intentId=randomUUID();
+            await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${tribeId},'validate_messaging_connection',${connectionId},'/synthetic-native-validation',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
+            await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.context.actorUserId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.sessionId},${tribeId},'validate_messaging_connection',${connectionId},${now},${now},${validUntil})`);
+          });
+          expect(providerRequests).toBe(0);expect(await page.getByRole("button",{name:"Comprobar credencial",exact:true}).isDisabled()).toBe(true);
+          const validationPath=`**/api/tribes/${slug}/messaging/connections/${connectionId}/validate`;
+          await page.route(validationPath,async(route)=>{try{await route.fetch({timeout:120_000});await route.abort("failed");}catch{throw new Error("Credential check test transport failed before controlled response loss");}});
+          await page.getByRole("checkbox",{name:/Confirmo que quiero comprobar/}).check();await page.getByRole("button",{name:"Comprobar credencial",exact:true}).click();
+          await page.getByRole("button",{name:"Consultar guardado",exact:true}).waitFor({timeout:120_000});await page.waitForFunction(()=>{const button=Array.from(document.querySelectorAll("button")).find((element)=>element.textContent?.trim()==="Consultar guardado");return Boolean(button&&!button.disabled);},{},{timeout:120_000});expect(providerRequests).toBe(1);
+          await page.unroute(validationPath);await page.getByRole("button",{name:"Consultar guardado",exact:true}).click();await page.getByText("Credencial comprobada",{exact:true}).waitFor({timeout:120_000});expect(await page.getByText("Cuenta de prueba",{exact:true}).count()).toBe(1);expect(await page.getByText("Borrador",{exact:true}).count()).toBe(1);expect(providerRequests).toBe(1);expect(errors).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+          if(name==="chromium"&&width===1280)await captureAdmissionReview(page,"connection-checked",[credential,fixture.sessionToken,secret,fixture.fixture.own.email,fixture.context.actorUserId],"connection-captures.json");
+          const counts=await database.withContext(fixture.fixture.own,async(transaction)=>(await transaction.execute(sql`select (select count(*)::int from public.tenant_messaging_connections where tribe_id=${tribeId}) as connections,(select count(*)::int from public.message_deliveries where tribe_id=${tribeId}) as deliveries,(select count(*)::int from public.messaging_usage_events where tribe_id=${tribeId} and event_type='credential_validation') as checks,(select count(*)::int from public.messaging_connection_capabilities where tribe_id=${tribeId}) as capabilities`)).rows[0]);expect(counts).toEqual({connections:1,deliveries:0,checks:1,capabilities:0});
         }finally{await page.unrouteAll({behavior:"ignoreErrors"});await context.close();await browser.close();}
       },{preloadModules:[join(process.cwd(),"tests/support/native-zavu-provider-transport.mjs")],environment:{ADMISSION_TEST_ZAVU_CREDENTIAL:credential},onProviderRequest:()=>{providerRequests+=1;}}));
     });
