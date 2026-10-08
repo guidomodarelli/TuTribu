@@ -58,4 +58,3 @@ export function useMessagingResourceController(options:ResourceControllerOptions
     chooseTemplate:(templateId:string)=>{const template=templates.items.find((option)=>option.id===templateId);change({...draft,templateId,templateLanguage:template?.language??draft.templateLanguage});},
   };
 }
-
