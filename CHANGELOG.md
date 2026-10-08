@@ -41,6 +41,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Los intentos de conexión sin resultado permiten consultar el estado actual, reanudar los mismos datos con nueva confirmación o conservar su referencia en un historial local, sin cancelar el servidor ni repetir operaciones automáticamente.
+- Una comprobación de credencial interrumpida conserva su consumo y puede cerrar como no disponible sin otra consulta al proveedor; un resultado tardío no reemplaza el original confirmado.
+
 - Las solicitudes de conexión con un proveedor no disponible informan que falta esa capacidad, sin guardar la credencial ni elegir otro proveedor.
 
 - Una conexión no se activa si su diagnóstico vence mientras espera la confirmación en la base de datos.

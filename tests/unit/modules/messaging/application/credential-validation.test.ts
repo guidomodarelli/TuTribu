@@ -16,8 +16,8 @@ function validationFixture(status=200){
   const input={tribeId:context.tribeId,connectionId:context.connectionId,requestId:context.requestId,operationId:randomUUID(),expectedVersion:1,confirmed:true as const},validationId=randomUUID(),credential=randomUUID(),events:string[]=[];
   const transport=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:"/v1/me",method:"GET",respond:(request)=>{events.push("provider");expect(request.headers.get("Authorization")).toBe(`Bearer ${credential}`);return status===200?Response.json({isTestMode:true,apiKey:{id:randomUUID()},project:{id:randomUUID()},team:{id:randomUUID()},ignored:{arbitrary:true}}):Response.json({message:"private provider failure"},{status});}}]);
   const resolve=vi.fn(async()=>{events.push("authorize");return{allowed:true as const,context};});
-  const prepare=vi.fn(async()=>{events.push("prepare");return{state:"prepared" as const,validationId,configurationVersion:1};}),read=vi.fn(async()=>null);
-  const complete=vi.fn<MessagingCredentialValidationOperations["complete"]>(async(_context,_input,_validationId,outcome)=>{events.push("complete");return{state:"completed"as const,operationId:input.operationId,replayed:false,result:{id:context.connectionId,version:2,configurationVersion:1,credentialState:outcome.ok?"valid"as const:"invalid"as const,credentialMode:outcome.ok?"test"as const:"unknown"as const,validatedAt:now.toISOString()}};});
+  const prepare=vi.fn(async()=>{events.push("prepare");return{state:"prepared" as const,validationId,configurationVersion:1};}),read=vi.fn<MessagingCredentialValidationOperations["read"]>(async()=>null);
+  const complete=vi.fn<MessagingCredentialValidationOperations["complete"]>(async(_context,_input,_validationId,outcome)=>{events.push("complete");return{state:"completed"as const,operationId:input.operationId,replayed:false,result:{id:context.connectionId,version:2,configurationVersion:1,credentialState:outcome.ok?"valid"as const:outcome.code==="invalid_credentials"?"invalid"as const:"unavailable"as const,credentialMode:outcome.ok?"test"as const:"unknown"as const,validatedAt:now.toISOString(),...(!outcome.ok?{failureCode:outcome.code}:{})}};});
   const reserve=vi.fn<CredentialValidationBudget["reserve"]>(async()=>{events.push("budget");return{outcome:"reserved"as const,operationId:validationId,reservedAt:now};});
   const loadAuthorizedSecret=vi.fn(async()=>{events.push("secret");return credential;});
   const useCase=new ValidateMessagingConnectionUseCase({execute:resolve},{prepare,read,complete},{execute:reserve},{loadAuthorizedSecret},{create:(scope,key)=>new ZavuConnectionInspector({...scope,credential:key},transport.fetch)});
@@ -50,4 +50,15 @@ describe("staged credential validation",()=>{
     expect(await fixture.useCase.execute(fixture.input,new AbortController().signal)).toMatchObject({ok:false,failure:{code:"authentication_required"}});
     expect(fixture.transport.receipts).toHaveLength(0);expect(fixture.complete).not.toHaveBeenCalled();
   });
+  it("should conservatively complete an abandoned reserved validation without loading a key or repeating the provider",async()=>{
+    const fixture=validationFixture();fixture.reserve.mockResolvedValueOnce({outcome:"already_reserved",operationId:fixture.validationId,reservedAt:new Date(Date.now()-120_000)});
+    const result=await fixture.useCase.execute(fixture.input,new AbortController().signal);
+    expect(result).toMatchObject({ok:true,value:{state:"completed",result:{credentialState:"unavailable",credentialMode:"unknown",failureCode:"dependency_unavailable"}}});expect(fixture.complete).toHaveBeenCalledExactlyOnceWith(fixture.context,fixture.input,fixture.validationId,{ok:false,code:"dependency_unavailable"});expect(fixture.loadAuthorizedSecret).not.toHaveBeenCalled();expect(fixture.transport.receipts).toHaveLength(0);
+  });
+
+  it("should resume conservative completion for a registered final claim after the reserved inspection grace without another SDK call",async()=>{
+    const fixture=validationFixture();fixture.reserve.mockResolvedValueOnce({outcome:"already_reserved",operationId:fixture.validationId,reservedAt:new Date(Date.now()-120_000)});fixture.read.mockResolvedValueOnce({state:"started",operationId:fixture.input.operationId});
+    expect(await fixture.useCase.execute(fixture.input,new AbortController().signal)).toMatchObject({ok:true,value:{state:"completed",result:{credentialState:"unavailable"}}});expect(fixture.complete).toHaveBeenCalledTimes(1);expect(fixture.transport.receipts).toHaveLength(0);expect(fixture.loadAuthorizedSecret).not.toHaveBeenCalled();
+  });
+
 });

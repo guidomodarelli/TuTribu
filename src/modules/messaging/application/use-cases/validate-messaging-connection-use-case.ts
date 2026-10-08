@@ -11,6 +11,7 @@ import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messagin
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { messagingFailure } from "@/src/modules/messaging/application/results/messaging-errors";
+import {MESSAGING_CREDENTIAL_RECOVERY_GRACE_MS} from "@/src/modules/messaging/constants/messaging-credential-validation";
 
 /** Incoming IDs are resolved again; none are a private permission token. */
 export type ValidateMessagingConnectionInput=MessagingCredentialValidationInput&{tribeId:string;connectionId:string;requestId:string};
@@ -23,7 +24,7 @@ function sameValidationScope(original:AuthorizedMessagingContext,current:Authori
 /** Never retries the provider after a consumed reservation, uncertain result or original replay. */
 export class ValidateMessagingConnectionUseCase {
   /** @param resolver - Current own account/role/recency/resource authority. @param operations - Committing DB-only preparation/result stages. @param budget - Committing private validation allowance. @param secrets - Current authority-checking private material store. @param inspectors - Explicit per-resource provider factory. */
-  constructor(private readonly resolver:Pick<ResolveMessagingContextUseCase,"execute">,private readonly operations:MessagingCredentialValidationOperations,private readonly budget:Pick<ReserveMessagingUsageUseCase,"execute">,private readonly secrets:MessagingSecretStore,private readonly inspectors:MessagingCredentialInspectorFactory){}
+  constructor(private readonly resolver:Pick<ResolveMessagingContextUseCase,"execute">,private readonly operations:MessagingCredentialValidationOperations,private readonly budget:Pick<ReserveMessagingUsageUseCase,"execute">,private readonly secrets:MessagingSecretStore,private readonly inspectors:MessagingCredentialInspectorFactory,private readonly clock:()=>Date=()=>new Date()){}
   /** @param input - Own boundary-validated original action. @param signal - Caller cancellation/deadline. @returns Original safe metadata, durable progress or a closed current denial. */
   async execute(input:ValidateMessagingConnectionInput,signal:AbortSignal){
     let prepared=false;
@@ -38,7 +39,16 @@ export class ValidateMessagingConnectionUseCase {
       signal.throwIfAborted();
       const reservation=await this.budget.execute({context,operationId:preparation.validationId});
       if(reservation.outcome==="denied")return{ok:false as const,failure:messagingFailure(reservation.code)};
-      if(reservation.outcome==="already_reserved")return{ok:true as const,value:await this.operations.read(context,input)??{state:OPERATION_STATE.started,operationId:input.operationId}};
+      if(reservation.outcome==="already_reserved"){
+        const original=await this.operations.read(context,input);if(original?.state===OPERATION_STATE.completed)return{ok:true as const,value:original};
+        const age=this.clock().getTime()-reservation.reservedAt.getTime();
+        if(!Number.isFinite(age)||age<MESSAGING_CREDENTIAL_RECOVERY_GRACE_MS)return{ok:true as const,value:{state:OPERATION_STATE.started,operationId:input.operationId}};
+        signal.throwIfAborted();
+        const current=await this.resolver.execute(command);if(!current.allowed)return{ok:false as const,failure:current.failure};
+        if(context.actorUserId!==current.context.actorUserId||context.sessionId!==current.context.sessionId||context.accountId!==current.context.accountId||context.subject!==current.context.subject)throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
+        if(!sameValidationScope(context,current.context))throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.connectionConflict);
+        return{ok:true as const,value:await this.operations.complete(context,input,preparation.validationId,{ok:false,code:MESSAGING_ERROR_CODE.dependencyUnavailable})};
+      }
       signal.throwIfAborted();
       const credential=await this.secrets.loadAuthorizedSecret(context);
       const current=await this.resolver.execute(command);if(!current.allowed)return{ok:false as const,failure:current.failure};

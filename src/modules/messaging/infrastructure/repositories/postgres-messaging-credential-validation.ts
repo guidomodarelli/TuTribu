@@ -67,7 +67,7 @@ export class PostgresMessagingCredentialValidation implements MessagingCredentia
   /** @param context - Current exact private authority. @param input - Original stable intent. @returns Historical final result or one committed private accounting identity. */
   async prepare(context:AuthorizedMessagingContext,input:MessagingCredentialValidationInput){
     try{
-      const final=await this.read(context,input);if(final)return final;
+      const final=await this.read(context,input);if(final?.state===OPERATION_STATE.completed)return final;
       const command=this.command(context,input,MESSAGING_CREDENTIAL_VALIDATION_OPERATION.prepare);
       const result=await this.ledger(context).run(command,messagingCredentialPreparationSchema,async(database)=>{
         const row=(await database.execute<{version:number}>(sql`select version from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId}`)).rows[0];
