@@ -10,6 +10,7 @@ import {seedPreviousMessagingSelection} from "@/tests/support/messaging-selectio
 import {createAdmissionProviderTransport} from "@/tests/support/admission-provider-transport";
 import {PostgresAuthenticatedAccountProvider} from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import {PostgresMessagingConnectionActivation} from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation";
+import {readAdmissionEmailLifecycleDependency} from "@/src/modules/notifications/infrastructure/repositories/admission-email-lifecycle-reader";
 import {PostgresMessagingSelectionDependencies} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
 import {PostgresMessagingCredentialValidation} from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation";
 import {PostgresCredentialValidationBudget} from "@/src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget";
@@ -23,7 +24,7 @@ import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database
 /** @param database - Owned branch. @returns Real configuration/validation/diagnostic evidence and the exact activation context without external network. */
 async function preparedActivation(database:AcademyAdmissionTestDatabase){
   const fixture=await prepareMessagingConnectionCreation(database),credential=randomUUID(),senderId=randomUUID();
-  for(const migration of["20261005092500_guard_messaging_attempts.sql","20261005100000_guard_messaging_secret_retirement.sql","20261006120000_index_messaging_contact_windows.sql","20261006140000_claim_messaging_deliveries_fairly.sql","20261006160000_purge_verification_delivery_material.sql","20261006230000_bind_credential_validation_usage.sql","20261007050000_claim_scoped_diagnostic_delivery.sql"])await database.applyMigration(migration);
+  for(const migration of["20261005092500_guard_messaging_attempts.sql","20261005100000_guard_messaging_secret_retirement.sql","20261006120000_index_messaging_contact_windows.sql","20261006140000_claim_messaging_deliveries_fairly.sql","20261006160000_purge_verification_delivery_material.sql","20261006230000_bind_credential_validation_usage.sql","20261007050000_claim_scoped_diagnostic_delivery.sql","20261008161500_create_admission_email_settings.sql"])await database.applyMigration(migration);
   const created=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Activación real",apiKey:credential});if(created.state!=="completed")throw new Error("Expected protected candidate");
   await database.withContext(fixture.fixture.own,async(transaction)=>{
     const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000);
@@ -43,12 +44,18 @@ async function preparedActivation(database:AcademyAdmissionTestDatabase){
   const verificationInput={...base,diagnosticId:issued.value.result.diagnosticId,operationId:randomUUID(),code};
   expect(await request.useCases.verifyDiagnostic.execute(verificationInput)).toMatchObject({ok:true,value:{state:"completed",result:{outcome:"verified"}}});
   const resolved=await request.useCases.resolveContext.execute({...base,operation:"activate_messaging_connection"});if(!resolved.allowed)throw new Error("Expected current activation authority");
-  const owner=new PostgresMessagingConnectionActivation(execute,async()=>fixture.fixture.config,(transaction)=>new PostgresMessagingSelectionDependencies(transaction));
+  const owner=new PostgresMessagingConnectionActivation(execute,async()=>fixture.fixture.config,(transaction)=>new PostgresMessagingSelectionDependencies(transaction,readAdmissionEmailLifecycleDependency));
   const lifecycleVersion=await database.withContext(fixture.fixture.own,async(transaction)=>(await transaction.execute<{version:number}>(sql`select version from public.tenant_messaging_connections where id=${created.result.id}`)).rows[0].version);
   return{fixture,transport,owner,request,inspectors,execute,verificationInput,context:resolved.context,input:{operationId:randomUUID(),expectedVersion:lifecycleVersion,confirmed:true as const}};
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native candidate activation",()=>{
+  it("should preserve enabled independent email settings when selecting a candidate with an actual prepared email channel",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const prepared=await preparedActivation(database);await database.withContext(prepared.fixture.fixture.own,(transaction)=>transaction.execute(sql`insert into public.admission_email_settings(tribe_id,enabled,enabled_at) values (${prepared.context.tribeId},true,clock_timestamp())`));const before=await database.withContext(prepared.fixture.fixture.own,async(transaction)=>({email:(await transaction.execute(sql`select enabled,version,enabled_at from public.admission_email_settings where tribe_id=${prepared.context.tribeId}`)).rows[0],usage:(await transaction.execute(sql`select version,allowed_countries,verification_daily_limit,notification_daily_limit from public.messaging_usage_policies where tribe_id=${prepared.context.tribeId}`)).rows[0]})),requests=prepared.transport.receipts.length;
+      expect(await prepared.owner.activate(prepared.context,prepared.input)).toMatchObject({state:"completed",result:{state:"active",version:prepared.input.expectedVersion+1}});const after=await database.withContext(prepared.fixture.fixture.own,async(transaction)=>({email:(await transaction.execute(sql`select enabled,version,enabled_at from public.admission_email_settings where tribe_id=${prepared.context.tribeId}`)).rows[0],usage:(await transaction.execute(sql`select version,allowed_countries,verification_daily_limit,notification_daily_limit from public.messaging_usage_policies where tribe_id=${prepared.context.tribeId}`)).rows[0]}));expect(after).toEqual(before);expect(prepared.transport.receipts).toHaveLength(requests);
+    });
+  },900_000);
   it("should persist a prepared candidate as ready after its configured channel is locally verified without selecting or enabling admission",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const prepared=await preparedActivation(database),snapshot=await database.withContext(prepared.fixture.fixture.own,async(transaction)=>({connection:(await transaction.execute(sql`select state,is_selected,is_candidate,selected_version,candidate_version from public.tenant_messaging_connections where id=${prepared.context.connectionId}`)).rows[0],policies:(await transaction.execute<{count:number}>(sql`select count(*)::int as count from public.academy_admission_policies where tribe_id=${prepared.context.tribeId}`)).rows[0].count}));
@@ -85,7 +92,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native candidate act
       await database.withContext(prepared.fixture.fixture.own,(transaction)=>transaction.execute(sql`update public.messaging_connection_diagnostics set validated_at=clock_timestamp()-interval '24 hours'+interval '60 seconds' where connection_id=${prepared.context.connectionId} and connection_version=${prepared.context.connectionVersion} and outcome='verified'`));
       const owner=new PostgresMessagingConnectionActivation((_context,run)=>database.withContext(prepared.fixture.fixture.own,async(transaction)=>{
         started.resolve((await transaction.execute<{pid:number}>(sql`select pg_backend_pid() as pid`)).rows[0].pid);return run(transaction);
-      }),async()=>prepared.fixture.fixture.config,(transaction)=>new PostgresMessagingSelectionDependencies(transaction));
+      }),async()=>prepared.fixture.fixture.config,(transaction)=>new PostgresMessagingSelectionDependencies(transaction,readAdmissionEmailLifecycleDependency));
       const outcome=owner.activate(prepared.context,prepared.input).then((value)=>({status:"fulfilled" as const,value}),(error:unknown)=>({status:"rejected" as const,error})),activationPid=await started.promise;
       let observedWait=false;
       try{
