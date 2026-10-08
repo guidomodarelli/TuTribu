@@ -3,6 +3,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
+import { setTimeout as delay } from "node:timers/promises";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 import { createMessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
@@ -51,6 +52,15 @@ async function prepareStore(database: AcademyAdmissionTestDatabase, encryptedFor
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("encrypted messaging secret store", () => {
+  it("should recheck canonical leadership after a real tribe fence wait and refuse old key access before consulting keyrings",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareStore(database);await database.applyMigration("20261008200000_guard_messaging_leadership_changes.sql");const nextLeaderId=randomUUID();await database.withContext(fixture.own,async(transaction)=>{await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${nextLeaderId},'Synthetic next leader',${`${nextLeaderId}@example.test`},false,clock_timestamp(),clock_timestamp())`);await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${fixture.tribeId},${nextLeaderId},'guardian','active')`);});
+      const held=Promise.withResolvers<number>(),started=Promise.withResolvers<number>(),release=Promise.withResolvers<void>(),holding=database.withContext(fixture.own,async(transaction)=>{await transaction.execute(sql`select id from public.tribes where id=${fixture.tribeId} for update`);held.resolve((await transaction.execute<{pid:number}>(sql`select pg_backend_pid() as pid`)).rows[0].pid);await release.promise;await transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`);await transaction.execute(sql`update public.tribe_members set role='leader' where tribe_id=${fixture.tribeId} and user_id=${nextLeaderId}`);});const holderPid=await held.promise;
+      const store=new PostgresEncryptedSecretStore((actorUserId,run)=>database.withContext({userId:actorUserId,email:null},async(transaction)=>{started.resolve((await transaction.execute<{pid:number}>(sql`select pg_backend_pid() as pid`)).rows[0].pid);return run(transaction);}),{getAuthenticatedAccount:async()=>fixture.account},fixture.configuration,"sensitive_leader"),outcome=store.loadAuthorizedSecret(fixture.context).then(()=>({status:"fulfilled" as const}),error=>({status:"rejected" as const,error}));
+      try{const readerPid=await started.promise;let observed=false;for(let attempt=0;attempt<100;attempt+=1){const blockers=await database.withContext(fixture.own,async(transaction)=>(await transaction.execute<{blockers:number[]}>(sql`select pg_blocking_pids(${readerPid}) as blockers`)).rows[0].blockers);if(blockers.includes(holderPid)){observed=true;break;}await delay(50);}expect(observed).toBe(true);}finally{release.resolve();await holding;}
+      expect(await outcome).toMatchObject({status:"rejected",error:{code:"permission_denied"}});expect(fixture.configuration).not.toHaveBeenCalled();
+    });
+  },600_000);
   it("should deny the previous and next leaders before consulting credential keys after a real canonical transfer",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await prepareStore(database);await database.applyMigration("20261008200000_guard_messaging_leadership_changes.sql");const userId=randomUUID(),sessionId=randomUUID(),accountId=randomUUID(),subject=randomUUID(),intentId=randomUUID(),now=new Date();
