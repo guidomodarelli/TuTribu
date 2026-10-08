@@ -41,6 +41,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Cambiar la configuración candidata permite solicitar otra prueba al mismo destino; conserva los diagnósticos anteriores y su consumo sin acreditar la nueva versión.
+
 - Los intentos de conexión sin resultado permiten consultar el estado actual, reanudar los mismos datos con nueva confirmación o conservar su referencia en un historial local, sin cancelar el servidor ni repetir operaciones automáticamente.
 - Una comprobación de credencial interrumpida conserva su consumo y puede cerrar como no disponible sin otra consulta al proveedor; un resultado tardío no reemplaza el original confirmado.
 
