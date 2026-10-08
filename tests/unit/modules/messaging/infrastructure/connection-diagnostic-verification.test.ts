@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 /** Exercises diagnostic/code/capability/ledger atomicity with real SQL and Web Crypto, without a provider request. @module connection-diagnostic-verification-tests */
 import { randomBytes, randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
@@ -81,17 +82,16 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("connection diagnos
       const fixture = await prepareDiagnostic(database, true);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,template_id,template_language,checked_at) values (${fixture.scope.tribeId},${fixture.scope.connectionId},1,'whatsapp','synthetic-whatsapp-sender','synthetic-otp-template','es',clock_timestamp())`));
       await advanceVerificationRequestCooldown(database, fixture);
-      let releaseVerifier!: () => void;
-      let releaseResend!: () => void;
-      const verifierAtAccountLock = new Promise<void>((complete) => { releaseVerifier = complete; });
-      const resendAtChallengeLock = new Promise<void>((complete) => { releaseResend = complete; });
+      const verifierAtAccountLock = Promise.withResolvers<number>();
+      const resendStarted = Promise.withResolvers<number>();
+      const releaseVerifier = Promise.withResolvers<void>();
       const verificationId = randomUUID(), resendId = randomUUID();
       const verification = fixture.ledger.run({ actorUserId: fixture.userId, tribeId: fixture.scope.tribeId, operationType: CONNECTION_DIAGNOSTIC_VERIFY_OPERATION, idempotencyKey: verificationId, intent: { diagnosticId: fixture.original.diagnosticId!, code: fixture.code } }, connectionDiagnosticSnapshotSchema, async (transaction, ledgerId) => {
         const failures = new PostgresVerificationFailureBudget(transaction);
         let announced = false;
         // Own budget ports establish the real conflicting SQL lock phases; no pg or SDK mock is used.
         const coordinatedFailures: VerificationFailureBudget = {
-          async lockAccount(userId) { await failures.lockAccount(userId); if (!announced) { announced = true; releaseVerifier(); await resendAtChallengeLock; } },
+          async lockAccount(userId) { await failures.lockAccount(userId); if (!announced) { announced = true; verifierAtAccountLock.resolve((await transaction.execute<{pid:number}>(sql`select pg_backend_pid() as pid`)).rows[0].pid); await releaseVerifier.promise; } },
           readRecordedFailure: (identity) => failures.readRecordedFailure(identity),
           hasCapacity: (userId, now) => failures.hasCapacity(userId, now),
           recordFailure: (identity, now) => failures.recordFailure(identity, now),
@@ -99,15 +99,25 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("connection diagnos
         const verifier = new PostgresContactVerificationRepository(transaction, async (current) => { await authorizeConnectionDiagnostic(current, fixture.context, async () => fixture.config); return true; }, async () => fixture.config, coordinatedFailures);
         return projectConnectionDiagnosticSnapshot(await new PostgresConnectionDiagnosticRepository(transaction, async () => fixture.config, verifier, coordinatedFailures).verify({ context: fixture.context, diagnosticId: fixture.original.diagnosticId!, operationId: verificationId, ledgerId, code: fixture.code }));
       });
-      await verifierAtAccountLock;
+      const verifierPid = await verifierAtAccountLock.promise;
       const whatsappScope = { ...fixture.scope, channel: "whatsapp" as const };
       const resend = fixture.ledger.run({ actorUserId: fixture.userId, tribeId: fixture.scope.tribeId, operationType: VERIFICATION_ISSUANCE_OPERATION.resend, idempotencyKey: resendId, intent: { currentChallengeId: fixture.original.challengeId, channel: "whatsapp" } }, contactVerificationIssuanceSnapshotSchema, async (transaction, ledgerId) => {
+        resendStarted.resolve((await transaction.execute<{pid:number}>(sql`select pg_backend_pid() as pid`)).rows[0].pid);
         const contacts = new PostgresMessagingContactBudgetRepository(transaction, async () => true, async () => fixture.config);
         const requests = new PostgresVerificationRequestBudget(transaction, async () => true, contacts);
-        const budget = { async consume(command: Parameters<typeof requests.consume>[0]) { releaseResend(); return requests.consume(command); } };
-        const issued = await new PostgresContactVerificationIssuer(transaction, async () => true, async () => fixture.config, budget).issue({ scope: whatsappScope, operationId: resendId, ledgerId, expectedCurrentChallengeId: fixture.original.challengeId });
+        const issued = await new PostgresContactVerificationIssuer(transaction, async () => true, async () => fixture.config, requests).issue({ scope: whatsappScope, operationId: resendId, ledgerId, expectedCurrentChallengeId: fixture.original.challengeId });
         return issued.outcome === "issued" ? { ...issued, expiresAt: issued.expiresAt.toISOString(), resendAllowedAt: issued.resendAllowedAt.toISOString() } : issued;
       });
+      const resendPid = await resendStarted.promise;
+      try {
+        let observedWait = false;
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          const blockers = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{blockers:number[]}>(sql`select pg_blocking_pids(${resendPid}) as blockers`)).rows[0].blockers);
+          if (blockers.includes(verifierPid)) { observedWait = true; break; }
+          await delay(50);
+        }
+        expect(observedWait).toBe(true);
+      } finally { releaseVerifier.resolve(); }
       const results = await Promise.allSettled([verification, resend]);
       const outcomes = results.map((result) => {
         if (result.status === "fulfilled") return { status: result.status };
@@ -123,12 +133,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("connection diagnos
       });
       expect(outcomes).toEqual([{ status: "fulfilled" }, { status: "fulfilled" }]);
       if (results[0].status !== "fulfilled" || results[1].status !== "fulfilled") throw new Error("Synthetic cross-channel operations did not both complete");
-      expect(results[0].value).toMatchObject({ state: "completed", result: { outcome: "denied" } });
+      expect(results[0].value).toMatchObject({ state: "completed", result: { outcome: "verified" } });
       expect(results[1].value).toMatchObject({ state: "completed", result: { outcome: "issued" } });
       await database.withContext(fixture.own, async (transaction) => {
-        expect((await transaction.execute(sql`select outcome from public.messaging_connection_diagnostics where id=${fixture.original.diagnosticId}`)).rows).toEqual([{ outcome: "invalidated" }]);
+        expect((await transaction.execute(sql`select outcome from public.messaging_connection_diagnostics where id=${fixture.original.diagnosticId}`)).rows).toEqual([{ outcome: "verified" }]);
         expect((await transaction.execute(sql`select channel from public.contact_verification_challenges where tribe_id=${fixture.scope.tribeId} and is_current`)).rows).toEqual([{ channel: "whatsapp" }]);
-        expect((await transaction.execute(sql`select state,tested_at from public.messaging_connection_capabilities where connection_id=${fixture.scope.connectionId} and channel='sms'`)).rows).toEqual([{ state: "unprepared", tested_at: null }]);
+        expect((await transaction.execute(sql`select state,tested_at from public.messaging_connection_capabilities where connection_id=${fixture.scope.connectionId} and channel='sms'`)).rows).toEqual([{ state: "prepared", tested_at: expect.anything() }]);
         expect((await transaction.execute(sql`select id from public.messaging_usage_events where actor_user_id=${fixture.userId} and event_type='code_failure'`)).rows).toEqual([]);
       });
     });
