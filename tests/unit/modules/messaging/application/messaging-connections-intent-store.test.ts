@@ -32,4 +32,21 @@ describe("connection intent metadata storage",()=>{
     const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),originals=Array.from({length:MESSAGING_CONNECTION_HISTORY_LIMIT},()=>({type:"save_messaging_credentials" as const,operationId:randomUUID()}));for(const original of originals)expect(store.archive(viewerId,"synthetic",original)).toBe(true);expect(store.archive(viewerId,"synthetic",{type:"save_messaging_credentials",operationId:randomUUID()})).toBe(false);expect(store.history(viewerId,"synthetic")).toEqual(originals);
   });
 
+  it("should retain an issued diagnostic observation without a destination, code, key or mutation permission",()=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),reference={operationId:randomUUID(),connectionId:randomUUID(),configurationVersion:2,channel:"email" as const};expect(store.writeDiagnostic(viewerId,"synthetic",reference)).toBe(true);expect(store.diagnostic(viewerId,"synthetic")).toEqual(reference);expect(store.diagnostic(randomUUID(),"synthetic")).toBeNull();expect(store.read(viewerId,"synthetic")).toBeNull();expect(store.writeDiagnostic(viewerId,"synthetic",null)).toBe(true);expect(store.diagnostic(viewerId,"synthetic")).toBeNull();
+  });
+
+  it("should preserve previous issued references across A to B to A selection without saving a destination or code",()=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),first={operationId:randomUUID(),connectionId:randomUUID(),configurationVersion:2,channel:"email" as const},second={...first,operationId:randomUUID(),channel:"sms" as const};
+    expect(store.writeDiagnostic(viewerId,"synthetic",first)).toBe(true);expect(store.writeDiagnostic(viewerId,"synthetic",second)).toBe(true);expect(store.diagnostics(viewerId,"synthetic")).toEqual([first,second]);expect(store.diagnostic(viewerId,"synthetic")).toEqual(second);expect(store.writeDiagnostic(viewerId,"synthetic",first)).toBe(true);expect(store.diagnostic(viewerId,"synthetic")).toEqual(first);expect(store.diagnostics(viewerId,"synthetic")).toEqual([second,first]);expect(store.diagnostics(randomUUID(),"synthetic")).toEqual([]);expect(store.diagnostics(viewerId,"other")).toEqual([]);
+  });
+
+  it("should keep a legacy single diagnostic reference readable and refuse a full history without losing an earlier emission",()=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),reference={operationId:randomUUID(),connectionId:randomUUID(),configurationVersion:2,channel:"email" as const},key=`${MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX}:${viewerId}:synthetic:diagnostic`;
+    window.sessionStorage.setItem(key,JSON.stringify(reference));expect(store.diagnostics(viewerId,"synthetic")).toEqual([reference]);for(let index=1;index<MESSAGING_CONNECTION_HISTORY_LIMIT;index+=1)expect(store.writeDiagnostic(viewerId,"synthetic",{...reference,operationId:randomUUID()})).toBe(true);const originals=store.diagnostics(viewerId,"synthetic");expect(store.writeDiagnostic(viewerId,"synthetic",{...reference,operationId:randomUUID()})).toBe(false);expect(store.diagnostics(viewerId,"synthetic")).toEqual(originals);expect(originals).toContainEqual(reference);
+  });
+  it("should reject private diagnostic metadata without replacing the previously retained reference",()=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),reference={operationId:randomUUID(),connectionId:randomUUID(),configurationVersion:2,channel:"email" as const};expect(store.writeDiagnostic(viewerId,"synthetic",reference)).toBe(true);expect(store.writeDiagnostic(viewerId,"synthetic",{...reference,operationId:randomUUID(),recipient:"private@example.test",verificationCode:"123456"} as typeof reference)).toBe(false);expect(store.diagnostics(viewerId,"synthetic")).toEqual([reference]);
+  });
+
 });
