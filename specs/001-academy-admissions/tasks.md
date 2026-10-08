@@ -703,6 +703,8 @@ Cierre de T090–T093 sobre4c3ec071 y la corrección documental actual: la audit
 
 ---
 
+Cierre de T094 sobre df4315be: auditoría Codex read-only confirma SDK/SQL/UI reales con transporte propio, recorrido Native13095 desde países ausentes a ARv2 guardado por UI antes de SMS y builds compatibles. Node54885 y LinuxOpenNext25919 terminaron verdes; el bundle compilado de4c3ec071 es idéntico al producto actual. Preview40225 sólo acredita boundary400/invalid_input y terminó con limpieza confirmada. Se conserva el rojo de53055/86683 y no se usa matrix73163/late98673 todavía pendientes. OG01/02/03 y mensajes reales siguen pendientes. Sólo T094 cambia de casilla:95/212 completas117 pendientes. Ver [validación de canales y runtimes](validation/zavu-channels.md).
+
 <a id="phase-06"></a>
 
 ## Fase 6: US5 — Comprobar un contacto dentro de la tribu (prioridad: P1)
@@ -777,7 +779,7 @@ Cierre de T090–T093 sobre4c3ec071 y la corrección documental actual: la audit
 <a id="phase-07"></a>
 
 
-Cierre de T094 sobre df4315be: auditoría Codex read-only confirma SDK/SQL/UI reales con transporte propio, recorrido Native13095 desde países ausentes a ARv2 guardado por UI antes de SMS y builds compatibles. Node54885 y LinuxOpenNext25919 terminaron verdes; el bundle compilado de4c3ec071 es idéntico al producto actual. Preview40225 sólo acredita boundary400/invalid_input y terminó con limpieza confirmada. Se conserva el rojo de53055/86683 y no se usa matrix73163/late98673 todavía pendientes. OG01/02/03 y mensajes reales siguen pendientes. Sólo T094 cambia de casilla:95/212 completas117 pendientes. Ver [validación de canales y runtimes](validation/zavu-channels.md).
+
 
 ## Fase 7: US3 — Automatizar habilitados y revisar excepciones (prioridad: P1)
 
