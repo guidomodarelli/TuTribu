@@ -3,10 +3,15 @@ import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging
 import type { MessageDeliveryReceipt } from "@/src/modules/messaging/domain/repositories/message-delivery-repository";
 import type { MESSAGING_DISPATCH_STAGE } from "@/src/modules/messaging/constants/messaging-dispatch";
 
-/** Sender adapters revalidate current marker/context before preparation and RPC, honoring abort. */
+/** Represents one transient prepared operation; private material stays inside its adapter closure. */
+export interface PreparedMessageDeliverySender {
+  /** @param signal - This exact RPC deadline/cancellation. @returns Original own transport evidence; no preparation, identity substitution or retry occurs. */
+  send(signal: AbortSignal): Promise<Omit<MessageDeliveryReceipt, "context">>;
+}
+/** Sender adapters revalidate current marker/context during local preparation, before the RPC budget starts. */
 export interface MessageDeliverySender {
-  /** @param context - Confirmed original marker and scope. @param signal - This exact request deadline/cancellation. @returns Own transport evidence, never contact verification. */
-  send(context: AuthorizedDeliveryMessagingContext, signal: AbortSignal): Promise<Omit<MessageDeliveryReceipt, "context">>;
+  /** @param context - Confirmed original marker and scope. @param signal - Remaining run deadline/cancellation. @returns One prepared original operation, without starting its RPC. */
+  prepare(context: AuthorizedDeliveryMessagingContext, signal: AbortSignal): Promise<PreparedMessageDeliverySender>;
 }
 /** Bounds belong to the worker; they never authorize an arbitrary browser send. */
 export type MessagingDispatchSettings = { requestTimeoutMs: number; runBudgetMs: number; leaseSeconds: number; concurrency: number; batchLimit: number };

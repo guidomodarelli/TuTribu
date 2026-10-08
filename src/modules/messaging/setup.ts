@@ -189,10 +189,10 @@ export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies
   };
   const preparedSender = dependencies.createSender(preparation);
   const sender: MessageDeliverySender = {
-    /** @param context - Original committed marker. @param signal - Exact original deadline. @returns Own sender evidence after current backend authorization. */
-    async send(context, signal) {
+    /** @param context - Original committed marker. @param signal - Remaining run deadline. @returns Original prepared operation after current backend authorization, without RPC. */
+    async prepare(context, signal) {
       if (!await authorize()) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
-      return preparedSender.send(context, signal);
+      return preparedSender.prepare(context, signal);
     },
   };
   return {

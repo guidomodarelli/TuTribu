@@ -2,10 +2,10 @@
 import "server-only";
 import Zavu from "@zavudev/sdk";
 import type { MessageSendParams } from "@zavudev/sdk/resources/messages";
-import type { MessageDeliverySender } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
+import type { MessageDeliverySender, PreparedMessageDeliverySender } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 import type { MessageDeliveryReceipt } from "@/src/modules/messaging/domain/repositories/message-delivery-repository";
 import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
-import type { VerificationDeliveryPreparation } from "./verification-delivery-preparation";
+import type { PreparedVerificationDelivery, VerificationDeliveryPreparation } from "./verification-delivery-preparation";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGE_ATTEMPT_STATE, MESSAGE_RECEIPT_REASON } from "@/src/modules/messaging/constants/message-delivery";
 import { ZAVU_DELIVERY_ENDPOINT, ZAVU_DELIVERY_CHANNEL, ZAVU_DELIVERY_STATUS, ZAVU_DELIVERY_HEADER, ZAVU_DELIVERY_TRANSPORT, ZAVU_MESSAGE_TYPE, ZAVU_MESSAGE_DIRECTION, VERIFICATION_MESSAGE_COPY, ZAVU_OTP_TEMPLATE_PARAMETER } from "@/src/modules/messaging/constants/zavu-delivery";
@@ -31,8 +31,19 @@ export class ZavuMessageDeliverySender implements MessageDeliverySender {
    * @throws MessagingSecretAccessError before SDK when preparation crosses scope or lacks a required resource.
    */
   async send(context: AuthorizedDeliveryMessagingContext, signal: AbortSignal): Promise<Omit<MessageDeliveryReceipt, "context">> {
+    return (await this.prepare(context, signal)).send(signal);
+  }
+
+  /** @param context - Original committed attempt. @param signal - Remaining run deadline. @returns One transient exact prepared operation, with no RPC until its explicit send. */
+  async prepare(context: AuthorizedDeliveryMessagingContext, signal: AbortSignal): Promise<PreparedMessageDeliverySender> {
     signal.throwIfAborted();
     const prepared = await this.preparation.prepare(context, signal);
+    signal.throwIfAborted();
+    return { send: (rpcSignal) => this.sendPrepared(context, prepared, signal===rpcSignal?rpcSignal:AbortSignal.any([signal,rpcSignal])) };
+  }
+
+  /** @param context - Original committed scope. @param prepared - Transient own material fixed to that attempt. @param signal - The exact RPC deadline. @returns Own transport evidence without another preparation or retry. */
+  private async sendPrepared(context: AuthorizedDeliveryMessagingContext, prepared: PreparedVerificationDelivery, signal: AbortSignal): Promise<Omit<MessageDeliveryReceipt, "context">> {
     signal.throwIfAborted();
     const intent = prepared.intent;
     if (!prepared.credential || !intent.senderId || intent.deliveryId !== context.deliveryId || intent.attemptId !== context.attemptId || intent.connectionId !== context.connectionId || intent.connectionVersion !== context.connectionVersion || intent.environment !== context.environment || intent.securityEpoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);

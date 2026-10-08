@@ -4,4 +4,4 @@ export const MESSAGING_DISPATCH_DEFAULT = { requestTimeoutMs: 15_000, runBudgetM
 /** Matches the private SQL claim limits; runtime settings may be more restrictive. */
 export const MESSAGING_DISPATCH_BOUND = { maximumBatch: 100, maximumLeaseSeconds: 300, maximumConcurrency: 2, maximumRunBudgetMs: 45_000, maximumRequestTimeoutMs: 15_000 } as const;
 /** Distinguishes diagnostics without exposing a request, secret or payload. */
-export const MESSAGING_DISPATCH_STAGE = { claim: "claim", authorize: "authorize", send: "send", complete: "complete", late: "late", defer: "defer" } as const;
+export const MESSAGING_DISPATCH_STAGE = { claim: "claim", authorize: "authorize", prepare: "prepare", send: "send", complete: "complete", late: "late", defer: "defer" } as const;

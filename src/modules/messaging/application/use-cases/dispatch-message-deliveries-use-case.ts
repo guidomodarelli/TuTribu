@@ -1,7 +1,7 @@
 /** Runs bounded portable outbox work with RPC outside persistence and no ambiguous resend. @module dispatch-message-deliveries-use-case */
 import type { ClaimedMessageDelivery, MessageDeliveryAuthorization, MessageDeliveryCompletion, MessageDeliveryRepository, MessageDeliveryReceipt } from "@/src/modules/messaging/domain/repositories/message-delivery-repository";
 import type { MessageDeliveryAttempt } from "@/src/modules/messaging/domain/entities/message-delivery-attempt";
-import type { MessageDeliverySender, MessagingDispatchRuntime, MessagingDispatchSettings } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
+import type { MessageDeliverySender, PreparedMessageDeliverySender, MessagingDispatchRuntime, MessagingDispatchSettings } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { MessageDispatchRunResult } from "@/src/modules/messaging/application/results/message-dispatch-result";
 import { MESSAGE_ATTEMPT_STATE, MESSAGE_AUTHORIZATION_OUTCOME, MESSAGE_COMPLETION_OUTCOME, MESSAGE_RECEIPT_REASON } from "@/src/modules/messaging/constants/message-delivery";
@@ -9,6 +9,7 @@ import { MESSAGING_DISPATCH_STAGE } from "@/src/modules/messaging/constants/mess
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/message-delivery";
 import { MessagingDeliveryStorageError } from "@/src/modules/messaging/domain/errors/messaging-delivery-storage-error";
+import { MessagingDispatchDeadlineError } from "@/src/modules/messaging/domain/errors/messaging-dispatch-deadline-error";
 
 /** A deadline ends observation; the underlying guarded write or RPC may still produce original evidence. */
 type ObservedWithinDeadline<Value> = { settled: true; value: Value } | { settled: false };
@@ -134,9 +135,27 @@ export class DispatchMessageDeliveriesUseCase {
       const remaining = deadlineAt - this.runtime.now();
       if (stopNewWork || remaining <= 0) { stopNewWork = true; result.deadlineReached ||= remaining <= 0; await this.record(unknown(value.context), result, deadlineAt); return; }
       const controller = new AbortController();
-      const sending = Promise.resolve().then(() => this.sender.send(value.context, controller.signal));
+      const preparing = Promise.resolve().then(() => this.sender.prepare(value.context, controller.signal));
+      let preparation: ObservedWithinDeadline<PreparedMessageDeliverySender>;
+      try { preparation = await observeWithin(preparing, remaining, () => controller.abort(new MessagingDispatchDeadlineError(MESSAGING_DISPATCH_STAGE.prepare, remaining))); }
+      catch (error) {
+        stopNewWork = true; controller.abort();
+        this.runtime.report({ stage: MESSAGING_DISPATCH_STAGE.prepare, deliveryId: value.context.deliveryId, attemptId: value.context.attemptId, cause: error });
+        await this.record(unknown(value.context), result, deadlineAt); return;
+      }
+      if (!preparation.settled) {
+        stopNewWork = true; result.deadlineReached = true;
+        this.runtime.report({stage:MESSAGING_DISPATCH_STAGE.prepare,deliveryId:value.context.deliveryId,attemptId:value.context.attemptId,cause:controller.signal.reason});
+        await this.record(unknown(value.context), result, deadlineAt);
+        this.retain(preparing.then(() => undefined), value.context); return;
+      }
+      const rpcRemaining = deadlineAt - this.runtime.now();
+      if (stopNewWork || rpcRemaining <= 0) { controller.abort(); stopNewWork = true; result.deadlineReached ||= rpcRemaining <= 0; await this.record(unknown(value.context), result, deadlineAt); return; }
+      const preparedSender=preparation.value;
+      const sending = Promise.resolve().then(() => preparedSender.send(controller.signal));
       let observation: ObservedWithinDeadline<Omit<MessageDeliveryReceipt, "context">>;
-      try { observation = await observeWithin(sending, Math.min(this.settings.requestTimeoutMs, remaining), () => controller.abort()); }
+      const rpcObservationMs=Math.min(this.settings.requestTimeoutMs,rpcRemaining);
+      try { observation = await observeWithin(sending, rpcObservationMs, () => controller.abort(new MessagingDispatchDeadlineError(MESSAGING_DISPATCH_STAGE.send, rpcObservationMs))); }
       catch (error) {
         stopNewWork = true; controller.abort();
         this.runtime.report({ stage: MESSAGING_DISPATCH_STAGE.send, deliveryId: value.context.deliveryId, attemptId: value.context.attemptId, cause: error });
@@ -146,6 +165,7 @@ export class DispatchMessageDeliveriesUseCase {
       if (!observation.settled) {
         // An uncooperative sender must not free capacity for additional POSTs after its timeout.
         stopNewWork = true; result.deadlineReached = this.runtime.now() >= deadlineAt;
+        this.runtime.report({stage:MESSAGING_DISPATCH_STAGE.send,deliveryId:value.context.deliveryId,attemptId:value.context.attemptId,cause:controller.signal.reason});
         await this.record(unknown(value.context), result, deadlineAt);
         this.retain(sending.then((late) => this.record({ ...late, context: value.context })), value.context);
         return;
