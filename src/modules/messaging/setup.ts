@@ -60,7 +60,7 @@ import { PostgresMessagingConnectionDisconnection } from "./infrastructure/repos
 import { ManageMessagingConnectionLifecycleUseCases } from "./application/use-cases/messaging-connection-lifecycle-use-cases";
 import { ResolveMessagingTribeManagementUseCase } from "./application/use-cases/resolve-messaging-tribe-management-use-case";
 import type { VerificationDeliveryPreparation } from "./infrastructure/zavu/verification-delivery-preparation";
-import type {DiagnosticDeliveryDispatchScope} from "./domain/repositories/message-delivery-repository";
+import type {DiagnosticDeliveryDispatchScope,FocalDeliveryDispatchScope} from "./domain/repositories/message-delivery-repository";
 
 /** The request owner selects a fixed slot and explicit live security source before exposing sensitive capabilities. */
 type MessagingRequestComposition = { selection: "selected" | "candidate" | "management"; readSecurityConfig: () => Promise<MessagingSecurityConfig> };
@@ -70,6 +70,7 @@ export type MessagingWorkDependencies = {
   authorize: () => Promise<boolean>; readSecurityConfig: () => Promise<MessagingSecurityConfig>;
   createSender: (preparation: VerificationDeliveryPreparation) => MessageDeliverySender; runtime: MessagingDispatchRuntime; settings?: Partial<MessagingDispatchSettings>;
   diagnosticScope?:Readonly<DiagnosticDeliveryDispatchScope>;
+  focalScope?:Readonly<FocalDeliveryDispatchScope>;
 };
 
 /**
@@ -184,8 +185,9 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
  * @returns Dispatcher and domain maintenance ports; no HTTP endpoint, scheduler or provider connection is activated.
  */
 export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies) {
+  if(dependencies.diagnosticScope&&dependencies.focalScope)throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
   const authorize = async () => dependencies.authorize();
-  const deliveries = new PostgresMessageDeliveryRepository(dependencies.execute, authorize, dependencies.readSecurityConfig,dependencies.diagnosticScope);
+  const deliveries = new PostgresMessageDeliveryRepository(dependencies.execute, authorize, dependencies.readSecurityConfig,dependencies.focalScope??dependencies.diagnosticScope);
   const secrets = new PostgresEncryptedSecretStore(dependencies.execute, { getAuthenticatedAccount: async () => null }, dependencies.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery);
   const privatePreparation = new PostgresVerificationDeliveryPreparation(dependencies.execute, secrets, dependencies.readSecurityConfig);
   const preparation: VerificationDeliveryPreparation = {

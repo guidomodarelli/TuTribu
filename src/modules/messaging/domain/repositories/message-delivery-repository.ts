@@ -8,6 +8,10 @@ import type { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/mes
 export type ClaimedMessageDelivery = { deliveryId: string; tribeId: string; version: number; leaseToken: string; contributingLeaderUserId: string | null };
 /** A private request-owned launch is limited to one committed diagnostic; this tuple is never browser authority. */
 export type DiagnosticDeliveryDispatchScope={deliveryId:string;tribeId:string;contributingLeaderUserId:string;connectionId:string;connectionVersion:number};
+/** Admission separates the applicant from the contributor and binds the exact immutable challenge lineage. */
+export type AdmissionDeliveryDispatchScope=DiagnosticDeliveryDispatchScope&{purpose:"admission";applicantUserId:string;challengeId:string};
+/** A focal backend launch retains purpose-specific authority and cannot become a global queue drain. */
+export type FocalDeliveryDispatchScope=DiagnosticDeliveryDispatchScope|AdmissionDeliveryDispatchScope;
 /** A confirmed marker has already consumed its external slot; it is not contact evidence. */
 export type MessageDeliveryAuthorization =
   | { outcome: "authorized"; context: AuthorizedDeliveryMessagingContext; deliveryVersion: number }
