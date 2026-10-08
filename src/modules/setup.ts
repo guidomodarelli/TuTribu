@@ -5,6 +5,8 @@ import { readMessagingRecoveryLock, readMessagingHostingSecurityConfig,readMessa
 import { buildTribesModule, buildTribeLeadershipModule } from "./tribes/setup";
 import { AdmissionOperationError } from "./academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "./academy-admissions/constants/admission-errors";
+import { ADMISSION_VERIFICATION_DISPATCH_LOG } from "./academy-admissions/constants/admission-verification-dispatch";
+import { ScopedAdmissionVerificationDispatcher } from "./academy-admissions/infrastructure/verification/admission-verification-message-sender";
 import { PostgresTribeCreationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creation-repository";
 import { PostgresTribeCreatorWhitelistRepository } from "./tribes/infrastructure/repositories/postgres-tribe-creator-whitelist-repository";
 import { PostgresTribeInvitationRepository } from "./tribes/infrastructure/repositories/postgres-tribe-invitation-repository";
@@ -575,6 +577,35 @@ export async function createMessagingDiagnosticRequestModule(requestContext:Requ
   const adapters=createRequestMessagingProviderAdapters(databaseClient);
   const dispatcher=new ScopedConnectionDiagnosticDispatcher({readSecurityFacts:async()=>readMessagingHostingSecurityFacts(),createDispatcher:(diagnosticScope,authorize)=>buildMessagingWorkModule({diagnosticScope,authorize,execute:(actorUserId,run)=>databaseClient.withRequestContext({userId:actorUserId,email:null},run),readSecurityConfig:()=>readMessagingHostingSecurityConfig(),createSender:adapters.createSender,runtime:{now:Date.now,createId:()=>crypto.randomUUID(),defer:(work)=>{after(()=>work);},report:(diagnostic)=>{const code=diagnostic.cause instanceof MessagingDeliveryStorageError||diagnostic.cause instanceof MessagingSecretAccessError||diagnostic.cause instanceof MessagingDispatchDeadlineError?diagnostic.cause.code:MESSAGING_ERROR_CODE.unexpectedFailure;logger.error({message:CONNECTION_DIAGNOSTIC_DISPATCH_LOG.message,metadata:{stage:diagnostic.stage,code,deliveryId:diagnostic.deliveryId,attemptId:diagnostic.attemptId}});}}}).useCases.dispatch});
   return{issue:request.createDiagnosticIssuance(dispatcher),verify:request.useCases.verifyDiagnostic,resolveTribe:routing.resolveTribe};
+}
+
+/** @param requestContext - Safe correlation owned by the current request boundary. @returns Applicant code use cases and canonical routing with exact post-commit worker authority derived from the original challenge. */
+export async function createAdmissionContactVerificationRequestModule(requestContext: RequestContext) {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const admissionModule = buildAcademyAdmissionsModule(dependencies);
+  const routing = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const logger = createServerLogger({ feature: ADMISSION_VERIFICATION_DISPATCH_LOG.feature, operation: ADMISSION_VERIFICATION_DISPATCH_LOG.operation, ...requestContext });
+  const adapters = createRequestMessagingProviderAdapters(databaseClient);
+  const verification = admissionModule.createContactVerificationModule({
+    readSecurityConfig: () => readMessagingHostingSecurityConfig(),
+    createDispatcher: (resolve) => new ScopedAdmissionVerificationDispatcher({
+      resolve, readSecurityFacts: async () => readMessagingHostingSecurityFacts(),
+      createDispatcher: (focalScope, authorize) => buildMessagingWorkModule({
+        focalScope, authorize,
+        execute: (actorUserId, run) => databaseClient.withRequestContext({ userId: actorUserId, email: null }, run),
+        readSecurityConfig: () => readMessagingHostingSecurityConfig(), createSender: adapters.createSender,
+        runtime: { now: Date.now, createId: () => crypto.randomUUID(), defer: (work) => { after(() => work); }, report: (diagnostic) => {
+          const code = diagnostic.cause instanceof MessagingDeliveryStorageError || diagnostic.cause instanceof MessagingSecretAccessError || diagnostic.cause instanceof MessagingDispatchDeadlineError ? diagnostic.cause.code : MESSAGING_ERROR_CODE.unexpectedFailure;
+          logger.error({ message: ADMISSION_VERIFICATION_DISPATCH_LOG.message, metadata: { stage: diagnostic.stage, code, deliveryId: diagnostic.deliveryId, attemptId: diagnostic.attemptId } });
+        } },
+      }).useCases.dispatch,
+    }),
+  }).useCases;
+  return { verification, resolveTribe: routing.resolveTribe };
 }
 
 /** @returns Native request composition for an explicit canonical leadership operation, without creating a general transfer route or loading a BYOK. */
