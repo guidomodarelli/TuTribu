@@ -10,6 +10,7 @@ import { RECENT_AUTHENTICATION_WINDOW_MS } from "@/src/modules/auth/constants/re
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import type { MessagingConnectionCreationContext } from "@/src/modules/messaging/domain/repositories/messaging-connection-management";
+import type { MessagingConnectionLifecycleContext } from "@/src/modules/messaging/domain/repositories/messaging-connection-lifecycle";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 /**
@@ -34,7 +35,7 @@ async function currentManagementSessionClock(database:RequestDatabase,expiresAt:
  * @returns Nothing while every locked relationship and post-wait lifetime remains current.
  * @throws MessagingUsageOperationError for a closed actor, tenant, session, leadership or recency.
  */
-export async function authorizeMessagingTribeManagement(database: RequestDatabase, context: MessagingUsageContext | MessagingUsageSensitiveContext | MessagingConnectionCreationContext): Promise<void> {
+export async function authorizeMessagingTribeManagement(database: RequestDatabase, context: MessagingUsageContext | MessagingUsageSensitiveContext | MessagingConnectionCreationContext | MessagingConnectionLifecycleContext): Promise<void> {
   const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
   if (actor !== context.actorUserId) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.permissionDenied);
   const user = (await database.execute<{ email: string }>(sql`select email from public."user" where id=${actor} for share`)).rows[0];
@@ -42,13 +43,15 @@ export async function authorizeMessagingTribeManagement(database: RequestDatabas
   if (!user || !session) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
   await currentManagementSessionClock(database,session.expires_at);
   const sensitive = "operation" in context;
+  const connectionScoped=sensitive&&(context.operation===REAUTHENTICATION_OPERATION.suspendMessagingConnection||context.operation===REAUTHENTICATION_OPERATION.disconnectMessagingConnection);
   if (sensitive) {
-    if (context.resourceId !== context.tribeId) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.permissionDenied);
+    const resourceId=connectionScoped&&"connectionId" in context?context.connectionId:context.tribeId;
+    if(connectionScoped!==("connectionId" in context)||context.resourceId!==resourceId)throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.permissionDenied);
     const account = (await database.execute<{ subject: string }>(sql`select "accountId" as subject from public.account where id=${context.accountId} and "userId"=${actor} and "providerId"=${GOOGLE_IDENTITY_PROVIDER} for share`)).rows[0];
     const binding = (await database.execute(sql`select session_id from public.global_session_identity_bindings where session_id=${context.sessionId} and user_id=${actor} and account_id=${context.accountId} and provider_subject=${context.subject} and normalized_email=${user.email.trim().toLowerCase()} and invalidated_at is null for share`)).rows[0];
     if (account?.subject !== context.subject || !binding) { await currentManagementSessionClock(database,session.expires_at); throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.reauthenticationRequired); }
   }
-  const tribeLock = sensitive && context.operation === REAUTHENTICATION_OPERATION.saveMessagingCredentials ? sql`for update` : sql`for share`;
+  const tribeLock = connectionScoped||sensitive&&context.operation===REAUTHENTICATION_OPERATION.saveMessagingCredentials?sql`for update`:sql`for share`;
   const tribe = (await database.execute(sql`select id from public.tribes where id=${context.tribeId} ${tribeLock}`)).rows[0];
   if (!tribe) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.permissionDenied);
   const leaders = (await database.execute<{ user_id: string }>(sql`select user_id from public.tribe_members where tribe_id=${context.tribeId} and role=${TRIBE_MEMBER_ROLE.leader} and status=${TRIBE_MEMBERSHIP_STATUS.active} order by user_id for share`)).rows;
