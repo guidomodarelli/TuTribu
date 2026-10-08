@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Los líderes tienen un primer paso de conexión para guardar una candidata de Zavu, borrar la clave del formulario y recuperar una respuesta perdida sin repetir el guardado; los guardianes consultan sólo su alerta de disponibilidad.
+
 - Los líderes pueden consultar el resultado original de un guardado de conexión sin reenviar la clave ni repetir el cambio.
 
 - Los líderes pueden activar una conexión productiva comprobada y reemplazar la anterior, conservando cupos y pruebas de admisión ya aplicadas, sin encender verificaciones automáticamente.

@@ -8,6 +8,7 @@ import { ResolveMessagingContextUseCase, LoadAuthorizedMessagingSecretUseCase } 
 import { ManageMessagingUsageUseCases } from "./application/use-cases/manage-messaging-usage-use-cases";
 import { ManageMessagingConnectionsUseCases } from "./application/use-cases/manage-messaging-connections-use-cases";
 import {ReadMessagingConnectionOperationUseCase} from "./application/use-cases/read-messaging-connection-operation-use-case";
+import {GetMessagingConnectionsPageUseCase} from "./application/use-cases/get-messaging-connections-page-use-case";
 import {PostgresMessagingConnectionOperationReader} from "./infrastructure/repositories/postgres-messaging-connection-operation-reader";
 import { PostgresMessagingConnectionRepository } from "./infrastructure/repositories/postgres-messaging-connection-repository";
 import { PostgresMessagingCredentialValidation } from "./infrastructure/repositories/postgres-messaging-credential-validation";
@@ -107,7 +108,11 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
     /** @param options - Non-secret live recovery state, without keyrings/provider access. @returns Read-only current leader/guardian metadata and the single usage projection. */
     createConfigurationModule(options:{readSecurityFacts:()=>Promise<MessagingSecurityFacts>}){
       const{executeActor,leadership}=createManagement();
-      return{useCases:new ReadMessagingConfigurationUseCase(dependencies.accounts,leadership,new PostgresMessagingConfigurationReader(executeActor,options.readSecurityFacts),dependencies.clock)};
+      const configuration=new ReadMessagingConfigurationUseCase(dependencies.accounts,leadership,new PostgresMessagingConfigurationReader(executeActor,options.readSecurityFacts),dependencies.clock);
+      return{useCases:configuration,
+        /** @param resolveTribe - Canonical native routing. @returns One current server entrypoint for the wizard without keyrings or another provider read. */
+        createPage(resolveTribe:Pick<ResolveAdmissionTribeUseCase,"execute">){return new GetMessagingConnectionsPageUseCase(dependencies.accounts,{configuration,resolveTribe},dependencies.clock);},
+      };
     },
     /** @returns Minimal leader/challenge-owner transport reads without keyrings, recency, provider calls or mutation. */
     createDeliveryReadModule(){const{executeActor}=createManagement();return{useCases:new ReadMessageDeliveryUseCase(dependencies.accounts,new PostgresMessageDeliveryReader(executeActor),dependencies.clock)};},

@@ -1,0 +1,45 @@
+/** Exercises the connection container with actual UI and owned browser/intent ports, preserving keys only in controlled memory. @module messaging-connections-container-tests */
+import {randomUUID} from "node:crypto";
+import {render,screen,waitFor} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import {describe,expect,it,vi} from "vitest";
+import {MessagingConnectionsContainer} from "@/app/(platform)/[slug]/academia/admissions/messaging/connections/messaging-connections-container";
+import type {MessagingConnectionsBrowserClient} from "@/src/modules/messaging/application/ports/messaging-connections-browser-client";
+import type {MessagingConnectionsIntentStore} from "@/src/modules/messaging/application/ports/messaging-connections-intent-store";
+import type {MessagingConnectionsPageState} from "@/src/modules/messaging/application/results/messaging-connections-page-state";
+
+/** @returns Guarded own SSR state and readonly/writing ports without auth/platform mocks. */
+function containerFixture(){
+  const viewerId=randomUUID(),tribeId=randomUUID(),configuration={audience:"leader" as const,selected:null,candidate:null,usage:{state:"not_configured" as const,policy:null}},initialState:MessagingConnectionsPageState={kind:"ready",slug:"synthetic",tribeId,viewerId,renderedAt:new Date().toISOString(),configuration},connectionId=randomUUID();
+  const create=vi.fn<MessagingConnectionsBrowserClient["create"]>(async(_slug,input)=>({status:"ready",value:{state:"completed",operationId:input.operationId,replayed:false,result:{id:connectionId,name:input.name,version:1,configurationVersion:1,state:"draft",maskedCredential:"••••••••"}}})),client:MessagingConnectionsBrowserClient={viewer:vi.fn<MessagingConnectionsBrowserClient["viewer"]>(async()=>({status:"ready",value:{id:viewerId}})),read:vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:configuration})),create,operation:vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false}))},store={read:vi.fn<MessagingConnectionsIntentStore["read"]>(()=>null),write:vi.fn<MessagingConnectionsIntentStore["write"]>(()=>true)},reauthentication={create:vi.fn(async()=>({status:"ready" as const,href:`/auth/reauthenticate?intentId=${randomUUID()}`}))};
+  return{initialState,viewerId,tribeId,connectionId,configuration,client,create,store,reauthentication};
+}
+describe("connection wizard first container step",()=>{
+  it("should preserve SSR metadata without a second read, validate fields and save one ephemeral key without persisting it",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),credential=randomUUID();render(<MessagingConnectionsContainer {...fixture} />);
+    expect(fixture.client.read).not.toHaveBeenCalled();await waitFor(()=>expect(screen.getByLabelText(/Nombre de la conexión/i)).toBeEnabled());await user.type(screen.getByLabelText(/Nombre de la conexión/i),"Zavu de prueba");await user.type(screen.getByLabelText(/Clave de Zavu/i),credential);await user.click(screen.getByRole("checkbox"));await user.click(screen.getByRole("button",{name:/Guardar conexión/i}));
+    await waitFor(()=>expect(fixture.create).toHaveBeenCalledTimes(1));expect(fixture.create.mock.calls[0][1]).toMatchObject({name:"Zavu de prueba",apiKey:credential,confirmed:true,providerId:"zavu"});
+    await waitFor(()=>expect(screen.queryByLabelText(/Clave de Zavu/i)).not.toBeInTheDocument());expect(screen.getByText("Conexión candidata")).toBeVisible();expect(JSON.stringify(fixture.store.write.mock.calls)).not.toContain(credential);
+  });
+  it("should preserve the original UUID after a lost write and recover before another mutation, without retaining the key",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),credential=randomUUID();fixture.create.mockResolvedValueOnce({status:"failed",code:"dependency_unavailable",message:"No pudimos confirmar el guardado.",uncertain:true});
+    render(<MessagingConnectionsContainer {...fixture} />);await waitFor(()=>expect(screen.getByLabelText(/Nombre de la conexión/i)).toBeEnabled());await user.type(screen.getByLabelText(/Nombre de la conexión/i),"Zavu de prueba");await user.type(screen.getByLabelText(/Clave de Zavu/i),credential);await user.click(screen.getByRole("checkbox"));await user.click(screen.getByRole("button",{name:/Guardar conexión/i}));
+    await waitFor(()=>expect(screen.getByRole("button",{name:/Consultar guardado/i})).toBeVisible());expect(screen.getByLabelText(/Clave de Zavu/i)).toHaveValue("");expect(fixture.create).toHaveBeenCalledTimes(1);expect(JSON.stringify(fixture.store.write.mock.calls)).not.toContain(credential);
+  });
+  it("should reconcile current metadata after an original replay instead of restoring the historical candidate over an active selection",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),operationId=randomUUID(),selected={id:fixture.connectionId,name:"Conexión actual",version:4,configurationVersion:2,state:"active" as const,credentialState:"valid" as const,credentialMode:"production" as const,maskedCredential:"••••••••" as const,capabilities:[]},current={...fixture.configuration,selected,candidate:null};
+    fixture.store.read.mockReturnValue({type:"save_messaging_credentials",operationId});fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready" as const,value:current}));fixture.client.operation=vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"ready" as const,value:{type:"save_messaging_credentials" as const,state:"completed" as const,operationId,replayed:true as const,result:{id:fixture.connectionId,name:"Nombre histórico",version:1,configurationVersion:1,state:"draft" as const,maskedCredential:"••••••••" as const}}}));
+    render(<MessagingConnectionsContainer {...fixture} />);await user.click(await screen.findByRole("button",{name:/Consultar guardado/i}));
+    await waitFor(()=>expect(screen.getByText("Conexión actual")).toBeVisible());expect(screen.queryByText("Nombre histórico")).not.toBeInTheDocument();expect(screen.queryByText("Conexión candidata")).not.toBeInTheDocument();expect(fixture.create).not.toHaveBeenCalled();
+  });
+  it("should block a new write while the initial viewer lookup is pending and restore the existing original reference",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup(),viewer=Promise.withResolvers<Awaited<ReturnType<MessagingConnectionsBrowserClient["viewer"]>>>(),operationId=randomUUID();fixture.client.viewer=vi.fn<MessagingConnectionsBrowserClient["viewer"]>().mockReturnValueOnce(viewer.promise).mockResolvedValue({status:"ready",value:{id:fixture.viewerId}});fixture.store.read.mockReturnValue({type:"save_messaging_credentials",operationId});
+    render(<MessagingConnectionsContainer {...fixture} />);await user.type(screen.getByLabelText(/Nombre de la conexión/i),"Zavu de prueba");await user.type(screen.getByLabelText(/Clave de Zavu/i),randomUUID());await user.click(screen.getByRole("checkbox"));
+    expect(screen.getByRole("button",{name:/Guardar conexión/i})).toBeDisabled();expect(fixture.create).not.toHaveBeenCalled();expect(fixture.store.write).not.toHaveBeenCalled();viewer.resolve({status:"ready",value:{id:fixture.viewerId}});expect(await screen.findByRole("button",{name:/Consultar guardado/i})).toBeVisible();
+  });
+  it("should keep a local reference cleanup failure visible after the server confirms creation",async()=>{
+    const fixture=containerFixture(),user=userEvent.setup();fixture.store.write.mockImplementation((_viewer,_slug,intent)=>intent!==null);
+    render(<MessagingConnectionsContainer {...fixture} />);await waitFor(()=>expect(screen.getByLabelText(/Nombre de la conexión/i)).toBeEnabled());await user.type(screen.getByLabelText(/Nombre de la conexión/i),"Zavu de prueba");await user.type(screen.getByLabelText(/Clave de Zavu/i),randomUUID());await user.click(screen.getByRole("checkbox"));await user.click(screen.getByRole("button",{name:/Guardar conexión/i}));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/referencia local/i);expect(screen.getByRole("button",{name:/Consultar guardado/i})).toBeVisible();expect(fixture.create).toHaveBeenCalledTimes(1);
+  });
+});
