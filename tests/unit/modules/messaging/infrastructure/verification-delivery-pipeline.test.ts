@@ -3,40 +3,16 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
-import { prepareContactVerificationIssuer, recoverTestVerificationCode } from "@/tests/support/contact-verification-issuance-fixture";
+import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+import { recoverTestVerificationCode } from "@/tests/support/contact-verification-issuance-fixture";
+import { prepareVerificationDeliveryPipeline as preparePipeline } from "@/tests/support/verification-delivery-pipeline-fixture";
 import { createContactVerificationWriter } from "@/tests/support/contact-verification-database-fixture";
 import { createAdmissionProviderTransport } from "@/tests/support/admission-provider-transport";
-import { PostgresMessageDeliveryRepository } from "@/src/modules/messaging/infrastructure/repositories/postgres-message-delivery-repository";
 import { PostgresVerificationDeliveryPreparation } from "@/src/modules/messaging/infrastructure/repositories/postgres-verification-delivery-preparation";
-import { PostgresEncryptedSecretStore } from "@/src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store";
 import { ZavuMessageDeliverySender } from "@/src/modules/messaging/infrastructure/zavu/zavu-message-delivery-sender";
 import { DispatchMessageDeliveriesUseCase } from "@/src/modules/messaging/application/use-cases/dispatch-message-deliveries-use-case";
 import { createMessagingDispatchConfig } from "@/src/modules/messaging/infrastructure/config/messaging-dispatch-config";
-import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingDispatchDiagnostic } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
-
-/**
- * Seeds the actual protected issuer and marker dependencies without changing default/production.
- * @param database - This run's disposable owned branch.
- * @returns Actual guarded executors, current resource and private crypto/SecretStore.
- */
-async function preparePipeline(database: AcademyAdmissionTestDatabase) {
-  const fixture = await prepareContactVerificationIssuer(database);
-  for (const migration of ["20261005092500_guard_messaging_attempts.sql","20261005100000_guard_messaging_secret_retirement.sql","20261006140000_claim_messaging_deliveries_fairly.sql","20261006160000_purge_verification_delivery_material.sql"]) await database.applyMigration(migration);
-  const issued = await fixture.issue();
-  if (issued.state !== "completed" || issued.result.outcome !== "issued") throw new Error("Synthetic pipeline issuance did not complete");
-  let transactions = 0;
-  const execute = async <Result>(actorUserId: string | null, run: (transaction: RequestDatabase) => Promise<Result>) => {
-    transactions += 1;
-    try { return await database.withContext({ userId: actorUserId, email: null }, run); }
-    finally { transactions -= 1; }
-  };
-  const secrets = new PostgresEncryptedSecretStore(execute, { getAuthenticatedAccount: async () => null }, async () => fixture.config, "authorized_delivery");
-  const preparation = new PostgresVerificationDeliveryPreparation(execute, secrets, async () => fixture.config);
-  const repository = new PostgresMessageDeliveryRepository(execute, async () => true, async () => fixture.config);
-  return { ...fixture, original: issued.result, execute, secrets, preparation, repository, get transactions() { return transactions; } };
-}
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("verification delivery pipeline", () => {
   it.each(["before_marker","after_marker"] as const)("should stop old leadership dispatch %s without recovering a key, changing the old credential or making any SDK request",async(stage)=>{
