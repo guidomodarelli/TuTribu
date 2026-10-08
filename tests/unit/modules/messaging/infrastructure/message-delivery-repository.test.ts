@@ -32,7 +32,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
   it("should keep a possibly committed authorization unresolved with no RPC and reconcile the same charged marker after response loss", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareOutbox(database);
-      let transactions = 0, sends = 0;
+      let transactions = 0, preparations = 0, sends = 0;
       const diagnostics: MessagingDispatchDiagnostic[] = [];
       const repository = new PostgresMessageDeliveryRepository(async (actorUserId, run) => {
         const result = await database.withContext({ userId: actorUserId, email: null }, run);
@@ -40,9 +40,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
         if (transactions === 2) throw new Error("Synthetic marker commit response lost");
         return result;
       }, async () => true, async () => fixture.config);
-      const dispatcher = new DispatchMessageDeliveriesUseCase(repository, { async send() { sends += 1; return { outcome: "accepted", providerMessageId: randomUUID(), correlationId: null, reason: "provider_accepted" }; } }, createMessagingDispatchConfig(), { now: Date.now, createId: randomUUID, defer: (work) => { void work; }, report: (diagnostic) => { diagnostics.push(diagnostic); } });
+      const dispatcher = new DispatchMessageDeliveriesUseCase(repository, { async prepare() { preparations += 1; return { async send() { sends += 1; return { outcome: "accepted", providerMessageId: randomUUID(), correlationId: null, reason: "provider_accepted" }; } }; } }, createMessagingDispatchConfig(), { now: Date.now, createId: randomUUID, defer: (work) => { void work; }, report: (diagnostic) => { diagnostics.push(diagnostic); } });
       expect(await dispatcher.execute()).toMatchObject({ claimed: 1, authorized: 0, unresolved: 1, accepted: 0 });
       expect(sends).toBe(0);
+      expect(preparations).toBe(0);
       expect(diagnostics).toHaveLength(1);
       expect(diagnostics[0]).toMatchObject({ stage: "authorize", deliveryId: fixture.original.deliveryId, cause: { code: "operation_unresolved" } });
       await database.withContext(fixture.own, async (transaction) => {

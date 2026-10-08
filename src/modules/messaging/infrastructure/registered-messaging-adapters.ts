@@ -37,8 +37,12 @@ export class RegisteredMessagingDeliverySender implements MessageDeliverySender{
   constructor(private readonly registry:MessagingProviderRegistry,private readonly readProvider:CurrentMessagingProviderReader,private readonly preparation:VerificationDeliveryPreparation){}
   /** @param context - Original committed attempt. @param signal - Its original deadline/cancellation. @returns Own transport evidence from only the resolved adapter; unsupported channels never enter RPC. */
   async send(context:AuthorizedDeliveryMessagingContext,signal:AbortSignal){
+    return(await this.prepare(context,signal)).send(signal);
+  }
+  /** @param context - Original committed attempt. @param signal - Remaining run deadline. @returns Exactly one prepared adapter operation without starting the provider request. */
+  async prepare(context:AuthorizedDeliveryMessagingContext,signal:AbortSignal){
     signal.throwIfAborted();const prepared=await this.preparation.prepare(context,signal);signal.throwIfAborted();
     const providerId=await this.readProvider(context);signal.throwIfAborted();
-    return this.registry.resolve(providerId,prepared.intent.channel).createSender({prepare:async()=>prepared}).send(context,signal);
+    return this.registry.resolve(providerId,prepared.intent.channel).createSender({prepare:async()=>prepared}).prepare(context,signal);
   }
 }

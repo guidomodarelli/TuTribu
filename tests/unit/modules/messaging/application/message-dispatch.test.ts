@@ -5,8 +5,12 @@ import { describe, expect, it } from "vitest";
 import { DispatchMessageDeliveriesUseCase } from "@/src/modules/messaging/application/use-cases/dispatch-message-deliveries-use-case";
 import { createMessagingDispatchConfig } from "@/src/modules/messaging/infrastructure/config/messaging-dispatch-config";
 import type { MessageDeliveryRepository, ClaimedMessageDelivery, MessageDeliveryReceipt } from "@/src/modules/messaging/domain/repositories/message-delivery-repository";
-import type { MessageDeliverySender, MessagingDispatchDiagnostic } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
+import type { MessagingDispatchDiagnostic } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import { ZavuMessageDeliverySender } from "@/src/modules/messaging/infrastructure/zavu/zavu-message-delivery-sender";
+import { createAdmissionProviderTransport } from "@/tests/support/admission-provider-transport";
+/** Own immediate-preparation transport test port; production uses a separate transient prepared operation. */
+type OwnRpcSender={send(context:AuthorizedDeliveryMessagingContext,signal:AbortSignal):Promise<Omit<MessageDeliveryReceipt,"context">>};
 
 /**
  * Supplies own scheduling ports; no library, SDK, SQL transport or UI platform is mocked.
@@ -35,10 +39,24 @@ function fixture(count: number) {
   };
   const settings = createMessagingDispatchConfig({ requestTimeoutMs: 30, runBudgetMs: 150, leaseSeconds: 1 });
   const runtime = { now: () => Date.now(), createId: randomUUID, defer: (work: Promise<void>) => { deferred.push(work); }, report: (diagnostic: MessagingDispatchDiagnostic) => { diagnostics.push(diagnostic); } };
-  return { queue, receipts, diagnostics, deferred, markers, repository, settings, runtime, get insidePersistence() { return insidePersistence; }, dispatcher: (sender: MessageDeliverySender) => new DispatchMessageDeliveriesUseCase(repository, sender, settings, runtime) };
+  return { queue, receipts, diagnostics, deferred, markers, repository, settings, runtime, get insidePersistence() { return insidePersistence; }, dispatcher: (sender: OwnRpcSender) => new DispatchMessageDeliveriesUseCase(repository, {prepare:async(context)=>({send:(signal)=>sender.send(context,signal)})}, settings, runtime) };
 }
 
 describe("portable message dispatcher", () => {
+  it("should reserve the request timeout for the actual SDK RPC after slower local preparation within the unchanged run budget", async () => {
+    const state=fixture(1),providerMessageId=randomUUID(),settings=createMessagingDispatchConfig({...state.settings,runBudgetMs:300});
+    const transport=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:"/v1/messages",method:"POST",respond:()=>Response.json({message:{id:providerMessageId,direction:"outbound",channel:"email",status:"sent"}})}]);
+    const sender=new ZavuMessageDeliverySender({async prepare(context){await new Promise<void>((resolve)=>setTimeout(resolve,60));return{credential:randomUUID(),intent:{deliveryId:context.deliveryId,attemptId:context.attemptId,connectionId:context.connectionId,connectionVersion:context.connectionVersion,environment:context.environment,securityEpoch:context.securityEpoch,channel:"email",senderId:randomUUID(),recipient:"synthetic@example.test",code:"429017",idempotencyKey:randomUUID(),templateId:null,templateLanguage:null}};}},transport.fetch);
+    const result=await new DispatchMessageDeliveriesUseCase(state.repository,sender,settings,state.runtime).execute();await Promise.all(state.deferred);
+    expect(result).toMatchObject({authorized:1,accepted:1,unknown:0,unresolved:0});expect(transport.receipts).toHaveLength(1);expect(state.receipts).toHaveLength(1);expect(state.receipts[0]).toMatchObject({outcome:"accepted",providerMessageId});
+  });
+  it("should preserve the original uncertainty and never start SDK when local preparation finishes after the run deadline", async () => {
+    const state=fixture(1),settings=createMessagingDispatchConfig({...state.settings,runBudgetMs:150}),transport=createAdmissionProviderTransport([]);
+    const sender=new ZavuMessageDeliverySender({async prepare(context){await new Promise<void>((resolve)=>setTimeout(resolve,220));return{credential:randomUUID(),intent:{deliveryId:context.deliveryId,attemptId:context.attemptId,connectionId:context.connectionId,connectionVersion:context.connectionVersion,environment:context.environment,securityEpoch:context.securityEpoch,channel:"email",senderId:randomUUID(),recipient:"synthetic@example.test",code:"429017",idempotencyKey:randomUUID(),templateId:null,templateLanguage:null}};}},transport.fetch);
+    const result=await new DispatchMessageDeliveriesUseCase(state.repository,sender,settings,state.runtime).execute();await Promise.all(state.deferred);
+    expect(result).toMatchObject({authorized:1,accepted:0,unknown:1,unresolved:0,deadlineReached:true});expect(transport.receipts).toHaveLength(0);expect(transport.deniedRequests).toBe(0);expect(state.receipts).toHaveLength(1);expect(state.receipts[0].context.attemptId).toBe([...state.markers.values()][0].attemptId);
+    expect(state.diagnostics).toContainEqual(expect.objectContaining({stage:"prepare",cause:expect.objectContaining({name:"MessagingDispatchDeadlineError",code:"transport_timeout",stage:"prepare",durationMs:expect.any(Number)})}));
+  });
   it("should use specification defaults and reject capacity/lease settings that break the run limits", () => {
     expect(createMessagingDispatchConfig()).toEqual({ requestTimeoutMs: 15_000, runBudgetMs: 45_000, leaseSeconds: 90, concurrency: 2, batchLimit: 2 });
     for (const input of [{ concurrency: 3 }, { concurrency: 0 }, { batchLimit: 101 }, { leaseSeconds: 301 }, { leaseSeconds: 45 }, { requestTimeoutMs: 15_001 }, { runBudgetMs: 45_001 }, { requestTimeoutMs: Number.NaN }]) expect(() => createMessagingDispatchConfig(input)).toThrow(expect.objectContaining({ code: "invalid_input" }));
@@ -47,7 +65,7 @@ describe("portable message dispatcher", () => {
   it("should enter sender only after each committed marker and keep at most two send requests active", async () => {
     const state = fixture(5);
     let active = 0, maximum = 0;
-    const sender: MessageDeliverySender = { async send(context) {
+    const sender: OwnRpcSender = { async send(context) {
       expect(state.insidePersistence).toBe(false);
       expect(state.markers.get(context.deliveryId)?.attemptId).toBe(context.attemptId);
       active += 1; maximum = Math.max(maximum, active);
@@ -64,7 +82,7 @@ describe("portable message dispatcher", () => {
   it("should stop new POSTs on an uncooperative timeout and record a late result for that same attempt", async () => {
     const state = fixture(5);
     const pending = new Map<string, (value: Omit<MessageDeliveryReceipt, "context">) => void>();
-    const sender: MessageDeliverySender = { send(context) { return new Promise((resolve) => { pending.set(context.attemptId, resolve); }); } };
+    const sender: OwnRpcSender = { send(context) { return new Promise((resolve) => { pending.set(context.attemptId, resolve); }); } };
     const result = await state.dispatcher(sender).execute();
     expect(result).toMatchObject({ claimed: 2, authorized: 2, unknown: 2, accepted: 0 });
     expect(pending.size).toBe(2);

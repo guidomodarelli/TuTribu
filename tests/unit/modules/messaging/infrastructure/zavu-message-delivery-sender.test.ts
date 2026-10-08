@@ -19,6 +19,11 @@ function preparedFixture(channel: "email" | "sms" | "whatsapp" = "email") {
 }
 
 describe("real SDK message sender", () => {
+  it("should preserve original preparation cancellation when the prepared operation receives a separate RPC signal",async()=>{
+    const fixture=preparedFixture(),transport=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:"/v1/messages",method:"POST",respond:()=>Response.json({message:{id:randomUUID(),direction:"outbound",channel:"email",status:"sent"}})}]),controller=new AbortController(),sender=new ZavuMessageDeliverySender({prepare:async()=>fixture.prepared},transport.fetch);
+    const operation=await sender.prepare(fixture.context,controller.signal);expect(transport.receipts).toHaveLength(0);controller.abort();
+    await expect(operation.send(new AbortController().signal)).rejects.toMatchObject({name:"AbortError"});expect(transport.receipts).toHaveLength(0);
+  });
   it("should preserve the original SDK deadline under native GC without retrying an authorized message",async()=>{
     const fixture=preparedFixture();
     const transport=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:"/v1/messages",method:"POST",respond:()=>{
