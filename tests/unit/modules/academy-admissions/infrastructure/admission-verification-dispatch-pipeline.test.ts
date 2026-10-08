@@ -1,0 +1,30 @@
+/** @vitest-environment node */
+/** Exercises applicant issuance, private focal resolution, committed marker, real credential/code preparation and SDK outside SQL. @module admission-verification-dispatch-pipeline-tests */
+import {randomUUID} from "node:crypto";
+import {sql} from "drizzle-orm";
+import {describe,expect,it} from "vitest";
+import {withAcademyAdmissionDatabase} from "@/tests/support/academy-admission-database";
+import {prepareAdmissionContactVerification} from "@/tests/support/admission-contact-verification-fixture";
+import {createAdmissionProviderTransport} from "@/tests/support/admission-provider-transport";
+import {PostgresAdmissionContactVerificationOperations,type AdmissionVerificationDatabaseExecutor} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations";
+import {PostgresAdmissionVerificationDispatchContext} from "@/src/modules/academy-admissions/infrastructure/verification/postgres-admission-verification-dispatch-context";
+import {ScopedAdmissionVerificationDispatcher} from "@/src/modules/academy-admissions/infrastructure/verification/admission-verification-message-sender";
+import {buildMessagingWorkModule} from "@/src/modules/messaging/setup";
+import {ZavuMessageDeliverySender} from "@/src/modules/messaging/infrastructure/zavu/zavu-message-delivery-sender";
+import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database/server-database-client";
+
+describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native applicant focal dispatch pipeline",()=>{
+  it("should send one confirmed applicant challenge with its contributor credential only after committing SQL and preserve unrelated queue work",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareAdmissionContactVerification(database);for(const migration of["20261005092500_guard_messaging_attempts.sql","20261005100000_guard_messaging_secret_retirement.sql","20261006140000_claim_messaging_deliveries_fairly.sql","20261006160000_purge_verification_delivery_material.sql","20261008210000_claim_scoped_admission_delivery.sql"])await database.applyMigration(migration);
+      await database.withContext(fixture.fixture.own,(transaction)=>transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.context.tribeId}`));
+      let transactions=0;
+      const requestExecute:AdmissionVerificationDatabaseExecutor=async(_scope,run)=>{transactions+=1;try{return await database.withContext(fixture.own,run);}finally{transactions-=1;}},workerExecute=async<Result>(actor:string|null,run:(transaction:RequestDatabase)=>Promise<Result>)=>{transactions+=1;try{return await database.withContext({userId:actor,email:null},run);}finally{transactions-=1;}};
+      const operations=new PostgresAdmissionContactVerificationOperations(requestExecute,async()=>fixture.fixture.config),issued=await operations.issue({...fixture.input,expectedPolicyVersion:2});if(issued.state!=="completed")throw new Error("Expected applicant original issuance");const unrelated=await fixture.fixture.issue();if(unrelated.state!=="completed"||unrelated.result.outcome!=="issued")throw new Error("Expected unrelated queued obligation");const unrelatedDeliveryId=unrelated.result.deliveryId;
+      const providerId=randomUUID(),transport=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:"/v1/messages",method:"POST",respond:async(request)=>{expect(transactions).toBe(0);expect(request.headers.get("Authorization")===`Bearer ${fixture.fixture.credential}`).toBe(true);expect(request.headers.get("Zavu-Sender")).toBe(fixture.fixture.emailSenderId);const body=await request.json()as{to:string;channel:string;fallbackEnabled:boolean};expect(body.to===fixture.own.email).toBe(true);expect(body.channel).toBe("email");expect(body.fallbackEnabled).toBe(false);return Response.json({message:{id:providerId,direction:"outbound",channel:"email",status:"sent"}});}}]),deferred:Promise<void>[]=[],resolver=new PostgresAdmissionVerificationDispatchContext(requestExecute),dispatcher=new ScopedAdmissionVerificationDispatcher({resolve:(intent)=>resolver.resolve(intent),readSecurityFacts:async()=>fixture.fixture.config,createDispatcher:(scope,authorize)=>buildMessagingWorkModule({focalScope:scope,execute:workerExecute,authorize,readSecurityConfig:async()=>fixture.fixture.config,createSender:(preparation)=>new ZavuMessageDeliverySender(preparation,transport.fetch),runtime:{now:Date.now,createId:randomUUID,defer:(work)=>{deferred.push(work);},report:()=>{throw new Error("Unexpected applicant dispatch diagnostic");}}}).useCases.dispatch});
+      await dispatcher.dispatch({...fixture.context,challengeId:issued.result.challengeId});await Promise.all(deferred);expect(transport.receipts).toHaveLength(1);
+      await database.withContext(fixture.fixture.own,async(transaction)=>{const delivery=(await transaction.execute<{delivery_id:string}>(sql`select delivery_id from public.contact_verification_challenges where id=${issued.result.challengeId}`)).rows[0];expect((await transaction.execute(sql`select state,provider_message_id from public.message_delivery_attempts where delivery_id=${delivery.delivery_id}`)).rows).toEqual([{state:"accepted",provider_message_id:providerId}]);expect((await transaction.execute(sql`select state from public.messaging_usage_reservations where delivery_id=${delivery.delivery_id}`)).rows).toEqual([{state:"consumed"}]);expect((await transaction.execute(sql`select state,lease_token,version from public.message_deliveries where id=${unrelatedDeliveryId}`)).rows).toEqual([{state:"queued",lease_token:null,version:1}]);});
+      expect(await fixture.counts()).toMatchObject({challenges:1,deliveries:1,events:1,operations:1,proofs:0,memberships:0});
+    });
+  },600_000);
+});
