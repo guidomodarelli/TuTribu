@@ -47,7 +47,7 @@ export class GetAdmissionOverviewUseCase {
       } else if (facts.policy.requiresAdditionalVerification) {
         state = ADMISSION_OVERVIEW_STATE.verificationRequired; nextAction = ADMISSION_NEXT_ACTION.verifyContact; safeMessage = ADMISSION_OVERVIEW_MESSAGE.verification;
       }
-      const parsed = admissionOverviewSchema.safeParse({ tribe: { slug: facts.tribe.slug, name: facts.tribe.name, accessModel: facts.tribe.accessModel }, policy: facts.policy, state, nextAction, safeMessage, ...(request ? { request } : {}) });
+      const parsed = admissionOverviewSchema.safeParse({ tribe: { slug: facts.tribe.slug, name: facts.tribe.name, accessModel: facts.tribe.accessModel }, policy: facts.policy, state, nextAction, safeMessage, ...(request ? { request } : {}), ...(scope && facts.policy?.requiresAdditionalVerification && facts.verification ? { verification: facts.verification } : {}) });
       if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       return { ok: true as const, value: parsed.data };
     } catch (error) { return admissionOperationFailure(error); }

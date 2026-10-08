@@ -11,6 +11,8 @@ export type AdmissionOverviewFacts<Request = unknown> = {
   policy: { mode: "manual_review" | "allowlist"; contactType: "email" | "phone"; requiresAdditionalVerification: boolean; isOpen: boolean; version: number } | null;
   membership: { role: "leader" | "guardian" | "tribemate"; status: "active" | "muted" | "blocked" | "removed"; statusReason: string; commercialRecoveryStatus: "active" | "muted" | null } | null;
   request: Request | null; recoveryLocked: boolean;
+  /** Applicant-facing choices are hints only; issuance rechecks policy, country, capability and budgets. */
+  verification?: { channel: "email" | "sms" | "whatsapp"; allowedCountries: readonly string[]; allowedAlternative?: "sms" };
 };
 /** Overview is a read-only projection; anonymous scope may receive public facts only. */
 export interface AdmissionOverviewReader<Request> {

@@ -13,6 +13,8 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 import type { AdmissionOperationResult } from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { admissionPublicIdSchema, admissionPublicVersionSchema, admissionPublicInstantSchema, admissionLocalHrefSchema, admissionMaskedContactSchema } from "./admission-contract-fields";
+import { admissionContactOptionsSchema } from "./admission-contact-options-schema";
+import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 
 /** Own-request projection; reviewer/account ids, raw contacts and internal reasons are absent. */
 export const admissionRequestSchema = z.object({
@@ -44,8 +46,8 @@ const overviewPolicySchema = z.object({ mode: z.enum(ADMISSION_POLICY_MODE), con
 /** Public/own overview can represent missing configuration without a fabricated version. */
 export const admissionOverviewSchema = z.object({
   tribe: z.object({ slug: z.string().regex(TRIBE_SLUG_PATTERN), name: z.string(), accessModel: z.literal("academy") }),
-  policy: overviewPolicySchema.nullable(), state: z.enum(ADMISSION_OVERVIEW_STATE), nextAction: z.enum(ADMISSION_NEXT_ACTION), safeMessage: z.string(), request: admissionRequestSchema.optional(),
-});
+  policy: overviewPolicySchema.nullable(), state: z.enum(ADMISSION_OVERVIEW_STATE), nextAction: z.enum(ADMISSION_NEXT_ACTION), safeMessage: z.string(), request: admissionRequestSchema.optional(), verification: admissionContactOptionsSchema.optional(),
+}).refine((overview) => !overview.verification || overview.policy?.requiresAdditionalVerification === true && (overview.policy.contactType === ADMISSION_CONTACT_TYPE.email ? overview.verification.channel === MESSAGING_PUBLIC_CHANNEL.email : overview.verification.channel !== MESSAGING_PUBLIC_CHANNEL.email));
 /** Legible membership states are preserved; a new admission cannot grant a privileged role. */
 const legibleMembershipSchema = z.object({ status: z.enum([TRIBE_MEMBERSHIP_STATUS.active, TRIBE_MEMBERSHIP_STATUS.muted]), role: z.enum(TRIBE_MEMBER_ROLE) });
 const outcomeFields = { operationId: admissionPublicIdSchema, safeMessage: z.string(), nextHref: admissionLocalHrefSchema.optional() };

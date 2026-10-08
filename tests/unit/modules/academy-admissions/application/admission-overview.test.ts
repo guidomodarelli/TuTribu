@@ -18,6 +18,36 @@ function overviewFixture() {
 }
 
 describe("admission overview", () => {
+  it("should allowlist verification channel and countries for the native applicant without sender or quota references", async () => {
+    const fixture = overviewFixture();
+    fixture.facts.policy!.contactType = "phone";
+    fixture.facts.policy!.requiresAdditionalVerification = true;
+    const verification = { channel: "whatsapp" as const, allowedCountries: ["AR"], allowedAlternative: "sms" as const, secretRef: randomUUID(), quota: 20 };
+    fixture.reader.readOverview.mockResolvedValue({ ...fixture.facts, verification });
+    const result = await new GetAdmissionOverviewUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query);
+    expect(result).toMatchObject({ ok: true, value: { state: "verification_required", verification: { channel: "whatsapp", allowedCountries: ["AR"], allowedAlternative: "sms" } } });
+    if (result.ok) { expect(result.value).not.toHaveProperty("verification.secretRef"); expect(result.value).not.toHaveProperty("verification.quota"); }
+  });
+
+  it("should hide applicant-only choices from anonymous and OFF reads and reject a mismatched own channel", async () => {
+    const fixture = overviewFixture(), verification = { channel: "whatsapp" as const, allowedCountries: ["AR"] };
+    fixture.facts.policy!.requiresAdditionalVerification = true;
+    fixture.facts.policy!.contactType = "phone";
+    fixture.reader.readOverview.mockResolvedValue({ ...fixture.facts, verification });
+    const useCase = new GetAdmissionOverviewUseCase(fixture.accounts, fixture.reader, () => fixture.now);
+    fixture.accounts.getAuthenticatedAccount.mockResolvedValue(null);
+    const anonymous = await useCase.execute(fixture.query);
+    expect(anonymous.ok).toBe(true);
+    if (anonymous.ok) expect(anonymous.value).not.toHaveProperty("verification");
+    fixture.accounts.getAuthenticatedAccount.mockResolvedValue(fixture.account);
+    fixture.facts.policy!.requiresAdditionalVerification = false;
+    const off = await useCase.execute(fixture.query);
+    expect(off.ok).toBe(true);
+    if (off.ok) expect(off.value).not.toHaveProperty("verification");
+    fixture.facts.policy!.requiresAdditionalVerification = true;
+    fixture.reader.readOverview.mockResolvedValue({ ...fixture.facts, verification: { channel: "email", allowedCountries: [] } });
+    expect(await useCase.execute(fixture.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
+  });
   it("should expose only public setup to an anonymous account without a key, sender or prior membership", async () => {
     const fixture = overviewFixture();
     fixture.accounts.getAuthenticatedAccount.mockResolvedValue(null);
