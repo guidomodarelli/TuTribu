@@ -10,6 +10,8 @@ export const MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX="tutribu:messaging-conn
 /** A full local history blocks another archive instead of silently dropping an original reference. */
 export const MESSAGING_CONNECTION_HISTORY_LIMIT=20;
 export const MESSAGING_CONNECTION_HISTORY_STORAGE_SUFFIX=":history";
+/** An issued diagnostic reference is independent from a pending mutation, so code verification remains explicit. */
+export const MESSAGING_DIAGNOSTIC_OBSERVATION_STORAGE_SUFFIX=":diagnostic";
 /** Explicit inspection consumes its own credential allowance, never a message quota or channel proof. */
 export const MESSAGING_CREDENTIAL_CHECK_UI_COPY={checking:"Comprobando la credencial…",checked:"La credencial quedó comprobada. Revisá el tipo de cuenta antes de continuar.",recovered:"La comprobación original quedó confirmada. Revisá el estado actual.",pending:"No pudimos confirmar la comprobación. Consultá el resultado original antes de repetirla.",readingCurrent:"Consultando la conexión actual…",currentRead:"La conexión actual quedó consultada. Revisá los datos y confirmá otra vez.",currentUnavailable:"No pudimos consultar la conexión actual. Reintentá la consulta antes de confirmar cambios.",confirming:"Confirmá tu cuenta con Google antes de comprobar la credencial."} as const;
 /** Clear localized feedback without provider/internal errors or optimistic claims of a committed write. */

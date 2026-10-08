@@ -18,6 +18,11 @@ function admissionBoundary() {
 }
 
 describe("messaging public contracts", () => {
+  it("should preserve a completed original issuance when only dispatch observation is unresolved without exposing the private cause",async()=>{
+    const operationId=randomUUID(),privateMessage=randomUUID(),response=messagingBoundary().failure({code:"operation_unresolved",operation:{operationId,state:"completed"},cause:new Error(privateMessage)});
+    expect(response.status).toBe(202);const body=await response.json();expect(body).toMatchObject({code:"operation_unresolved",operation:{operationId,state:"completed"}});expect(JSON.stringify(body)).not.toContain(privateMessage);expect(body).not.toHaveProperty("cause");
+  });
+
   it("should preserve only generic connection metadata without private provider/key/context fields", async () => {
     const connection = { id: randomUUID(), providerId: "zavu", version: 1, state: "draft", maskedCredential: "••••••••", credentialState: "not_validated", environment: "synthetic-local", capabilities: [{ channel: "email", state: "unprepared", checkedAt: null, testedAt: null, sdkPayload: { private: true } }], requirements: ["connection_incomplete"], validatedAt: null, consumption: { verificationToday: 0, notificationToday: 0 } };
     const result = await messagingBoundary().success(messagingConnectionSchema, { ...connection, apiKey: "synthetic-private", secretRef: randomUUID(), teamId: randomUUID(), projectId: randomUUID(), leaseToken: randomUUID() }).json();

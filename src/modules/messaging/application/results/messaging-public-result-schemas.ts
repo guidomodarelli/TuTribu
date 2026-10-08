@@ -37,4 +37,4 @@ export const messagingPublicErrorSchema = z.object({
   retryAt: z.iso.datetime({ offset: true }).optional(),
   operation: z.object({ operationId: z.uuid(), state: z.enum(OPERATION_STATE) }).optional(),
 }).refine((error) => error.message === MESSAGING_ERROR_MESSAGE[error.code])
-  .refine((error) => error.code !== MESSAGING_ERROR_CODE.operationUnresolved || error.operation?.state === OPERATION_STATE.started) satisfies z.ZodType<MessagingPublicError>;
+  .refine((error) => error.code !== MESSAGING_ERROR_CODE.operationUnresolved || error.operation !== undefined) satisfies z.ZodType<MessagingPublicError>;
