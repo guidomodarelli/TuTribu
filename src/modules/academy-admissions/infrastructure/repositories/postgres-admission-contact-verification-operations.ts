@@ -28,7 +28,7 @@ import {ADMISSION_VERIFICATION_PURPOSE} from "../../constants/admission-eligibil
 import {ADMISSION_CONTACT_TYPE} from "../../constants/admission-contact";
 import {ADMISSION_CONTACT_MASK,ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH} from "../../constants/admission-contact-presentation";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
-import {ADMISSION_REQUEST_SOURCE} from "../../constants/admission-request";
+import {ADMISSION_REQUEST_SOURCE,ADMISSION_REQUEST_STATUS} from "../../constants/admission-request";
 import {ADMISSION_CONTACT_VERIFICATION_OPERATION,ADMISSION_CONTACT_VERIFICATION_DENIAL_CODE} from "../../constants/admission-contact-verification";
 import {VERIFICATION_ISSUANCE_OPERATION,VERIFICATION_ISSUANCE_OUTCOME} from "../../constants/verification-issuance";
 import {VERIFICATION_TRANSITION_OUTCOME,VERIFICATION_CHALLENGE_REASON} from "../../constants/verification-challenge";
@@ -42,6 +42,8 @@ import {TRIBE_MEMBERSHIP_STATUS} from "@/src/modules/tribes/constants/tribe-page
 export type AdmissionVerificationDatabaseExecutor=<Result>(scope:AdmissionVerificationAccountScope,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
 /** Only immutable scope fields are consumed; PostgreSQL rows are not schema-revalidated. */
 type ChallengeScopeRow={id:string;user_id:string;tribe_id:string;purpose:string;contact_type:"email"|"phone";normalized_contact:string;recipient_country:string|null;channel:"email"|"sms"|"whatsapp";verification_epoch:number;connection_id:string;connection_version:number;security_epoch:string};
+/** Only the current pending contact/source/time facts are consumed; requesting a code cannot mutate them. */
+type PendingIssuanceRow={status:string;source:string;contact_type:string|null;normalized_contact:string|null;expires_at:Date|string};
 
 /** Owns metadata, budgets and proof effects; no method decrypts a BYOK credential or invokes SDK. */
 export class PostgresAdmissionContactVerificationOperations implements AdmissionContactVerificationOperations,AdmissionProofApplicationOperations{
@@ -89,11 +91,22 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
   private async issuanceScope(database:RequestDatabase,input:AdmissionChallengeIssuanceIntent):Promise<VerificationChallengeScope>{
     const account=await this.authorize(database,input),policy=await this.policy(database,input,true);
     if(policy.version!==input.expectedPolicyVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
-    if(!input.confirmed||input.source.kind!==ADMISSION_REQUEST_SOURCE.common||input.admissionRequestId!==null||input.contact.type!==policy.contactType)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    if(!input.confirmed||input.source.kind!==ADMISSION_REQUEST_SOURCE.common||input.contact.type!==policy.contactType)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    if(input.admissionRequestId)await this.assertPendingIssuance(database,input,input.admissionRequestId,input.contact);
     if(input.contact.type===ADMISSION_CONTACT_TYPE.email?input.channel!==MESSAGING_PUBLIC_CHANNEL.email||input.contact.value!==account.normalizedEmail:input.channel===MESSAGING_PUBLIC_CHANNEL.email||input.channel!==policy.phoneChannel&&!(input.channel===MESSAGING_PUBLIC_CHANNEL.sms&&policy.phoneChannel===MESSAGING_PUBLIC_CHANNEL.whatsapp&&policy.allowSmsAlternative))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     if(!policy.messagingConnectionId||!policy.messagingConnectionVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
     const config=await this.readSecurityConfig();
     return{userId:input.userId,tribeId:input.tribeId,purpose:ADMISSION_VERIFICATION_PURPOSE.admission,contact:input.contact,verificationEpoch:policy.verificationEpoch,connectionId:policy.messagingConnectionId,connectionVersion:policy.messagingConnectionVersion,securityEpoch:config.securityEpoch,channel:input.channel};
+  }
+
+  /** @param database - Original authorized transaction. @param context - Native own account/tribe. @param requestId - Explicit own pending reference. @param contact - Canonical proposed contact. @returns Nothing while the common request remains live and contact-compatible after its lock. @throws AdmissionOperationError before creating a code for a missing, terminal, expired, foreign-source or changed-contact request. */
+  private async assertPendingIssuance(database:RequestDatabase,context:AdmissionVerificationAccountScope,requestId:string,contact:VerificationChallengeScope["contact"]):Promise<void>{
+    const request=(await database.execute<PendingIssuanceRow>(sql`select status,source,contact_type,normalized_contact,expires_at from public.academy_admission_requests where id=${requestId} and user_id=${context.userId} and tribe_id=${context.tribeId} for share`)).rows[0];
+    if(!request)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    const now=new Date((await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
+    if(request.status!==ADMISSION_REQUEST_STATUS.pending||now>=new Date(request.expires_at))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
+    if(request.source!==ADMISSION_REQUEST_SOURCE.common)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
+    if(request.normalized_contact!==null&&(request.contact_type!==contact.type||request.normalized_contact!==contact.value))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
   }
 
   /** @param database - Native authorized transaction. @param context - Exact own account. @param challengeId - Original resource whose immutable contact cannot be replaced by the caller. @returns Original scope without taking an early shared challenge lock that would need an upgrade. */
@@ -108,8 +121,8 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
   private ownsScope(database:RequestDatabase,context:AdmissionVerificationAccountScope,scope:VerificationChallengeScope){return async(current:RequestDatabase,candidate:VerificationChallengeScope)=>{await this.authorize(current,context);const policy=await this.policy(current,context,false);return current===database&&candidate.userId===scope.userId&&candidate.tribeId===scope.tribeId&&candidate.purpose===scope.purpose&&candidate.connectionId===scope.connectionId&&candidate.connectionVersion===scope.connectionVersion&&candidate.verificationEpoch===policy.verificationEpoch;};}
 
   /** @param database - Original operation transaction. @param context - Native actor. @param scope - Actual current policy/resource/contact. @param operationId - Original client UUID. @param ledgerId - Already committed claim identity. @param previous - Exact original challenge for explicit replacement only. @returns Minimal public issuance after shared budgets and private outbox commit together. */
-  private async issueInside(database:RequestDatabase,context:AdmissionVerificationAccountScope,scope:VerificationChallengeScope,operationId:string,ledgerId:string,previous:string|null){
-    const owns=this.ownsScope(database,context,scope),contacts=new PostgresMessagingContactBudgetRepository(database,(current)=>owns(current,scope),this.readSecurityConfig),budget=new PostgresVerificationRequestBudget(database,(current,command)=>owns(current,command.scope),contacts),result=await new PostgresContactVerificationIssuer(database,owns,this.readSecurityConfig,budget).issue({scope,operationId,ledgerId,expectedCurrentChallengeId:previous});
+  private async issueInside(database:RequestDatabase,context:AdmissionVerificationAccountScope&{admissionRequestId?:string|null},scope:VerificationChallengeScope,operationId:string,ledgerId:string,previous:string|null){
+    const nativeOwns=this.ownsScope(database,context,scope),owns=async(current:RequestDatabase,candidate:VerificationChallengeScope)=>{if(!await nativeOwns(current,candidate))return false;if(context.admissionRequestId)await this.assertPendingIssuance(current,context,context.admissionRequestId,scope.contact);return true;},contacts=new PostgresMessagingContactBudgetRepository(database,(current)=>owns(current,scope),this.readSecurityConfig),budget=new PostgresVerificationRequestBudget(database,(current,command)=>owns(current,command.scope),contacts),result=await new PostgresContactVerificationIssuer(database,owns,this.readSecurityConfig,budget).issue({scope,operationId,ledgerId,expectedCurrentChallengeId:previous});
     if(result.outcome!==VERIFICATION_ISSUANCE_OUTCOME.issued)throw new AdmissionOperationError(result.code);
     const maskedDestination=scope.contact.type===ADMISSION_CONTACT_TYPE.phone?`${ADMISSION_CONTACT_MASK}${scope.contact.value.slice(-ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH)}`:`${Array.from(scope.contact.value)[0]??""}${ADMISSION_CONTACT_MASK}@${scope.contact.value.split("@").at(-1)??""}`;
     return{challengeId:result.challengeId,purpose:ADMISSION_VERIFICATION_PURPOSE.admission,channel:scope.channel,maskedDestination,expiresAt:result.expiresAt.toISOString(),resendAllowedAt:result.resendAllowedAt.toISOString(),deliveryState:MESSAGE_DELIVERY_STATE.queued};
