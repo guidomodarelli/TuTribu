@@ -61,3 +61,17 @@ Cierre atómico de T080/T088: revisión Codex read-only de su alcance exacto, si
 
 
 Cierre atómico de T078: la auditoría Codex confirmó toda la cobertura propia del asistente con beez-ui real y los recorridos/evidencias citados. Se marca sólo T078 y queda81/212 completas131 pendientes. El alcance técnico de T082/T083/T084/T085 también está cubierto, pero sus casillas conservan las dependencias de T081/T082/T083 abiertas; no se usan para dar por completada la transferencia, US6 ni OG-03. Native27178 permanece en curso y no se usa como evidencia de este cierre.
+
+## Avisos independientes al conectar y requisitos de selección
+
+Native25414 final verde242,08s confirma por HTTP real que la creación de candidata, suspensión local y retiro de esa candidata conservan admission_email_settings enabled/version/enabledAt, el modo/flag de academia y la ausencia de AdmissionPolicy. Transporte cerrado: SDK0. El ajuste de fixture está pendiente de su checkpoint; no se usa todavía para cerrar toda T076.
+
+La nueva base independiente de avisos descubre un gap diferente en requiredChannels de PostgresMessagingSelectionDependencies: sólo consulta AdmissionPolicy y no incorpora admission_email_settings.55310 rojo51,31s con autoridad nativa de activación y PostgreSQL reales muestra [] en lugar de email cuando los avisos están habilitados y no hay AdmissionPolicy. No es una mutación de flags ni un fallo de auth/setup. Hay que componer explícitamente el reader del owner notifications, conservar ausencia OFF sin INSERT y agregar email a la unión de requisitos actuales, sin inferir preparación o activar avisos.
+
+Native27178 ya terminó cuatro casos verdes1164,49s y su protección posterior de interceptación pasó en60579; los resultados se registran en messaging-lifecycle-baseline.md. La guarda y el caso de transferencia conservan su baseline propio. Los rojos y estados pendientes anteriores de esta auditoría describen su checkpoint histórico y no el estado actual de esos incrementos.
+
+## Cierre del alcance de T076 y T081
+
+La auditoría Codex read-only sobre a204aaca confirma todas las cláusulas de ambas tareas. Configuración/versiones/slots SQL19633; validación SDKme y almacenamiento72627/27640; ready/activate39234/88221; frescura después de locks91790; diagnóstico exacto/códigos/purpose63655/56245 y baseline de catorce SQL. Native25414 y SQL47445/88221 conservan ajustes independientes de academia/correo; Native13095 acredita el recorrido de países guardados antes de SMS. La guarda structural228534aa, owner2e33b440 y casos9846/53410/99047 detienen credenciales después de transferencia sin reiniciar cuotas/historial.
+
+Se marcan T076 y después T081, con T077 ya completa:84/212 completas y128 pendientes. Los nuevos casos AC01, fixture/aislamiento WIP y matriz53055 no se usaron para este dictamen. Este cierre no acredita US6/US7 ni gates operativos; T082–T085 conservan una auditoría técnica previa y requieren validar el encadenamiento de dependencias ahora satisfecho.
