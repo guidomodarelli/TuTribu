@@ -26,6 +26,8 @@ import {ScopedConnectionDiagnosticDispatcher} from "./messaging/infrastructure/c
 import {CONNECTION_DIAGNOSTIC_DISPATCH_LOG} from "./messaging/constants/connection-diagnostic";
 import {MessagingDeliveryStorageError} from "./messaging/domain/errors/messaging-delivery-storage-error";
 import {MessagingDispatchDeadlineError} from "./messaging/domain/errors/messaging-dispatch-deadline-error";
+import {PostgresMessagingLifecycleDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-lifecycle-dependencies";
+import {readAdmissionEmailLifecycleDependency} from "./notifications/infrastructure/repositories/admission-email-lifecycle-reader";
 import {REAUTHENTICATION_OPERATION} from "./auth/constants/reauthentication-resources";
 import {after} from "next/server";
 import type {RequestContext} from "./shared/infrastructure/observability/request-context";
@@ -571,6 +573,15 @@ export async function createMessagingDiagnosticRequestModule(requestContext:Requ
   const adapters=createRequestMessagingProviderAdapters(databaseClient);
   const dispatcher=new ScopedConnectionDiagnosticDispatcher({readSecurityFacts:async()=>readMessagingHostingSecurityFacts(),createDispatcher:(diagnosticScope,authorize)=>buildMessagingWorkModule({diagnosticScope,authorize,execute:(actorUserId,run)=>databaseClient.withRequestContext({userId:actorUserId,email:null},run),readSecurityConfig:()=>readMessagingHostingSecurityConfig(),createSender:adapters.createSender,runtime:{now:Date.now,createId:()=>crypto.randomUUID(),defer:(work)=>{after(()=>work);},report:(diagnostic)=>{const code=diagnostic.cause instanceof MessagingDeliveryStorageError||diagnostic.cause instanceof MessagingSecretAccessError||diagnostic.cause instanceof MessagingDispatchDeadlineError?diagnostic.cause.code:MESSAGING_ERROR_CODE.unexpectedFailure;logger.error({message:CONNECTION_DIAGNOSTIC_DISPATCH_LOG.message,metadata:{stage:diagnostic.stage,code,deliveryId:diagnostic.deliveryId,attemptId:diagnostic.attemptId}});}}}).useCases.dispatch});
   return{issue:request.createDiagnosticIssuance(dispatcher),verify:request.useCases.verifyDiagnostic,resolveTribe:routing.resolveTribe};
+}
+
+/** @returns Local safety/retirement use cases with native authority and current admission/notification owners, without provider wiring. */
+export async function createMessagingConnectionLifecycleRequestModule(){
+  const databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
+  const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
+  const lifecycle=buildMessagingModule(dependencies).createConnectionLifecycleModule({readSecurityConfig:()=>readMessagingHostingSecurityConfig(),composeDependencies:(database)=>new PostgresMessagingLifecycleDependencies(database,readAdmissionEmailLifecycleDependency)}).useCases;
+  return{lifecycle,resolveTribe:routing.resolveTribe};
 }
 
 /** @returns Minimal current leader/challenge-owner transport and routing, without loading keyrings or contacting the provider. */
