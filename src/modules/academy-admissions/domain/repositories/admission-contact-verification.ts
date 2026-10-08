@@ -2,6 +2,7 @@
 import type {AdmissionOperationResult} from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import type {AdmissionContact} from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 import type {AdmissionSubmissionIntent} from "./admission-repositories";
+import type {ADMISSION_ERROR_CODE} from "@/src/modules/academy-admissions/constants/admission-errors";
 
 /** Uses native current identity; no caller can select another account, credential or diagnostic purpose. */
 export type AdmissionVerificationAccountScope={userId:string;sessionId:string;tribeId:string;requestId:string;purpose:"admission"};
@@ -14,7 +15,7 @@ export type AdmissionChallengeResendIntent=AdmissionVerificationAccountScope&{op
 /** Minimal own commit metadata contains neither plaintext destination nor delivery/connection authorization. */
 export type AdmissionChallengeSnapshot={challengeId:string;purpose:"admission";channel:"email"|"sms"|"whatsapp";maskedDestination:string;expiresAt:string;resendAllowedAt:string;deliveryState:"queued"|"accepted"|"delivered"|"failed"|"unknown"|"suppressed"|"cancelled";allowedAlternative?:"sms"};
 /** Local proof creation does not create membership, session, global identity or notification delivery evidence. */
-export type AdmissionChallengeVerificationSnapshot={purpose:"admission";result:"verified";proofId:string;applyBefore:string};
+export type AdmissionChallengeVerificationSnapshot={purpose:"admission";result:"verified";proofId:string;applyBefore:string}|{purpose:"admission";result:"denied";code:(typeof ADMISSION_ERROR_CODE)[keyof typeof ADMISSION_ERROR_CODE]};
 /** Each writer owns native session/policy/challenge locks, ledger, budgets and final immutable scope. */
 export interface AdmissionContactVerificationOperations{
   /** @param intent - Original confirmed native account and normalized contact choice. @returns Original issuance or genuine registered progress after commit. */

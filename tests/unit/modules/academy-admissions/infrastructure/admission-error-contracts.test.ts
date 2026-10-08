@@ -23,14 +23,13 @@ describe("safe semantic error contracts", () => {
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
   });
 
-  it("should publish 202 only when the owner supplied a registered started operation", async () => {
+  it.each(["started","completed"]as const)("should publish 202 only when the owner supplied a registered %s original operation", async (state) => {
     const boundary = createAdmissionRouteBoundary({ request: new Request("https://tutribu.example.invalid/api/admissions"), operation: "error-contract-test", diagnostics: () => undefined });
     expect(boundary.failure(admissionFailure("operation_unresolved")).status).toBe(500);
     const operationId = randomUUID();
-    const response = boundary.failure(admissionFailure("operation_unresolved", { operation: { operationId, state: "started" } }));
+    const response = boundary.failure(admissionFailure("operation_unresolved", { operation: { operationId, state } }));
     expect(response.status).toBe(202);
-    expect(await response.json()).toMatchObject({ code: "operation_unresolved", operation: { operationId, state: "started" } });
-    expect(boundary.failure(admissionFailure("operation_unresolved", { operation: { operationId, state: "completed" } })).status).toBe(500);
+    expect(await response.json()).toMatchObject({ code: "operation_unresolved", operation: { operationId, state } });
   });
 
   it("should keep messaging conflict/country semantics independent of upstream status and expose no SDK cause", async () => {

@@ -8,6 +8,7 @@ import {ADMISSION_CONTACT_TYPE,ADMISSION_CONTACT_NORMALIZATION_STATUS} from "@/s
 import {ADMISSION_VERIFICATION_PURPOSE} from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import {ADMISSION_REQUEST_SOURCE} from "@/src/modules/academy-admissions/constants/admission-request";
 import {ADMISSION_ERROR_CODE} from "@/src/modules/academy-admissions/constants/admission-errors";
+import {VERIFICATION_TRANSITION_OUTCOME} from "@/src/modules/academy-admissions/constants/verification-challenge";
 import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
 import {AdmissionOperationError} from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
@@ -73,7 +74,7 @@ export class ContactVerificationUseCases{
 
   /** @param input - Original own challenge and exact code; no provider prerequisite is added. @returns Original local proof/progress or a safe owner denial without dispatch. */
   async verify(input:VerifyAdmissionContactChallengeInput){
-    try{const {scope}=await this.principal(input),value=await this.operations.verify({...scope,operationId:input.operationId,challengeId:input.challengeId,verificationCode:input.verificationCode});this.assertOriginal(input.operationId,value);return{ok:true as const,value};}
+    try{const {scope}=await this.principal(input),value=await this.operations.verify({...scope,operationId:input.operationId,challengeId:input.challengeId,verificationCode:input.verificationCode});this.assertOriginal(input.operationId,value);if(value.state===OPERATION_STATE.completed&&value.result.result===VERIFICATION_TRANSITION_OUTCOME.denied)return{ok:false as const,failure:admissionFailure(value.result.code,{operation:{operationId:input.operationId,state:OPERATION_STATE.completed}})};return{ok:true as const,value};}
     catch(error){return this.failure(input.operationId,error);}
   }
 

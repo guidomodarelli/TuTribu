@@ -61,4 +61,4 @@ export const admissionPublicErrorSchema = z.object({
   retryAt: instantSchema.optional(),
   operation: z.object({ operationId: resourceIdSchema, state: z.enum(OPERATION_STATE) }).optional(),
 }).refine((error) => error.message === ADMISSION_ERROR_MESSAGE[error.code])
-  .refine((error) => error.code !== ADMISSION_ERROR_CODE.operationUnresolved || error.operation?.state === OPERATION_STATE.started) satisfies z.ZodType<AdmissionPublicError>;
+  .refine((error) => error.code !== ADMISSION_ERROR_CODE.operationUnresolved || Boolean(error.operation)) satisfies z.ZodType<AdmissionPublicError>;

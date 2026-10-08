@@ -89,6 +89,10 @@ describe("admission contact verification orchestration",()=>{
     const input={...fixture.input,challengeId:fixture.challenge.challengeId,verificationCode:"123456",purpose:"connection_diagnostic"};expect(await fixture.useCases.verify(input)).toEqual({ok:true,value:fixture.verified});
     expect(fixture.operations.verify).toHaveBeenCalledExactlyOnceWith({userId:fixture.account.userId,sessionId:fixture.account.session.id,tribeId:fixture.input.tribeId,requestId:fixture.input.requestId,operationId:fixture.input.operationId,challengeId:fixture.challenge.challengeId,verificationCode:"123456",purpose:"admission"});expect(fixture.dispatcher.dispatch).not.toHaveBeenCalled();
   });
+  it("should preserve a committed incorrect-code result as a completed original failure without dispatch or a fabricated proof",async()=>{
+    const fixture=verificationFixture();fixture.operations.verify.mockResolvedValueOnce({state:"completed",operationId:fixture.input.operationId,replayed:false,result:{purpose:"admission",result:"denied",code:"verification_code_incorrect"}});
+    expect(await fixture.useCases.verify({...fixture.input,challengeId:fixture.challenge.challengeId,verificationCode:"654321"})).toMatchObject({ok:false,failure:{code:"verification_code_incorrect",operation:{operationId:fixture.input.operationId,state:"completed"}}});expect(fixture.dispatcher.dispatch).not.toHaveBeenCalled();
+  });
   it("should retain the original resend and explicit alternative without accepting another recipient or code",async()=>{
     const fixture=verificationFixture();fixture.operations.resend.mockResolvedValueOnce({...fixture.issued,result:{...fixture.challenge,channel:"sms",maskedDestination:"+54 ••• 1234"}});
     const input={...fixture.input,challengeId:fixture.challenge.challengeId,useSmsAlternative:true as const,phone:"+12025550123",verificationCode:"654321"};expect(await fixture.useCases.resend(input)).toMatchObject({ok:true,value:{result:{channel:"sms"}}});
