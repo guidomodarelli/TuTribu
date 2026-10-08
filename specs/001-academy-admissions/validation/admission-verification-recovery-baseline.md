@@ -1,0 +1,11 @@
+# Recuperación original de verificación de admisión
+
+Incremento de T099/T100/T102: mantiene las 212 tareas y el conteo 97 completas/115 pendientes. No acredita un recorrido público de emisión, aplicación de prueba ni gates externos.
+
+El TDD local de recuperación registró seis fallos por rechazo de los tres namespaces de código en application y HTTP; después de incorporar los contratos propios pasó 17/17 en 1,02 s. Una regresión de cinco suites, incluyendo mensajería, código local y boundary de error, pasó 48/48 en 2,77 s. Los snapshots pertenecen a admissions y mensajería reutiliza el contrato existente, sin dependencias de recuperación hacia infrastructure ni schema validation de respuestas PostgreSQL/proveedor.
+
+El ensayo SQL 98903 terminó rojo 33,13 s por ACL de sesión ausente en el fixture; se corrigió exclusivamente el grant de sesión. El ensayo 14714 confirmó el defecto real en 33,58 s: una emisión diagnóstica con el mismo UUID que una validación de admisión provocaba idempotency_conflict. El ensayo 28614 final pasó un SQL en 72,93 s con cleanup confirmado. La migración versionada conserva firma, locks y proyección de la función existente y filtra los namespaces compartidos por propósito explícito antes de contar coincidencias; propósito NULL no se recupera ni se infiere de su resultado.
+
+La prueba utiliza ledger real, rol non_bypass sin permisos de tabla de operaciones, sesión nativa, started/completed y resultados confirmados. Comprueba lectura sin cambio de versión, lease ni resultado, denegación de sesión vencida y cero desafío/entrega/evento/prueba/pertenencia en esta preparación de metadata. Esta cobertura no sustituye el pipeline real de emisión y SDK ya acreditado por su propio ensayo.
+
+Tipos de producto y tests, lint focal sin advertencias y diff-check pasaron. QA documental verificó cuatro renders en Chromium/WebKit a 1280/390, sin overflow ni pageerrors. La revisión Codex independiente de diez archivos cerró con cero hallazgos accionables: manifiesto inicial/final 036304886818423C14CA383C9B4D6B17DAEEFAE2027746C1AC85629E4B02BDD6, diez hashes intactos. No hay pantallas ni endpoints de emisión nuevos, por lo que no se publican pasos operables ni se agregan avisos de disponibilidad al changelog.

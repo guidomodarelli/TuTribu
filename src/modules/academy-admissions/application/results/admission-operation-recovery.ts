@@ -5,8 +5,14 @@ import { createAdmissionOperationStateSchema } from "./admission-flow-result-sch
 import { admissionCommittedOutcomeSchema, admissionTransitionResultSchema, admissionRetryResultSchema } from "./admission-writer-result-schemas";
 import { ADMISSION_POLICY_OPERATION } from "../../constants/admission-policy";
 import { admissionPolicyMutationResultSchema } from "./admission-policy-result-schemas";
+import { VERIFICATION_ISSUANCE_OPERATION } from "../../constants/verification-issuance";
+import { ADMISSION_CONTACT_VERIFICATION_OPERATION } from "../../constants/admission-contact-verification";
+import { admissionChallengeSnapshotSchema, admissionChallengeVerificationSnapshotSchema } from "./admission-contact-verification-schemas";
 /** Infrastructure projects an own recovery envelope; PostgreSQL rows are not schema-validated. */
 export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("operationType", [
+  z.object({ operationType: z.literal(VERIFICATION_ISSUANCE_OPERATION.issue), operation: createAdmissionOperationStateSchema(admissionChallengeSnapshotSchema) }),
+  z.object({ operationType: z.literal(VERIFICATION_ISSUANCE_OPERATION.resend), operation: createAdmissionOperationStateSchema(admissionChallengeSnapshotSchema) }),
+  z.object({ operationType: z.literal(ADMISSION_CONTACT_VERIFICATION_OPERATION), operation: createAdmissionOperationStateSchema(admissionChallengeVerificationSnapshotSchema) }),
   z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.submit), operation: createAdmissionOperationStateSchema(admissionCommittedOutcomeSchema) }),
   z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.decide), operation: createAdmissionOperationStateSchema(admissionTransitionResultSchema) }),
   z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.cancel), operation: createAdmissionOperationStateSchema(admissionTransitionResultSchema) }),
@@ -18,6 +24,9 @@ export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("op
 ]);
 /** Public recovery retains only the type/state/id and original confirmed result. */
 export const admissionOperationRecoverySchema = z.union([
+  z.intersection(z.object({ type: z.literal(VERIFICATION_ISSUANCE_OPERATION.issue) }), createAdmissionOperationStateSchema(admissionChallengeSnapshotSchema)),
+  z.intersection(z.object({ type: z.literal(VERIFICATION_ISSUANCE_OPERATION.resend) }), createAdmissionOperationStateSchema(admissionChallengeSnapshotSchema)),
+  z.intersection(z.object({ type: z.literal(ADMISSION_CONTACT_VERIFICATION_OPERATION) }), createAdmissionOperationStateSchema(admissionChallengeVerificationSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.submit) }), createAdmissionOperationStateSchema(admissionCommittedOutcomeSchema)),
   z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.decide) }), createAdmissionOperationStateSchema(admissionTransitionResultSchema)),
   z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.cancel) }), createAdmissionOperationStateSchema(admissionTransitionResultSchema)),

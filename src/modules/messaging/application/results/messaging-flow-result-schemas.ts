@@ -5,7 +5,8 @@ import { MESSAGING_CONNECTION_STATE } from "@/src/modules/messaging/constants/me
 import { MESSAGE_DELIVERY_STATE } from "@/src/modules/messaging/constants/message-delivery";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { ADMISSION_VERIFICATION_PURPOSE } from "@/src/modules/academy-admissions/constants/admission-eligibility";
-import { ADMISSION_QUERY_LIMIT, ADMISSION_MASK_MARKER_PATTERN } from "@/src/modules/academy-admissions/constants/admission-public-contract";
+import { ADMISSION_QUERY_LIMIT } from "@/src/modules/academy-admissions/constants/admission-public-contract";
+import { contactVerificationChallengeSchema, admissionVerifiedContactSchema } from "@/src/modules/academy-admissions/application/results/admission-contact-verification-schemas";
 
 /** Own capabilities contain prepared state/times, never a SDK sender/project/team record. */
 const capabilitySchema = z.object({ channel: z.enum(MESSAGING_PUBLIC_CHANNEL), state: z.enum(MESSAGING_CAPABILITY_PUBLIC_STATE), checkedAt: z.iso.datetime({ offset: true }).nullable(), testedAt: z.iso.datetime({ offset: true }).nullable() });
@@ -19,10 +20,10 @@ export const messagingConnectionSchema = z.object({
 /** An own resource page maps only authorized references/labels and readiness, not entire SDK objects. */
 export const providerResourcePageSchema = z.object({ items: z.array(z.object({ id: z.string().min(1), label: z.string(), channels: z.array(z.enum(MESSAGING_PUBLIC_CHANNEL)), readiness: z.enum(MESSAGING_RESOURCE_READINESS), category: z.string().optional(), language: z.string().optional() })).max(ADMISSION_QUERY_LIMIT.maximumPageSize), nextCursor: z.string().max(ADMISSION_QUERY_LIMIT.cursorCharacters).optional() });
 /** Code possession and transport remain separate; no code, MAC or envelope belongs in this response. */
-export const verificationChallengeSchema = z.object({ challengeId: z.uuid(), purpose: z.enum(ADMISSION_VERIFICATION_PURPOSE), channel: z.enum(MESSAGING_PUBLIC_CHANNEL), maskedDestination: z.string().min(1).regex(ADMISSION_MASK_MARKER_PATTERN), expiresAt: z.iso.datetime({ offset: true }), resendAllowedAt: z.iso.datetime({ offset: true }), deliveryState: z.enum(MESSAGE_DELIVERY_STATE), allowedAlternative: z.literal(MESSAGING_PUBLIC_CHANNEL.sms).optional() });
+export const verificationChallengeSchema = contactVerificationChallengeSchema;
 /** A diagnostic cannot create an admission proof; the purpose selects disjoint local result fields. */
 export const verificationResultSchema = z.discriminatedUnion("purpose", [
-  z.object({ purpose: z.literal(ADMISSION_VERIFICATION_PURPOSE.admission), result: z.literal(MESSAGING_VERIFICATION_RESULT), proofId: z.uuid(), applyBefore: z.iso.datetime({ offset: true }) }),
+  admissionVerifiedContactSchema,
   z.object({ purpose: z.literal(ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic), result: z.literal(MESSAGING_VERIFICATION_RESULT), diagnosticId: z.uuid(), connectionVersion: z.int().positive(), channel: z.enum(MESSAGING_PUBLIC_CHANNEL), proofId: z.never().optional(), applyBefore: z.never().optional() }),
 ]);
 /** Transport read models never authorize contact verification or reveal a message body. */
