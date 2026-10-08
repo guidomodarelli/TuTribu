@@ -609,7 +609,7 @@ export async function createMessagingConnectionActivationRequestModule(){
   const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
   const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
   const request=buildMessagingModule(dependencies).createRequestModule({selection:"management",readSecurityConfig:()=>readMessagingHostingSecurityConfig()});
-  return{activation:request.createConnectionActivation((database)=>new PostgresMessagingSelectionDependencies(database)),resolveTribe:routing.resolveTribe};
+  return{activation:request.createConnectionActivation((database)=>new PostgresMessagingSelectionDependencies(database,readAdmissionEmailLifecycleDependency)),resolveTribe:routing.resolveTribe};
 }
 
 /** @returns Readonly original connection operations under native actor/session/tribe authority, without a keyring or provider. */

@@ -49,6 +49,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Activar una candidata exige también el canal de correo cuando los avisos externos están habilitados, conservando esos ajustes y los cupos de la academia.
+
 - Las pruebas de conexión conservan el tiempo previsto para enviar el código cuando preparar la operación demora, sin reenviar automáticamente un envío incierto.
 
 - La candidata de mensajería muestra Preparada al completar sus pruebas y vuelve a Borrador si la credencial deja de estar comprobada, conservando la conexión seleccionada y la activación explícita.
