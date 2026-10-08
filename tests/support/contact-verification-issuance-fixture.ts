@@ -14,6 +14,7 @@ import { VERIFICATION_ISSUANCE_OPERATION } from "@/src/modules/academy-admission
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 import { prepareContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
 /** Validates the actual public snapshot atomically persisted by the real operation ledger. */
 export const contactVerificationIssuanceSnapshotSchema = z.union([
@@ -27,10 +28,11 @@ export const contactVerificationIssuanceSnapshotSchema = z.union([
  * @param purpose - Admission or candidate diagnostic with its distinct preparation requirements.
  * @param phone - Whether to seed the SMS/phone resource instead of the mail resource.
  * @param emailSenderId - Synthetic sender fixed when the immutable version is inserted.
+ * @param securityConfig - Optional explicit synthetic hosting scope used by the native Next process.
  * @returns The real ledger/issuer flow and synthetic private account/security scope.
  */
-export async function prepareContactVerificationIssuer(database: AcademyAdmissionTestDatabase, purpose: VerificationChallengeScope["purpose"] = "admission", phone = false, emailSenderId = "synthetic-email-sender") {
-  const fixture = await prepareContactVerificationDatabase(database);
+export async function prepareContactVerificationIssuer(database: AcademyAdmissionTestDatabase, purpose: VerificationChallengeScope["purpose"] = "admission", phone = false, emailSenderId = "synthetic-email-sender", securityConfig?: MessagingSecurityConfig) {
+  const fixture = await prepareContactVerificationDatabase(database, securityConfig);
   await database.applyMigration("20261007231500_bind_verification_operation_purpose.sql");
   await database.applyMigration("20261005101000_guard_admission_operation_identity.sql");
   await database.applyMigration("20261006120000_index_messaging_contact_windows.sql");

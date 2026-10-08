@@ -2,7 +2,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
-import { createMessagingSecurityConfig, type MessagingKeyPurpose, type MessagingKeyringInput } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { createMessagingSecurityConfig, type MessagingSecurityConfig, type MessagingKeyPurpose, type MessagingKeyringInput } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { createVerificationCodeEnvelope } from "@/src/modules/messaging/infrastructure/encryption/verification-code-envelope";
 import { createVerificationCodeMac } from "@/src/modules/academy-admissions/infrastructure/verification/verification-code-mac";
@@ -15,14 +15,15 @@ import {createMessagingSecretCipher} from "@/src/modules/messaging/infrastructur
 /**
  * Applies actual feature artifacts exclusively to this run's owned branch.
  * @param database - Disposable branch whose ownership has already been checked.
+ * @param securityConfig - Optional explicit synthetic host configuration for native process integration; local tests keep independent generated keys.
  * @returns Synthetic account/context and nonextractable, purpose-separated test keys.
  */
-export async function prepareContactVerificationDatabase(database: AcademyAdmissionTestDatabase) {
+export async function prepareContactVerificationDatabase(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
   for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261007040000_add_messaging_connection_name.sql"]) await database.applyMigration(migration);
   const userId: string = randomUUID();
   const own = { userId, email: `${userId}@example.test` };
   const keyring = (purpose: MessagingKeyPurpose): MessagingKeyringInput => ({ activeKeyId: `${purpose}-current`, keys: [{ id: `${purpose}-current`, material: randomBytes(32) }] });
-  const config = await createMessagingSecurityConfig({
+  const config = securityConfig ?? await createMessagingSecurityConfig({
     environment: "synthetic-local", securityEpoch: "synthetic-epoch", recoveryLocked: false,
     keyrings: {
       credential: keyring(MESSAGING_KEY_PURPOSE.credential), otp_envelope: keyring(MESSAGING_KEY_PURPOSE.otpEnvelope),
