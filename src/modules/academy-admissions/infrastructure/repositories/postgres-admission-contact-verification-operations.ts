@@ -7,6 +7,7 @@ import type {AdmissionContactVerificationOperations,AdmissionVerificationAccount
 import type {VerificationChallengeScope} from "../../domain/entities/contact-verification-challenge";
 import type {AdmissionPolicy} from "../../domain/entities/admission-policy";
 import type {AdmissionOperationCommand,AdmissionOperationResult} from "../../domain/entities/admission-operation";
+import type {AdmissionProofApplicationOperations,AdmissionProofApplicationIntent} from "../../domain/repositories/admission-verification-proof-repository";
 import type {MessagingSecurityConfig} from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import {PostgresAuthenticatedAccountProvider} from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import {isAuthenticatedSessionLive} from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
@@ -17,6 +18,9 @@ import {PostgresMessagingContactBudgetRepository} from "@/src/modules/messaging/
 import {PostgresVerificationRequestBudget} from "@/src/modules/messaging/infrastructure/repositories/postgres-verification-request-budget";
 import {PostgresVerificationFailureBudget} from "@/src/modules/messaging/infrastructure/repositories/postgres-verification-failure-budget";
 import {admissionChallengeSnapshotSchema,admissionChallengeVerificationSnapshotSchema} from "../../application/results/admission-contact-verification-schemas";
+import {admissionProofApplicationSnapshotSchema} from "../../application/results/admission-proof-application-schemas";
+import {PostgresAdmissionVerificationProofWriter} from "./postgres-admission-verification-proof-writer";
+import {ADMISSION_PROOF_OPERATION} from "../../constants/admission-proof";
 import {readAdmissionPolicy,readAdmissionControlMarker} from "./postgres-admission-policy-storage";
 import {AdmissionOperationError} from "../../domain/errors/admission-operation-error";
 import {ADMISSION_ERROR_CODE} from "../../constants/admission-errors";
@@ -40,7 +44,7 @@ export type AdmissionVerificationDatabaseExecutor=<Result>(scope:AdmissionVerifi
 type ChallengeScopeRow={id:string;user_id:string;tribe_id:string;purpose:string;contact_type:"email"|"phone";normalized_contact:string;recipient_country:string|null;channel:"email"|"sms"|"whatsapp";verification_epoch:number;connection_id:string;connection_version:number;security_epoch:string};
 
 /** Owns metadata, budgets and proof effects; no method decrypts a BYOK credential or invokes SDK. */
-export class PostgresAdmissionContactVerificationOperations implements AdmissionContactVerificationOperations{
+export class PostgresAdmissionContactVerificationOperations implements AdmissionContactVerificationOperations,AdmissionProofApplicationOperations{
   /** @param execute - Current native request actor checkout. @param readSecurityConfig - Explicit current server keyrings/environment without an outbound call. */
   constructor(private readonly execute:AdmissionVerificationDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>){}
 
@@ -145,6 +149,25 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
       const scope=await this.challengeScope(database,input,input.challengeId),policy=await this.policy(database,input,true);
       if(input.useSmsAlternative){if(scope.contact.type!==ADMISSION_CONTACT_TYPE.phone||scope.channel!==MESSAGING_PUBLIC_CHANNEL.whatsapp||!policy.allowSmsAlternative)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);scope.channel=MESSAGING_PUBLIC_CHANNEL.sms;}
       return this.issueInside(database,input,scope,input.operationId,ledgerId,input.challengeId);
+    });
+  }
+
+  /** @param database - Original authorized transaction. @param input - Native identity and opaque own proof reference. @returns Immutable contact/resource scope from the proof origin, never from caller contact or connection fields. */
+  private async proofScope(database:RequestDatabase,input:AdmissionProofApplicationIntent):Promise<VerificationChallengeScope>{
+    await this.authorize(database,input);
+    const origin=(await database.execute<{challenge_id:string}>(sql`select challenge_id from public.academy_admission_verification_proofs where id=${input.proofId} and user_id=${input.userId} and tribe_id=${input.tribeId}`)).rows[0];
+    if(!origin)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
+    return this.challengeScope(database,input,origin.challenge_id);
+  }
+
+  /** @param input - Original native own pending request, proof and observed version. @returns Confirmed historical attachment/denial or registered progress, reconciling a lost commit without another binding or proof application. */
+  async apply(input:AdmissionProofApplicationIntent){
+    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:ADMISSION_PROOF_OPERATION,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,admissionRequestId:input.admissionRequestId,proofId:input.proofId,expectedRequestVersion:input.expectedRequestVersion}},ledger=this.ledger(input),original=await ledger.read(command,admissionProofApplicationSnapshotSchema);
+    if(original?.state===OPERATION_STATE.completed)return original;
+    if(!original)await this.execute(input,(database)=>this.proofScope(database,input));
+    return this.run(ledger,command,admissionProofApplicationSnapshotSchema,async(database,ledgerId)=>{
+      const scope=await this.proofScope(database,input),owns=this.ownsScope(database,input,scope);
+      return new PostgresAdmissionVerificationProofWriter(database,owns,this.readSecurityConfig).applyToPending({scope,requestId:input.admissionRequestId,proofId:input.proofId,expectedRequestVersion:input.expectedRequestVersion,operationId:input.operationId,ledgerId});
     });
   }
 }

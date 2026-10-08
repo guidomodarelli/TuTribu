@@ -8,8 +8,11 @@ import { admissionPolicyMutationResultSchema } from "./admission-policy-result-s
 import { VERIFICATION_ISSUANCE_OPERATION } from "../../constants/verification-issuance";
 import { ADMISSION_CONTACT_VERIFICATION_OPERATION } from "../../constants/admission-contact-verification";
 import { admissionChallengeSnapshotSchema, admissionChallengeVerificationSnapshotSchema } from "./admission-contact-verification-schemas";
+import { ADMISSION_PROOF_OPERATION } from "../../constants/admission-proof";
+import { admissionProofApplicationSnapshotSchema } from "./admission-proof-application-schemas";
 /** Infrastructure projects an own recovery envelope; PostgreSQL rows are not schema-validated. */
 export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("operationType", [
+  z.object({ operationType: z.literal(ADMISSION_PROOF_OPERATION), operation: createAdmissionOperationStateSchema(admissionProofApplicationSnapshotSchema) }),
   z.object({ operationType: z.literal(VERIFICATION_ISSUANCE_OPERATION.issue), operation: createAdmissionOperationStateSchema(admissionChallengeSnapshotSchema) }),
   z.object({ operationType: z.literal(VERIFICATION_ISSUANCE_OPERATION.resend), operation: createAdmissionOperationStateSchema(admissionChallengeSnapshotSchema) }),
   z.object({ operationType: z.literal(ADMISSION_CONTACT_VERIFICATION_OPERATION), operation: createAdmissionOperationStateSchema(admissionChallengeVerificationSnapshotSchema) }),
@@ -24,6 +27,7 @@ export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("op
 ]);
 /** Public recovery retains only the type/state/id and original confirmed result. */
 export const admissionOperationRecoverySchema = z.union([
+  z.intersection(z.object({ type: z.literal(ADMISSION_PROOF_OPERATION) }), createAdmissionOperationStateSchema(admissionProofApplicationSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(VERIFICATION_ISSUANCE_OPERATION.issue) }), createAdmissionOperationStateSchema(admissionChallengeSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(VERIFICATION_ISSUANCE_OPERATION.resend) }), createAdmissionOperationStateSchema(admissionChallengeSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(ADMISSION_CONTACT_VERIFICATION_OPERATION) }), createAdmissionOperationStateSchema(admissionChallengeVerificationSnapshotSchema)),

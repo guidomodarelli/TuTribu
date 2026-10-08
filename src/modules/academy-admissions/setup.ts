@@ -39,6 +39,7 @@ import { ResolveAdmissionTribeUseCase } from "./application/use-cases/resolve-ad
 import { ReadAdmissionOperationUseCase } from "./application/use-cases/read-admission-operation-use-case";
 import { PostgresAdmissionOperationReader } from "./infrastructure/repositories/postgres-admission-operation-reader";
 import { ContactVerificationUseCases } from "./application/use-cases/contact-verification-use-cases";
+import { ApplyAdmissionProofUseCase } from "./application/use-cases/apply-admission-proof-use-case";
 import { PostgresAdmissionContactVerificationOperations, type AdmissionVerificationDatabaseExecutor } from "./infrastructure/repositories/postgres-admission-contact-verification-operations";
 import { PostgresAdmissionVerificationDispatchContext } from "./infrastructure/verification/postgres-admission-verification-dispatch-context";
 import type { AdmissionContactChallengeDispatcher, AdmissionChallengeDispatchIntent } from "./domain/repositories/admission-contact-verification";
@@ -83,6 +84,12 @@ type AdmissionVerificationComposition = { scope: VerificationChallengeScope; aut
  * @returns Current context resolution, read-only original-operation recovery and explicit private collaborator factories.
  */
 export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureDependencies) {
+  /** Rechecks native identity on every verification or attachment checkout; no account snapshot is retained. */
+  const executeVerification: AdmissionVerificationDatabaseExecutor = async (scope, run) => {
+    const account = await dependencies.accounts.getAuthenticatedAccount();
+    if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    return dependencies.execute(account, run);
+  };
   const resolveContext = {
     /** @param command - Fixed server action and validated resource ids. @returns Current private authority or a safe denial. */
     async execute(command: Parameters<ResolveAdmissionContextUseCase["execute"]>[0]) {
@@ -95,15 +102,15 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
     useCases: { resolveContext },
     /** @param options - Live private security and an explicit focal launch factory consuming native challenge resolution. @returns Applicant verification with current account checks on every checkout, without caller-selected worker privileges. */
     createContactVerificationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; createDispatcher: (resolve: (intent: AdmissionChallengeDispatchIntent) => Promise<ResolvedAdmissionChallengeDispatch>) => AdmissionContactChallengeDispatcher }) {
-      const execute: AdmissionVerificationDatabaseExecutor = async (scope, run) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, run);
-      };
-      const operations = new PostgresAdmissionContactVerificationOperations(execute, options.readSecurityConfig);
-      const context = new PostgresAdmissionVerificationDispatchContext(execute);
+      const operations = new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig);
+      const context = new PostgresAdmissionVerificationDispatchContext(executeVerification);
       const dispatcher = options.createDispatcher((intent) => context.resolve(intent));
       return { useCases: new ContactVerificationUseCases(dependencies.accounts, operations, dispatcher, dependencies.clock) };
+    },
+    /** @param options - Live server security for the atomic owner and original ledger. @returns Own pending proof attachment without a sender, dispatcher or provider dependency. */
+    createProofApplicationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+      const operations = new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig);
+      return { useCases: new ApplyAdmissionProofUseCase(dependencies.accounts, operations, dependencies.clock) };
     },
     /** @param options - Mandatory complete runtime owner, without an optimistic default. @returns Informational current inventory; activation still repeats the locked owner in its actual transaction. */
     createPreflightModule(options: { runtime: AdmissionActivationRuntimeReader }) {

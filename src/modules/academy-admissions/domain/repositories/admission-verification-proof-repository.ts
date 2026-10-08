@@ -1,6 +1,15 @@
 /** Defines one-use proof attachment independently of persistence and provider delivery. @module admission-verification-proof-repository */
 import type { VerificationChallengeScope } from "@/src/modules/academy-admissions/domain/entities/contact-verification-challenge";
 import type { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import type { AdmissionVerificationAccountScope } from "./admission-contact-verification";
+
+/** The native owner resolves proof/contact/resource authority; input selects only the original own request and proof references. */
+export type AdmissionProofApplicationIntent = AdmissionVerificationAccountScope & { admissionRequestId: string; proofId: string; expectedRequestVersion: number; operationId: string };
+/** The atomic application owner returns its own original snapshot, guarded by application before exposing it. */
+export interface AdmissionProofApplicationOperations {
+  /** @param intent - Native identity and exact original pending request/proof proposal. @returns Registered progress or confirmed attachment/denial without provider work. */
+  apply(intent: AdmissionProofApplicationIntent): Promise<unknown>;
+}
 
 /** Identity and the original intent must have been claimed by the caller's durable operation ledger. */
 export type ApplyAdmissionVerificationProofCommand = {
