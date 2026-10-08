@@ -1,9 +1,9 @@
 /** Composes native account/policy authority with real issuance and local verification in the original operation transaction. @module postgres-admission-contact-verification-operations */
 import "server-only";
 import {sql} from "drizzle-orm";
-import {z} from "zod";
+import type {z} from "zod";
 import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database/server-database-client";
-import type {AdmissionContactVerificationOperations,AdmissionVerificationAccountScope,AdmissionChallengeIssuanceIntent,AdmissionChallengeVerificationIntent,AdmissionChallengeResendIntent,AdmissionChallengeSnapshot,AdmissionChallengeVerificationSnapshot} from "../../domain/repositories/admission-contact-verification";
+import type {AdmissionContactVerificationOperations,AdmissionVerificationAccountScope,AdmissionChallengeIssuanceIntent,AdmissionChallengeVerificationIntent,AdmissionChallengeResendIntent} from "../../domain/repositories/admission-contact-verification";
 import type {VerificationChallengeScope} from "../../domain/entities/contact-verification-challenge";
 import type {AdmissionPolicy} from "../../domain/entities/admission-policy";
 import type {AdmissionOperationCommand,AdmissionOperationResult} from "../../domain/entities/admission-operation";
@@ -16,7 +16,7 @@ import {PostgresContactVerificationRepository} from "./postgres-contact-verifica
 import {PostgresMessagingContactBudgetRepository} from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository";
 import {PostgresVerificationRequestBudget} from "@/src/modules/messaging/infrastructure/repositories/postgres-verification-request-budget";
 import {PostgresVerificationFailureBudget} from "@/src/modules/messaging/infrastructure/repositories/postgres-verification-failure-budget";
-import {verificationChallengeSchema,verificationResultSchema} from "@/src/modules/messaging/application/results/messaging-flow-result-schemas";
+import {admissionChallengeSnapshotSchema,admissionChallengeVerificationSnapshotSchema} from "../../application/results/admission-contact-verification-schemas";
 import {readAdmissionPolicy,readAdmissionControlMarker} from "./postgres-admission-policy-storage";
 import {AdmissionOperationError} from "../../domain/errors/admission-operation-error";
 import {ADMISSION_ERROR_CODE} from "../../constants/admission-errors";
@@ -38,10 +38,6 @@ import {TRIBE_MEMBERSHIP_STATUS} from "@/src/modules/tribes/constants/tribe-page
 export type AdmissionVerificationDatabaseExecutor=<Result>(scope:AdmissionVerificationAccountScope,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
 /** Only immutable scope fields are consumed; PostgreSQL rows are not schema-revalidated. */
 type ChallengeScopeRow={id:string;user_id:string;tribe_id:string;purpose:string;contact_type:"email"|"phone";normalized_contact:string;recipient_country:string|null;channel:"email"|"sms"|"whatsapp";verification_epoch:number;connection_id:string;connection_version:number;security_epoch:string};
-/** Own public issuance snapshot, specialized to admission without altering the provider contract. */
-const challengeSnapshotSchema=verificationChallengeSchema.extend({purpose:z.literal(ADMISSION_VERIFICATION_PURPOSE.admission)}) satisfies z.ZodType<AdmissionChallengeSnapshot>;
-/** Denials must commit failure accounting before the application maps them to an error response. */
-const verificationSnapshotSchema=z.union([verificationResultSchema.options[0],z.strictObject({purpose:z.literal(ADMISSION_VERIFICATION_PURPOSE.admission),result:z.literal(VERIFICATION_TRANSITION_OUTCOME.denied),code:z.enum(ADMISSION_ERROR_CODE)})]) satisfies z.ZodType<AdmissionChallengeVerificationSnapshot>;
 
 /** Owns metadata, budgets and proof effects; no method decrypts a BYOK credential or invokes SDK. */
 export class PostgresAdmissionContactVerificationOperations implements AdmissionContactVerificationOperations{
@@ -117,18 +113,18 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
 
   /** @param input - Native confirmed common-flow proposal. @returns Original issuance or registered progress; OFF rejects before a new claim and a replay precedes current policy CAS. */
   async issue(input:AdmissionChallengeIssuanceIntent){
-    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.issue,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,expectedPolicyVersion:input.expectedPolicyVersion,contact:input.contact,channel:input.channel,admissionRequestId:input.admissionRequestId,source:input.source,confirmed:input.confirmed}},ledger=this.ledger(input),original=await ledger.read(command,challengeSnapshotSchema);
+    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.issue,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,expectedPolicyVersion:input.expectedPolicyVersion,contact:input.contact,channel:input.channel,admissionRequestId:input.admissionRequestId,source:input.source,confirmed:input.confirmed}},ledger=this.ledger(input),original=await ledger.read(command,admissionChallengeSnapshotSchema);
     if(original?.state===OPERATION_STATE.completed)return original;
     if(!original)await this.execute(input,(database)=>this.issuanceScope(database,input));
-    return this.run(ledger,command,challengeSnapshotSchema,async(database,ledgerId)=>this.issueInside(database,input,await this.issuanceScope(database,input),input.operationId,ledgerId,null));
+    return this.run(ledger,command,admissionChallengeSnapshotSchema,async(database,ledgerId)=>this.issueInside(database,input,await this.issuanceScope(database,input),input.operationId,ledgerId,null));
   }
 
   /** @param input - Original own challenge and exact code intent. @returns Local proof or committed denial/failure accounting independently of provider, country or send quota. */
   async verify(input:AdmissionChallengeVerificationIntent){
-    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:ADMISSION_CONTACT_VERIFICATION_OPERATION,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,challengeId:input.challengeId,verificationCode:input.verificationCode}},ledger=this.ledger(input),original=await ledger.read(command,verificationSnapshotSchema);
+    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:ADMISSION_CONTACT_VERIFICATION_OPERATION,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,challengeId:input.challengeId,verificationCode:input.verificationCode}},ledger=this.ledger(input),original=await ledger.read(command,admissionChallengeVerificationSnapshotSchema);
     if(original?.state===OPERATION_STATE.completed)return original;
     if(!original)await this.execute(input,(database)=>this.challengeScope(database,input,input.challengeId));
-    return this.run(ledger,command,verificationSnapshotSchema,async(database,ledgerId)=>{
+    return this.run(ledger,command,admissionChallengeVerificationSnapshotSchema,async(database,ledgerId)=>{
       const scope=await this.challengeScope(database,input,input.challengeId),owns=this.ownsScope(database,input,scope),result=await new PostgresContactVerificationRepository(database,owns,this.readSecurityConfig,new PostgresVerificationFailureBudget(database)).validate({scope,challengeId:input.challengeId,operationId:ledgerId,code:input.verificationCode});
       if(result.outcome!==VERIFICATION_TRANSITION_OUTCOME.verified){
         let code=result.outcome===VERIFICATION_TRANSITION_OUTCOME.wrongCode?ADMISSION_ERROR_CODE.verificationCodeIncorrect:ADMISSION_CONTACT_VERIFICATION_DENIAL_CODE[result.reason];
@@ -143,9 +139,9 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
 
   /** @param input - Original own challenge and explicit permitted alternative. @returns New committed issuance, preserving recipient and all shared budgets. */
   async resend(input:AdmissionChallengeResendIntent){
-    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.resend,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,challengeId:input.challengeId,useSmsAlternative:input.useSmsAlternative??false}},ledger=this.ledger(input),original=await ledger.read(command,challengeSnapshotSchema);
+    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.resend,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,challengeId:input.challengeId,useSmsAlternative:input.useSmsAlternative??false}},ledger=this.ledger(input),original=await ledger.read(command,admissionChallengeSnapshotSchema);
     if(original?.state===OPERATION_STATE.completed)return original;
-    return this.run(ledger,command,challengeSnapshotSchema,async(database,ledgerId)=>{
+    return this.run(ledger,command,admissionChallengeSnapshotSchema,async(database,ledgerId)=>{
       const scope=await this.challengeScope(database,input,input.challengeId),policy=await this.policy(database,input,true);
       if(input.useSmsAlternative){if(scope.contact.type!==ADMISSION_CONTACT_TYPE.phone||scope.channel!==MESSAGING_PUBLIC_CHANNEL.whatsapp||!policy.allowSmsAlternative)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);scope.channel=MESSAGING_PUBLIC_CHANNEL.sms;}
       return this.issueInside(database,input,scope,input.operationId,ledgerId,input.challengeId);

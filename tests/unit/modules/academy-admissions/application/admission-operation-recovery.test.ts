@@ -16,6 +16,32 @@ function recoveryFixture() {
 }
 
 describe("original admission operation read", () => {
+  it.each(["issue_contact_challenge", "resend_contact_challenge"])("should recover original %s with masked admission contact and no private transport material", async (operationType) => {
+    const fixture = recoveryFixture();
+    fixture.reader.read.mockResolvedValue({ operationType, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: { purpose: "admission", challengeId: randomUUID(), channel: "email", maskedDestination: "a•••@example.test", expiresAt: "2026-10-07T00:10:00Z", resendAllowedAt: "2026-10-07T00:01:00Z", deliveryState: "queued", codeEnvelope: "synthetic-private", destination: fixture.account.normalizedEmail } } });
+    const result = await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query);
+    expect(result).toMatchObject({ ok: true, value: { type: operationType, state: "completed", operationId: fixture.query.operationId, replayed: true, result: { purpose: "admission", deliveryState: "queued" } } });
+    if (result.ok) { expect(result.value).not.toHaveProperty("result.codeEnvelope"); expect(result.value).not.toHaveProperty("result.destination"); }
+    fixture.reader.read.mockResolvedValueOnce({ operationType, operation: { state: "started", operationId: fixture.query.operationId } });
+    expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toMatchObject({ ok: true, value: { type: operationType, state: "started" } });
+  });
+
+  it.each([
+    { purpose: "admission", result: "verified", proofId: randomUUID(), applyBefore: "2026-10-07T00:15:00Z" },
+    { purpose: "admission", result: "denied", code: "verification_code_incorrect" },
+  ])("should recover committed local verification without converting its outcome or repeating accounting: $result", async (snapshot) => {
+    const fixture = recoveryFixture();
+    fixture.reader.read.mockResolvedValue({ operationType: "verify_contact_challenge", operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });
+    expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toEqual({ ok: true, value: { type: "verify_contact_challenge", state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });
+    expect(fixture.reader.read).toHaveBeenCalledTimes(1);
+  });
+
+  it("should reject diagnostic proof purpose before exposing a contact verification recovery result", async () => {
+    const fixture = recoveryFixture();
+    fixture.reader.read.mockResolvedValue({ operationType: "verify_contact_challenge", operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: { purpose: "connection_diagnostic", result: "verified", diagnosticId: randomUUID(), connectionVersion: 1, channel: "email" } } });
+    expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
+  });
+
   it.each(["initialize_admission_policy", "update_admission_policy", "activate_admission_policy", "pause_admission_policy"])("should recover the original %s without recency or current policy reconstruction", async (operationType) => {
     const fixture = recoveryFixture();
     const activated = operationType === "activate_admission_policy";
