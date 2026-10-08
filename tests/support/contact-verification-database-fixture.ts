@@ -10,6 +10,7 @@ import { PostgresContactVerificationRepository } from "@/src/modules/academy-adm
 import { PostgresVerificationFailureBudget } from "@/src/modules/messaging/infrastructure/repositories/postgres-verification-failure-budget";
 import type { VerificationChallengeScope } from "@/src/modules/academy-admissions/domain/entities/contact-verification-challenge";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import {createMessagingSecretCipher} from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 
 /**
  * Applies actual feature artifacts exclusively to this run's owned branch.
@@ -41,9 +42,10 @@ export async function prepareContactVerificationDatabase(database: AcademyAdmiss
  * @param fixture - Synthetic account and private Web Crypto configuration.
  * @param purpose - Admission or diagnostic source, with its corresponding epoch rule.
  * @param issuedAt - Optional synthetic historical issue timestamp for immutable-lifetime scenarios.
+ * @param diagnosticResource - Optional configured immutable sender/secret seeded at creation for the diagnostic owner.
  * @returns The test-only code and exact protected challenge scope.
  */
-export async function seedContactVerificationChallenge(database: AcademyAdmissionTestDatabase, fixture: Awaited<ReturnType<typeof prepareContactVerificationDatabase>>, purpose: VerificationChallengeScope["purpose"] = "admission", issuedAt?: Date) {
+export async function seedContactVerificationChallenge(database: AcademyAdmissionTestDatabase, fixture: Awaited<ReturnType<typeof prepareContactVerificationDatabase>>, purpose: VerificationChallengeScope["purpose"] = "admission", issuedAt?: Date,diagnosticResource?:{secretRef:string;senderId:string}) {
   const tribeId = randomUUID(), connectionId = randomUUID(), challengeId = randomUUID(), deliveryId = randomUUID(), envelopeId = randomUUID();
   const scope: VerificationChallengeScope = { userId: fixture.userId, tribeId, connectionId, connectionVersion: 1, securityEpoch: fixture.config.securityEpoch, purpose, verificationEpoch: purpose === "admission" ? 1 : null, channel: "email", contact: { type: "email", value: fixture.own.email } };
   const code = "429017";
@@ -55,7 +57,8 @@ export async function seedContactVerificationChallenge(database: AcademyAdmissio
     const envelope = await createVerificationCodeEnvelope(fixture.config).seal(code, context, createdAt);
     await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic code tribe',${`code-${tribeId}`},${fixture.userId})`);
     await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,contributed_by_user_id,state,environment,security_epoch,is_candidate,candidate_version) values (${connectionId},${tribeId},${fixture.userId},'degraded',${fixture.config.environment},${scope.securityEpoch},true,1)`);
-    await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch) values (${connectionId},${tribeId},1,${fixture.config.environment},${scope.securityEpoch})`);
+    await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,secret_ref,email_sender_id) values (${connectionId},${tribeId},1,${fixture.config.environment},${scope.securityEpoch},${diagnosticResource?.secretRef??null},${diagnosticResource?.senderId??null})`);
+    if(diagnosticResource){const credential=await createMessagingSecretCipher(fixture.config).seal(randomUUID(),{tribeId,connectionId,connectionVersion:1,resourceId:diagnosticResource.secretRef});await transaction.execute(sql`insert into public.messaging_secret_envelopes(secret_ref,tribe_id,connection_id,connection_version,environment,security_epoch,key_id,iv,ciphertext) values (${diagnosticResource.secretRef},${tribeId},${connectionId},1,${credential.environment},${credential.securityEpoch},${credential.keyId},${Buffer.from(credential.iv)},${Buffer.from(credential.ciphertext)})`);}
     await transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,created_at,due_at,deadline_at) values (${deliveryId},${tribeId},${connectionId},1,${fixture.config.environment},${scope.securityEpoch},${purpose},${challengeId},${fixture.userId},${challengeId},'email',${randomUUID()},${randomBytes(32)},'synthetic-payload','{}',1,${createdAt},${createdAt},${expiresAt})`);
     await transaction.execute(sql`insert into public.contact_verification_challenges(id,user_id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,purpose,verification_epoch,connection_id,connection_version,security_epoch,channel,created_at,expires_at,code_mac,mac_key_id,code_envelope_id,delivery_id) values (${challengeId},${fixture.userId},${tribeId},'email',${fixture.own.email},${randomBytes(32)},'synthetic-contact',${purpose},${scope.verificationEpoch},${connectionId},1,${scope.securityEpoch},'email',${createdAt},${expiresAt},${Buffer.from(signed.mac)},${signed.keyId},${envelopeId},${deliveryId})`);
     await transaction.execute(sql`insert into public.verification_code_envelopes(id,tribe_id,connection_id,connection_version,challenge_id,delivery_id,environment,security_epoch,key_id,iv,ciphertext,created_at,expires_at) values (${envelopeId},${tribeId},${connectionId},1,${challengeId},${deliveryId},${envelope.environment},${envelope.securityEpoch},${envelope.keyId},${Buffer.from(envelope.iv)},${Buffer.from(envelope.ciphertext)},${createdAt},${expiresAt})`);

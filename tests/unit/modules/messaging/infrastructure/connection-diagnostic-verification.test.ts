@@ -19,6 +19,7 @@ import { VerifyConnectionDiagnosticUseCase } from "@/src/modules/messaging/appli
 import { connectionDiagnosticSnapshotSchema, projectConnectionDiagnosticSnapshot } from "@/src/modules/messaging/application/results/connection-diagnostic-result";
 import { CONNECTION_DIAGNOSTIC_VERIFY_OPERATION } from "@/src/modules/messaging/constants/connection-diagnostic";
 import type { AuthorizedMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import {prepareContactVerificationDatabase,seedContactVerificationChallenge} from "@/tests/support/contact-verification-database-fixture";
 
 /**
  * Creates a real issued diagnostic and trusted synthetic global identity/recency, not a real Google login.
@@ -53,6 +54,28 @@ async function prepareDiagnostic(database: AcademyAdmissionTestDatabase, phone =
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("connection diagnostic verification", () => {
+  it("should reject an expired diagnostic through its own ledger without preparing a capability, consuming a failure or granting a proof",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareContactVerificationDatabase(database);await database.applyMigration("20261005095000_guard_global_identity_context.sql");
+      const instant=await database.withContext(fixture.own,async(transaction)=>(await transaction.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now),secretRef=randomUUID(),challenge=await seedContactVerificationChallenge(database,fixture,"connection_diagnostic",new Date(new Date(instant).getTime()-660_000),{secretRef,senderId:"synthetic-expired-sender"}),diagnosticId=challenge.challengeId,accountId=randomUUID(),sessionId=randomUUID(),subject=randomUUID(),intentId=randomUUID();
+      const context=await database.withContext(fixture.own,async(transaction):Promise<AuthorizedMessagingContext>=>{
+        const now=new Date((await transaction.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000);
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${challenge.scope.tribeId},${fixture.userId},'leader','active')`);
+        await transaction.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,state,checked_at) values (${challenge.scope.tribeId},${challenge.scope.connectionId},1,'email','synthetic-expired-sender','unprepared',${now})`);
+        await transaction.execute(sql`insert into public.messaging_connection_diagnostics(id,tribe_id,connection_id,connection_version,leader_user_id,challenge_id,channel,sender_id) values (${diagnosticId},${challenge.scope.tribeId},${challenge.scope.connectionId},1,${fixture.userId},${challenge.challengeId},'email','synthetic-expired-sender')`);
+        await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},'google',${subject},${now},${now})`);
+        await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${randomUUID()},${new Date(now.getTime()+3_600_000)},${now},${now})`);
+        await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
+        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.userId},${sessionId},${accountId},${subject},${challenge.scope.tribeId},${CONNECTION_DIAGNOSTIC_VERIFY_OPERATION},${challenge.scope.connectionId},'/synthetic-expired-diagnostic',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
+        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.userId},${accountId},${subject},${sessionId},${challenge.scope.tribeId},${CONNECTION_DIAGNOSTIC_VERIFY_OPERATION},${challenge.scope.connectionId},${now},${now},${validUntil})`);
+        return{authorizationPurpose:"sensitive_leader",actorUserId:fixture.userId,sessionId,accountId,subject,tribeId:challenge.scope.tribeId,connectionId:challenge.scope.connectionId,connectionVersion:1,environment:fixture.config.environment,securityEpoch:fixture.config.securityEpoch,operation:CONNECTION_DIAGNOSTIC_VERIFY_OPERATION,requestId:randomUUID(),resourceId:challenge.scope.connectionId,secretRef,authenticatedAt:now,validUntil};
+      });
+      const operations=new PostgresConnectionDiagnosticOperations((_context,run)=>database.withContext(fixture.own,run),async()=>fixture.config),operationId=randomUUID(),command={context,operationId,diagnosticId,code:challenge.code};
+      expect(await operations.verify(command)).toMatchObject({state:"completed",result:{outcome:"denied",code:"challenge_expired"}});expect(await operations.verify(command)).toMatchObject({state:"completed",replayed:true,result:{outcome:"denied",code:"challenge_expired"}});
+      const state=await database.withContext(fixture.own,async(transaction)=>({capability:(await transaction.execute(sql`select state,tested_at from public.messaging_connection_capabilities where connection_id=${challenge.scope.connectionId}`)).rows[0],diagnostic:(await transaction.execute(sql`select outcome,validated_at from public.messaging_connection_diagnostics where id=${diagnosticId}`)).rows[0],failures:(await transaction.execute<{count:number}>(sql`select count(*)::int as count from public.messaging_usage_events where actor_user_id=${fixture.userId} and event_type='code_failure'`)).rows[0].count,proofs:(await transaction.execute<{count:number}>(sql`select count(*)::int as count from public.academy_admission_verification_proofs where challenge_id=${challenge.challengeId}`)).rows[0].count}));
+      expect(state).toEqual({capability:{state:"unprepared",tested_at:null},diagnostic:{outcome:"pending",validated_at:null},failures:0,proofs:0});
+    });
+  },300_000);
   it("should serialize SMS verification against a WhatsApp resend without a diagnostic/challenge lock inversion", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareDiagnostic(database, true);
