@@ -5,10 +5,10 @@ import { ReadAdmissionRuntimeUseCase } from "@/src/modules/academy-admissions/ap
 import type { AdmissionExecutionCapabilities } from "@/src/modules/academy-admissions/domain/repositories/admission-execution-capabilities";
 
 describe("installed admission evaluator coverage", () => {
-  it("should keep cutover closed for the actual common manual OFF writer without opening SQL, secrets or effects", async () => {
+  it("should keep full cutover closed for the common manual writer with local proof without opening SQL, secrets or effects", async () => {
     const unavailable = async (): Promise<never> => { throw new Error("Runtime code coverage must not access SQL or credentials"); };
     const writer = new PostgresAdmissionRequestRepository(unavailable, unavailable, () => { throw new Error("Runtime code coverage must not compose effects"); });
-    expect(writer.getCapabilities()).toEqual({ sources: ["common"], policyModes: ["manual_review"], additionalVerification: false });
+    expect(writer.getCapabilities()).toEqual({ sources: ["common"], policyModes: ["manual_review"], additionalVerification: true });
     expect(await new ReadAdmissionRuntimeUseCase(writer).isPrepared("synthetic-tribe")).toBe(false);
     const detached = writer.getCapabilities();
     (detached.sources as string[]).push("personal");

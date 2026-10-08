@@ -3,9 +3,9 @@ import type { AdmissionExecutionCapabilities } from "../domain/repositories/admi
 import { ADMISSION_REQUEST_SOURCE } from "./admission-request";
 import { ADMISSION_POLICY_MODE } from "./admission-policy";
 
-/** Current manual writer accepts only common manual/OFF presentations. */
+/** Current manual writer accepts common presentations with declared or owned local proof; other sources/modes keep full runtime cutover closed. */
 export const MANUAL_ADMISSION_EXECUTION_CAPABILITIES: AdmissionExecutionCapabilities = {
-  sources: [ADMISSION_REQUEST_SOURCE.common], policyModes: [ADMISSION_POLICY_MODE.manualReview], additionalVerification: false,
+  sources: [ADMISSION_REQUEST_SOURCE.common], policyModes: [ADMISSION_POLICY_MODE.manualReview], additionalVerification: true,
 };
 /** Full published admission scope requires every source, both evaluators and local verification. */
 export const REQUIRED_ADMISSION_EXECUTION_SOURCES: readonly ("common" | "personal" | "legacy")[] = [ADMISSION_REQUEST_SOURCE.common, ADMISSION_REQUEST_SOURCE.personal, ADMISSION_REQUEST_SOURCE.legacy];

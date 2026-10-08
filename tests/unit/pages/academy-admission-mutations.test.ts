@@ -21,6 +21,12 @@ function mutationFixture() {
 }
 
 describe("admission mutation handlers", () => {
+  it("should canonicalize the submission operation and opaque proof before the original atomic intent", async () => {
+    const fixture = mutationFixture(), proofId = randomUUID();
+    const response = await fixture.handlers.submit(fixture.request({ operationId: fixture.operationId.toUpperCase(), confirmed: true, expectedPolicyVersion: 1, proofId: proofId.toUpperCase() }), { params: Promise.resolve({ slug: "synthetic-academy" }) });
+    expect(response.status).toBe(201);
+    expect(fixture.submit).toHaveBeenCalledWith({ operationId: fixture.operationId, confirmed: true, expectedPolicyVersion: 1, proofId, tribeId: fixture.tribeId, requestId: expect.any(String) });
+  });
   it("should expose the original pending snapshot at 201/200 and strip private fields without querying today's request", async () => {
     const fixture = mutationFixture(), context = { params: Promise.resolve({ slug: "synthetic-academy" }) };
     const body = { operationId: fixture.operationId, confirmed: true, expectedPolicyVersion: 1 };

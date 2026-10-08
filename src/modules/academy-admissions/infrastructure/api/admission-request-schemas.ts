@@ -15,8 +15,8 @@ const operationFields = {
   operationId: z.uuid({ error: ADMISSION_INPUT_CATEGORY.operation }),
   confirmed: z.literal(true, { error: ADMISSION_INPUT_CATEGORY.confirmation }),
 };
-/** Verification UUID identity is canonical before its textual representation enters the immutable ledger fingerprint. */
-const verificationOperationIdSchema = operationFields.operationId.transform((operationId) => operationId.toLowerCase());
+/** Original UUID identity is canonical before its textual representation enters the immutable ledger fingerprint. */
+const canonicalOperationIdSchema = operationFields.operationId.transform((operationId) => operationId.toLowerCase());
 const expectedVersionSchema = z.int({ error: ADMISSION_INPUT_CATEGORY.version }).positive({ error: ADMISSION_INPUT_CATEGORY.version });
 const editableNameSchema = z.string({ error: ADMISSION_INPUT_CATEGORY.name }).trim().max(ADMISSION_LIMIT.displayNameCharacters, { error: ADMISSION_INPUT_CATEGORY.name });
 const countrySchema = z.string().trim().toUpperCase().refine((country) => isSupportedCountry(country as CountryCode), { error: ADMISSION_INPUT_CATEGORY.country });
@@ -76,7 +76,7 @@ export const admissionReviewQuerySchema = z.strictObject({ ...pageQueryFields, c
 export const admissionAllowlistQuerySchema = z.strictObject({ ...pageQueryFields, status: z.enum(ALLOWLIST_ENTRY_STATUS).optional() });
 
 /** The account email/source/identity evidence are server-owned; the body can select only the explicit route intent. */
-export const admissionSubmissionSchema = z.strictObject({ ...operationFields, expectedPolicyVersion: expectedVersionSchema, invitationToken: z.string().min(1).optional(), legacyInvitationToken: z.string().min(1).optional(), phone: z.string().trim().min(1).optional(), country: countrySchema.optional(), proofId: z.uuid().optional(), message: z.string().trim().max(ADMISSION_LIMIT.internalMessageCharacters).optional() }).refine((command) => !(command.invitationToken && command.legacyInvitationToken));
+export const admissionSubmissionSchema = z.strictObject({ ...operationFields, operationId: canonicalOperationIdSchema, expectedPolicyVersion: expectedVersionSchema, invitationToken: z.string().min(1).optional(), legacyInvitationToken: z.string().min(1).optional(), phone: z.string().trim().min(1).optional(), country: countrySchema.optional(), proofId: z.uuid().transform((proofId) => proofId.toLowerCase()).optional(), message: z.string().trim().max(ADMISSION_LIMIT.internalMessageCharacters).optional() }).refine((command) => !(command.invitationToken && command.legacyInvitationToken));
 /** Proof attachment cannot create another request or replace the contact owned by that request. */
 export const admissionProofAttachmentSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, proofId: z.uuid() }).transform((command) => ({ ...command, operationId: command.operationId.toLowerCase(), proofId: command.proofId.toLowerCase() }));
 export const admissionCancellationSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, internalReason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters).optional() });
@@ -93,9 +93,9 @@ export const admissionPolicyUpdateSchema = z.strictObject({ ...operationFields, 
 export const admissionPolicyActivationSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema });
 export const admissionPolicyPauseSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, reason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters) });
 /** Route purpose, text, code, sender and account identity stay server-owned. */
-export const admissionChallengeCreateSchema = z.strictObject({ ...operationFields, operationId: verificationOperationIdSchema, expectedPolicyVersion: expectedVersionSchema, phone: z.string().trim().min(1).optional(), country: countrySchema.optional(), channel: z.enum(MESSAGING_PUBLIC_CHANNEL), requestId: z.uuid().transform((requestId) => requestId.toLowerCase()).optional(), invitationToken: z.string().min(1).optional(), legacyInvitationToken: z.string().min(1).optional() }).refine((command) => !(command.invitationToken && command.legacyInvitationToken));
-export const admissionChallengeVerifySchema = z.strictObject({ ...operationFields, operationId: verificationOperationIdSchema, verificationCode: z.string().regex(ADMISSION_PUBLIC_CODE_PATTERN) });
-export const admissionChallengeResendSchema = z.strictObject({ ...operationFields, operationId: verificationOperationIdSchema, useSmsAlternative: z.literal(true).optional() });
+export const admissionChallengeCreateSchema = z.strictObject({ ...operationFields, operationId: canonicalOperationIdSchema, expectedPolicyVersion: expectedVersionSchema, phone: z.string().trim().min(1).optional(), country: countrySchema.optional(), channel: z.enum(MESSAGING_PUBLIC_CHANNEL), requestId: z.uuid().transform((requestId) => requestId.toLowerCase()).optional(), invitationToken: z.string().min(1).optional(), legacyInvitationToken: z.string().min(1).optional() }).refine((command) => !(command.invitationToken && command.legacyInvitationToken));
+export const admissionChallengeVerifySchema = z.strictObject({ ...operationFields, operationId: canonicalOperationIdSchema, verificationCode: z.string().regex(ADMISSION_PUBLIC_CODE_PATTERN) });
+export const admissionChallengeResendSchema = z.strictObject({ ...operationFields, operationId: canonicalOperationIdSchema, useSmsAlternative: z.literal(true).optional() });
 /** CSV text has an independent byte ceiling; row/header parsing belongs to the import owner. */
 export const admissionImportPreviewSchema = z.strictObject({ ...operationFields, contactType: z.enum(ADMISSION_CONTACT_TYPE), expectedPolicyVersion: expectedVersionSchema, csvText: z.string().refine((text) => new TextEncoder().encode(text).byteLength <= ADMISSION_LIMIT.csvByteCount) });
 export const admissionImportConfirmationSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, selectedRows: z.array(z.int().min(1).max(ADMISSION_LIMIT.csvDataRowCount)).min(1).max(ADMISSION_LIMIT.csvDataRowCount) }).refine((command) => new Set(command.selectedRows).size === command.selectedRows.length);
