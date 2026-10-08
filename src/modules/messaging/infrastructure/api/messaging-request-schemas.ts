@@ -8,6 +8,7 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
 import { ADMISSION_QUERY_LIMIT, ADMISSION_QUERY_INTEGER_PATTERN, ADMISSION_PUBLIC_CODE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { TRIBE_SLUG_PATTERN } from "@/src/modules/tribes/domain/value-objects/tribe-slug";
 import {MESSAGING_RESOURCE_KIND,MESSAGING_RESOURCE_CURSOR_MAXIMUM_OFFSET} from "@/src/modules/messaging/constants/messaging-resources";
+import {MESSAGING_CONNECTION_SECURITY_REASON} from "@/src/modules/messaging/constants/messaging-connection-security";
 
 const operationFields = {
   operationId: z.uuid({ error: MESSAGING_INPUT_CATEGORY.operation }),
@@ -47,5 +48,5 @@ export const messagingConnectionConfigureSchema = z.strictObject({ ...operationF
 export const messagingConnectionDiagnosticSchema = z.strictObject({ ...operationFields, expectedVersion: z.int().positive(), channel: z.enum(MESSAGING_PUBLIC_CHANNEL), recipient: z.string().trim().min(1), country: countrySchema.optional(),currentChallengeId:z.uuid().optional() });
 export const messagingDiagnosticVerifySchema = z.strictObject({ ...operationFields, verificationCode: z.string().regex(ADMISSION_PUBLIC_CODE_PATTERN) });
 export const messagingConnectionActivateSchema = z.strictObject({ ...operationFields, expectedVersion: z.int().positive() });
-export const messagingConnectionSuspendSchema = z.strictObject({ ...operationFields, expectedVersion: z.int().positive(), reason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters), suspectedCompromise: z.boolean() });
-export const messagingConnectionDisconnectSchema = z.strictObject({ ...operationFields, expectedVersion: z.int().positive(), reason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters) });
+export const messagingConnectionSuspendSchema = z.strictObject({ ...operationFields, expectedVersion: z.int().positive(), reason: z.enum(MESSAGING_CONNECTION_SECURITY_REASON) });
+export const messagingConnectionDisconnectSchema = z.strictObject({ ...operationFields, expectedVersion: z.int().positive() });

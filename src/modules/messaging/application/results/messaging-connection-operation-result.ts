@@ -10,6 +10,8 @@ import {messagingConnectionConfigurationSchema} from "./messaging-connection-con
 import {messagingConnectionActivationSchema} from "./messaging-connection-activation-result";
 import {connectionDiagnosticIssuanceSchema} from "./connection-diagnostic-issuance-result";
 import {connectionDiagnosticSnapshotSchema} from "./connection-diagnostic-result";
+import {messagingConnectionLifecycleResultSchema} from "./messaging-connection-lifecycle-result";
+import {MESSAGING_CONNECTION_SECURITY_REASON} from "../../constants/messaging-connection-security";
 
 /** @param type - Exact implemented mutation namespace. @param result - Its own minimal DTO guard. @returns Strict original completed lookup with no current-state substitution. */
 const completed=<Type extends typeof MESSAGING_CONNECTION_OPERATION_TYPE[number],Result>(type:Type,result:z.ZodType<Result>)=>z.strictObject({type:z.literal(type),state:z.literal(OPERATION_STATE.completed),operationId:z.uuid(),replayed:z.literal(true),result});
@@ -22,6 +24,8 @@ export const messagingConnectionOperationRecoverySchema=z.union([
   completed(REAUTHENTICATION_OPERATION.diagnoseMessagingConnection,connectionDiagnosticIssuanceSchema),
   completed(REAUTHENTICATION_OPERATION.verifyMessagingDiagnostic,connectionDiagnosticSnapshotSchema),
   completed(REAUTHENTICATION_OPERATION.activateMessagingConnection,messagingConnectionActivationSchema.extend({state:z.literal(MESSAGING_CONNECTION_STATE.active)}).strict()),
+  completed(REAUTHENTICATION_OPERATION.suspendMessagingConnection,messagingConnectionLifecycleResultSchema.extend({state:z.literal(MESSAGING_CONNECTION_STATE.suspended),reason:z.enum(MESSAGING_CONNECTION_SECURITY_REASON)})),
+  completed(REAUTHENTICATION_OPERATION.disconnectMessagingConnection,messagingConnectionLifecycleResultSchema.extend({state:z.literal(MESSAGING_CONNECTION_STATE.disconnected),reason:z.null()})),
 ]);
 /** Browser/HTTP/SSR consumers receive only this guarded original snapshot. */
 export type MessagingConnectionOperationRecovery=z.infer<typeof messagingConnectionOperationRecoverySchema>;

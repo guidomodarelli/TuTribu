@@ -54,6 +54,11 @@ import { MessagingSecretAccessError } from "./domain/errors/messaging-secret-acc
 import { messagingFailure } from "./application/results/messaging-errors";
 import { createMessagingDispatchConfig } from "./infrastructure/config/messaging-dispatch-config";
 import type { MessageDeliverySender, MessagingDispatchRuntime, MessagingDispatchSettings } from "./domain/repositories/message-delivery-sender";
+import type { MessagingConnectionLifecycleDependencies } from "./domain/repositories/messaging-connection-lifecycle";
+import { PostgresMessagingConnectionSuspension } from "./infrastructure/repositories/postgres-messaging-connection-suspension";
+import { PostgresMessagingConnectionDisconnection } from "./infrastructure/repositories/postgres-messaging-connection-disconnection";
+import { ManageMessagingConnectionLifecycleUseCases } from "./application/use-cases/messaging-connection-lifecycle-use-cases";
+import { ResolveMessagingTribeManagementUseCase } from "./application/use-cases/resolve-messaging-tribe-management-use-case";
 import type { VerificationDeliveryPreparation } from "./infrastructure/zavu/verification-delivery-preparation";
 import type {DiagnosticDeliveryDispatchScope} from "./domain/repositories/message-delivery-repository";
 
@@ -101,6 +106,11 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
       createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, countryChoices: readonly MessagingUsageCountryChoice[]) { return new GetMessagingUsagePageUseCase(dependencies.accounts, { usage, resolveTribe }, dependencies.clock, countryChoices); } };
   };
   return {
+    /** @param options - Local operation MAC keys and explicit dependency owners, without SDK/SecretStore. @returns Exact local suspension/disconnection use cases and authority. */
+    createConnectionLifecycleModule(options:{readSecurityConfig:()=>Promise<MessagingSecurityConfig>;composeDependencies:(database:RequestDatabase)=>MessagingConnectionLifecycleDependencies}){
+      const{executeActor,leadership}=createManagement(),management=new ResolveMessagingTribeManagementUseCase(dependencies.accounts,leadership,dependencies.clock),suspension=new PostgresMessagingConnectionSuspension(executeActor,options.readSecurityConfig,options.composeDependencies),disconnection=new PostgresMessagingConnectionDisconnection(executeActor,options.readSecurityConfig,options.composeDependencies);
+      return{useCases:new ManageMessagingConnectionLifecycleUseCases(management,{suspend:(context,input)=>suspension.suspend(context,input),disconnect:(context,input)=>disconnection.disconnect(context,input)})};
+    },
     /** @param options - Ledger security only; reading does not load it. @returns Independent current country/quota management without connection or admission policy. */
     createUsageModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) { return createUsage(options.readSecurityConfig); },
     /** @returns Original connection recovery with current native session/leadership, independently of keyrings, current slot or mutation recency. */

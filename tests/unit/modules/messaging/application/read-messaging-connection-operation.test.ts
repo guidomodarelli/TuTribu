@@ -12,6 +12,11 @@ function recoveryFixture(){
   return{now,account,leadership,accounts,authorization,read,result,query,useCase:new ReadMessagingConnectionOperationUseCase(accounts,authorization,{read},()=>now)};
 }
 describe("original connection operation recovery",()=>{
+  it.each(["suspend_messaging_connection","disconnect_messaging_connection"]as const)("should read original %s metadata without mutation recency, keys or current selected resource",async(type)=>{
+    const fixture=recoveryFixture(),result={type,state:"completed",operationId:fixture.query.operationId,replayed:true,result:{id:randomUUID(),version:4,state:type==="suspend_messaging_connection"?"suspended":"disconnected",reason:type==="suspend_messaging_connection"?"security_stop":null,changed:true}};fixture.read.mockResolvedValueOnce(result);
+    expect(await fixture.useCase.execute(fixture.query)).toEqual({ok:true,value:result});expect(fixture.read).toHaveBeenCalledTimes(1);expect(fixture.account.recentAuthentication).toEqual([]);
+    fixture.read.mockResolvedValueOnce({...result,result:{...result.result,secretRef:randomUUID()}});expect(await fixture.useCase.execute(fixture.query)).toMatchObject({ok:false,failure:{code:"public_contract_unusable"}});
+  });
   it("should recover a created connection without key input or mutation recency and preserve its original metadata",async()=>{
     const fixture=recoveryFixture();expect(await fixture.useCase.execute(fixture.query)).toEqual({ok:true,value:fixture.result});
     expect(fixture.read).toHaveBeenCalledExactlyOnceWith({actorUserId:fixture.account.userId,sessionId:fixture.account.session.id,tribeId:fixture.query.tribeId,requestId:fixture.query.requestId},fixture.query.operationId);

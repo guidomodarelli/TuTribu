@@ -1330,6 +1330,20 @@ export const eventOccurrenceComments = pgTable("event_occurrence_comments", {
   ),
 }));
 
+/** Independent admission email capability; SQL owns its version and RLS guards. */
+export const admissionEmailSettings=pgTable("admission_email_settings",{
+  tribeId:uuid("tribe_id").primaryKey().references(()=>tribes.id,{onDelete:"cascade"}),
+  enabled:boolean("enabled").notNull().default(false),
+  enabledAt:timestamp("enabled_at",{withTimezone:true}),
+  version:integer("version").notNull().default(1),
+  changedByUserId:text("changed_by_user_id").references(()=>users.id,{onDelete:"set null"}),
+  createdAt:timestamp("created_at",{withTimezone:true}).notNull().default(UTC_NOW_SQL),
+  updatedAt:timestamp("updated_at",{withTimezone:true}).notNull().default(UTC_NOW_SQL),
+},(table)=>({
+  versionCheck:check("admission_email_settings_version_check",sql`${table.version}>0`),
+  enabledTimeCheck:check("admission_email_enabled_time_check",sql`not ${table.enabled} or ${table.enabledAt} is not null`),
+}));
+
 // In-app notification inbox. CHECKs, RLS, the recipient update guard, and the
 // SECURITY DEFINER producer triggers live in
 // 20260926120000_create_notifications.sql.

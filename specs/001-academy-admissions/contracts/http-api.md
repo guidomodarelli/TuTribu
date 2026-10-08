@@ -118,8 +118,8 @@ Base `/api/tribes/[slug]/messaging`.
 | POST `/connections/[connectionId]/diagnostics` | sensitiveLeader; canal/destino autorizado/version/operation y confirmación de consumo | Desafío de diagnóstico, solo envío solicitado |
 | POST `/connections/[connectionId]/diagnostics/[diagnosticId]/verify` | mismo líder/contexto; código | Resultado de conexión/canal/versión, nunca proof de admisión |
 | POST `/connections/[connectionId]/activate` | sensitiveLeader; version/operation/confirmación | Reemplazo coherente solo tras capacidades dependientes probadas |
-| POST `/connections/[connectionId]/suspend` | sensitiveLeader; motivo y operation | Stop inmediato; compromiso invalida pruebas según scope; no cancela mensaje aceptado |
-| POST `/connections/[connectionId]/disconnect` | sensitiveLeader; resolución de dependencias/operation | Uso cerrado/purga operativa; revocación externa separada |
+| POST `/connections/[connectionId]/suspend` | sensitiveLeader; operationId/confirmed/expectedVersion y reason `security_stop` o `suspected_compromise` | Stop inmediato; compromiso invalida pruebas según scope; no cancela mensaje aceptado |
+| POST `/connections/[connectionId]/disconnect` | sensitiveLeader; operationId/confirmed/expectedVersion; dependencias comprobadas por owners | Uso cerrado/purga operativa; revocación externa separada |
 | GET `/usage-policy` | leader de la tribu; no exige conexión ni AdmissionPolicy | MessagingUsagePolicyStateDto; consulta sin efectos, version solo de recurso existente |
 | POST `/usage-policy` | sensitiveLeader; operation e inicio explícito de configuración | Crea defaults del spec, allowedCountries vacío y version 1 si falta; si ya existe devuelve estado actual sin sobrescribir/resetear/incrementar. Unique por tribu/replay; sin SDK/envío ni dependencia de conexión |
 | PUT `/usage-policy` | sensitiveLeader; allowedCountries/cupos dentro de máximos, expectedVersion/operation y confirmación de incremento | CAS: cambio efectivo incrementa, no-op vigente conserva version y stale 409; no altera historia ni reinicia contadores |

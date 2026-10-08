@@ -9,6 +9,7 @@ import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrast
 import { PostgresMessagingAuthorizationReader } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-authorization-reader";
 import { ResolveMessagingTribeManagementUseCase } from "@/src/modules/messaging/application/use-cases/resolve-messaging-tribe-management-use-case";
 import { authorizeMessagingTribeManagement } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-usage-authorizer";
+import { PostgresMessagingConnectionSuspension } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-suspension";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("local lifecycle authority in PostgreSQL", () => {
   it("should authorize an exact suspended connection with no credential envelope and reject crossed recency or a changed canonical leader", async () => {
@@ -24,10 +25,20 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("local lifecycle au
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.context.actorUserId, sessionId: fixture.context.sessionId }), (_identity, run) => database.withContext(fixture.fixture.own, run));
       const resolve = () => database.withContext(fixture.fixture.own, (transaction) => new ResolveMessagingTribeManagementUseCase(accounts, new PostgresMessagingAuthorizationReader(transaction, fixture.context.sessionId, "management"), () => new Date()).execute({ tribeId: fixture.context.tribeId, connectionId, requestId: randomUUID() }, "suspend_messaging_connection"));
       const context = await resolve();
+      await database.withContext(fixture.fixture.own,(transaction)=>transaction.execute(sql`update public.tenant_messaging_connections set state='active' where id=${connectionId}`));
+      let compromises=0;
+      const owner=new PostgresMessagingConnectionSuspension((_context,run)=>database.withContext(fixture.fixture.own,run),async()=>fixture.fixture.config,()=>({readRetirementFacts:async()=>({verificationRequired:true,admissionsPaused:false,externalNotificationsEnabled:true}),invalidateCompromisedEvidence:async()=>{compromises+=1;},retireReferences:async()=>{throw new Error("Suspension must not perform ordinary retirement");}}));
+      const input={operationId:randomUUID(),expectedVersion:1,confirmed:true as const,reason:"security_stop" as const};
+      const stopped=await owner.suspend(context,input);expect(stopped).toMatchObject({state:"completed",result:{id:connectionId,version:2,state:"suspended",reason:"security_stop",changed:true}});expect(compromises).toBe(0);
+      expect(await owner.suspend(context,input)).toMatchObject({state:"completed",replayed:true,result:stopped.state==="completed"?stopped.result:undefined});
+      await expect(owner.suspend(context,{...input,operationId:randomUUID(),expectedVersion:1})).rejects.toMatchObject({code:"connection_conflict"});
+      expect(await owner.suspend(context,{...input,operationId:randomUUID(),expectedVersion:2})).toMatchObject({state:"completed",result:{version:2,changed:false}});
+      const compromise={...input,operationId:randomUUID(),expectedVersion:2,reason:"suspected_compromise" as const};expect(await owner.suspend(context,compromise)).toMatchObject({state:"completed",result:{version:3,reason:"suspected_compromise",changed:true}});expect(compromises).toBe(1);
+      expect(await owner.suspend(context,compromise)).toMatchObject({state:"completed",replayed:true,result:{version:3,changed:true}});expect(compromises).toBe(1);
       await database.withContext(fixture.fixture.own, async (transaction) => {
         await authorizeMessagingTribeManagement(transaction, context);
         expect((await transaction.execute(sql`select secret_ref from public.messaging_secret_envelopes where connection_id=${connectionId}`)).rows).toEqual([]);
-        expect((await transaction.execute(sql`select state,version,is_selected,selected_version from public.tenant_messaging_connections where id=${connectionId}`)).rows).toEqual([{ state: "suspended", version: 1, is_selected: true, selected_version: 1 }]);
+        expect((await transaction.execute(sql`select state,version,is_selected,selected_version from public.tenant_messaging_connections where id=${connectionId}`)).rows).toEqual([{ state: "suspended", version: 3, is_selected: true, selected_version: 1 }]);
       });
       await expect(database.withContext(fixture.fixture.own, (transaction) => authorizeMessagingTribeManagement(transaction, { ...context, resourceId: context.tribeId }))).rejects.toMatchObject({ code: "permission_denied" });
       await expect(database.withContext(fixture.fixture.own, (transaction) => authorizeMessagingTribeManagement(transaction, { ...context, operation: "disconnect_messaging_connection" }))).rejects.toMatchObject({ code: "reauthentication_required" });
