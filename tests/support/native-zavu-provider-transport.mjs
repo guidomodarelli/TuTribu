@@ -14,6 +14,15 @@ const syntheticCredential=process.env.ADMISSION_TEST_ZAVU_CREDENTIAL;
 if(!syntheticCredential)throw new Error("NativeZavuProviderTransport failed: synthetic_credential_missing");
 /** Only the owned loopback framework origin may use native fetch; every external HTTP path is closed. */
 const frameworkOrigin=new URL(process.env.BETTER_AUTH_URL).origin;
+/** Collects only the existing boundary's allowlisted diagnostic stage/code, never raw console payloads or causes. */
+const nativeConsoleError=console.error,dispatchStages=new Set(["claim","authorize","send","complete","late","defer"]),dispatchCodes=new Set(["invalid_input","permission_denied","resource_unavailable","connection_incomplete","operation_unresolved","unexpected_failure","transport_timeout","dependency_unavailable"]);
+console.error=(...argumentsList)=>{
+  if(argumentsList.length===1&&typeof argumentsList[0]==="string"){
+    let entry;try{entry=JSON.parse(argumentsList[0]);}catch{entry=null;}
+    if(entry?.feature==="messaging"&&entry.operation==="diagnose_messaging_connection"&&entry.message==="Connection diagnostic dispatch failed"&&dispatchStages.has(entry.metadata?.stage)&&dispatchCodes.has(entry.metadata?.code))process.send?.({kind:"admission_test_dispatch_observation",stage:entry.metadata.stage,code:entry.metadata.code});
+  }
+  nativeConsoleError(...argumentsList);
+};
 
 /**
  * Exercises the real SDK without letting this native fixture reach the external provider.
