@@ -5,6 +5,8 @@ export type MessagingConnectionsPendingIntent=
   |{type:"validate_messaging_connection";operationId:string;original?:{connectionId:string;configurationVersion:number;expectedVersion:number}}
   |{type:"configure_messaging_connection";operationId:string;original?:{connectionId:string;configurationVersion:number;expectedVersion:number;channel:"email"|"sms"|"whatsapp";senderId:string;templateId?:string;templateLanguage?:string}}
   |{type:"activate_messaging_connection";operationId:string;original:{connectionId:string;configurationVersion:number;expectedVersion:number}}
+  |{type:"suspend_messaging_connection";operationId:string;original:{connectionId:string;expectedVersion:number;reason:"security_stop"|"suspected_compromise"}}
+  |{type:"disconnect_messaging_connection";operationId:string;original:{connectionId:string;expectedVersion:number}}
   |{type:"diagnose_messaging_connection";operationId:string;original:{connectionId:string;configurationVersion:number;expectedVersion:number;channel:"email"|"sms"|"whatsapp"}}
   |{type:"verify_messaging_diagnostic";operationId:string;original:{connectionId:string;configurationVersion:number;diagnosticId:string;channel:"email"|"sms"|"whatsapp"}};
 /** An issued diagnostic is recovered through its original ledger result; no destination/code belongs here. */

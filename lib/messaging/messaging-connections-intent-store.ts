@@ -6,6 +6,7 @@ import {MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX,MESSAGING_CONNECTION_HISTORY
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {ADMISSION_LIMIT} from "@/src/modules/academy-admissions/constants/admission-limits";
+import {MESSAGING_CONNECTION_SECURITY_REASON} from "@/src/modules/messaging/constants/messaging-connection-security";
 
 /** Browser metadata is untrusted input and never an authorization token. */
 const resourceOriginal=z.strictObject({connectionId:z.uuid(),configurationVersion:z.int().positive(),expectedVersion:z.int().positive()});
@@ -15,6 +16,8 @@ const intentSchema=z.discriminatedUnion("type",[
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.validateMessagingConnection),operationId:z.uuid(),original:resourceOriginal.optional()}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.configureMessagingConnection),operationId:z.uuid(),original:configurationOriginal.optional()}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.activateMessagingConnection),operationId:z.uuid(),original:resourceOriginal}),
+  z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.suspendMessagingConnection),operationId:z.uuid(),original:z.strictObject({connectionId:z.uuid(),expectedVersion:z.int().positive(),reason:z.enum(MESSAGING_CONNECTION_SECURITY_REASON)})}),
+  z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.disconnectMessagingConnection),operationId:z.uuid(),original:z.strictObject({connectionId:z.uuid(),expectedVersion:z.int().positive()})}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.diagnoseMessagingConnection),operationId:z.uuid(),original:resourceOriginal.extend({channel:z.enum(MESSAGING_PUBLIC_CHANNEL)})}),
   z.strictObject({type:z.literal(REAUTHENTICATION_OPERATION.verifyMessagingDiagnostic),operationId:z.uuid(),original:z.strictObject({connectionId:z.uuid(),configurationVersion:z.int().positive(),diagnosticId:z.uuid(),channel:z.enum(MESSAGING_PUBLIC_CHANNEL)})}),
 ]);

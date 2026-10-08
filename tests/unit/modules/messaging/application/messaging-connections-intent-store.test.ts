@@ -6,6 +6,15 @@ import {MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX,MESSAGING_CONNECTION_HISTORY
 
 describe("connection intent metadata storage",()=>{
   beforeEach(()=>window.sessionStorage.clear());
+  it.each(["suspend_messaging_connection","disconnect_messaging_connection"] as const)("should retain $0 original lifecycle UUID/CAS without configuration, credentials or dependency claims",(type)=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),original={connectionId:randomUUID(),expectedVersion:5},intent=type==="suspend_messaging_connection"?{type,operationId:randomUUID(),original:{...original,reason:"suspected_compromise" as const}}:{type,operationId:randomUUID(),original};
+    expect(store.write(viewerId,"synthetic",intent)).toBe(true);expect(store.read(viewerId,"synthetic")).toEqual(intent);expect(store.archive(viewerId,"synthetic",intent)).toBe(true);expect(store.history(viewerId,"synthetic")).toEqual([intent]);
+    expect(store.write(viewerId,"synthetic",{...intent,original:{...intent.original,dependenciesResolved:true}} as unknown as typeof intent)).toBe(false);expect(store.read(viewerId,"synthetic")).toEqual(intent);
+  });
+  it("should reject an unknown suspension reason and stale configuration-bearing lifecycle reference",()=>{
+    const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),key=`${MESSAGING_CONNECTIONS_INTENT_STORAGE_PREFIX}:${viewerId}:synthetic`,original={connectionId:randomUUID(),expectedVersion:5};
+    for(const payload of[{type:"suspend_messaging_connection",operationId:randomUUID(),original:{...original,reason:"provider_raw_failure"}},{type:"disconnect_messaging_connection",operationId:randomUUID(),original:{...original,configurationVersion:2}}]){window.sessionStorage.setItem(key,JSON.stringify(payload));expect(store.read(viewerId,"synthetic")).toBeNull();expect(window.sessionStorage.getItem(key)).toBeNull();}
+  });
   it("should store only the original reference under exact viewer and tribe and clear only that scope",()=>{
     const store=createMessagingConnectionsIntentStore(),viewerId=randomUUID(),operationId=randomUUID(),intent={type:"save_messaging_credentials" as const,operationId};expect(store.write(viewerId,"synthetic",intent)).toBe(true);expect(store.read(viewerId,"synthetic")).toEqual(intent);expect(store.read(randomUUID(),"synthetic")).toBeNull();expect(store.read(viewerId,"other")).toBeNull();expect(store.write(viewerId,"other",{...intent,operationId:randomUUID()})).toBe(true);expect(store.write(viewerId,"synthetic",null)).toBe(true);expect(store.read(viewerId,"synthetic")).toBeNull();expect(store.read(viewerId,"other")).not.toBeNull();
   });
