@@ -12,6 +12,14 @@ export type MessagingCountryPolicy = {
   platformRestrictions: readonly MessagingCountryRestriction[];
 };
 
+/** Display-only configured choices are distinct from sending eligibility and checked provider restrictions. */
+export type MessagingApplicantCountryChoices = { tribeId: string; version: number; allowedCountries: readonly string[] };
+/** Applicant reads retain current native session authority without table-wide permissions or quota fields. */
+export interface MessagingApplicantCountryChoicesReader {
+  /** @param tribeId - Already resolved tenant. @param sessionId - Server-derived actual session. @returns Sole configured choices or absence, never sending permission. */
+  readCountryChoicesForApplicant(tribeId: string, sessionId: string): Promise<MessagingApplicantCountryChoices | null>;
+}
+
 /** A transaction-bound reader must authorize its current caller before reading. */
 export interface MessagingCountryPolicyRepository {
   /**

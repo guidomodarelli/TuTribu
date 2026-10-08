@@ -2,13 +2,13 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import type { MessagingCountryPolicy, MessagingCountryPolicyRepository, MessagingCountryRestriction, MessagingConnectionCountryScope, MessagingConnectionCountryPolicyRepository } from "@/src/modules/messaging/domain/repositories/messaging-usage-policy-repository";
+import type { MessagingCountryPolicy, MessagingCountryPolicyRepository, MessagingCountryRestriction, MessagingConnectionCountryScope, MessagingConnectionCountryPolicyRepository, MessagingApplicantCountryChoicesReader, MessagingApplicantCountryChoices } from "@/src/modules/messaging/domain/repositories/messaging-usage-policy-repository";
 import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGING_CONNECTION_SLOT } from "@/src/modules/messaging/constants/messaging-connection";
 
 /** Private SQL collaborator; it never acquires another checkout or initializes a policy. */
-export class PostgresMessagingUsageRepository implements MessagingCountryPolicyRepository, MessagingConnectionCountryPolicyRepository {
+export class PostgresMessagingUsageRepository implements MessagingCountryPolicyRepository, MessagingConnectionCountryPolicyRepository, MessagingApplicantCountryChoicesReader {
   /**
    * @param database - Existing guarded transaction; the caller keeps locks through its decision.
    * @param authorize - Mandatory owner authorization that checks current actor/session/purpose under locks.
@@ -29,6 +29,16 @@ export class PostgresMessagingUsageRepository implements MessagingCountryPolicyR
    */
   async readCountryPolicy(tribeId: string): Promise<MessagingCountryPolicy | null> {
     return this.readCountryPolicyScope(tribeId);
+  }
+
+  /** @param tribeId - Exact current native tenant scope. @param sessionId - Actual server session for the restricted readonly SQL projection. @returns Display choices from the sole configuration owner; no restrictions/readiness/quotas are promoted to permission. */
+  async readCountryChoicesForApplicant(tribeId: string, sessionId: string): Promise<MessagingApplicantCountryChoices | null> {
+    await this.assertAuthorized(tribeId);
+    const row = (await this.database.execute<{ tribe_id: string; usage_policy_version: number | null; allowed_countries: string[] | null }>(sql`select tribe_id,usage_policy_version,allowed_countries from public.read_admission_contact_choices(${tribeId},${sessionId})`)).rows[0];
+    await this.assertAuthorized(tribeId);
+    if (!row || row.usage_policy_version === null) return null;
+    if (row.tribe_id !== tribeId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+    return { tribeId: row.tribe_id, version: row.usage_policy_version, allowedCountries: [...(row.allowed_countries ?? [])] };
   }
 
   /**
