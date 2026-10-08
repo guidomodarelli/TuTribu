@@ -22,6 +22,7 @@ import {MessagingCryptographyError} from "../encryption/messaging-cryptography-e
 import {authorizeMessagingSecret,messagingSecretLifetimeIsCurrent} from "./postgres-messaging-secret-authorizer";
 import {PostgresMessagingAuthorizationReader} from "./postgres-messaging-authorization-reader";
 import {executeMessagingLedger} from "./execute-messaging-ledger";
+import {retireDiagnosticChallenges} from "./postgres-retired-diagnostic-challenges";
 
 /** Uses only protected current native transactions; no callback can access the provider. */
 export type MessagingConfigurationDatabaseExecutor=<Result>(context:AuthorizedMessagingContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
@@ -106,7 +107,11 @@ export class PostgresMessagingConnectionConfiguration implements MessagingConnec
         await database.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,template_id,template_language,state,checked_at,platform_restrictions) values (${context.tribeId},${context.connectionId},${nextVersion},${input.channel},${input.senderId},${input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?input.templateId!:null},${input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp?input.templateLanguage!:null},${MESSAGING_CAPABILITY_PUBLIC_STATE.unprepared},${now},coalesce((select platform_restrictions from public.messaging_connection_capabilities where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and connection_version=${context.connectionVersion} and channel=${input.channel}),'[]'::jsonb))`);
         const state=row.is_selected?row.state:MESSAGING_CONNECTION_STATE.draft;
         await database.execute(sql`update public.tenant_messaging_connections set version=version+1,candidate_version=${nextVersion},is_candidate=true,state=${state},updated_at=${now} where id=${context.connectionId} and tribe_id=${context.tribeId} and version=${input.expectedVersion}`);
-        if(row.selected_version!==context.connectionVersion){await database.execute(sql`update public.messaging_connection_versions set retired_at=${now},purge_after=${now}::timestamptz+interval '24 hours' where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and version=${context.connectionVersion}`);await database.execute(sql`update public.messaging_secret_envelopes set retired_at=${now},purge_after=${now}::timestamptz+interval '24 hours' where secret_ref=${context.secretRef}`);}
+        await retireDiagnosticChallenges(database,{tribeId:context.tribeId,connectionId:context.connectionId,connectionVersion:context.connectionVersion});
+        if(row.selected_version!==context.connectionVersion){
+          await database.execute(sql`update public.messaging_connection_versions set retired_at=${now},purge_after=${now}::timestamptz+interval '24 hours' where connection_id=${context.connectionId} and tribe_id=${context.tribeId} and version=${context.connectionVersion}`);
+          await database.execute(sql`update public.messaging_secret_envelopes set retired_at=${now},purge_after=${now}::timestamptz+interval '24 hours' where secret_ref=${context.secretRef}`);
+        }
         await this.authorize(database,context,true);
         return{id:context.connectionId,name:row.name,version:input.expectedVersion+1,configurationVersion:nextVersion,state,maskedCredential:MESSAGING_GENERIC_CREDENTIAL_MASK,changed:true};
       });
