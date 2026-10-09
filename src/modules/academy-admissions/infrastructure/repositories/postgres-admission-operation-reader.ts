@@ -12,6 +12,7 @@ import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-pa
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { ADMISSION_POLICY_RECOVERABLE_OPERATIONS } from "../../constants/admission-policy";
 import { ALLOWLIST_RECOVERABLE_OPERATIONS } from "../../constants/allowlist-management";
+import { ALLOWLIST_IMPORT_RECOVERABLE_OPERATIONS } from "../../constants/allowlist-import";
 import { ADMISSION_ACTION } from "../../constants/admission-eligibility";
 import { authorizeAdmissionLeader } from "./postgres-admission-leader-authorizer";
 
@@ -39,7 +40,7 @@ export class PostgresAdmissionOperationReader implements AdmissionOperationReade
       const leader = row.member_status === TRIBE_MEMBERSHIP_STATUS.active && row.member_role === TRIBE_MEMBER_ROLE.leader;
       const reviewer = row.member_status === TRIBE_MEMBERSHIP_STATUS.active && (row.member_role === TRIBE_MEMBER_ROLE.leader || row.member_role === TRIBE_MEMBER_ROLE.guardian);
       if (ADMISSION_POLICY_RECOVERABLE_OPERATIONS.includes(row.operation_type) && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
-      if (ALLOWLIST_RECOVERABLE_OPERATIONS.includes(row.operation_type)) {
+      if (ALLOWLIST_RECOVERABLE_OPERATIONS.includes(row.operation_type) || ALLOWLIST_IMPORT_RECOVERABLE_OPERATIONS.includes(row.operation_type)) {
         if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
         await authorizeAdmissionLeader(database, { ...scope, action: ADMISSION_ACTION.manageAllowlist, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId }, { action: ADMISSION_ACTION.manageAllowlist, resourceId: scope.tribeId });
       }

@@ -16,6 +16,24 @@ function recoveryFixture() {
 }
 
 describe("original admission operation read", () => {
+  it.each([
+    { operationType: "preview_allowlist_import", snapshot: { importId: "8d4d1192-3279-47de-a858-046280a61109", sourceVersion: 1, expiresAt: "2026-10-08T00:00:00Z" } },
+    { operationType: "confirm_allowlist_import", snapshot: { importId: "8d4d1192-3279-47de-a858-046280a61109", sourceVersion: 4, state: "completed", counts: { selected: 1, added: 1, unchanged: 0, skipped: 1, conflict: 0 } } },
+  ])("should recover the original $operationType snapshot without reading current rows or claiming another operation", async ({ operationType, snapshot }) => {
+    const fixture = recoveryFixture();
+    fixture.reader.read.mockResolvedValue({ operationType, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });
+    const useCase = new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now);
+    expect(await useCase.execute(fixture.query)).toEqual({ ok: true, value: { type: operationType, state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });
+    fixture.reader.read.mockResolvedValueOnce({ operationType, operation: { state: "started", operationId: fixture.query.operationId } });
+    expect(await useCase.execute(fixture.query)).toMatchObject({ ok: true, value: { type: operationType, state: "started" } });
+    expect(fixture.reader.read).toHaveBeenCalledTimes(2);
+  });
+
+  it("should reject private file metadata inside an original import snapshot", async () => {
+    const fixture = recoveryFixture();
+    fixture.reader.read.mockResolvedValue({ operationType: "preview_allowlist_import", operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: { importId: randomUUID(), sourceVersion: 1, expiresAt: "2026-10-08T00:00:00Z", fingerprintKeyId: "private" } } });
+    expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
+  });
   it.each(["issue_contact_challenge", "resend_contact_challenge"])("should recover a confirmed %s rejection without a challenge or private fields", async (operationType) => {
     const fixture = recoveryFixture();
     fixture.reader.read.mockResolvedValue({ operationType, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: { purpose: "admission", result: "denied", code: "recipient_not_allowed", destination: "private@example.test", credential: "private" } } });

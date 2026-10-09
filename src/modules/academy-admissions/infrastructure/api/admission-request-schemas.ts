@@ -66,7 +66,7 @@ export const admissionChallengeParamsSchema = admissionTribeParamsSchema.extend(
 export const admissionOperationParamsSchema = admissionTribeParamsSchema.extend({ operationId: z.uuid() });
 export const admissionAllowlistParamsSchema = admissionTribeParamsSchema.extend({ entryId: z.uuid().transform((entryId) => entryId.toLowerCase()) });
 export const admissionInvitationParamsSchema = admissionTribeParamsSchema.extend({ invitationId: z.uuid() });
-export const admissionImportParamsSchema = admissionTribeParamsSchema.extend({ importId: z.uuid() });
+export const admissionImportParamsSchema = admissionTribeParamsSchema.extend({ importId: z.uuid().transform((importId) => importId.toLowerCase()) });
 
 /** Query coercion accepts decimal strings only, never boolean/object input. */
 const pageSizeSchema = z.union([z.int(), z.string().regex(ADMISSION_QUERY_INTEGER_PATTERN).transform(Number)]).pipe(z.int().min(1).max(ADMISSION_QUERY_LIMIT.maximumPageSize)).default(ADMISSION_QUERY_LIMIT.defaultPageSize);
@@ -98,5 +98,5 @@ export const admissionChallengeCreateSchema = z.strictObject({ ...operationField
 export const admissionChallengeVerifySchema = z.strictObject({ ...operationFields, operationId: canonicalOperationIdSchema, verificationCode: z.string().regex(ADMISSION_PUBLIC_CODE_PATTERN) });
 export const admissionChallengeResendSchema = z.strictObject({ ...operationFields, operationId: canonicalOperationIdSchema, useSmsAlternative: z.literal(true).optional() });
 /** CSV text has an independent byte ceiling; row/header parsing belongs to the import owner. */
-export const admissionImportPreviewSchema = z.strictObject({ ...operationFields, contactType: z.enum(ADMISSION_CONTACT_TYPE), expectedPolicyVersion: expectedVersionSchema, csvText: z.string().refine((text) => new TextEncoder().encode(text).byteLength <= ADMISSION_LIMIT.csvByteCount) });
-export const admissionImportConfirmationSchema = z.strictObject({ ...operationFields, expectedVersion: expectedVersionSchema, selectedRows: z.array(z.int().min(1).max(ADMISSION_LIMIT.csvDataRowCount)).min(1).max(ADMISSION_LIMIT.csvDataRowCount) }).refine((command) => new Set(command.selectedRows).size === command.selectedRows.length);
+export const admissionImportPreviewSchema = z.strictObject({ ...operationFields, operationId: canonicalOperationIdSchema, contactType: z.enum(ADMISSION_CONTACT_TYPE), expectedPolicyVersion: expectedVersionSchema, csvText: z.string().refine((text) => new TextEncoder().encode(text).byteLength <= ADMISSION_LIMIT.csvByteCount) });
+export const admissionImportConfirmationSchema = z.strictObject({ ...operationFields, operationId: canonicalOperationIdSchema, expectedVersion: expectedVersionSchema, selectedRows: z.array(z.int().min(1).max(ADMISSION_LIMIT.csvDataRowCount)).min(1).max(ADMISSION_LIMIT.csvDataRowCount) }).refine((command) => new Set(command.selectedRows).size === command.selectedRows.length);

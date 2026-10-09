@@ -15,6 +15,13 @@ type ImportScope = { tribeId: string; requestId: string };
 export class ImportAllowlistUseCases {
   /** @param resolver - Native leader/resource/recency authorization. @param repository - Real original operation and import row owner. @param inputReader - Once-validated file grammar adapter. */
   constructor(private readonly resolver: Pick<ResolveAdmissionContextUseCase, "execute">, private readonly repository: AllowlistImportRepository, private readonly inputReader: AllowlistImportInputReader) {}
+  /** @param input - Canonical tribe and safe correlation. @returns Read-only template permission without parsing, writing or recency demand. */
+  async templateAccess(input: ImportScope) {
+    try {
+      const authority = await this.resolver.execute({ ...input, action: ADMISSION_ACTION.manageAllowlist });
+      return authority.allowed ? { ok: true as const, value: true as const } : { ok: false as const, failure: authority.failure };
+    } catch (error) { return admissionOperationFailure(error); }
+  }
   /** @param input - Explicit preview proposal without actor or permission. @returns Original private preview reference; file input creates no list effects. */
   async preview(input: ImportScope & { operationId: string; confirmed: true; expectedPolicyVersion: number; contactType: AdmissionContactType; csvText: string }) {
     try {
