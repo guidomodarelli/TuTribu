@@ -11,6 +11,16 @@ function verificationProps() {
 }
 
 describe("applicant contact verification presentation", () => {
+  it("should explain initial contact recovery and block consent without claiming a code is being sent", () => {
+    const props = verificationProps();
+    render(<ContactVerification {...props} ready={false} canIssue />);
+    expect(screen.getByText(/Comprobando la cuenta y recuperando las referencias/i)).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Enviar código de ingreso" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Enviando código…" })).not.toBeInTheDocument();
+    expect(props.onIssue).not.toHaveBeenCalled();
+  });
+
   it("should require explicit consent and issue only on the applicant action without sending on render", async () => {
     const props = verificationProps(), user = userEvent.setup(), { rerender } = render(<ContactVerification {...props} />);
     expect(screen.getByText(/correo actual de tu cuenta/i)).toBeVisible();

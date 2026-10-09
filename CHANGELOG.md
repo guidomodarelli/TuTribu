@@ -59,6 +59,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- La confirmación del código de ingreso espera a que la cuenta y sus referencias estén listas, evitando perder una confirmación hecha durante la carga inicial.
+
 - Activar una candidata exige también el canal de correo cuando los avisos externos están habilitados, conservando esos ajustes y los cupos de la academia.
 
 - Las pruebas de conexión conservan el tiempo previsto para enviar el código cuando preparar la operación demora, sin reenviar automáticamente un envío incierto.
