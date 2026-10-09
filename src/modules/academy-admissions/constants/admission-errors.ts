@@ -1,3 +1,16 @@
+/** Closed semantic outcomes shared inward without deriving contracts from runtime values. */
+export type AdmissionErrorCode =
+  | "invalid_input" | "authentication_required" | "permission_denied" | "resource_unavailable"
+  | "invitation_unavailable" | "policy_conflict" | "request_conflict" | "idempotency_conflict"
+  | "allowlist_conflict" | "allowlist_import_conflict" | "invitation_conflict" | "usage_policy_conflict"
+  | "connection_conflict" | "recipient_not_allowed" | "contact_evidence_required" | "additional_verification_required"
+  | "contact_binding_conflict" | "challenge_expired" | "challenge_invalidated" | "proof_unavailable"
+  | "verification_attempts_exceeded" | "usage_limit_reached" | "verification_code_incorrect" | "reauthentication_required"
+  | "admissions_paused" | "admission_ineligible" | "membership_recovery_required" | "connection_incomplete"
+  | "missing_capability" | "invalid_credentials" | "upstream_rejected" | "provider_rate_limited"
+  | "transport_timeout" | "dependency_unavailable" | "delivery_unknown" | "operation_unresolved"
+  | "upstream_payload_unusable" | "public_contract_unusable" | "unexpected_failure";
+
 /** Names closed semantic outcomes and safe Spanish copy; transport mapping remains in infrastructure. */
 export const ADMISSION_ERROR_CODE = {
   invalidInput: "invalid_input",
@@ -39,7 +52,7 @@ export const ADMISSION_ERROR_CODE = {
   upstreamPayloadUnusable: "upstream_payload_unusable",
   publicContractUnusable: "public_contract_unusable",
   unexpectedFailure: "unexpected_failure",
-} as const;
+} as const satisfies Record<string, AdmissionErrorCode>;
 
 /** Only catalogue copy can cross the public error boundary. */
 export const ADMISSION_ERROR_MESSAGE = {

@@ -212,7 +212,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       } };
     },
     /**
-     * Composes implemented manual/OFF writes without a leader credential, sender or provider client.
+     * Composes common manual/list writes with base OFF or local ON evidence and DB-only access effects.
      * @param options - Explicit live platform security for the original operation ledger.
      * @returns Server-derived submission/reviewer/cancellation use cases with atomic DB-only owners.
      */

@@ -62,7 +62,7 @@ export function mapAdmissionReviewStorage(row: AdmissionReviewStorageRecord, now
   const source: AdmissionSourceFacts = row.invitation && invitationContact ? { kind: ADMISSION_SOURCE_KIND.personal, invitation: { ...row.invitation, contact: invitationContact, expiresAt: row.invitation.expiresAt ? new Date(row.invitation.expiresAt) : null } } : { kind: ADMISSION_SOURCE_KIND.common };
   const entryContact = row.allowlistEntry ? contactFromStorage(row.allowlistEntry.contactType, row.allowlistEntry.contactValue) : null;
   const bindingContact = row.contactBinding ? contactFromStorage(row.contactBinding.contactType, row.contactBinding.contactValue) : null;
-  const approvalSupported = stored.source === ADMISSION_REQUEST_SOURCE.common && policy?.mode === ADMISSION_POLICY_MODE.manualReview && !policy.requiresAdditionalVerification && (stored.evidenceKind === ADMISSION_EVIDENCE_KIND.none || stored.evidenceKind === ADMISSION_EVIDENCE_KIND.declared);
+  const approvalSupported = stored.source === ADMISSION_REQUEST_SOURCE.common && (policy?.mode === ADMISSION_POLICY_MODE.manualReview || policy?.mode === ADMISSION_POLICY_MODE.allowlist);
   return { request, applicantName: row.applicantName, internalReason: row.internalReason, externalMessage: row.externalMessage, approvalSupported,
     review: { now, tribe: { ...row.tribe, recoveryLocked }, account: { userId: stored.userId, normalizedEmail: row.applicantEmail.trim().toLowerCase(), googleAccount: row.googleAccount }, policy, source, contact,
       membership: row.membership, localProof: proof, baseEvidence: row.baseEvidence, currentConnection: row.connection,

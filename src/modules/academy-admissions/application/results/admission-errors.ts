@@ -1,7 +1,7 @@
 /** Represents semantic admission failures without HTTP status or public diagnostics. */
-import type { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import type { AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
 
-export type AdmissionErrorCode = (typeof ADMISSION_ERROR_CODE)[keyof typeof ADMISSION_ERROR_CODE];
+export type { AdmissionErrorCode } from "@/src/modules/academy-admissions/constants/admission-errors";
 /** Projected only after the operation owner has confirmed actor/tribe access to its durable ledger. */
 export type AdmissionErrorOperation = { operationId: string; state: "started" | "completed" };
 export type AdmissionFailure = {

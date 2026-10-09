@@ -23,7 +23,7 @@ import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain
 import { admissionCommittedOutcomeSchema, admissionTransitionResultSchema, admissionRetryResultSchema, type AdmissionSubmissionResult } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
 import { PostgresOwnAdmissionRequestReader } from "./postgres-own-admission-request-reader";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { ADMISSION_ACTION, ADMISSION_EVIDENCE_KIND, ADMISSION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import { ADMISSION_ACTION, ADMISSION_DENIAL_REASON, ADMISSION_EVIDENCE_KIND, ADMISSION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_REQUEST_STATUS, ADMISSION_REQUEST_SOURCE, ADMISSION_OPERATION_TYPE, ADMISSION_REQUEST_EVENT } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { ADMISSION_RESOURCE_KIND } from "@/src/modules/academy-admissions/constants/admission-authorization";
@@ -46,6 +46,11 @@ import { MANUAL_ADMISSION_EXECUTION_CAPABILITIES } from "../../constants/admissi
 import { PostgresAdmissionSubmissionProofReader } from "./postgres-admission-submission-proof-reader";
 import { PostgresAdmissionVerificationProofWriter } from "./postgres-admission-verification-proof-writer";
 import { ADMISSION_PROOF_APPLICATION_OUTCOME } from "../../constants/admission-proof";
+import { ADMISSION_POLICY_MODE } from "../../constants/admission-policy";
+import { readAllowlistAdmissionFacts } from "./postgres-allowlist-admission-facts";
+import { bindBaseAdmissionContact } from "./postgres-base-admission-binding";
+import { proposeAutomaticAdmissionDecision, type AutomaticAdmissionFacts } from "../../domain/entities/automatic-admission-decision";
+import { readAdmissionReviewEvidence } from "./postgres-admission-review-evidence";
 
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -77,7 +82,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
   /** @param execute - Guarded actual actor executor. @param readSecurityConfig - Live local platform keyrings/recovery state. @param compose - Explicit DB-only membership and notification owners. */
   constructor(private readonly execute: AdmissionDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly compose: (database: RequestDatabase) => AdmissionTransactionCollaborators) {}
 
-  /** @returns The same profile consumed by submission guards, without claiming future verified/personal/allowlist paths. */
+  /** @returns The common manual/list profile consumed by submission guards; personal/legacy keep complete cutover closed. */
   getCapabilities(): AdmissionExecutionCapabilities {
     return { sources: [...MANUAL_ADMISSION_EXECUTION_CAPABILITIES.sources], policyModes: [...MANUAL_ADMISSION_EXECUTION_CAPABILITIES.policyModes], additionalVerification: MANUAL_ADMISSION_EXECUTION_CAPABILITIES.additionalVerification };
   }
@@ -167,7 +172,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
   async submit(input: AdmissionSubmissionIntent) {
     const command = { actorUserId: input.userId, tribeId: input.tribeId, operationType: ADMISSION_OPERATION_TYPE.submit, idempotencyKey: input.operationId, intent: { expectedPolicyVersion: input.expectedPolicyVersion, source: input.source, contact: input.contact, proofId: input.proofId, message: input.message, confirmed: input.confirmed } };
     return this.run(input, command, admissionCommittedOutcomeSchema, async (database, ledgerId): Promise<AdmissionSubmissionResult> => {
-      const facts = await this.facts(database, input, input.contact);
+      const facts: AutomaticAdmissionFacts = { ...await this.facts(database, input, input.contact), allowlistEntry: null, baseEvidence: null };
       const existing = facts.membership;
       const previous = await this.request(database, input.tribeId, undefined, input.userId);
       facts.now = await databaseNow(database);
@@ -184,13 +189,16 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       if (facts.policy.requiresAdditionalVerification && !coverage.additionalVerification) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.additionalVerificationRequired);
       if (!coverage.policyModes.includes(facts.policy.mode)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       if (facts.policy.contactType === ADMISSION_CONTACT_TYPE.phone && input.contact?.type === ADMISSION_CONTACT_TYPE.email) facts.contact = null;
+      if (facts.policy.mode === ADMISSION_POLICY_MODE.allowlist) Object.assign(facts, await readAllowlistAdmissionFacts(database, input, facts.contact));
       const local = facts.policy.requiresAdditionalVerification && input.proofId ? await new PostgresAdmissionSubmissionProofReader(database, this.readSecurityConfig).read(input, input.proofId, facts) : null;
       if (facts.policy.requiresAdditionalVerification && input.proofId && !local) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
       if (local) { facts.localProof = local.proof; facts.currentConnection = local.currentConnection; facts.contactBinding = local.contactBinding; }
       facts.now = await databaseNow(database);
       const eligibility = evaluateAdmissionSubmission(facts);
       if (eligibility.outcome === ADMISSION_OUTCOME.verificationRequired) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.additionalVerificationRequired);
-      if (eligibility.outcome !== ADMISSION_OUTCOME.pending) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+      if (eligibility.outcome === ADMISSION_OUTCOME.denied && eligibility.reason === ADMISSION_DENIAL_REASON.contactConflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
+      if (eligibility.outcome !== ADMISSION_OUTCOME.pending && eligibility.outcome !== ADMISSION_OUTCOME.admitted) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+      if (eligibility.outcome === ADMISSION_OUTCOME.pending && eligibility.requiresExceptionReason && !input.message?.trim()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
       const request = createPendingAdmissionRequest({ id: randomUUID(), tribeId: input.tribeId, userId: input.userId, source: ADMISSION_REQUEST_SOURCE.common, contact: facts.contact, evidence: { kind: eligibility.evidenceKind === ADMISSION_EVIDENCE_KIND.none ? ADMISSION_EVIDENCE_KIND.none : ADMISSION_EVIDENCE_KIND.declared }, policy: facts.policy, message: input.message, now: await databaseNow(database) });
       await database.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,contact_type,normalized_contact,evidence_source,original_policy_snapshot,applicant_message,submitted_at,expires_at) values (${request.id},${request.tribeId},${request.userId},${request.source},${request.contact?.type ?? null},${request.contact?.value ?? null},${request.evidence.kind},${JSON.stringify(request.originalPolicy)}::jsonb,${request.applicantMessage},${request.submittedAt},${request.expiresAt})`);
       let committed = request;
@@ -206,9 +214,29 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
         if (!current || current.version !== applied.requestVersion || current.proofId?.toLowerCase() !== input.proofId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
         committed = current;
       }
+      if (eligibility.evidenceKind === ADMISSION_EVIDENCE_KIND.base) {
+        await bindBaseAdmissionContact(database, input, committed, facts, await this.readSecurityConfig());
+        const current = await this.request(database, input.tribeId, committed.id);
+        if (!current) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+        committed = current;
+      }
+      if (eligibility.outcome === ADMISSION_OUTCOME.admitted) return this.approveAutomatic(database, input, committed, facts, ledgerId);
       await this.record(database, input, committed, ledgerId, ADMISSION_REQUEST_EVENT.pendingCreated);
       return this.pendingResult(database, input, committed, true);
     });
+  }
+
+  /** @param database - Original protected submission transaction. @param input - Actual applicant and original operation. @param request - Bound own request/evidence already staged. @param facts - Current private exact match and policy. @param ledgerId - Same original ledger. @returns Minimal committed automatic result; no pending reviewer notice is created. */
+  private async approveAutomatic(database: RequestDatabase, input: AdmissionSubmissionIntent, request: AdmissionRequest, facts: AutomaticAdmissionFacts, ledgerId: string): Promise<AdmissionSubmissionResult> {
+    const proposal = proposeAutomaticAdmissionDecision({ facts, request, decisionId: randomUUID(), now: await databaseNow(database) });
+    if (!proposal.allowed) throw new AdmissionOperationError(proposal.code);
+    const decision = proposal.decision, effectId = randomUUID();
+    await database.execute(sql`insert into public.academy_admission_decisions(id,request_id,tribe_id,user_id,request_version,outcome,actor_user_id,actor_kind,rule,policy_version,verification_epoch,decided_at,membership_effect_id,evidence_snapshot,allowlist_entry_id,allowlist_entry_version) values (${decision.id},${request.id},${input.tribeId},${input.userId},${request.version},${decision.outcome},${decision.actorUserId},${decision.actorKind},${decision.rule},${decision.policyVersion},${decision.verificationEpoch},${decision.decidedAt},${effectId},${JSON.stringify(decision.evidenceSnapshot)}::jsonb,${proposal.authorization.entryId},${proposal.authorization.version})`);
+    await this.transition(database, request, proposal.request);
+    const applied = await this.compose(database).memberships.apply({ tribeId: input.tribeId, userId: input.userId, decisionId: decision.id });
+    if (applied.status !== TRIBE_FREE_JOIN_STATUS.joined) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+    await this.record(database, input, proposal.request, ledgerId, ADMISSION_REQUEST_EVENT.approved, decision.rule);
+    return { operationId: input.operationId, outcome: ADMISSION_OUTCOME.admitted, admissionRequestId: request.id, committedRequestVersion: proposal.request.version, membership: { role: applied.member.role, status: applied.member.status === TRIBE_MEMBERSHIP_STATUS.muted ? TRIBE_MEMBERSHIP_STATUS.muted : TRIBE_MEMBERSHIP_STATUS.active }, created: true };
   }
 
   /**
@@ -246,11 +274,13 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     return this.run(input, command, admissionTransitionResultSchema, async (database, ledgerId) => {
       const request = await this.request(database, input.tribeId, input.admissionRequestId);
       if (!request) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      if (input.decision === ADMISSION_DECISION.approve && request.evidence.kind !== ADMISSION_EVIDENCE_KIND.none && request.evidence.kind !== ADMISSION_EVIDENCE_KIND.declared) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactEvidenceRequired);
+      if (input.decision === ADMISSION_DECISION.approve && request.source !== ADMISSION_REQUEST_SOURCE.common) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       const facts = await this.facts(database, input, request.contact, request.userId);
       const actor = await new PostgresAdmissionAuthorizationReader(database, input.sessionId, ADMISSION_ACTION.decideRequest).getCurrentActor(input.tribeId, input.userId);
       if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-      const proposal = proposeAdmissionDecision({ request, expectedVersion: input.expectedVersion, decisionId: randomUUID(), decision: input.decision, actor, review: { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer: actor }, internalReason: input.internalReason, externalMessage: input.externalMessage, now: await databaseNow(database) });
+      const requiresEvidence = input.decision === ADMISSION_DECISION.approve && (request.evidence.kind === ADMISSION_EVIDENCE_KIND.base || request.evidence.kind === ADMISSION_EVIDENCE_KIND.local || facts.policy?.mode === ADMISSION_POLICY_MODE.allowlist);
+      const review = requiresEvidence ? await readAdmissionReviewEvidence(database, input, request, await this.readSecurityConfig()) : { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer: actor };
+      const proposal = proposeAdmissionDecision({ request, expectedVersion: input.expectedVersion, decisionId: randomUUID(), decision: input.decision, actor, review, internalReason: input.internalReason, externalMessage: input.externalMessage, now: await databaseNow(database) });
       if (!proposal.allowed) throw new AdmissionOperationError(proposal.code);
       const effectId = proposal.membershipEffect ? randomUUID() : null;
       const decision = proposal.decision;
