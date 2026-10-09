@@ -8,6 +8,10 @@ export type IssueContactVerificationCommand = {
   operationId: string;
   ledgerId: string;
   expectedCurrentChallengeId: string | null;
+  /** Personal issuance/replacement retains only its resource reference, never a token or recipient authority. */
+  personalInvitationId?: string;
+  /** A code attached to an already redeemed own pending keeps that request's independent deadline. */
+  personalRequestId?: string;
 };
 
 /** No recoverable code, destination, credential or cryptographic material leaves the writer. */
