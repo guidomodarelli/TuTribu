@@ -45,6 +45,7 @@ export function proposeAdmissionDecision(input: {
   const proofMatches = (request.proofId ?? null) === (review.request.attachedEvidence?.id ?? null)
     && (request.evidence.kind !== ADMISSION_EVIDENCE_KIND.local || request.evidence.proofId === request.proofId);
   if (review.tribe.id !== request.tribeId || review.request.id !== request.id || review.request.userId !== request.userId || review.request.expiresAt.getTime() !== request.expiresAt.getTime() || approved && (!contactMatches || !sourceMatches || !proofMatches)) return deny(ADMISSION_ERROR_CODE.resourceUnavailable);
+  if (approved && request.source === ADMISSION_REQUEST_SOURCE.personal && !request.bindingId) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
   if (input.decision === ADMISSION_DECISION.approve && !evaluatePendingAdmissionReview({ ...review, reviewer: actor, now: input.now, exceptionReason: reason }).eligible) return deny(ADMISSION_ERROR_CODE.admissionIneligible);
   const status = approved ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected;
   const decision: AdmissionDecision = {

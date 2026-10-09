@@ -5,14 +5,14 @@ import { ReadAdmissionRuntimeUseCase } from "@/src/modules/academy-admissions/ap
 import type { AdmissionExecutionCapabilities } from "@/src/modules/academy-admissions/domain/repositories/admission-execution-capabilities";
 
 describe("installed admission evaluator coverage", () => {
-  it("should keep full cutover closed for the common writer with manual/list and local proof without opening SQL, secrets or effects", async () => {
+  it("should keep full cutover closed for common and personal while legacy remains absent without opening SQL, secrets or effects", async () => {
     const unavailable = async (): Promise<never> => { throw new Error("Runtime code coverage must not access SQL or credentials"); };
     const writer = new PostgresAdmissionRequestRepository(unavailable, unavailable, () => { throw new Error("Runtime code coverage must not compose effects"); });
-    expect(writer.getCapabilities()).toEqual({ sources: ["common"], policyModes: ["manual_review", "allowlist"], additionalVerification: true });
+    expect(writer.getCapabilities()).toEqual({ sources: ["common", "personal"], policyModes: ["manual_review", "allowlist"], additionalVerification: true });
     expect(await new ReadAdmissionRuntimeUseCase(writer).isPrepared("synthetic-tribe")).toBe(false);
     const detached = writer.getCapabilities();
-    (detached.sources as string[]).push("personal");
-    expect(writer.getCapabilities().sources).toEqual(["common"]);
+    (detached.sources as string[]).push("legacy");
+    expect(writer.getCapabilities().sources).toEqual(["common", "personal"]);
   });
 
   it("should require every published source, mode and verification path instead of approving a callable subset", async () => {
