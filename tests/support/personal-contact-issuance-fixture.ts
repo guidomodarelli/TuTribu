@@ -7,10 +7,11 @@ import { createPersonalInvitation } from "@/src/modules/academy-admissions/domai
 import { createPersonalInvitationTokenCodec } from "@/src/modules/academy-admissions/infrastructure/tokens/personal-invitation-token";
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 import { PostgresAdmissionContactVerificationOperations } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
-/** @param database - Verified owned disposable branch. @param phone - Whether the immutable native policy/contact starts as phone. @returns Native code owner, exact personal token proposal and inward fixture without provider calls. */
-export async function preparePersonalContactIssuance(database: AcademyAdmissionTestDatabase, phone = false) {
-  const fixture = await prepareAdmissionContactVerification(database, false, undefined, phone), invitationId = randomUUID();
+/** @param database - Verified owned disposable branch. @param phone - Whether the immutable native policy/contact starts as phone. @param securityConfig - Optional synthetic hosting configuration shared with a native test server. @returns Native code owner, exact personal token proposal and inward fixture without provider calls. */
+export async function preparePersonalContactIssuance(database: AcademyAdmissionTestDatabase, phone = false, securityConfig?: MessagingSecurityConfig) {
+  const fixture = await prepareAdmissionContactVerification(database, false, securityConfig, phone), invitationId = randomUUID();
   for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261009130000_add_personal_invitation_context_digest.sql", "20261009180000_bind_personal_verification_challenges.sql"]) await database.applyMigration(migration);
   await database.withContext(fixture.fixture.own, async (transaction) => {
     await transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.context.tribeId}`);

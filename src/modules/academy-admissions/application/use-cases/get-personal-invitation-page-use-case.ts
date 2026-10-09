@@ -14,7 +14,7 @@ export class GetPersonalInvitationPageUseCase {
   constructor(private readonly accounts: AuthenticatedAccountProvider, private readonly preview: Pick<GetPersonalInvitationOverviewUseCase, "execute">, private readonly clock: () => Date) {}
 
   /** @param query - Boundary-validated token and correlation. @returns A safe deterministic snapshot or an owned failure without secret diagnostics. */
-  async execute(query: { token: string; requestId: string }) {
+  async execute(query: { token: string; requestId: string; proofId?: string }) {
     try {
       const first = await this.accounts.getAuthenticatedAccount();
       if (first && !isAuthenticatedSessionLive(first.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);

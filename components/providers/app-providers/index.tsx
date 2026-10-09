@@ -1,10 +1,10 @@
 "use client";
 
 /** Composes the shared UI provider with application notifications and Siteping. */
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Toaster, useTheme } from "beez-ui";
 
-import { SitepingProvider } from "@/components/providers/siteping-provider";
+import { PrivateAwareSiteping } from "@/components/providers/private-aware-siteping";
 import { DARK_THEME_MODE, LIGHT_THEME_MODE } from "@/src/constants/theme-mode";
 import { AppUIProvider } from "./app-ui-provider";
 
@@ -37,7 +37,7 @@ export function AppProviders({
     <AppUIProvider>
       <div className={styles.AppProviders}>
         {children}
-        {isSitepingEnabled ? <SitepingProvider /> : null}
+        <Suspense fallback={null}><PrivateAwareSiteping enabled={isSitepingEnabled} /></Suspense>
         <AppToaster />
       </div>
     </AppUIProvider>

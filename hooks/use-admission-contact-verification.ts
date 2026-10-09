@@ -6,14 +6,14 @@ import type { AdmissionChallengeSnapshot } from "@/src/modules/academy-admission
 import type { AdmissionOperationRecoveryDto } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
 import { admissionOperationRecoverySchema } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
 import type { AdmissionProofApplicationResult } from "@/src/modules/academy-admissions/domain/repositories/admission-verification-proof-repository";
-import type { z } from "zod";
+import { ZodError, type z } from "zod";
 import type { messageDeliverySchema } from "@/src/modules/messaging/application/results/messaging-flow-result-schemas";
 import { admissionContactApiClient } from "@/lib/academy-admissions/admission-contact-api-client";
 import { readAdmissionContactIntent, writeAdmissionContactIntent, type AdmissionContactIntent, type AdmissionContactPending } from "@/lib/academy-admissions/admission-contact-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { admissionChallengeSnapshotSchema, admissionIssuanceDenialSchema, admissionChallengeVerificationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-contact-verification-schemas";
 import { admissionProofApplicationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-proof-application-schemas";
-import { ADMISSION_CONTACT_ACTION, ADMISSION_CONTACT_ISSUED_REFERENCE, ADMISSION_CONTACT_PHASE, ADMISSION_CONTACT_COPY, ADMISSION_CONTACT_BROWSER_STATUS, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS, ADMISSION_CONTACT_CLOCK_INTERVAL_MS, ADMISSION_PERSONAL_CONTACT_SCOPE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
+import { ADMISSION_CONTACT_ACTION, ADMISSION_CONTACT_ISSUED_REFERENCE, ADMISSION_CONTACT_PHASE, ADMISSION_CONTACT_COPY, ADMISSION_CONTACT_BROWSER_STATUS, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS, ADMISSION_CONTACT_CLOCK_INTERVAL_MS, ADMISSION_PERSONAL_CONTACT_SCOPE_PATTERN, ADMISSION_CONTACT_INTENT_DIAGNOSTIC } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { ADMISSION_PUBLIC_CODE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_CONTACT_TYPE, ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-admissions/constants/admission-contact";
@@ -50,7 +50,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
     if (!current.viewerId) return false;
     const value: AdmissionContactIntent = { viewerId: current.viewerId, slug: current.slug, requestId: current.requestId, issuedOperationId: record.current?.issuedOperationId ?? null, verifiedOperationId: record.current?.verifiedOperationId ?? null, pending: record.current?.pending ?? null, ...(current.personalScope ? { personalScope: current.personalScope } : {}), ...patch };
     try { writeAdmissionContactIntent(value); record.current = value; setPending(value.pending); return true; }
-    catch { setErrorMessage(ADMISSION_CONTACT_COPY.storage); setReady(false); return false; }
+    catch (error) { console.error(ADMISSION_CONTACT_INTENT_DIAGNOSTIC, { errorName: error instanceof Error ? error.name : "UnknownError", ...(error instanceof ZodError ? { fields: Array.from(new Set(error.issues.map((issue) => issue.path.join(".")))) } : {}) }); setErrorMessage(ADMISSION_CONTACT_COPY.storage); return false; }
   }, []);
 
   /** Updates only this scope's transport; reading never sends another code. */
@@ -144,7 +144,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       } else if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && !result.uncertain) { save({ pending: null }); setErrorMessage(result.message); setPhase(ADMISSION_CONTACT_PHASE.idle); }
       else { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); }
     } catch { if (live(scopeGeneration, actionController.signal)) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } }
-    finally { window.clearTimeout(timeout); if (controller.current === actionController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration && actionController.signal.aborted && record.current?.pending) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
+    finally { window.clearTimeout(timeout); if (controller.current === actionController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration) { setPhase(record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle); if (actionController.signal.aborted && record.current?.pending) setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
   }, [consume, ready, save]);
 
   /** Resolves durable references from the actual registry before treating any recovered result as usable UI data. */
@@ -170,7 +170,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
         if (!live(scopeGeneration, signal) || result.value.state === OPERATION_STATE.started) return;
       }
     } catch { if (live(scopeGeneration, signal)) { if (stored.pending) save({ pending: stored.pending }); setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); } }
-    finally { if (active.current && generation.current === scopeGeneration) { busy.current = false; setReady(true); if (signal.aborted) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
+    finally { if (active.current && generation.current === scopeGeneration) { busy.current = false; setReady(true); setPhase((currentPhase) => currentPhase === ADMISSION_CONTACT_PHASE.reading ? record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle : currentPhase); if (signal.aborted) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
   }, [client, consume, save]);
   const restoreCurrent = useRef(restore);
   useEffect(() => { restoreCurrent.current = restore; }, [restore]);

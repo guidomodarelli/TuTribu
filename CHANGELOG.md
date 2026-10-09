@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- La invitación personal dispone de una pantalla para iniciar o cambiar de cuenta, comprobar el contacto y confirmar el ingreso por separado; las respuestas inciertas se consultan conservando la operación original.
+
 - El pedido y reenvío de código para una invitación personal conserva su origen y comprueba que siga autorizada; verificar el código no consume el enlace ni concede membresía.
 
 - La consulta de una invitación personal protege el destinatario, indica si falta comprobar el contacto y conserva las solicitudes existentes sin consumir el enlace al leerlo.
