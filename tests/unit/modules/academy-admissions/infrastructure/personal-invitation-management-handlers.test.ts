@@ -8,7 +8,7 @@ import { admissionFailure } from "@/src/modules/academy-admissions/application/r
 /** @returns Own application ports, native Requests and guarded handlers; validators and HTTP responses remain real. */
 function setup() {
   const tribeId = randomUUID(), invitationId = randomUUID(), operationId = randomUUID();
-  const metadata = { id: invitationId, version: 1, internalName: "Grupo inicial", recipient: { type: "email" as const, value: "recipient@example.test" }, requiresAllowlist: true, expiresAt: null, status: "active" as const };
+  const metadata = { id: invitationId, version: 1, internalName: "Grupo inicial", recipient: { type: "email" as const, value: "recipient@example.test" }, requiresAllowlist: true, expiresAt: null, status: "active" as const, createdAt: "2026-10-09T10:00:00Z", redeemedAt: null, revokedAt: null, authorizationRevokedAt: null };
   const snapshot = { invitationId, version: 1, changed: true, created: true };
   const services: PersonalInvitationManagementServices = {
     resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) },

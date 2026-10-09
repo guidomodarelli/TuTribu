@@ -3,9 +3,8 @@ import "server-only";
 import type { ManagePersonalInvitationsUseCases } from "../../application/use-cases/manage-personal-invitations-use-cases";
 import type { AdmissionFailure } from "../../application/results/admission-errors";
 import { admissionFailure } from "../../application/results/admission-errors";
-import { personalInvitationSchema } from "../../application/results/admission-public-result-schemas";
 import { personalInvitationCreationResultSchema, personalInvitationMutationOperationSchema } from "../../constants/personal-invitation-management-schemas";
-import { personalInvitationPageSchema, createPersonalInvitationHttpCreationSchema } from "../../constants/personal-invitation-http-schemas";
+import { personalInvitationPageSchema, personalInvitationManagementSchema, createPersonalInvitationHttpCreationSchema } from "../../constants/personal-invitation-http-schemas";
 import { PERSONAL_INVITATION_HTTP_ACTION, PERSONAL_INVITATION_HTTP_OPERATION } from "../../constants/personal-invitation-http";
 import { ADMISSION_INVITATION_PUBLIC_PATH_PREFIX } from "../../constants/admission-management-contract";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
@@ -55,7 +54,7 @@ export function createPersonalInvitationManagementHandlers(open: () => Promise<P
         const result = await services.invitations.read({ ...scope, invitationId });
         if (!result.ok) return boundary.failure(result.failure);
         if (result.value.id !== invitationId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-        return boundary.success(personalInvitationSchema, result.value);
+        return boundary.success(personalInvitationManagementSchema, result.value);
       }
       if (action === PERSONAL_INVITATION_HTTP_ACTION.create && createBody?.usable) {
         const trustedOrigin = services.publicOrigin(), schema = createPersonalInvitationHttpCreationSchema(trustedOrigin);

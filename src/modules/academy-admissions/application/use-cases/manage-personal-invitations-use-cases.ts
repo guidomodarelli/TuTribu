@@ -26,11 +26,12 @@ type InvitationCommandScope = InvitationScope & { operationId: string; confirmed
 export class ManagePersonalInvitationsUseCases {
   /** @param resolver - Actual account/role/resource and signed recency owner. @param reader - Private metadata-only reader. @param writer - Atomic original command owner; no provider transport is involved. */
   constructor(private readonly resolver: Pick<ResolveAdmissionContextUseCase, "execute">, private readonly reader: PersonalInvitationReader, private readonly writer: PersonalInvitationCommandWriter) {}
-  /** @param input - Validated own bounded query. @returns Current guarded metadata, without mutation recency or token recovery. */
-  async list(input: InvitationScope & PersonalInvitationQuery) {
+  /** @param input - Validated own bounded query. @param expectedViewer - Optional trusted initial server identity, never route input or authority. @returns Current guarded metadata, without mutation recency or token recovery. */
+  async list(input: InvitationScope & PersonalInvitationQuery, expectedViewer?: { userId: string; sessionId: string }) {
     try {
       const authority = await this.resolver.execute({ tribeId: input.tribeId, requestId: input.requestId, action: ADMISSION_ACTION.manageInvitations });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
+      if (expectedViewer && (authority.context.userId !== expectedViewer.userId || authority.context.sessionId !== expectedViewer.sessionId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const page = await this.reader.list(authority.context, { limit: input.limit, ...(input.status ? { status: input.status } : {}), ...(input.cursor ? { cursor: input.cursor } : {}) });
       if (page.invitations.some((invitation) => invitation.tribeId.toLowerCase() !== input.tribeId.toLowerCase())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       return { ok: true as const, value: { items: page.invitations.map(presentPersonalInvitation), nextCursor: page.nextCursor } };

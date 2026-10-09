@@ -39,6 +39,16 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
   /** @param execute - Guarded native actor context on every transaction. @param readSecurityConfig - Current independent hosting keys and recovery state without provider RPC. @param notifications - Existing scoped DB-only notice collaborator required for redeemed authorization withdrawal. */
   constructor(private readonly execute: InvitationExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly notifications?: (database: RequestDatabase) => AdmissionNotificationObligationWriter) {}
 
+  /** @param context - Native current leader. @param contactType - Policy-selected type. @returns Exact-type list availability without retrieving identities, keys or creating a resource. */
+  async hasUsableAllowlist(context: AuthorizedAdmissionContext, contactType: PersonalInvitation["contact"]["type"]): Promise<boolean> {
+    return this.execute(context, async (database) => {
+      await authorizeAdmissionLeader(database, context, { action: ADMISSION_ACTION.manageInvitations, resourceId: context.tribeId });
+      const result = (await database.execute<{ available: boolean }>(sql`select exists(select 1 from public.academy_allowlist_entries where tribe_id=${context.tribeId} and contact_type=${contactType} and status=${ALLOWLIST_ENTRY_STATUS.enabled}) as available`)).rows[0];
+      await authorizeAdmissionLeader(database, context, { action: ADMISSION_ACTION.manageInvitations, resourceId: context.tribeId });
+      return result.available;
+    });
+  }
+
   /** @param database - Authorized transaction. @param tribeId - Fixed native scope. @returns Current own configuration needed for phone/list issuance. */
   private async policy(database: RequestDatabase, tribeId: string) {
     const settings = (await database.execute<{ access_model: string }>(sql`select access_model from public.tribe_academy_settings where tribe_id=${tribeId} for share`)).rows[0];

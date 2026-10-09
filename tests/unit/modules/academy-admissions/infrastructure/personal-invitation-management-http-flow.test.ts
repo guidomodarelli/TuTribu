@@ -58,7 +58,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
         expect((await request(`/invitations/${invitationId}`, "PATCH", { ...rename, operationId: randomUUID() })).status).toBe(409);
         const detail = await request(`/invitations/${invitationId}`), current = await detail.json();
         expect(detail.status).toBe(200);
-        expect(current).toMatchObject({ id: invitationId, version: 2, internalName: "Otro nombre", recipient: creation.recipient, status: "active" });
+        expect(current).toMatchObject({ id: invitationId, version: 2, internalName: "Otro nombre", recipient: creation.recipient, status: "active", createdAt: expect.any(String), redeemedAt: null, revokedAt: null, authorizationRevokedAt: null });
         for (const field of ["initialToken", "invitationUrl", "tokenHash", "tokenKeyId", "tokenContextDigest", "contactFingerprint", "createdByUserId"]) expect(current).not.toHaveProperty(field);
         const historical = await request(`/operations/${creation.operationId}`);
         expect(historical.status).toBe(200);

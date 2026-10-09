@@ -534,7 +534,8 @@ export async function createPersonalInvitationManagementRequestModule() {
   const admissionModule = buildAcademyAdmissionsModule(dependencies);
   const resolveTribe = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases.resolveTribe;
   const personal = admissionModule.createPersonalInvitationModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  return { resolveTribe, invitations: personal.useCases, publicOrigin: resolvePublicAppBaseUrl };
+  const policy = admissionModule.createPolicyQueryModule({ composePreparation: null });
+  return { resolveTribe, invitations: personal.useCases, publicOrigin: resolvePublicAppBaseUrl, page: personal.createPage(resolveTribe, policy.useCases) };
 }
 /** @param usage - Native connection purpose; writes select maintenance and still require exact human authority. @returns Early usage configuration and canonical academy routing, without a connection, admission policy writer or provider adapter. */
 export async function createMessagingUsageRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request) {
