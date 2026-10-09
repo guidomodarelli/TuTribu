@@ -1,0 +1,49 @@
+"use client";
+/** Presents controlled list search and entry configuration without session, transport, clocks or storage. @module allowlist-management */
+import { useId } from "react";
+import { Button, Checkbox, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "beez-ui";
+import type { AllowlistEntryResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
+import type { AllowlistDraft } from "@/src/modules/academy-admissions/application/commands/allowlist-browser-intent";
+import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { ADMISSION_QUERY_LIMIT } from "@/src/modules/academy-admissions/constants/admission-public-contract";
+import { ALLOWLIST_ENTRY_STATUS } from "@/src/modules/academy-admissions/constants/admission-resources";
+import { ALLOWLIST_FILTER_ALL, ALLOWLIST_STATUS_LABEL, ALLOWLIST_SOURCE_LABEL } from "@/src/modules/academy-admissions/constants/allowlist-browser";
+import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
+import styles from "./styles.module.scss";
+import { Link } from "@/components/navigation/link";
+
+export type AllowlistManagementProps = { items: readonly AllowlistEntryResult[]; contactType: "email" | "phone" | null; search: string; status: "enabled" | "disabled" | null; draft: AllowlistDraft; confirmed: boolean; ready: boolean; busy: boolean; writing: boolean; privateVisible: boolean; pending: boolean; hasNext: boolean; conflict: boolean; reauthenticationRequired: boolean; errorMessage: string | null; statusMessage: string | null; fieldError: string | null; recoveryHref: string | null; onSearchChange: (value: string) => void; onStatusChange: (value: "enabled" | "disabled" | null) => void; onSearch: () => void; onNext: () => void; onSelect: (entry: AllowlistEntryResult) => void; onNew: () => void; onDraftChange: (draft: AllowlistDraft) => void; onConfirm: (value: boolean) => void; onSave: () => void; onReadOriginal: () => void; onReadCurrentEntry: () => void; onReauthenticate: () => void };
+
+/** @param props - Controlled safe state and callbacks from one route-level workflow. @returns Semantic responsive controls with persistent validation and clear membership impact. */
+export function AllowlistManagement(props: AllowlistManagementProps) {
+  const fieldId = useId(), disabled = !props.ready || props.busy || props.pending, editing = props.draft.entryId !== null;
+  return <section className={styles.AllowlistManagement} aria-label="Gestión de lista de habilitados" aria-busy={props.busy}>
+    <p className={styles.AllowlistManagement__help}>La lista habilita coincidencias futuras según las reglas de admisión. Agregar o cambiar una entrada no crea membresía ni comprueba el contacto de una cuenta.</p>
+    {!props.privateVisible ? <p role="alert">El acceso cambió. Volvé a cargar esta página antes de continuar.</p> : <>
+      <form className={styles.AllowlistManagement__filters} onSubmit={(event) => { event.preventDefault(); if (!disabled) props.onSearch(); }}>
+        <div className={styles.AllowlistManagement__field}><Label htmlFor={`${fieldId}-search`}>Buscar contacto o nombre</Label><Input id={`${fieldId}-search`} value={props.search} maxLength={ADMISSION_QUERY_LIMIT.searchCharacters} disabled={disabled} onChange={(event) => props.onSearchChange(event.target.value)} /></div>
+        <div className={styles.AllowlistManagement__field}><Label htmlFor={`${fieldId}-filter`}>Estado de las entradas</Label><Select value={props.status ?? ALLOWLIST_FILTER_ALL} disabled={disabled} onValueChange={(value) => props.onStatusChange(value === ALLOWLIST_FILTER_ALL ? null : value === ALLOWLIST_ENTRY_STATUS.enabled ? ALLOWLIST_ENTRY_STATUS.enabled : ALLOWLIST_ENTRY_STATUS.disabled)}><SelectTrigger id={`${fieldId}-filter`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value={ALLOWLIST_FILTER_ALL}>Todas</SelectItem><SelectItem value={ALLOWLIST_ENTRY_STATUS.enabled}>Habilitadas</SelectItem><SelectItem value={ALLOWLIST_ENTRY_STATUS.disabled}>Deshabilitadas</SelectItem></SelectContent></Select></div>
+        <Button type="submit" disabled={disabled}>Buscar</Button>
+      </form>
+      <section className={styles.AllowlistManagement__entries} aria-labelledby={`${fieldId}-entries`}><h2 id={`${fieldId}-entries`}>Entradas de la lista</h2>
+        {props.items.length === 0 ? <p className={styles.AllowlistManagement__help}>No hay entradas con estos filtros.</p> : <ul className={styles.AllowlistManagement__list}>{props.items.map((entry) => <li className={styles.AllowlistManagement__row} key={entry.id}><div className={styles.AllowlistManagement__identity}><strong>{entry.identity}</strong>{entry.displayName && <span>{entry.displayName}</span>}<span className={styles.AllowlistManagement__help}>{ALLOWLIST_STATUS_LABEL[entry.status]} · {ALLOWLIST_SOURCE_LABEL[entry.source]} · Versión {entry.version}</span></div><Button type="button" variant="outline" disabled={disabled} onClick={() => props.onSelect(entry)} aria-label={`Editar ${entry.identity}`}>Editar</Button></li>)}</ul>}
+        <div className={styles.AllowlistManagement__actions}>{props.hasNext && <Button type="button" variant="outline" disabled={disabled} onClick={props.onNext}>Ver más entradas</Button>}<Button type="button" variant="outline" disabled={disabled} onClick={props.onNew}>Nueva entrada</Button></div>
+      </section>
+      <form className={styles.AllowlistManagement__form} noValidate onSubmit={(event) => { event.preventDefault(); if (!disabled && props.confirmed && props.contactType) props.onSave(); }}>
+        <h2>{editing ? "Editar entrada" : "Agregar entrada"}</h2>
+        <div className={styles.AllowlistManagement__field}><Label htmlFor={`${fieldId}-identity`}>{props.contactType === ADMISSION_CONTACT_TYPE.phone ? "Teléfono de la entrada" : "Correo de la entrada"}</Label><Input id={`${fieldId}-identity`} type={props.contactType === ADMISSION_CONTACT_TYPE.phone ? "tel" : "email"} value={props.draft.identity} disabled={disabled || editing || !props.contactType} aria-describedby={`${fieldId}-identity-help`} aria-invalid={Boolean(props.fieldError)} onChange={(event) => props.onDraftChange({ ...props.draft, identity: event.target.value })} /><p id={`${fieldId}-identity-help`} className={styles.AllowlistManagement__help}>{editing ? "El contacto de una entrada existente no se cambia." : "Se conserva la coincidencia exacta después de normalizar el contacto."}</p></div>
+        {props.contactType === ADMISSION_CONTACT_TYPE.phone && !editing && <div className={styles.AllowlistManagement__field}><Label htmlFor={`${fieldId}-country`}>País del teléfono (código de dos letras)</Label><Input id={`${fieldId}-country`} value={props.draft.country} disabled={disabled} onChange={(event) => props.onDraftChange({ ...props.draft, country: event.target.value.toUpperCase() })} /><p className={styles.AllowlistManagement__help}>Podés dejarlo vacío si el prefijo internacional identifica un país inequívoco.</p></div>}
+        <div className={styles.AllowlistManagement__field}><Label htmlFor={`${fieldId}-name`}>Nombre orientativo (opcional)</Label><Input id={`${fieldId}-name`} value={props.draft.displayName} maxLength={ADMISSION_LIMIT.displayNameCharacters} disabled={disabled} onChange={(event) => props.onDraftChange({ ...props.draft, displayName: event.target.value })} /></div>
+        {editing && <div className={styles.AllowlistManagement__field}><Label htmlFor={`${fieldId}-status`}>Estado de esta entrada</Label><Select value={props.draft.status} disabled={disabled} onValueChange={(value) => props.onDraftChange({ ...props.draft, status: value === ALLOWLIST_ENTRY_STATUS.enabled ? ALLOWLIST_ENTRY_STATUS.enabled : ALLOWLIST_ENTRY_STATUS.disabled })}><SelectTrigger id={`${fieldId}-status`}><SelectValue /></SelectTrigger><SelectContent><SelectItem value={ALLOWLIST_ENTRY_STATUS.enabled}>Habilitada</SelectItem><SelectItem value={ALLOWLIST_ENTRY_STATUS.disabled}>Deshabilitada</SelectItem></SelectContent></Select></div>}
+        <p className={styles.AllowlistManagement__help}>Deshabilitar afecta nuevos ingresos que dependan de esta entrada. No expulsa miembros ni libera un contacto vinculado; la gestión de membresía es una acción separada.</p>
+        {props.fieldError && <p role="alert" className={styles.AllowlistManagement__error}>{props.fieldError}</p>}
+        <div className={styles.AllowlistManagement__confirmation}><Checkbox id={`${fieldId}-confirmed`} checked={props.confirmed} disabled={disabled || !props.contactType} onCheckedChange={(value) => props.onConfirm(value === true)} /><Label htmlFor={`${fieldId}-confirmed`}>Confirmo el cambio de esta entrada de lista</Label></div>
+        <div className={styles.AllowlistManagement__actions}><Button type="submit" disabled={disabled || !props.confirmed || !props.contactType || props.conflict}>{props.writing ? "Guardando…" : "Guardar entrada"}</Button>{props.conflict && <Button type="button" variant="outline" disabled={props.busy} onClick={props.onReadCurrentEntry}>Consultar versión actual</Button>}</div>
+      </form>
+    </>}
+    {props.errorMessage && <p role="alert" className={styles.AllowlistManagement__error}>{props.errorMessage}</p>}
+    {props.statusMessage && <p role="status">{props.statusMessage}</p>}
+    {props.pending && props.privateVisible && <Button type="button" variant="outline" disabled={props.busy} onClick={props.onReadOriginal}>Consultar operación original</Button>}
+    {props.reauthenticationRequired && props.privateVisible && (props.recoveryHref === null ? <Button type="button" variant="outline" disabled={props.busy} onClick={props.onReauthenticate}>Confirmar identidad para guardar</Button> : <Link href={props.recoveryHref}>Continuar confirmación con Google</Link>)}
+  </section>;
+}
