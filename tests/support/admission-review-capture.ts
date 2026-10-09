@@ -26,9 +26,14 @@ export async function captureAdmissionReview(page: Page, name: string, forbidden
       if (font[1].startsWith("data:")) continue;
       const url = new URL(font[1], origin);
       if (url.origin !== origin) throw new Error("Reviewer capture tried to embed an unrelated font origin");
-      const response = await page.context().request.get(url.href);
-      if (!response.ok()) throw new Error("Reviewer capture local font was unavailable");
-      payload.rules[ruleIndex] = payload.rules[ruleIndex].replace(font[1], `data:font/woff2;base64,${(await response.body()).toString("base64")}`);
+      try {
+        const response = await page.context().request.get(url.href);
+        if (!response.ok()) throw new Error("Reviewer capture local font was unavailable");
+        payload.rules[ruleIndex] = payload.rules[ruleIndex].replace(font[1], `data:font/woff2;base64,${(await response.body()).toString("base64")}`);
+      } catch {
+        // Context request errors can contain cookies; discard those private call logs at this export boundary.
+        throw new Error("Reviewer capture local font download failed");
+      }
     }
   }
   await writeFile(join(process.cwd(), "user-guides", "assets", "academy-admissions", outputFile), JSON.stringify(payload), "utf8");
