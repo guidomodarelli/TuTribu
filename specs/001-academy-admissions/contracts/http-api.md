@@ -78,6 +78,7 @@ Antes de crear desafío/presentación se devuelve membresía legítima o pendien
 | GET `/allowlist` | leader; query/estado/cursor/page-size propios | Lista autorizada paginada de AllowlistEntryDto con version; no acceso de solicitante/guardián |
 | POST `/allowlist` | sensitiveLeader; contacto canónico/nombre opcional/operation | Entrada nueva version 1 o replay confirmado; ninguna membership ni version elegida por cliente |
 | PATCH `/allowlist/[entryId]` | sensitiveLeader; nombre/estado, expectedVersion/operation | CAS: cambio efectivo incrementa una vez, no-op vigente conserva version, stale 409; no reasignar ni expulsar |
+| GET `/allowlist/imports/template` | leader vigente, sin recencia de mutación | Sólo encabezado CSV privado; no selecciona filas, crea preview ni modifica lista |
 | POST `/allowlist/imports` | sensitiveLeader; CSV dentro de límites | Vista previa temporal, sin efectos de lista |
 | GET `/allowlist/imports/[importId]` | mismo leader/contexto autorizado | Estado/filas de preview o progreso conservado |
 | POST `/allowlist/imports/[importId]/confirm` | sensitiveLeader; índices explícitos/version/operation | Revalidación y outcomes por fila; resume solo unidades no confirmadas |
@@ -87,7 +88,7 @@ Antes de crear desafío/presentación se devuelve membresía legítima o pendien
 | PATCH `/invitations/[invitationId]` | sensitiveLeader; solo nombre/expectedVersion/operation | Rename con CAS/resultado versionado; stale 409. Cambiar destinatario/lista/expiry exige otra emisión |
 | POST `/invitations/[invitationId]/revoke` | sensitiveLeader; expectedVersion/operation/motivo | CAS de acción confirmada; revocar activa o autorización canjeada incrementa y atomiza notificación/cancelación. Cambio de estado concurrente exige nueva lectura/confirmación |
 
-CSV: UTF-8/coma, `identity,display_name`, nombre opcional, 10.000 filas y 5 MiB. Los demás límites de copy y fechas son los del spec. El reintento de creación con URL perdida devuelve metadata y recuperación por revocar/reemitir, no reconstruye token.
+CSV: UTF-8/coma, `identity,display_name`, nombre opcional, 10.000 filas y 5 MiB. Template/report son attachments privados `no-store/no-referrer/nosniff`; el reporte neutralizado es para lectura y no reconstruye el archivo original. El resultado original de preview/confirm es independiente de que todavía existan sus filas temporales. El GET original conserva el snapshot histórico mínimo y no reclama una lease ni repite confirmación. Los demás límites de copy y fechas son los del spec. El reintento de creación con URL perdida devuelve metadata y recuperación por revocar/reemitir, no reconstruye token.
 
 ## Bandeja, decisiones y recuperación
 
