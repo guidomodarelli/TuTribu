@@ -21,6 +21,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist p
       const update = { context: editContext, entryId, operationId: randomUUID(), confirmed: true as const, expectedVersion: 1, patch: { displayName: "Otro nombre", status: "disabled" as const } };
       const changed = await fixture.writer.update(update);
       expect(changed).toMatchObject({ state: "completed", result: { entryId, version: 2, changed: true, created: false } });
+      // Later resource changes cannot replace either previously committed result.
+      expect(await fixture.writer.create(create)).toEqual(original);
       expect(await fixture.writer.update(update)).toEqual({ ...changed, replayed: true });
       await expect(fixture.writer.update({ ...update, expectedVersion: 2 })).rejects.toMatchObject({ code: "idempotency_conflict" });
       await expect(fixture.writer.update({ ...update, operationId: randomUUID(), patch: { status: "disabled" } })).rejects.toMatchObject({ code: "allowlist_conflict", operationState: "completed" });
@@ -34,6 +36,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist p
         expect((await transaction.execute(sql`select count(*)::int as count from public.tribe_members where tribe_id=${fixture.tribeId} and role='tribemate'`)).rows).toEqual([{ count: 0 }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_audit_events where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 2 }]);
       });
+      const later = await fixture.writer.update({ ...update, operationId: randomUUID(), expectedVersion: 2, patch: { displayName: "Cambio posterior" } });
+      expect(later).toMatchObject({ state: "completed", result: { version: 3, changed: true } });
+      expect(await fixture.writer.update(update)).toEqual({ ...changed, replayed: true });
+      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select version,status,display_name from public.academy_allowlist_entries where id=${entryId}`)).rows)).toEqual([{ version: 3, status: "disabled", display_name: "Cambio posterior" }]);
     });
   }, 1_200_000);
 
