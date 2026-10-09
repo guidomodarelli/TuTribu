@@ -23,7 +23,7 @@ import { ADMISSION_OUTCOME } from "@/src/modules/academy-admissions/constants/ad
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { ADMISSION_CONTACT_TYPE, ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { normalizeAdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
-import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ROUTES } from "@/src/constants/routes";
 
 /** Do not replace a confirmed newer resource snapshot with a historical operation result. */
@@ -111,6 +111,13 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     const operation = result.value;
     if (operation.operationId !== intent.input.operationId.toLowerCase() || operation.type !== (intent.kind === "submit" ? ADMISSION_OPERATION_TYPE.submit : ADMISSION_OPERATION_TYPE.cancel)) { setErrorMessage(ADMISSION_UI_COPY.readFailed); setPhase(ADMISSION_UI_PHASE.uncertain); return; }
     if (operation.state !== "completed") { setPhase(ADMISSION_UI_PHASE.uncertain); return; }
+    if ("code" in operation.result) {
+      const expectedRequestId = intent.kind === "cancel" ? intent.requestId.toLowerCase() : null;
+      if (operation.result.admissionRequestId !== expectedRequestId) { setErrorMessage(ADMISSION_UI_COPY.readFailed); setPhase(ADMISSION_UI_PHASE.uncertain); return; }
+      clearIntent(); setFeedback(""); setErrorMessage(ADMISSION_ERROR_MESSAGE[operation.result.code]);
+      await refresh(signal); if (active.current && !signal.aborted) setPhase(ADMISSION_UI_PHASE.idle);
+      return;
+    }
     if (operation.type === ADMISSION_OPERATION_TYPE.cancel && intent.kind === "cancel" && (operation.result.admissionRequestId !== intent.requestId || operation.result.status !== "cancelled")) { setErrorMessage(ADMISSION_UI_COPY.readFailed); setPhase(ADMISSION_UI_PHASE.uncertain); return; }
     clearIntent(); setFeedback(operation.type === ADMISSION_OPERATION_TYPE.submit ? operation.result.outcome === ADMISSION_OUTCOME.pending ? ADMISSION_UI_COPY.outcomePending : ADMISSION_UI_COPY.outcomeMember : ADMISSION_UI_COPY.cancelled);
     await refresh(signal); if (active.current && !signal.aborted) setPhase(ADMISSION_UI_PHASE.idle);

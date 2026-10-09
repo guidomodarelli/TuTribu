@@ -42,6 +42,17 @@ async function confirmDecision() {
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 
 describe("native reviewer container", () => {
+  it("should recover a terminal decision denial, retain reviewer reason and pending resource without another mutation or completion feedback", async () => {
+    const data = fixture();
+    writeAdmissionReviewIntent(viewerId, slug, { requestId, input: { operationId, expectedVersion: 1, confirmed: true, decision: "approve", internalReason: "Razón conservada", externalMessage: "" } });
+    data.client.operation.mockResolvedValue({ status: "ready", value: { type: "decide_admission_request", state: "completed", operationId, replayed: true, result: { outcome: "denied", code: "request_conflict", admissionRequestId: requestId } } });
+    render(data.node, { wrapper: Providers });
+    expect(await screen.findByText("La solicitud cambió. Revisala antes de confirmar.")).toBeInTheDocument();
+    await waitFor(() => expect(readAdmissionReviewIntent(viewerId, slug)).toBeNull());
+    expect(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).toHaveValue("Razón conservada");
+    expect(screen.queryByText(ADMISSION_REVIEW_UI_COPY.recovered)).not.toBeInTheDocument();
+    expect(data.client.decide).not.toHaveBeenCalled(); expect(router.refresh).not.toHaveBeenCalled();
+  });
   it("should replace the selected resource when the same route receives another exact request snapshot", async () => {
     const data = fixture(), secondRequestId = "ef5a843a-2a11-412a-8235-0bd765831723";
     data.client.reviewDetail.mockImplementation(async (_slug, id) => ({ status: "ready", value: { ...data.request, id, applicant: { ...data.request.applicant, name: id === secondRequestId ? "Otra solicitud" : data.request.applicant.name } } }));

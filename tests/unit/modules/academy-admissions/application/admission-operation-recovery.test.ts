@@ -16,6 +16,18 @@ function recoveryFixture() {
 }
 
 describe("original admission operation read", () => {
+  it.each(["submit_admission", "decide_admission_request", "cancel_admission_request", "allow_admission_retry"])("should recover a confirmed %s business denial as its original terminal result without inventing access", async (operationType) => {
+    const fixture = recoveryFixture(), requestId = operationType === "submit_admission" ? null : randomUUID();
+    const snapshot = { outcome: "denied", code: "admission_ineligible", admissionRequestId: requestId };
+    fixture.reader.read.mockResolvedValue({ operationType, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });
+    expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toEqual({ ok: true, value: { type: operationType, state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });
+    expect(fixture.reader.read).toHaveBeenCalledTimes(1);
+  });
+  it.each(["authentication_required", "permission_denied", "unexpected_failure", "operation_unresolved"])("should reject %s as a fabricated completed business denial", async (code) => {
+    const fixture = recoveryFixture();
+    fixture.reader.read.mockResolvedValue({ operationType: "submit_admission", operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: { outcome: "denied", code, admissionRequestId: null } } });
+    expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
+  });
   it.each([
     { operationType: "preview_allowlist_import", snapshot: { importId: "8d4d1192-3279-47de-a858-046280a61109", sourceVersion: 1, expiresAt: "2026-10-08T00:00:00Z" } },
     { operationType: "confirm_allowlist_import", snapshot: { importId: "8d4d1192-3279-47de-a858-046280a61109", sourceVersion: 4, state: "completed", counts: { selected: 1, added: 1, unchanged: 0, skipped: 1, conflict: 0 } } },

@@ -11,7 +11,7 @@ import { admissionApiClient } from "@/lib/academy-admissions/admission-api-clien
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { readAdmissionReviewIntent, writeAdmissionReviewIntent, admissionReviewIntentSchema, type AdmissionReviewIntent } from "@/lib/academy-admissions/admission-review-intent";
 import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_PHASE } from "@/src/modules/academy-admissions/constants/admission-review-ui";
-import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_OPERATION_TYPE, ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
@@ -81,9 +81,16 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
           const operation = recovery.value;
           if (operation.type !== ADMISSION_OPERATION_TYPE.decide || operation.operationId !== original.input.operationId.toLowerCase()) { setErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); return; }
           if (operation.state === OPERATION_STATE.completed) {
-            const expected = original.input.decision === ADMISSION_DECISION.approve ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected;
-            if (operation.result.admissionRequestId !== original.requestId.toLowerCase() || operation.result.status !== expected || operation.result.version !== original.input.expectedVersion + 1) { setErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); return; }
-            writeAdmissionReviewIntent(ready.viewerId, ready.slug, null); pending.current = null; applyTransition(operation.result); setStatusMessage(ADMISSION_REVIEW_UI_COPY.recovered);
+            if ("code" in operation.result) {
+              if (operation.result.admissionRequestId !== original.requestId.toLowerCase()) { setErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); return; }
+              writeAdmissionReviewIntent(ready.viewerId, ready.slug, null); pending.current = null;
+              setStatusMessage(""); setErrorMessage(ADMISSION_ERROR_MESSAGE[operation.result.code]);
+              selectionId = original.requestId;
+            } else {
+              const expected = original.input.decision === ADMISSION_DECISION.approve ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected;
+              if (operation.result.admissionRequestId !== original.requestId.toLowerCase() || operation.result.status !== expected || operation.result.version !== original.input.expectedVersion + 1) { setErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); return; }
+              writeAdmissionReviewIntent(ready.viewerId, ready.slug, null); pending.current = null; applyTransition(operation.result); setStatusMessage(ADMISSION_REVIEW_UI_COPY.recovered);
+            }
           }
         } else if (recovery.code === ADMISSION_ERROR_CODE.resourceUnavailable) setCanRetry(true);
         else { readFailure(recovery); return; }
