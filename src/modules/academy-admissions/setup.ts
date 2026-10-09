@@ -71,6 +71,9 @@ import { ManageAllowlistUseCases } from "./application/use-cases/manage-allowlis
 import { PostgresAllowlistReader } from "./infrastructure/repositories/postgres-allowlist-reader";
 import { PostgresAllowlistRepository } from "./infrastructure/repositories/postgres-allowlist-repository";
 import { GetAllowlistPageUseCase } from "./application/use-cases/get-allowlist-page-use-case";
+import { ImportAllowlistUseCases } from "./application/use-cases/import-allowlist-use-cases";
+import { PostgresAllowlistImportRepository } from "./infrastructure/repositories/postgres-allowlist-import-repository";
+import { parseAllowlistCsv } from "./infrastructure/api/allowlist-csv-parser";
 
 /** @param database - Original guarded owner transaction. @returns A protected receipt-scoped resolution port, without another database checkout or provider call. */
 export function createPaidAdmissionResolutionWriter(database: RequestDatabase): AdmissionExternalResolutionWriter {
@@ -112,7 +115,8 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         return dependencies.execute(account, run);
       };
       const useCases = new ManageAllowlistUseCases(resolveContext, new PostgresAllowlistReader(execute), new PostgresAllowlistRepository(execute, options.readSecurityConfig));
-      return { useCases, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, policy: Pick<GetAdmissionPolicyUseCase, "execute">) { return new GetAllowlistPageUseCase(dependencies.accounts, { allowlist: useCases, policy, resolveTribe }, dependencies.clock); } };
+      const imports = new ImportAllowlistUseCases(resolveContext, new PostgresAllowlistImportRepository(execute, options.readSecurityConfig), { parse: parseAllowlistCsv });
+      return { useCases, imports, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, policy: Pick<GetAdmissionPolicyUseCase, "execute">) { return new GetAllowlistPageUseCase(dependencies.accounts, { allowlist: useCases, policy, resolveTribe }, dependencies.clock); } };
     },
     /** @param options - Live private security and an explicit focal launch factory consuming native challenge resolution. @returns Applicant verification with current account checks on every checkout, without caller-selected worker privileges. */
     createContactVerificationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; createDispatcher: (resolve: (intent: AdmissionChallengeDispatchIntent) => Promise<ResolvedAdmissionChallengeDispatch>) => AdmissionContactChallengeDispatcher }) {

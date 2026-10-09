@@ -509,7 +509,7 @@ export async function createAllowlistRequestModule() {
   const admissionModule = buildAcademyAdmissionsModule(dependencies);
   const resolveTribe = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases.resolveTribe;
   const allowlist = admissionModule.createAllowlistModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  return { resolveTribe, allowlist: allowlist.useCases, page: allowlist.createPage(resolveTribe, admissionModule.createPolicyQueryModule({ composePreparation: null }).useCases) };
+  return { resolveTribe, allowlist: allowlist.useCases, imports: allowlist.imports, page: allowlist.createPage(resolveTribe, admissionModule.createPolicyQueryModule({ composePreparation: null }).useCases) };
 }
 /** @param usage - Native connection purpose; writes select maintenance and still require exact human authority. @returns Early usage configuration and canonical academy routing, without a connection, admission policy writer or provider adapter. */
 export async function createMessagingUsageRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request) {

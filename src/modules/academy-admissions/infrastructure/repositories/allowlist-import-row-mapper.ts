@@ -1,0 +1,13 @@
+/** Consumes owned import storage columns without schema-validating PostgreSQL rows. @module allowlist-import-row-mapper */
+import type { AllowlistImport, AllowlistImportRow, AllowlistImportInputRow } from "../../domain/entities/allowlist-import";
+
+/** Private selected operation and security facts never enter application/public DTOs. */
+export type AllowlistImportRecord = { id: string; tribe_id: string; actor_user_id: string; contact_type: "email" | "phone"; policy_version: number; file_fingerprint: Uint8Array; fingerprint_key_id: string; security_environment: string | null; security_epoch: string | null; active_operation_id: string | null; selected_rows: number[]; version: number; state: AllowlistImport["state"]; created_at: Date | string; expires_at: Date | string; purge_after: Date | string; completed_rows: number };
+export type AllowlistImportObservedEntry = { id: string; version: number; status: string; displayName: string | null };
+export type AllowlistImportValidation = Pick<AllowlistImportRow, "contact" | "displayName" | "errors" | "duplicateOf"> & { observedEntry: AllowlistImportObservedEntry | null };
+export type AllowlistImportStoredRow = { row_number: number; input_data: AllowlistImportInputRow; validation_result: AllowlistImportValidation; outcome: AllowlistImportRow["outcome"]; entry_id: string | null; entry_version: number | null; committed_at: Date | string | null; confirmed_operation_id: string | null };
+/** @param record - Authorized private import columns. @param storedRows - Scoped original rows and confirmed metadata. @returns Own domain snapshot, without revalidating the backend contract. */
+export function mapAllowlistImport(record: AllowlistImportRecord, storedRows: readonly AllowlistImportStoredRow[]): AllowlistImport {
+  const selected = new Set(record.selected_rows);
+  return { id: record.id, tribeId: record.tribe_id, actorUserId: record.actor_user_id, policyVersion: record.policy_version, contactType: record.contact_type, fingerprintKeyId: record.fingerprint_key_id, fileFingerprint: Uint8Array.from(record.file_fingerprint), version: record.version, state: record.state, createdAt: new Date(record.created_at), expiresAt: new Date(record.expires_at), purgeAfter: new Date(record.purge_after), rows: storedRows.map((row) => ({ rowNumber: row.row_number, input: row.input_data, contact: row.validation_result.contact, displayName: row.validation_result.displayName, errors: row.validation_result.errors, duplicateOf: row.validation_result.duplicateOf, selected: selected.has(row.row_number), outcome: row.outcome, entryId: row.entry_id, entryVersion: row.entry_version, committedAt: row.committed_at ? new Date(row.committed_at) : null })) };
+}
