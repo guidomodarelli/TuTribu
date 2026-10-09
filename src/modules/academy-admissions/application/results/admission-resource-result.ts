@@ -10,3 +10,7 @@ export type PersonalInvitationResult = {
   requiresAllowlist: boolean; expiresAt: string | null;
   status: "active" | "revoked" | "expired" | "redeemed";
 };
+/** Current leader history distinguishes a consumed link from its later authorization withdrawal. */
+export type PersonalInvitationManagementResult = PersonalInvitationResult & {
+  createdAt: string; redeemedAt: string | null; revokedAt: string | null; authorizationRevokedAt: string | null;
+};

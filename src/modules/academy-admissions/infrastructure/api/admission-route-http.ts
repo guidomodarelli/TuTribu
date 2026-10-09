@@ -5,8 +5,7 @@ import { admissionFailure, type AdmissionFailure, type AdmissionPublicError } fr
 import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
 import { createOwnJsonRouteBoundary, type OwnHttpDiagnostic } from "@/src/modules/shared/infrastructure/http/own-json-route-boundary";
 import { ADMISSION_ERROR_HTTP_STATUS } from "./admission-error-status";
-
-const ADMISSION_HTTP_FEATURE = "academy-admissions";
+import { ADMISSION_DIAGNOSTIC_FEATURE } from "../../constants/admission-diagnostics";
 
 /**
  * Builds an own request boundary; application failures never serialize their real private cause.
@@ -15,7 +14,7 @@ const ADMISSION_HTTP_FEATURE = "academy-admissions";
  */
 export function createAdmissionRouteBoundary(input: { request: Request; operation: string; diagnostics?: (diagnostic: OwnHttpDiagnostic) => void }) {
   return createOwnJsonRouteBoundary<AdmissionFailure, AdmissionPublicError>({
-    ...input, feature: ADMISSION_HTTP_FEATURE, errorSchema: admissionPublicErrorSchema,
+    ...input, feature: ADMISSION_DIAGNOSTIC_FEATURE, errorSchema: admissionPublicErrorSchema,
     invalidInput: () => admissionFailure(ADMISSION_ERROR_CODE.invalidInput),
     unusableContract: () => admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable),
     unexpectedFailure: (cause) => admissionFailure(ADMISSION_ERROR_CODE.unexpectedFailure, { cause }),

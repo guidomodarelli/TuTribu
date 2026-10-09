@@ -67,6 +67,7 @@ import { PostgresAdmissionActivationRepository } from "./infrastructure/reposito
 import { PreflightAdmissionActivationUseCase } from "./application/use-cases/preflight-admission-activation-use-case";
 import { ReadAdmissionRuntimeUseCase } from "./application/use-cases/read-admission-runtime-use-case";
 import { ManagePersonalInvitationsUseCases } from "./application/use-cases/manage-personal-invitations-use-cases";
+import { GetPersonalInvitationManagementPageUseCase } from "./application/use-cases/get-personal-invitation-management-page-use-case";
 import { PostgresPersonalInvitationRepository } from "./infrastructure/repositories/postgres-personal-invitation-repository";
 import { GetPersonalInvitationOverviewUseCase } from "./application/use-cases/get-personal-invitation-overview-use-case";
 import { GetPersonalInvitationPageUseCase } from "./application/use-cases/get-personal-invitation-page-use-case";
@@ -120,7 +121,8 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         return dependencies.execute(account, run);
       };
       const repository = new PostgresPersonalInvitationRepository(execute, options.readSecurityConfig, createPostgresAdmissionNotificationObligationWriter);
-      return { useCases: new ManagePersonalInvitationsUseCases(resolveContext, repository, repository) };
+      const useCases = new ManagePersonalInvitationsUseCases(resolveContext, repository, repository);
+      return { useCases, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, policy: Pick<GetAdmissionPolicyUseCase, "execute">) { return new GetPersonalInvitationManagementPageUseCase(dependencies.accounts, { invitations: useCases, policy, resolveTribe, resolveContext, availability: repository }, dependencies.clock); } };
     },
     /** @param options - Current private token security, without a provider or mutation port. @returns Native account-bound read-only personal preview. */
     createPersonalInvitationQueryModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
