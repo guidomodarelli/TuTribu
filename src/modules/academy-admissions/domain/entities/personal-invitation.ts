@@ -6,6 +6,7 @@ import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_INVITATION_STATUS } from "../../constants/admission-eligibility";
 import { ADMISSION_CONTACT_NORMALIZATION_STATUS, ADMISSION_CONTACT_TYPE } from "../../constants/admission-contact";
 import { ADMISSION_LIMIT } from "../../constants/admission-limits";
+import { normalizePersonalInvitationName } from "../value-objects/personal-invitation-name";
 
 /** Immutable recipient/restrictions and explicit single-use lineage remain separate from editable descriptive metadata. */
 export type PersonalInvitation = {
@@ -17,13 +18,6 @@ export type PersonalInvitation = {
 };
 /** Lifecycle proposals are not commits or proof that the recipient is authorized to redeem. */
 export type PersonalInvitationChange = { changed: boolean; invitation: PersonalInvitation };
-
-/** @param value - Required new administrative label independent of recipient authority. @returns Its nonempty trimmed value. @throws AdmissionOperationError when absent or outside the product limit. */
-function normalizeInternalName(value: string): string {
-  const name = value?.trim();
-  if (!name || name.length > ADMISSION_LIMIT.displayNameCharacters) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-  return name;
-}
 
 /** @param invitation - Current original resource. @param expectedVersion - Explicit observed version. @param now - Authoritative caller clock after locks. @returns Nothing after invariant checks. @throws AdmissionOperationError for stale/invalid versions or a nonmonotonic clock. */
 function assertCurrentVersion(invitation: PersonalInvitation, expectedVersion: number, now: Date): void {
@@ -39,14 +33,14 @@ export function createPersonalInvitation(input: { id: string; tribeId: string; a
   if (normalized.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
   const expiresAt = input.expiresAt === undefined ? new Date(input.now.getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs) : input.expiresAt === null ? null : new Date(input.expiresAt);
   if (expiresAt && (!Number.isFinite(expiresAt.getTime()) || expiresAt <= input.now)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-  return { id: input.id, tribeId: input.tribeId, createdByUserId: input.actorUserId, internalName: normalizeInternalName(input.internalName), contact: { ...normalized.contact }, requiresAllowlist: input.requiresAllowlist, expiresAt,
+  return { id: input.id, tribeId: input.tribeId, createdByUserId: input.actorUserId, internalName: normalizePersonalInvitationName(input.internalName), contact: { ...normalized.contact }, requiresAllowlist: input.requiresAllowlist, expiresAt,
     status: ADMISSION_INVITATION_STATUS.active, version: 1, createdAt: new Date(input.now), updatedAt: new Date(input.now), redeemedByUserId: null, redeemedRequestId: null, redeemedAt: null, revokedAt: null, authorizationRevokedAt: null };
 }
 
 /** @param input - Current resource, observed version, descriptive label and post-lock clock. @returns Current no-op or one version increment; recipient/restrictions/token lineage never change. */
 export function renamePersonalInvitation(input: { invitation: PersonalInvitation; expectedVersion: number; internalName: string; now: Date }): PersonalInvitationChange {
   assertCurrentVersion(input.invitation, input.expectedVersion, input.now);
-  const internalName = normalizeInternalName(input.internalName);
+  const internalName = normalizePersonalInvitationName(input.internalName);
   return internalName === input.invitation.internalName ? { changed: false, invitation: input.invitation } : { changed: true, invitation: { ...input.invitation, internalName, version: input.invitation.version + 1, updatedAt: new Date(input.now) } };
 }
 

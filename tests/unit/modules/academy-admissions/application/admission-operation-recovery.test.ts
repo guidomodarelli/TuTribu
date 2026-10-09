@@ -16,6 +16,13 @@ function recoveryFixture() {
 }
 
 describe("original admission operation read", () => {
+  it.each(["create_personal_invitation", "rename_personal_invitation", "revoke_personal_invitation"])("should recover %s metadata without a token and close a snapshot carrying initial material", async (operationType) => {
+    const fixture = recoveryFixture(), snapshot = { invitationId: randomUUID(), version: 1, changed: true, created: true };
+    fixture.reader.read.mockResolvedValue({ operationType, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });
+    expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toEqual({ ok: true, value: { type: operationType, state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });
+    fixture.reader.read.mockResolvedValueOnce({ operationType, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: { ...snapshot, initialToken: "synthetic-private-material" } } });
+    expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
+  });
   it.each(["submit_admission", "decide_admission_request", "cancel_admission_request", "allow_admission_retry"])("should recover a confirmed %s business denial as its original terminal result without inventing access", async (operationType) => {
     const fixture = recoveryFixture(), requestId = operationType === "submit_admission" ? null : randomUUID();
     const snapshot = { outcome: "denied", code: "admission_ineligible", admissionRequestId: requestId };

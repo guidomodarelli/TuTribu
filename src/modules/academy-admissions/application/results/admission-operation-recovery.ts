@@ -12,10 +12,15 @@ import { admissionIssuanceSnapshotSchema, admissionChallengeVerificationSnapshot
 import { ADMISSION_PROOF_OPERATION } from "../../constants/admission-proof";
 import { admissionProofApplicationSnapshotSchema } from "./admission-proof-application-schemas";
 import { allowlistMutationSnapshotSchema } from "./allowlist-mutation-schemas";
+import { personalInvitationMutationSnapshotSchema } from "../../constants/personal-invitation-management-schemas";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { allowlistImportPreviewSnapshotSchema, allowlistImportConfirmationSnapshotSchema } from "./allowlist-import-operation-schemas";
 /** Infrastructure projects an own recovery envelope; PostgreSQL rows are not schema-validated. */
 export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("operationType", [
+  z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.createPersonalInvitation), operation: createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema) }),
+  z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.renamePersonalInvitation), operation: createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema) }),
+  z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.revokePersonalInvitation), operation: createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema) }),
+
   z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.previewAllowlistImport), operation: createAdmissionOperationStateSchema(allowlistImportPreviewSnapshotSchema) }),
   z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.confirmAllowlistImport), operation: createAdmissionOperationStateSchema(allowlistImportConfirmationSnapshotSchema) }),
   z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.createAllowlistEntry), operation: createAdmissionOperationStateSchema(allowlistMutationSnapshotSchema) }),
@@ -35,6 +40,10 @@ export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("op
 ]);
 /** Public recovery retains only the type/state/id and original confirmed result. */
 export const admissionOperationRecoverySchema = z.union([
+  z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.createPersonalInvitation) }), createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema)),
+  z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.renamePersonalInvitation) }), createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema)),
+  z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.revokePersonalInvitation) }), createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema)),
+
   z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.previewAllowlistImport) }), createAdmissionOperationStateSchema(allowlistImportPreviewSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.confirmAllowlistImport) }), createAdmissionOperationStateSchema(allowlistImportConfirmationSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.createAllowlistEntry) }), createAdmissionOperationStateSchema(allowlistMutationSnapshotSchema)),

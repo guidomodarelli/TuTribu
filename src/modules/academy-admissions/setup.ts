@@ -66,6 +66,8 @@ import type { AdmissionActivationRuntimeReader } from "./domain/repositories/adm
 import { PostgresAdmissionActivationRepository } from "./infrastructure/repositories/postgres-admission-activation-repository";
 import { PreflightAdmissionActivationUseCase } from "./application/use-cases/preflight-admission-activation-use-case";
 import { ReadAdmissionRuntimeUseCase } from "./application/use-cases/read-admission-runtime-use-case";
+import { ManagePersonalInvitationsUseCases } from "./application/use-cases/manage-personal-invitations-use-cases";
+import { PostgresPersonalInvitationRepository } from "./infrastructure/repositories/postgres-personal-invitation-repository";
 import { GetAdmissionPolicyPageUseCase } from "./application/use-cases/get-admission-policy-page-use-case";
 import { ManageAllowlistUseCases } from "./application/use-cases/manage-allowlist-use-cases";
 import { PostgresAllowlistReader } from "./infrastructure/repositories/postgres-allowlist-reader";
@@ -107,6 +109,16 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
   };
   return {
     useCases: { resolveContext },
+    /** @param options - Current private hosting security for explicit invitation commands. @returns Native leader metadata/commands with atomic related notices and no recovered token on replay. */
+    createPersonalInvitationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+      const execute = async <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => {
+        const account = await dependencies.accounts.getAuthenticatedAccount();
+        if (!account || account.userId !== context.userId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+        return dependencies.execute(account, run);
+      };
+      const repository = new PostgresPersonalInvitationRepository(execute, options.readSecurityConfig, createPostgresAdmissionNotificationObligationWriter);
+      return { useCases: new ManagePersonalInvitationsUseCases(resolveContext, repository, repository) };
+    },
     /** @param options - Local private security for explicit commands only. @returns Leader-only queries and atomic original list commands, rechecking native identity on every checkout. */
     createAllowlistModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
       const execute = async <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => {
