@@ -6,6 +6,19 @@ import { createAdmissionApiClient } from "@/lib/academy-admissions/admission-api
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 
 describe("admission browser API", () => {
+  it("should treat a completed original business denial as definitive and keep a registered started failure uncertain", async () => {
+    const operationId = randomUUID(), fetch = vi.fn<typeof globalThis.fetch>();
+    for (const state of ["completed", "started"] as const) fetch.mockResolvedValueOnce(Response.json({ code: "admission_ineligible", message: "Falta un requisito actual para resolver el ingreso. Consultá el estado de la solicitud.", requestId: randomUUID(), operation: { operationId, state } }, { status: 409 }));
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    const input = { operationId, confirmed: true as const, expectedPolicyVersion: 1 };
+    expect(await client.submit("synthetic-academy", input, new AbortController().signal)).toMatchObject({ status: "failed", code: "admission_ineligible", uncertain: false });
+    expect(await client.submit("synthetic-academy", input, new AbortController().signal)).toMatchObject({ status: "failed", code: "admission_ineligible", uncertain: true });
+  });
+  it("should retain the original intent when a terminal error belongs to another operation", async () => {
+    const fetch = vi.fn(async () => Response.json({ code: "admission_ineligible", message: "Falta un requisito actual para resolver el ingreso. Consultá el estado de la solicitud.", requestId: randomUUID(), operation: { operationId: randomUUID(), state: "completed" } }, { status: 409 }));
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    expect(await client.submit("synthetic-academy", { operationId: randomUUID(), confirmed: true, expectedPolicyVersion: 1 }, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: true });
+  });
   it("should retain the original write after a safe server failure that carries no registered operation", async () => {
     const fetch = vi.fn(async () => Response.json({ code: ADMISSION_ERROR_CODE.unexpectedFailure, message: ADMISSION_ERROR_MESSAGE.unexpected_failure, requestId: randomUUID() }, { status: 500 }));
     const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });

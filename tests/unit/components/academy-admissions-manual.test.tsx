@@ -10,7 +10,7 @@ import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provi
 import type { AdmissionPageState } from "@/src/modules/academy-admissions/application/results/admission-page-state";
 import type { AdmissionBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
-import { admissionDraftKey, writeAdmissionDraft } from "@/lib/academy-admissions/admission-draft";
+import { admissionDraftKey, readAdmissionDraft, writeAdmissionDraft } from "@/lib/academy-admissions/admission-draft";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { RequestStatus } from "@/components/academy-admissions/request-status";
 
@@ -38,6 +38,21 @@ function fixture() {
 
 describe("manual admission screen", () => {
   beforeEach(() => { sessionStorage.clear(); router.refresh.mockClear(); });
+
+  it("should recover a terminal submission denial, preserve the explanation and clear only the original intent without another POST or success message", async () => {
+    const data = fixture(), message = "No pudimos usar ese contacto para el ingreso. Revisá tu cuenta o pedí ayuda.";
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "submit_admission", state: "completed", replayed: true, operationId: OPERATION_ID, result: { outcome: "denied", code: "contact_binding_conflict", admissionRequestId: null } } });
+    vi.mocked(data.client.overview).mockResolvedValue({ status: "ready", value: data.state.overview });
+    vi.mocked(data.client.own).mockResolvedValue({ status: "ready", value: null });
+    writeAdmissionDraft({ viewerId: VIEWER_ID, slug: data.state.overview.tribe.slug, draft: { phone: "", country: "", message: "Conservá mi explicación." }, pending: { kind: "submit", input: { operationId: OPERATION_ID, expectedPolicyVersion: 1, confirmed: true, message: "Conservá mi explicación." } } });
+    render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    await waitFor(() => expect(readAdmissionDraft(VIEWER_ID, data.state.overview.tribe.slug)?.pending).toBeNull());
+    expect(readAdmissionDraft(VIEWER_ID, data.state.overview.tribe.slug)?.draft.message).toBe("Conservá mi explicación.");
+    expect(data.client.submit).not.toHaveBeenCalled(); expect(data.client.cancel).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(screen.queryByRole("link", { name: ADMISSION_UI_COPY.openAcademy })).not.toBeInTheDocument();
+  });
 
   it.each(["admitted", "already_member"] as const)("should expose academy navigation only after the owner confirms %s and current own access is reconciled", async (outcome) => {
     const data = fixture();

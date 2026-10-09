@@ -4,6 +4,11 @@ import { createAllowlistImport, prepareAllowlistImportRows, selectAllowlistImpor
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 
 describe("allowlist preview rows", () => {
+  it("should accept an exact hundred-character display name and preserve an oversized row as an unselectable error", () => {
+    const rows = prepareAllowlistImportRows([{ rowNumber: 1, identity: "exact-limit@example.test", displayName: "a".repeat(100) }, { rowNumber: 2, identity: "over-limit@example.test", displayName: "a".repeat(101) }], "email");
+    expect(rows[0]).toMatchObject({ displayName: "a".repeat(100), errors: [], selected: false, outcome: null });
+    expect(rows[1]).toMatchObject({ errors: ["admission_name_invalid"], selected: false, outcome: null });
+  });
   it("should normalize aliases and identify repeated valid contacts without an entry, binding or confirmed outcome", () => {
     const rows = prepareAllowlistImportRows([{ rowNumber: 1, identity: " First.Last+tag@Example.Test ", displayName: "  Grupo  " }, { rowNumber: 2, identity: "first.last+tag@example.test", displayName: "Otro" }, { rowNumber: 3, identity: "firstlast@example.test", displayName: "" }], "email");
     expect(rows[0]).toMatchObject({ rowNumber: 1, input: { identity: " First.Last+tag@Example.Test " }, contact: { type: "email", value: "first.last+tag@example.test" }, displayName: "Grupo", errors: [], duplicateOf: null, selected: false, outcome: null, entryId: null, committedAt: null });

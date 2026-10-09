@@ -51,6 +51,9 @@ import { readAllowlistAdmissionFacts } from "./postgres-allowlist-admission-fact
 import { bindBaseAdmissionContact } from "./postgres-base-admission-binding";
 import { proposeAutomaticAdmissionDecision, type AutomaticAdmissionFacts } from "../../domain/entities/automatic-admission-decision";
 import { readAdmissionReviewEvidence } from "./postgres-admission-review-evidence";
+import { admissionCommandDenialSchema } from "../../constants/admission-command-denial-schema";
+import { ADMISSION_COMMAND_EFFECT_SQL } from "../../constants/admission-command-denial";
+import { createAdmissionCommandSnapshotSchema } from "../../application/results/admission-command-snapshot";
 
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -149,17 +152,37 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
   /** Recovers an original committed result after possible COMMIT response loss without repeating the write. */
   private async run<Result>(scope: AdmissionCommandScope, command: AdmissionOperationCommand, schema: z.ZodType<Result>, mutate: (database: RequestDatabase, ledgerId: string) => Promise<Result>, requestId?: string): Promise<AdmissionOperationResult<Result>> {
     const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(scope, work), (database) => this.authorize(database, scope, command.operationType, requestId), this.readSecurityConfig);
-    try { return await ledger.run(command, schema, mutate); }
-    catch (error) {
-      if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.operationUnresolved) {
-        try { const result = await ledger.read(command, schema); if (result?.state === OPERATION_STATE.completed) return result; }
-        catch (reconciliationError) {
-          if (reconciliationError instanceof AdmissionOperationError) throw reconciliationError;
-          throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: new AggregateError([error, reconciliationError], "Manual admission original operation reconciliation failed", { cause: error }) });
-        }
+    const snapshotSchema = createAdmissionCommandSnapshotSchema(schema);
+    let original;
+    let originalDenialCause: unknown;
+    try { original = await ledger.run(command, snapshotSchema, async (database, ledgerId) => {
+      await database.execute(sql.raw(ADMISSION_COMMAND_EFFECT_SQL.begin));
+      try {
+        const result = await mutate(database, ledgerId);
+        await database.execute(sql.raw(ADMISSION_COMMAND_EFFECT_SQL.release));
+        return result;
+      } catch (error) {
+        const denial = error instanceof AdmissionOperationError ? admissionCommandDenialSchema.safeParse({ outcome: ADMISSION_OUTCOME.denied, code: error.code, admissionRequestId: requestId ?? null }) : null;
+        if (!denial?.success) throw error;
+        originalDenialCause = error;
+        await database.execute(sql.raw(ADMISSION_COMMAND_EFFECT_SQL.rollback));
+        await database.execute(sql.raw(ADMISSION_COMMAND_EFFECT_SQL.release));
+        return denial.data;
       }
-      throw error;
+    }); }
+    catch (error) {
+      if (!(error instanceof AdmissionOperationError) || error.code !== ADMISSION_ERROR_CODE.operationUnresolved) throw error;
+      try { original = await ledger.read(command, snapshotSchema); }
+      catch (reconciliationError) {
+        if (reconciliationError instanceof AdmissionOperationError) throw reconciliationError;
+        throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey, cause: new AggregateError([error, reconciliationError], "Admission command original operation reconciliation failed", { cause: error }) });
+      }
+      if (original?.state !== OPERATION_STATE.completed) throw error;
     }
+    if (original.state === OPERATION_STATE.started) return original;
+    const denial = admissionCommandDenialSchema.safeParse(original.result);
+    if (denial.success) throw new AdmissionOperationError(denial.data.code, { ...(originalDenialCause !== undefined ? { cause: originalDenialCause } : {}), operationId: original.operationId, operationState: OPERATION_STATE.completed });
+    return { ...original, result: schema.parse(original.result) };
   }
 
   /** Records notice/audit before the same transaction can publish its own minimal result. */

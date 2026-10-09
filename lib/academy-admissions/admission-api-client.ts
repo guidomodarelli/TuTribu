@@ -21,6 +21,7 @@ import { admissionPolicyStateResultSchema, admissionPolicyMutationResultSchema }
 import { admissionPreflightResultSchema } from "@/src/modules/academy-admissions/application/results/admission-preflight-result-schema";
 import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_POLICY_BROWSER_PATH } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { OPERATION_STATE } from "@/src/constants/operation-state";
 
 /** Own public progress cannot carry an unconfirmed result. */
 const startedSchema = z.object({ state: z.literal("started"), operationId: z.uuid() });
@@ -50,7 +51,8 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
       if (signal.aborted) return { status: "aborted" };
       if (!response.ok) {
         const error = admissionPublicErrorSchema.safeParse(value);
-        return error.success ? failed(error.data.code, writing && (response.status >= HTTP_STATUS.serverError || error.data.operation !== undefined)) : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
+        if (writing && error.success && error.data.operation && (!body || !("operationId" in body) || typeof body.operationId !== "string" || error.data.operation.operationId !== body.operationId.toLowerCase())) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
+        return error.success ? failed(error.data.code, writing && (response.status >= HTTP_STATUS.serverError || error.data.operation?.state === OPERATION_STATE.started)) : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
       }
       const parsed = schema.safeParse(value);
       return parsed.success ? { status: "ready", value: parsed.data } : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);

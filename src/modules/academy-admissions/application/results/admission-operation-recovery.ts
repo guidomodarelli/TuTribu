@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { ADMISSION_OPERATION_TYPE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { createAdmissionOperationStateSchema } from "./admission-flow-result-schemas";
+import { createAdmissionCommandSnapshotSchema } from "./admission-command-snapshot";
 import { admissionCommittedOutcomeSchema, admissionTransitionResultSchema, admissionRetryResultSchema } from "./admission-writer-result-schemas";
 import { ADMISSION_POLICY_OPERATION } from "../../constants/admission-policy";
 import { admissionPolicyMutationResultSchema } from "./admission-policy-result-schemas";
@@ -23,10 +24,10 @@ export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("op
   z.object({ operationType: z.literal(VERIFICATION_ISSUANCE_OPERATION.issue), operation: createAdmissionOperationStateSchema(admissionIssuanceSnapshotSchema) }),
   z.object({ operationType: z.literal(VERIFICATION_ISSUANCE_OPERATION.resend), operation: createAdmissionOperationStateSchema(admissionIssuanceSnapshotSchema) }),
   z.object({ operationType: z.literal(ADMISSION_CONTACT_VERIFICATION_OPERATION), operation: createAdmissionOperationStateSchema(admissionChallengeVerificationSnapshotSchema) }),
-  z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.submit), operation: createAdmissionOperationStateSchema(admissionCommittedOutcomeSchema) }),
-  z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.decide), operation: createAdmissionOperationStateSchema(admissionTransitionResultSchema) }),
-  z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.cancel), operation: createAdmissionOperationStateSchema(admissionTransitionResultSchema) }),
-  z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.allowRetry), operation: createAdmissionOperationStateSchema(admissionRetryResultSchema) }),
+  z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.submit), operation: createAdmissionOperationStateSchema(createAdmissionCommandSnapshotSchema(admissionCommittedOutcomeSchema)) }),
+  z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.decide), operation: createAdmissionOperationStateSchema(createAdmissionCommandSnapshotSchema(admissionTransitionResultSchema)) }),
+  z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.cancel), operation: createAdmissionOperationStateSchema(createAdmissionCommandSnapshotSchema(admissionTransitionResultSchema)) }),
+  z.object({ operationType: z.literal(ADMISSION_OPERATION_TYPE.allowRetry), operation: createAdmissionOperationStateSchema(createAdmissionCommandSnapshotSchema(admissionRetryResultSchema)) }),
   z.object({ operationType: z.literal(ADMISSION_POLICY_OPERATION.initialize), operation: createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema) }),
   z.object({ operationType: z.literal(ADMISSION_POLICY_OPERATION.update), operation: createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema) }),
   z.object({ operationType: z.literal(ADMISSION_POLICY_OPERATION.activate), operation: createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema) }),
@@ -42,10 +43,10 @@ export const admissionOperationRecoverySchema = z.union([
   z.intersection(z.object({ type: z.literal(VERIFICATION_ISSUANCE_OPERATION.issue) }), createAdmissionOperationStateSchema(admissionIssuanceSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(VERIFICATION_ISSUANCE_OPERATION.resend) }), createAdmissionOperationStateSchema(admissionIssuanceSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(ADMISSION_CONTACT_VERIFICATION_OPERATION) }), createAdmissionOperationStateSchema(admissionChallengeVerificationSnapshotSchema)),
-  z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.submit) }), createAdmissionOperationStateSchema(admissionCommittedOutcomeSchema)),
-  z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.decide) }), createAdmissionOperationStateSchema(admissionTransitionResultSchema)),
-  z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.cancel) }), createAdmissionOperationStateSchema(admissionTransitionResultSchema)),
-  z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.allowRetry) }), createAdmissionOperationStateSchema(admissionRetryResultSchema)),
+  z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.submit) }), createAdmissionOperationStateSchema(createAdmissionCommandSnapshotSchema(admissionCommittedOutcomeSchema))),
+  z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.decide) }), createAdmissionOperationStateSchema(createAdmissionCommandSnapshotSchema(admissionTransitionResultSchema))),
+  z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.cancel) }), createAdmissionOperationStateSchema(createAdmissionCommandSnapshotSchema(admissionTransitionResultSchema))),
+  z.intersection(z.object({ type: z.literal(ADMISSION_OPERATION_TYPE.allowRetry) }), createAdmissionOperationStateSchema(createAdmissionCommandSnapshotSchema(admissionRetryResultSchema))),
   z.intersection(z.object({ type: z.literal(ADMISSION_POLICY_OPERATION.initialize) }), createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema)),
   z.intersection(z.object({ type: z.literal(ADMISSION_POLICY_OPERATION.update) }), createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema)),
   z.intersection(z.object({ type: z.literal(ADMISSION_POLICY_OPERATION.activate) }), createAdmissionOperationStateSchema(admissionPolicyMutationResultSchema)),
