@@ -9,6 +9,7 @@ import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/const
 import { ADMISSION_PUBLIC_SOURCE, ADMISSION_DECISION, ADMISSION_QUERY_LIMIT, ADMISSION_QUERY_INTEGER_PATTERN, ADMISSION_PUBLIC_CODE_PATTERN, ADMISSION_REVIEW_CURSOR_SEPARATOR } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_POLICY_MODE, ADMISSION_PHONE_CHANNEL } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
+import { ALLOWLIST_CURSOR_SEPARATOR } from "../../constants/allowlist-management";
 
 /** Mutations must carry a stable UUID and an explicit fresh confirmation. */
 const operationFields = {
@@ -23,13 +24,13 @@ const countrySchema = z.string().trim().toUpperCase().refine((country) => isSupp
 
 /** Creation chooses version one in the writer; browser versions or owner bindings are rejected. */
 export const allowlistEntryCreateSchema = z.strictObject({
-  ...operationFields, contactType: z.enum(ADMISSION_CONTACT_TYPE), identity: z.string().trim().min(1),
+  ...operationFields, operationId: canonicalOperationIdSchema, contactType: z.enum(ADMISSION_CONTACT_TYPE), identity: z.string().trim().min(1),
   country: countrySchema.optional(), displayName: editableNameSchema.nullable().optional(),
 });
 
 /** Allows only name/status edits; contact and binding identity cannot be reassigned here. */
 export const allowlistEntryUpdateSchema = z.strictObject({
-  ...operationFields, expectedVersion: expectedVersionSchema,
+  ...operationFields, operationId: canonicalOperationIdSchema, expectedVersion: expectedVersionSchema,
   displayName: editableNameSchema.nullable().optional(),
   status: z.enum(ALLOWLIST_ENTRY_STATUS).optional(),
 }).refine((command) => command.displayName !== undefined || command.status !== undefined, { error: ADMISSION_INPUT_CATEGORY.fields });
@@ -63,7 +64,7 @@ export const admissionRequestParamsSchema = admissionTribeParamsSchema.extend({ 
 export const admissionOwnRequestQuerySchema = z.strictObject({ admissionRequestId: z.uuid().optional() });
 export const admissionChallengeParamsSchema = admissionTribeParamsSchema.extend({ challengeId: z.uuid().transform((challengeId) => challengeId.toLowerCase()) });
 export const admissionOperationParamsSchema = admissionTribeParamsSchema.extend({ operationId: z.uuid() });
-export const admissionAllowlistParamsSchema = admissionTribeParamsSchema.extend({ entryId: z.uuid() });
+export const admissionAllowlistParamsSchema = admissionTribeParamsSchema.extend({ entryId: z.uuid().transform((entryId) => entryId.toLowerCase()) });
 export const admissionInvitationParamsSchema = admissionTribeParamsSchema.extend({ invitationId: z.uuid() });
 export const admissionImportParamsSchema = admissionTribeParamsSchema.extend({ importId: z.uuid() });
 
@@ -73,7 +74,7 @@ const pageQueryFields = { limit: pageSizeSchema, cursor: z.string().min(1).max(A
 /** Review filters remain bounded and tenant-local; current permissions are derived separately. */
 const reviewCursorSchema = z.string().max(ADMISSION_QUERY_LIMIT.cursorCharacters).transform((cursor) => cursor.split(ADMISSION_REVIEW_CURSOR_SEPARATOR)).pipe(z.tuple([z.iso.datetime({ offset: true }), z.uuid()])).transform(([submittedAt, id]) => ({ submittedAt, id }));
 export const admissionReviewQuerySchema = z.strictObject({ ...pageQueryFields, cursor: reviewCursorSchema.optional(), status: z.enum(ADMISSION_REQUEST_STATUS).optional(), source: z.enum(ADMISSION_PUBLIC_SOURCE).optional(), needsVerification: z.enum(["true", "false"]).transform((value) => value === "true").optional(), submittedFrom: z.iso.datetime({ offset: true }).optional(), submittedUntil: z.iso.datetime({ offset: true }).optional() }).refine((query) => !query.submittedFrom || !query.submittedUntil || new Date(query.submittedFrom) <= new Date(query.submittedUntil));
-export const admissionAllowlistQuerySchema = z.strictObject({ ...pageQueryFields, status: z.enum(ALLOWLIST_ENTRY_STATUS).optional() });
+export const admissionAllowlistQuerySchema = z.strictObject({ ...pageQueryFields, cursor: z.string().max(ADMISSION_QUERY_LIMIT.cursorCharacters).transform((cursor) => cursor.split(ALLOWLIST_CURSOR_SEPARATOR)).pipe(z.tuple([z.iso.datetime({ offset: true }), z.uuid()])).transform(([createdAt, id]) => ({ createdAt, id: id.toLowerCase() })).optional(), status: z.enum(ALLOWLIST_ENTRY_STATUS).optional() });
 
 /** The account email/source/identity evidence are server-owned; the body can select only the explicit route intent. */
 export const admissionSubmissionSchema = z.strictObject({ ...operationFields, operationId: canonicalOperationIdSchema, expectedPolicyVersion: expectedVersionSchema, invitationToken: z.string().min(1).optional(), legacyInvitationToken: z.string().min(1).optional(), phone: z.string().trim().min(1).optional(), country: countrySchema.optional(), proofId: z.uuid().transform((proofId) => proofId.toLowerCase()).optional(), message: z.string().trim().max(ADMISSION_LIMIT.internalMessageCharacters).optional() }).refine((command) => !(command.invitationToken && command.legacyInvitationToken));
