@@ -68,6 +68,8 @@ import { PreflightAdmissionActivationUseCase } from "./application/use-cases/pre
 import { ReadAdmissionRuntimeUseCase } from "./application/use-cases/read-admission-runtime-use-case";
 import { ManagePersonalInvitationsUseCases } from "./application/use-cases/manage-personal-invitations-use-cases";
 import { PostgresPersonalInvitationRepository } from "./infrastructure/repositories/postgres-personal-invitation-repository";
+import { GetPersonalInvitationOverviewUseCase } from "./application/use-cases/get-personal-invitation-overview-use-case";
+import { PostgresPersonalInvitationOverviewReader } from "./infrastructure/repositories/postgres-personal-invitation-overview-reader";
 import { GetAdmissionPolicyPageUseCase } from "./application/use-cases/get-admission-policy-page-use-case";
 import { ManageAllowlistUseCases } from "./application/use-cases/manage-allowlist-use-cases";
 import { PostgresAllowlistReader } from "./infrastructure/repositories/postgres-allowlist-reader";
@@ -118,6 +120,15 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       };
       const repository = new PostgresPersonalInvitationRepository(execute, options.readSecurityConfig, createPostgresAdmissionNotificationObligationWriter);
       return { useCases: new ManagePersonalInvitationsUseCases(resolveContext, repository, repository) };
+    },
+    /** @param options - Current private token security, without a provider or mutation port. @returns Native account-bound read-only personal preview. */
+    createPersonalInvitationQueryModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+      const execute = async <Result>(scope: Pick<AdmissionCommandScope, "userId" | "sessionId">, run: (database: RequestDatabase) => Promise<Result>) => {
+        const account = await dependencies.accounts.getAuthenticatedAccount();
+        if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+        return dependencies.execute(account, run);
+      };
+      return { useCases: { overview: new GetPersonalInvitationOverviewUseCase(dependencies.accounts, new PostgresPersonalInvitationOverviewReader(execute, options.readSecurityConfig), dependencies.clock) } };
     },
     /** @param options - Local private security for explicit commands only. @returns Leader-only queries and atomic original list commands, rechecking native identity on every checkout. */
     createAllowlistModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {

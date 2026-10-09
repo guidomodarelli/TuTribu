@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- La consulta de una invitación personal protege el destinatario, indica si falta comprobar el contacto y conserva las solicitudes existentes sin consumir el enlace al leerlo.
+
 - El canje de una invitación personal exige comprobar al destinatario y respeta la lista indicada: puede conceder ingreso básico o quedar pendiente de revisión; retirar la autorización cancela una pendiente sin expulsar a quien ya ingresó.
 
 - En academias en modo lista con control de admisión ya activado, una presentación común con contacto comprobado y entrada habilitada concede ingreso básico; las excepciones permitidas requieren explicación y revisión explícita, conservando la lista.
