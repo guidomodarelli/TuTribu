@@ -7,7 +7,7 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
 
 /** A restored draft never silently restores user confirmation. */
 export const admissionDraftSchema = z.object({ phone: z.string(), country: z.string(), message: z.string().max(ADMISSION_LIMIT.internalMessageCharacters) });
-const submissionInputSchema = z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true), expectedPolicyVersion: z.int().positive(), phone: z.string().optional(), country: z.string().optional(), message: z.string().max(ADMISSION_LIMIT.internalMessageCharacters).optional() });
+const submissionInputSchema = z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true), expectedPolicyVersion: z.int().positive(), phone: z.string().optional(), country: z.string().optional(), proofId: z.uuid().optional(), message: z.string().max(ADMISSION_LIMIT.internalMessageCharacters).optional() });
 const cancellationInputSchema = z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true), expectedVersion: z.int().positive() });
 /** This is a local intent; it is never represented as server-accepted progress. */
 export const admissionPendingIntentSchema = z.discriminatedUnion("kind", [

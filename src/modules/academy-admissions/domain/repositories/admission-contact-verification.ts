@@ -13,7 +13,7 @@ export type AdmissionChallengeVerificationIntent=AdmissionVerificationAccountSco
 /** Only an explicit permitted SMS alternative may alter the original challenge channel. */
 export type AdmissionChallengeResendIntent=AdmissionVerificationAccountScope&{operationId:string;challengeId:string;useSmsAlternative?:true};
 /** Minimal own commit metadata contains neither plaintext destination nor delivery/connection authorization. */
-export type AdmissionChallengeSnapshot={challengeId:string;purpose:"admission";channel:"email"|"sms"|"whatsapp";maskedDestination:string;expiresAt:string;resendAllowedAt:string;deliveryState:"queued"|"accepted"|"delivered"|"failed"|"unknown"|"suppressed"|"cancelled";allowedAlternative?:"sms"};
+export type AdmissionChallengeSnapshot={challengeId:string;purpose:"admission";channel:"email"|"sms"|"whatsapp";maskedDestination:string;expiresAt:string;resendAllowedAt:string;deliveryState:"queued"|"accepted"|"delivered"|"failed"|"unknown"|"suppressed"|"cancelled";allowedAlternative?:"sms";deliveryId?:string};
 /** Local proof creation does not create membership, session, global identity or notification delivery evidence. */
 export type AdmissionChallengeVerificationSnapshot={purpose:"admission";result:"verified";proofId:string;applyBefore:string}|{purpose:"admission";result:"denied";code:(typeof ADMISSION_ERROR_CODE)[keyof typeof ADMISSION_ERROR_CODE]};
 /** Each writer owns native session/policy/challenge locks, ledger, budgets and final immutable scope. */
