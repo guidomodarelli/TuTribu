@@ -13,7 +13,7 @@ import { readAdmissionContactIntent, writeAdmissionContactIntent, type Admission
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { admissionChallengeSnapshotSchema, admissionIssuanceDenialSchema, admissionChallengeVerificationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-contact-verification-schemas";
 import { admissionProofApplicationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-proof-application-schemas";
-import { ADMISSION_CONTACT_ACTION, ADMISSION_CONTACT_ISSUED_REFERENCE, ADMISSION_CONTACT_PHASE, ADMISSION_CONTACT_COPY, ADMISSION_CONTACT_BROWSER_STATUS, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS, ADMISSION_CONTACT_CLOCK_INTERVAL_MS } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
+import { ADMISSION_CONTACT_ACTION, ADMISSION_CONTACT_ISSUED_REFERENCE, ADMISSION_CONTACT_PHASE, ADMISSION_CONTACT_COPY, ADMISSION_CONTACT_BROWSER_STATUS, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS, ADMISSION_CONTACT_CLOCK_INTERVAL_MS, ADMISSION_PERSONAL_CONTACT_SCOPE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { ADMISSION_PUBLIC_CODE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_CONTACT_TYPE, ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-admissions/constants/admission-contact";
@@ -27,7 +27,7 @@ import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/mess
 import { MILLISECONDS_PER_SECOND } from "@/src/constants/time";
 
 /** The parent owns the one current viewer/draft entrypoint; this hook never fetches another session independently. */
-export type AdmissionContactHookOptions = { viewerId: string | null; slug: string; requestId: string | null; requestVersion: number | null; policyVersion: number; channel: "email" | "sms" | "whatsapp"; allowedCountries: readonly string[]; allowSmsAlternative: boolean; phone: string; country: string; enabled: boolean; renderedAt: string; authorize: (signal: AbortSignal) => Promise<boolean>; client?: AdmissionContactBrowserClient; onApplied: (result: Extract<AdmissionProofApplicationResult, { outcome: "applied" }>) => void; onProof: (proof: AdmissionContactVerified | null) => void };
+export type AdmissionContactHookOptions = { viewerId: string | null; slug: string; requestId: string | null; requestVersion: number | null; policyVersion: number; channel: "email" | "sms" | "whatsapp"; allowedCountries: readonly string[]; allowSmsAlternative: boolean; phone: string; country: string; enabled: boolean; renderedAt: string; invitationToken?: string; personalScope?: string; authorize: (signal: AbortSignal) => Promise<boolean>; client?: AdmissionContactBrowserClient; onApplied: (result: Extract<AdmissionProofApplicationResult, { outcome: "applied" }>) => void; onProof: (proof: AdmissionContactVerified | null) => void };
 type ContactPhase = "idle" | "issuing" | "verifying" | "resending" | "applying" | "reading" | "uncertain";
 /** Confirmed history can be read by namespace/id; a pending verify still retains its exact challenge separately. */
 type ContactRecoveryReference = AdmissionContactPending | { kind: "verify"; operationId: string } | { kind: "issued"; operationId: string };
@@ -48,7 +48,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
   const save = useCallback((patch: Partial<AdmissionContactIntent>): boolean => {
     const current = latest.current;
     if (!current.viewerId) return false;
-    const value: AdmissionContactIntent = { viewerId: current.viewerId, slug: current.slug, requestId: current.requestId, issuedOperationId: record.current?.issuedOperationId ?? null, verifiedOperationId: record.current?.verifiedOperationId ?? null, pending: record.current?.pending ?? null, ...patch };
+    const value: AdmissionContactIntent = { viewerId: current.viewerId, slug: current.slug, requestId: current.requestId, issuedOperationId: record.current?.issuedOperationId ?? null, verifiedOperationId: record.current?.verifiedOperationId ?? null, pending: record.current?.pending ?? null, ...(current.personalScope ? { personalScope: current.personalScope } : {}), ...patch };
     try { writeAdmissionContactIntent(value); record.current = value; setPending(value.pending); return true; }
     catch { setErrorMessage(ADMISSION_CONTACT_COPY.storage); setReady(false); return false; }
   }, []);
@@ -184,7 +184,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       setReady(false); setConfirmed(false); setCodeValue(""); setChallenge(null); setProof(null); setDelivery(null); setErrorMessage(null); setFeedback(null); setPending(null); setPhase(ADMISSION_CONTACT_PHASE.idle);
       if (options.enabled && options.viewerId) {
         try {
-          record.current = readAdmissionContactIntent(options.viewerId, options.slug, options.requestId); setPending(record.current?.pending ?? null);
+          record.current = readAdmissionContactIntent(options.viewerId, options.slug, options.requestId, options.personalScope); setPending(record.current?.pending ?? null);
           if (record.current && (record.current.issuedOperationId || record.current.verifiedOperationId || record.current.pending)) { setPhase(ADMISSION_CONTACT_PHASE.reading); void restoreCurrent.current(record.current, scopeGeneration, hydrationController.signal).finally(() => window.clearTimeout(timeout)); }
           else setReady(true);
         }
@@ -194,10 +194,11 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
     });
     const interval = options.enabled ? window.setInterval(() => setNow(new Date().toISOString()), ADMISSION_CONTACT_CLOCK_INTERVAL_MS) : null;
     return () => { active.current = false; generation.current += 1; hydrationController.abort(); controller.current?.abort(); controller.current = null; for (const deliveryController of scopeDeliveryControllers) deliveryController.abort(); scopeDeliveryControllers.clear(); busy.current = false; window.clearTimeout(timeout); if (interval !== null) window.clearInterval(interval); };
-  }, [options.enabled, options.viewerId, options.slug, options.requestId]);
+  }, [options.enabled, options.viewerId, options.slug, options.requestId, options.personalScope]);
 
   const issue = useCallback(async () => {
     const current = latest.current;
+    if (Boolean(current.invitationToken) !== Boolean(current.personalScope) || current.personalScope && !ADMISSION_PERSONAL_CONTACT_SCOPE_PATTERN.test(current.personalScope)) { setErrorMessage(ADMISSION_CONTACT_COPY.storage); return; }
     if (challenge || proof) return;
     if (!confirmed) { setErrorMessage(ADMISSION_CONTACT_COPY.confirm); return; }
     if (current.channel !== MESSAGING_PUBLIC_CHANNEL.email) {
@@ -205,7 +206,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       if (normalized.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) { setFieldErrors({ phone: ADMISSION_CONTACT_COPY.phone }); return; }
       if (normalized.contact.type !== ADMISSION_CONTACT_TYPE.phone || !current.allowedCountries.includes(normalized.contact.country)) { setFieldErrors({ country: ADMISSION_CONTACT_COPY.country }); return; }
     }
-    const operationId = newAdmissionOperationId(), input = { operationId, confirmed: true as const, expectedPolicyVersion: current.policyVersion, channel: current.channel, ...(current.channel !== MESSAGING_PUBLIC_CHANNEL.email ? { phone: current.phone, ...(current.country ? { country: current.country } : {}) } : {}), ...(current.requestId ? { requestId: current.requestId } : {}) };
+    const operationId = newAdmissionOperationId(), input = { operationId, confirmed: true as const, expectedPolicyVersion: current.policyVersion, channel: current.channel, ...(current.channel !== MESSAGING_PUBLIC_CHANNEL.email ? { phone: current.phone, ...(current.country ? { country: current.country } : {}) } : {}), ...(current.requestId ? { requestId: current.requestId } : {}), ...(current.invitationToken ? { invitationToken: current.invitationToken } : {}) };
     await run({ kind: ADMISSION_CONTACT_ACTION.issue, operationId }, (signal) => client.issue(current.slug, input, signal), VERIFICATION_ISSUANCE_OPERATION.issue, ADMISSION_CONTACT_PHASE.issuing);
   }, [challenge, client, confirmed, proof, run]);
   const verify = useCallback(async () => {
