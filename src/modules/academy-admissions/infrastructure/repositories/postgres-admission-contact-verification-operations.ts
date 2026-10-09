@@ -37,6 +37,8 @@ import {MESSAGE_DELIVERY_STATE} from "@/src/modules/messaging/constants/message-
 import {MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {TRIBE_ACCESS_MODEL} from "@/src/modules/product-access/constants/product-access";
 import {TRIBE_MEMBERSHIP_STATUS} from "@/src/modules/tribes/constants/tribe-page-access";
+import {resolvePersonalInvitationForRedemption,assertPersonalInvitationTokenCurrent,type ResolvedPersonalInvitation} from "./postgres-personal-invitation-redemption";
+import {authorizePersonalContactIssuance} from "./authorize-personal-contact-issuance";
 
 /** Each checkout binds the actual server actor and never trusts a client-selected database context. */
 export type AdmissionVerificationDatabaseExecutor=<Result>(scope:AdmissionVerificationAccountScope,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
@@ -44,6 +46,8 @@ export type AdmissionVerificationDatabaseExecutor=<Result>(scope:AdmissionVerifi
 type ChallengeScopeRow={id:string;user_id:string;tribe_id:string;purpose:string;contact_type:"email"|"phone";normalized_contact:string;recipient_country:string|null;channel:"email"|"sms"|"whatsapp";verification_epoch:number;connection_id:string;connection_version:number;security_epoch:string};
 /** Only the current pending contact/source/time facts are consumed; requesting a code cannot mutate them. */
 type PendingIssuanceRow={status:string;source:string;contact_type:string|null;normalized_contact:string|null;expires_at:Date|string};
+/** Private prepared code origin is separate from the public scope and original token material. */
+type PreparedAdmissionIssuance={scope:VerificationChallengeScope;personal:ResolvedPersonalInvitation|null};
 
 /** Owns metadata, budgets and proof effects; no method decrypts a BYOK credential or invokes SDK. */
 export class PostgresAdmissionContactVerificationOperations implements AdmissionContactVerificationOperations,AdmissionProofApplicationOperations{
@@ -88,15 +92,17 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
   }
 
   /** @param database - Original transaction. @param input - Confirmed current contact and source proposal. @returns Actual chosen resource scope after the policy version and native email are checked. */
-  private async issuanceScope(database:RequestDatabase,input:AdmissionChallengeIssuanceIntent):Promise<VerificationChallengeScope>{
+  private async issuanceScope(database:RequestDatabase,input:AdmissionChallengeIssuanceIntent):Promise<PreparedAdmissionIssuance>{
     const account=await this.authorize(database,input),policy=await this.policy(database,input,true);
     if(policy.version!==input.expectedPolicyVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
-    if(!input.confirmed||input.source.kind!==ADMISSION_REQUEST_SOURCE.common||input.contact.type!==policy.contactType)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-    if(input.admissionRequestId)await this.assertPendingIssuance(database,input,input.admissionRequestId,input.contact);
+    if(!input.confirmed||input.source.kind===ADMISSION_REQUEST_SOURCE.legacy||input.contact.type!==policy.contactType)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     if(input.contact.type===ADMISSION_CONTACT_TYPE.email?input.channel!==MESSAGING_PUBLIC_CHANNEL.email||input.contact.value!==account.normalizedEmail:input.channel===MESSAGING_PUBLIC_CHANNEL.email||input.channel!==policy.phoneChannel&&!(input.channel===MESSAGING_PUBLIC_CHANNEL.sms&&policy.phoneChannel===MESSAGING_PUBLIC_CHANNEL.whatsapp&&policy.allowSmsAlternative))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     if(!policy.messagingConnectionId||!policy.messagingConnectionVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
     const config=await this.readSecurityConfig();
-    return{userId:input.userId,tribeId:input.tribeId,purpose:ADMISSION_VERIFICATION_PURPOSE.admission,contact:input.contact,verificationEpoch:policy.verificationEpoch,connectionId:policy.messagingConnectionId,connectionVersion:policy.messagingConnectionVersion,securityEpoch:config.securityEpoch,channel:input.channel};
+    const personal=input.source.kind===ADMISSION_REQUEST_SOURCE.personal?await resolvePersonalInvitationForRedemption(database,input,input.source.token,config):null;
+    if(personal)await authorizePersonalContactIssuance(database,input,personal.invitation.id,input.contact,config);
+    else if(input.admissionRequestId)await this.assertPendingIssuance(database,input,input.admissionRequestId,input.contact);
+    return{scope:{userId:input.userId,tribeId:input.tribeId,purpose:ADMISSION_VERIFICATION_PURPOSE.admission,contact:input.contact,verificationEpoch:policy.verificationEpoch,connectionId:policy.messagingConnectionId,connectionVersion:policy.messagingConnectionVersion,securityEpoch:config.securityEpoch,channel:input.channel},personal};
   }
 
   /** @param database - Original authorized transaction. @param context - Native own account/tribe. @param requestId - Explicit own pending reference. @param contact - Canonical proposed contact. @returns Nothing while the common request remains live and contact-compatible after its lock. @throws AdmissionOperationError before creating a code for a missing, terminal, expired, foreign-source or changed-contact request. */
@@ -121,9 +127,9 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
   private ownsScope(database:RequestDatabase,context:AdmissionVerificationAccountScope,scope:VerificationChallengeScope){return async(current:RequestDatabase,candidate:VerificationChallengeScope)=>{await this.authorize(current,context);const policy=await this.policy(current,context,false);return current===database&&candidate.userId===scope.userId&&candidate.tribeId===scope.tribeId&&candidate.purpose===scope.purpose&&candidate.connectionId===scope.connectionId&&candidate.connectionVersion===scope.connectionVersion&&candidate.verificationEpoch===policy.verificationEpoch;};}
 
   /** @param database - Original operation transaction. @param context - Native actor. @param scope - Actual current policy/resource/contact. @param operationId - Original client UUID. @param ledgerId - Already committed claim identity. @param previous - Exact original challenge for explicit replacement only. @returns Minimal public issuance after shared budgets and private outbox commit together. */
-  private async issueInside(database:RequestDatabase,context:AdmissionVerificationAccountScope&{admissionRequestId?:string|null},scope:VerificationChallengeScope,operationId:string,ledgerId:string,previous:string|null){
+  private async issueInside(database:RequestDatabase,context:AdmissionVerificationAccountScope&{admissionRequestId?:string|null},scope:VerificationChallengeScope,operationId:string,ledgerId:string,previous:string|null,personalInvitationId?:string){
     await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.begin));
-    const nativeOwns=this.ownsScope(database,context,scope),owns=async(current:RequestDatabase,candidate:VerificationChallengeScope)=>{if(!await nativeOwns(current,candidate))return false;if(context.admissionRequestId)await this.assertPendingIssuance(current,context,context.admissionRequestId,scope.contact);return true;},contacts=new PostgresMessagingContactBudgetRepository(database,(current)=>owns(current,scope),this.readSecurityConfig),budget=new PostgresVerificationRequestBudget(database,(current,command)=>owns(current,command.scope),contacts),result=await new PostgresContactVerificationIssuer(database,owns,this.readSecurityConfig,budget).issue({scope,operationId,ledgerId,expectedCurrentChallengeId:previous});
+    const nativeOwns=this.ownsScope(database,context,scope),owns=async(current:RequestDatabase,candidate:VerificationChallengeScope)=>{if(!await nativeOwns(current,candidate))return false;if(personalInvitationId)await authorizePersonalContactIssuance(current,context,personalInvitationId,scope.contact,await this.readSecurityConfig());else if(context.admissionRequestId)await this.assertPendingIssuance(current,context,context.admissionRequestId,scope.contact);return true;},contacts=new PostgresMessagingContactBudgetRepository(database,(current)=>owns(current,scope),this.readSecurityConfig),budget=new PostgresVerificationRequestBudget(database,(current,command)=>owns(current,command.scope),contacts),result=await new PostgresContactVerificationIssuer(database,owns,this.readSecurityConfig,budget).issue({scope,operationId,ledgerId,expectedCurrentChallengeId:previous,...(personalInvitationId?{personalInvitationId,...(context.admissionRequestId?{personalRequestId:context.admissionRequestId}:{})}:{})});
     if(result.outcome!==VERIFICATION_ISSUANCE_OUTCOME.issued){await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.rollback));await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.release));return{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,result:VERIFICATION_TRANSITION_OUTCOME.denied,code:result.code};}
     await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.release));
     const maskedDestination=scope.contact.type===ADMISSION_CONTACT_TYPE.phone?`${ADMISSION_CONTACT_MASK}${scope.contact.value.slice(-ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH)}`:`${Array.from(scope.contact.value)[0]??""}${ADMISSION_CONTACT_MASK}@${scope.contact.value.split("@").at(-1)??""}`;
@@ -138,12 +144,16 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
     return{...original,result:snapshot};
   }
 
-  /** @param input - Native confirmed common-flow proposal. @returns Original issuance or registered progress; OFF rejects before a new claim and a replay precedes current policy CAS. */
+  /** @param input - Native confirmed common/personal proposal. @returns Original issuance or registered progress; OFF rejects before a new claim and replay precedes current policy CAS. */
   async issue(input:AdmissionChallengeIssuanceIntent){
     const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.issue,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,expectedPolicyVersion:input.expectedPolicyVersion,contact:input.contact,channel:input.channel,admissionRequestId:input.admissionRequestId,source:input.source,confirmed:input.confirmed}},ledger=this.ledger(input),original=await ledger.read(command,admissionIssuanceSnapshotSchema);
     if(original?.state===OPERATION_STATE.completed)return this.issuanceResult(original);
     if(!original)await this.execute(input,(database)=>this.issuanceScope(database,input));
-    return this.issuanceResult(await this.run(ledger,command,admissionIssuanceSnapshotSchema,async(database,ledgerId)=>this.issueInside(database,input,await this.issuanceScope(database,input),input.operationId,ledgerId,null)));
+    return this.issuanceResult(await this.run(ledger,command,admissionIssuanceSnapshotSchema,async(database,ledgerId)=>{
+      const prepared=await this.issuanceScope(database,input),result=await this.issueInside(database,input,prepared.scope,input.operationId,ledgerId,null,prepared.personal?.invitation.id);
+      if(prepared.personal&&input.source.kind===ADMISSION_REQUEST_SOURCE.personal)await assertPersonalInvitationTokenCurrent(prepared.personal,input.source.token,await this.readSecurityConfig());
+      return result;
+    }));
   }
 
   /** @param input - Original own challenge and exact code intent. @returns Local proof or committed denial/failure accounting independently of provider, country or send quota. */
@@ -170,8 +180,11 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
     if(original?.state===OPERATION_STATE.completed)return this.issuanceResult(original);
     return this.issuanceResult(await this.run(ledger,command,admissionIssuanceSnapshotSchema,async(database,ledgerId)=>{
       const scope=await this.challengeScope(database,input,input.challengeId),policy=await this.policy(database,input,true);
+      const origin=(await database.execute<{personal_invitation_id:string|null;personal_request_id:string|null}>(sql`select to_jsonb(challenge)->>'personal_invitation_id' as personal_invitation_id,to_jsonb(challenge)->>'personal_request_id' as personal_request_id from public.contact_verification_challenges challenge where id=${input.challengeId} and user_id=${input.userId} and tribe_id=${input.tribeId}`)).rows[0];
+      const issuanceContext={...input,...(origin?.personal_request_id?{admissionRequestId:origin.personal_request_id}:{})};
+      if(origin?.personal_invitation_id)await authorizePersonalContactIssuance(database,issuanceContext,origin.personal_invitation_id,scope.contact,await this.readSecurityConfig());
       if(input.useSmsAlternative){if(scope.contact.type!==ADMISSION_CONTACT_TYPE.phone||scope.channel!==MESSAGING_PUBLIC_CHANNEL.whatsapp||!policy.allowSmsAlternative)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);scope.channel=MESSAGING_PUBLIC_CHANNEL.sms;}
-      return this.issueInside(database,input,scope,input.operationId,ledgerId,input.challengeId);
+      return this.issueInside(database,issuanceContext,scope,input.operationId,ledgerId,input.challengeId,origin?.personal_invitation_id??undefined);
     }));
   }
 
