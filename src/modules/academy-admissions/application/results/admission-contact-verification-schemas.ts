@@ -11,7 +11,11 @@ import { MESSAGE_DELIVERY_STATE } from "@/src/modules/messaging/constants/messag
 /** Code possession and transport remain separate; no raw destination, code, MAC or envelope belongs in this response. */
 export const contactVerificationChallengeSchema = z.object({ challengeId: z.uuid(), purpose: z.enum(ADMISSION_VERIFICATION_PURPOSE), channel: z.enum(MESSAGING_PUBLIC_CHANNEL), maskedDestination: z.string().min(1).regex(ADMISSION_MASK_MARKER_PATTERN), expiresAt: z.iso.datetime({ offset: true }), resendAllowedAt: z.iso.datetime({ offset: true }), deliveryState: z.enum(MESSAGE_DELIVERY_STATE), allowedAlternative: z.literal(MESSAGING_PUBLIC_CHANNEL.sms).optional() });
 /** Admission callers can recover only their own fixed-purpose challenge snapshot. */
-export const admissionChallengeSnapshotSchema = contactVerificationChallengeSchema.extend({ purpose: z.literal(ADMISSION_VERIFICATION_PURPOSE.admission), deliveryId: z.uuid().optional() }) satisfies z.ZodType<AdmissionChallengeSnapshot>;
+export const admissionChallengeSnapshotSchema = contactVerificationChallengeSchema.extend({ purpose: z.literal(ADMISSION_VERIFICATION_PURPOSE.admission), deliveryId: z.uuid().optional(), result: z.never().optional() }) satisfies z.ZodType<AdmissionChallengeSnapshot>;
+/** An actual issuance rejection commits only its closed code, without granting a challenge or transport authority. */
+export const admissionIssuanceDenialSchema = z.object({ purpose: z.literal(ADMISSION_VERIFICATION_PURPOSE.admission), result: z.literal(VERIFICATION_TRANSITION_OUTCOME.denied), code: z.enum(ADMISSION_ERROR_CODE) });
+/** Original issue/resend recovery includes a confirmed denial as well as a confirmed challenge. */
+export const admissionIssuanceSnapshotSchema = z.union([admissionChallengeSnapshotSchema, admissionIssuanceDenialSchema]);
 /** Local verification provides an opaque proof with its original application deadline. */
 export const admissionVerifiedContactSchema = z.object({ purpose: z.literal(ADMISSION_VERIFICATION_PURPOSE.admission), result: z.literal(MESSAGING_VERIFICATION_RESULT), proofId: z.uuid(), applyBefore: z.iso.datetime({ offset: true }) });
 /** A denied attempt remains committed so recovery cannot repeat its failure accounting. */

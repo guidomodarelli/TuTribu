@@ -14,7 +14,7 @@ export function admissionOperationFailure(error: unknown) {
     ok: false as const,
     failure: admissionFailure(error instanceof AdmissionOperationError ? error.code : ADMISSION_ERROR_CODE.unexpectedFailure, {
       cause: error,
-      ...(error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.operationUnresolved && error.operationId ? { operation: { operationId: error.operationId, state: OPERATION_STATE.started } } : {}),
+      ...(error instanceof AdmissionOperationError && error.operationId && (error.code === ADMISSION_ERROR_CODE.operationUnresolved || error.operationState === OPERATION_STATE.completed) ? { operation: { operationId: error.operationId, state: error.operationState ?? OPERATION_STATE.started } } : {}),
     }),
   };
 }

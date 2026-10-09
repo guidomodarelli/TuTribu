@@ -22,6 +22,16 @@ function routeFixture() {
 }
 
 describe("admission contact verification routes", () => {
+  it("should expose a confirmed issuance rejection with its completed original and no private cause", async () => {
+    const fixture = routeFixture();
+    fixture.issue.mockResolvedValueOnce({ ok: false, failure: { code: "recipient_not_allowed", operation: { operationId: fixture.operationId, state: "completed" }, cause: new Error("Private native diagnostic") } });
+    const response = await fixture.handlers.issue(fixture.request(fixture.body), { params: Promise.resolve({ slug: "synthetic-academy" }) });
+    expect(response.status).toBe(422);
+    const result = await response.json();
+    expect(result).toMatchObject({ code: "recipient_not_allowed", message: "La academia no tiene habilitado el país de ese teléfono.", operation: { operationId: fixture.operationId, state: "completed" } });
+    expect(result).not.toHaveProperty("cause");
+  });
+
   it("should issue only the confirmed own input, mask the destination and preserve registered progress", async () => {
     const fixture = routeFixture(), context = { params: Promise.resolve({ slug: "synthetic-academy" }) };
     const response = await fixture.handlers.issue(fixture.request(fixture.body), context);

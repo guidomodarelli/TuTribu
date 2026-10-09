@@ -11,7 +11,7 @@ import type { messageDeliverySchema } from "@/src/modules/messaging/application/
 import { admissionContactApiClient } from "@/lib/academy-admissions/admission-contact-api-client";
 import { readAdmissionContactIntent, writeAdmissionContactIntent, type AdmissionContactIntent, type AdmissionContactPending } from "@/lib/academy-admissions/admission-contact-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
-import { admissionChallengeSnapshotSchema, admissionChallengeVerificationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-contact-verification-schemas";
+import { admissionChallengeSnapshotSchema, admissionIssuanceDenialSchema, admissionChallengeVerificationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-contact-verification-schemas";
 import { admissionProofApplicationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-proof-application-schemas";
 import { ADMISSION_CONTACT_ACTION, ADMISSION_CONTACT_ISSUED_REFERENCE, ADMISSION_CONTACT_PHASE, ADMISSION_CONTACT_COPY, ADMISSION_CONTACT_BROWSER_STATUS, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS, ADMISSION_CONTACT_CLOCK_INTERVAL_MS } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { ADMISSION_PUBLIC_CODE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-public-contract";
@@ -80,6 +80,8 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
     if (intent.kind === ADMISSION_CONTACT_ISSUED_REFERENCE ? original.type !== VERIFICATION_ISSUANCE_OPERATION.issue && original.type !== VERIFICATION_ISSUANCE_OPERATION.resend || original.state !== OPERATION_STATE.completed : original.type !== expectedType) throw new Error(ADMISSION_ERROR_CODE.publicContractUnusable);
     if (original.state === OPERATION_STATE.started) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.started); return; }
     if (intent.kind === ADMISSION_CONTACT_ISSUED_REFERENCE || intent.kind === ADMISSION_CONTACT_ACTION.issue || intent.kind === ADMISSION_CONTACT_ACTION.resend || intent.kind === ADMISSION_CONTACT_ACTION.sms) {
+      const denial = admissionIssuanceDenialSchema.safeParse(original.result);
+      if (denial.success) { if (!save({ pending: null })) return; setErrorMessage(ADMISSION_ERROR_MESSAGE[denial.data.code]); setPhase(ADMISSION_CONTACT_PHASE.idle); return; }
       const parsed = admissionChallengeSnapshotSchema.safeParse(original.result);
       if (!parsed.success || intent.kind === ADMISSION_CONTACT_ACTION.sms && parsed.data.channel !== MESSAGING_PUBLIC_CHANNEL.sms) throw new Error(ADMISSION_ERROR_CODE.publicContractUnusable);
       if (!save({ pending: null, issuedOperationId: original.operationId, verifiedOperationId: null })) return;

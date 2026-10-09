@@ -16,6 +16,12 @@ function recoveryFixture() {
 }
 
 describe("original admission operation read", () => {
+  it.each(["issue_contact_challenge", "resend_contact_challenge"])("should recover a confirmed %s rejection without a challenge or private fields", async (operationType) => {
+    const fixture = recoveryFixture();
+    fixture.reader.read.mockResolvedValue({ operationType, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: { purpose: "admission", result: "denied", code: "recipient_not_allowed", destination: "private@example.test", credential: "private" } } });
+    expect(await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query)).toEqual({ ok: true, value: { type: operationType, state: "completed", operationId: fixture.query.operationId, replayed: true, result: { purpose: "admission", result: "denied", code: "recipient_not_allowed" } } });
+  });
+
   it.each(["applied", "denied"])("should recover the original proof attachment outcome: %s", async (outcome) => {
     const fixture = recoveryFixture();
     const snapshot = outcome === "applied" ? { outcome, requestId: randomUUID(), requestVersion: 2, status: "pending", proofId: randomUUID() } : { outcome, code: "proof_unavailable" };
