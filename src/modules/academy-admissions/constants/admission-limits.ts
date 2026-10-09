@@ -26,6 +26,8 @@ export const ADMISSION_LIMIT = {
   csvDataRowCount: 10_000,
   /** Five MiB, enforced independently of the ten-thousand-row ceiling. */
   csvByteCount: 5_242_880,
+  /** Temporary file/report references never survive beyond twenty-four hours. */
+  csvRetentionMs: DAY_MS,
   displayNameCharacters: 100,
   internalMessageCharacters: 500,
   externalMessageCharacters: 200,

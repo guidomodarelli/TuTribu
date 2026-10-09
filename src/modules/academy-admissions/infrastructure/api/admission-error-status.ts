@@ -12,6 +12,7 @@ export const ADMISSION_ERROR_HTTP_STATUS = {
   [ADMISSION_ERROR_CODE.requestConflict]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.idempotencyConflict]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.allowlistConflict]: HTTP_STATUS.conflict,
+  [ADMISSION_ERROR_CODE.allowlistImportConflict]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.invitationConflict]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.usagePolicyConflict]: HTTP_STATUS.conflict,
   [ADMISSION_ERROR_CODE.connectionConflict]: HTTP_STATUS.conflict,
