@@ -24,6 +24,20 @@ function recoveryFixture() {
 }
 
 describe("contact original recovery regressions", () => {
+  it("should recover a confirmed issuance rejection without creating another code or retaining uncertainty", async () => {
+    const fixture = recoveryFixture(), operationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue", operationId } });
+    vi.mocked(fixture.client.operation).mockResolvedValue({ status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: { purpose: "admission", result: "denied", code: "recipient_not_allowed" } } });
+    const { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.phase).toBe("idle");
+    expect(result.current.pending).toBeNull();
+    expect(result.current.challenge).toBeNull();
+    expect(result.current.errorMessage).toMatch(/país|teléfono/i);
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    expect(fixture.client.delivery).not.toHaveBeenCalled();
+  });
+
   it("should restore a confirmed resend namespace and its replacement without another write", async () => {
     const fixture = recoveryFixture(), operationId = randomUUID();
     writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId: operationId, verifiedOperationId: null, pending: null });

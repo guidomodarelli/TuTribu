@@ -44,7 +44,7 @@ export class ContactVerificationUseCases{
 
   /** @param operationId - Exact original client identity. @param error - Actual private owner failure. @returns Only progress bound to that original, preserving private causes on a crossed identity. */
   private failure(operationId:string,error:unknown){
-    if(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved&&error.operationId&&error.operationId!==operationId)return admissionOperationFailure(new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable,{cause:error}));
+    if(error instanceof AdmissionOperationError&&(error.code===ADMISSION_ERROR_CODE.operationUnresolved||error.operationState===OPERATION_STATE.completed)&&error.operationId&&error.operationId!==operationId)return admissionOperationFailure(new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable,{cause:error}));
     return admissionOperationFailure(error);
   }
 

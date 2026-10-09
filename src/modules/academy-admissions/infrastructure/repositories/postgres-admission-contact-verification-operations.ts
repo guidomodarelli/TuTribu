@@ -17,7 +17,7 @@ import {PostgresContactVerificationRepository} from "./postgres-contact-verifica
 import {PostgresMessagingContactBudgetRepository} from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository";
 import {PostgresVerificationRequestBudget} from "@/src/modules/messaging/infrastructure/repositories/postgres-verification-request-budget";
 import {PostgresVerificationFailureBudget} from "@/src/modules/messaging/infrastructure/repositories/postgres-verification-failure-budget";
-import {admissionChallengeSnapshotSchema,admissionChallengeVerificationSnapshotSchema} from "../../application/results/admission-contact-verification-schemas";
+import {admissionIssuanceSnapshotSchema,admissionChallengeVerificationSnapshotSchema} from "../../application/results/admission-contact-verification-schemas";
 import {admissionProofApplicationSnapshotSchema} from "../../application/results/admission-proof-application-schemas";
 import {PostgresAdmissionVerificationProofWriter} from "./postgres-admission-verification-proof-writer";
 import {ADMISSION_PROOF_OPERATION} from "../../constants/admission-proof";
@@ -29,7 +29,7 @@ import {ADMISSION_CONTACT_TYPE} from "../../constants/admission-contact";
 import {ADMISSION_CONTACT_MASK,ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH} from "../../constants/admission-contact-presentation";
 import {OPERATION_STATE} from "@/src/constants/operation-state";
 import {ADMISSION_REQUEST_SOURCE,ADMISSION_REQUEST_STATUS} from "../../constants/admission-request";
-import {ADMISSION_CONTACT_VERIFICATION_OPERATION,ADMISSION_CONTACT_VERIFICATION_DENIAL_CODE} from "../../constants/admission-contact-verification";
+import {ADMISSION_CONTACT_VERIFICATION_OPERATION,ADMISSION_CONTACT_VERIFICATION_DENIAL_CODE,ADMISSION_ISSUANCE_EFFECT_SQL} from "../../constants/admission-contact-verification";
 import {VERIFICATION_ISSUANCE_OPERATION,VERIFICATION_ISSUANCE_OUTCOME} from "../../constants/verification-issuance";
 import {VERIFICATION_TRANSITION_OUTCOME,VERIFICATION_CHALLENGE_REASON} from "../../constants/verification-challenge";
 import {ADMISSION_LIMIT} from "../../constants/admission-limits";
@@ -122,18 +122,28 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
 
   /** @param database - Original operation transaction. @param context - Native actor. @param scope - Actual current policy/resource/contact. @param operationId - Original client UUID. @param ledgerId - Already committed claim identity. @param previous - Exact original challenge for explicit replacement only. @returns Minimal public issuance after shared budgets and private outbox commit together. */
   private async issueInside(database:RequestDatabase,context:AdmissionVerificationAccountScope&{admissionRequestId?:string|null},scope:VerificationChallengeScope,operationId:string,ledgerId:string,previous:string|null){
+    await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.begin));
     const nativeOwns=this.ownsScope(database,context,scope),owns=async(current:RequestDatabase,candidate:VerificationChallengeScope)=>{if(!await nativeOwns(current,candidate))return false;if(context.admissionRequestId)await this.assertPendingIssuance(current,context,context.admissionRequestId,scope.contact);return true;},contacts=new PostgresMessagingContactBudgetRepository(database,(current)=>owns(current,scope),this.readSecurityConfig),budget=new PostgresVerificationRequestBudget(database,(current,command)=>owns(current,command.scope),contacts),result=await new PostgresContactVerificationIssuer(database,owns,this.readSecurityConfig,budget).issue({scope,operationId,ledgerId,expectedCurrentChallengeId:previous});
-    if(result.outcome!==VERIFICATION_ISSUANCE_OUTCOME.issued)throw new AdmissionOperationError(result.code);
+    if(result.outcome!==VERIFICATION_ISSUANCE_OUTCOME.issued){await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.rollback));await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.release));return{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,result:VERIFICATION_TRANSITION_OUTCOME.denied,code:result.code};}
+    await database.execute(sql.raw(ADMISSION_ISSUANCE_EFFECT_SQL.release));
     const maskedDestination=scope.contact.type===ADMISSION_CONTACT_TYPE.phone?`${ADMISSION_CONTACT_MASK}${scope.contact.value.slice(-ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH)}`:`${Array.from(scope.contact.value)[0]??""}${ADMISSION_CONTACT_MASK}@${scope.contact.value.split("@").at(-1)??""}`;
     return{challengeId:result.challengeId,deliveryId:result.deliveryId,purpose:ADMISSION_VERIFICATION_PURPOSE.admission,channel:scope.channel,maskedDestination,expiresAt:result.expiresAt.toISOString(),resendAllowedAt:result.resendAllowedAt.toISOString(),deliveryState:MESSAGE_DELIVERY_STATE.queued};
   }
 
+  /** @param original - Guarded actual ledger snapshot after commit/read. @returns Only a granted challenge or registered progress. @throws A completed own denial with its original identity, without fabricating a challenge or dispatch. */
+  private issuanceResult(original:AdmissionOperationResult<z.infer<typeof admissionIssuanceSnapshotSchema>>){
+    if(original.state===OPERATION_STATE.started)return original;
+    const snapshot=original.result;
+    if("code"in snapshot)throw new AdmissionOperationError(snapshot.code,{operationId:original.operationId,operationState:OPERATION_STATE.completed});
+    return{...original,result:snapshot};
+  }
+
   /** @param input - Native confirmed common-flow proposal. @returns Original issuance or registered progress; OFF rejects before a new claim and a replay precedes current policy CAS. */
   async issue(input:AdmissionChallengeIssuanceIntent){
-    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.issue,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,expectedPolicyVersion:input.expectedPolicyVersion,contact:input.contact,channel:input.channel,admissionRequestId:input.admissionRequestId,source:input.source,confirmed:input.confirmed}},ledger=this.ledger(input),original=await ledger.read(command,admissionChallengeSnapshotSchema);
-    if(original?.state===OPERATION_STATE.completed)return original;
+    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.issue,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,expectedPolicyVersion:input.expectedPolicyVersion,contact:input.contact,channel:input.channel,admissionRequestId:input.admissionRequestId,source:input.source,confirmed:input.confirmed}},ledger=this.ledger(input),original=await ledger.read(command,admissionIssuanceSnapshotSchema);
+    if(original?.state===OPERATION_STATE.completed)return this.issuanceResult(original);
     if(!original)await this.execute(input,(database)=>this.issuanceScope(database,input));
-    return this.run(ledger,command,admissionChallengeSnapshotSchema,async(database,ledgerId)=>this.issueInside(database,input,await this.issuanceScope(database,input),input.operationId,ledgerId,null));
+    return this.issuanceResult(await this.run(ledger,command,admissionIssuanceSnapshotSchema,async(database,ledgerId)=>this.issueInside(database,input,await this.issuanceScope(database,input),input.operationId,ledgerId,null)));
   }
 
   /** @param input - Original own challenge and exact code intent. @returns Local proof or committed denial/failure accounting independently of provider, country or send quota. */
@@ -156,13 +166,13 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
 
   /** @param input - Original own challenge and explicit permitted alternative. @returns New committed issuance, preserving recipient and all shared budgets. */
   async resend(input:AdmissionChallengeResendIntent){
-    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.resend,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,challengeId:input.challengeId,useSmsAlternative:input.useSmsAlternative??false}},ledger=this.ledger(input),original=await ledger.read(command,admissionChallengeSnapshotSchema);
-    if(original?.state===OPERATION_STATE.completed)return original;
-    return this.run(ledger,command,admissionChallengeSnapshotSchema,async(database,ledgerId)=>{
+    const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.resend,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,challengeId:input.challengeId,useSmsAlternative:input.useSmsAlternative??false}},ledger=this.ledger(input),original=await ledger.read(command,admissionIssuanceSnapshotSchema);
+    if(original?.state===OPERATION_STATE.completed)return this.issuanceResult(original);
+    return this.issuanceResult(await this.run(ledger,command,admissionIssuanceSnapshotSchema,async(database,ledgerId)=>{
       const scope=await this.challengeScope(database,input,input.challengeId),policy=await this.policy(database,input,true);
       if(input.useSmsAlternative){if(scope.contact.type!==ADMISSION_CONTACT_TYPE.phone||scope.channel!==MESSAGING_PUBLIC_CHANNEL.whatsapp||!policy.allowSmsAlternative)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);scope.channel=MESSAGING_PUBLIC_CHANNEL.sms;}
       return this.issueInside(database,input,scope,input.operationId,ledgerId,input.challengeId);
-    });
+    }));
   }
 
   /** @param database - Original authorized transaction. @param input - Native identity and opaque own proof reference. @returns Immutable contact/resource scope from the proof origin, never from caller contact or connection fields. */

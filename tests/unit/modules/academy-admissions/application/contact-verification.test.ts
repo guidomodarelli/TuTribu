@@ -20,6 +20,17 @@ function verificationFixture(){
 }
 
 describe("admission contact verification orchestration",()=>{
+  it("should preserve a completed own issuance rejection and reject completion metadata from another UUID",async()=>{
+    const fixture=verificationFixture();
+    fixture.operations.issue.mockRejectedValueOnce(new AdmissionOperationError(ADMISSION_ERROR_CODE.recipientNotAllowed,{operationId:fixture.input.operationId,operationState:"completed"}));
+    expect(await fixture.useCases.issue(fixture.input)).toMatchObject({ok:false,failure:{code:"recipient_not_allowed",operation:{operationId:fixture.input.operationId,state:"completed"}}});
+    fixture.operations.issue.mockRejectedValueOnce(new AdmissionOperationError(ADMISSION_ERROR_CODE.recipientNotAllowed,{operationId:randomUUID(),operationState:"completed"}));
+    const crossed=await fixture.useCases.issue(fixture.input);
+    expect(crossed).toMatchObject({ok:false,failure:{code:"public_contract_unusable"}});
+    if(!crossed.ok)expect(crossed.failure.operation).toBeUndefined();
+    expect(fixture.dispatcher.dispatch).not.toHaveBeenCalled();
+  });
+
   it("should derive the current email and account before committing an explicit issuance and dispatch only its exact challenge",async()=>{
     const fixture=verificationFixture(),foreignId=randomUUID();
     const input={...fixture.input,email:"foreign@example.test",userId:foreignId,verified:true,apiKey:randomUUID(),connectionId:randomUUID(),purpose:"connection_diagnostic"};

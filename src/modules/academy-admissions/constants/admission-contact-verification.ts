@@ -3,6 +3,8 @@ import {VERIFICATION_CHALLENGE_REASON} from "./verification-challenge";
 import {ADMISSION_ERROR_CODE} from "./admission-errors";
 /** Keeps code validation separate from both diagnostic confirmation and proof attachment. */
 export const ADMISSION_CONTACT_VERIFICATION_OPERATION="verify_contact_challenge";
+/** Keeps a known rejection from retaining partial issuer writes while its outer original ledger completes. */
+export const ADMISSION_ISSUANCE_EFFECT_SQL={begin:"SAVEPOINT admission_issuance_effect",rollback:"ROLLBACK TO SAVEPOINT admission_issuance_effect",release:"RELEASE SAVEPOINT admission_issuance_effect"}as const;
 /** Maps only domain reasons; raw provider messages or storage payloads never select user copy. */
 export const ADMISSION_CONTACT_VERIFICATION_DENIAL_CODE={
   [VERIFICATION_CHALLENGE_REASON.scopeMismatch]:ADMISSION_ERROR_CODE.challengeInvalidated,
