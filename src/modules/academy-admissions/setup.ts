@@ -70,6 +70,7 @@ import { GetAdmissionPolicyPageUseCase } from "./application/use-cases/get-admis
 import { ManageAllowlistUseCases } from "./application/use-cases/manage-allowlist-use-cases";
 import { PostgresAllowlistReader } from "./infrastructure/repositories/postgres-allowlist-reader";
 import { PostgresAllowlistRepository } from "./infrastructure/repositories/postgres-allowlist-repository";
+import { GetAllowlistPageUseCase } from "./application/use-cases/get-allowlist-page-use-case";
 
 /** @param database - Original guarded owner transaction. @returns A protected receipt-scoped resolution port, without another database checkout or provider call. */
 export function createPaidAdmissionResolutionWriter(database: RequestDatabase): AdmissionExternalResolutionWriter {
@@ -110,7 +111,8 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         if (!account || account.userId !== context.userId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
         return dependencies.execute(account, run);
       };
-      return { useCases: new ManageAllowlistUseCases(resolveContext, new PostgresAllowlistReader(execute), new PostgresAllowlistRepository(execute, options.readSecurityConfig)) };
+      const useCases = new ManageAllowlistUseCases(resolveContext, new PostgresAllowlistReader(execute), new PostgresAllowlistRepository(execute, options.readSecurityConfig));
+      return { useCases, createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, policy: Pick<GetAdmissionPolicyUseCase, "execute">) { return new GetAllowlistPageUseCase(dependencies.accounts, { allowlist: useCases, policy, resolveTribe }, dependencies.clock); } };
     },
     /** @param options - Live private security and an explicit focal launch factory consuming native challenge resolution. @returns Applicant verification with current account checks on every checkout, without caller-selected worker privileges. */
     createContactVerificationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; createDispatcher: (resolve: (intent: AdmissionChallengeDispatchIntent) => Promise<ResolvedAdmissionChallengeDispatch>) => AdmissionContactChallengeDispatcher }) {
