@@ -1,6 +1,6 @@
 /** Exercises the actual route container and shared UI with own transport ports; ordinary success uses incremental state, not route refresh. @module academy-admission-contact-container-tests */
 import { randomUUID } from "node:crypto";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdmissionContainer } from "@/app/(admission)/admissions/[slug]/admission-container";
@@ -33,6 +33,19 @@ function containerFixture() {
 }
 
 describe("applicant contact step in the route", () => {
+  it("should disable contact consent until the current viewer and reference restoration are ready", async () => {
+    const fixture = containerFixture();
+    let finishViewer!: () => void;
+    vi.mocked(fixture.client.viewer).mockImplementationOnce(() => new Promise((resolve) => { finishViewer = () => resolve({ status: "ready", value: { id: fixture.viewerId } }); }));
+    render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
+    expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeDisabled();
+    await waitFor(() => expect(fixture.client.viewer).toHaveBeenCalledTimes(1));
+    expect(fixture.contact.issue).not.toHaveBeenCalled();
+    await act(async () => { finishViewer(); });
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeEnabled());
+    expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).not.toBeChecked();
+  });
+
   it.each(["anonymous", "disabled"] as const)("should omit contact actions and requests for %s scope", async (scope) => {
     const fixture = containerFixture();
     const initialState = scope === "anonymous" ? { ...fixture.initialState, viewerId: null, overview: { ...fixture.initialState.overview, state: "sign_in_required" as const, nextAction: "sign_in" as const, verification: undefined } } : { ...fixture.initialState, overview: { ...fixture.initialState.overview, policy: { ...fixture.initialState.overview.policy!, requiresAdditionalVerification: false }, state: "available" as const, nextAction: "request_admission" as const, verification: undefined } };
