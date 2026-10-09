@@ -7,7 +7,7 @@ import type { AllowlistImportInputRow } from "../../domain/entities/allowlist-im
 
 /** @param input - Original UTF-8 bytes or browser-upload text. @returns Logical records preserving all field data for row validation. @throws AdmissionOperationError for a global encoding, format, header or product-limit failure without raw file contents. */
 export function parseAllowlistCsv(input: string | Uint8Array): AllowlistImportInputRow[] {
-  if (typeof input === "string" && (!input.isWellFormed() || input.length > ADMISSION_LIMIT.csvByteCount)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+  if (typeof input === "string" && (input.length > ADMISSION_LIMIT.csvByteCount || new TextDecoder(ALLOWLIST_CSV_ENCODING, { fatal: true, ignoreBOM: true }).decode(new TextEncoder().encode(input)) !== input)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
   const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
   if (bytes.byteLength > ADMISSION_LIMIT.csvByteCount) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
   let text: string;

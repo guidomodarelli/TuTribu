@@ -1,0 +1,45 @@
+# Interfaz de importación CSV
+
+T118 permanece pendiente hasta terminar la matriz nativa, la documentación y los checks finales. El incremento conecta una pantalla alcanzable desde la lista de habilitados, SSR de política vigente, container/presenter, archivo local, selección explícita y recuperación original/current. No completa matching automático, el worker de purga ni los alcances todavía pendientes de US3.
+
+El segmento nuevo tiene loading/Suspense propios. Reutiliza el loader autorizado de política y proyecta sólo cuenta, academia, tipo, versión positiva y reloj, sin sesión/conexión/uso ni fetch duplicado para hidratar. Seleccionar un archivo comprueba UTF-8/gramática/límites mediante FileReader y parser reales, sin POST. Preview y confirmación exigen pasos y recencia distintos. El presenter usa controles beez-ui reales, BEM/SCSS, grupos de cincuenta filas y selección individual; HTML y fórmulas son texto.
+
+La selección para retomar elimina únicamente filas inválidas o con resultado, conservando los intents anteriores y sus resultados confirmados. Una respuesta incierta se consulta por GET; no hay POST en montaje ni reenvío automático. Reanudar genera una operación nueva sólo para pendientes elegidas. La conciliación de una original anterior exige consultarla y comprobar outcomes de todas sus filas antes de la acción explícita; usa su intent original sin volver a agregar entradas.
+
+## Evidencia local
+
+- Adapter inicial: tres casos en rojo por implementación pendiente; después, seis verdes incluyendo regresión del adapter de lista. Propios DTO/transport reales, doubles sólo en fetch/puertos del proyecto.
+- Hook inicial: cuatro casos de comportamiento en rojo. Dos regresiones adicionales reprodujeron selección que incluía una fila ya confirmada y readiness que se reabría tras perder liderazgo; ambas corregidas y seis casos verdes.
+- Presenter inicial: tres casos en rojo; luego controles compartidos reales verdes, HTML inerte, inválidas deshabilitadas, confirmación explícita y contactos ocultos al perder acceso.
+- FileReader: tres casos verdes con bytes reales, comillas/multilínea, fórmula/HTML inertes, encoding/formato/columnas inválidos, exceso de bytes y cancelación.
+- SSR: dos casos verdes con resolver/use cases reales. La fixture inicial usó un nombre de factory inexistente; se corrigió a `createDefaultAdmissionPolicy`. El reader legítimamente se consulta dos veces para comparar configuración antes/después de facts; no equivale a duplicar la carga del browser.
+- Cinco suites posteriores: 29 casos verdes, tipos de producto/tests y lint verdes.
+- Build inicial: 44 s, TypeScript 8,8 s y 48 páginas. Build con fixes de revisión: 24,9 s, TypeScript 5,4 s y 48 páginas.
+- Ronda local conjunta posterior: ocho suites/34 casos verdes, tipos/lint verdes, 17,08 s. Fence final de viewer: tres suites/nueve casos verdes, tipos/lint verdes, 11,55 s. La matriz nativa y el CI final se completan antes de cerrar T118.
+- CI final exit 0: lint y tipos de producto/tests verdes; 432 suites/4.428 casos aprobados en 561,52 s, 114 suites/429 casos gated no seleccionados; build y sus tipos verdes, 48 páginas. Se espera la finalización de ese proceso antes de abrir los Next nativos del último grupo y de restauración.
+
+## Revisión y correcciones
+
+Primera revisión read-only: tres P2, target de 21 archivos estables, hash `2A48D206A065617C3933DC574CC13E383E9873D3FBC9C70E60B3A4FEFC4AC8A3`.
+
+1. Un original completed dependía de que todavía existieran sus filas temporales y podía quedar bloqueado como incierto. Regresión roja y verde: el resultado terminal se reconoce antes de consultar el recurso; ausencia y fallo de consulta actual se muestran por separado, conservando seguridad y sin redispatch.
+2. CSV de 5 MiB más JSON no cabe de forma fiable en la cuota habitual de sessionStorage. El archivo pasa a IndexedDB nativo por referencia/cuenta/academia/plazo, y sessionStorage conserva sólo metadata y referencias. Carga, reemplazo y eliminación usan un puerto propio; el mantenimiento local elimina vencidos al guardar. El límite de producto no se reduce. La validación nativa incluye exactamente 5 MiB y restauración en cada motor de escritorio. Referencia de [cuotas de Web Storage](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria#web_storage) y [transacciones IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB).
+3. El timeout inicial sólo abortaba y dejaba la pantalla deshabilitada sin feedback. Regresión roja y verde: timeout activo produce error y reintento explícito; desmontar cancela silenciosamente. El caso de retry comprueba readiness recuperada, feedback anterior limpio y cero POST.
+
+Revisión del target con fixes: 29 archivos estables, hash `1D2FED5633462DBF3046D00B60A6D39001493601C27B30E054CE26F13A8B5712`. Los tres P2 anteriores corregidos; se detectó un P2 adicional en la restauración asíncrona del archivo: la cuenta podía cambiar durante IndexedDB antes de publicar el draft. Regresión roja/verde con puerto propio diferido y sin importId; el viewer se revalida antes de publicar. Revisión de ese delta: cero hallazgos, dos archivos estables, hash `A03B1105788777089FCE72AB4353BB93D652239497D92B0BF27894D12529B080`.
+
+Revisión documental: un P3 por descripción obsoleta de pantalla pendiente en el índice; se corrige la descripción. Los otros párrafos/enlaces y las veinte capturas preservadas son coherentes. Target de cinco archivos estable, hash `7F3AD861010D3100EF4BF067B085466B254F35DA6C6797DECBC2FBCB88BF1A27`.
+
+Revisión final del índice, selector/grupos y prueba nativa de restauración: cero hallazgos, tres archivos estables, hash `3B978765F8E6E41F9D8E27ECAC16A535B7DBB13BC97E8127185C9B2058469AA6`. Las assertions de consentimiento y cero POST permanecen; grupos desconocidos fallan explícitamente. Manual con veinticinco capturas: check-manual cero errores/dos advertencias conocidas y veinticuatro renders Chromium/WebKit 1280/390 sin errores. Una primera validación detectó dos listas de pasos directamente después de la captura previa; se agregó la transición explicativa y se repitió en verde, sin cambiar los pasos ni capturas.
+
+## Matriz nativa
+
+Primera ejecución: rama efímera propia `br-floral-queen-anbpidsx`, 415,30 s. Llegó a preview con respuesta perdida, GET de recuperación, veinticinco commits, rollback posterior y pending-only resume. Terminó roja por un locator estricto que encontró el mismo texto en status y toast. Se limita el locator al presenter sin cambiar las assertions de producto. No acredita todavía los cuatro motores/tamaños ni el cierre de la tarea.
+
+La ejecución final usa Next, cookies Better Auth firmadas, HMAC, migraciones y PostgreSQL reales exclusivamente en una rama efímera propia. Cubre Chromium/WebKit a 1280/390, dos CSV de exactamente cinco MiB con metadata pequeña y restauración explícita, preview sin cambios de lista, fila inválida deshabilitada, datos inertes, respuesta perdida sin otro POST, rollback de bloque y retomada/conciliación sin repetir éxitos, descargas privadas, cero bindings y ausencia de refresh después de mutar. El reload de capacidad es una acción explícita del test, separada de las mutaciones.
+
+Ronda con IndexedDB: 1.443,88 s en la rama propia `br-snowy-wind-an4y43tg`; Chromium 1280/390 y WebKit 1280 completaron todas sus assertions. Se comprobaron los dos archivos de cinco MiB, respuesta perdida y parcial/resume/conciliación con treinta filas. WebKit 390 llegó a preview y recuperación y terminó rojo por un selector de texto global que también encontraba spans de la lista anterior conservada por Instant Navigation. Se acota ese locator al presenter. Los efectos/contadores no se cambian; la matriz puede seleccionar un grupo explícito conocido y deriva el contador del trabajo realmente completado. Se repite ese grupo con el build final, junto a restauración real en los cuatro grupos tras el fence de cuenta.
+
+La observación read-only acotada de PostgreSQL sobre la rama viva comprobó tres imports completados, dos previews de capacidad, treinta y cuatro filas added, tres skipped y nueve operaciones completed. No publicó contactos, actor/sesión, claves o conexión. La sesión seguía vigente. Esta observación explicó el avance real y no sustituyó el resultado terminal de la prueba.
+
+No se aplican migraciones a default/producción ni se envían mensajes reales de proveedor. Las capturas de la aplicación se incorporarán al manual sólo cuando existan todos los estados finales; se conservarán las veinte anteriores. La arquitectura/changelog y los manuales deben quedar coherentes con las funciones comprobadas antes de marcar T118.
