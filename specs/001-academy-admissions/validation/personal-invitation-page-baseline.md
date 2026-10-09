@@ -1,0 +1,17 @@
+# Página nominativa — composición SSR
+
+Incremento sobre `55eda589`. No completa T129 ni cambia sus dependencias, tareas o gates. Se prepara el estado SSR y su composición; la página navegable, el container, la confirmación y el paso local siguen pendientes.
+
+`GetPersonalInvitationPageUseCase` conserva una sola lectura inicial por el preview existente. Relee cuenta y sesión nativas después de la espera y rechaza cambios de usuario, sesión, correo, cierre de sesión o vencimiento. La visita anónima conserva la proyección genérica. El DTO propio entrega solamente preview seguro, referencia de usuario para el scope del navegador y reloj determinista; no incluye token, destinatario, correo de cuenta, sesión ni credenciales.
+
+`loadPersonalInvitationPageState` valida params/query una vez antes de abrir la composición. No acepta proof, cuenta o permiso mediante query. Sus fallos públicos usan el catálogo seguro y sus diagnósticos una operación fija, sin URL/token ni causa privada. La factory de lectura expone preview y page, sin writer ni issuer.
+
+Validación inicial: 22 casos del estado SSR y del preview existentes pasaron en 6,55 s. Los fixtures usan dobles de puertos propios y ejercen Zod real; no reemplazan librerías de plataforma. El chequeo de tipos de tests señaló un extra field de fixture y lint un identificador reservado por Next; ambos se corrigieron.
+
+La revisión encontró una carrera entre el wrapper y el preview que relee su propia identidad. El argumento trusted `expectedAccount`, separado de params/query/DTO, liga la lectura efectiva a la identidad inicial del loader y rechaza antes de consultar hechos privados. Se conserva el failure original con su cause privada. El schema estático queda en constants con union explícita y `satisfies`; el mensaje de failure debe coincidir con el catálogo. La regresión con preview real falla al retirar el binding y pasa con él. Los 24 casos finales pasaron en 965 ms, ambos chequeos de tipos y lint verdes. La documentación completó 24 renders Chromium/WebKit a 1280/390 sin errores. El rerun final de revisión se registra antes del commit.
+
+Revisión final del incremento SSR/browser: cero hallazgos accionables, 25 hashes estables; manifest `47E26E538F12DFFCD35588C6D8DBA22D051FDF9E0D373172E406A39C72E5F779`. La regresión SQL nativa de preview pasó un caso en 109,92 s sobre rama Neon propia, con limpieza por el helper real. CI completa exit 0: 444 suites/4.527 casos verdes en 660,79 s; 148 suites/472 casos conservan sus gates y no acreditan SQL/UI omitidos. Lint y tipos producto/tests verdes; build compiló en 13,1 s, TypeScript 2,6 s y 48 páginas en 2,1 s. Los 25 hashes del snapshot CI permanecieron idénticos hasta el resultado terminal. La documentación final completó otros 24 renders Chromium/WebKit 1280/390 sin errores.
+
+Después de esa CI se mueve únicamente el schema de referencias de contacto de lib a constants y se corrige una frase de la documentación sobre el root read-only. La comprobación focal y build se repiten sobre ese delta, sin atribuirle la CI del snapshot anterior: 47 casos/6 suites verdes en 10,77 s, tipos producto/tests y lint verdes; build 18,8 s, TypeScript 5,2 s y 48 páginas en 1,866 s. Revisión focal final con cero hallazgos accionables, cinco hashes estables, manifest `493954FE9F890FD40E752041735D8FBB83BB4FD87D71C8F446EA0A96979762EC`. El registro terminal de esa evidencia sólo actualiza estos baselines.
+
+No cambia un recorrido disponible para usuarios ni requiere capturas nuevas. El manual continúa señalando que falta la pantalla de canje.

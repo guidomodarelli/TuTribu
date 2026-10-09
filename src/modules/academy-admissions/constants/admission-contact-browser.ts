@@ -4,6 +4,10 @@ export const ADMISSION_CONTACT_BROWSER_PATH = { prefix: "/api/tribes", segment: 
 export const ADMISSION_CONTACT_BROWSER_STATUS = { ready: "ready", failed: "failed", aborted: "aborted" } as const;
 /** Browser storage contains references only and is scoped to the actual viewer/tribe/optional pending. */
 export const ADMISSION_CONTACT_STORAGE_PREFIX = "tutribu-admission-contact-intent";
+/** Distinguishes personal contact references from ordinary applicant drafts without storing the link token. */
+export const ADMISSION_PERSONAL_CONTACT_STORAGE_PREFIX = "tutribu-personal-admission-contact-intent";
+/** A non-recoverable SHA-256 route scope identifies the original personal proposal in this browser only. */
+export const ADMISSION_PERSONAL_CONTACT_SCOPE_PATTERN = /^[a-f0-9]{64}$/;
 /** Each pending reference identifies the exact original namespace, never server-accepted progress. */
 export const ADMISSION_CONTACT_ACTION = { issue: "issue", verify: "verify", resend: "resend", sms: "sms", apply: "apply" } as const;
 /** A completed issuance reference restores either original issue or resend by its guarded actual namespace. */

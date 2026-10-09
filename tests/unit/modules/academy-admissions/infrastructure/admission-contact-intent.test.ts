@@ -6,6 +6,18 @@ import { readAdmissionContactIntent, writeAdmissionContactIntent, admissionConta
 afterEach(() => window.sessionStorage.clear());
 
 describe("own contact operation references", () => {
+  it("should isolate personal references from common admission and from another personal proposal", () => {
+    const viewerId = randomUUID(), slug = "synthetic-academy", personalScope = "a".repeat(64);
+    const record = { viewerId, slug, requestId: null, issuedOperationId: randomUUID(), verifiedOperationId: null, pending: null, personalScope };
+    writeAdmissionContactIntent(record);
+    expect(readAdmissionContactIntent(viewerId, slug, null, personalScope)).toEqual(record);
+    expect(readAdmissionContactIntent(viewerId, slug, null)).toBeNull();
+    expect(readAdmissionContactIntent(viewerId, slug, null, "b".repeat(64))).toBeNull();
+    const raw = window.sessionStorage.getItem(admissionContactIntentKey(viewerId, slug, null, personalScope));
+    expect(raw).not.toContain("invitationToken");
+    expect(raw).not.toContain("confirmed");
+  });
+
   it("should preserve original operation references per viewer, tribe and optional pending without restoring consent", () => {
     const viewerId = randomUUID(), slug = "synthetic-academy", requestId = randomUUID(), operationId = randomUUID();
     const record = { viewerId, slug, requestId, issuedOperationId: operationId, verifiedOperationId: null, pending: { kind: "verify" as const, operationId: randomUUID(), challengeId: randomUUID() } };
@@ -17,7 +29,7 @@ describe("own contact operation references", () => {
     expect(readAdmissionContactIntent(viewerId, slug, requestId)).not.toHaveProperty("confirmed");
   });
 
-  it.each(["verificationCode", "phone", "email", "recipient", "apiKey", "sessionId"])("should reject sensitive field %s instead of writing it", (field) => {
+  it.each(["verificationCode", "phone", "email", "recipient", "apiKey", "sessionId", "invitationToken"])("should reject sensitive field %s instead of writing it", (field) => {
     const record = { viewerId: randomUUID(), slug: "synthetic-academy", requestId: null, issuedOperationId: null, verifiedOperationId: null, pending: null, [field]: "synthetic-sensitive" };
     expect(() => writeAdmissionContactIntent(record)).toThrow();
     expect(window.sessionStorage.length).toBe(0);

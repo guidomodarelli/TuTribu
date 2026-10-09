@@ -27,6 +27,60 @@ function hookFixture() {
 }
 
 describe("contact verification workflow hook", () => {
+  it("should require a personal scope and send the proposal only on explicit issue without persisting its token", async () => {
+    const fixture = hookFixture(), invitationToken = "synthetic-personal-proposal", personalScope = "a".repeat(64);
+    const { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, invitationToken, personalScope }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    expect(fixture.client.issue).toHaveBeenCalledExactlyOnceWith(fixture.options.slug, expect.objectContaining({ invitationToken, confirmed: true }), expect.any(AbortSignal));
+    const records = Array.from({ length: window.sessionStorage.length }, (_, index) => window.sessionStorage.getItem(window.sessionStorage.key(index)!)).join("");
+    expect(records).toContain(personalScope);
+    expect(records).not.toContain(invitationToken);
+    expect(records).not.toContain('"confirmed"');
+  });
+
+  it("should block a personal issue when the proposal lacks its isolated recovery scope", async () => {
+    const fixture = hookFixture(), { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, invitationToken: "synthetic-personal-proposal" }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    expect(window.sessionStorage.length).toBe(0);
+    expect(result.current.errorMessage).toMatch(/conservar la operación/i);
+  });
+
+  it("should avoid restoring common challenge or proof references in a personal proposal", async () => {
+    const fixture = hookFixture();
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId: randomUUID(), verifiedOperationId: randomUUID(), pending: null });
+    const { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, invitationToken: "synthetic-personal-proposal", personalScope: "a".repeat(64) }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(fixture.client.operation).not.toHaveBeenCalled();
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    expect(result.current.proof).toBeNull();
+    expect(result.current.challenge).toBeNull();
+  });
+
+  it("should abort an old personal proposal and ignore its late result when the proposal scope changes", async () => {
+    const fixture = hookFixture();
+    let resolveIssue!: (value: AdmissionContactBrowserResult<AdmissionOperationResult<AdmissionChallengeSnapshot>>) => void;
+    let sentOperationId = "", sentSignal: AbortSignal | null = null;
+    vi.mocked(fixture.client.issue).mockImplementation((_slug, input, signal) => { sentOperationId = input.operationId; sentSignal = signal; return new Promise((resolve) => { resolveIssue = resolve; }); });
+    const { result, rerender } = renderHook(({ personalScope, invitationToken }) => useAdmissionContactVerification({ ...fixture.options, personalScope, invitationToken }), { initialProps: { personalScope: "a".repeat(64), invitationToken: "first-personal-proposal" } });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.setConfirmed(true));
+    let running!: Promise<void>;
+    act(() => { running = result.current.issue(); });
+    await waitFor(() => expect(fixture.client.issue).toHaveBeenCalledTimes(1));
+    rerender({ personalScope: "b".repeat(64), invitationToken: "second-personal-proposal" });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect((sentSignal as AbortSignal | null)?.aborted).toBe(true);
+    await act(async () => { resolveIssue({ status: "ready", value: { state: "completed", operationId: sentOperationId, replayed: false, result: fixture.challenge } }); await running; });
+    expect(result.current.challenge).toBeNull();
+    expect(result.current.confirmed).toBe(false);
+  });
+
   it("should restore only confirmed original issue/proof references without another POST or persisted code", async () => {
     const fixture = hookFixture(), issuedOperationId = randomUUID(), verifiedOperationId = randomUUID();
     writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId, verifiedOperationId, pending: null });

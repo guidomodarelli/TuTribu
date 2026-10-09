@@ -69,6 +69,7 @@ import { ReadAdmissionRuntimeUseCase } from "./application/use-cases/read-admiss
 import { ManagePersonalInvitationsUseCases } from "./application/use-cases/manage-personal-invitations-use-cases";
 import { PostgresPersonalInvitationRepository } from "./infrastructure/repositories/postgres-personal-invitation-repository";
 import { GetPersonalInvitationOverviewUseCase } from "./application/use-cases/get-personal-invitation-overview-use-case";
+import { GetPersonalInvitationPageUseCase } from "./application/use-cases/get-personal-invitation-page-use-case";
 import { PostgresPersonalInvitationOverviewReader } from "./infrastructure/repositories/postgres-personal-invitation-overview-reader";
 import { GetAdmissionPolicyPageUseCase } from "./application/use-cases/get-admission-policy-page-use-case";
 import { ManageAllowlistUseCases } from "./application/use-cases/manage-allowlist-use-cases";
@@ -128,7 +129,8 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
         return dependencies.execute(account, run);
       };
-      return { useCases: { overview: new GetPersonalInvitationOverviewUseCase(dependencies.accounts, new PostgresPersonalInvitationOverviewReader(execute, options.readSecurityConfig), dependencies.clock) } };
+      const overview = new GetPersonalInvitationOverviewUseCase(dependencies.accounts, new PostgresPersonalInvitationOverviewReader(execute, options.readSecurityConfig), dependencies.clock);
+      return { useCases: { overview }, page: new GetPersonalInvitationPageUseCase(dependencies.accounts, overview, dependencies.clock) };
     },
     /** @param options - Local private security for explicit commands only. @returns Leader-only queries and atomic original list commands, rechecking native identity on every checkout. */
     createAllowlistModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
