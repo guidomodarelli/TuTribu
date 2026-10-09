@@ -30,3 +30,9 @@ Este checkpoint integra `common/allowlist` en el writer existente, junto con la 
 - Regresión manual nativa completa: quince casos verdes en 1.187,28 s, exit 0. Conserva cancelación/rechazo durante pausa, prueba aplicada, expiración después de locks, recuperación comercial, rollback de obligación omitida, replay/lectura originales, revocación de reviewer y recencia exacta de reintento. Todas las ramas pertenecen al run y el helper terminó después de su cleanup.
 
 Todas las ejecuciones de CI, pruebas SQL y QA de este checkpoint terminaron. Las revisiones finales de código y documentación cerraron sin hallazgos. Se conserva el fallo terminal de la ronda previa y no se usa como revisión limpia. No se envían mensajes reales ni se modifican login, recuperación o vinculación global.
+
+## Guardado y trazabilidad final
+
+El checkpoint funcional `516ace3f9ccf9131caa350e5d1895e87d2fcd6ca` se commiteó y subió a `feature/academy-admissions-spec`. Las cuatro guías comparan sus scopes anteriores con ese código y registran la nueva fuente mediante `source-trace.py`, conservando los paths previos y agregando seis owners: 50/30/59/59 scopes finales. Metas y footer apuntan al commit funcional; scripts, templates/JSON, refit, estilos y navegación permanecen idénticos.
+
+Check-manual posterior sin errores y mismas dos advertencias conocidas; última matriz de veinticuatro renders Chromium/WebKit 1280/390 pasó con cero errores. La revisión focal de los cuatro archivos cerró sin hallazgos y hashes estables, target `47C37335AA98DB53174205C15D3439E79710D4A81EE970702387FCF322455B30`. No se repite CI del producto por este cambio exclusivo de trazabilidad. El objetivo completo conserva 109 tareas pendientes.
