@@ -11,6 +11,18 @@ import { ADMISSION_CONTACT_BROWSER_TIMEOUT_MS } from "@/src/modules/academy-admi
 
 afterEach(() => { window.sessionStorage.clear(); vi.useRealTimers(); });
 
+/** Exhausts real browser storage without replacing a platform library; existing references stay intact. */
+function exhaustStorageQuota() {
+  let storageIndex = 0;
+  for (const chunkSize of [1_000_000, 100_000, 1_000, 100, 1]) {
+    let filled = false;
+    while (!filled) {
+      try { sessionStorage.setItem(`quota-${storageIndex}`, "x".repeat(chunkSize)); storageIndex += 1; }
+      catch { filled = true; }
+    }
+  }
+}
+
 /** Supplies only own transport/authorization callbacks and native-looking original metadata. */
 function hookFixture() {
   const now = Date.now(), challengeId = randomUUID(), proofId = randomUUID();
@@ -27,6 +39,46 @@ function hookFixture() {
 }
 
 describe("contact verification workflow hook", () => {
+  it("should block dispatch on actual storage quota failure and allow an explicit retry after capacity is restored", async () => {
+    const fixture = hookFixture(), { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    exhaustStorageQuota();
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    expect(fixture.client.issue).not.toHaveBeenCalled(); expect(result.current.pending).toBeNull();
+    expect(result.current.phase).toBe("idle"); expect(result.current.ready).toBe(true);
+    expect(result.current.errorMessage).toMatch(/conservar la operación/i);
+    sessionStorage.clear();
+    await act(async () => { await result.current.issue(); });
+    expect(fixture.client.issue).toHaveBeenCalledOnce(); expect(result.current.challenge?.challengeId).toBe(fixture.challenge.challengeId);
+  });
+
+  it("should keep the original reference in memory when storage is cleared and fills during an accepted issuance", async () => {
+    const fixture = hookFixture(); let operationId = "";
+    vi.mocked(fixture.client.issue).mockImplementation(async (_slug, input) => {
+      operationId = input.operationId; sessionStorage.clear(); exhaustStorageQuota();
+      return { status: "ready", value: { state: "completed", operationId, replayed: false, result: fixture.challenge } };
+    });
+    const { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true)); act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    expect(result.current.phase).toBe("uncertain"); expect(result.current.pending?.operationId).toBe(operationId); expect(result.current.challenge).toBeNull();
+    for (let index = sessionStorage.length - 1; index >= 0; index -= 1) { const key = sessionStorage.key(index)!; if (key.startsWith("quota-")) sessionStorage.removeItem(key); }
+    vi.mocked(fixture.client.operation).mockResolvedValue({ status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: fixture.challenge } });
+    await act(async () => { await result.current.readOriginal(); });
+    expect(result.current.challenge?.challengeId).toBe(fixture.challenge.challengeId); expect(fixture.client.issue).toHaveBeenCalledOnce();
+  });
+
+  it("should keep restore observable if storage is removed and fills during the original GET", async () => {
+    const fixture = hookFixture(), operationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue", operationId } });
+    vi.mocked(fixture.client.operation).mockImplementation(async () => { sessionStorage.clear(); exhaustStorageQuota(); return { status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: fixture.challenge } }; });
+    const { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.phase).toBe("uncertain"); expect(result.current.pending?.operationId).toBe(operationId);
+    expect(result.current.challenge).toBeNull(); expect(fixture.client.issue).not.toHaveBeenCalled();
+  });
+
   it("should require a personal scope and send the proposal only on explicit issue without persisting its token", async () => {
     const fixture = hookFixture(), invitationToken = "synthetic-personal-proposal", personalScope = "a".repeat(64);
     const { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, invitationToken, personalScope }));

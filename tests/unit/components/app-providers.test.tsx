@@ -1,10 +1,17 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { Avatar, Button, Dialog, DialogContent, toast } from "beez-ui";
+import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import type { ReactNode } from "react";
 
 import { AppProviders } from "@/components/providers/app-providers";
 
 const fetchMock = vi.fn();
+
+/** Supplies the real ordinary-route context required before optional reporting can classify a location. */
+function RouteContext({ children }: { children: ReactNode }) {
+  return <PathnameContext.Provider value="/synthetic-tribe"><SearchParamsContext.Provider value={new URLSearchParams()}>{children}</SearchParamsContext.Provider></PathnameContext.Provider>;
+}
 
 describe("AppProviders", () => {
   // Sonner schedules a removal timer after a toast closes that can outlive jsdom; fake timers (advancing with real
@@ -17,7 +24,7 @@ describe("AppProviders", () => {
   afterEach(() => { cleanup(); vi.useRealTimers(); });
 
   it("should activate Next Image for shared avatars", () => {
-    render(<AppProviders isSitepingEnabled={false}><Avatar name="Perfil" src="/profile.png" /></AppProviders>);
+    render(<RouteContext><AppProviders isSitepingEnabled={false}><Avatar name="Perfil" src="/profile.png" /></AppProviders></RouteContext>);
     // The avatar is announced once by its root; the photo inside it is decorative.
     const photo = screen.getByRole("img", { name: "Perfil" }).querySelector("img");
     expect(photo).toHaveAttribute("data-nimg", "1");
@@ -26,9 +33,9 @@ describe("AppProviders", () => {
 
   it("does not fetch Siteping identity when Siteping is disabled", () => {
     render(
-      <AppProviders isSitepingEnabled={false}>
+      <RouteContext><AppProviders isSitepingEnabled={false}>
         <main>Contenido</main>
-      </AppProviders>
+      </AppProviders></RouteContext>
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -36,13 +43,13 @@ describe("AppProviders", () => {
 
   it("keeps the dialog open and its focus when a notification raised from it is closed with the keyboard", async () => {
     render(
-      <AppProviders isSitepingEnabled={false}>
+      <RouteContext><AppProviders isSitepingEnabled={false}>
         <Dialog defaultOpen>
           <DialogContent title="Suscribirme al calendario">
             <Button onClick={() => toast.success("Link listo.")}>Generar link</Button>
           </DialogContent>
         </Dialog>
-      </AppProviders>
+      </AppProviders></RouteContext>
     );
     const dialog = screen.getByRole("dialog", { name: "Suscribirme al calendario" });
     const trigger = screen.getByRole("button", { name: "Generar link" });
@@ -71,9 +78,9 @@ describe("AppProviders", () => {
     });
 
     render(
-      <AppProviders isSitepingEnabled>
+      <RouteContext><AppProviders isSitepingEnabled>
         <main>Contenido</main>
-      </AppProviders>
+      </AppProviders></RouteContext>
     );
 
     await waitFor(() =>

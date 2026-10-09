@@ -5,10 +5,9 @@ import { createAdmissionApiClient } from "./admission-api-client";
 import type { PersonalInvitationBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-browser-client";
 import type { AdmissionBrowserClient, AdmissionBrowserResult } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
 import type { AdmissionErrorCode } from "@/src/modules/academy-admissions/application/results/admission-errors";
-import { personalInvitationOverviewSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-overview-schemas";
 import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { PERSONAL_INVITATION_BROWSER_ROUTE } from "@/src/modules/academy-admissions/constants/personal-invitation-browser";
+import { PERSONAL_INVITATION_BROWSER_ROUTE, PERSONAL_INVITATION_VIEWER_HEADER, personalInvitationViewerMetadataSchema, personalInvitationBrowserOverviewSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-browser";
 import { personalInvitationPreviewParamsSchema, personalInvitationPreviewQuerySchema } from "@/src/modules/academy-admissions/constants/personal-invitation-preview-input";
 
 /** @param options - Own controlled HTTP/viewer boundaries or the actual installed native adapters. @returns A cancelable application port; private SDK data never enters its values. */
@@ -31,7 +30,11 @@ export function createPersonalInvitationApiClient(options: { fetch?: typeof glob
           const failure = admissionPublicErrorSchema.safeParse(value);
           return failed(failure.success ? failure.data.code : ADMISSION_ERROR_CODE.publicContractUnusable);
         }
-        const preview = personalInvitationOverviewSchema.safeParse(value);
+        let metadata: unknown;
+        try { metadata = JSON.parse(response.headers.get(PERSONAL_INVITATION_VIEWER_HEADER) ?? ""); } catch { return failed(ADMISSION_ERROR_CODE.publicContractUnusable); }
+        const viewer = personalInvitationViewerMetadataSchema.safeParse(metadata);
+        if (!viewer.success) return failed(ADMISSION_ERROR_CODE.publicContractUnusable);
+        const preview = personalInvitationBrowserOverviewSchema.safeParse({ preview: value, viewerId: viewer.data.viewerId });
         return preview.success ? { status: "ready", value: preview.data } : failed(ADMISSION_ERROR_CODE.publicContractUnusable);
       } catch { return signal.aborted ? { status: "aborted" } : failed(ADMISSION_ERROR_CODE.dependencyUnavailable); }
     },

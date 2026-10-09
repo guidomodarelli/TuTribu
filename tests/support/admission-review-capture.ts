@@ -7,12 +7,16 @@ import type { Page } from "@playwright/test";
 export async function captureAdmissionReview(page: Page, name: string, forbidden: string[], outputFile = "review-captures.json", options: { selector?: string; omit?: string } = {}): Promise<void> {
   if (!process.env.ADMISSION_CAPTURE_SNIPPET) return;
   await page.evaluate(await readFile(process.env.ADMISSION_CAPTURE_SNIPPET, "utf8"));
-  await page.evaluate(({ captureName, selector, omit }) => {
+  await page.evaluate(({ captureName, selector, omit, privateValues }) => {
     const helpers = window as unknown as { __umCap: (name: string, element: Element, options?: { transform?: (clone: Element) => void }) => { blockedSheets: string[] } };
     const root = Array.from(document.querySelectorAll(selector ?? "main")).find((element) => element.getClientRects().length > 0);
     if (!root) throw new Error("Visible reviewer capture root was unavailable");
-    if (helpers.__umCap(captureName, root, omit ? { transform: (clone) => clone.querySelectorAll(omit).forEach((element) => element.remove()) } : {}).blockedSheets.length) throw new Error("Reviewer capture stylesheet was unavailable");
-  }, { captureName: name, ...options });
+    if (helpers.__umCap(captureName, root, { transform: (clone) => {
+      if (omit) clone.querySelectorAll(omit).forEach((element) => element.remove());
+      // Keep real labels while preventing a captured navigation target from retaining private route material.
+      clone.querySelectorAll("a[href]").forEach((element) => { const href = element.getAttribute("href") ?? ""; if (privateValues.some((value) => value && (href.includes(value) || href.includes(encodeURIComponent(value))))) element.setAttribute("href", "#"); });
+    } }).blockedSheets.length) throw new Error("Reviewer capture stylesheet was unavailable");
+  }, { captureName: name, privateValues: forbidden, ...options });
   const payload = await page.evaluate((values) => {
     const helpers = window as unknown as { __umCheck: (forbidden: string[]) => unknown[] };
     if (helpers.__umCheck(values).length) throw new Error("Reviewer capture contained a private fixture identity");

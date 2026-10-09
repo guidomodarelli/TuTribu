@@ -27,9 +27,10 @@ describe("personal invitation browser API", () => {
 
   it("should read a safe canonical proposal without sending recipient, session or mutation input", async () => {
     const token = randomBytes(32).toString("base64url"), proofId = randomUUID();
-    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json({ state: "unavailable", safeMessage: "No podemos continuar con esta invitación desde esta cuenta. Podés cambiar de cuenta o usar otra vía de ingreso." }));
+    const viewerId = randomUUID();
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json({ state: "unavailable", safeMessage: "No podemos continuar con esta invitación desde esta cuenta. Podés cambiar de cuenta o usar otra vía de ingreso." }, { headers: { "x-tutribu-admission-viewer": JSON.stringify({ viewerId }) } }));
     const client = createPersonalInvitationApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
-    expect(await client.overview(token, proofId, new AbortController().signal)).toMatchObject({ status: "ready", value: { state: "unavailable" } });
+    expect(await client.overview(token, proofId, new AbortController().signal)).toMatchObject({ status: "ready", value: { viewerId, preview: { state: "unavailable" } } });
     expect(fetch).toHaveBeenCalledExactlyOnceWith(`/api/admissions/invitations/${token}/overview?proofId=${proofId}`, expect.objectContaining({ credentials: "same-origin", cache: "no-store", referrerPolicy: "no-referrer", signal: expect.any(AbortSignal) }));
     expect(fetch.mock.calls[0]?.[1]).not.toHaveProperty("body");
   });
@@ -42,6 +43,20 @@ describe("personal invitation browser API", () => {
     const controller = new AbortController(); controller.abort();
     expect(await client.overview(token, undefined, controller.signal)).toEqual({ status: "aborted" });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([null, "{", JSON.stringify({ viewerId: null }), JSON.stringify({ viewerId: randomUUID(), sessionId: "private" })])("should reject missing or incompatible own viewer metadata before exposing a preview", async (metadata) => {
+    const token = randomBytes(32).toString("base64url");
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json({ state: "unavailable", safeMessage: "No podemos continuar con esta invitación desde esta cuenta. Podés cambiar de cuenta o usar otra vía de ingreso." }, { headers: metadata ? { "x-tutribu-admission-viewer": metadata } : {} }));
+    const client = createPersonalInvitationApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    expect(await client.overview(token, undefined, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: false });
+  });
+
+  it("should preserve a native anonymous scope without inventing an authenticated viewer", async () => {
+    const token = randomBytes(32).toString("base64url");
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json({ state: "sign_in_required", safeMessage: "Iniciá sesión para consultar esta invitación personal." }, { headers: { "x-tutribu-admission-viewer": JSON.stringify({ viewerId: null }) } }));
+    const client = createPersonalInvitationApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    expect(await client.overview(token, undefined, new AbortController().signal)).toEqual({ status: "ready", value: { viewerId: null, preview: { state: "sign_in_required", safeMessage: "Iniciá sesión para consultar esta invitación personal." } } });
   });
 
   it("should reject private hints in an unavailable own DTO and sanitize transport failures", async () => {

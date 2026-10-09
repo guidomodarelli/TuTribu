@@ -1,7 +1,7 @@
 "use client";
 /** Persists reference-only personal canje recovery, without token, destination, proof or consent. @module personal-invitation-submission-intent */
 import type { z } from "zod";
-import { PERSONAL_INVITATION_SUBMISSION_STORAGE_PREFIX, personalInvitationSubmissionIntentSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-browser";
+import { PERSONAL_INVITATION_SUBMISSION_STORAGE_PREFIX, PERSONAL_INVITATION_STORAGE_PROBE_PREFIX, personalInvitationSubmissionIntentSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-browser";
 
 /** Scope and original operation identify local recovery, never server authorization. */
 export type PersonalInvitationSubmissionIntent = z.infer<typeof personalInvitationSubmissionIntentSchema>;
@@ -31,4 +31,11 @@ export function writePersonalInvitationSubmissionIntent(intent: PersonalInvitati
 /** @param scope - Original exact viewer/proposal scope. @returns After removing only its terminal reference. */
 export function clearPersonalInvitationSubmissionIntent(scope: Omit<PersonalInvitationSubmissionIntent, "operationId">): void {
   window.sessionStorage.removeItem(submissionKey(scope));
+}
+
+/** @param scope - Actual native viewer/proposal reference scope. @returns After an empty non-operation probe verifies writable storage. @throws When browser storage remains unavailable. */
+export function assertPersonalInvitationSubmissionStorage(scope: Omit<PersonalInvitationSubmissionIntent, "operationId">): void {
+  const key = `${PERSONAL_INVITATION_STORAGE_PROBE_PREFIX}:${encodeURIComponent(scope.viewerId)}:${scope.personalScope}`;
+  window.sessionStorage.setItem(key, "");
+  window.sessionStorage.removeItem(key);
 }
