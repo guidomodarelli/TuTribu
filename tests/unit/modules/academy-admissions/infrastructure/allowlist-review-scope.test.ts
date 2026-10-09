@@ -1,13 +1,15 @@
 /** @vitest-environment node */
-/** Verifies the real writer closes unsupported historical sources despite readable review facts. @module allowlist-review-scope-tests */
+/** Verifies the real writer closes unsupported legacy and unbound historical personal requests despite readable facts. @module allowlist-review-scope-tests */
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareAllowlistAdmission } from "@/tests/support/allowlist-admission-database-fixture";
+import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
+import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist reviewer source scope", () => {
-  it("should deny direct approval of readable legacy and personal pendings and preserve original requests and all access effects", async () => {
+  it("should deny readable legacy and unbound historical personal requests and preserve original requests and all access effects", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, applicant: createApplicant, leader } = await prepareAllowlistAdmission(database);
       const applicant = await createApplicant(), requestId = randomUUID(), invitationId = randomUUID();
@@ -31,6 +33,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist r
         await transaction.execute(sql`insert into public.academy_personal_invitations(id,tribe_id,created_by_user_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,requires_allowlist,token_hash,token_key_id,status,redeemed_by_user_id,redeemed_request_id,redeemed_at) values (${personalInvitationId},${fixture.tribeId},${fixture.userId},'email',${personal.email},${randomBytes(32)},'synthetic-contact-key',true,${randomBytes(32)},'synthetic-token-key','redeemed',${personal.userId},${personalRequestId},clock_timestamp())`);
         await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,invitation_id,requires_allowlist,contact_type,normalized_contact,evidence_source,global_identity_evidence_id,original_policy_snapshot,applicant_message,submitted_at,expires_at) values (${personalRequestId},${fixture.tribeId},${personal.userId},'personal',${personalInvitationId},true,'email',${personal.email},'base',${personal.evidenceId},'{"version":2,"verificationEpoch":1,"mode":"allowlist","contactType":"email","requiresAdditionalVerification":false,"allowCommonExceptions":true}'::jsonb,'Solicitud nominativa histórica',clock_timestamp(),clock_timestamp()+interval '29 days')`);
       });
+      const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.userId, sessionId: fixture.sessionId }), (_identity, run) => database.withContext(fixture.own, run));
+      const reviews = buildAcademyAdmissionsModule({ accounts, clock: () => new Date(), execute: (account, run) => database.withContext({ userId: account.userId, email: account.normalizedEmail }, run) }).createReviewQueryModule({ readRecoveryLock: async () => false }).useCases.review;
+      const detail = await reviews.detail({ tribeId: fixture.tribeId, requestId: randomUUID(), admissionRequestId: personalRequestId });
+      expect(detail).toMatchObject({ ok: true, value: { id: personalRequestId, source: "personal" } });
+      if (!detail.ok) throw new Error("Expected readable historical personal review without approval authority");
+      expect(detail.value.eligibleActions).not.toContain("approve");
       expect(await leader.decide.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: personalRequestId, expectedVersion: 1, confirmed: true, decision: "approve", internalReason: "Revisión nominativa explícita", externalMessage: null })).toMatchObject({ ok: false, failure: { code: "admission_ineligible" } });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select status,version from public.academy_admission_requests where id=${personalRequestId}`)).rows).toEqual([{ status: "pending", version: 1 }]);

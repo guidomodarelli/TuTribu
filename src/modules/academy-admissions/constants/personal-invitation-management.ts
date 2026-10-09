@@ -8,6 +8,8 @@ export const PERSONAL_INVITATION_DENIAL_CODES = [ADMISSION_ERROR_CODE.invalidInp
 export const PERSONAL_INVITATION_MUTATION_DENIED = "denied";
 /** Records the narrow cause of a pending cancellation without reusing the link or removing a member. */
 export const PERSONAL_INVITATION_AUTHORIZATION_REVOKED = "personal_invitation_authorization_revoked";
+/** Records the effective single-use consumption separately from initial issuance or later withdrawal. */
+export const PERSONAL_INVITATION_REDEEMED_EVENT = "personal_invitation_redeemed";
 /** Represents the immutable default expiry intent independently of wall-clock creation time. */
 export const PERSONAL_INVITATION_DEFAULT_EXPIRY = "default";
 /** Read-only recovery remains leader-only and projects metadata without initial material. */
