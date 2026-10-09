@@ -19,7 +19,7 @@ import {createMessagingSecretCipher} from "@/src/modules/messaging/infrastructur
  * @returns Synthetic account/context and nonextractable, purpose-separated test keys.
  */
 export async function prepareContactVerificationDatabase(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
-  for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261007040000_add_messaging_connection_name.sql"]) await database.applyMigration(migration);
+  for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261007040000_add_messaging_connection_name.sql", "20261009043000_lock_admission_canonical_leader.sql"]) await database.applyMigration(migration);
   const userId: string = randomUUID();
   const own = { userId, email: `${userId}@example.test` };
   const keyring = (purpose: MessagingKeyPurpose): MessagingKeyringInput => ({ activeKeyId: `${purpose}-current`, keys: [{ id: `${purpose}-current`, material: randomBytes(32) }] });
