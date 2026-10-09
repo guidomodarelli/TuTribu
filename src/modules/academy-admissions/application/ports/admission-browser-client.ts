@@ -8,7 +8,7 @@ import type { AdmissionTransitionResult } from "@/src/modules/academy-admissions
 export type AdmissionBrowserResult<Value> = { status: "ready"; value: Value } | { status: "failed"; code: AdmissionErrorCode; message: string; uncertain: boolean } | { status: "aborted" };
 /** An unfinished result must come from an actually registered original server operation. */
 export type AdmissionStartedResponse = { state: "started"; operationId: string };
-export type AdmissionBrowserSubmission = { operationId: string; confirmed: true; expectedPolicyVersion: number; message?: string; phone?: string; country?: string };
+export type AdmissionBrowserSubmission = { operationId: string; confirmed: true; expectedPolicyVersion: number; message?: string; phone?: string; country?: string; proofId?: string };
 export type AdmissionBrowserCancellation = { operationId: string; confirmed: true; expectedVersion: number };
 
 /** The route container is the only browser owner of account checks, requests, cancellation and draft recovery. */

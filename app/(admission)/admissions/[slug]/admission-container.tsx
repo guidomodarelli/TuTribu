@@ -2,7 +2,12 @@
 
 /** Owns the single browser workflow, native viewer checks and durable local intent recovery. @module admission-container */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "beez-ui";
+import { Button, toast } from "beez-ui";
+import { ContactVerification } from "@/components/academy-admissions/contact-verification";
+import { useAdmissionContactVerification } from "@/hooks/use-admission-contact-verification";
+import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
+import { ADMISSION_CONTACT_PHASE, ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
+import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { AdmissionScreen } from "@/components/academy-admissions/admission-screen";
 import type { AdmissionPageState } from "@/src/modules/academy-admissions/application/results/admission-page-state";
 import type { AdmissionBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
@@ -27,7 +32,7 @@ function retainCurrentRequest(current: AdmissionRequestDto | null, incoming: Adm
 }
 
 /** @param props - Validated SSR snapshot, fixed own-detail mode and application transport port. @returns Presenters only; writes never trigger a route refresh. */
-export function AdmissionContainer({ initialState, requestPage = false, client = admissionApiClient }: { initialState: AdmissionPageState; requestPage?: boolean; client?: AdmissionBrowserClient }) {
+export function AdmissionContainer({ initialState, requestPage = false, client = admissionApiClient, contactClient }: { initialState: AdmissionPageState; requestPage?: boolean; client?: AdmissionBrowserClient; contactClient?: AdmissionContactBrowserClient }) {
   const [state, setState] = useState(initialState);
   const [draft, setDraft] = useState<AdmissionDraft>({ phone: "", country: "", message: "" });
   const [confirmed, setConfirmed] = useState(false), [cancelConfirmed, setCancelConfirmed] = useState(false);
@@ -167,6 +172,21 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     finally { if (controller.current === request) { busy.current = false; if (live(request.signal)) setPhase((current) => current === ADMISSION_UI_PHASE.checking ? pending.current ? ADMISSION_UI_PHASE.uncertain : ADMISSION_UI_PHASE.idle : current); } }
   }, [recover, refresh, checkViewer, restoreDraft]);
 
+  const contactState = state.kind === "ready" ? state : null, contactOptions = contactState?.overview.verification;
+  const currentPending = contactState?.request?.status === "pending" && new Date(contactState.request.expiresAt) > new Date(now || contactState.renderedAt) ? contactState.request : null;
+  const showContact = Boolean(contactState?.viewerId && contactState.overview.policy?.requiresAdditionalVerification && contactOptions && (contactState.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired || currentPending?.needsVerification));
+  const contact = useAdmissionContactVerification({ viewerId: contactState?.viewerId ?? null, slug: contactState?.overview.tribe.slug ?? "", requestId: currentPending?.id ?? null, requestVersion: currentPending?.version ?? null, policyVersion: contactState?.overview.policy?.version ?? 1, channel: contactOptions?.channel ?? MESSAGING_PUBLIC_CHANNEL.email, allowedCountries: contactOptions?.allowedCountries ?? [], allowSmsAlternative: contactOptions?.allowedAlternative === MESSAGING_PUBLIC_CHANNEL.sms, phone: draft.phone, country: draft.country, enabled: showContact && formReady && !accountChanged && phase !== ADMISSION_UI_PHASE.uncertain, renderedAt: contactState?.renderedAt ?? "", authorize: checkViewer, client: contactClient, onProof: () => {}, onApplied: (result) => {
+    const snapshot = currentState.current;
+    if (snapshot.kind !== "ready" || !snapshot.request || snapshot.request.id !== result.requestId || snapshot.request.version > result.requestVersion) return;
+    applyState({ ...snapshot, request: { ...snapshot.request, version: result.requestVersion, needsVerification: false } });
+    // The incremental result confirms version/evidence; this own GET fills the newly attached masked contact without route refresh.
+    const viewerId = snapshot.viewerId;
+    void read().then(() => { const current = currentState.current; if (active.current && current.kind === "ready" && current.viewerId === viewerId && current.request?.id === result.requestId) setFeedback(ADMISSION_CONTACT_COPY.applied); });
+  } });
+  const contactBusy = contact.phase !== ADMISSION_CONTACT_PHASE.idle && contact.phase !== ADMISSION_CONTACT_PHASE.uncertain;
+  const proofFresh = contact.proofFresh;
+  const canSubmitWithProof = Boolean(!requestPage && contactState?.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired && proofFresh && !contact.pending);
+
   useEffect(() => {
     active.current = true; const lifecycle = new AbortController(), initialization = new AbortController(); controller.current = initialization; busy.current = true;
     draftLoaded.current = false;
@@ -190,14 +210,15 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     return () => { lifecycle.abort(); initialization.abort(); controller.current?.abort(); active.current = false; window.removeEventListener("pageshow", onPageShow); clearInterval(timer); };
   }, [checkViewer, recover, read, restoreDraft]);
 
-  const changeDraft = (next: AdmissionDraft) => { if (busy.current || pending.current) return; currentDraft.current = next; setDraft(next); setErrorMessage(null); setFeedback(null); persist(null); };
+  const changeDraft = (next: AdmissionDraft) => { if (busy.current || pending.current) return; const normalizedDraft = contact.challenge || contact.pending ? { ...next, phone: currentDraft.current.phone, country: currentDraft.current.country } : next; currentDraft.current = normalizedDraft; setDraft(normalizedDraft); setErrorMessage(null); setFeedback(null); persist(null); };
   const submit = () => {
     const snapshot = currentState.current;
-    if (busy.current || pending.current || snapshot.kind !== "ready" || snapshot.overview.state !== ADMISSION_OVERVIEW_STATE.available || !snapshot.overview.policy || !formReady || requestPage) return;
+    if (busy.current || pending.current || snapshot.kind !== "ready" || snapshot.overview.state !== ADMISSION_OVERVIEW_STATE.available && !canSubmitWithProof || !snapshot.overview.policy || !formReady || requestPage || contactBusy || contact.pending) return;
     if (!confirmed) { setErrorMessage(ADMISSION_UI_COPY.confirmationRequired); return; }
     const phone = snapshot.overview.policy.contactType === ADMISSION_CONTACT_TYPE.phone ? normalizeAdmissionContact({ type: ADMISSION_CONTACT_TYPE.phone, value: currentDraft.current.phone, country: currentDraft.current.country }) : null;
     if (currentDraft.current.message.length > ADMISSION_LIMIT.internalMessageCharacters || phone && phone.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) { setErrorMessage(ADMISSION_UI_COPY.draftInvalid); return; }
-    try { void write({ kind: "submit", input: { operationId: newAdmissionOperationId(), confirmed: true, expectedPolicyVersion: snapshot.overview.policy.version, ...(phone?.status === ADMISSION_CONTACT_NORMALIZATION_STATUS.valid && phone.contact.type === ADMISSION_CONTACT_TYPE.phone ? { phone: phone.contact.value, country: phone.contact.country } : {}), ...(currentDraft.current.message.trim() ? { message: currentDraft.current.message.trim() } : {}) } }); }
+    if (snapshot.overview.policy.requiresAdditionalVerification && !proofFresh) { setErrorMessage(ADMISSION_UI_COPY.verifying); return; }
+    try { void write({ kind: "submit", input: { operationId: newAdmissionOperationId(), confirmed: true, expectedPolicyVersion: snapshot.overview.policy.version, ...(snapshot.overview.policy.requiresAdditionalVerification && contact.proof ? { proofId: contact.proof.proofId } : {}), ...(phone?.status === ADMISSION_CONTACT_NORMALIZATION_STATUS.valid && phone.contact.type === ADMISSION_CONTACT_TYPE.phone ? { phone: phone.contact.value, country: phone.contact.country } : {}), ...(currentDraft.current.message.trim() ? { message: currentDraft.current.message.trim() } : {}) } }); }
     catch { setErrorMessage(ADMISSION_UI_COPY.storageFailed); }
   };
   const cancel = () => {
@@ -210,7 +231,13 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
   const returnPath = state.kind === "ready" ? requestPage && state.request ? buildOwnAdmissionRequestRoute(state.overview.tribe.slug, state.request.id) : `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(state.overview.tribe.slug)}` : state.returnPath ?? ROUTES.home;
   const signInHref = `${ROUTES.auth.signIn}?${new URLSearchParams({ callbackUrl: returnPath })}`;
   const retryHref = state.kind === "ready" ? `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(state.overview.tribe.slug)}` : undefined;
-  return <AdmissionScreen state={state} requestPage={requestPage} draft={draft} confirmed={confirmed} cancelConfirmed={cancelConfirmed} phase={phase} now={now} errorMessage={errorMessage} feedback={feedback} accountChanged={accountChanged} formReady={formReady} retryOriginal={retryOriginal} signInHref={signInHref} retryHref={retryHref}
+  const verification = showContact && contactOptions ? <>
+    <ContactVerification channel={contactOptions.channel} phone={draft.phone} country={draft.country} verificationCode={contact.code} confirmed={contact.confirmed} busy={contactBusy || phase === ADMISSION_UI_PHASE.writing || phase === ADMISSION_UI_PHASE.checking} canIssue={contact.ready && !contact.pending && !contact.challenge} canVerify={contact.ready && !contact.pending && !contact.proof} canResend={contact.ready && !contact.pending} canUseSmsAlternative={contactOptions.allowedAlternative === MESSAGING_PUBLIC_CHANNEL.sms && contact.ready && !contact.pending} contactLocked={Boolean(contact.challenge || contact.pending)} allowedCountries={contactOptions.allowedCountries} challenge={contact.challenge ? { ...contact.challenge, deliveryState: contact.delivery?.state ?? contact.challenge.deliveryState } : null} proofReady={proofFresh} proofExpired={Boolean(contact.proof && !proofFresh)} expiresInSeconds={contact.expiresInSeconds} resendInSeconds={contact.resendInSeconds} errorMessage={contact.errorMessage} feedback={contact.feedback} fieldErrors={contact.fieldErrors} onPhoneChange={(phone) => { if (!contact.pending && !contactBusy) { contact.clearFieldFeedback(); changeDraft({ ...draft, phone }); } }} onCountryChange={(country) => { if (!contact.pending && !contactBusy) { contact.clearFieldFeedback(); changeDraft({ ...draft, country }); } }} onCodeChange={contact.setCode} onConfirm={contact.setConfirmed} onIssue={() => void contact.issue()} onResend={() => void contact.resend()} onVerify={() => void contact.verify()} onUseSmsAlternative={() => void contact.useSmsAlternative()} />
+    {contact.pending && <Button type="button" variant="outline" disabled={contactBusy} onClick={() => void contact.readOriginal()}>Consultar operación del código</Button>}
+    {contact.challenge?.deliveryId && <Button type="button" variant="outline" disabled={contactBusy} onClick={() => void contact.readDelivery()}>Consultar envío del código</Button>}
+    {currentPending && proofFresh && <Button type="button" disabled={contactBusy || Boolean(contact.pending)} onClick={() => void contact.apply()}>Aplicar prueba a esta solicitud</Button>}
+  </> : undefined;
+  return <AdmissionScreen state={state} requestPage={requestPage} verification={verification} canSubmitWithProof={canSubmitWithProof} contactLocked={Boolean(contact.challenge || contact.pending)} draft={draft} confirmed={confirmed} cancelConfirmed={cancelConfirmed} phase={phase} now={now} errorMessage={errorMessage} feedback={feedback} accountChanged={accountChanged} formReady={formReady && !contactBusy} retryOriginal={retryOriginal} signInHref={signInHref} retryHref={retryHref}
     onChange={changeDraft} onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }} onCancelConfirm={(value) => { setCancelConfirmed(value); setErrorMessage(null); }} onSubmit={submit} onCancel={cancel} onRead={() => void read()} onRetryOriginal={() => { if (canRetryOriginal.current && pending.current) void write(pending.current); }}
     onReloadAccount={() => { window.location.reload(); /* An actual authentication change requires a fresh server snapshot. */ }} />;
 }

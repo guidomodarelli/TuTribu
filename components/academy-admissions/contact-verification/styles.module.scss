@@ -1,0 +1,70 @@
+.ContactVerification {
+  display: grid;
+  gap: 1rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+
+  &__header,
+  &__form,
+  &__field {
+    display: grid;
+    gap: 0.5rem;
+    min-inline-size: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  &__description {
+    margin: 0;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  &__fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+    gap: 1rem;
+    min-inline-size: 0;
+  }
+
+  &__confirmation,
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    min-inline-size: 0;
+  }
+
+  &__facts {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+  }
+
+  &__fact {
+    display: grid;
+    gap: 0.25rem;
+    overflow-wrap: anywhere;
+  }
+
+  &__code {
+    inline-size: min(100%, 12rem);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__error {
+    margin: 0;
+    color: var(--destructive);
+    overflow-wrap: anywhere;
+  }
+
+  &__success {
+    margin: 0;
+    font-weight: 600;
+  }
+}

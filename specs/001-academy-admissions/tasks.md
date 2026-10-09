@@ -759,6 +759,7 @@ Cierre de T094 sobre df4315be: auditoría Codex read-only confirma SDK/SQL/UI re
 
 - [ ] T104 [US5] Integrar paso local en entrada común y pendiente que needsVerification; ON obligatorio aun Google, OFF evidencia base exclusiva para nuevas coincidencias, first-contact attachment auditado y cambio fijo exige cancelar/reintentar. La página nominativa integra este componente en US4. Archivos: `app/(admission)/admissions/[slug]/admission-container.tsx`, `app/(admission)/admissions/requests/[requestId]/request-container.tsx`. Dependencias: `T103`. Trazabilidad: `US-05-AC-01`–`US-05-AC-05`, `US-05-AC-07`.
 
+Incremento parcial de T098/T103/T104: presenter, hook, adapter propio y recuperación de referencias están conectados al container común inicial y de pendiente. La regresión conjunta pasó105casos; cuatro P2 de recuperación/contacto/transporte fueron reproducidos y corregidos, con review final0 y21hashes estables. Los manuales tienen24renders Chromium/WebKit1280/390 verdes. La matriz nativa y la cobertura completa por canal/source siguen pendientes; se conservan97/212 tareas completas y115pendientes. Ver [interfaz de contacto](validation/admission-contact-ui-baseline.md).
 
 ### Documentación
 
