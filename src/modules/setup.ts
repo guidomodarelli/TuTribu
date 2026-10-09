@@ -40,6 +40,7 @@ import { createRequestMessagingMaintenanceAuthorizer } from "./messaging/infrast
 import { MessagingSecretAccessError } from "./messaging/domain/errors/messaging-secret-access-error";
 import { MESSAGING_ERROR_CODE } from "./messaging/constants/messaging-errors";
 import type { AuthenticatedFeatureDependencies } from "./auth/infrastructure/composition/transaction-account-provider";
+import { resolvePublicAppBaseUrl } from "./shared/infrastructure/backend/public-app-base-url";
 import { buildProductAccessModule } from "./product-access/setup";
 import { PostgresProductAccessRepository } from "./product-access/infrastructure/repositories/postgres-product-access-repository";
 import {
@@ -522,6 +523,18 @@ export async function createPersonalInvitationRequestModule() {
   const admissionModule = buildAcademyAdmissionsModule(dependencies);
   const personal = admissionModule.createPersonalInvitationQueryModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
   return { preview: personal.useCases.overview, page: personal.page };
+}
+/** @returns Leader-only metadata and explicit original personal commands, with configured public links and native account checks on each checkout. */
+export async function createPersonalInvitationManagementRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const admissionModule = buildAcademyAdmissionsModule(dependencies);
+  const resolveTribe = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases.resolveTribe;
+  const personal = admissionModule.createPersonalInvitationModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  return { resolveTribe, invitations: personal.useCases, publicOrigin: resolvePublicAppBaseUrl };
 }
 /** @param usage - Native connection purpose; writes select maintenance and still require exact human authority. @returns Early usage configuration and canonical academy routing, without a connection, admission policy writer or provider adapter. */
 export async function createMessagingUsageRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request) {
