@@ -6,7 +6,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
-- La importación CSV de habilitados incorpora vista previa, confirmación explícita, recuperación del progreso y reporte privado para el líder; la pantalla de carga continúa en desarrollo.
+- El líder dispone de una pantalla para cargar CSV, elegir filas válidas, descargar plantilla y reporte privado, y retomar pendientes conservando los resultados ya guardados.
+
+- La importación CSV de habilitados incorpora vista previa, confirmación explícita, recuperación del progreso y reporte privado para el líder.
 
 - El líder puede gestionar la lista de habilitados desde la configuración de admisión: buscar contactos, cambiar nombre o estado y recuperar una respuesta perdida conservando el borrador y los cambios más recientes.
 
