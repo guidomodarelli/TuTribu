@@ -12,9 +12,9 @@ const RESOURCE_PATH={senders:"/v1/senders",templates:"/v1/templates"},RESOURCE_C
 /** Requires private synthetic setup in the test helper, never a fallback application key. */
 const syntheticCredential=process.env.ADMISSION_TEST_ZAVU_CREDENTIAL;
 if(!syntheticCredential)throw new Error("NativeZavuProviderTransport failed: synthetic_credential_missing");
-/** A phone journey must explicitly choose SMS; existing email fixtures keep their closed default. */
+/** Each phone journey explicitly selects its channel; existing email fixtures keep their closed default. */
 const diagnosticChannel=process.env.ADMISSION_TEST_ZAVU_DIAGNOSTIC_CHANNEL??"email";
-if(diagnosticChannel!=="email"&&diagnosticChannel!=="sms")throw new Error("NativeZavuProviderTransport failed: unsupported_diagnostic_channel");
+if(diagnosticChannel!=="email"&&diagnosticChannel!=="sms"&&diagnosticChannel!=="whatsapp")throw new Error("NativeZavuProviderTransport failed: unsupported_diagnostic_channel");
 /** Only the owned loopback framework origin may use native fetch; every external HTTP path is closed. */
 const frameworkOrigin=new URL(process.env.BETTER_AUTH_URL).origin;
 /** Collects only the existing boundary's allowlisted diagnostic stage/code, never raw console payloads or causes. */
@@ -47,8 +47,10 @@ globalThis.fetch=async(input,init)=>{
   const status=Number(process.env.ADMISSION_TEST_ZAVU_STATUS??"200");
   if(status!==200)return Response.json({message:"Synthetic private provider rejection"},{status});
   if(diagnosticSend){
-    const body=await request.json(),code=typeof body.text==="string"?body.text.match(/\b\d{6}\b/u)?.[0]:undefined;
-    if(body.to!==process.env.ADMISSION_TEST_ZAVU_RECIPIENT||body.channel!==diagnosticChannel||body.fallbackEnabled!==false||request.headers.get("Zavu-Sender")!==RESOURCE_ID.sender||!code)throw new Error("NativeZavuProviderTransport failed: crossed_diagnostic_intent");
+    const body=await request.json(),whatsapp=diagnosticChannel==="whatsapp";
+    const code=whatsapp?body.content?.templateVariables?.["1"]:typeof body.text==="string"?body.text.match(/\b\d{6}\b/u)?.[0]:undefined;
+    const allowedPayload=whatsapp?body.messageType==="template"&&body.content?.templateId===process.env.ADMISSION_TEST_ZAVU_TEMPLATE_ID&&body.text===undefined&&body.templateLanguage===undefined&&process.env.ADMISSION_TEST_ZAVU_TEMPLATE_ID!==undefined:body.messageType==="text";
+    if(body.to!==process.env.ADMISSION_TEST_ZAVU_RECIPIENT||body.channel!==diagnosticChannel||body.fallbackEnabled!==false||request.headers.get("Zavu-Sender")!==RESOURCE_ID.sender||!allowedPayload||typeof code!=="string"||!/^\d{6}$/u.test(code))throw new Error("NativeZavuProviderTransport failed: crossed_diagnostic_intent");
     // A private test-only IPC simulates receipt; code/headers/body are never printed or persisted.
     process.send?.({kind:"admission_test_diagnostic_code",code});
     return Response.json({message:{id:randomUUID(),direction:"outbound",channel:diagnosticChannel,status:"sent"}});
