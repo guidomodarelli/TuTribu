@@ -10,6 +10,8 @@ import { ADMISSION_PUBLIC_SOURCE, ADMISSION_DECISION, ADMISSION_QUERY_LIMIT, ADM
 import { ADMISSION_POLICY_MODE, ADMISSION_PHONE_CHANNEL } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { ALLOWLIST_CURSOR_SEPARATOR } from "../../constants/allowlist-management";
+import { ADMISSION_INVITATION_STATUS } from "../../constants/admission-eligibility";
+import { PERSONAL_INVITATION_CURSOR } from "../../constants/personal-invitation-management";
 
 /** Mutations must carry a stable UUID and an explicit fresh confirmation. */
 const operationFields = {
@@ -37,22 +39,24 @@ export const allowlistEntryUpdateSchema = z.strictObject({
 
 /** A rename never changes recipient, constraints, token or the invitation deadline. */
 export const personalInvitationRenameSchema = z.strictObject({
-  ...operationFields, expectedVersion: expectedVersionSchema,
+  ...operationFields, operationId: canonicalOperationIdSchema, expectedVersion: expectedVersionSchema,
   internalName: editableNameSchema.min(1, { error: ADMISSION_INPUT_CATEGORY.name }),
 });
 
 /** A token is minted server-side once; creation preserves the explicit no-list acknowledgement. */
 export const personalInvitationCreateSchema = z.strictObject({
-  ...operationFields, internalName: editableNameSchema.min(1),
+  ...operationFields, operationId: canonicalOperationIdSchema, internalName: editableNameSchema.min(1),
   recipient: z.strictObject({ type: z.enum(ADMISSION_CONTACT_TYPE), value: z.string().trim().min(1), country: countrySchema.optional() }),
   requiresAllowlist: z.boolean(), acknowledgeNoAllowlist: z.literal(true).optional(),
-  expiresAt: z.iso.datetime({ offset: true }).nullable(),
+  expiresAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  replacement: z.strictObject({ invitationId: z.uuid().transform((invitationId) => invitationId.toLowerCase()), expectedVersion: expectedVersionSchema }).optional(),
 }).refine((command) => command.requiresAllowlist || command.acknowledgeNoAllowlist === true, { error: ADMISSION_INPUT_CATEGORY.confirmation });
 
 /** Expected version protects revocation's confirmed resource state from concurrent redemption. */
 export const personalInvitationRevokeSchema = z.strictObject({
-  ...operationFields, expectedVersion: expectedVersionSchema,
+  ...operationFields, operationId: canonicalOperationIdSchema, expectedVersion: expectedVersionSchema,
   reason: z.string().trim().min(1).max(ADMISSION_LIMIT.internalMessageCharacters),
+  revokeRedeemedAuthorization: z.boolean().default(false),
 });
 
 /** Canonical path identities are data; no actor, role or audience may be supplied. */
@@ -65,11 +69,13 @@ export const admissionOwnRequestQuerySchema = z.strictObject({ admissionRequestI
 export const admissionChallengeParamsSchema = admissionTribeParamsSchema.extend({ challengeId: z.uuid().transform((challengeId) => challengeId.toLowerCase()) });
 export const admissionOperationParamsSchema = admissionTribeParamsSchema.extend({ operationId: z.uuid() });
 export const admissionAllowlistParamsSchema = admissionTribeParamsSchema.extend({ entryId: z.uuid().transform((entryId) => entryId.toLowerCase()) });
-export const admissionInvitationParamsSchema = admissionTribeParamsSchema.extend({ invitationId: z.uuid() });
+export const admissionInvitationParamsSchema = admissionTribeParamsSchema.extend({ invitationId: z.uuid().transform((invitationId) => invitationId.toLowerCase()) });
 export const admissionImportParamsSchema = admissionTribeParamsSchema.extend({ importId: z.uuid().transform((importId) => importId.toLowerCase()) });
 
 /** Query coercion accepts decimal strings only, never boolean/object input. */
 const pageSizeSchema = z.union([z.int(), z.string().regex(ADMISSION_QUERY_INTEGER_PATTERN).transform(Number)]).pipe(z.int().min(1).max(ADMISSION_QUERY_LIMIT.maximumPageSize)).default(ADMISSION_QUERY_LIMIT.defaultPageSize);
+/** Private history preserves PostgreSQL microseconds and rejects all applicant/actor authority fields. */
+export const admissionInvitationQuerySchema = z.strictObject({ limit: pageSizeSchema, status: z.enum(ADMISSION_INVITATION_STATUS).optional(), cursor: z.string().max(ADMISSION_QUERY_LIMIT.cursorCharacters).transform((cursor) => cursor.split(PERSONAL_INVITATION_CURSOR.separator)).pipe(z.tuple([z.iso.datetime({ offset: true }), z.uuid()])).transform(([createdAt, id]) => ({ createdAt, id: id.toLowerCase() })).optional() });
 const pageQueryFields = { limit: pageSizeSchema, cursor: z.string().min(1).max(ADMISSION_QUERY_LIMIT.cursorCharacters).optional(), search: z.string().trim().max(ADMISSION_QUERY_LIMIT.searchCharacters).optional() };
 /** Review filters remain bounded and tenant-local; current permissions are derived separately. */
 const reviewCursorSchema = z.string().max(ADMISSION_QUERY_LIMIT.cursorCharacters).transform((cursor) => cursor.split(ADMISSION_REVIEW_CURSOR_SEPARATOR)).pipe(z.tuple([z.iso.datetime({ offset: true }), z.uuid()])).transform(([submittedAt, id]) => ({ submittedAt, id }));
