@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- La lista de habilitados incorpora consultas por contacto y estado, creación y cambios por el líder con control de versiones y recuperación del resultado original; la pantalla de gestión continúa en desarrollo.
+
 - La solicitud de ingreso permite pedir y comprobar el código del contacto, consultar respuestas inciertas y aplicar la prueba a la misma solicitud pendiente sin renovar su plazo.
 
 - La consulta de ingreso con código incluye el canal y los países configurados para la cuenta solicitante, sin mostrar credenciales ni cupos internos.

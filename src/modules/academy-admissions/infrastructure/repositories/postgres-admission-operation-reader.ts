@@ -11,6 +11,9 @@ import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-r
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { ADMISSION_POLICY_RECOVERABLE_OPERATIONS } from "../../constants/admission-policy";
+import { ALLOWLIST_RECOVERABLE_OPERATIONS } from "../../constants/allowlist-management";
+import { ADMISSION_ACTION } from "../../constants/admission-eligibility";
+import { authorizeAdmissionLeader } from "./postgres-admission-leader-authorizer";
 
 /** Owned row fields are consumed directly; only the final own recovery DTO is schema-guarded by application. */
 type RegisteredOperationRow = { operation_type: string; state: "started" | "completed"; idempotency_key: string; public_result: unknown; member_role: string | null; member_status: string | null; request_user_id: string | null };
@@ -36,6 +39,10 @@ export class PostgresAdmissionOperationReader implements AdmissionOperationReade
       const leader = row.member_status === TRIBE_MEMBERSHIP_STATUS.active && row.member_role === TRIBE_MEMBER_ROLE.leader;
       const reviewer = row.member_status === TRIBE_MEMBERSHIP_STATUS.active && (row.member_role === TRIBE_MEMBER_ROLE.leader || row.member_role === TRIBE_MEMBER_ROLE.guardian);
       if (ADMISSION_POLICY_RECOVERABLE_OPERATIONS.includes(row.operation_type) && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      if (ALLOWLIST_RECOVERABLE_OPERATIONS.includes(row.operation_type)) {
+        if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+        await authorizeAdmissionLeader(database, { ...scope, action: ADMISSION_ACTION.manageAllowlist, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId }, { action: ADMISSION_ACTION.manageAllowlist, resourceId: scope.tribeId });
+      }
       if (row.operation_type === ADMISSION_OPERATION_TYPE.decide && !reviewer) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
       if (row.operation_type === ADMISSION_OPERATION_TYPE.allowRetry && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
       if (row.operation_type === ADMISSION_OPERATION_TYPE.cancel && row.state === OPERATION_STATE.completed) {

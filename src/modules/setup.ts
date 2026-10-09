@@ -499,6 +499,16 @@ export async function createAdmissionRequestModules(usage: DatabaseConnectionUsa
   };
 }
 
+/** @returns Current leader-only list reads and commands over the backend owner connection, with native account checks and no provider dependency. */
+export async function createAllowlistRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const admissionModule = buildAcademyAdmissionsModule(dependencies);
+  return { resolveTribe: admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases.resolveTribe, allowlist: admissionModule.createAllowlistModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() }).useCases };
+}
 /** @param usage - Native connection purpose; writes select maintenance and still require exact human authority. @returns Early usage configuration and canonical academy routing, without a connection, admission policy writer or provider adapter. */
 export async function createMessagingUsageRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request) {
   const databaseClient = await createServerDatabaseClient(usage);

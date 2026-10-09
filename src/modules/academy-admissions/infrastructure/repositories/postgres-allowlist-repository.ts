@@ -25,18 +25,11 @@ import { allowlistMutationSnapshotSchema, allowlistMutationDenialSchema } from "
 import { PostgresAdmissionOperationRepository } from "./postgres-admission-operation-repository";
 import { authorizeAdmissionLeader, admissionDatabaseNow } from "./postgres-admission-leader-authorizer";
 import { createAdmissionContactFingerprint } from "../verification/admission-contact-fingerprint";
+import { mapAllowlistEntryRow, type AllowlistEntryRow } from "./allowlist-entry-row-mapper";
 
-type EntryRow = { id: string; tribe_id: string; contact_type: "email" | "phone"; normalized_contact: string; display_name: string | null; status: "enabled" | "disabled"; version: number; origin: "manual" | "import"; import_id: string | null; created_by_user_id: string | null; updated_by_user_id: string | null; created_at: Date | string; updated_at: Date | string };
 type ListIntent = AllowlistCreationIntent | AllowlistUpdateIntent;
 type MutationSnapshot = AllowlistMutationResult | { outcome: "denied"; code: "allowlist_conflict" | "invalid_input" | "resource_unavailable" };
 type ContextExecutor = <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
-
-/** Projects trusted stored columns into the canonical own entity; no row schema validation is added. @param row - Authorized scoped PostgreSQL row. @returns The immutable contact and editable configuration. @throws AdmissionOperationError when a stored phone cannot provide its canonical country. */
-function entryFromRow(row: EntryRow): AllowlistEntry {
-  const normalized = normalizeAdmissionContact({ type: row.contact_type, value: row.normalized_contact });
-  if (normalized.status !== ADMISSION_CONTACT_NORMALIZATION_STATUS.valid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-  return { id: row.id, tribeId: row.tribe_id, contact: normalized.contact, displayName: row.display_name, status: row.status, version: row.version, source: row.origin === ALLOWLIST_DATABASE_ORIGIN.csv ? ALLOWLIST_ENTRY_SOURCE.csv : ALLOWLIST_ENTRY_SOURCE.manual, importId: row.import_id, createdByUserId: row.created_by_user_id, updatedByUserId: row.updated_by_user_id, createdAt: new Date(row.created_at), updatedAt: new Date(row.updated_at) };
-}
 
 /** Every phase rechecks native authority; mutation, audit and original outcome commit together. */
 export class PostgresAllowlistRepository implements AllowlistCommandWriter {
@@ -95,7 +88,7 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
     const contact = normalized.contact;
     return this.run(intent, REAUTHENTICATION_OPERATION.createAllowlistEntry, intent.context.tribeId, { confirmed: true, contact, displayName }, async (database, ledgerId) => {
       if (await this.selectedContactType(database, intent.context) !== contact.type) return { outcome: ALLOWLIST_MUTATION_DENIAL, code: ADMISSION_ERROR_CODE.invalidInput };
-      const existing = (await database.execute<EntryRow>(sql`select * from public.academy_allowlist_entries where tribe_id=${intent.context.tribeId} and contact_type=${contact.type} and normalized_contact=${contact.value} for update`)).rows[0];
+      const existing = (await database.execute<AllowlistEntryRow>(sql`select * from public.academy_allowlist_entries where tribe_id=${intent.context.tribeId} and contact_type=${contact.type} and normalized_contact=${contact.value} for update`)).rows[0];
       if (existing) return existing.status === ALLOWLIST_ENTRY_STATUS.enabled && existing.display_name === displayName ? { entryId: existing.id, version: existing.version, changed: false, created: false } : { outcome: ALLOWLIST_MUTATION_DENIAL, code: ADMISSION_ERROR_CODE.allowlistConflict };
       const config = await this.readSecurityConfig(), fingerprint = await createAdmissionContactFingerprint(contact, config), now = await admissionDatabaseNow(database);
       const entry = createAllowlistEntry({ id: randomUUID(), tribeId: intent.context.tribeId, actorUserId: intent.context.userId, now, contact, displayName, source: ALLOWLIST_ENTRY_SOURCE.manual });
@@ -113,10 +106,10 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
     const patch = { ...(intent.patch.displayName !== undefined ? { displayName: normalizeAllowlistDisplayName(intent.patch.displayName) } : {}), ...(intent.patch.status !== undefined ? { status: intent.patch.status } : {}) };
     return this.run(intent, REAUTHENTICATION_OPERATION.updateAllowlistEntry, intent.entryId, { confirmed: true, entryId: intent.entryId, expectedVersion: intent.expectedVersion, patch }, async (database, ledgerId) => {
       const selectedType = await this.selectedContactType(database, intent.context);
-      const row = (await database.execute<EntryRow>(sql`select * from public.academy_allowlist_entries where tribe_id=${intent.context.tribeId} and id=${intent.entryId} for update`)).rows[0];
+      const row = (await database.execute<AllowlistEntryRow>(sql`select * from public.academy_allowlist_entries where tribe_id=${intent.context.tribeId} and id=${intent.entryId} for update`)).rows[0];
       if (!row) return { outcome: ALLOWLIST_MUTATION_DENIAL, code: ADMISSION_ERROR_CODE.resourceUnavailable };
       if (row.contact_type !== selectedType) return { outcome: ALLOWLIST_MUTATION_DENIAL, code: ADMISSION_ERROR_CODE.invalidInput };
-      const proposal = proposeAllowlistEntryChange({ entry: entryFromRow(row), expectedVersion: intent.expectedVersion, patch, actorUserId: intent.context.userId, now: await admissionDatabaseNow(database) });
+      const proposal = proposeAllowlistEntryChange({ entry: mapAllowlistEntryRow(row), expectedVersion: intent.expectedVersion, patch, actorUserId: intent.context.userId, now: await admissionDatabaseNow(database) });
       if (!proposal.ok) return { outcome: ALLOWLIST_MUTATION_DENIAL, code: proposal.code };
       if (!proposal.changed) return { entryId: row.id, version: row.version, changed: false, created: false };
       const entry = proposal.entry;

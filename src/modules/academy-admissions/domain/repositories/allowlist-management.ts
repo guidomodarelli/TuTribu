@@ -5,7 +5,7 @@ import type { AuthorizedAdmissionContext } from "./admission-authorization-reade
 import type { AdmissionOperationResult } from "../entities/admission-operation";
 
 /** Filters remain tenant-local; the cursor is an opaque pagination hint without resource authority. */
-export type AllowlistQuery = { limit: number; search?: string; status?: AllowlistEntry["status"]; cursor?: string };
+export type AllowlistQuery = { limit: number; search?: string; status?: AllowlistEntry["status"]; cursor?: { createdAt: string; id: string } };
 export type AllowlistPage = { entries: AllowlistEntry[]; nextCursor: string | null };
 
 /** Reports only the original configuration commit; it never describes membership or binding effects. */

@@ -23,14 +23,15 @@ export async function withAdmissionNextServer<Result>(environment: Readonly<{ DA
   server.on("message",(message:unknown)=>{if(message==="admission_test_provider_request")options.onProviderRequest?.();else if(typeof message==="object"&&message!==null&&"kind"in message&&message.kind==="admission_test_diagnostic_code"&&"code"in message&&typeof message.code==="string"&&/^\d{6}$/u.test(message.code))options.onDiagnosticCode?.(message.code);else if(typeof message==="object"&&message!==null&&"kind"in message&&message.kind==="admission_test_dispatch_observation"&&"stage"in message&&typeof message.stage==="string"&&"code"in message&&typeof message.code==="string")options.onDispatchObservation?.({stage:message.stage,code:message.code});});
   const exited = once(server, "exit");
   try {
-    let ready = false;
+    let ready = false, readinessFailures = 0;
+    const readinessStatuses: number[] = [];
     for (let attempt = 0; attempt < 60; attempt += 1) {
       if (server.exitCode !== null) throw new Error("Admission Next fixture exited before readiness");
-      try { ready = (await fetch(`${origin}/api/tribes/${slug}/admissions/overview?role=leader`, { signal: AbortSignal.timeout(2_000) })).status === 400; } catch { ready = false; }
+      try { const status = (await fetch(`${origin}/api/tribes/${slug}/admissions/overview?role=leader`, { signal: AbortSignal.timeout(2_000) })).status; if (!readinessStatuses.includes(status)) readinessStatuses.push(status); ready = status === 400; } catch { readinessFailures += 1; ready = false; }
       if (ready) break;
       await delay(250);
     }
-    if (!ready) throw new Error("Admission Next fixture did not become ready");
+    if (!ready) throw new Error(`Admission Next fixture did not become ready ${JSON.stringify({ statuses: readinessStatuses, failures: readinessFailures, exited: server.exitCode !== null })}`);
     return await run(origin, secret);
   } finally { if (server.exitCode === null) server.kill(); await exited; }
 }

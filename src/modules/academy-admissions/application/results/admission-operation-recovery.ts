@@ -10,8 +10,12 @@ import { ADMISSION_CONTACT_VERIFICATION_OPERATION } from "../../constants/admiss
 import { admissionIssuanceSnapshotSchema, admissionChallengeVerificationSnapshotSchema } from "./admission-contact-verification-schemas";
 import { ADMISSION_PROOF_OPERATION } from "../../constants/admission-proof";
 import { admissionProofApplicationSnapshotSchema } from "./admission-proof-application-schemas";
+import { allowlistMutationSnapshotSchema } from "./allowlist-mutation-schemas";
+import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 /** Infrastructure projects an own recovery envelope; PostgreSQL rows are not schema-validated. */
 export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("operationType", [
+  z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.createAllowlistEntry), operation: createAdmissionOperationStateSchema(allowlistMutationSnapshotSchema) }),
+  z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.updateAllowlistEntry), operation: createAdmissionOperationStateSchema(allowlistMutationSnapshotSchema) }),
   z.object({ operationType: z.literal(ADMISSION_PROOF_OPERATION), operation: createAdmissionOperationStateSchema(admissionProofApplicationSnapshotSchema) }),
   z.object({ operationType: z.literal(VERIFICATION_ISSUANCE_OPERATION.issue), operation: createAdmissionOperationStateSchema(admissionIssuanceSnapshotSchema) }),
   z.object({ operationType: z.literal(VERIFICATION_ISSUANCE_OPERATION.resend), operation: createAdmissionOperationStateSchema(admissionIssuanceSnapshotSchema) }),
@@ -27,6 +31,8 @@ export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("op
 ]);
 /** Public recovery retains only the type/state/id and original confirmed result. */
 export const admissionOperationRecoverySchema = z.union([
+  z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.createAllowlistEntry) }), createAdmissionOperationStateSchema(allowlistMutationSnapshotSchema)),
+  z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.updateAllowlistEntry) }), createAdmissionOperationStateSchema(allowlistMutationSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(ADMISSION_PROOF_OPERATION) }), createAdmissionOperationStateSchema(admissionProofApplicationSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(VERIFICATION_ISSUANCE_OPERATION.issue) }), createAdmissionOperationStateSchema(admissionIssuanceSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(VERIFICATION_ISSUANCE_OPERATION.resend) }), createAdmissionOperationStateSchema(admissionIssuanceSnapshotSchema)),

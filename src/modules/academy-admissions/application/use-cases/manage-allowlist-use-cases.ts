@@ -11,6 +11,7 @@ import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { admissionFailure } from "../results/admission-errors";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
+import { allowlistPageSchema, presentAllowlistEntry } from "../results/allowlist-query-schemas";
 
 type AllowlistScope = { tribeId: string; requestId: string };
 type ConfirmedAllowlistScope = AllowlistScope & { operationId: string; confirmed: true };
@@ -26,7 +27,8 @@ export class ManageAllowlistUseCases {
       const authority = await this.resolver.execute({ tribeId: query.tribeId, requestId: query.requestId, action: ADMISSION_ACTION.manageAllowlist });
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
       const filters: AllowlistQuery = { limit: query.limit, ...(query.search !== undefined ? { search: query.search } : {}), ...(query.status !== undefined ? { status: query.status } : {}), ...(query.cursor !== undefined ? { cursor: query.cursor } : {}) };
-      return { ok: true as const, value: await this.reader.list(authority.context, filters) };
+      const page = await this.reader.list(authority.context, filters);
+      return { ok: true as const, value: allowlistPageSchema.parse({ items: page.entries.map(presentAllowlistEntry), nextCursor: page.nextCursor }) };
     } catch (error) { return admissionOperationFailure(error); }
   }
 
@@ -34,7 +36,9 @@ export class ManageAllowlistUseCases {
   async read(query: AllowlistScope & { entryId: string }) {
     try {
       const authority = await this.resolver.execute({ tribeId: query.tribeId, requestId: query.requestId, action: ADMISSION_ACTION.manageAllowlist, resource: { kind: ADMISSION_RESOURCE_KIND.allowlistEntry, id: query.entryId } });
-      return authority.allowed ? { ok: true as const, value: await this.reader.read(authority.context, query.entryId) } : { ok: false as const, failure: authority.failure };
+      if (!authority.allowed) return { ok: false as const, failure: authority.failure };
+      const entry = await this.reader.read(authority.context, query.entryId);
+      return { ok: true as const, value: entry ? presentAllowlistEntry(entry) : null };
     } catch (error) { return admissionOperationFailure(error); }
   }
 
