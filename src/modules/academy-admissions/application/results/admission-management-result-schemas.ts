@@ -18,13 +18,17 @@ export const admissionPolicySchema = z.object({
 }).refine((policy) => (policy.messagingConnectionId === null) === (policy.messagingConnectionVersion === null));
 
 /** Preview rows preserve entered data for the same leader but never include fingerprints or bindings. */
-const importRowSchema = z.object({ rowNumber: z.int().min(1).max(ADMISSION_LIMIT.csvDataRowCount), identity: z.string(), displayName: z.string().max(ADMISSION_LIMIT.displayNameCharacters).nullable().optional(), selected: z.boolean(), errors: z.array(z.enum(ADMISSION_INPUT_CATEGORY)), outcome: z.enum(ADMISSION_IMPORT_ROW_OUTCOME).optional(), version: admissionPublicVersionSchema.optional() });
+const importRowSchema = z.object({ rowNumber: z.int().min(1).max(ADMISSION_LIMIT.csvDataRowCount), identity: z.string().max(ADMISSION_LIMIT.csvByteCount), displayName: z.string().max(ADMISSION_LIMIT.csvByteCount).nullable().optional(), selected: z.boolean(), errors: z.array(z.enum(ADMISSION_INPUT_CATEGORY)), outcome: z.enum(ADMISSION_IMPORT_ROW_OUTCOME).optional(), version: admissionPublicVersionSchema.optional() })
+  .refine((row) => !row.selected || row.errors.length === 0)
+  .refine((row) => !row.displayName || row.displayName.trim().length <= ADMISSION_LIMIT.displayNameCharacters || row.errors.includes(ADMISSION_INPUT_CATEGORY.name))
+  .refine((row) => row.outcome === ADMISSION_IMPORT_ROW_OUTCOME.added || row.outcome === ADMISSION_IMPORT_ROW_OUTCOME.unchanged ? row.version !== undefined : row.version === undefined);
 /** The preview is bounded and indexed by explicit source rows; it cannot claim duplicate confirmed work. */
 export const allowlistImportSchema = z.object({
   importId: admissionPublicIdSchema, state: z.enum(ADMISSION_IMPORT_PUBLIC_STATE), expiresAt: admissionPublicInstantSchema,
   sourceVersion: admissionPublicVersionSchema, rows: z.array(importRowSchema).max(ADMISSION_LIMIT.csvDataRowCount),
   counts: z.object({ selected: z.int().nonnegative(), added: z.int().nonnegative(), unchanged: z.int().nonnegative(), skipped: z.int().nonnegative(), conflict: z.int().nonnegative() }),
-}).refine((preview) => new Set(preview.rows.map((row) => row.rowNumber)).size === preview.rows.length
+}).refine((preview) => preview.rows.reduce((bytes, row) => bytes + new TextEncoder().encode(row.identity).byteLength + new TextEncoder().encode(row.displayName ?? "").byteLength, 0) <= ADMISSION_LIMIT.csvByteCount
+  && new Set(preview.rows.map((row) => row.rowNumber)).size === preview.rows.length
   && preview.counts.selected === preview.rows.filter((row) => row.selected).length
   && Object.values(ADMISSION_IMPORT_ROW_OUTCOME).every((outcome) => preview.counts[outcome] === preview.rows.filter((row) => row.outcome === outcome).length)
   && (preview.state !== ADMISSION_IMPORT_PUBLIC_STATE.preview || preview.rows.every((row) => row.outcome === undefined && row.version === undefined))
