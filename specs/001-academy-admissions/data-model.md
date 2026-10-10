@@ -88,7 +88,13 @@ Pertenece a `messaging`: actor líder, tribu, conexión/versión, canal/template
 
 Referencia privada del ámbito de tribu: `tribe_id`, `created_at` de registro y `retired_at` opcional. No contiene nombre, contacto, owner, token ni credencial. El registro conserva la identidad después de una eliminación física completada y bloquea su reutilización, liberación o reactivación; una eliminación rechazada revierte el cambio. El backfill y los triggers se instalan bajo bloqueo de DML de tribus en la misma transacción.
 
-Esta preparación no concede permisos ni habilita todavía la eliminación de una tribu con admisiones. Las referencias restrictivas existentes deben conciliarse con minimización, historial y consumo antes de su corte definitivo. RLS forzado limita el registro al owner de persistencia; no existe DTO o control de UI que exponga la referencia retirada.
+RLS forzado limita el registro al owner de persistencia; no existe DTO o control de UI que exponga la referencia retirada. La integración completa de eliminación y la secuencia de despliegue siguen pendientes en T111 y las tareas de persistencia/despliegue.
+
+### `RetiredAdmissionProvenance`
+
+Tres archivos privados ligados al namespace: `academy_admission_retired_bindings`, `academy_admission_retired_operations` y `academy_admission_retired_audit_events`. Conservan los UUID originales, huellas protegidas/keyId, referencias opacas de actor/owner, origen, estado/versión y fechas pertinentes. No conservan contacto normalizado, cuenta, resultado público, claim ni metadata libre. La relación operación/auditoría usa UUID/tribu; reutiliza la referencia opaca de actor sólo cuando los actores originales coinciden. No ofrece lectura pública ni transición a una admisión activa. La copia y eliminación de recursos operables se confirman en la misma transacción; el rollback no deja archivos retirados.
+
+`messaging_usage_events`, `messaging_usage_policies` y `tenant_messaging_connections` referencian el namespace, no la fila operable de tribu. Eventos, sujetos protegidos, entregas, intentos y reservas originales sobreviven para conservar ventanas móviles y resultados tardíos sin permitir un nuevo envío. El retiro desconecta la conexión y purga bytes de credencial; elimina desafíos, pruebas y envelopes OTP. Cancela la cola sin intento y conserva el intento ya registrado. T171 sigue siendo responsable de mantenimiento bounded y plazos de retención; estas migraciones no acreditan su worker ni la integración del journal.
 
 ### `PersonalInvitation` → `academy_personal_invitations`
 
