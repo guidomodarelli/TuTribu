@@ -84,6 +84,12 @@ Pertenece a `messaging`: actor líder, tribu, conexión/versión, canal/template
 
 ## D. Invitaciones y solicitudes
 
+### `AdmissionTribeNamespace` → `academy_admission_tribe_namespaces`
+
+Referencia privada del ámbito de tribu: `tribe_id`, `created_at` de registro y `retired_at` opcional. No contiene nombre, contacto, owner, token ni credencial. El registro conserva la identidad después de una eliminación física completada y bloquea su reutilización, liberación o reactivación; una eliminación rechazada revierte el cambio. El backfill y los triggers se instalan bajo bloqueo de DML de tribus en la misma transacción.
+
+Esta preparación no concede permisos ni habilita todavía la eliminación de una tribu con admisiones. Las referencias restrictivas existentes deben conciliarse con minimización, historial y consumo antes de su corte definitivo. RLS forzado limita el registro al owner de persistencia; no existe DTO o control de UI que exponga la referencia retirada.
+
 ### `PersonalInvitation` → `academy_personal_invitations`
 
 `id`, tribu, creador, nombre interno, tipo/destinatario normalizado, fingerprint, `requires_allowlist`, `expires_at` nullable, `active/revoked/expired/redeemed`, `version` entero positivo no nullable con valor inicial `1`, hash de token y keyId, timestamps, cuenta/solicitud de canje y revocación de autorización separada.

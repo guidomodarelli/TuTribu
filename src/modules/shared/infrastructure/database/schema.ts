@@ -1811,6 +1811,7 @@ export const subscriptionPaymentPeriods = pgTable("subscription_payment_periods"
 
 /** Composes admission-owned projections after all existing parent tables exist. */
 export const {
+  tribeNamespaces: academyAdmissionTribeNamespaces,
   policies: academyAdmissionPolicies,
   allowlistEntries: academyAllowlistEntries,
   personalInvitations: academyPersonalInvitations,

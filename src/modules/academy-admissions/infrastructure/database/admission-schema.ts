@@ -5,6 +5,7 @@ import type { AnyPgColumn, PgTableExtraConfig } from "drizzle-orm/pg-core";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import {ADMISSION_VERIFICATION_PURPOSE} from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import {VERIFICATION_ISSUANCE_OPERATION} from "@/src/modules/academy-admissions/constants/verification-issuance";
+import { ADMISSION_TRIBE_NAMESPACE_DATABASE } from "@/src/modules/academy-admissions/constants/admission-tribe-namespace";
 
 /** Resolves cross-owner columns after both table factories have finished. */
 export type AdmissionMessagingSchemaReferences = {
@@ -65,6 +66,12 @@ function messagingVersionReference(name: string,columns: [AnyPgColumn,AnyPgColum
  * FORCE RLS and immutable-transition triggers. Policies and grants remain SQL-owned.
  */
 export function createAdmissionSchema(parents: AdmissionSchemaParents) {
+  /** Projects a private namespace whose lifetime is independent of the live tribe row. */
+  const tribeNamespaces = pgTable(ADMISSION_TRIBE_NAMESPACE_DATABASE.tableName, {
+    tribeId: uuid("tribe_id").primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+    retiredAt: timestamp("retired_at", { withTimezone: true }),
+  }, (table) => ({ retirementCheck: check(ADMISSION_TRIBE_NAMESPACE_DATABASE.retirementConstraintName, sql`${table.retiredAt} is null or ${table.retiredAt}>=${table.createdAt}`) }));
   const policies = pgTable("academy_admission_policies", {
     tribeId: uuid("tribe_id").primaryKey(),
     mode: text("mode").notNull().default("manual_review"), contactType: text("contact_type").notNull().default("email"),
@@ -329,6 +336,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     requestForeignKey: foreignKey({ name: "admission_obligation_request_fkey", columns: [table.requestId,table.tribeId,table.applicantUserId], foreignColumns: [requests.id,requests.tribeId,requests.userId] }).onDelete("cascade"),
   }));
   return {
+    tribeNamespaces: tribeNamespaces.enableRLS(),
     policies: policies.enableRLS(), allowlistEntries: allowlistEntries.enableRLS(), personalInvitations: personalInvitations.enableRLS(), challenges: challenges.enableRLS(),
     proofs: proofs.enableRLS(), requests: requests.enableRLS(), bindings: bindings.enableRLS(), decisions: decisions.enableRLS(), operations: operations.enableRLS(),
     imports: imports.enableRLS(), importRows: importRows.enableRLS(), auditEvents: auditEvents.enableRLS(), notificationObligations: notificationObligations.enableRLS(),
