@@ -8,11 +8,18 @@ import {MessagingConnectionsContainer} from "@/app/(platform)/[slug]/academia/ad
 import type {MessagingConnectionsBrowserClient} from "@/src/modules/messaging/application/ports/messaging-connections-browser-client";
 import type {MessagingConnectionsIntentStore,MessagingDiagnosticObservationReference} from "@/src/modules/messaging/application/ports/messaging-connections-intent-store";
 import type {MessagingConnectionsPageState} from "@/src/modules/messaging/application/results/messaging-connections-page-state";
+import type {MessagingConfigurationResult} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import type {MessagingResourcesBrowserClient} from "@/src/modules/messaging/application/ports/messaging-resources-browser-client";
 import type {MessagingDiagnosticBrowserClient} from "@/src/modules/messaging/application/ports/messaging-diagnostic-browser-client";
 import type {ReauthenticationIntentBrowserClient} from "@/src/modules/auth/application/ports/reauthentication-intent-browser-client";
-import {MESSAGING_CONNECTION_HISTORY_LIMIT} from "@/src/modules/messaging/constants/messaging-connections-browser";
+import {MESSAGING_CONNECTION_HISTORY_LIMIT,MESSAGING_CREDENTIAL_CHECK_UI_COPY} from "@/src/modules/messaging/constants/messaging-connections-browser";
 import type {MessagingActivationBrowserClient} from "@/src/modules/messaging/application/ports/messaging-activation-browser-client";
+import {MESSAGING_CONNECTION_STATE} from "@/src/modules/messaging/constants/messaging-connection";
+import {MESSAGING_CREDENTIAL_MODE} from "@/src/modules/messaging/constants/messaging-credential-validation";
+import {MESSAGING_CREDENTIAL_PUBLIC_STATE,MESSAGING_CAPABILITY_PUBLIC_STATE,MESSAGING_GENERIC_CREDENTIAL_MASK,MESSAGING_PUBLIC_CHANNEL} from "@/src/modules/messaging/constants/messaging-public-contract";
+import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
+import {OPERATION_STATE} from "@/src/constants/operation-state";
+import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 
 /** @returns Guarded own SSR state and readonly/writing ports without auth/platform mocks. */
 function containerFixture(){
@@ -20,7 +27,77 @@ function containerFixture(){
   const create=vi.fn<MessagingConnectionsBrowserClient["create"]>(async(_slug,input)=>({status:"ready",value:{state:"completed",operationId:input.operationId,replayed:false,result:{id:connectionId,name:input.name,version:1,configurationVersion:1,state:"draft",maskedCredential:"••••••••"}}})),client:MessagingConnectionsBrowserClient={viewer:vi.fn<MessagingConnectionsBrowserClient["viewer"]>(async()=>({status:"ready",value:{id:viewerId}})),read:vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:configuration})),create,validate:vi.fn<MessagingConnectionsBrowserClient["validate"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false})),operation:vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"failed",code:"resource_unavailable",message:"No disponible.",uncertain:false}))},store={read:vi.fn<MessagingConnectionsIntentStore["read"]>(()=>null),write:vi.fn<MessagingConnectionsIntentStore["write"]>(()=>true),history:vi.fn<MessagingConnectionsIntentStore["history"]>(()=>[]),archive:vi.fn<MessagingConnectionsIntentStore["archive"]>(()=>true),diagnostic:vi.fn<MessagingConnectionsIntentStore["diagnostic"]>(()=>null),writeDiagnostic:vi.fn<MessagingConnectionsIntentStore["writeDiagnostic"]>(()=>true)},reauthentication={create:vi.fn(async()=>({status:"ready" as const,href:`/auth/reauthenticate?intentId=${randomUUID()}`}))};
   return{initialState,viewerId,tribeId,connectionId,configuration,client,create,store:{...store,diagnostics:vi.fn<()=>MessagingDiagnosticObservationReference[]>(()=>[])},reauthentication};
 }
+/** @returns A real container fixture with an existing active selection and a separate tested production candidate. */
+function selectedCandidateFixture(){
+  const fixture=containerFixture(),now=new Date().toISOString();
+  const selected={id:randomUUID(),name:"Conexión anterior vigente",version:1,configurationVersion:1,state:MESSAGING_CONNECTION_STATE.active,credentialState:MESSAGING_CREDENTIAL_PUBLIC_STATE.valid,credentialMode:MESSAGING_CREDENTIAL_MODE.production,maskedCredential:MESSAGING_GENERIC_CREDENTIAL_MASK,capabilities:[{channel:MESSAGING_PUBLIC_CHANNEL.email,state:MESSAGING_CAPABILITY_PUBLIC_STATE.prepared,checkedAt:now,testedAt:now}]} satisfies NonNullable<Extract<MessagingConfigurationResult,{audience:"leader"}>["selected"]>;
+  const candidate={...selected,id:fixture.connectionId,name:"Candidata siguiente",state:MESSAGING_CONNECTION_STATE.ready};
+  const configuration={...fixture.configuration,selected,candidate},initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",renderedAt:now,configuration};
+  fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:configuration}));
+  return{...fixture,selected,candidate,configuration,initialState};
+}
+
 describe("connection wizard first container step",()=>{
+  it("should preserve an existing active selection after a separate candidate credential is confirmed invalid",async()=>{
+    const fixture=selectedCandidateFixture(),user=userEvent.setup();
+    const activationClient:MessagingActivationBrowserClient={activate:vi.fn()};
+    fixture.client.validate=vi.fn<MessagingConnectionsBrowserClient["validate"]>(async(_slug,id,input)=>({status:"ready",value:{state:OPERATION_STATE.completed,operationId:input.operationId,replayed:false,result:{id,version:fixture.candidate.version+1,configurationVersion:fixture.candidate.configurationVersion,credentialState:MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid,credentialMode:MESSAGING_CREDENTIAL_MODE.unknown,validatedAt:new Date().toISOString(),failureCode:MESSAGING_ERROR_CODE.invalidCredentials}}}));
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,candidate:{...fixture.candidate,version:fixture.candidate.version+1,state:MESSAGING_CONNECTION_STATE.draft,credentialState:MESSAGING_CREDENTIAL_PUBLIC_STATE.invalid,credentialMode:MESSAGING_CREDENTIAL_MODE.unknown,capabilities:[]}}}));
+    render(<MessagingConnectionsContainer {...fixture} activationClient={activationClient} />);
+    await waitFor(()=>expect(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i})).toBeEnabled());
+    expect(screen.getByText(fixture.selected.name,{exact:true})).toBeVisible();
+    await user.click(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i}));
+    await user.click(screen.getByRole("button",{name:"Comprobar credencial"}));
+    await waitFor(()=>expect(screen.getByText("Credencial no válida")).toBeVisible());
+    expect(screen.getByText(fixture.selected.name,{exact:true})).toBeVisible();
+    expect(screen.getByText(/La seleccionada Conexión anterior vigente/)).toBeVisible();
+    expect(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"})).toBeDisabled();
+    expect(activationClient.activate).not.toHaveBeenCalled();
+    expect(fixture.client.validate).toHaveBeenCalledTimes(1);
+  });
+
+  it("should disclose replacement impact and replace an existing active selection only after explicit consent",async()=>{
+    const fixture=selectedCandidateFixture(),user=userEvent.setup();
+    const activationClient:MessagingActivationBrowserClient={activate:vi.fn<MessagingActivationBrowserClient["activate"]>(async(_scope,input)=>({status:"ready",value:{state:OPERATION_STATE.completed,operationId:input.operationId,replayed:false,result:{id:fixture.candidate.id,name:fixture.candidate.name,version:fixture.candidate.version+1,configurationVersion:fixture.candidate.configurationVersion,state:MESSAGING_CONNECTION_STATE.active,maskedCredential:MESSAGING_GENERIC_CREDENTIAL_MASK,replaced:{connectionId:fixture.selected.id,connectionVersion:fixture.selected.configurationVersion},policyVersion:null}}}))};
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,selected:{...fixture.candidate,version:fixture.candidate.version+1,state:MESSAGING_CONNECTION_STATE.active},candidate:null}}));
+    render(<MessagingConnectionsContainer {...fixture} activationClient={activationClient} />);
+    await waitFor(()=>expect(screen.getByRole("checkbox",{name:/Confirmo que quiero usar esta candidata/i})).toBeEnabled());
+    expect(screen.getByText(/La seleccionada Conexión anterior vigente/)).toHaveTextContent(/seguirá vigente hasta confirmar el reemplazo/);
+    expect(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"})).toBeDisabled();
+    expect(activationClient.activate).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("checkbox",{name:/Confirmo que quiero usar esta candidata/i}));
+    await user.click(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"}));
+    await waitFor(()=>expect(screen.queryByRole("button",{name:"Reemplazar conexión seleccionada"})).not.toBeInTheDocument());
+    expect(screen.getByText(fixture.candidate.name,{exact:true})).toBeVisible();
+    expect(screen.queryByText(fixture.selected.name,{exact:true})).not.toBeInTheDocument();
+    expect(activationClient.activate).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(activationClient.activate).mock.calls[0][1]).toMatchObject({expectedVersion:fixture.candidate.version,confirmed:true});
+  });
+
+  it("should retain the active selection and visible recovery when the candidate provider check is unavailable",async()=>{
+    const fixture=selectedCandidateFixture(),user=userEvent.setup();
+    const activationClient:MessagingActivationBrowserClient={activate:vi.fn()};
+    fixture.client.validate=vi.fn<MessagingConnectionsBrowserClient["validate"]>(async()=>({status:"failed",code:MESSAGING_ERROR_CODE.dependencyUnavailable,message:"No pudimos confirmar la comprobación del servicio. Consultá su resultado original.",uncertain:true}));
+    render(<MessagingConnectionsContainer {...fixture} activationClient={activationClient} />);
+    await waitFor(()=>expect(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i})).toBeEnabled());
+    await user.click(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/i}));
+    await user.click(screen.getByRole("button",{name:"Comprobar credencial"}));
+    await waitFor(()=>expect(screen.getByRole("button",{name:"Consultar guardado"})).toBeEnabled());
+    expect(screen.getByRole("alert")).toHaveTextContent(MESSAGING_CREDENTIAL_CHECK_UI_COPY.pending);
+    expect(screen.queryByText(/No pudimos confirmar la comprobación del servicio/)).not.toBeInTheDocument();
+    expect(screen.getByText(fixture.selected.name,{exact:true})).toBeVisible();
+    expect(activationClient.activate).not.toHaveBeenCalled();
+    const operationId=vi.mocked(fixture.client.validate).mock.calls[0][2].operationId;
+    fixture.client.operation=vi.fn<MessagingConnectionsBrowserClient["operation"]>(async()=>({status:"ready",value:{type:REAUTHENTICATION_OPERATION.validateMessagingConnection,state:OPERATION_STATE.completed,operationId,replayed:true,result:{id:fixture.candidate.id,version:fixture.candidate.version+1,configurationVersion:fixture.candidate.configurationVersion,credentialState:MESSAGING_CREDENTIAL_PUBLIC_STATE.unavailable,credentialMode:MESSAGING_CREDENTIAL_MODE.unknown,validatedAt:new Date().toISOString(),failureCode:MESSAGING_ERROR_CODE.dependencyUnavailable}}}));
+    fixture.client.read=vi.fn<MessagingConnectionsBrowserClient["read"]>(async()=>({status:"ready",value:{...fixture.configuration,candidate:{...fixture.candidate,version:fixture.candidate.version+1,state:MESSAGING_CONNECTION_STATE.draft,credentialState:MESSAGING_CREDENTIAL_PUBLIC_STATE.unavailable,credentialMode:MESSAGING_CREDENTIAL_MODE.unknown,capabilities:[]}}}));
+    await user.click(screen.getByRole("button",{name:"Consultar guardado"}));
+    await waitFor(()=>expect(fixture.client.read).toHaveBeenCalledTimes(1));
+    expect(screen.getByText(fixture.selected.name,{exact:true})).toBeVisible();
+    expect(fixture.client.validate).toHaveBeenCalledTimes(1);
+    expect(fixture.client.operation).toHaveBeenCalledTimes(1);
+    expect(activationClient.activate).not.toHaveBeenCalled();
+  });
+
   it("should expose only the operational alert to a guardian without lifecycle controls or writes",async()=>{
     const fixture=containerFixture(),configuration={audience:"guardian" as const,operationalAlert:"attention_required" as const},initialState:MessagingConnectionsPageState={...fixture.initialState,kind:"ready",configuration},suspend=vi.fn<MessagingLifecycleBrowserClient["suspend"]>(),disconnect=vi.fn<MessagingLifecycleBrowserClient["disconnect"]>();render(<MessagingConnectionsContainer {...fixture} initialState={initialState} lifecycleClient={{suspend,disconnect}} />);await waitFor(()=>expect(fixture.client.viewer).toHaveBeenCalled());expect(screen.queryByRole("region",{name:"Seguridad y retiro de conexiones"})).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"Suspender conexión"})).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"Desconectar conexión"})).not.toBeInTheDocument();expect(suspend).not.toHaveBeenCalled();expect(disconnect).not.toHaveBeenCalled();expect(fixture.client.read).not.toHaveBeenCalled();
   });
