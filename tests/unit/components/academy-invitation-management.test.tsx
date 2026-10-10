@@ -1,12 +1,14 @@
 /** Exercises real shared controls and viewer-scoped workflow with doubles only at own application ports. @module academy-invitation-management-tests */
 import { randomBytes, randomUUID } from "node:crypto";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvitationsContainer } from "@/app/(platform)/[slug]/academia/admissions/invitations/invitations-container";
 import type { PersonalInvitationManagementPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-management-page-state";
 import type { PersonalInvitationManagementBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import type { ReauthenticationIntentBrowserClient } from "@/src/modules/auth/application/ports/reauthentication-intent-browser-client";
+import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { PERSONAL_INVITATION_MANAGEMENT_DATE } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
 
 /** @returns Safe initial props and own ports, with real storage, hooks, controls and validation. */
 function fixture(phone = false) {
@@ -83,6 +85,62 @@ describe("personal invitation management controls", () => {
     await user.type(screen.getByLabelText("Correo destinatario"), "recipient@example.test");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." })).not.toBeChecked();
+  });
+
+  it("should initially require a usable list and submit a future expiry with an explicit UTC label", async () => {
+    const data = fixture(), user = userEvent.setup(); data.initial.hasUsableAllowlist = true; await mount(data);
+    expect(screen.getByRole("checkbox", { name: "Exigir coincidencia en la lista de habilitados" })).toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: /Reconozco la dispensa/ })).not.toBeInTheDocument();
+    const expiry = screen.getByLabelText("Vencimiento del enlace (fecha y hora UTC)");
+    const expectedDefault = new Date(new Date(data.initial.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs).toISOString().slice(0, PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters);
+    expect(expiry).toHaveValue(expectedDefault);
+    const selectedExpiry = new Date(new Date(data.initial.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs + ADMISSION_LIMIT.invitationDefaultValidityMs).toISOString().slice(0, PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters);
+    await user.type(screen.getByLabelText("Nombre interno"), "Grupo futuro");
+    await user.type(screen.getByLabelText("Correo destinatario"), "recipient@example.test");
+    fireEvent.change(expiry, { target: { value: selectedExpiry } });
+    await user.click(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." }));
+    await user.click(screen.getByRole("button", { name: "Guardar acción" }));
+    await waitFor(() => expect(data.client.write).toHaveBeenCalledTimes(1));
+    const intent = vi.mocked(data.client.write).mock.calls[0][1];
+    expect(intent.type).toBe("create_personal_invitation");
+    expect(intent.input).toMatchObject({ requiresAllowlist: true, expiresAt: new Date(selectedExpiry + PERSONAL_INVITATION_MANAGEMENT_DATE.utcSuffix).toISOString() });
+    expect(intent.input).not.toHaveProperty("acknowledgeNoAllowlist");
+  });
+
+  it("should focus expired-date feedback before dispatch and clear stale feedback and consent after correction", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    const expiry = screen.getByLabelText("Vencimiento del enlace (fecha y hora UTC)");
+    fireEvent.change(expiry, { target: { value: data.initial.renderedAt.slice(0, PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters) } });
+    await user.click(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." }));
+    await user.click(screen.getByRole("button", { name: "Guardar acción" }));
+    const feedback = await screen.findByRole("alert");
+    await waitFor(() => expect(feedback).toHaveFocus());
+    expect(data.client.write).not.toHaveBeenCalled();
+    const futureExpiry = new Date(new Date(data.initial.renderedAt).getTime() + ADMISSION_LIMIT.invitationDefaultValidityMs).toISOString().slice(0, PERSONAL_INVITATION_MANAGEMENT_DATE.minuteCharacters);
+    fireEvent.change(expiry, { target: { value: futureExpiry } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Guardar acción" })).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." }));
+    await user.click(screen.getByRole("button", { name: "Guardar acción" }));
+    await waitFor(() => expect(data.client.write).toHaveBeenCalledTimes(1));
+  });
+
+  it("should require a separate warning acknowledgement for no expiry before creating the personal link", async () => {
+    const data = fixture(), user = userEvent.setup(); await mount(data); await emailProposal(user);
+    await user.click(screen.getByRole("checkbox", { name: "Sin vencimiento" }));
+    expect(screen.getByLabelText("Vencimiento del enlace (fecha y hora UTC)")).toBeDisabled();
+    await user.click(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." }));
+    await user.click(screen.getByRole("button", { name: "Guardar acción" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveFocus());
+    expect(data.client.write).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("checkbox", { name: /Reconozco que el enlace seguirá utilizable/ }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." })).not.toBeChecked();
+    await user.click(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." }));
+    await user.click(screen.getByRole("button", { name: "Guardar acción" }));
+    await waitFor(() => expect(data.client.write).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(data.client.write).mock.calls[0][1].input).toMatchObject({ expiresAt: null, acknowledgeNoAllowlist: true });
   });
 
   it("should show the initial URL only in memory and update locally after one confirmed creation", async () => {
