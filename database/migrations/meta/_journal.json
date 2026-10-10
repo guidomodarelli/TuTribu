@@ -708,6 +708,321 @@
       "when": 1790299200000,
       "tag": "20260928126000_add_leader_academy_activation",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1791190800000,
+      "tag": "20261005090000_create_admission_identity_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1791191400000,
+      "tag": "20261005091000_create_academy_admission_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1791191700000,
+      "tag": "20261005091500_guard_admission_evidence_transitions",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1791192000000,
+      "tag": "20261005092000_create_tenant_messaging",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1791192300000,
+      "tag": "20261005092500_guard_messaging_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1791192600000,
+      "tag": "20261005093000_guard_academy_membership_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1791193800000,
+      "tag": "20261005095000_guard_global_identity_context",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1791194400000,
+      "tag": "20261005100000_guard_messaging_secret_retirement",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1791195000000,
+      "tag": "20261005101000_guard_admission_operation_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1791288000000,
+      "tag": "20261006120000_index_messaging_contact_windows",
+      "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1791295200000,
+      "tag": "20261006140000_claim_messaging_deliveries_fairly",
+      "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1791302400000,
+      "tag": "20261006160000_purge_verification_delivery_material",
+      "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1791309600000,
+      "tag": "20261006180000_guard_subscription_membership_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1791316800000,
+      "tag": "20261006200000_scope_admission_audit_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1791324000000,
+      "tag": "20261006220000_extend_admission_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1791327600000,
+      "tag": "20261006230000_bind_credential_validation_usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1791329400000,
+      "tag": "20261006233000_index_admission_account_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1791330000000,
+      "tag": "20261006234000_read_own_admission_summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1791331800000,
+      "tag": "20261007001000_read_public_admission_overview",
+      "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1791332400000,
+      "tag": "20261007002000_read_own_admission_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1791333000000,
+      "tag": "20261007003000_read_admission_notification_subject",
+      "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1791333600000,
+      "tag": "20261007004000_read_exact_own_admission_request",
+      "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1791334200000,
+      "tag": "20261007005000_read_admission_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1791334800000,
+      "tag": "20261007010000_read_academy_admission_entry",
+      "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1791338400000,
+      "tag": "20261007020000_resolve_paid_admission_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1791340200000,
+      "tag": "20261007023000_close_unavailable_admission_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 127,
+      "version": "7",
+      "when": 1791342000000,
+      "tag": "20261007030000_capture_admission_decision_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1791345600000,
+      "tag": "20261007040000_add_messaging_connection_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1791349200000,
+      "tag": "20261007050000_claim_scoped_diagnostic_delivery",
+      "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1791414900000,
+      "tag": "20261007231500_bind_verification_operation_purpose",
+      "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1791476100000,
+      "tag": "20261008161500_create_admission_email_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1791489600000,
+      "tag": "20261008200000_guard_messaging_leadership_changes",
+      "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1791493200000,
+      "tag": "20261008210000_claim_scoped_admission_delivery",
+      "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1791496800000,
+      "tag": "20261008220000_scope_admission_operation_recovery",
+      "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1791500400000,
+      "tag": "20261008230000_read_admission_contact_choices",
+      "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1791520200000,
+      "tag": "20261009043000_lock_admission_canonical_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1791526200000,
+      "tag": "20261009061000_guard_allowlist_import_progress",
+      "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1791534000000,
+      "tag": "20261009082000_capture_automatic_allowlist_authorization",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1791534600000,
+      "tag": "20261009083000_read_current_admission_review_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1791550800000,
+      "tag": "20261009130000_add_personal_invitation_context_digest",
+      "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1791568800000,
+      "tag": "20261009180000_bind_personal_verification_challenges",
+      "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1791626400000,
+      "tag": "20261010100000_minimize_deleted_admission_contact_owners",
+      "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1791631800000,
+      "tag": "20261010113000_preserve_admission_tribe_namespaces",
+      "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1791633600000,
+      "tag": "20261010120000_archive_deleted_admission_tribe_provenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1791634200000,
+      "tag": "20261010121000_retire_deleted_tribe_messaging",
+      "breakpoints": true
     }
   ]
 }
