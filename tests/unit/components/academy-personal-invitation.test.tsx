@@ -37,6 +37,7 @@ function fixture(additionalVerification = false) {
   };
   const challengeId = randomUUID(), proofId = randomUUID();
   const contactClient: AdmissionContactBrowserClient = {
+    current: vi.fn<AdmissionContactBrowserClient['current']>(async () => ({ status: 'ready', value: { current: null } })),
     issue: vi.fn(async (_slug, input) => ({ status: "ready" as const, value: { state: "completed" as const, operationId: input.operationId, replayed: false, result: { challengeId, purpose: "admission" as const, channel: "email" as const, maskedDestination: "s•••@example.test", expiresAt: "2100-11-06T01:00:00Z", resendAllowedAt: now, deliveryState: "queued" as const } } })),
     verify: vi.fn(async (_slug, _challenge, input) => ({ status: "ready" as const, value: { state: "completed" as const, operationId: input.operationId, replayed: false, result: { purpose: "admission" as const, result: "verified" as const, proofId, applyBefore: "2100-11-06T01:00:00Z" } } })),
     resend: vi.fn(), apply: vi.fn(), operation: vi.fn(), delivery: vi.fn(),

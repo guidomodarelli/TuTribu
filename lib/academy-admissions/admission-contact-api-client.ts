@@ -1,6 +1,7 @@
 "use client";
 /** Consumes only own same-origin contact contracts, preserving original uncertainty and cancellation without automatic retries. @module admission-contact-api-client */
 import { z } from "zod";
+import { admissionCurrentChallengeSelectionSchema } from "@/src/modules/academy-admissions/application/results/admission-current-challenge-schemas";
 import type { AdmissionContactBrowserClient, AdmissionContactBrowserResult } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
 import type { AdmissionErrorCode, AdmissionErrorOperation } from "@/src/modules/academy-admissions/application/results/admission-errors";
 import { admissionChallengeSnapshotSchema, admissionVerifiedContactSchema } from "@/src/modules/academy-admissions/application/results/admission-contact-verification-schemas";
@@ -23,17 +24,17 @@ export function createAdmissionContactApiClient(options: { fetch?: typeof global
   /** @param code - Closed own error. @param uncertain - Whether the write may have committed. @param operation - Genuine guarded original metadata only. @returns Safe catalogue copy with no raw upstream diagnostics. */
   const failed = (code: AdmissionErrorCode, uncertain: boolean, operation?: AdmissionErrorOperation): AdmissionContactBrowserResult<never> => ({ status: ADMISSION_CONTACT_BROWSER_STATUS.failed, code, message: ADMISSION_ERROR_MESSAGE[code], uncertain, ...(operation ? { operation } : {}) });
   const base = (slug: string) => `${ADMISSION_CONTACT_BROWSER_PATH.prefix}/${encodeURIComponent(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.segment}`;
-  /** @param url - Same-origin own route. @param schema - Own output contract. @param signal - Original caller cancellation/deadline. @param body - Optional exact write proposal. @returns Guarded data, controlled failure or cancellation; no request is retried. */
-  async function request<Value>(url: string, schema: z.ZodType<Value>, signal: AbortSignal, body?: { operationId: string }, readError: z.ZodType<{ code: string; operation?: AdmissionErrorOperation }> = admissionPublicErrorSchema): Promise<AdmissionContactBrowserResult<Value>> {
-    const writing = body !== undefined;
+  /** @param url - Same-origin own route. @param schema - Own output contract. @param signal - Original caller cancellation/deadline. @param body - Optional exact write or readonly selection proposal. @param readError - Own safe error contract. @param readOnly - A POST lookup cannot have mutation uncertainty. @returns Guarded data, controlled failure or cancellation; no request is retried. */
+  async function request<Value>(url: string, schema: z.ZodType<Value>, signal: AbortSignal, body?: object, readError: z.ZodType<{ code: string; operation?: AdmissionErrorOperation }> = admissionPublicErrorSchema, readOnly = false): Promise<AdmissionContactBrowserResult<Value>> {
+    const writing = body !== undefined && !readOnly;
     if (signal.aborted) return { status: ADMISSION_CONTACT_BROWSER_STATUS.aborted };
     try {
-      const response = await transport(url, { method: writing ? "POST" : "GET", credentials: "same-origin", cache: "no-store", signal, ...(body ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}) });
+      const response = await transport(url, { method: body !== undefined ? "POST" : "GET", credentials: "same-origin", cache: "no-store", signal, ...(body ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}) });
       const value: unknown = await response.json();
       if (signal.aborted) return { status: ADMISSION_CONTACT_BROWSER_STATUS.aborted };
       const error = readError.safeParse(value);
       if (!response.ok || error.success) {
-        if (!error.success || error.data.operation && body && error.data.operation.operationId.toLowerCase() !== body.operationId.toLowerCase()) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
+        if (!error.success || readOnly && error.data.operation || error.data.operation && body && "operationId" in body && typeof body.operationId === "string" && error.data.operation.operationId.toLowerCase() !== body.operationId.toLowerCase()) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
         const code = Object.values(ADMISSION_ERROR_CODE).find((candidate) => candidate === error.data.code) ?? ADMISSION_ERROR_CODE.dependencyUnavailable;
         const uncertain = writing && (code === ADMISSION_ERROR_CODE.operationUnresolved || error.data.operation?.state === OPERATION_STATE.started || response.status >= HTTP_STATUS.serverError);
         return failed(code, uncertain, error.data.operation);
@@ -50,6 +51,7 @@ export function createAdmissionContactApiClient(options: { fetch?: typeof global
     return result;
   }
   return {
+    current: (slug, input, signal) => request(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}/${ADMISSION_CONTACT_BROWSER_PATH.current}`, admissionCurrentChallengeSelectionSchema, signal, input, admissionPublicErrorSchema, true),
     issue: (slug, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}`, input, admissionChallengeSnapshotSchema, signal, (snapshot) => snapshot.channel === input.channel),
     verify: (slug, challengeId, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}/${encodeURIComponent(challengeId)}/${ADMISSION_CONTACT_BROWSER_PATH.verify}`, input, admissionVerifiedContactSchema, signal),
     resend: (slug, challengeId, input, signal) => command(`${base(slug)}/${ADMISSION_CONTACT_BROWSER_PATH.challenges}/${encodeURIComponent(challengeId)}/${ADMISSION_CONTACT_BROWSER_PATH.resend}`, input, admissionChallengeSnapshotSchema, signal, (snapshot) => !input.useSmsAlternative || snapshot.channel === MESSAGING_PUBLIC_CHANNEL.sms),

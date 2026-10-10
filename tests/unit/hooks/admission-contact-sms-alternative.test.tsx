@@ -15,6 +15,7 @@ function smsAlternativeFixture() {
   const challenge: AdmissionChallengeSnapshot = { challengeId, purpose: "admission", channel: "whatsapp", maskedDestination: "•••1234", expiresAt: new Date(now + ADMISSION_LIMIT.verificationCodeValidityMs).toISOString(), resendAllowedAt: new Date(now - 1).toISOString(), deliveryState: "unknown" };
   const replacement: AdmissionChallengeSnapshot = { ...challenge, challengeId: replacementId, channel: "sms", deliveryState: "accepted" };
   const client: AdmissionContactBrowserClient = {
+    current: vi.fn<AdmissionContactBrowserClient['current']>(async () => ({ status: 'ready', value: { current: null } })),
     issue: vi.fn<AdmissionContactBrowserClient["issue"]>(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: challenge } })),
     resend: vi.fn<AdmissionContactBrowserClient["resend"]>(async (_slug, _challengeId, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: replacement } })),
     verify: vi.fn<AdmissionContactBrowserClient["verify"]>(async (_slug, _challengeId, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { purpose: "admission", result: "verified", proofId, applyBefore: new Date(now + ADMISSION_LIMIT.verificationProofFreshnessMs).toISOString() } } })),

@@ -41,6 +41,7 @@ import { PostgresAdmissionOperationReader } from "./infrastructure/repositories/
 import { ContactVerificationUseCases } from "./application/use-cases/contact-verification-use-cases";
 import { ApplyAdmissionProofUseCase } from "./application/use-cases/apply-admission-proof-use-case";
 import { PostgresAdmissionContactVerificationOperations, type AdmissionVerificationDatabaseExecutor } from "./infrastructure/repositories/postgres-admission-contact-verification-operations";
+import { ReadCurrentAdmissionChallengeUseCase } from "./application/use-cases/read-current-admission-challenge-use-case";
 import { PostgresAdmissionVerificationDispatchContext } from "./infrastructure/verification/postgres-admission-verification-dispatch-context";
 import type { AdmissionContactChallengeDispatcher, AdmissionChallengeDispatchIntent } from "./domain/repositories/admission-contact-verification";
 import type { ResolvedAdmissionChallengeDispatch } from "./infrastructure/verification/admission-verification-message-sender";
@@ -151,6 +152,10 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       const context = new PostgresAdmissionVerificationDispatchContext(executeVerification);
       const dispatcher = options.createDispatcher((intent) => context.resolve(intent));
       return { useCases: new ContactVerificationUseCases(dependencies.accounts, operations, dispatcher, dependencies.clock) };
+    },
+    /** @param options - Current server security only. @returns Exact-contact selection without a sender or dispatcher. */
+    createCurrentChallengeModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+      return { useCase: new ReadCurrentAdmissionChallengeUseCase(dependencies.accounts, new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig), dependencies.clock) };
     },
     /** @param options - Live server security for the atomic owner and original ledger. @returns Own pending proof attachment without a sender, dispatcher or provider dependency. */
     createProofApplicationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {

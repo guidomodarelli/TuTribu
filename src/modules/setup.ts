@@ -646,6 +646,15 @@ export async function createAdmissionContactVerificationRequestModule(requestCon
   return { verification, resolveTribe: routing.resolveTribe };
 }
 
+/** @returns DB-only current-contact selection and canonical routing without provider adapters. */
+export async function createAdmissionCurrentChallengeRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = { accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(), execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run) };
+  const admissionModule = buildAcademyAdmissionsModule(dependencies);
+  const routing = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  return { currentChallenge: admissionModule.createCurrentChallengeModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() }).useCase, resolveTribe: routing.resolveTribe };
+}
+
 /** @returns Own pending proof attachment and canonical routing through native session authority, without creating provider or dispatch adapters. */
 export async function createAdmissionProofApplicationRequestModule() {
   const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);

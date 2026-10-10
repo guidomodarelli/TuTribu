@@ -7,6 +7,15 @@ import { ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/consta
 import { MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
 
 describe("admission contact browser client", () => {
+  it("should keep POST selection failures readonly and omit private fields from a safe result", async () => {
+    const input = { previousRequestId: randomUUID(), expectedPolicyVersion: 2, channel: "email" as const }, transport = vi.fn(async () => Response.json({ code: "dependency_unavailable", message: ADMISSION_ERROR_MESSAGE.dependency_unavailable, requestId: randomUUID() }, { status: 503 }));
+    const client = createAdmissionContactApiClient({ fetch: transport });
+    expect(await client.current("synthetic-academy", input, new AbortController().signal)).toMatchObject({ status: "failed", code: "dependency_unavailable", uncertain: false });
+    transport.mockResolvedValueOnce(Response.json({ current: null, privateConnection: "private" }));
+    expect(await client.current("synthetic-academy", input, new AbortController().signal)).toEqual({ status: "ready", value: { current: null } });
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
+
   it("should issue through same-origin own HTTP with exact consent and canonical original identity", async () => {
     const operationId = randomUUID(), transport = vi.fn(async () => Response.json({ state: "completed", operationId, replayed: false, result: { purpose: "admission", challengeId: randomUUID(), channel: "email", maskedDestination: "a•••@example.test", expiresAt: "2026-10-08T23:10:00Z", resendAllowedAt: "2026-10-08T23:01:00Z", deliveryState: "queued", secretRef: "synthetic-private" } }, { status: 201 }));
     const result = await createAdmissionContactApiClient({ fetch: transport }).issue("synthetic-academy", { operationId, confirmed: true, expectedPolicyVersion: 1, channel: "email" }, new AbortController().signal);
