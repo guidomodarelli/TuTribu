@@ -10,10 +10,11 @@ import type { RequestDatabase, RequestDatabaseContext } from "@/src/modules/shar
  * @param context - Synthetic actor permitted to perform the isolated transition.
  * @param prepare - Stages the real DB-only transition under existing SQL guards before its observation deadline starts.
  * @param compete - Starts the actual operation; rejection is retained for caller assertions.
+ * @param whileContended - Optional external-state transition after a native wait is proved, before the held row is released.
  * @returns Its settled result after all owned transactions and observation finish.
  * @throws When preparation, proven contention, or an owned transition fails.
  */
-export async function withAdmissionTransitionContention<Result>(database: AcademyAdmissionTestDatabase, context: RequestDatabaseContext, prepare: (transaction: RequestDatabase) => Promise<void>, compete: () => Promise<Result>): Promise<PromiseSettledResult<Result>> {
+export async function withAdmissionTransitionContention<Result>(database: AcademyAdmissionTestDatabase, context: RequestDatabaseContext, prepare: (transaction: RequestDatabase) => Promise<void>, compete: () => Promise<Result>, whileContended?: () => void | Promise<void>): Promise<PromiseSettledResult<Result>> {
   let announceTransition!: (scope: { pid: number; deadline: string }) => void, rejectTransition!: (error: unknown) => void, releaseTransition!: () => void;
   const prepared = new Promise<{ pid: number; deadline: string }>((resolve, reject) => { announceTransition = resolve; rejectTransition = reject; });
   const released = new Promise<void>((resolve) => { releaseTransition = resolve; });
@@ -48,6 +49,7 @@ export async function withAdmissionTransitionContention<Result>(database: Academ
       return false;
     });
     if (!contended) throw new Error("Admission transition observer failed: native_wait_unproven");
+    await whileContended?.();
   } catch (error) { observationError = error; }
   finally { releaseTransition(); }
   const [transitionResult, contenderResult] = await Promise.all([transition.then(() => ({ status: "fulfilled" as const }), (reason: unknown) => ({ status: "rejected" as const, reason })), settledContender]);
