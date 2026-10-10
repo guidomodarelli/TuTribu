@@ -46,6 +46,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal in
       const latestId = replacement.result.invitationId;
       const revokeContext = { ...await fixture.confirm(REAUTHENTICATION_OPERATION.revokePersonalInvitation, latestId), action: "manage_invitations" as const };
       expect(await repository.revoke({ context: revokeContext, operationId: randomUUID(), confirmed: true, invitationId: latestId, expectedVersion: 1, revokeRedeemedAuthorization: false, internalReason: "Reemisión deliberada" })).toMatchObject({ state: "completed", result: { version: 2, changed: true } });
+      const unchanged = { context: revokeContext, operationId: randomUUID(), confirmed: true as const, invitationId: latestId, expectedVersion: 2, revokeRedeemedAuthorization: false, internalReason: "Revocación ya vigente" };
+      expect(await repository.revoke(unchanged)).toMatchObject({ state: "completed", result: { version: 2, changed: false } });
+      expect(await repository.revoke(unchanged)).toMatchObject({ state: "completed", replayed: true, result: { version: 2, changed: false } });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select status,version from public.academy_personal_invitations where id=${latestId}`)).rows).toEqual([{ status: "revoked", version: 2 }]);
+        expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_audit_events where resource_id=${latestId}`)).rows).toEqual([{ count: 2 }]);
+      });
       const lostInput = { ...input, operationId: randomUUID(), internalName: "Enlace cuya respuesta se perdió" };
       loseReply = true;
       const lost = await repository.create(lostInput);
