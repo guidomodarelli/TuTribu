@@ -49,6 +49,29 @@ beforeEach(() => { window.sessionStorage.clear(); router.refresh.mockClear(); ro
 afterEach(() => window.sessionStorage.clear());
 
 describe("personal invitation page workflow", () => {
+  it("should retain a terminal code denial and disable its controls in the personal invitation route", async () => {
+    const data = fixture(true);
+    vi.mocked(data.contactClient.verify).mockImplementationOnce(async (_slug, _challengeId, input) => ({ status: "failed", code: "challenge_invalidated", message: "Ese código ya no está vigente. Consultá el estado antes de pedir otro.", uncertain: false, operation: { operationId: input.operationId, state: "completed" } }));
+    render(data.element());
+    const consent = await screen.findByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i });
+    await waitFor(() => expect(consent).toBeEnabled());
+    fireEvent.click(consent);
+    fireEvent.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
+    const codeInput = await screen.findByLabelText("Código de ingreso", { exact: true });
+    await waitFor(() => expect(codeInput).toBeEnabled());
+    fireEvent.change(codeInput, { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Comprobar código" }));
+    await screen.findByText("Ese código ya no está vigente. Consultá el estado antes de pedir otro.", { exact: true });
+    await waitFor(() => expect(consent).toBeEnabled());
+    expect(codeInput).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Comprobar código" })).toBeDisabled();
+    fireEvent.click(consent);
+    expect(screen.getByText("Ese código ya no está vigente. Consultá el estado antes de pedir otro.", { exact: true })).toBeVisible();
+    expect(data.contactClient.verify).toHaveBeenCalledOnce();
+    expect(data.client.submit).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
   it("should offer explicit render recovery when the initial SSR read failed without starting a browser workflow", () => {
     const data = fixture(), state: PersonalInvitationPageState = { kind: "unavailable", code: "unexpected_failure", message: "No pudimos completar la operación. Conservá los datos e intentá nuevamente." };
     render(<Providers token={data.token}><PersonalInvitationContainer initialState={state} client={data.client} contactClient={data.contactClient} /></Providers>);

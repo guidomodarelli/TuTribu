@@ -85,6 +85,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- La comprobación de contacto conserva el aviso de un código vencido, invalidado o con intentos agotados y bloquea nuevos intentos sobre ese código hasta recibir un reenvío confirmado.
+
 - La comprobación de contacto muestra el motivo seguro cuando el cupo de envíos está agotado o la mensajería no está disponible; escribir el código mantiene esa información y consultar un envío nuevo reemplaza el motivo anterior.
 
 - Los reenvíos de códigos que no corresponden a la cuenta o academia se rechazan sin dejar un envío registrado en progreso ni mostrar datos de otra persona.

@@ -39,6 +39,105 @@ function hookFixture() {
 }
 
 describe("contact verification workflow hook", () => {
+  it.each(["verification_code_incorrect", "usage_limit_reached", "dependency_unavailable"] as const)("should keep local verification available after a confirmed nonterminal %s", async (failureCode) => {
+    const fixture = hookFixture();
+    vi.mocked(fixture.client.verify).mockImplementationOnce(async () => ({ status: "failed", code: failureCode, message: "No se confirmó la comprobación de este código.", uncertain: false }));
+    const { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    act(() => result.current.setCode("123456"));
+    await act(async () => { await result.current.verify(); });
+    expect(result.current.challengeUnavailable).toBe(false);
+    act(() => result.current.setCode("654321"));
+    await act(async () => { await result.current.verify(); });
+    expect(fixture.client.verify).toHaveBeenCalledTimes(2);
+    expect(result.current.proof?.proofId).toBe(fixture.proofId);
+  });
+
+  it("should preserve an uncertain original without treating its unconfirmed terminal code as challenge authority", async () => {
+    const fixture = hookFixture();
+    vi.mocked(fixture.client.verify).mockImplementationOnce(async (_slug, _challengeId, input) => ({ status: "failed", code: "challenge_invalidated", message: "El resultado de comprobación todavía es incierto.", uncertain: true, operation: { operationId: input.operationId, state: "started" } }));
+    const { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    act(() => result.current.setCode("123456"));
+    await act(async () => { await result.current.verify(); });
+    expect(result.current.challengeUnavailable).toBe(false);
+    expect(result.current.challengeMessage).toBeNull();
+    expect(result.current.pending?.kind).toBe("verify");
+    expect(result.current.proof).toBeNull();
+    act(() => result.current.setCode("654321"));
+    await act(async () => { await result.current.verify(); });
+    expect(fixture.client.verify).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["verification_attempts_exceeded", "challenge_expired", "challenge_invalidated"] as const)("should stop another local verification after the server confirms %s until a new challenge arrives", async (failureCode) => {
+    const fixture = hookFixture();
+    vi.mocked(fixture.client.verify).mockImplementationOnce(async (_slug, _challengeId, input) => ({ status: "failed", code: failureCode, message: "El código anterior ya no puede comprobarse.", uncertain: false, operation: { operationId: input.operationId, state: "completed" } }));
+    const { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    act(() => result.current.setCode("123456"));
+    await act(async () => { await result.current.verify(); });
+    expect(fixture.client.verify).toHaveBeenCalledTimes(1);
+    const authorizationCalls = fixture.options.authorize.mock.calls.length;
+    act(() => result.current.setCode("654321"));
+    await act(async () => { await result.current.verify(); });
+    expect(fixture.client.verify).toHaveBeenCalledTimes(1);
+    expect(fixture.options.authorize).toHaveBeenCalledTimes(authorizationCalls);
+    expect(result.current.proof).toBeNull();
+    expect(result.current.challengeUnavailable).toBe(true);
+  });
+
+  it("should keep a confirmed terminal challenge blocked until the explicit replacement commits", async () => {
+    const fixture = hookFixture(), replacement = { ...fixture.challenge, challengeId: randomUUID() };
+    fixture.challenge.resendAllowedAt = new Date(fixture.now - 1).toISOString();
+    vi.mocked(fixture.client.verify).mockImplementationOnce(async (_slug, _challengeId, input) => ({ status: "failed", code: "verification_attempts_exceeded", message: "Alcanzaste el límite de intentos de verificación. Esperá antes de intentar otra vez.", uncertain: false, operation: { operationId: input.operationId, state: "completed" } }));
+    let finishResend!: () => void;
+    vi.mocked(fixture.client.resend).mockImplementation((_slug, _challengeId, input) => new Promise((resolve) => { finishResend = () => resolve({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: replacement } }); }));
+    const { result, unmount } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    act(() => result.current.setCode("123456"));
+    await act(async () => { await result.current.verify(); });
+    expect(result.current.challengeUnavailable).toBe(true);
+    let resending!: Promise<void>;
+    act(() => { resending = result.current.resend(); });
+    try {
+      await waitFor(() => expect(fixture.client.resend).toHaveBeenCalledTimes(1));
+      expect(result.current.challengeUnavailable).toBe(true);
+      expect(result.current.challengeMessage).toBeNull();
+      await act(async () => { finishResend(); await resending; });
+      expect(result.current.challengeUnavailable).toBe(false);
+      expect(result.current.challenge?.challengeId).toBe(replacement.challengeId);
+      expect(result.current.code).toBe("");
+      act(() => result.current.setCode("654321"));
+      await act(async () => { await result.current.verify(); });
+      expect(fixture.client.verify).toHaveBeenCalledTimes(2);
+      expect(result.current.proof?.proofId).toBe(fixture.proofId);
+    } finally { if (result.current.phase === "resending") await act(async () => { finishResend(); await resending; }); unmount(); }
+  });
+
+  it("should recover a terminal verification denial from its original without another POST or a proof", async () => {
+    const fixture = hookFixture(), issuedOperationId = randomUUID(), verifiedOperationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId, verifiedOperationId: null, pending: { kind: "verify", operationId: verifiedOperationId, challengeId: fixture.challenge.challengeId } });
+    vi.mocked(fixture.client.operation).mockImplementation(async (_slug, operationId) => ({ status: "ready", value: operationId === issuedOperationId ? { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: fixture.challenge } : { type: "verify_contact_challenge", state: "completed", operationId, replayed: true, result: { purpose: "admission", result: "denied", code: "challenge_invalidated" } } }));
+    const { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.challengeUnavailable).toBe(true);
+    expect(result.current.challengeMessage).toBe("Ese código ya no está vigente. Consultá el estado antes de pedir otro.");
+    expect(result.current.proof).toBeNull();
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    expect(fixture.client.verify).not.toHaveBeenCalled();
+    act(() => result.current.setCode("123456"));
+    await act(async () => { await result.current.verify(); });
+    expect(fixture.client.verify).not.toHaveBeenCalled();
+  });
+
   it("should block dispatch on actual storage quota failure and allow an explicit retry after capacity is restored", async () => {
     const fixture = hookFixture(), { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
     await waitFor(() => expect(result.current.ready).toBe(true));
