@@ -24,6 +24,15 @@ function reviewRecord(): AdmissionReviewRecord {
 }
 
 describe("admission reviewer projection", () => {
+  it.each([false, true])("should mark a pending request with revoked applied evidence as needing verification even when verification ON is %s", (verificationEnabled) => {
+    const record = reviewRecord(), proofId = randomUUID();
+    record.review.policy!.requiresAdditionalVerification = verificationEnabled;
+    record.request.evidence = { kind: "local", proofId, verifiedAt: record.review.now };
+    record.review.request.attachedEvidence = { id: proofId, appliedRequestId: record.request.id, userId: record.request.userId, tribeId: record.request.tribeId, contact: record.request.contact!, purpose: "admission", verificationEpoch: record.review.policy!.verificationEpoch, connectionId: randomUUID(), connectionVersion: 1, securityEpoch: "synthetic-compromised-epoch", status: "invalid", verifiedAt: record.review.now, applyBefore: record.review.now };
+    expect(projectAdmissionReview(record)).toMatchObject({ needsVerification: true, eligibilityReasons: ["evidence_revoked"], eligibleActions: ["reject"] });
+    record.review.now = record.request.expiresAt;
+    expect(projectAdmissionReview(record)).toMatchObject({ needsVerification: false, eligibleActions: [] });
+  });
   it("should distinguish declared contact from verification and keep applicant message separate from reviewer notes", () => {
     const record = reviewRecord(), review = projectAdmissionReview(record);
     expect(review).toMatchObject({ applicant: { id: record.request.userId }, applicantMessage: "Quiero participar.", internalReason: "Motivo privado de revisión", externalMessage: "Mensaje que puede ver el solicitante.", evidence: { kind: "declared" }, rawContact: "applicant@example.test" });

@@ -8,7 +8,9 @@ import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from 
 import { prepareContactVerificationDatabase, seedContactVerificationChallenge, createContactVerificationWriter } from "@/tests/support/contact-verification-database-fixture";
 import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import { PostgresAdmissionVerificationProofWriter } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer";
+import { PostgresOwnAdmissionRequestReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { ADMISSION_MESSAGING_LIFECYCLE_EVIDENCE } from "@/src/modules/academy-admissions/constants/messaging-lifecycle-evidence";
 
 /** Validates the actual minimal result committed into the durable operation ledger. */
 const resultSchema = z.union([
@@ -48,6 +50,29 @@ async function prepareApplication(database: AcademyAdmissionTestDatabase, contac
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof application", () => {
+  it("should expose revoked applied evidence to its applicant after verification is disabled without reviving proof or changing the pending request", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareApplication(database), sessionId = randomUUID();
+      await database.applyMigration("20261006234000_read_own_admission_summary.sql");
+      expect(await fixture.apply()).toMatchObject({ state: "completed", result: { outcome: "applied", requestVersion: 2 } });
+      await database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${randomUUID()},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
+        await transaction.$client.query("savepoint owned_proof_invalidation_diagnostic");
+        await expect(transaction.$client.query("update public.academy_admission_verification_proofs set status='invalid',invalidated_at=clock_timestamp() where id=$1", [fixture.proofId])).rejects.toMatchObject({ code: "23514", message: "admission invalid proof requires invalidation record" });
+        await transaction.$client.query("rollback to savepoint owned_proof_invalidation_diagnostic");
+        await transaction.$client.query("release savepoint owned_proof_invalidation_diagnostic");
+        await transaction.execute(sql`update public.academy_admission_verification_proofs set status='invalid',invalidated_at=clock_timestamp(),invalidation_reason=${ADMISSION_MESSAGING_LIFECYCLE_EVIDENCE.compromised} where id=${fixture.proofId}`);
+        await transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=false,version=version+1 where tribe_id=${fixture.challenge.scope.tribeId}`);
+      });
+      const reader = new PostgresOwnAdmissionRequestReader((scope, run) => database.withContext({ userId: scope.userId, email: null }, run));
+      const own = await reader.readOwn({ userId: fixture.userId, sessionId, tribeId: fixture.challenge.scope.tribeId, requestId: randomUUID() });
+      expect(own).toMatchObject({ id: fixture.requestId, status: "pending", version: 2, needsVerification: true, eligibilityReasons: ["evidence_revoked"], submittedAt: new Date(fixture.before.submitted_at as string).toISOString(), expiresAt: new Date(fixture.before.expires_at as string).toISOString() });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select status,applied_request_id from public.academy_admission_verification_proofs where id=${fixture.proofId}`)).rows).toEqual([{ status: "invalid", applied_request_id: fixture.requestId }]);
+        expect((await transaction.execute(sql`select count(*)::int as total from public.tribe_members where tribe_id=${fixture.challenge.scope.tribeId} and user_id=${fixture.userId}`)).rows).toEqual([{ total: 0 }]);
+      });
+    });
+  }, 1_200_000);
   it("should attach the first verified contact once with its binding and audit while preserving the pending deadline", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareApplication(database);
