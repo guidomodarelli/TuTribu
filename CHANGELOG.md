@@ -136,6 +136,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Security
 
+- Las referencias mínimas de tribus eliminadas quedan protegidas frente a su reactivación o reutilización.
+
 - Cambiar o perder el liderazgo activo suspende las conexiones del líder anterior en el mismo cambio, conservando las membresías, las invitaciones y el consumo.
 
 - El historial de decisiones de admisión conserva la evidencia mínima usada al decidir, sin guardar códigos ni datos privados del proveedor.

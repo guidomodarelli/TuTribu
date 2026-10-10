@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises genuine crossed native challenges beside an active personal invitation without consuming its token. @module personal-contact-scope-isolation-tests */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -38,7 +38,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal co
       const otherCode = await recoverTestVerificationCode(database, { ...fixture.fixture, own: otherOwn, scope: { ...scope, userId: otherUserId, contact: otherContact } }, otherChallenge.challengeId);
       const before = await fixture.counts();
       /** @param viewer - Exact native owner whose RLS context observes its own authentication rows. @returns A private comparison digest; assertions emit only booleans, never rows, cookies, tokens or digests. */
-      const authenticationDigest = (viewer: { userId: string; email: string }) => database.withContext(viewer, async (transaction) => (await transaction.execute<{ digest: string }>(sql`select md5(jsonb_build_object('user',(select to_jsonb(auth_user) from public."user" auth_user where id=${viewer.userId}),'account',(select jsonb_agg(to_jsonb(auth_account) order by id) from public.account auth_account where "userId"=${viewer.userId}),'session',(select jsonb_agg(to_jsonb(auth_session) order by id) from public.session auth_session where "userId"=${viewer.userId}),'binding',(select jsonb_agg(to_jsonb(identity_binding) order by session_id) from public.global_session_identity_bindings identity_binding where user_id=${viewer.userId}),'evidence',(select jsonb_agg(to_jsonb(identity_evidence) order by id) from public.global_identity_evidence identity_evidence where user_id=${viewer.userId}))::text) as digest`)).rows[0].digest);
+      const authenticationDigest = (viewer: { userId: string; email: string }) => database.withContext(viewer, async (transaction) => {
+        const snapshot = (await transaction.execute<{ snapshot: string }>(sql`select jsonb_build_object('user',(select to_jsonb(auth_user) from public."user" auth_user where id=${viewer.userId}),'account',(select jsonb_agg(to_jsonb(auth_account) order by id) from public.account auth_account where "userId"=${viewer.userId}),'session',(select jsonb_agg(to_jsonb(auth_session) order by id) from public.session auth_session where "userId"=${viewer.userId}),'binding',(select jsonb_agg(to_jsonb(identity_binding) order by session_id) from public.global_session_identity_bindings identity_binding where user_id=${viewer.userId}),'evidence',(select jsonb_agg(to_jsonb(identity_evidence) order by id) from public.global_identity_evidence identity_evidence where user_id=${viewer.userId}))::text as snapshot`)).rows[0].snapshot;
+        return createHash("sha256").update(snapshot).digest("hex");
+      });
       const originalAuthentication = await authenticationDigest(fixture.own), otherAuthentication = await authenticationDigest(otherOwn);
       await expect(operations.verify({ ...fixture.context, challengeId: otherChallenge.challengeId, verificationCode: otherCode.code, operationId: randomUUID() })).rejects.toMatchObject({ code: "challenge_invalidated" });
       await expect(otherOperations.verify({ ...fixture.context, userId: otherUserId, sessionId: otherSessionId, challengeId: original.challengeId, verificationCode: ownCode.code, operationId: randomUUID() })).rejects.toMatchObject({ code: "challenge_invalidated" });
