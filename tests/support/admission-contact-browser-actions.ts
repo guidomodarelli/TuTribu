@@ -9,3 +9,12 @@ export async function enterAdmissionVerificationCode(page: Page, code: string): 
     throw new Error("Contact UI code entry was unavailable");
   }
 }
+
+/** @param page - Actual owned browser page. @param phone - Ephemeral contact, never retained in diagnostics. @returns After entering the phone. @throws A fixed safe error without the private instrumentation cause. */
+export async function enterAdmissionVerificationPhone(page: Page, phone: string): Promise<void> {
+  try { await page.getByLabel("Teléfono para este ingreso", { exact: true }).fill(phone); }
+  catch {
+    // Playwright can retain the entered contact in its call log; discard that private cause.
+    throw new Error("Contact UI phone entry was unavailable");
+  }
+}
