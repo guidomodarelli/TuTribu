@@ -6,7 +6,7 @@ import { makeSignature } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
-import { prepareAllowlistManagement } from "@/tests/support/allowlist-management-database-fixture";
+import { preparePersonalInvitationManagementDatabase } from "@/tests/support/personal-invitation-management-database-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
@@ -19,8 +19,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native persona
       const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => { const id = randomUUID(); return [purpose, { activeKeyId: id, keys: [{ id, materialBase64: randomBytes(32).toString("base64") }] }]; }));
       const messagingSecurity = { environment: "synthetic-personal-management-ui", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
-      const fixture = await prepareAllowlistManagement(database, config), slug = `allowlist-${fixture.tribeId}`;
-      for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261007231500_bind_verification_operation_purpose.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261008220000_scope_admission_operation_recovery.sql", "20261009130000_add_personal_invitation_context_digest.sql"]) await database.applyMigration(migration);
+      const fixture = await preparePersonalInvitationManagementDatabase(database, config), slug = `allowlist-${fixture.tribeId}`;
       await database.withContext(fixture.own, async (transaction) => {
         await transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${fixture.sessionId}`);
         await transaction.execute(sql`update public.tribes set name='Academia de ejemplo' where id=${fixture.tribeId}`);
