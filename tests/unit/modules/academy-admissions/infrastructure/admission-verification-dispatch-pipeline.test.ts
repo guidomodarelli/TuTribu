@@ -26,6 +26,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native applicant foc
       await Promise.all(deferred);expect(transport.receipts).toHaveLength(1);expect(await verification.issue(input)).toMatchObject({ok:true,value:{state:"completed",replayed:true,result:issued.result}});expect(transport.receipts).toHaveLength(1);
       await database.withContext(fixture.fixture.own,async(transaction)=>{const delivery=(await transaction.execute<{delivery_id:string}>(sql`select delivery_id from public.contact_verification_challenges where id=${issued.result.challengeId}`)).rows[0];expect((await transaction.execute(sql`select state,provider_message_id from public.message_delivery_attempts where delivery_id=${delivery.delivery_id}`)).rows).toEqual([{state:"accepted",provider_message_id:providerId}]);expect((await transaction.execute(sql`select state from public.messaging_usage_reservations where delivery_id=${delivery.delivery_id}`)).rows).toEqual([{state:"consumed"}]);expect((await transaction.execute(sql`select state,lease_token,version from public.message_deliveries where id=${unrelatedDeliveryId}`)).rows).toEqual([{state:"queued",lease_token:null,version:1}]);});
       expect(await fixture.counts()).toMatchObject({challenges:1,deliveries:1,events:1,operations:1,proofs:0,memberships:0});
+      await database.withContext(fixture.fixture.own,async(transaction)=>{
+        expect((await transaction.execute(sql`select state,failed_attempts,verified_at from public.contact_verification_challenges where id=${issued.result.challengeId}`)).rows).toEqual([{state:"issued",failed_attempts:0,verified_at:null}]);
+        expect((await transaction.execute(sql`select "emailVerified" as verified from public."user" where id=${fixture.context.userId}`)).rows).toEqual([{verified:false}]);
+        expect((await transaction.execute(sql`select count(*)::int as count from public.session where "userId"=${fixture.context.userId}`)).rows).toEqual([{count:1}]);
+        expect((await transaction.execute(sql`select count(*)::int as count from public.global_identity_evidence where user_id=${fixture.context.userId}`)).rows).toEqual([{count:0}]);
+      });
     });
   },600_000);
 });
