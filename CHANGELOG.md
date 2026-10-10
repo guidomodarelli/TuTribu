@@ -81,6 +81,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Los reenvíos de códigos que no corresponden a la cuenta o academia se rechazan sin dejar un envío registrado en progreso ni mostrar datos de otra persona.
+
 - La eliminación autorizada de una cuenta vinculada conserva la protección de su contacto sin mantener los datos personales del vínculo ni permitir que otra cuenta se lo apropie.
 
 - Las confirmaciones simultáneas de ingreso pueden avanzar sin quedar detenidas en el registro inicial de la operación.

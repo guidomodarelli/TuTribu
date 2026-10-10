@@ -52,6 +52,16 @@ describe("admission contact verification routes", () => {
     expect(fixture.open).not.toHaveBeenCalled();
   });
 
+  for (const action of ["verify", "resend", "applyProof"] as const) it.each(["sender", "destination", "body", "text", "purpose", "userId", "sessionId", "verified", "apiKey", "connectionId"])(`should reject browser authority %s before composing ${action}`, async (field) => {
+    const fixture = routeFixture();
+    const body = action === "verify" ? { operationId: fixture.operationId, confirmed: true, verificationCode: "123456" } : action === "resend" ? { operationId: fixture.operationId, confirmed: true } : { operationId: fixture.operationId, confirmed: true, expectedVersion: 1, proofId: fixture.proofId };
+    const request = fixture.request({ ...body, [field]: "synthetic-untrusted-authority" });
+    const response = action === "applyProof" ? await fixture.handlers.applyProof(request, { params: Promise.resolve({ slug: "synthetic-academy", requestId: fixture.admissionRequestId }) }) : await fixture.handlers[action](request, { params: Promise.resolve({ slug: "synthetic-academy", challengeId: fixture.challengeId }) });
+    expect(response.status).toBe(400);
+    expect(fixture.open).not.toHaveBeenCalled();
+    expect(fixture[action]).not.toHaveBeenCalled();
+  });
+
   it("should reject a foreign origin, query overrides, malformed JSON and a code with the wrong shape before ports", async () => {
     const fixture = routeFixture(), context = { params: Promise.resolve({ slug: "synthetic-academy", challengeId: fixture.challengeId }) };
     expect((await fixture.handlers.verify(fixture.request({ operationId: fixture.operationId, confirmed: true, verificationCode: "123456" }, undefined, "https://foreign.example.invalid"), context)).status).toBe(403);
@@ -139,5 +149,29 @@ describe("admission contact verification routes", () => {
     expect(error).toMatchObject({ code: "authentication_required", message: "Iniciá sesión para continuar con el ingreso.", requestId: expect.any(String) });
     expect(error).not.toHaveProperty("cause");
     expect(error).not.toHaveProperty("stack");
+  });
+
+  it.each(["verify", "resend", "applyProof"] as const)("should project only public %s fields without another contact, credential or tribe quota", async (action) => {
+    const fixture = routeFixture(), foreignContact = "synthetic-other-account@example.test";
+    const result = action === "verify" ? { purpose: "admission", result: "verified", proofId: fixture.proofId, applyBefore: "2026-10-08T23:15:00Z" } : action === "resend" ? fixture.challenge : { outcome: "applied", requestId: fixture.admissionRequestId, requestVersion: 2, status: "pending", proofId: fixture.proofId };
+    const publicOperation = { state: "completed", operationId: fixture.operationId, replayed: false, result };
+    fixture[action].mockResolvedValueOnce({ ok: true, value: { ...publicOperation, result: { ...result, destination: foreignContact, sender: "synthetic-private-sender", apiKey: "synthetic-private-key", quota: { tribeId: randomUUID(), remaining: 7 }, envelope: "synthetic-private-material" } } });
+    const body = action === "verify" ? { operationId: fixture.operationId, confirmed: true, verificationCode: "123456" } : action === "resend" ? { operationId: fixture.operationId, confirmed: true } : { operationId: fixture.operationId, confirmed: true, expectedVersion: 1, proofId: fixture.proofId };
+    const response = action === "applyProof" ? await fixture.handlers.applyProof(fixture.request(body), { params: Promise.resolve({ slug: "synthetic-academy", requestId: fixture.admissionRequestId }) }) : await fixture.handlers[action](fixture.request(body), { params: Promise.resolve({ slug: "synthetic-academy", challengeId: fixture.challengeId }) });
+    expect(await response.json()).toEqual(publicOperation);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+  });
+
+  it.each(["issue", "verify", "resend", "applyProof"] as const)("should reject %s output from another operation without exposing its registered progress", async (action) => {
+    const fixture = routeFixture(), foreignOperationId = randomUUID();
+    fixture[action].mockResolvedValueOnce({ ok: true, value: { state: "started", operationId: foreignOperationId } });
+    const body = action === "issue" ? fixture.body : action === "verify" ? { operationId: fixture.operationId, confirmed: true, verificationCode: "123456" } : action === "resend" ? { operationId: fixture.operationId, confirmed: true } : { operationId: fixture.operationId, confirmed: true, expectedVersion: 1, proofId: fixture.proofId };
+    const response = action === "issue" ? await fixture.handlers.issue(fixture.request(body), { params: Promise.resolve({ slug: "synthetic-academy" }) }) : action === "applyProof" ? await fixture.handlers.applyProof(fixture.request(body), { params: Promise.resolve({ slug: "synthetic-academy", requestId: fixture.admissionRequestId }) }) : await fixture.handlers[action](fixture.request(body), { params: Promise.resolve({ slug: "synthetic-academy", challengeId: fixture.challengeId }) });
+    expect(response.status).toBe(500);
+    const error = await response.json();
+    expect(error).toMatchObject({ code: "public_contract_unusable", requestId: expect.any(String) });
+    expect(error).not.toHaveProperty("operation");
+    expect(JSON.stringify(error).includes(foreignOperationId)).toBe(false);
   });
 });
