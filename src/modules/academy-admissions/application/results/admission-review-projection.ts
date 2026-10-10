@@ -26,7 +26,7 @@ export function projectAdmissionReview(record: AdmissionReviewRecord) {
   return admissionReviewSchema.parse({
     id: request.id, status: request.status, version: request.version, submittedAt: request.submittedAt.toISOString(), expiresAt: request.expiresAt.toISOString(), source: request.source,
     ...(contact && maskedValue ? { contact: { type: contact.type, maskedValue, evidenceKind: request.evidence.kind }, rawContact: contact.value } : {}),
-    needsVerification: pending && !expired && evaluation?.reason === ADMISSION_DENIAL_REASON.proofRequired,
+    needsVerification: pending && !expired && (evaluation?.reason === ADMISSION_DENIAL_REASON.proofRequired || evaluation?.reason === ADMISSION_DENIAL_REASON.evidenceRevoked),
     eligibilityReasons: expired ? [ADMISSION_DENIAL_REASON.requestExpired] : evaluation?.reason ? [evaluation.reason] : [],
     ...(record.externalMessage ? { externalMessage: record.externalMessage } : {}), ...(record.internalReason ? { internalReason: record.internalReason } : {}),
     ...(request.applicantMessage ? { applicantMessage: request.applicantMessage } : {}), ...(retryAt ? { retryAllowedAt: retryAt.toISOString() } : {}),

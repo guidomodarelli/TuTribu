@@ -87,6 +87,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Las solicitudes con una prueba de contacto revocada siguen indicando que necesitan verificación para solicitantes y revisores, incluso cuando se desactiva la verificación adicional.
+
 - La gestión de invitaciones personales completa la carga inicial en Safari sin perder las comprobaciones vigentes de sesión y permisos.
 
 - Después de cancelar y quedar habilitada una nueva presentación, el paso de contacto permite elegir otro teléfono; conserva las operaciones anteriores y exige consultar cualquier resultado incierto antes de otro envío.

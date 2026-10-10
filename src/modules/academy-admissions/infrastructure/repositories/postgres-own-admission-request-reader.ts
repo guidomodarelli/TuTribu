@@ -60,15 +60,16 @@ export class PostgresOwnAdmissionRequestReader implements AdmissionOwnRequestRea
       if (!row) return null;
       const pending = row.status === ADMISSION_REQUEST_STATUS.pending;
       const expired = pending && now >= new Date(row.expires_at);
-      const needsVerification = pending && !expired && row.requires_additional_verification === true
-        && (row.evidence_source !== ADMISSION_EVIDENCE_KIND.local || row.proof_status !== ADMISSION_PROOF_STATUS.applied || row.applied_request_id !== row.id || row.proof_verification_epoch !== row.verification_epoch);
+      const evidenceRevoked = row.proof_status === ADMISSION_PROOF_STATUS.invalid;
+      const needsVerification = pending && !expired && (evidenceRevoked || row.requires_additional_verification === true
+        && (row.evidence_source !== ADMISSION_EVIDENCE_KIND.local || row.proof_status !== ADMISSION_PROOF_STATUS.applied || row.applied_request_id !== row.id || row.proof_verification_epoch !== row.verification_epoch));
       const mayRetry = row.status === ADMISSION_REQUEST_STATUS.cancelled || row.status === ADMISSION_REQUEST_STATUS.expired || row.status === ADMISSION_REQUEST_STATUS.rejected;
       const retryAt = mayRetry ? getAdmissionRetryAllowedAt({ status: row.status, submittedAt: new Date(row.submitted_at), resolvedAt: row.decided_at ? new Date(row.decided_at) : null, retryAllowedAt: row.retry_allowed_at ? new Date(row.retry_allowed_at) : null }) : null;
       const contact = maskedContact(row);
       return {
         id: row.id, status: row.status, version: row.version, submittedAt: new Date(row.submitted_at).toISOString(), expiresAt: new Date(row.expires_at).toISOString(), source: row.source,
         ...(contact ? { contact } : {}), needsVerification,
-        eligibilityReasons: expired ? [ADMISSION_DENIAL_REASON.requestExpired] : needsVerification ? [ADMISSION_DENIAL_REASON.proofRequired] : [],
+        eligibilityReasons: expired ? [ADMISSION_DENIAL_REASON.requestExpired] : needsVerification ? [evidenceRevoked ? ADMISSION_DENIAL_REASON.evidenceRevoked : ADMISSION_DENIAL_REASON.proofRequired] : [],
         ...(row.external_message ? { externalMessage: row.external_message } : {}), ...(retryAt ? { retryAllowedAt: retryAt.toISOString() } : {}),
       };
     });

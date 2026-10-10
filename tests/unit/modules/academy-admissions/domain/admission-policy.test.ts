@@ -99,6 +99,28 @@ describe("admission policy configuration", () => {
     expect(current).toMatchObject({ version: 1, verificationEpoch: 1, requiresAdditionalVerification: false });
   });
 
+  it("should allocate a distinct verification epoch for every reactivation while leaving each previous snapshot unchanged", () => {
+    const initial = createDefaultAdmissionPolicy({ id: "repeated-epoch-policy", tribeId: fixtures.tribes.academyA.id });
+    const facts = { tribeId: initial.tribeId, channelPrepared: true, verificationQuotaPositive: true, usagePolicy: null };
+    const transitions = [
+      { enabled: true, version: 2, epoch: 2 },
+      { enabled: false, version: 3, epoch: 2 },
+      { enabled: true, version: 4, epoch: 3 },
+      { enabled: false, version: 5, epoch: 3 },
+      { enabled: true, version: 6, epoch: 4 },
+    ];
+    let current = initial;
+    for (const transition of transitions) {
+      const before = { ...current };
+      const result = proposeAdmissionPolicyChange(current, { requiresAdditionalVerification: transition.enabled }, current.version, facts);
+      expect(result).toMatchObject({ outcome: "changed", policy: { requiresAdditionalVerification: transition.enabled, version: transition.version, verificationEpoch: transition.epoch }, invalidateUnappliedEvidence: true, requiresPendingRecheck: true });
+      expect(current).toEqual(before);
+      if (result.outcome !== "changed") throw new Error("Repeated verification activation did not produce its expected transition");
+      current = result.policy;
+    }
+    expect(initial).toMatchObject({ version: 1, verificationEpoch: 1, requiresAdditionalVerification: false });
+  });
+
   it("should reject a stale mutation before treating its desired state as a no-op", () => {
     const current = { ...createDefaultAdmissionPolicy({ id: "policy", tribeId: fixtures.tribes.academyA.id }), version: 2 };
     const facts = { tribeId: current.tribeId, channelPrepared: false, verificationQuotaPositive: false, usagePolicy: null };

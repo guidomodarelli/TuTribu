@@ -190,6 +190,16 @@ describe("manual admission screen", () => {
     expect(onConfirm).toHaveBeenCalledWith(true);
   });
 
+  it("should explain revoked contact evidence for the existing pending request and clear that feedback after rechecking", () => {
+    const data = fixture(); data.request.needsVerification = true; data.request.eligibilityReasons = ["evidence_revoked"];
+    const props = { now: data.state.renderedAt, confirmed: false, disabled: false, busy: false, errorMessage: null, onConfirm: () => {}, onCancel: () => {} };
+    const { rerender } = render(<Providers><RequestStatus request={data.request} {...props} /></Providers>);
+    expect(screen.getByText("La prueba de contacto de esta solicitud fue revocada. Necesitás comprobar el contacto nuevamente para que puedan aprobarla.")).toBeVisible();
+    expect(screen.queryByText("Esta academia requiere comprobar el contacto antes de presentar una solicitud.")).not.toBeInTheDocument();
+    rerender(<Providers><RequestStatus request={{ ...data.request, needsVerification: false, eligibilityReasons: [] }} {...props} /></Providers>);
+    expect(screen.queryByText(/La prueba de contacto de esta solicitud fue revocada/)).not.toBeInTheDocument();
+  });
+
   it("should keep recovery callable after a temporary viewer failure at the end of an operation read", async () => {
     const data = fixture();
     writeAdmissionDraft({ viewerId: VIEWER_ID, slug: "synthetic-academy", draft: { phone: "", country: "", message: "" }, pending: { kind: "submit", input: { operationId: OPERATION_ID, expectedPolicyVersion: 1, confirmed: true } } });
