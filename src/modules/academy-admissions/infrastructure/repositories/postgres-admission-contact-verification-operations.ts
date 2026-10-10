@@ -174,10 +174,11 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
     });
   }
 
-  /** @param input - Original own challenge and explicit permitted alternative. @returns New committed issuance, preserving recipient and all shared budgets. */
+  /** @param input - Original own challenge and explicit permitted alternative. @returns Confirmed replay or new committed issuance; a new operation checks challenge ownership before claiming progress. */
   async resend(input:AdmissionChallengeResendIntent){
     const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:VERIFICATION_ISSUANCE_OPERATION.resend,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,challengeId:input.challengeId,useSmsAlternative:input.useSmsAlternative??false}},ledger=this.ledger(input),original=await ledger.read(command,admissionIssuanceSnapshotSchema);
     if(original?.state===OPERATION_STATE.completed)return this.issuanceResult(original);
+    if(!original)await this.execute(input,(database)=>this.challengeScope(database,input,input.challengeId));
     return this.issuanceResult(await this.run(ledger,command,admissionIssuanceSnapshotSchema,async(database,ledgerId)=>{
       const scope=await this.challengeScope(database,input,input.challengeId),policy=await this.policy(database,input,true);
       const origin=(await database.execute<{personal_invitation_id:string|null;personal_request_id:string|null}>(sql`select to_jsonb(challenge)->>'personal_invitation_id' as personal_invitation_id,to_jsonb(challenge)->>'personal_request_id' as personal_request_id from public.contact_verification_challenges challenge where id=${input.challengeId} and user_id=${input.userId} and tribe_id=${input.tribeId}`)).rows[0];

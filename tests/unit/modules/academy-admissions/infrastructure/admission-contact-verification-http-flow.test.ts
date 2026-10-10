@@ -24,11 +24,37 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native applicant c
       const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
       const fixture = await prepareAdmissionContactVerification(database, false, config), slug = `issue-${fixture.context.tribeId}`;
       for (const migration of ["20261005092500_guard_messaging_attempts.sql", "20261005100000_guard_messaging_secret_retirement.sql", "20261006140000_claim_messaging_deliveries_fairly.sql", "20261006160000_purge_verification_delivery_material.sql", "20261006200000_scope_admission_audit_operations.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261008210000_claim_scoped_admission_delivery.sql", "20261008220000_scope_admission_operation_recovery.sql"]) await database.applyMigration(migration);
+      const otherUserId = randomUUID(), otherSessionId = randomUUID(), otherSessionToken = randomUUID(), otherAccountId = randomUUID(), otherSubject = randomUUID(), otherEmail = `${otherUserId}@example.test`, otherTribeId = randomUUID(), otherSlug = `http-isolation-${otherTribeId}`;
+      await database.withContext(fixture.fixture.own, async (transaction) => {
+        await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${otherUserId},'Synthetic isolated HTTP account',${otherEmail},false,clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${otherAccountId},${otherUserId},'google',${otherSubject},clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${otherSessionId},${otherUserId},${otherSessionToken},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${otherSessionId},${otherUserId},${otherAccountId},${otherSubject},${otherEmail})`);
+        await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${otherTribeId},'Synthetic isolated HTTP tribe',${otherSlug},${fixture.fixture.userId})`);
+        await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${otherTribeId},'academy',true)`);
+        const now = (await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now;
+        await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,requires_additional_verification,is_open,activated_at) values (${otherTribeId},true,true,${now})`);
+        await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${now} where id=${otherTribeId}`);
+        await transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id,verification_daily_limit) values (${otherTribeId},7)`);
+      });
       let providerRequests = 0, receivedCode = "";
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
         const signedCookie = encodeURIComponent(`${fixture.sessionToken}.${await makeSignature(fixture.sessionToken, secret)}`), headers = { cookie: `better-auth.session_token=${signedCookie}`, origin, "content-type": "application/json" }, base = `${origin}/api/tribes/${slug}/admissions`;
         /** @param path - Own admission subpath. @param body - Original explicit proposal. @returns Native HTTP response without credentials in output. */
         const post = (path: string, body: unknown) => fetch(`${base}${path}`, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(NATIVE_ADMISSION_HTTP_TIMEOUT_MS) });
+        const invalidPaths = ["/challenges", `/challenges/${randomUUID()}/verify`, `/challenges/${randomUUID()}/resend`, `/requests/${randomUUID()}/proof`];
+        for (const path of invalidPaths) {
+          const body = path.endsWith("/verify") ? { operationId: randomUUID(), confirmed: true, verificationCode: "123456" } : path.endsWith("/resend") ? { operationId: randomUUID(), confirmed: true } : path.endsWith("/proof") ? { operationId: randomUUID(), confirmed: true, expectedVersion: 1, proofId: randomUUID() } : { operationId: randomUUID(), confirmed: true, expectedPolicyVersion: 1, channel: "email" };
+          for (const field of ["sender", "destination", "body", "text", "purpose", "verified", "apiKey", "connectionId"]) {
+            const rejected = await post(path, { ...body, [field]: "synthetic-untrusted-authority" });
+            expect(rejected.status).toBe(400);
+            expect(rejected.headers.get("cache-control")).toBe("no-store");
+            expect(rejected.headers.get("referrer-policy")).toBe("no-referrer");
+            expect(Object.keys(await rejected.json()).sort()).toEqual(["code", "message", "requestId"]);
+          }
+        }
+        expect(await fixture.counts()).toMatchObject({ challenges: 0, deliveries: 0, operations: 0, events: 0, proofs: 0, memberships: 0 });
+        expect(providerRequests).toBe(0);
         const anonymous = await fetch(`${base}/challenges`, { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ operationId: randomUUID(), confirmed: true, expectedPolicyVersion: 1, channel: "email" }), signal: AbortSignal.timeout(NATIVE_ADMISSION_HTTP_TIMEOUT_MS) });
         expect(anonymous.status).toBe(401);
         const off = await post("/challenges", { operationId: randomUUID(), confirmed: true, expectedPolicyVersion: 1, channel: "email" });
@@ -52,6 +78,29 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native applicant c
         expect(original.status).toBe(200);
         expect(await original.json()).toMatchObject({ type: "issue_contact_challenge", state: "completed", result: issuedBody.result });
         const previousChallengeId = String(issuedBody.result.challengeId);
+        const otherSignedCookie = encodeURIComponent(`${otherSessionToken}.${await makeSignature(otherSessionToken, secret)}`), otherHeaders = { ...headers, cookie: `better-auth.session_token=${otherSignedCookie}` };
+        const beforeCrossed = await fixture.counts();
+        for (const action of ["verify", "resend"]) {
+          const body = action === "verify" ? { operationId: randomUUID(), confirmed: true, verificationCode: receivedCode } : { operationId: randomUUID(), confirmed: true };
+          const crossed = await fetch(`${base}/challenges/${previousChallengeId}/${action}`, { method: "POST", headers: otherHeaders, body: JSON.stringify(body), signal: AbortSignal.timeout(NATIVE_ADMISSION_HTTP_TIMEOUT_MS) }), crossedBody = await crossed.json();
+          expect(crossed.status).toBe(409);
+          expect(crossedBody).toMatchObject({ code: "challenge_invalidated" });
+          expect(Object.keys(crossedBody).sort()).toEqual(["code", "message", "requestId"]);
+          expect(JSON.stringify(crossedBody).includes(fixture.own.email)).toBe(false);
+        }
+        const crossedTribe = await fetch(`${origin}/api/tribes/${otherSlug}/admissions/challenges/${previousChallengeId}/verify`, { method: "POST", headers, body: JSON.stringify({ operationId: randomUUID(), confirmed: true, verificationCode: receivedCode }), signal: AbortSignal.timeout(NATIVE_ADMISSION_HTTP_TIMEOUT_MS) }), crossedTribeBody = await crossedTribe.json();
+        expect(crossedTribe.status).toBe(409);
+        expect(crossedTribeBody).toMatchObject({ code: "challenge_invalidated" });
+        expect(Object.keys(crossedTribeBody).sort()).toEqual(["code", "message", "requestId"]);
+        const crossedOriginal = await fetch(`${base}/operations/${input.operationId}`, { headers: otherHeaders, signal: AbortSignal.timeout(NATIVE_ADMISSION_HTTP_TIMEOUT_MS) });
+        expect(crossedOriginal.status).toBe(404);
+        expect(Object.keys(await crossedOriginal.json()).sort()).toEqual(["code", "message", "requestId"]);
+        expect(await fixture.counts()).toEqual(beforeCrossed);
+        expect(providerRequests).toBe(1);
+        await database.withContext(fixture.fixture.own, async (transaction) => {
+          expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_operations where actor_user_id=${otherUserId} or tribe_id=${otherTribeId}`)).rows).toEqual([{ count: 0 }]);
+          expect((await transaction.execute(sql`select verification_daily_limit from public.messaging_usage_policies where tribe_id=${otherTribeId}`)).rows).toEqual([{ verification_daily_limit: 7 }]);
+        });
         const clock = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ now: Date | string; created_at: Date | string }>(sql`select clock_timestamp() as now,created_at from public.contact_verification_challenges where id=${previousChallengeId}`)).rows[0]);
         const remainingWaitMs = Math.max(0, new Date(clock.created_at).getTime() + ADMISSION_LIMIT.verificationResendWaitMs - new Date(clock.now).getTime());
         if (remainingWaitMs > 0) await delay(remainingWaitMs);
@@ -85,6 +134,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native applicant c
         const pendingId = randomUUID();
         await database.withContext(fixture.own, (transaction) => transaction.execute(sql`with instant as(select clock_timestamp() as now) insert into public.academy_admission_requests(id,tribe_id,user_id,source,evidence_source,submitted_at,expires_at) select ${pendingId},${fixture.context.tribeId},${fixture.context.userId},'common','none',now-interval '1 day',now+interval '29 days' from instant`));
         const originalDates = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select submitted_at,expires_at from public.academy_admission_requests where id=${pendingId}`)).rows[0]);
+        const beforeCrossedProof = await fixture.counts();
+        const crossedProof = await fetch(`${base}/requests/${pendingId}/proof`, { method: "POST", headers: otherHeaders, body: JSON.stringify({ operationId: randomUUID(), confirmed: true, expectedVersion: 1, proofId: verifiedBody.result.proofId }), signal: AbortSignal.timeout(NATIVE_ADMISSION_HTTP_TIMEOUT_MS) }), crossedProofBody = await crossedProof.json();
+        expect(crossedProof.status).toBe(409);
+        expect(crossedProofBody).toMatchObject({ code: "proof_unavailable" });
+        expect(Object.keys(crossedProofBody).sort()).toEqual(["code", "message", "requestId"]);
+        expect(JSON.stringify(crossedProofBody).includes(fixture.own.email)).toBe(false);
+        expect(await fixture.counts()).toEqual(beforeCrossedProof);
+        expect(providerRequests).toBe(2);
         const applyInput = { operationId: randomUUID().toUpperCase(), confirmed: true, expectedVersion: 1, proofId: String(verifiedBody.result.proofId).toUpperCase() };
         const applied = await post(`/requests/${pendingId.toUpperCase()}/proof`, applyInput);
         expect(applied.status).toBe(200);

@@ -32,7 +32,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission v
       const original = { ...fixture.context, challengeId: issued.result.challengeId, verificationCode: code.code };
       const before = await fixture.counts();
       await expect(otherOperations.verify({ ...original, userId: otherUserId, sessionId: otherSessionId, operationId: randomUUID() })).rejects.toMatchObject({ code: "challenge_invalidated" });
+      await expect(otherOperations.resend({ ...fixture.context, userId: otherUserId, sessionId: otherSessionId, challengeId: issued.result.challengeId, operationId: randomUUID() })).rejects.toMatchObject({ code: "challenge_invalidated" });
       await expect(operations.verify({ ...original, tribeId: otherTribeId, operationId: randomUUID() })).rejects.toMatchObject({ code: "challenge_invalidated" });
+      await expect(operations.resend({ ...fixture.context, tribeId: otherTribeId, challengeId: issued.result.challengeId, operationId: randomUUID() })).rejects.toMatchObject({ code: "challenge_invalidated" });
       await expect(operations.verify({ ...original, challengeId: randomUUID(), operationId: randomUUID() })).rejects.toMatchObject({ code: "challenge_invalidated" });
       expect(await fixture.counts()).toEqual(before);
       await database.withContext(fixture.fixture.own, async (transaction) => {
