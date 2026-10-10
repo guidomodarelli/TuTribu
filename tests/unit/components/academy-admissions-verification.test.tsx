@@ -171,13 +171,15 @@ describe("applicant contact verification presentation", () => {
     expect(props.onIssue).not.toHaveBeenCalled();
   });
 
-  it("should block an expired code, expose persistent safe errors and clear the replaced operation feedback", () => {
-    const props = verificationProps(), challenge = { challengeId: randomUUID(), purpose: "admission" as const, channel: "sms" as const, maskedDestination: "•••1234", expiresAt: "2026-10-08T23:10:00Z", resendAllowedAt: "2026-10-08T23:01:00Z", deliveryState: "unknown" as const };
-    const { rerender } = render(<ContactVerification {...props} channel="sms" allowedCountries={["AR"]} challenge={challenge} verificationCode="123456" canVerify expiresInSeconds={0} errorMessage="No pudimos confirmar el envío. Consultá la operación original." />);
+  it.each(["email", "sms", "whatsapp"] as const)("should block an expired %s code, expose persistent safe errors and clear the replaced operation feedback", (channel) => {
+    const props = verificationProps(), allowedCountries = channel === "email" ? [] : ["AR"], challenge = { challengeId: randomUUID(), purpose: "admission" as const, channel, maskedDestination: channel === "email" ? "a•••@example.test" : "•••1234", expiresAt: "2026-10-08T23:10:00Z", resendAllowedAt: "2026-10-08T23:01:00Z", deliveryState: "unknown" as const };
+    const { rerender } = render(<ContactVerification {...props} channel={channel} allowedCountries={allowedCountries} challenge={challenge} verificationCode="123456" canVerify expiresInSeconds={0} errorMessage="No pudimos confirmar el envío. Consultá la operación original." />);
     expect(screen.getByRole("button", { name: "Comprobar código" })).toBeDisabled();
     expect(screen.getByText(/El código venció/i)).toBeVisible();
     expect(screen.getByText(/No pudimos confirmar el envío/i)).toBeVisible();
-    rerender(<ContactVerification {...props} channel="sms" allowedCountries={["AR"]} challenge={challenge} proofReady feedback="La prueba quedó disponible." />);
+    expect(props.onVerify).not.toHaveBeenCalled();
+    expect(props.onResend).not.toHaveBeenCalled();
+    rerender(<ContactVerification {...props} channel={channel} allowedCountries={allowedCountries} challenge={challenge} proofReady feedback="La prueba quedó disponible." />);
     expect(screen.queryByText(/No pudimos confirmar el envío/i)).not.toBeInTheDocument();
     expect(screen.getByText("Código comprobado para este ingreso.")).toBeVisible();
     expect(props.onIssue).not.toHaveBeenCalled();
