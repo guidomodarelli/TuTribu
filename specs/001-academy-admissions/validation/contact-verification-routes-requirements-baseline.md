@@ -39,3 +39,5 @@ La corrida adicional de interacción documental terminó con exit 0: dieciséis 
 | US-05-AC-07 | El contrato seguro de conflicto y las carreras de owner único ya probadas en T095/T096 conservan su evidencia: rechazo sin identificar al dueño y sin reasignación. Esta tarea comprueba la proyección HTTP mínima y el rechazo de proof/request cruzados; UI de recuperación y gates externos permanecen en sus tareas. |
 
 El cierre acredita rutas y contratos de T097. No completa T098–T106, la historia US5, los gates externos ni la matriz de aplicación WebKit pendiente. Todas las ejecuciones nuevas citadas tienen resultado terminal.
+
+La auditoría final de cierre no encontró hallazgos accionables: 212 IDs y criterios intactos, siete hashes documentales y cuatro de código estables, manifiesto `FE4AD2C843C33411B30548A0F53B078E2799049AC0D81BE77EE88B0E84B4F82D`. El checkpoint `6de9d05c` quedó commiteado y subido. Los tres manuales registran ese commit real, conservando exactamente sus 79/89/86 rutas de fuente y sus scripts, estilos y capturas.
