@@ -127,6 +127,11 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
     const current = latest.current;
     if (!ready || !current.enabled || !current.viewerId || busy.current || record.current?.pending) return;
     busy.current = true; setErrorMessage(null); setFeedback(null); setFieldErrors({}); setPhase(actionPhase);
+    if (intent.kind === ADMISSION_CONTACT_ACTION.issue || intent.kind === ADMISSION_CONTACT_ACTION.resend || intent.kind === ADMISSION_CONTACT_ACTION.sms) {
+      for (const previousController of deliveryControllers.current) previousController.abort();
+      deliveryControllers.current.clear();
+      setDelivery(null);
+    }
     const scopeGeneration = generation.current, actionController = new AbortController(); controller.current = actionController;
     const timeout = window.setTimeout(() => actionController.abort(), ADMISSION_CONTACT_BROWSER_TIMEOUT_MS);
     try {
@@ -237,5 +242,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
   const expiresInSeconds = challenge ? Math.max(0, Math.ceil((new Date(challenge.expiresAt).getTime() - new Date(now).getTime()) / MILLISECONDS_PER_SECOND)) : null;
   const resendInSeconds = challenge ? Math.max(0, Math.ceil((new Date(challenge.resendAllowedAt).getTime() - new Date(now).getTime()) / MILLISECONDS_PER_SECOND)) : null;
   const proofFresh = Boolean(proof && new Date(proof.applyBefore) > new Date(now));
-  return { ready, confirmed, setConfirmed: changeConfirmation, code, setCode, clearFieldFeedback, phase, errorMessage, feedback, fieldErrors, challenge, proof, proofFresh, delivery, pending, now, expiresInSeconds, resendInSeconds, issue, verify, resend: () => resend(false), useSmsAlternative: () => resend(true), apply, readOriginal, readDelivery: () => readDelivery() };
+  // Transport feedback remains bound to its current delivery independently of code-field errors.
+  const deliveryMessage = delivery?.safeReason ? Object.entries(ADMISSION_ERROR_MESSAGE).find(([code]) => code === delivery.safeReason)?.[1] ?? ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.dependencyUnavailable] : null;
+  return { ready, confirmed, setConfirmed: changeConfirmation, code, setCode, clearFieldFeedback, phase, errorMessage, deliveryMessage, feedback, fieldErrors, challenge, proof, proofFresh, delivery, pending, now, expiresInSeconds, resendInSeconds, issue, verify, resend: () => resend(false), useSmsAlternative: () => resend(true), apply, readOriginal, readDelivery: () => readDelivery() };
 }

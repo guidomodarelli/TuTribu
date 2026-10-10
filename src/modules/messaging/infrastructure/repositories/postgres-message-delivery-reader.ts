@@ -7,6 +7,7 @@ import type {MessageDeliveryReader,MessageDeliveryReadContext} from "@/src/modul
 import {messageDeliverySchema} from "@/src/modules/messaging/application/results/messaging-flow-result-schemas";
 import {MessagingSecretAccessError} from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
+import {MESSAGE_AUTHORIZATION_OUTCOME} from "@/src/modules/messaging/constants/message-delivery";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
 import {TRIBE_MEMBERSHIP_STATUS} from "@/src/modules/tribes/constants/tribe-page-access";
 
@@ -34,7 +35,7 @@ export class PostgresMessageDeliveryReader implements MessageDeliveryReader<z.in
       if(!await this.authorize(database,context,deliveryId))return null;
       const row=(await database.execute<DeliveryRow>(sql`select id,state,purpose,channel,created_at,last_outcome from public.message_deliveries where id=${deliveryId} and tribe_id=${context.tribeId} for share`)).rows[0];
       if(!await this.authorize(database,context,deliveryId)||!row)return null;
-      const safeReason=Object.values(MESSAGING_ERROR_CODE).find((code)=>code===row.last_outcome);
+      const safeReason=row.last_outcome===MESSAGE_AUTHORIZATION_OUTCOME.quotaExceeded?MESSAGING_ERROR_CODE.usageLimitReached:Object.values(MESSAGING_ERROR_CODE).find((code)=>code===row.last_outcome);
       return messageDeliverySchema.parse({id:row.id,state:row.state,purpose:row.purpose,channel:row.channel,createdAt:new Date(row.created_at).toISOString(),...(safeReason?{safeReason}:{})});
     });
   }

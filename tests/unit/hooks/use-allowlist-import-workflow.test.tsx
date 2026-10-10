@@ -8,13 +8,15 @@ import type { AllowlistImportBrowserClient } from "@/src/modules/academy-admissi
 import type { AllowlistImportPageState } from "@/src/modules/academy-admissions/application/results/allowlist-import-page-state";
 import type { AllowlistImportDto } from "@/src/modules/academy-admissions/application/results/admission-management-result-schemas";
 import { createAllowlistImportDraftStoreFixture } from "@/tests/support/allowlist-import-draft-store-fixture";
+import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 
 afterEach(() => window.sessionStorage.clear());
 /** @returns Own current scope and a saved preview with one valid and one invalid record. */
 function fixture() {
   const viewerId = randomUUID(), importId = randomUUID(), draft = { fileName: "synthetic.csv", csvText: "identity,display_name\nsynthetic@example.test,Nombre\ninvalid,Nombre" };
-  const initialState: Extract<AllowlistImportPageState, { kind: "ready" }> = { kind: "ready", viewerId, tribeId: randomUUID(), slug: "synthetic", contactType: "email", policyVersion: 1, renderedAt: "2026-10-09T08:00:00Z" };
-  const snapshot: AllowlistImportDto = { importId, state: "preview", sourceVersion: 1, expiresAt: "2026-10-10T08:00:00Z", counts: { selected: 0, added: 0, unchanged: 0, skipped: 0, conflict: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "Nombre", selected: false, errors: [] }, { rowNumber: 2, identity: "invalid", displayName: "Nombre", selected: false, errors: ["admission_contact_invalid"] }] };
+  const now = Date.now();
+  const initialState: Extract<AllowlistImportPageState, { kind: "ready" }> = { kind: "ready", viewerId, tribeId: randomUUID(), slug: "synthetic", contactType: "email", policyVersion: 1, renderedAt: new Date(now).toISOString() };
+  const snapshot: AllowlistImportDto = { importId, state: "preview", sourceVersion: 1, expiresAt: new Date(now + ADMISSION_LIMIT.csvRetentionMs).toISOString(), counts: { selected: 0, added: 0, unchanged: 0, skipped: 0, conflict: 0 }, rows: [{ rowNumber: 1, identity: "synthetic@example.test", displayName: "Nombre", selected: false, errors: [] }, { rowNumber: 2, identity: "invalid", displayName: "Nombre", selected: false, errors: ["admission_contact_invalid"] }] };
   const client: AllowlistImportBrowserClient = { viewer: vi.fn(async () => ({ status: "ready" as const, value: { id: viewerId } })), operation: vi.fn(), policy: vi.fn(), read: vi.fn(async () => ({ status: "ready" as const, value: snapshot })), write: vi.fn(async (_slug, intent) => ({ status: "ready" as const, value: { state: "completed" as const, operationId: intent.operationId, replayed: false, result: { importId, sourceVersion: 1, expiresAt: snapshot.expiresAt } } })), file: vi.fn() };
   return { initialState, client, importId, draft, snapshot, drafts: createAllowlistImportDraftStoreFixture() };
 }

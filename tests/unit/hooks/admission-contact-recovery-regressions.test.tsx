@@ -24,6 +24,73 @@ function recoveryFixture() {
 }
 
 describe("contact original recovery regressions", () => {
+  it("should preserve safe quota feedback while a current code can still be entered and replace it with the current delivery reason", async () => {
+    const fixture = recoveryFixture();
+    vi.mocked(fixture.client.delivery).mockResolvedValue({ status: "ready", value: { id: fixture.challenge.deliveryId, state: "queued", channel: "email", purpose: "admission", createdAt: fixture.options.renderedAt, safeReason: "usage_limit_reached" } });
+    const { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    await waitFor(() => expect(result.current.delivery?.safeReason).toBe("usage_limit_reached"));
+    expect(result.current.deliveryMessage).toBe("Se alcanzó el límite de nuevos envíos. Podés validar un código vigente o consultar tu solicitud.");
+    act(() => result.current.setCode("123456"));
+    expect(result.current.deliveryMessage).toBe("Se alcanzó el límite de nuevos envíos. Podés validar un código vigente o consultar tu solicitud.");
+    expect(fixture.client.verify).not.toHaveBeenCalled();
+
+    vi.mocked(fixture.client.delivery).mockResolvedValue({ status: "ready", value: { id: fixture.challenge.deliveryId, state: "failed", channel: "email", purpose: "admission", createdAt: fixture.options.renderedAt, safeReason: "dependency_unavailable" } });
+    await act(async () => { await result.current.readDelivery(); });
+    expect(result.current.deliveryMessage).toBe("La mensajería no está disponible temporalmente. Podés consultar tu solicitud.");
+    expect(fixture.client.issue).toHaveBeenCalledTimes(1);
+    expect(fixture.client.resend).not.toHaveBeenCalled();
+  });
+
+  it("should clear the previous delivery reason as soon as an explicit resend starts before its response settles", async () => {
+    const fixture = recoveryFixture(), replacement = { ...fixture.challenge, challengeId: randomUUID(), deliveryId: randomUUID() };
+    vi.mocked(fixture.client.delivery).mockResolvedValue({ status: "ready", value: { id: fixture.challenge.deliveryId, state: "queued", channel: "email", purpose: "admission", createdAt: fixture.options.renderedAt, safeReason: "usage_limit_reached" } });
+    let finishResend!: () => void;
+    vi.mocked(fixture.client.resend).mockImplementation((_slug, _challengeId, input) => new Promise((resolve) => { finishResend = () => resolve({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: replacement } }); }));
+    const { result, unmount } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    await waitFor(() => expect(result.current.deliveryMessage).toMatch(/límite de nuevos envíos/i));
+    vi.mocked(fixture.client.delivery).mockResolvedValue({ status: "ready", value: { id: replacement.deliveryId, state: "queued", channel: "email", purpose: "admission", createdAt: fixture.options.renderedAt } });
+    let resending!: Promise<void>;
+    act(() => { resending = result.current.resend(); });
+    try {
+      await waitFor(() => expect(fixture.client.resend).toHaveBeenCalledTimes(1));
+      expect(result.current.phase).toBe("resending");
+      expect(result.current.deliveryMessage).toBeNull();
+      expect(result.current.challenge?.challengeId).toBe(fixture.challenge.challengeId);
+    } finally { await act(async () => { finishResend(); await resending; }); unmount(); }
+  });
+
+  it("should cancel the old delivery read and ignore its late reason while an explicit resend is still pending", async () => {
+    const fixture = recoveryFixture(), replacement = { ...fixture.challenge, challengeId: randomUUID(), deliveryId: randomUUID() };
+    const oldDelivery = { id: fixture.challenge.deliveryId, state: "queued" as const, channel: "email" as const, purpose: "admission" as const, createdAt: fixture.options.renderedAt, safeReason: "usage_limit_reached" as const };
+    vi.mocked(fixture.client.delivery).mockResolvedValue({ status: "ready", value: oldDelivery });
+    const { result, unmount } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    await waitFor(() => expect(result.current.deliveryMessage).toMatch(/límite de nuevos envíos/i));
+    let finishOld!: () => void, finishResend!: () => void, oldSignal!: AbortSignal;
+    vi.mocked(fixture.client.delivery).mockImplementationOnce((_slug, _deliveryId, signal) => new Promise((resolve) => { oldSignal = signal; finishOld = () => resolve({ status: "ready", value: oldDelivery }); }));
+    let reading!: Promise<void>, resending!: Promise<void>;
+    act(() => { reading = result.current.readDelivery(); });
+    await waitFor(() => expect(finishOld).toBeTypeOf("function"));
+    vi.mocked(fixture.client.resend).mockImplementation((_slug, _challengeId, input) => new Promise((resolve) => { finishResend = () => resolve({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: replacement } }); }));
+    vi.mocked(fixture.client.delivery).mockResolvedValue({ status: "ready", value: { ...oldDelivery, id: replacement.deliveryId, safeReason: undefined } });
+    act(() => { resending = result.current.resend(); });
+    try {
+      await waitFor(() => expect(fixture.client.resend).toHaveBeenCalledTimes(1));
+      expect(oldSignal.aborted).toBe(true);
+      await act(async () => { finishOld(); await reading; });
+      expect(result.current.phase).toBe("resending");
+      expect(result.current.deliveryMessage).toBeNull();
+    } finally { await act(async () => { finishOld(); await reading; finishResend(); await resending; }); unmount(); }
+  });
+
   it("should recover a confirmed issuance rejection without creating another code or retaining uncertainty", async () => {
     const fixture = recoveryFixture(), operationId = randomUUID();
     writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue", operationId } });

@@ -33,6 +33,27 @@ function containerFixture() {
 }
 
 describe("applicant contact step in the route", () => {
+  it("should show the current delivery reason persistently while code edits remain local and replace the old reason on an explicit read", async () => {
+    const fixture = containerFixture(), user = userEvent.setup(), deliveryId = randomUUID();
+    vi.mocked(fixture.contact.issue).mockImplementation(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { purpose: "admission", challengeId: randomUUID(), deliveryId, channel: "email", maskedDestination: "a•••@example.test", expiresAt: new Date(Date.now() + 600_000).toISOString(), resendAllowedAt: new Date(Date.now() + 60_000).toISOString(), deliveryState: "queued" } } }));
+    vi.mocked(fixture.contact.delivery).mockResolvedValue({ status: "ready", value: { id: deliveryId, state: "queued", channel: "email", purpose: "admission", createdAt: fixture.initialState.renderedAt, safeReason: "usage_limit_reached" } });
+    render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeEnabled());
+    await user.click(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i }));
+    await user.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
+    expect(await screen.findByText("Se alcanzó el límite de nuevos envíos. Podés validar un código vigente o consultar tu solicitud.")).toBeVisible();
+    await user.type(screen.getByLabelText("Código de ingreso"), "123456");
+    expect(screen.getByText("Se alcanzó el límite de nuevos envíos. Podés validar un código vigente o consultar tu solicitud.")).toBeVisible();
+    expect(fixture.contact.verify).not.toHaveBeenCalled();
+    vi.mocked(fixture.contact.delivery).mockResolvedValue({ status: "ready", value: { id: deliveryId, state: "failed", channel: "email", purpose: "admission", createdAt: fixture.initialState.renderedAt, safeReason: "dependency_unavailable" } });
+    await user.click(screen.getByRole("button", { name: "Consultar envío del código" }));
+    expect(await screen.findByText("La mensajería no está disponible temporalmente. Podés consultar tu solicitud.")).toBeVisible();
+    expect(screen.queryByText("Se alcanzó el límite de nuevos envíos. Podés validar un código vigente o consultar tu solicitud.")).not.toBeInTheDocument();
+    expect(fixture.contact.issue).toHaveBeenCalledTimes(1);
+    expect(fixture.contact.resend).not.toHaveBeenCalled();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
+  });
+
   it("should disable contact consent until the current viewer and reference restoration are ready", async () => {
     const fixture = containerFixture();
     let finishViewer!: () => void;
