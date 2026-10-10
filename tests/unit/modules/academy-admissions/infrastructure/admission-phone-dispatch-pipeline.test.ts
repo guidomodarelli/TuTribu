@@ -16,10 +16,11 @@ import { recoverTestVerificationCode } from "@/tests/support/contact-verificatio
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native applicant phone dispatch", () => {
   it.each([
-    { channel: "sms", reduction: "none" }, { channel: "whatsapp", reduction: "none" },
-    { channel: "sms", reduction: "before-marker" }, { channel: "whatsapp", reduction: "before-marker" },
-    { channel: "sms", reduction: "after-marker" }, { channel: "whatsapp", reduction: "after-marker" },
-  ] as const)("should preserve $channel proof and accounting with country reduction $reduction at the actual marker", async ({ channel, reduction }) => {
+    { channel: "sms", reduction: "none", receipt: "sent" }, { channel: "whatsapp", reduction: "none", receipt: "sent" },
+    { channel: "sms", reduction: "before-marker", receipt: "sent" }, { channel: "whatsapp", reduction: "before-marker", receipt: "sent" },
+    { channel: "sms", reduction: "after-marker", receipt: "sent" }, { channel: "whatsapp", reduction: "after-marker", receipt: "sent" },
+    { channel: "sms", reduction: "none", receipt: "delivered" }, { channel: "whatsapp", reduction: "none", receipt: "delivered" },
+  ] as const)("should preserve $channel proof and accounting with country reduction $reduction and receipt $receipt at the actual marker", async ({ channel, reduction, receipt }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionContactVerification(database, false, undefined, true);
       for (const migration of ["20261005092500_guard_messaging_attempts.sql", "20261005100000_guard_messaging_secret_retirement.sql", "20261006140000_claim_messaging_deliveries_fairly.sql", "20261006160000_purge_verification_delivery_material.sql", "20261008210000_claim_scoped_admission_delivery.sql"]) await database.applyMigration(migration);
@@ -46,7 +47,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native applicant p
         if (channel === "whatsapp") { expect(body.messageType === "template" && body.content?.templateId === "synthetic-otp-template" && body.text === undefined && body.templateLanguage === undefined).toBe(true); receivedCode = body.content?.templateVariables?.["1"] ?? ""; }
         else { expect(body.messageType === "text" && body.content === undefined).toBe(true); receivedCode = body.text?.match(/\b\d{6}\b/u)?.[0] ?? ""; }
         expect(/^\d{6}$/u.test(receivedCode)).toBe(true);
-        return Response.json({ message: { id: providerId, direction: "outbound", channel, status: "sent" } });
+        return Response.json({ message: { id: providerId, direction: "outbound", channel, status: receipt } });
       } }]);
       const deferred: Promise<void>[] = [], observations: string[] = [];
       const verification = admissionModule.createContactVerificationModule({ readSecurityConfig: async () => fixture.fixture.config, createDispatcher: (resolve) => new ScopedAdmissionVerificationDispatcher({ resolve, readSecurityFacts: async () => fixture.fixture.config, createDispatcher: (scope, authorize) => {
@@ -72,9 +73,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native applicant p
       const deliveryId = result.value.result.deliveryId;
       if (!deliveryId) throw new Error("Native phone pipeline delivery reference was unavailable");
       await database.withContext(fixture.fixture.own, async (transaction) => {
-        expect((await transaction.execute(sql`select state,provider_message_id,authorized_usage_policy_version from public.message_delivery_attempts where delivery_id=${deliveryId}`)).rows).toEqual(reduction === "before-marker" ? [] : [{ state: "accepted", provider_message_id: providerId, authorized_usage_policy_version: 2 }]);
+        expect((await transaction.execute(sql`select state,provider_message_id,authorized_usage_policy_version from public.message_delivery_attempts where delivery_id=${deliveryId}`)).rows).toEqual(reduction === "before-marker" ? [] : [{ state: receipt === "delivered" ? "delivered" : "accepted", provider_message_id: providerId, authorized_usage_policy_version: 2 }]);
         expect((await transaction.execute(sql`select state from public.messaging_usage_reservations where delivery_id=${deliveryId}`)).rows).toEqual(reduction === "before-marker" ? [] : [{ state: "consumed" }]);
-        expect((await transaction.execute(sql`select queued_usage_policy_version,state from public.message_deliveries where id=${deliveryId}`)).rows).toEqual([{ queued_usage_policy_version: 2, state: reduction === "before-marker" ? "suppressed" : "accepted" }]);
+        expect((await transaction.execute(sql`select queued_usage_policy_version,state from public.message_deliveries where id=${deliveryId}`)).rows).toEqual([{ queued_usage_policy_version: 2, state: reduction === "before-marker" ? "suppressed" : receipt === "delivered" ? "delivered" : "accepted" }]);
         expect((await transaction.execute(sql`select version,allowed_countries from public.messaging_usage_policies where tribe_id=${fixture.context.tribeId}`)).rows).toEqual([{ version: reduction === "none" ? 2 : 3, allowed_countries: reduction === "none" ? ["AR"] : [] }]);
         expect((await transaction.execute(sql`select state,failed_attempts from public.contact_verification_challenges where id=${challenge.challengeId}`)).rows).toEqual([{ state: "issued", failed_attempts: 0 }]);
       });
