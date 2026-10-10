@@ -12,14 +12,15 @@ import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissi
 import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native concurrent allowlist contact ownership", () => {
-  it("should commit one owner and member, retain the competing proof and preserve binding after disabling the entry", async () => {
+  it.each(["sms", "whatsapp"] as const)("should commit one %s contact owner and member, retain the competing proof and preserve binding after disabling the entry", async (channel) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionContactVerification(database, false, undefined, true), entryId = randomUUID();
       for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
       const other = { userId: randomUUID(), sessionId: randomUUID(), accountId: randomUUID(), subject: randomUUID(), email: `other.${randomUUID()}@example.test` };
       await database.withContext(fixture.fixture.own, async (transaction) => {
         const fingerprint = await createAdmissionContactFingerprint(fixture.input.contact, fixture.fixture.config);
-        await transaction.execute(sql`update public.academy_admission_policies set mode='allowlist',requires_additional_verification=true,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.context.tribeId}`);
+        if (channel === "whatsapp") await transaction.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,template_id,template_language,state,checked_at,tested_at) values (${fixture.context.tribeId},${fixture.fixture.scope.connectionId},1,'whatsapp','synthetic-whatsapp-sender','synthetic-otp-template','es','prepared',clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`update public.academy_admission_policies set mode='allowlist',requires_additional_verification=true,phone_channel=${channel},verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.context.tribeId}`);
         await transaction.execute(sql`update public.messaging_usage_policies set allowed_countries=array['AR'],version=version+1 where tribe_id=${fixture.context.tribeId}`);
         await transaction.execute(sql`insert into public.academy_allowlist_entries(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,display_name,origin,created_by_user_id,updated_by_user_id) values (${entryId},${fixture.context.tribeId},'phone',${fixture.input.contact.value},${Buffer.from(fingerprint.digest)},${fingerprint.keyId},'Misma habilitación','manual',${fixture.fixture.userId},${fixture.fixture.userId})`);
         await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${other.userId},'Other synthetic applicant',${other.email},false,clock_timestamp(),clock_timestamp())`);
@@ -32,9 +33,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native concurrent 
       for (const participant of participants) {
         const own = { userId: participant.userId, email: participant.userId === fixture.context.userId ? fixture.own.email : other.email };
         const operations = new PostgresAdmissionContactVerificationOperations((_scope, run) => database.withContext(own, run), async () => fixture.fixture.config);
-        const issued = await operations.issue({ ...fixture.input, ...participant, operationId: randomUUID(), expectedPolicyVersion: 2 });
+        const issued = await operations.issue({ ...fixture.input, ...participant, channel, operationId: randomUUID(), expectedPolicyVersion: 2 });
         if (issued.state !== "completed") throw new Error("Expected native shared-contact issuance");
-        const scope = { ...fixture.fixture.scope, userId: participant.userId, contact: fixture.input.contact, verificationEpoch: 2 };
+        const scope = { ...fixture.fixture.scope, userId: participant.userId, contact: fixture.input.contact, channel, verificationEpoch: 2 };
         const code = await recoverTestVerificationCode(database, { ...fixture.fixture, own, scope }, issued.result.challengeId);
         const verified = await operations.verify({ ...participant, operationId: randomUUID(), challengeId: issued.result.challengeId, verificationCode: code.code });
         if (verified.state !== "completed" || verified.result.result !== "verified") throw new Error("Expected native verified shared-contact proof");
