@@ -2,16 +2,49 @@
 /** Exercises actual browser instrumentation and authenticated font transport failures through safe test boundaries. @module admission-browser-privacy-tests */
 import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
-import { chromium } from "@playwright/test";
+import { readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { chromium, webkit, type Browser, type BrowserContext } from "@playwright/test";
 import { describe, expect, it } from "vitest";
 import { enterAdmissionVerificationCode } from "@/tests/support/admission-contact-browser-actions";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native browser private failure boundaries", () => {
-  it("should enter a code in a real input and sanitize a disabled input failure without code or cause", async () => {
-    const browser = await chromium.launch({ headless: true }), page = await browser.newPage();
-    const code = "123456";
+  it.each([{ name: "chromium", engine: chromium }, { name: "webkit", engine: webkit }])("should redact a private phone in the capture while preserving its real disabled control on $name", async ({ engine }) => {
+    const phone = "+5491155501234", filename = `privacy-input-${randomUUID()}.json`;
+    const path = join(process.cwd(), "user-guides", "assets", "academy-admissions", filename);
+    const server = createServer((_request, response) => { response.setHeader("Content-Type", "text/html; charset=utf-8"); response.end('<main><label for="phone">Teléfono para este ingreso</label><input id="phone" type="tel" disabled><p>Destino: ••••1234</p></main>'); });
+    let browser: Browser | null = null;
     try {
+      await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("Private phone fixture loopback was unavailable");
+      browser = await engine.launch({ headless: true });
+      const page = await browser.newPage();
+      await page.goto(`http://127.0.0.1:${address.port}`);
+      await page.getByLabel("Teléfono para este ingreso").evaluate((element, value) => { (element as HTMLInputElement).value = value; }, phone);
+      await captureAdmissionReview(page, "private-phone", [phone], filename);
+      const artifact = JSON.parse(await readFile(path, "utf8"));
+      expect(JSON.stringify(artifact).includes(phone)).toBe(false);
+      await page.setContent(artifact.caps[0].html);
+      expect(await page.getByLabel("Teléfono para este ingreso").isDisabled()).toBe(true);
+      expect(await page.getByLabel("Teléfono para este ingreso").inputValue()).toBe("••••");
+      expect(await page.getByText("Destino: ••••1234").isVisible()).toBe(true);
+    } finally {
+      try { await browser?.close(); }
+      finally {
+        try { if (server.listening) await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
+        finally { await rm(path, { force: true }); }
+      }
+    }
+  });
+
+  it("should enter a code in a real input and sanitize a disabled input failure without code or cause", async () => {
+    const code = "123456";
+    let browser: Browser | null = null;
+    try {
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage();
       await page.setContent('<main><label for="code">Código de ingreso</label><input id="code"></main>');
       await enterAdmissionVerificationCode(page, code);
       expect(await page.getByLabel("Código de ingreso").inputValue() === code).toBe(true);
@@ -21,7 +54,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native browser
       try { await enterAdmissionVerificationCode(page, code); } catch (error) { failure = error; }
       expect(failure instanceof Error && !failure.message.includes(code)).toBe(true);
       expect(failure instanceof Error && failure.message === "Contact UI code entry was unavailable" && !("cause" in failure)).toBe(true);
-    } finally { await browser.close(); }
+    } finally { await browser?.close(); }
   });
 
   it("should sanitize the real authenticated font GET failure without exporting the session cookie", async () => {
@@ -33,11 +66,13 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native browser
       response.setHeader("Content-Type", "text/html; charset=utf-8");
       response.end('<!doctype html><style>@font-face{font-family:PrivacyFixture;src:url("/private-fixture.woff2")}main{font-family:PrivacyFixture,sans-serif}</style><main>Captura sintética de privacidad</main>');
     });
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const address = server.address();
-    if (!address || typeof address === "string") throw new Error("Browser privacy fixture loopback was unavailable");
-    const browser = await chromium.launch({ headless: true }), context = await browser.newContext();
+    let browser: Browser | null = null, context: BrowserContext | null = null;
     try {
+      await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("Browser privacy fixture loopback was unavailable");
+      browser = await chromium.launch({ headless: true });
+      context = await browser.newContext();
       await context.addCookies([{ name: "synthetic-session", value: cookie, domain: "127.0.0.1", path: "/" }]);
       const page = await context.newPage();
       await page.goto(`http://127.0.0.1:${address.port}`);
@@ -47,6 +82,12 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native browser
       expect(authenticatedFontRequests).toBe(fontRequests);
       expect(failure instanceof Error && !failure.message.includes(cookie)).toBe(true);
       expect(failure instanceof Error && failure.message === "Reviewer capture local font download failed" && !("cause" in failure)).toBe(true);
-    } finally { await context.close(); await browser.close(); await new Promise<void>((resolve) => server.close(() => resolve())); }
+    } finally {
+      try { await context?.close(); }
+      finally {
+        try { await browser?.close(); }
+        finally { if (server.listening) await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
+      }
+    }
   });
 });

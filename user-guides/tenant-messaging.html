@@ -1602,7 +1602,11 @@ td, .step-desc, p{overflow-wrap:anywhere;}
 		host.__umRefit = refit;
 		// setTimeout instead of requestAnimationFrame: rAF does not fire in background tabs.
 		(document.fonts ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(refit, 0); });
-		new ResizeObserver(refit).observe(host);
+		var refitTimer = null;
+		new ResizeObserver(function () {
+			if (refitTimer !== null) return;
+			refitTimer = setTimeout(function () { refitTimer = null; refit(); }, 0);
+		}).observe(host);
 	}
 
 	// The reader's viewport decides the layout of responsive captures, so a window resize refits them even

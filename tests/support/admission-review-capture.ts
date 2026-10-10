@@ -2,12 +2,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
+import { ADMISSION_CONTACT_MASK } from "@/src/modules/academy-admissions/constants/admission-contact-presentation";
 
 /** @param page - Actual owned browser page. @param name - Stable manual capture name. @param forbidden - Fixture identity/session/token/secret strings never allowed in the export. @param outputFile - Trusted test-owned export filename within the admission manual assets. @param options - Optional visible app fragment and descendants omitted from that fragment. @returns Nothing when capture tooling is not explicitly selected; otherwise an actual sanitized DOM capture. */
 export async function captureAdmissionReview(page: Page, name: string, forbidden: string[], outputFile = "review-captures.json", options: { selector?: string; omit?: string } = {}): Promise<void> {
   if (!process.env.ADMISSION_CAPTURE_SNIPPET) return;
   await page.evaluate(await readFile(process.env.ADMISSION_CAPTURE_SNIPPET, "utf8"));
-  await page.evaluate(({ captureName, selector, omit, privateValues }) => {
+  await page.evaluate(({ captureName, selector, omit, privateValues, contactMask }) => {
     const helpers = window as unknown as { __umCap: (name: string, element: Element, options?: { transform?: (clone: Element) => void }) => { blockedSheets: string[] } };
     const root = Array.from(document.querySelectorAll(selector ?? "main")).find((element) => element.getClientRects().length > 0);
     if (!root) throw new Error("Visible reviewer capture root was unavailable");
@@ -15,10 +16,10 @@ export async function captureAdmissionReview(page: Page, name: string, forbidden
       if (omit) clone.querySelectorAll(omit).forEach((element) => element.remove());
       // Keep real labels while preventing a captured navigation target from retaining private route material.
       clone.querySelectorAll("a[href]").forEach((element) => { const href = element.getAttribute("href") ?? ""; if (privateValues.some((value) => value && (href.includes(value) || href.includes(encodeURIComponent(value))))) element.setAttribute("href", "#"); });
-      // A one-view link is capture-redacted in its real control, without exporting its secret value.
-      clone.querySelectorAll("input[readonly]").forEach((element) => { const value = element.getAttribute("value") ?? ""; if (privateValues.some((privateValue) => privateValue && value.includes(privateValue))) element.setAttribute("value", "[Enlace privado]"); });
+      // Preserve real controls while excluding a one-view link or private phone from the export.
+      clone.querySelectorAll('input[readonly], input[type="tel"]').forEach((element) => { const value = element.getAttribute("value") ?? ""; if (privateValues.some((privateValue) => privateValue && value.includes(privateValue))) element.setAttribute("value", element.getAttribute("type") === "tel" ? contactMask : "[Enlace privado]"); });
     } }).blockedSheets.length) throw new Error("Reviewer capture stylesheet was unavailable");
-  }, { captureName: name, privateValues: forbidden, ...options });
+  }, { captureName: name, privateValues: forbidden, contactMask: ADMISSION_CONTACT_MASK, ...options });
   const payload = await page.evaluate((values) => {
     const helpers = window as unknown as { __umCheck: (forbidden: string[]) => unknown[] };
     if (helpers.__umCheck(values).length) throw new Error("Reviewer capture contained a private fixture identity");
