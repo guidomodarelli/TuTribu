@@ -12,6 +12,7 @@ import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { createAdmissionRouteBoundary } from "./admission-route-http";
 import { hasAllowedAdmissionOrigin } from "./admission-request-origin";
+import { PERSONAL_INVITATION_VIEWER_HEADER, personalInvitationViewerMetadataSchema } from "../../constants/personal-invitation-browser";
 import { admissionTribeParamsSchema, admissionInvitationParamsSchema, admissionInvitationQuerySchema, admissionEmptyQuerySchema, personalInvitationCreateSchema, personalInvitationRenameSchema, personalInvitationRevokeSchema } from "./admission-request-schemas";
 
 /** Native composition exposes only use cases and configured public origin, without provider or caller identity. */
@@ -23,6 +24,8 @@ type PersonalInvitationAction = "list" | "read" | "create" | "rename" | "revoke"
 
 /** @param open - Native composition after input/origin validation. @returns Current metadata and explicit original commands with closed DTOs. */
 export function createPersonalInvitationManagementHandlers(open: () => Promise<PersonalInvitationManagementServices>) {
+  /** @param response - Guarded own JSON. @param viewerId - Native actor that produced the actual result. @returns Scope metadata, never caller-selected identity or session material. */
+  const bindViewer = (response: Response, viewerId: string) => { response.headers.set(PERSONAL_INVITATION_VIEWER_HEADER, JSON.stringify(personalInvitationViewerMetadataSchema.parse({ viewerId }))); return response; };
   /** @param request - Native own request. @param context - Framework params. @param action - Fixed route intent. @returns Private metadata or its original safe outcome; reads never write. */
   async function execute(request: Request, context: RouteContext, action: PersonalInvitationAction): Promise<Response> {
     const boundary = createAdmissionRouteBoundary({ request, operation: PERSONAL_INVITATION_HTTP_OPERATION[action] });
@@ -48,13 +51,13 @@ export function createPersonalInvitationManagementHandlers(open: () => Promise<P
       const scope = { tribeId: tribe.value.tribeId, requestId }, invitationId = "invitationId" in params.value ? String(params.value.invitationId) : undefined;
       if (action === PERSONAL_INVITATION_HTTP_ACTION.list && listQuery?.usable) {
         const result = await services.invitations.list({ ...scope, ...listQuery.value });
-        return result.ok ? boundary.success(personalInvitationPageSchema, result.value) : boundary.failure(result.failure);
+        return result.ok ? bindViewer(boundary.success(personalInvitationPageSchema, result.value), result.viewerId) : boundary.failure(result.failure);
       }
       if (action === PERSONAL_INVITATION_HTTP_ACTION.read && invitationId) {
         const result = await services.invitations.read({ ...scope, invitationId });
         if (!result.ok) return boundary.failure(result.failure);
         if (result.value.id !== invitationId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-        return boundary.success(personalInvitationManagementSchema, result.value);
+        return bindViewer(boundary.success(personalInvitationManagementSchema, result.value), result.viewerId);
       }
       if (action === PERSONAL_INVITATION_HTTP_ACTION.create && createBody?.usable) {
         const trustedOrigin = services.publicOrigin(), schema = createPersonalInvitationHttpCreationSchema(trustedOrigin);
@@ -63,11 +66,11 @@ export function createPersonalInvitationManagementHandlers(open: () => Promise<P
         if (!result.ok) return boundary.failure(result.failure);
         const parsed = personalInvitationCreationResultSchema.safeParse(result.value);
         if (!parsed.success || parsed.data.operationId !== intent.operationId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-        if (parsed.data.state === OPERATION_STATE.started) return boundary.success(schema, parsed.data, HTTP_STATUS.accepted);
+        if (parsed.data.state === OPERATION_STATE.started) return bindViewer(boundary.success(schema, parsed.data, HTTP_STATUS.accepted), result.viewerId);
         const initialToken = parsed.data.replayed ? undefined : parsed.data.initialToken;
         const original = { state: parsed.data.state, operationId: parsed.data.operationId, replayed: parsed.data.replayed, result: parsed.data.result };
         const outcome = { ...original, ...(initialToken ? { invitationUrl: new URL(ADMISSION_INVITATION_PUBLIC_PATH_PREFIX + initialToken, trustedOrigin).href } : {}) };
-        return boundary.success(schema, outcome, original.result.created && !original.replayed ? HTTP_STATUS.created : HTTP_STATUS.ok);
+        return bindViewer(boundary.success(schema, outcome, original.result.created && !original.replayed ? HTTP_STATUS.created : HTTP_STATUS.ok), result.viewerId);
       }
       const command = renameBody?.usable ? renameBody.value : revokeBody?.usable ? revokeBody.value : null;
       if (command && invitationId) {
@@ -78,7 +81,7 @@ export function createPersonalInvitationManagementHandlers(open: () => Promise<P
         if (!result.ok) return boundary.failure(result.failure);
         const parsed = personalInvitationMutationOperationSchema.safeParse(result.value);
         if (!parsed.success || parsed.data.operationId !== command.operationId || parsed.data.state === OPERATION_STATE.completed && (parsed.data.result.invitationId !== invitationId || parsed.data.result.created || parsed.data.result.version !== command.expectedVersion + (parsed.data.result.changed ? 1 : 0))) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-        return boundary.success(personalInvitationMutationOperationSchema, parsed.data, parsed.data.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok);
+        return bindViewer(boundary.success(personalInvitationMutationOperationSchema, parsed.data, parsed.data.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok), result.viewerId);
       }
       return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.invalidInput));
     } catch (error) { return boundary.unexpected(error); }

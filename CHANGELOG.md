@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El líder puede gestionar invitaciones personales desde la configuración de admisión: emitir, renombrar, reemitir o revocar con confirmaciones separadas, vigencia explícita y recuperación de respuestas inciertas sin duplicar la acción.
+
 - La consulta privada de invitaciones personales incorpora las fechas de creación, canje, revocación y retiro de autorización.
 
 - La gestión de invitaciones personales exige confirmación reciente del líder al crear, renombrar o revocar y conserva el resultado original; el enlace completo solo se entrega una vez.

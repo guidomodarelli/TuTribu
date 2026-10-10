@@ -104,7 +104,7 @@ describe("personal invitation administrative authority", () => {
   });
   it("should allow leader history without recency and send only bounded declared filters", async () => {
     const data = fixture();
-    expect(await data.useCases.list({ ...data.input, limit: 20, status: "active" })).toEqual({ ok: true, value: { items: [], nextCursor: null } });
+    expect(await data.useCases.list({ ...data.input, limit: 20, status: "active" })).toEqual({ ok: true, value: { items: [], nextCursor: null }, viewerId: data.account.userId });
     expect(data.reader.list).toHaveBeenCalledWith(expect.objectContaining({ userId: data.account.userId, tribeId: data.input.tribeId }), { limit: 20, status: "active" });
     expect(data.writer.create).not.toHaveBeenCalled();
   });
