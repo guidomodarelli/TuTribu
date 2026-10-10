@@ -42,6 +42,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
           await page.waitForFunction(() => Array.from(document.querySelectorAll('section[aria-labelledby][aria-busy] button[role="checkbox"]')).some((element) => !element.hasAttribute("disabled")));
 
           expect(providerRequests).toBe(0);
+          expect(await page.getByText("Los códigos se envían con el servicio de mensajería conectado por el líder de esta academia.", { exact: true }).isVisible()).toBe(true);
+          expect(await page.getByText("Comprobar el contacto no acredita tu identidad civil ni tu pertenencia a un grupo de WhatsApp. El envío depende de la cuenta de mensajería de la academia.", { exact: true }).isVisible()).toBe(true);
           if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "contact-before-code", forbidden, "contact-verification-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
           await page.route(`**/api/tribes/${slug}/admissions/challenges`, async (route) => { if (loseIssue && route.request().method() === "POST") { loseIssue = false; try { await route.fetch({ timeout: 180_000 }); } catch { await route.abort().catch(() => {}); return; } await route.fulfill({ status: 502, contentType: "application/json", body: "{}" }); } else await route.continue(); });
           await confirmation.click();
@@ -65,6 +67,10 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
           await page.getByRole("checkbox", { name: "Confirmo que quiero solicitar ingreso a esta academia", exact: true }).click();
           await page.getByRole("button", { name: "Solicitar ingreso", exact: true }).click();
           await page.getByText("La solicitud está pendiente de revisión.", { exact: true }).waitFor({ state: "visible" });
+          // The incremental result appears before its own state read settles; capture only the stable pending.
+          await page.getByRole("checkbox", { name: "Confirmo que quiero cancelar esta solicitud", exact: true }).waitFor({ state: "visible" });
+          await expect.poll(() => page.getByRole("checkbox", { name: "Confirmo que quiero cancelar esta solicitud", exact: true }).isEnabled(), { timeout: 180_000 }).toBe(true);
+          await page.getByRole("heading", { name: "Comprobar contacto para el ingreso", exact: true }).waitFor({ state: "hidden" });
           expect(providerRequests).toBe(1);
           expect(pageErrors).toEqual([]);
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);

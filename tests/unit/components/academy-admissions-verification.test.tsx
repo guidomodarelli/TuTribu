@@ -11,6 +11,18 @@ function verificationProps() {
 }
 
 describe("applicant contact verification presentation", () => {
+  it("should explain the leader-connected service and the limits of contact proof before confirming a send", () => {
+    // Given an applicant who has not confirmed a delivery yet.
+    const props = verificationProps();
+    render(<ContactVerification {...props} channel="whatsapp" allowedCountries={["AR"]} />);
+
+    // Then the explanation does not promise identity or WhatsApp group membership.
+    expect(screen.getByText("Los códigos se envían con el servicio de mensajería conectado por el líder de esta academia.")).toBeVisible();
+    expect(screen.getByText("Comprobar el contacto no acredita tu identidad civil ni tu pertenencia a un grupo de WhatsApp. El envío depende de la cuenta de mensajería de la academia.")).toBeVisible();
+    expect(props.onIssue).not.toHaveBeenCalled();
+    expect(props.onUseSmsAlternative).not.toHaveBeenCalled();
+  });
+
   it("should explain initial contact recovery and block consent without claiming a code is being sent", () => {
     const props = verificationProps();
     render(<ContactVerification {...props} ready={false} canIssue />);
@@ -66,6 +78,49 @@ describe("applicant contact verification presentation", () => {
     expect(props.onVerify).toHaveBeenCalledTimes(1);
     expect(props.onIssue).not.toHaveBeenCalled();
     expect(props.onResend).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { state: "accepted", label: "Aceptada por el proveedor" },
+    { state: "delivered", label: "Entregada" },
+    { state: "failed", label: "Entrega fallida" },
+    { state: "unknown", label: "Entrega sin confirmar" },
+    { state: "suppressed", label: "Envío bloqueado" },
+    { state: "cancelled", label: "Envío cancelado" },
+  ] as const)("should keep a current local code usable without inventing proof when transport is $state", async ({ state, label }) => {
+    // Given a current masked challenge with a separately observed transport result.
+    const props = verificationProps(), user = userEvent.setup();
+    const challenge = { challengeId: randomUUID(), purpose: "admission" as const, channel: "email" as const, maskedDestination: "a•••@example.test", expiresAt: "2026-10-08T23:10:00Z", resendAllowedAt: "2026-10-08T23:01:00Z", deliveryState: state };
+    render(<ContactVerification {...props} challenge={challenge} canVerify verificationCode="123456" expiresInSeconds={300} resendInSeconds={30} />);
+
+    // When the applicant verifies, no delivery status substitutes for the proof.
+    expect(screen.getByText(label)).toBeVisible();
+    expect(screen.getByText("a•••@example.test")).toBeVisible();
+    expect(screen.queryByText("Código comprobado para este ingreso.")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Comprobar código" }));
+    expect(props.onVerify).toHaveBeenCalledTimes(1);
+    expect(props.onIssue).not.toHaveBeenCalled();
+    expect(props.onResend).not.toHaveBeenCalled();
+  });
+
+  it("should wait for consent and cooldown before the explicit SMS alternative without changing the locked phone", async () => {
+    const props = verificationProps(), user = userEvent.setup();
+    const challenge = { challengeId: randomUUID(), purpose: "admission" as const, channel: "whatsapp" as const, maskedDestination: "•••1234", expiresAt: "2026-10-08T23:10:00Z", resendAllowedAt: "2026-10-08T23:01:00Z", deliveryState: "unknown" as const };
+    const current = { ...props, channel: "whatsapp" as const, allowedCountries: ["AR"], phone: "+5491155501234", country: "AR", contactLocked: true, challenge, canUseSmsAlternative: true };
+    const { rerender } = render(<ContactVerification {...current} resendInSeconds={0} />);
+    expect(screen.getByRole("button", { name: "Usar SMS para el mismo teléfono" })).toBeDisabled();
+    rerender(<ContactVerification {...current} confirmed resendInSeconds={30} />);
+    expect(screen.getByText("Podés reenviar en 30 segundos.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Usar SMS para el mismo teléfono" }));
+    expect(props.onUseSmsAlternative).not.toHaveBeenCalled();
+
+    rerender(<ContactVerification {...current} confirmed resendInSeconds={0} />);
+    await user.click(screen.getByRole("button", { name: "Usar SMS para el mismo teléfono" }));
+    expect(props.onUseSmsAlternative).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Teléfono para este ingreso")).toHaveValue("+5491155501234");
+    expect(screen.getByLabelText("Teléfono para este ingreso")).toBeDisabled();
+    expect(props.onPhoneChange).not.toHaveBeenCalled();
+    expect(props.onIssue).not.toHaveBeenCalled();
   });
 
   it("should block an expired code, expose persistent safe errors and clear the replaced operation feedback", () => {

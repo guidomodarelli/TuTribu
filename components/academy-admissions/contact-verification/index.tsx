@@ -34,6 +34,8 @@ export function ContactVerification(props: ContactVerificationProps) {
     <header className={styles.ContactVerification__header}>
       <h3 id={`${fieldId}-title`} className={styles.ContactVerification__title}>Comprobar contacto para el ingreso</h3>
       <p className={styles.ContactVerification__description}>El código comprueba el contacto para esta academia. El ingreso se confirma después de presentar la solicitud o aplicar la prueba a tu pendiente.</p>
+      <p className={styles.ContactVerification__description}>Los códigos se envían con el servicio de mensajería conectado por el líder de esta academia.</p>
+      <p className={styles.ContactVerification__description}>Comprobar el contacto no acredita tu identidad civil ni tu pertenencia a un grupo de WhatsApp. El envío depende de la cuenta de mensajería de la academia.</p>
     </header>
     {props.ready === false && <p role="status" className={styles.ContactVerification__description}>Comprobando la cuenta y recuperando las referencias del contacto…</p>}
     <form className={styles.ContactVerification__form} onSubmit={(event) => { event.preventDefault(); if (!issueBlocked) props.onIssue(); }}>
