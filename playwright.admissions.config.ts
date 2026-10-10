@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: ["academy-admissions-manual.spec.ts", "academy-contact-verification.spec.ts"],
+  testMatch: ["academy-admissions-manual.spec.ts", "academy-contact-verification.spec.ts", "academy-contact-retry.spec.ts"],
   tsconfig: "./tsconfig.admissions-e2e.json",
   timeout: 360_000,
   workers: 1,

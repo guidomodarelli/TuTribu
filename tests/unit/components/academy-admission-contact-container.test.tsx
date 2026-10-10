@@ -11,6 +11,8 @@ import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/appli
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
+import { writeAdmissionContactIntent, readAdmissionContactIntent } from "@/lib/academy-admissions/admission-contact-intent";
+import { writeAdmissionDraft } from "@/lib/academy-admissions/admission-draft";
 
 afterEach(() => window.sessionStorage.clear());
 
@@ -36,6 +38,46 @@ function containerFixture() {
 }
 
 describe("applicant contact step in the route", () => {
+  it("should expose readonly recovery and block new contact fields when a stored issuance cannot be reconciled", async () => {
+    const fixture = containerFixture(), issuedOperationId = randomUUID(), user = userEvent.setup();
+    writeAdmissionContactIntent({ viewerId: fixture.viewerId, slug: fixture.initialState.overview.tribe.slug, requestId: null, issuedOperationId, verifiedOperationId: null, pending: null });
+    vi.mocked(fixture.contact.operation).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar el código.", uncertain: false });
+    vi.mocked(fixture.contact.operation).mockResolvedValueOnce({ status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId: issuedOperationId, replayed: true, result: { purpose: "admission", challengeId: randomUUID(), channel: "email", maskedDestination: "a•••@example.test", expiresAt: new Date(Date.now() + ADMISSION_LIMIT.verificationCodeValidityMs).toISOString(), resendAllowedAt: new Date(Date.now() + ADMISSION_LIMIT.verificationResendWaitMs).toISOString(), deliveryState: "queued" } } });
+    render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
+    const recover = await screen.findByRole("button", { name: "Consultar operación del código" });
+    await waitFor(() => expect(recover).toBeEnabled());
+    expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Enviar código de ingreso" })).toBeDisabled();
+    expect(fixture.contact.issue).not.toHaveBeenCalled();
+    await user.click(recover);
+    expect(await screen.findByLabelText("Código de ingreso")).toBeEnabled();
+    expect(fixture.contact.operation).toHaveBeenCalledTimes(2);
+    expect(fixture.contact.issue).not.toHaveBeenCalled();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
+  });
+
+  it("should start a new contact after an authorized retry of a canceled request without restoring its old checked proof", async () => {
+    const fixture = containerFixture(), previousRequestId = randomUUID(), issuedOperationId = randomUUID(), verifiedOperationId = randomUUID(), previousChallengeId = randomUUID();
+    fixture.initialState.overview.policy = { ...fixture.initialState.overview.policy!, contactType: "phone" };
+    fixture.initialState.overview.verification = { channel: "sms", allowedCountries: ["AR"] };
+    const canceled: AdmissionRequestDto = { id: previousRequestId, status: "cancelled", version: 2, source: "common", submittedAt: new Date(Date.now() - ADMISSION_LIMIT.submissionCadenceMs - 1).toISOString(), expiresAt: new Date(Date.now() + ADMISSION_LIMIT.pendingValidityMs).toISOString(), retryAllowedAt: new Date(Date.now() - 1).toISOString(), needsVerification: false, eligibilityReasons: [], contact: { type: "phone", maskedValue: "•••1234", evidenceKind: "local" } };
+    const initialState = { ...fixture.initialState, request: canceled, overview: { ...fixture.initialState.overview, request: canceled } };
+    writeAdmissionDraft({ viewerId: fixture.viewerId, slug: initialState.overview.tribe.slug, draft: { phone: "+5491155501234", country: "AR", message: "Conservo mi explicación." }, pending: null });
+    const original = { viewerId: fixture.viewerId, slug: initialState.overview.tribe.slug, requestId: null, issuedOperationId, verifiedOperationId, pending: null };
+    writeAdmissionContactIntent(original);
+    vi.mocked(fixture.contact.operation).mockImplementation(async (_slug, operationId) => ({ status: "ready", value: operationId === issuedOperationId ? { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: { purpose: "admission", challengeId: previousChallengeId, channel: "sms", maskedDestination: "•••1234", expiresAt: new Date(Date.now() + ADMISSION_LIMIT.verificationCodeValidityMs).toISOString(), resendAllowedAt: new Date(Date.now() - 1).toISOString(), deliveryState: "accepted" } } : { type: "verify_contact_challenge", state: "completed", operationId, replayed: true, result: { purpose: "admission", result: "verified", proofId: fixture.proofId, applyBefore: new Date(Date.now() + ADMISSION_LIMIT.verificationProofFreshnessMs).toISOString() } } }));
+    render(<AdmissionContainer initialState={initialState} client={fixture.client} contactClient={fixture.contact} />);
+    const phone = await screen.findByLabelText("Teléfono para este ingreso");
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeEnabled());
+    expect(phone).toBeEnabled();
+    expect(screen.queryByText("Código comprobado para este ingreso.")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).not.toBeChecked();
+    expect(fixture.contact.operation).not.toHaveBeenCalled();
+    expect(fixture.contact.issue).not.toHaveBeenCalled();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
+    expect(readAdmissionContactIntent(fixture.viewerId, initialState.overview.tribe.slug, null)).toEqual(original);
+  });
+
   it("should show the current delivery reason persistently while code edits remain local and replace the old reason on an explicit read", async () => {
     const fixture = containerFixture(), user = userEvent.setup(), deliveryId = randomUUID();
     vi.mocked(fixture.contact.issue).mockImplementation(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { purpose: "admission", challengeId: randomUUID(), deliveryId, channel: "email", maskedDestination: "a•••@example.test", expiresAt: new Date(Date.now() + 600_000).toISOString(), resendAllowedAt: new Date(Date.now() + 60_000).toISOString(), deliveryState: "queued" } } }));
@@ -78,6 +120,38 @@ describe("applicant contact step in the route", () => {
     expect(screen.queryByRole("button", { name: "Enviar código de ingreso" })).not.toBeInTheDocument();
     expect(fixture.contact.issue).not.toHaveBeenCalled();
     expect(fixture.contact.operation).not.toHaveBeenCalled();
+  });
+
+  it("should omit local contact actions when the own pending already has its required verification", async () => {
+    const fixture = containerFixture(), submittedAt = new Date().toISOString();
+    const pending: AdmissionRequestDto = { id: randomUUID(), status: "pending", version: 2, submittedAt, expiresAt: new Date(new Date(submittedAt).getTime() + ADMISSION_LIMIT.pendingValidityMs).toISOString(), source: "common", needsVerification: false, eligibilityReasons: [], contact: { type: "email", maskedValue: "a•••@example.test", evidenceKind: "local" } };
+    fixture.setRequest(pending);
+    const initialState = { ...fixture.initialState, request: pending, overview: { ...fixture.initialState.overview, state: "pending" as const, nextAction: "view_request" as const, request: pending } };
+    render(<AdmissionContainer initialState={initialState} requestPage client={fixture.client} contactClient={fixture.contact} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo que quiero cancelar esta solicitud/i })).toBeEnabled());
+    expect(screen.queryByRole("heading", { name: "Comprobar contacto para el ingreso" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enviar código de ingreso" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aplicar prueba a esta solicitud" })).not.toBeInTheDocument();
+    expect(fixture.contact.issue).not.toHaveBeenCalled();
+    expect(fixture.contact.verify).not.toHaveBeenCalled();
+    expect(fixture.contact.apply).not.toHaveBeenCalled();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
+  });
+
+  it("should omit local contact actions when the own pending deadline has passed even if its snapshot requested verification", async () => {
+    const fixture = containerFixture();
+    const pending: AdmissionRequestDto = { id: randomUUID(), status: "pending", version: 1, submittedAt: new Date(Date.now() - ADMISSION_LIMIT.pendingValidityMs - 1).toISOString(), expiresAt: new Date(Date.now() - 1).toISOString(), source: "common", needsVerification: true, eligibilityReasons: ["local_proof_required"] };
+    fixture.setRequest(pending);
+    const initialState = { ...fixture.initialState, request: pending, overview: { ...fixture.initialState.overview, state: "pending" as const, nextAction: "view_request" as const, request: pending } };
+    render(<AdmissionContainer initialState={initialState} requestPage client={fixture.client} contactClient={fixture.contact} />);
+    expect(await screen.findByText("El plazo de la solicitud venció.")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Comprobar contacto para el ingreso" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enviar código de ingreso" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Aplicar prueba a esta solicitud" })).not.toBeInTheDocument();
+    expect(fixture.contact.issue).not.toHaveBeenCalled();
+    expect(fixture.contact.verify).not.toHaveBeenCalled();
+    expect(fixture.contact.apply).not.toHaveBeenCalled();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
   });
 
   it("should require and locally verify the code before presenting an initial request with its opaque proof", async () => {

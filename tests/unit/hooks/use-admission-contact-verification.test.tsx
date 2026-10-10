@@ -39,6 +39,121 @@ function hookFixture() {
 }
 
 describe("contact verification workflow hook", () => {
+  it("should preserve all proof references when partial restoration fails and recover the checked proof on the next readonly attempt", async () => {
+    const fixture = hookFixture(), issuedOperationId = randomUUID(), verifiedOperationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId, verifiedOperationId, pending: null });
+    let verificationReads = 0;
+    vi.mocked(fixture.client.operation).mockImplementation(async (_slug, operationId) => {
+      if (operationId === issuedOperationId) return { status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: fixture.challenge } };
+      verificationReads++;
+      if (verificationReads === 1) return { status: "failed", code: "dependency_unavailable", message: "No pudimos consultar la prueba.", uncertain: false };
+      return { status: "ready", value: { type: "verify_contact_challenge", state: "completed", operationId, replayed: true, result: { purpose: "admission", result: "verified", proofId: fixture.proofId, applyBefore: new Date(fixture.now + 900_000).toISOString() } } };
+    });
+    const { result } = renderHook(() => useAdmissionContactVerification(fixture.options));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.proof).toBeNull();
+    expect(window.sessionStorage.getItem(window.sessionStorage.key(0)!)).toContain(verifiedOperationId);
+    await act(async () => { await result.current.readOriginal(); });
+    expect(result.current.proof?.proofId).toBe(fixture.proofId);
+    expect(verificationReads).toBe(2);
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    expect(fixture.client.verify).not.toHaveBeenCalled();
+  });
+
+  it("should keep current recovery blocked through a deferred failed GET and allow only a readonly retry", async () => {
+    const fixture = hookFixture(), previousRequestId = randomUUID(), oldOperationId = randomUUID(), issuedOperationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue", operationId: oldOperationId } });
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, previousRequestId, issuedOperationId, verifiedOperationId: null, pending: null });
+    let finishCurrent!: () => void;
+    vi.mocked(fixture.client.operation).mockImplementationOnce(async () => ({ status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId: oldOperationId, replayed: true, result: fixture.challenge } }));
+    vi.mocked(fixture.client.operation).mockImplementationOnce(() => new Promise((resolve) => { finishCurrent = () => resolve({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar la operación.", uncertain: false }); }));
+    vi.mocked(fixture.client.operation).mockImplementationOnce(async () => ({ status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId: issuedOperationId, replayed: true, result: fixture.challenge } }));
+    const { result, unmount } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, previousRequestId }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    let reading!: Promise<void>;
+    act(() => { reading = result.current.readOriginal(); });
+    try {
+      await waitFor(() => expect(fixture.client.operation).toHaveBeenCalledTimes(2));
+      expect(result.current.ready).toBe(false);
+      await act(async () => { finishCurrent(); await reading; });
+      expect(result.current.challenge).toBeNull();
+      act(() => result.current.setConfirmed(true));
+      await act(async () => { await result.current.issue(); });
+      expect(fixture.client.issue).not.toHaveBeenCalled();
+      await act(async () => { await result.current.readOriginal(); });
+      expect(fixture.client.operation).toHaveBeenCalledTimes(3);
+      expect(result.current.challenge?.challengeId).toBe(fixture.challenge.challengeId);
+      expect(fixture.client.issue).not.toHaveBeenCalled();
+    } finally { if (result.current.phase === "reading") await act(async () => { finishCurrent(); await reading; }); unmount(); }
+  });
+
+  it("should retain an earlier uncertain original when readonly recovery returns another operation namespace", async () => {
+    const fixture = hookFixture(), previousRequestId = randomUUID(), operationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue", operationId } });
+    vi.mocked(fixture.client.operation).mockResolvedValue({ status: "ready", value: { type: "cancel_admission_request", state: "completed", operationId, replayed: true, result: { admissionRequestId: randomUUID(), status: "cancelled", version: 2 } } });
+    const { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, previousRequestId }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => { await result.current.readOriginal(); });
+    expect(result.current.pending?.operationId).toBe(operationId);
+    expect(result.current.phase).toBe("uncertain");
+    expect(result.current.challenge).toBeNull();
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+  });
+
+  it("should restore the current presentation original after settling an earlier one without issuing another code", async () => {
+    const fixture = hookFixture(), previousRequestId = randomUUID(), oldOperationId = randomUUID(), issuedOperationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue", operationId: oldOperationId } });
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, previousRequestId, issuedOperationId, verifiedOperationId: null, pending: null });
+    vi.mocked(fixture.client.operation).mockImplementation(async (_slug, operationId) => ({ status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: fixture.challenge } }));
+    const { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, previousRequestId }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => { await result.current.readOriginal(); });
+    expect(result.current.pending).toBeNull();
+    expect(result.current.challenge?.challengeId).toBe(fixture.challenge.challengeId);
+    expect(fixture.client.operation).toHaveBeenCalledTimes(2);
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+  });
+
+  it("should block a new presentation while an earlier original is uncertain and settle it only by readonly lookup", async () => {
+    const fixture = hookFixture(), previousRequestId = randomUUID(), operationId = randomUUID();
+    const previous = { viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue" as const, operationId } };
+    writeAdmissionContactIntent(previous);
+    vi.mocked(fixture.client.operation).mockImplementationOnce(async () => ({ status: "ready", value: { type: "issue_contact_challenge", state: "started", operationId } }));
+    vi.mocked(fixture.client.operation).mockImplementationOnce(async () => ({ status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: fixture.challenge } }));
+    const { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, previousRequestId }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.pending?.operationId).toBe(operationId);
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    await act(async () => { await result.current.readOriginal(); });
+    expect(result.current.pending?.operationId).toBe(operationId);
+    expect(result.current.challenge).toBeNull();
+    await act(async () => { await result.current.readOriginal(); });
+    expect(result.current.pending).toBeNull();
+    expect(result.current.challenge).toBeNull();
+    expect(result.current.proof).toBeNull();
+    expect(result.current.confirmed).toBe(false);
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    expect(fixture.client.operation).toHaveBeenCalledTimes(2);
+  });
+
+  it("should restore only the new presentation lineage while retaining an earlier completed original", async () => {
+    const fixture = hookFixture(), previousRequestId = randomUUID(), oldOperationId = randomUUID(), issuedOperationId = randomUUID();
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, issuedOperationId: oldOperationId, verifiedOperationId: null, pending: null });
+    writeAdmissionContactIntent({ viewerId: fixture.options.viewerId, slug: fixture.options.slug, requestId: null, previousRequestId, issuedOperationId, verifiedOperationId: null, pending: null });
+    vi.mocked(fixture.client.operation).mockImplementation(async (_slug, operationId) => ({ status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId, replayed: true, result: fixture.challenge } }));
+    const { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, previousRequestId }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(fixture.client.operation).toHaveBeenCalledExactlyOnceWith(fixture.options.slug, issuedOperationId, expect.any(AbortSignal));
+    expect(result.current.challenge?.challengeId).toBe(fixture.challenge.challengeId);
+    expect(result.current.confirmed).toBe(false);
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    expect(fixture.client.verify).not.toHaveBeenCalled();
+    expect(result.current.pending).toBeNull();
+    expect(window.sessionStorage.length).toBe(2);
+  });
+
   it.each(["verification_code_incorrect", "usage_limit_reached", "dependency_unavailable"] as const)("should keep local verification available after a confirmed nonterminal %s", async (failureCode) => {
     const fixture = hookFixture();
     vi.mocked(fixture.client.verify).mockImplementationOnce(async () => ({ status: "failed", code: failureCode, message: "No se confirmó la comprobación de este código.", uncertain: false }));

@@ -9,7 +9,7 @@ import type { AdmissionProofApplicationResult } from "@/src/modules/academy-admi
 import { ZodError, type z } from "zod";
 import type { messageDeliverySchema } from "@/src/modules/messaging/application/results/messaging-flow-result-schemas";
 import { admissionContactApiClient } from "@/lib/academy-admissions/admission-contact-api-client";
-import { readAdmissionContactIntent, writeAdmissionContactIntent, type AdmissionContactIntent, type AdmissionContactPending } from "@/lib/academy-admissions/admission-contact-intent";
+import { readAdmissionContactIntent, readEarlierUnresolvedAdmissionContactIntent, writeAdmissionContactIntent, type AdmissionContactIntent, type AdmissionContactPending } from "@/lib/academy-admissions/admission-contact-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
 import { admissionChallengeSnapshotSchema, admissionIssuanceDenialSchema, admissionChallengeVerificationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-contact-verification-schemas";
 import { admissionProofApplicationSnapshotSchema } from "@/src/modules/academy-admissions/application/results/admission-proof-application-schemas";
@@ -27,7 +27,7 @@ import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/mess
 import { MILLISECONDS_PER_SECOND } from "@/src/constants/time";
 
 /** The parent owns the one current viewer/draft entrypoint; this hook never fetches another session independently. */
-export type AdmissionContactHookOptions = { viewerId: string | null; slug: string; requestId: string | null; requestVersion: number | null; policyVersion: number; channel: "email" | "sms" | "whatsapp"; allowedCountries: readonly string[]; allowSmsAlternative: boolean; phone: string; country: string; enabled: boolean; renderedAt: string; invitationToken?: string; personalScope?: string; authorize: (signal: AbortSignal) => Promise<boolean>; client?: AdmissionContactBrowserClient; onApplied: (result: Extract<AdmissionProofApplicationResult, { outcome: "applied" }>) => void; onProof: (proof: AdmissionContactVerified | null) => void };
+export type AdmissionContactHookOptions = { viewerId: string | null; slug: string; requestId: string | null; requestVersion: number | null; policyVersion: number; channel: "email" | "sms" | "whatsapp"; allowedCountries: readonly string[]; allowSmsAlternative: boolean; phone: string; country: string; enabled: boolean; renderedAt: string; invitationToken?: string; personalScope?: string; previousRequestId?: string; authorize: (signal: AbortSignal) => Promise<boolean>; client?: AdmissionContactBrowserClient; onApplied: (result: Extract<AdmissionProofApplicationResult, { outcome: "applied" }>) => void; onProof: (proof: AdmissionContactVerified | null) => void };
 type ContactPhase = "idle" | "issuing" | "verifying" | "resending" | "applying" | "reading" | "uncertain";
 /** Confirmed history can be read by namespace/id; a pending verify still retains its exact challenge separately. */
 type ContactRecoveryReference = AdmissionContactPending | { kind: "verify"; operationId: string } | { kind: "issued"; operationId: string };
@@ -42,7 +42,10 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
   const [pending, setPending] = useState<AdmissionContactPending | null>(null), [now, setNow] = useState(options.renderedAt);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<"phone" | "country" | "verificationCode", string>>>({});
   const [challengeFailureCode, setChallengeFailureCode] = useState<AdmissionErrorCode | null>(null);
+  const [recoveryRequired, setRecoveryRequired] = useState(false);
   const active = useRef(false), generation = useRef(0), busy = useRef(false), controller = useRef<AbortController | null>(null), deliveryControllers = useRef(new Set<AbortController>()), record = useRef<AdmissionContactIntent | null>(null);
+  const previousUnresolved = useRef<AdmissionContactIntent | null>(null);
+  const restoring = useRef<{ original: AdmissionContactIntent; patch: Partial<AdmissionContactIntent> } | null>(null);
   const live = (scopeGeneration: number, signal: AbortSignal) => active.current && generation.current === scopeGeneration && !signal.aborted;
 
   /** @param failureCode - Confirmed own failure, never transport uncertainty. @returns Nothing while retaining only terminal challenge state; editing cannot restore that resource. */
@@ -54,8 +57,11 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
   const save = useCallback((patch: Partial<AdmissionContactIntent>): boolean => {
     const current = latest.current;
     if (!current.viewerId) return false;
-    const value: AdmissionContactIntent = { viewerId: current.viewerId, slug: current.slug, requestId: current.requestId, issuedOperationId: record.current?.issuedOperationId ?? null, verifiedOperationId: record.current?.verifiedOperationId ?? null, pending: record.current?.pending ?? null, ...(current.personalScope ? { personalScope: current.personalScope } : {}), ...patch };
-    try { writeAdmissionContactIntent(value); record.current = value; setPending(value.pending); return true; }
+    const value: AdmissionContactIntent = { viewerId: current.viewerId, slug: current.slug, requestId: current.requestId, issuedOperationId: record.current?.issuedOperationId ?? null, verifiedOperationId: record.current?.verifiedOperationId ?? null, pending: record.current?.pending ?? null, ...(current.personalScope ? { personalScope: current.personalScope } : {}), ...(current.previousRequestId ? { previousRequestId: current.previousRequestId } : {}), ...patch };
+    try {
+      if (restoring.current) { writeAdmissionContactIntent(restoring.current.original); restoring.current.patch = { ...restoring.current.patch, ...patch }; return true; }
+      writeAdmissionContactIntent(value); record.current = value; setPending(value.pending); return true;
+    }
     catch (error) { console.error(ADMISSION_CONTACT_INTENT_DIAGNOSTIC, { errorName: error instanceof Error ? error.name : "UnknownError", ...(error instanceof ZodError ? { fields: Array.from(new Set(error.issues.map((issue) => issue.path.join(".")))) } : {}) }); setErrorMessage(ADMISSION_CONTACT_COPY.storage); return false; }
   }, []);
 
@@ -111,27 +117,10 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
     current.onApplied(parsed.data); setFeedback(ADMISSION_CONTACT_COPY.applied); setPhase(ADMISSION_CONTACT_PHASE.idle);
   }, [readDelivery, recordChallengeFailure, save]);
 
-  /** Readonly reconciliation retains the local intent on absence; no late write is retried with a new UUID. */
-  const readOriginal = useCallback(async () => {
-    const current = latest.current, intent = record.current?.pending;
-    if (!intent || !current.enabled || busy.current) return;
-    busy.current = true; setErrorMessage(null); setFeedback(null); setPhase(ADMISSION_CONTACT_PHASE.reading);
-    const scopeGeneration = generation.current, readController = new AbortController(); controller.current = readController;
-    const timeout = window.setTimeout(() => readController.abort(), ADMISSION_CONTACT_BROWSER_TIMEOUT_MS);
-    try {
-      if (!await current.authorize(readController.signal) || !live(scopeGeneration, readController.signal)) return;
-      const result = await client.operation(current.slug, intent.operationId, readController.signal);
-      if (!live(scopeGeneration, readController.signal) || !await latest.current.authorize(readController.signal) || !live(scopeGeneration, readController.signal)) return;
-      if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.ready) await consume(result.value, intent);
-      else { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && result.code === ADMISSION_ERROR_CODE.resourceUnavailable ? ADMISSION_CONTACT_COPY.absent : ADMISSION_CONTACT_COPY.uncertain); }
-    } catch { if (live(scopeGeneration, readController.signal)) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); } }
-    finally { window.clearTimeout(timeout); if (controller.current === readController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration && record.current?.pending) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); } } }
-  }, [client, consume]);
-
   /** Dispatches one exact mutation only after validation, native viewer checks and persisted original references. */
   const run = useCallback(async (intent: AdmissionContactPending, action: (signal: AbortSignal) => Promise<AdmissionContactBrowserResult<unknown>>, type: AdmissionOperationRecoveryDto["type"], actionPhase: ContactPhase) => {
     const current = latest.current;
-    if (!ready || !current.enabled || !current.viewerId || busy.current || record.current?.pending) return;
+    if (!ready || recoveryRequired || !current.enabled || !current.viewerId || busy.current || previousUnresolved.current?.pending || record.current?.pending) return;
     busy.current = true; setErrorMessage(null); setFeedback(null); setFieldErrors({}); setPhase(actionPhase);
     if (intent.kind === ADMISSION_CONTACT_ACTION.issue || intent.kind === ADMISSION_CONTACT_ACTION.resend || intent.kind === ADMISSION_CONTACT_ACTION.sms) {
       for (const previousController of deliveryControllers.current) previousController.abort();
@@ -156,12 +145,13 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
       else { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); }
     } catch { if (live(scopeGeneration, actionController.signal)) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } }
     finally { window.clearTimeout(timeout); if (controller.current === actionController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration) { setPhase(record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle); if (actionController.signal.aborted && record.current?.pending) setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
-  }, [consume, ready, recordChallengeFailure, save]);
+  }, [consume, ready, recoveryRequired, recordChallengeFailure, save]);
 
   /** Resolves durable references from the actual registry before treating any recovered result as usable UI data. */
   const restore = useCallback(async (stored: AdmissionContactIntent, scopeGeneration: number, signal: AbortSignal) => {
     const current = latest.current;
-    busy.current = true;
+    const restoration = { original: stored, patch: {} as Partial<AdmissionContactIntent> }; restoring.current = restoration;
+    busy.current = true; setReady(false); setRecoveryRequired(true); setPhase(ADMISSION_CONTACT_PHASE.reading);
     try {
       const references: ContactRecoveryReference[] = [];
       if (stored.issuedOperationId) references.push({ kind: ADMISSION_CONTACT_ISSUED_REFERENCE, operationId: stored.issuedOperationId });
@@ -180,22 +170,59 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
         await consume(result.value, reference);
         if (!live(scopeGeneration, signal) || result.value.state === OPERATION_STATE.started) return;
       }
+      restoring.current = null;
+      if (!save(restoration.patch)) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); return; }
+      setRecoveryRequired(false);
     } catch { if (live(scopeGeneration, signal)) { if (stored.pending) save({ pending: stored.pending }); setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); } }
-    finally { if (active.current && generation.current === scopeGeneration) { busy.current = false; setReady(true); setPhase((currentPhase) => currentPhase === ADMISSION_CONTACT_PHASE.reading ? record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle : currentPhase); if (signal.aborted) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
+    finally { if (restoring.current === restoration) restoring.current = null; if (active.current && generation.current === scopeGeneration) { busy.current = false; setReady(true); setPhase((currentPhase) => currentPhase === ADMISSION_CONTACT_PHASE.reading ? record.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle : currentPhase); if (signal.aborted) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); } } }
   }, [client, consume, save]);
+  /** Readonly reconciliation retains the local intent on absence; no late write is retried with a new UUID. */
+  const readOriginal = useCallback(async () => {
+    const current = latest.current, previous = previousUnresolved.current, intent = previous?.pending ?? record.current?.pending;
+    if (!current.enabled || busy.current || !intent && (!recoveryRequired || !record.current)) return;
+    busy.current = true; setErrorMessage(null); setFeedback(null); setPhase(ADMISSION_CONTACT_PHASE.reading);
+    const scopeGeneration = generation.current, readController = new AbortController(); controller.current = readController;
+    const timeout = window.setTimeout(() => readController.abort(), ADMISSION_CONTACT_BROWSER_TIMEOUT_MS);
+    try {
+      if (!intent && record.current) { await restore(record.current, scopeGeneration, readController.signal); return; }
+      if (!intent) return;
+      if (!await current.authorize(readController.signal) || !live(scopeGeneration, readController.signal)) return;
+      const result = await client.operation(current.slug, intent.operationId, readController.signal);
+      if (!live(scopeGeneration, readController.signal) || !await latest.current.authorize(readController.signal) || !live(scopeGeneration, readController.signal)) return;
+      if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.ready && previous) {
+        const expectedType = intent.kind === ADMISSION_CONTACT_ACTION.issue ? VERIFICATION_ISSUANCE_OPERATION.issue : intent.kind === ADMISSION_CONTACT_ACTION.verify ? ADMISSION_CONTACT_VERIFICATION_OPERATION : intent.kind === ADMISSION_CONTACT_ACTION.apply ? ADMISSION_PROOF_OPERATION : VERIFICATION_ISSUANCE_OPERATION.resend;
+        if (result.value.operationId.toLowerCase() !== intent.operationId.toLowerCase() || result.value.type !== expectedType) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
+        if (result.value.state === OPERATION_STATE.completed) {
+          // Settlement is historical: it never supplies a challenge or proof to the new presentation.
+          writeAdmissionContactIntent({ ...previous, pending: null });
+          setConfirmed(false);
+          previousUnresolved.current = current.previousRequestId ? readEarlierUnresolvedAdmissionContactIntent(current.viewerId!, current.slug, current.previousRequestId) : null;
+          setPending(previousUnresolved.current?.pending ?? record.current?.pending ?? null); setPhase(previousUnresolved.current?.pending ? ADMISSION_CONTACT_PHASE.uncertain : ADMISSION_CONTACT_PHASE.idle); setErrorMessage(previousUnresolved.current?.pending ? ADMISSION_CONTACT_COPY.uncertain : null);
+          if (!previousUnresolved.current && record.current && (record.current.issuedOperationId || record.current.verifiedOperationId || record.current.pending)) await restore(record.current, scopeGeneration, readController.signal);
+        } else { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.started); }
+      } else if (result.status === ADMISSION_CONTACT_BROWSER_STATUS.ready) await consume(result.value, intent);
+      else { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(result.status === ADMISSION_CONTACT_BROWSER_STATUS.failed && result.code === ADMISSION_ERROR_CODE.resourceUnavailable ? ADMISSION_CONTACT_COPY.absent : ADMISSION_CONTACT_COPY.uncertain); }
+    } catch { if (live(scopeGeneration, readController.signal)) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); } }
+    finally { window.clearTimeout(timeout); if (controller.current === readController) { busy.current = false; controller.current = null; if (active.current && generation.current === scopeGeneration && (previousUnresolved.current?.pending || record.current?.pending)) { setPhase(ADMISSION_CONTACT_PHASE.uncertain); } } }
+  }, [client, consume, recoveryRequired, restore]);
+
   const restoreCurrent = useRef(restore);
   useEffect(() => { restoreCurrent.current = restore; }, [restore]);
 
   useEffect(() => {
-    active.current = true; generation.current += 1; const scopeGeneration = generation.current, hydrationController = new AbortController(), scopeDeliveryControllers = deliveryControllers.current; record.current = null;
+    active.current = true; generation.current += 1; const scopeGeneration = generation.current, hydrationController = new AbortController(), scopeDeliveryControllers = deliveryControllers.current; record.current = null; previousUnresolved.current = null; restoring.current = null;
     const timeout = window.setTimeout(() => hydrationController.abort(), ADMISSION_CONTACT_BROWSER_TIMEOUT_MS);
     // Browser storage synchronizes only after mount; generation guards cancel a superseded hydration callback.
     queueMicrotask(() => {
       if (!active.current || generation.current !== scopeGeneration) return;
-      setReady(false); setConfirmed(false); setCodeValue(""); setChallenge(null); setChallengeFailureCode(null); setProof(null); setDelivery(null); setErrorMessage(null); setFeedback(null); setPending(null); setPhase(ADMISSION_CONTACT_PHASE.idle);
+      setReady(false); setRecoveryRequired(false); setConfirmed(false); setCodeValue(""); setChallenge(null); setChallengeFailureCode(null); setProof(null); setDelivery(null); setErrorMessage(null); setFeedback(null); setPending(null); setPhase(ADMISSION_CONTACT_PHASE.idle);
       if (options.enabled && options.viewerId) {
         try {
-          record.current = readAdmissionContactIntent(options.viewerId, options.slug, options.requestId, options.personalScope); setPending(record.current?.pending ?? null);
+          record.current = readAdmissionContactIntent(options.viewerId, options.slug, options.requestId, options.personalScope, options.previousRequestId); setPending(record.current?.pending ?? null);
+          if (options.previousRequestId) {
+            const previous = readEarlierUnresolvedAdmissionContactIntent(options.viewerId, options.slug, options.previousRequestId);
+            if (previous?.pending) { previousUnresolved.current = previous; setPending(previous.pending); setPhase(ADMISSION_CONTACT_PHASE.uncertain); setErrorMessage(ADMISSION_CONTACT_COPY.uncertain); setReady(true); return; }
+          }
           if (record.current && (record.current.issuedOperationId || record.current.verifiedOperationId || record.current.pending)) { setPhase(ADMISSION_CONTACT_PHASE.reading); void restoreCurrent.current(record.current, scopeGeneration, hydrationController.signal).finally(() => window.clearTimeout(timeout)); }
           else setReady(true);
         }
@@ -205,7 +232,7 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
     });
     const interval = options.enabled ? window.setInterval(() => setNow(new Date().toISOString()), ADMISSION_CONTACT_CLOCK_INTERVAL_MS) : null;
     return () => { active.current = false; generation.current += 1; hydrationController.abort(); controller.current?.abort(); controller.current = null; for (const deliveryController of scopeDeliveryControllers) deliveryController.abort(); scopeDeliveryControllers.clear(); busy.current = false; window.clearTimeout(timeout); if (interval !== null) window.clearInterval(interval); };
-  }, [options.enabled, options.viewerId, options.slug, options.requestId, options.personalScope]);
+  }, [options.enabled, options.viewerId, options.slug, options.requestId, options.personalScope, options.previousRequestId]);
 
   const issue = useCallback(async () => {
     const current = latest.current;
@@ -252,5 +279,5 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
   // Transport feedback remains bound to its current delivery independently of code-field errors.
   const deliveryMessage = delivery?.safeReason ? Object.entries(ADMISSION_ERROR_MESSAGE).find(([code]) => code === delivery.safeReason)?.[1] ?? ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.dependencyUnavailable] : null;
   const challengeMessage = challengeFailureCode && phase !== ADMISSION_CONTACT_PHASE.issuing && phase !== ADMISSION_CONTACT_PHASE.resending ? ADMISSION_ERROR_MESSAGE[challengeFailureCode] : null;
-  return { ready, confirmed, setConfirmed: changeConfirmation, code, setCode, clearFieldFeedback, phase, errorMessage, challengeMessage, challengeUnavailable: challengeFailureCode !== null, deliveryMessage, feedback, fieldErrors, challenge, proof, proofFresh, delivery, pending, now, expiresInSeconds, resendInSeconds, issue, verify, resend: () => resend(false), useSmsAlternative: () => resend(true), apply, readOriginal, readDelivery: () => readDelivery() };
+  return { ready, recoveryRequired, confirmed, setConfirmed: changeConfirmation, code, setCode, clearFieldFeedback, phase, errorMessage, challengeMessage, challengeUnavailable: challengeFailureCode !== null, deliveryMessage, feedback, fieldErrors, challenge, proof, proofFresh, delivery, pending, now, expiresInSeconds, resendInSeconds, issue, verify, resend: () => resend(false), useSmsAlternative: () => resend(true), apply, readOriginal, readDelivery: () => readDelivery() };
 }
