@@ -11,6 +11,9 @@ import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infr
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { ADMISSION_CONTACT_STORAGE_PREFIX, ADMISSION_CONTACT_BROWSER_TIMEOUT_MS } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
+import { admissionOperationRecoverySchema } from "@/src/modules/academy-admissions/application/results/admission-operation-recovery";
+import { VERIFICATION_ISSUANCE_OPERATION } from "@/src/modules/academy-admissions/constants/verification-issuance";
 
 test("should request a fresh code for the same contact after its own request was canceled", async ({ page, context }) => {
   test.setTimeout(ADMISSION_LIMIT.verificationProofFreshnessMs);
@@ -49,9 +52,10 @@ test("should request a fresh code for the same contact after its own request was
       const originalKey = `${ADMISSION_CONTACT_STORAGE_PREFIX}:${encodeURIComponent(fixture.context.userId)}:${encodeURIComponent(slug)}:`;
       const original = { viewerId: fixture.context.userId, slug, requestId: null, issuedOperationId: issueOperationId, verifiedOperationId, pending: null };
       await page.addInitScript(({ key, record }) => sessionStorage.setItem(key, JSON.stringify(record)), { key: originalKey, record: original });
-      let originalReads = 0, admissionPostRequests = 0, errors = 0;
+      let originalReads = 0, admissionPostRequests = 0, errors = 0, resendRequests = 0, resendResponses = 0;
       page.on("pageerror", () => errors++);
-      page.on("request", (request) => { const path = new URL(request.url()).pathname; if (path.includes("/admissions/operations/")) originalReads++; if (request.method() === "POST" && path.includes("/admissions/")) admissionPostRequests++; });
+      page.on("request", (request) => { const path = new URL(request.url()).pathname; if (path.includes("/admissions/operations/")) originalReads++; if (request.method() === "POST" && path.includes("/admissions/")) admissionPostRequests++; if (path.endsWith("/resend")) resendRequests++; });
+      page.on("response", (response) => { if (new URL(response.url()).pathname.endsWith("/resend")) resendResponses++; });
       await page.goto(`${origin}/admissions/${slug}`, { waitUntil: "domcontentloaded" });
       const phone = page.getByLabel("Teléfono para este ingreso", { exact: true });
       await expect(phone).toBeEnabled({ timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
@@ -73,12 +77,46 @@ test("should request a fresh code for the same contact after its own request was
       await expect(page.getByRole("button", { name: "Comprobar código", exact: true })).toBeDisabled();
       await expect(page.getByRole("checkbox", { name: "Confirmo el contacto y el envío del código para este ingreso.", exact: true })).not.toBeChecked();
       expect(providerRequests).toBe(1);
+      const privateValues = [fixture.context.userId, fixture.sessionToken, fixture.own.email, fixture.fixture.credential, fixture.fixture.scope.contact.value, secret, receivedCode];
+      await captureAdmissionReview(page, "contact-retry-selected", privateValues, "contact-retry-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
       await page.getByRole("checkbox", { name: "Confirmo el contacto y el envío del código para este ingreso.", exact: true }).click();
       const response = page.waitForResponse((candidate) => candidate.request().method() === "POST" && new URL(candidate.url()).pathname.endsWith("/resend"));
       await page.getByRole("button", { name: "Reenviar código", exact: true }).click();
-      expect((await response).status()).toBe(201);
-      await expect(page.getByLabel("Código de ingreso", { exact: true })).toBeEnabled();
-      expect(originalReads).toBe(0);
+      let recoveredOriginal = false;
+      try { expect((await response).status()).toBe(201); }
+      catch {
+        const pendingOperationId = await page.evaluate((prefix) => {
+          for (let storageIndex = 0; storageIndex < sessionStorage.length; storageIndex++) {
+            const key = sessionStorage.key(storageIndex);
+            if (!key?.startsWith(prefix)) continue;
+            const record = JSON.parse(sessionStorage.getItem(key) ?? "null");
+            if (record?.pending?.kind === "resend") return record.pending.operationId as string;
+          }
+          return null;
+        }, originalKey);
+        let originalStatus: number | null = null, originalState: string | null = null, replacementChallengeId: string | null = null;
+        if (pendingOperationId) {
+          try {
+            const originalResponse = await context.request.get(`${origin}/api/tribes/${slug}/admissions/operations/${pendingOperationId}`, { timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
+            originalStatus = originalResponse.status();
+            const parsed = admissionOperationRecoverySchema.safeParse(await originalResponse.json());
+            originalState = parsed.success ? parsed.data.state : "unusable";
+            if (parsed.success && parsed.data.state === "completed" && parsed.data.type === VERIFICATION_ISSUANCE_OPERATION.resend && "challengeId" in parsed.data.result) replacementChallengeId = parsed.data.result.challengeId;
+          } catch { originalState = "unobserved"; }
+        }
+        expect(originalStatus).toBe(200);
+        expect(originalState).toBe("completed");
+        expect(replacementChallengeId !== null && replacementChallengeId !== issuedBody.result.challengeId).toBe(true);
+        expect(resendRequests).toBe(1);
+        expect(resendResponses).toBe(0);
+        await expect(page.getByText("La respuesta no quedó confirmada. Consultá la operación original antes de repetir.", { exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Reenviar código", exact: true })).toBeDisabled();
+        await page.getByRole("button", { name: "Consultar operación del código", exact: true }).click();
+        recoveredOriginal = true;
+      }
+      await expect(page.getByLabel("Código de ingreso", { exact: true })).toBeEnabled({ timeout: ADMISSION_CONTACT_BROWSER_TIMEOUT_MS });
+      await captureAdmissionReview(page, "contact-retry-replacement", [...privateValues, receivedCode], "contact-retry-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
+      expect(originalReads).toBe(recoveredOriginal ? 1 : 0);
       expect(admissionPostRequests).toBe(2);
       expect(providerRequests).toBe(2);
       expect(errors).toBe(0);

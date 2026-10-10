@@ -40,6 +40,34 @@ function hookFixture() {
 }
 
 describe("contact verification workflow hook", () => {
+  it("should recover the original replacement of a selected previous code without another send or its earlier proof", async () => {
+    const fixture = hookFixture(), previousRequestId = randomUUID(), selectedOperationId = randomUUID();
+    fixture.challenge.resendAllowedAt = new Date(fixture.now - 1).toISOString();
+    const replacement = { ...fixture.challenge, challengeId: randomUUID() };
+    vi.mocked(fixture.client.current).mockResolvedValue({ status: "ready", value: { current: { operationId: selectedOperationId, challenge: fixture.challenge, requiresReplacement: true } } });
+    vi.mocked(fixture.client.resend).mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: "El reenvío no quedó confirmado.", uncertain: true });
+    vi.mocked(fixture.client.operation).mockImplementation(async (_slug, operationId) => ({ status: "ready", value: { type: "resend_contact_challenge", operationId, state: "completed", replayed: true, result: replacement } }));
+    const { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, previousRequestId }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.resend(); });
+    expect(result.current.phase).toBe("uncertain");
+    expect(result.current.requiresReplacement).toBe(true);
+    expect(result.current.pending?.kind).toBe("resend");
+    const originalOperationId = result.current.pending?.operationId;
+    await act(async () => { await result.current.readOriginal(); });
+    expect(fixture.client.operation).toHaveBeenCalledExactlyOnceWith(fixture.options.slug, originalOperationId, expect.any(AbortSignal));
+    expect(result.current.challenge?.challengeId).toBe(replacement.challengeId);
+    expect(result.current.requiresReplacement).toBe(false);
+    expect(result.current.pending).toBeNull();
+    expect(result.current.proof).toBeNull();
+    expect(fixture.client.resend).toHaveBeenCalledOnce();
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    expect(fixture.client.verify).not.toHaveBeenCalled();
+  });
+
   it("should preserve a selected SMS original under primary WhatsApp and resend only after fresh confirmation", async () => {
     const fixture = hookFixture(), previousRequestId = randomUUID();
     const challenge: AdmissionChallengeSnapshot = { ...fixture.challenge, channel: "sms", maskedDestination: "••••1234", resendAllowedAt: new Date(fixture.now - 1).toISOString() };
