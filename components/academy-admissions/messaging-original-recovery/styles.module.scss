@@ -1,0 +1,10 @@
+.MessagingOriginalRecovery {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+
+  &__explanation { margin: 0; max-width: 65ch; }
+  &__confirmation { display: flex; align-items: flex-start; gap: 0.75rem; }
+  &__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  &__action { max-width: 100%; min-height: 2rem; height: auto; white-space: normal; }
+}

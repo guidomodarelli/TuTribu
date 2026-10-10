@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render as renderWithoutProviders, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useRouter } from "next/navigation";
+import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import type { ReactElement, ReactNode } from "react";
+import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 
 import { AcademyHome } from "@/components/academy/academy-home";
 import { navigateToUrl } from "@/lib/browser-navigation";
@@ -10,13 +12,16 @@ import type {
   AcademyOfferDto,
 } from "@/src/modules/product-access/application/results/academy-public-dto-schemas";
 
-// Framework boundary: jsdom has no Next router.
-vi.mock("next/navigation", () => ({ useRouter: vi.fn() }));
 // Project-owned navigation boundary: jsdom cannot navigate to the provider.
 vi.mock("@/lib/browser-navigation", () => ({ navigateToUrl: vi.fn() }));
 
 const fetchMock = global.fetch as Mock;
 const refreshMock = vi.fn();
+const router = { back: vi.fn(), bfcacheId: "academy-home-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: refreshMock, replace: vi.fn() } satisfies AppRouterInstance;
+/** Real framework/UI providers preserve shared Link and Motion behavior without library mocks. */
+function Providers({ children }: { children: ReactNode }) { return <AppRouterContext.Provider value={router}><AppUIProvider>{children}</AppUIProvider></AppRouterContext.Provider>; }
+/** Renders the product through its actual provider composition. */
+function render(element: ReactElement) { return renderWithoutProviders(element, { wrapper: Providers }); }
 
 function respondWithJson(body: unknown, status: number) {
   fetchMock.mockResolvedValueOnce(
@@ -26,6 +31,7 @@ function respondWithJson(body: unknown, status: number) {
 
 const offer: AcademyOfferDto = {
   admissionEnabled: true,
+  admissionRequiresRequest: false,
   benefits: ["Clases en vivo grabadas"],
   description: "Formación ordenada",
   offerVersion: 3,
@@ -53,10 +59,17 @@ function access(overrides: Partial<AcademyAccessStatusDto> = {}): AcademyAccessS
 }
 
 describe("AcademyHome", () => {
+  it("should navigate to a protected admission request without posting a direct join or refreshing the route", () => {
+    render(<AcademyHome access={null} canManage={false} isCheckoutReturn={false} offer={{ ...offer, admissionRequiresRequest: true }} tribeSlug="synthetic-academy" />);
+    expect(screen.getByRole("link", { name: "Solicitar ingreso" })).toHaveAttribute("href", "/admissions/synthetic-academy");
+    expect(screen.queryByRole("button", { name: "Ingresar gratis" })).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     fetchMock.mockReset();
     refreshMock.mockReset();
-    (useRouter as Mock).mockReturnValue({ refresh: refreshMock });
   });
 
   it("guides a basic member to verify before buying", () => {

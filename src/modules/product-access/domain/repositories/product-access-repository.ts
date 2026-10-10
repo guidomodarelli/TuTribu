@@ -38,6 +38,8 @@ export type AcademyOfferContent = {
 
 export type AcademyPublicOffer = AcademyOfferContent & {
   admissionEnabled: boolean;
+  /** Navigation to a request replaces direct entry after the irreversible admission cutover. */
+  admissionRequiresRequest: boolean;
   offerVersion: number;
   price: {
     amountCents: number;

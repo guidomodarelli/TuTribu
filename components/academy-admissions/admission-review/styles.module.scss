@@ -1,0 +1,23 @@
+.AdmissionReview {
+  width: min(100%, 64rem);
+  margin-inline: auto;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  display: grid;
+  align-content: start;
+  gap: 1.5rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+
+  &__header, &__section, &__field { display: grid; gap: 0.75rem; min-width: 0; }
+  &__section { gap: 1.25rem; }
+  &__title { font-family: var(--font-display); font-size: clamp(1.75rem, 4vw, 2.5rem); line-height: 1.2; }
+  &__subtitle { font-size: 1.125rem; font-weight: 600; }
+  &__label { font-weight: 500; }
+  &__help { color: var(--muted-foreground); line-height: 1.6; }
+  &__error { color: var(--destructive); line-height: 1.5; }
+  &__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+  &__confirmation { display: flex; align-items: flex-start; gap: 0.75rem; line-height: 1.5; }
+  &__facts { display: grid; gap: 1rem; }
+  &__list { display: grid; gap: 0; list-style: none; padding: 0; }
+  &__row { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; padding-block: 1rem; border-block-end: 1px solid var(--border); min-width: 0; }
+}

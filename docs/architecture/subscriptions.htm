@@ -29,7 +29,7 @@ a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
 .c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
 .c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
 .c-red{background:#fef8f6;border-color:#e8917a;color:#9e3d25;}
-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+.table-wrap{overflow-x:auto;max-width:100%;}code{overflow-wrap:anywhere;}table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
 th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
 td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
 tr:last-child td{border-bottom:none;}
@@ -116,7 +116,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <p>El estado de la membresía refleja la combinación entre la suscripción remota y la política local. <code>tribe_members.status = blocked</code> se reserva para bloqueos recuperables del checkout pendiente o para bloqueos de conducta.</p>
 <p>Cuando Mercado Pago confirma que una suscripción vigente dejó de estar activa, la membresía se conserva como historial.</p>
 
-<table>
+<div class="table-wrap"><table>
   <thead>
     <tr><th>Situación</th><th>Status</th><th>Reason</th><th>Acceso</th></tr>
   </thead>
@@ -140,7 +140,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
       <td>Sin acceso, historial conservado</td>
     </tr>
   </tbody>
-</table>
+</table></div>
 
 <p>Un usuario bloqueado por pago puede iniciar un nuevo checkout con el precio actual de la tribu. Un usuario bloqueado por conducta no puede reingresar por el flujo de pago. Una membresía <code>removed/subscription_inactive</code> no tiene acceso ni aparece como miembro visible; puede conservarse para auditoría, webhooks y reconciliación.</p>
 </div>
@@ -189,7 +189,7 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
 
 <p>Los webhooks <code>subscription_preapproval_plan</code> reflejan los cambios del proveedor sobre el precio local:</p>
 
-<table>
+<div class="table-wrap"><table>
   <thead>
     <tr><th>Mercado Pago</th><th>Efecto local</th><th>Permite nuevas suscripciones</th></tr>
   </thead>
@@ -210,7 +210,7 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
       <td><span class="badge b-red">no</span></td>
     </tr>
   </tbody>
-</table>
+</table></div>
 
 <p>La app modela el trial con <code>trial_frequency</code> y <code>trial_frequency_type</code>, mapeados desde <code>auto_recurring.free_trial.frequency</code> y <code>auto_recurring.free_trial.frequency_type</code>. Si Mercado Pago no devuelve <code>free_trial</code>, el precio local queda sin período de prueba.</p>
 </div>
@@ -250,8 +250,10 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
 </div>
 
 <p>La reconciliación de suscriptores de un precio es un <strong>caso de uso reusable</strong>, no una regla propia de la pantalla de precios. Puede dispararse desde el botón manual, un webhook, un job periódico o una reparación puntual de admin. El caso de uso consulta cada <code>mercado_pago_preapproval_id</code> local contra Mercado Pago y reconcilia la base local antes de responder.</p>
+<p>La reconciliación por precio y la de diagnóstico general proyectan los registros devueltos por <code>UPDATE RETURNING</code> sobre el snapshot de la sentencia antes de calcular membresía y cantidades. Una CTE modificadora no puede releer sus propios cambios desde la tabla base dentro de esa misma sentencia. La tercera vía, desde la suscripción del miembro, consume los datos ya persistidos. El cálculo compartido pertenece a <code>subscriptions/infrastructure/repositories/subscription-membership-reconciliation-sql.ts</code> y queda limitado a la tribu afectada.</p>
+<p>Solo el producto <code>membership</code> produce efectos en <code>tribe_members</code>. Se conserva un estado legible <code>active/muted</code> ante una suscripción vigente, y se recupera el snapshot comercial cuando corresponde. Los bloqueos por conducta, remociones administrativas, roles privilegiados y un fundamento básico de admisión vigente no se modifican desde billing. Las suscripciones de academia conservan su estado comercial y acceso por su propio owner. La procedencia paga de academias ya protegidas y los locks de todos los escritores permanecen pendientes dentro de <code>001-academy-admissions</code>; este cálculo no acredita por sí solo T026 ni OG-06.</p>
 
-<table>
+<div class="table-wrap"><table>
   <thead>
     <tr><th>Estado en Mercado Pago</th><th>Cuenta como suscripción del precio</th><th>Acceso</th></tr>
   </thead>
@@ -282,7 +284,7 @@ mercado-pago-plan-webhook:&lt;preapprovalPlanId&gt;:&lt;contentHash&gt;</pre></d
       <td>Removido por suscripción inactiva</td>
     </tr>
   </tbody>
-</table>
+</table></div>
 </div>
 
 <div class="section">

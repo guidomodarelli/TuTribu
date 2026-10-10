@@ -1,3 +1,4 @@
+/** Applies legacy free entry without bypassing protected admission or moderation. @module postgres-tribe-free-join-repository */
 import { sql } from "drizzle-orm";
 
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
@@ -5,7 +6,8 @@ import {
   TRIBE_FREE_JOIN_STATUS,
   TRIBE_MEMBER_FREE_OPEN_JOIN_SOURCE,
 } from "@/src/modules/tribes/constants/tribe-story";
-import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import { TRIBE_MEMBERSHIP_STATUS, TRIBE_MEMBERSHIP_STATUS_REASON } from "@/src/modules/tribes/constants/tribe-page-access";
+import { lockLegacyTribeEntry } from "./legacy-tribe-entry-lock";
 import type {
   JoinTribeFreeCommand,
   TribeFreeJoinRepository,
@@ -20,10 +22,8 @@ type DatabaseExecutor = <T>(
 type FreeJoinRow = {
   joined: boolean | null;
   tribe_available: boolean | null;
+  member_readable: boolean | null;
 };
-
-const MEMBERSHIP_STATUS_REASON_NONE = "none";
-const TRIBE_MEMBERSHIP_STATUS_REMOVED = "removed";
 
 const POSTGRES_ERROR_CODE = {
   insufficientPrivilege: "42501",
@@ -48,14 +48,23 @@ function readPostgresErrorCode(error: unknown): string | undefined {
     : undefined;
 }
 
+/** Preserves readable instances and restores only known commercial basic membership. */
 export class PostgresTribeFreeJoinRepository implements TribeFreeJoinRepository {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
 
+  /**
+   * Evaluates the current free-entry scope after serializing tenant and membership writers.
+   * @param command - Canonical tribe slug belonging to the caller's authenticated context.
+   * @returns A stable joined/already-member/forbidden outcome without altering roles or joining dates.
+   */
   async join({ tribeSlug }: JoinTribeFreeCommand): Promise<TribeFreeJoinResult> {
     return this.executeWithDatabase(async (database) => {
+      await lockLegacyTribeEntry(database,tribeSlug);
       const result = await database.execute(sql`
         with target_tribe as (
-          select public.tribe_free_open_join_id_by_slug(${tribeSlug}) as id
+          select tribe.id from public.tribes tribe
+          where tribe.id=public.tribe_free_open_join_id_by_slug(${tribeSlug})
+            and tribe.admissions_control_activated_at is null
         ),
         inserted_membership as (
           insert into public.tribe_members (
@@ -72,16 +81,18 @@ export class PostgresTribeFreeJoinRepository implements TribeFreeJoinRepository 
             public.current_app_user_id(),
             ${TRIBE_MEMBER_ROLE.tribemate},
             ${TRIBE_MEMBERSHIP_STATUS.active},
-            ${MEMBERSHIP_STATUS_REASON_NONE},
+            ${TRIBE_MEMBERSHIP_STATUS_REASON.none},
             ${TRIBE_MEMBER_FREE_OPEN_JOIN_SOURCE},
             timezone('utc', now())
           from target_tribe
           where target_tribe.id is not null
+            and public.current_app_user_id() <> ''
           on conflict (tribe_id, user_id) do nothing
           returning tribe_members.id
         )
         select
           (select id from target_tribe) is not null as tribe_available,
+          exists(select 1 from public.tribe_members member where member.tribe_id=(select id from target_tribe) and member.user_id=public.current_app_user_id() and member.status in (${TRIBE_MEMBERSHIP_STATUS.active},${TRIBE_MEMBERSHIP_STATUS.muted})) as member_readable,
           exists (select 1 from inserted_membership) as joined
       `);
       const row = (result.rows?.[0] ?? null) as FreeJoinRow | null;
@@ -91,19 +102,19 @@ export class PostgresTribeFreeJoinRepository implements TribeFreeJoinRepository 
       }
 
       if (row?.tribe_available) {
-        // The insert conflicted with an existing membership row. A previously
-        // removed member can re-enter through the reactivation UPDATE policy;
-        // any other state (already active, blocked) stays untouched.
+        // Only an observed commercial basic state is recoverable; role and date belong to the instance.
         const reactivation = await database.execute(sql`
           update public.tribe_members
           set
-            role = ${TRIBE_MEMBER_ROLE.tribemate},
-            status = ${TRIBE_MEMBERSHIP_STATUS.active},
-            status_reason = ${MEMBERSHIP_STATUS_REASON_NONE},
+            status = tribe_members.commercial_recovery_status,
+            status_reason = ${TRIBE_MEMBERSHIP_STATUS_REASON.none},
             joined_via = ${TRIBE_MEMBER_FREE_OPEN_JOIN_SOURCE}
           where tribe_members.tribe_id = public.tribe_free_open_join_id_by_slug(${tribeSlug})
             and tribe_members.user_id = public.current_app_user_id()
-            and tribe_members.status = ${TRIBE_MEMBERSHIP_STATUS_REMOVED}
+            and tribe_members.role=${TRIBE_MEMBER_ROLE.tribemate}
+            and tribe_members.commercial_recovery_status in (${TRIBE_MEMBERSHIP_STATUS.active},${TRIBE_MEMBERSHIP_STATUS.muted})
+            and ((tribe_members.status=${TRIBE_MEMBERSHIP_STATUS.removed} and tribe_members.status_reason=${TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive})
+              or (tribe_members.status=${TRIBE_MEMBERSHIP_STATUS.blocked} and tribe_members.status_reason=${TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked}))
           returning tribe_members.id
         `);
 
@@ -111,7 +122,7 @@ export class PostgresTribeFreeJoinRepository implements TribeFreeJoinRepository 
           return { status: TRIBE_FREE_JOIN_STATUS.joined };
         }
 
-        return { status: TRIBE_FREE_JOIN_STATUS.alreadyMember };
+        return { status: row.member_readable ? TRIBE_FREE_JOIN_STATUS.alreadyMember : TRIBE_FREE_JOIN_STATUS.forbidden };
       }
 
       return { status: TRIBE_FREE_JOIN_STATUS.forbidden };

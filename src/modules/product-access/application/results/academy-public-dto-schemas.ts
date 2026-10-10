@@ -36,6 +36,7 @@ export type AcademyAccessStatusDto = z.infer<typeof academyAccessStatusDtoSchema
 
 export const academyOfferDtoSchema = z.strictObject({
   admissionEnabled: z.boolean(),
+  admissionRequiresRequest: z.boolean(),
   benefits: z.array(z.string()),
   description: z.string(),
   offerVersion: z.number().int().min(1),

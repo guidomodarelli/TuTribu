@@ -3,24 +3,27 @@ import type {
   TribeAcademyAdmissionRepository,
   TribeAcademyAdmissionStatus,
 } from "@/src/modules/tribes/domain/repositories/tribe-academy-admission-repository";
+import type { AcademyAdmissionEntry, RequestAcademyAdmissionCommand } from "@/src/modules/tribes/domain/repositories/academy-admission-entry";
 
 /**
- * Joins the current user to an academy-mode tribe as a basic member. The
- * second call returns the existing membership; conduct blocks and removals
- * are never undone.
+ * Routes explicit versioned entry to its admission owner. Historical direct
+ * calls remain scoped by the legacy repository's irreversible cutover guard.
  *
  * @param dependencies - Admission repository.
  * @returns Use case.
  */
-export function joinTribeAcademyAdmission({
+export function joinTribeAcademyAdmission<AdmissionResult>({
   tribeAcademyAdmissionRepository,
+  academyAdmissionEntry,
 }: {
   tribeAcademyAdmissionRepository: TribeAcademyAdmissionRepository;
+  academyAdmissionEntry: AcademyAdmissionEntry<AdmissionResult>;
 }) {
-  return async (
-    command: JoinTribeAcademyAdmissionCommand
-  ): Promise<{ status: TribeAcademyAdmissionStatus }> =>
-    tribeAcademyAdmissionRepository.join({
-      tribeSlug: command.tribeSlug.trim().toLowerCase(),
-    });
+  function execute(command: RequestAcademyAdmissionCommand): Promise<AdmissionResult>;
+  function execute(command: JoinTribeAcademyAdmissionCommand): Promise<{ status: TribeAcademyAdmissionStatus }>;
+  async function execute(command: JoinTribeAcademyAdmissionCommand | RequestAcademyAdmissionCommand) {
+    const tribeSlug = command.tribeSlug.trim().toLowerCase();
+    return "operationId" in command ? academyAdmissionEntry.submit({ ...command, tribeSlug }) : tribeAcademyAdmissionRepository.join({ tribeSlug });
+  }
+  return execute;
 }

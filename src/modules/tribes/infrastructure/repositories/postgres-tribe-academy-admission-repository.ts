@@ -14,6 +14,8 @@
  */
 
 import { sql } from "drizzle-orm";
+import {applyApprovedAcademyMembership} from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
+import type {ApplyApprovedAcademyMembershipCommand,ApplyApprovedAcademyMembershipResult} from "@/src/modules/tribes/domain/repositories/academy-approved-membership-writer";
 
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import {
@@ -36,6 +38,11 @@ export class PostgresTribeAcademyAdmissionRepository
   implements TribeAcademyAdmissionRepository
 {
   constructor(private readonly executeWithDatabase: DatabaseExecutor) {}
+
+  /** Consumes the approved source inside the admission owner's transaction, with no nested checkout. */
+  applyApprovedDecision(database:RequestDatabase,command:ApplyApprovedAcademyMembershipCommand):Promise<ApplyApprovedAcademyMembershipResult> {
+    return applyApprovedAcademyMembership(database,command);
+  }
 
   async join({
     tribeSlug,

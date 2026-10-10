@@ -1,0 +1,17 @@
+# Endpoints backend de comprobación de contacto
+
+T102 completada por su alcance backend sobre `629258cd`, con T101 y T097 verificadas. Se conservan 212 tareas: 119 completadas y 93 pendientes. Las interfaces, los recorridos por fuente y los gates mantienen sus tareas propias.
+
+| Cláusula de T102 | Implementación y evidencia terminal |
+| --- | --- |
+| Challenge, verify, resend y proof alcanzables | Los cuatro paths previstos existen bajo `app/api/tribes/[slug]/admissions`. Cada entrada compone los owners nativos mediante `src/modules/setup.ts`; attachment usa una composición DB-only. El recorrido HTTP real T097 pasó en 506,79 s sin omisiones, con emisión, reenvío, comprobación local y adjunción a la pendiente. |
+| Input y DTO públicos propios | Los handlers validan origen, params, query y body antes de componer; sus salidas atraviesan schemas propios mínimos. Los 64 casos locales y las 32 propuestas arbitrarias por HTTP rechazan autoridad, cuerpo/texto, destinatario/remitente, booleano `verified` y llaves desconocidas sin efectos previos. PostgreSQL y el proveedor no se revalidan como input. |
+| Sesión y recurso autorizados | Los casos de uso derivan la identidad del servidor y los owners reautorizan actor, sesión, tribu y recurso. Cruces HTTP y los nueve casos SQL de persistencia/application de T096 conservan cero efectos ajenos y denegación segura. Una referencia UUID conocida no concede permiso. |
+| Operation y versión originales | Los resultados están ligados al UUID original; el attachment coteja request/proof y versión observados. Operaciones cruzadas o snapshots incompatibles fallan mediante contrato propio. COMMIT perdido se recupera sin otra aplicación ni fechas renovadas. |
+| Proof opaca de admisión | `admission-contact-verification-schemas` entrega sólo propósito admission, resultado comprobado, UUID opaco y plazo original. `confirmed` expresa consentimiento de una acción; no sustituye prueba o autoridad. El navegador no puede seleccionar propósito, owner o una marca de verificación global. |
+| Material privado excluido de público y administración | DTOs omiten OTP, credencial, MAC, envelope y payload del proveedor. La proyección administrativa conserva metadata de procedencia, scope y fecha de evidencia, sin material de código. Sus pruebas de proyección comprueban campos públicos mínimos y causas privadas excluidas. |
+| Dependencias y alcance | T101 acredita la aplicación única/fresca bajo lock; T097 acredita rutas reales, guards y proyección. Estas rutas no crean membresía por pedir o comprobar un código ni completan por sí mismas los recorridos UI de T098–T105. |
+
+Evidencia: [contact-verification-routes-requirements-baseline.md](contact-verification-routes-requirements-baseline.md), [contact-verification-persistence-requirements-baseline.md](contact-verification-persistence-requirements-baseline.md), [admission-proof-implementation-requirements-baseline.md](admission-proof-implementation-requirements-baseline.md) y [admission-verification-recovery-baseline.md](admission-verification-recovery-baseline.md).
+
+La auditoría independiente informó cero hallazgos accionables y ninguna brecha obligatoria en T102 sobre HEAD `629258cd7bb9f34cb29d0517b8b6d8232e31d0e1`. Diecisiete fuentes permanecieron estables; agregado inicial/final calculado en memoria: `6CEE2DD8169C4A920F1370E33ECED3B340A1212FC615314AEE8A8E90C63F9B01`. No ejecutó pruebas nuevas ni modificó casillas. Sólo se citan resultados terminales con sus alcances originales; UI, US5 y gates siguen abiertos.

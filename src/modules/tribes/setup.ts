@@ -1,4 +1,9 @@
 import { createTribe } from "@/src/modules/tribes/application/use-cases/create-tribe-use-case";
+import { TransferTribeLeadershipUseCase } from "./application/use-cases/transfer-tribe-leadership-use-case";
+import { PostgresTribeLeadershipRepository, type TribeLeadershipDatabaseExecutor } from "./infrastructure/repositories/postgres-tribe-leadership-repository";
+import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+
 import { getCurrentTribeMembershipStatus } from "@/src/modules/tribes/application/use-cases/get-current-tribe-membership-status-use-case";
 import { getTribeBySlug } from "@/src/modules/tribes/application/use-cases/get-tribe-by-slug-use-case";
 import { getTribeCreationEligibility } from "@/src/modules/tribes/application/use-cases/get-tribe-creation-eligibility-use-case";
@@ -64,7 +69,10 @@ import type { TribeSupportRepository } from "@/src/modules/tribes/domain/reposit
 import type { TribeWelcomeRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-repository";
 import type { TribeWelcomeSelectionRepository } from "@/src/modules/tribes/domain/repositories/tribe-welcome-selection-repository";
 
-type TribesModuleDependencies = {
+import type { AcademyAdmissionEntry } from "./domain/repositories/academy-admission-entry";
+
+type TribesModuleDependencies<AdmissionResult> = {
+  academyAdmissionEntry: AcademyAdmissionEntry<AdmissionResult>;
   tribeAcademyAdmissionRepository: TribeAcademyAdmissionRepository;
   tribeReadRepository: TribeReadRepository;
   tribeCreationRepository: TribeCreationRepository;
@@ -80,7 +88,8 @@ type TribesModuleDependencies = {
   tribeWelcomeSelectionRepository: TribeWelcomeSelectionRepository;
 };
 
-export function buildTribesModule({
+export function buildTribesModule<AdmissionResult>({
+  academyAdmissionEntry,
   tribeAcademyAdmissionRepository,
   tribeReadRepository,
   tribeCreationRepository,
@@ -94,11 +103,12 @@ export function buildTribesModule({
   tribeSupportRepository,
   tribeWelcomeRepository,
   tribeWelcomeSelectionRepository,
-}: TribesModuleDependencies) {
+}: TribesModuleDependencies<AdmissionResult>) {
   return {
     useCases: {
       joinTribeAcademyAdmission: joinTribeAcademyAdmission({
         tribeAcademyAdmissionRepository,
+        academyAdmissionEntry,
       }),
       createTribe: createTribe({
         tribeCreatorWhitelistRepository,
@@ -218,4 +228,10 @@ export function buildTribesModule({
       }),
     },
   };
+}
+
+/** @param dependencies - Native account, fixed actor executor and independent operation MAC snapshot. @returns An explicit tribal owner without provider, SecretStore, public route or general transfer UI. */
+export function buildTribeLeadershipModule(dependencies:{accounts:AuthenticatedAccountProvider;execute:TribeLeadershipDatabaseExecutor;readSecurityConfig:()=>Promise<MessagingSecurityConfig>;clock?:()=>Date}){
+  const writer=new PostgresTribeLeadershipRepository(dependencies.execute,dependencies.readSecurityConfig);
+  return{useCases:{transferLeadership:new TransferTribeLeadershipUseCase(dependencies.accounts,writer,dependencies.clock)}};
 }

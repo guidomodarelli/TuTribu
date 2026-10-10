@@ -79,6 +79,18 @@ function renderBell(overrides: Partial<BellProps> = {}) {
 }
 
 describe("NotificationBell", () => {
+  it.each(["applicant", "reviewer"] as const)("should render the %s admission notice with a scoped link and emit only the selected notice", async (audience) => {
+    const notification: NotificationItemResult = { id: "5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e", createdAt: "2026-10-06T15:00:00Z", readAt: null, tribe: TRIBE, type: "admission_pending_created", admission: { requestId: EVENT_ID, audience } };
+    const onSelectNotification = vi.fn();
+    renderBell({ isOpen: true, notifications: [notification], unreadCount: 1, onSelectNotification });
+    const panel = screen.getByRole("dialog", { name: "Notificaciones" });
+    const link = await within(panel).findByRole("link", { name: audience === "applicant" ? /Solicitud de ingreso enviada/ : /Nueva solicitud de ingreso/ });
+    expect(link).toHaveAttribute("href", audience === "applicant" ? `/admissions/requests/${EVENT_ID}?tribe=matematica-pro` : `/matematica-pro/academia/admissions?request=${EVENT_ID}`);
+    await userEvent.setup().click(link);
+    expect(onSelectNotification).toHaveBeenCalledOnce();
+    expect(onSelectNotification).toHaveBeenCalledWith(notification.id);
+  });
+
   it("caps the visible badge at 9+ while the accessible name keeps the same cap", () => {
     renderBell({ unreadCount: 12 });
 

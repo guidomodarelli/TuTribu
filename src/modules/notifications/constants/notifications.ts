@@ -1,3 +1,5 @@
+import { ADMISSION_NOTIFICATION_TYPE, ADMISSION_NOTIFICATION_TYPES } from "./admission-notifications";
+
 /**
  * Catalog and limits of the in-app notification inbox. The type values
  * mirror the `notifications_valid_type` CHECK (created in
@@ -6,6 +8,12 @@
  * needs a migration that widens the CHECK.
  */
 export const NOTIFICATION_TYPE = {
+  admissionPendingCreated: ADMISSION_NOTIFICATION_TYPE.pendingCreated,
+  admissionApproved: ADMISSION_NOTIFICATION_TYPE.approved,
+  admissionRejected: ADMISSION_NOTIFICATION_TYPE.rejected,
+  admissionCancelled: ADMISSION_NOTIFICATION_TYPE.cancelled,
+  admissionExpired: ADMISSION_NOTIFICATION_TYPE.expired,
+  admissionReminder: ADMISSION_NOTIFICATION_TYPE.reminder,
   eventOccurrenceCancelled: "event_occurrence_cancelled",
   eventOccurrenceMoved: "event_occurrence_moved",
   eventProposalReviewed: "event_proposal_reviewed",
@@ -16,6 +24,7 @@ export const NOTIFICATION_TYPE = {
 } as const;
 
 export const NOTIFICATION_TYPES = [
+  ...ADMISSION_NOTIFICATION_TYPES,
   NOTIFICATION_TYPE.eventReminderDayBefore,
   NOTIFICATION_TYPE.eventReminderSoon,
   NOTIFICATION_TYPE.eventWaitlistPromoted,
