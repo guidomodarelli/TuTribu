@@ -76,6 +76,40 @@ describe("applicant contact step in the route", () => {
     expect(fixture.contact.verify).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    { code: "usage_limit_reached", message: "Se alcanzó el límite de comprobación. Esperá antes de pedir otro código." },
+    { code: "dependency_unavailable", message: "El servicio de envío no está disponible. Probá de nuevo más tarde." },
+    { code: "invalid_credentials", message: "La conexión de mensajería requiere atención del líder de la academia." },
+  ] as const)("should preserve a safe $code rejection and clear stale feedback before an explicit retry", async ({ code, message }) => {
+    // Given a confirmed rejection from the application's own browser port.
+    const fixture = containerFixture(), user = userEvent.setup();
+    let finishRetry!: () => void;
+    vi.mocked(fixture.contact.issue).mockResolvedValueOnce({ status: "failed", code, message, uncertain: false });
+    vi.mocked(fixture.contact.issue).mockImplementationOnce((_slug, input) => new Promise((resolve) => {
+      finishRetry = () => resolve({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { purpose: "admission", challengeId: randomUUID(), channel: "email", maskedDestination: "a•••@example.test", expiresAt: new Date(Date.now() + 600_000).toISOString(), resendAllowedAt: new Date(Date.now() + 60_000).toISOString(), deliveryState: "queued" } } });
+    }));
+    render(<AdmissionContainer initialState={fixture.initialState} client={fixture.client} contactClient={fixture.contact} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeEnabled());
+    await user.click(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i }));
+    await user.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
+    expect(await screen.findByText(message)).toBeVisible();
+    expect(screen.queryByText("Código comprobado para este ingreso.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Solicitar ingreso" })).not.toBeInTheDocument();
+    expect(fixture.contact.issue).toHaveBeenCalledTimes(1);
+    expect(fixture.contact.verify).not.toHaveBeenCalled();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
+
+    // When a new explicit attempt starts, its pending state replaces the old error.
+    await user.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
+    await waitFor(() => expect(fixture.contact.issue).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviando código…" })).toBeDisabled();
+    await act(async () => finishRetry());
+    expect(await screen.findByLabelText("Código de ingreso")).toBeEnabled();
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
+  });
+
   it("should apply the opaque proof to the same pending and preserve original dates without another presentation", async () => {
     const fixture = containerFixture(), user = userEvent.setup(), pending: AdmissionRequestDto = { id: randomUUID(), status: "pending", version: 1, submittedAt: "2026-10-08T00:00:00Z", expiresAt: "2026-11-07T00:00:00Z", source: "common", needsVerification: true, eligibilityReasons: ["local_proof_required"] };
     fixture.setRequest(pending);
