@@ -55,6 +55,7 @@ import { admissionCommandDenialSchema } from "../../constants/admission-command-
 import { ADMISSION_COMMAND_EFFECT_SQL } from "../../constants/admission-command-denial";
 import { createAdmissionCommandSnapshotSchema } from "../../application/results/admission-command-snapshot";
 import { resolvePersonalInvitationForRedemption, commitPersonalInvitationRedemption, assertPersonalInvitationTokenCurrent } from "./postgres-personal-invitation-redemption";
+import { ADMISSION_OPERATION_TRIBE_LOCK_SQL } from "../../constants/admission-operation";
 
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -91,9 +92,19 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     return { sources: [...MANUAL_ADMISSION_EXECUTION_CAPABILITIES.sources], policyModes: [...MANUAL_ADMISSION_EXECUTION_CAPABILITIES.policyModes], additionalVerification: MANUAL_ADMISSION_EXECUTION_CAPABILITIES.additionalVerification };
   }
 
-  /** Locks the tribe first and rechecks actual session/current role before every ledger phase or replay. */
-  private async authorize(database: RequestDatabase, scope: AdmissionCommandScope, operation: string, requestId?: string): Promise<boolean> {
-    if (!(await database.execute(sql`select id from public.tribes where id=${scope.tribeId} for update`)).rows[0]) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+  /**
+   * Locks current authority in tribe/account order for each registry or effect phase.
+   * @param database - Original guarded transaction for this phase.
+   * @param scope - Native actor/session/tribe, never browser-selected authority.
+   * @param operation - Owner-selected action whose current permission is checked.
+   * @param requestId - Existing own request when the action targets one.
+   * @param registrationOnly - Whether only an intent claim is registered; effects retain the exclusive tribe lock.
+   * @returns Whether the current actor can perform the exact action.
+   * @throws AdmissionOperationError when scope, native session or required recency is unavailable.
+   */
+  private async authorize(database: RequestDatabase, scope: AdmissionCommandScope, operation: string, requestId?: string, registrationOnly = false): Promise<boolean> {
+    const scopeLock = registrationOnly ? ADMISSION_OPERATION_TRIBE_LOCK_SQL.registration : ADMISSION_OPERATION_TRIBE_LOCK_SQL.execution;
+    if (!(await database.execute(sql`select id from public.tribes where id=${scope.tribeId} ${sql.raw(scopeLock)}`)).rows[0]) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     await database.execute(sql`select id from public."user" where id=${scope.userId} for share`);
     const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: scope.userId, sessionId: scope.sessionId }), (_identity, run) => run(database));
     if (!await accounts.getAuthenticatedAccount()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
@@ -152,7 +163,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
 
   /** Recovers an original committed result after possible COMMIT response loss without repeating the write. */
   private async run<Result>(scope: AdmissionCommandScope, command: AdmissionOperationCommand, schema: z.ZodType<Result>, mutate: (database: RequestDatabase, ledgerId: string) => Promise<Result>, requestId?: string): Promise<AdmissionOperationResult<Result>> {
-    const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(scope, work), (database) => this.authorize(database, scope, command.operationType, requestId), this.readSecurityConfig);
+    const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(scope, work), (database) => this.authorize(database, scope, command.operationType, requestId), this.readSecurityConfig, (database) => this.authorize(database, scope, command.operationType, requestId, true));
     const snapshotSchema = createAdmissionCommandSnapshotSchema(schema);
     let original;
     let originalDenialCause: unknown;

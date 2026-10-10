@@ -81,6 +81,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Las confirmaciones simultáneas de ingreso pueden avanzar sin quedar detenidas en el registro inicial de la operación.
+
 - Los rechazos conocidos de solicitudes y decisiones de admisión conservan su resultado original; consultar una respuesta perdida muestra el motivo y mantiene el texto escrito sin repetir la acción ni anunciar un ingreso inexistente.
 
 - Los rechazos al pedir o reenviar un código conservan su resultado confirmado y pueden consultarse después de una respuesta perdida, sin dejar un envío pendiente ni consumir su cupo.
