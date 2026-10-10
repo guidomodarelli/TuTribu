@@ -7,7 +7,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;overflow-wrap:break-word;overflow-wrap:anywhere;}
 .doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
 .doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
 .doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
@@ -48,6 +48,14 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p>El problema pendiente no es el cobro, sino la medición. El producto necesita diferenciar links aunque apunten al mismo precio, reportar altas por canal y atribuir membresías pagas activas al link que originó la conversión.</p>
   <p>La decisión confirmada es <strong>Modelo A: un precio por canal cuando el canal requiere una cuenta de Mercado Pago distinta</strong>. No se agrega <code>payment_integration_id</code> a <code>tribe_invitations</code>; el cobro sigue resolviéndose desde <code>tribe_subscription_prices</code>.</p>
   <div class="callout c-ok">Este diseño solo trackea conversiones. No registra clicks anónimos ni introduce <code>tribe_invitation_visits</code>.</div>
+</div>
+
+<div class="section" id="personal-admission-boundary">
+  <div class="section-title">Referidos históricos e invitaciones personales de admisión</div>
+  <p>Los enlaces de este documento pertenecen a <code>tribe_invitations</code> y conservan sus reglas de atribución y cobro. Las invitaciones personales de admisión pertenecen a <code>academy_personal_invitations</code>: el líder fija un destinatario, nombre interno, exigencia de lista y vencimiento opcional. Sus contratos y recorridos se describen en <a href="academy-admissions.htm">la arquitectura de admisión</a> y en <a href="../../user-guides/academy-admissions.html#personal-invitation-management">el manual de invitaciones personales</a>.</p>
+  <p>La invitación personal tiene un único canje y su enlace completo se muestra una sola vez en la emisión inicial. Historial, detalle y recuperación de una operación conservan metadata, nunca una copia recuperable del token. Abrir el enlace, iniciar sesión o comprobar un código no concede ingreso; el destinatario confirma el canje con evidencia vigente. Si exige lista, debe existir coincidencia habilitada; dispensarla conserva la prueba del destinatario y, en modo manual, la revisión. El vencimiento del enlace no reemplaza el plazo de una solicitud ya canjeada.</p>
+  <p>Cambiar destinatario, requisito de lista o vigencia requiere revocar y emitir otro enlace; sólo el nombre interno se edita. Retirar una autorización canjeada cancela su solicitud todavía pendiente, conserva el canje y no expulsa por sí solo a un miembro ya admitido. Una respuesta incierta se consulta mediante la operación original, sin repetir el POST ni reconstruir el enlace.</p>
+  <div class="callout c-warn">Estas reglas no transforman automáticamente los enlaces históricos en nominativos. La frontera protegida exige el marcador de activación de la academia y el runtime correspondiente; antes de activarla, el ingreso histórico conserva su alcance instalado. En una academia protegida, el enlace antiguo no crea ni recupera una membresía ni dispensa login, evidencia, cierre o revisión. La activación general y la resolución de históricos conservan sus tareas y gates.</div>
 </div>
 
 <div class="section">
