@@ -11,6 +11,23 @@ function verificationProps() {
 }
 
 describe("applicant contact verification presentation", () => {
+  it("should name the selected SMS channel and require a new confirmation before replacing a previous code", async () => {
+    const props = verificationProps(), user = userEvent.setup();
+    const challenge = { challengeId: randomUUID(), purpose: "admission" as const, channel: "sms" as const, maskedDestination: "••••1234", expiresAt: "2026-10-10T10:10:00Z", resendAllowedAt: "2026-10-10T10:01:00Z", deliveryState: "accepted" as const };
+    const { rerender } = render(<ContactVerification {...props} channel="whatsapp" allowedCountries={["AR"]} challenge={challenge} requiresReplacement canResend canVerify resendInSeconds={0} expiresInSeconds={300} />);
+    expect(screen.getByText("Canal del código").nextElementSibling).toHaveTextContent("SMS");
+    expect(screen.getByRole("button", { name: "Reenviar código" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Comprobar código" })).toBeDisabled();
+    expect(props.onResend).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i }));
+    expect(props.onConfirm).toHaveBeenCalledExactlyOnceWith(true);
+    rerender(<ContactVerification {...props} channel="whatsapp" allowedCountries={["AR"]} challenge={challenge} requiresReplacement confirmed canResend canVerify resendInSeconds={0} expiresInSeconds={300} />);
+    await user.click(screen.getByRole("button", { name: "Reenviar código" }));
+    expect(props.onResend).toHaveBeenCalledOnce();
+    expect(props.onUseSmsAlternative).not.toHaveBeenCalled();
+    expect(props.onVerify).not.toHaveBeenCalled();
+  });
+
   it("should confirm and request a code using only the keyboard while skipping the disabled action", async () => {
     const props = verificationProps(), user = userEvent.setup();
     const { rerender } = render(<ContactVerification {...props} canIssue />);

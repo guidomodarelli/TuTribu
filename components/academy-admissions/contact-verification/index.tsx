@@ -15,7 +15,7 @@ export type ContactVerificationProps = {
   channel: "email" | "sms" | "whatsapp"; phone: string; country: string; verificationCode: string;
   confirmed: boolean; busy: boolean; ready?: boolean; canIssue: boolean; canVerify: boolean; canResend: boolean;
   canUseSmsAlternative: boolean; contactLocked: boolean; allowedCountries: readonly string[];
-  challenge: AdmissionChallengeSnapshot | null; challengeUnavailable?: boolean; proofReady: boolean; proofExpired?: boolean; expiresInSeconds: number | null; resendInSeconds: number | null;
+  challenge: AdmissionChallengeSnapshot | null; challengeUnavailable?: boolean; requiresReplacement?: boolean; proofReady: boolean; proofExpired?: boolean; expiresInSeconds: number | null; resendInSeconds: number | null;
   errorMessage: string | null; feedback: string | null; fieldErrors: Partial<Record<"phone" | "country" | "verificationCode", string>>;
   onPhoneChange: (value: string) => void; onCountryChange: (value: string) => void; onCodeChange: (value: string) => void;
   onConfirm: (confirmed: boolean) => void; onIssue: () => void; onResend: () => void; onVerify: () => void; onUseSmsAlternative: () => void;
@@ -27,7 +27,7 @@ export function ContactVerification(props: ContactVerificationProps) {
   const controlsBlocked = props.busy || props.ready === false;
   const expired = props.expiresInSeconds !== null && props.expiresInSeconds <= 0;
   const issueBlocked = controlsBlocked || !props.confirmed || !props.canIssue || noCountries;
-  const verifyBlocked = controlsBlocked || !props.canVerify || !props.challenge || props.challengeUnavailable || props.proofReady || props.proofExpired || expired || !ADMISSION_PUBLIC_CODE_PATTERN.test(props.verificationCode);
+  const verifyBlocked = controlsBlocked || !props.canVerify || !props.challenge || props.challengeUnavailable || props.requiresReplacement || props.proofReady || props.proofExpired || expired || !ADMISSION_PUBLIC_CODE_PATTERN.test(props.verificationCode);
   const resendBlocked = controlsBlocked || !props.confirmed || !props.canResend || noCountries || props.proofReady || props.resendInSeconds !== null && props.resendInSeconds > 0;
   const smsBlocked = controlsBlocked || !props.confirmed || !props.canUseSmsAlternative || noCountries || props.proofReady || props.resendInSeconds !== null && props.resendInSeconds > 0;
   return <section className={styles.ContactVerification} aria-labelledby={`${fieldId}-title`} aria-busy={controlsBlocked}>
@@ -64,6 +64,7 @@ export function ContactVerification(props: ContactVerificationProps) {
     </form>
     {props.challenge && <>
       <dl className={styles.ContactVerification__facts}>
+        <div className={styles.ContactVerification__fact}><dt>Canal del código</dt><dd>{MESSAGING_CHANNEL_LABEL[props.challenge.channel]}</dd></div>
         <div className={styles.ContactVerification__fact}><dt>Destino del código</dt><dd>{props.challenge.maskedDestination}</dd></div>
         <div className={styles.ContactVerification__fact}><dt>Estado del envío</dt><dd>{MESSAGING_DELIVERY_STATE_LABEL[props.challenge.deliveryState]}</dd></div>
       </dl>
@@ -71,8 +72,8 @@ export function ContactVerification(props: ContactVerificationProps) {
       {props.proofReady ? <p role="status" className={styles.ContactVerification__success}>Código comprobado para este ingreso.</p> : <form className={styles.ContactVerification__form} onSubmit={(event) => { event.preventDefault(); if (!verifyBlocked) props.onVerify(); }}>
         <div className={styles.ContactVerification__field}>
           <Label htmlFor={`${fieldId}-code`}>Código de ingreso</Label>
-          <Input id={`${fieldId}-code`} className={styles.ContactVerification__code} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={ADMISSION_LIMIT.verificationCodeDigits} value={props.verificationCode} disabled={controlsBlocked || expired || props.proofExpired || props.challengeUnavailable} aria-invalid={Boolean(props.fieldErrors.verificationCode)} aria-describedby={`${fieldId}-code-feedback`} onChange={(event) => props.onCodeChange(event.target.value)} />
-          <p id={`${fieldId}-code-feedback`} className={props.fieldErrors.verificationCode || expired ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.verificationCode ?? (expired ? "El código venció. Podés solicitar otro cuando termine la espera." : `Ingresá los ${ADMISSION_LIMIT.verificationCodeDigits} números del código recibido.`)}</p>
+          <Input id={`${fieldId}-code`} className={styles.ContactVerification__code} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={ADMISSION_LIMIT.verificationCodeDigits} value={props.verificationCode} disabled={controlsBlocked || expired || props.proofExpired || props.challengeUnavailable || props.requiresReplacement} aria-invalid={Boolean(props.fieldErrors.verificationCode)} aria-describedby={`${fieldId}-code-feedback`} onChange={(event) => props.onCodeChange(event.target.value)} />
+          <p id={`${fieldId}-code-feedback`} className={props.fieldErrors.verificationCode || expired ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.verificationCode ?? (props.requiresReplacement ? "Para esta nueva presentación, confirmá Reenviar código. La prueba anterior no se reutiliza." : expired ? "El código venció. Podés solicitar otro cuando termine la espera." : `Ingresá los ${ADMISSION_LIMIT.verificationCodeDigits} números del código recibido.`)}</p>
         </div>
         {props.proofExpired && <p role="status" className={styles.ContactVerification__error}>La prueba venció. Reenviá un código para el mismo contacto antes de continuar.</p>}
         {props.expiresInSeconds !== null && !expired && <p className={styles.ContactVerification__description}>Vence en {props.expiresInSeconds} segundos.</p>}

@@ -3,6 +3,7 @@ import type { AdmissionErrorCode, AdmissionErrorOperation } from "../results/adm
 import type { AdmissionOperationResult } from "../../domain/entities/admission-operation";
 import type { AdmissionChallengeSnapshot, AdmissionChallengeVerificationSnapshot } from "../../domain/repositories/admission-contact-verification";
 import type { AdmissionProofApplicationResult } from "../../domain/repositories/admission-verification-proof-repository";
+import type { AdmissionCurrentChallengeSelection } from "../../domain/repositories/admission-current-challenge-reader";
 import type { AdmissionOperationRecoveryDto } from "../results/admission-operation-recovery";
 import type { z } from "zod";
 import type { messageDeliverySchema } from "@/src/modules/messaging/application/results/messaging-flow-result-schemas";
@@ -17,10 +18,13 @@ export type AdmissionContactVerify = { operationId: string; confirmed: true; ver
 export type AdmissionContactResend = { operationId: string; confirmed: true; useSmsAlternative?: true };
 /** Proof is opaque and must match the original pending/version. */
 export type AdmissionContactApply = { operationId: string; confirmed: true; expectedVersion: number; proofId: string };
+/** A readonly exact-contact proposal precedes an explicit choice to replace a prior code. */
+export type AdmissionContactSelectionInput = { previousRequestId: string; expectedPolicyVersion: number; channel: "email" | "sms" | "whatsapp"; phone?: string; country?: string };
 /** Only a guarded local verification can expose an available proof. */
 export type AdmissionContactVerified = Extract<AdmissionChallengeVerificationSnapshot, { result: "verified" }>;
 /** Contact transport belongs in the route container/hook, never the presenter. */
 export interface AdmissionContactBrowserClient {
+  current(slug: string, input: AdmissionContactSelectionInput, signal: AbortSignal): Promise<AdmissionContactBrowserResult<AdmissionCurrentChallengeSelection>>;
   issue(slug: string, input: AdmissionContactIssue, signal: AbortSignal): Promise<AdmissionContactBrowserResult<AdmissionOperationResult<AdmissionChallengeSnapshot>>>;
   verify(slug: string, challengeId: string, input: AdmissionContactVerify, signal: AbortSignal): Promise<AdmissionContactBrowserResult<AdmissionOperationResult<AdmissionContactVerified>>>;
   resend(slug: string, challengeId: string, input: AdmissionContactResend, signal: AbortSignal): Promise<AdmissionContactBrowserResult<AdmissionOperationResult<AdmissionChallengeSnapshot>>>;

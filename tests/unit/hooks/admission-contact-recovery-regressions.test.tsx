@@ -15,6 +15,7 @@ function recoveryFixture() {
   const now = Date.now(), challengeId = randomUUID(), proofId = randomUUID();
   const challenge = { challengeId, deliveryId: randomUUID(), purpose: "admission" as const, channel: "email" as const, maskedDestination: "a•••@example.test", expiresAt: new Date(now + 600_000).toISOString(), resendAllowedAt: new Date(now - 1).toISOString(), deliveryState: "queued" as const };
   const client: AdmissionContactBrowserClient = {
+    current: vi.fn<AdmissionContactBrowserClient['current']>(async () => ({ status: 'ready', value: { current: null } })),
     issue: vi.fn<AdmissionContactBrowserClient["issue"]>(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: challenge } })),
     verify: vi.fn<AdmissionContactBrowserClient["verify"]>(async (_slug, _challenge, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { purpose: "admission", result: "verified", proofId, applyBefore: new Date(now + 900_000).toISOString() } } })),
     resend: vi.fn(), apply: vi.fn(), operation: vi.fn(), delivery: vi.fn(),
