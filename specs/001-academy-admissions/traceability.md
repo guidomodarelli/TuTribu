@@ -1,6 +1,8 @@
 # Traceability: Academy Admissions and Tenant Messaging
 
-**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 112 completadas y 100 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
+**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 136 completadas y 76 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
+
+T132 completa la validación nominativa prevista: siete AC con SQL/UI reales, un canje en cien confirmaciones, rollback y respuestas perdidas. La matriz administrativa actual tiene ocho combinaciones, separadas de los Native personales anteriores y del transporte externo pendiente; los snapshots se conservan por scope. El ensayo humano SC-014, entrega ON real, legacy y rollout no se acreditan por este cierre. [Auditoría de validación personal](validation/personal-invitation-validation-completion-audit.md).
 
 T071 completa el formulario SSR de reglas y el acceso real a países/cupos antes de tener política o conexión. Build36080, casos de container/presenter y revisión final sin brechas propias; la navegación ausente pasó en ambos motores móviles (Native69781), y uso/CAS/conflicto/current/reconfirmación pasó en Chromium y WebKit a390/1280 con cleanup final de la focal13301. El resultado global rojo de86923 por su cleanup previo permanece registrado. No acredita integración del asistente de T080/T088/T092 ni canales/diagnóstico/OG. [Evidencia de uso](validation/messaging-usage-configuration-baseline.md).
 
