@@ -11,6 +11,24 @@ function verificationProps() {
 }
 
 describe("applicant contact verification presentation", () => {
+  it("should confirm and request a code using only the keyboard while skipping the disabled action", async () => {
+    const props = verificationProps(), user = userEvent.setup();
+    const { rerender } = render(<ContactVerification {...props} canIssue />);
+    const consent = screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i });
+    const issue = screen.getByRole("button", { name: "Enviar código de ingreso" });
+    await user.tab();
+    expect(consent).toHaveFocus();
+    expect(issue).toBeDisabled();
+    await user.keyboard(" ");
+    expect(props.onConfirm).toHaveBeenCalledExactlyOnceWith(true);
+    expect(props.onIssue).not.toHaveBeenCalled();
+    rerender(<ContactVerification {...props} confirmed canIssue />);
+    await user.tab();
+    expect(issue).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(props.onIssue).toHaveBeenCalledOnce();
+  });
+
   it("should disable a confirmed unusable challenge without hiding its permitted explicit resend", async () => {
     const props = verificationProps(), user = userEvent.setup();
     const challenge = { challengeId: randomUUID(), purpose: "admission" as const, channel: "email" as const, maskedDestination: "a•••@example.test", expiresAt: "2026-10-10T10:10:00Z", resendAllowedAt: "2026-10-10T10:01:00Z", deliveryState: "accepted" as const };
