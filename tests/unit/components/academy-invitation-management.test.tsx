@@ -141,6 +141,30 @@ describe("personal invitation management controls", () => {
     expect(screen.getByRole("button", { name: "Guardar acción" })).toBeDisabled(); expect(data.client.write).not.toHaveBeenCalled();
   });
 
+  it("should require a separate redeemed-authorization acknowledgement, focus validation and clear stale feedback before the exact withdrawal", async () => {
+    const data = fixture(), user = userEvent.setup(), now = new Date().toISOString();
+    const redeemed = { ...data.metadata, status: "redeemed" as const, version: 2, redeemedAt: now };
+    data.initial.page.items = [redeemed];
+    vi.mocked(data.client.page).mockResolvedValue({ status: "ready", value: { ...data.initial, page: { items: [{ ...redeemed, version: 3, authorizationRevokedAt: now }], nextCursor: null } } });
+    await mount(data);
+    expect(screen.queryByRole("button", { name: "Reemitir Grupo inicial" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revocar Grupo inicial" }));
+    await user.type(screen.getByLabelText("Motivo interno"), "Retiro confirmado");
+    await user.click(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." }));
+    await user.click(screen.getByRole("button", { name: "Guardar acción" }));
+    const feedback = await screen.findByRole("alert");
+    expect(feedback).toHaveFocus();
+    expect(data.client.write).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("checkbox", { name: /Confirmo retirar la autorización canjeada/ }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." })).not.toBeChecked();
+    await user.click(screen.getByRole("checkbox", { name: "Confirmo esta acción sobre la invitación personal." }));
+    await user.click(screen.getByRole("button", { name: "Guardar acción" }));
+    await waitFor(() => expect(data.client.write).toHaveBeenCalledTimes(1));
+    expect(data.client.write).toHaveBeenCalledWith("synthetic", expect.objectContaining({ type: "revoke_personal_invitation", invitationId: data.metadata.id, input: expect.objectContaining({ confirmed: true, expectedVersion: 2, revokeRedeemedAuthorization: true, reason: "Retiro confirmado" }) }), expect.any(AbortSignal));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Revocar Grupo inicial" })).not.toBeInTheDocument());
+  });
+
   it("should hide all private content when the native page response belongs to an intermediate viewer", async () => {
     const data = fixture(), user = userEvent.setup(); data.initial.page.items = [data.metadata];
     vi.mocked(data.client.page).mockResolvedValueOnce({ status: "ready", value: { ...data.initial, viewerId: randomUUID() } });
