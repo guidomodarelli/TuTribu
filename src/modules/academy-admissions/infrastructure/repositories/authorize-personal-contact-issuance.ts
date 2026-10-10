@@ -1,5 +1,6 @@
 /** Checks current personal authorization before creating another local code obligation, without consuming the invitation. @module authorize-personal-contact-issuance */
 import "server-only";
+import { assertUnreservedAdmissionContact } from "./assert-unreserved-admission-contact";
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { AdmissionVerificationAccountScope } from "../../domain/repositories/admission-contact-verification";
@@ -23,6 +24,7 @@ export async function authorizePersonalContactIssuance(database: RequestDatabase
     if (invitation.status !== ADMISSION_INVITATION_STATUS.redeemed || invitation.redeemed_by_user_id !== context.userId || invitation.redeemed_request_id !== context.admissionRequestId || !request || request.invitation_id !== invitationId || request.status !== ADMISSION_REQUEST_STATUS.pending || now >= new Date(request.expires_at)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
   } else if (invitation.status !== ADMISSION_INVITATION_STATUS.active || invitation.expires_at && now >= new Date(invitation.expires_at) || security.recoveryLocked || !security.keyrings[MESSAGING_KEY_PURPOSE.invitationToken].keys.has(invitation.token_key_id)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
   const binding = (await database.execute<{ owner_user_id: string }>(sql`select owner_user_id from public.academy_admission_contact_bindings where tribe_id=${context.tribeId} and contact_type=${contact.type} and normalized_contact=${contact.value}`)).rows[0];
+  await assertUnreservedAdmissionContact(database, context.tribeId, contact, async () => security);
   if (binding && binding.owner_user_id !== context.userId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
   if (invitation.requires_allowlist && !(await database.execute(sql`select id from public.academy_allowlist_entries where tribe_id=${context.tribeId} and contact_type=${contact.type} and normalized_contact=${contact.value} and status=${ALLOWLIST_ENTRY_STATUS.enabled} for share`)).rows[0]) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
 }

@@ -1,5 +1,6 @@
 /** Applies proof, contact ownership and audit in the caller's guarded request/operation transaction. @module postgres-admission-verification-proof-writer */
 import "server-only";
+import { assertUnreservedAdmissionContact } from "./assert-unreserved-admission-contact";
 import { sql } from "drizzle-orm";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -66,6 +67,9 @@ export class PostgresAdmissionVerificationProofWriter implements AdmissionVerifi
     const proof: AdmissionVerificationProof = { id: row.id, challengeId: row.challenge_id, userId: row.user_id, tribeId: row.tribe_id, contact: command.scope.contact, purpose: ADMISSION_VERIFICATION_PURPOSE.admission, verificationEpoch: row.verification_epoch, connectionId: row.connection_id, connectionVersion: row.connection_version, securityEpoch: row.security_epoch, channel: challenge.channel, status: row.status, verifiedAt: new Date(row.verified_at), applyBefore: new Date(row.apply_before), appliedRequestId: row.applied_request_id, appliedAt: row.applied_at ? new Date(row.applied_at) : null, invalidatedAt: row.invalidated_at ? new Date(row.invalidated_at) : null, invalidationReason: row.invalidation_reason };
     await this.database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify([ADMISSION_CONTACT_BINDING_LOCK_DOMAIN, command.scope.tribeId, command.scope.contact.type, command.scope.contact.value])},0))`);
     let binding = (await this.database.execute<{ id: string; owner_user_id: string }>(sql`select id,owner_user_id from public.academy_admission_contact_bindings where tribe_id=${command.scope.tribeId} and contact_type=${command.scope.contact.type} and normalized_contact=${command.scope.contact.value} for update`)).rows[0];
+    // Re-read the reservation after any account deletion that completed during this wait.
+    try { await assertUnreservedAdmissionContact(this.database, command.scope.tribeId, command.scope.contact, this.readSecurityConfig); }
+    catch (error) { if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.contactBindingConflict) return denied(error.code); throw error; }
     if (binding && binding.owner_user_id !== command.scope.userId || request.binding_id !== null && binding?.id !== request.binding_id) return denied(ADMISSION_ERROR_CODE.contactBindingConflict);
     const config = await this.readSecurityConfig();
     if (config.recoveryLocked || config.environment !== resource.environment || config.securityEpoch !== resource.security_epoch || config.securityEpoch !== command.scope.securityEpoch) return denied(ADMISSION_ERROR_CODE.proofUnavailable);
