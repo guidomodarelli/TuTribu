@@ -1,6 +1,6 @@
 # Canje y revocación nominativos — concurrencia real
 
-Incremento de T122 sobre `820e0c9c`. T122 y sus dependencias conservan su estado pendiente hasta completar todos sus escenarios; este documento no reduce el objetivo de 212 tareas.
+Incrementos de T122 sobre `820e0c9c` y `3bbb2cf4`. La auditoría final acredita T122 con trece escenarios SQL; la feature completa conserva sus 212 tareas y los alcances restantes de US4 permanecen pendientes.
 
 La carrera de revocación/canje usa cuentas, recencia, tokens, repositorios y transacciones PostgreSQL reales. Un holder de la fila de tribu se libera sólo después de observar dos transacciones bloqueadas mediante `pg_stat_activity` y `pg_blocking_pids`. No se reemplazan librerías, validators, SDK ni writers del producto. La barrera conserva el guard de idle y un plazo SQL independiente; termina sus transacciones incluso si falla la observación.
 
@@ -20,3 +20,19 @@ El escenario acepta ambos órdenes legales y comprueba sus efectos precisos. Si 
 - Verificación final del incremento: tipos producto/tests y lint verdes; 451 suites y 4.620 tests generales verdes en 627,72 s, exit 0. Las 156 suites/491 casos gated no se cuentan como SQL ejecutado. Build final exit 0: compilación 33,4 s, tipos 7,1 s y 50 páginas en 2,7 s. El código del cambio permaneció congelado; después sólo se añadió el nuevo test terminal, cuya ejecución SQL y tipos/lint también pasaron.
 - Revisión del cambio de registro: cero hallazgos accionables, ocho hashes estables, manifiesto `B3FE0B9BFD8FAD1D35A49DED94F6242719B310C81D6E8E11886067EB0680B261`, HEAD `64ef4e43`. La documentación de resultados y el nuevo test terminal reciben su revisión específica antes del checkpoint. T122 no se cierra por esta muestra parcial.
 - Revisión final del delta: cero hallazgos accionables; dos hashes estables, manifiesto `8B2E072EF598F568972F95EF21A2FCC362BF57B3ADBB4456849CE03BCA8B7775`. Los otros siete archivos conservan su revisión anterior. La página arquitectónica actual pasó cuatro renders Chromium/WebKit a 1280/390, sin errores ni desbordes; se usaron servidores de navegador propios con limpieza acotada. El primer helper de render quedó sin resultado después de terminar su renderer y se limpió; no se le atribuye un resultado verde.
+
+## Auditoría de T122 sobre `3bbb2cf4`
+
+El escenario de request canjeada vencida pasó un caso SQL real en 123,84 s. La historia usa un instante único, captura anterior a la presentación y retirada posteriormente, binding original, token/fingerprint auténticos y treinta días de plazo. Una presentación común explícita materializa expiry/decisión/aviso de la personal anterior; después de cancelar esa vía común y autorizar un nuevo intento, el token personal sigue rechazado. No se modifican el reloj, los timestamps inmutables ni el estado del enlace para simular el vencimiento.
+
+| Requisito de T122 | Evidencia ejecutada y aserciones |
+| --- | --- |
+| Canje, binding, request, decisión, membresía y avisos atómicos | `personal-invitation-atomicity.test.ts`: una fila de cada efecto asociada al mismo request, versiones positivas y un aviso; `personal-invitation-admission-rollback.test.ts`: falta de obligación revierte todos los efectos. |
+| Reintento y cien confirmaciones simultáneas | Cien UUIDs distintos iniciados antes de esperar; cero fallos, un canje, trece resultados confirmados y 87 iniciados; replay del ganador conserva snapshot y no duplica. |
+| Canje/revocación concurrentes y nueva confirmación si cambia el estado | `personal-invitation-revocation-race.test.ts`: dos waits PostgreSQL observados antes de liberar; CAS de versión observada, conflicto stale y UUID/versión/consentimiento nuevos para retirar una autorización canjeada. |
+| Otra pending no consume otra personal | `personal-invitation-manual-persistence.test.ts`: el segundo enlace permanece active/version1, la pending original se conserva y se aprueba mediante reviewer actual. |
+| Expiry del enlace separado del request | `personal-invitation-expiry-persistence.test.ts`: canje antes del vencimiento real, espera SQL sin cambiar fechas y aprobación posterior de la pending; enlace redeemed/version2 y request approved/version3. |
+| Rechazo/cancelación/expiry no reciclan enlaces | `personal-invitation-terminal-request.test.ts`: dos terminales y retry autorizado sin reutilizar el token; `personal-invitation-expired-request.test.ts`: expiry del request personal y negativa posterior, con binding/canje originales retenidos. |
+| Incrementos únicos, CAS interno de canje y admin expectedVersion | Atomicidad/carrera cubren canje interno sin nueva versión pública; `personal-invitation-management-persistence.test.ts` comprueba rename/no-op/reemisión, replay anterior al CAS, stale409 y expiry materializada/version3; revocación activa y retirada redeemed conservan sus incrementos exactos. |
+
+Son trece escenarios SQL acreditados en total sobre el cambio final, más la suite general/build/review anteriores. Las pruebas y sus helpers ejercen bibliotecas reales; los únicos dobles son puertos propios usados para inducir rollback. La auditoría sólo cubre T122: no acredita las páginas, la matriz de navegadores, proveedores ni el cierre integral de US4. La revisión final del test histórico y de esta matriz terminó sin hallazgos; sus hashes estables fueron `2F11E2AA43CE70C766E9A2E480B431DE07DBC0FC6C947C32AF53D867B7DDC6DF` y `1B5DEEF400B27C4E5E49A1F2D050E1706535312C1F109BE3144A561CDF2AFF14`. Se registra T122 completada y el conteo de 108 tareas cerradas/104 pendientes en tasks.md y traceability.md.
