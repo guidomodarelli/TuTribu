@@ -18,7 +18,7 @@ import { MILLISECONDS_PER_SECOND, SECONDS_PER_MINUTE } from "@/src/constants/tim
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applicant contact errors", () => {
-  it.each([{ name: "chromium", engine: chromium, width: 1280 }, { name: "chromium", engine: chromium, width: 390 }, { name: "webkit", engine: webkit, width: 1280 }, { name: "webkit", engine: webkit, width: 390 }])("should preserve quota feedback and expose provider failure without another send or false proof on $name at $width", async ({ engine, width }) => {
+  it.each([{ name: "chromium", engine: chromium, width: 1280 }, { name: "chromium", engine: chromium, width: 390 }, { name: "webkit", engine: webkit, width: 1280 }, { name: "webkit", engine: webkit, width: 390 }])("should preserve quota feedback and expose provider uncertainty without another send or false proof on $name at $width", async ({ engine, width }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => { const id = randomUUID(); return [purpose, { activeKeyId: id, keys: [{ id, materialBase64: randomBytes(32).toString("base64") }] }]; }));
       const messagingSecurity = { environment: "synthetic-contact-errors-ui", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
@@ -78,12 +78,19 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native applica
             await resend.click();
             await quotaError.waitFor({ state: "hidden" });
             await expect.poll(() => page.locator('section[aria-busy]').getAttribute("aria-busy"), { timeout: 180_000 }).toBe("false");
+            const originalRead = page.getByRole("button", { name: "Consultar operación del código", exact: true });
+            if (await originalRead.count() > 0) {
+              await expect.poll(() => originalRead.isEnabled(), { timeout: 180_000 }).toBe(true);
+              await originalRead.click();
+            }
+            // A 503 after the marker cannot prove non-delivery. Wait for the real receipt, then read it through UI.
+            await expect.poll(async () => database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ state: string }>(sql`select state from public.message_deliveries where tribe_id=${fixture.context.tribeId} and actor_user_id=${fixture.context.userId} order by created_at desc limit 1`)).rows[0]?.state), { timeout: 180_000 }).toBe("unknown");
             expect(issueRequests).toBe(1);
             expect(resendRequests).toBe(1);
             expect(providerRequests).toBe(1);
             await page.getByRole("button", { name: "Consultar envío del código", exact: true }).click();
-            await page.getByText("Entrega fallida", { exact: true }).waitFor({ state: "visible" });
-            await page.getByText("La mensajería no está disponible temporalmente. Podés consultar tu solicitud.", { exact: true }).waitFor({ state: "visible" });
+            await page.getByText("Entrega sin confirmar", { exact: true }).waitFor({ state: "visible" });
+            await page.getByText("No pudimos confirmar el resultado del envío. Consultá su estado antes de repetir.", { exact: true }).waitFor({ state: "visible" });
             if (engine === chromium && width === 1280) await captureAdmissionReview(page, "contact-provider-unavailable", forbidden, "contact-delivery-feedback-captures.json", { selector: 'section[aria-labelledby][aria-busy]' });
             expect(await page.getByText("Código comprobado para este ingreso.", { exact: true }).count()).toBe(0);
             expect(await page.getByRole("button", { name: "Solicitar ingreso", exact: true }).count()).toBe(0);

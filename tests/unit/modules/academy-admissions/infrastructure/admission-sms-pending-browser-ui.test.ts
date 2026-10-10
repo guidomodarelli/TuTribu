@@ -84,6 +84,13 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native SMS pen
           await alternative.click();
           await expect.poll(() => providerRequests, { timeout: 180_000 }).toBe(2);
           await expect.poll(() => page.locator('section[aria-busy]').getAttribute("aria-busy"), { timeout: 180_000 }).toBe("false");
+          const replacementRead = page.getByRole("button", { name: "Consultar operación del código", exact: true });
+          if (await replacementRead.count() > 0) {
+            // The replacement may commit before its browser response settles; recover the same original once.
+            await expect.poll(() => replacementRead.isEnabled(), { timeout: 180_000 }).toBe(true);
+            await replacementRead.click();
+            await replacementRead.waitFor({ state: "hidden" });
+          }
           expect(resendRequests).toBe(1);
           expect(await page.getByLabel("Código de ingreso", { exact: true }).inputValue() === "").toBe(true);
           expect(await page.getByLabel("Teléfono para este ingreso", { exact: true }).isDisabled()).toBe(true);
