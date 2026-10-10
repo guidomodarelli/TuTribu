@@ -6,7 +6,7 @@ import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium, webkit, type Browser, type BrowserContext } from "@playwright/test";
 import { describe, expect, it } from "vitest";
-import { enterAdmissionVerificationCode } from "@/tests/support/admission-contact-browser-actions";
+import { enterAdmissionVerificationCode, enterAdmissionVerificationPhone } from "@/tests/support/admission-contact-browser-actions";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native browser private failure boundaries", () => {
@@ -54,6 +54,24 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native browser
       try { await enterAdmissionVerificationCode(page, code); } catch (error) { failure = error; }
       expect(failure instanceof Error && !failure.message.includes(code)).toBe(true);
       expect(failure instanceof Error && failure.message === "Contact UI code entry was unavailable" && !("cause" in failure)).toBe(true);
+    } finally { await browser?.close(); }
+  });
+
+  it.each([{ name: "chromium", engine: chromium }, { name: "webkit", engine: webkit }])("should enter a phone in its real control and sanitize a disabled input failure without contact or cause on $name", async ({ engine }) => {
+    const phone = "+5491155501234";
+    let browser: Browser | null = null;
+    try {
+      browser = await engine.launch({ headless: true });
+      const page = await browser.newPage();
+      await page.setContent('<main><label for="phone">Teléfono para este ingreso</label><input id="phone" type="tel"></main>');
+      await enterAdmissionVerificationPhone(page, phone);
+      expect(await page.getByLabel("Teléfono para este ingreso").inputValue() === phone).toBe(true);
+      await page.getByLabel("Teléfono para este ingreso").evaluate((element) => { (element as HTMLInputElement).disabled = true; });
+      page.setDefaultTimeout(100);
+      let failure: unknown;
+      try { await enterAdmissionVerificationPhone(page, phone); } catch (error) { failure = error; }
+      expect(failure instanceof Error && !failure.message.includes(phone)).toBe(true);
+      expect(failure instanceof Error && failure.message === "Contact UI phone entry was unavailable" && !("cause" in failure)).toBe(true);
     } finally { await browser?.close(); }
   });
 
