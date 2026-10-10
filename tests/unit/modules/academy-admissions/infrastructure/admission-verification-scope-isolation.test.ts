@@ -9,11 +9,13 @@ import { recoverTestVerificationCode } from "@/tests/support/contact-verificatio
 import { PostgresAdmissionContactVerificationOperations } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission verification scope isolation", () => {
-  it("should reject a genuine code through another account, tribe or challenge without consuming it or changing global authentication", async () => {
+  it.each(["email", "sms", "whatsapp"] as const)("should reject a genuine %s code through another account, tribe or challenge without consuming it or changing global authentication", async (channel) => {
     await withAcademyAdmissionDatabase(async (database) => {
-      const fixture = await prepareAdmissionContactVerification(database), otherUserId = randomUUID(), otherSessionId = randomUUID(), otherAccountId = randomUUID(), otherTribeId = randomUUID(), otherEmail = `${otherUserId}@example.test`;
+      const fixture = await prepareAdmissionContactVerification(database, false, undefined, channel !== "email"), otherUserId = randomUUID(), otherSessionId = randomUUID(), otherAccountId = randomUUID(), otherTribeId = randomUUID(), otherEmail = `${otherUserId}@example.test`;
       await database.withContext(fixture.fixture.own, async (transaction) => {
-        await transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.context.tribeId}`);
+        if (channel !== "email") await transaction.execute(sql`update public.messaging_usage_policies set allowed_countries=ARRAY['AR'],version=version+1 where tribe_id=${fixture.context.tribeId}`);
+        if (channel === "whatsapp") await transaction.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,template_id,template_language,state,checked_at,tested_at) values (${fixture.context.tribeId},${fixture.fixture.scope.connectionId},1,'whatsapp','synthetic-whatsapp-sender','synthetic-otp-template','es','prepared',clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,phone_channel=${channel === "email" ? null : channel},verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.context.tribeId}`);
         await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${otherUserId},'Synthetic isolated code account',${otherEmail},false,clock_timestamp(),clock_timestamp())`);
         await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${otherAccountId},${otherUserId},'google',${randomUUID()},clock_timestamp(),clock_timestamp())`);
         await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${otherSessionId},${otherUserId},${randomUUID()},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
@@ -24,9 +26,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission v
         await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${now} where id=${otherTribeId}`);
       });
       const operations = new PostgresAdmissionContactVerificationOperations((_scope, run) => database.withContext(fixture.own, run), async () => fixture.fixture.config);
-      const issued = await operations.issue({ ...fixture.input, expectedPolicyVersion: 2 });
+      const issued = await operations.issue({ ...fixture.input, channel, expectedPolicyVersion: 2 });
       if (issued.state !== "completed") throw new Error("Admission scope isolation failed: original_challenge_unavailable");
-      const scope = { ...fixture.fixture.scope, userId: fixture.context.userId, contact: fixture.input.contact, verificationEpoch: 2 };
+      const scope = { ...fixture.fixture.scope, userId: fixture.context.userId, contact: fixture.input.contact, channel, verificationEpoch: 2 };
       const code = await recoverTestVerificationCode(database, { ...fixture.fixture, own: fixture.own, scope }, issued.result.challengeId);
       const otherOperations = new PostgresAdmissionContactVerificationOperations((_scope, run) => database.withContext({ userId: otherUserId, email: otherEmail }, run), async () => fixture.fixture.config);
       const original = { ...fixture.context, challengeId: issued.result.challengeId, verificationCode: code.code };
