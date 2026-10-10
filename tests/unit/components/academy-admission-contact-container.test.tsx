@@ -209,9 +209,14 @@ describe("applicant contact step in the route", () => {
     expect(fixture.client.submit).not.toHaveBeenCalled();
   });
 
-  it("should preserve the own pending and offer safe recovery when attaching a checked proof conflicts with another contact binding", async () => {
+  it.each(["email", "sms", "whatsapp"] as const)("should preserve the own pending and offer safe recovery when attaching a checked %s proof conflicts with another contact binding", async (channel) => {
     // Given an actual contact workflow with own pending state and a confirmed rejection from its HTTP port.
     const fixture = containerFixture(), user = userEvent.setup(), submittedAt = new Date().toISOString();
+    if (channel !== "email") {
+      fixture.initialState.overview.policy = { ...fixture.initialState.overview.policy!, contactType: "phone" };
+      fixture.initialState.overview.verification = { channel, allowedCountries: ["AR"] };
+      vi.mocked(fixture.contact.issue).mockImplementationOnce(async (_slug, input) => ({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { purpose: "admission", challengeId: randomUUID(), channel, maskedDestination: "•••1234", expiresAt: new Date(Date.now() + 600_000).toISOString(), resendAllowedAt: new Date(Date.now() + 60_000).toISOString(), deliveryState: "queued" } } }));
+    }
     const router = { back: vi.fn(), bfcacheId: "contact-conflict", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
     const pending: AdmissionRequestDto = { id: randomUUID(), status: "pending", version: 1, submittedAt, expiresAt: new Date(new Date(submittedAt).getTime() + ADMISSION_LIMIT.pendingValidityMs).toISOString(), source: "common", needsVerification: true, eligibilityReasons: ["local_proof_required"] };
     fixture.setRequest(pending);
@@ -220,6 +225,7 @@ describe("applicant contact step in the route", () => {
     render(<AppRouterContext.Provider value={router}><AppUIProvider><AdmissionContainer initialState={initialState} requestPage client={fixture.client} contactClient={fixture.contact} /></AppUIProvider></AppRouterContext.Provider>);
     const contactConsent = screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i });
     await waitFor(() => expect(contactConsent).toBeEnabled());
+    if (channel !== "email") await user.type(screen.getByLabelText("Teléfono para este ingreso"), "+5491155501234");
     await user.click(contactConsent);
     await user.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
     await user.type(await screen.findByLabelText("Código de ingreso"), "123456");

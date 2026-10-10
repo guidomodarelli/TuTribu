@@ -127,22 +127,23 @@ describe("applicant contact verification presentation", () => {
     expect(props.onResend).not.toHaveBeenCalled();
   });
 
-  it.each([
+  it.each(([
     { state: "accepted", label: "Aceptada por el proveedor" },
     { state: "delivered", label: "Entregada" },
     { state: "failed", label: "Entrega fallida" },
     { state: "unknown", label: "Entrega sin confirmar" },
     { state: "suppressed", label: "Envío bloqueado" },
     { state: "cancelled", label: "Envío cancelado" },
-  ] as const)("should keep a current local code usable without inventing proof when transport is $state", async ({ state, label }) => {
+  ] as const).flatMap((receipt) => (["email", "sms", "whatsapp"] as const).map((channel) => ({ ...receipt, channel }))))("should keep a current $channel code usable without inventing proof when transport is $state", async ({ state, label, channel }) => {
     // Given a current masked challenge with a separately observed transport result.
     const props = verificationProps(), user = userEvent.setup();
-    const challenge = { challengeId: randomUUID(), purpose: "admission" as const, channel: "email" as const, maskedDestination: "a•••@example.test", expiresAt: "2026-10-08T23:10:00Z", resendAllowedAt: "2026-10-08T23:01:00Z", deliveryState: state };
-    render(<ContactVerification {...props} challenge={challenge} canVerify verificationCode="123456" expiresInSeconds={300} resendInSeconds={30} />);
+    const maskedDestination = channel === "email" ? "a•••@example.test" : "•••1234";
+    const challenge = { challengeId: randomUUID(), purpose: "admission" as const, channel, maskedDestination, expiresAt: "2026-10-08T23:10:00Z", resendAllowedAt: "2026-10-08T23:01:00Z", deliveryState: state };
+    render(<ContactVerification {...props} channel={channel} allowedCountries={channel === "email" ? [] : ["AR"]} challenge={challenge} canVerify verificationCode="123456" expiresInSeconds={300} resendInSeconds={30} />);
 
     // When the applicant verifies, no delivery status substitutes for the proof.
     expect(screen.getByText(label)).toBeVisible();
-    expect(screen.getByText("a•••@example.test")).toBeVisible();
+    expect(screen.getByText(maskedDestination)).toBeVisible();
     expect(screen.queryByText("Código comprobado para este ingreso.")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Comprobar código" }));
     expect(props.onVerify).toHaveBeenCalledTimes(1);
