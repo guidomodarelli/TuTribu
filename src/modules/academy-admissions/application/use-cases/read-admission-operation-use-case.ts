@@ -14,8 +14,8 @@ import { admissionPolicyMutationResultSchema } from "../results/admission-policy
 export class ReadAdmissionOperationUseCase {
   /** @param accounts - Actual current account/session. @param reader - Own namespace/permission-aware readonly registry. @param clock - Fresh time after awaited reads. */
   constructor(private readonly accounts: AuthenticatedAccountProvider, private readonly reader: AdmissionOperationReader<unknown>, private readonly clock: () => Date) {}
-  /** @param query - Validated operation/tribe reference and safe correlation only. @returns Genuine registered state or a closed failure, never a fabricated job. */
-  async execute(query: { tribeId: string; operationId: string; requestId: string }) {
+  /** @param query - Validated operation/tribe reference and safe correlation only. @param options - Native transport composition may request actual viewer metadata; never browser input or authority. @returns Genuine registered state or a closed failure, never a fabricated job. */
+  async execute(query: { tribeId: string; operationId: string; requestId: string }, options: { includeViewer?: boolean } = {}) {
     try {
       const first = await this.accounts.getAuthenticatedAccount();
       if (!first || !isAuthenticatedSessionLive(first.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
@@ -31,7 +31,7 @@ export class ReadAdmissionOperationUseCase {
         if (parsed.data.operationType === ADMISSION_POLICY_OPERATION.activate && !original.controlActivated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
         if (parsed.data.operationType === ADMISSION_POLICY_OPERATION.initialize && original.changed && (original.version !== 1 || original.verificationEpoch !== 1 || original.controlActivated)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       }
-      return { ok: true as const, value: admissionOperationRecoverySchema.parse({ type: parsed.data.operationType, ...parsed.data.operation }) };
+      return { ok: true as const, value: admissionOperationRecoverySchema.parse({ type: parsed.data.operationType, ...parsed.data.operation }), ...(options.includeViewer ? { viewerId: first.userId } : {}) };
     } catch (error) { return admissionOperationFailure(error); }
   }
 }

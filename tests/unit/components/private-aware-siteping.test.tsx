@@ -25,6 +25,8 @@ describe("reporting tools on personal secret routes", () => {
   it.each([
     ["/admissions/invitations/synthetic-token", ""],
     ["/auth/signin", "callbackUrl=%2Fadmissions%2Finvitations%2Fsynthetic-token"],
+    ["/synthetic/academia/admissions/invitations", ""],
+    ["/auth/signin", "callbackUrl=%2Fsynthetic%2Facademia%2Fadmissions%2Finvitations"],
   ])("should avoid loading identity or the reporting widget on %s", async (pathname, query) => {
     const fetcher = vi.fn<typeof globalThis.fetch>(async () => Response.json({ enabled: false, identity: null, projectName: "synthetic" })); vi.stubGlobal("fetch", fetcher);
     render(<PathnameContext.Provider value={pathname}><SearchParamsContext.Provider value={new URLSearchParams(query)}><PrivateAwareSiteping /></SearchParamsContext.Provider></PathnameContext.Provider>);

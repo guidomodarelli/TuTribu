@@ -34,7 +34,7 @@ export class ManagePersonalInvitationsUseCases {
       if (expectedViewer && (authority.context.userId !== expectedViewer.userId || authority.context.sessionId !== expectedViewer.sessionId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const page = await this.reader.list(authority.context, { limit: input.limit, ...(input.status ? { status: input.status } : {}), ...(input.cursor ? { cursor: input.cursor } : {}) });
       if (page.invitations.some((invitation) => invitation.tribeId.toLowerCase() !== input.tribeId.toLowerCase())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      return { ok: true as const, value: { items: page.invitations.map(presentPersonalInvitation), nextCursor: page.nextCursor } };
+      return { ok: true as const, value: { items: page.invitations.map(presentPersonalInvitation), nextCursor: page.nextCursor }, viewerId: authority.context.userId };
     } catch (error) { return admissionOperationFailure(error); }
   }
   /** @param input - Exact resource inside the native tribe. @returns Its current metadata or closed absence; token never comes from history. */
@@ -44,7 +44,7 @@ export class ManagePersonalInvitationsUseCases {
       if (!authority.allowed) return { ok: false as const, failure: authority.failure };
       const invitation = await this.reader.read(authority.context, input.invitationId);
       if (invitation && (invitation.id.toLowerCase() !== input.invitationId.toLowerCase() || invitation.tribeId.toLowerCase() !== input.tribeId.toLowerCase())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      return invitation ? { ok: true as const, value: presentPersonalInvitation(invitation) } : { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.resourceUnavailable) };
+      return invitation ? { ok: true as const, value: presentPersonalInvitation(invitation), viewerId: authority.context.userId } : { ok: false as const, failure: admissionFailure(ADMISSION_ERROR_CODE.resourceUnavailable) };
     } catch (error) { return admissionOperationFailure(error); }
   }
   /** @param input - Explicit recipient/name/restrictions/expiry and optional observed replacement. @returns Original metadata, with a transient token only for a newly acknowledged creation. */
@@ -59,7 +59,7 @@ export class ManagePersonalInvitationsUseCases {
       const result = await this.writer.create({ context: authority.context, operationId: input.operationId, confirmed: input.confirmed, contact: contact.contact, internalName, requiresAllowlist: input.requiresAllowlist, allowlistExemptionAcknowledged: input.allowlistExemptionAcknowledged, ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {}), ...(input.replacement ? { replacement: input.replacement } : {}) });
       const parsed = personalInvitationCreationResultSchema.parse(result);
       if (parsed.operationId.toLowerCase() !== input.operationId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      return { ok: true as const, value: parsed };
+      return { ok: true as const, value: parsed, viewerId: authority.context.userId };
     } catch (error) { return personalInvitationOperationFailure(error, input.operationId); }
   }
   /** @param input - Exact observed descriptive edit. @returns Original versioned metadata without changing recipient or restriction fields. */
@@ -74,7 +74,7 @@ export class ManagePersonalInvitationsUseCases {
         const snapshot = result.result;
         if (snapshot.invitationId.toLowerCase() !== input.invitationId.toLowerCase() || snapshot.created || snapshot.version !== input.expectedVersion + (snapshot.changed ? 1 : 0)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       }
-      return { ok: true as const, value: result };
+      return { ok: true as const, value: result, viewerId: authority.context.userId };
     } catch (error) { return personalInvitationOperationFailure(error, input.operationId); }
   }
   /** @param input - Explicit active revoke or redeemed authorization withdrawal with reason and observed version. @returns The original result; related pending cancellation is owned by the same transaction. */
@@ -89,7 +89,7 @@ export class ManagePersonalInvitationsUseCases {
         const snapshot = result.result;
         if (snapshot.invitationId.toLowerCase() !== input.invitationId.toLowerCase() || snapshot.created || snapshot.version !== input.expectedVersion + (snapshot.changed ? 1 : 0)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       }
-      return { ok: true as const, value: result };
+      return { ok: true as const, value: result, viewerId: authority.context.userId };
     } catch (error) { return personalInvitationOperationFailure(error, input.operationId); }
   }
 }

@@ -10,7 +10,7 @@ import { resolveRequestContext } from "@/src/modules/shared/infrastructure/obser
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 /** @param input - Untrusted resolved params/query. @param open - Native server-selected read-only entrypoint. @returns Safe current leader state with no raw exception or partial metadata. */
-export async function loadPersonalInvitationManagementPageState(input: unknown, open: () => Promise<Pick<GetPersonalInvitationManagementPageUseCase, "execute">>): Promise<PersonalInvitationManagementPageState> {
+export async function loadPersonalInvitationManagementPageState(input: unknown, open: () => Promise<Pick<GetPersonalInvitationManagementPageUseCase, "execute"> & { publicOrigin?: () => string }>): Promise<PersonalInvitationManagementPageState> {
   const parsed = admissionInvitationPageInputSchema.safeParse(input);
   const failure = (code: AdmissionErrorCode): PersonalInvitationManagementPageState => ({ kind: "unavailable", code, message: ADMISSION_ERROR_MESSAGE[code] });
   if (!parsed.success) return failure(ADMISSION_ERROR_CODE.invalidInput);
@@ -21,7 +21,7 @@ export async function loadPersonalInvitationManagementPageState(input: unknown, 
       if (result.failure.code === ADMISSION_ERROR_CODE.unexpectedFailure || result.failure.code === ADMISSION_ERROR_CODE.publicContractUnusable) logger.error({ message: PERSONAL_INVITATION_MANAGEMENT_PAGE_DIAGNOSTIC.readFailure, metadata: { code: result.failure.code } });
       return failure(result.failure.code);
     }
-    const state = personalInvitationManagementPageStateSchema.safeParse(result.value);
+    const state = personalInvitationManagementPageStateSchema.safeParse(result.value.kind === "ready" && reader.publicOrigin ? { ...result.value, publicOrigin: new URL(reader.publicOrigin()).origin } : result.value);
     if (state.success) return state.data;
     logger.error({ message: PERSONAL_INVITATION_MANAGEMENT_PAGE_DIAGNOSTIC.contractFailure, metadata: { code: ADMISSION_ERROR_CODE.publicContractUnusable } });
     return failure(ADMISSION_ERROR_CODE.publicContractUnusable);

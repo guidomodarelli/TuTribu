@@ -15,6 +15,8 @@ export async function captureAdmissionReview(page: Page, name: string, forbidden
       if (omit) clone.querySelectorAll(omit).forEach((element) => element.remove());
       // Keep real labels while preventing a captured navigation target from retaining private route material.
       clone.querySelectorAll("a[href]").forEach((element) => { const href = element.getAttribute("href") ?? ""; if (privateValues.some((value) => value && (href.includes(value) || href.includes(encodeURIComponent(value))))) element.setAttribute("href", "#"); });
+      // A one-view link is capture-redacted in its real control, without exporting its secret value.
+      clone.querySelectorAll("input[readonly]").forEach((element) => { const value = element.getAttribute("value") ?? ""; if (privateValues.some((privateValue) => privateValue && value.includes(privateValue))) element.setAttribute("value", "[Enlace privado]"); });
     } }).blockedSheets.length) throw new Error("Reviewer capture stylesheet was unavailable");
   }, { captureName: name, privateValues: forbidden, ...options });
   const payload = await page.evaluate((values) => {

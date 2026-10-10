@@ -17,7 +17,7 @@ describe("admission original operation GET", () => {
 
   it("should expose recorded progress at 200 without a claim and reject actor/type query overrides", async () => {
     const operationId = randomUUID(), tribeId = randomUUID();
-    const read = vi.fn(async () => ({ ok: true as const, value: { type: "submit_admission", state: "started", operationId, leaseOwner: randomUUID() } }));
+    const viewerId = randomUUID(), read = vi.fn(async () => ({ ok: true as const, viewerId, value: { type: "submit_admission", state: "started", operationId, leaseOwner: randomUUID() } }));
     const open = vi.fn(async () => ({ resolveTribe: { execute: async () => ({ ok: true as const, value: { tribeId } }) }, operation: { execute: read } }));
     const handler = createAdmissionOperationHandler(open), context = { params: Promise.resolve({ slug: "synthetic-academy", operationId }) };
     const request = new Request(`https://tutribu.example.invalid/api/tribes/synthetic-academy/admissions/operations/${operationId}`);
@@ -25,7 +25,8 @@ describe("admission original operation GET", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.json()).toEqual({ type: "submit_admission", state: "started", operationId });
-    expect(read).toHaveBeenCalledWith({ tribeId, operationId, requestId: expect.any(String) });
+    expect(read).toHaveBeenCalledWith({ tribeId, operationId, requestId: expect.any(String) }, { includeViewer: true });
+    expect(JSON.parse(response.headers.get("x-tutribu-admission-viewer")!)).toEqual({ viewerId });
     open.mockClear();
     expect((await handler(new Request(`${request.url}?userId=foreign&type=decide_admission_request`), context)).status).toBe(400);
     expect(open).not.toHaveBeenCalled();

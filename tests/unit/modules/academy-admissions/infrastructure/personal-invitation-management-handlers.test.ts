@@ -14,11 +14,11 @@ function setup() {
     resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) },
     publicOrigin: vi.fn(() => "https://tutribu.example.test"),
     invitations: {
-      list: vi.fn(async () => ({ ok: true as const, value: { items: [metadata], nextCursor: null } })),
-      read: vi.fn(async () => ({ ok: true as const, value: metadata })),
-      create: vi.fn(async () => ({ ok: true as const, value: { state: "completed" as const, operationId, replayed: false as const, result: snapshot, initialToken: randomBytes(32).toString("base64url") } })),
-      rename: vi.fn(async () => ({ ok: true as const, value: { state: "completed" as const, operationId, replayed: false, result: { ...snapshot, version: 2, created: false } } })),
-      revoke: vi.fn(async () => ({ ok: true as const, value: { state: "completed" as const, operationId, replayed: false, result: { ...snapshot, version: 2, created: false } } })),
+      list: vi.fn(async () => ({ ok: true as const, viewerId: "synthetic-leader", value: { items: [metadata], nextCursor: null } })),
+      read: vi.fn(async () => ({ ok: true as const, viewerId: "synthetic-leader", value: metadata })),
+      create: vi.fn(async () => ({ ok: true as const, viewerId: "synthetic-leader", value: { state: "completed" as const, operationId, replayed: false as const, result: snapshot, initialToken: randomBytes(32).toString("base64url") } })),
+      rename: vi.fn(async () => ({ ok: true as const, viewerId: "synthetic-leader", value: { state: "completed" as const, operationId, replayed: false, result: { ...snapshot, version: 2, created: false } } })),
+      revoke: vi.fn(async () => ({ ok: true as const, viewerId: "synthetic-leader", value: { state: "completed" as const, operationId, replayed: false, result: { ...snapshot, version: 2, created: false } } })),
     },
   };
   const open = vi.fn(async () => services), handlers = createPersonalInvitationManagementHandlers(open);
@@ -63,7 +63,7 @@ describe("personal invitation management HTTP", () => {
     expect(new URL(body.invitationUrl).pathname).toMatch(/^\/admissions\/invitations\/[A-Za-z0-9_-]{43}$/u);
     expect(body).not.toHaveProperty("initialToken");
     expect(fixture.services.invitations.create).toHaveBeenCalledWith({ tribeId: fixture.tribeId, requestId: "synthetic-management", operationId: fixture.operationId, confirmed: true, internalName: "Grupo inicial", contactType: "email", identity: "recipient@example.test", requiresAllowlist: true, allowlistExemptionAcknowledged: false });
-    vi.mocked(fixture.services.invitations.create).mockResolvedValueOnce({ ok: true, value: { state: "completed", operationId: fixture.operationId, replayed: true, result: fixture.snapshot } });
+    vi.mocked(fixture.services.invitations.create).mockResolvedValueOnce({ ok: true, viewerId: "synthetic-leader", value: { state: "completed", operationId: fixture.operationId, replayed: true, result: fixture.snapshot } });
     const replay = await fixture.handlers.create(fixture.request("POST", fixture.creation), { params: Promise.resolve({ slug: "synthetic" }) });
     expect(replay.status).toBe(200);
     expect(await replay.json()).toEqual({ state: "completed", operationId: fixture.operationId, replayed: true, result: fixture.snapshot });
@@ -84,7 +84,7 @@ describe("personal invitation management HTTP", () => {
 
   it("should retain original started progress without an invented invitation or URL", async () => {
     const fixture = setup();
-    vi.mocked(fixture.services.invitations.create).mockResolvedValueOnce({ ok: true, value: { state: "started", operationId: fixture.operationId } });
+    vi.mocked(fixture.services.invitations.create).mockResolvedValueOnce({ ok: true, viewerId: "synthetic-leader", value: { state: "started", operationId: fixture.operationId } });
     const response = await fixture.handlers.create(fixture.request("POST", fixture.creation), { params: Promise.resolve({ slug: "synthetic" }) });
     expect(response.status).toBe(202);
     expect(await response.json()).toEqual({ state: "started", operationId: fixture.operationId });
@@ -114,9 +114,9 @@ describe("personal invitation management HTTP", () => {
 
   it("should close another original operation or mismatched resource before returning a public outcome", async () => {
     const fixture = setup();
-    vi.mocked(fixture.services.invitations.create).mockResolvedValueOnce({ ok: true, value: { state: "completed", operationId: randomUUID(), replayed: true, result: fixture.snapshot } });
+    vi.mocked(fixture.services.invitations.create).mockResolvedValueOnce({ ok: true, viewerId: "synthetic-leader", value: { state: "completed", operationId: randomUUID(), replayed: true, result: fixture.snapshot } });
     expect((await fixture.handlers.create(fixture.request("POST", fixture.creation), { params: Promise.resolve({ slug: "synthetic" }) })).status).toBe(500);
-    vi.mocked(fixture.services.invitations.read).mockResolvedValueOnce({ ok: true, value: { ...fixture.metadata, id: randomUUID() } });
+    vi.mocked(fixture.services.invitations.read).mockResolvedValueOnce({ ok: true, viewerId: "synthetic-leader", value: { ...fixture.metadata, id: randomUUID() } });
     expect((await fixture.handlers.read(fixture.request(), fixture.context)).status).toBe(500);
   });
 });
