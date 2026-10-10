@@ -40,6 +40,16 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist p
       expect(later).toMatchObject({ state: "completed", result: { version: 3, changed: true } });
       expect(await fixture.writer.update(update)).toEqual({ ...changed, replayed: true });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select version,status,display_name from public.academy_allowlist_entries where id=${entryId}`)).rows)).toEqual([{ version: 3, status: "disabled", display_name: "Cambio posterior" }]);
+      const reenable = { ...update, operationId: randomUUID(), expectedVersion: 3, patch: { status: "enabled" as const } };
+      expect(await fixture.writer.update(reenable)).toMatchObject({ state: "completed", result: { entryId, version: 4, changed: true } });
+      expect(await fixture.writer.update({ ...reenable, operationId: randomUUID(), expectedVersion: 4 })).toMatchObject({ state: "completed", result: { entryId, version: 4, changed: false } });
+      await expect(fixture.writer.update({ ...reenable, operationId: randomUUID() })).rejects.toMatchObject({ code: "allowlist_conflict", operationState: "completed" });
+      expect(await fixture.writer.update(update)).toEqual({ ...changed, replayed: true });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select version,status,display_name from public.academy_allowlist_entries where id=${entryId}`)).rows).toEqual([{ version: 4, status: "enabled", display_name: "Cambio posterior" }]);
+        expect((await transaction.execute(sql`select count(*)::int as total from public.academy_admission_contact_bindings where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ total: 0 }]);
+        expect((await transaction.execute(sql`select count(*)::int as total from public.tribe_members where tribe_id=${fixture.tribeId} and role='tribemate'`)).rows).toEqual([{ total: 0 }]);
+      });
     });
   }, 1_200_000);
 
