@@ -1812,6 +1812,9 @@ export const subscriptionPaymentPeriods = pgTable("subscription_payment_periods"
 /** Composes admission-owned projections after all existing parent tables exist. */
 export const {
   tribeNamespaces: academyAdmissionTribeNamespaces,
+  retiredBindings: academyAdmissionRetiredBindings,
+  retiredOperations: academyAdmissionRetiredOperations,
+  retiredAuditEvents: academyAdmissionRetiredAuditEvents,
   policies: academyAdmissionPolicies,
   allowlistEntries: academyAllowlistEntries,
   personalInvitations: academyPersonalInvitations,
@@ -1836,7 +1839,7 @@ export const {
   messagingSecretEnvelopes, messagingConnectionCapabilities, messagingConnectionDiagnostics,
   messagingContactBudgetSubjects, messagingContactFingerprintAliases, messageDeliveries,
   verificationCodeEnvelopes, messageDeliveryAttempts, messagingUsageReservations, messagingUsageEvents,
-} = createMessagingSchema({ tribes, user: users, contactVerificationChallenges });
+} = createMessagingSchema({ tribeNamespaces: academyAdmissionTribeNamespaces, user: users, contactVerificationChallenges });
 
 /** Composes the private membership source after both owners' tables exist. */
 export const academyAdmissionMembershipEffects=createAdmissionMembershipEffectsSchema({tribes,users,members:tribeMembers,decisions:academyAdmissionDecisions});

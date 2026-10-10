@@ -6,6 +6,7 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
 import {ADMISSION_VERIFICATION_PURPOSE} from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import {VERIFICATION_ISSUANCE_OPERATION} from "@/src/modules/academy-admissions/constants/verification-issuance";
 import { ADMISSION_TRIBE_NAMESPACE_DATABASE } from "@/src/modules/academy-admissions/constants/admission-tribe-namespace";
+import { ADMISSION_TRIBE_ARCHIVE_DATABASE } from "@/src/modules/academy-admissions/constants/admission-tribe-archive";
 
 /** Resolves cross-owner columns after both table factories have finished. */
 export type AdmissionMessagingSchemaReferences = {
@@ -72,6 +73,62 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
     retiredAt: timestamp("retired_at", { withTimezone: true }),
   }, (table) => ({ retirementCheck: check(ADMISSION_TRIBE_NAMESPACE_DATABASE.retirementConstraintName, sql`${table.retiredAt} is null or ${table.retiredAt}>=${table.createdAt}`) }));
+  /** Retains protected contact ownership without normalized contact or account identity. */
+  const retiredBindings = pgTable(ADMISSION_TRIBE_ARCHIVE_DATABASE.bindings.tableName, {
+    id: uuid("id").primaryKey(),
+    tribeId: uuid("tribe_id").notNull().references(() => tribeNamespaces.tribeId),
+    contactType: text("contact_type").notNull(),
+    contactFingerprint: binaryData("contact_fingerprint").notNull(),
+    fingerprintKeyId: text("fingerprint_key_id").notNull(),
+    ownerReferenceId: uuid("owner_reference_id").notNull(),
+    firstRequestReferenceId: uuid("first_request_reference_id"),
+    firstProofReferenceId: uuid("first_proof_reference_id"),
+    evidenceSource: text("evidence_source").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+  }, (table) => ({
+    scopeKey: unique(ADMISSION_TRIBE_ARCHIVE_DATABASE.bindings.scopeConstraint).on(table.id, table.tribeId),
+    retirementCheck: check(ADMISSION_TRIBE_ARCHIVE_DATABASE.bindings.timeConstraint, sql`${table.retiredAt}>=${table.createdAt}`),
+    contactCheck: check(ADMISSION_TRIBE_ARCHIVE_DATABASE.bindings.contactConstraint, sql`${table.contactType} in ('email','phone')`),
+    contactIndex: index(ADMISSION_TRIBE_ARCHIVE_DATABASE.bindings.contactIndex).on(table.tribeId, table.contactType, table.fingerprintKeyId, table.contactFingerprint),
+  }));
+  /** Retains operation identity and terminal metadata without public result or claim material. */
+  const retiredOperations = pgTable(ADMISSION_TRIBE_ARCHIVE_DATABASE.operations.tableName, {
+    id: uuid("id").primaryKey(),
+    tribeId: uuid("tribe_id").notNull().references(() => tribeNamespaces.tribeId),
+    actorReferenceId: uuid("actor_reference_id").notNull(),
+    operationType: text("operation_type").notNull(),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    intentFingerprint: binaryData("intent_fingerprint").notNull(),
+    fingerprintKeyId: text("fingerprint_key_id").notNull(),
+    state: text("state").notNull(),
+    version: integer("version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+  }, (table) => ({
+    scopeKey: unique(ADMISSION_TRIBE_ARCHIVE_DATABASE.operations.scopeConstraint).on(table.id, table.tribeId),
+    retirementCheck: check(ADMISSION_TRIBE_ARCHIVE_DATABASE.operations.timeConstraint, sql`${table.retiredAt}>=${table.createdAt}`),
+    versionCheck: check(ADMISSION_TRIBE_ARCHIVE_DATABASE.operations.versionConstraint, sql`${table.version}>0`),
+  }));
+  /** Keeps audit provenance without free metadata, account identifiers or provider payload. */
+  const retiredAuditEvents = pgTable(ADMISSION_TRIBE_ARCHIVE_DATABASE.auditEvents.tableName, {
+    id: uuid("id").primaryKey(),
+    tribeId: uuid("tribe_id").notNull().references(() => tribeNamespaces.tribeId),
+    actorReferenceId: uuid("actor_reference_id"),
+    operationId: uuid("operation_id"),
+    resourceType: text("resource_type").notNull(),
+    resourceId: uuid("resource_id"),
+    eventType: text("event_type").notNull(),
+    rule: text("rule"),
+    resourceVersion: integer("resource_version"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+  }, (table) => ({
+    operationForeignKey: foreignKey({ name: ADMISSION_TRIBE_ARCHIVE_DATABASE.auditEvents.operationConstraint, columns: [table.operationId, table.tribeId], foreignColumns: [retiredOperations.id, retiredOperations.tribeId] }),
+    retirementCheck: check(ADMISSION_TRIBE_ARCHIVE_DATABASE.auditEvents.timeConstraint, sql`${table.retiredAt}>=${table.createdAt}`),
+    historyIndex: index(ADMISSION_TRIBE_ARCHIVE_DATABASE.auditEvents.historyIndex).on(table.tribeId, table.createdAt.desc()),
+  }));
   const policies = pgTable("academy_admission_policies", {
     tribeId: uuid("tribe_id").primaryKey(),
     mode: text("mode").notNull().default("manual_review"), contactType: text("contact_type").notNull().default("email"),
@@ -337,6 +394,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
   }));
   return {
     tribeNamespaces: tribeNamespaces.enableRLS(),
+    retiredBindings: retiredBindings.enableRLS(), retiredOperations: retiredOperations.enableRLS(), retiredAuditEvents: retiredAuditEvents.enableRLS(),
     policies: policies.enableRLS(), allowlistEntries: allowlistEntries.enableRLS(), personalInvitations: personalInvitations.enableRLS(), challenges: challenges.enableRLS(),
     proofs: proofs.enableRLS(), requests: requests.enableRLS(), bindings: bindings.enableRLS(), decisions: decisions.enableRLS(), operations: operations.enableRLS(),
     imports: imports.enableRLS(), importRows: importRows.enableRLS(), auditEvents: auditEvents.enableRLS(), notificationObligations: notificationObligations.enableRLS(),

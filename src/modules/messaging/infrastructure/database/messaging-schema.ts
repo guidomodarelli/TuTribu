@@ -8,7 +8,7 @@ import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messagi
 import { MESSAGING_DEFAULT_CONNECTION_NAME } from "@/src/modules/messaging/constants/messaging-connection";
 
 type MessagingSchemaParents = {
-  tribes: { id: AnyPgColumn };
+  tribeNamespaces: { tribeId: AnyPgColumn };
   user: { id: AnyPgColumn };
   contactVerificationChallenges: { id: AnyPgColumn; tribeId: AnyPgColumn; userId: AnyPgColumn };
 };
@@ -34,7 +34,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     createdAt: timestamp("created_at",{withTimezone:true}).notNull().default(sql.raw("clock_timestamp()")),
     updatedAt: timestamp("updated_at",{withTimezone:true}).notNull().default(sql.raw("clock_timestamp()")),
   }, (table): PgTableExtraConfig => ({
-    messagingUsageTribeFkey: foreignKey({name:"messaging_usage_tribe_fkey",columns:[table.tribeId],foreignColumns:[parents.tribes.id]}).onDelete("cascade"),
+    messagingUsageTribeFkey: foreignKey({name:"messaging_usage_tribe_fkey",columns:[table.tribeId],foreignColumns:[parents.tribeNamespaces.tribeId]}),
     messagingUsageVerificationLimitCheck: check("messaging_usage_verification_limit_check",sql.raw("verification_daily_limit BETWEEN 0 AND 1000")),
     messagingUsageNotificationLimitCheck: check("messaging_usage_notification_limit_check",sql.raw("notification_daily_limit BETWEEN 0 AND 5000")),
     messagingUsagePlatformVerificationCheck: check("messaging_usage_platform_verification_check",sql.raw("platform_verification_daily_maximum BETWEEN 0 AND 1000")),
@@ -63,7 +63,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     updatedAt: timestamp("updated_at",{withTimezone:true}).notNull().default(sql.raw("clock_timestamp()")),
     retiredAt: timestamp("retired_at",{withTimezone:true}),
   }, (table): PgTableExtraConfig => ({
-    messagingConnectionTribeFkey: foreignKey({name:"messaging_connection_tribe_fkey",columns:[table.tribeId],foreignColumns:[parents.tribes.id]}).onDelete("cascade"),
+    messagingConnectionTribeFkey: foreignKey({name:"messaging_connection_tribe_fkey",columns:[table.tribeId],foreignColumns:[parents.tribeNamespaces.tribeId]}),
     messagingConnectionProviderCheck: check("messaging_connection_provider_check",sql.raw("provider='zavu'")),
     messagingConnectionContributorFkey: foreignKey({name:"messaging_connection_contributor_fkey",columns:[table.contributedByUserId],foreignColumns:[parents.user.id]}).onDelete("set null"),
     messagingConnectionStateCheck: check("messaging_connection_state_check",sql.raw("state IN ('draft','ready','active','degraded','suspended','disconnected')")),
@@ -335,7 +335,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     credentialConnectionVersion: integer("credential_connection_version"),
     occurredAt: timestamp("occurred_at",{withTimezone:true}).notNull().default(sql.raw("clock_timestamp()")),
   }, (table): PgTableExtraConfig => ({
-    messagingUsageEventTribeFkey: foreignKey({name:"messaging_usage_event_tribe_fkey",columns:[table.tribeId],foreignColumns:[parents.tribes.id]}).onDelete("cascade"),
+    messagingUsageEventTribeFkey: foreignKey({name:"messaging_usage_event_tribe_fkey",columns:[table.tribeId],foreignColumns:[parents.tribeNamespaces.tribeId]}),
     messagingUsageEventActorFkey: foreignKey({name:"messaging_usage_event_actor_fkey",columns:[table.actorUserId],foreignColumns:[parents.user.id]}).onDelete("set null"),
     messagingUsageEventSubjectFkey: foreignKey({name:"messaging_usage_event_subject_fkey",columns:[table.contactSubjectId],foreignColumns:[messagingContactBudgetSubjects.id]}),
     messagingUsageEventTypeCheck: check("messaging_usage_event_type_check",sql.raw("event_type IN ('code_request','code_failure','diagnostic_request','credential_validation')")),
