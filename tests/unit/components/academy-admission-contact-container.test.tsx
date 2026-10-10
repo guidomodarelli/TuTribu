@@ -8,6 +8,9 @@ import type { AdmissionPageState } from "@/src/modules/academy-admissions/applic
 import type { AdmissionBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
 import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 
 afterEach(() => window.sessionStorage.clear());
 
@@ -129,6 +132,48 @@ describe("applicant contact step in the route", () => {
     expect(await screen.findByLabelText("Código de ingreso")).toBeEnabled();
     expect(screen.queryByText(message)).not.toBeInTheDocument();
     expect(fixture.client.submit).not.toHaveBeenCalled();
+  });
+
+  it("should preserve the own pending and offer safe recovery when attaching a checked proof conflicts with another contact binding", async () => {
+    // Given an actual contact workflow with own pending state and a confirmed rejection from its HTTP port.
+    const fixture = containerFixture(), user = userEvent.setup(), submittedAt = new Date().toISOString();
+    const router = { back: vi.fn(), bfcacheId: "contact-conflict", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
+    const pending: AdmissionRequestDto = { id: randomUUID(), status: "pending", version: 1, submittedAt, expiresAt: new Date(new Date(submittedAt).getTime() + ADMISSION_LIMIT.pendingValidityMs).toISOString(), source: "common", needsVerification: true, eligibilityReasons: ["local_proof_required"] };
+    fixture.setRequest(pending);
+    const initialState = { ...fixture.initialState, request: pending, overview: { ...fixture.initialState.overview, state: "pending" as const, nextAction: "view_request" as const, request: pending } };
+    vi.mocked(fixture.contact.apply).mockImplementationOnce(async (_slug, _requestId, input) => ({ status: "failed", code: "contact_binding_conflict", message: "No pudimos usar ese contacto para el ingreso. Revisá tu cuenta o pedí ayuda.", uncertain: false, operation: { operationId: input.operationId, state: "completed" } }));
+    render(<AppRouterContext.Provider value={router}><AppUIProvider><AdmissionContainer initialState={initialState} requestPage client={fixture.client} contactClient={fixture.contact} /></AppUIProvider></AppRouterContext.Provider>);
+    const contactConsent = screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i });
+    await waitFor(() => expect(contactConsent).toBeEnabled());
+    await user.click(contactConsent);
+    await user.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
+    await user.type(await screen.findByLabelText("Código de ingreso"), "123456");
+    await user.click(screen.getByRole("button", { name: "Comprobar código" }));
+    expect(await screen.findByText("Código comprobado para este ingreso.")).toBeVisible();
+
+    // When the verified proof is explicitly attached, another binding is never treated as success.
+    await user.click(await screen.findByRole("button", { name: "Aplicar prueba a esta solicitud" }));
+    const recovery = await screen.findByText("No pudimos usar ese contacto para el ingreso. Revisá tu cuenta o pedí ayuda.");
+    expect(recovery).toBeVisible();
+    expect(recovery).toHaveAttribute("role", "alert");
+    expect(screen.getByText("Presentada").parentElement?.querySelector("time")).toHaveAttribute("datetime", pending.submittedAt);
+    expect(screen.getByText("Plazo de la solicitud").parentElement?.querySelector("time")).toHaveAttribute("datetime", pending.expiresAt);
+    expect(screen.queryByText("La prueba quedó aplicada a tu solicitud pendiente.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Abrir academia" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Solicitar ingreso" })).not.toBeInTheDocument();
+    expect(fixture.contact.apply).toHaveBeenCalledExactlyOnceWith("synthetic-academy", pending.id, expect.objectContaining({ proofId: fixture.proofId, expectedVersion: pending.version, confirmed: true }), expect.any(AbortSignal));
+    expect(fixture.contact.issue).toHaveBeenCalledOnce();
+    expect(fixture.contact.verify).toHaveBeenCalledOnce();
+    expect(fixture.contact.resend).not.toHaveBeenCalled();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
+    expect(fixture.client.cancel).not.toHaveBeenCalled();
+    expect(fixture.client.overview).not.toHaveBeenCalled();
+    expect(fixture.client.own).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
+    // Cancellation remains an own request action; the contact conflict never approves or replaces that request.
+    expect(screen.getByRole("checkbox", { name: /Confirmo que quiero cancelar esta solicitud/i })).toBeEnabled();
   });
 
   it("should apply the opaque proof to the same pending and preserve original dates without another presentation", async () => {
