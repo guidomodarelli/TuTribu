@@ -88,7 +88,7 @@ Pertenece a `messaging`: actor líder, tribu, conexión/versión, canal/template
 
 Referencia privada del ámbito de tribu: `tribe_id`, `created_at` de registro y `retired_at` opcional. No contiene nombre, contacto, owner, token ni credencial. El registro conserva la identidad después de una eliminación física completada y bloquea su reutilización, liberación o reactivación; una eliminación rechazada revierte el cambio. El backfill y los triggers se instalan bajo bloqueo de DML de tribus en la misma transacción.
 
-RLS forzado limita el registro al owner de persistencia; no existe DTO o control de UI que exponga la referencia retirada. La integración completa de eliminación y la secuencia de despliegue siguen pendientes en T111 y las tareas de persistencia/despliegue.
+RLS forzado limita el registro al owner de persistencia; no existe DTO o control de UI que exponga la referencia retirada. T111 acredita la minimización y el grafo local de eliminación, incluidos ingresos base/personales ON, CSV, rollback y entrega incierta. La integración de la secuencia de despliegue/restore y el mantenimiento de T171 siguen pendientes.
 
 ### `RetiredAdmissionProvenance`
 

@@ -1,6 +1,6 @@
 /** @vitest-environment node */
-/** Exercises actual email/phone proof consumption during personal submission with no external provider request. @module personal-invitation-local-proof-persistence-tests */
-import { randomUUID } from "node:crypto";
+/** Exercises personal proof consumption and physical retirement without changing global identity. @module personal-invitation-local-proof-persistence-tests */
+import { createHash, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -50,6 +50,35 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal ON
         expect((await transaction.execute(sql`select source,evidence_source,status from public.academy_admission_requests where id=${requestId}`)).rows).toEqual([{ source: "personal", evidence_source: "local", status: "approved" }]);
         expect((await transaction.execute(sql`select event_type from public.academy_admission_notification_obligations where tribe_id=${fixture.context.tribeId}`)).rows).toEqual([{ event_type: "approved" }]);
       });
+      for (const migration of ["20261005100000_guard_messaging_secret_retirement.sql", "20261010100000_minimize_deleted_admission_contact_owners.sql", "20261010113000_preserve_admission_tribe_namespaces.sql", "20261010120000_archive_deleted_admission_tribe_provenance.sql", "20261010121000_retire_deleted_tribe_messaging.sql"]) await database.applyMigration(migration);
+      const before = await database.withContext(fixture.own, async (transaction) => {
+        const binding = (await transaction.execute<{ id: string; owner_reference_id: string }>(sql`select id,owner_reference_id from public.academy_admission_contact_bindings where tribe_id=${fixture.context.tribeId} and first_request_id=${requestId}`)).rows[0];
+        if (!binding) throw new Error("Personal tribe retirement fixture failed: consumed_contact_binding_unavailable");
+        return { binding, usage: (await transaction.execute<{ total: number }>(sql`select count(*)::int as total from public.messaging_usage_events where tribe_id=${fixture.context.tribeId}`)).rows[0].total };
+      });
+      /** Reads a private snapshot only to compare it in memory. @returns A private SHA256 digest; no values or digest are exported. */
+      const globalIdentityChecksum = () => database.withContext(fixture.own, async (transaction) => {
+        const snapshot = (await transaction.execute<{ snapshot: unknown }>(sql`select jsonb_build_object('user',(select to_jsonb(account_user) from public."user" account_user where id=${fixture.context.userId}),'accounts',(select jsonb_agg(to_jsonb(account) order by id) from public.account where "userId"=${fixture.context.userId}),'sessions',(select jsonb_agg(to_jsonb(session) order by id) from public.session where "userId"=${fixture.context.userId}),'bindings',(select jsonb_agg(to_jsonb(binding) order by session_id) from public.global_session_identity_bindings binding where user_id=${fixture.context.userId}),'evidence',(select jsonb_agg(to_jsonb(evidence) order by id) from public.global_identity_evidence evidence where user_id=${fixture.context.userId})) as snapshot`)).rows[0].snapshot;
+        return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
+      });
+      const globalBefore = await globalIdentityChecksum();
+      await expect(database.withContext(fixture.fixture.own, async (transaction) => {
+        await transaction.execute(sql`delete from public.tribes where id=${fixture.context.tribeId}`);
+        throw new Error("Controlled personal tribe retirement rollback");
+      })).rejects.toThrow("Controlled personal tribe retirement rollback");
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select status,applied_request_id from public.academy_admission_verification_proofs where id=${input.proofId}`)).rows).toEqual([{ status: "applied", applied_request_id: requestId }]);
+        expect((await transaction.execute(sql`select count(*)::int as total from public.academy_admission_retired_bindings where tribe_id=${fixture.context.tribeId}`)).rows).toEqual([{ total: 0 }]);
+      });
+      await database.withContext(fixture.fixture.own, (transaction) => transaction.execute(sql`delete from public.tribes where id=${fixture.context.tribeId}`));
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select id,owner_reference_id,first_request_reference_id,first_proof_reference_id,evidence_source from public.academy_admission_retired_bindings where tribe_id=${fixture.context.tribeId}`)).rows).toEqual([{ id: before.binding.id, owner_reference_id: before.binding.owner_reference_id, first_request_reference_id: requestId, first_proof_reference_id: input.proofId, evidence_source: "local" }]);
+        expect((await transaction.execute(sql`select count(*)::int as total from public.academy_personal_invitations where id=${invitationId}`)).rows).toEqual([{ total: 0 }]);
+        expect((await transaction.execute(sql`select count(*)::int as total from public.academy_admission_requests where id=${requestId}`)).rows).toEqual([{ total: 0 }]);
+        expect((await transaction.execute(sql`select count(*)::int as total from public.academy_admission_verification_proofs where id=${input.proofId}`)).rows).toEqual([{ total: 0 }]);
+        expect((await transaction.execute(sql`select count(*)::int as total from public.messaging_usage_events where tribe_id=${fixture.context.tribeId}`)).rows).toEqual([{ total: before.usage }]);
+      });
+      expect((await globalIdentityChecksum()) === globalBefore).toBe(true);
     });
   }, 1_200_000);
 });
