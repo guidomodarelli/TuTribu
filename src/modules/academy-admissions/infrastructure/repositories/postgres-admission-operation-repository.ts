@@ -16,6 +16,8 @@ import { createAdmissionOperationFingerprint } from "@/src/modules/academy-admis
 import {readAdmissionOperationVerificationPurpose} from "@/src/modules/academy-admissions/infrastructure/verification/admission-operation-purpose";
 
 type DatabaseExecutor = <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
+/** Resolves current actor/resource authority inside the exact transaction holding its required locks. */
+type OperationAuthorizer = (database: RequestDatabase, command: AdmissionOperationCommand) => Promise<boolean>;
 type OperationRow = { id: string; state: "started" | "completed"; version: number; lease_owner: string | null; lease_until: string | null; fingerprint_key_id: string; intent_fingerprint: Uint8Array; public_result: unknown };
 type OperationClaim<Result> = AdmissionOperationResult<Result> | { state: "claimed"; ledgerId: string; owner: string; version: number };
 
@@ -96,13 +98,21 @@ export class PostgresAdmissionOperationRepository {
    * @param executeWithDatabase - Existing guarded current-user executor.
    * @param authorize - Mandatory transaction-bound current permission/resource check, including necessary locks.
    * @param readSecurityConfig - Explicit local hosting-secret snapshot; no outbound work inside a transaction.
+   * @param authorizeRegistration - Optional current authority guard for registry-only claims; business effects always use authorize.
    */
-  constructor(private readonly executeWithDatabase: DatabaseExecutor, private readonly authorize: (database: RequestDatabase, command: AdmissionOperationCommand) => Promise<boolean>, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
+  constructor(private readonly executeWithDatabase: DatabaseExecutor, private readonly authorize: OperationAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly authorizeRegistration?: OperationAuthorizer) {}
 
-  /** Re-resolves the actor and owner-specific current authority before any replay or fingerprint comparison. */
-  private async assertAuthorized(database: RequestDatabase, command: AdmissionOperationCommand): Promise<void> {
+  /**
+   * Re-resolves current actor and owner authority before replay or fingerprint comparison.
+   * @param database - Exact guarded registry or business transaction.
+   * @param command - Fixed actor/tenant/original intent.
+   * @param authorize - Current owner guard; defaults to the business authority.
+   * @returns After confirming the database actor and current resource permission.
+   * @throws AdmissionOperationError when either current authority check denies access.
+   */
+  private async assertAuthorized(database: RequestDatabase, command: AdmissionOperationCommand, authorize: OperationAuthorizer = this.authorize): Promise<void> {
     const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
-    if (actor !== command.actorUserId || !await this.authorize(database, command)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    if (actor !== command.actorUserId || !await authorize(database, command)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
   }
 
   /** Locks only the exact actor/tenant/type/client-key namespace, never another actor's operation. */
@@ -121,7 +131,7 @@ export class PostgresAdmissionOperationRepository {
   /** Creates a durable claim or returns a confirmed replay/live claim before touching a resource CAS. */
   private async claim<Result>(command: AdmissionOperationCommand, schema: z.ZodType<Result>): Promise<OperationClaim<Result>> {
     return this.executeWithDatabase(async (database) => {
-      await this.assertAuthorized(database, command);
+      await this.assertAuthorized(database, command, this.authorizeRegistration);
       const fingerprint = createAdmissionOperationFingerprint(await this.readSecurityConfig());
       let row = await this.readLocked(database, command);
       const owner = randomUUID();
@@ -131,14 +141,14 @@ export class PostgresAdmissionOperationRepository {
         const purposeColumn=verificationPurpose===null?sql``:sql`,verification_purpose`,purposeValue=verificationPurpose===null?sql``:sql`,${verificationPurpose}`;
         const inserted = (await database.execute<OperationRow>(sql`insert into public.academy_admission_operations(actor_user_id,tribe_id,operation_type,idempotency_key,intent_fingerprint,fingerprint_key_id,lease_owner,lease_until${purposeColumn}) values (${command.actorUserId},${command.tribeId},${command.operationType},${command.idempotencyKey},${Buffer.from(signed.digest)},${signed.keyId},${owner},clock_timestamp()+${ADMISSION_OPERATION_LEASE_MS}*interval '1 millisecond'${purposeValue}) on conflict(actor_user_id,tribe_id,operation_type,idempotency_key) do nothing returning id,state,version,lease_owner,lease_until,fingerprint_key_id,intent_fingerprint,public_result`)).rows[0];
         if (inserted) {
-          await this.assertAuthorized(database, command);
+          await this.assertAuthorized(database, command, this.authorizeRegistration);
           return { state: "claimed", ledgerId: inserted.id, owner, version: inserted.version };
         }
         row = await this.readLocked(database, command);
       }
       if (!row) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
       const matches = await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint);
-      await this.assertAuthorized(database, command);
+      await this.assertAuthorized(database, command, this.authorizeRegistration);
       if (!matches) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict, { operationId: command.idempotencyKey });
       if (row.state === OPERATION_STATE.completed) return this.project(command, row, schema);
       const now = await clock(database);
