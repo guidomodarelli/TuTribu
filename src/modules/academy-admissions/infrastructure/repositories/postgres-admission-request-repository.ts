@@ -49,6 +49,7 @@ import { ADMISSION_PROOF_APPLICATION_OUTCOME } from "../../constants/admission-p
 import { ADMISSION_POLICY_MODE } from "../../constants/admission-policy";
 import { readAllowlistAdmissionFacts } from "./postgres-allowlist-admission-facts";
 import { bindBaseAdmissionContact } from "./postgres-base-admission-binding";
+import { assertUnreservedAdmissionContact } from "./assert-unreserved-admission-contact";
 import { proposeAutomaticAdmissionDecision, type AutomaticAdmissionFacts } from "../../domain/entities/automatic-admission-decision";
 import { readAdmissionReviewEvidence } from "./postgres-admission-review-evidence";
 import { admissionCommandDenialSchema } from "../../constants/admission-command-denial-schema";
@@ -224,6 +225,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       if (facts.policy.requiresAdditionalVerification && !coverage.additionalVerification) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.additionalVerificationRequired);
       if (!coverage.policyModes.includes(facts.policy.mode)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       if (facts.policy.contactType === ADMISSION_CONTACT_TYPE.phone && input.contact?.type === ADMISSION_CONTACT_TYPE.email) facts.contact = null;
+      if (facts.contact) await assertUnreservedAdmissionContact(database, input.tribeId, facts.contact, this.readSecurityConfig);
       const personal = input.source.kind === ADMISSION_REQUEST_SOURCE.personal ? await resolvePersonalInvitationForRedemption(database, input, input.source.token, await this.readSecurityConfig()) : null;
       if (personal) facts.source = { kind: ADMISSION_REQUEST_SOURCE.personal, invitation: { id: personal.invitation.id, version: personal.invitation.version, tribeId: personal.invitation.tribeId, contact: personal.invitation.contact, requiresAllowlist: personal.invitation.requiresAllowlist, status: personal.invitation.status, authorizationRevoked: personal.invitation.authorizationRevokedAt !== null, expiresAt: personal.invitation.expiresAt } };
       if (facts.policy.mode === ADMISSION_POLICY_MODE.allowlist || personal) Object.assign(facts, await readAllowlistAdmissionFacts(database, input, facts.contact));

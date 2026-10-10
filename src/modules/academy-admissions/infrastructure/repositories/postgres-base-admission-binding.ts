@@ -12,6 +12,7 @@ import { ADMISSION_REQUEST_STATUS } from "../../constants/admission-request";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { createAdmissionContactFingerprint } from "../verification/admission-contact-fingerprint";
+import { assertUnreservedAdmissionContact } from "./assert-unreserved-admission-contact";
 
 /** @param database - Original protected transaction. @param scope - Native submitting account. @param request - Exact new pending proposal already inserted. @param facts - Locked current native base capture, not browser evidence. @param security - Live private local fingerprint context. @returns After immutable binding and request provenance are staged together; no membership or list edit occurs. */
 export async function bindBaseAdmissionContact(database: RequestDatabase, scope: AdmissionCommandScope, request: AdmissionRequest, facts: AutomaticAdmissionFacts, security: MessagingSecurityConfig): Promise<void> {
@@ -19,6 +20,8 @@ export async function bindBaseAdmissionContact(database: RequestDatabase, scope:
   if (!contact || !capture || capture.userId !== scope.userId || request.userId !== scope.userId || request.tribeId !== scope.tribeId || capture.invalidated || capture.normalizedEmail !== contact.value) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactEvidenceRequired);
   await database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify([ADMISSION_CONTACT_BINDING_LOCK_DOMAIN, scope.tribeId, contact.type, contact.value])},0))`);
   let binding = (await database.execute<{ id: string; owner_user_id: string }>(sql`select id,owner_user_id from public.academy_admission_contact_bindings where tribe_id=${scope.tribeId} and contact_type=${contact.type} and normalized_contact=${contact.value} for update`)).rows[0];
+  // A concurrent account deletion may minimize the row while this lock waits.
+  await assertUnreservedAdmissionContact(database, scope.tribeId, contact, async () => security);
   if (binding && binding.owner_user_id !== scope.userId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
   const fingerprint = await createAdmissionContactFingerprint(contact, security);
   if (!binding) binding = (await database.execute<{ id: string; owner_user_id: string }>(sql`insert into public.academy_admission_contact_bindings(tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,owner_user_id,first_request_id,evidence_source) values (${scope.tribeId},${contact.type},${contact.value},${Buffer.from(fingerprint.digest)},${fingerprint.keyId},${scope.userId},${request.id},${ADMISSION_EVIDENCE_KIND.base}) returning id,owner_user_id`)).rows[0];

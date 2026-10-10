@@ -16,6 +16,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native list ON pro
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionContactVerification(database, false, undefined, phone), entryId = randomUUID();
       for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
+      await database.applyMigration("20261010100000_minimize_deleted_admission_contact_owners.sql");
       await database.withContext(fixture.fixture.own, async (transaction) => {
         const fingerprint = await createAdmissionContactFingerprint(fixture.input.contact, fixture.fixture.config);
         await transaction.execute(sql`update public.academy_admission_policies set mode='allowlist',requires_additional_verification=true,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.context.tribeId}`);
@@ -39,6 +40,18 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native list ON pro
         expect((await transaction.execute(sql`select actor_kind,allowlist_entry_id,allowlist_entry_version from public.academy_admission_decisions where tribe_id=${fixture.context.tribeId}`)).rows).toEqual([{ actor_kind: "system", allowlist_entry_id: entryId, allowlist_entry_version: 1 }]);
         expect((await transaction.execute(sql`select status,version from public.academy_allowlist_entries where id=${entryId}`)).rows).toEqual([{ status: "enabled", version: 1 }]);
         expect((await transaction.execute(sql`select event_type from public.academy_admission_notification_obligations where tribe_id=${fixture.context.tribeId}`)).rows).toEqual([{ event_type: "approved" }]);
+      });
+      try { await database.withContext(fixture.fixture.own, (transaction) => transaction.execute(sql`delete from public."user" where id=${fixture.context.userId}`)); }
+      catch (error) {
+        const cause = error instanceof Error && "cause" in error ? error.cause : error;
+        const metadata = typeof cause === "object" && cause !== null ? cause as { code?: unknown; constraint?: unknown } : {};
+        process.stdout.write(JSON.stringify({ phase: "local_proof_account_deletion", phone, code: metadata.code, constraint: metadata.constraint }) + "\n");
+        throw new Error("Locally verified account deletion failed before minimization", { cause: error });
+      }
+      await database.withContext(fixture.fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select count(*)::int as count from public."user" where id=${fixture.context.userId}`)).rows).toEqual([{ count: 0 }]);
+        expect((await transaction.execute(sql`select normalized_contact is null and owner_user_id is null and minimized_at is not null and first_request_id is null and first_proof_id is null as minimized from public.academy_admission_contact_bindings where tribe_id=${fixture.context.tribeId}`)).rows).toEqual([{ minimized: true }]);
+        expect((await transaction.execute(sql`select status,version from public.academy_allowlist_entries where id=${entryId}`)).rows).toEqual([{ status: "enabled", version: 1 }]);
       });
     });
   }, 1_200_000);

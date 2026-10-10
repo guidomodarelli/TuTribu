@@ -17,9 +17,9 @@ export async function prepareAllowlistAdmission(database: AcademyAdmissionTestDa
     const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId, sessionId }), (_identity, run) => database.withContext({ userId, email: null }, run));
     return buildAcademyAdmissionsModule({ accounts, clock: () => new Date(), execute: (account, run) => database.withContext({ userId: account.userId, email: account.normalizedEmail }, run) }).createManualRequestModule({ readSecurityConfig: async () => fixture.config }).useCases;
   };
-  /** @param trusted - Whether the owned capture provides base authority. @returns A synthetic native account with no body-supplied evidence flags or real provider credential. */
-  const applicant = async (trusted = true) => {
-    const userId = randomUUID(), sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID(), evidenceId = randomUUID(), email = `synthetic.${randomUUID()}+tag@example.test`;
+  /** @param trusted - Whether the owned capture provides base authority. @param normalizedEmail - Optional synthetic canonical contact for deleted-account claim scenarios. @returns A synthetic native account with no body-supplied evidence flags or real provider credential. */
+  const applicant = async (trusted = true, normalizedEmail?: string) => {
+    const userId = randomUUID(), sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID(), evidenceId = randomUUID(), email = normalizedEmail ?? `synthetic.${randomUUID()}+tag@example.test`;
     await database.withContext(fixture.own, async (transaction) => {
       const now = (await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now;
       await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic list applicant',${email},false,${now},${now})`);

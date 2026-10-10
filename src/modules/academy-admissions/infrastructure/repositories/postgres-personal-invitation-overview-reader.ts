@@ -1,5 +1,6 @@
 /** Resolves private token preview facts with native current account checks and no claims or lifecycle writes. @module postgres-personal-invitation-overview-reader */
 import "server-only";
+import { assertUnreservedAdmissionContact } from "./assert-unreserved-admission-contact";
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
@@ -64,6 +65,8 @@ export class PostgresPersonalInvitationOverviewReader implements PersonalInvitat
       const overview = await new PostgresAdmissionOverviewReader((run) => run(database), (_own, run) => run(database), async () => (await this.readSecurityConfig()).recoveryLocked).readOverview({ slug: tribe.slug, requestId: query.requestId }, scope);
       if (!overview) return null;
       const policy = (await database.execute<AdmissionPolicy>(sql`select tribe_id as id,tribe_id as "tribeId",mode,contact_type as "contactType",is_open as "isOpen",allow_common_exceptions as "allowCommonExceptions",requires_additional_verification as "requiresAdditionalVerification",phone_channel as "phoneChannel",allow_sms_alternative as "allowSmsAlternative",messaging_connection_id as "messagingConnectionId",messaging_connection_version as "messagingConnectionVersion",verification_epoch as "verificationEpoch",version,activated_at as "activatedAt" from public.academy_admission_policies where tribe_id=${invitation.tribeId} for share`)).rows[0] ?? null;
+      try { await assertUnreservedAdmissionContact(database, context.tribeId, invitation.contact, this.readSecurityConfig); }
+      catch (error) { if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.contactBindingConflict) return null; throw error; }
       const own = await readAllowlistAdmissionFacts(database, context, invitation.contact);
       const membership = (await database.execute<AdmissionMembershipFacts>(sql`select tribe_id as "tribeId",user_id as "userId",role,status,status_reason as "statusReason",commercial_recovery_status as "commercialRecoveryStatus" from public.tribe_members where tribe_id=${invitation.tribeId} and user_id=${scope.userId} for share`)).rows[0] ?? null;
       const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);

@@ -240,15 +240,18 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     decisionForeignKey: foreignKey({ name: "admission_request_decision_fkey", columns: [table.decisionId,table.id,table.tribeId,table.userId,table.status], foreignColumns: [decisions.id,decisions.requestId,decisions.tribeId,decisions.userId,decisions.outcome] }),
   }));
   const bindings = pgTable("academy_admission_contact_bindings", {
-    id: uuid("id").defaultRandom().primaryKey(), tribeId: uuid("tribe_id").notNull(), contactType: text("contact_type").notNull(), normalizedContact: text("normalized_contact").notNull(),
-    contactFingerprint: binaryData("contact_fingerprint").notNull(), fingerprintKeyId: text("fingerprint_key_id").notNull(), ownerUserId: text("owner_user_id").notNull(),
+    id: uuid("id").defaultRandom().primaryKey(), tribeId: uuid("tribe_id").notNull(), contactType: text("contact_type").notNull(), normalizedContact: text("normalized_contact"),
+    contactFingerprint: binaryData("contact_fingerprint").notNull(), fingerprintKeyId: text("fingerprint_key_id").notNull(), ownerUserId: text("owner_user_id"),
+    ownerReferenceId: uuid("owner_reference_id").notNull().defaultRandom(), minimizedAt: timestamp("minimized_at", { withTimezone: true }),
     firstRequestId: uuid("first_request_id"), firstProofId: uuid("first_proof_id"), evidenceSource: text("evidence_source").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   }, (table): PgTableExtraConfig => ({
-    tribeForeignKey: parentReference("admission_binding_tribe_fkey",table.tribeId,parents.tribes.id,"restrict"), userForeignKey: parentReference("admission_binding_user_fkey",table.ownerUserId,parents.users.id,"restrict"),
+    tribeForeignKey: parentReference("admission_binding_tribe_fkey",table.tribeId,parents.tribes.id,"restrict"), userForeignKey: parentReference("admission_binding_user_fkey",table.ownerUserId,parents.users.id,"set null"),
     scopeKey: unique("admission_binding_scope_key").on(table.id,table.tribeId,table.ownerUserId), contactKey: unique("admission_binding_contact_key").on(table.tribeId,table.contactType,table.normalizedContact),
     contactCheck: check("admission_binding_contact_check", sql`${table.contactType} in ('email','phone')`), evidenceCheck: check("admission_binding_evidence_check", sql`${table.evidenceSource} in ('base','local')`),
-    originCheck: check("admission_binding_origin_check", sql`${table.firstRequestId} is not null or ${table.firstProofId} is not null`),
+    minimizedLookupIndex: index("admission_minimized_contact_lookup_idx").on(table.tribeId,table.contactType,table.fingerprintKeyId,table.contactFingerprint).where(sql`${table.normalizedContact} is null`),
+    originCheck: check("admission_binding_origin_check", sql`${table.minimizedAt} is not null or ${table.firstRequestId} is not null or ${table.firstProofId} is not null`),
+    minimizationCheck: check("admission_binding_minimization_check", sql`(${table.minimizedAt} is null and ${table.ownerUserId} is not null and ${table.normalizedContact} is not null) or (${table.minimizedAt} is not null and ${table.ownerUserId} is null and ${table.normalizedContact} is null and ${table.firstRequestId} is null and ${table.firstProofId} is null and ${table.minimizedAt}>=${table.createdAt})`),
     requestForeignKey: foreignKey({ name: "admission_binding_request_fkey", columns: [table.firstRequestId,table.tribeId,table.ownerUserId], foreignColumns: [requests.id,requests.tribeId,requests.userId] }),
     proofForeignKey: foreignKey({ name: "admission_binding_proof_fkey", columns: [table.firstProofId,table.tribeId,table.ownerUserId], foreignColumns: [proofs.id,proofs.tribeId,proofs.userId] }),
   }));
@@ -271,12 +274,13 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     membershipEffectForeignKey: foreignKey({name:"admission_decision_membership_effect_fkey",columns:[table.membershipEffectId,table.id,table.requestId,table.tribeId,table.userId,table.outcome],foreignColumns:[parents.membershipEffects().id,parents.membershipEffects().decisionId,parents.membershipEffects().requestId,parents.membershipEffects().tribeId,parents.membershipEffects().userId,parents.membershipEffects().outcome]}),
   }));
   const operations = pgTable("academy_admission_operations", {
-    id: uuid("id").defaultRandom().primaryKey(), actorUserId: text("actor_user_id").notNull(), tribeId: uuid("tribe_id").notNull(), operationType: text("operation_type").notNull(), idempotencyKey: uuid("idempotency_key").notNull(),
+    id: uuid("id").defaultRandom().primaryKey(), actorUserId: text("actor_user_id"), actorReferenceId: uuid("actor_reference_id").notNull().defaultRandom(), minimizedAt: timestamp("minimized_at", { withTimezone: true }), tribeId: uuid("tribe_id").notNull(), operationType: text("operation_type").notNull(), idempotencyKey: uuid("idempotency_key").notNull(),
     intentFingerprint: binaryData("intent_fingerprint").notNull(), fingerprintKeyId: text("fingerprint_key_id").notNull(), state: text("state").notNull().default("started"), verificationPurpose:text("verification_purpose"),
     leaseOwner: uuid("lease_owner"), leaseUntil: timestamp("lease_until", { withTimezone: true }), version: integer("version").notNull().default(1), publicResult: jsonb("public_result"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`), completedAt: timestamp("completed_at", { withTimezone: true }),
   }, (table): PgTableExtraConfig => ({
-    actorForeignKey: parentReference("admission_operation_actor_fkey",table.actorUserId,parents.users.id), tribeForeignKey: parentReference("admission_operation_tribe_fkey",table.tribeId,parents.tribes.id),
+    actorForeignKey: parentReference("admission_operation_actor_fkey",table.actorUserId,parents.users.id,"set null"), tribeForeignKey: parentReference("admission_operation_tribe_fkey",table.tribeId,parents.tribes.id),
+    minimizationCheck: check("admission_operation_minimization_check", sql`(${table.minimizedAt} is null and ${table.actorUserId} is not null) or (${table.minimizedAt} is not null and ${table.actorUserId} is null and ${table.minimizedAt}>=${table.createdAt})`),
     identityKey: unique("admission_operation_identity_key").on(table.actorUserId,table.tribeId,table.operationType,table.idempotencyKey),
     scopeKey: unique("admission_operation_scope_key").on(table.id,table.tribeId),
     verificationPurposeCheck:check("admission_operation_verification_purpose_check",sql`${table.verificationPurpose} is null or (${table.operationType} in (${VERIFICATION_ISSUANCE_OPERATION.issue},${VERIFICATION_ISSUANCE_OPERATION.resend}) and ${table.verificationPurpose} in (${ADMISSION_VERIFICATION_PURPOSE.admission},${ADMISSION_VERIFICATION_PURPOSE.connectionDiagnostic}))`.inlineParams()),
