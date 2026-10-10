@@ -11,6 +11,18 @@ function verificationProps() {
 }
 
 describe("applicant contact verification presentation", () => {
+  it("should disable a confirmed unusable challenge without hiding its permitted explicit resend", async () => {
+    const props = verificationProps(), user = userEvent.setup();
+    const challenge = { challengeId: randomUUID(), purpose: "admission" as const, channel: "email" as const, maskedDestination: "a•••@example.test", expiresAt: "2026-10-10T10:10:00Z", resendAllowedAt: "2026-10-10T10:01:00Z", deliveryState: "accepted" as const };
+    render(<ContactVerification {...props} challenge={challenge} challengeUnavailable verificationCode="123456" confirmed canVerify canResend resendInSeconds={0} expiresInSeconds={300} errorMessage="Alcanzaste el límite de intentos de verificación. Esperá antes de intentar otra vez." />);
+    expect(screen.getByLabelText("Código de ingreso")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Comprobar código" })).toBeDisabled();
+    expect(screen.getByText("Alcanzaste el límite de intentos de verificación. Esperá antes de intentar otra vez.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Reenviar código" }));
+    expect(props.onResend).toHaveBeenCalledTimes(1);
+    expect(props.onVerify).not.toHaveBeenCalled();
+  });
+
   it("should explain the leader-connected service and the limits of contact proof before confirming a send", () => {
     // Given an applicant who has not confirmed a delivery yet.
     const props = verificationProps();
