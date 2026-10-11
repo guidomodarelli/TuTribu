@@ -1065,6 +1065,13 @@
       "when": 1791752400000,
       "tag": "20261011210000_preserve_admission_entry_marker",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1791757800000,
+      "tag": "20261011223000_close_admission_scope_lifecycle",
+      "breakpoints": true
     }
   ]
 }

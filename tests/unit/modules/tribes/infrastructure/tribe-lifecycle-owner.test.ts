@@ -1,0 +1,80 @@
+/** @vitest-environment node */
+/** Exercises authorized mode exit and physical deletion through the real owners and original recovery. @module tribe-lifecycle-owner-tests */
+import { randomUUID } from "node:crypto";
+import { sql } from "drizzle-orm";
+import { describe, expect, it } from "vitest";
+import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+import { prepareAllowlistAdmission } from "@/tests/support/allowlist-admission-database-fixture";
+import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
+import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
+import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
+import { PostgresTribeLifecycleRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-lifecycle-repository";
+import { ManageTribeLifecycleUseCases } from "@/src/modules/tribes/application/use-cases/manage-tribe-lifecycle-use-cases";
+import { createAdmissionScopeClosureWriter } from "@/src/modules/academy-admissions/setup";
+import type { TribeLifecycleContext } from "@/src/modules/tribes/domain/repositories/tribe-lifecycle-repository";
+import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+
+describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifecycle owner", () => {
+  it("should require exact signed recency, close scope on exit and recover a committed deletion without using a surviving tribe", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const { fixture, applicant: createApplicant } = await prepareAllowlistAdmission(database);
+      for (const migration of ["20261005100000_guard_messaging_secret_retirement.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql", "20261010100000_minimize_deleted_admission_contact_owners.sql", "20261010113000_preserve_admission_tribe_namespaces.sql", "20261010120000_archive_deleted_admission_tribe_provenance.sql", "20261010121000_retire_deleted_tribe_messaging.sql", "20261011223000_close_admission_scope_lifecycle.sql"]) await database.applyMigration(migration);
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set mode='manual_review',version=version+1 where tribe_id=${fixture.tribeId}`));
+      const applicant = await createApplicant(), pending = await applicant.commands.submit.execute({ ...applicant.input, expectedPolicyVersion: 3 });
+      if (!pending.ok) throw new Error(`Tribe lifecycle pending setup failed: ${pending.failure.code}`, { cause: pending.failure.cause });
+      expect(pending).toMatchObject({ ok: true, value: { state: "completed", result: { outcome: "pending" } } });
+      const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.userId, sessionId: fixture.sessionId }), (_identity, run) => database.withContext(fixture.own, run));
+      let loseResponse = false;
+      const execute = async <Result>(_context: TribeLifecycleContext, run: (transaction: RequestDatabase) => Promise<Result>) => {
+        const result = await database.withContext(fixture.own, run);
+        if (loseResponse && result && typeof result === "object" && "state" in result && result.state === "completed") { loseResponse = false; throw new Error("Synthetic tribe lifecycle reply lost after commit"); }
+        return result;
+      };
+      const lifecycle = new ManageTribeLifecycleUseCases(accounts, new PostgresTribeLifecycleRepository(execute, async () => fixture.config, createAdmissionScopeClosureWriter));
+      const settings = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{config_version: number}>(sql`select config_version from public.tribe_academy_settings where tribe_id=${fixture.tribeId}`)).rows[0]);
+      const exit = { tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), action: "exit_academy" as const, expectedConfigVersion: settings.config_version, confirmed: true };
+      await expect(lifecycle.change(exit)).rejects.toMatchObject({ code: "reauthentication_required" });
+      await fixture.confirm(REAUTHENTICATION_OPERATION.deleteTribe);
+      await expect(lifecycle.change(exit)).rejects.toMatchObject({ code: "reauthentication_required" });
+      await fixture.confirm(REAUTHENTICATION_OPERATION.exitAcademyMode);
+      const exited = await lifecycle.change(exit);
+      expect(exited).toMatchObject({ state: "completed", replayed: false, result: { action: "exit_academy", deleted: false, accessModel: "legacy", configVersion: settings.config_version + 1 } });
+      await expect(lifecycle.change(exit)).resolves.toMatchObject({ state: "completed", replayed: true });
+      await expect(lifecycle.recover(exit)).resolves.toMatchObject({ state: "completed", replayed: true });
+      await expect(lifecycle.change({ ...exit, expectedConfigVersion: settings.config_version + 1 })).rejects.toMatchObject({ code: "idempotency_conflict" });
+      const closed = await database.withContext(fixture.own, async (transaction) => ({
+        requests: (await transaction.execute(sql`select status,cancel_reason from public.academy_admission_requests where tribe_id=${fixture.tribeId} and user_id=${applicant.userId}`)).rows,
+        marker: (await transaction.execute<{protected: boolean}>(sql`select admissions_control_activated_at is not null as protected from public.tribes where id=${fixture.tribeId}`)).rows[0].protected,
+        members: (await transaction.execute<{count: number}>(sql`select count(*)::integer as count from public.tribe_members where tribe_id=${fixture.tribeId}`)).rows[0].count,
+      }));
+      expect(closed).toEqual({ requests: [{ status: "cancelled", cancel_reason: "academy_unavailable" }], marker: true, members: 1 });
+      const deletion = { ...exit, operationId: randomUUID(), action: "delete_tribe" as const, expectedConfigVersion: settings.config_version + 1 };
+      loseResponse = true;
+      const deleted = await lifecycle.change(deletion).catch((error: unknown) => {
+        const diagnostics: string[] = [];
+        let current: unknown = error;
+        while (current && typeof current === "object") {
+          if ("code" in current && typeof current.code === "string") diagnostics.push(current.code);
+          if ("message" in current && typeof current.message === "string") {
+            const missingColumn = /column "([a-z_]+)" .*exist/.exec(current.message);
+            if (missingColumn) diagnostics.push(`missing_column_${missingColumn[1]}`);
+          }
+          current = "cause" in current ? current.cause : null;
+        }
+        throw new Error(`Native tribe deletion failed: ${diagnostics.join("/")}`, { cause: error });
+      });
+      expect(deleted).toMatchObject({ state: "completed", replayed: true, result: { action: "delete_tribe", deleted: true, accessModel: null, configVersion: null } });
+      await expect(lifecycle.recover(deletion)).resolves.toMatchObject({ state: "completed", replayed: true });
+      await expect(lifecycle.change(deletion)).resolves.toMatchObject({ state: "completed", replayed: true });
+      const retired = await database.withContext(fixture.own, async (transaction) => ({
+        live: (await transaction.execute<{count: number}>(sql`select count(*)::integer as count from public.tribes where id=${fixture.tribeId}`)).rows[0].count,
+        retired: (await transaction.execute<{retired: boolean}>(sql`select retired_at is not null as retired from public.academy_admission_tribe_namespaces where tribe_id=${fixture.tribeId}`)).rows[0].retired,
+        originals: (await transaction.execute<{count: number}>(sql`select count(*)::integer as count from public.tribe_lifecycle_operations where tribe_id=${fixture.tribeId} and actor_user_id=${fixture.userId}`)).rows[0].count,
+        archivedSubmission: (await transaction.execute<{count: number}>(sql`select count(*)::integer as count from public.academy_admission_retired_operations where tribe_id=${fixture.tribeId} and idempotency_key=${applicant.input.operationId}`)).rows[0].count,
+        actor: (await transaction.execute<{count: number}>(sql`select count(*)::integer as count from public."user" where id=${fixture.userId}`)).rows[0].count,
+      }));
+      expect(retired).toEqual({ live: 0, retired: true, originals: 2, archivedSubmission: 1, actor: 1 });
+      await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${fixture.tribeId},'Synthetic prohibited reuse',${`reuse-${fixture.tribeId}`},${fixture.userId})`))).rejects.toMatchObject({ cause: { code: "23514" } });
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+});

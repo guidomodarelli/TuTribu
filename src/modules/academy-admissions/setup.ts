@@ -57,6 +57,8 @@ import { PostgresPaidAdmissionResolutionWriter } from "./infrastructure/reposito
 import type { AdmissionExternalResolutionWriter } from "./domain/repositories/admission-external-resolution-writer";
 import { PostgresAdmissionMembershipLifecycleWriter } from "./infrastructure/repositories/postgres-admission-membership-lifecycle-writer";
 import type { AdmissionMembershipLifecycleWriter } from "./domain/repositories/admission-membership-lifecycle-writer";
+import { PostgresAdmissionScopeClosureWriter } from "./infrastructure/repositories/postgres-admission-scope-closure-writer";
+import type { AdmissionScopeClosureWriter } from "./domain/repositories/admission-scope-closure-writer";
 import type { AuthorizedAdmissionContext } from "./domain/repositories/admission-authorization-reader";
 import type { AdmissionActivationPreflightReader } from "./domain/repositories/admission-activation-preflight-reader";
 import { ManageAdmissionPolicyUseCases } from "./application/use-cases/manage-admission-policy-use-cases";
@@ -95,6 +97,11 @@ export function createPaidAdmissionResolutionWriter(database: RequestDatabase): 
 /** @param database - Membership owner's original guarded transaction. @returns Actual lifecycle reconciliation without another checkout or provider call. */
 export function createAdmissionMembershipLifecycleWriter(database: RequestDatabase): AdmissionMembershipLifecycleWriter {
   return new PostgresAdmissionMembershipLifecycleWriter(database);
+}
+
+/** @param database - Actual tribe lifecycle transaction. @returns Admission scope retirement without a nested transaction or an outbound call. */
+export function createAdmissionScopeClosureWriter(database: RequestDatabase): AdmissionScopeClosureWriter {
+  return new PostgresAdmissionScopeClosureWriter(database);
 }
 
 /** An operation owner supplies its concrete current permission and own committed DTO, never a default grant. */

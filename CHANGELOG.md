@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- La salida autorizada de academia y la eliminación de una tribu cierran sus solicitudes e invitaciones de admisión y permiten consultar el resultado original, incluso después del borrado; los controles para iniciarlas desde la interfaz siguen pendientes.
+
 - La gestión de salida, remoción y bloqueo conserva el resultado original y puede cerrar solicitudes pendientes junto con el cambio de pertenencia, sin levantar restricciones por conducta ni permitir reingreso con una aprobación antigua; los controles nuevos del directorio siguen pendientes.
 
 - Los enlaces de invitación anteriores de una academia permiten solicitar ingreso con la revisión manual, la lista y la comprobación de contacto vigentes, conservando el origen del ingreso y el estado de quienes ya pertenecen.
