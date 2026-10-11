@@ -55,6 +55,8 @@ import { GetAdmissionReviewPageUseCase } from "./application/use-cases/get-admis
 import { SubmitAcademyEntryUseCase } from "./application/use-cases/submit-academy-entry-use-case";
 import { PostgresPaidAdmissionResolutionWriter } from "./infrastructure/repositories/postgres-paid-admission-resolution-writer";
 import type { AdmissionExternalResolutionWriter } from "./domain/repositories/admission-external-resolution-writer";
+import { PostgresAdmissionMembershipLifecycleWriter } from "./infrastructure/repositories/postgres-admission-membership-lifecycle-writer";
+import type { AdmissionMembershipLifecycleWriter } from "./domain/repositories/admission-membership-lifecycle-writer";
 import type { AuthorizedAdmissionContext } from "./domain/repositories/admission-authorization-reader";
 import type { AdmissionActivationPreflightReader } from "./domain/repositories/admission-activation-preflight-reader";
 import { ManageAdmissionPolicyUseCases } from "./application/use-cases/manage-admission-policy-use-cases";
@@ -88,6 +90,11 @@ import { parseAllowlistCsv } from "./infrastructure/api/allowlist-csv-parser";
 /** @param database - Original guarded owner transaction. @returns A protected receipt-scoped resolution port, without another database checkout or provider call. */
 export function createPaidAdmissionResolutionWriter(database: RequestDatabase): AdmissionExternalResolutionWriter {
   return new PostgresPaidAdmissionResolutionWriter(database);
+}
+
+/** @param database - Membership owner's original guarded transaction. @returns Actual lifecycle reconciliation without another checkout or provider call. */
+export function createAdmissionMembershipLifecycleWriter(database: RequestDatabase): AdmissionMembershipLifecycleWriter {
+  return new PostgresAdmissionMembershipLifecycleWriter(database);
 }
 
 /** An operation owner supplies its concrete current permission and own committed DTO, never a default grant. */
