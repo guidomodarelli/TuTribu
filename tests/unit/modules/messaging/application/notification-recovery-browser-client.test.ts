@@ -12,6 +12,22 @@ function originalRecovery() {
 }
 
 describe("notification recovery browser transport", () => {
+  it("should read a guarded notification page with its stable cursor without posting or exposing recipient data", async () => {
+    const id = randomUUID(), connectionId = randomUUID(), createdAt = "2026-10-11T12:00:00Z";
+    const value = { items: [{ id, version: 3, state: "unknown", connectionId, createdAt, deadlineAt: "2026-10-11T13:00:00Z", recoveryDeliveryId: null }], nextCursor: { deliveryId: id, createdAt } };
+    const transport = vi.fn<typeof fetch>(async () => Response.json(value));
+    const outcome = await createNotificationRecoveryBrowserClient({ fetch: transport }).catalog({ slug: "synthetic", cursor: { deliveryId: id, createdAt } }, new AbortController().signal);
+    expect(outcome).toEqual({ status: "ready", value });
+    const path = new URL(String(transport.mock.calls[0]?.[0]), "https://synthetic.example");
+    expect(path.pathname).toBe("/api/tribes/synthetic/messaging/notification-deliveries");
+    expect(path.searchParams.get("cursorId")).toBe(id); expect(path.searchParams.get("cursorCreatedAt")).toBe(createdAt);
+    expect(transport.mock.calls[0]?.[1]?.method).toBe("GET"); expect(transport).toHaveBeenCalledTimes(1);
+  });
+  it("should reject a private notification page without inventing another send", async () => {
+    const transport = vi.fn<typeof fetch>(async () => Response.json({ items: [], nextCursor: null, recipient: "synthetic-private" }));
+    expect(await createNotificationRecoveryBrowserClient({ fetch: transport }).catalog({ slug: "synthetic", cursor: null }, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: false });
+    expect(transport).toHaveBeenCalledTimes(1); expect(transport.mock.calls[0]?.[1]?.body).toBeUndefined();
+  });
   it("should submit one explicit original intent without equating lifecycle CAS with frozen sending version", async () => {
     const { scope, input, result } = originalRecovery();
     const transport = vi.fn<typeof fetch>(async () => Response.json({ state: "completed", operationId: input.operationId, replayed: false, result }));

@@ -33,6 +33,8 @@ import {PostgresConnectionDiagnosticIssuance} from "./infrastructure/repositorie
 import type {ConnectionDiagnosticDispatcher} from "./domain/repositories/connection-diagnostic-issuance";
 import {ReadMessageDeliveryUseCase} from "./application/use-cases/read-message-delivery-use-case";
 import {PostgresMessageDeliveryReader} from "./infrastructure/repositories/postgres-message-delivery-reader";
+import { ReadNotificationDeliveryCatalogUseCase } from "./application/use-cases/read-notification-delivery-catalog-use-case";
+import { PostgresNotificationDeliveryCatalogReader } from "./infrastructure/repositories/postgres-notification-delivery-catalog-reader";
 import {ActivateMessagingConnectionUseCase} from "./application/use-cases/activate-messaging-connection-use-case";
 import {PostgresMessagingConnectionActivation} from "./infrastructure/repositories/postgres-messaging-connection-activation";
 import type {MessagingSelectionDependencies} from "./domain/repositories/messaging-connection-activation";
@@ -143,9 +145,10 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
     createConfigurationModule(options:{readSecurityFacts:()=>Promise<MessagingSecurityFacts>}){
       const{executeActor,leadership}=createManagement();
       const configuration=new ReadMessagingConfigurationUseCase(dependencies.accounts,leadership,new PostgresMessagingConfigurationReader(executeActor,options.readSecurityFacts),dependencies.clock);
+      const catalog=new ReadNotificationDeliveryCatalogUseCase(new ResolveMessagingTribeManagementUseCase(dependencies.accounts,leadership,dependencies.clock),new PostgresNotificationDeliveryCatalogReader(executeActor));
       return{useCases:configuration,
         /** @param resolveTribe - Canonical native routing. @returns One current server entrypoint for the wizard without keyrings or another provider read. */
-        createPage(resolveTribe:Pick<ResolveAdmissionTribeUseCase,"execute">){return new GetMessagingConnectionsPageUseCase(dependencies.accounts,{configuration,resolveTribe},dependencies.clock);},
+        createPage(resolveTribe:Pick<ResolveAdmissionTribeUseCase,"execute">){return new GetMessagingConnectionsPageUseCase(dependencies.accounts,{configuration,resolveTribe,catalog},dependencies.clock);},
       };
     },
     /** @returns Minimal leader/challenge-owner transport reads without keyrings, recency, provider calls or mutation. */
@@ -155,6 +158,12 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
       const { executeActor, leadership } = createManagement();
       const management = new ResolveMessagingTribeManagementUseCase(dependencies.accounts, leadership, dependencies.clock);
       return { useCases: new RecoverNotificationDeliveryUseCase(management, new PostgresNotificationDeliveryRecoveryRepository(executeActor, options.readSecurityConfig)) };
+    },
+    /** @returns Bounded own notification metadata under current leadership, without keyrings, claims or provider queries. */
+    createNotificationDeliveryCatalogModule() {
+      const { executeActor, leadership } = createManagement();
+      const management = new ResolveMessagingTribeManagementUseCase(dependencies.accounts, leadership, dependencies.clock);
+      return { useCases: new ReadNotificationDeliveryCatalogUseCase(management, new PostgresNotificationDeliveryCatalogReader(executeActor)) };
     },
     /** @returns Original actor-owned recovery metadata without fresh recency, keyrings, provider calls or mutation capability. */
     createNotificationRecoveryOperationReadModule() {
