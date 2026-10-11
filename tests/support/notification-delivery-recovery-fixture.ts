@@ -8,10 +8,11 @@ import { PostgresNotificationDeliveryRecoveryRepository } from "@/src/modules/me
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { buildMessagingModule } from "@/src/modules/messaging/setup";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
-/** @param database - This run's isolated real PostgreSQL branch. @param deadlineMs - Optional original lifetime for real final-wait scenarios. @returns Actual prepared connections, original obligation and native recovery writer; provider transport is controlled solely during candidate preparation. */
-export async function prepareNotificationDeliveryRecovery(database: AcademyAdmissionTestDatabase, deadlineMs = 3_600_000) {
-  const activation = await prepareMessagingConnectionActivation(database);
+/** @param database - This run's isolated real PostgreSQL branch. @param deadlineMs - Optional original lifetime for real final-wait scenarios. @param securityConfig - Optional shared native server security, without serializing key material to artifacts. @returns Actual prepared connections, original obligation and native recovery writer; provider transport is controlled solely during candidate preparation. */
+export async function prepareNotificationDeliveryRecovery(database: AcademyAdmissionTestDatabase, deadlineMs = 3_600_000, securityConfig?: MessagingSecurityConfig) {
+  const activation = await prepareMessagingConnectionActivation(database, undefined, undefined, securityConfig);
   const creation = activation.fixture;
   for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261011065500_record_notification_recovery_lineage.sql"]) await database.applyMigration(migration);
   const { own } = creation.fixture;

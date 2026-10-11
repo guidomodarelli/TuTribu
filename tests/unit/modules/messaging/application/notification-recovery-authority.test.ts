@@ -188,6 +188,16 @@ describe("explicit notification recovery orchestration", () => {
     expect(fixture.calls).toHaveLength(1);
   });
 
+  it("should classify an original delivery CAS conflict separately from unexpected storage failures", async () => {
+    const fixture = prepareRecovery();
+    const conflict = new AdmissionOperationError("request_conflict");
+    fixture.setWriterError(conflict);
+    const result = await fixture.cases.execute(fixture.input);
+    expect(result).toMatchObject({ ok: false, failure: { code: "delivery_conflict", cause: conflict } });
+    fixture.setWriterError(new Error("Synthetic storage failure"));
+    expect(await fixture.cases.execute(fixture.input)).toMatchObject({ ok: false, failure: { code: "unexpected_failure" } });
+  });
+
   it("should stop before persistence when current account or original recency is unavailable", async () => {
     const fixture = prepareRecovery();
     fixture.authority.setAccount(null);

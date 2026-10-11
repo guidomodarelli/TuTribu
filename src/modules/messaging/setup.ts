@@ -68,6 +68,8 @@ import { PostgresMessageReconciliationRepository } from "./infrastructure/reposi
 import { PostgresMessageStatusPreparation } from "./infrastructure/repositories/postgres-message-status-preparation";
 import { ZavuMessageStatusLookup } from "./infrastructure/zavu/zavu-message-status-lookup";
 import type { OriginalMessageContextQuery } from "./domain/repositories/message-status-lookup";
+import { ReadNotificationRecoveryOperationUseCase } from "./application/use-cases/read-notification-recovery-operation-use-case";
+import { PostgresNotificationRecoveryOperationReader } from "./infrastructure/repositories/postgres-notification-recovery-operation-reader";
 
 /** The request owner selects a fixed slot and explicit live security source before exposing sensitive capabilities. */
 type MessagingRequestComposition = { selection: "selected" | "candidate" | "management"; readSecurityConfig: () => Promise<MessagingSecurityConfig> };
@@ -153,6 +155,12 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
       const { executeActor, leadership } = createManagement();
       const management = new ResolveMessagingTribeManagementUseCase(dependencies.accounts, leadership, dependencies.clock);
       return { useCases: new RecoverNotificationDeliveryUseCase(management, new PostgresNotificationDeliveryRecoveryRepository(executeActor, options.readSecurityConfig)) };
+    },
+    /** @returns Original actor-owned recovery metadata without fresh recency, keyrings, provider calls or mutation capability. */
+    createNotificationRecoveryOperationReadModule() {
+      const { executeActor, leadership } = createManagement();
+      const management = new ResolveMessagingTribeManagementUseCase(dependencies.accounts, leadership, dependencies.clock);
+      return { useCases: new ReadNotificationRecoveryOperationUseCase(management, new PostgresNotificationRecoveryOperationReader(executeActor)) };
     },
     /** @param options - Current original-resource security and explicit hosting transport. @returns Original-only provider GET and monotonic persistence, without list/send or replacement credentials. */
     createDeliveryReconciliationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; fetch: typeof globalThis.fetch }) {

@@ -10,6 +10,7 @@ export const MESSAGING_ERROR_HTTP_STATUS = {
   [MESSAGING_ERROR_CODE.idempotencyConflict]: HTTP_STATUS.conflict,
   [MESSAGING_ERROR_CODE.usagePolicyConflict]: HTTP_STATUS.conflict,
   [MESSAGING_ERROR_CODE.connectionConflict]: HTTP_STATUS.conflict,
+  [MESSAGING_ERROR_CODE.deliveryConflict]: HTTP_STATUS.conflict,
   [MESSAGING_ERROR_CODE.recipientNotAllowed]: HTTP_STATUS.unprocessableEntity,
   [MESSAGING_ERROR_CODE.usageLimitReached]: HTTP_STATUS.tooManyRequests,
   [MESSAGING_ERROR_CODE.credentialValidationLimitReached]: HTTP_STATUS.tooManyRequests,
