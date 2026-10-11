@@ -26,6 +26,10 @@ import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { makeSignature } from "better-auth/crypto";
 import { chromium, webkit } from "@playwright/test";
 import { captureAdmissionReview } from "@/tests/support/admission-review-capture";
+import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository";
+import { PostgresOwnAdmissionRequestReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader";
+import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
+import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import { join } from "node:path";
 
 /** @param database - This run's owned branch with native pg/Drizzle. @returns Current signed leader, policy repository and preparation-port controls. */
@@ -70,6 +74,39 @@ async function preparePolicy(database: AcademyAdmissionTestDatabase) {
 }
 
 describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admission policy persistence", () => {
+  it("should keep the same pending request undecided through native verification activation and later permissive policy changes", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database);
+      for (const migration of ["20261006220000_extend_admission_notifications.sql", "20261006234000_read_own_admission_summary.sql", "20261007005000_read_admission_reviews.sql", "20261007030000_capture_admission_decision_evidence.sql"]) await database.applyMigration(migration);
+      await data.initialize();
+      await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 1, patch: { isOpen: true } });
+      await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId: randomUUID(), type: "activate_admission_policy", confirmed: true, expectedVersion: 2 });
+      const applicantId = randomUUID(), applicantSessionId = randomUUID();
+      await database.withContext(data.fixture.own, async (transaction) => {
+        await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${applicantId},'Synthetic policy-transition applicant',${`${applicantId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${applicantSessionId},${applicantId},${randomUUID()},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
+      });
+      const requests = new PostgresAdmissionRequestRepository((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), async () => data.fixture.config, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: createPostgresAdmissionNotificationObligationWriter(transaction) }));
+      const submitted = await requests.submit({ userId: applicantId, sessionId: applicantSessionId, tribeId: data.tribeId, requestId: randomUUID(), operationId: randomUUID(), type: "submit_admission", confirmed: true, expectedPolicyVersion: 3, source: { kind: "common" }, contact: { type: "email", value: `${applicantId}@example.test` }, proofId: null, message: null });
+      if (submitted.state !== "completed" || !submitted.result.admissionRequestId) throw new Error("Native policy transition did not produce the expected pending request");
+      const requestId = submitted.result.admissionRequestId;
+      const own = new PostgresOwnAdmissionRequestReader((scope, run) => database.withContext({ userId: scope.userId, email: null }, run));
+      const query = { userId: applicantId, sessionId: applicantSessionId, tribeId: data.tribeId, requestId: randomUUID() };
+      const before = await own.readOwn(query);
+      expect(before).toMatchObject({ id: requestId, status: "pending", version: 1, needsVerification: false });
+      data.setPrepared(true);
+      expect(await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 3, patch: { requiresAdditionalVerification: true } })).toMatchObject({ state: "completed", result: { version: 4, verificationEpoch: 2 } });
+      expect(await own.readOwn(query)).toMatchObject({ id: requestId, status: "pending", version: 1, needsVerification: true, eligibilityReasons: ["local_proof_required"], submittedAt: before!.submittedAt, expiresAt: before!.expiresAt });
+      await expect(requests.decide({ userId: data.fixture.userId, sessionId: data.sessionId, tribeId: data.tribeId, requestId: randomUUID(), operationId: randomUUID(), type: "decide_admission_request", confirmed: true, admissionRequestId: requestId, expectedVersion: 1, decision: "approve", internalReason: "Revisión sintética sin nueva prueba", externalMessage: null })).rejects.toMatchObject({ code: "admission_ineligible" });
+      expect(await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 4, patch: { requiresAdditionalVerification: false, allowCommonExceptions: true } })).toMatchObject({ state: "completed", result: { version: 5, verificationEpoch: 2 } });
+      expect(await own.readOwn(query)).toMatchObject({ id: requestId, status: "pending", version: 1, needsVerification: false, submittedAt: before!.submittedAt, expiresAt: before!.expiresAt });
+      await database.withContext(data.fixture.own, async (transaction) => {
+        const effects = (await transaction.execute(sql`select (select count(*)::int from public.academy_admission_requests where tribe_id=${data.tribeId} and user_id=${applicantId}) as requests,(select count(*)::int from public.academy_admission_decisions where request_id=${requestId}) as decisions,(select count(*)::int from public.tribe_members where tribe_id=${data.tribeId} and user_id=${applicantId}) as memberships,(select count(*)::int from public.academy_admission_notification_obligations where request_id=${requestId}) as notices`)).rows[0];
+        expect(effects).toEqual({ requests: 1, decisions: 0, memberships: 0, notices: 1 });
+      });
+    });
+  }, 1_200_000);
+
   it("should inspect actual guarded cutover storage and keep incomplete runtime or disabled provenance closed", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database); await data.initialize();
