@@ -9,7 +9,7 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
 import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
-import type { AdmissionSubmissionIntent } from "@/src/modules/academy-admissions/domain/repositories/admission-repositories";
+import type { AdmissionSubmissionIntent, AdmissionDecisionIntent } from "@/src/modules/academy-admissions/domain/repositories/admission-repositories";
 import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { seedContactVerificationChallenge, createContactVerificationWriter } from "@/tests/support/contact-verification-database-fixture";
@@ -21,6 +21,7 @@ import { PostgresOwnAdmissionRequestReader } from "@/src/modules/academy-admissi
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { PostgresAdmissionOperationReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-reader";
 import { recoverProtectedSubscriptionMemberships } from "@/src/modules/subscriptions/infrastructure/repositories/subscription-membership-source-writer";
+import { withAdmissionTransitionContention } from "@/tests/support/admission-transition-contention";
 
 /** @param database - Owned synthetic branch with actual SQL/native identity. @param commercialMemberStatus - Optional readable instance removed commercially before presentation. @param contactType - Persisted original contact choice before activation. @returns A protected manual/OFF academy writer and scoped native participants. */
 async function prepareManualAdmission(database: AcademyAdmissionTestDatabase, commercialMemberStatus?: "active" | "muted", contactType: "email" | "phone" = "email") {
@@ -80,6 +81,83 @@ async function recoverPaidFixtureMembership(database: AcademyAdmissionTestDataba
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission decision atomicity", () => {
+  it.each(["pause", "expiry"] as const)("should deny approval after a proven native lock wait observes current %s without terminal effects", async (transition) => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareManualAdmission(database);
+      let requestId: string, expiresAt: string | null = null;
+      if (transition === "pause") {
+        const submitted = await fixture.repository.submit(fixture.submission);
+        if (submitted.state !== "completed" || !submitted.result.admissionRequestId) throw new Error("Approval pause fixture did not produce its pending request");
+        requestId = submitted.result.admissionRequestId;
+      } else {
+        requestId = randomUUID();
+        expiresAt = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ expires_at: string }>(sql`with instant as (select clock_timestamp()+interval '20 seconds' as expires) insert into public.academy_admission_requests(id,tribe_id,user_id,source,contact_type,normalized_contact,evidence_source,original_policy_snapshot,submitted_at,expires_at) select ${requestId},${fixture.tribeId},${fixture.submission.userId},'common','email',${fixture.submission.contact!.value},'declared',${JSON.stringify({ version: 1, verificationEpoch: 1, mode: "manual_review", contactType: "email", requiresAdditionalVerification: false, allowCommonExceptions: false })}::jsonb,expires-interval '30 days',expires from instant returning expires_at`)).rows[0].expires_at);
+      }
+      const before = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select status,version,submitted_at,expires_at,decision_id from public.academy_admission_requests where id=${requestId}`)).rows[0]);
+      const result = await withAdmissionTransitionContention(database, fixture.own, async (transaction) => {
+        if (transition === "pause") {
+          await transaction.execute(sql`select id from public.tribes where id=${fixture.tribeId} for update`);
+          await transaction.execute(sql`update public.academy_admission_policies set is_open=false,version=version+1 where tribe_id=${fixture.tribeId}`);
+        } else await transaction.execute(sql`select id from public.academy_admission_requests where id=${requestId} for update`);
+      }, async () => {
+        if (expiresAt) expect((await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ live: boolean }>(sql`select clock_timestamp()<${expiresAt}::timestamptz as live`)).rows[0])).live).toBe(true);
+        return fixture.repository.decide({ ...fixture.submission, userId: fixture.leaderId, sessionId: fixture.leaderSessionId, operationId: randomUUID(), type: "decide_admission_request", admissionRequestId: requestId, expectedVersion: 1, decision: "approve", internalReason: "Revisión sintética tras espera", externalMessage: null });
+      }, expiresAt ? () => database.withContext(fixture.own, async (transaction) => { await transaction.execute(sql`select pg_sleep(greatest(0,extract(epoch from ${expiresAt}::timestamptz-clock_timestamp()))+0.05)`); }) : undefined);
+      expect(result).toMatchObject({ status: "rejected", reason: { code: "admission_ineligible" } });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select status,version,submitted_at,expires_at,decision_id from public.academy_admission_requests where id=${requestId}`)).rows[0]).toEqual(before);
+        const effects = (await transaction.execute(sql`select (select count(*)::int from public.academy_admission_decisions where request_id=${requestId}) as decisions,(select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.submission.userId}) as members,(select count(*)::int from public.academy_admission_membership_effects where tribe_id=${fixture.tribeId} and user_id=${fixture.submission.userId}) as membership_effects`)).rows[0];
+        expect(effects).toEqual({ decisions: 0, members: 0, membership_effects: 0 });
+      });
+    }, { concurrentTransactions: 4 });
+  }, 1_200_000);
+
+  it("should commit one indivisible terminal outcome when one hundred opposite review decisions compete for the same pending request", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareManualAdmission(database);
+      const submitted = await fixture.repository.submit(fixture.submission);
+      if (submitted.state !== "completed" || submitted.result.outcome !== "pending" || !submitted.result.admissionRequestId) throw new Error("Opposite decision fixture did not produce its pending request");
+      const requestId = submitted.result.admissionRequestId;
+      const commands: AdmissionDecisionIntent[] = Array.from({ length: 100 }, (_, index) => ({
+        tribeId: fixture.tribeId, userId: fixture.leaderId, sessionId: fixture.leaderSessionId,
+        requestId: randomUUID(), operationId: randomUUID(), type: "decide_admission_request", confirmed: true,
+        admissionRequestId: requestId, expectedVersion: 1, decision: index % 2 === 0 ? "approve" : "reject",
+        internalReason: "Revisión opuesta sintética", externalMessage: null,
+      }));
+      expect(new Set(commands.map((command) => command.operationId)).size).toBe(100);
+      const outcomes = await Promise.allSettled(commands.map((command) => fixture.repository.decide(command)));
+      const completed = outcomes.flatMap((outcome, index) => outcome.status === "fulfilled" && outcome.value.state === "completed" ? [{ command: commands[index], value: outcome.value }] : []);
+      expect(completed).toHaveLength(1);
+      const registered = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ idempotency_key: string; state: string }>(sql`select idempotency_key,state from public.academy_admission_operations where tribe_id=${fixture.tribeId} and actor_user_id=${fixture.leaderId} and operation_type='decide_admission_request'`)).rows);
+      for (const [index, outcome] of outcomes.entries()) {
+        if (outcome.status === "fulfilled") {
+          expect(outcome.value.operationId).toBe(commands[index].operationId);
+          continue;
+        }
+        if (outcome.reason?.code === "operation_unresolved") {
+          expect(outcome.reason.cause).toBeUndefined();
+          expect(outcome.reason.operationId).toBe(commands[index].operationId);
+          expect(registered).toContainEqual({ idempotency_key: commands[index].operationId, state: "started" });
+        } else expect(outcome.reason).toMatchObject({ code: "request_conflict" });
+      }
+      const winner = completed[0], terminalStatus = winner.command.decision === "approve" ? "approved" : "rejected";
+      const original = await database.withContext(fixture.own, async (transaction) => {
+        const request = (await transaction.execute<{ status: string; version: number; decision_id: string }>(sql`select status,version,decision_id from public.academy_admission_requests where id=${requestId}`)).rows[0];
+        const decisions = (await transaction.execute<{ id: string; outcome: string }>(sql`select id,outcome from public.academy_admission_decisions where request_id=${requestId}`)).rows;
+        const counts = (await transaction.execute(sql`select (select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.submission.userId}) as members,(select count(*)::int from public.academy_admission_membership_effects where tribe_id=${fixture.tribeId} and user_id=${fixture.submission.userId}) as membership_effects,(select count(*)::int from public.academy_admission_notification_obligations where request_id=${requestId}) as obligations,(select count(*)::int from public.notifications where tribe_id=${fixture.tribeId}) as notices,(select count(*)::int from public.academy_admission_audit_events where resource_id=${requestId}) as audits`)).rows[0];
+        return { request, decisions, counts };
+      });
+      expect(original.request).toMatchObject({ status: terminalStatus, version: 2 });
+      expect(original.decisions).toEqual([{ id: original.request.decision_id, outcome: terminalStatus }]);
+      const membershipCount = winner.command.decision === "approve" ? 1 : 0;
+      expect(original.counts).toEqual({ members: membershipCount, membership_effects: membershipCount, obligations: 2, notices: 2, audits: 2 });
+      expect(await fixture.repository.decide(winner.command)).toMatchObject({ state: "completed", replayed: true, result: { status: terminalStatus, version: 2 } });
+      const afterReplay = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select status,version,decision_id from public.academy_admission_requests where id=${requestId}`)).rows[0]);
+      expect(afterReplay).toEqual(original.request);
+      console.info(JSON.stringify({ phase: "opposite_decision_results", submittedDecisions: commands.length, completed: completed.length, startedResponses: outcomes.filter((outcome) => outcome.status === "fulfilled" && outcome.value.state === "started").length, rejectedResponses: outcomes.filter((outcome) => outcome.status === "rejected").length, terminalStatus }));
+    }, { concurrentTransactions: 100 });
+  }, 1_200_000);
+
   it("should submit a phone manual OFF request through the real account/use-case root without a phone, binding or sender", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       process.stdout.write(JSON.stringify({ phase: "owned_phone_off_submission_branch", branch: database.branch }) + "\n");
