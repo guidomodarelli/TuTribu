@@ -1,6 +1,6 @@
 # Límites cerrados y fundamentos simultáneos de membresía
 
-Base `0da463d4`; evidencia de T156 sin cambios de producción. Se conserva el inventario de 157 completas/55 pendientes/212 hasta el cierre documental y la auditoría final de la tarea original.
+Fuente comprobada, commiteada y subida en `807edc3a`, sobre base `0da463d4`; T156 se cierra sin cambios de producción, con 158 completas/54 pendientes/212. Se conservan todos los criterios originales y no se cierran T153, preflight/rollout ni gates operativos.
 
 ## Matriz de configuración y recuperación
 
@@ -35,4 +35,18 @@ Se acreditan ocho casos nuevos y una compatibilidad por sus scopes exactos; los 
 
 La salida/reingreso, canje consumido, política actual tras el límite diario y rollback posterior al owner están acreditados en `membership-reentry-rollback-baseline.md`. El owner de pago y su cierre indivisible están en `personal-paid-resolution-baseline.md`; salida de academia, borrado físico, archivo, entregas/códigos y ausencia de resurrección están en `tribe-scope-lifecycle-baseline.md`. Estos documentos conservan sus casos y límites; no se redefinen los criterios de T156 a esta matriz nueva.
 
-La QA inicial de cuatro manuales/índices termina con 16 renders y 28 recorridos Chromium/WebKit a 1280/390, sin errores ni desbordes; scripts y capturas previos se conservan. La trazabilidad final y el cierre de T156 se registran después del commit de fuente. T153, SC-019 completo, preflight/rollout y los gates operativos mantienen sus requisitos separados; no se activó ni modificó producción.
+Los cuatro manuales/índices registran SourceTrace a `807edc3a` y sus cuatro diffs finales no muestran desvíos. La QA final acredita 16 renders y 28 recorridos Chromium/WebKit a 1280/390, cero errores y desbordes; conserva los 46 frames de admisión, el frame de miembros y todos los scripts/capturas. Los tres documentos numerados pasan el helper estático. Sus advertencias se limitan a navegación anterior preservada y ejercitada, documento local sin URL publicada y catálogo central de traducciones ausente. El rerun del mismo reviewer tiene cero hallazgos accionables sobre siete archivos, manifiesto estable `D82B93DAA226258746CBDE8E397A1F82B99BB5FC942627AAA6594E2D1DB3A416`. T153, SC-019 completo, preflight/rollout y gates operativos mantienen sus requisitos separados; no se activó ni modificó producción.
+
+
+## Auditoría final del criterio original de T156
+
+| Cláusula original | Evidencia comprobada |
+|---|---|
+| Salida y reingreso según política vigente | Owner real después de canje personal/aprobación; canje y binding conservados, fundamento revocado, replay histórico sin miembro. Historia coherente y límite diario real antes de una pendiente con versión actual: `membership-reentry-rollback-baseline.md`. |
+| Salida de academia y eliminación de tribu | Owner real por UUID, cierre y archivo del scope, invalidación de autorizaciones y recuperación durable sin resurrección del writer; `tribe-scope-lifecycle-baseline.md`. |
+| Bloqueo por conducta/remoción y revocación de fundamentos | Cuatro combinaciones active/muted × remove/block con fundamentos básico y pago consumidos; ambos revocados, rol/fecha y moderación preservados, sin reingreso por pago ni replay. |
+| Resolución externa paga sin aprobación ficticia | Tres entrypoints reales y pendiente personal, cierre de sistema único e incremental sin efecto básico; rollback PostgreSQL después del owner y reintento real: `personal-paid-resolution-baseline.md`. |
+| Cancelación y eventos atómicos | SQLSTATE 22012 posterior al owner con snapshots revertidos, la misma reserva real y original recuperado; `membership-reentry-rollback-baseline.md` y `personal-paid-resolution-baseline.md`. |
+| Política/settings borradas, flag apagado y recovery lock | Cuatro estados con rechazo de presentación, aprobación líder/guardián y writer previo; marcador/oferta protegidos, fechas/actores conservados y cancelación única cuando se borran settings. |
+
+La auditoría cierra esta tarea de pruebas por la combinación de casos nuevos y baselines anteriores, sin reinterpretar los criterios originales como un subconjunto ni acreditar como aprobados casos filtrados o gates todavía pendientes. La modificación actual añade evidencia y documentación; no altera comportamiento de producto ni requiere una entrada adicional de changelog.
