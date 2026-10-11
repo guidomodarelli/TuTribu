@@ -897,3 +897,18 @@ La revisión relee policy, época, actor, cuenta/captura, invitación, lista y r
 ## Cierre de T149: plazos y vencimiento autónomo
 
 El owner independiente confirma el vencimiento sin otra presentación, en lotes autorizados con locks tribu→request, clock posterior y decisión/audit/obligación/aviso atómicos. La pausa no detiene el plazo; se conservan cadencia/rechazo/adelanto y fuentes consumidas, con ledger humano original y terminales inmutables. Tres Native completos, permiso SQLSTATE 42501 seleccionado y migración real/replay verdes; tipos/lint/build y manuales comprobados. Revisión Codex de dieciocho archivos sin hallazgos, manifiesto 79F6D105DB286FF474AE36A7FB47A70AA45E7EDBB7E458C92A6CC9DB38749A56. Sólo T149; programación T186 y flujos/gates mantienen alcance. Inventario: 141 de 212 completadas y 71 pendientes. Ver [auditoría temporal](validation/admission-temporal-lifecycle-implementation-completion-audit.md).
+
+## Validación controlada de T143: lifecycle y aislamiento
+
+La matriz de [validación integral](validation/messaging-lifecycle-validation-completion-audit.md) contrasta los seis AC originales de US7, sin modificar Given/When/Then ni presentar el transporte controlado como servicio externo acreditado. Código de producto `0bd9eb48`; documentación de continuidad cerrada en `cf42b40e`. Restore, OG-04, despacho recuperado T185 y rollout conservan gates y tareas separados.
+
+| Criterio | Evidencia observable y procedencia |
+| --- | --- |
+| US-07-AC-01 | Candidata defectuosa conserva activa; writers SQL de preparación/activación y casos vigentes del container, contrastados en auditorías T133/T134/T136/T141. |
+| US-07-AC-02 | Swap confirmado conserva versiones y trabajos antiguos; SQL late-swap registrado y A/B actual mantienen receipt, reserva y conexión originales sin otra clave. |
+| US-07-AC-03 | Dependencias de retiro y suspensión inmediata sin proveedor, con recencia scoped, UUID/CAS, rollback y conservación de requisitos; auditoría completa T137 y suites actuales de lifecycle. |
+| US-07-AC-04 | A/B actual con SQL, SecretStore y SDK real intercalados conserva claves, remitentes y versiones propios; revocación después de fence deniega antes de secreto/SDK. |
+| US-07-AC-05 | SDK real con HTTP controlado 401/403/429/409/503 y errores privados omitidos, una sola petición sin retries; diagnóstico y UI no crean membresía ni cambian pagador por indisponibilidad. |
+| US-07-AC-06 | Cinco casos SQL actuales de rol/status/muted/deleted/transferencia conservan rollback, suspensión de conexiones previas e historial; owner de transferencia actual e invitaciones/membresías preservadas en T138. |
+
+Ejecuciones actuales: 24 locales, 27 SDK/dispatcher y 16 de las tres suites originales (nueve application y siete SQL), todas terminales verdes y sin omitidos; 67 casos distintos en ocho suites. No se suman reportes heredados/solapados ni se cuentan filtros. La revisión del contraste íntegro confirma cero hallazgos y manifiesto estable `302868409AE4782EF96409C22951AB0F7D89D39A896CB287392155C0D86D03CC`. Se cierra sólo T143: 151 completadas y 61 pendientes, manteniendo 212 criterios. Los estados normativos de la tabla original conservan su alcance de entrega y los gates externos permanecen pendientes.
