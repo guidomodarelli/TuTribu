@@ -1,6 +1,6 @@
 /** Exercises the actual route container and shared UI with own transport ports; ordinary success uses incremental state, not route refresh. @module academy-admission-contact-container-tests */
 import { randomUUID } from "node:crypto";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdmissionContainer } from "@/app/(admission)/admissions/[slug]/admission-container";
@@ -9,6 +9,7 @@ import type { AdmissionBrowserClient } from "@/src/modules/academy-admissions/ap
 import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { ADMISSION_PROOF_OPERATION } from "@/src/modules/academy-admissions/constants/admission-proof";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import { writeAdmissionContactIntent, readAdmissionContactIntent } from "@/lib/academy-admissions/admission-contact-intent";
@@ -39,6 +40,157 @@ function containerFixture() {
 }
 
 describe("applicant contact step in the route", () => {
+  it("should retain current same-version reverification when recovering an older confirmed proof application and a new query fails", async () => {
+    const fixture = containerFixture(), user = userEvent.setup(), operationId = randomUUID(), issuedOperationId = randomUUID(), verifiedOperationId = randomUUID(), challengeId = randomUUID(), deliveryId = randomUUID();
+    const pending: AdmissionRequestDto = { id: randomUUID(), status: "pending", version: 2, submittedAt: "2026-10-08T00:00:00Z", expiresAt: "2026-11-07T00:00:00Z", source: "common", needsVerification: true, eligibilityReasons: ["evidence_revoked"], contact: { type: "email", maskedValue: "a•••@example.test", evidenceKind: "local" } };
+    fixture.setRequest(pending);
+    const safeMessage = "La prueba de contacto de esta solicitud fue revocada. Necesitás comprobar el contacto nuevamente para que puedan aprobarla.";
+    const initialState = { ...fixture.initialState, request: pending, overview: { ...fixture.initialState.overview, state: "pending" as const, nextAction: "view_request" as const, request: pending, safeMessage } };
+    writeAdmissionContactIntent({ viewerId: fixture.viewerId, slug: initialState.overview.tribe.slug, requestId: pending.id, issuedOperationId, verifiedOperationId, pending: { kind: "apply", operationId, proofId: fixture.proofId, expectedVersion: 1 } });
+    let recovered = false;
+    let deliverySignal: AbortSignal | undefined;
+    let resolveDelivery: ((result: Awaited<ReturnType<AdmissionContactBrowserClient["delivery"]>>) => void) | undefined;
+    vi.mocked(fixture.contact.delivery).mockImplementation(async (_slug, _deliveryId, signal) => {
+      deliverySignal = signal;
+      return new Promise((resolve) => { resolveDelivery = resolve; });
+    });
+    vi.mocked(fixture.client.overview).mockImplementation(async () => ({ status: "ready", value: initialState.overview }));
+    vi.mocked(fixture.client.own).mockImplementation(async () => recovered ? { status: "failed", code: "dependency_unavailable", message: "No pudimos consultar el estado actual. Volvé a intentarlo.", uncertain: false } : { status: "ready", value: pending });
+    vi.mocked(fixture.contact.operation).mockImplementation(async (_slug, originalId) => {
+      if (originalId === issuedOperationId) return { status: "ready", value: { type: "issue_contact_challenge", state: "completed", operationId: originalId, replayed: true, result: { purpose: "admission", challengeId, deliveryId, channel: "email", maskedDestination: "a•••@example.test", expiresAt: new Date(Date.now() + ADMISSION_LIMIT.verificationCodeValidityMs).toISOString(), resendAllowedAt: new Date(Date.now() - 1).toISOString(), deliveryState: "accepted" } } };
+      if (originalId === verifiedOperationId) return { status: "ready", value: { type: "verify_contact_challenge", state: "completed", operationId: originalId, replayed: true, result: { purpose: "admission", result: "verified", proofId: fixture.proofId, applyBefore: new Date(Date.now() + ADMISSION_LIMIT.verificationProofFreshnessMs).toISOString() } } };
+      recovered = true;
+      return { status: "ready", value: { type: ADMISSION_PROOF_OPERATION, state: "completed", operationId: originalId, replayed: true, result: { outcome: "applied", requestId: pending.id, requestVersion: 2, status: "pending", proofId: fixture.proofId } } };
+    });
+    render(<AdmissionContainer initialState={initialState} requestPage client={fixture.client} contactClient={fixture.contact} />);
+    expect(await screen.findByText("La prueba quedó aplicada a tu solicitud pendiente.")).toBeVisible();
+    expect(deliverySignal?.aborted).toBe(true);
+    await act(async () => { resolveDelivery?.({ status: "failed", code: "dependency_unavailable", message: "El envío anterior no está disponible.", uncertain: false }); });
+    await user.click(screen.getByRole("button", { name: "Consultar estado" }));
+    expect(await screen.findByText("No pudimos consultar el estado actualizado. Conservamos lo último confirmado.")).toBeVisible();
+    expect(within(screen.getByRole("region", { name: "Estado de tu solicitud" })).getByText(safeMessage)).toBeVisible();
+    expect(fixture.contact.operation).toHaveBeenCalledTimes(3);
+    expect(fixture.contact.apply).not.toHaveBeenCalled();
+    expect(fixture.contact.issue).not.toHaveBeenCalled();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
+    expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).not.toBeChecked();
+    const issue = screen.getByRole("button", { name: "Enviar código de ingreso" });
+    expect(issue).toBeVisible();
+    expect(issue).toBeDisabled();
+    expect(readAdmissionContactIntent(fixture.viewerId, initialState.overview.tribe.slug, pending.id)).toMatchObject({ pending: null, issuedOperationId: null, verifiedOperationId: null });
+    await user.click(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i }));
+    expect(issue).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Aplicar prueba a esta solicitud" })).not.toBeInTheDocument();
+    expect(screen.getByText("Presentada").closest("div")?.querySelector("time")).toHaveAttribute("datetime", pending.submittedAt);
+  });
+
+  it.each([
+    { reason: "local_proof_required", otherReason: null, declaredContact: false },
+    { reason: "evidence_revoked", otherReason: null, declaredContact: false },
+    { reason: "local_proof_required", otherReason: "admission_closed", declaredContact: false },
+    { reason: "local_proof_required", otherReason: "admission_closed", declaredContact: true },
+  ] as const)("should retain confirmed proof and clear old $reason while preserving $otherReason and declared contact $declaredContact when current query fails", async ({ reason, otherReason, declaredContact }) => {
+    const fixture = containerFixture(), user = userEvent.setup();
+    const pending: AdmissionRequestDto = { id: randomUUID(), status: "pending", version: 1, submittedAt: "2026-10-08T00:00:00Z", expiresAt: "2026-11-07T00:00:00Z", source: "common", needsVerification: true, eligibilityReasons: [reason, ...(otherReason ? [otherReason] : [])] };
+    if (declaredContact) pending.contact = { type: "email", maskedValue: "a•••@example.test", evidenceKind: "declared" };
+    fixture.setRequest(pending);
+    const safeMessage = reason === "evidence_revoked" ? "La prueba de contacto de esta solicitud fue revocada. Necesitás comprobar el contacto nuevamente para que puedan aprobarla." : "Necesitás comprobar el contacto de esta solicitud pendiente para que puedan aprobarla.";
+    const initialState = { ...fixture.initialState, request: pending, overview: { ...fixture.initialState.overview, state: "pending" as const, nextAction: "view_request" as const, request: pending, safeMessage } };
+    let applicationCommitted = false;
+    vi.mocked(fixture.client.overview).mockImplementation(async () => ({ status: "ready", value: initialState.overview }));
+    vi.mocked(fixture.client.own).mockImplementation(async () => applicationCommitted ? { status: "failed", code: "dependency_unavailable", message: "No pudimos consultar el estado actual. Volvé a intentarlo.", uncertain: false } : { status: "ready", value: pending });
+    vi.mocked(fixture.contact.apply).mockImplementation(async (_slug, requestId, input) => {
+      applicationCommitted = true;
+      return { status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { outcome: "applied", requestId, requestVersion: 2, status: "pending", proofId: input.proofId } } };
+    });
+    render(<AdmissionContainer initialState={initialState} requestPage client={fixture.client} contactClient={fixture.contact} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i })).toBeEnabled());
+    await user.click(screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i }));
+    await user.click(screen.getByRole("button", { name: "Enviar código de ingreso" }));
+    await user.type(await screen.findByLabelText("Código de ingreso"), "123456");
+    await user.click(screen.getByRole("button", { name: "Comprobar código" }));
+    await user.click(await screen.findByRole("button", { name: "Aplicar prueba a esta solicitud" }));
+    expect(await screen.findByText("La prueba quedó aplicada a tu solicitud pendiente.")).toBeVisible();
+    await waitFor(() => expect(screen.queryByText("Necesitás comprobar el contacto de esta solicitud pendiente para que puedan aprobarla.")).not.toBeInTheDocument());
+    expect(screen.queryByText("La prueba de contacto de esta solicitud fue revocada. Necesitás comprobar el contacto nuevamente para que puedan aprobarla.")).not.toBeInTheDocument();
+    if (declaredContact) {
+      expect(screen.queryByText(/Este contacto fue declarado y no está comprobado/)).not.toBeInTheDocument();
+      expect(screen.getByText(/a•••@example\.test.*La comprobación del contacto tiene el alcance indicado por la academia/)).toBeVisible();
+    }
+    if (otherReason) {
+      const requestStatus = within(screen.getByRole("region", { name: "Estado de tu solicitud" }));
+      expect(requestStatus.getByText("Por ahora esta solicitud no puede aprobarse porque las admisiones no están disponibles. Su plazo sigue corriendo.")).toBeVisible();
+    }
+    expect(screen.getByText("No pudimos consultar el estado actualizado. Conservamos lo último confirmado.")).toBeVisible();
+    expect(screen.queryByText(/revertida|deshecha|volvió al estado anterior/i)).not.toBeInTheDocument();
+    expect(fixture.contact.apply).toHaveBeenCalledOnce();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
+    expect(screen.getByText("Presentada").closest("div")?.querySelector("time")).toHaveAttribute("datetime", pending.submittedAt);
+  });
+
+  it("should apply, query, cancel and activate the retry link using only the keyboard with accessible feedback", async () => {
+    const fixture = containerFixture(), user = userEvent.setup();
+    const pending: AdmissionRequestDto = { id: randomUUID(), status: "pending", version: 1, submittedAt: "2026-10-08T00:00:00Z", expiresAt: "2026-11-07T00:00:00Z", source: "common", needsVerification: true, eligibilityReasons: ["local_proof_required"] };
+    fixture.setRequest(pending);
+    const initialState = { ...fixture.initialState, request: pending, overview: { ...fixture.initialState.overview, state: "pending" as const, nextAction: "view_request" as const, request: pending } };
+    const router = { back: vi.fn(), bfcacheId: "pending-keyboard", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
+    vi.mocked(fixture.contact.apply).mockImplementation(async (_slug, requestId, input) => {
+      fixture.setRequest({ ...pending, version: 2, needsVerification: false, eligibilityReasons: [], contact: { type: "email", maskedValue: "a•••@example.test", evidenceKind: "local" } });
+      return { status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: { outcome: "applied", requestId, requestVersion: 2, status: "pending", proofId: input.proofId } } };
+    });
+    vi.mocked(fixture.client.cancel).mockImplementation(async () => {
+      fixture.setRequest({ ...pending, status: "cancelled", version: 3, needsVerification: false, eligibilityReasons: [], retryAllowedAt: new Date(Date.parse(pending.submittedAt) + ADMISSION_LIMIT.submissionCadenceMs).toISOString() });
+      vi.mocked(fixture.client.overview).mockResolvedValue({ status: "ready", value: { ...fixture.initialState.overview, state: "verification_required", nextAction: "verify_contact" } });
+      return { status: "ready", value: { admissionRequestId: pending.id, version: 3, status: "cancelled" } };
+    });
+    render(<AppRouterContext.Provider value={router}><AppUIProvider><AdmissionContainer initialState={initialState} requestPage client={fixture.client} contactClient={fixture.contact} /></AppUIProvider></AppRouterContext.Provider>);
+    /** @param element - Actual accessible control in the rendered product. @returns After reaching it through native tab traversal. */
+    const tabTo = async (element: HTMLElement) => {
+      for (let i = 0; i < 30 && document.activeElement !== element; i += 1) await user.tab();
+      expect(element).toHaveFocus();
+    };
+    const consent = screen.getByRole("checkbox", { name: /Confirmo el contacto y el envío del código/i });
+    await waitFor(() => expect(consent).toBeEnabled());
+    await tabTo(consent);
+    await user.keyboard(" ");
+    const issue = screen.getByRole("button", { name: "Enviar código de ingreso" });
+    await waitFor(() => expect(issue).toBeEnabled());
+    await tabTo(issue);
+    await user.keyboard("{Enter}");
+    const code = await screen.findByLabelText("Código de ingreso");
+    await tabTo(code);
+    await user.keyboard("123456");
+    await tabTo(screen.getByRole("button", { name: "Comprobar código" }));
+    await user.keyboard("{Enter}");
+    await tabTo(await screen.findByRole("button", { name: "Aplicar prueba a esta solicitud" }));
+    await user.keyboard("{Enter}");
+    const appliedFeedback = await screen.findByText("La prueba quedó aplicada a tu solicitud pendiente.");
+    expect(appliedFeedback.closest('[role="status"]')).not.toBeNull();
+    expect(fixture.contact.apply).toHaveBeenCalledExactlyOnceWith("synthetic-academy", pending.id, expect.objectContaining({ proofId: fixture.proofId, expectedVersion: 1, confirmed: true }), expect.any(AbortSignal));
+    const queriesBefore = vi.mocked(fixture.client.own).mock.calls.length;
+    await tabTo(screen.getByRole("button", { name: "Consultar estado" }));
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(vi.mocked(fixture.client.own).mock.calls.length).toBeGreaterThan(queriesBefore));
+    const cancelConsent = screen.getByRole("checkbox", { name: /Confirmo que quiero cancelar esta solicitud/i });
+    await tabTo(cancelConsent);
+    await user.keyboard(" ");
+    await tabTo(screen.getByRole("button", { name: "Cancelar solicitud" }));
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Cancelar solicitud" })).not.toBeInTheDocument());
+    expect(fixture.client.cancel).toHaveBeenCalledExactlyOnceWith("synthetic-academy", pending.id, expect.objectContaining({ expectedVersion: 2, confirmed: true }), expect.any(AbortSignal));
+    const retry = await screen.findByRole("link", { name: "Volver a solicitar ingreso" });
+    const retryActivation = vi.fn();
+    retry.addEventListener("click", retryActivation);
+    expect(retry).toHaveAttribute("href", "/admissions/synthetic-academy");
+    await tabTo(retry);
+    await user.keyboard("{Enter}");
+    expect(retryActivation).toHaveBeenCalledOnce();
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(fixture.client.submit).not.toHaveBeenCalled();
+    expect(within(screen.getByRole("region", { name: "Estado de tu solicitud" })).getByText("La solicitud fue cancelada.").closest('[role="status"]')).not.toBeNull();
+    expect(screen.getByText("Presentada").closest("div")?.querySelector("time")).toHaveAttribute("datetime", pending.submittedAt);
+  });
+
   it("should expose readonly recovery and block new contact fields when a stored issuance cannot be reconciled", async () => {
     const fixture = containerFixture(), issuedOperationId = randomUUID(), user = userEvent.setup();
     writeAdmissionContactIntent({ viewerId: fixture.viewerId, slug: fixture.initialState.overview.tribe.slug, requestId: null, issuedOperationId, verifiedOperationId: null, pending: null });

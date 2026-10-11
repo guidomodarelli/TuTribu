@@ -14,7 +14,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native initial com
   it("should consume one own fresh proof and bind contact with the initial pending commit, replaying without another request, binding or membership", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionContactVerification(database);
-      for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql"]) await database.applyMigration(migration);
+      for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql"]) await database.applyMigration(migration);
       await database.withContext(fixture.fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.context.tribeId}`));
       const operations = new PostgresAdmissionContactVerificationOperations((_scope, run) => database.withContext(fixture.own, run), async () => fixture.fixture.config);
       const issued = await operations.issue({ ...fixture.input, expectedPolicyVersion: 2 });

@@ -254,12 +254,38 @@ export function evaluatePendingAdmissionReview(facts: PendingAdmissionReviewFact
   const failure = (reason: DenialReason) => ({ eligible: false, requiresExplicitDecision: true as const, reason });
   if (!facts.account || facts.request.userId !== facts.account.userId) return failure(ADMISSION_DENIAL_REASON.scopeMismatch);
   if (!canPerformAdmissionAction(facts.reviewer, ADMISSION_ACTION.decideRequest, { tribeId: facts.tribe.id, applicantUserId: facts.request.userId })) return failure(ADMISSION_DENIAL_REASON.reviewerUnauthorized);
+  const evaluation = evaluatePendingAdmissionEligibility(facts);
+  if (!evaluation.eligible) return failure(evaluation.reason);
+  if (evaluation.requiresExceptionReason && !facts.exceptionReason?.trim()) return failure(ADMISSION_DENIAL_REASON.exceptionReasonRequired);
+  return { eligible: true, requiresExplicitDecision: true };
+}
+
+/**
+ * Evaluates current pending eligibility without granting reviewer authority or exposing internal reasons.
+ * @param facts - Actual own request and current server facts, independently scoped by its reader.
+ * @returns Current business restriction or eligibility that still requires an explicit reviewer decision.
+ */
+export function evaluatePendingAdmissionEligibility(facts: Omit<PendingAdmissionReviewFacts, "reviewer" | "exceptionReason">):
+  | { eligible: false; reason: DenialReason }
+  | { eligible: true; requiresExceptionReason: boolean } {
+  const failure = (reason: DenialReason) => ({ eligible: false as const, reason });
+  if (!facts.account || facts.request.userId !== facts.account.userId) return failure(ADMISSION_DENIAL_REASON.scopeMismatch);
   if (facts.now.getTime() >= facts.request.expiresAt.getTime()) return failure(ADMISSION_DENIAL_REASON.requestExpired);
   const attached = facts.request.attachedEvidence;
   if (attached?.status === ADMISSION_PROOF_STATUS.invalid) return failure(ADMISSION_DENIAL_REASON.evidenceRevoked);
   const result = evaluateAdmission({ ...facts, source: facts.request.source }, "review", attached, facts.request.id);
   if (result.outcome === ADMISSION_OUTCOME.denied || result.outcome === ADMISSION_OUTCOME.verificationRequired) return failure(result.reason);
   if (result.outcome === ADMISSION_OUTCOME.alreadyMember) return failure(ADMISSION_DENIAL_REASON.closed);
-  if (result.outcome === ADMISSION_OUTCOME.pending && result.requiresExceptionReason && !facts.exceptionReason?.trim()) return failure(ADMISSION_DENIAL_REASON.exceptionReasonRequired);
-  return { eligible: true, requiresExplicitDecision: true };
+  return { eligible: true, requiresExceptionReason: result.outcome === ADMISSION_OUTCOME.pending && result.requiresExceptionReason };
+}
+
+/**
+ * Determines corrective proof needs from the same current pending facts used for eligibility.
+ * @param facts - Original request and current policy/evidence/clock, with no reviewer permission.
+ * @returns Whether the live pending requires a fresh contact check; expiry always takes precedence.
+ */
+export function needsPendingAdmissionVerification(facts: Omit<PendingAdmissionReviewFacts, "reviewer" | "exceptionReason">): boolean {
+  if (facts.now >= facts.request.expiresAt) return false;
+  if (facts.request.attachedEvidence?.status === ADMISSION_PROOF_STATUS.invalid) return true;
+  return facts.policy?.requiresAdditionalVerification === true && !hasUsableAppliedProof(facts, facts.request.attachedEvidence, facts.request.id);
 }

@@ -15,7 +15,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native ON allowlis
   it.each([{ phone: false, listed: true }, { phone: true, listed: true }, { phone: false, listed: false }, { phone: true, listed: false }])("should keep phone=$phone local-proof exception pending until reasoned review with later listing=$listed", async ({ phone, listed }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionContactVerification(database, false, undefined, phone);
-      for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
+      for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
       await database.applyMigration("20261007005000_read_admission_reviews.sql");
       await database.applyMigration("20261009083000_read_current_admission_review_evidence.sql");
       const leaderSessionId = randomUUID(), leaderAccountId = randomUUID(), leaderSubject = randomUUID();

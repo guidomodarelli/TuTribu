@@ -7,6 +7,8 @@ import { createDefaultAdmissionPolicy } from "@/src/modules/academy-admissions/d
 import {
   evaluateAdmissionSubmission,
   evaluatePendingAdmissionReview,
+  evaluatePendingAdmissionEligibility,
+  needsPendingAdmissionVerification,
   canPerformAdmissionAction,
   type AdmissionSubmissionFacts,
 } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
@@ -33,6 +35,25 @@ function submissionFacts(): AdmissionSubmissionFacts {
 }
 
 describe("new admission evidence and pathway matrix", () => {
+  it("should project own eligibility without granting reviewer decision authority", () => {
+    const facts = submissionFacts();
+    const pending = { ...facts, request: { id: "own-pending", userId: facts.account!.userId, expiresAt: new Date(facts.now.getTime() + 60_000), source: facts.source, attachedEvidence: null } };
+    expect(evaluatePendingAdmissionEligibility(pending)).toEqual({ eligible: true, requiresExceptionReason: false });
+    expect(evaluatePendingAdmissionReview({ ...pending, reviewer: null })).toMatchObject({ eligible: false, reason: "reviewer_unauthorized" });
+    expect(needsPendingAdmissionVerification(pending)).toBe(false);
+  });
+
+  it("should retain current closure and proof needs separately while expiry wins at the original deadline", () => {
+    const facts = submissionFacts();
+    facts.policy = { ...facts.policy!, isOpen: false, requiresAdditionalVerification: true };
+    const pending = { ...facts, request: { id: "own-pending", userId: facts.account!.userId, expiresAt: new Date(facts.now.getTime() + 60_000), source: facts.source, attachedEvidence: null } };
+    expect(evaluatePendingAdmissionEligibility(pending)).toMatchObject({ eligible: false, reason: "admission_closed" });
+    expect(needsPendingAdmissionVerification(pending)).toBe(true);
+    pending.now = new Date(pending.request.expiresAt);
+    expect(evaluatePendingAdmissionEligibility(pending)).toMatchObject({ eligible: false, reason: "request_expired" });
+    expect(needsPendingAdmissionVerification(pending)).toBe(false);
+  });
+
   const configurationRows = [
     { mode: "manual_review", contactType: "email", verification: false, commonOutcome: "pending", personalOutcome: "pending" },
     { mode: "manual_review", contactType: "phone", verification: false, commonOutcome: "pending", personalOutcome: "denied" },

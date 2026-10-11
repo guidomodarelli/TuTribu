@@ -42,6 +42,65 @@ async function confirmDecision() {
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 
 describe("native reviewer container", () => {
+  it("should preserve confirmed feedback when a current read of the same request fails", async () => {
+    const data = fixture();
+    render(data.node, { wrapper: Providers });
+    await confirmDecision();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve }));
+    expect(await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete)).toBeVisible();
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read })).toBeEnabled());
+    data.client.reviewList.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar esta solicitud. Volvé a intentarlo.", uncertain: false });
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read }));
+    expect(await screen.findByText("No pudimos consultar esta solicitud. Volvé a intentarlo.")).toBeVisible();
+    expect(screen.getByText(ADMISSION_REVIEW_UI_COPY.complete)).toBeVisible();
+    expect(data.client.decide).toHaveBeenCalledOnce();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["admission_closed", "Las admisiones no están disponibles para aprobar esta solicitud. Su plazo no cambia."],
+    ["allowlist_requirement_unmet", "No se cumple la lista exigida para esta solicitud."],
+    ["evidence_revoked", "La prueba de contacto fue revocada. La persona necesita comprobar el contacto nuevamente."],
+  ] as const)("should explain current reviewer reason %s without offering approval", async (reason, message) => {
+    const data = fixture();
+    data.request.eligibilityReasons = [reason];
+    data.request.eligibleActions = ["reject"];
+    data.request.needsVerification = reason === "evidence_revoked";
+    render(data.node, { wrapper: Providers });
+    expect(await screen.findByText(message)).toBeVisible();
+    expect(screen.queryByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).not.toBeInTheDocument();
+  });
+
+  it.each(["select", "close", "viewer"] as const)("should clear completion feedback when reviewer context changes through %s", async (change) => {
+    const data = fixture(), secondId = "58bf0c74-6a77-463d-8ecf-7fa0a4128e35";
+    const second: AdmissionReviewDto = { ...data.request, id: secondId, applicant: { ...data.request.applicant, id: "synthetic-other-applicant", name: "Otra solicitud sintética" } };
+    data.state.page.items = [data.request, second];
+    let decided = false;
+    data.client.decide.mockImplementation(async () => { decided = true; return { status: "ready", value: { admissionRequestId: requestId, status: "approved", version: 2 } }; });
+    data.client.reviewList.mockImplementation(async () => ({ status: "ready", value: { items: [decided ? { ...data.request, status: "approved", version: 2, eligibleActions: [] } : data.request, second], nextCursor: null } }));
+    data.client.reviewDetail.mockImplementation(async (_slug, id) => ({ status: "ready", value: id === secondId ? second : decided ? { ...data.request, status: "approved", version: 2, eligibleActions: [] } : data.request }));
+    render(data.node, { wrapper: Providers });
+    await confirmDecision();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve }));
+    expect(await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete)).toBeVisible();
+    if (change === "viewer") {
+      data.client.viewer.mockResolvedValue({ status: "ready", value: { id: "synthetic-other-reviewer" } });
+      fireEvent(window, new PageTransitionEvent("pageshow", { persisted: true }));
+      expect(await screen.findByText(ADMISSION_REVIEW_UI_COPY.changedViewer)).toBeVisible();
+    } else if (change === "close") {
+      fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close }));
+    } else {
+      fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close }));
+      const row = screen.getByText("Otra solicitud sintética").closest("li");
+      if (!row) throw new Error("Synthetic reviewer row unavailable");
+      fireEvent.click(row.querySelector("button")!);
+      expect(await screen.findByRole("heading", { name: "Otra solicitud sintética" })).toBeVisible();
+    }
+    await waitFor(() => expect(screen.queryByText(ADMISSION_REVIEW_UI_COPY.complete)).not.toBeInTheDocument());
+    expect(data.client.decide).toHaveBeenCalledOnce();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
   it("should recover a terminal decision denial, retain reviewer reason and pending resource without another mutation or completion feedback", async () => {
     const data = fixture();
     writeAdmissionReviewIntent(viewerId, slug, { requestId, input: { operationId, expectedVersion: 1, confirmed: true, decision: "approve", internalReason: "Razón conservada", externalMessage: "" } });

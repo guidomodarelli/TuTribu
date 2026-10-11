@@ -15,7 +15,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native trusted Gma
   it("should require local proof even for the current trusted base capture before admitting the exact enabled contact", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const email = `synthetic.${randomUUID()}+tag@gmail.com`, fixture = await prepareAdmissionContactVerification(database, false, undefined, false, email), evidenceId = randomUUID(), entryId = randomUUID();
-      for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
+      for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
       await database.withContext(fixture.fixture.own, async (transaction) => {
         const account = (await transaction.execute<{ id: string; subject: string }>(sql`select id,"accountId" as subject from public.account where "userId"=${fixture.context.userId} and "providerId"='google'`)).rows[0];
         if (!account) throw new Error("Admission Gmail verification failed: linked_account_unavailable");

@@ -2,9 +2,9 @@
 import { useId } from "react";
 import { Button, Checkbox, Textarea } from "beez-ui";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
-import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
+import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_ELIGIBILITY_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
-import { ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import { ADMISSION_EVIDENCE_KIND, ADMISSION_DENIAL_REASON } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { formatBuenosAiresShortDate, formatBuenosAiresTime } from "@/lib/date-time/buenos-aires-format";
 import styles from "./styles.module.scss";
@@ -26,6 +26,11 @@ function describeInstant(value: string): string { return `${formatBuenosAiresSho
 export function AdmissionReview(props: AdmissionReviewProps) {
   const id = useId(), reasonId = `${id}-reason`, externalId = `${id}-external`, confirmId = `${id}-confirm`;
   const selected = props.selected;
+  const eligibilityMessages = selected?.eligibilityReasons.flatMap((reason) => {
+    const message = ADMISSION_REVIEW_ELIGIBILITY_COPY[reason];
+    return message ? [{ reason, message }] : [];
+  }) ?? [];
+  const proofReasonVisible = eligibilityMessages.some(({ reason }) => reason === ADMISSION_DENIAL_REASON.proofRequired || reason === ADMISSION_DENIAL_REASON.evidenceRevoked);
   const evidenceCopy = selected?.evidence.kind === ADMISSION_EVIDENCE_KIND.base ? ADMISSION_REVIEW_UI_COPY.base : selected?.evidence.kind === ADMISSION_EVIDENCE_KIND.local ? ADMISSION_REVIEW_UI_COPY.local : selected?.evidence.kind === ADMISSION_EVIDENCE_KIND.declared ? ADMISSION_REVIEW_UI_COPY.declared : ADMISSION_REVIEW_UI_COPY.none;
   const canApprove = selected?.eligibleActions.includes(ADMISSION_DECISION.approve), canReject = selected?.eligibleActions.includes(ADMISSION_DECISION.reject);
   return <main className={styles.AdmissionReview}>
@@ -46,7 +51,8 @@ export function AdmissionReview(props: AdmissionReviewProps) {
       {selected.applicantMessage && <section className={styles.AdmissionReview__section}><h3 className={styles.AdmissionReview__label}>Mensaje del solicitante</h3><p>{selected.applicantMessage}</p></section>}
       {selected.internalReason && <section className={styles.AdmissionReview__section}><h3 className={styles.AdmissionReview__label}>Motivo interno registrado</h3><p>{selected.internalReason}</p></section>}
       {selected.externalMessage && <section className={styles.AdmissionReview__section}><h3 className={styles.AdmissionReview__label}>Mensaje externo registrado</h3><p>{selected.externalMessage}</p></section>}
-      {selected.needsVerification && <p className={styles.AdmissionReview__help}>La solicitud necesita verificación adicional antes de aprobarse.</p>}
+      {selected.needsVerification && !proofReasonVisible && <p className={styles.AdmissionReview__help}>La solicitud necesita verificación adicional antes de aprobarse.</p>}
+      {eligibilityMessages.map(({ reason, message }) => <p key={reason} role="status" className={styles.AdmissionReview__help}>{message}</p>)}
       {!canApprove && <p className={styles.AdmissionReview__help}>La aprobación no está disponible para el estado y las condiciones actuales de esta solicitud.</p>}
       {(canApprove || canReject || props.uncertain) && <form className={styles.AdmissionReview__section} onSubmit={(event) => event.preventDefault()}>
         <div className={styles.AdmissionReview__field}><label className={styles.AdmissionReview__label} htmlFor={reasonId}>{ADMISSION_REVIEW_UI_COPY.internalReason}</label><Textarea id={reasonId} value={props.internalReason} onChange={(event) => props.onInternalReason(event.target.value)} maxLength={ADMISSION_LIMIT.internalMessageCharacters} disabled={props.disabled || props.uncertain} aria-describedby={`${reasonId}-help`} /><p id={`${reasonId}-help`} className={styles.AdmissionReview__help}>{ADMISSION_REVIEW_UI_COPY.internalHelp} Hasta {ADMISSION_LIMIT.internalMessageCharacters} caracteres.</p></div>

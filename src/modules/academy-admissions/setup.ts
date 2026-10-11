@@ -237,7 +237,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       };
       const overviewReader = new PostgresAdmissionOverviewReader(options.executePublic, executeAccount, options.readRecoveryLock);
       const overview = new GetAdmissionOverviewUseCase(dependencies.accounts, overviewReader, dependencies.clock);
-      const own = new GetOwnAdmissionUseCases(dependencies.accounts, new PostgresOwnAdmissionRequestReader(executeAccount), dependencies.clock);
+      const own = new GetOwnAdmissionUseCases(dependencies.accounts, new PostgresOwnAdmissionRequestReader(executeAccount, options.readRecoveryLock), dependencies.clock);
       const resolveTribe = new ResolveAdmissionTribeUseCase(overviewReader);
       return { useCases: {
         overview, resolveTribe, own,
@@ -261,7 +261,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         runtime: new ReadAdmissionRuntimeUseCase(writer),
         useCases: {
           submit: new SubmitAdmissionUseCase(dependencies.accounts, writer, dependencies.clock),
-          own: new GetOwnAdmissionUseCases(dependencies.accounts, new PostgresOwnAdmissionRequestReader(executeRequest), dependencies.clock),
+          own: new GetOwnAdmissionUseCases(dependencies.accounts, new PostgresOwnAdmissionRequestReader(executeRequest, async () => (await options.readSecurityConfig()).recoveryLocked), dependencies.clock),
           decide: new DecideAdmissionRequestUseCase(resolveContext, writer),
           cancelOwn: new CancelAdmissionRequestUseCase(resolveContext, writer, ADMISSION_ACTION.cancelOwnRequest),
           cancelByManagement: new CancelAdmissionRequestUseCase(resolveContext, writer, ADMISSION_ACTION.cancelByManagement),

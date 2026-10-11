@@ -12,6 +12,7 @@ import { AdmissionScreen } from "@/components/academy-admissions/admission-scree
 import type { AdmissionPageState } from "@/src/modules/academy-admissions/application/results/admission-page-state";
 import type { AdmissionBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import { getOwnAdmissionRequestMessage } from "@/src/modules/academy-admissions/application/results/admission-own-request-message";
 import { admissionApiClient } from "@/lib/academy-admissions/admission-api-client";
 import { readAdmissionDraft, writeAdmissionDraft, newAdmissionOperationId, type AdmissionDraft, type AdmissionPendingIntent } from "@/lib/academy-admissions/admission-draft";
 import { buildOwnAdmissionRequestRoute } from "@/lib/academy-admissions/admission-routes";
@@ -19,7 +20,8 @@ import { ADMISSION_UI_COPY, ADMISSION_UI_PHASE, ADMISSION_UI_CLOCK_INTERVAL_MS }
 import { ADMISSION_NAVIGATION } from "@/src/modules/academy-admissions/constants/admission-navigation";
 import { ADMISSION_OPERATION_TYPE, ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_OVERVIEW_STATE } from "@/src/modules/academy-admissions/constants/admission-public-contract";
-import { ADMISSION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import { ADMISSION_OUTCOME, ADMISSION_DENIAL_REASON, ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import { ADMISSION_OVERVIEW_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-overview";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { ADMISSION_CONTACT_TYPE, ADMISSION_CONTACT_NORMALIZATION_STATUS } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { normalizeAdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
@@ -186,8 +188,12 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
   const showContact = Boolean(contactState?.viewerId && contactState.overview.policy?.requiresAdditionalVerification && contactOptions && (contactState.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired || currentPending?.needsVerification));
   const contact = useAdmissionContactVerification({ viewerId: contactState?.viewerId ?? null, slug: contactState?.overview.tribe.slug ?? "", requestId: currentPending?.id ?? null, requestVersion: currentPending?.version ?? null, previousRequestId, policyVersion: contactState?.overview.policy?.version ?? 1, channel: contactOptions?.channel ?? MESSAGING_PUBLIC_CHANNEL.email, allowedCountries: contactOptions?.allowedCountries ?? [], allowSmsAlternative: contactOptions?.allowedAlternative === MESSAGING_PUBLIC_CHANNEL.sms, phone: draft.phone, country: draft.country, enabled: showContact && formReady && !accountChanged && phase !== ADMISSION_UI_PHASE.uncertain, renderedAt: contactState?.renderedAt ?? "", authorize: checkViewer, client: contactClient, onProof: () => {}, onApplied: (result) => {
     const snapshot = currentState.current;
-    if (snapshot.kind !== "ready" || !snapshot.request || snapshot.request.id !== result.requestId || snapshot.request.version > result.requestVersion) return;
-    applyState({ ...snapshot, request: { ...snapshot.request, version: result.requestVersion, needsVerification: false } });
+    if (snapshot.kind !== "ready" || !snapshot.request || snapshot.request.id !== result.requestId || snapshot.request.version >= result.requestVersion) return;
+    const appliedRequest: AdmissionRequestDto = { ...snapshot.request, version: result.requestVersion, needsVerification: false,
+      ...(snapshot.request.contact ? { contact: { ...snapshot.request.contact, evidenceKind: ADMISSION_EVIDENCE_KIND.local } } : {}),
+      eligibilityReasons: snapshot.request.eligibilityReasons.filter((reason) => reason !== ADMISSION_DENIAL_REASON.proofRequired && reason !== ADMISSION_DENIAL_REASON.evidenceRevoked) };
+    applyState({ ...snapshot, request: appliedRequest, overview: { ...snapshot.overview, request: appliedRequest,
+      safeMessage: getOwnAdmissionRequestMessage(appliedRequest) ?? ADMISSION_OVERVIEW_MESSAGE.pending } });
     // The incremental result confirms version/evidence; this own GET fills the newly attached masked contact without route refresh.
     const viewerId = snapshot.viewerId;
     void read().then(() => { const current = currentState.current; if (active.current && current.kind === "ready" && current.viewerId === viewerId && current.request?.id === result.requestId) setFeedback(ADMISSION_CONTACT_COPY.applied); });

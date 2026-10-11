@@ -13,7 +13,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal co
   it("should consume the actual personal-origin proof only at explicit canje and retain one manual pending with its original lineage", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, operations, invitationId, input, token } = await preparePersonalContactIssuance(database);
-      for (const migration of ["20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql"]) await database.applyMigration(migration);
+      for (const migration of ["20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql"]) await database.applyMigration(migration);
       const issued = await operations.issue(input);
       if (issued.state !== "completed") throw new Error("Expected native personal code before canje");
       const scope = { ...fixture.fixture.scope, userId: fixture.context.userId, contact: fixture.input.contact, verificationEpoch: 2 };

@@ -114,6 +114,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   /** Explicit interactions share one cancellable read slot; a concurrent write cannot be replaced by a read. */
   const launchRead = useCallback((selectionId?: string, append = false, after?: string | null) => {
     if (busy.current) return;
+    if (selectionId && selectionId !== currentSelected.current?.id) setStatusMessage(null);
     readController.current?.abort();
     const controller = new AbortController(); readController.current = controller;
     setConfirmed(false);
@@ -166,7 +167,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   const uncertain = phase === ADMISSION_REVIEW_PHASE.uncertain;
   const formDisabled = !fresh || phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing;
   return <AdmissionReview items={privateVisible ? items : []} selected={privateVisible ? selected : null} hasMore={privateVisible && cursor !== null} busy={phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing} disabled={formDisabled} confirmed={confirmed} internalReason={internalReason} externalMessage={externalMessage} errorMessage={errorMessage} statusMessage={privateVisible ? statusMessage : ADMISSION_REVIEW_UI_COPY.reading} uncertain={uncertain} canRetry={canRetry}
-    onSelect={(id) => { if (pending.current) return; setInternalReason(""); setExternalMessage(""); launchRead(id); }} onClose={() => { if (pending.current || busy.current) return; currentSelected.current = null; setSelected(null); setConfirmed(false); setInternalReason(""); setExternalMessage(""); }}
+    onSelect={(id) => { if (pending.current) return; setInternalReason(""); setExternalMessage(""); launchRead(id); }} onClose={() => { if (pending.current || busy.current) return; currentSelected.current = null; setSelected(null); setConfirmed(false); setInternalReason(""); setExternalMessage(""); setStatusMessage(null); }}
     onRead={() => launchRead(currentSelected.current?.id)} onLoadMore={() => launchRead(undefined, true, cursor)} onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }}
     onInternalReason={(value) => { setInternalReason(value); setErrorMessage(null); }} onExternalMessage={(value) => { setExternalMessage(value); setErrorMessage(null); }}
     onDecision={(decision) => {

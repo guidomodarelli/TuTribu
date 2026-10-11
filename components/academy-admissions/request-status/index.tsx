@@ -5,8 +5,9 @@ import { Link } from "@/components/navigation/link";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
-import { ADMISSION_EVIDENCE_KIND, ADMISSION_DENIAL_REASON } from "@/src/modules/academy-admissions/constants/admission-eligibility";
-import { ADMISSION_REQUEST_STATUS_COPY, ADMISSION_REQUEST_REVERIFICATION_COPY } from "@/src/modules/academy-admissions/constants/request-status-presentation";
+import { ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import { ADMISSION_REQUEST_STATUS_COPY } from "@/src/modules/academy-admissions/constants/request-status-presentation";
+import { getOwnAdmissionRequestMessage } from "@/src/modules/academy-admissions/application/results/admission-own-request-message";
 import { formatBuenosAiresShortDate, formatBuenosAiresTime } from "@/lib/date-time/buenos-aires-format";
 import styles from "./styles.module.scss";
 
@@ -18,6 +19,7 @@ export function RequestStatus({ request, now, confirmed, disabled, busy, errorMe
   const confirmationId = useId();
   const expired = request.status === ADMISSION_REQUEST_STATUS.pending && Date.parse(now) >= Date.parse(request.expiresAt);
   const mayCancel = request.status === ADMISSION_REQUEST_STATUS.pending && !expired;
+  const eligibilityMessage = mayCancel ? getOwnAdmissionRequestMessage(request) : null;
   return <section className={styles.RequestStatus} aria-label="Estado de tu solicitud">
     <p role="status">{expired ? ADMISSION_UI_COPY.expired : ADMISSION_REQUEST_STATUS_COPY[request.status]}</p>
     <dl className={styles.RequestStatus__facts}>
@@ -27,7 +29,7 @@ export function RequestStatus({ request, now, confirmed, disabled, busy, errorMe
     </dl>
     {request.contact && <p className={styles.RequestStatus__help}>{request.contact.maskedValue} · {request.contact.evidenceKind === ADMISSION_EVIDENCE_KIND.declared ? ADMISSION_UI_COPY.declared : ADMISSION_UI_COPY.verified}</p>}
     {request.externalMessage && <p className={styles.RequestStatus__message}>{request.externalMessage}</p>}
-    {request.needsVerification && !expired && <p className={styles.RequestStatus__help}>{request.eligibilityReasons.includes(ADMISSION_DENIAL_REASON.evidenceRevoked) ? ADMISSION_REQUEST_REVERIFICATION_COPY.revoked : ADMISSION_REQUEST_REVERIFICATION_COPY.required}</p>}
+    {eligibilityMessage && <p role="status" className={styles.RequestStatus__help}>{eligibilityMessage}</p>}
     {mayCancel && <><div className={styles.RequestStatus__confirmation}><Checkbox id={confirmationId} checked={confirmed} disabled={disabled} onCheckedChange={(checked) => onConfirm(checked === true)} /><label htmlFor={confirmationId}>{ADMISSION_UI_COPY.confirmCancel}</label></div><div className={styles.RequestStatus__actions}><Button type="button" variant="outline" disabled={disabled || !confirmed} onClick={onCancel}>{busy ? ADMISSION_UI_COPY.cancelling : ADMISSION_UI_COPY.cancel}</Button></div></>}
     {retryHref && <Link href={retryHref}>{ADMISSION_UI_COPY.retry}</Link>}
     {errorMessage && <p role="alert" className={styles.RequestStatus__error}>{errorMessage}</p>}

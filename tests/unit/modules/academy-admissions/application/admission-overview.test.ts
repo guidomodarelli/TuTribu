@@ -18,6 +18,15 @@ function overviewFixture() {
 }
 
 describe("admission overview", () => {
+  it("should explain the current pending restriction while keeping the original request navigation", async () => {
+    const fixture = overviewFixture();
+    const request = { id: randomUUID(), status: "pending" as const, version: 2, submittedAt: fixture.now.toISOString(), expiresAt: "2026-11-05T12:00:00Z", source: "common" as const, needsVerification: false, eligibilityReasons: ["admission_closed" as const] };
+    fixture.facts.request = request;
+    fixture.facts.policy!.isOpen = false;
+    const useCase = new GetAdmissionOverviewUseCase(fixture.accounts, fixture.reader, () => fixture.now);
+    expect(await useCase.execute(fixture.query)).toMatchObject({ ok: true, value: { state: "pending", nextAction: "view_request", request, safeMessage: "Por ahora esta solicitud no puede aprobarse porque las admisiones no están disponibles. Su plazo sigue corriendo." } });
+  });
+
   it("should allowlist verification channel and countries for the native applicant without sender or quota references", async () => {
     const fixture = overviewFixture();
     fixture.facts.policy!.contactType = "phone";

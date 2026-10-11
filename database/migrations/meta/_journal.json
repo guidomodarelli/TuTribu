@@ -1030,6 +1030,13 @@
       "when": 1791684600000,
       "tag": "20261011021000_expire_academy_admission_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 147,
+      "version": "7",
+      "when": 1791686400000,
+      "tag": "20261011024000_read_current_own_admission_eligibility",
+      "breakpoints": true
     }
   ]
 }

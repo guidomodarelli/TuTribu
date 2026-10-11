@@ -13,7 +13,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission overview
   it("should serve public setup without identity and own nonmember state under both roles without a request, claim or message side effect", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareContactVerificationDatabase(database);
-      for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261007001000_read_public_admission_overview.sql"]) await database.applyMigration(migration);
+      for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007001000_read_public_admission_overview.sql"]) await database.applyMigration(migration);
       const tribeId = randomUUID(), sessionId = randomUUID(), otherUserId = randomUUID(), slug = `overview-${tribeId}`;
       await database.withContext(fixture.own, async (transaction) => {
         await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${otherUserId},'Synthetic existing member',${`${otherUserId}@example.test`},false,clock_timestamp(),clock_timestamp())`);

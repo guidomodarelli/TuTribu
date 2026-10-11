@@ -13,9 +13,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("own admission requ
   it("should project only the current nonmember's masked request under both roles and leave absence without effects", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareContactVerificationDatabase(database);
+      await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
       await database.applyMigration("20261005095000_guard_global_identity_context.sql");
       await database.applyMigration("20261006233000_index_admission_account_history.sql");
       await database.applyMigration("20261006234000_read_own_admission_summary.sql");
+      await database.applyMigration("20261011024000_read_current_own_admission_eligibility.sql");
       await database.applyMigration("20261007004000_read_exact_own_admission_request.sql");
       const tribeId = randomUUID(), sessionId = randomUUID(), otherSessionId = randomUUID(), otherUserId = randomUUID(), requestId = randomUUID(), foreignRequestId = randomUUID();
       await database.withContext(fixture.own, async (transaction) => {

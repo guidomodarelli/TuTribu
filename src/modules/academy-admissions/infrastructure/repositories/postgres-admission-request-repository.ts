@@ -305,7 +305,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
 
   /** Captures the own committed response inside the original transaction; replay never substitutes a current state. */
   private async pendingResult(database: RequestDatabase, input: AdmissionSubmissionIntent, request: AdmissionRequest, created: boolean): Promise<AdmissionSubmissionResult> {
-    const snapshot = await new PostgresOwnAdmissionRequestReader((_scope, run) => run(database)).readOwn(input);
+    const snapshot = await new PostgresOwnAdmissionRequestReader((_scope, run) => run(database), async () => (await this.readSecurityConfig()).recoveryLocked).readOwn(input);
     if (!snapshot || snapshot.id !== request.id || snapshot.status !== ADMISSION_REQUEST_STATUS.pending || snapshot.version !== request.version) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
     return { operationId: input.operationId, outcome: ADMISSION_OUTCOME.pending, admissionRequestId: request.id, committedRequestVersion: request.version, membership: null, requestSnapshot: { ...snapshot, status: ADMISSION_REQUEST_STATUS.pending }, created };
   }

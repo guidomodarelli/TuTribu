@@ -60,7 +60,7 @@ export class PostgresAdmissionOverviewReader implements AdmissionOverviewReader<
       const row = (await database.execute<PublicOverviewRow>(sql`select * from public.read_public_admission_overview(${query.slug})`)).rows[0];
       if (!row) { if (scope) await this.authorize(database, scope); return null; }
       const membership = scope ? (await database.execute<NonNullable<AdmissionOverviewFacts["membership"]>>(sql`select role,status,status_reason as "statusReason",commercial_recovery_status as "commercialRecoveryStatus" from public.tribe_members where tribe_id=${row.tribe_id} and user_id=${scope.userId}`)).rows[0] ?? null : null;
-      const request = scope ? await new PostgresOwnAdmissionRequestReader((_current, run) => run(database)).readOwn({ ...scope, tribeId: row.tribe_id, requestId: query.requestId }) : null;
+      const request = scope ? await new PostgresOwnAdmissionRequestReader((_current, run) => run(database), this.readRecoveryLock).readOwn({ ...scope, tribeId: row.tribe_id, requestId: query.requestId }) : null;
       const verification = scope ? await this.readVerificationChoices(database, scope, row) : undefined;
       const recoveryLocked = await this.readRecoveryLock();
       if (scope) await this.authorize(database, scope);
