@@ -1,5 +1,7 @@
 /** Composes implemented admission use cases and protected transaction collaborators. @module academy-admissions-setup */
 import "server-only";
+import { ExpireAdmissionRequestsUseCase } from "./application/use-cases/expire-admission-requests-use-case";
+import { PostgresAdmissionRequestExpiration, type AdmissionExpirationDatabaseExecutor } from "./infrastructure/repositories/postgres-admission-request-expiration";
 import type { z } from "zod";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { GetAdmissionPageUseCase } from "./application/use-cases/get-admission-page-use-case";
@@ -305,4 +307,16 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       };
     },
   };
+}
+
+/**
+ * Composes clock-driven expiration with explicit backend authority, independently from human sessions.
+ * @param dependencies - Guarded maintenance executor and current host authorization.
+ * @returns A bounded expiration use case; scheduling and bearer routing belong to maintenance composition.
+ */
+export function buildAdmissionExpirationModule(dependencies: {
+  execute: AdmissionExpirationDatabaseExecutor;
+  authorize: (database: RequestDatabase, operation: string) => Promise<boolean>;
+}) {
+  return { useCases: { expireRequests: new ExpireAdmissionRequestsUseCase(new PostgresAdmissionRequestExpiration(dependencies.execute, dependencies.authorize)) } };
 }
