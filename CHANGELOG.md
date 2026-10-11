@@ -89,6 +89,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Se puede llegar con el teclado al enlace para volver a solicitar ingreso después de cancelar una solicitud.
+
+
 - El estado de una solicitud pendiente explica restricciones actuales y limpia la explicación anterior al consultar; el reintento después de cancelar también se ofrece cuando requiere comprobar contacto.
 
 - Una prueba aplicada conserva su confirmación si falla la consulta posterior; los responsables ven causas actuales y los avisos de una decisión se limpian al abrir otra solicitud.
