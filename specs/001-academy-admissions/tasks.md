@@ -1060,7 +1060,7 @@ Cierre de T135 sobre1ae66cb4: auditoría read-only de todas sus cláusulas sin b
 <a id="t145"></a>
 
 - [ ] T145 [P] [US9] Ejercer cien canjes y cien decisiones approve/reject, pérdida de commit, rol/cuenta/pausa/época/expiry mientras esperan lock; una terminal y effect/events juntos, expectedVersion/operation y reloj autoritativos. Archivos: `tests/unit/modules/academy-admissions/infrastructure/admission-concurrency.test.ts`. Trazabilidad: `FR-098`–`FR-100`, `FR-105`–`FR-108`, `FR-127`, `US-09-AC-01`–`US-09-AC-06`, `EC-10`–`EC-11`, `EC-13`, `SC-005`, `D-09`, `D-12`, `TC-011`, `TC-019`.
-  Incremento comprobado: cien decisiones opuestas con un único efecto terminal y replay, policy writer ON/OFF sin aprobación automática, y negativas tras pausa/vencimiento con wait SQL probado. Se conservan pendientes la prueba nueva hasta decidir, la aplicada histórica y las restantes carreras de cuenta/rol/época; no se cierra T144/T145. Ver [evidencia integrada](validation/admission-opposite-decision-and-policy-integration-baseline.md).
+  Incremento comprobado: cien decisiones opuestas con un único efecto terminal y replay, policy writer ON/OFF sin aprobación automática, y negativas tras pausa/vencimiento con wait SQL probado. Nueva prueba hasta decidir y snapshot de aplicada histórica ya probados; siguen pendientes dos celdas de revisión y las restantes carreras de cuenta/rol/época, sin cerrar T144/T145. Ver también [prueba nueva e histórica](validation/admission-new-and-historical-proof-integration-baseline.md). Ver [evidencia integrada](validation/admission-opposite-decision-and-policy-integration-baseline.md).
 
 <a id="t146"></a>
 

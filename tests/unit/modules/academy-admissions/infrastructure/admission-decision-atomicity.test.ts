@@ -23,9 +23,15 @@ import { PostgresAdmissionOperationReader } from "@/src/modules/academy-admissio
 import { recoverProtectedSubscriptionMemberships } from "@/src/modules/subscriptions/infrastructure/repositories/subscription-membership-source-writer";
 import { withAdmissionTransitionContention } from "@/tests/support/admission-transition-contention";
 
-/** @param database - Owned synthetic branch with actual SQL/native identity. @param commercialMemberStatus - Optional readable instance removed commercially before presentation. @param contactType - Persisted original contact choice before activation. @returns A protected manual/OFF academy writer and scoped native participants. */
-async function prepareManualAdmission(database: AcademyAdmissionTestDatabase, commercialMemberStatus?: "active" | "muted", contactType: "email" | "phone" = "email") {
-  for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql"]) await database.applyMigration(migration);
+/** Loads a coherent migration snapshot before the evidence guard is first installed; no active trigger is disabled. */
+type HistoricalManualAdmissionSeed = (scope: { tribeId: string; applicantId: string; leaderId: string; config: Awaited<ReturnType<typeof createMessagingSecurityConfig>> }) => Promise<void>;
+
+/** @param database - Owned synthetic branch with actual SQL/native identity. @param commercialMemberStatus - Optional readable instance removed commercially before presentation. @param contactType - Persisted original contact choice before activation. @param historicalSeed - Optional migration-era data loaded before evidence guards; all writers run after installing those guards. @returns A protected manual/OFF academy writer and scoped native participants. */
+async function prepareManualAdmission(database: AcademyAdmissionTestDatabase, commercialMemberStatus?: "active" | "muted", contactType: "email" | "phone" = "email", historicalSeed?: HistoricalManualAdmissionSeed) {
+  for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql"]) {
+    if (historicalSeed && migration === "20261005091500_guard_admission_evidence_transitions.sql") continue;
+    await database.applyMigration(migration);
+  }
   await database.applyMigration("20261007005000_read_admission_reviews.sql");
   await database.applyMigration("20261007030000_capture_admission_decision_evidence.sql");
   const tribeId = randomUUID(), applicantId = randomUUID(), leaderId = randomUUID(), otherId = randomUUID();
@@ -40,7 +46,7 @@ async function prepareManualAdmission(database: AcademyAdmissionTestDatabase, co
     await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
     await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${leaderId},'leader','active')`);
     if (commercialMemberStatus) await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${applicantId},'tribemate',${commercialMemberStatus})`);
-    const activatedAt = (await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now;
+    const activatedAt = (await transaction.execute<{ now: string }>(historicalSeed ? sql`select clock_timestamp()-interval '3 days' as now` : sql`select clock_timestamp() as now`)).rows[0].now;
     await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,contact_type,is_open,activated_at) values (${tribeId},${contactType},true,${activatedAt})`);
     await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${activatedAt} where id=${tribeId}`);
     if (commercialMemberStatus) await transaction.execute(sql`update public.tribe_members set status='removed',status_reason='subscription_inactive' where tribe_id=${tribeId} and user_id=${applicantId}`);
@@ -48,6 +54,10 @@ async function prepareManualAdmission(database: AcademyAdmissionTestDatabase, co
   const keyrings = {} as Parameters<typeof createMessagingSecurityConfig>[0]["keyrings"];
   for (const purpose of Object.values(MESSAGING_KEY_PURPOSE)) { const keyId = randomUUID(); keyrings[purpose] = { activeKeyId: keyId, keys: [{ id: keyId, material: randomBytes(32) }] }; }
   const config = await createMessagingSecurityConfig({ environment: randomUUID(), securityEpoch: randomUUID(), recoveryLocked: false, keyrings });
+  if (historicalSeed) {
+    await historicalSeed({ tribeId, applicantId, leaderId, config });
+    await database.applyMigration("20261005091500_guard_admission_evidence_transitions.sql");
+  }
   let loseCommittedReply = false;
   let omittedNoticeEvent: "approved" | "cancelled" | "expired" | null = null;
   let observeWriter = false;
@@ -81,6 +91,45 @@ async function recoverPaidFixtureMembership(database: AcademyAdmissionTestDataba
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission decision atomicity", () => {
+  it("should approve a coherent three-day applied proof snapshot with current guards without repeating contact verification", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const requestId = randomUUID(), proofId = randomUUID(), challengeId = randomUUID(), connectionId = randomUUID(), deliveryId = randomUUID(), bindingId = randomUUID();
+      const fixture = await prepareManualAdmission(database, undefined, "email", async ({ tribeId, applicantId, leaderId, config }) => {
+        await database.withContext({ userId: leaderId, email: null }, async (transaction) => {
+          const createdAt = new Date((await transaction.execute<{ created_at: string }>(sql`select activated_at as created_at from public.academy_admission_policies where tribe_id=${tribeId}`)).rows[0].created_at);
+          const verifiedAt = new Date(createdAt.getTime()+60_000), submittedAt = new Date(verifiedAt.getTime()+60_000), appliedAt = submittedAt;
+          const codeExpiresAt = new Date(createdAt.getTime()+ADMISSION_LIMIT.verificationCodeValidityMs), applyBefore = new Date(verifiedAt.getTime()+ADMISSION_LIMIT.verificationProofFreshnessMs), expiresAt = new Date(submittedAt.getTime()+ADMISSION_LIMIT.pendingValidityMs);
+          const contact = `${applicantId}@example.test`, fingerprint = randomBytes(32), fingerprintKeyId = config.keyrings.contact_fingerprint.activeKeyId;
+          await transaction.execute(sql`update public."user" set "createdAt"=${createdAt} where id in (${applicantId},${leaderId})`);
+          await transaction.execute(sql`update public.tribes set created_at=${createdAt} where id=${tribeId}`);
+          await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,contributed_by_user_id,state,environment,security_epoch,is_candidate,candidate_version,created_at) values (${connectionId},${tribeId},${leaderId},'degraded',${config.environment},${config.securityEpoch},true,1,${createdAt})`);
+          await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,created_at) values (${connectionId},${tribeId},1,${config.environment},${config.securityEpoch},${createdAt})`);
+          await transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,state,queued_usage_policy_version,created_at,deadline_at) values (${deliveryId},${tribeId},${connectionId},1,${config.environment},${config.securityEpoch},'admission',${challengeId},${applicantId},${contact},'email',${randomUUID()},${randomBytes(32)},${config.keyrings.operation_payload.activeKeyId},'{}'::jsonb,'delivered',1,${createdAt},${codeExpiresAt})`);
+          await transaction.execute(sql`insert into public.contact_verification_challenges(id,user_id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,purpose,verification_epoch,connection_id,connection_version,security_epoch,channel,state,created_at,expires_at,verified_at,mac_key_id,delivery_id) values (${challengeId},${applicantId},${tribeId},'email',${contact},${fingerprint},${fingerprintKeyId},'admission',2,${connectionId},1,${config.securityEpoch},'email','verified',${createdAt},${codeExpiresAt},${verifiedAt},${config.keyrings.verification_mac.activeKeyId},${deliveryId})`);
+          await transaction.execute(sql`insert into public.academy_admission_verification_proofs(id,challenge_id,user_id,tribe_id,contact_type,normalized_contact,verification_epoch,connection_id,connection_version,security_epoch,verified_at,apply_before,status,applied_request_id,applied_at) values (${proofId},${challengeId},${applicantId},${tribeId},'email',${contact},2,${connectionId},1,${config.securityEpoch},${verifiedAt},${applyBefore},'applied',${requestId},${appliedAt})`);
+          await transaction.execute(sql`insert into public.academy_admission_contact_bindings(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,owner_user_id,first_request_id,first_proof_id,evidence_source,created_at) values (${bindingId},${tribeId},'email',${contact},${fingerprint},${fingerprintKeyId},${applicantId},${requestId},${proofId},'local',${appliedAt})`);
+          await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,evidence_source,proof_id,binding_id,original_policy_snapshot,submitted_at,expires_at) values (${requestId},${tribeId},${applicantId},'common','email',${contact},${fingerprint},${fingerprintKeyId},'local',${proofId},${bindingId},${JSON.stringify({ version: 2, verificationEpoch: 2, mode: "manual_review", contactType: "email", requiresAdditionalVerification: true, allowCommonExceptions: false })}::jsonb,${submittedAt},${expiresAt})`);
+          await transaction.$client.query("savepoint historical_policy_version_diagnostic");
+          await expect(transaction.$client.query("update public.academy_admission_policies set requires_additional_verification=true where tribe_id=$1", [tribeId])).rejects.toMatchObject({ code: "23514", message: "admission effective change requires one version increment" });
+          await transaction.$client.query("rollback to savepoint historical_policy_version_diagnostic");
+          await transaction.$client.query("release savepoint historical_policy_version_diagnostic");
+          await transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,verification_epoch=2,version=version+1,messaging_connection_id=${connectionId},messaging_connection_version=1,created_at=${createdAt},updated_at=${createdAt} where tribe_id=${tribeId}`);
+          const chronology = (await transaction.execute(sql`select principal."createdAt"<=policy.activated_at as account_existed,tribe.created_at<=policy.activated_at as tribe_existed,policy.created_at<=policy.activated_at as policy_existed from public.academy_admission_policies policy inner join public.tribes tribe on tribe.id=policy.tribe_id inner join public."user" principal on principal.id=${applicantId} where policy.tribe_id=${tribeId}`)).rows[0];
+          expect(chronology).toEqual({ account_existed: true, tribe_existed: true, policy_existed: true });
+        });
+      });
+      const proofBefore = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select status,verified_at,apply_before,applied_request_id,applied_at from public.academy_admission_verification_proofs where id=${proofId}`)).rows[0]);
+      await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_verification_proofs set apply_before=clock_timestamp()+interval '15 minutes' where id=${proofId}`))).rejects.toMatchObject({ cause: { code: "23514" } });
+      const outcome = await fixture.repository.decide({ tribeId: fixture.tribeId, userId: fixture.leaderId, sessionId: fixture.leaderSessionId, requestId: randomUUID(), operationId: randomUUID(), type: "decide_admission_request", admissionRequestId: requestId, expectedVersion: 1, decision: "approve", confirmed: true, internalReason: "Revisión de prueba aplicada histórica", externalMessage: null });
+      expect(outcome).toMatchObject({ state: "completed", result: { status: "approved", version: 2 } });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select status,verified_at,apply_before,applied_request_id,applied_at from public.academy_admission_verification_proofs where id=${proofId}`)).rows[0]).toEqual(proofBefore);
+        const counts = (await transaction.execute(sql`select (select count(*)::int from public.contact_verification_challenges where tribe_id=${fixture.tribeId}) as challenges,(select count(*)::int from public.academy_admission_verification_proofs where tribe_id=${fixture.tribeId}) as proofs,(select count(*)::int from public.academy_admission_decisions where request_id=${requestId}) as decisions,(select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.submission.userId}) as memberships`)).rows[0];
+        expect(counts).toEqual({ challenges: 1, proofs: 1, decisions: 1, memberships: 1 });
+      });
+    });
+  }, 1_200_000);
+
   it.each(["pause", "expiry"] as const)("should deny approval after a proven native lock wait observes current %s without terminal effects", async (transition) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareManualAdmission(database);
