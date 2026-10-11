@@ -1,6 +1,8 @@
 # Traceability: Academy Admissions and Tenant Messaging
 
-**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 141 completadas y 71 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
+**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 142 completadas y 70 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
+
+T120 completa sus seis AC y casos extremos de lista/importación con SQL real. La confirmación original de 10.000 filas y su reimportación terminan sin duplicación, reactivación ni borrado de la entrada independiente; SC-021 conserva exactamente 800 admisiones y 200 solicitudes pendientes entre mil comandos. La auditoría independiente comprueba 29 fuentes estables, ausencia de brechas y limpieza de la rama máxima propia. [Auditoría de validación de lista e importación](validation/allowlist-import-validation-completion-audit.md). Este cierre individual no acredita los recorridos T146/T150, proveedor externo ni gates operativos.
 
 T132 completa la validación nominativa prevista: siete AC con SQL/UI reales, un canje en cien confirmaciones, rollback y respuestas perdidas. La matriz administrativa actual tiene ocho combinaciones, separadas de los Native personales anteriores y del transporte externo pendiente; los snapshots se conservan por scope. El ensayo humano SC-014, entrega ON real, legacy y rollout no se acreditan por este cierre. [Auditoría de validación personal](validation/personal-invitation-validation-completion-audit.md).
 
