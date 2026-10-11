@@ -1839,7 +1839,7 @@ export const {
   messagingSecretEnvelopes, messagingConnectionCapabilities, messagingConnectionDiagnostics,
   messagingContactBudgetSubjects, messagingContactFingerprintAliases, messageDeliveries,
   verificationCodeEnvelopes, messageDeliveryAttempts, messagingUsageReservations, messagingUsageEvents,
-} = createMessagingSchema({ tribeNamespaces: academyAdmissionTribeNamespaces, user: users, contactVerificationChallenges });
+} = createMessagingSchema({ tribeNamespaces: academyAdmissionTribeNamespaces, user: users, contactVerificationChallenges, admissionOperations: academyAdmissionOperations });
 
 /** Composes the private membership source after both owners' tables exist. */
 export const academyAdmissionMembershipEffects=createAdmissionMembershipEffectsSchema({tribes,users,members:tribeMembers,decisions:academyAdmissionDecisions});

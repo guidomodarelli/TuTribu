@@ -14,5 +14,7 @@ export const MESSAGING_AUTHORIZATION_PURPOSE = {
 } as const;
 /** Fixed internal resource slots; an inactive candidate never becomes selected by a read. */
 export const MESSAGING_CONNECTION_SLOT = { selected: "selected", candidate: "candidate" } as const;
+/** Chooses authorized reader scope; management is a selector, never a stored resource slot. */
+export const MESSAGING_RESOURCE_SELECTION = { selected: "selected", candidate: "candidate", management: "management" } as const;
 /** Provides an orientation label for legacy metadata without inventing provider validation. */
 export const MESSAGING_DEFAULT_CONNECTION_NAME = "Conexión de mensajería";

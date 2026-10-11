@@ -693,6 +693,30 @@ export async function createMessageDeliveryReadRequestModule(){
   return{delivery:buildMessagingModule(dependencies).createDeliveryReadModule().useCases,resolveTribe:routing.resolveTribe};
 }
 
+/** @returns Original owned-message SDK lookup and monotonic transport persistence with current native recency and explicit hosting transport. */
+export async function createMessageDeliveryReconciliationRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const reconciliation = buildMessagingModule(dependencies).createDeliveryReconciliationModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), fetch: globalThis.fetch });
+  return { delivery: reconciliation.useCases, resolveTribe: routing.resolveTribe };
+}
+
+/** @returns Explicit original-notification recovery and canonical routing, with no provider call or automatic dispatch. */
+export async function createNotificationDeliveryRecoveryRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const recovery = buildMessagingModule(dependencies).createNotificationRecoveryModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  return { recovery: recovery.useCases, resolveTribe: routing.resolveTribe };
+}
+
 /** @returns Current native candidate activation with feature-owned metadata/evidence changes in one protected transaction, without provider calls. */
 export async function createMessagingConnectionActivationRequestModule(){
   const databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);

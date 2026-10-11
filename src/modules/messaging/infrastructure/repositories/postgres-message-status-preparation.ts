@@ -2,10 +2,10 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import type { ResolveMessagingContextUseCase } from "../../application/use-cases/resolve-messaging-context-use-case";
 import type { AuthorizedMessagingContext, MessagingSecretStore } from "../../domain/repositories/messaging-repositories";
 import type { MessageStatusReference } from "../../domain/repositories/message-status-lookup";
 import type { MessageStatusPreparation, PreparedMessageStatusQuery } from "../zavu/message-status-preparation";
+import type { OriginalMessageContextResolver } from "../../application/use-cases/reconcile-message-delivery-use-case";
 import type { MessagingSecurityConfig } from "../config/messaging-security-config";
 import { MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/message-delivery-reauthentication";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
@@ -21,11 +21,11 @@ type StatusDatabaseExecutor = <Result>(actorUserId: string, run: (database: Requ
 /** Reads only an authorized original message; credentials and provider payloads remain infrastructure-owned. */
 export class PostgresMessageStatusPreparation implements MessageStatusPreparation {
   /** @param resolver - Current account/session/leader/resource/security and exact reconciliation recency. @param execute - Existing guarded actor transaction. @param secrets - Existing human-purpose store with its own locks and lifetime checks. @param readSecurityConfig - Current external recovery/epoch/keyrings, read again after the final SQL wait. @param clock - Server time sampled after that final external read. */
-  constructor(private readonly resolver: Pick<ResolveMessagingContextUseCase, "execute">, private readonly execute: StatusDatabaseExecutor, private readonly secrets: MessagingSecretStore, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly clock: () => Date = () => new Date()) {}
+  constructor(private readonly resolver: OriginalMessageContextResolver, private readonly execute: StatusDatabaseExecutor, private readonly secrets: MessagingSecretStore, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly clock: () => Date = () => new Date()) {}
 
   /** @param reference - Original immutable message metadata from protected storage. @returns Current native authority, never authority selected by the reference itself. */
   private async resolve(reference: MessageStatusReference): Promise<AuthorizedMessagingContext> {
-    const resolved = await this.resolver.execute({ tribeId: reference.tribeId, connectionId: reference.connectionId, operation: MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile, requestId: reference.requestId });
+    const resolved = await this.resolver.execute({ tribeId: reference.tribeId, connectionId: reference.connectionId, connectionVersion: reference.connectionVersion, operation: MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile, requestId: reference.requestId });
     if (!resolved.allowed) throw new ZavuInspectionError(MESSAGE_STATUS_LOOKUP_OPERATION, resolved.failure);
     const context = resolved.context;
     if (context.tribeId !== reference.tribeId || context.connectionId !== reference.connectionId || context.connectionVersion !== reference.connectionVersion || context.resourceId !== reference.connectionId || context.operation !== MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);

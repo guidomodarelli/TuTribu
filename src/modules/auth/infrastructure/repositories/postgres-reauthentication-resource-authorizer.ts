@@ -6,6 +6,7 @@ import type {ReauthenticationResourceAuthorizer} from "@/src/modules/auth/domain
 import type {RecentAuthenticationScope} from "@/src/modules/auth/domain/entities/recent-authentication-evidence";
 import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database/server-database-client";
 import {REAUTHENTICATION_POLICY_OPERATIONS,REAUTHENTICATION_POLICY_SETTINGS_SEGMENT,REAUTHENTICATION_USAGE_OPERATIONS,REAUTHENTICATION_USAGE_SETTINGS_SEGMENT,REAUTHENTICATION_CONNECTION_OPERATIONS,REAUTHENTICATION_CONNECTION_SETTINGS_SEGMENT} from "../../constants/reauthentication-navigation";
+import { NOTIFICATION_DELIVERY_RECOVERY_PURPOSE } from "@/src/modules/messaging/constants/notification-delivery-recovery";
 
 /** Reads resource ownership under the auth writer's existing transaction and lock order. */
 export class PostgresReauthenticationResourceAuthorizer implements ReauthenticationResourceAuthorizer {
@@ -26,6 +27,7 @@ export class PostgresReauthenticationResourceAuthorizer implements Reauthenticat
     switch(kind) {
       case REAUTHENTICATION_RESOURCE_KIND.tribe:exists=scope.resourceId===scope.tribeId;break;
       case REAUTHENTICATION_RESOURCE_KIND.connection:exists=(await this.database.execute(sql`select id from public.tenant_messaging_connections where id=${scope.resourceId} and tribe_id=${scope.tribeId} and retired_at is null for share`)).rows.length===1;break;
+      case REAUTHENTICATION_RESOURCE_KIND.delivery:exists=(await this.database.execute(sql`select id from public.message_deliveries where id=${scope.resourceId} and tribe_id=${scope.tribeId} and purpose=${NOTIFICATION_DELIVERY_RECOVERY_PURPOSE} for share`)).rows.length===1;break;
       case REAUTHENTICATION_RESOURCE_KIND.allowlistEntry:exists=(await this.database.execute(sql`select id from public.academy_allowlist_entries where id=${scope.resourceId} and tribe_id=${scope.tribeId} for share`)).rows.length===1;break;
       case REAUTHENTICATION_RESOURCE_KIND.allowlistImport:exists=(await this.database.execute(sql`select id from public.academy_allowlist_imports where id=${scope.resourceId} and tribe_id=${scope.tribeId} and actor_user_id=${scope.userId} for share`)).rows.length===1;break;
       case REAUTHENTICATION_RESOURCE_KIND.personalInvitation:exists=(await this.database.execute(sql`select id from public.academy_personal_invitations where id=${scope.resourceId} and tribe_id=${scope.tribeId} for share`)).rows.length===1;break;
