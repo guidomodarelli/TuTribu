@@ -1,6 +1,6 @@
 # Traceability: Academy Admissions and Tenant Messaging
 
-**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 138 completadas y 74 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
+**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 139 completadas y 73 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
 
 T132 completa la validación nominativa prevista: siete AC con SQL/UI reales, un canje en cien confirmaciones, rollback y respuestas perdidas. La matriz administrativa actual tiene ocho combinaciones, separadas de los Native personales anteriores y del transporte externo pendiente; los snapshots se conservan por scope. El ensayo humano SC-014, entrega ON real, legacy y rollout no se acreditan por este cierre. [Auditoría de validación personal](validation/personal-invitation-validation-completion-audit.md).
 
@@ -875,3 +875,7 @@ Los seis AC y once filas quedan acreditados por sus escenarios específicos. Cie
 ## Cierre de T147: implementación de transiciones
 
 Policy, época, invalidaciones y audit comparten ledger/transacción y fences con submit/decision. ON→OFF y swap normal preservan aplicada válida; compromiso mantiene recomprobación y causa segura sin estados nuevos de membresía. Revisión Codex de 36 archivos sin brechas, manifiesto 2DA93C4B2BEB3026151D7F76D019C419C25175CC232024F10485FF62DAC34180; evidencia SQL y Native contrastada por cláusula. Sólo T147, con T145 y gates pendientes. Inventario: 138 de 212 completadas y 74 pendientes. Ver [auditoría de implementación](validation/admission-policy-transition-implementation-completion-audit.md).
+
+## Cierre de T145: concurrencia de admisiones
+
+Cien canjes y cien decisiones opuestas conservan una sola transición y sus efectos. La recuperación del COMMIT perdido usa el UUID original. Los waits reales de rol, sesión, cuenta/captura, época, pausa y vencimiento releen autoridad y reloj actuales, con pending/fechas preservadas ante negativas. Revisión Codex integral de 22 archivos sin brechas, manifiesto AAEA5B766F6392F5B7EED6CC769107EB4A10315AF47D788B3579D18B6CF43709. Sólo T145; T148/T149 y gates permanecen pendientes. Inventario: 139 de 212 completadas y 73 pendientes. Ver [auditoría completa](validation/admission-concurrency-validation-completion-audit.md).

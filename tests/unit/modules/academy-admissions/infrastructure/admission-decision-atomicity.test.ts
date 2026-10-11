@@ -91,6 +91,28 @@ async function recoverPaidFixtureMembership(database: AcademyAdmissionTestDataba
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission decision atomicity", () => {
+  it.each([{ transition: "role", code: "permission_denied" }, { transition: "session", code: "authentication_required" }, { transition: "epoch", code: "admission_ineligible" }] as const)("should deny an approval whose $transition authority changes during a proven native wait", async ({ transition, code }) => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareManualAdmission(database);
+      const submitted = await fixture.repository.submit(fixture.submission);
+      if (submitted.state !== "completed" || !submitted.result.admissionRequestId) throw new Error("Approval authority race did not produce its original pending request");
+      const requestId = submitted.result.admissionRequestId;
+      const before = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select status,version,submitted_at,expires_at,decision_id from public.academy_admission_requests where id=${requestId}`)).rows[0]);
+      const result = await withAdmissionTransitionContention(database, fixture.own, async (transaction) => {
+        await transaction.execute(sql`select id from public.tribes where id=${fixture.tribeId} for update`);
+        if (transition === "role") await transaction.execute(sql`update public.tribe_members set status='muted' where tribe_id=${fixture.tribeId} and user_id=${fixture.leaderId}`);
+        else if (transition === "session") await transaction.execute(sql`delete from public.session where id=${fixture.leaderSessionId} and "userId"=${fixture.leaderId}`);
+        else await transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.tribeId}`);
+      }, () => fixture.repository.decide({ ...fixture.submission, userId: fixture.leaderId, sessionId: fixture.leaderSessionId, operationId: randomUUID(), type: "decide_admission_request", admissionRequestId: requestId, expectedVersion: 1, decision: "approve", internalReason: "Revisión tras cambio de autoridad", externalMessage: null }));
+      expect(result).toMatchObject({ status: "rejected", reason: { code } });
+      await database.withContext({ userId: fixture.submission.userId, email: null }, async (transaction) => {
+        expect((await transaction.execute(sql`select status,version,submitted_at,expires_at,decision_id from public.academy_admission_requests where id=${requestId}`)).rows[0]).toEqual(before);
+        const effects = (await transaction.execute(sql`select (select count(*)::int from public.academy_admission_decisions where request_id=${requestId}) as decisions,(select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.submission.userId}) as memberships,(select count(*)::int from public.academy_admission_membership_effects where tribe_id=${fixture.tribeId} and user_id=${fixture.submission.userId}) as membership_effects,(select count(*)::int from public.academy_admission_notification_obligations where request_id=${requestId}) as notices`)).rows[0];
+        expect(effects).toEqual({ decisions: 0, memberships: 0, membership_effects: 0, notices: 1 });
+      });
+    }, { concurrentTransactions: 4 });
+  }, 1_200_000);
+
   it("should approve a coherent three-day applied proof snapshot with current guards without repeating contact verification", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const requestId = randomUUID(), proofId = randomUUID(), challengeId = randomUUID(), connectionId = randomUUID(), deliveryId = randomUUID(), bindingId = randomUUID();
