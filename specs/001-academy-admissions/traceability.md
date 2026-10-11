@@ -1,6 +1,6 @@
 # Traceability: Academy Admissions and Tenant Messaging
 
-**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 139 completadas y 73 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
+**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 140 completadas y 72 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
 
 T132 completa la validación nominativa prevista: siete AC con SQL/UI reales, un canje en cien confirmaciones, rollback y respuestas perdidas. La matriz administrativa actual tiene ocho combinaciones, separadas de los Native personales anteriores y del transporte externo pendiente; los snapshots se conservan por scope. El ensayo humano SC-014, entrega ON real, legacy y rollout no se acreditan por este cierre. [Auditoría de validación personal](validation/personal-invitation-validation-completion-audit.md).
 
@@ -879,3 +879,7 @@ Policy, época, invalidaciones y audit comparten ledger/transacción y fences co
 ## Cierre de T145: concurrencia de admisiones
 
 Cien canjes y cien decisiones opuestas conservan una sola transición y sus efectos. La recuperación del COMMIT perdido usa el UUID original. Los waits reales de rol, sesión, cuenta/captura, época, pausa y vencimiento releen autoridad y reloj actuales, con pending/fechas preservadas ante negativas. Revisión Codex integral de 22 archivos sin brechas, manifiesto AAEA5B766F6392F5B7EED6CC769107EB4A10315AF47D788B3579D18B6CF43709. Sólo T145; T148/T149 y gates permanecen pendientes. Inventario: 139 de 212 completadas y 73 pendientes. Ver [auditoría completa](validation/admission-concurrency-validation-completion-audit.md).
+
+## Cierre de T148: elegibilidad actual de pendientes
+
+La revisión relee policy, época, actor, cuenta/captura, invitación, lista y reloj después de locks. La primera adjunción fija sólo un contacto ausente y se audita; la aplicación es fresca y única, y la histórica conserva el vencimiento original salvo invalidación. Las negativas mantienen pending con razones actuales. Rutas, factories y writers reales comprobados; revisión Codex de 27 archivos sin brechas funcionales, manifiesto 9FF0E0C5D629C7668D84BE03242ED2192FA70A55D676656781D027BD244BA3E8. La corrección documental distingue personal soportada y legacy pendiente. Sólo T148; T149 y gates conservan alcance. Inventario: 140 de 212 completadas y 72 pendientes. Ver [auditoría de implementación](validation/admission-current-eligibility-implementation-completion-audit.md).
