@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { ADMISSION_DRAFT_STORAGE_PREFIX } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { LEGACY_ADMISSION_ARRIVAL } from "@/src/modules/academy-admissions/constants/legacy-admission-arrival";
 
 /** A restored draft never silently restores user confirmation. */
 export const admissionDraftSchema = z.object({ phone: z.string(), country: z.string(), message: z.string().max(ADMISSION_LIMIT.internalMessageCharacters) });
@@ -14,28 +15,28 @@ export const admissionPendingIntentSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("submit"), input: submissionInputSchema }),
   z.object({ kind: z.literal("cancel"), requestId: z.uuid(), input: cancellationInputSchema }),
 ]);
-const storageSchema = z.object({ viewerId: z.string().min(1), slug: z.string().min(1), draft: admissionDraftSchema, pending: admissionPendingIntentSchema.nullable() });
+const storageSchema = z.object({ viewerId: z.string().min(1), slug: z.string().min(1), draft: admissionDraftSchema, pending: admissionPendingIntentSchema.nullable(), arrivalScope: z.string().regex(LEGACY_ADMISSION_ARRIVAL.scopePattern).optional() });
 export type AdmissionDraft = z.infer<typeof admissionDraftSchema>;
 export type AdmissionPendingIntent = z.infer<typeof admissionPendingIntentSchema>;
 export type AdmissionStoredDraft = z.infer<typeof storageSchema>;
 
-/** @param viewerId - Native current user id, never a session/token. @param slug - Validated public tribe slug. @returns A draft key scoped to both viewer and tenant. */
-export function admissionDraftKey(viewerId: string, slug: string): string { return `${ADMISSION_DRAFT_STORAGE_PREFIX}:${encodeURIComponent(viewerId)}:${encodeURIComponent(slug)}`; }
+/** @param viewerId - Native current user id, never a session/token. @param slug - Validated public tribe slug. @param arrivalScope - Optional one-way historical URL reference. @returns A draft key scoped to viewer, tenant and original arrival. */
+export function admissionDraftKey(viewerId: string, slug: string, arrivalScope?: string): string { return `${ADMISSION_DRAFT_STORAGE_PREFIX}:${encodeURIComponent(viewerId)}:${encodeURIComponent(slug)}${arrivalScope ? `:${arrivalScope}` : ""}`; }
 
-/** @param viewerId - Current validated viewer. @param slug - Current tribe. @returns An owned usable draft or absence; corrupted/foreign data is discarded. @throws When browser session storage is unavailable. */
-export function readAdmissionDraft(viewerId: string, slug: string): AdmissionStoredDraft | null {
-  const key = admissionDraftKey(viewerId, slug), raw = window.sessionStorage.getItem(key);
+/** @param viewerId - Current validated viewer. @param slug - Current tribe. @param arrivalScope - Exact one-way historical reference when present. @returns An owned usable draft or absence; corrupted/foreign data is discarded. @throws When browser session storage is unavailable. */
+export function readAdmissionDraft(viewerId: string, slug: string, arrivalScope?: string): AdmissionStoredDraft | null {
+  const key = admissionDraftKey(viewerId, slug, arrivalScope), raw = window.sessionStorage.getItem(key);
   if (!raw) return null;
   let value: unknown;
   try { value = JSON.parse(raw); } catch { window.sessionStorage.removeItem(key); return null; }
   const parsed = storageSchema.safeParse(value);
-  if (!parsed.success || parsed.data.viewerId !== viewerId || parsed.data.slug !== slug) { window.sessionStorage.removeItem(key); return null; }
+  if (!parsed.success || parsed.data.viewerId !== viewerId || parsed.data.slug !== slug || parsed.data.arrivalScope !== arrivalScope) { window.sessionStorage.removeItem(key); return null; }
   return parsed.data;
 }
 
 /** @param record - Exact local draft/intent selected by the container. @returns Nothing after durable browser storage; an exception blocks a new write. */
 export function writeAdmissionDraft(record: AdmissionStoredDraft): void {
-  window.sessionStorage.setItem(admissionDraftKey(record.viewerId, record.slug), JSON.stringify(storageSchema.parse(record)));
+  window.sessionStorage.setItem(admissionDraftKey(record.viewerId, record.slug, record.arrivalScope), JSON.stringify(storageSchema.parse(record)));
 }
 
 /** UUID protocol bytes support WebKit contexts without randomUUID; no weak random fallback is used. */

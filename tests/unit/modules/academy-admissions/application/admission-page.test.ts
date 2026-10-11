@@ -20,6 +20,24 @@ function pageFixture() {
 }
 
 describe("admission page state", () => {
+  it("should validate a historical arrival through its own reader without exposing token or session in SSR state", async () => {
+    const data = pageFixture(), token = "opaque-historical-token";
+    const overview = { ...data.overview, state: "available" as const, nextAction: "request_admission" as const, request: undefined };
+    data.readers.overview.execute.mockResolvedValueOnce({ ok: true, value: overview });
+    const legacyInvitations = { findActiveByToken: vi.fn(async () => ({ id: randomUUID(), tribeId: randomUUID() })) };
+    const page = new GetAdmissionPageUseCase(data.accounts, { ...data.readers, legacyInvitations }, () => data.now);
+    const result = await page.execute({ slug: "synthetic-academy", requestId: randomUUID(), legacyInvitationToken: token });
+    expect(result.ok).toBe(true);
+    expect(legacyInvitations.findActiveByToken).toHaveBeenCalledWith(expect.objectContaining({ userId: data.account.userId, sessionId: data.account.session.id, token }));
+    expect(JSON.stringify(result).includes(token)).toBe(false);
+    expect(JSON.stringify(result).includes(data.account.session.id)).toBe(false);
+  });
+  it("should preserve an existing own pending before resolving an unavailable historical arrival", async () => {
+    const data = pageFixture(), legacyInvitations = { findActiveByToken: vi.fn(async () => null) };
+    const page = new GetAdmissionPageUseCase(data.accounts, { ...data.readers, legacyInvitations }, () => data.now);
+    expect(await page.execute({ slug: "synthetic-academy", requestId: randomUUID(), legacyInvitationToken: "unavailable-arrival" })).toMatchObject({ ok: true, value: { request: { id: data.request.id } } });
+    expect(legacyInvitations.findActiveByToken).not.toHaveBeenCalled();
+  });
   it("should return native viewer id and own public state without exporting session/provider or mutation ports", async () => {
     const fixture = pageFixture();
     const result = await fixture.useCase.execute({ slug: fixture.overview.tribe.slug, requestId: randomUUID() });

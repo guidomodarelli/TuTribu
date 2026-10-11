@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { Link } from "@/components/navigation/link";
 import { Button } from "beez-ui";
 import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
+import { buildLegacyAdmissionEntryRoute } from "@/lib/academy-admissions/admission-routes";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
 import { getServerBetterAuthSession as getSession } from "@/src/modules/auth/infrastructure/better-auth/server-auth-context";
@@ -27,7 +28,7 @@ const INVITATION_PAGE_COPY = {
     "Tu cuenta no puede acceder a esta tribu. Si creés que es un error, contactá a quien administra el espacio.",
   blockedTitle: "No pudimos sumar tu cuenta",
   confirmationDescription:
-    "Confirmá que querés entrar con tu cuenta actual. Después vas a poder acceder al espacio de la tribu.",
+    "Confirmá que querés continuar con tu cuenta actual para revisar los requisitos de ingreso de esta tribu.",
   confirmationTitle: "Sumarte a esta tribu",
   continueButton: "Comenzar",
   eyebrow: "Invitación a una tribu",
@@ -255,6 +256,7 @@ function renderSubscriptionOffer(
   );
 }
 
+/** @param input - Existing route arrival, never a membership or policy permission. @returns Navigation to common admission for academy, or the classic owner's confirmed outcome. */
 export async function acceptInvitationAction({
   slug,
   token,
@@ -278,6 +280,10 @@ export async function acceptInvitationAction({
     token,
     tribeSlug: slug,
   });
+
+  if (result.status === TRIBE_INVITATION_STATUS.admissionRequired) {
+    redirect(buildLegacyAdmissionEntryRoute(slug, token));
+  }
 
   if (result.status === TRIBE_INVITATION_STATUS.accepted) {
     revalidatePath(

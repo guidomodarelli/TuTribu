@@ -37,6 +37,23 @@ function fixture() {
 }
 
 describe("manual admission screen", () => {
+  it("should preserve a source-scoped original while adding historical URL material only to the explicit transport", async () => {
+    const data = fixture(), arrivalScope = "b".repeat(64), token = "synthetic-historical-arrival";
+    vi.mocked(data.client.submit).mockResolvedValueOnce({ status: "failed", code: "unexpected_failure", message: "La respuesta no quedó confirmada.", uncertain: true });
+    render(<AdmissionContainer initialState={data.state} client={data.client} legacyInvitationToken={token} arrivalScope={arrivalScope} />, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).not.toBeDisabled());
+    expect(data.client.submit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
+    await waitFor(() => expect(data.client.submit).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(data.client.submit).mock.calls[0][1].legacyInvitationToken).toBe(token);
+    const stored = readAdmissionDraft(VIEWER_ID, data.state.overview.tribe.slug, arrivalScope);
+    expect(stored?.pending?.kind).toBe("submit");
+    expect(JSON.stringify(stored).includes(token)).toBe(false);
+    expect(readAdmissionDraft(VIEWER_ID, data.state.overview.tribe.slug)).toBeNull();
+    expect(readAdmissionDraft(VIEWER_ID, data.state.overview.tribe.slug, "c".repeat(64))).toBeNull();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
   it.each([
     ["admission_closed", "Por ahora esta solicitud no puede aprobarse porque las admisiones no están disponibles. Su plazo sigue corriendo."],
     ["allowlist_requirement_unmet", "Actualmente no se cumple la lista exigida para esta solicitud. Consultá al equipo de la academia."],

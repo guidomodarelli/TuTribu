@@ -6,6 +6,18 @@ import { readAdmissionContactIntent, readEarlierUnresolvedAdmissionContactIntent
 afterEach(() => window.sessionStorage.clear());
 
 describe("own contact operation references", () => {
+  it("should keep historical arrival references separate from another link and common terminal retry without storing the token", () => {
+    const viewerId = randomUUID(), slug = "synthetic-academy", arrivalScope = "b".repeat(64), otherScope = "c".repeat(64), previousRequestId = randomUUID();
+    const original = { viewerId, slug, requestId: null, arrivalScope, issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue" as const, operationId: randomUUID() } };
+    writeAdmissionContactIntent(original);
+    expect(readAdmissionContactIntent(viewerId, slug, null, undefined, undefined, arrivalScope)).toEqual(original);
+    expect(readAdmissionContactIntent(viewerId, slug, null)).toBeNull();
+    expect(readAdmissionContactIntent(viewerId, slug, null, undefined, undefined, otherScope)).toBeNull();
+    expect(readEarlierUnresolvedAdmissionContactIntent(viewerId, slug, previousRequestId)).toBeNull();
+    expect(readEarlierUnresolvedAdmissionContactIntent(viewerId, slug, previousRequestId, otherScope)).toBeNull();
+    expect(readEarlierUnresolvedAdmissionContactIntent(viewerId, slug, previousRequestId, arrivalScope)).toEqual(original);
+    expect(() => writeAdmissionContactIntent({ ...original, legacyInvitationToken: "must-not-be-stored" } as typeof original)).toThrow();
+  });
   it("should find only earlier unresolved common originals without crossing viewer, pending or personal scopes", () => {
     const viewerId = randomUUID(), slug = "synthetic-academy", previousRequestId = randomUUID();
     const earlier = { viewerId, slug, requestId: null, previousRequestId: randomUUID(), issuedOperationId: null, verifiedOperationId: null, pending: { kind: "issue" as const, operationId: randomUUID() } };

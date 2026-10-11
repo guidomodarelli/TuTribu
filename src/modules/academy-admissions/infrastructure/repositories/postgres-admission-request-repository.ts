@@ -89,7 +89,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
   /** @param execute - Guarded actual actor executor. @param readSecurityConfig - Live local platform keyrings/recovery state. @param compose - Explicit DB-only membership and notification owners. */
   constructor(private readonly execute: AdmissionDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly compose: (database: RequestDatabase) => AdmissionTransactionCollaborators) {}
 
-  /** @returns The common/personal profile consumed by submission guards; legacy keeps complete cutover closed. */
+  /** @returns Actual common, personal and historical coverage consumed by submission and activation guards. */
   getCapabilities(): AdmissionExecutionCapabilities {
     return { sources: [...MANUAL_ADMISSION_EXECUTION_CAPABILITIES.sources], policyModes: [...MANUAL_ADMISSION_EXECUTION_CAPABILITIES.policyModes], additionalVerification: MANUAL_ADMISSION_EXECUTION_CAPABILITIES.additionalVerification };
   }
@@ -205,7 +205,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     await database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type,rule,resource_version) values (${scope.tribeId},${scope.userId},${ADMISSION_RESOURCE_KIND.request},${request.id},${ledgerId},${event},${rule ?? null},${request.version})`);
   }
 
-  /** Submits common/personal presentations with current own evidence; existing membership/pending precedes lookup, redemption and proof effects. */
+  /** Submits common-policy and personal presentations with current own evidence; existing membership/pending precedes lookup, redemption and proof effects. */
   async submit(input: AdmissionSubmissionIntent) {
     const command = { actorUserId: input.userId, tribeId: input.tribeId, operationType: ADMISSION_OPERATION_TYPE.submit, idempotencyKey: input.operationId, intent: { expectedPolicyVersion: input.expectedPolicyVersion, source: input.source, contact: input.contact, proofId: input.proofId, message: input.message, confirmed: input.confirmed } };
     return this.run(input, command, admissionCommittedOutcomeSchema, async (database, ledgerId): Promise<AdmissionSubmissionResult> => {
