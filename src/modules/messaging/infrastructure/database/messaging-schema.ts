@@ -11,6 +11,7 @@ type MessagingSchemaParents = {
   tribeNamespaces: { tribeId: AnyPgColumn };
   user: { id: AnyPgColumn };
   contactVerificationChallenges: { id: AnyPgColumn; tribeId: AnyPgColumn; userId: AnyPgColumn };
+  admissionOperations: { id: AnyPgColumn; tribeId: AnyPgColumn };
 };
 
 /** Maps the binary driver value without validating backend rows. */
@@ -204,6 +205,8 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     securityEpoch: text("security_epoch").notNull(),
     purpose: text("purpose").notNull(),
     sourceResourceId: uuid("source_resource_id").notNull(),
+    recoveryOfDeliveryId: uuid("recovery_of_delivery_id"),
+    recoveryOperationId: uuid("recovery_operation_id"),
     actorUserId: text("actor_user_id"),
     contactSubjectId: uuid("contact_subject_id"),
     recipientRef: text("recipient_ref").notNull(),
@@ -231,7 +234,12 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingDeliveryUsageVersionCheck: check("messaging_delivery_usage_version_check",sql.raw("queued_usage_policy_version>0")),
     messagingDeliveryVersionCheck: check("messaging_delivery_version_check",sql.raw("version>0")),
     messagingDeliveryScopeKey: unique("messaging_delivery_scope_key").on(table.id,table.tribeId,table.connectionId,table.connectionVersion),
-    messagingDeliveryLogicalKey: unique("messaging_delivery_logical_key").on(table.tribeId,table.purpose,table.sourceResourceId,table.recipientRef),
+    messagingDeliveryTenantKey: unique("messaging_delivery_tenant_key").on(table.id,table.tribeId),
+    messagingDeliveryLogicalKey: unique("messaging_delivery_logical_key").on(table.tribeId,table.purpose,table.sourceResourceId,table.recipientRef,table.recoveryOfDeliveryId).nullsNotDistinct(),
+    messagingDeliveryRecoveryParentKey: unique("messaging_delivery_recovery_parent_key").on(table.recoveryOfDeliveryId),
+    messagingDeliveryRecoveryScopeCheck: check("messaging_delivery_recovery_scope_check",sql.raw("(recovery_of_delivery_id IS NULL AND recovery_operation_id IS NULL) OR (recovery_of_delivery_id IS NOT NULL AND recovery_operation_id IS NOT NULL AND recovery_of_delivery_id<>id AND purpose='admission_notification' AND channel='email')")),
+    messagingDeliveryRecoveryParentFkey: foreignKey({name:"messaging_delivery_recovery_parent_fkey",columns:[table.recoveryOfDeliveryId,table.tribeId],foreignColumns:[table.id,table.tribeId]}),
+    messagingDeliveryRecoveryOperationFkey: foreignKey({name:"messaging_delivery_recovery_operation_fkey",columns:[table.recoveryOperationId,table.tribeId],foreignColumns:[parents.admissionOperations.id,parents.admissionOperations.tribeId]}),
     messagingDeliveryIdempotencyKey: unique("messaging_delivery_idempotency_key").on(table.connectionId,table.idempotencyKey),
     messagingDeliveryVersionFkey: foreignKey({name:"messaging_delivery_version_fkey",columns:[table.connectionId,table.tribeId,table.connectionVersion,table.environment,table.securityEpoch],foreignColumns:[messagingConnectionVersions.connectionId,messagingConnectionVersions.tribeId,messagingConnectionVersions.version,messagingConnectionVersions.environment,messagingConnectionVersions.securityEpoch]}),
     messagingDeliveryLeaseCheck: check("messaging_delivery_lease_check",sql.raw("(lease_token IS NULL)=(lease_until IS NULL)")),

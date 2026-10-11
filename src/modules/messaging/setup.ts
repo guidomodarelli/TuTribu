@@ -48,7 +48,7 @@ import { PostgresMessageDeliveryRepository } from "./infrastructure/repositories
 import { PostgresVerificationDeliveryPreparation } from "./infrastructure/repositories/postgres-verification-delivery-preparation";
 import { PostgresVerificationMaterialMaintenance } from "./infrastructure/repositories/postgres-verification-material-maintenance";
 import { PostgresSecretMaterialMaintenance } from "./infrastructure/repositories/postgres-secret-material-maintenance";
-import { MESSAGING_AUTHORIZATION_PURPOSE, MESSAGING_CONNECTION_SLOT } from "./constants/messaging-connection";
+import { MESSAGING_AUTHORIZATION_PURPOSE, MESSAGING_CONNECTION_SLOT, MESSAGING_RESOURCE_SELECTION } from "./constants/messaging-connection";
 import { MESSAGING_ERROR_CODE } from "./constants/messaging-errors";
 import { MessagingSecretAccessError } from "./domain/errors/messaging-secret-access-error";
 import { messagingFailure } from "./application/results/messaging-errors";
@@ -61,6 +61,13 @@ import { ManageMessagingConnectionLifecycleUseCases } from "./application/use-ca
 import { ResolveMessagingTribeManagementUseCase } from "./application/use-cases/resolve-messaging-tribe-management-use-case";
 import type { VerificationDeliveryPreparation } from "./infrastructure/zavu/verification-delivery-preparation";
 import type {DiagnosticDeliveryDispatchScope,FocalDeliveryDispatchScope} from "./domain/repositories/message-delivery-repository";
+import { RecoverNotificationDeliveryUseCase } from "./application/use-cases/recover-notification-delivery-use-case";
+import { ReconcileMessageDeliveryUseCase } from "./application/use-cases/reconcile-message-delivery-use-case";
+import { PostgresNotificationDeliveryRecoveryRepository } from "./infrastructure/repositories/postgres-notification-delivery-recovery-repository";
+import { PostgresMessageReconciliationRepository } from "./infrastructure/repositories/postgres-message-reconciliation-repository";
+import { PostgresMessageStatusPreparation } from "./infrastructure/repositories/postgres-message-status-preparation";
+import { ZavuMessageStatusLookup } from "./infrastructure/zavu/zavu-message-status-lookup";
+import type { OriginalMessageContextQuery } from "./domain/repositories/message-status-lookup";
 
 /** The request owner selects a fixed slot and explicit live security source before exposing sensitive capabilities. */
 type MessagingRequestComposition = { selection: "selected" | "candidate" | "management"; readSecurityConfig: () => Promise<MessagingSecurityConfig> };
@@ -106,6 +113,20 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
       /** @param resolveTribe - Canonical application routing. @param countryChoices - Standard localized options from native composition. @returns One current authorized early usage snapshot. */
       createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, countryChoices: readonly MessagingUsageCountryChoice[]) { return new GetMessagingUsagePageUseCase(dependencies.accounts, { usage, resolveTribe }, dependencies.clock, countryChoices); } };
   };
+  /** @param options - Fixed native slot and current external security. @returns Rechecked sensitive authority without provider or secret access. */
+  const createSensitiveContext = (options: MessagingRequestComposition) => {
+    return {
+        /** @param command - Own validated resource and fixed sensitive operation. @returns Current private authority or a closed denial. */
+        async execute(command: Parameters<ResolveMessagingContextUseCase["execute"]>[0]) {
+          const account = await dependencies.accounts.getAuthenticatedAccount();
+          if (!account) return { allowed: false as const, failure: messagingFailure(MESSAGING_ERROR_CODE.authenticationRequired) };
+          return dependencies.execute(account, (database) => new ResolveMessagingContextUseCase(createTransactionAccountProvider(database, account), new PostgresMessagingAuthorizationReader(database, account.session.id, options.selection), { getCurrentSecurityFacts: async () => {
+            const current = await options.readSecurityConfig();
+            return { environment: current.environment, securityEpoch: current.securityEpoch, recoveryLocked: current.recoveryLocked };
+          } }, dependencies.clock).execute(command));
+        },
+      };
+  };
   return {
     /** @param options - Local operation MAC keys and explicit dependency owners, without SDK/SecretStore. @returns Exact local suspension/disconnection use cases and authority. */
     createConnectionLifecycleModule(options:{readSecurityConfig:()=>Promise<MessagingSecurityConfig>;composeDependencies:(database:RequestDatabase)=>MessagingConnectionLifecycleDependencies}){
@@ -127,6 +148,32 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
     },
     /** @returns Minimal leader/challenge-owner transport reads without keyrings, recency, provider calls or mutation. */
     createDeliveryReadModule(){const{executeActor}=createManagement();return{useCases:new ReadMessageDeliveryUseCase(dependencies.accounts,new PostgresMessageDeliveryReader(executeActor),dependencies.clock)};},
+    /** @param options - Current native security/keyrings for the original ledger and explicit child only. @returns Exact original-delivery recovery with no provider call or automatic dispatch. */
+    createNotificationRecoveryModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+      const { executeActor, leadership } = createManagement();
+      const management = new ResolveMessagingTribeManagementUseCase(dependencies.accounts, leadership, dependencies.clock);
+      return { useCases: new RecoverNotificationDeliveryUseCase(management, new PostgresNotificationDeliveryRecoveryRepository(executeActor, options.readSecurityConfig)) };
+    },
+    /** @param options - Current original-resource security and explicit hosting transport. @returns Original-only provider GET and monotonic persistence, without list/send or replacement credentials. */
+    createDeliveryReconciliationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; fetch: typeof globalThis.fetch }) {
+      const { executeActor } = createManagement();
+      const resolveContext = {
+        /** @param query - Exact immutable identity obtained from protected message storage. @returns Current authority only for that same still-selected or candidate version. */
+        async execute(query: OriginalMessageContextQuery) {
+          const account = await dependencies.accounts.getAuthenticatedAccount();
+          if (!account) return { allowed: false as const, failure: messagingFailure(MESSAGING_ERROR_CODE.authenticationRequired) };
+          return dependencies.execute(account, (database) => new ResolveMessagingContextUseCase(createTransactionAccountProvider(database, account), new PostgresMessagingAuthorizationReader(database, account.session.id, MESSAGING_RESOURCE_SELECTION.management, query.connectionVersion), { getCurrentSecurityFacts: async () => {
+            const current = await options.readSecurityConfig();
+            return { environment: current.environment, securityEpoch: current.securityEpoch, recoveryLocked: current.recoveryLocked };
+          } }, dependencies.clock).execute(query));
+        },
+      };
+      const execute = <Result>(actorUserId: string, run: (database: RequestDatabase) => Promise<Result>) => executeActor({ actorUserId }, run);
+      const secrets = new PostgresEncryptedSecretStore(execute, dependencies.accounts, options.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader);
+      const preparation = new PostgresMessageStatusPreparation(resolveContext, execute, secrets, options.readSecurityConfig, dependencies.clock);
+      const lookup = new ZavuMessageStatusLookup(preparation, options.fetch);
+      return { useCases: new ReconcileMessageDeliveryUseCase(dependencies.accounts, resolveContext, new PostgresMessageReconciliationRepository(execute, options.readSecurityConfig), lookup, dependencies.clock) };
+    },
     /** @param options - Explicit current security/keyrings, never a global provider key. @returns Protected creation with no Inspector/Sender or implied activation. */
     createConnectionManagementModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
       const { executeActor, leadership } = createManagement();
@@ -138,17 +185,7 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
      * @returns Only implemented context, usage, diagnostic, credential-budget and private-secret use cases.
      */
     createRequestModule(options: MessagingRequestComposition) {
-      const resolveContext = {
-        /** @param command - Own validated resource and fixed sensitive operation. @returns Current private authority or a closed denial. */
-        async execute(command: Parameters<ResolveMessagingContextUseCase["execute"]>[0]) {
-          const account = await dependencies.accounts.getAuthenticatedAccount();
-          if (!account) return { allowed: false as const, failure: messagingFailure(MESSAGING_ERROR_CODE.authenticationRequired) };
-          return dependencies.execute(account, (database) => new ResolveMessagingContextUseCase(createTransactionAccountProvider(database, account), new PostgresMessagingAuthorizationReader(database, account.session.id, options.selection), { getCurrentSecurityFacts: async () => {
-            const current = await options.readSecurityConfig();
-            return { environment: current.environment, securityEpoch: current.securityEpoch, recoveryLocked: current.recoveryLocked };
-          } }, dependencies.clock).execute(command));
-        },
-      };
+      const resolveContext = createSensitiveContext(options);
       const executeActor = async <Result>(context: { actorUserId: string; sessionId?: string; accountId?: string; subject?: string }, run: (database: RequestDatabase) => Promise<Result>) => {
         const account = await dependencies.accounts.getAuthenticatedAccount();
         if (!account || account.userId !== context.actorUserId || context.sessionId !== undefined && account.session.id !== context.sessionId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);

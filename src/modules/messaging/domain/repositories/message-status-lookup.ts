@@ -13,6 +13,11 @@ export type MessageStatusObservation = Readonly<{
   providerMessageId: string;
 }>;
 
+/** Resolves only a version obtained from protected original-message storage, never browser input. */
+export type OriginalMessageContextQuery = {
+  tribeId: string; connectionId: string; connectionVersion: number; operation: "reconcile_message_delivery"; requestId: string;
+};
+
 /** Reads only the immutable original provider ID through its authorized private preparation. */
 export interface MessageStatusLookup {
   /** @param reference - Native stored attempt and exact original connection scope. @param signal - This lookup's cancellation/deadline. @returns Minimal transport evidence without authorizing a resend. */

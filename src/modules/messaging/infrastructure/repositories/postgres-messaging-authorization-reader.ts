@@ -5,10 +5,10 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { MessagingAuthorizationReader, MessagingConnectionAuthorizationFacts, MessagingLeadershipFacts } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import { MESSAGING_RESOURCE_SELECTION } from "../../constants/messaging-connection";
 
 /** Selects a fixed server-owned resource version, never a caller-supplied SQL column. */
-const MESSAGING_RESOURCE_SELECTION = { selected: "selected", candidate: "candidate", management: "management" } as const;
-type MessagingResourceSelection = typeof MESSAGING_RESOURCE_SELECTION[keyof typeof MESSAGING_RESOURCE_SELECTION];
+type MessagingResourceSelection = "selected" | "candidate" | "management";
 
 /** Keeps only consumed role and lifetime facts; backend rows are not schema revalidated. */
 type MemberRow = {user_id:string;role:NonNullable<MessagingLeadershipFacts["membership"]>["role"];status:NonNullable<MessagingLeadershipFacts["membership"]>["status"]};
@@ -20,7 +20,7 @@ export class PostgresMessagingAuthorizationReader implements MessagingAuthorizat
    * @param sessionId - Actual server-resolved session identity; never a body field.
    * @param selection - Fixed composition choice for the selected or candidate resource version.
    */
-  constructor(private readonly database:RequestDatabase,private readonly sessionId:string,private readonly selection:MessagingResourceSelection=MESSAGING_RESOURCE_SELECTION.selected){}
+  constructor(private readonly database:RequestDatabase,private readonly sessionId:string,private readonly selection:MessagingResourceSelection=MESSAGING_RESOURCE_SELECTION.selected,private readonly originalVersion?:number){}
 
   /** Rechecks current SQL session expiry after resource waits. */
   private async sessionIsLive(userId:string):Promise<boolean>{
@@ -57,8 +57,9 @@ export class PostgresMessagingAuthorizationReader implements MessagingAuthorizat
     const leadership=await this.getCurrentLeadership(tribeId,actor);
     if(leadership?.leaderUserId!==actor||leadership.membership?.role!==TRIBE_MEMBER_ROLE.leader||leadership.membership.status!==TRIBE_MEMBERSHIP_STATUS.active)return null;
     if(this.selection!==MESSAGING_RESOURCE_SELECTION.selected&&this.selection!==MESSAGING_RESOURCE_SELECTION.candidate&&this.selection!==MESSAGING_RESOURCE_SELECTION.management)return null;
-    const version=this.selection===MESSAGING_RESOURCE_SELECTION.management?sql`case when connection.is_candidate and connection.candidate_version is not null then connection.candidate_version else connection.selected_version end`:this.selection===MESSAGING_RESOURCE_SELECTION.candidate?sql`connection.candidate_version`:sql`connection.selected_version`;
-    const slot=this.selection===MESSAGING_RESOURCE_SELECTION.management?sql`((connection.is_candidate and connection.candidate_version is not null) or (connection.is_selected and connection.selected_version is not null))`:this.selection===MESSAGING_RESOURCE_SELECTION.candidate?sql`connection.is_candidate`:sql`connection.is_selected`;
+    if(this.originalVersion!==undefined&&(!Number.isInteger(this.originalVersion)||this.originalVersion<1||this.selection!==MESSAGING_RESOURCE_SELECTION.management))return null;
+    const version=this.originalVersion!==undefined?sql`${this.originalVersion}`:this.selection===MESSAGING_RESOURCE_SELECTION.management?sql`case when connection.is_candidate and connection.candidate_version is not null then connection.candidate_version else connection.selected_version end`:this.selection===MESSAGING_RESOURCE_SELECTION.candidate?sql`connection.candidate_version`:sql`connection.selected_version`;
+    const slot=this.originalVersion!==undefined?sql`((connection.is_candidate and connection.candidate_version=${this.originalVersion}) or (connection.is_selected and connection.selected_version=${this.originalVersion}))`:this.selection===MESSAGING_RESOURCE_SELECTION.management?sql`((connection.is_candidate and connection.candidate_version is not null) or (connection.is_selected and connection.selected_version is not null))`:this.selection===MESSAGING_RESOURCE_SELECTION.candidate?sql`connection.is_candidate`:sql`connection.is_selected`;
     const row=(await this.database.execute<{id:string;tribe_id:string;version:number;contributed_by_user_id:string;state:MessagingConnectionAuthorizationFacts["state"];environment:string;security_epoch:string;retired_at:Date|string|null;secret_ref:string|null}>(sql`
       select connection.id,connection.tribe_id,resource.version,connection.contributed_by_user_id,connection.state,connection.environment,connection.security_epoch,coalesce(connection.retired_at,resource.retired_at) as retired_at,resource.secret_ref
       from public.tenant_messaging_connections connection join public.messaging_connection_versions resource on resource.connection_id=connection.id and resource.tribe_id=connection.tribe_id and resource.version=${version}

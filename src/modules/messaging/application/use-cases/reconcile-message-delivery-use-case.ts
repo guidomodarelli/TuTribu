@@ -1,7 +1,7 @@
 /** Reconciles one owned original transport without retrying a send or releasing usage. @module reconcile-message-delivery-use-case */
 import type { MessagingAccountProvider, AuthorizedMessagingContext } from "../../domain/repositories/messaging-repositories";
 import type { MessageReconciliationQuery, MessageReconciliationRepository } from "../../domain/repositories/message-reconciliation-repository";
-import type { MessageStatusLookup, MessageStatusReference } from "../../domain/repositories/message-status-lookup";
+import type { MessageStatusLookup, MessageStatusReference, OriginalMessageContextQuery } from "../../domain/repositories/message-status-lookup";
 import type { ResolveMessagingContextUseCase } from "./resolve-messaging-context-use-case";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import { MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/message-delivery-reauthentication";
@@ -11,14 +11,17 @@ import { MessagingConnectionInspectionError } from "../../domain/errors/messagin
 import { MessagingDeliveryStorageError } from "../../domain/errors/messaging-delivery-storage-error";
 import { messagingFailure } from "../results/messaging-errors";
 
+/** Binds authority to the original stored version and preserves the existing closed resolver outcome. */
+export type OriginalMessageContextResolver = { execute(query: OriginalMessageContextQuery): ReturnType<ResolveMessagingContextUseCase["execute"]> };
+
 /** Keeps provider reads outside native transactions and rechecks authority before persistence. */
 export class ReconcileMessageDeliveryUseCase<Result> {
   /** @param accounts - Actual native account/session projection. @param resolver - Current exact leader/connection/recency authority. @param repository - Protected original selector and DB-only writer. @param lookup - Read-only provider port. @param clock - Time sampled after awaited authority reads. */
-  constructor(private readonly accounts: MessagingAccountProvider, private readonly resolver: Pick<ResolveMessagingContextUseCase, "execute">, private readonly repository: MessageReconciliationRepository<Result>, private readonly lookup: MessageStatusLookup, private readonly clock: () => Date = () => new Date()) {}
+  constructor(private readonly accounts: MessagingAccountProvider, private readonly resolver: OriginalMessageContextResolver, private readonly repository: MessageReconciliationRepository<Result>, private readonly lookup: MessageStatusLookup, private readonly clock: () => Date = () => new Date()) {}
 
   /** @param reference - Native original reference. @param actor - Original server principal. @param session - Original session. @returns Current exact reconciliation authority. @throws MessagingSecretAccessError on revoked, changed or insufficient authority. */
   private async authorize(reference: MessageStatusReference, actor: string, session: string): Promise<AuthorizedMessagingContext> {
-    const resolved = await this.resolver.execute({ tribeId: reference.tribeId, connectionId: reference.connectionId, operation: MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile, requestId: reference.requestId });
+    const resolved = await this.resolver.execute({ tribeId: reference.tribeId, connectionId: reference.connectionId, connectionVersion: reference.connectionVersion, operation: MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile, requestId: reference.requestId });
     if (!resolved.allowed) throw new MessagingConnectionInspectionError(resolved.failure.code, { cause: resolved.failure.cause });
     const context = resolved.context;
     if (context.actorUserId !== actor || context.sessionId !== session || context.tribeId !== reference.tribeId || context.connectionId !== reference.connectionId || context.connectionVersion !== reference.connectionVersion || context.resourceId !== reference.connectionId || context.operation !== MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
