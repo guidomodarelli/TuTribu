@@ -2,7 +2,9 @@ import { buildAuthModule } from "./auth/setup";
 import { BetterAuthSessionRepository } from "./auth/infrastructure/repositories/better-auth-session-repository";
 import {createRequestAuthenticatedAccountProvider} from "./auth/infrastructure/composition/authenticated-account-provider";
 import { readMessagingRecoveryLock, readMessagingHostingSecurityConfig,readMessagingHostingSecurityFacts } from "./messaging/infrastructure/config/messaging-hosting-security";
-import { buildTribesModule, buildTribeLeadershipModule, buildTribeMembershipLifecycleModule } from "./tribes/setup";
+import { buildTribesModule, buildTribeLeadershipModule, buildTribeMembershipLifecycleModule, buildTribeLifecycleModule } from "./tribes/setup";
+import { TribeLifecycleError } from "./tribes/domain/errors/tribe-lifecycle-error";
+import { TRIBE_LIFECYCLE_ERROR } from "./tribes/constants/tribe-lifecycle";
 import { AdmissionOperationError } from "./academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "./academy-admissions/constants/admission-errors";
 import { ADMISSION_VERIFICATION_DISPATCH_LOG } from "./academy-admissions/constants/admission-verification-dispatch";
@@ -20,7 +22,7 @@ import { PostgresTribeSupportRepository } from "./tribes/infrastructure/reposito
 import { PostgresTribeWelcomeRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-repository";
 import { PostgresTribeWelcomeSelectionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository";
 import { PostgresTribeAcademyAdmissionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-academy-admission-repository";
-import { buildAcademyAdmissionsModule, createPaidAdmissionResolutionWriter, createAdmissionMembershipLifecycleWriter } from "./academy-admissions/setup";
+import { buildAcademyAdmissionsModule, createPaidAdmissionResolutionWriter, createAdmissionMembershipLifecycleWriter, createAdmissionScopeClosureWriter } from "./academy-admissions/setup";
 import { PostgresAdmissionActivationRepository } from "./academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
 import {PostgresMessagingSelectionDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
 import { buildMessagingModule, buildMessagingWorkModule, type MessagingWorkDependencies } from "./messaging/setup";
@@ -687,6 +689,16 @@ export async function createTribeMembershipRequestModule() {
     return databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run);
   } }).useCases;
   return { membership, resolveTribe: routing.resolveTribe };
+}
+
+/** @returns Native lifecycle composition whose fixed UUID supports original recovery after physical tribe deletion. */
+export async function createTribeLifecycleRequestModule() {
+  const accounts = createRequestAuthenticatedAccountProvider(), databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  return { lifecycle: buildTribeLifecycleModule({ accounts, readSecurityConfig: async () => readMessagingHostingSecurityConfig(), admission: createAdmissionScopeClosureWriter, execute: async (context, run) => {
+    const account = await accounts.getAuthenticatedAccount();
+    if (!account || account.userId !== context.actorUserId || account.session.id !== context.sessionId) throw new TribeLifecycleError(TRIBE_LIFECYCLE_ERROR.authenticationRequired);
+    return databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run);
+  } }).useCases };
 }
 
 /** @returns Local safety/retirement use cases with native authority and current admission/notification owners, without provider wiring. */

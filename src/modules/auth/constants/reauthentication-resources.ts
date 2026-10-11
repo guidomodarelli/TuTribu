@@ -5,6 +5,8 @@ export const REAUTHENTICATION_OPERATION={
   updateAdmissionPolicy:"update_admission_policy",activateAdmissionPolicy:"activate_admission_policy",pauseAdmissionPolicy:"pause_admission_policy",createAllowlistEntry:"create_allowlist_entry",updateAllowlistEntry:"update_allowlist_entry",previewAllowlistImport:"preview_allowlist_import",confirmAllowlistImport:"confirm_allowlist_import",createPersonalInvitation:"create_personal_invitation",renamePersonalInvitation:"rename_personal_invitation",revokePersonalInvitation:"revoke_personal_invitation",advanceAdmissionRetry:"advance_admission_retry",
   reconcileMessageDelivery:MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.reconcile,
   recoverNotificationDelivery:MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification,
+  exitAcademyMode: "exit_academy_mode",
+  deleteTribe: "delete_tribe",
 } as const satisfies Record<string, ReauthenticationOperation>;
 /** Enumerates the exact global-recency contract independently of runtime constants. */
 export type ReauthenticationOperation=
@@ -14,7 +16,7 @@ export type ReauthenticationOperation=
   | "update_admission_policy" | "activate_admission_policy" | "pause_admission_policy" | "create_allowlist_entry"
   | "update_allowlist_entry" | "preview_allowlist_import" | "confirm_allowlist_import" | "create_personal_invitation"
   | "rename_personal_invitation" | "revoke_personal_invitation" | "advance_admission_retry"
-  | "reconcile_message_delivery" | "recover_notification_delivery";
+  | "reconcile_message_delivery" | "recover_notification_delivery" | "exit_academy_mode" | "delete_tribe";
 /** Static owners select SQL resources; client input can never select a table or permissive query. */
 export const REAUTHENTICATION_RESOURCE_KIND={tribe:"tribe",connection:"connection",delivery:"delivery",allowlistEntry:"allowlist_entry",allowlistImport:"allowlist_import",personalInvitation:"personal_invitation",admissionRequest:"admission_request"} as const;
 export const REAUTHENTICATION_OPERATION_RESOURCE={
@@ -43,4 +45,6 @@ export const REAUTHENTICATION_OPERATION_RESOURCE={
   [REAUTHENTICATION_OPERATION.renamePersonalInvitation]:REAUTHENTICATION_RESOURCE_KIND.personalInvitation,
   [REAUTHENTICATION_OPERATION.revokePersonalInvitation]:REAUTHENTICATION_RESOURCE_KIND.personalInvitation,
   [REAUTHENTICATION_OPERATION.advanceAdmissionRetry]:REAUTHENTICATION_RESOURCE_KIND.admissionRequest,
+  [REAUTHENTICATION_OPERATION.exitAcademyMode]: REAUTHENTICATION_RESOURCE_KIND.tribe,
+  [REAUTHENTICATION_OPERATION.deleteTribe]: REAUTHENTICATION_RESOURCE_KIND.tribe,
 } as const satisfies Record<ReauthenticationOperation,(typeof REAUTHENTICATION_RESOURCE_KIND)[keyof typeof REAUTHENTICATION_RESOURCE_KIND]>;

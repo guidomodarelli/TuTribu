@@ -279,7 +279,7 @@ node scripts/academy-cutover.mjs --slug mi-tribu --apply manifest.json --confirm
 <div class="section">
   <div class="section-num">12</div>
   <div class="section-title">Pausa y reversión</div>
-<p>Pausar admisiones o ventas (<code>PUT /academy/availability</code>) no cancela renovaciones, concesiones ni bonificaciones y no relaja el paywall: el límite depende de <code>access_model</code>, no de los interruptores. Webhooks, reconciliación y cancelación propia siguen operativos. No existe un camino automático de vuelta a legacy; por defecto se corrige hacia adelante manteniendo las políticas.</p>
+<p>Pausar admisiones o ventas (<code>PUT /academy/availability</code>) no cancela renovaciones, concesiones ni bonificaciones y no relaja el paywall: el límite depende de <code>access_model</code>, no de los interruptores. Webhooks, reconciliación y cancelación propia siguen operativos. El owner de ciclo de vida permite una salida explícita a legacy con líder activo único, confirmación de identidad específica para esa tribu y versión vigente, cerrando la admisión en la misma transacción y conservando miembros y el marcador de protección. Su <a href="academy-admissions.htm#tribe-lifecycle-owner">API y consulta del resultado original</a> todavía no tienen un control para iniciarlas desde la interfaz.</p>
 </div>
 
 <div class="section">
