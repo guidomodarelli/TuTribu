@@ -7,11 +7,10 @@ import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrast
 import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
-/** @param database - Already verified owned disposable branch. @param securityConfig - Optional local host security shared only in memory with its own Next process. @returns Current protected list academy, native applicants/leader and real command composition without provider RPC. */
-export async function prepareAllowlistAdmission(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
+/** @param database - Already verified owned disposable branch. @param securityConfig - Optional local host security shared only in memory with its own Next process. @param historicalMemberStatus - Optional legitimate applicant membership created before cutover, never inferred from a later restriction. @returns Current protected list academy, native applicants/leader and real command composition without provider RPC. */
+export async function prepareAllowlistAdmission(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig, historicalMemberStatus?: "active" | "muted") {
   const fixture = await prepareAllowlistManagement(database, securityConfig);
   for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007005000_read_admission_reviews.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql", "20261009083000_read_current_admission_review_evidence.sql"]) await database.applyMigration(migration);
-  await database.withContext(fixture.own, async (transaction) => { const now = (await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now; await transaction.execute(sql`update public.academy_admission_policies set mode='allowlist',is_open=true,allow_common_exceptions=true,activated_at=${now},version=version+1 where tribe_id=${fixture.tribeId}`); await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${now} where id=${fixture.tribeId}`); });
   /** @param userId - Exact synthetic account. @param sessionId - Its real persisted session. @returns Native current commands bound to actual actor context on every transaction. */
   const commands = (userId: string, sessionId: string) => {
     const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId, sessionId }), (_identity, run) => database.withContext({ userId, email: null }, run));
@@ -29,5 +28,8 @@ export async function prepareAllowlistAdmission(database: AcademyAdmissionTestDa
     });
     return { userId, sessionId, accountId, subject, email, evidenceId, commands: commands(userId, sessionId), input: { tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedPolicyVersion: 2, confirmed: true as const } };
   };
-  return { fixture, applicant, leader: commands(fixture.userId, fixture.sessionId) };
+  const historicalApplicant = historicalMemberStatus ? await applicant() : null;
+  if (historicalApplicant) await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${fixture.tribeId},${historicalApplicant.userId},'tribemate',${historicalMemberStatus})`));
+  await database.withContext(fixture.own, async (transaction) => { const now = (await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now; await transaction.execute(sql`update public.academy_admission_policies set mode='allowlist',is_open=true,allow_common_exceptions=true,activated_at=${now},version=version+1 where tribe_id=${fixture.tribeId}`); await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${now} where id=${fixture.tribeId}`); });
+  return { fixture, applicant, historicalApplicant, leader: commands(fixture.userId, fixture.sessionId) };
 }
