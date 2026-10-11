@@ -1,6 +1,6 @@
 # Traceability: Academy Admissions and Tenant Messaging
 
-**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 140 completadas y 72 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
+**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 141 completadas y 71 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
 
 T132 completa la validación nominativa prevista: siete AC con SQL/UI reales, un canje en cien confirmaciones, rollback y respuestas perdidas. La matriz administrativa actual tiene ocho combinaciones, separadas de los Native personales anteriores y del transporte externo pendiente; los snapshots se conservan por scope. El ensayo humano SC-014, entrega ON real, legacy y rollout no se acreditan por este cierre. [Auditoría de validación personal](validation/personal-invitation-validation-completion-audit.md).
 
@@ -883,3 +883,7 @@ Cien canjes y cien decisiones opuestas conservan una sola transición y sus efec
 ## Cierre de T148: elegibilidad actual de pendientes
 
 La revisión relee policy, época, actor, cuenta/captura, invitación, lista y reloj después de locks. La primera adjunción fija sólo un contacto ausente y se audita; la aplicación es fresca y única, y la histórica conserva el vencimiento original salvo invalidación. Las negativas mantienen pending con razones actuales. Rutas, factories y writers reales comprobados; revisión Codex de 27 archivos sin brechas funcionales, manifiesto 9FF0E0C5D629C7668D84BE03242ED2192FA70A55D676656781D027BD244BA3E8. La corrección documental distingue personal soportada y legacy pendiente. Sólo T148; T149 y gates conservan alcance. Inventario: 140 de 212 completadas y 72 pendientes. Ver [auditoría de implementación](validation/admission-current-eligibility-implementation-completion-audit.md).
+
+## Cierre de T149: plazos y vencimiento autónomo
+
+El owner independiente confirma el vencimiento sin otra presentación, en lotes autorizados con locks tribu→request, clock posterior y decisión/audit/obligación/aviso atómicos. La pausa no detiene el plazo; se conservan cadencia/rechazo/adelanto y fuentes consumidas, con ledger humano original y terminales inmutables. Tres Native completos, permiso SQLSTATE 42501 seleccionado y migración real/replay verdes; tipos/lint/build y manuales comprobados. Revisión Codex de dieciocho archivos sin hallazgos, manifiesto 79F6D105DB286FF474AE36A7FB47A70AA45E7EDBB7E458C92A6CC9DB38749A56. Sólo T149; programación T186 y flujos/gates mantienen alcance. Inventario: 141 de 212 completadas y 71 pendientes. Ver [auditoría temporal](validation/admission-temporal-lifecycle-implementation-completion-audit.md).
