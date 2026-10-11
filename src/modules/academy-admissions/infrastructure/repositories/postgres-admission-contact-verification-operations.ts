@@ -3,6 +3,8 @@ import "server-only";
 import {sql} from "drizzle-orm";
 import type {z} from "zod";
 import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database/server-database-client";
+import type { LegacyAdmissionInvitationReader } from "../../domain/repositories/legacy-admission-invitation-reader";
+import { MANUAL_ADMISSION_EXECUTION_CAPABILITIES } from "../../constants/admission-execution-capabilities";
 import type {AdmissionContactVerificationOperations,AdmissionVerificationAccountScope,AdmissionChallengeIssuanceIntent,AdmissionChallengeVerificationIntent,AdmissionChallengeResendIntent} from "../../domain/repositories/admission-contact-verification";
 import type { AdmissionCurrentChallengeReader, AdmissionCurrentChallengeQuery } from "../../domain/repositories/admission-current-challenge-reader";
 import { admissionCurrentChallengeSelectionSchema } from "../../application/results/admission-current-challenge-schemas";
@@ -55,8 +57,8 @@ type PreparedAdmissionIssuance={scope:VerificationChallengeScope;personal:Resolv
 
 /** Owns metadata, budgets and proof effects; no method decrypts a BYOK credential or invokes SDK. */
 export class PostgresAdmissionContactVerificationOperations implements AdmissionContactVerificationOperations,AdmissionProofApplicationOperations,AdmissionCurrentChallengeReader{
-  /** @param execute - Current native request actor checkout. @param readSecurityConfig - Explicit current server keyrings/environment without an outbound call. */
-  constructor(private readonly execute:AdmissionVerificationDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>){}
+  /** @param execute - Current native request actor checkout. @param readSecurityConfig - Explicit current server keyrings/environment without an outbound call. @param createLegacyInvitations - Optional own attribution adapter composed on the original transaction; absence keeps legacy closed. */
+  constructor(private readonly execute:AdmissionVerificationDatabaseExecutor,private readonly readSecurityConfig:()=>Promise<MessagingSecurityConfig>,private readonly createLegacyInvitations?:(database:RequestDatabase)=>LegacyAdmissionInvitationReader){}
 
   /** @param database - Current guarded transaction. @param context - Original server-derived account/session/tribe. @returns Current native account after shared scope locks and fresh SQL session time. */
   private async authorize(database:RequestDatabase,context:AdmissionVerificationAccountScope){
@@ -99,11 +101,16 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
   private async issuanceScope(database:RequestDatabase,input:Omit<AdmissionChallengeIssuanceIntent,"operationId">):Promise<PreparedAdmissionIssuance>{
     const account=await this.authorize(database,input),policy=await this.policy(database,input,true);
     if(policy.version!==input.expectedPolicyVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
-    if(!input.confirmed||input.source.kind===ADMISSION_REQUEST_SOURCE.legacy||input.contact.type!==policy.contactType)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
+    if(!MANUAL_ADMISSION_EXECUTION_CAPABILITIES.sources.includes(input.source.kind))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
+    if(!input.confirmed||input.contact.type!==policy.contactType)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     if(input.contact.type===ADMISSION_CONTACT_TYPE.email?input.channel!==MESSAGING_PUBLIC_CHANNEL.email||input.contact.value!==account.normalizedEmail:input.channel===MESSAGING_PUBLIC_CHANNEL.email||input.channel!==policy.phoneChannel&&!(input.channel===MESSAGING_PUBLIC_CHANNEL.sms&&policy.phoneChannel===MESSAGING_PUBLIC_CHANNEL.whatsapp&&policy.allowSmsAlternative))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
     if(!policy.messagingConnectionId||!policy.messagingConnectionVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
     const config=await this.readSecurityConfig();
     const personal=input.source.kind===ADMISSION_REQUEST_SOURCE.personal?await resolvePersonalInvitationForRedemption(database,input,input.source.token,config):null;
+    if(input.source.kind===ADMISSION_REQUEST_SOURCE.legacy&&!input.admissionRequestId){
+      const attribution=await this.createLegacyInvitations?.(database).findActiveByToken({userId:input.userId,sessionId:input.sessionId,tribeId:input.tribeId,token:input.source.token});
+      if(!attribution)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
+    }
     if(personal)await authorizePersonalContactIssuance(database,input,personal.invitation.id,input.contact,config);
     else if(input.admissionRequestId)await this.assertPendingIssuance(database,input,input.admissionRequestId,input.contact);
     return{scope:{userId:input.userId,tribeId:input.tribeId,purpose:ADMISSION_VERIFICATION_PURPOSE.admission,contact:input.contact,verificationEpoch:policy.verificationEpoch,connectionId:policy.messagingConnectionId,connectionVersion:policy.messagingConnectionVersion,securityEpoch:config.securityEpoch,channel:input.channel},personal,policy};
@@ -135,7 +142,7 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
     if(!request)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     const now=new Date((await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
     if(request.status!==ADMISSION_REQUEST_STATUS.pending||now>=new Date(request.expires_at))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
-    if(request.source!==ADMISSION_REQUEST_SOURCE.common)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
+    if(request.source!==ADMISSION_REQUEST_SOURCE.common&&request.source!==ADMISSION_REQUEST_SOURCE.legacy)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
     if(request.normalized_contact!==null&&(request.contact_type!==contact.type||request.normalized_contact!==contact.value))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
   }
 

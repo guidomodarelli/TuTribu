@@ -1,5 +1,6 @@
 /** Composes implemented admission use cases and protected transaction collaborators. @module academy-admissions-setup */
 import "server-only";
+import { PostgresLegacyAdmissionInvitationReader } from "@/src/modules/tribes/infrastructure/repositories/postgres-legacy-admission-invitation-reader";
 import { ExpireAdmissionRequestsUseCase } from "./application/use-cases/expire-admission-requests-use-case";
 import { PostgresAdmissionRequestExpiration, type AdmissionExpirationDatabaseExecutor } from "./infrastructure/repositories/postgres-admission-request-expiration";
 import type { z } from "zod";
@@ -150,18 +151,18 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
     },
     /** @param options - Live private security and an explicit focal launch factory consuming native challenge resolution. @returns Applicant verification with current account checks on every checkout, without caller-selected worker privileges. */
     createContactVerificationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; createDispatcher: (resolve: (intent: AdmissionChallengeDispatchIntent) => Promise<ResolvedAdmissionChallengeDispatch>) => AdmissionContactChallengeDispatcher }) {
-      const operations = new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig);
+      const operations = new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig, (database) => new PostgresLegacyAdmissionInvitationReader(database));
       const context = new PostgresAdmissionVerificationDispatchContext(executeVerification);
       const dispatcher = options.createDispatcher((intent) => context.resolve(intent));
       return { useCases: new ContactVerificationUseCases(dependencies.accounts, operations, dispatcher, dependencies.clock) };
     },
     /** @param options - Current server security only. @returns Exact-contact selection without a sender or dispatcher. */
     createCurrentChallengeModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-      return { useCase: new ReadCurrentAdmissionChallengeUseCase(dependencies.accounts, new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig), dependencies.clock) };
+      return { useCase: new ReadCurrentAdmissionChallengeUseCase(dependencies.accounts, new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig, (database) => new PostgresLegacyAdmissionInvitationReader(database)), dependencies.clock) };
     },
     /** @param options - Live server security for the atomic owner and original ledger. @returns Own pending proof attachment without a sender, dispatcher or provider dependency. */
     createProofApplicationModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
-      const operations = new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig);
+      const operations = new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig, (database) => new PostgresLegacyAdmissionInvitationReader(database));
       return { useCases: new ApplyAdmissionProofUseCase(dependencies.accounts, operations, dependencies.clock) };
     },
     /** @param options - Mandatory complete runtime owner, without an optimistic default. @returns Informational current inventory; activation still repeats the locked owner in its actual transaction. */
@@ -256,7 +257,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
         return dependencies.execute(account, run);
       };
-      const writer = new PostgresAdmissionRequestRepository(executeRequest, options.readSecurityConfig, (database) => ({ memberships: createAcademyApprovedMembershipWriter(database), notifications: createPostgresAdmissionNotificationObligationWriter(database) }));
+      const writer = new PostgresAdmissionRequestRepository(executeRequest, options.readSecurityConfig, (database) => ({ memberships: createAcademyApprovedMembershipWriter(database), notifications: createPostgresAdmissionNotificationObligationWriter(database), legacyInvitations: new PostgresLegacyAdmissionInvitationReader(database) }));
       return {
         runtime: new ReadAdmissionRuntimeUseCase(writer),
         useCases: {

@@ -1051,6 +1051,13 @@
       "when": 1791714600000,
       "tag": "20261011103000_index_notification_delivery_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1791729000000,
+      "tag": "20261011143000_read_locked_legacy_admission_arrival",
+      "breakpoints": true
     }
   ]
 }
