@@ -12,7 +12,7 @@ import { snapshotAdmissionDecisionEvidence } from "../value-objects/admission-de
 
 /** The consumed list reference remains private and versioned independently of contact binding. */
 export type AutomaticAdmissionFacts = Omit<AdmissionSubmissionFacts, "allowlistEntry" | "baseEvidence" | "source"> & {
-  source: { kind: "common" } | { kind: "personal"; invitation: Extract<AdmissionSubmissionFacts["source"], { kind: "personal" }>["invitation"] & { id: string; version: number } };
+  source: { kind: "common" | "legacy" } | { kind: "personal"; invitation: Extract<AdmissionSubmissionFacts["source"], { kind: "personal" }>["invitation"] & { id: string; version: number } };
   allowlistEntry: (NonNullable<AdmissionSubmissionFacts["allowlistEntry"]> & { id: string; version: number }) | null;
   baseEvidence: (NonNullable<AdmissionSubmissionFacts["baseEvidence"]> & { id: string; verifiedAt: Date }) | null;
 };

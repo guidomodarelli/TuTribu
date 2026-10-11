@@ -56,12 +56,13 @@ import { admissionCommandDenialSchema } from "../../constants/admission-command-
 import { ADMISSION_COMMAND_EFFECT_SQL } from "../../constants/admission-command-denial";
 import { createAdmissionCommandSnapshotSchema } from "../../application/results/admission-command-snapshot";
 import { resolvePersonalInvitationForRedemption, commitPersonalInvitationRedemption, assertPersonalInvitationTokenCurrent } from "./postgres-personal-invitation-redemption";
+import type { LegacyAdmissionInvitationReader } from "../../domain/repositories/legacy-admission-invitation-reader";
 import { ADMISSION_OPERATION_TRIBE_LOCK_SQL } from "../../constants/admission-operation";
 
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Related owners are composed onto the same original transaction, with no provider work. */
-type AdmissionTransactionCollaborators = { memberships: AcademyApprovedMembershipWriter; notifications: AdmissionNotificationObligationWriter };
+type AdmissionTransactionCollaborators = { memberships: AcademyApprovedMembershipWriter; notifications: AdmissionNotificationObligationWriter; legacyInvitations?: LegacyAdmissionInvitationReader };
 /** Owned row fields are consumed directly; this is not a schema for a PostgreSQL response. */
 type RequestRow = {
   id: string; tribe_id: string; user_id: string; source: AdmissionRequest["source"]; invitation_id: string | null; legacy_invitation_id: string | null;
@@ -227,6 +228,9 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       if (facts.policy.contactType === ADMISSION_CONTACT_TYPE.phone && input.contact?.type === ADMISSION_CONTACT_TYPE.email) facts.contact = null;
       if (facts.contact) await assertUnreservedAdmissionContact(database, input.tribeId, facts.contact, this.readSecurityConfig);
       const personal = input.source.kind === ADMISSION_REQUEST_SOURCE.personal ? await resolvePersonalInvitationForRedemption(database, input, input.source.token, await this.readSecurityConfig()) : null;
+      const legacy = input.source.kind === ADMISSION_REQUEST_SOURCE.legacy ? await this.compose(database).legacyInvitations?.findActiveByToken({ userId: input.userId, sessionId: input.sessionId, tribeId: input.tribeId, token: input.source.token }) : null;
+      if (input.source.kind === ADMISSION_REQUEST_SOURCE.legacy && !legacy) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
+      if (legacy) facts.source = { kind: ADMISSION_REQUEST_SOURCE.legacy };
       if (personal) facts.source = { kind: ADMISSION_REQUEST_SOURCE.personal, invitation: { id: personal.invitation.id, version: personal.invitation.version, tribeId: personal.invitation.tribeId, contact: personal.invitation.contact, requiresAllowlist: personal.invitation.requiresAllowlist, status: personal.invitation.status, authorizationRevoked: personal.invitation.authorizationRevokedAt !== null, expiresAt: personal.invitation.expiresAt } };
       if (facts.policy.mode === ADMISSION_POLICY_MODE.allowlist || personal) Object.assign(facts, await readAllowlistAdmissionFacts(database, input, facts.contact));
       const local = facts.policy.requiresAdditionalVerification && input.proofId ? await new PostgresAdmissionSubmissionProofReader(database, this.readSecurityConfig).read(input, input.proofId, facts) : null;
@@ -238,8 +242,8 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       if (eligibility.outcome === ADMISSION_OUTCOME.denied && eligibility.reason === ADMISSION_DENIAL_REASON.contactConflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
       if (eligibility.outcome !== ADMISSION_OUTCOME.pending && eligibility.outcome !== ADMISSION_OUTCOME.admitted) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       if (eligibility.outcome === ADMISSION_OUTCOME.pending && eligibility.requiresExceptionReason && !input.message?.trim()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-      const request = createPendingAdmissionRequest({ id: randomUUID(), tribeId: input.tribeId, userId: input.userId, source: personal ? ADMISSION_REQUEST_SOURCE.personal : ADMISSION_REQUEST_SOURCE.common, ...(personal ? { invitationId: personal.invitation.id } : {}), requiresAllowlist: personal?.invitation.requiresAllowlist ?? facts.policy.mode === ADMISSION_POLICY_MODE.allowlist, contact: facts.contact, evidence: { kind: eligibility.evidenceKind === ADMISSION_EVIDENCE_KIND.none ? ADMISSION_EVIDENCE_KIND.none : ADMISSION_EVIDENCE_KIND.declared }, policy: facts.policy, message: input.message, now: await databaseNow(database) });
-      await database.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,invitation_id,requires_allowlist,contact_type,normalized_contact,evidence_source,original_policy_snapshot,applicant_message,submitted_at,expires_at) values (${request.id},${request.tribeId},${request.userId},${request.source},${request.invitationId},${request.requiresAllowlist},${request.contact?.type ?? null},${request.contact?.value ?? null},${request.evidence.kind},${JSON.stringify(request.originalPolicy)}::jsonb,${request.applicantMessage},${request.submittedAt},${request.expiresAt})`);
+      const request = createPendingAdmissionRequest({ id: randomUUID(), tribeId: input.tribeId, userId: input.userId, source: personal ? ADMISSION_REQUEST_SOURCE.personal : legacy ? ADMISSION_REQUEST_SOURCE.legacy : ADMISSION_REQUEST_SOURCE.common, ...(personal ? { invitationId: personal.invitation.id } : {}), ...(legacy ? { legacyInvitationId: legacy.id } : {}), requiresAllowlist: personal?.invitation.requiresAllowlist ?? facts.policy.mode === ADMISSION_POLICY_MODE.allowlist, contact: facts.contact, evidence: { kind: eligibility.evidenceKind === ADMISSION_EVIDENCE_KIND.none ? ADMISSION_EVIDENCE_KIND.none : ADMISSION_EVIDENCE_KIND.declared }, policy: facts.policy, message: input.message, now: await databaseNow(database) });
+      await database.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,invitation_id,legacy_invitation_id,requires_allowlist,contact_type,normalized_contact,evidence_source,original_policy_snapshot,applicant_message,submitted_at,expires_at) values (${request.id},${request.tribeId},${request.userId},${request.source},${request.invitationId},${request.legacyInvitationId},${request.requiresAllowlist},${request.contact?.type ?? null},${request.contact?.value ?? null},${request.evidence.kind},${JSON.stringify(request.originalPolicy)}::jsonb,${request.applicantMessage},${request.submittedAt},${request.expiresAt})`);
       if (personal && input.source.kind === ADMISSION_REQUEST_SOURCE.personal) await commitPersonalInvitationRedemption(database, input, personal, request, ledgerId, input.source.token, await this.readSecurityConfig());
       let committed = request;
       if (local && input.proofId) {
@@ -316,7 +320,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     return this.run(input, command, admissionTransitionResultSchema, async (database, ledgerId) => {
       const request = await this.request(database, input.tribeId, input.admissionRequestId);
       if (!request) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      if (input.decision === ADMISSION_DECISION.approve && request.source !== ADMISSION_REQUEST_SOURCE.common && request.source !== ADMISSION_REQUEST_SOURCE.personal) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
+      if (input.decision === ADMISSION_DECISION.approve && request.source !== ADMISSION_REQUEST_SOURCE.common && request.source !== ADMISSION_REQUEST_SOURCE.personal && request.source !== ADMISSION_REQUEST_SOURCE.legacy) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       const facts = await this.facts(database, input, request.contact, request.userId);
       const actor = await new PostgresAdmissionAuthorizationReader(database, input.sessionId, ADMISSION_ACTION.decideRequest).getCurrentActor(input.tribeId, input.userId);
       if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);

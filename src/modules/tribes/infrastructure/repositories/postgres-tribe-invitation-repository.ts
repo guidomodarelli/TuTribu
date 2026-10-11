@@ -1,5 +1,6 @@
 /** Persists and evaluates reusable invitations within their current tenant and admission scope. @module postgres-tribe-invitation-repository */
-import { createHash } from "crypto";
+import { hashTribeInvitationToken } from "../encryption/hash-tribe-invitation-token";
+import { TRIBE_INVITATION_DATABASE_CONTEXT } from "../../constants/tribe-invitation-database-context";
 import { sql } from "drizzle-orm";
 
 import { TRIBE_SUBSCRIPTION_PRODUCT_KEY } from "@/src/modules/subscriptions/constants/subscriptions";
@@ -115,10 +116,6 @@ const INVITATION_ROUTE = {
   inviteSegment: "/invitar/",
 } as const;
 
-const INVITATION_DATABASE_CONTEXT_SETTING = {
-  currentInvitationHash: "app.current_invitation_hash",
-} as const;
-
 const POSTGRES_ERROR_CODE = {
   undefinedColumn: "42703",
   undefinedFunction: "42883",
@@ -132,10 +129,6 @@ const POSTGRES_INTEGRITY_ERROR_CODE = {
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function hashInvitationToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 function isValidInvitationId(invitationId: string): boolean {
   return UUID_PATTERN.test(invitationId);
@@ -575,7 +568,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     command: CreateTribeInvitationCommand
   ): Promise<TribeInvitationCreationResult> {
     return this.executeWithDatabase(async (database) => {
-      const tokenHash = hashInvitationToken(command.token);
+      const tokenHash = hashTribeInvitationToken(command.token);
       const tokenEncrypted = encryptInvitationToken(command.token);
       const invitationUrl = createInvitationUrl(
         command.baseUrl,
@@ -991,12 +984,12 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
   ): Promise<TribeInvitationAcceptanceResult> {
     return this.executeWithDatabase(async (database) => {
       await lockLegacyTribeEntry(database,command.tribeSlug);
-      const tokenHash = hashInvitationToken(command.token);
+      const tokenHash = hashTribeInvitationToken(command.token);
       const result = await database.execute(sql`
         with invitation_acceptance_context as (
           select
             set_config(
-              ${INVITATION_DATABASE_CONTEXT_SETTING.currentInvitationHash},
+              ${TRIBE_INVITATION_DATABASE_CONTEXT.currentInvitationHash},
               ${tokenHash},
               true
             )
@@ -1191,12 +1184,12 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
     tribeSlug: string;
   }): Promise<TribeInvitationSubscriptionOfferResult> {
     return this.executeWithDatabase(async (database) => {
-      const tokenHash = hashInvitationToken(command.token);
+      const tokenHash = hashTribeInvitationToken(command.token);
       const result = await database.execute(sql`
         with invitation_offer_context as (
           select
             set_config(
-              ${INVITATION_DATABASE_CONTEXT_SETTING.currentInvitationHash},
+              ${TRIBE_INVITATION_DATABASE_CONTEXT.currentInvitationHash},
               ${tokenHash},
               true
             )

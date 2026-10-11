@@ -32,6 +32,7 @@ export type AdmissionLocalProofFacts = {
 };
 export type AdmissionSourceFacts =
   | { kind: "common" }
+  | { kind: "legacy" }
   | { kind: "personal"; invitation: {
     tribeId: string; contact: AdmissionContact; requiresAllowlist: boolean;
     status: "active" | "redeemed" | "revoked" | "expired";
