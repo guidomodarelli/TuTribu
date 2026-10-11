@@ -1015,6 +1015,7 @@ Cierre de T135 sobre1ae66cb4: auditoría read-only de todas sus cláusulas sin b
 <a id="t139"></a>
 
 - [ ] T139 [US7] Implementar consulta de estado solo por messageId propio y recuperación auditada de notificaciones con otra conexión de la misma tribu; preserve old version/identity/usage y nueva entrega explícita si corresponde, jamás redirigir OTP ni POST incierto sin OG-04. Webhook opcional omitido en primera implementación, sin configuración externa ni requisito de onboarding. Archivos: `src/modules/messaging/application/use-cases/reconcile-message-delivery-use-case.ts`, `src/modules/messaging/application/use-cases/recover-notification-delivery-use-case.ts`, `src/modules/messaging/infrastructure/zavu/zavu-messaging-adapter.ts`. Dependencias: `T138`. Trazabilidad: `FR-048`–`FR-049`, `FR-063`, `US-07-AC-01`–`US-07-AC-02`, `US-07-AC-04`, `US-07-AC-06`, `EC-27`–`EC-28`, `EC-34`, `SC-010`, `TC-020`–`TC-021`, `TC-023`, `OG-04`.
+  Avance local de T139: autoridad de líder/sesión/recencia ligada a la entrega original, rechazo de scopes de tribu/conexión/otra entrega y orquestación única que preserva replay/progreso acreditado sin repetir un commit incierto. Rojo funcional de tres casos y regresión final de 79 verdes/cero omitidos; conserva también la finalización completed acreditada para el UUID original tras corregir el P2 de review. Writer SQL, nueva entrega, lineage/audit, composición y HTTP/UI todavía pendientes. Ver [base de recuperación](validation/notification-recovery-policy-baseline.md).
 
 <a id="t140"></a>
 
