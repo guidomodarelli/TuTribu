@@ -8,9 +8,11 @@ import { PostgresPersonalInvitationRepository } from "@/src/modules/academy-admi
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
-/** @param database - Exact owned branch. @returns Native personal redemption, historic muted instance and current paid resources; provider credentials remain private and random. */
-export async function preparePersonalPaidMembership(database: AcademyAdmissionTestDatabase) {
-  const { fixture, historicalApplicant: recipient } = await prepareAllowlistAdmission(database, undefined, "muted");
+/** Resources already persisted before the first admission request, for real owner sequencing only. */
+export type PersonalPaidPreAdmissionResources = { tribeId: string; userId: string; priceId: string; subscriptionId: string; providerId: string; slug: string; owner: { userId: string; email: null } };
+/** @param database - Exact owned branch. @param beforeAdmission - Optional real owner workflow before any pending/canje exists; never rewrites historical timestamps. @param historicalStatus - Actual pre-cutover state preserved through commercial recovery. @returns Native personal redemption, historic instance and current paid resources; provider credentials remain private and random. */
+export async function preparePersonalPaidMembership(database: AcademyAdmissionTestDatabase, beforeAdmission?: (resources: PersonalPaidPreAdmissionResources) => Promise<void>, historicalStatus: "active" | "muted" = "muted") {
+  const { fixture, historicalApplicant: recipient } = await prepareAllowlistAdmission(database, undefined, historicalStatus);
   if (!recipient) throw new Error("Personal paid fixture failed: historical applicant unavailable");
   for (const migration of ["20261009130000_add_personal_invitation_context_digest.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
   const priceId = randomUUID(), integrationId = randomUUID(), subscriptionId = randomUUID(), providerId = randomUUID(), slug = `allowlist-${fixture.tribeId}`;
@@ -23,6 +25,7 @@ export async function preparePersonalPaidMembership(database: AcademyAdmissionTe
     await transaction.execute(sql`update public.academy_admission_policies set mode='manual_review',version=version+1 where tribe_id=${fixture.tribeId}`);
     return member;
   });
+  if (beforeAdmission) await beforeAdmission({ tribeId: fixture.tribeId, userId: recipient.userId, priceId, subscriptionId, providerId, slug, owner: { userId: fixture.userId, email: null } });
   const invitations = new PostgresPersonalInvitationRepository((_context, run) => database.withContext(fixture.own, run), async () => fixture.config, createPostgresAdmissionNotificationObligationWriter);
   const context = { ...await fixture.confirm(REAUTHENTICATION_OPERATION.createPersonalInvitation), action: "manage_invitations" as const };
   const created = await invitations.create({ context, operationId: randomUUID(), confirmed: true, contact: { type: "email", value: recipient.email }, internalName: "Resolución por membresía legítima", requiresAllowlist: false, allowlistExemptionAcknowledged: true });
