@@ -12,7 +12,7 @@ import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/s
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native ON allowlist exception review", () => {
-  it.each([false, true])("should keep a reasoned phone=%s local-proof exception pending after later listing until explicit review", async (phone) => {
+  it.each([{ phone: false, listed: true }, { phone: true, listed: true }, { phone: false, listed: false }, { phone: true, listed: false }])("should keep phone=$phone local-proof exception pending until reasoned review with later listing=$listed", async ({ phone, listed }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionContactVerification(database, false, undefined, phone);
       for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
@@ -50,17 +50,18 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native ON allowlis
         expect((await transaction.execute(sql`select count(*)::int as total from public.tribe_members where tribe_id=${input.tribeId} and user_id=${fixture.context.userId}`)).rows).toEqual([{ total: 0 }]);
       });
       const entryId = randomUUID();
-      await database.withContext(fixture.fixture.own, async (transaction) => {
+      if (listed) await database.withContext(fixture.fixture.own, async (transaction) => {
         const fingerprint = await createAdmissionContactFingerprint(fixture.input.contact, fixture.fixture.config);
         await transaction.execute(sql`insert into public.academy_allowlist_entries(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,display_name,origin,created_by_user_id,updated_by_user_id) values(${entryId},${input.tribeId},${fixture.input.contact.type},${fixture.input.contact.value},${Buffer.from(fingerprint.digest)},${fingerprint.keyId},'Entrada posterior independiente','manual',${fixture.fixture.userId},${fixture.fixture.userId})`);
       });
-      expect(await applicant.submit.execute({ ...input, operationId: randomUUID(), message: "Consulto mi pendiente después de la lista." })).toMatchObject({ ok: true, value: { state: "completed", result: { outcome: "pending", admissionRequestId: requestId } } });
+      expect(await applicant.submit.execute({ ...input, operationId: randomUUID(), message: "Consulto la misma solicitud pendiente." })).toMatchObject({ ok: true, value: { state: "completed", result: { outcome: "pending", admissionRequestId: requestId } } });
       const leader = commands(fixture.fixture.userId, leaderSessionId);
+      expect(await leader.decide.execute({ tribeId: input.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: requestId, expectedVersion: requestVersion, confirmed: true, decision: "approve", internalReason: "", externalMessage: null })).toMatchObject({ ok: false, failure: { code: "invalid_input" } });
       const approved = await leader.decide.execute({ tribeId: input.tribeId, requestId: randomUUID(), operationId: randomUUID(), admissionRequestId: requestId, expectedVersion: requestVersion, confirmed: true, decision: "approve", internalReason: "Excepción revisada con evidencia local vigente.", externalMessage: null });
       if (!approved.ok) throw new Error(`ON exception approval failed: code=${approved.failure.code}`);
       expect(approved).toMatchObject({ ok: true, value: { state: "completed", result: { status: "approved" } } });
       await database.withContext(fixture.fixture.own, async (transaction) => {
-        expect((await transaction.execute(sql`select status,version,display_name from public.academy_allowlist_entries where id=${entryId}`)).rows).toEqual([{ status: "enabled", version: 1, display_name: "Entrada posterior independiente" }]);
+        expect((await transaction.execute(sql`select status,version,display_name from public.academy_allowlist_entries where id=${entryId}`)).rows).toEqual(listed ? [{ status: "enabled", version: 1, display_name: "Entrada posterior independiente" }] : []);
         expect((await transaction.execute(sql`select actor_kind,allowlist_entry_id from public.academy_admission_decisions where request_id=${requestId}`)).rows).toEqual([{ actor_kind: "user", allowlist_entry_id: null }]);
         expect((await transaction.execute(sql`select count(*)::int as total from public.tribe_members where tribe_id=${input.tribeId} and user_id=${fixture.context.userId}`)).rows).toEqual([{ total: 1 }]);
       });
