@@ -15,6 +15,7 @@ describe("academy admission entry cutover", () => {
       const fixture = await prepareContactVerificationDatabase(database);
       await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
       await database.applyMigration("20261007010000_read_academy_admission_entry.sql");
+      await database.applyMigration("20261011210000_preserve_admission_entry_marker.sql");
       const tribeId = randomUUID(), slug = `entry-${tribeId}`;
       await database.withContext(fixture.own, async (transaction) => {
         await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Academia de ejemplo',${slug},${fixture.userId})`);
@@ -38,6 +39,15 @@ describe("academy admission entry cutover", () => {
         expect(await repository.getPublicOffer({ tribeSlug: slug })).toMatchObject({ admissionEnabled: true, admissionRequiresRequest: true, title: "Academia de ejemplo", price: null });
       }
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.tribe_members where tribe_id=${tribeId}) as members,(select count(*)::int from public.academy_admission_requests where tribe_id=${tribeId}) as requests,(select count(*)::int from public.academy_admission_operations where tribe_id=${tribeId}) as operations`)).rows)).toEqual([{ members: 0, requests: 0, operations: 0 }]);
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`delete from public.tribe_academy_settings where tribe_id=${tribeId}`));
+      for (const role of ["runtime", "non_bypass"] as const) {
+        const retained = await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<{ protected: boolean }>(sql`select public.academy_offer_requires_admission_request(${slug}) as protected`)).rows[0].protected, role);
+        expect(retained).toBe(true);
+      }
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'legacy',false)`));
+      for (const role of ["runtime", "non_bypass"] as const) {
+        expect(await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<{ protected: boolean }>(sql`select public.academy_offer_requires_admission_request(${slug}) as protected`)).rows[0].protected, role)).toBe(true);
+      }
     });
   }, 180_000);
 });

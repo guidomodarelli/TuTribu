@@ -93,6 +93,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Una academia que ya activó su control de admisión conserva la entrada mediante solicitud aunque se pierda su configuración, sin volver a ofrecer un ingreso directo.
+
 - Se puede llegar con el teclado al enlace para volver a solicitar ingreso después de cancelar una solicitud.
 
 
