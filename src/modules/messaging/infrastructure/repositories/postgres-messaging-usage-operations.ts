@@ -92,7 +92,8 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
   private ledgerFailure(error: MessagingUsageOperationError): AdmissionOperationError {
     const code = error.code === MESSAGING_ERROR_CODE.credentialValidationLimitReached
       ? ADMISSION_ERROR_CODE.usageLimitReached : error.code;
-    return new AdmissionOperationError(code, { cause: error });
+    const ledgerCode = Object.values(ADMISSION_ERROR_CODE).find((candidate) => candidate === code) ?? ADMISSION_ERROR_CODE.unexpectedFailure;
+    return new AdmissionOperationError(ledgerCode, { cause: error });
   }
 
   /**

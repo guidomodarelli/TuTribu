@@ -717,6 +717,18 @@ export async function createNotificationDeliveryRecoveryRequestModule() {
   return { recovery: recovery.useCases, resolveTribe: routing.resolveTribe };
 }
 
+/** @returns Original actor/tribe-owned recovery metadata and canonical routing without loading platform keys or creating work. */
+export async function createNotificationRecoveryOperationRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const operation = buildMessagingModule(dependencies).createNotificationRecoveryOperationReadModule();
+  return { operation: operation.useCases, resolveTribe: routing.resolveTribe };
+}
+
 /** @returns Current native candidate activation with feature-owned metadata/evidence changes in one protected transaction, without provider calls. */
 export async function createMessagingConnectionActivationRequestModule(){
   const databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);

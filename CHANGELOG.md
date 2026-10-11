@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El líder puede registrar una recuperación autorizada de un aviso y consultar su resultado original si pierde la respuesta; la pantalla para solicitarla sigue pendiente.
+
 - Las recuperaciones autorizadas de avisos pueden registrarse conservando la entrega original, su plazo y los consumos anteriores; el envío y la pantalla para solicitarlas siguen pendientes.
 
 - Las solicitudes vencidas pueden cerrarse mediante el proceso interno sin esperar otra presentación, conservando el plazo original y las invitaciones ya canjeadas; su ejecución programada sigue pendiente.
