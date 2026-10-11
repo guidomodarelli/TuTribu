@@ -11,8 +11,8 @@ import { createAdmissionMembershipLifecycleWriter } from "@/src/modules/academy-
 import type { TribeMembershipLifecycleContext } from "@/src/modules/tribes/domain/repositories/tribe-membership-lifecycle-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
-/** @param database - Confirmed isolated test branch. @param withSuccessor - Seeds an existing active guardian before cutover for the actual leadership transfer flow. @returns Synthetic native accounts, original memberships and real owner composition without external RPC. */
-export async function prepareTribeMembershipLifecycle(database: AcademyAdmissionTestDatabase, withSuccessor = false) {
+/** @param database - Confirmed isolated test branch. @param withSuccessor - Seeds an existing active guardian before cutover for the actual leadership transfer flow. @param historyAgeDays - Initializes a coherent old tenant/account/pending snapshot without editing persisted dates or the database clock. @returns Synthetic native accounts, original memberships and real owner composition without external RPC. */
+export async function prepareTribeMembershipLifecycle(database: AcademyAdmissionTestDatabase, withSuccessor = false, historyAgeDays = 0) {
   for (const migration of SUBSCRIPTION_MEMBERSHIP_MIGRATIONS) await database.applyMigration(migration);
   await database.applyMigration("20261005095000_guard_global_identity_context.sql");
   await database.applyMigration("20261005101000_guard_admission_operation_identity.sql");
@@ -24,23 +24,26 @@ export async function prepareTribeMembershipLifecycle(database: AcademyAdmission
   const applicant = { userId: randomUUID(), sessionId: randomUUID(), sessionToken: randomUUID(), email: "applicant@example.test" };
   const leaving = { userId: randomUUID(), sessionId: randomUUID(), sessionToken: randomUUID(), email: "leaving@example.test" };
   const successor = { userId: randomUUID(), sessionId: randomUUID(), sessionToken: randomUUID(), email: "successor@example.test" };
-  const memberIds = { leader: randomUUID(), applicant: randomUUID(), leaving: randomUUID(), successor: randomUUID() }, requestId = randomUUID();
+  const historical = { userId: randomUUID(), sessionId: randomUUID(), sessionToken: randomUUID(), email: "historical@example.test" };
+  const memberIds = { leader: randomUUID(), applicant: randomUUID(), leaving: randomUUID(), successor: randomUUID() }, requestId = randomUUID(), historicalRequestId = randomUUID();
   await database.withContext({ userId: leader.userId, email: leader.email }, async (transaction) => {
-    for (const actor of [leader, applicant, leaving, ...(withSuccessor ? [successor] : [])]) {
+    const createdAt = (await transaction.execute<{created_at: Date}>(sql`select clock_timestamp()-${historyAgeDays}*interval '1 day' as created_at`)).rows[0].created_at;
+    for (const actor of [leader, applicant, leaving, ...(withSuccessor ? [successor] : []), ...(historyAgeDays > 0 ? [historical] : [])]) {
       const accountId = randomUUID(), subject = randomUUID();
-      await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${actor.userId},'Synthetic lifecycle account',${actor.email},false,clock_timestamp(),clock_timestamp())`);
-      await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${actor.userId},'google',${subject},clock_timestamp(),clock_timestamp())`);
-      await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${actor.sessionId},${actor.userId},${actor.sessionToken},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
+      await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${actor.userId},'Synthetic lifecycle account',${actor.email},false,${createdAt},clock_timestamp())`);
+      await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${actor.userId},'google',${subject},${createdAt},clock_timestamp())`);
+      await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${actor.sessionId},${actor.userId},${actor.sessionToken},clock_timestamp()+interval '1 hour',${createdAt},clock_timestamp())`);
       await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${actor.sessionId},${actor.userId},${accountId},${subject},${actor.email})`);
     }
-    await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic membership lifecycle',${slug},${leader.userId})`);
-    await transaction.execute(sql`insert into public.tribe_members(id,tribe_id,user_id,role,status,status_reason) values (${memberIds.leader},${tribeId},${leader.userId},'leader','active','none'),(${memberIds.applicant},${tribeId},${applicant.userId},'tribemate','removed','subscription_inactive'),(${memberIds.leaving},${tribeId},${leaving.userId},'tribemate','muted','none')`);
-    if (withSuccessor) await transaction.execute(sql`insert into public.tribe_members(id,tribe_id,user_id,role,status) values (${memberIds.successor},${tribeId},${successor.userId},'guardian','active')`);
+    await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by,created_at) values (${tribeId},'Synthetic membership lifecycle',${slug},${leader.userId},${createdAt})`);
+    await transaction.execute(sql`insert into public.tribe_members(id,tribe_id,user_id,role,status,status_reason,created_at) values (${memberIds.leader},${tribeId},${leader.userId},'leader','active','none',${createdAt}),(${memberIds.applicant},${tribeId},${applicant.userId},'tribemate','removed','subscription_inactive',${createdAt}),(${memberIds.leaving},${tribeId},${leaving.userId},'tribemate','muted','none',${createdAt})`);
+    if (withSuccessor) await transaction.execute(sql`insert into public.tribe_members(id,tribe_id,user_id,role,status,created_at) values (${memberIds.successor},${tribeId},${successor.userId},'guardian','active',${createdAt})`);
     await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
-    const activation = (await transaction.execute<{instant: Date}>(sql`select clock_timestamp() as instant`)).rows[0].instant;
-    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,activated_at) values (${tribeId},true,${activation})`);
+    const activation = historyAgeDays > 0 ? createdAt : (await transaction.execute<{instant: Date}>(sql`select clock_timestamp() as instant`)).rows[0].instant;
+    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,is_open,activated_at,created_at,updated_at) values (${tribeId},true,${activation},${createdAt},clock_timestamp())`);
     await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${activation} where id=${tribeId}`);
     await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,expires_at) values (${requestId},${tribeId},${applicant.userId},'common',clock_timestamp()+interval '29 days')`);
+    if (historyAgeDays > 0) await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,contact_type,normalized_contact,evidence_source,submitted_at,expires_at,original_policy_snapshot) values (${historicalRequestId},${tribeId},${historical.userId},'common','email',${historical.email},'declared',${createdAt},${createdAt}::timestamptz+interval '30 days',(select jsonb_build_object('version',version,'verificationEpoch',verification_epoch,'mode',mode,'contactType',contact_type,'requiresAdditionalVerification',requires_additional_verification,'isOpen',is_open,'allowCommonExceptions',allow_common_exceptions) from public.academy_admission_policies where tribe_id=${tribeId}))`);
   });
   /** Creates an actual stored session reader and owner whose transaction never accepts another caller actor. */
   function owner(actor: typeof leader, executeOverride?: <Result>(context: TribeMembershipLifecycleContext, run: (transaction: RequestDatabase) => Promise<Result>) => Promise<Result>) {
@@ -50,5 +53,5 @@ export async function prepareTribeMembershipLifecycle(database: AcademyAdmission
     const writer = new PostgresTribeMembershipLifecycleRepository(execute, async () => security, createAdmissionMembershipLifecycleWriter);
     return { accounts, writer, useCases: new ManageTribeMembershipUseCases(accounts, writer) };
   }
-  return { tribeId, slug, leader, applicant, leaving, successor, memberIds, requestId, security, owner };
+  return { tribeId, slug, leader, applicant, leaving, successor, historical, historicalRequestId, memberIds, requestId, security, owner };
 }
