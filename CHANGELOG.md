@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- La gestión de salida, remoción y bloqueo conserva el resultado original y puede cerrar solicitudes pendientes junto con el cambio de pertenencia, sin levantar restricciones por conducta ni permitir reingreso con una aprobación antigua; los controles nuevos del directorio siguen pendientes.
+
 - Los enlaces de invitación anteriores de una academia permiten solicitar ingreso con la revisión manual, la lista y la comprobación de contacto vigentes, conservando el origen del ingreso y el estado de quienes ya pertenecen.
 
 - El líder puede revisar avisos y registrar una recuperación explícita con otra conexión, conservando la entrega original, su plazo y sus consumos; puede consultar el resultado si pierde la respuesta. El manual explica el reemplazo y retiro de conexiones, la reconexión después de cambiar de líder y los límites de las cuentas externas compartidas. El despacho del aviso recuperado sigue pendiente.

@@ -2,7 +2,7 @@ import { buildAuthModule } from "./auth/setup";
 import { BetterAuthSessionRepository } from "./auth/infrastructure/repositories/better-auth-session-repository";
 import {createRequestAuthenticatedAccountProvider} from "./auth/infrastructure/composition/authenticated-account-provider";
 import { readMessagingRecoveryLock, readMessagingHostingSecurityConfig,readMessagingHostingSecurityFacts } from "./messaging/infrastructure/config/messaging-hosting-security";
-import { buildTribesModule, buildTribeLeadershipModule } from "./tribes/setup";
+import { buildTribesModule, buildTribeLeadershipModule, buildTribeMembershipLifecycleModule } from "./tribes/setup";
 import { AdmissionOperationError } from "./academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "./academy-admissions/constants/admission-errors";
 import { ADMISSION_VERIFICATION_DISPATCH_LOG } from "./academy-admissions/constants/admission-verification-dispatch";
@@ -20,7 +20,7 @@ import { PostgresTribeSupportRepository } from "./tribes/infrastructure/reposito
 import { PostgresTribeWelcomeRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-repository";
 import { PostgresTribeWelcomeSelectionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-welcome-selection-repository";
 import { PostgresTribeAcademyAdmissionRepository } from "./tribes/infrastructure/repositories/postgres-tribe-academy-admission-repository";
-import { buildAcademyAdmissionsModule, createPaidAdmissionResolutionWriter } from "./academy-admissions/setup";
+import { buildAcademyAdmissionsModule, createPaidAdmissionResolutionWriter, createAdmissionMembershipLifecycleWriter } from "./academy-admissions/setup";
 import { PostgresAdmissionActivationRepository } from "./academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
 import {PostgresMessagingSelectionDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
 import { buildMessagingModule, buildMessagingWorkModule, type MessagingWorkDependencies } from "./messaging/setup";
@@ -674,6 +674,19 @@ export async function createTribeLeadershipRequestModule(){
     const account=await accounts.getAuthenticatedAccount();if(!account||account.userId!==context.actorUserId||account.session.id!==context.sessionId)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     return databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run);
   }});
+}
+
+/** @returns Native membership command/recovery composition with an owner transaction; no HTTP input selects the actor, role or database connection. */
+export async function createTribeMembershipRequestModule() {
+  const accounts = createRequestAuthenticatedAccountProvider(), databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = { accounts, clock: () => new Date(), execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run) };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const membership = buildTribeMembershipLifecycleModule({ accounts, clock: dependencies.clock, readSecurityConfig: async () => readMessagingHostingSecurityConfig(), admission: createAdmissionMembershipLifecycleWriter, execute: async (context, run) => {
+    const account = await accounts.getAuthenticatedAccount();
+    if (!account || account.userId !== context.actorUserId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    return databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run);
+  } }).useCases;
+  return { membership, resolveTribe: routing.resolveTribe };
 }
 
 /** @returns Local safety/retirement use cases with native authority and current admission/notification owners, without provider wiring. */
