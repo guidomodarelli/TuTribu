@@ -1141,6 +1141,8 @@ Cierre de T135 sobre1ae66cb4: auditoría read-only de todas sus cláusulas sin b
 
 ### Implementación
 
+  Avance de T156: canje personal real → aprobación → salida conserva invitación y vínculo, revoca el fundamento y no permite volver por el resultado antiguo. El rollback de PostgreSQL después del owner revierte todos los efectos; sólo el mismo envío continúa después de su reserva real. Una pendiente histórica coherente prueba política cerrada, versión obsoleta y nueva pendiente vigente después del límite diario. La matriz restante sigue abierta; ver [membership-reentry-rollback-baseline.md](validation/membership-reentry-rollback-baseline.md).
+
 <a id="t157"></a>
 
 - [x] T157 [US10] Migrar rama academia de acceptInvitationAction/repositorio histórico y consumidores a política common, manteniendo token solo llegada/atribución y efectos comerciales separados; conservar legacy y resultados pending/existing/admitted seguros sin ruta de recuperación indiscriminada. Archivos: `app/(platform)/[slug]/invitar/[token]/page.tsx`, `src/modules/tribes/application/use-cases/manage-tribe-invitations-use-cases.ts`, `src/modules/tribes/infrastructure/repositories/postgres-tribe-invitation-repository.ts`. Dependencias: `T155`, `T127`. Trazabilidad: `FR-001`, `FR-138`–`FR-140`, `US-10-AC-01`–`US-10-AC-05`, `TC-025`.
