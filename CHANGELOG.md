@@ -30,7 +30,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - El líder puede gestionar la lista de habilitados desde la configuración de admisión: buscar contactos, cambiar nombre o estado y recuperar una respuesta perdida conservando el borrador y los cambios más recientes.
 
-- La solicitud de ingreso permite pedir y comprobar el código del contacto, consultar respuestas inciertas y aplicar la prueba a la misma solicitud pendiente sin renovar su plazo.
+- La solicitud de ingreso permite pedir y comprobar el código del contacto, consultar respuestas inciertas y aplicar la prueba a la misma solicitud pendiente sin renovar su plazo. Una prueba ya aplicada puede sostener su revisión sin repetir el código cada día, mientras la política y la evidencia sigan vigentes.
 
 - La consulta de ingreso con código incluye el canal y los países configurados para la cuenta solicitante, sin mostrar credenciales ni cupos internos.
 
