@@ -1,0 +1,87 @@
+/** Exercises explicit recovery HTTP and original-result binding through own transport boundaries. @module notification-recovery-browser-client-tests */
+import { randomUUID } from "node:crypto";
+import { describe, expect, it, vi } from "vitest";
+import { createNotificationRecoveryBrowserClient } from "@/lib/messaging/notification-recovery-api-client";
+
+/** @returns A synthetic original delivery and replacement intent with deliberately distinct version domains. */
+function originalRecovery() {
+  const scope = { slug: "synthetic", deliveryId: randomUUID() };
+  const input = { operationId: randomUUID(), expectedVersion: 3, targetConnectionId: randomUUID(), expectedTargetVersion: 8, confirmed: true as const, reason: "authorized_connection_replacement" as const };
+  const result = { originalDeliveryId: scope.deliveryId, recoveryDeliveryId: randomUUID(), originalVersion: 4, targetConnectionId: input.targetConnectionId, targetConnectionVersion: 2 };
+  return { scope, input, result };
+}
+
+describe("notification recovery browser transport", () => {
+  it("should submit one explicit original intent without equating lifecycle CAS with frozen sending version", async () => {
+    const { scope, input, result } = originalRecovery();
+    const transport = vi.fn<typeof fetch>(async () => Response.json({ state: "completed", operationId: input.operationId, replayed: false, result }));
+    const outcome = await createNotificationRecoveryBrowserClient({ fetch: transport }).recover(scope, input, new AbortController().signal);
+    expect(outcome).toEqual({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result } });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(transport.mock.calls[0]?.[0]).toBe(`/api/tribes/${scope.slug}/messaging/deliveries/${scope.deliveryId}/recover`);
+    expect(transport.mock.calls[0]?.[1]).toMatchObject({ method: "POST", credentials: "same-origin", cache: "no-store" });
+    expect(JSON.parse(String(transport.mock.calls[0]?.[1]?.body))).toEqual(input);
+  });
+
+  it.each(["operation", "original", "replacement", "version", "same_delivery", "private_field"] as const)("should retain uncertainty for a crossed %s result and never retry the write", async (scenario) => {
+    const { scope, input, result } = originalRecovery();
+    const crossed = scenario === "original" ? { ...result, originalDeliveryId: randomUUID() }
+      : scenario === "replacement" ? { ...result, targetConnectionId: randomUUID() }
+      : scenario === "version" ? { ...result, originalVersion: 5 }
+      : scenario === "same_delivery" ? { ...result, recoveryDeliveryId: result.originalDeliveryId }
+      : scenario === "private_field" ? { ...result, secretRef: randomUUID() } : result;
+    const transport = vi.fn<typeof fetch>(async () => Response.json({ state: "completed", operationId: scenario === "operation" ? randomUUID() : input.operationId, replayed: false, result: crossed }));
+    expect(await createNotificationRecoveryBrowserClient({ fetch: transport }).recover(scope, input, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: true });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("should preserve a registered started original without treating it as completed", async () => {
+    const { scope, input } = originalRecovery();
+    const transport = vi.fn<typeof fetch>(async () => Response.json({ state: "started", operationId: input.operationId }, { status: 202 }));
+    expect(await createNotificationRecoveryBrowserClient({ fetch: transport }).recover(scope, input, new AbortController().signal)).toEqual({ status: "ready", value: { state: "started", operationId: input.operationId } });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("should consult only the exact original namespace after a lost reply without posting again", async () => {
+    const { scope, input, result } = originalRecovery();
+    const recovered = { type: "recover_notification_delivery", state: "completed", operationId: input.operationId, replayed: true, result };
+    const transport = vi.fn<typeof fetch>().mockRejectedValueOnce(new TypeError("Synthetic reply unavailable")).mockResolvedValueOnce(Response.json(recovered));
+    const client = createNotificationRecoveryBrowserClient({ fetch: transport });
+    expect(await client.recover(scope, input, new AbortController().signal)).toMatchObject({ status: "failed", uncertain: true, code: "dependency_unavailable" });
+    expect(await client.operation({ slug: scope.slug, operationId: input.operationId }, new AbortController().signal)).toEqual({ status: "ready", value: recovered });
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(transport.mock.calls[1]?.[0]).toBe(`/api/tribes/${scope.slug}/messaging/notification-recovery-operations/${input.operationId}`);
+    expect(transport.mock.calls[1]?.[1]).toMatchObject({ method: "GET", cache: "no-store" });
+    expect(transport.mock.calls[1]?.[1]?.body).toBeUndefined();
+  });
+
+  it.each(["operation", "namespace", "private_field", "same_delivery"] as const)("should reject an original lookup with crossed %s metadata without inventing a write", async (scenario) => {
+    const { scope, input, result } = originalRecovery();
+    const crossed = scenario === "same_delivery" ? { ...result, recoveryDeliveryId: result.originalDeliveryId.toUpperCase() } : result;
+    const transport = vi.fn<typeof fetch>(async () => Response.json({ type: scenario === "namespace" ? "disconnect_messaging_connection" : "recover_notification_delivery", state: "completed", operationId: scenario === "operation" ? randomUUID() : input.operationId, replayed: true, result: crossed, ...(scenario === "private_field" ? { intent: "private" } : {}) }));
+    expect(await createNotificationRecoveryBrowserClient({ fetch: transport }).operation({ slug: scope.slug, operationId: input.operationId }, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: false });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(transport.mock.calls[0]?.[1]?.method).toBe("GET");
+  });
+
+  it("should stop observing an aborted request without claiming rollback or dispatching a retry", async () => {
+    const { scope, input } = originalRecovery();
+    const controller = new AbortController();
+    const transport = vi.fn<typeof fetch>(async (_url, options) => {
+      expect(options?.signal).toBe(controller.signal);
+      controller.abort();
+      throw new DOMException("Synthetic cancelled observation", "AbortError");
+    });
+    expect(await createNotificationRecoveryBrowserClient({ fetch: transport }).recover(scope, input, controller.signal)).toEqual({ status: "aborted" });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it("should make no request when observation was already cancelled", async () => {
+    const { scope, input } = originalRecovery();
+    const controller = new AbortController();
+    controller.abort();
+    const transport = vi.fn<typeof fetch>();
+    expect(await createNotificationRecoveryBrowserClient({ fetch: transport }).recover(scope, input, controller.signal)).toEqual({ status: "aborted" });
+    expect(transport).not.toHaveBeenCalled();
+  });
+});
