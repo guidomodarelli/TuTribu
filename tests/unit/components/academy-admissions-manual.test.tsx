@@ -37,6 +37,21 @@ function fixture() {
 }
 
 describe("manual admission screen", () => {
+  it.each([
+    ["admission_closed", "Por ahora esta solicitud no puede aprobarse porque las admisiones no están disponibles. Su plazo sigue corriendo."],
+    ["allowlist_requirement_unmet", "Actualmente no se cumple la lista exigida para esta solicitud. Consultá al equipo de la academia."],
+    ["invitation_recipient_unproven", "El contacto de esta invitación necesita una comprobación vigente antes de que puedan aprobarla."],
+  ] as const)("should explain current pending reason %s and clear it after a current query", (reason, message) => {
+    const data = fixture();
+    const props = { request: { ...data.request, eligibilityReasons: [reason] }, now: "2026-10-07T02:00:00Z", confirmed: false, disabled: false, busy: false, errorMessage: null, onConfirm: vi.fn(), onCancel: vi.fn() };
+    const rendered = render(<RequestStatus {...props} />, { wrapper: Providers });
+    expect(screen.getByText(message)).toBeVisible();
+    expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirmCancel })).toBeEnabled();
+    rendered.rerender(<RequestStatus {...props} request={{ ...data.request, eligibilityReasons: [] }} />);
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("La solicitud está pendiente de revisión.");
+  });
+
   beforeEach(() => { sessionStorage.clear(); router.refresh.mockClear(); });
 
   it("should recover a terminal submission denial, preserve the explanation and clear only the original intent without another POST or success message", async () => {

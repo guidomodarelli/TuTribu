@@ -117,7 +117,11 @@ export function useAdmissionContactVerification(options: AdmissionContactHookOpt
     if (!parsed.success) throw new Error(ADMISSION_ERROR_CODE.publicContractUnusable);
     if (parsed.data.outcome === ADMISSION_PROOF_APPLICATION_OUTCOME.denied) { save({ pending: null }); setErrorMessage(ADMISSION_ERROR_MESSAGE[parsed.data.code]); setPhase(ADMISSION_CONTACT_PHASE.idle); return; }
     if (parsed.data.requestId.toLowerCase() !== current.requestId?.toLowerCase() || parsed.data.proofId.toLowerCase() !== intent.proofId.toLowerCase() || parsed.data.requestVersion !== intent.expectedVersion + 1) throw new Error(ADMISSION_ERROR_CODE.publicContractUnusable);
-    if (!save({ pending: null })) return;
+    if (!save({ pending: null, issuedOperationId: null, verifiedOperationId: null, selectedOperationId: undefined })) return;
+    // An attached proof is consumed; historical recovery must not block a fresh check required by a later epoch.
+    for (const previousController of deliveryControllers.current) previousController.abort();
+    deliveryControllers.current.clear();
+    setChallenge(null); setProof(null); setDelivery(null); setCodeValue(""); setConfirmed(false);
     current.onApplied(parsed.data); setFeedback(ADMISSION_CONTACT_COPY.applied); setPhase(ADMISSION_CONTACT_PHASE.idle);
   }, [readDelivery, recordChallengeFailure, save]);
 

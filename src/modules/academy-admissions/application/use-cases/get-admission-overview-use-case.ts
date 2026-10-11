@@ -12,6 +12,7 @@ import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/const
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { evaluateAcademyMembershipEligibility } from "@/src/modules/tribes/domain/value-objects/academy-membership-eligibility";
 import { ACADEMY_MEMBERSHIP_ELIGIBILITY } from "@/src/modules/tribes/constants/academy-membership";
+import { getOwnAdmissionRequestMessage } from "../results/admission-own-request-message";
 
 /** The application owns navigation hints; the writer rechecks real eligibility under locks. */
 export class GetAdmissionOverviewUseCase {
@@ -37,7 +38,7 @@ export class GetAdmissionOverviewUseCase {
       if (membership?.status === TRIBE_MEMBERSHIP_STATUS.active || membership?.status === TRIBE_MEMBERSHIP_STATUS.muted) {
         state = ADMISSION_OVERVIEW_STATE.alreadyMember; nextAction = ADMISSION_NEXT_ACTION.openAcademy; safeMessage = ADMISSION_OVERVIEW_MESSAGE.alreadyMember;
       } else if (request?.status === ADMISSION_REQUEST_STATUS.pending && now < new Date(request.expiresAt)) {
-        state = ADMISSION_OVERVIEW_STATE.pending; nextAction = ADMISSION_NEXT_ACTION.viewRequest; safeMessage = ADMISSION_OVERVIEW_MESSAGE.pending;
+        state = ADMISSION_OVERVIEW_STATE.pending; nextAction = ADMISSION_NEXT_ACTION.viewRequest; safeMessage = getOwnAdmissionRequestMessage(request) ?? ADMISSION_OVERVIEW_MESSAGE.pending;
       } else if (facts.recoveryLocked || !facts.tribe.controlActivated || !facts.tribe.evaluatorEnabled || !facts.policy?.isOpen || membershipEligibility.outcome === ACADEMY_MEMBERSHIP_ELIGIBILITY.blocked) {
         state = ADMISSION_OVERVIEW_STATE.closed; nextAction = ADMISSION_NEXT_ACTION.contactLeader; safeMessage = ADMISSION_OVERVIEW_MESSAGE.closed;
       } else if (request?.retryAllowedAt && now < new Date(request.retryAllowedAt)) {

@@ -77,7 +77,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
   it("should keep the same pending request undecided through native verification activation and later permissive policy changes", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database);
-      for (const migration of ["20261006220000_extend_admission_notifications.sql", "20261006234000_read_own_admission_summary.sql", "20261007005000_read_admission_reviews.sql", "20261007030000_capture_admission_decision_evidence.sql"]) await database.applyMigration(migration);
+      for (const migration of ["20261006220000_extend_admission_notifications.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007005000_read_admission_reviews.sql", "20261007030000_capture_admission_decision_evidence.sql"]) await database.applyMigration(migration);
       await data.initialize();
       await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy", confirmed: true, expectedVersion: 1, patch: { isOpen: true } });
       await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId: randomUUID(), type: "activate_admission_policy", confirmed: true, expectedVersion: 2 });

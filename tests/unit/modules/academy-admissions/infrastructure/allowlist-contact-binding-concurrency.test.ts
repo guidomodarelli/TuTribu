@@ -15,7 +15,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native concurrent 
   it.each(["sms", "whatsapp"] as const)("should commit one %s contact owner and member, retain the competing proof and preserve binding after disabling the entry", async (channel) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionContactVerification(database, false, undefined, true), entryId = randomUUID();
-      for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
+      for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
       const other = { userId: randomUUID(), sessionId: randomUUID(), accountId: randomUUID(), subject: randomUUID(), email: `other.${randomUUID()}@example.test` };
       await database.withContext(fixture.fixture.own, async (transaction) => {
         const fingerprint = await createAdmissionContactFingerprint(fixture.input.contact, fixture.fixture.config);

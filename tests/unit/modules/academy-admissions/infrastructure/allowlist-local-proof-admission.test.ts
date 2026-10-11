@@ -15,7 +15,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native list ON pro
   for (const phone of [false, true]) it(`should atomically consume one ${phone ? "phone" : "email"} proof into system approval while preserving the enabled entry and original replay`, async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionContactVerification(database, false, undefined, phone), entryId = randomUUID();
-      for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
+      for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
       await database.applyMigration("20261010100000_minimize_deleted_admission_contact_owners.sql");
       await database.withContext(fixture.fixture.own, async (transaction) => {
         const fingerprint = await createAdmissionContactFingerprint(fixture.input.contact, fixture.fixture.config);

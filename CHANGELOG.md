@@ -89,6 +89,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- El estado de una solicitud pendiente explica restricciones actuales y limpia la explicación anterior al consultar; el reintento después de cancelar también se ofrece cuando requiere comprobar contacto.
+
+- Una prueba aplicada conserva su confirmación si falla la consulta posterior; los responsables ven causas actuales y los avisos de una decisión se limpian al abrir otra solicitud.
+
 - Las solicitudes con una prueba de contacto revocada siguen indicando que necesitan verificación para solicitantes y revisores, incluso cuando se desactiva la verificación adicional.
 
 - La gestión de invitaciones personales completa la carga inicial en Safari sin perder las comprobaciones vigentes de sesión y permisos.

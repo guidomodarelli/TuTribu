@@ -12,7 +12,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native applicant c
   it("should project only current email or phone choices and the sole country owner, hide anonymous/OFF data and create no effects", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionContactVerification(database);
-      for (const migration of ["20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261007001000_read_public_admission_overview.sql"]) await database.applyMigration(migration);
+      for (const migration of ["20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007001000_read_public_admission_overview.sql"]) await database.applyMigration(migration);
       await database.applyMigration("20261008230000_read_admission_contact_choices.sql");
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.context.userId, sessionId: fixture.context.sessionId }), (_identity, run) => database.withContext(fixture.own, run));
       const admissionModule = buildAcademyAdmissionsModule({ accounts, clock: () => new Date(), execute: (account, run) => database.withContext({ userId: account.userId, email: account.normalizedEmail }, run) });

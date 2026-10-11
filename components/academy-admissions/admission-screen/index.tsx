@@ -7,6 +7,7 @@ import type { AdmissionPageState } from "@/src/modules/academy-admissions/applic
 import type { AdmissionDraft } from "@/lib/academy-admissions/admission-draft";
 import { ADMISSION_UI_COPY, ADMISSION_UI_PHASE } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { ADMISSION_OVERVIEW_STATE, ADMISSION_NEXT_ACTION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
+import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ROUTES } from "@/src/constants/routes";
 import { buildOwnAdmissionRequestRoute } from "@/lib/academy-admissions/admission-routes";
 import type { ReactNode } from "react";
@@ -26,7 +27,8 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
   const busy = phase === ADMISSION_UI_PHASE.writing || phase === ADMISSION_UI_PHASE.checking;
   const blocked = busy || phase === ADMISSION_UI_PHASE.uncertain || accountChanged || !formReady;
   const canSubmit = ready && !requestPage && (state.overview.state === ADMISSION_OVERVIEW_STATE.available || canSubmitWithProof) && (!state.request || state.request.status !== "pending");
-  const readyToRetry = ready && state.request && state.overview.nextAction === ADMISSION_NEXT_ACTION.requestAdmission && state.request.status !== "pending";
+  const readyToRetry = ready && state.request && state.request.status !== ADMISSION_REQUEST_STATUS.pending
+    && (state.overview.nextAction === ADMISSION_NEXT_ACTION.requestAdmission || state.overview.nextAction === ADMISSION_NEXT_ACTION.verifyContact);
   return <main className={styles.AdmissionScreen} aria-busy={busy || loading}>
     <header className={styles.AdmissionScreen__header}><p className={styles.AdmissionScreen__eyebrow}>TuTribu{ready ? ` · ${state.overview.tribe.name}` : " · Admisión"}</p><h1 className={styles.AdmissionScreen__title}>{state.kind === "unavailable" ? ADMISSION_UI_COPY.unavailableTitle : ready && state.request ? ADMISSION_UI_COPY.statusTitle : ADMISSION_UI_COPY.title}</h1><p className={styles.AdmissionScreen__description}>{ADMISSION_UI_COPY.description}</p></header>
     <section className={styles.AdmissionScreen__content} aria-label="Admisión a la academia">

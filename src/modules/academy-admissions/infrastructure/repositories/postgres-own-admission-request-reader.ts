@@ -8,10 +8,13 @@ import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/appli
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
-import { ADMISSION_EVIDENCE_KIND, ADMISSION_PROOF_STATUS, ADMISSION_DENIAL_REASON } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import { ADMISSION_DENIAL_REASON } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { ADMISSION_CONTACT_MASK, ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH } from "@/src/modules/academy-admissions/constants/admission-contact-presentation";
 import { getAdmissionRetryAllowedAt } from "@/src/modules/academy-admissions/domain/entities/admission-request";
+import { evaluatePendingAdmissionEligibility, needsPendingAdmissionVerification } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
+import { mapAdmissionReviewStorage, type AdmissionReviewStorageRecord } from "./admission-review-storage-mapper";
+import { readMessagingRecoveryLock } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 
 /** The trusted root binds this executor to the actual current account/session. */
 type OwnQueryExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -20,8 +23,7 @@ type OwnRequestRow = {
   id: string; status: AdmissionRequestDto["status"]; version: number; submitted_at: string; expires_at: string;
   source: AdmissionRequestDto["source"]; contact_type: "email" | "phone" | null; normalized_contact: string | null;
   evidence_source: "none" | "declared" | "base" | "local"; external_message: string | null; decided_at: string | null;
-  retry_allowed_at: string | null; requires_additional_verification: boolean | null; verification_epoch: number | null;
-  proof_status: string | null; proof_verification_epoch: number | null; applied_request_id: string | null;
+  retry_allowed_at: string | null;
 };
 
 /** Masks an owned canonical contact; the raw value never becomes a client property. */
@@ -35,8 +37,8 @@ function maskedContact(row: OwnRequestRow): AdmissionRequestDto["contact"] {
 
 /** The public DTO is validated by application/boundary; this adapter never returns reviewer notes or identity ids. */
 export class PostgresOwnAdmissionRequestReader implements AdmissionOwnRequestReader<AdmissionRequestDto> {
-  /** @param execute - Current actor executor; this reader has no writer, keyring, SDK or defaults. */
-  constructor(private readonly execute: OwnQueryExecutor) {}
+  /** @param execute - Current actor executor. @param readRecoveryLock - Live non-secret hosting closure, without keyring or provider access. */
+  constructor(private readonly execute: OwnQueryExecutor, private readonly readRecoveryLock: () => Promise<boolean> = async () => readMessagingRecoveryLock()) {}
 
   /** Rechecks native SQL actor and current session without requiring a membership or acquiring write authority. */
   private async authorize(database: RequestDatabase, scope: AdmissionCommandScope): Promise<Date> {
@@ -56,20 +58,35 @@ export class PostgresOwnAdmissionRequestReader implements AdmissionOwnRequestRea
       const row = (await database.execute<OwnRequestRow>(scope.admissionRequestId
         ? sql`select * from public.read_own_admission_request_summary(${scope.tribeId},${scope.sessionId},${scope.admissionRequestId})`
         : sql`select * from public.read_own_admission_request_summary(${scope.tribeId},${scope.sessionId})`)).rows[0];
-      const now = await this.authorize(database, scope);
+      let now = await this.authorize(database, scope);
       if (!row) return null;
       const pending = row.status === ADMISSION_REQUEST_STATUS.pending;
+      let eligibilityReasons: AdmissionRequestDto["eligibilityReasons"] = [];
+      let needsVerification = false;
+      if (pending && now < new Date(row.expires_at)) {
+        const current = (await database.execute<{ record: AdmissionReviewStorageRecord }>(sql`select record from public.read_own_admission_request_eligibility(${scope.tribeId},${scope.sessionId},${row.id})`)).rows[0];
+        const recoveryLocked = await this.readRecoveryLock();
+        now = await this.authorize(database, scope);
+        if (!current) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+        const facts = mapAdmissionReviewStorage(current.record, now, recoveryLocked);
+        if (facts.request.id !== row.id || facts.request.userId !== scope.userId || facts.request.tribeId !== scope.tribeId || facts.request.version !== row.version) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
+        const evaluation = evaluatePendingAdmissionEligibility(facts.review);
+        needsVerification = needsPendingAdmissionVerification(facts.review);
+        if (!evaluation.eligible) eligibilityReasons = [evaluation.reason];
+      }
       const expired = pending && now >= new Date(row.expires_at);
-      const evidenceRevoked = row.proof_status === ADMISSION_PROOF_STATUS.invalid;
-      const needsVerification = pending && !expired && (evidenceRevoked || row.requires_additional_verification === true
-        && (row.evidence_source !== ADMISSION_EVIDENCE_KIND.local || row.proof_status !== ADMISSION_PROOF_STATUS.applied || row.applied_request_id !== row.id || row.proof_verification_epoch !== row.verification_epoch));
+      if (expired) eligibilityReasons = [ADMISSION_DENIAL_REASON.requestExpired];
+      else if (needsVerification) {
+        const proofReason = eligibilityReasons.includes(ADMISSION_DENIAL_REASON.evidenceRevoked) ? ADMISSION_DENIAL_REASON.evidenceRevoked : ADMISSION_DENIAL_REASON.proofRequired;
+        if (!eligibilityReasons.includes(proofReason)) eligibilityReasons.push(proofReason);
+      }
       const mayRetry = row.status === ADMISSION_REQUEST_STATUS.cancelled || row.status === ADMISSION_REQUEST_STATUS.expired || row.status === ADMISSION_REQUEST_STATUS.rejected;
       const retryAt = mayRetry ? getAdmissionRetryAllowedAt({ status: row.status, submittedAt: new Date(row.submitted_at), resolvedAt: row.decided_at ? new Date(row.decided_at) : null, retryAllowedAt: row.retry_allowed_at ? new Date(row.retry_allowed_at) : null }) : null;
       const contact = maskedContact(row);
       return {
         id: row.id, status: row.status, version: row.version, submittedAt: new Date(row.submitted_at).toISOString(), expiresAt: new Date(row.expires_at).toISOString(), source: row.source,
         ...(contact ? { contact } : {}), needsVerification,
-        eligibilityReasons: expired ? [ADMISSION_DENIAL_REASON.requestExpired] : needsVerification ? [evidenceRevoked ? ADMISSION_DENIAL_REASON.evidenceRevoked : ADMISSION_DENIAL_REASON.proofRequired] : [],
+        eligibilityReasons,
         ...(row.external_message ? { externalMessage: row.external_message } : {}), ...(retryAt ? { retryAllowedAt: retryAt.toISOString() } : {}),
       };
     });

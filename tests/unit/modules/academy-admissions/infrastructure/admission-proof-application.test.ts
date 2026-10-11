@@ -54,6 +54,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof ap
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareApplication(database), sessionId = randomUUID();
       await database.applyMigration("20261006234000_read_own_admission_summary.sql");
+      await database.applyMigration("20261011024000_read_current_own_admission_eligibility.sql");
       expect(await fixture.apply()).toMatchObject({ state: "completed", result: { outcome: "applied", requestVersion: 2 } });
       await database.withContext(fixture.own, async (transaction) => {
         await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${randomUUID()},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
