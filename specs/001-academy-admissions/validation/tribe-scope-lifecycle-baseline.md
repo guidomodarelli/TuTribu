@@ -1,6 +1,6 @@
 # Cierre del scope de admisión por el owner de tribus
 
-Base de código `a359bc8a`; incremento de T160. Se conservan las 212 tareas; esta evidencia no cierra T153, T156, T159, T161 ni los gates externos.
+Código probado, commiteado y subido en `cf272703`, sobre base `a359bc8a`. T160 se cierra con sus criterios originales completos: 156 tareas completadas, 56 pendientes, 212 totales. Esta evidencia no cierra T153, T156, T159, T161 ni los gates externos.
 
 ## Decisión de ownership
 
@@ -28,4 +28,15 @@ Doce casos Native relevantes terminaron aprobados: owner/archive y Next/Better A
 
 Los 54 contratos locales de lifecycle y recencia pasan. Typecheck de aplicación/tests, lint y build real terminan exit0; la ampliación final de assertions y la preparación de consulta exacta vuelve a pasar typecheck de tests. El schema estático del DTO propio reside en `constants/tribe-lifecycle-result.ts` y no se valida ningún payload de proveedor ni fila de PostgreSQL como input. La consulta exacta bajo pausa reprodujo `42883` porque su overload era otra dependencia ausente del fixture; agregar `20261007004000_read_exact_own_admission_request.sql` hizo pasar la consulta real sin cambiar la expectativa.
 
-La QA inicial de los cuatro manuales/índices termina con 16 renders y 28 recorridos Chromium/WebKit a 1280/390, cero errores y sin desbordes. Los tres manuales numerados modificados pasan el helper estático; sus advertencias indican documento local sin URL publicada y ausencia de catálogo central de traducciones. Se conservaron todos los scripts y capturas previos. La trazabilidad de código y la revisión final documental se consolidan después del commit de fuente. No se aplicó SQL ni se eliminaron tribus en producción, ni se acredita despliegue, scheduler, cleanup periódico o el resto de las matrices de ciclo de vida con este incremento.
+El mismo reviewer cerró la fuente y cada cláusula de T160 con cero hallazgos accionables y 33 hashes estables; manifiesto `728476916852F5278EF88E832A128CCD42E71332BFF9DDF6FE151D687B40998C`. La siguiente tabla conserva la cobertura del checklist original.
+
+| Criterio de T160 | Evidencia de cierre |
+|---|---|
+| Owner real de salida y eliminación | Native del owner y de Next/Better Auth; liderazgo/propósito actuales, CAS, original durable y recuperación después de borrar el padre. |
+| Pending e invitaciones | Mode exit y DELETE directo de settings cierran pending y revocan invitaciones disponibles; el canje real conserva la atribución y binding y pierde su autorización residual. |
+| Códigos, pruebas y entregas | Código emitido y prueba verificada se retiran; cola sin intento se cancela y RPC comprometido conserva intento/reserva/recibo originales. |
+| Scope archivado | Namespace retirado, presentación archivada y UUID que no se puede reinsertar. |
+| Pausa | Consulta de la pending y bloqueo de nueva presentación reales; aprobación denegada tras contención; rechazo y cancelación operativos, también con prueba aplicada. |
+| Retorno y ausencia de settings | Marcador persistente y ninguna reactivación de request, invitación, código o prueba al volver/restaurar settings. |
+
+Después del commit de fuente, los cuatro manuales/índices registraron SourceTrace a `cf272703`; sus cuatro diffs finales no muestran desvíos de fuente. La QA final vuelve a terminar con 16 renders y 28 recorridos Chromium/WebKit a 1280/390, cero errores y sin desbordes. Los tres manuales numerados modificados pasan el helper estático; sus advertencias indican documento local sin URL publicada y ausencia de catálogo central de traducciones. Se conservaron los 46 frames de admisión y todos los scripts/capturas previos; el manual interno conserva su esquema identificado como tal. No se aplicó SQL ni se eliminaron tribus en producción, ni se acredita despliegue, scheduler, cleanup periódico o el resto de las matrices de ciclo de vida con este incremento.
