@@ -325,6 +325,7 @@ function mapRevocationResult(row: InvitationStatusRow | null): TribeInvitationRe
 
 function mapAcceptanceResult(row: InvitationStatusRow | null): TribeInvitationAcceptanceResult {
   if (
+    row?.status === TRIBE_INVITATION_STATUS.admissionRequired ||
     row?.status === TRIBE_INVITATION_STATUS.accepted ||
     row?.status === TRIBE_INVITATION_STATUS.blocked ||
     row?.status === TRIBE_INVITATION_STATUS.invalid ||
@@ -975,7 +976,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
   }
 
   /**
-   * Preserves readable membership and accepts legacy entry only outside protected admission.
+   * Preserves readable membership and delegates every new academy arrival to common admission.
    * @param command - Server-normalized slug and opaque invitation token; token is never logged.
    * @returns A stable acceptance/revocation/rejection or payment-required outcome.
    */
@@ -984,6 +985,12 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
   ): Promise<TribeInvitationAcceptanceResult> {
     return this.executeWithDatabase(async (database) => {
       await lockLegacyTribeEntry(database,command.tribeSlug);
+      const membership = (await database.execute<{ status: string }>(sql`
+        select member.status from public.tribe_members member
+        join public.tribes tribe on tribe.id=member.tribe_id
+        where tribe.slug=${command.tribeSlug} and member.user_id=public.current_app_user_id()
+      `)).rows[0];
+      if (membership?.status === TRIBE_MEMBERSHIP_STATUS.active || membership?.status === TRIBE_MEMBERSHIP_STATUS.muted) return { status: TRIBE_INVITATION_STATUS.accepted };
       const tokenHash = hashTribeInvitationToken(command.token);
       const result = await database.execute(sql`
         with invitation_acceptance_context as (
@@ -1064,11 +1071,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
         invitation_grants_free_access as (
           select 1
           from target_invitation, target_tribe
-          where target_tribe.admissions_control_activated_at is null and ((
-            target_tribe.uses_academy_access = true
-            and target_tribe.academy_admission_enabled = true
-          )
-          or (
+          where target_tribe.admissions_control_activated_at is null and (
             target_tribe.uses_academy_access = false
             and (
               target_invitation.subscription_association_type = ${TRIBE_INVITATION_SUBSCRIPTION_ASSOCIATION_TYPE.free}
@@ -1077,7 +1080,7 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
                 and target_tribe.free_join_is_current = true
               )
             )
-          ))
+          )
         ),
         inserted_membership as (
           insert into public.tribe_members (
@@ -1162,6 +1165,8 @@ export class PostgresTribeInvitationRepository implements TribeInvitationReposit
             when exists (
               select 1 from existing_membership where status in ('active', 'muted')
             ) then ${TRIBE_INVITATION_STATUS.accepted}
+            when exists (select 1 from target_tribe where uses_academy_access=true)
+              and exists (select 1 from target_invitation where status=${TRIBE_INVITATION_STATUS.active}) then ${TRIBE_INVITATION_STATUS.admissionRequired}
             when exists (select 1 from inserted_membership) then ${TRIBE_INVITATION_STATUS.accepted}
             when exists (select 1 from reactivated_membership) then ${TRIBE_INVITATION_STATUS.accepted}
             when exists (

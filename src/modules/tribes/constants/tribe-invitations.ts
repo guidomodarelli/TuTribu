@@ -1,4 +1,5 @@
 export const TRIBE_INVITATION_STATUS = {
+  admissionRequired: "admission_required",
   accepted: "accepted",
   active: "active",
   blocked: "blocked",

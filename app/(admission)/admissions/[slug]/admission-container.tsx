@@ -34,7 +34,7 @@ function retainCurrentRequest(current: AdmissionRequestDto | null, incoming: Adm
 }
 
 /** @param props - Validated SSR snapshot, fixed own-detail mode and application transport port. @returns Presenters only; writes never trigger a route refresh. */
-export function AdmissionContainer({ initialState, requestPage = false, client = admissionApiClient, contactClient }: { initialState: AdmissionPageState; requestPage?: boolean; client?: AdmissionBrowserClient; contactClient?: AdmissionContactBrowserClient }) {
+export function AdmissionContainer({ initialState, requestPage = false, client = admissionApiClient, contactClient, legacyInvitationToken, arrivalScope, arrivalReturnPath }: { initialState: AdmissionPageState; requestPage?: boolean; client?: AdmissionBrowserClient; contactClient?: AdmissionContactBrowserClient; legacyInvitationToken?: string; arrivalScope?: string; arrivalReturnPath?: string }) {
   const [state, setState] = useState(initialState);
   const [draft, setDraft] = useState<AdmissionDraft>({ phone: "", country: "", message: "" });
   const [confirmed, setConfirmed] = useState(false), [cancelConfirmed, setCancelConfirmed] = useState(false);
@@ -55,9 +55,10 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
   const persist = useCallback((intent: AdmissionPendingIntent | null) => {
     const snapshot = currentState.current;
     if (snapshot.kind !== "ready" || !snapshot.viewerId) return false;
-    try { writeAdmissionDraft({ viewerId: snapshot.viewerId, slug: snapshot.overview.tribe.slug, draft: currentDraft.current, pending: intent }); return true; }
+    if (legacyInvitationToken && !arrivalScope) return false;
+    try { writeAdmissionDraft({ viewerId: snapshot.viewerId, slug: snapshot.overview.tribe.slug, draft: currentDraft.current, pending: intent, ...(arrivalScope ? { arrivalScope } : {}) }); return true; }
     catch { setErrorMessage(ADMISSION_UI_COPY.storageFailed); return false; }
-  }, []);
+  }, [arrivalScope, legacyInvitationToken]);
 
   /** A stale or absent native viewer cannot inherit another account's draft or actions. */
   const checkViewer = useCallback(async (signal: AbortSignal): Promise<boolean> => {
@@ -92,11 +93,12 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
   const restoreDraft = useCallback(() => {
     const snapshot = currentState.current;
     if (snapshot.kind !== "ready" || !snapshot.viewerId) return;
-    const record = readAdmissionDraft(snapshot.viewerId, snapshot.overview.tribe.slug);
+    if (legacyInvitationToken && !arrivalScope) { setFormReady(false); return; }
+    const record = readAdmissionDraft(snapshot.viewerId, snapshot.overview.tribe.slug, arrivalScope);
     if (record) { currentDraft.current = record.draft; setDraft(record.draft); pending.current = record.pending; }
     draftLoaded.current = true; setFormReady(true);
     setConfirmed(false); setCancelConfirmed(false); canRetryOriginal.current = false; setRetryOriginal(false);
-  }, []);
+  }, [arrivalScope, legacyInvitationToken]);
 
   /** Retrieves original registered state without issuing a POST or fabricating acceptance. */
   const recover = useCallback(async (signal: AbortSignal) => {
@@ -162,11 +164,11 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
       if (!await checkViewer(request.signal)) return;
       if (!persist(intent)) return;
       pending.current = intent; setPhase(ADMISSION_UI_PHASE.writing);
-      const result = intent.kind === "submit" ? await client.submit(snapshot.overview.tribe.slug, intent.input, request.signal) : await client.cancel(snapshot.overview.tribe.slug, intent.requestId, intent.input, request.signal);
+      const result = intent.kind === "submit" ? await client.submit(snapshot.overview.tribe.slug, { ...intent.input, ...(legacyInvitationToken ? { legacyInvitationToken } : {}) }, request.signal) : await client.cancel(snapshot.overview.tribe.slug, intent.requestId, intent.input, request.signal);
       await completeWrite(intent, result, request.signal);
     } catch { if (live(request.signal)) { setErrorMessage(ADMISSION_UI_COPY.uncertain); setPhase(ADMISSION_UI_PHASE.uncertain); } }
     finally { toast.dismiss(notice); if (controller.current === request) busy.current = false; }
-  }, [accountChanged, checkViewer, client, completeWrite, persist]);
+  }, [accountChanged, checkViewer, client, completeWrite, persist, legacyInvitationToken]);
 
   const read = useCallback(async (restored = false) => {
     if (busy.current && !restored) return;
@@ -186,7 +188,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
   // A server-authorized new common presentation has its own recovery lineage; prior originals remain readable.
   const previousRequestId = !requestPage && contactState?.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired && contactState.request && !currentPending && contactState.request.status !== ADMISSION_REQUEST_STATUS.approved ? contactState.request.id : undefined;
   const showContact = Boolean(contactState?.viewerId && contactState.overview.policy?.requiresAdditionalVerification && contactOptions && (contactState.overview.state === ADMISSION_OVERVIEW_STATE.verificationRequired || currentPending?.needsVerification));
-  const contact = useAdmissionContactVerification({ viewerId: contactState?.viewerId ?? null, slug: contactState?.overview.tribe.slug ?? "", requestId: currentPending?.id ?? null, requestVersion: currentPending?.version ?? null, previousRequestId, policyVersion: contactState?.overview.policy?.version ?? 1, channel: contactOptions?.channel ?? MESSAGING_PUBLIC_CHANNEL.email, allowedCountries: contactOptions?.allowedCountries ?? [], allowSmsAlternative: contactOptions?.allowedAlternative === MESSAGING_PUBLIC_CHANNEL.sms, phone: draft.phone, country: draft.country, enabled: showContact && formReady && !accountChanged && phase !== ADMISSION_UI_PHASE.uncertain, renderedAt: contactState?.renderedAt ?? "", authorize: checkViewer, client: contactClient, onProof: () => {}, onApplied: (result) => {
+  const contact = useAdmissionContactVerification({ viewerId: contactState?.viewerId ?? null, slug: contactState?.overview.tribe.slug ?? "", requestId: currentPending?.id ?? null, requestVersion: currentPending?.version ?? null, previousRequestId, legacyInvitationToken, arrivalScope, policyVersion: contactState?.overview.policy?.version ?? 1, channel: contactOptions?.channel ?? MESSAGING_PUBLIC_CHANNEL.email, allowedCountries: contactOptions?.allowedCountries ?? [], allowSmsAlternative: contactOptions?.allowedAlternative === MESSAGING_PUBLIC_CHANNEL.sms, phone: draft.phone, country: draft.country, enabled: showContact && formReady && !accountChanged && phase !== ADMISSION_UI_PHASE.uncertain, renderedAt: contactState?.renderedAt ?? "", authorize: checkViewer, client: contactClient, onProof: () => {}, onApplied: (result) => {
     const snapshot = currentState.current;
     if (snapshot.kind !== "ready" || !snapshot.request || snapshot.request.id !== result.requestId || snapshot.request.version >= result.requestVersion) return;
     const appliedRequest: AdmissionRequestDto = { ...snapshot.request, version: result.requestVersion, needsVerification: false,
@@ -243,7 +245,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     try { void write({ kind: "cancel", requestId: snapshot.request.id, input: { operationId: newAdmissionOperationId(), confirmed: true, expectedVersion: snapshot.request.version } }); }
     catch { setErrorMessage(ADMISSION_UI_COPY.storageFailed); }
   };
-  const returnPath = state.kind === "ready" ? requestPage && state.request ? buildOwnAdmissionRequestRoute(state.overview.tribe.slug, state.request.id) : `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(state.overview.tribe.slug)}` : state.returnPath ?? ROUTES.home;
+  const returnPath = arrivalReturnPath ?? (state.kind === "ready" ? requestPage && state.request ? buildOwnAdmissionRequestRoute(state.overview.tribe.slug, state.request.id) : `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(state.overview.tribe.slug)}` : state.returnPath ?? ROUTES.home);
   const signInHref = `${ROUTES.auth.signIn}?${new URLSearchParams({ callbackUrl: returnPath })}`;
   const retryHref = state.kind === "ready" ? `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(state.overview.tribe.slug)}` : undefined;
   const verification = showContact && contactOptions ? <>

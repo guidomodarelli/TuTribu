@@ -41,10 +41,10 @@ async function prepareMembershipPrice(database:AcademyAdmissionTestDatabase,fixt
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("legacy admission entrypoints",()=>{
-  it("should return a safe closed result from the old invitation when protection is active without writing a membership",async()=>{
+  it("should delegate a protected historical academy arrival to common admission without writing a membership",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await prepareEntryPoints(database,"academy",true);
-      expect(await fixture.invitations.accept({tribeSlug:fixture.slug,token:fixture.token})).toMatchObject({status:"invalid"});
+      expect(await fixture.invitations.accept({tribeSlug:fixture.slug,token:fixture.token})).toMatchObject({status:"admission_required"});
       expect(await fixture.free.join({tribeSlug:fixture.slug})).toMatchObject({status:"forbidden"});
       expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`)).rows)).toEqual([]);
     });

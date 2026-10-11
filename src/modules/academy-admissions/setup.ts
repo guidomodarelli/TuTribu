@@ -242,7 +242,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       const resolveTribe = new ResolveAdmissionTribeUseCase(overviewReader);
       return { useCases: {
         overview, resolveTribe, own,
-        page: new GetAdmissionPageUseCase(dependencies.accounts, { overview, resolveTribe, own }, dependencies.clock),
+        page: new GetAdmissionPageUseCase(dependencies.accounts, { overview, resolveTribe, own, legacyInvitations: { findActiveByToken: (query) => executeAccount(query, (database) => new PostgresLegacyAdmissionInvitationReader(database).findActiveByToken(query)) } }, dependencies.clock),
         operation: new ReadAdmissionOperationUseCase(dependencies.accounts, new PostgresAdmissionOperationReader(executeAccount), dependencies.clock),
       } };
     },

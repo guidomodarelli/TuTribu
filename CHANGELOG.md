@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Los enlaces de invitación anteriores de una academia permiten solicitar ingreso con la revisión manual, la lista y la comprobación de contacto vigentes, conservando el origen del ingreso y el estado de quienes ya pertenecen.
+
 - El líder puede revisar avisos y registrar una recuperación explícita con otra conexión, conservando la entrega original, su plazo y sus consumos; puede consultar el resultado si pierde la respuesta. El manual explica el reemplazo y retiro de conexiones, la reconexión después de cambiar de líder y los límites de las cuentas externas compartidas. El despacho del aviso recuperado sigue pendiente.
 
 - Las solicitudes vencidas pueden cerrarse mediante el proceso interno sin esperar otra presentación, conservando el plazo original y las invitaciones ya canjeadas; su ejecución programada sigue pendiente.

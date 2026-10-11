@@ -40,6 +40,18 @@ function hookFixture() {
 }
 
 describe("contact verification workflow hook", () => {
+  it("should dispatch the historical URL only after explicit code confirmation and persist reference-only arrival recovery", async () => {
+    const fixture = hookFixture(), token = "synthetic-historical-arrival", arrivalScope = "b".repeat(64);
+    const { result } = renderHook(() => useAdmissionContactVerification({ ...fixture.options, legacyInvitationToken: token, arrivalScope }));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(fixture.client.issue).not.toHaveBeenCalled();
+    act(() => result.current.setConfirmed(true));
+    await act(async () => { await result.current.issue(); });
+    expect(fixture.client.issue).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fixture.client.issue).mock.calls[0][1].legacyInvitationToken).toBe(token);
+    expect(Object.values(sessionStorage).some((stored) => stored.includes(token))).toBe(false);
+    expect(Object.values(sessionStorage).some((stored) => stored.includes(arrivalScope))).toBe(true);
+  });
   it("should recover the original replacement of a selected previous code without another send or its earlier proof", async () => {
     const fixture = hookFixture(), previousRequestId = randomUUID(), selectedOperationId = randomUUID();
     fixture.challenge.resendAllowedAt = new Date(fixture.now - 1).toISOString();

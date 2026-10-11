@@ -7,3 +7,5 @@ export const LEGACY_ADMISSION_TOKEN_BYTE_LENGTH = 32;
 export const LEGACY_ADMISSION_MANUAL_POLICY_VERSION = 3;
 /** PostgreSQL denies edits under the original restricted invitation policies. */
 export const LEGACY_ADMISSION_PERMISSION_SQLSTATE = "42501";
+/** Current list policy starts at this version in the owned entry fixture. */
+export const LEGACY_ADMISSION_LIST_POLICY_VERSION = 2;

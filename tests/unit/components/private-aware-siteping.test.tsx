@@ -11,6 +11,13 @@ import { AppProviders } from "@/components/providers/app-providers";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("reporting tools on personal secret routes", () => {
+  it("should exclude historical attribution and its login return while retaining the common public entry", () => {
+    expect(isPrivateReportingLocation("/admissions/synthetic-academy/legacy/opaque-arrival", new URLSearchParams())).toBe(true);
+    expect(isPrivateReportingLocation("/auth/signin", new URLSearchParams({ callbackUrl: "/admissions/synthetic-academy/legacy/opaque-arrival" }))).toBe(true);
+    expect(isPrivateReportingLocation("/synthetic-academy/invitar/opaque-arrival", new URLSearchParams())).toBe(true);
+    expect(isPrivateReportingLocation("/auth/signin", new URLSearchParams({ callbackUrl: "/synthetic-academy/invitar/opaque-arrival" }))).toBe(true);
+    expect(isPrivateReportingLocation("/admissions/synthetic-academy", new URLSearchParams())).toBe(false);
+  });
   it("should keep private route hydration stable when reporting configuration differs between the static shell and runtime", async () => {
     const failures: unknown[] = [], container = document.createElement("div");
     const shell = (enabled: boolean) => <PathnameContext.Provider value="/admissions/invitations/synthetic-token"><SearchParamsContext.Provider value={new URLSearchParams()}><AppProviders isSitepingEnabled={enabled}><main>Contenido privado sintético</main></AppProviders></SearchParamsContext.Provider></PathnameContext.Provider>;

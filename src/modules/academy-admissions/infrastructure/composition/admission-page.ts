@@ -3,6 +3,7 @@ import "server-only";
 import type { GetAdmissionPageUseCase } from "@/src/modules/academy-admissions/application/use-cases/get-admission-page-use-case";
 import { z } from "zod";
 import { ADMISSION_NAVIGATION } from "@/src/modules/academy-admissions/constants/admission-navigation";
+import { LEGACY_ADMISSION_ARRIVAL } from "@/src/modules/academy-admissions/constants/legacy-admission-arrival";
 import { buildOwnAdmissionRequestRoute } from "@/lib/academy-admissions/admission-routes";
 import type { AdmissionPageState } from "@/src/modules/academy-admissions/application/results/admission-page-state";
 import { admissionPageStateSchema } from "@/src/modules/academy-admissions/application/results/admission-page-state";
@@ -14,6 +15,7 @@ import { createServerLogger } from "@/src/modules/shared/infrastructure/observab
 /** Only a public slug selects the tribe; an exact request id never selects another account. */
 const admissionPageInputSchema = z.union([
   z.strictObject({ params: admissionTribeParamsSchema, query: z.strictObject({}), mode: z.literal("entry") }),
+  z.strictObject({ params: admissionTribeParamsSchema.extend({ token: z.string().regex(LEGACY_ADMISSION_ARRIVAL.canonicalTokenPattern) }), query: z.strictObject({}), mode: z.literal("legacy") }),
   z.strictObject({ params: z.strictObject({ requestId: z.uuid() }), query: z.strictObject({ tribe: admissionTribeParamsSchema.shape.slug }), mode: z.literal("request") }),
 ]);
 type PageModule = { page: Pick<GetAdmissionPageUseCase, "execute"> };
@@ -22,11 +24,11 @@ export async function loadAdmissionPageState(input: unknown, open: () => Promise
   const failed = (code: typeof ADMISSION_ERROR_CODE[keyof typeof ADMISSION_ERROR_CODE]): Extract<AdmissionPageState, { kind: "unavailable" }> => ({ kind: "unavailable", code, message: ADMISSION_ERROR_MESSAGE[code] });
   const parsed = admissionPageInputSchema.safeParse(input);
   if (!parsed.success) return failed(ADMISSION_ERROR_CODE.invalidInput);
-  const returnPath = parsed.data.mode === "entry" ? `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(parsed.data.params.slug)}` : buildOwnAdmissionRequestRoute(parsed.data.query.tribe, parsed.data.params.requestId);
+  const returnPath = parsed.data.mode !== "request" ? `${ADMISSION_NAVIGATION.publicPrefix}/${encodeURIComponent(parsed.data.params.slug)}` : buildOwnAdmissionRequestRoute(parsed.data.query.tribe, parsed.data.params.requestId);
   const context = resolveRequestContext(new Headers());
   try {
     const pageModule = await open();
-    const query = parsed.data.mode === "entry" ? { slug: parsed.data.params.slug, requestId: context.requestId } : { slug: parsed.data.query.tribe, admissionRequestId: parsed.data.params.requestId, requestId: context.requestId };
+    const query = parsed.data.mode !== "request" ? { slug: parsed.data.params.slug, requestId: context.requestId, ...(parsed.data.mode === "legacy" ? { legacyInvitationToken: parsed.data.params.token } : {}) } : { slug: parsed.data.query.tribe, admissionRequestId: parsed.data.params.requestId, requestId: context.requestId };
     const loaded = await pageModule.page.execute(query);
     if (!loaded.ok) {
       if (loaded.failure.code === ADMISSION_ERROR_CODE.unexpectedFailure || loaded.failure.code === ADMISSION_ERROR_CODE.publicContractUnusable) createServerLogger({ feature: "academy-admissions", operation: "load_admission_page", ...context }).error({ message: "Admission page application read failed", metadata: { code: loaded.failure.code } });

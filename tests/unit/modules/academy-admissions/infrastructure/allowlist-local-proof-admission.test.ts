@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 /** Exercises email/phone ON list admission with actual local proof consumption and no provider calls. @module allowlist-local-proof-admission-tests */
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -10,11 +10,15 @@ import { PostgresAdmissionContactVerificationOperations } from "@/src/modules/ac
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
+import { PostgresLegacyAdmissionInvitationReader } from "@/src/modules/tribes/infrastructure/repositories/postgres-legacy-admission-invitation-reader";
+import { LEGACY_ADMISSION_TOKEN_BYTE_LENGTH } from "@/tests/support/constants/legacy-admission-entry";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native list ON proof admission", () => {
-  for (const phone of [false, true]) it(`should atomically consume one ${phone ? "phone" : "email"} proof into system approval while preserving the enabled entry and original replay`, async () => {
+  for (const historical of [false, true]) for (const phone of [false, true]) it(`should atomically consume one ${phone ? "phone" : "email"} proof into ${historical ? "historical" : "common"} system approval while preserving the enabled entry and original replay`, async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAdmissionContactVerification(database, false, undefined, phone), entryId = randomUUID();
+      const legacyToken = historical ? randomBytes(LEGACY_ADMISSION_TOKEN_BYTE_LENGTH).toString("base64url") : null;
+      if (legacyToken) await database.applyMigration("20261011143000_read_locked_legacy_admission_arrival.sql");
       for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql"]) await database.applyMigration(migration);
       await database.applyMigration("20261010100000_minimize_deleted_admission_contact_owners.sql");
       await database.withContext(fixture.fixture.own, async (transaction) => {
@@ -22,16 +26,17 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native list ON pro
         await transaction.execute(sql`update public.academy_admission_policies set mode='allowlist',requires_additional_verification=true,verification_epoch=verification_epoch+1,version=version+1 where tribe_id=${fixture.context.tribeId}`);
         if (phone) await transaction.execute(sql`update public.messaging_usage_policies set allowed_countries=array['AR'],version=version+1 where tribe_id=${fixture.context.tribeId}`);
         await transaction.execute(sql`insert into public.academy_allowlist_entries(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,display_name,origin,created_by_user_id,updated_by_user_id) values (${entryId},${fixture.context.tribeId},${fixture.input.contact.type},${fixture.input.contact.value},${Buffer.from(fingerprint.digest)},${fingerprint.keyId},'Entrada propia','manual',${fixture.fixture.userId},${fixture.fixture.userId})`);
+        if (legacyToken) await transaction.execute(sql`insert into public.tribe_invitations(id,tribe_id,token_hash,created_by,status,created_at) values (${randomUUID()},${fixture.context.tribeId},${createHash("sha256").update(legacyToken).digest("hex")},${fixture.fixture.userId},'active',clock_timestamp())`);
       });
-      const operations = new PostgresAdmissionContactVerificationOperations((_scope, run) => database.withContext(fixture.own, run), async () => fixture.fixture.config);
-      const issued = await operations.issue({ ...fixture.input, expectedPolicyVersion: 2 });
+      const operations = new PostgresAdmissionContactVerificationOperations((_scope, run) => database.withContext(fixture.own, run), async () => fixture.fixture.config, (transaction) => new PostgresLegacyAdmissionInvitationReader(transaction));
+      const issued = await operations.issue({ ...fixture.input, expectedPolicyVersion: 2, ...(legacyToken ? { source: { kind: "legacy" as const, token: legacyToken } } : {}) });
       if (issued.state !== "completed") throw new Error("Expected native list code issuance");
       const scope = { ...fixture.fixture.scope, userId: fixture.context.userId, contact: fixture.input.contact, verificationEpoch: 2 }, code = await recoverTestVerificationCode(database, { ...fixture.fixture, own: fixture.own, scope }, issued.result.challengeId);
       const verified = await operations.verify({ ...fixture.context, operationId: randomUUID(), challengeId: issued.result.challengeId, verificationCode: code.code });
       if (verified.state !== "completed" || verified.result.result !== "verified") throw new Error("Expected native verified list proof");
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.context.userId, sessionId: fixture.context.sessionId }), (_identity, run) => database.withContext(fixture.own, run));
       const commands = buildAcademyAdmissionsModule({ accounts, clock: () => new Date(), execute: (account, run) => database.withContext({ userId: account.userId, email: account.normalizedEmail }, run) }).createManualRequestModule({ readSecurityConfig: async () => fixture.fixture.config }).useCases;
-      const input = { tribeId: fixture.context.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedPolicyVersion: 2, confirmed: true as const, proofId: verified.result.proofId, ...(phone ? { phone: fixture.input.contact.value, country: "AR" } : {}) };
+      const input = { tribeId: fixture.context.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedPolicyVersion: 2, confirmed: true as const, proofId: verified.result.proofId, ...(legacyToken ? { legacyInvitationToken: legacyToken } : {}), ...(phone ? { phone: fixture.input.contact.value, country: "AR" } : {}) };
       const submitted = await commands.submit.execute(input);
       expect(submitted).toMatchObject({ ok: true, value: { state: "completed", result: { outcome: "admitted", membership: { role: "tribemate", status: "active" } } } });
       expect(await commands.submit.execute(input)).toMatchObject({ ok: true, value: { state: "completed", replayed: true } });
