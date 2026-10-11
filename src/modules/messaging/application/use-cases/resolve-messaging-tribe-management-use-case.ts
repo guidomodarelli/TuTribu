@@ -3,6 +3,8 @@ import type { MessagingAccountProvider, MessagingAuthorizationReader, MessagingL
 import type { MessagingUsageContext, MessagingUsageSensitiveContext } from "@/src/modules/messaging/domain/repositories/messaging-usage-operations";
 import type { MessagingConnectionCreationContext } from "@/src/modules/messaging/domain/repositories/messaging-connection-management";
 import type { MessagingConnectionLifecycleContext, MessagingConnectionLifecycleOperation } from "@/src/modules/messaging/domain/repositories/messaging-connection-lifecycle";
+import type { NotificationDeliveryRecoveryContext } from "@/src/modules/messaging/domain/repositories/notification-delivery-recovery";
+import { MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/message-delivery-reauthentication";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { MessagingUsageOperationError } from "@/src/modules/messaging/domain/errors/messaging-usage-operation-error";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
@@ -15,8 +17,10 @@ import { evaluateRecentAuthentication } from "@/src/modules/auth/domain/policies
 export type MessagingTribeManagementQuery={tribeId:string;requestId:string};
 /** Connection-scoped local management can stop a resource without looking up its operational credentials. */
 export type MessagingConnectionLifecycleQuery=MessagingTribeManagementQuery&{connectionId:string};
+/** Original-notification recency cannot be replaced by tribe or target-connection evidence. */
+export type NotificationDeliveryRecoveryQuery=MessagingTribeManagementQuery&{deliveryId:string};
 /** Sensitive creation and early usage operations share current canonical tribe ownership. */
-type SensitiveOperation=MessagingUsageSensitiveContext["operation"]|MessagingConnectionCreationContext["operation"]|MessagingConnectionLifecycleOperation;
+type SensitiveOperation=MessagingUsageSensitiveContext["operation"]|MessagingConnectionCreationContext["operation"]|MessagingConnectionLifecycleOperation|NotificationDeliveryRecoveryContext["operation"];
 
 /** @param facts - Current canonical tenant membership. @param tribeId - Exact tenant. @param userId - Current native account. @returns Whether the account is the sole current active leader. */
 function isManagementLeader(facts:MessagingLeadershipFacts|null,tribeId:string,userId:string):boolean {
@@ -36,11 +40,14 @@ export class ResolveMessagingTribeManagementUseCase {
   execute(query:MessagingTribeManagementQuery,operation:MessagingConnectionCreationContext["operation"]):Promise<MessagingConnectionCreationContext>;
   /** @param query - Exact tribe/connection and server correlation. @param operation - Fixed suspension or ordinary disconnection. @returns Current connection-scoped recency without secret or provider authority. */
   execute(query:MessagingConnectionLifecycleQuery,operation:MessagingConnectionLifecycleOperation):Promise<MessagingConnectionLifecycleContext>;
+  /** @param query - Original tribe/delivery and server correlation. @param operation - Fixed explicit notification recovery. @returns Current original-delivery recency without credentials or target authority. */
+  execute(query:NotificationDeliveryRecoveryQuery,operation:NotificationDeliveryRecoveryContext["operation"]):Promise<NotificationDeliveryRecoveryContext>;
   /** @param query - Own boundary-resolved scope. @param operation - Optional fixed sensitive action. @returns Rechecked own context. @throws MessagingUsageOperationError for a closed current account, role or recency. */
-  async execute(query:MessagingTribeManagementQuery|MessagingConnectionLifecycleQuery,operation?:SensitiveOperation):Promise<MessagingUsageContext|MessagingUsageSensitiveContext|MessagingConnectionCreationContext|MessagingConnectionLifecycleContext> {
+  async execute(query:MessagingTribeManagementQuery|MessagingConnectionLifecycleQuery|NotificationDeliveryRecoveryQuery,operation?:SensitiveOperation):Promise<MessagingUsageContext|MessagingUsageSensitiveContext|MessagingConnectionCreationContext|MessagingConnectionLifecycleContext|NotificationDeliveryRecoveryContext> {
     const connectionScoped=operation===REAUTHENTICATION_OPERATION.suspendMessagingConnection||operation===REAUTHENTICATION_OPERATION.disconnectMessagingConnection;
-    if(connectionScoped!==("connectionId" in query))throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.invalidInput);
-    const resourceId=connectionScoped&&"connectionId" in query?query.connectionId:query.tribeId;
+    const deliveryScoped=operation===MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification;
+    if(connectionScoped!==("connectionId" in query)||deliveryScoped!==("deliveryId" in query))throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.invalidInput);
+    const resourceId=deliveryScoped&&"deliveryId" in query?query.deliveryId:connectionScoped&&"connectionId" in query?query.connectionId:query.tribeId;
     const first=await this.accounts.getAuthenticatedAccount();
     if(!first||!isAuthenticatedSessionLive(first.session.expiresAt,this.clock()))throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
     const initialLeadership=await this.authorization.getCurrentLeadership(query.tribeId,first.userId);
@@ -58,6 +65,10 @@ export class ResolveMessagingTribeManagementUseCase {
     const evidence=confirmed.recentAuthentication.find((candidate)=>evaluateRecentAuthentication({now,scope,evidence:candidate,sessionActive:true,currentLeaderUserId:confirmed.userId}).allowed);
     if(!evidence?.authenticatedAt)throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.reauthenticationRequired);
     const sensitiveContext={...context,resourceId,accountId:confirmed.googleAccount.id,subject:confirmed.googleAccount.subject,authenticatedAt:evidence.authenticatedAt,validUntil:evidence.validUntil};
+    if(operation===MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification){
+      if(!("deliveryId" in query))throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.invalidInput);
+      return {...sensitiveContext,operation,deliveryId:query.deliveryId};
+    }
     if(operation===REAUTHENTICATION_OPERATION.suspendMessagingConnection||operation===REAUTHENTICATION_OPERATION.disconnectMessagingConnection){
       if(!("connectionId" in query))throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.invalidInput);
       return {...sensitiveContext,operation,connectionId:query.connectionId};
