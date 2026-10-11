@@ -9,7 +9,7 @@ import { COURSE_ACCESS_REQUIREMENT, COURSE_VIEWER_ACCESS_STATUS } from "@/src/mo
 import { PostgresProductAccessRepository } from "@/src/modules/product-access/infrastructure/repositories/postgres-product-access-repository";
 import { ACCESS_GRANT_SOURCE_TYPE, ENROLLMENT_ACTIVATION_ORIGIN, PRODUCT_KEY, TRIBE_ACCESS_MODEL } from "@/src/modules/product-access/constants/product-access";
 import { PostgresTribeMemberSubscriptionRepository } from "@/src/modules/subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
-import { TRIBE_MEMBER_SUBSCRIPTION_STATUS, TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE } from "@/src/modules/subscriptions/constants/subscriptions";
+import { TRIBE_MEMBER_SUBSCRIPTION_STATUS, TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE, TRIBE_SUBSCRIPTION_PRICE_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -55,8 +55,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("payment membership
         expect(await repository.handleWebhook({ eventId: randomUUID(), resourceId: fixture.providerId, topic: SUBSCRIPTION_MEMBERSHIP_FIXTURE.providerWebhookTopic })).toMatchObject({ status: TRIBE_MEMBER_SUBSCRIPTION_STATUS.processed });
       } else {
         const repository = createSubscriptionMembershipReconciliationRepository(database, fixture.own, SUBSCRIPTION_MEMBERSHIP_FIXTURE.providerAuthorizedStatus);
-        if (entrypoint === SUBSCRIPTION_MEMBERSHIP_ENTRYPOINT.price) await repository.reconcileProviderSubscribers({ priceId: fixture.priceId, tribeSlug: fixture.slug, source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton });
-        else await repository.reconcileSubscriberDiagnostics({ tribeSlug: fixture.slug });
+        const result = entrypoint === SUBSCRIPTION_MEMBERSHIP_ENTRYPOINT.price
+          ? await repository.reconcileProviderSubscribers({ priceId: fixture.priceId, tribeSlug: fixture.slug, source: TRIBE_PROVIDER_SUBSCRIBER_RECONCILIATION_SOURCE.manualButton })
+          : await repository.reconcileSubscriberDiagnostics({ tribeSlug: fixture.slug });
+        expect(result).toMatchObject({ status: TRIBE_SUBSCRIPTION_PRICE_STATUS.verified, verifiedCount: 1 });
       }
       const after = await snapshot();
       expect(after.stored).toEqual(before.stored);
