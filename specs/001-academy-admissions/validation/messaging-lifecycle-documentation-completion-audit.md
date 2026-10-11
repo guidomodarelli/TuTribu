@@ -1,0 +1,28 @@
+# Contraste documental de T142
+
+Trabajo iniciado después de cerrar T141 en `e1f72cb1`, sobre código de producto `0bd9eb48`. Se conserva el alcance documental íntegro de la tarea y sus requisitos; documentar una restricción prevista no acredita su operación externa ni cierra el ensayo integral de T143.
+
+| Cláusula | Documento propietario y contenido |
+| --- | --- |
+| Swap seguro, candidata/activa y cuotas/historial | `docs/architecture/tenant-messaging.htm#lifecycle-continuity` y `user-guides/tenant-messaging.html#connection-continuity`: candidata separada, preparación vigente y confirmación antes de reemplazo; fallos de candidata no cambian la seleccionada y no reinician consumos/permisos. |
+| Retiro ordinario y purga dentro de 24 h | Arquitectura de autoridad local y continuidad; manual `#connection-safety`: dependencias resueltas por reemplazo/política/pausa y avisos dependientes OFF, bloqueo de uso antes de retirar bytes, referencias mínimas y límites de backups. Scheduler/restore siguen pendientes. |
+| Suspensión y compromiso | Manual `#connection-safety` y `#verification-policy-transitions`: seguridad sin proveedor ni dispensar verificación, recomprobación de pendientes afectadas, miembros/invitaciones conservados y límites de cancelación de accepted/unknown. |
+| Transferencia y conexión propia del nuevo líder | `docs/architecture/roles-and-permissions.htm#messaging-leadership-continuity` y operaciones internas: guarda canónica, líder anterior sin gestión, conexión propia y probada del siguiente sin mostrar la anterior, membresías/invitaciones con identidad/plazos preservados. Owner SQL interno sin pantalla general de transferencia. |
+| Trabajos fijados y respuesta tardía | Arquitectura y manual: tribu/conexión/versión/remitente originales, reserva e historial conservados, ninguna sustitución silenciosa de clave ni cambio de pagador/canal/tribu. |
+| Unknown y recovery de avisos | Manual propietario `#notification-recovery`: consulta original, Google scoped y consentimiento nuevos para escritura, lineage/plazo/consumo conservados, registro separado de entrega; OTP requiere otro desafío. OG-04 y despacho T185 permanecen pendientes. |
+| Revocación de Zavu y cuenta compartida | `#connection-continuity`: retirada local distinta de revocación externa por el dueño, proyectos/credenciales dedicados recomendados; aislamiento interno sin promesa de dashboard/saldo externo separados. |
+| Borradores y candidatas abandonados | Reader privado y constante real limitan candidata no seleccionada a siete días sin actividad. Se documenta FR-056 como obligación de expiración/retiro operativo, distinguiendo guarda de lectura de limpieza programada aún pendiente; conectar no requiere reinicio/deploy. |
+| Estado de entrega/callbacks | Arquitectura distingue transporte de contacto/membresía, consulta mínima y webhook opcional con firma v2, correlación/replay/límites. No anuncia otro endpoint ni cambia un webhook compartido. |
+| Menú, índice y changelog | Menú temático e índice detallado enlazan el alcance actualizado y el propietario de continuidad. Se amplía la entrada vigente de `Unreleased` sin duplicar la funcionalidad ni escribir una versión/fecha de release. |
+
+El conjunto cubre FR-048–054/056/063/134, US-07-AC-01–06, EC-24/27–31/34/38/44, SC-010, TC-014/020–021/023–024 y OG-04 en su dimensión documental. SC-010 y los seis AC conservan la validación integral de T143; las reglas de webhook no se presentan como implementación alcanzable nueva. FR-056 mantiene la limpieza programada bajo su owner de mantenimiento.
+
+## Procedencia y validación
+
+Se consultan las auditorías completas de T136/T137/T138/T139/T140/T141 y los writers actuales. La fuente registrada de los manuales sigue siendo `0bd9eb48`, porque el checkpoint posterior sólo cambió documentación. source-trace compara esa fuente con `e1f72cb1` antes de actualizar contenido y confirma que los paths documentados no cambiaron. Se añaden a la trazabilidad el reader privado y su límite de inactividad, conservando fuentes anteriores y capturas.
+
+Los cambios sólo amplían explicación y enlaces: no agregan botones ni estados del producto, no requieren nuevas capturas y no alteran las 26 plantillas de app existentes. Se registra la fuente `0bd9eb48` con 48/40/127/124 paths para manual temático, operaciones internas, menú e índice detallado, respectivamente; las comparaciones previas no encuentran cambios de producto y la navegación embebida conserva el script Heritage canónico.
+
+Check-manual termina con cero errores en los tres manuales numerados; los dos avisos esperados por cada archivo local corresponden a falta de URL publicada y catálogo central de traducciones. La QA de los cuatro documentos internos termina correctamente con 16 renders y 36 comprobaciones de navegación (`.git/codex-t142-manuals-qa.log`), incluidos los enlaces nuevos y su recarga con ancla, en Chromium/WebKit a 1280/390 px. Los dos documentos arquitectónicos añaden ocho renders aprobados, cero errores/desbordes, con fuentes locales de respaldo. El chequeo de siete documentos verifica 198 enlaces sin roturas. Ambos procesos propios de QA son terminales con exit 0.
+
+La revisión final de los ocho archivos confirma todo el criterio documental y cero hallazgos accionables, con manifiesto estable `89EAD370B6C0C8E58A17C115A568B09B15266ED77A1D5F5BDA04C17952C26656` antes de añadir este recibo. Se marca sólo T142: 150 completadas, 62 pendientes y 212 IDs/criterios originales intactos. T143, T185, mantenimiento operativo y gates externos conservan sus criterios originales. El reviewer no ejecutó pruebas; sus resultados se acreditan por los procesos terminales indicados arriba.
