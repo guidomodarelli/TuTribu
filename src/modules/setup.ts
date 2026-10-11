@@ -729,6 +729,18 @@ export async function createNotificationRecoveryOperationRequestModule() {
   return { operation: operation.useCases, resolveTribe: routing.resolveTribe };
 }
 
+/** @returns Bounded current leader notification metadata and canonical routing, without fresh recency, keys or writes. */
+export async function createNotificationDeliveryCatalogRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.request);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const catalog = buildMessagingModule(dependencies).createNotificationDeliveryCatalogModule();
+  return { catalog: catalog.useCases, resolveTribe: routing.resolveTribe };
+}
+
 /** @returns Current native candidate activation with feature-owned metadata/evidence changes in one protected transaction, without provider calls. */
 export async function createMessagingConnectionActivationRequestModule(){
   const databaseClient=await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);

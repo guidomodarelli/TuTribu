@@ -5,6 +5,7 @@ import { createAdmissionOperationStateSchema } from "@/src/modules/academy-admis
 import { notificationDeliveryRecoveryResultSchema, notificationRecoveryOperationSchema } from "@/src/modules/messaging/constants/notification-delivery-recovery-schema";
 import { MESSAGING_CONNECTIONS_BROWSER_PATH } from "@/src/modules/messaging/constants/messaging-connections-browser";
 import { NOTIFICATION_RECOVERY_BROWSER_PATH } from "@/src/modules/messaging/constants/notification-recovery-browser";
+import { NOTIFICATION_DELIVERY_CATALOG_HTTP, notificationDeliveryCatalogSchema } from "@/src/modules/messaging/constants/notification-delivery-catalog";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { createMessagingBrowserRequest, messagingBrowserFailure } from "./messaging-browser-api-client";
@@ -14,6 +15,14 @@ export function createNotificationRecoveryBrowserClient(options: { fetch?: typeo
   const request = createMessagingBrowserRequest(options.fetch);
   const recoverySchema = createAdmissionOperationStateSchema(notificationDeliveryRecoveryResultSchema);
   return {
+    /** @param query - Own current tribe and prior stable cursor. @param signal - Read lifetime. @returns Guarded current metadata without retries, mutation or provider enumeration. */
+    async catalog(query, signal) {
+      const search = new URLSearchParams();
+      if (query.cursor) { search.set("cursorId", query.cursor.deliveryId); search.set("cursorCreatedAt", query.cursor.createdAt); }
+      const suffix = search.size ? `?${search.toString()}` : "";
+      const path = `${MESSAGING_CONNECTIONS_BROWSER_PATH.tribePrefix}/${encodeURIComponent(query.slug)}/${NOTIFICATION_DELIVERY_CATALOG_HTTP.path}${suffix}`;
+      return request(path, notificationDeliveryCatalogSchema, signal);
+    },
     /** @param scope - Exact original delivery. @param input - Preserved UUID/CAS and explicit replacement. @param signal - Observation lifetime. @returns Bound original lineage or safe uncertainty, never inferred rollback. */
     async recover(scope, input, signal) {
       const path = `${MESSAGING_CONNECTIONS_BROWSER_PATH.tribePrefix}/${encodeURIComponent(scope.slug)}/${NOTIFICATION_RECOVERY_BROWSER_PATH.deliveries}/${encodeURIComponent(scope.deliveryId)}/${NOTIFICATION_RECOVERY_BROWSER_PATH.recover}`;
