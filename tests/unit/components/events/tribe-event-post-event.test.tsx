@@ -1059,7 +1059,10 @@ describe("TribeEventOccurrenceActivity", () => {
     await user.click(screen.getByRole("button", { name: "Publicar" }));
 
     await waitFor(() => expect(screen.getByLabelText("Escribí un comentario")).toHaveValue(""));
-    expect(screen.getAllByText("¿Suben las slides?", { selector: "p" })).toHaveLength(1);
+    // The composer clears before the published comment finishes entering the thread.
+    await waitFor(() =>
+      expect(screen.getAllByText("¿Suben las slides?", { selector: "p" })).toHaveLength(1)
+    );
   });
 
   it("retries a failed comment with the same client request id and uses a new one afterwards", async () => {

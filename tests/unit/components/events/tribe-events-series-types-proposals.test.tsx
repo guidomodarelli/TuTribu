@@ -274,7 +274,10 @@ describe("TribeEventsCalendar types, date exceptions, and proposals", () => {
     // The detail stays open on the same occurrence (stable key) with its new state.
     expect(await within(dialog).findByText("Cancelado")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Restaurar fecha" })).toBeInTheDocument();
-    expect(within(dialog).queryByRole("button", { name: "Voy" })).not.toBeInTheDocument();
+    // The attendance controls collapse with an exit animation before leaving the DOM.
+    await waitFor(() =>
+      expect(within(dialog).queryByRole("button", { name: "Voy" })).not.toBeInTheDocument()
+    );
     expect(router.refresh).not.toHaveBeenCalled();
   });
 

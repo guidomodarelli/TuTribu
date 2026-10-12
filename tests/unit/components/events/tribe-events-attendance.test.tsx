@@ -470,12 +470,15 @@ describe("TribeEventsCalendar attendance", () => {
       act(() => {
         vi.advanceTimersByTime(1);
       });
-      expect(within(dialog).queryByRole("button", { name: "Voy" })).not.toBeInTheDocument();
       expect(within(dialog).getByText("Finalizado")).toBeInTheDocument();
       expect(router.refresh).not.toHaveBeenCalled();
       // The frozen clock above keeps the post-event and conversation sections
-      // behind their loading swap; release it so both settle inside the test.
+      // behind their loading swap, and the attendance controls behind their
+      // exit animation; release it so all of them settle inside the test.
       vi.useRealTimers();
+      await waitFor(() =>
+        expect(within(dialog).queryByRole("button", { name: "Voy" })).not.toBeInTheDocument()
+      );
       expect(
         await within(dialog).findByText("Todavía no hay grabación ni materiales.")
       ).toBeInTheDocument();
