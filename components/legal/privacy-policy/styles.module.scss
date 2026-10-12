@@ -1,0 +1,48 @@
+.PrivacyPolicy {
+  width: min(100%, 54rem);
+  margin-inline: auto;
+  padding: clamp(1rem, 4vw, 3rem);
+  overflow-wrap: anywhere;
+
+  &__back,
+  &__link {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  &__header {
+    margin-block: 2rem;
+  }
+
+  &__eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--muted-foreground);
+  }
+
+  &__title {
+    margin: 0 0 1rem;
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1.15;
+  }
+
+  &__intro,
+  &__text {
+    margin: 0 0 1rem;
+    line-height: 1.75;
+  }
+
+  &__intro {
+    color: var(--muted-foreground);
+  }
+
+  &__section {
+    margin-block: 2rem;
+  }
+
+  &__heading {
+    margin: 0 0 0.75rem;
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
+    line-height: 1.4;
+  }
+}

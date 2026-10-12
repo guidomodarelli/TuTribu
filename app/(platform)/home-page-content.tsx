@@ -74,6 +74,9 @@ export function HomePageView({ isAuthenticated }: HomePageViewProps) {
           </Button>
         </div>
       ) : null}
+      <p className={styles.HomePage__privacy}>
+        <Link href={ROUTES.privacy}>Política de privacidad</Link>
+      </p>
     </main>
   );
 }
