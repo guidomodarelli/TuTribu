@@ -45,11 +45,12 @@ export async function prepareContactVerificationDatabase(database: AcademyAdmiss
  * @param issuedAt - Optional synthetic historical issue timestamp for immutable-lifetime scenarios.
  * @param diagnosticResource - Optional configured immutable sender/secret seeded at creation for the diagnostic owner.
  * @param channel - Exact synthetic channel sealed into the code, envelope and persisted challenge; existing callers keep email.
+ * @param phoneContact - Optional phone contact sealed before persistence, for distinct-contact accounting scenarios.
  * @returns The test-only code and exact protected challenge scope.
  */
-export async function seedContactVerificationChallenge(database: AcademyAdmissionTestDatabase, fixture: Awaited<ReturnType<typeof prepareContactVerificationDatabase>>, purpose: VerificationChallengeScope["purpose"] = "admission", issuedAt?: Date,diagnosticResource?:{secretRef:string;senderId:string}, channel: VerificationChallengeScope["channel"] = "email") {
+export async function seedContactVerificationChallenge(database: AcademyAdmissionTestDatabase, fixture: Awaited<ReturnType<typeof prepareContactVerificationDatabase>>, purpose: VerificationChallengeScope["purpose"] = "admission", issuedAt?: Date,diagnosticResource?:{secretRef:string;senderId:string}, channel: VerificationChallengeScope["channel"] = "email", phoneContact?: Extract<VerificationChallengeScope["contact"], { type: "phone" }>) {
   const tribeId = randomUUID(), connectionId = randomUUID(), challengeId = randomUUID(), deliveryId = randomUUID(), envelopeId = randomUUID();
-  const scope: VerificationChallengeScope = { userId: fixture.userId, tribeId, connectionId, connectionVersion: 1, securityEpoch: fixture.config.securityEpoch, purpose, verificationEpoch: purpose === "admission" ? 1 : null, channel, contact: channel === "email" ? { type: "email", value: fixture.own.email } : { type: "phone", value: "+5491155501234", country: "AR" } };
+  const scope: VerificationChallengeScope = { userId: fixture.userId, tribeId, connectionId, connectionVersion: 1, securityEpoch: fixture.config.securityEpoch, purpose, verificationEpoch: purpose === "admission" ? 1 : null, channel, contact: channel === "email" ? { type: "email", value: fixture.own.email } : phoneContact ?? { type: "phone", value: "+5491155501234", country: "AR" } };
   const code = "429017";
   await database.withContext(fixture.own, async (transaction) => {
     const createdAt = issuedAt ?? new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
