@@ -44,6 +44,9 @@ jobs:
         env:
           PNPM_CONFIG__AUTH: '{"https://npm.pkg.github.com":{"@guidomodarelli":{"authToken":"${{ secrets.GITHUB_TOKEN }}"}}}'
 
+      - name: Install browser required by native transport tests
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Configure isolated build environment
         shell: bash
         run: |
