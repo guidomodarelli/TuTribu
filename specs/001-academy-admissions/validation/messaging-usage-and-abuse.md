@@ -1,6 +1,8 @@
 # Matriz de cuotas, cadencia y validación local
 
-Base de trabajo `1eabf787`; T164 abierta. Los cinco AC de US11 y sus controles de permisos/privacidad/alcance siguen repartidos entre las tareas T164/T165/T167 y se deben comprobar íntegros antes de cerrar esta tarea. Este registro no convierte una prueba aislada en una matriz completa.
+T164 completada sobre el checkpoint `5774f3fb`. La auditoría final contrastó el criterio original íntegro y los cinco AC de US11: no encontró brechas funcionales pendientes. Se cierra únicamente T164; el recuento queda en 163 tareas completadas y 49 pendientes de 212. T165, T167 y los gates externos conservan sus criterios propios y siguen abiertos.
+
+Los apartados siguientes conservan la secuencia de validación iniciada en `1eabf787`, incluidos los estados parciales y reportes fallidos anteriores. El contraste final y la auditoría de cierre registran el resultado vigente; ninguna prueba aislada acredita por sí sola la matriz completa.
 
 ## Incremento validado de tres canales
 
@@ -12,15 +14,15 @@ Después del terminal se corrigió la prueba para capturar el código recibido p
 
 La reejecución actual de cinco suites de contratos terminó con 37 casos aprobados, cero fallidos y cero excluidos: `reserve-messaging-usage`, `manage-messaging-usage-use-cases`, `read-messaging-usage-operation`, `message-dispatch` y `admission-policy-country-facts`. Ejercen casos de uso reales mediante puertos propios y temporizadores reales donde corresponde; este lote local no prueba contadores PostgreSQL ni transporte SDK.
 
-Un segundo lote local terminó con 18 casos aprobados, cero fallidos y cero excluidos: rutas de políticas de uso, componente de configuración con UI compartida real, cliente HTTP propio, intent y continuación de reautenticación. Valida permisos/input/DTO, cambios de configuración y recuperación de la operación original con dobles en puertos propios; no sustituye el recorrido Next/Better Auth/PostgreSQL del owner de US6. Este primer incremento reúne 55 casos locales y tres Native nuevos aprobados; el siguiente apartado añade otros tres Native. T164 permanece abierta por el resto de su matriz original.
+Un segundo lote local terminó con 18 casos aprobados, cero fallidos y cero excluidos: rutas de políticas de uso, componente de configuración con UI compartida real, cliente HTTP propio, intent y continuación de reautenticación. Valida permisos/input/DTO, cambios de configuración y recuperación de la operación original con dobles en puertos propios; no sustituye el recorrido Next/Better Auth/PostgreSQL del owner de US6. Este primer incremento reunió 55 casos locales y tres Native nuevos aprobados; el siguiente apartado añade otros tres Native. En ese punto T164 permanecía abierta por el resto de su matriz original.
 
 ## Despacho nuevo con cupo cero
 
 `messaging-zero-quota-admission.test.ts` añade tres casos de correo, SMS y WhatsApp mediante el owner actual. La solicitud confirmada se conserva, pero el worker debe diferir el despacho por cuota antes de preparar credenciales: cero llamadas al proveedor, intentos o reservas. La presentación real sin prueba sigue denegada por `additional_verification_required`; no se crean solicitud de ingreso ni membresía y la política ON conserva su versión y época.
 
-El chequeo específico de tipos de tests, el chequeo de aplicación y lint pasaron. La revisión terminó sin hallazgos accionables; SHA256 `0296F3691E66586DDE9EFA4BEDC3A2B0508A187C7F689CAB5DB1C4B7D0442B41`. El lote Native terminó con tres casos aprobados, cero fallidos y cero excluidos, incluida la limpieza de sus ramas propias. El incremento actual suma seis casos Native nuevos aprobados; el resto de la matriz de T164 sigue abierto.
+El chequeo específico de tipos de tests, el chequeo de aplicación y lint pasaron. La revisión terminó sin hallazgos accionables; SHA256 `0296F3691E66586DDE9EFA4BEDC3A2B0508A187C7F689CAB5DB1C4B7D0442B41`. El lote Native terminó con tres casos aprobados, cero fallidos y cero excluidos, incluida la limpieza de sus ramas propias. Ese incremento sumó seis casos Native nuevos aprobados; todavía no acreditaba el resto de la matriz de T164.
 
-## Matriz original por contrastar
+## Matriz original al inicio de la auditoría
 
 | Requisito | Cobertura localizada | Estado para esta tarea |
 |---|---|---|
@@ -33,11 +35,11 @@ El chequeo específico de tipos de tests, el chequeo de aplicación y lint pasar
 
 La cuota de envío se aplica a la autorización del marker/dispatch. No se infiere que emitir un desafío con cupo agotado deba rechazarlo antes de su creación. No hay cambios de producción, SDK, schema o configuración desplegada en este incremento.
 
-## Brechas concretas de validación pendientes
+## Brechas identificadas por la auditoría inicial
 
 La auditoría no confirmó un fallo de producción. Identificó pruebas que deben aislar el techo horario de cuenta al cambiar contacto; conservar consumo al alternar conexión/canal y sesión; agotar el bucket de verificación compartido por admisión, diagnóstico y SMS alternativo sin consumir el de avisos; y autorizar un marker con país permitido por el líder pero prohibido por la plataforma.
 
-Para los cinco AC originales también falta incluir una plantilla explícita en la matriz HTTP de campos prohibidos y observar el logger/traza finales ante credencial/código y error upstream. Las pruebas locales de alcance/propósito y snapshots de autenticación global cubren AC-05; este criterio no exige repetir un ensayo OAuth externo. La carrera real de cien competidores por el último cupo de avisos ya está localizada y debe verificarse junto al resto de la matriz, sin inventar otra carrera por el nombre de la tarea.
+Para los cinco AC originales también faltaba incluir una plantilla explícita en la matriz HTTP de campos prohibidos y observar el logger/traza finales ante credencial/código y error upstream. Las pruebas locales de alcance/propósito y snapshots de autenticación global cubren AC-05; este criterio no exige repetir un ensayo OAuth externo. La carrera real de cien competidores por el último cupo de avisos estaba localizada y debía verificarse junto al resto de la matriz, sin inventar otra carrera por el nombre de la tarea. Los apartados posteriores registran la resolución y validación completa de esas brechas.
 
 La reducción a cero con trabajo ya en cola cuenta con una prueba real en `verification-delivery-pipeline.test.ts`; el nuevo recorrido de tres canales añade la raíz de admisión y la presentación sin proof, sin duplicar implementación de producto. La reejecución de cuatro suites existentes de presupuestos terminó con 18 casos aprobados, cero fallidos y cero excluidos: cinco de solicitudes/cadencia, tres de continuidad de contacto, siete de validación de credenciales y tres de fallos por canal. Las fuentes conservaron sus hashes y la limpieza propia quedó confirmada. Este lote acredita esos contratos existentes y no elimina las seis brechas observables de la auditoría.
 
@@ -71,4 +73,32 @@ El sender SDK real tiene además tres nuevos casos de error HTTP 503 por correo/
 
 La revisión encontró que el observer debía proteger también su rama negativa: ante una fuga podía copiar el valor privado al JSONL o stderr del arnés. Se corrigió para redactar scalars/keys, no reenviar ninguna salida con canarios y descartar argumentos no string como objetos `Error` con campos no enumerables. Un test local ejecuta el preload real con fugas deliberadas en JSON, strings, `Error` y objetos; terminó aprobado sin fallos/exclusiones, comprobando archivo/stdout/stderr. La reejecución del root con la versión final terminó con un caso aprobado, cero fallidos y cero excluidos. Los verdes de versiones anteriores se conservan separados y no sustituyen ese terminal final.
 
-Las matrices actuales de configuración de uso, dispatch de verificación y países/receipts telefónicos terminaron con 23 casos aprobados, cero fallidos y cinco excluidos por el gate de navegador: ocho de configuración/CAS/recuperación, siete de verificación/SecretStore/SDK/cuota en cola y ocho de SMS/WhatsApp con países antes/después del marcador y receipts sent/delivered. Sus fuentes permanecieron estables. El mismo lote continúa con cinco casos de rutas y UI de configuración temprana; esos casos no tienen todavía terminal acreditado aquí. T164 conserva sus cinco AC y todo el alcance restante hasta esa auditoría final.
+Las matrices actuales de configuración de uso, dispatch de verificación y países/receipts telefónicos terminaron con 23 casos aprobados, cero fallidos y cinco excluidos por el gate de navegador: ocho de configuración/CAS/recuperación, siete de verificación/SecretStore/SDK/cuota en cola y ocho de SMS/WhatsApp con países antes/después del marcador y receipts sent/delivered. Sus fuentes permanecieron estables. El mismo lote de rutas y UI de configuración temprana terminó con cinco casos aprobados, cero fallidos y ocho excluidos por el gate SQL. Comprueba entrada sin inicialización implícita, países/CAS/conflictos en Chromium y WebKit a 1280/390, recuperación original y cierre de sesión global vencida. Las cuatro capturas regeneradas se conservaron privadas y se restauraron los assets originales tras el terminal. Las exclusiones de cada fase no se cuentan como aprobadas ni se usa una fase para acreditar casos que no ejecutó.
+
+## Contraste final del alcance original
+
+| Criterio de T164 | Evidencia actual comprobada | Límites del resultado |
+|---|---|---|
+| Cinco AC de US11, cuota/cadencia/fallos por cuenta/contacto/tribu/propósito/plataforma | Presupuestos SQL 18, cuenta aislada 1 más regresión 5, matrices de canales y owners actuales. | La regresión no se vuelve a sumar a los presupuestos; el resto de tareas de seguridad/retención mantiene su criterio propio. |
+| No reset al alternar conexión/canal/sesión | Reemplazo por owner actual y segunda sesión con reservas/fechas/configuración intactas; bucket admisión/diagnóstico/SMS alternativo real. | El timeout anterior se conserva rojo; sólo la repetición completa de 726,19 s acredita continuidad. |
+| Reducción al despachar, países y límites efectivos | Pipeline de cuota cero en cola, países reducidos antes/después del marker, país permitido por líder pero prohibido por plataforma y ambos canales SMS/WhatsApp. | No se atribuye control de un mensaje ya iniciado ni respuesta privada del proveedor. |
+| Cupo cero conserva ON y código vigente | Tres canales sin preparación/RPC ante cupo cero y presentación nativa sin prueba denegada; tres códigos realmente enviados válidos después de suspensión/cupo cero. | La admisión no modifica identidad global ni concede membresía por agotamiento. |
+| Última reserva entre cien competidores | Matriz SQL real de despachos: una autorización y 99 rechazos, reserva consumida tras pérdida del worker. | No certifica latencia, tarifas ni infraestructura productiva. |
+| Configuración temprana US6 y CAS separado de consumo/conexión/época | Ocho SQL del owner de uso, cinco Next/UI/HTTP, 55 contratos locales previos. | Ausencia, inicio, no-op, replay, conflicto y consumo UTC permanecen separados de la versión editable. |
+| Campos de envío prohibidos y privacidad final | 78 HTTP con plantilla y logger real, 16 SDK con tres canales, root asíncrono conectado Native 1 y negativo del observer local 1. | Los canarios no llegan a archivos/stdout/stderr del arnés; no se infiere un ensayo externo de proveedor. |
+
+Todos los lotes de esta tarea tienen terminal propio; quedan registrados los rojos iniciales del oráculo de envelope/código y timeout, las correcciones del observer y sus repeticiones completas verdes. Las exclusiones declaradas siguen fuera del recuento de casos aprobados.
+
+## Auditoría final y cierre
+
+| AC original de US11 | Evidencia contrastada para T164 |
+|---|---|
+| AC-01: conservar los límites al cambiar cuenta, contacto, tribu, canal, credencial o sesión | Presupuestos persistidos, techo aislado de cuenta, continuidad de contacto y versiones, reemplazo real de conexión, segunda sesión y bucket compartido de admisión/diagnóstico/SMS alternativo. |
+| AC-02: aplicar la configuración vigente antes de despachar trabajo en cola | Cuota cero antes del marcador, países reducidos antes/después del marcador y restricciones de plataforma; un intento ya iniciado conserva su consumo. |
+| AC-03: rechazar sender, destino, plantilla y contenido arbitrarios | Schemas y handlers HTTP reales rechazan los campos prohibidos antes de la composición y los puertos de envío. |
+| AC-04: conservar secretos y códigos fuera de respuestas, logs, trazas y artefactos | Logger HTTP final, consola del SDK real, reporter asíncrono observado desde Next y prueba negativa del observer que protege archivo/stdout/stderr. |
+| AC-05: mantener la confianza local separada de la autenticación global y otros scopes | Aislamiento por cuenta, tribu y propósito; snapshots de identidad global y credenciales BYOK sin autoridad de autenticación global. |
+
+La revisión independiente confirmó cero brechas pendientes para el criterio completo de T164. Contrastó además el código vigente tras agotar el envío, cuota cero sin dispensar ON, una autorización entre cien competidores y configuración temprana US6 con CAS separado de reservas, consumo, conexión y época. Los 34 archivos de evidencia auditados conservaron sus hashes; el manifiesto final tiene SHA256 `37D75E8DC72B75D16AE19E22F1ACC4765C6F96396F9AD2E4588EB71457485BE3`.
+
+El cierre no modifica comportamiento de producto ni activa producción. Los gates de hosting, proveedor, scheduling y restore siguen sujetos a sus tareas originales; T165 y T167 conservan su alcance independiente. Sólo se cambia el marcador de T164 a completada.
