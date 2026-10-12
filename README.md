@@ -27,6 +27,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 - pnpm 12 (pinned through `packageManager`; run `corepack enable` and the pinned version is used automatically)
 - Access to a Neon Postgres database
 - Google OAuth credentials for sign-in
+- GitHub Packages read access for `@guidomodarelli/beez-ui`; provide trusted user-level pnpm auth or `PNPM_CONFIG__AUTH` bound to `https://npm.pkg.github.com` and the `@guidomodarelli` scope before installation. GitHub Actions uses its repository token with `packages: read` and package access granted to this repository. Local and deployment credentials stay outside version control.
 
 ## Setup
 
@@ -35,6 +36,8 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
    ```bash
    pnpm install --frozen-lockfile
    ```
+
+   The dependency alias `beez-ui` resolves to the published `@guidomodarelli/beez-ui` package in GitHub Packages. Existing imports stay unchanged; the lockfile pins the exact published artifact. Deployment builds require the same registry read access through their private environment settings.
 
 2. Create `.env.local` from `.env.example` and fill in the values (see [Environment](#environment)).
 3. Apply database migrations:

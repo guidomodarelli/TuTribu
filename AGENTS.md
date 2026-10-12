@@ -192,7 +192,7 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 - Do not reintroduce `components/ui` source copies or a local `components.json`.
 - Prefer composition of existing shared primitives before custom product components.
 - Import browser-ready `beez-ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the default LaTribu theme and fonts; product SCSS Modules and explicit overrides stay here.
-- Use pnpm 12.6.0 and consume published beez-ui releases from npm with a caret range. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
+- Use pnpm 12.6.0 and consume published `@guidomodarelli/beez-ui` releases from GitHub Packages with a caret range through the `beez-ui` npm alias. Preserve the product imports and update package.json and pnpm-lock.yaml together; do not vendor local tarballs. Supply registry credentials through `PNPM_CONFIG__AUTH` bound to `https://npm.pkg.github.com` and `@guidomodarelli`, or trusted user-level pnpm auth configuration; never commit their values or place environment auth placeholders in the project `.npmrc`.
 - Follow `docs/architecture/shared-ui-library.htm` for package boundaries and distribution.
 - Structure rule for custom components :
   - Applies to manually created components under `components/*`.
