@@ -1072,6 +1072,13 @@
       "when": 1791757800000,
       "tag": "20261011223000_close_admission_scope_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1791792000000,
+      "tag": "20261012080000_claim_expired_messaging_candidates",
+      "breakpoints": true
     }
   ]
 }

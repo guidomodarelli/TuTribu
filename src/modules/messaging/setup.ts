@@ -1,5 +1,7 @@
 /** Composes implemented human and worker messaging capabilities without global clients or key defaults. @module messaging-setup */
 import "server-only";
+import { ExpireMessagingCandidatesUseCase } from "./application/use-cases/expire-messaging-candidates-use-case";
+import { PostgresMessagingCandidateExpiration, type CandidateExpirationDatabaseExecutor, type CandidateExpirationGate } from "./infrastructure/repositories/postgres-messaging-candidate-expiration";
 import type { AuthenticatedFeatureDependencies } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import { createTransactionAccountProvider } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -270,4 +272,13 @@ export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies
       preparation,
     },
   };
+}
+
+/**
+ * Composes private abandoned-candidate maintenance without a provider, keyring or public route.
+ * @param dependencies - Current guarded executor, backend authority and recovery gate.
+ * @returns One bounded application entrypoint with commit-confirmed counts.
+ */
+export function buildMessagingCandidateMaintenanceModule(dependencies: { execute: CandidateExpirationDatabaseExecutor; authorize: CandidateExpirationGate; readRecoveryLock: CandidateExpirationGate }) {
+  return { useCases: { expireCandidates: new ExpireMessagingCandidatesUseCase(new PostgresMessagingCandidateExpiration(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock)) } };
 }

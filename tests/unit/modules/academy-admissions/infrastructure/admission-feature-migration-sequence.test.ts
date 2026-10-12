@@ -25,12 +25,16 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("complete admission
           expect((await transaction.execute(sql`select to_regclass('public.academy_admission_retired_bindings') is not null and to_regclass('public.academy_admission_retired_operations') is not null and to_regclass('public.academy_admission_retired_audit_events') is not null as ready`)).rows).toEqual([{ ready: true }]);
           return (await transaction.execute<{ total: number; latest: string }>(sql`select count(*)::int as total,max(created_at)::text as latest from drizzle.__drizzle_migrations`)).rows[0];
         });
-        expect(applied.total - before.history.total).toBe(48);
+        expect(applied.total - before.history.total).toBe(53);
         expect(BigInt(applied.latest) > BigInt(before.history.latest)).toBe(true);
         await migrate();
         await database.withContext({ userId: null, email: null }, async (transaction) => {
           expect((await transaction.execute(sql`select count(*)::int as total,max(created_at)::text as latest from drizzle.__drizzle_migrations`)).rows).toEqual([applied]);
         });
+      });
+      await database.withContext({ userId: null, email: null }, async (transaction) => {
+        expect((await transaction.execute(sql`select to_regprocedure('public.claim_expired_messaging_candidates(integer)') is not null as candidate_owner_ready`)).rows).toEqual([{ candidate_owner_ready: true }]);
+        expect((await transaction.execute(sql`select * from public.claim_expired_messaging_candidates(1)`)).rows).toEqual([]);
       });
       const userId = randomUUID(), tribeId = randomUUID(), requestId = randomUUID();
       const context = { userId, email: `${userId}@example.test` };

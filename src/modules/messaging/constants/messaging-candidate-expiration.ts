@@ -6,3 +6,6 @@ export const MESSAGING_EXPIRED_CANDIDATE_PURGE_WINDOW_MS = SECONDS_PER_DAY * MIL
 
 /** Names closed assessment outcomes; these facts do not grant backend maintenance authority. */
 export const MESSAGING_CANDIDATE_EXPIRATION_REASON = { selectedConnection: "selected_connection", notCandidate: "not_candidate", resourceRetired: "resource_retired", connectionRetired: "connection_retired", clockUnavailable: "clock_unavailable", activityUnavailable: "activity_unavailable", candidateCurrent: "candidate_current" } as const;
+
+/** Bounds private candidate maintenance independently from provider dispatch or public pagination. */
+export const MESSAGING_CANDIDATE_MAINTENANCE = { defaultBatchSize: 50, maximumBatchSize: 100, operation: "expire_abandoned_candidates", retirementReason: "candidate_expired" } as const;
