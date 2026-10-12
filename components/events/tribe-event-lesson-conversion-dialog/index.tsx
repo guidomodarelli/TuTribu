@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, AnimatedCollapse, PresenceSwap } from "beez-ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, AnimatedCollapse, PresenceSwap } from "@guidomodarelli/beez-ui";
 
 import { Link } from "@/components/navigation/link";
 import {

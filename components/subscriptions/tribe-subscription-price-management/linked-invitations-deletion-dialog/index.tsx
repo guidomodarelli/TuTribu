@@ -3,7 +3,7 @@
 import { Fragment, useState } from "react";
 import { LoaderCircleIcon, Trash2Icon } from "lucide-react";
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCollapse, cn } from "beez-ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCollapse, cn } from "@guidomodarelli/beez-ui";
 
 import type { TribeInvitationListItemResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import styles from "./styles.module.scss";

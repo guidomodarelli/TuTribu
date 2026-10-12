@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { toast } from "beez-ui";
+import { toast } from "@guidomodarelli/beez-ui";
 import {
   AppRouterContext,
   type AppRouterInstance,
@@ -16,8 +16,8 @@ import { MOTION_SAFE_FAKE_TIMERS } from "@/tests/unit/components/events/support/
 // Preserve the existing Sonner double to isolate its timers and global notification store.
 let apiFetch: Mock = vi.fn();
 
-vi.mock("beez-ui", async () => ({
-  ...(await vi.importActual<typeof import("beez-ui")>("beez-ui")),
+vi.mock("@guidomodarelli/beez-ui", async () => ({
+  ...(await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui")),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

@@ -3,8 +3,8 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-import { CardDescription } from "beez-ui";
-import { useIsHydrated } from "beez-ui/hooks";
+import { CardDescription } from "@guidomodarelli/beez-ui";
+import { useIsHydrated } from "@guidomodarelli/beez-ui/hooks";
 import { isBackForwardDocumentLoad } from "@/lib/browser-navigation";
 import { ROUTES } from "@/src/constants/routes";
 import { startGoogleSignIn } from "@/src/modules/auth/infrastructure/better-auth/client";

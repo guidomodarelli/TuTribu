@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence } from "motion/react";
-import { Avatar, AvatarFallback, AvatarImage, Badge, AnimatedListItem, PresenceSwap } from "beez-ui";
+import { Avatar, AvatarFallback, AvatarImage, Badge, AnimatedListItem, PresenceSwap } from "@guidomodarelli/beez-ui";
 
 import { FreeInvitationAvatarFrame } from "@/components/tribes/free-invitation-avatar-frame";
 import type {

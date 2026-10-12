@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ArrowUpRightIcon, LoaderCircleIcon } from "lucide-react";
-import { toast } from "beez-ui";
+import { toast } from "@guidomodarelli/beez-ui";
 
 import type {
   TribeWelcomeLinkResult,

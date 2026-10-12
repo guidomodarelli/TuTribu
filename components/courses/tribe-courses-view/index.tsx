@@ -18,7 +18,7 @@ import {
   type MouseEvent,
 } from "react";
 import { motion } from "motion/react";
-import { toast, Button, PresenceSwap, formatFileSize, cn, SPRING_LAYOUT, RichTextContent } from "beez-ui";
+import { toast, Button, PresenceSwap, formatFileSize, cn, SPRING_LAYOUT, RichTextContent } from "@guidomodarelli/beez-ui";
 
 import { LessonComments } from "@/components/courses/lesson-comments";
 import { Link } from "@/components/navigation/link";

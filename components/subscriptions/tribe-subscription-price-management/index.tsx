@@ -32,7 +32,7 @@ import {
   UserRoundXIcon,
   UsersRoundIcon,
 } from "lucide-react";
-import { toast, Badge, Button, Checkbox, Input, Separator, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, AnimatedCount, cn } from "beez-ui";
+import { toast, Badge, Button, Checkbox, Input, Separator, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, AnimatedCount, cn } from "@guidomodarelli/beez-ui";
 
 import type {
   TribeSubscriberDiagnosticsResult,

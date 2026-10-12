@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { toast } from "beez-ui";
+import { toast } from "@guidomodarelli/beez-ui";
 
 import type { TribeEventSeriesMutationSettler } from "@/hooks/use-tribe-event-mutations";
 import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";

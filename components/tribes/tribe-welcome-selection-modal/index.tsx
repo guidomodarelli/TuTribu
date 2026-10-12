@@ -10,7 +10,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
-} from "beez-ui";
+} from "@guidomodarelli/beez-ui";
 
 import type { TribeWelcomeLinkResult } from "@/src/modules/tribes/application/results/tribe-welcome-result";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
