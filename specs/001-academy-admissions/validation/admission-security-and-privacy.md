@@ -42,4 +42,12 @@ La prueba usa los tres componentes reales, el widget publicado y su UI pública 
 
 La auditoría íntegra dejó dos brechas de evidencia: solicitantes rejected/cancelled/expired sin otra membresía frente a contenido/agenda/feed privados, y página/props/decisión del antiguo guardián. La nueva matriz preserva un primer reporte Native fallido de setup, las observaciones de oráculo débil del directorio y cronología incoherente del histórico. Su repetición prepara los padres históricos desde sus inserciones iniciales, conserva al guardián previo al cutover y distingue DTOs vacíos de denegación contractual con controles positivos; sigue en ejecución y no se acredita todavía.
 
-T165 continúa abierta hasta validar esa matriz, actualizar los manuales y completar la revisión final. Las tareas de audit/métricas, retención y gates externos conservan su alcance original; ninguna se cierra mediante este avance parcial.
+La primera repetición con padres coherentes terminó con cero casos aprobados y dos fallidos: esperaba un DTO vacío 200 de mensajes, pero la ruta real devuelve 404 a quien no puede ver la tribu. Se corrigió únicamente el oráculo para exigir ese 404; la nueva ejecución permanece pendiente. Canales y agenda conservan sus DTOs vacíos explícitos, mientras directorio, archivo y feed deben denegar según sus contratos. No se sustituye esa prueba por ausencia genérica de un canario.
+
+## Manuales y documentación de la corrección
+
+La arquitectura de reportes y el CHANGELOG acompañan el checkpoint de código `31a68d7d`. Los manuales de admisión y mensajería explican la exclusión de los campos privados al reportar, y el menú temático enlaza ambos temas. Los tres conservan todos sus paths de trazabilidad, incorporan los owners del capturador y registran ese checkpoint; los scripts, capturas y esquemas anteriores no se modifican.
+
+Los dos manuales pasaron el validador estático sin errores. El validador genérico trata el menú temático del repositorio como un manual extenso o una réplica visual del menú de la aplicación y reporta requisitos que no corresponden a su formato vigente; no se cambia el catálogo para satisfacer ese supuesto. Su navegación se valida sobre el menú real. La QA conjunta de los tres documentos y la arquitectura terminó con 16 renders, 16 recorridos de menú/regreso y 192 enlaces internos, Chromium/WebKit a 1280/390, cero errores.
+
+T165 continúa abierta hasta validar la matriz privada y completar la revisión final. Las tareas de audit/métricas, retención y gates externos conservan su alcance original; ninguna se cierra mediante este avance parcial.
