@@ -1,6 +1,6 @@
 # Inventario cerrado y ensayo de admisión por tribu
 
-Base `2bb5920c`; 161 completas/51 pendientes/212. T163 conserva el inventario completo de entradas, seis AC y SC-019. El ensayo se ejecuta en ramas propias con PostgreSQL real, roles runtime y NOBYPASS y UI/API reales; no activa ni configura producción. Los receipts anteriores sirven para localizar cobertura, no reemplazan las ejecuciones nuevas exigidas aquí.
+Base de producto `2bb5920c`, cobertura común guardada en `1eabf787` y avances en `2e305517`. T163 conserva el inventario completo de entradas, seis AC y SC-019. La reejecución aislada terminó con cobertura efectiva de 116 casos y 39 fuentes de prueba estables. El ensayo usa PostgreSQL real, roles runtime y NOBYPASS y UI/API reales; no activa ni configura producción. Los reportes fallidos se conservan y sus casos afectados tienen repeticiones completas aprobadas. Antes del cierre: 161 completas/51 pendientes/212; el cierre exclusivo de T163 deja 162 completas/50 pendientes/212.
 
 ## Matriz de entradas y owners
 
@@ -14,9 +14,9 @@ Base `2bb5920c`; 161 completas/51 pendientes/212. T163 conserva el inventario co
 | Entrada personal | Destinatario, canje/binding, dispensa/lista requerida, manual/lista/OFF/ON y resultados pending/existing/admitted; no liberar token al salir, pagar o cancelar. | UI OFF: cuatro casos aprobados; UI ON correo/teléfono: ocho casos aprobados. Persistencia/manual/denegaciones/lista/rollback SQL aprobados. |
 | Fuentes comerciales y acceso a cursos | Tres owners pagos por productos membership/academy, grants/matrícula intactos y billing antiguo sin revocar fundamento básico. | Acceso de producto: seis casos aprobados; tres resoluciones pagas y un rollback adicional aprobados. |
 | Estado active/muted, NULL y roles privilegiados | Instancia/rol/fecha/silenciamiento, recuperación gratuita/paga según historia y cierre de guardian/leader/NULL sin backfill. | Catorce casos aprobados en lote comercial, incluidos nueve de roles/NULL, tres de recuperación gratuita y dos de pending moderada. |
-| Moderación, fuentes simultáneas y pending | Owner real remove/block, ambas fuentes revocadas, pendiente real cancelada, aprobación/pago posteriores denegados; resolución externa y rollback indivisibles. | Pending moderada aprobada; cuatro variantes de fuentes simultáneas y rollback de los owners aprobados. Reconciliación manual/API pendiente. |
-| Salida/reingreso, modo/borrado y flags | Política vigente, plazo real, marker tras ausencia de policy/settings o flag, recovery lock y scope retirado sin resurrección. | Lote base terminal/focal lifecycle aprobado; cuatro límites cerrados, dos reingresos y rollback SQL aprobados; retiro/API pendiente. |
-| Preflight e historia sin resolver | Runtime actual, schema/ACL/path/RLS/triggers y gates, contadores NULL/privileged sin modificar filas; prepared no es permiso reutilizable. | Nueva ejecución SQL/HTTP/UI en curso, sin terminal acreditado. |
+| Moderación, fuentes simultáneas y pending | Owner real remove/block, ambas fuentes revocadas, pendiente real cancelada, aprobación/pago posteriores denegados; resolución externa y rollback indivisibles. | Pending moderada, cuatro variantes de fuentes simultáneas, reconciliación manual, rollback y API real de membresía aprobados. |
+| Salida/reingreso, modo/borrado y flags | Política vigente, plazo real, marker tras ausencia de policy/settings o flag, recovery lock y scope retirado sin resurrección. | Lote base/focal lifecycle, cuatro límites cerrados, reingresos/rollback y diez casos finales de retiro/API aprobados. |
+| Preflight e historia sin resolver | Runtime actual, schema/ACL/path/RLS/triggers y gates, contadores NULL/privileged sin modificar filas; prepared no es permiso reutilizable. | Cuatro casos seleccionados SQL y tres HTTP/UI aprobados; históricos sin resolver conservados. |
 
 ## Criterios de aceptación y resultado permitido
 
@@ -26,13 +26,13 @@ Un preflight completo y el ensayo aislado no completan los gates de hosting, can
 
 | Criterio | Evidencia fresca disponible | Parte todavía pendiente |
 |---|---|---|
-| AC-01: conservar active/muted, rol y estado | Cutover, lifecycle y recuperación gratuita aprobados; repetición de la transferencia canónica aprobada con limpieza; entradas personales, puente actual y repetición manual WebKit aprobados. | Contraste final del inventario. |
-| AC-02: conducta/remoción prevalecen | Dos casos de pending moderada, owners del lifecycle y matriz active/muted × remove/block con ambas fuentes aprobados. | API real de los owners de membresía. |
-| AC-03: recuperar sólo acceso básico | Tres variantes de recuperación gratuita, seis variantes de derechos de producto y entrada común automática/rollback aprobadas. | Decisión manual/replay vigente de su raíz actual. |
-| AC-04: invitación histórica como common | Cierre de vías anteriores/marker, lector, presentaciones OFF/ON y puente UI/API aprobados en ambos motores/tamaños. | Contraste final de atribución y política en la matriz completa. |
-| AC-05: membresía externa cancela pending sin aprobación | Tres resoluciones pagas reales y rollback posterior aprobados. | Reconciliación manual y su respuesta original. |
-| AC-06: rollback sin acceso gratuito abierto | Cutover y cuatro límites cerrados verifican marker durable, pérdida de política/settings, flag falso y recovery lock. | Retiro por modo/borrado, recency y preflight actuales. |
-| SC-019: conjunto de regresiones, activación y rollback | Resultados parciales anteriores preservados con sus filtros y fallos. | Todas las filas del inventario y preflight actuales deben terminar antes de cerrar T163. |
+| AC-01: conservar active/muted, rol y estado | Cutover, lifecycle y recuperación gratuita aprobados; transferencia canónica, entradas personales, puente actual y repetición manual WebKit aprobados. | Contraste del inventario completo realizado. |
+| AC-02: conducta/remoción prevalecen | Pending moderada, owners del lifecycle, matriz active/muted × remove/block con ambas fuentes y API real de membresía aprobados. | Sin trabajo restante de este ensayo. |
+| AC-03: recuperar sólo acceso básico | Recuperación gratuita, derechos de producto, entrada común automática/rollback y decisión manual/replay de su raíz actual aprobados. | Contraste del inventario completo realizado. |
+| AC-04: invitación histórica como common | Cierre de vías anteriores/marker, lector, presentaciones OFF/ON y puente UI/API aprobados en ambos motores/tamaños. | Atribución y política contrastadas en la matriz completa. |
+| AC-05: membresía externa cancela pending sin aprobación | Tres resoluciones pagas, reconciliación manual/original y rollback posterior aprobados. | Contraste del inventario completo realizado. |
+| AC-06: rollback sin acceso gratuito abierto | Cutover, límites cerrados, preflight, retiro por modo/borrado, recency y API actuales aprobados. | Restore externo y habilitación operativa conservan sus tareas propias. |
+| SC-019: conjunto de regresiones, activación y rollback | Unión completa de los terminales actuales y repeticiones, conservando filtros y reportes fallidos. | Ensayo aislado completo; no certifica gates operativos. |
 
 ## Ejecución vigente
 
@@ -48,6 +48,28 @@ El lote de cuatro suites de navegador terminó con 14 casos aprobados, un caso f
 
 El lote SQL de entradas terminó con 46 casos aprobados, cero fallidos y cero excluidos en sus 19 archivos: bootstrap, entradas clásicas/pagas, lector/presentaciones legacy, lista común/local proof, entrada personal/manual/denegaciones/lista/rollback, resoluciones pagas, fuentes combinadas, límites cerrados y salida/reingreso/rollback. Las fuentes conservan sus hashes originales y las ramas propias de ese lote quedaron eliminadas. Las filas de preflight, decisión manual actual, retiro y API sin nuevo terminal conservan su estado pendiente.
 
-Dos lotes nuevos ejecutan ahora los cuatro casos seleccionados de preflight SQL, seis casos de decisión manual y diez de retiro/API, además de tres casos de preflight HTTP/UI. Los filtros de los archivos amplios se conservan en sus reportes; ninguna exclusión aporta evidencia aprobada. No tienen todavía terminal acreditado en este checkpoint.
+El nuevo preflight SQL terminó con cuatro casos seleccionados aprobados, cero fallidos y catorce excluidos por el filtro declarado. Verifica el evaluador y runtime actuales, activación de policy/marker por su composición real, protecciones de cutover y conservación de históricos desconocidos/privilegiados sin backfill. El chequeo específico de tipos de tests también pasó; el chequeo de aplicación por sí solo excluye esas fuentes.
 
-Todos los nuevos jobs usan `maxWorkers=1`, `maxConcurrency=1`, archivos secuenciales y limpieza propia. Se conservan exactamente resultados, filtros y fallos de cada alcance; los excluidos no se cuentan como aprobados. T163 permanece abierta y el recuento sigue en 161 completas/51 pendientes/212.
+El preflight HTTP/UI terminó con tres casos seleccionados aprobados, cero fallidos y quince excluidos: configuración/pausa/recuperación original mediante HTTP real y la vista de impacto en Chromium y WebKit a ambos tamaños. Los históricos desconocidos y privilegiados aparecen como pendientes de resolución, sin backfill; al editar se limpia el resultado anterior. Las dos capturas regeneradas se conservaron en el registro privado y los assets originales del manual se restauraron tras el terminal.
+
+La decisión manual actual terminó con seis casos seleccionados aprobados, cero fallidos y dieciséis excluidos. Ejercen la raíz de aplicación con identidad vigente, teléfono manual OFF sin verificación ficticia, presentación/replay/pending únicos, aprobación básica, cancelación por membresía externa sin fingir aprobación y rollback por dos obligaciones omitidas.
+
+El último lote de retiro/API terminó con diez casos aprobados, cero fallidos y cero excluidos: modo/settings, material queued/in_flight/verified, canje/binding personales, owner de salida/borrado, recencia firmada y dos rutas HTTP reales de lifecycle/membresía. Confirma retiro de autoridad sin resurrección, rollback y recuperación de la operación original después del borrado físico.
+
+Los jobs posteriores a los lotes iniciales usan `maxWorkers=1`, `maxConcurrency=1`, archivos secuenciales y limpieza propia; los iniciales no tenían casos concurrentes y usaron un worker sin paralelismo de archivos. Se conservan exactamente resultados, filtros y fallos de cada alcance; los excluidos no se cuentan como aprobados.
+
+## Cierre y trazabilidad del ensayo
+
+| Alcance efectivo | Casos aprobados | Exclusiones declaradas y resultados anteriores |
+|---|---:|---|
+| Cutover/lifecycle/acceso + recuperación/roles/moderación | 31 | Base 16 aprobados/1 fallo de limpieza; repetición de ese caso 1 aprobado/2 excluidos. Lote comercial 14 aprobados sin exclusiones. |
+| Entradas SQL restantes | 46 | Cero fallos o exclusiones, 19 archivos. |
+| Puentes y manual/personal UI | 15 | Matriz 14 aprobados/1 fallo de limpieza; repetición completa WebKit 1 aprobado/1 excluido. |
+| Entrada común automática Next/UI/API | 1 | Versión reforzada RSC aprobada; no se cuenta otra vez su ejecución anterior. |
+| Preflight SQL/HTTP/UI | 7 | SQL 4 aprobados/14 excluidos; HTTP/UI 3 aprobados/15 excluidos. |
+| Decisión manual vigente | 6 | 16 excluidos; sólo se acreditan los seis casos seleccionados. |
+| Retiro/API | 10 | Cero fallos o exclusiones, siete archivos. |
+
+La suma efectiva es 116, sin sumar repeticiones ni exclusiones. Las 39 fuentes del inventario conservan sus hashes; manifiesto SHA256 `615CED563D27F98DD0A54582AA417DC8D1A08818EADF98AF17BCF65F077C12DF`. Las protecciones se comprobaron bajo runtime con bypass y el rol NOBYPASS real en los casos estructurales; no se atribuye ejecución con ambos roles a cada prueba de interfaz.
+
+Los históricos NULL/privilegiados siguen registrados como pendientes de recuperación autorizada, sin valores inventados ni cambios del ensayo. OG-06 operativo, autorización productiva, hosting, canales reales, scheduler, latencia y restore externo no se certifican desde estos resultados. El cierre cambia exclusivamente T163 y conserva el alcance de las tareas restantes.
