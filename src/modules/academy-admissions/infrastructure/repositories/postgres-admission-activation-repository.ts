@@ -15,14 +15,14 @@ import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 
 /** This adapter never repairs unknown history, activates storage or assumes runtime readiness. */
 export class PostgresAdmissionActivationRepository implements AdmissionActivationInventoryReader, AdmissionActivationPreflightReader {
-  /** @param database - Original guarded transaction retaining leader/tenant locks. @param context - Exact current native query or mutation scope. @param runtime - Mandatory complete evaluator/entrypoint owner, bound without RPC. */
-  constructor(private readonly database: RequestDatabase, private readonly context: AuthorizedAdmissionContext, private readonly runtime: AdmissionActivationRuntimeReader) {}
+  /** @param database - Original guarded transaction retaining leader/tenant locks. @param context - Exact current native query or mutation scope. @param runtime - Mandatory complete evaluator/entrypoint owner, bound without RPC. @param readRecoveryLock - Current external hosting lock, without loading keyrings or credentials. */
+  constructor(private readonly database: RequestDatabase, private readonly context: AuthorizedAdmissionContext, private readonly runtime: AdmissionActivationRuntimeReader, private readonly readRecoveryLock: () => Promise<boolean>) {}
 
   /** @param context - Current server scope; not a browser role. @returns Locked actual metadata and aggregate history, with no defaults/backfill. */
   async read(context: AuthorizedAdmissionContext): Promise<AdmissionActivationInventory> {
     if (context.tribeId !== this.context.tribeId || context.userId !== this.context.userId || context.sessionId !== this.context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
     await authorizeAdmissionPolicy(this.database, context, context.sensitiveOperation);
-    const settings = (await this.database.execute<{ access_model: string }>(sql`select access_model from public.tribe_academy_settings where tribe_id=${context.tribeId} for share`)).rows[0];
+    const settings = (await this.database.execute<{ access_model: string; admission_enabled: boolean }>(sql`select access_model,admission_enabled from public.tribe_academy_settings where tribe_id=${context.tribeId} for share`)).rows[0];
     const activation = (await this.database.execute<{ policy_present: boolean; marker_consistent: boolean }>(sql`select policy.tribe_id is not null as policy_present,tribe.admissions_control_activated_at is not distinct from policy.activated_at as marker_consistent from public.tribes tribe left join public.academy_admission_policies policy on policy.tribe_id=tribe.id where tribe.id=${context.tribeId}`)).rows[0];
     const requiredTables = [...new Set([...ADMISSION_PREFLIGHT_STORAGE_TRIGGERS, ...ADMISSION_PREFLIGHT_INGRESS_TRIGGERS].map((trigger) => trigger.table))];
     const triggers = (await this.database.execute<{ table_name: string; trigger_name: string; enabled: string }>(sql`select relation.relname as table_name,trigger.tgname as trigger_name,trigger.tgenabled as enabled from pg_catalog.pg_trigger trigger join pg_catalog.pg_class relation on relation.oid=trigger.tgrelid join pg_catalog.pg_namespace namespace on namespace.oid=relation.relnamespace where namespace.nspname='public' and relation.relname=any(${sql.param(requiredTables)}::text[]) and not trigger.tgisinternal`)).rows;
@@ -34,6 +34,7 @@ export class PostgresAdmissionActivationRepository implements AdmissionActivatio
     const members = (await this.database.execute<{ role: string; status: string; status_reason: string; commercial_recovery_status: string | null }>(sql`select role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${context.tribeId} order by id for share`)).rows;
     const commercial = members.filter((member) => (member.status === TRIBE_MEMBERSHIP_STATUS.removed || member.status === TRIBE_MEMBERSHIP_STATUS.blocked) && (member.status_reason === TRIBE_MEMBERSHIP_STATUS_REASON.subscriptionInactive || member.status_reason === TRIBE_MEMBERSHIP_STATUS_REASON.paymentBlocked));
     const runtimePrepared = await this.runtime.isPrepared(context.tribeId);
+    const recoveryLocked = await this.readRecoveryLock();
     await authorizeAdmissionPolicy(this.database, context, context.sensitiveOperation);
     return { tribeId: context.tribeId, isAcademy: settings?.access_model === TRIBE_ACCESS_MODEL.academy, policyPresent: Boolean(activation?.policy_present), markerConsistent: Boolean(activation?.marker_consistent),
       storagePrepared: ADMISSION_PREFLIGHT_STORAGE_TRIGGERS.every(enabled)
@@ -41,6 +42,7 @@ export class PostgresAdmissionActivationRepository implements AdmissionActivatio
         && ADMISSION_PREFLIGHT_STORAGE_CONSTRAINTS.every((required) => constraints.some((constraint) => constraint.table_name === required.table && constraint.name === required.name && constraint.validated))
         && ADMISSION_PREFLIGHT_OWNER_FUNCTIONS.every((required) => functions.some((procedure) => procedure.name === required.name && procedure.signature.replaceAll(" ", "") === required.signature && procedure.owner_execution && procedure.public_execution === required.publicExecution && procedure.configuration?.some((setting) => ADMISSION_PREFLIGHT_FUNCTION_SEARCH_PATHS.includes(setting)))),
       ingressProtected: ADMISSION_PREFLIGHT_INGRESS_TRIGGERS.every(enabled) && Boolean(ingressPolicy), runtimePrepared,
+      evaluatorEnabled: settings?.admission_enabled === true, recoveryLocked,
       unknownCommercialMemberCount: commercial.filter((member) => member.commercial_recovery_status === null).length,
       privilegedCommercialMemberCount: commercial.filter((member) => member.role !== TRIBE_MEMBER_ROLE.tribemate).length };
   }

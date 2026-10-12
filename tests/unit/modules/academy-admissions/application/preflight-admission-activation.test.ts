@@ -12,7 +12,7 @@ function fixture() {
   const tribeId = randomUUID(), userId = randomUUID(), now = new Date("2026-10-07T08:00:00Z");
   const account: AuthenticatedAccount = { userId, normalizedEmail: "leader@example.test", session: { id: randomUUID(), expiresAt: new Date("2026-10-08T08:00:00Z") }, googleAccount: null, identityEvidence: null, recentAuthentication: [] };
   const actor: AdmissionActorFacts = { userId, tribeId, role: "leader", status: "active" };
-  const facts: AdmissionActivationInventory = { tribeId, isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: false, unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 0 };
+  const facts: AdmissionActivationInventory = { tribeId, isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: false, evaluatorEnabled: true, recoveryLocked: false, unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 0 };
   const inventory = { read: vi.fn(async () => facts) };
   const resolver = new ResolveAdmissionContextUseCase({ getAuthenticatedAccount: async () => account }, { getCurrentActor: async () => actor, getResource: async () => null }, () => now);
   return { actor, facts, inventory, query: { tribeId, requestId: randomUUID() }, useCase: new PreflightAdmissionActivationUseCase(resolver, inventory) };

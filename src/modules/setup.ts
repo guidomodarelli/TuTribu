@@ -488,7 +488,7 @@ export async function createAdmissionRequestModules(usage: DatabaseConnectionUsa
     execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
   });
   const manualModule = admissionModule.createManualRequestModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  const policyModule = admissionModule.createPolicyModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), composePreflight: (database, context) => new PostgresAdmissionActivationRepository(database, context, manualModule.runtime) });
+  const policyModule = admissionModule.createPolicyModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig(), composePreflight: (database, context) => new PostgresAdmissionActivationRepository(database, context, manualModule.runtime, async () => readMessagingHostingSecurityFacts().recoveryLocked) });
   const queryModule = admissionModule.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
   const policyQueryModule = admissionModule.createPolicyQueryModule({ composePreparation: null });
   return {
@@ -496,7 +496,7 @@ export async function createAdmissionRequestModules(usage: DatabaseConnectionUsa
     policyQuery: policyQueryModule.useCases,
     policyPage: policyQueryModule.createPage(queryModule.resolveTribe),
     policyCommands: policyModule.useCases,
-    policyPreflight: admissionModule.createPreflightModule({ runtime: manualModule.runtime }).useCases,
+    policyPreflight: admissionModule.createPreflightModule({ runtime: manualModule.runtime, readRecoveryLock: async () => readMessagingHostingSecurityFacts().recoveryLocked }).useCases,
     reviews: admissionModule.createReviewQueryModule({ readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases,
     manual: manualModule.useCases,
   };
