@@ -1186,6 +1186,8 @@ Cierre de T135 sobre1ae66cb4: auditoría read-only de todas sus cláusulas sin b
 
 - [ ] T162 [US10] Actualizar alcance/permissions/membership vs grants, vías antiguas/pagas, fundamentos/muted/históricos/preflight y rollout/rollback cerrado en fuentes propietarias; manuales sin gestión genérica ficticia, índices/source-trace/CHANGELOG. Archivos: `docs/architecture/academy-access.htm`, `docs/architecture/subscriptions.htm`, `docs/architecture/referral-invitations.htm`, `docs/architecture/rls-simple.htm`, `user-guides/academy-mode.html`, `user-guides/members.html`, `user-guides/joining-options.html`, `user-guides/internal-operations.html`, `user-guides/index.html`, `user-guides/application-flows.html`, `CHANGELOG.md`. Dependencias: `T161`. Trazabilidad: `FR-001`, `FR-012`, `FR-122`–`FR-126`, `FR-128`–`FR-129`, `FR-138`–`FR-140`, `US-10-AC-01`–`US-10-AC-06`, `EC-39`, `EC-42`, `SC-019`, `D-11`, `D-23`, `TC-006`, `TC-025`, `RG-02`–`RG-04`, `OG-06`.
 
+  Avance de T162: cuatro fuentes arquitectónicas y seis manuales/índices alinean pertenencia/grants, historia y silenciamiento, fundamentos, vías anteriores/pagas y preflight/continuidad cerrada; cinco contradicciones previas y el scope de open join se corrigen sin reimplementar producto ni inventar UI. Revisión sin hallazgos, cinco checks estáticos verdes y QA real de diez documentos con 40 renders/112 recorridos/396 enlaces internos en ambos motores a 1280/390, cero errores. SourceTrace al checkpoint y cierre final pendientes; ver [membership-documentation-completion-audit.md](validation/membership-documentation-completion-audit.md).
+
 ### Validación
 
 <a id="t163"></a>
