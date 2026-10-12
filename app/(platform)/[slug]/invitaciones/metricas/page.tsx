@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "beez-ui";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@guidomodarelli/beez-ui";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import type { TribeInvitationConversionMetricResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import { ROUTES } from "@/src/constants/routes";

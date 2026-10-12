@@ -9,7 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast, TooltipProvider } from "beez-ui";
+import { toast, TooltipProvider } from "@guidomodarelli/beez-ui";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 
@@ -244,8 +244,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("beez-ui", async () => ({
-  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
+vi.mock("@guidomodarelli/beez-ui", async () => ({
+  ...await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

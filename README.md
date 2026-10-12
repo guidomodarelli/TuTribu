@@ -30,9 +30,10 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 
 ## Setup
 
-1. Install dependencies:
+1. Install dependencies. `@guidomodarelli/beez-ui` is served from GitHub Packages, so add a GitHub token with the `read:packages` scope to your user-level `~/.npmrc` first (pnpm 12 ignores credentials in the repository `.npmrc`):
 
    ```bash
+   echo "//npm.pkg.github.com/:_authToken=<token with read:packages>" >> ~/.npmrc
    pnpm install --frozen-lockfile
    ```
 
@@ -64,7 +65,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run upload:cloudflare` | Build and upload a new Cloudflare Workers version without deploying it. |
 | `pnpm run cf-typegen` | Generate Cloudflare binding types from `wrangler.jsonc`. |
 | `pnpm start` | Run the production build locally. |
-| `pnpm run ci` | Run the full quality gate (also run by the Husky `pre-push` hook on branches other than `main`): lint, application/test type checks, Vitest, and Next.js build. |
+| `pnpm run ci` | Run the full quality gate (also run by GitHub Actions on branch pushes and pull requests): lint, application/test type checks, Vitest, and Next.js build. |
 | `pnpm run lint` | Run oxlint across the repo (configured in `.oxlintrc.json`). |
 | `pnpm run typecheck` | Run `tsc --noEmit` over production code. |
 | `pnpm test` | Run Vitest unit and integration tests. |
@@ -170,7 +171,7 @@ pnpm run lint
 
 ## Deployment targets
 
-Commits run no hooks. A Husky `pre-push` hook runs the full `pnpm run ci` gate before every push of a branch other than `main`, only for the clean checked-out `HEAD`: pushing any other branch or commit, or `HEAD` with uncommitted or untracked changes, fails, so check out that branch with a clean working tree first and push again. Pushes to `main` (such as `pnpm create-version`) and tags skip the gate, because `main` only receives pull requests from gated branches; there is no GitHub Actions gate. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
+Commits and pushes run no local quality hooks. GitHub Actions runs the full `pnpm run ci` gate after a frozen-lockfile install on branch pushes (including `main`), pull requests and manual dispatches. Tags do not trigger the gate. The workflow installs Node.js from `.nvmrc` and pnpm from `packageManager`. Configure `Quality gate` as a required status check in branch protection to block merges on failures. Vercel remains the default Next.js deployment target and continues to use `pnpm run build` with deployment environment variables available.
 
 Cloudflare Workers is supported through `@opennextjs/cloudflare` and `wrangler.jsonc`. Use the Cloudflare-specific scripts instead of invoking `wrangler` directly for the Next.js app:
 
@@ -199,7 +200,7 @@ Notes:
   - `infrastructure/` — adapters for auth, persistence, HTTP clients, and provider SDKs. Owns external DTOs and their mappers.
 - `src/modules/shared/*` — cross-module shared code (e.g. `infrastructure/database/`).
 - `beez-ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
-- `beez-ui@^0.6.0` — shared UI package installed from npm, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
+- `@guidomodarelli/beez-ui@^0.13.0` — shared UI package installed from GitHub Packages (requires a `read:packages` token in `~/.npmrc`), with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
 - `components/<scope>/<component>/{index.tsx,styles.module.scss}` — custom presentational components.
 - `lib/*` — framework-safe helpers, UI utilities, and client-only adapters. Off-limits to `application` and `domain`.
 - `database/migrations/*` — versioned SQL migrations (source of truth for schema and RLS policies).

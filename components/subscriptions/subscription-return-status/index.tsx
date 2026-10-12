@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "beez-ui";
+import { Button } from "@guidomodarelli/beez-ui";
 
 import {
   SUBSCRIPTION_RETURN_POLLING_PHASE,

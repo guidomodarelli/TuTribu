@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
-import { toast } from "beez-ui";
+import { toast } from "@guidomodarelli/beez-ui";
 import userEvent from "@testing-library/user-event";
 import type { PickerProps, EmojiClickData } from "emoji-picker-react";
 
@@ -83,8 +83,8 @@ vi.mock("emoji-picker-react", () => ({
 }));
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("beez-ui", async () => ({
-  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
+vi.mock("@guidomodarelli/beez-ui", async () => ({
+  ...await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

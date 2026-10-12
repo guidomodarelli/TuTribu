@@ -2,7 +2,7 @@ import { vi, describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { ReactElement, ReactNode } from "react";
 import { render as renderComponent, screen } from "@testing-library/react";
 
-import { TooltipProvider } from "beez-ui";
+import { TooltipProvider } from "@guidomodarelli/beez-ui";
 
 const refreshMock = vi.fn();
 
@@ -15,8 +15,8 @@ vi.mock("next/navigation", () => ({
 // Preserve the existing notification double to isolate Sonner timers and its global toast store.
 // Actual shared component behavior is exercised in beez-ui.test.tsx.
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("beez-ui", async () => ({
-  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
+vi.mock("@guidomodarelli/beez-ui", async () => ({
+  ...await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

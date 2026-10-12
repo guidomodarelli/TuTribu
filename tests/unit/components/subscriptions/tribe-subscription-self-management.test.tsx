@@ -6,8 +6,8 @@ import { TribeSubscriptionSelfManagement } from "@/components/subscriptions/trib
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("beez-ui", async () => ({
-  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
+vi.mock("@guidomodarelli/beez-ui", async () => ({
+  ...await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),

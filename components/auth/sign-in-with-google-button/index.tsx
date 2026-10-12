@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Button, PresenceSwap } from "beez-ui";
+import { Button, PresenceSwap } from "@guidomodarelli/beez-ui";
 import { ROUTES } from "@/src/constants/routes";
 import { startGoogleSignIn } from "@/src/modules/auth/infrastructure/better-auth/client";
 import styles from "./styles.module.scss";

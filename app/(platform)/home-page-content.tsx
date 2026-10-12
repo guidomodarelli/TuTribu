@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { Link } from "@/components/navigation/link";
-import { Button } from "beez-ui";
+import { Button } from "@guidomodarelli/beez-ui";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";

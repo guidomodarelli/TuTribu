@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button } from "beez-ui";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button } from "@guidomodarelli/beez-ui";
 
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { TRIBE_EVENT_RECURRENCE_FREQUENCY } from "@/src/modules/events/constants/tribe-events";

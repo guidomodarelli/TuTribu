@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
   toast,
-} from "beez-ui";
+} from "@guidomodarelli/beez-ui";
 
 import { Link } from "@/components/navigation/link";
 import {

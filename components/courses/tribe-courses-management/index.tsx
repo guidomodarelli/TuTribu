@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Switch, AnimatedCollapse, AnimatedListItem, formatFileSize, cn, RichLinkEditor, useRichLinkEditor } from "beez-ui";
+import { toast, Button, Input, Switch, AnimatedCollapse, AnimatedListItem, formatFileSize, cn, RichLinkEditor, useRichLinkEditor } from "@guidomodarelli/beez-ui";
 
 import { Link } from "@/components/navigation/link";
 import {

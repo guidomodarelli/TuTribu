@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import type { ReactElement, ReactNode } from "react";
 import { act, fireEvent, render as renderComponent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { TooltipProvider } from "beez-ui";
+import { TooltipProvider } from "@guidomodarelli/beez-ui";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 

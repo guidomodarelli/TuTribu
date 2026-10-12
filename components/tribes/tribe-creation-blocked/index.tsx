@@ -1,5 +1,5 @@
 import { Link } from "@/components/navigation/link";
-import { Button } from "beez-ui";
+import { Button } from "@guidomodarelli/beez-ui";
 import { siteConfig } from "@/lib/site-config";
 import styles from "./styles.module.scss";
 

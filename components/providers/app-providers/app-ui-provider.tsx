@@ -2,8 +2,8 @@
 
 /** Composes shared Next adapters and the application's persisted theme contract. */
 import { useEffect, type ReactNode } from "react";
-import { useTheme } from "beez-ui";
-import { BeezUIProvider, type BeezUIProviderProps } from "beez-ui/next";
+import { useTheme } from "@guidomodarelli/beez-ui";
+import { BeezUIProvider, type BeezUIProviderProps } from "@guidomodarelli/beez-ui/next";
 import { isThemeMode } from "@/lib/theme-mode";
 import { SYSTEM_THEME_MODE, THEME_MODE_STORAGE_KEY } from "@/src/constants/theme-mode";
 
