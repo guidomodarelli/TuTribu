@@ -1,5 +1,7 @@
 /** Composes implemented admission use cases and protected transaction collaborators. @module academy-admissions-setup */
 import "server-only";
+import { PurgeAllowlistImportMaterialUseCase } from "./application/use-cases/purge-allowlist-import-material-use-case";
+import { PostgresAllowlistImportMaterialRetention, type ImportMaterialRetentionExecutor, type ImportMaterialRetentionGate } from "./infrastructure/repositories/postgres-allowlist-import-material-retention";
 import { PostgresLegacyAdmissionInvitationReader } from "@/src/modules/tribes/infrastructure/repositories/postgres-legacy-admission-invitation-reader";
 import { ExpireAdmissionRequestsUseCase } from "./application/use-cases/expire-admission-requests-use-case";
 import { PostgresAdmissionRequestExpiration, type AdmissionExpirationDatabaseExecutor } from "./infrastructure/repositories/postgres-admission-request-expiration";
@@ -334,4 +336,13 @@ export function buildAdmissionExpirationModule(dependencies: {
   authorize: (database: RequestDatabase, operation: string) => Promise<boolean>;
 }) {
   return { useCases: { expireRequests: new ExpireAdmissionRequestsUseCase(new PostgresAdmissionRequestExpiration(dependencies.execute, dependencies.authorize)) } };
+}
+
+/**
+ * Composes bounded temporary-row minimization through explicit current backend authority and recovery.
+ * @param dependencies - Existing guarded executor and live private gates; no keyring or provider fallback.
+ * @returns Safe confirmed counts through the application case; scheduling remains with maintenance composition.
+ */
+export function buildAdmissionImportRetentionModule(dependencies: { execute: ImportMaterialRetentionExecutor; authorize: ImportMaterialRetentionGate; readRecoveryLock: ImportMaterialRetentionGate }) {
+  return { useCases: { purgeImportMaterial: new PurgeAllowlistImportMaterialUseCase(new PostgresAllowlistImportMaterialRetention(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock)) } };
 }
