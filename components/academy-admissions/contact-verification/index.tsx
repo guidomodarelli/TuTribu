@@ -21,7 +21,7 @@ export type ContactVerificationProps = {
   onConfirm: (confirmed: boolean) => void; onIssue: () => void; onResend: () => void; onVerify: () => void; onUseSmsAlternative: () => void;
 };
 
-/** @param props - Current controlled proposal, original challenge and derived blocking state. @returns Explicit accessible actions; rendering and changing fields never send a message. */
+/** @param props - Current controlled proposal, original challenge and derived blocking state. @returns Explicit accessible actions with private controls excluded from feedback screenshots; rendering and changing fields never send a message. */
 export function ContactVerification(props: ContactVerificationProps) {
   const fieldId = useId(), phone = props.channel !== MESSAGING_PUBLIC_CHANNEL.email, noCountries = phone && props.allowedCountries.length === 0;
   const controlsBlocked = props.busy || props.ready === false;
@@ -30,7 +30,7 @@ export function ContactVerification(props: ContactVerificationProps) {
   const verifyBlocked = controlsBlocked || !props.canVerify || !props.challenge || props.challengeUnavailable || props.requiresReplacement || props.proofReady || props.proofExpired || expired || !ADMISSION_PUBLIC_CODE_PATTERN.test(props.verificationCode);
   const resendBlocked = controlsBlocked || !props.confirmed || !props.canResend || noCountries || props.proofReady || props.resendInSeconds !== null && props.resendInSeconds > 0;
   const smsBlocked = controlsBlocked || !props.confirmed || !props.canUseSmsAlternative || noCountries || props.proofReady || props.resendInSeconds !== null && props.resendInSeconds > 0;
-  return <section className={styles.ContactVerification} aria-labelledby={`${fieldId}-title`} aria-busy={controlsBlocked}>
+  return <section className={styles.ContactVerification} aria-labelledby={`${fieldId}-title`} aria-busy={controlsBlocked} data-beezping-ignore="true">
     <header className={styles.ContactVerification__header}>
       <h3 id={`${fieldId}-title`} className={styles.ContactVerification__title}>Comprobar contacto para el ingreso</h3>
       <p className={styles.ContactVerification__description}>El código comprueba el contacto para esta academia. El ingreso se confirma después de presentar la solicitud o aplicar la prueba a tu pendiente.</p>
