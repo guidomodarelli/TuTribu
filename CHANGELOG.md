@@ -6,7 +6,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
-- La revisión de requisitos de activación muestra los bloqueos actuales y las membresías con historial desconocido o roles de líder y guardián que requieren revisión autorizada; descarta el resultado anterior al editar o volver a consultar.
+- La revisión de requisitos de activación muestra los bloqueos actuales y las membresías con historial desconocido o roles de líder y guardián que requieren revisión autorizada; descarta el resultado anterior al editar o volver a consultar. Los manuales distinguen ese control del cambio a academia, los beneficios y las vías de ingreso y pago, y explican qué conserva el silenciamiento y cuándo un cierre impide volver a entrar.
 
 - La salida autorizada de academia y la eliminación de una tribu cierran sus solicitudes e invitaciones de admisión y permiten consultar el resultado original, incluso después del borrado; los controles para iniciarlas desde la interfaz siguen pendientes.
 
