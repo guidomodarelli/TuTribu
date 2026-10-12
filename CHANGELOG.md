@@ -4,6 +4,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Added
+
+- La política de privacidad puede consultarse sin iniciar sesión desde la página principal e incluye el contacto del responsable del servicio.
+
+
 ## [1.1.3] - 2026-10-04
 
 ### Fixed
