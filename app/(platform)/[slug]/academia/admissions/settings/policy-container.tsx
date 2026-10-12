@@ -2,7 +2,7 @@
 /** Owns current viewer checks and original policy reconciliation; the presenter has no transport. @module admission-policy-container */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AdmissionPolicyPageState } from "@/src/modules/academy-admissions/application/results/admission-policy-page-state";
-import type { AdmissionPolicyBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-policy-browser-client";
+import type { AdmissionPolicyBrowserClient, AdmissionPolicyPreflightDto } from "@/src/modules/academy-admissions/application/ports/admission-policy-browser-client";
 import type { AdmissionPolicyMutationResult } from "@/src/modules/academy-admissions/domain/repositories/admission-policy-management";
 import type { AdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-draft";
 import { createAdmissionPolicyDraft, validateAdmissionPolicyBrowserDraft, admissionPolicyBrowserIntentSchema, admissionPolicyDraftSchema, type AdmissionPolicyBrowserIntent } from "@/src/modules/academy-admissions/application/commands/admission-policy-browser-intent";
@@ -32,6 +32,7 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   const [confirmed, setConfirmed] = useState(false), [pauseReason, setPauseReason] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [preflightMessage, setPreflightMessage] = useState<string | null>(null), [activationAvailable, setActivationAvailable] = useState(false);
+  const [preflightResult, setPreflightResult] = useState<AdmissionPolicyPreflightDto | null>(null);
   const [fresh, setFresh] = useState(false), [canRetry, setCanRetry] = useState(false);
   const [privateVisible, setPrivateVisible] = useState(true);
   const [reauthenticationOperation, setReauthenticationOperation] = useState<AdmissionPolicyReauthenticationOperation | null>(null), [reauthenticationHref, setReauthenticationHref] = useState<string | null>(null);
@@ -53,7 +54,7 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   /** Retrieves original identity first; historical results never replace today's configuration. */
   const readCurrent = useCallback(async (signal: AbortSignal, restore = false) => {
     if (!ready || signal.aborted) return;
-    setPhase(PHASE.reading); setFresh(false); setConfirmed(false); setCanRetry(false); setActivationAvailable(false);
+    setPhase(PHASE.reading); setFresh(false); setConfirmed(false); setCanRetry(false); setActivationAvailable(false); setPreflightResult(null); setPreflightMessage(null);
     let recovered = false;
     try {
       if (!await checkViewer(signal)) return;
@@ -125,7 +126,7 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   const send = async (intent: AdmissionPolicyBrowserIntent) => {
     if (!ready || busy.current) return;
     busy.current = true; readController.current?.abort(); const controller = new AbortController(); writeController.current = controller;
-    setPhase(PHASE.writing); setFresh(false); setConfirmed(false); setErrorMessage(null); setStatusMessage(null); setActivationAvailable(false);
+    setPhase(PHASE.writing); setFresh(false); setConfirmed(false); setErrorMessage(null); setStatusMessage(null); setActivationAvailable(false); setPreflightResult(null); setPreflightMessage(null);
     try {
       if (!await checkViewer(controller.signal)) return;
       writeAdmissionPolicyIntent(ready.viewerId, ready.slug, intent); pending.current = intent;
@@ -171,15 +172,15 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   /** Preview is informational, abortable and invalidated by any edit; activation repeats authoritative checks. */
   const preflight = async () => {
     if (!ready || busy.current || !fresh) return;
-    if (draftChanged) { setActivationAvailable(false); setConfirmed(false); setPreflightMessage(COPY.draftChanged); return; }
-    readController.current?.abort(); const controller = new AbortController(); readController.current = controller; setPhase(PHASE.reading); setConfirmed(false); setErrorMessage(null);
+    if (draftChanged) { setActivationAvailable(false); setPreflightResult(null); setConfirmed(false); setPreflightMessage(COPY.draftChanged); return; }
+    readController.current?.abort(); const controller = new AbortController(); readController.current = controller; setPhase(PHASE.reading); setConfirmed(false); setErrorMessage(null); setActivationAvailable(false); setPreflightResult(null); setPreflightMessage(null);
     try {
       if (!await checkViewer(controller.signal)) return;
       const result = await client.readPreflight(ready.slug, controller.signal);
       if (controller.signal.aborted || result.status === "aborted") return;
       if (!await checkViewer(controller.signal)) return;
       if (result.status === "failed") { setErrorMessage(result.message); return; }
-      setActivationAvailable(result.value.prepared); setPreflightMessage(result.value.prepared ? COPY.prepared : COPY.notPrepared);
+      setPreflightResult(result.value); setActivationAvailable(result.value.prepared); setPreflightMessage(result.value.prepared ? COPY.prepared : COPY.notPrepared);
     } catch { if (!controller.signal.aborted) setErrorMessage(ADMISSION_ERROR_MESSAGE[ADMISSION_ERROR_CODE.dependencyUnavailable]); }
     finally { if (!controller.signal.aborted) setPhase((current) => current === PHASE.changedViewer ? current : PHASE.idle); }
   };
@@ -202,8 +203,8 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
     void send(parsed.data);
   };
   return <>
-    <AdmissionPolicyForm state={state} draft={draft} confirmed={confirmed} canEdit={!disabled} busy={isBusy} errorMessage={errorMessage} validationMessage={validationMessage} preflightMessage={preflightMessage} activationAvailable={activationAvailable} pauseReason={pauseReason} usageSettingsHref={`/${encodeURIComponent(ready.slug)}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`} statusMessage={statusMessage} uncertain={uncertain} canRetry={canRetry && fresh} reauthenticationRequired={reauthenticationOperation !== null} reauthenticationHref={reauthenticationHref} onPrepareReauthentication={() => { void prepareReauthentication(); }}
-      onChange={(next) => { setDraft(next); setConfirmed(false); setErrorMessage(null); setStatusMessage(null); setActivationAvailable(false); setPreflightMessage(COPY.draftChanged); }}
+    <AdmissionPolicyForm state={state} draft={draft} confirmed={confirmed} canEdit={!disabled} busy={isBusy} errorMessage={errorMessage} validationMessage={validationMessage} preflightMessage={preflightMessage} preflightResult={preflightResult} activationAvailable={activationAvailable} pauseReason={pauseReason} usageSettingsHref={`/${encodeURIComponent(ready.slug)}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`} statusMessage={statusMessage} uncertain={uncertain} canRetry={canRetry && fresh} reauthenticationRequired={reauthenticationOperation !== null} reauthenticationHref={reauthenticationHref} onPrepareReauthentication={() => { void prepareReauthentication(); }}
+      onChange={(next) => { setDraft(next); setConfirmed(false); setErrorMessage(null); setStatusMessage(null); setActivationAvailable(false); setPreflightResult(null); setPreflightMessage(COPY.draftChanged); }}
       onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }} onPauseReason={(value) => { setPauseReason(value); setConfirmed(false); setErrorMessage(null); }}
       onInitialize={() => action(ADMISSION_POLICY_OPERATION.initialize)} onSave={() => action(ADMISSION_POLICY_OPERATION.update)} onActivate={() => action(ADMISSION_POLICY_OPERATION.activate)} onPause={() => action(ADMISSION_POLICY_OPERATION.pause)} onCheckPreflight={() => { void preflight(); }} onReloadCurrent={launchRead}
       onRetryOriginal={() => { if (pending.current && canRetry && fresh && confirmed && !isBusy) void send(pending.current); }} />

@@ -179,12 +179,12 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       const operations = new PostgresAdmissionContactVerificationOperations(executeVerification, options.readSecurityConfig, (database) => new PostgresLegacyAdmissionInvitationReader(database));
       return { useCases: new ApplyAdmissionProofUseCase(dependencies.accounts, operations, dependencies.clock) };
     },
-    /** @param options - Mandatory complete runtime owner, without an optimistic default. @returns Informational current inventory; activation still repeats the locked owner in its actual transaction. */
-    createPreflightModule(options: { runtime: AdmissionActivationRuntimeReader }) {
+    /** @param options - Mandatory complete runtime owner and live external recovery lock, without optimistic defaults or keyrings. @returns Informational current inventory; activation still repeats the locked owner in its actual transaction. */
+    createPreflightModule(options: { runtime: AdmissionActivationRuntimeReader; readRecoveryLock: () => Promise<boolean> }) {
       const inventory = { read: async (context: AuthorizedAdmissionContext) => {
         const account = await dependencies.accounts.getAuthenticatedAccount();
         if (!account || account.userId !== context.userId || account.session.id !== context.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, (database) => new PostgresAdmissionActivationRepository(database, context, options.runtime).read(context));
+        return dependencies.execute(account, (database) => new PostgresAdmissionActivationRepository(database, context, options.runtime, options.readRecoveryLock).read(context));
       } };
       return { useCases: new PreflightAdmissionActivationUseCase(resolveContext, inventory) };
     },

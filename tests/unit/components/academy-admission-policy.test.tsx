@@ -16,11 +16,37 @@ function Providers({ children }: { children: ReactNode }) {
 function fixture(): AdmissionPolicyFormProps {
   const policy = { id: "83ecbfaf-0e7c-4afb-aefc-62b62800d367", version: 1, verificationEpoch: 1, mode: "manual_review" as const, contactType: "email" as const, isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, phoneChannel: null, allowSmsAlternative: false, activatedAt: null, messagingConnectionId: null, messagingConnectionVersion: null, usage: null, requirements: [] };
   const draft = { mode: policy.mode, contactType: policy.contactType, isOpen: policy.isOpen, allowCommonExceptions: policy.allowCommonExceptions, requiresAdditionalVerification: policy.requiresAdditionalVerification, phoneChannel: policy.phoneChannel, allowSmsAlternative: policy.allowSmsAlternative, messagingConnectionId: policy.messagingConnectionId, messagingConnectionVersion: policy.messagingConnectionVersion };
-  return { state: { state: "draft", controlActivated: false, policy, usage: null, preparation: { state: "not_evaluated", requirements: [] }, impact: { pendingRequestCount: 3, contactTypeLocked: false, historicalLinksProtected: false, warnings: [] } }, draft, confirmed: false, canEdit: true, busy: false, errorMessage: null, validationMessage: null, preflightMessage: "La admisión completa todavía no está disponible. Podés preparar un borrador.", activationAvailable: false, pauseReason: "", usageSettingsHref: null,
+  return { state: { state: "draft", controlActivated: false, policy, usage: null, preparation: { state: "not_evaluated", requirements: [] }, impact: { pendingRequestCount: 3, contactTypeLocked: false, historicalLinksProtected: false, warnings: [] } }, draft, confirmed: false, canEdit: true, busy: false, errorMessage: null, validationMessage: null, preflightResult: null, preflightMessage: "La admisión completa todavía no está disponible. Podés preparar un borrador.", activationAvailable: false, pauseReason: "", usageSettingsHref: null,
     onChange: vi.fn(), onConfirm: vi.fn(), onPauseReason: vi.fn(), onInitialize: vi.fn(), onSave: vi.fn(), onActivate: vi.fn(), onPause: vi.fn(), onCheckPreflight: vi.fn(), onReloadCurrent: vi.fn() };
 }
 
 describe("policy controlled presentation", () => {
+  it("should distinguish protected ingress from unverified channel readiness when codes are enabled", () => {
+    const props = fixture();
+    props.draft.requiresAdditionalVerification = true;
+    props.preflightResult = { prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } };
+    render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
+    expect(screen.getByText(/El canal y los cupos para los códigos todavía no fueron comprobados/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Resultado de los requisitos de activación" })).toBeInTheDocument();
+  });
+
+  it("should keep code-off policy independent of an unperformed channel check", () => {
+    const props = fixture();
+    render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
+    expect(screen.queryByText(/El canal y los cupos para los códigos todavía no fueron comprobados/)).not.toBeInTheDocument();
+  });
+
+  it("should show safe configuration requirements once without exposing their internal codes", () => {
+    const props = fixture();
+    props.state.preparation = { state: "evaluated", requirements: ["verification_unavailable", "verification_quota_unavailable"] };
+    props.state.policy!.requirements = ["verification_unavailable"];
+    render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
+    expect(screen.getByRole("region", { name: "Requisitos de la configuración" })).toBeInTheDocument();
+    expect(screen.getAllByText("El canal para comprobar el contacto todavía no está preparado.")).toHaveLength(1);
+    expect(screen.getByText("No hay cupo disponible para comprobar el contacto.")).toBeInTheDocument();
+    expect(screen.queryByText("verification_unavailable")).not.toBeInTheDocument();
+  });
+
   it("should offer the actual early usage route before an admission policy exists", () => {
     const props = fixture(); props.state = { ...props.state, state: "not_configured", policy: null }; props.usageSettingsHref = "/synthetic-academy/academia/admissions/messaging";
     render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });

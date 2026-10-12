@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-/** Exercises native SQL policy commands and their original ledger, with doubles only of the preparation port. @module admission-policy-persistence-tests */
+/** Exercises native SQL policy commands, original ledger and actual runtime cutover alongside preparation-port cases. @module admission-policy-persistence-tests */
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
@@ -31,6 +31,7 @@ import { PostgresOwnAdmissionRequestReader } from "@/src/modules/academy-admissi
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import { join } from "node:path";
+import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
 
 /** @param database - This run's owned branch with native pg/Drizzle. @returns Current signed leader, policy repository and preparation-port controls. */
 async function preparePolicy(database: AcademyAdmissionTestDatabase) {
@@ -74,6 +75,63 @@ async function preparePolicy(database: AcademyAdmissionTestDatabase) {
 }
 
 describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admission policy persistence", () => {
+  it("should use the current evaluator for safe preflight and close disabled recovery and decision-trigger gaps without repairing history", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database); await data.initialize();
+      for (const migration of ["20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
+      const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
+      const admissionModule = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() });
+      const runtime = admissionModule.createManualRequestModule({ readSecurityConfig: async () => data.fixture.config }).runtime;
+      let recoveryLocked = false;
+      const preflight = admissionModule.createPreflightModule({ runtime, readRecoveryLock: async () => recoveryLocked }).useCases;
+      const query = { tribeId: data.tribeId, requestId: randomUUID() };
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=false where tribe_id=${data.tribeId}`));
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_evaluator_disabled"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=true where tribe_id=${data.tribeId}`));
+      recoveryLocked = true;
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_recovery_locked"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      recoveryLocked = false;
+      await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`alter table public.academy_admission_decisions disable trigger admission_decision_commit_guard`));
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_storage_unavailable"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+      await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`alter table public.academy_admission_decisions enable trigger admission_decision_commit_guard`));
+      expect(await preflight.execute(query)).toMatchObject({ ok: true, value: { prepared: true } });
+      await database.withContext(data.fixture.own, async (transaction) => {
+        const unknown = randomUUID(), privileged = randomUUID();
+        for (const userId of [unknown, privileged]) await transaction.execute(sql`insert into public."user"(id,name,email,"createdAt","updatedAt") values (${userId},'Synthetic unresolved member',${`${userId}@example.test`},clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${unknown},'tribemate','removed','subscription_inactive',null),(${data.tribeId},${privileged},'guardian','removed','payment_blocked','muted')`);
+      });
+      const before = await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`select id,role,status,created_at,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} order by id`));
+      expect(await preflight.execute(query)).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_privileged_commercial_membership"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 } } });
+      const after = await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`select id,role,status,created_at,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} order by id`));
+      expect(after.rows).toEqual(before.rows);
+      expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false, policy: { activatedAt: null, version: 1 } });
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
+  it("should activate policy and marker together through the current module composition without creating memberships or challenges", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database); await data.initialize();
+      for (const migration of ["20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
+      const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
+      const admissionModule = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() });
+      const runtime = admissionModule.createManualRequestModule({ readSecurityConfig: async () => data.fixture.config }).runtime;
+      const policy = admissionModule.createPolicyModule({ readSecurityConfig: async () => data.fixture.config, composePreflight: (transaction, context) => new PostgresAdmissionActivationRepository(transaction, context, runtime, async () => false) }).useCases;
+      const input = { tribeId: data.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedVersion: 1, confirmed: true as const };
+      expect(await admissionModule.createPreflightModule({ runtime, readRecoveryLock: async () => false }).useCases.execute({ tribeId: data.tribeId, requestId: randomUUID() })).toMatchObject({ ok: true, value: { prepared: true } });
+      await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=false where tribe_id=${data.tribeId}`));
+      expect(await policy.activate({ ...input, operationId: randomUUID() })).toMatchObject({ ok: false, failure: { code: "admission_ineligible" } });
+      expect(await data.reader.read(data.readContext)).toMatchObject({ controlActivated: false, policy: { activatedAt: null, version: 1 } });
+      await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_academy_settings set admission_enabled=true where tribe_id=${data.tribeId}`));
+      expect(await policy.activate(input)).toMatchObject({ ok: true, value: { state: "completed", replayed: false, result: { controlActivated: true, changed: true, version: 2 } } });
+      expect(await policy.activate(input)).toMatchObject({ ok: true, value: { state: "completed", replayed: true } });
+      await database.withContext(data.fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select policy.activated_at=tribe.admissions_control_activated_at as same_instant,policy.version from public.academy_admission_policies policy join public.tribes tribe on tribe.id=policy.tribe_id where tribe.id=${data.tribeId}`)).rows).toEqual([{ same_instant: true, version: 2 }]);
+        expect((await transaction.execute(sql`select (select count(*)::integer from public.tribe_members where tribe_id=${data.tribeId}) as members,(select count(*)::integer from public.academy_admission_requests where tribe_id=${data.tribeId}) as requests,(select count(*)::integer from public.contact_verification_challenges where tribe_id=${data.tribeId}) as challenges`)).rows).toEqual([{ members: 1, requests: 0, challenges: 0 }]);
+      });
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
   it("should keep the same pending request undecided through native verification activation and later permissive policy changes", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database);
@@ -111,12 +169,12 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database); await data.initialize();
       let runtimePrepared = false;
-      const inventory = () => database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => runtimePrepared }).read(data.readContext));
+      const inventory = () => database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => runtimePrepared }, async () => false).read(data.readContext));
       expect(await inventory()).toMatchObject({ tribeId: data.tribeId, isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: false, ingressProtected: false, runtimePrepared: false });
       for (const migration of ["20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
       const current = await inventory();
       expect(current).toMatchObject({ storagePrepared: true, ingressProtected: true, runtimePrepared: false, unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 });
-      const prepared = () => database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => runtimePrepared }).isPrepared(data.tribeId));
+      const prepared = () => database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => runtimePrepared }, async () => false).isPrepared(data.tribeId));
       expect(await prepared()).toBe(false);
       runtimePrepared = true;
       expect(await prepared()).toBe(true);
@@ -133,7 +191,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`alter function public.close_unavailable_admission_request(uuid,text,text) set search_path=pg_catalog,public`));
       expect(await prepared()).toBe(true);
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: data.fixture.userId, sessionId: data.sessionId }), (_identity, work) => database.withContext(data.fixture.own, work));
-      const preview = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPreflightModule({ runtime: { isPrepared: async () => false } }).useCases;
+      const preview = buildAcademyAdmissionsModule({ accounts, execute: (_account, work) => database.withContext(data.fixture.own, work), clock: () => new Date() }).createPreflightModule({ runtime: { isPrepared: async () => false }, readRecoveryLock: async () => false }).useCases;
       expect(await preview.execute({ tribeId: data.tribeId, requestId: randomUUID() })).toEqual({ ok: true, value: { prepared: false, reasons: ["preflight_runtime_unavailable"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
     });
   }, 300_000);
@@ -149,7 +207,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       });
       const before = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select user_id,role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} and user_id in (${unknownId},${privilegedId}) order by user_id`)).rows);
       const observed = await database.withContext(data.fixture.own, async (transaction) => {
-        const repository = new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true });
+        const repository = new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false);
         const inventory = await repository.read(data.readContext);
         expect(await repository.isPrepared(data.tribeId)).toBe(false);
         await expect(repository.isPrepared(randomUUID())).rejects.toMatchObject({ code: "permission_denied" });
@@ -160,7 +218,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select user_id,role,status,status_reason,commercial_recovery_status from public.tribe_members where tribe_id=${data.tribeId} and user_id in (${unknownId},${privilegedId}) order by user_id`)).rows)).toEqual(before);
       expect(observed).not.toHaveProperty("members");
       await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${data.tribeId} and user_id=${data.fixture.userId}`));
-      await expect(database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }).read(data.readContext))).rejects.toMatchObject({ code: "permission_denied" });
+      await expect(database.withContext(data.fixture.own, (transaction) => new PostgresAdmissionActivationRepository(transaction, data.readContext, { isPrepared: async () => true }, async () => false).read(data.readContext))).rejects.toMatchObject({ code: "permission_denied" });
     });
   }, 300_000);
 
@@ -322,7 +380,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
 });
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy command HTTP", () => {
-  it("should initialize, save and pause a draft with original recovery while complete runtime activation remains closed", async () => {
+  it("should initialize, save and pause a draft with original recovery while an unprepared verification channel keeps activation closed", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database), slug = `policy-${data.tribeId}`;
       for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
@@ -346,7 +404,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
         expect(await saved.json()).toMatchObject({ state: "completed", result: { version: 2, verificationEpoch: 2, changed: true, controlActivated: false } });
         const preflight = await request("GET", "/policy/preflight");
         expect(preflight.status).toBe(200);
-        expect(await preflight.json()).toEqual({ prepared: false, reasons: ["preflight_runtime_unavailable"], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } });
+        expect(await preflight.json()).toEqual({ prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } });
         expect((await request("PUT", "/policy", { ...edit, operationId: randomUUID() })).status).toBe(409);
         const activation = await request("POST", "/policy/activate", { operationId: randomUUID(), confirmed: true, expectedVersion: 2 });
         expect(activation.status).toBe(409);
@@ -376,6 +434,51 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
 });
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy settings browser", () => {
+  it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should show actual unresolved membership preflight and clear its impact after an edit in $engine", async ({ engine, browserType }) => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database), slug = `policy-${data.tribeId}`;
+      for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
+      await data.initialize();
+      await database.withContext(data.fixture.own, async (transaction) => {
+        const unknown = randomUUID(), guardian = randomUUID();
+        for (const userId of [unknown, guardian]) await transaction.execute(sql`insert into public."user"(id,name,email,"createdAt","updatedAt") values (${userId},'Synthetic preflight member',${`${userId}@example.test`},clock_timestamp(),clock_timestamp())`);
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status,status_reason,commercial_recovery_status) values (${data.tribeId},${unknown},'tribemate','removed','subscription_inactive',null),(${data.tribeId},${guardian},'guardian','removed','payment_blocked','muted')`);
+      });
+      await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, slug, async (origin, secret) => {
+        const browser = await browserType.launch({ headless: true });
+        try {
+          for (const width of [1280, 390]) {
+            const context = await browser.newContext({ viewport: { width, height: 900 } });
+            try {
+              await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${data.sessionToken}.${await makeSignature(data.sessionToken, secret)}`), url: origin, httpOnly: true, sameSite: "Lax" }]);
+              const page = await context.newPage(), runtimeErrors: string[] = [];
+              page.on("pageerror", () => runtimeErrors.push("page_error"));
+              page.on("console", (message) => { if (message.type() === "error" && /hydration|did not match/i.test(message.text())) runtimeErrors.push("hydration_error"); });
+              await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
+              const check = page.getByRole("button", { name: "Revisar requisitos de activación" });
+              await check.waitFor({ timeout: 90_000 });
+              const response = page.waitForResponse((result) => result.url().endsWith(`/api/tribes/${slug}/admissions/policy/preflight`));
+              await check.click();
+              expect(await (await response).json()).toEqual({ prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_privileged_commercial_membership"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 } });
+              const impact = page.getByRole("region", { name: "Resultado de los requisitos de activación" });
+              await impact.waitFor();
+              expect(await impact.textContent()).toContain("Membresías con historial comercial desconocido: 1.");
+              expect(await impact.textContent()).toContain("Membresías comerciales restringidas con rol de líder o guardián: 1.");
+              expect(await page.getByRole("button", { name: "Activar control de admisión" }).isDisabled()).toBe(true);
+              expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+              expect(runtimeErrors).toEqual([]);
+              await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-preflight.png`), fullPage: true });
+              if (width === 1280) await captureAdmissionReview(page, "admission-policy-preflight", [data.fixture.userId, data.sessionId, data.sessionToken, secret], "preflight-captures.json", { selector: "form" });
+              await page.getByRole("checkbox", { name: "Comprobar el contacto con un código" }).check();
+              await impact.waitFor({ state: "detached" });
+              expect(await page.getByRole("button", { name: "Activar control de admisión" }).isDisabled()).toBe(true);
+            } finally { await context.close(); }
+          }
+        } finally { await browser.close(); }
+      }));
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
   for (const [engine, browserType] of [["chromium", chromium], ["webkit", webkit]] as const) {
     it(`should retain conflict drafts and use real guarded policy settings in ${engine} mobile/desktop`, async () => {
       await withAcademyAdmissionDatabase(async (database) => {
@@ -425,7 +528,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
                 expect(await confirmation.isChecked()).toBe(false);
                 stage = "read_actual_preflight";
                 await page.getByRole("button", { name: "Revisar requisitos de activación" }).click();
-                await page.getByText("La admisión completa todavía no está disponible. Podés preparar un borrador.", { exact: true }).waitFor({ timeout: 90_000 });
+                await page.getByText("Las protecciones de admisión consultadas están preparadas. La activación volverá a comprobarlas al confirmar.", { exact: true }).waitFor({ timeout: 90_000 });
                 expect(await page.getByRole("button", { name: "Activar control de admisión" }).isDisabled()).toBe(true);
                 expect(runtimeErrors).toEqual([]);
                 if (width === 1280) await captureAdmissionReview(page, "admission-policy-saved", [data.fixture.userId, data.sessionId, data.sessionToken, secret], "policy-captures.json", { selector: "form" });

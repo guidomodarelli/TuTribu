@@ -4,15 +4,18 @@ import { useId } from "react";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-draft";
 import type { AdmissionPolicyStateDto } from "@/src/modules/academy-admissions/application/results/admission-policy-result-schemas";
-import { ADMISSION_POLICY_MODE, ADMISSION_PHONE_CHANNEL, ADMISSION_POLICY_PUBLIC_STATE } from "@/src/modules/academy-admissions/constants/admission-policy";
+import { ADMISSION_POLICY_MODE, ADMISSION_PHONE_CHANNEL, ADMISSION_POLICY_PUBLIC_STATE, ADMISSION_POLICY_PREPARATION_STATE } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { ADMISSION_POLICY_PREFLIGHT_REASON_COPY, ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import type { AdmissionPolicyPreflightDto } from "@/src/modules/academy-admissions/application/ports/admission-policy-browser-client";
 import styles from "./styles.module.scss";
 
 /** Preparation and safe messages come from the route container; they are never authority supplied by a form. */
 export type AdmissionPolicyFormProps = {
   state: AdmissionPolicyStateDto; draft: AdmissionPolicyDraft; confirmed: boolean; canEdit: boolean; busy: boolean;
   errorMessage: string | null; validationMessage: string | null; preflightMessage: string | null; activationAvailable: boolean; pauseReason: string; usageSettingsHref: string | null;
+  preflightResult: AdmissionPolicyPreflightDto | null;
   onChange: (draft: AdmissionPolicyDraft) => void; onConfirm: (confirmed: boolean) => void; onPauseReason: (reason: string) => void;
   onInitialize: () => void; onSave: () => void; onActivate: () => void; onPause: () => void; onCheckPreflight: () => void; onReloadCurrent: () => void;
   statusMessage?: string | null; uncertain?: boolean; canRetry?: boolean; onRetryOriginal?: () => void;
@@ -23,6 +26,7 @@ export type AdmissionPolicyFormProps = {
 export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
   const instanceId = useId(), modeId = `${instanceId}-mode`, contactId = `${instanceId}-contact`, checkId = `${instanceId}-check`, openId = `${instanceId}-open`, exceptionsId = `${instanceId}-exceptions`, phoneId = `${instanceId}-phone`, smsId = `${instanceId}-sms`, confirmId = `${instanceId}-confirm`, reasonId = `${instanceId}-reason`;
   const unavailable = props.state.state === ADMISSION_POLICY_PUBLIC_STATE.unavailable, disabled = !props.canEdit || props.busy || unavailable, hasPolicy = props.state.policy !== null;
+  const activationRequirements = [...new Set([...props.state.preparation.requirements, ...(props.state.policy?.requirements ?? [])])];
   const mayConfirm = !disabled && props.confirmed && !props.validationMessage;
   return <form className={styles.AdmissionPolicyForm} aria-busy={props.busy} onSubmit={(event) => { event.preventDefault(); if (mayConfirm && hasPolicy) props.onSave(); }}>
     <header className={styles.AdmissionPolicyForm__header}><h1 className={styles.AdmissionPolicyForm__title}>Configuración de admisión</h1><p>Prepará las reglas de ingreso y revisá su impacto antes de confirmar.</p></header>
@@ -52,6 +56,18 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
     {props.errorMessage && <div role="alert" className={styles.AdmissionPolicyForm__error}><p>{props.errorMessage}</p><Button type="button" variant="outline" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar configuración actual</Button><p>El borrador se conserva para que puedas compararlo antes de volver a confirmar.</p></div>}
     <div className={styles.AdmissionPolicyForm__actions}>{hasPolicy ? <Button type="submit" disabled={!mayConfirm}>{props.busy ? "Procesando…" : props.state.controlActivated ? "Guardar configuración" : "Guardar borrador"}</Button> : <Button type="button" disabled={!mayConfirm} onClick={props.onInitialize}>Preparar configuración</Button>}{hasPolicy && !props.state.controlActivated && <><Button type="button" variant="outline" disabled={disabled} onClick={props.onCheckPreflight}>Revisar requisitos de activación</Button><Button type="button" disabled={!mayConfirm || !props.activationAvailable} onClick={props.onActivate}>Activar control de admisión</Button></>}</div>
     {props.preflightMessage && <p role="status" className={styles.AdmissionPolicyForm__help}>{props.preflightMessage}</p>}
+    {props.preflightResult && <section className={styles.AdmissionPolicyForm__impact} aria-label="Resultado de los requisitos de activación">
+      <h2 className={styles.AdmissionPolicyForm__sectionTitle}>Resultado de la comprobación</h2>
+      <p>Membresías con historial comercial desconocido: <strong>{props.preflightResult.impact.unknownCommercialMemberCount}</strong>.</p>
+      <p>Membresías comerciales restringidas con rol de líder o guardián: <strong>{props.preflightResult.impact.privilegedCommercialMemberCount}</strong>.</p>
+      {props.preflightResult.reasons.length > 0 && <ul className={styles.AdmissionPolicyForm__reasons}>{props.preflightResult.reasons.map((reason) => <li key={reason}>{ADMISSION_POLICY_PREFLIGHT_REASON_COPY[reason]}</li>)}</ul>}
+      <p>Esta consulta no cambia membresías, roles ni fechas. No permite reconstruir el historial ni recuperar membresías desde esta pantalla.</p>
+    </section>}
+    {props.draft.requiresAdditionalVerification && props.state.preparation.state === ADMISSION_POLICY_PREPARATION_STATE.notEvaluated && <p className={styles.AdmissionPolicyForm__help}>El canal y los cupos para los códigos todavía no fueron comprobados. Deben estar preparados para activar; esta revisión de protecciones no confirma su disponibilidad.</p>}
+    {activationRequirements.length > 0 && <section className={styles.AdmissionPolicyForm__impact} aria-label="Requisitos de la configuración">
+      <h2 className={styles.AdmissionPolicyForm__sectionTitle}>Requisitos de la configuración</h2>
+      <ul className={styles.AdmissionPolicyForm__reasons}>{activationRequirements.map((requirement) => <li key={requirement}>{ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY[requirement]}</li>)}</ul>
+    </section>}
     {props.statusMessage && <p role="status">{props.statusMessage}</p>}
     {props.reauthenticationRequired && <section className={styles.AdmissionPolicyForm__field} aria-label="Confirmación de Google"><p>La acción requiere confirmar tu cuenta de Google. El borrador y la operación original se conservan; al volver tendrás que revisar el estado y confirmar nuevamente.</p>{props.reauthenticationHref ? <Link href={props.reauthenticationHref}>Continuar con la confirmación de Google</Link> : <Button type="button" variant="outline" disabled={props.busy} onClick={props.onPrepareReauthentication}>Preparar confirmación con Google</Button>}</section>}
     {props.uncertain && <section className={styles.AdmissionPolicyForm__field} aria-label="Recuperar operación original"><p role="status">Todavía no podemos confirmar el resultado. Consultá la operación original antes de volver a guardar.</p><Button type="button" variant="outline" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar operación original</Button>{props.canRetry && <><div className={styles.AdmissionPolicyForm__check}><Checkbox id={`${instanceId}-retry`} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked) => props.onConfirm(checked === true)} /><label htmlFor={`${instanceId}-retry`}>Confirmo reintentar la misma operación con sus datos originales.</label></div><Button type="button" disabled={!props.confirmed || props.busy} onClick={props.onRetryOriginal}>Reintentar operación original</Button></>}</section>}

@@ -9,12 +9,15 @@ export const ADMISSION_PREFLIGHT_REASON = {
   unknownCommercialHistory: "preflight_unknown_commercial_history",
   privilegedCommercialMembership: "preflight_privileged_commercial_membership",
   runtimeUnavailable: "preflight_runtime_unavailable",
+  evaluatorDisabled: "preflight_evaluator_disabled",
+  recoveryLocked: "preflight_recovery_locked",
 } as const;
 
 /** Actual enabled trigger inventory required by the stored cutover and membership owners. */
 export const ADMISSION_PREFLIGHT_STORAGE_TRIGGERS = [
   { table: "tribes", name: "admission_control_marker_guard" },
   { table: "tribes", name: "admission_first_activation_commit_guard" },
+  { table: "academy_admission_decisions", name: "admission_decision_commit_guard" },
   { table: "academy_admission_membership_effects", name: "admission_membership_effect_creation_guard" },
   { table: "academy_admission_membership_effects", name: "admission_membership_effect_commit_guard" },
   { table: "subscription_membership_effects", name: "subscription_membership_effect_origin_guard" },

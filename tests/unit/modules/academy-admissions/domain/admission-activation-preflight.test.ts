@@ -4,7 +4,7 @@ import { evaluateAdmissionActivationPreflight, type AdmissionActivationInventory
 
 /** Supplies an explicitly complete private inventory; each test removes one actual prerequisite. */
 function completeInventory(): AdmissionActivationInventory {
-  return { tribeId: "synthetic-tribe", isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: true, unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
+  return { tribeId: "synthetic-tribe", isAcademy: true, policyPresent: true, markerConsistent: true, storagePrepared: true, ingressProtected: true, runtimePrepared: true, evaluatorEnabled: true, recoveryLocked: false, unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 };
 }
 
 describe("activation cutover inventory", () => {
@@ -19,9 +19,15 @@ describe("activation cutover inventory", () => {
     ["isAcademy", "preflight_academy_unavailable"], ["policyPresent", "preflight_policy_unavailable"],
     ["markerConsistent", "preflight_marker_inconsistent"], ["storagePrepared", "preflight_storage_unavailable"],
     ["ingressProtected", "preflight_ingress_unprotected"], ["runtimePrepared", "preflight_runtime_unavailable"],
+    ["evaluatorEnabled", "preflight_evaluator_disabled"],
   ] as const)("should stay closed when %s is unavailable instead of substituting defaults", (field, reason) => {
     const inventory = { ...completeInventory(), [field]: false };
     expect(evaluateAdmissionActivationPreflight(inventory.tribeId, inventory)).toEqual({ prepared: false, reasons: [reason] });
+  });
+
+  it("should keep complete storage and runtime closed during the current external recovery lock", () => {
+    const inventory = { ...completeInventory(), recoveryLocked: true };
+    expect(evaluateAdmissionActivationPreflight(inventory.tribeId, inventory)).toEqual({ prepared: false, reasons: ["preflight_recovery_locked"] });
   });
 
   it.each([1, -1, Number.NaN])("should require authorized history resolution when the unresolved count is %s", (count) => {

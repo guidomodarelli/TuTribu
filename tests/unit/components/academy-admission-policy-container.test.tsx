@@ -42,6 +42,47 @@ async function confirm() {
 
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 describe("policy route workflow", () => {
+  it("should show current history and privileged impact with safe blockers before any activation", async () => {
+    const data = fixture();
+    data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_privileged_commercial_membership", "preflight_evaluator_disabled", "preflight_recovery_locked"], impact: { unknownCommercialMemberCount: 2, privilegedCommercialMemberCount: 1 } } });
+    render(data.node, { wrapper: Providers }); await confirm();
+    fireEvent.click(screen.getByRole("button", { name: "Revisar requisitos de activación" }));
+    await waitFor(() => expect(screen.getByRole("region", { name: "Resultado de los requisitos de activación" })).toBeInTheDocument());
+    const impact = screen.getByRole("region", { name: "Resultado de los requisitos de activación" });
+    expect(impact).toHaveTextContent("Membresías con historial comercial desconocido: 2.");
+    expect(impact).toHaveTextContent("Membresías comerciales restringidas con rol de líder o guardián: 1.");
+    expect(screen.getAllByText(/Su resolución requiere autorización y registro del responsable de membresías\./)).toHaveLength(2);
+    expect(screen.getByText("La admisión está deshabilitada en esta academia.")).toBeInTheDocument();
+    expect(screen.getByText("La admisión está cerrada por el bloqueo de recuperación de la plataforma.")).toBeInTheDocument();
+    await confirm();
+    expect(screen.getByRole("button", { name: "Activar control de admisión" })).toBeDisabled();
+    expect(data.client.activatePolicy).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Comprobar el contacto con un código" }));
+    expect(screen.queryByRole("region", { name: "Resultado de los requisitos de activación" })).not.toBeInTheDocument();
+  });
+
+  it("should clear prepared feedback and keep activation closed when a repeated preflight fails", async () => {
+    const data = fixture();
+    data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
+    render(data.node, { wrapper: Providers }); await confirm();
+    fireEvent.click(screen.getByRole("button", { name: "Revisar requisitos de activación" }));
+    await waitFor(() => expect(screen.getByText(/Las protecciones de admisión consultadas están preparadas/)).toBeInTheDocument());
+    await confirm();
+    expect(screen.getByRole("button", { name: "Activar control de admisión" })).not.toBeDisabled();
+    let finish!: (result: Awaited<ReturnType<AdmissionPolicyBrowserClient["readPreflight"]>>) => void;
+    data.client.readPreflight.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "Revisar requisitos de activación" }));
+    await waitFor(() => expect(data.client.readPreflight).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(/Las protecciones de admisión consultadas están preparadas/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Resultado de los requisitos de activación" })).not.toBeInTheDocument();
+    await act(async () => { finish({ status: "failed", code: "dependency_unavailable", message: "No pudimos comprobar los requisitos actuales.", uncertain: false }); });
+    expect(screen.getByText("No pudimos comprobar los requisitos actuales.")).toBeInTheDocument();
+    await confirm();
+    expect(screen.getByRole("button", { name: "Activar control de admisión" })).toBeDisabled();
+    expect(data.client.activatePolicy).not.toHaveBeenCalled();
+  });
+
   it("should detect an account change before interpreting a failed informational preflight", async () => {
     const data = fixture(); let complete!: (value: Awaited<ReturnType<AdmissionPolicyBrowserClient["readPreflight"]>>) => void;
     data.client.readPreflight.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
@@ -178,7 +219,7 @@ describe("policy route workflow", () => {
     data.client.readPreflight.mockResolvedValueOnce({ status: "ready", value: { prepared: true, reasons: [], impact: { unknownCommercialMemberCount: 0, privilegedCommercialMemberCount: 0 } } });
     render(data.node, { wrapper: Providers }); await confirm();
     fireEvent.click(screen.getByRole("button", { name: "Revisar requisitos de activación" }));
-    await waitFor(() => expect(screen.getByText(/Los requisitos consultados están preparados/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Las protecciones de admisión consultadas están preparadas/)).toBeInTheDocument());
     await confirm(); expect(screen.getByRole("button", { name: "Activar control de admisión" })).not.toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: "Comprobar el contacto con un código" }));
     expect(screen.getByRole("button", { name: "Activar control de admisión" })).toBeDisabled();
