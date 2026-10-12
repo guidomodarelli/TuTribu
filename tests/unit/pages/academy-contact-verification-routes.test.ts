@@ -1,8 +1,9 @@
 /** @vitest-environment node */
 /** Exercises real contact verification HTTP boundaries using own application ports, never platform or schema mocks. @module academy-contact-verification-routes-tests */
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { createAdmissionContactVerificationHandlers, createAdmissionProofAttachmentHandler, type AdmissionVerificationHttpOutcome } from "@/src/modules/academy-admissions/infrastructure/api/admission-contact-verification-handlers";
+import { REQUEST_ID_HEADER, TRACE_ID_HEADER } from "@/src/modules/shared/infrastructure/observability/request-context";
 
 /** Supplies only own application ports behind actual params/query/body/public DTO validation. */
 function routeFixture() {
@@ -22,6 +23,36 @@ function routeFixture() {
 }
 
 describe("admission contact verification routes", () => {
+  it.each(["typed_provider_failure", "unexpected_exception"] as const)("should keep credential, OTP and upstream cause out of the final logger, trace and response after %s", async (failureKind) => {
+    const fixture = routeFixture(), credential = randomUUID(), code = String(randomInt(100_000, 1_000_000)), upstreamCanary = randomUUID();
+    const requestId = randomUUID(), traceId = randomUUID(), captured: unknown[][] = [];
+    const logSpies = [vi.spyOn(console, "error"), vi.spyOn(console, "warn"), vi.spyOn(console, "info")];
+    for (const spy of logSpies) spy.mockImplementation((...values: unknown[]) => { captured.push(values); });
+    try {
+      const cause = new Error(`Synthetic provider failure: ${upstreamCanary}; credential=${credential}; otp=${code}`);
+      if (failureKind === "typed_provider_failure") fixture.issue.mockResolvedValueOnce({ ok: false, failure: { code: "dependency_unavailable", cause } });
+      else fixture.issue.mockRejectedValueOnce(cause);
+      const request = fixture.request(fixture.body);
+      request.headers.set(REQUEST_ID_HEADER, requestId);
+      request.headers.set(TRACE_ID_HEADER, traceId);
+      const response = await fixture.handlers.issue(request, { params: Promise.resolve({ slug: "synthetic-academy" }) });
+      const publicBody = await response.json();
+      expect(response.status).toBeGreaterThanOrEqual(500);
+      expect(response.headers.get(REQUEST_ID_HEADER)).toBe(requestId);
+      expect(response.headers.get(TRACE_ID_HEADER)).toBe(traceId);
+      expect(publicBody).toMatchObject({ requestId, code: failureKind === "typed_provider_failure" ? "dependency_unavailable" : "unexpected_failure" });
+      expect(captured).toHaveLength(1);
+      const serializedLog = captured[0][0];
+      expect(typeof serializedLog).toBe("string");
+      if (typeof serializedLog !== "string") throw new Error("Final admission logger did not emit structured JSON");
+      const entry = JSON.parse(serializedLog) as { level: string; feature: string; requestId: string; traceId: string; metadata: { code: string; status: number }; error?: unknown };
+      expect(entry).toMatchObject({ level: "error", requestId, traceId, metadata: { code: publicBody.code, status: response.status } });
+      expect(entry).not.toHaveProperty("error");
+      const observed = JSON.stringify({ logs: captured, headers: Array.from(response.headers.entries()), body: publicBody });
+      expect([credential, code, upstreamCanary].some((privateValue) => observed.includes(privateValue))).toBe(false);
+    } finally { for (const spy of logSpies) spy.mockRestore(); }
+  });
+
   it("should expose a confirmed issuance rejection with its completed original and no private cause", async () => {
     const fixture = routeFixture();
     fixture.issue.mockResolvedValueOnce({ ok: false, failure: { code: "recipient_not_allowed", operation: { operationId: fixture.operationId, state: "completed" }, cause: new Error("Private native diagnostic") } });
@@ -45,14 +76,14 @@ describe("admission contact verification routes", () => {
     expect(await started.json()).toEqual({ state: "started", operationId: fixture.operationId });
   });
 
-  it.each(["sender", "destination", "body", "text", "purpose", "userId", "sessionId", "verified", "apiKey", "connectionId"])("should reject browser authority %s before composition", async (field) => {
+  it.each(["sender", "destination", "body", "text", "template", "templateId", "templateVariables", "purpose", "userId", "sessionId", "verified", "apiKey", "connectionId"])("should reject browser authority %s before composition", async (field) => {
     const fixture = routeFixture();
     const response = await fixture.handlers.issue(fixture.request({ ...fixture.body, [field]: "synthetic-override" }), { params: Promise.resolve({ slug: "synthetic-academy" }) });
     expect(response.status).toBe(400);
     expect(fixture.open).not.toHaveBeenCalled();
   });
 
-  for (const action of ["verify", "resend", "applyProof"] as const) it.each(["sender", "destination", "body", "text", "purpose", "userId", "sessionId", "verified", "apiKey", "connectionId"])(`should reject browser authority %s before composing ${action}`, async (field) => {
+  for (const action of ["verify", "resend", "applyProof"] as const) it.each(["sender", "destination", "body", "text", "template", "templateId", "templateVariables", "purpose", "userId", "sessionId", "verified", "apiKey", "connectionId"])(`should reject browser authority %s before composing ${action}`, async (field) => {
     const fixture = routeFixture();
     const body = action === "verify" ? { operationId: fixture.operationId, confirmed: true, verificationCode: "123456" } : action === "resend" ? { operationId: fixture.operationId, confirmed: true } : { operationId: fixture.operationId, confirmed: true, expectedVersion: 1, proofId: fixture.proofId };
     const request = fixture.request({ ...body, [field]: "synthetic-untrusted-authority" });
