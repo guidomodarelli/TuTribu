@@ -66,6 +66,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">03</div>
   <div class="section-title">Datos capturados</div>
   <p>La captura combina feedback base, diagnosticos tecnicos y un screenshot del area anotada.</p>
+  <p>Las superficies de <code>ContactVerification</code>, <code>MessagingConnectionDiagnostic</code> y la configuración de credenciales de <code>MessagingConnections</code> declaran <code>data-beezping-ignore="true"</code> en su raíz. El capturador publicado omite el elemento y sus descendientes: códigos, teléfonos y claves siguen disponibles para el flujo autorizado, pero quedan fuera de los píxeles del reporte. La protección se aplica antes de capturar; la redacción textual del backend no limpia una imagen. Las rutas con enlaces de una sola vista mantienen además su exclusión completa mediante <code>PrivateAwareSiteping</code>.</p>
   <ul>
     <li>Se guarda texto, tipo, URL, viewport, user agent, autor, <code>clientId</code> y anclas DOM.</li>
     <li>Se guarda <code>diagnostics</code> como <code>jsonb</code> con consola reciente y requests fallidos.</li>

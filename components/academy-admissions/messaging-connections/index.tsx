@@ -19,7 +19,7 @@ function ConnectionSummary({connection,title}:{connection:MessagingConfiguration
 export function MessagingConnections(props:MessagingConnectionsProps){
   const fieldId=useId(),nameId=`${fieldId}-name`,keyId=`${fieldId}-key`,confirmationId=`${fieldId}-confirmation`;
   if(props.configuration.audience===TRIBE_MEMBER_ROLE.guardian)return<section className={styles.MessagingConnections} aria-label="Estado de mensajería"><h2 className={styles.MessagingConnections__title}>Conexión de mensajería</h2><p role="status">{MESSAGING_OPERATIONAL_ALERT_LABEL[props.configuration.operationalAlert]}</p></section>;
-  return<section className={styles.MessagingConnections} aria-labelledby={`${fieldId}-title`}>
+  return<section className={styles.MessagingConnections} aria-labelledby={`${fieldId}-title`} data-beezping-ignore="true">
     <h2 id={`${fieldId}-title`} className={styles.MessagingConnections__title}>Conexión de mensajería</h2>
     <p className={styles.MessagingConnections__intro}>Prepará la conexión de Zavu que usará tu academia. Guardarla crea una candidata; después podrás comprobar la credencial y los canales antes de activarla.</p>
     {props.configuration.selected&&<ConnectionSummary connection={props.configuration.selected} title="Conexión seleccionada" />}
