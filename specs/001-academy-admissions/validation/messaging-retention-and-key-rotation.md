@@ -20,6 +20,8 @@ Las suites existentes de mantenimiento de credenciales y envelopes OTP terminaro
 
 `retired-secret-purge-deadline.test.ts` terminó con un caso Native aprobado, cero fallidos y cero excluidos. Usuario, tribu, conexión, versión y bytes nacen con fechas anteriores al retiro. El trigger deriva exactamente `retired_at + 24 horas`; el owner preserva una credencial cuyo plazo aún no llega y elimina sólo la ya elegible, con replay cero y referencias conservadas. Las guardas rechazan aplazamiento y reactivación del material purgado. El primer reporte falló por un alias incompleto del join del test; se conserva separado y la repetición corrigió sólo esa consulta. La fuente final conservó su hash. El resultado no demuestra una ejecución programada productiva ni la igualdad del instante de evaluación con el deadline, que se contrasta después de que ya es elegible.
 
+La política pura de candidata `assessMessagingCandidateExpiration` y su suite final de seis casos pasan el límite de siete días, conservación de seleccionada/reciente, no reactivación de retiro, reloj inválido y deadline original de purga aunque el mantenimiento llegue tarde. El test se escribió antes de la función; el primer reporte falló por ausencia del módulo y no acredita casos de comportamiento. Después de implementarla, los cinco casos iniciales pasaron. La revisión reprodujo un overflow que proponía una fecha de purga inválida; el nuevo caso quedó rojo antes de corregir la política. La fuente final comprueba ambos plazos calculados y sus seis casos, tipos y lint pasaron completos. No tiene todavía un owner SQL o recorrido operable, y no completa T166/T171.
+
 ## Contraste inicial y alcance pendiente
 
 | Criterio original | Estado inicial |
