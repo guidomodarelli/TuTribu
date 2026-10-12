@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Los botones de la aplicación adoptan un estilo renovado: el botón principal usa el color de texto del tema, responde al presionarlo y anima su ancho cuando cambia su texto.
+
 ## [1.1.3] - 2026-10-04
 
 ### Fixed

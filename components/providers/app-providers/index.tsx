@@ -2,7 +2,7 @@
 
 /** Composes the shared UI provider with application notifications and Siteping. */
 import type { ReactNode } from "react";
-import { Toaster, useTheme } from "beez-ui";
+import { Toaster, useTheme } from "@guidomodarelli/beez-ui";
 
 import { SitepingProvider } from "@/components/providers/siteping-provider";
 import { DARK_THEME_MODE, LIGHT_THEME_MODE } from "@/src/constants/theme-mode";

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Toaster } from "beez-ui";
+import { Toaster } from "@guidomodarelli/beez-ui";
 import { SitepingProvider } from "@/components/providers/siteping-provider";
 
 const identity = {

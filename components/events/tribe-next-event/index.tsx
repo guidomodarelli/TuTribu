@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, PresenceSwap } from "beez-ui";
+import { Button, PresenceSwap } from "@guidomodarelli/beez-ui";
 
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";

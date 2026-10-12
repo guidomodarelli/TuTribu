@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarPlusIcon, ExternalLinkIcon, VideoIcon } from "lucide-react";
-import { Badge, cn, AnimatedListItem } from "beez-ui";
+import { Badge, cn, AnimatedListItem } from "@guidomodarelli/beez-ui";
 
 import {
   TRIBE_EVENT_ATTENDANCE_SUMMARY_VARIANT,

@@ -1,4 +1,4 @@
-import { CardDescription } from "beez-ui";
+import { CardDescription } from "@guidomodarelli/beez-ui";
 import styles from "./styles.module.scss";
 
 const HTTPS_PROTOCOL = "https://";

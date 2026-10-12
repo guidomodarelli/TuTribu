@@ -9,7 +9,7 @@
 import { useRef, useState } from "react";
 import { CreditCardIcon, LoaderCircleIcon } from "lucide-react";
 
-import { Button, PresenceSwap, cn } from "beez-ui";
+import { Button, PresenceSwap, cn } from "@guidomodarelli/beez-ui";
 import { navigateToUrl } from "@/lib/browser-navigation";
 import { TRIBE_MEMBER_SUBSCRIPTION_STATUS } from "@/src/modules/subscriptions/constants/subscriptions";
 import styles from "./styles.module.scss";

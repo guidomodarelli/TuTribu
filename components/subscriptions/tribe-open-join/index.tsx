@@ -1,5 +1,5 @@
 import { Link } from "@/components/navigation/link";
-import { Button } from "beez-ui";
+import { Button } from "@guidomodarelli/beez-ui";
 
 import { TribeOpenJoinSubmitButton } from "./tribe-open-join-submit-button";
 import styles from "./styles.module.scss";

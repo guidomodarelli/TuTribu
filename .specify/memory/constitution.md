@@ -223,8 +223,8 @@ sin crear agrupaciones genéricas de valores no relacionados.
   [package.json](../../package.json). La base vigente es Node.js 24, pnpm 12.6.0,
   TypeScript 7, Next.js 16 y React 19. Sus pins y lockfile DEBEN actualizarse coordinadamente.
 - Las dependencias DEBEN instalarse con `pnpm install --frozen-lockfile`.
-  `package.json` y `pnpm-lock.yaml` DEBEN permanecer sincronizados. `beez-ui` se consume
-  desde npm mediante rango caret y lockfile, según su contrato arquitectónico.
+  `package.json` y `pnpm-lock.yaml` DEBEN permanecer sincronizados. `@guidomodarelli/beez-ui` se consume
+  desde GitHub Packages mediante rango caret y lockfile, según su contrato arquitectónico.
 - La identidad DEBE usar Better Auth y Google OAuth; la base principal DEBE ser Neon Postgres,
   accedida mediante adapters de infraestructura y el contexto de request aprobado.
 - Los cambios de schema, relaciones, índices, constraints, funciones o policies DEBEN incluir
