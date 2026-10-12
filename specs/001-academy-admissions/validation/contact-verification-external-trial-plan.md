@@ -29,6 +29,16 @@ El usuario indicó el entorno local `https://dev-tutribu.app/test` y su líder a
 
 ## Ejecución y evidencia por canal
 
+### Bloqueo observado antes del primer envío
+
+La pantalla permitió preparar el intento de confirmación de Google, pero su callback no acreditó recencia. La inspección directa con `pg`, en transacción de sólo lectura sobre la copia propia, confirmó líder canónico y sesiones vigentes, intento consumido sin evidencia reciente, cero conexiones guardadas y cero operaciones de guardado. Del token server-only se contrastó únicamente presencia de claims en memoria: nonce presente y `auth_time` ausente; no se imprimió ni guardó el token o sus valores. No se sustituyó recencia por `iat`, sesión activa o un flag del navegador.
+
+La [documentación oficial de Google](https://developers.google.com/identity/siwg/security-bundle) exige habilitar Session age claims para recibir `auth_time` y que la app esté publicada y verificada. El usuario autorizó usar su Chrome: el proyecto TuTribu muestra OAuth en Prueba, ambos controles avanzados deshabilitados y publicación bloqueada por marca incompleta. Las URLs de homepage/privacidad/condiciones estaban vacías; los dominios y correos existentes se conservaron. Se propuso la homepage `https://tutribu.app/` y `/privacidad` con `/terminos` opcional. Chrome verificó que la homepage pública redirige a `https://www.tutribu.app/`; `/privacidad` devuelve 404. No se cargó una URL inexistente ni se publicó/verificó OAuth por inferencia. Esta preparación todavía no acredita OG-01/OG-02 ni autoriza omitirlos.
+
+El usuario también reportó un Runtime TypeError de `toLowerCase`. El stack corresponde al atajo de Sidebar de la biblioteca compartida, independiente del rechazo de recencia. Su arreglo probado pertenece a beez-ui y conserva su publicación/consumo separados; no se parcheó `node_modules` ni se contabilizó como ensayo de mensajes. El piloto conserva cero POST externos ejecutados y su autorización original de canales/destinos/límites.
+
+### Recorrido previsto por canal
+
 1. Leer la cuenta/sesión/rol, política ON, conexión/versión/capability y versión efectiva de uso; confirmar el scope privado exacto. Capturar sólo metadatos permitidos y tiempos, nunca material de autenticación.
 2. El líder pide el diagnóstico expresamente, recibe el mensaje en el destino autorizado e introduce el código en el formulario. Registrar recepción real, canal y remitente observados; la aceptación HTTP por sí sola no acredita recepción ni contacto del solicitante.
 3. El solicitante confirma un pedido de código de admisión. Registrar el marker y versión efectiva, un único POST, reserva/consumo y estado de transporte. Confirmar que todavía no hay proof, canje, binding ni membresía.
