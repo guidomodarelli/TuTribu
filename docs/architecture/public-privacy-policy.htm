@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Privacidad pública de TuTribu</title><style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.part-header{padding:32px 0 0;border-top:2px solid #1a1a1a;margin:56px 0 24px;}
+.part-header-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.part-header-title{font-size:22px;font-weight:600;line-height:1.2;color:#1a1a1a;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+.divider{height:1px;background:#e0ddd6;margin:28px 0;}
+</style></head><body>
+<header class="doc-header"><div class="doc-label">Arquitectura · Información pública</div><h1 class="doc-title">Política de privacidad pública</h1><p class="doc-sub">Página informativa accesible antes de iniciar sesión y enlazada desde la homepage.</p></header>
+<section class="section"><h2 class="section-title">Frontera pública</h2><p><code>app/(legal)/privacidad/page.tsx</code> compone <code>PrivacyPolicy</code>, un componente presentacional sin consulta de sesión, permisos, base de datos ni proveedores. La ruta estática <code>ROUTES.privacy</code> tiene su propio loading determinista. El componente comparte el provider y los enlaces de navegación de la aplicación; usa SCSS Modules con BEM y unidades fluidas.</p><p><code>HomePageView</code> muestra el enlace en sus estados anónimo, autenticado y pendiente. Leer la política no concede acceso a una tribu ni autoriza una acción de admisión.</p></section>
+<section class="section"><h2 class="section-title">Contenido y configuración</h2><p>El responsable y el correo de contacto públicos se mantienen en <code>siteConfig.privacy</code>, con datos expresamente aportados para esa finalidad. El correo sólo se presenta como enlace <code>mailto:</code>; abrir la página o ese enlace no envía un mensaje automáticamente.</p><p>La información describe los datos de Google utilizados para cuenta y perfil, contenidos y pertenencia a tribus, comprobaciones de contacto cuando están habilitadas, pagos, infraestructura, preferencias, soporte y solicitudes de corrección o eliminación. No promete purgas automáticas todavía pendientes de integración ni convierte la retirada de Google en borrado de datos del servicio.</p></section>
+<section class="section"><h2 class="section-title">Publicación y Google</h2><p>La página está preparada en la rama para revisión. Publicarla en <code>https://www.tutribu.app/privacidad</code> y modificar la marca, publicación o verificación de OAuth son pasos externos separados; su preparación no acredita ninguno de esos resultados. La homepage y la política deben compartir el dominio verificado, y el mismo enlace de privacidad debe figurar en la homepage y en la configuración de OAuth.</p><p>La información pública complementa los requisitos de <a href="https://support.google.com/cloud/answer/13464321">verificación de marca de Google</a>. Para recibir <code>auth_time</code>, Google exige publicación, verificación y habilitar Session age claims según su <a href="https://developers.google.com/identity/siwg/security-bundle">Security Bundle</a>. Una sesión abierta de TuTribu no sustituye esa evidencia.</p></section>
+<section class="section"><h2 class="section-title">Validación</h2><p><code>tests/e2e/privacy-policy.spec.ts</code> ejerce la ruta real del build productivo sin sesión, la visibilidad del responsable y contacto, el regreso al inicio y el enlace de entrada, además de detectar desbordes y errores de JavaScript. Se ejecuta en Chromium y WebKit, en escritorio y móvil. Los builds de revisión usan worktrees propios y configuración ficticia en memoria, sin copiar credenciales ni detener el piloto aislado.</p></section>
+</body></html>

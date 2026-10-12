@@ -7,7 +7,7 @@ const UI_TEST_ORIGIN = `http://127.0.0.1:${UI_TEST_PORT}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: "theme-provider.spec.ts",
+  testMatch: ["theme-provider.spec.ts", "privacy-policy.spec.ts"],
   use: { baseURL: UI_TEST_ORIGIN, trace: "retain-on-failure" },
   webServer: {
     command: `pnpm exec next start --port ${UI_TEST_PORT}`,

@@ -71,4 +71,5 @@ export const ROUTES = {
       `/${slug}/${TRIBE_ROUTE_SEGMENTS.invitation}/${token}`,
   },
   home: "/",
+  privacy: "/privacidad",
 } as const;

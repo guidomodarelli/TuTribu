@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- La política de privacidad puede consultarse sin iniciar sesión desde la página principal e incluye el contacto del responsable del servicio.
+
 - Las conexiones candidatas abandonadas pueden retirarse mediante el proceso interno después de siete días sin actividad, conservando la conexión seleccionada y el consumo original; la programación de esa limpieza sigue pendiente.
 
 - Los datos temporales del CSV y su reporte pueden eliminarse por lotes al vencer las veinticuatro horas, conservando la lista y los resultados ya confirmados; la ejecución programada sigue pendiente.
