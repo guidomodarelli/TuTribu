@@ -2,7 +2,7 @@
 /** Owns ephemeral key entry, current viewer checks and original-result recovery; the presenter never owns HTTP/auth/storage. @module messaging-connections-container */
 import {useCallback,useEffect,useEffectEvent,useRef,useState} from "react";
 import {NotificationRecoveryContainer} from "./notification-recovery-container";
-import {Button,toast} from "beez-ui";
+import {Button,toast} from "@guidomodarelli/beez-ui";
 import {Link} from "@/components/navigation/link";
 import {MessagingConnectionDiagnostic} from "@/components/academy-admissions/messaging-connection-diagnostic";
 import {MessagingDiagnosticHistory} from "@/components/academy-admissions/messaging-diagnostic-history";

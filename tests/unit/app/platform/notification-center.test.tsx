@@ -6,7 +6,7 @@ import {
   type AppRouterInstance,
 } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { toast } from "beez-ui";
+import { toast } from "@guidomodarelli/beez-ui";
 
 import { NotificationCenter } from "@/app/(platform)/notification-center";
 import { NOTIFICATION_UNREAD_POLL_INTERVAL_MS } from "@/hooks/use-notification-center";
@@ -14,8 +14,8 @@ import type { NotificationInboxResponse } from "@/src/modules/notifications/appl
 
 // Preserve the existing Sonner double used by the events tests: it isolates
 // Sonner's timers and global store; `promise` only records its lifecycle copy.
-vi.mock("beez-ui", async () => ({
-  ...(await vi.importActual<typeof import("beez-ui")>("beez-ui")),
+vi.mock("@guidomodarelli/beez-ui", async () => ({
+  ...(await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui")),
   toast: {
     error: vi.fn(),
     promise: vi.fn(),

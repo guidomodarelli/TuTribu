@@ -184,15 +184,15 @@ importers:
       '@github/relative-time-element':
         specifier: ^5.0.0
         version: 5.0.0
+      '@guidomodarelli/beez-ui':
+        specifier: ^0.13.0
+        version: 0.13.0(@date-fns/tz@1.5.0)(@tanstack/react-router@1.170.42(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@next/env':
         specifier: ^16.3.4
         version: 16.3.4
       '@zavudev/sdk':
         specifier: 0.57.0
         version: 0.57.0
-      beez-ui:
-        specifier: npm:@guidomodarelli/beez-ui@^0.12.0
-        version: '@guidomodarelli/beez-ui@0.12.0(@date-fns/tz@1.5.0)(@tanstack/react-router@1.170.42(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)'
       better-auth:
         specifier: ^1.6.11
         version: 1.6.11(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@types/pg@8.20.0)(kysely@0.28.17)(pg@8.21.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(pg@8.21.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@5.0.0(@types/node@24.13.4)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.2.2(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.6.1)(sass@1.100.0)(terser@5.16.9)(tsx@4.21.0)(yaml@2.9.0)))
@@ -1755,8 +1755,8 @@ packages:
   '@github/relative-time-element@5.0.0':
     resolution: {integrity: sha512-L/2r0DNR/rMbmHWcsdmhtOiy2gESoGOhItNFD4zJ3nZfHl79Dx3N18Vfx/pYr2lruMOdk1cJZb4wEumm+Dxm1w==}
 
-  '@guidomodarelli/beez-ui@0.12.0':
-    resolution: {integrity: sha512-RTvLxMWqzlNOjvFmhbLspyG7lknP//QmVrshWP1aWYoxI+eWaHdOfjfHIPj1ezm2YKc5xPENJHDnXesMC3IjyA==, tarball: https://npm.pkg.github.com/download/@guidomodarelli/beez-ui/0.12.0/0d4125de5910587e41fd7f98061c15af1fbdf716}
+  '@guidomodarelli/beez-ui@0.13.0':
+    resolution: {integrity: sha512-QBaCvYSgUZVOSbcw90a4sWulYgtMZdppVy5EW1nZ5t6D86MAvsza8y+pWKzTzc+ER8zAq6YNesBp3w0jhfkhlQ==, tarball: https://npm.pkg.github.com/download/@guidomodarelli/beez-ui/0.13.0/2c5627d6934db0357b8d025e8244f24c660bdf93}
     engines: {node: '>=22', pnpm: '>=12 <13'}
     peerDependencies:
       '@tanstack/react-router': ^1.170.33
@@ -7455,7 +7455,7 @@ snapshots:
 
   '@github/relative-time-element@5.0.0': {}
 
-  '@guidomodarelli/beez-ui@0.12.0(@date-fns/tz@1.5.0)(@tanstack/react-router@1.170.42(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@guidomodarelli/beez-ui@0.13.0(@date-fns/tz@1.5.0)(@tanstack/react-router@1.170.42(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@base-ui/react': 1.8.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-router': 1.170.42(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

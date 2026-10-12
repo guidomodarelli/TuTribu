@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { useSidebar } from "beez-ui";
+import { useSidebar } from "@guidomodarelli/beez-ui";
 import { cookies, headers } from "next/headers";
 
 import { PlatformLayoutContent } from "@/app/(platform)/layout";

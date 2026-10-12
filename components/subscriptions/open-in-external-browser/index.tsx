@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Button, AnimatedCount } from "beez-ui";
+import { Button, AnimatedCount } from "@guidomodarelli/beez-ui";
 import { navigateToUrl } from "@/lib/browser-navigation";
 import styles from "./styles.module.scss";
 

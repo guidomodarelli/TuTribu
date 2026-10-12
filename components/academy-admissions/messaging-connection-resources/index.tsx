@@ -1,7 +1,7 @@
 "use client";
 /** Presents explicit channel/resource choices without session, transport, SDK or persistence ownership. @module messaging-connection-resources */
 import {useId} from "react";
-import {Button,Checkbox,Input,Label,Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "beez-ui";
+import {Button,Checkbox,Input,Label,Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@guidomodarelli/beez-ui";
 import type {MessagingResourcePageResult} from "@/src/modules/messaging/application/results/messaging-resource-page-result";
 import {MESSAGING_PUBLIC_CHANNEL,MESSAGING_RESOURCE_READINESS} from "@/src/modules/messaging/constants/messaging-public-contract";
 import {MESSAGING_CHANNEL_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";

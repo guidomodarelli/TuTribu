@@ -1,7 +1,7 @@
 "use client";
 
 /** Owns safe render-error recovery; the runtime exception is never displayed. @module admission-route-error */
-import { Button } from "beez-ui";
+import { Button } from "@guidomodarelli/beez-ui";
 import { Link } from "@/components/navigation/link";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { ROUTES } from "@/src/constants/routes";

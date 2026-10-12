@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AccountMenu, toast } from "beez-ui";
+import { AccountMenu, toast } from "@guidomodarelli/beez-ui";
 
 import { useMemberSessionKeepAlive } from "@/hooks/use-member-session-keep-alive";
 import { replaceCurrentPageWithUrl } from "@/lib/browser-navigation";

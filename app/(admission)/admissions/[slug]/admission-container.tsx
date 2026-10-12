@@ -2,7 +2,7 @@
 
 /** Owns the single browser workflow, native viewer checks and durable local intent recovery. @module admission-container */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, toast } from "beez-ui";
+import { Button, toast } from "@guidomodarelli/beez-ui";
 import { ContactVerification } from "@/components/academy-admissions/contact-verification";
 import { useAdmissionContactVerification } from "@/hooks/use-admission-contact-verification";
 import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";

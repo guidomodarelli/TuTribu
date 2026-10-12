@@ -1,7 +1,7 @@
 "use client";
 /** Presents safe current connection metadata and controlled credential entry without auth, transport or storage ownership. @module messaging-connections-presenter */
 import {useId} from "react";
-import {Button,Checkbox,Input,Label} from "beez-ui";
+import {Button,Checkbox,Input,Label} from "@guidomodarelli/beez-ui";
 import type {MessagingConfigurationResult,MessagingConfigurationConnection} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import {MESSAGING_CONNECTION_LABEL,MESSAGING_CREDENTIAL_LABEL,MESSAGING_CREDENTIAL_MODE_LABEL,MESSAGING_CAPABILITY_LABEL,MESSAGING_CHANNEL_LABEL,MESSAGING_OPERATIONAL_ALERT_LABEL} from "@/src/modules/messaging/constants/messaging-connection-presentation";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";

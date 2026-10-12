@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { AnimatePresence } from "motion/react";
 import { ChevronDownIcon } from "lucide-react";
-import { Button, AnimatedListItem } from "beez-ui";
+import { Button, AnimatedListItem } from "@guidomodarelli/beez-ui";
 
 import { TribeEventsAgendaDay } from "@/components/events/tribe-events-agenda-day";
 import type { TribeEventsAgendaDay as TribeEventsAgendaDayGroup } from "@/lib/events/tribe-events-calendar-grid";

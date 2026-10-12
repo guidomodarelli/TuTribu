@@ -169,8 +169,8 @@
               "@/src/features/*",
               "src/features/*",
               "@/components/ui/*",
-              "beez-ui/*",
-              "!beez-ui/hooks"
+              "@guidomodarelli/beez-ui/*",
+              "!@guidomodarelli/beez-ui/hooks"
             ]
           }
         ]
@@ -188,9 +188,9 @@
               "@/src/features/*",
               "src/features/*",
               "@/components/ui/*",
-              "beez-ui/*",
-              "!beez-ui/hooks",
-              "!beez-ui/next"
+              "@guidomodarelli/beez-ui/*",
+              "!@guidomodarelli/beez-ui/hooks",
+              "!@guidomodarelli/beez-ui/next"
             ]
           }
         ]
@@ -210,8 +210,8 @@
                   "@/src/features/*",
                   "src/features/*",
                   "@/components/ui/*",
-                  "beez-ui/*",
-                  "!beez-ui/hooks",
+                  "@guidomodarelli/beez-ui/*",
+                  "!@guidomodarelli/beez-ui/hooks",
                   "@/src/modules/setup",
                   "@/src/modules/setup.*",
                   "@/src/modules/*/setup",
@@ -244,8 +244,8 @@
                   "@/src/features/*",
                   "src/features/*",
                   "@/components/ui/*",
-                  "beez-ui/*",
-                  "!beez-ui/hooks",
+                  "@guidomodarelli/beez-ui/*",
+                  "!@guidomodarelli/beez-ui/hooks",
                   "@/src/modules/setup",
                   "@/src/modules/setup.*",
                   "@/src/modules/*/setup",

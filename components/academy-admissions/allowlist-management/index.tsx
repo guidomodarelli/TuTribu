@@ -1,7 +1,7 @@
 "use client";
 /** Presents controlled list search and entry configuration without session, transport, clocks or storage. @module allowlist-management */
 import { useId } from "react";
-import { Button, Checkbox, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "beez-ui";
+import { Button, Checkbox, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@guidomodarelli/beez-ui";
 import type { AllowlistEntryResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
 import type { AllowlistDraft } from "@/src/modules/academy-admissions/application/commands/allowlist-browser-intent";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";

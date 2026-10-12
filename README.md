@@ -27,17 +27,16 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 - pnpm 12 (pinned through `packageManager`; run `corepack enable` and the pinned version is used automatically)
 - Access to a Neon Postgres database
 - Google OAuth credentials for sign-in
-- GitHub Packages read access for `@guidomodarelli/beez-ui`; provide trusted user-level pnpm auth or `PNPM_CONFIG__AUTH` bound to `https://npm.pkg.github.com` and the `@guidomodarelli` scope before installation. GitHub Actions uses its repository token with `packages: read` and package access granted to this repository. Local and deployment credentials stay outside version control.
+- GitHub Packages read access for `@guidomodarelli/beez-ui`; provide a `read:packages` token in your user-level `~/.npmrc` before installation (Vercel uses the `NPM_RC` environment variable). GitHub Actions uses its repository token with `packages: read` and package access granted to this repository. Local and deployment credentials stay outside version control.
 
 ## Setup
 
-1. Install dependencies:
+1. Install dependencies. `@guidomodarelli/beez-ui` is served from GitHub Packages, so add a GitHub token with the `read:packages` scope to your user-level `~/.npmrc` first (pnpm 12 ignores credentials in the repository `.npmrc`):
 
    ```bash
+   echo "//npm.pkg.github.com/:_authToken=<token with read:packages>" >> ~/.npmrc
    pnpm install --frozen-lockfile
    ```
-
-   The dependency alias `beez-ui` resolves to the published `@guidomodarelli/beez-ui` package in GitHub Packages. Existing imports stay unchanged; the lockfile pins the exact published artifact. Deployment builds require the same registry read access through their private environment settings.
 
 2. Create `.env.local` from `.env.example` and fill in the values (see [Environment](#environment)).
 3. Apply database migrations:
@@ -202,7 +201,7 @@ Notes:
   - `infrastructure/` — adapters for auth, persistence, HTTP clients, and provider SDKs. Owns external DTOs and their mappers.
 - `src/modules/shared/*` — cross-module shared code (e.g. `infrastructure/database/`).
 - `beez-ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
-- `beez-ui@^0.6.0` — shared UI package installed from npm, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
+- `@guidomodarelli/beez-ui@^0.13.0` — shared UI package installed from GitHub Packages (requires a `read:packages` token in `~/.npmrc`), with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
 - `components/<scope>/<component>/{index.tsx,styles.module.scss}` — custom presentational components.
 - `lib/*` — framework-safe helpers, UI utilities, and client-only adapters. Off-limits to `application` and `domain`.
 - `database/migrations/*` — versioned SQL migrations (source of truth for schema and RLS policies).

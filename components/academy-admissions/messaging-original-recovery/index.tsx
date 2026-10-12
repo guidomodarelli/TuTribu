@@ -1,7 +1,7 @@
 "use client";
 /** Presents explicit original continuation without owning transport, credentials, storage or authority. @module messaging-original-recovery */
 import {useId} from "react";
-import {Button,Checkbox,Label} from "beez-ui";
+import {Button,Checkbox,Label} from "@guidomodarelli/beez-ui";
 import {MESSAGING_CONNECTION_RECOVERY_UI_COPY} from "@/src/modules/messaging/constants/messaging-connections-browser";
 import styles from "./styles.module.scss";
 

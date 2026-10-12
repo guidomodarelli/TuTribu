@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WhatsappIcon, cn } from "beez-ui";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WhatsappIcon, cn } from "@guidomodarelli/beez-ui";
 
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";

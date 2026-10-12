@@ -1,6 +1,6 @@
 /** Presents the single country/quota owner without auth, provider or HTTP dependencies. @module messaging-usage */
 import { useId } from "react";
-import { Button, Checkbox, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "beez-ui";
+import { Button, Checkbox, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@guidomodarelli/beez-ui";
 import type { MessagingUsagePolicyStateDto } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import type { MessagingUsageDraft, MessagingUsageCountryChoice } from "@/src/modules/messaging/application/commands/messaging-usage-draft";
 import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messaging-limits";

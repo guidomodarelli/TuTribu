@@ -1,7 +1,7 @@
 "use client";
 /** Owns native viewer checks and original usage recovery; all form controls remain callback-only. @module messaging-usage-container */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "beez-ui";
+import { toast } from "@guidomodarelli/beez-ui";
 import type { MessagingUsagePageState } from "@/src/modules/messaging/application/results/messaging-usage-page-state";
 import type { MessagingUsageBrowserClient } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
 import type { MessagingUsageReauthenticationClient } from "@/src/modules/messaging/application/ports/messaging-usage-reauthentication-client";

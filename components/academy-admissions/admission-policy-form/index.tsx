@@ -1,5 +1,5 @@
 /** Renders policy editing and explicit confirmation from current props, without session or HTTP dependencies. @module admission-policy-form */
-import { Button, Checkbox, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from "beez-ui";
+import { Button, Checkbox, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from "@guidomodarelli/beez-ui";
 import { useId } from "react";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionPolicyDraft } from "@/src/modules/academy-admissions/application/commands/admission-policy-draft";

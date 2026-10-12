@@ -2,7 +2,7 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { act, render as renderComponent, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { useTheme } from "beez-ui";
+import { useTheme } from "@guidomodarelli/beez-ui";
 import userEvent from "@testing-library/user-event";
 
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";

@@ -1,6 +1,6 @@
 /** Presents authorized review state and callbacks without importing auth or HTTP adapters. @module admission-review */
 import { useId } from "react";
-import { Button, Checkbox, Textarea } from "beez-ui";
+import { Button, Checkbox, Textarea } from "@guidomodarelli/beez-ui";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_ELIGIBILITY_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";

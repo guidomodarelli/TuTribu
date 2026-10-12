@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { cn } from "beez-ui";
+import { cn } from "@guidomodarelli/beez-ui";
 import {
   MapPinIcon,
   MessageCircleQuestionIcon,

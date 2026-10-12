@@ -1,7 +1,7 @@
 "use client";
 /** Presents explicit scoped diagnostic input and safe issued metadata without session, HTTP, provider or polling ownership. @module messaging-connection-diagnostic */
 import {useId} from "react";
-import {Button,Checkbox,Input,Label,Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "beez-ui";
+import {Button,Checkbox,Input,Label,Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from "@guidomodarelli/beez-ui";
 import {Link} from "@/components/navigation/link";
 import type {ConnectionDiagnosticIssueResult} from "@/src/modules/messaging/domain/repositories/connection-diagnostic-issuance";
 import type {MessagingUsagePolicyStateDto} from "@/src/modules/messaging/application/results/messaging-public-result-schemas";

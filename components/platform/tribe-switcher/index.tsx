@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Badge, cn } from "beez-ui";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Badge, cn } from "@guidomodarelli/beez-ui";
 
 
 import { ROUTES } from "@/src/constants/routes";

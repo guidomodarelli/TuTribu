@@ -1,7 +1,7 @@
 "use client";
 /** Owns one viewer-scoped CSV draft, explicit writes and read-only original/current recovery. @module use-allowlist-import-workflow */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "beez-ui";
+import { toast } from "@guidomodarelli/beez-ui";
 import type { AllowlistImportPageState } from "@/src/modules/academy-admissions/application/results/allowlist-import-page-state";
 import type { AllowlistImportBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-import-browser-client";
 import type { AllowlistBrowserResult } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";

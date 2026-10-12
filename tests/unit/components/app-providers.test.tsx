@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import { Avatar, AvatarImage } from "beez-ui";
+import { Avatar, AvatarImage } from "@guidomodarelli/beez-ui";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 import type { ReactNode } from "react";
 

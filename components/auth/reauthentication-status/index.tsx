@@ -1,5 +1,5 @@
 /** Renders only owned state and callbacks; it never resolves a session or calls an adapter. */
-import { Button } from "beez-ui";
+import { Button } from "@guidomodarelli/beez-ui";
 import { Link } from "@/components/navigation/link";
 import { ROUTES } from "@/src/constants/routes";
 import type { ReauthenticationPageState } from "@/src/modules/auth/application/results/reauthentication-page-result";

@@ -6,8 +6,7 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 minimumReleaseAgeExclude:
-  - beez-ui
-  - '@guidomodarelli/beez-ui'
+  - "@guidomodarelli/beez-ui"
   - beez-rp
   - react-dom@19.3.0
   - react@19.3.0

@@ -185,14 +185,14 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 ### UI baseline
 
 - Use `beez-ui` as the only shared component library consumed by product code.
-- Group named imports from `beez-ui`; do not use component-specific subpaths. General-purpose hooks (`useIsMobile`, `useIsHydrated`, `useViewerTimeZone`, `useHorizontalSwipe`) come from the `beez-ui/hooks` entrypoint.
-- `components/providers/app-providers/app-ui-provider.tsx` is the composition root allowed to import `BeezUIProvider` from `beez-ui/next`. Use `useTheme` from `beez-ui` for theme consumers and preserve the `tutribu-theme` storage key. Do not reintroduce document theme scripts or independent preference state.
+- Group named imports from `@guidomodarelli/beez-ui` (the `beez-ui` package published to GitHub Packages); do not use component-specific subpaths. General-purpose hooks (`useIsMobile`, `useIsHydrated`, `useViewerTimeZone`, `useHorizontalSwipe`) come from the `@guidomodarelli/beez-ui/hooks` entrypoint.
+- `components/providers/app-providers/app-ui-provider.tsx` is the composition root allowed to import `BeezUIProvider` from `@guidomodarelli/beez-ui/next`. Use `useTheme` from `@guidomodarelli/beez-ui` for theme consumers and preserve the `tutribu-theme` storage key. Do not reintroduce document theme scripts or independent preference state.
 - The sibling `beez-ui` repository owns the extracted shadcn/ui components and their customizations.
 - Add new shadcn/ui components through its official CLI in that library, never in this application.
 - Do not reintroduce `components/ui` source copies or a local `components.json`.
 - Prefer composition of existing shared primitives before custom product components.
-- Import browser-ready `beez-ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the default LaTribu theme and fonts; product SCSS Modules and explicit overrides stay here.
-- Use pnpm 12.6.0 and consume published `@guidomodarelli/beez-ui` releases from GitHub Packages with a caret range through the `beez-ui` npm alias. Preserve the product imports and update package.json and pnpm-lock.yaml together; do not vendor local tarballs. Supply registry credentials through `PNPM_CONFIG__AUTH` bound to `https://npm.pkg.github.com` and `@guidomodarelli`, or trusted user-level pnpm auth configuration; never commit their values or place environment auth placeholders in the project `.npmrc`.
+- Import browser-ready `@guidomodarelli/beez-ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the default LaTribu theme and fonts; product SCSS Modules and explicit overrides stay here.
+- Use pnpm 12.6.0 and consume published `@guidomodarelli/beez-ui` releases from GitHub Packages with a caret range. `.npmrc` maps the `@guidomodarelli` scope to `https://npm.pkg.github.com`; the token (`read:packages`) lives only in the user-level `~/.npmrc` as `//npm.pkg.github.com/:_authToken=<token>`, because pnpm 12 ignores credentials in repository-controlled `.npmrc` files; never commit the token. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
 - Follow `docs/architecture/shared-ui-library.htm` for package boundaries and distribution.
 - Structure rule for custom components :
   - Applies to manually created components under `components/*`.

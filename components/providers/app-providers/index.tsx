@@ -2,7 +2,7 @@
 
 /** Composes the shared UI provider with application notifications and Siteping. */
 import { Suspense, type ReactNode } from "react";
-import { Toaster, useTheme } from "beez-ui";
+import { Toaster, useTheme } from "@guidomodarelli/beez-ui";
 
 import { PrivateAwareSiteping } from "@/components/providers/private-aware-siteping";
 import { DARK_THEME_MODE, LIGHT_THEME_MODE } from "@/src/constants/theme-mode";
