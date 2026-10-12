@@ -1079,6 +1079,13 @@
       "when": 1791792000000,
       "tag": "20261012080000_claim_expired_messaging_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1791835200000,
+      "tag": "20261012200000_minimize_expired_allowlist_import_material",
+      "breakpoints": true
     }
   ]
 }
