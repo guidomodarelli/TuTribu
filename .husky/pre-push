@@ -1,2 +1,0 @@
-# Gates branches other than main; validates only the clean checked-out HEAD.
-node scripts/pre-push-gate.mjs

@@ -263,11 +263,11 @@ sin crear agrupaciones genéricas de valores no relacionados.
    o iniciarlo con `pnpm run dev`, y usar `https://dev-tutribu.app`. `pnpm run dev:next`
    se reserva para el entorno automatizado documentado. La UI DEBE verificarse en Chromium
    y WebKit, escritorio y móvil; cualquier motor no ejercitado DEBE reportarse con su bloqueo.
-7. El gate completo `pnpm run ci` DEBE mantenerse en Husky `pre-push` para ramas distintas
-   de `main`, sobre el `HEAD` limpio que se publica y con instalación congelada. NO DEBE
-   eludirse un fallo real con `--no-verify`, desactivar lint ni duplicar el gate completo
-   en hooks de agentes. El build de deployment NO reemplaza el gate; no se requiere un
-   gate de GitHub Actions. Las condiciones exactas se rigen por
+7. El gate completo `pnpm run ci` DEBE ejecutarse en GitHub Actions
+   (`.github/workflows/quality-gate.yml`) en cada push de rama, pull request y corrida
+   manual, con instalación congelada. NO DEBE desactivarse el workflow para mergear código
+   que falla, desactivar lint ni duplicar el gate completo en hooks de agentes. El build
+   de deployment NO reemplaza el gate. Las condiciones exactas se rigen por
    [repository-quality-gate.htm](../../docs/conventions/repository-quality-gate.htm).
 
 ## Governance
