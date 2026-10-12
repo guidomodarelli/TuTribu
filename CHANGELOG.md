@@ -103,6 +103,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Los eventos de teclado sin una tecla válida ya no interrumpen la navegación lateral; los atajos con Ctrl y Cmd siguen disponibles.
+
 - Una academia que ya activó su control de admisión conserva la entrada mediante solicitud aunque se pierda su configuración, sin volver a ofrecer un ingreso directo.
 
 - Se puede llegar con el teclado al enlace para volver a solicitar ingreso después de cancelar una solicitud.
