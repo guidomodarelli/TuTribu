@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 /** Exercises the actual SDK through a closed own HTTP transport; no SDK or crypto library is mocked. @module zavu-message-delivery-sender-tests */
-import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { randomInt, randomUUID } from "node:crypto";
+import { describe, expect, it, vi } from "vitest";
 import { createAdmissionProviderTransport } from "@/tests/support/admission-provider-transport";
 import { ZavuMessageDeliverySender } from "@/src/modules/messaging/infrastructure/zavu/zavu-message-delivery-sender";
 import type { PreparedVerificationDelivery } from "@/src/modules/messaging/infrastructure/zavu/verification-delivery-preparation";
@@ -19,6 +19,30 @@ function preparedFixture(channel: "email" | "sms" | "whatsapp" = "email") {
 }
 
 describe("real SDK message sender", () => {
+  it.each(["email", "sms", "whatsapp"] as const)("should keep the scoped credential, delivered code and private upstream failure out of final SDK console output for %s", async (channel) => {
+    const fixture = preparedFixture(channel), upstreamCanary = randomUUID();
+    fixture.prepared.intent.code = String(randomInt(100_000, 1_000_000));
+    const captured: unknown[][] = [], spies = [vi.spyOn(console, "error"), vi.spyOn(console, "warn"), vi.spyOn(console, "info"), vi.spyOn(console, "debug"), vi.spyOn(console, "log")];
+    for (const spy of spies) spy.mockImplementation((...values: unknown[]) => { captured.push(values); });
+    try {
+      const transport = createAdmissionProviderTransport([{ origin: "https://api.zavu.dev", pathname: "/v1/messages", method: "POST", respond: async (request) => {
+        expect(request.headers.get("Authorization") === `Bearer ${fixture.prepared.credential}`).toBe(true);
+        const body = await request.json() as { text?: string; content?: { templateVariables?: Record<string, string> } };
+        const sentCode = channel === "whatsapp" ? body.content?.templateVariables?.["1"] : body.text?.match(/\b\d{6}\b/u)?.[0];
+        expect(sentCode === fixture.prepared.intent.code).toBe(true);
+        return Response.json({ error: { message: `Synthetic upstream failure ${upstreamCanary} ${fixture.prepared.credential} ${fixture.prepared.intent.code}` } }, { status: 503 });
+      } }]);
+      const sender = new ZavuMessageDeliverySender({ prepare: async () => fixture.prepared }, transport.fetch);
+      const receipt = await sender.send(fixture.context, new AbortController().signal);
+      expect(receipt).toMatchObject({ outcome: "unknown", reason: "delivery_unknown", providerMessageId: null });
+      expect(transport.receipts).toHaveLength(1);
+      expect(transport.deniedRequests).toBe(0);
+      expect(captured.length).toBe(0);
+      const finalOutput = JSON.stringify({ logs: captured, receipt, transport: transport.receipts });
+      expect([fixture.prepared.credential, fixture.prepared.intent.code, upstreamCanary].some((privateValue) => finalOutput.includes(privateValue))).toBe(false);
+    } finally { for (const spy of spies) spy.mockRestore(); }
+  });
+
   it("should preserve original preparation cancellation when the prepared operation receives a separate RPC signal",async()=>{
     const fixture=preparedFixture(),transport=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:"/v1/messages",method:"POST",respond:()=>Response.json({message:{id:randomUUID(),direction:"outbound",channel:"email",status:"sent"}})}]),controller=new AbortController(),sender=new ZavuMessageDeliverySender({prepare:async()=>fixture.prepared},transport.fetch);
     const operation=await sender.prepare(fixture.context,controller.signal);expect(transport.receipts).toHaveLength(0);controller.abort();
