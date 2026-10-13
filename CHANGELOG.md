@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- El acceso con Google deja de estar limitado a las cuentas de prueba; la confirmación de identidad para conexiones de mensajería sigue pendiente de la verificación de la marca.
+
 ## [1.2.1] - 2026-10-12
 
 ### Fixed
