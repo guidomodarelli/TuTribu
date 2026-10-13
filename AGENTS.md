@@ -53,7 +53,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ### Changelog governance
 
 - Every change that alters product behavior, user-facing UI or copy, data handling, permissions, or deployed configuration must update `CHANGELOG.md` in the same work item.
-- Add entries only inside the `## [Unreleased]` block, never under an already released version. Never write the version or the date by hand: `pnpm create-version` renames `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` in the version commit and leaves an empty `[Unreleased]` block on top. This requires the beez-rp minor that introduces automatic section closing (after 0.7.x); with beez-rp 0.7.x the command keeps `CHANGELOG.md` untouched.
+- Add entries only inside the `## [Unreleased]` block, never under an already released version. Never write the version or the date by hand: `pnpm create-version` renames `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` in the version commit and leaves an empty `[Unreleased]` block on top. This is the behavior of beez-rp 0.8.0: the release stops when `[Unreleased]` is missing or has no entries.
 - Follow [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/): group entries only under these sections, in this order, omitting empty ones: `### Added`, `### Changed`, `### Deprecated`, `### Removed`, `### Fixed`, `### Security`.
 - Write one `- ` line per change, in Spanish, describing what changes for TuTribu users (members and tribe creators), without internal implementation details.
 - Changes with no effect for users (tests, internal refactors, local tooling, agent instructions) do not need an entry.
