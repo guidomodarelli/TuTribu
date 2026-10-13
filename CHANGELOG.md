@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-10-13
+
 ### Changed
 
 - La aplicación adopta un diseño renovado: colores, superficies y bordes más sobrios, esquinas más redondeadas, botones más altos y cómodos de tocar, el azul como color de acento, la tipografía Inter para el texto y fondos lisos.
@@ -21,13 +23,15 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - La política de privacidad puede consultarse sin iniciar sesión desde la página principal e incluye el contacto del responsable del servicio.
 
-### Changed
-
-- Los botones de la aplicación adoptan un estilo renovado: el botón principal usa el color de texto del tema, responde al presionarlo y anima su ancho cuando cambia su texto.
-
 ### Fixed
 
 - Las actualizaciones del servicio comprueban sus dependencias y el esquema existente antes de publicarse.
+
+## [1.1.4] - 2026-10-12
+
+### Changed
+
+- Los botones de la aplicación adoptan un estilo renovado: el botón principal usa el color de texto del tema, responde al presionarlo y anima su ancho cuando cambia su texto.
 
 ## [1.1.3] - 2026-10-04
 
