@@ -75,6 +75,7 @@ export class ReadReauthenticationIntentUseCase {
     if(intent.status!==GLOBAL_REAUTHENTICATION_INTENT_STATE.consumed) return {ok:true,value:projectIntent(intent,REAUTHENTICATION_INTENT_OUTCOME.pending)};
     const scope={userId:account.userId,sessionId:account.session.id,accountId:account.googleAccount.id,subject:account.googleAccount.subject,tribeId:intent.tribeId,operation:intent.operation,resourceId:intent.resourceId};
     const evidence=account.recentAuthentication.find((candidate)=>candidate.intentId===intent.id&&evaluateRecentAuthentication({now,scope,evidence:candidate,sessionActive:now<account.session.expiresAt,currentLeaderUserId:account.userId}).allowed);
+    if(!evidence&&now.getTime()>=intent.expiresAt.getTime()) return {ok:true,value:projectIntent(intent,REAUTHENTICATION_INTENT_OUTCOME.expired)};
     return {ok:true,value:projectIntent(intent,evidence?REAUTHENTICATION_INTENT_OUTCOME.verified:REAUTHENTICATION_INTENT_OUTCOME.required,evidence?.validUntil)};
   }
 }

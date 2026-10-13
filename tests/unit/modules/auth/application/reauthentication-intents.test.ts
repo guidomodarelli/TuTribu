@@ -67,6 +67,26 @@ describe("reauthentication intent use cases",()=>{
     expect(await useCase.execute({intentId:fixture.intent.id})).toMatchObject({ok:true,value:{state:"consumed",outcome:"reauthentication_required"}});
   });
 
+  it.each([0,1])("should show a consumed attempt as expired without rewriting its history at deadline offset %s",async(offset)=>{
+    // Arrange: a closed callback has no current operation-scoped evidence.
+    const fixture=scenario();fixture.intent.status="consumed";fixture.intent.consumedAt=fixture.now;
+    const now=new Date(fixture.intent.expiresAt.getTime()+offset);
+    const useCase=new ReadReauthenticationIntentUseCase({getAuthenticatedAccount:async()=>fixture.account},fixture.repository,()=>now);
+    // Act and assert: expiry needs a new attempt, without another write or nonce.
+    expect(await useCase.execute({intentId:fixture.intent.id})).toMatchObject({ok:true,value:{state:"consumed",outcome:"expired",safeMessage:"La solicitud de autenticación venció. Iniciá una nueva."}});
+    expect(fixture.intent.status).toBe("consumed");expect(fixture.calls).toEqual([]);
+  });
+
+  it("should keep separately issued current evidence valid after the original intent deadline",async()=>{
+    const fixture=scenario();fixture.intent.status="consumed";fixture.intent.nonceHash=new Uint8Array(32);
+    fixture.intent.createdAt=new Date(fixture.now.getTime()-60_000);
+    fixture.intent.consumedAt=new Date(fixture.now.getTime()-1000);
+    fixture.intent.expiresAt=new Date(fixture.now.getTime()-1);
+    fixture.account.recentAuthentication=[{id:randomUUID(),intentId:fixture.intent.id,userId:fixture.account.userId,accountId:fixture.account.googleAccount!.id,subject:fixture.account.googleAccount!.subject,sessionId:fixture.account.session.id,tribeId:fixture.intent.tribeId,operation:fixture.intent.operation,resourceId:fixture.intent.resourceId,authenticatedAt:fixture.intent.consumedAt,verifiedAt:fixture.intent.consumedAt,validUntil:new Date(fixture.now.getTime()+60_000),invalidatedAt:null}];
+    const useCase=new ReadReauthenticationIntentUseCase({getAuthenticatedAccount:async()=>fixture.account},fixture.repository,()=>fixture.now);
+    expect(await useCase.execute({intentId:fixture.intent.id})).toMatchObject({ok:true,value:{state:"consumed",outcome:"verified"}});
+  });
+
   it("should show only current session and exact operation recency",async()=>{
     const fixture=scenario();fixture.intent.status="consumed";fixture.intent.nonceHash=new Uint8Array(32);fixture.intent.consumedAt=fixture.now;
     fixture.account.recentAuthentication=[{id:randomUUID(),intentId:fixture.intent.id,userId:fixture.account.userId,accountId:fixture.account.googleAccount!.id,subject:fixture.account.googleAccount!.subject,sessionId:fixture.account.session.id,tribeId:fixture.intent.tribeId,operation:fixture.intent.operation,resourceId:fixture.intent.resourceId,authenticatedAt:new Date(fixture.now.getTime()-1000),verifiedAt:fixture.now,validUntil:new Date(fixture.now.getTime()+599_000),invalidatedAt:null}];
