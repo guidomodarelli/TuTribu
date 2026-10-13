@@ -137,11 +137,9 @@ export function TribeNextEvent({
       </div>
       <div className={styles.TribeNextEvent__actions}>
         {joinUrl ? (
-          <Button asChild className={styles.TribeNextEvent__join} size={BUTTON_ATTRIBUTE.sizeSmall}>
-            <a href={joinUrl} rel={LINK_ATTRIBUTE.noreferrer} target={LINK_ATTRIBUTE.targetBlank}>
+          <a className={styles.TribeNextEvent__join} href={joinUrl} rel={LINK_ATTRIBUTE.noreferrer} target={LINK_ATTRIBUTE.targetBlank}>
               {COPY.join}
             </a>
-          </Button>
         ) : null}
         <TribeEventAttendanceOptions
           isSaving={isSavingAttendance}

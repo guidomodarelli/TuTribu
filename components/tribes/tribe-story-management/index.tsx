@@ -132,12 +132,12 @@ const STORY_MANAGEMENT_REQUEST = {
   buttonType: "button",
   contentTypeHeader: "Content-Type",
   deleteMethod: "DELETE",
-  destructiveVariant: "destructive",
+  dangerVariant: "danger",
   fileFormField: "file",
-  iconButtonSize: "icon",
+  iconButtonSize: "sm",
   imageAcceptTypes: "image/*",
   jsonContentType: "application/json",
-  outlineVariant: "outline",
+  secondaryVariant: "secondary",
   postMethod: "POST",
   putMethod: "PUT",
   submitButtonType: "submit",
@@ -489,12 +489,7 @@ type ImageUploadButtonProps = {
  */
 function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonProps) {
   return (
-    <Button
-      asChild
-      className={styles.TribeStoryManagement__uploadButton}
-      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
-    >
-      <label data-disabled={isUploading ? true : undefined}>
+    <label className={styles.TribeStoryManagement__uploadButton} data-disabled={isUploading ? true : undefined}>
         <UploadIcon />
         {isUploading
           ? TRIBE_STORY_MANAGEMENT_COPY.uploadingButton
@@ -512,7 +507,6 @@ function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonPro
           type="file"
         />
       </label>
-    </Button>
   );
 }
 
@@ -1032,7 +1026,7 @@ export function TribeStoryManagement({
       onClick={handleAddMediaItem}
       ref={addMediaButtonRef}
       type={STORY_MANAGEMENT_REQUEST.buttonType}
-      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+      variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
     >
       <PlusIcon />
       {TRIBE_STORY_MANAGEMENT_COPY.addMediaButton}
@@ -1098,7 +1092,7 @@ export function TribeStoryManagement({
                       size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
                       title={TRIBE_STORY_MANAGEMENT_COPY.toolbarBoldLabel}
                       type={STORY_MANAGEMENT_REQUEST.buttonType}
-                      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+                      variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
                     >
                       <BoldIcon />
                     </Button>
@@ -1108,7 +1102,7 @@ export function TribeStoryManagement({
                       size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
                       title={TRIBE_STORY_MANAGEMENT_COPY.toolbarListLabel}
                       type={STORY_MANAGEMENT_REQUEST.buttonType}
-                      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+                      variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
                     >
                       <ListIcon />
                     </Button>
@@ -1118,7 +1112,7 @@ export function TribeStoryManagement({
                       size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
                       title={TRIBE_STORY_MANAGEMENT_COPY.toolbarLinkLabel}
                       type={STORY_MANAGEMENT_REQUEST.buttonType}
-                      variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+                      variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
                     >
                       <LinkIcon />
                     </Button>
@@ -1310,7 +1304,7 @@ export function TribeStoryManagement({
                                 size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
                                 title={TRIBE_STORY_MANAGEMENT_COPY.moveUpLabel}
                                 type={STORY_MANAGEMENT_REQUEST.buttonType}
-                                variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+                                variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
                               >
                                 <ArrowUpIcon />
                               </Button>
@@ -1328,7 +1322,7 @@ export function TribeStoryManagement({
                                 size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
                                 title={TRIBE_STORY_MANAGEMENT_COPY.moveDownLabel}
                                 type={STORY_MANAGEMENT_REQUEST.buttonType}
-                                variant={STORY_MANAGEMENT_REQUEST.outlineVariant}
+                                variant={STORY_MANAGEMENT_REQUEST.secondaryVariant}
                               >
                                 <ArrowDownIcon />
                               </Button>
@@ -1342,7 +1336,7 @@ export function TribeStoryManagement({
                                 size={STORY_MANAGEMENT_REQUEST.iconButtonSize}
                                 title={TRIBE_STORY_MANAGEMENT_COPY.removeMediaTitle}
                                 type={STORY_MANAGEMENT_REQUEST.buttonType}
-                                variant={STORY_MANAGEMENT_REQUEST.destructiveVariant}
+                                variant={STORY_MANAGEMENT_REQUEST.dangerVariant}
                               >
                                 <Trash2Icon />
                               </Button>

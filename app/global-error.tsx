@@ -5,7 +5,7 @@ import { useEffect } from "react";
 
 import { ErrorState } from "@/components/feedback/error-state";
 import { siteConfig } from "@/lib/site-config";
-import { geist, ibmPlexMono, poppins } from "./fonts";
+import { geist, ibmPlexMono, inter } from "./fonts";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import "./globals.css";
 
@@ -39,7 +39,7 @@ export default function GlobalErrorPage({
   return (
     <html
       lang={GLOBAL_ERROR_PAGE_COPY.htmlLanguage}
-      className={`${geist.variable} ${poppins.variable} ${ibmPlexMono.variable}`}
+      className={`${inter.variable} ${geist.variable} ${ibmPlexMono.variable}`}
       suppressHydrationWarning
     >
       <body className={GLOBAL_ERROR_DOCUMENT_CLASS.body}>

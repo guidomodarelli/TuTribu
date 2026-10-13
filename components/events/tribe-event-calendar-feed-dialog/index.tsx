@@ -40,7 +40,7 @@ const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
   variantGhost: "ghost",
-  variantOutline: "outline",
+  variantSecondary: "secondary",
 } as const;
 const LINK_ATTRIBUTE = {
   noreferrer: "noopener noreferrer",
@@ -130,14 +130,11 @@ export function TribeEventCalendarFeedDialog({
       </div>
       <p className={styles.TribeEventCalendarFeedDialog__hint}>{COPY.shownOnce}</p>
       <div className={styles.TribeEventCalendarFeedDialog__apps}>
-        <Button asChild variant={BUTTON_ATTRIBUTE.variantOutline}>
-          <a href={buildAppleCalendarSubscriptionUrl(issuedFeedUrl)}>
+        <a className={styles.TribeEventCalendarFeedDialog__actionLink} href={buildAppleCalendarSubscriptionUrl(issuedFeedUrl)}>
             <CalendarPlusIcon aria-hidden />
             {COPY.appleCalendar}
           </a>
-        </Button>
-        <Button asChild variant={BUTTON_ATTRIBUTE.variantOutline}>
-          <a
+        <a className={styles.TribeEventCalendarFeedDialog__actionLink}
             href={buildGoogleCalendarSubscriptionUrl(issuedFeedUrl)}
             rel={LINK_ATTRIBUTE.noreferrer}
             target={LINK_ATTRIBUTE.targetBlank}
@@ -145,7 +142,6 @@ export function TribeEventCalendarFeedDialog({
             <CalendarPlusIcon aria-hidden />
             {COPY.googleCalendar}
           </a>
-        </Button>
       </div>
       <p className={styles.TribeEventCalendarFeedDialog__hint}>{COPY.outlookHint}</p>
     </section>
@@ -223,7 +219,7 @@ export function TribeEventCalendarFeedDialog({
               autoFocus={shouldRefocusRegenerate}
               disabled={isSubmitting}
               type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantOutline}
+              variant={BUTTON_ATTRIBUTE.variantSecondary}
               onClick={() => setIsConfirmingRegenerate(true)}
             >
               {COPY.regenerateButton}
@@ -247,7 +243,7 @@ export function TribeEventCalendarFeedDialog({
             <Button
               size={BUTTON_ATTRIBUTE.sizeSmall}
               type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantOutline}
+              variant={BUTTON_ATTRIBUTE.variantSecondary}
               onClick={onRetry}
             >
               {COPY.retry}

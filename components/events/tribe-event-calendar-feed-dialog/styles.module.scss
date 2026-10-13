@@ -1,3 +1,5 @@
+@use "../../../src/styles/action-link";
+
 .TribeEventCalendarFeedDialog {
   display: grid;
   gap: 1rem;
@@ -48,7 +50,7 @@
   }
 
   &__label {
-    font-weight: 600;
+    font-weight: 500;
   }
 
   &__copyRow {
@@ -105,4 +107,9 @@
       align-items: stretch;
     }
   }
+}
+
+// Navigation styled as an Arc secondary button.
+.TribeEventCalendarFeedDialog__actionLink {
+  @include action-link.action-link(secondary, md);
 }

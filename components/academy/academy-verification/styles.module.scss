@@ -19,9 +19,9 @@
 
   &__title {
     margin: 0;
-    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-family: var(--font-display), var(--font-sans), sans-serif;
     font-size: clamp(1.75rem, 5vw, 2.5rem);
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.15;
   }
 
@@ -72,12 +72,12 @@
   &__providerName {
     margin: 0;
     font-size: 1.1rem;
-    font-weight: 600;
+    font-weight: 500;
     overflow-wrap: anywhere;
   }
 
   &__statusLabel {
-    font-weight: 600;
+    font-weight: 500;
   }
 
   &__link {

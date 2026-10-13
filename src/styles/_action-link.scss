@@ -1,0 +1,130 @@
+// Arc button look for links (https://uiarc.dev, MIT License).
+//
+// Arc's Button is for actions: a navigation that should look like a button stays a link and takes this style in its
+// module. Values mirror Arc's button recipe on the foundation tokens shipped by beez-ui (radius, control heights,
+// colors, hover only on fine pointers). Arc's press scale is a Motion effect of the Button and is not reproduced.
+//
+// Usage (path relative to the module):
+//   @use "../../../src/styles/action-link";
+//   .Block__link { @include action-link.action-link(secondary, sm); }
+
+@use "sass:map";
+
+$variants: (
+  primary: (
+    color: var(--background),
+    background: var(--foreground),
+    border-color: var(--foreground),
+  ),
+  secondary: (
+    color: var(--foreground),
+    background: var(--surface),
+    border-color: var(--border),
+  ),
+  ghost: (
+    color: var(--text-secondary),
+    background: transparent,
+    border-color: transparent,
+  ),
+  danger: (
+    color: var(--danger),
+    background: var(--surface),
+    border-color: var(--border),
+  ),
+);
+
+$sizes: (
+  sm: (
+    min-height: var(--control-height-sm),
+    padding-inline: var(--space-3),
+  ),
+  md: (
+    min-height: var(--control-height-md),
+    padding-inline: var(--space-4),
+  ),
+  lg: (
+    min-height: var(--control-height-lg),
+    padding-inline: var(--space-5),
+  ),
+);
+
+/// Styles a link as an Arc button.
+/// @param {String} $variant - primary, secondary, ghost or danger.
+/// @param {String} $size - sm, md or lg.
+@mixin action-link($variant: primary, $size: md) {
+  @if not map.has-key($variants, $variant) {
+    @error "action-link: unknown variant #{$variant}";
+  }
+  @if not map.has-key($sizes, $size) {
+    @error "action-link: unknown size #{$size}";
+  }
+
+  $palette: map.get($variants, $variant);
+  $dimensions: map.get($sizes, $size);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: map.get($dimensions, min-height);
+  padding-inline: map.get($dimensions, padding-inline);
+  border: 1px solid map.get($palette, border-color);
+  border-radius: var(--radius-control);
+  background: map.get($palette, background);
+  color: map.get($palette, color);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: var(--leading-body);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    opacity var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+
+  & svg {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @if $variant == primary {
+        opacity: 0.91;
+        box-shadow: var(--shadow-resting);
+      } @else if $variant == secondary {
+        background: var(--surface-muted);
+        box-shadow: var(--shadow-resting);
+      } @else if $variant == ghost {
+        color: var(--foreground);
+        background: var(--surface-muted);
+      } @else {
+        border-color: var(--danger);
+        background: var(--surface-muted);
+      }
+    }
+  }
+
+  &:active {
+    @if $variant == primary {
+      opacity: 0.84;
+    } @else if $variant == danger {
+      border-color: var(--danger);
+      background: var(--surface-muted);
+    } @else {
+      color: var(--foreground);
+      background: var(--surface-muted);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}

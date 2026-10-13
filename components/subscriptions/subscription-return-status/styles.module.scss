@@ -10,15 +10,13 @@
   &__eyebrow {
     color: var(--muted-foreground);
     font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    font-weight: 500;
   }
 
   &__title {
     color: var(--foreground);
     font-size: clamp(2.25rem, 7vw, 5rem);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1;
     text-wrap: balance;
   }

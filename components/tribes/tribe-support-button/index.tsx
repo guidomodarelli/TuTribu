@@ -24,7 +24,7 @@ const SUPPORT_BUTTON_COPY = {
 
 const SUPPORT_BUTTON_UI = {
   align: "end",
-  buttonSize: "icon",
+  buttonSize: "sm",
   buttonType: "button",
   buttonVariant: "ghost",
   nestedRouteSeparator: "/",
@@ -270,22 +270,13 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
     const linkHref = buildWhatsappUrl(settings);
 
     return (
-      <Button
-        aria-label={SUPPORT_BUTTON_COPY.triggerLabelMember}
-        asChild
-        className={styles.TribeSupportButton}
-        size={SUPPORT_BUTTON_UI.buttonSize}
-        type={SUPPORT_BUTTON_UI.buttonType}
-        variant={SUPPORT_BUTTON_UI.buttonVariant}
-      >
-        <a
+      <a className={styles.TribeSupportButton} aria-label={SUPPORT_BUTTON_COPY.triggerLabelMember}
           href={linkHref}
           rel={SUPPORT_BUTTON_LINK.newTabRel}
           target={SUPPORT_BUTTON_LINK.newTabTarget}
         >
           <WhatsappIcon aria-hidden className={RESOLVED_ICON_CLASS_NAME} />
         </a>
-      </Button>
     );
   }
 

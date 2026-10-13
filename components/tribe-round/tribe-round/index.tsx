@@ -352,16 +352,17 @@ const TRIBE_ROUND_FORM = {
   dateTimeLocalInputType: "datetime-local",
   defaultVariant: "default",
   destructiveVariant: "destructive",
+  dangerVariant: "danger",
   fileInputType: "file",
   ghostVariant: "ghost",
   imageAccept: "image/*",
-  iconSize: "icon",
+  iconSize: "sm",
   jsonContentType: "application/json",
   deleteMethod: "DELETE",
   method: "POST",
   patchMethod: "PATCH",
   putMethod: "PUT",
-  outlineVariant: "outline",
+  secondaryVariant: "secondary",
   submitType: "submit",
   urlInputType: "url",
 } as const;
@@ -5896,7 +5897,7 @@ function TribeRoundContent({
         }}
         size={TRIBE_ROUND_FORM.iconSize}
         type={TRIBE_ROUND_FORM.buttonType}
-        variant={TRIBE_ROUND_FORM.outlineVariant}
+        variant={TRIBE_ROUND_FORM.secondaryVariant}
       >
         <PinIcon />
       </Button>
@@ -6026,7 +6027,7 @@ function TribeRoundContent({
                 disabled={isBusy}
                 onClick={() => setMessagePendingDeletion(null)}
                 type={TRIBE_ROUND_FORM.buttonType}
-                variant={TRIBE_ROUND_FORM.outlineVariant}
+                variant={TRIBE_ROUND_FORM.secondaryVariant}
               >
                 {TRIBE_ROUND_COPY.messageDeleteConfirmCancel}
               </Button>
@@ -6035,7 +6036,7 @@ function TribeRoundContent({
                 disabled={isBusy}
                 onClick={handleConfirmMessageDeletion}
                 type={TRIBE_ROUND_FORM.buttonType}
-                variant={TRIBE_ROUND_FORM.destructiveVariant}
+                variant={TRIBE_ROUND_FORM.dangerVariant}
               >
                 <TrashIcon />
                 {TRIBE_ROUND_COPY.messageDeleteConfirmSubmit}
@@ -6476,7 +6477,7 @@ function TribeRoundContent({
                   <Button
                     disabled={isBusy}
                     type={TRIBE_ROUND_FORM.buttonType}
-                    variant={TRIBE_ROUND_FORM.outlineVariant}
+                    variant={TRIBE_ROUND_FORM.secondaryVariant}
                   >
                     {TRIBE_ROUND_COPY.messageCancelButton}
                   </Button>
@@ -6534,7 +6535,7 @@ function TribeRoundContent({
           <Button
             onClick={roundNavigation.retry}
             type={TRIBE_ROUND_FORM.buttonType}
-            variant={TRIBE_ROUND_FORM.outlineVariant}
+            variant={TRIBE_ROUND_FORM.secondaryVariant}
           >
             {TRIBE_ROUND_COPY.roundPageRetry}
           </Button>
@@ -6664,7 +6665,7 @@ function TribeRoundContent({
                           openMessageDetails(message.id);
                         }}
                         type={TRIBE_ROUND_FORM.buttonType}
-                        variant={TRIBE_ROUND_FORM.outlineVariant}
+                        variant={TRIBE_ROUND_FORM.secondaryVariant}
                       >
                         <MessageCircleIcon />
                         <AnimatedCount value={getCommentCount(message)} />
@@ -6836,7 +6837,7 @@ function TribeRoundContent({
                     className={styles.TribeRound__commentButton}
                     disabled={isPendingMessage(selectedMessage)}
                     type={TRIBE_ROUND_FORM.buttonType}
-                    variant={TRIBE_ROUND_FORM.outlineVariant}
+                    variant={TRIBE_ROUND_FORM.secondaryVariant}
                   >
                     <MessageCircleIcon />
                     <AnimatedCount value={getCommentCount(selectedMessage)} />
@@ -6869,7 +6870,7 @@ function TribeRoundContent({
                           retryLoadingReplies(selectedMessage.id);
                         }}
                         type={TRIBE_ROUND_FORM.buttonType}
-                        variant={TRIBE_ROUND_FORM.outlineVariant}
+                        variant={TRIBE_ROUND_FORM.secondaryVariant}
                       >
                         {TRIBE_ROUND_COPY.repliesRetry}
                       </Button>
@@ -7013,7 +7014,7 @@ function TribeRoundContent({
                 <Button
                   disabled={isBusy}
                   type={TRIBE_ROUND_FORM.buttonType}
-                  variant={TRIBE_ROUND_FORM.outlineVariant}
+                  variant={TRIBE_ROUND_FORM.secondaryVariant}
                 >
                   {TRIBE_ROUND_COPY.messageEditCreatedAtCancel}
                 </Button>

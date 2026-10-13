@@ -27,7 +27,7 @@ type TribeEventAttendanceOptionsProps = {
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
-  variantOutline: "outline",
+  variantSecondary: "secondary",
 } as const;
 const GROUP_ROLE = "group";
 /** Shared-layout id of the highlight that glides to the picked answer. */
@@ -97,7 +97,7 @@ export function TribeEventAttendanceOptions({
                 disabled={isSaving}
                 size={BUTTON_ATTRIBUTE.sizeSmall}
                 type={BUTTON_ATTRIBUTE.typeButton}
-                variant={BUTTON_ATTRIBUTE.variantOutline}
+                variant={BUTTON_ATTRIBUTE.variantSecondary}
                 onClick={() => onSelect(isSelected ? null : option)}
               >
                 {TRIBE_EVENT_ATTENDANCE_LABEL[option]}

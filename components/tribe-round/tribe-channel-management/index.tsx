@@ -74,13 +74,13 @@ const CHANNEL_MANAGEMENT_FORM = {
   buttonType: "button",
   contentTypeHeader: "Content-Type",
   deleteMethod: "DELETE",
-  destructiveVariant: "destructive",
+  dangerVariant: "danger",
   ghostVariant: "ghost",
   groupRole: "group",
-  iconSize: "icon",
+  iconSize: "sm",
   jsonContentType: "application/json",
   messageMethod: "POST",
-  outlineVariant: "outline",
+  secondaryVariant: "secondary",
   patchMethod: "PATCH",
   submitType: "submit",
 } as const;
@@ -553,7 +553,7 @@ export function TribeChannelManagement({
                           void handleUpdateChannel(channel);
                         }}
                         type={CHANNEL_MANAGEMENT_FORM.buttonType}
-                        variant={CHANNEL_MANAGEMENT_FORM.outlineVariant}
+                        variant={CHANNEL_MANAGEMENT_FORM.secondaryVariant}
                       >
                         {CHANNEL_MANAGEMENT_COPY.saveButton}
                       </Button>
@@ -653,7 +653,7 @@ export function TribeChannelManagement({
                 handleDeleteDialogChange(false);
               }}
               type={CHANNEL_MANAGEMENT_FORM.buttonType}
-              variant={CHANNEL_MANAGEMENT_FORM.outlineVariant}
+              variant={CHANNEL_MANAGEMENT_FORM.secondaryVariant}
             >
               {CHANNEL_MANAGEMENT_COPY.deleteCancelButton}
             </Button>
@@ -665,7 +665,7 @@ export function TribeChannelManagement({
                 }
               }}
               type={CHANNEL_MANAGEMENT_FORM.buttonType}
-              variant={CHANNEL_MANAGEMENT_FORM.destructiveVariant}
+              variant={CHANNEL_MANAGEMENT_FORM.dangerVariant}
             >
               <Trash2Icon />
               {CHANNEL_MANAGEMENT_COPY.deleteConfirmButton}

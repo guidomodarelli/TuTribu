@@ -45,7 +45,7 @@ export function LockedAcademyCourseNotice({
         >
           {LOCKED_COURSE_COPY.academyLink}
         </Link>
-        <Button onClick={onBackToCatalog} type="button" variant="outline">
+        <Button onClick={onBackToCatalog} type="button" variant="secondary">
           {LOCKED_COURSE_COPY.backButton}
         </Button>
       </div>

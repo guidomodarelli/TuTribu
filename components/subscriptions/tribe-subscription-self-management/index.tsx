@@ -43,7 +43,7 @@ const SUBSCRIPTION_SELF_MANAGEMENT_REQUEST = {
   buttonType: "button",
   currentSubscriptionSegment: "/subscriptions/current",
   deleteMethod: "DELETE",
-  destructiveVariant: "destructive",
+  dangerVariant: "danger",
   ghostVariant: "ghost",
   statusRole: "status",
 } as const;
@@ -193,7 +193,7 @@ export function TribeSubscriptionSelfManagement({
               void handleCancelSubscription();
             }}
             type={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.buttonType}
-            variant={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.destructiveVariant}
+            variant={SUBSCRIPTION_SELF_MANAGEMENT_REQUEST.dangerVariant}
           >
             {isCanceling ? (
               <LoaderCircleIcon

@@ -17,7 +17,7 @@ type TribeEventsEmptyStateProps = {
 
 const BUTTON_ATTRIBUTE = {
   typeButton: "button",
-  variantOutline: "outline",
+  variantSecondary: "secondary",
 } as const;
 const COPY = {
   emptyMonth: "No hay eventos este mes.",
@@ -49,7 +49,7 @@ export function TribeEventsEmptyState({
           <Button
             className={styles.TribeEventsEmptyState__proposeButton}
             type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantOutline}
+            variant={BUTTON_ATTRIBUTE.variantSecondary}
             onClick={onProposeEvent}
           >
             <LightbulbIcon aria-hidden />
@@ -70,7 +70,7 @@ export function TribeEventsEmptyState({
             <Button
               className={styles.TribeEventsEmptyState__template}
               type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantOutline}
+              variant={BUTTON_ATTRIBUTE.variantSecondary}
               onClick={() => onUseTemplate(template)}
             >
               <CalendarPlusIcon aria-hidden />

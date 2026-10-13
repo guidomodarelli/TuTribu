@@ -22,7 +22,7 @@ const CREATE_TRIBE_FORM_ARIA = {
   livePolite: "polite",
 } as const;
 const CREATE_TRIBE_FORM_BUTTON = {
-  outlineVariant: "outline",
+  secondaryVariant: "secondary",
   smallSize: "sm",
   submitType: "submit",
 } as const;
@@ -294,7 +294,7 @@ export function CreateTribeForm({
             }}
             size={CREATE_TRIBE_FORM_BUTTON.smallSize}
             type={CREATE_TRIBE_FORM_INTERACTION.buttonType}
-            variant={CREATE_TRIBE_FORM_BUTTON.outlineVariant}
+            variant={CREATE_TRIBE_FORM_BUTTON.secondaryVariant}
           >
             Sincronizar con el nombre
           </Button>
@@ -375,7 +375,7 @@ export function CreateTribeForm({
                 slugInputRef.current?.focus();
               }}
               type={CREATE_TRIBE_FORM_INTERACTION.buttonType}
-              variant={CREATE_TRIBE_FORM_BUTTON.outlineVariant}
+              variant={CREATE_TRIBE_FORM_BUTTON.secondaryVariant}
             >
               Usar sugerencia
             </Button>

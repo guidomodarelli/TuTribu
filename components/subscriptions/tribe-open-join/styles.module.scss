@@ -1,4 +1,5 @@
 @use "../../../src/styles/motion";
+@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
@@ -32,16 +33,14 @@
 
     color: var(--muted-foreground);
     font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    font-weight: 500;
   }
 
   &__title {
     @extend %tribe-open-join-entrance;
 
     font-size: clamp(1.7rem, 1.6vw + 1rem, 2.4rem);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.12;
     text-wrap: balance;
   }
@@ -68,7 +67,7 @@
 
   &__offerName {
     font-size: 1.05rem;
-    font-weight: 600;
+    font-weight: 500;
     overflow-wrap: anywhere;
   }
 
@@ -95,7 +94,7 @@
   &__offerValue {
     font-size: 1.5rem;
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.2;
     margin: 0;
   }
@@ -108,4 +107,9 @@
     gap: 0.75rem;
     margin-top: 0.5rem;
   }
+}
+
+// Navigation styled as an Arc primary button.
+.TribeOpenJoin__actionLink {
+  @include action-link.action-link(primary, md);
 }

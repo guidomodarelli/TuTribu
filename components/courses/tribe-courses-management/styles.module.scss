@@ -23,7 +23,7 @@
 
   &__heading {
     font-size: clamp(1.25rem, 2vw, 1.5rem);
-    font-weight: 600;
+    font-weight: 500;
     margin: 0;
     overflow-wrap: anywhere;
     text-wrap: balance;
@@ -103,7 +103,7 @@
     align-items: center;
     gap: 0.25rem 0.5rem;
     font-size: 1.125rem;
-    font-weight: 600;
+    font-weight: 500;
     margin: 0;
     min-width: 0;
     overflow-wrap: anywhere;
@@ -132,9 +132,7 @@
 
   &__inactiveBadge {
     font-size: 0.6875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-weight: 500;
     padding: 0.125rem 0.5rem;
     border-radius: 999rem;
     background-color: color-mix(in oklab, var(--destructive) 18%, transparent);
@@ -171,9 +169,7 @@
     @include motion.pop;
 
     font-size: 0.6875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-weight: 500;
     padding: 0.125rem 0.5rem;
     border-radius: 999rem;
     background-color: color-mix(in oklab, var(--muted) 60%, transparent);
@@ -206,7 +202,7 @@
 
   &__formHeading {
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 500;
     margin: 0;
   }
 
@@ -283,9 +279,7 @@
 
     flex-shrink: 0;
     font-size: 0.6875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-weight: 500;
     padding: 0.125rem 0.5rem;
     border-radius: 999rem;
     background-color: color-mix(in oklab, var(--muted) 60%, transparent);

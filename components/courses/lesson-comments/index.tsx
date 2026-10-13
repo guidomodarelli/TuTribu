@@ -73,7 +73,7 @@ const COMMENTS_ACCESSIBILITY = {
 const COMMENTS_RETRY_BUTTON = {
   size: "sm",
   type: "button",
-  variant: "outline",
+  variant: "secondary",
 } as const;
 
 type LoadStatus = (typeof LOAD_STATUS)[keyof typeof LOAD_STATUS];

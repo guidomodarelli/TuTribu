@@ -1,3 +1,5 @@
+@use "../../../../../src/styles/action-link";
+
 .TribeInvitationPage {
   display: grid;
   min-height: min(70svh, 42rem);
@@ -20,13 +22,12 @@
   &__eyebrow {
     color: var(--muted-foreground);
     font-size: 0.82rem;
-    font-weight: 700;
-    text-transform: uppercase;
+    font-weight: 500;
   }
 
   &__title {
     font-size: clamp(1.7rem, 1.6vw + 1rem, 2.4rem);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.12;
   }
 
@@ -58,7 +59,7 @@
 
   &__offerName {
     font-size: 1.05rem;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   &__offerDetails {
@@ -75,7 +76,7 @@
 
   &__offerTerm {
     color: var(--muted-foreground);
-    font-weight: 600;
+    font-weight: 500;
   }
 
   &__offerValue {
@@ -86,4 +87,9 @@
     color: var(--muted-foreground);
     font-size: 0.95rem;
   }
+}
+
+// Navigation styled as an Arc primary button.
+.TribeInvitationPage__actionLink {
+  @include action-link.action-link(primary, md);
 }

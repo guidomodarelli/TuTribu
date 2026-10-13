@@ -26,14 +26,12 @@
     margin: 0;
     color: color-mix(in oklab, var(--primary) 76%, var(--foreground));
     font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-weight: 500;
   }
 
   &__title {
     margin: 0;
-    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-family: var(--font-display), var(--font-sans), sans-serif;
     font-size: clamp(2rem, 6vw, 4rem);
     line-height: 1.05;
     overflow-wrap: anywhere;

@@ -209,8 +209,8 @@ const COURSES_API = {
 } as const;
 
 const BUTTON_VARIANT = {
-  destructive: "destructive",
-  outline: "outline",
+  danger: "danger",
+  secondary: "secondary",
 } as const;
 
 const BUTTON_SIZE = {
@@ -1186,7 +1186,7 @@ export function TribeCoursesManagement({
                           FOCUS_RESTORE_KEY_PREFIX.editModule + courseModule.id
                         )}
                         type={FORM_BUTTON_TYPE.button}
-                        variant={BUTTON_VARIANT.outline}
+                        variant={BUTTON_VARIANT.secondary}
                       >
                         {COURSES_MANAGEMENT_COPY.editButton}
                       </Button>
@@ -1194,7 +1194,7 @@ export function TribeCoursesManagement({
                         disabled={isModuleLocked}
                         onClick={() => deleteModule(courseModule.id)}
                         type={FORM_BUTTON_TYPE.button}
-                        variant={BUTTON_VARIANT.destructive}
+                        variant={BUTTON_VARIANT.danger}
                       >
                         {COURSES_MANAGEMENT_COPY.deleteButton}
                       </Button>
@@ -1291,7 +1291,7 @@ export function TribeCoursesManagement({
                                     FOCUS_RESTORE_KEY_PREFIX.editLesson + lesson.id
                                   )}
                                   type={FORM_BUTTON_TYPE.button}
-                                  variant={BUTTON_VARIANT.outline}
+                                  variant={BUTTON_VARIANT.secondary}
                                 >
                                   {COURSES_MANAGEMENT_COPY.editButton}
                                 </Button>
@@ -1299,7 +1299,7 @@ export function TribeCoursesManagement({
                                   disabled={isLessonLocked}
                                   onClick={() => deleteLesson(lesson.id)}
                                   type={FORM_BUTTON_TYPE.button}
-                                  variant={BUTTON_VARIANT.destructive}
+                                  variant={BUTTON_VARIANT.danger}
                                 >
                                   {COURSES_MANAGEMENT_COPY.deleteButton}
                                 </Button>
@@ -1335,7 +1335,7 @@ export function TribeCoursesManagement({
                     onClick={() => setCreatingLessonModuleId(courseModule.id)}
                     ref={bindAddLessonButton(courseModule.id)}
                     type={FORM_BUTTON_TYPE.button}
-                    variant={BUTTON_VARIANT.outline}
+                    variant={BUTTON_VARIANT.secondary}
                   >
                     {COURSES_MANAGEMENT_COPY.newLessonButton}
                   </Button>
@@ -1562,7 +1562,7 @@ function ModuleForm({
           disabled={isSubmitting}
           onClick={onCancel}
           type={FORM_BUTTON_TYPE.button}
-          variant={BUTTON_VARIANT.outline}
+          variant={BUTTON_VARIANT.secondary}
         >
           {COURSES_MANAGEMENT_COPY.cancelButton}
         </Button>
@@ -2022,7 +2022,7 @@ function LessonForm({
                         onClick={() => handleRetryFileUpload(draft)}
                         size={BUTTON_SIZE.small}
                         type={FORM_BUTTON_TYPE.button}
-                        variant={BUTTON_VARIANT.outline}
+                        variant={BUTTON_VARIANT.secondary}
                       >
                         {COURSES_MANAGEMENT_COPY.retryFileButton}
                       </Button>
@@ -2033,7 +2033,7 @@ function LessonForm({
                       onClick={() => handleRemoveFileDraft(draft)}
                       size={BUTTON_SIZE.small}
                       type={FORM_BUTTON_TYPE.button}
-                      variant={BUTTON_VARIANT.outline}
+                      variant={BUTTON_VARIANT.secondary}
                     >
                       {COURSES_MANAGEMENT_COPY.removeFileButton}
                     </Button>
@@ -2050,7 +2050,7 @@ function LessonForm({
             }
             onClick={handleAttachFileClick}
             type={FORM_BUTTON_TYPE.button}
-            variant={BUTTON_VARIANT.outline}
+            variant={BUTTON_VARIANT.secondary}
           >
             {COURSES_MANAGEMENT_COPY.attachFileButton}
           </Button>
@@ -2101,7 +2101,7 @@ function LessonForm({
           disabled={isSubmitting}
           onClick={handleCancel}
           type={FORM_BUTTON_TYPE.button}
-          variant={BUTTON_VARIANT.outline}
+          variant={BUTTON_VARIANT.secondary}
         >
           {COURSES_MANAGEMENT_COPY.cancelButton}
         </Button>

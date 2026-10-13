@@ -185,8 +185,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       '@guidomodarelli/beez-ui':
-        specifier: ^0.13.0
-        version: 0.13.0(@date-fns/tz@1.5.0)(@tanstack/react-router@1.170.42(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^1.0.0
+        version: 1.0.0(@date-fns/tz@1.5.0)(@tanstack/react-router@1.170.42(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@next/env':
         specifier: ^16.3.4
         version: 16.3.4
@@ -1752,8 +1752,8 @@ packages:
   '@github/relative-time-element@5.0.0':
     resolution: {integrity: sha512-L/2r0DNR/rMbmHWcsdmhtOiy2gESoGOhItNFD4zJ3nZfHl79Dx3N18Vfx/pYr2lruMOdk1cJZb4wEumm+Dxm1w==}
 
-  '@guidomodarelli/beez-ui@0.13.0':
-    resolution: {integrity: sha512-QBaCvYSgUZVOSbcw90a4sWulYgtMZdppVy5EW1nZ5t6D86MAvsza8y+pWKzTzc+ER8zAq6YNesBp3w0jhfkhlQ==, tarball: https://npm.pkg.github.com/download/@guidomodarelli/beez-ui/0.13.0/2c5627d6934db0357b8d025e8244f24c660bdf93}
+  '@guidomodarelli/beez-ui@1.0.0':
+    resolution: {integrity: sha512-egJH/oOXWXfKhEo1y9azk/lGm6Fmn3n+QuX44zK21ieuVVRl5JNBiPwHG8XMcuReS5g7SNDfTkMaK7DSkwMAyg==, tarball: https://npm.pkg.github.com/download/@guidomodarelli/beez-ui/1.0.0/f8e7f82a889dd7919d8857fa25696466005e807f}
     engines: {node: '>=22', pnpm: '>=12 <13'}
     peerDependencies:
       '@tanstack/react-router': ^1.170.33
@@ -7449,7 +7449,7 @@ snapshots:
 
   '@github/relative-time-element@5.0.0': {}
 
-  '@guidomodarelli/beez-ui@0.13.0(@date-fns/tz@1.5.0)(@tanstack/react-router@1.170.42(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@guidomodarelli/beez-ui@1.0.0(@date-fns/tz@1.5.0)(@tanstack/react-router@1.170.42(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@base-ui/react': 1.8.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-router': 1.170.42(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

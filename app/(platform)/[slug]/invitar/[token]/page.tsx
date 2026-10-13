@@ -115,11 +115,9 @@ function renderAlreadySubscribedStatus(slug: string) {
         <p className={styles.TribeInvitationPage__description}>
           {INVITATION_PAGE_COPY.alreadySubscribedDescription}
         </p>
-        <Button asChild>
-          <Link href={ROUTES.tribes.bySlug(slug)}>
+        <Link className={styles.TribeInvitationPage__actionLink} href={ROUTES.tribes.bySlug(slug)}>
             {INVITATION_PAGE_COPY.alreadySubscribedButton}
           </Link>
-        </Button>
       </section>
     </main>
   );

@@ -21,15 +21,13 @@
   &__eyebrow {
     font-family: var(--font-mono);
     font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.24em;
     color: var(--muted-foreground);
   }
 
   &__title {
     margin-top: 0.75rem;
     font-size: 1.5rem;
-    font-weight: 600;
+    font-weight: 500;
     letter-spacing: -0.01em;
   }
 

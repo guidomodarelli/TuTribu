@@ -87,8 +87,8 @@ const FORM_BUTTON_TYPE = {
   submit: "submit",
 } as const;
 const BUTTON_VARIANT = {
-  destructive: "destructive",
-  outline: "outline",
+  danger: "danger",
+  secondary: "secondary",
 } as const;
 const INPUT_TYPE = {
   number: "number",
@@ -643,7 +643,7 @@ export function TribeCoursesCatalogManagement({
                         onClick={() => setEditingCourseId(course.id)}
                         ref={focusEditButtonAfterEditing(course.id)}
                         type={FORM_BUTTON_TYPE.button}
-                        variant={BUTTON_VARIANT.outline}
+                        variant={BUTTON_VARIANT.secondary}
                       >
                         {CATALOG_MANAGEMENT_COPY.editButton}
                       </Button>
@@ -651,7 +651,7 @@ export function TribeCoursesCatalogManagement({
                         disabled={isCourseLocked}
                         onClick={() => deleteCourse(course.id)}
                         type={FORM_BUTTON_TYPE.button}
-                        variant={BUTTON_VARIANT.destructive}
+                        variant={BUTTON_VARIANT.danger}
                       >
                         {CATALOG_MANAGEMENT_COPY.deleteButton}
                       </Button>
@@ -854,7 +854,7 @@ function CourseForm({
           disabled={isSubmitting}
           onClick={onCancel}
           type={FORM_BUTTON_TYPE.button}
-          variant={BUTTON_VARIANT.outline}
+          variant={BUTTON_VARIANT.secondary}
         >
           {CATALOG_MANAGEMENT_COPY.cancelButton}
         </Button>

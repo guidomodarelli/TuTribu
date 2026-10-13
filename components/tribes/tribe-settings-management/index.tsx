@@ -56,7 +56,6 @@ const SETTINGS_REQUEST = {
   fileFormField: "file",
   imageAcceptTypes: "image/*",
   jsonContentType: "application/json",
-  outlineVariant: "outline",
   postMethod: "POST",
   putMethod: "PUT",
   submitButtonType: "submit",
@@ -280,12 +279,7 @@ type ImageUploadButtonProps = {
  */
 function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonProps) {
   return (
-    <Button
-      asChild
-      className={styles.TribeSettingsManagement__uploadButton}
-      variant={SETTINGS_REQUEST.outlineVariant}
-    >
-      <label aria-busy={isUploading || undefined} data-disabled={isUploading ? true : undefined}>
+    <label className={styles.TribeSettingsManagement__uploadButton} aria-busy={isUploading || undefined} data-disabled={isUploading ? true : undefined}>
         <UploadIcon />
         {isUploading
           ? TRIBE_SETTINGS_COPY.uploadingButton
@@ -303,7 +297,6 @@ function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonPro
           type="file"
         />
       </label>
-    </Button>
   );
 }
 

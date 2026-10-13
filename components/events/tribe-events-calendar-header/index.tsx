@@ -75,10 +75,10 @@ type TribeEventsCalendarHeaderProps = {
 };
 
 const BUTTON_ATTRIBUTE = {
-  sizeIcon: "icon",
+  sizeIcon: "sm",
   typeButton: "button",
   variantGhost: "ghost",
-  variantOutline: "outline",
+  variantSecondary: "secondary",
 } as const;
 const COPY = {
   createButton: "Crear evento",
@@ -242,7 +242,7 @@ export function TribeEventsCalendarHeader({
             <Button
               aria-label={COPY.pendingProposalsLabel(pendingProposalCount)}
               type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantOutline}
+              variant={BUTTON_ATTRIBUTE.variantSecondary}
               onClick={onOpenProposals}
             >
               <InboxIcon aria-hidden />
@@ -279,7 +279,7 @@ export function TribeEventsCalendarHeader({
           {canProposeEvents && onProposeEvent ? (
             <Button
               type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantOutline}
+              variant={BUTTON_ATTRIBUTE.variantSecondary}
               onClick={onProposeEvent}
             >
               <LightbulbIcon aria-hidden />

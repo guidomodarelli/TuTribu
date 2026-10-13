@@ -1,3 +1,5 @@
+@use "../../src/styles/action-link";
+
 .HomePage {
   display: grid;
   gap: 1.5rem;
@@ -6,8 +8,6 @@
   &__eyebrow {
     margin: 0;
     font-size: 0.875rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
     color: var(--muted-foreground);
   }
 
@@ -36,4 +36,9 @@
     text-decoration: underline;
     text-underline-offset: 0.2em;
   }
+}
+
+// Navigation styled as an Arc primary button.
+.HomePage__actionLink {
+  @include action-link.action-link(primary, md);
 }

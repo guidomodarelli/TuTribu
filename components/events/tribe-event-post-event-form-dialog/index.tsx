@@ -62,7 +62,7 @@ const BUTTON_ATTRIBUTE = {
   typeButton: "button",
   typeSubmit: "submit",
   variantGhost: "ghost",
-  variantOutline: "outline",
+  variantSecondary: "secondary",
 } as const;
 const COPY = {
   addMaterial: "Agregar material",
@@ -323,7 +323,7 @@ export function TribeEventPostEventFormDialog({
                 id={FIELD_ID.addMaterial}
                 size={BUTTON_ATTRIBUTE.sizeSmall}
                 type={BUTTON_ATTRIBUTE.typeButton}
-                variant={BUTTON_ATTRIBUTE.variantOutline}
+                variant={BUTTON_ATTRIBUTE.variantSecondary}
                 onClick={addMaterial}
               >
                 <PlusIcon aria-hidden />

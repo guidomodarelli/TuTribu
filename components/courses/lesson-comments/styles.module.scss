@@ -12,7 +12,7 @@
 
   &__heading {
     font-size: 0.875rem;
-    font-weight: 600;
+    font-weight: 500;
     margin: 0;
 
     // Receives programmatic focus after a deletion; no ring for that case.
@@ -121,7 +121,7 @@
 
   &__authorName {
     font-size: 0.875rem;
-    font-weight: 600;
+    font-weight: 500;
     min-width: 0;
     overflow-wrap: anywhere;
   }

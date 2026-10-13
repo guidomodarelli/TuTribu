@@ -133,7 +133,7 @@ export function NotificationBell({
     <Button
       aria-label={accessibleLabel}
       className={styles.NotificationBell__trigger}
-      size="icon"
+      size="sm"
       type="button"
       variant="ghost"
     >

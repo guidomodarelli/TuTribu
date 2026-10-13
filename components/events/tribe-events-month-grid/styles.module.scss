@@ -21,7 +21,7 @@
     border-left: 1px solid var(--border);
     color: var(--muted-foreground);
     font-size: 0.8rem;
-    font-weight: 600;
+    font-weight: 500;
     text-align: center;
   }
 
@@ -44,7 +44,7 @@
     width: 1.75rem;
     height: 1.75rem;
     border-radius: 50%;
-    font-weight: 700;
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
   }
 
@@ -118,7 +118,7 @@
 
   &__dayOverflow {
     font-size: 0.65rem;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
@@ -137,7 +137,7 @@
     cursor: pointer;
     font: inherit;
     font-size: 0.8rem;
-    font-weight: 700;
+    font-weight: 500;
     overflow-wrap: anywhere;
     padding: 0.35rem;
     text-align: left;
@@ -166,7 +166,7 @@
     border-left-color: color-mix(in oklab, var(--event-type-accent, var(--border)) 50%, var(--border));
     background: color-mix(in oklab, var(--muted) 60%, var(--background));
     color: var(--muted-foreground);
-    font-weight: 600;
+    font-weight: 500;
 
     &:hover {
       border-color: color-mix(in oklab, var(--foreground) 18%, var(--border));
@@ -181,13 +181,13 @@
   &__eventPillStatus {
     display: block;
     font-size: 0.72rem;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   &__eventPillTime {
     color: var(--muted-foreground);
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   &__srOnly {

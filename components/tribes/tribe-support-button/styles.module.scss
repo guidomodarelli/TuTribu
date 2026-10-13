@@ -1,10 +1,9 @@
 @use "../../../src/styles/motion";
+@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
 .TribeSupportButton {
-  border-radius: 999px;
-
   &__icon {
     width: 1.125rem;
     height: 1.125rem;
@@ -30,4 +29,9 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+// Navigation styled as an Arc ghost button.
+.TribeSupportButton {
+  @include action-link.action-link(ghost, sm);
 }

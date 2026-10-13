@@ -2,22 +2,14 @@
 @import "../src/styles/event-type-tokens.css";
 
 
+/* Arc typography from the self-hosted next/font files: Inter for text and controls, Geist for display headings.
+   Page backgrounds stay plain, as beez-ui's Arc foundation defines them. */
 :root {
-  --font-sans: var(--font-geist);
+  --font-sans: var(--font-inter);
+  --font-body: var(--font-inter);
   --font-mono: var(--font-ibm-plex-mono);
   --font-heading: var(--font-geist);
-  --font-display: var(--font-poppins);
-  --body-background-image:
-    radial-gradient(circle at top left, oklch(0.89 0.08 303.9 / 20%), transparent 30%),
-    radial-gradient(circle at top right, oklch(0.9 0.07 264.3 / 20%), transparent 28%),
-    linear-gradient(180deg, oklch(0.995 0 0), oklch(0.985 0 0));
-}
-
-.dark {
-  --body-background-image:
-    radial-gradient(circle at top left, oklch(0.45 0.12 303.9 / 14%), transparent 30%),
-    radial-gradient(circle at top right, oklch(0.46 0.1 264.3 / 14%), transparent 28%),
-    linear-gradient(180deg, oklch(0.145 0 0), oklch(0.205 0 0));
+  --font-display: var(--font-geist);
 }
 
 @layer base {

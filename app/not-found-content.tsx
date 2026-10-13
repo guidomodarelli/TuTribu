@@ -1,7 +1,6 @@
 import { headers } from "next/headers";
 
 import { Link } from "@/components/navigation/link";
-import { Button } from "@guidomodarelli/beez-ui";
 import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestAuthModule } from "@/src/modules/auth/setup";
@@ -12,8 +11,6 @@ import styles from "./not-found.module.scss";
 const NOT_FOUND_UI = {
   ariaHidden: "true",
   backdropTestId: "not-found-backdrop",
-  buttonSize: "lg",
-  outlineVariant: "outline",
 } as const;
 const NOT_FOUND_PAGE_LOG = {
   feature: "app",
@@ -38,15 +35,9 @@ async function resolveAuthenticatedMemberForNotFoundPage(
 
 export function NotFoundSignInAction() {
   return (
-    <Button
-      asChild
-      size={NOT_FOUND_UI.buttonSize}
-      variant={NOT_FOUND_UI.outlineVariant}
-    >
-      <Link href={ROUTES.auth.signIn}>
+    <Link className={styles.NotFoundPage__signInLink} href={ROUTES.auth.signIn}>
         Iniciar sesión
       </Link>
-    </Button>
   );
 }
 
@@ -85,11 +76,9 @@ export function NotFoundView({
         de {siteConfig.name}.
       </p>
       <div className={styles.NotFoundPage__actions}>
-        <Button asChild size={NOT_FOUND_UI.buttonSize}>
-          <Link href={ROUTES.home}>
+        <Link className={styles.NotFoundPage__homeLink} href={ROUTES.home}>
             Volver al inicio
           </Link>
-        </Button>
         {sessionAction}
       </div>
     </main>

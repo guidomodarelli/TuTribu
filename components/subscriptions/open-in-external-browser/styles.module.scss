@@ -1,4 +1,5 @@
 @use "../../../src/styles/motion";
+@use "../../../src/styles/action-link";
 
 // The handoff renders inside the platform layout, below its sticky header and
 // inside the main padding, so a full `100svh` here overshoots the viewport and
@@ -42,9 +43,7 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
 
     color: var(--muted-foreground);
     font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    font-weight: 500;
   }
 
   &__title {
@@ -52,7 +51,7 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
 
     color: var(--foreground);
     font-size: clamp(1.75rem, 5vw, 2.5rem);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.15;
     text-wrap: balance;
   }
@@ -88,7 +87,7 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
     display: inline-flex;
     font-size: 2.25rem;
     font-variant-numeric: tabular-nums;
-    font-weight: 700;
+    font-weight: 500;
     height: 4.5rem;
     justify-content: center;
     line-height: 1;
@@ -137,4 +136,9 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
       outline-offset: 2px;
     }
   }
+}
+
+// Navigation styled as an Arc primary button.
+.OpenInExternalBrowser__primaryAction {
+  @include action-link.action-link(primary, lg);
 }

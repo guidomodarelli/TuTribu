@@ -1,4 +1,5 @@
 @use "../../../src/styles/motion";
+@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
@@ -17,8 +18,6 @@
   &__eyebrow {
     margin: 0;
     font-size: 0.85rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
     color: color-mix(in srgb, var(--foreground) 58%, transparent);
   }
 
@@ -26,7 +25,7 @@
     margin: 0;
     color: var(--foreground);
     font-size: clamp(1.5rem, 2vw + 1rem, 2rem);
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.15;
     text-wrap: balance;
   }
@@ -58,4 +57,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+// Navigation styled as an Arc primary button.
+.TribeCreationBlocked__contact {
+  @include action-link.action-link(primary, md);
 }
