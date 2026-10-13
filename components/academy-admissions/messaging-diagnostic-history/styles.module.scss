@@ -1,0 +1,12 @@
+.MessagingDiagnosticHistory {
+  display: grid;
+  min-width: 0;
+  max-width: 42rem;
+  gap: 1rem;
+
+  &__title { margin: 0; font-size: 1rem; font-weight: 600; }
+  &__description { margin: 0; }
+  &__list { display: grid; min-width: 0; margin: 0; padding-left: 1.25rem; gap: 1rem; }
+  &__item { display: grid; min-width: 0; gap: 0.5rem; }
+  &__button { max-width: 100%; min-height: 2rem; height: auto; white-space: normal; }
+}

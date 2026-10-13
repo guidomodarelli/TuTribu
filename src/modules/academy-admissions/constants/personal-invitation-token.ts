@@ -1,0 +1,2 @@
+/** Fixes private token entropy and canonical encoding without granting recipient authority. @module personal-invitation-token-constants */
+export const PERSONAL_INVITATION_TOKEN = { entropyBytes: 32, encodedCharacters: 43, digestBytes: 32, fingerprintDomain: "tutribu.personal-invitation.token.v1", lookupDomain: "tutribu.personal-invitation.lookup.v1", canonicalPattern: /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/u } as const;

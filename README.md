@@ -27,6 +27,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 - pnpm 12 (pinned through `packageManager`; run `corepack enable` and the pinned version is used automatically)
 - Access to a Neon Postgres database
 - Google OAuth credentials for sign-in
+- GitHub Packages read access for `@guidomodarelli/beez-ui`; provide a `read:packages` token in your user-level `~/.npmrc` before installation (Vercel uses the `NPM_RC` environment variable). GitHub Actions uses its repository token with `packages: read` and package access granted to this repository. Local and deployment credentials stay outside version control.
 
 ## Setup
 

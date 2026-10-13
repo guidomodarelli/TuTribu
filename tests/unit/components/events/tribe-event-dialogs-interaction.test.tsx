@@ -312,7 +312,9 @@ describe("event forms point validation at the field to fix", () => {
     await waitFor(() =>
       expect(within(dialog).queryByRole("textbox", { name: "Nombre del material 1" })).not.toBeInTheDocument()
     );
-    expect(within(dialog).getByRole("button", { name: "Agregar material" })).toHaveFocus();
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Agregar material" })).toHaveFocus()
+    );
   });
 });
 

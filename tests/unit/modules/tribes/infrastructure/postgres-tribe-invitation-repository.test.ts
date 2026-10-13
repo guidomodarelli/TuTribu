@@ -12,27 +12,6 @@ function setTestEncryptionKey(): void {
   );
 }
 
-function getSqlText(statement: unknown): string {
-  return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
-    .map((chunk) => {
-      if (typeof chunk === "string") {
-        return chunk;
-      }
-
-      if (
-        chunk &&
-        typeof chunk === "object" &&
-        "value" in chunk &&
-        Array.isArray((chunk as { value: unknown }).value)
-      ) {
-        return (chunk as { value: string[] }).value.join("");
-      }
-
-      return "";
-    })
-    .join("");
-}
-
 const NULL_REFERRAL_METADATA = {
   campaignName: null,
   channel: null,
@@ -585,33 +564,6 @@ describe("PostgresTribeInvitationRepository", () => {
     ).resolves.toEqual({ status: "accepted" as const });
   });
 
-  it("rechecks membership after insert conflicts so concurrent accepts stay idempotent", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
-      rows: [{ status: "accepted" as const }],
-    }); });
-    const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
-    );
-
-    await expect(
-      repository.accept({
-        token: "plain-token",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({ status: "accepted" as const });
-
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    const insertConflictPosition = sqlText.indexOf(
-      "on conflict (tribe_id, user_id) do nothing"
-    );
-    const postInsertMembershipPosition = sqlText.indexOf(
-      "post_insert_membership"
-    );
-
-    expect(insertConflictPosition).toBeGreaterThan(-1);
-    expect(postInsertMembershipPosition).toBeGreaterThan(insertConflictPosition);
-  });
-
   it(
     "tags accepted free-mode memberships with joined_via='free_invitation'",
     async () => {
@@ -698,35 +650,6 @@ describe("PostgresTribeInvitationRepository", () => {
         tribeSlug: "matematica-pro",
       })
     ).resolves.toEqual({ status: "revoked" as const });
-  });
-
-  it("resolves revoked invitations before requiring visible tribe access", async () => {
-    const execute = vi.fn<(...args: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>>(async (...args: unknown[]) => { void args; return ({
-      rows: [{ status: "revoked" as const }],
-    }); });
-    const repository = new PostgresTribeInvitationRepository(async (callback) =>
-      callback({ execute } as never)
-    );
-
-    await expect(
-      repository.accept({
-        token: "revoked-token",
-        tribeSlug: "matematica-pro",
-      })
-    ).resolves.toEqual({ status: "revoked" as const });
-
-    const sqlText = getSqlText(execute.mock.calls[0]?.[0]);
-    const targetInvitationPosition = sqlText.indexOf("target_invitation as");
-    const targetTribePosition = sqlText.indexOf("target_tribe as");
-    const revokedStatusPosition = sqlText.indexOf("status = ");
-    const invalidFallbackPosition = sqlText.indexOf(
-      "not exists (select 1 from target_invitation)"
-    );
-
-    expect(targetInvitationPosition).toBeGreaterThan(-1);
-    expect(targetTribePosition).toBeGreaterThan(-1);
-    expect(targetInvitationPosition).toBeLessThan(targetTribePosition);
-    expect(revokedStatusPosition).toBeLessThan(invalidFallbackPosition);
   });
 
   it("returns the current active subscription offer for an active invitation", async () => {

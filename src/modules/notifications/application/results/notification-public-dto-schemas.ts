@@ -10,6 +10,7 @@ import {
   NOTIFICATION_PROPOSAL_DECISION,
   NOTIFICATION_TYPE,
 } from "@/src/modules/notifications/constants/notifications";
+import { ADMISSION_NOTIFICATION_TYPE, ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
 
 /**
  * Runtime contracts (allowlists) of the public notification DTOs: JSON bodies
@@ -51,6 +52,11 @@ const notificationBaseShape = {
 };
 
 export const notificationItemSchema = z.discriminatedUnion("type", [
+  z.object({
+    ...notificationBaseShape,
+    admission: z.object({ requestId: z.uuid(), audience: z.enum(ADMISSION_NOTIFICATION_AUDIENCE) }),
+    type: z.enum(ADMISSION_NOTIFICATION_TYPE),
+  }),
   z.object({
     ...notificationBaseShape,
     event: eventOccurrenceSubjectSchema,

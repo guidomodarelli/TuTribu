@@ -1,0 +1,21 @@
+# Secuencia real de migraciones de la feature
+
+Incremento de integración sobre `2a58464c`, sin despliegue ni ejecución contra default/producción. El journal real terminaba en `20260928126000_add_leader_academy_activation`; cuarenta y cinco artefactos SQL de admisión/mensajería creados y probados individualmente quedaban fuera del comando normal de migración.
+
+Se añaden los cuarenta y cinco artefactos completos al journal, en orden cronológico desde `20261005090000_create_admission_identity_evidence` hasta `20261010121000_retire_deleted_tribe_messaging`. Se mantienen los 101 registros anteriores y sus identidades/timestamps; el journal queda con 146 entradas, índices consecutivos y timestamps nuevos estrictamente crecientes. No se incorpora sólo el retiro ni se salta ninguna dependencia de la feature.
+
+## Ensayo autoritativo
+
+`admission-feature-migration-sequence.test.ts` ejecuta el entrypoint real de `pnpm run db:migrate`, `scripts/push-migrations.js`, que usa `drizzle-kit migrate`, sobre una rama propia guardada y con URLs privadas provistas únicamente al proceso hijo. El entorno inicial de ese hijo prevalece sobre los archivos de desarrollo de `@next/env`; no se altera la configuración por defecto ni se imprime la conexión. No se usa push/force ni un migrador falso.
+
+Antes del comando, PostgreSQL confirma ausencia de las tablas de feature y recupera la historia existente. El comando añade exactamente 45 entradas y crea los tres archivos privados de retiro. Su segunda ejecución conserva conteo y última fecha, sin duplicar ni volver a crear los recursos.
+
+La prueba realiza después un INSERT real de tribu, comprueba registro activo, ejecuta DELETE con rollback provocado y conserva el registro activo. Un DELETE confirmado retira el namespace; volver a insertar ese UUID se rechaza con `23514`. Esto acredita comportamiento del almacenamiento migrado, además de la invocación del comando; no valida texto fuente ni se limita a importar/compilar módulos.
+
+La ejecución termina exit 0, un verde/cero omitidos, 44,15 s, reporte `.git/codex-feature-sequence-native-first.json`. El fixture confirma también la eliminación de su rama propia al terminar. Tipos de tests y lint pasan. Los seis casos de `pending-migrations-script.test.ts` pasan, sin omitidos, preservando el contrato del detector de migraciones de release. La arquitectura se valida en Chromium/WebKit a 390/1280 px, sin errores ni desbordes. El test mantiene bounded el proceso hijo y conserva causas privadas sin publicar stdout/stderr del driver.
+
+La revisión detectó que adjuntar el error original de `execFile` permitiría a Vitest imprimir también sus propiedades `stdout/stderr`, incluso con mensaje exterior seguro. Se corrige el borde de observación: conserva sólo exit/code seguro y una causa reconstruida sin salida del proceso. `executeAdmissionMigrationCommand` es un helper de tests; la configuración y el comando productivo siguen sin cambios. La regresión ejecuta un proceso Node real que imprime un marker UUID sintético en ambas salidas y termina con código uno; el Error/cause observable conserva ese código y no contiene el marker ni propiedades de salida, incluso al inspeccionarlo en profundidad. No se mockea `child_process`, el runner ni librerías de plataforma. El caso local termina exit 0, un verde/cero omitidos (`.git/codex-feature-sequence-observation-tests.json`); tipos y lint pasan. La secuencia completa repetida sobre el helper final termina exit 0, un verde/cero omitidos, 40,76 s (`.git/codex-feature-sequence-observation-native-final.json`). El verde inicial mantiene su snapshot propio; no se confunde con el test final extraído.
+
+## Límites que permanecen
+
+El verde acredita la secuencia completa sobre el baseline de la rama propia, su repetición y las guardas de retiro ejercidas. No sustituye la matriz funcional completa de todos los recorridos, una restauración operativa, un backup aprobado, el mantenimiento de T171, los gates OG ni un despliegue autorizado. No cierra otra casilla ni cambia el conteo de 124 completadas y 88 pendientes. La incorporación al journal permite que el comando habitual conozca los artefactos; no ejecuta ese comando automáticamente en producción.
