@@ -27,6 +27,8 @@ import {PostgresMessagingAuthorizationReader} from "./postgres-messaging-authori
 import {executeMessagingLedger} from "./execute-messaging-ledger";
 import {purgeVerificationMaterial} from "./postgres-verification-material-maintenance";
 import {PostgresMessagingUsageRepository} from "./postgres-messaging-usage-repository";
+import {createAdmissionConnectionAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
+import {PostgresAdmissionAuditRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
 /** Each callback retains native actor authority and the existing guarded transaction. */
 export type MessagingActivationDatabaseExecutor=<Result>(context:AuthorizedMessagingContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
@@ -85,7 +87,7 @@ export class PostgresMessagingConnectionActivation implements MessagingConnectio
           if(!assessment.allowed)throw new AdmissionOperationError(assessment.reason===MESSAGING_CONNECTION_REQUIREMENT.versionConflict?ADMISSION_ERROR_CODE.connectionConflict:assessment.reason===MESSAGING_CONNECTION_REQUIREMENT.capabilityRequired?ADMISSION_ERROR_CODE.missingCapability:assessment.reason===MESSAGING_CONNECTION_REQUIREMENT.countriesRequired?ADMISSION_ERROR_CODE.recipientNotAllowed:ADMISSION_ERROR_CODE.connectionIncomplete);
         };
         requireCurrentEvidence(current.now);
-        const selected=(await database.execute<{id:string;selected_version:number|null}>(sql`select id,selected_version from public.tenant_messaging_connections where tribe_id=${context.tribeId} and is_selected order by id for update`)).rows[0];
+        const selected=(await database.execute<{id:string;selected_version:number|null;version:number;state:TenantMessagingConnection["state"]}>(sql`select id,selected_version,version,state from public.tenant_messaging_connections where tribe_id=${context.tribeId} and is_selected order by id for update`)).rows[0];
         const previous:MessagingEffectiveSelection|null=selected?.selected_version?{connectionId:selected.id,connectionVersion:selected.selected_version}:null,next={connectionId:context.connectionId,connectionVersion:context.connectionVersion};
         const previousDeliveries=previous?(await database.execute<{id:string}>(sql`select id from public.message_deliveries where tribe_id=${context.tribeId} and connection_id=${previous.connectionId} and connection_version=${previous.connectionVersion} order by id for update`)).rows:[];
         const policyVersion=await dependencies.replaceSelection(context,previous,next,ledgerId);
@@ -96,12 +98,17 @@ export class PostgresMessagingConnectionActivation implements MessagingConnectio
           await database.execute(sql`update public.message_deliveries set state=${MESSAGE_DELIVERY_STATE.cancelled},last_outcome=${MESSAGING_CONNECTION_REPLACEMENT.reason},lease_token=null,lease_until=null,version=version+1 where tribe_id=${context.tribeId} and connection_id=${previous.connectionId} and connection_version=${previous.connectionVersion} and state=${MESSAGE_DELIVERY_STATE.queued} and not exists(select 1 from public.message_delivery_attempts where delivery_id=public.message_deliveries.id)`);
           await database.execute(sql`update public.messaging_connection_versions set retired_at=${now},purge_after=${purgeAfter} where tribe_id=${context.tribeId} and connection_id=${previous.connectionId} and version=${previous.connectionVersion} and retired_at is null`);
           await database.execute(sql`update public.messaging_secret_envelopes set retired_at=${now},purge_after=${purgeAfter} where tribe_id=${context.tribeId} and connection_id=${previous.connectionId} and connection_version=${previous.connectionVersion} and retired_at is null`);
-          if(previous.connectionId!==context.connectionId)await database.execute(sql`update public.tenant_messaging_connections set is_selected=false,selected_version=null,state=${MESSAGING_CONNECTION_STATE.disconnected},retired_at=${now},version=version+1,updated_at=${now} where id=${previous.connectionId} and tribe_id=${context.tribeId}`);
+          if(previous.connectionId!==context.connectionId){
+            await database.execute(sql`update public.tenant_messaging_connections set is_selected=false,selected_version=null,state=${MESSAGING_CONNECTION_STATE.disconnected},retired_at=${now},version=version+1,updated_at=${now} where id=${previous.connectionId} and tribe_id=${context.tribeId}`);
+            if(!selected)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+            await new PostgresAdmissionAuditRepository(database).append(createAdmissionConnectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:REAUTHENTICATION_OPERATION.disconnectMessagingConnection,connectionId:selected.id,version:selected.version+1,state:MESSAGING_CONNECTION_STATE.disconnected,configurationVersion:previous.connectionVersion,previous:{state:selected.state,version:selected.version,configurationVersion:previous.connectionVersion},channel:null,rule:MESSAGING_CONNECTION_REPLACEMENT.reason,cause:MESSAGING_CONNECTION_REPLACEMENT.reason,createdAt:now}));
+          }
         }
         const changed=(await database.execute(sql`update public.tenant_messaging_connections set is_selected=true,selected_version=${context.connectionVersion},is_candidate=false,candidate_version=null,state=${MESSAGING_CONNECTION_STATE.active},state_reason=null,version=version+1,updated_at=${now} where id=${context.connectionId} and tribe_id=${context.tribeId} and version=${input.expectedVersion} returning id`)).rows[0];if(!changed)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
         await this.authorize(database,context);
         for(const delivery of previousDeliveries)await purgeVerificationMaterial(database,{limit:1,deliveryId:delivery.id});
         requireCurrentEvidence((await this.authorize(database,context)).now);
+        await new PostgresAdmissionAuditRepository(database).append(createAdmissionConnectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:REAUTHENTICATION_OPERATION.activateMessagingConnection,connectionId:context.connectionId,version:input.expectedVersion+1,state:MESSAGING_CONNECTION_STATE.active,configurationVersion:context.connectionVersion,previous:{state:connection.state,version:connection.version,configurationVersion:context.connectionVersion},channel:null,rule:null,cause:null,createdAt:now}));
         return{id:context.connectionId,name:connection.name,version:input.expectedVersion+1,configurationVersion:context.connectionVersion,state:MESSAGING_CONNECTION_STATE.active,maskedCredential:MESSAGING_GENERIC_CREDENTIAL_MASK,replaced:previous,policyVersion};
       });
     }catch(error){if(error instanceof AdmissionOperationError&&error.code===ADMISSION_ERROR_CODE.operationUnresolved){try{const original=await ledger.read(command,messagingConnectionActivationSchema);if(original?.state==="completed")return original;}catch(recoveryError){throw this.failure(recoveryError);}}throw this.failure(error);}

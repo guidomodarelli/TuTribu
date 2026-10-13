@@ -34,6 +34,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("private messaging 
       expect(stored.versions).toEqual([{version:1,credential_validation_status:"not_validated",is_test_mode:null,provider_project_ref:null,provider_team_ref:null,provider_key_ref:null}]);
       expect(stored.counts).toEqual({usage:0,policies:0,capabilities:0,deliveries:0,events:0});
       expect(JSON.stringify(stored.ledger)).not.toContain(credential);
+      const audit=await database.withContext(prepared.fixture.own,async(transaction)=>(await transaction.execute(sql`select event.event_type,event.actor_user_id,event.resource_version,event.metadata,event.created_at=connection.created_at as owner_clock,operation.idempotency_key from public.academy_admission_audit_events event join public.tenant_messaging_connections connection on connection.id=event.resource_id and connection.tribe_id=event.tribe_id join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.resource_id=${created.result.id}`)).rows);
+      expect(audit).toEqual([{event_type:"save_messaging_credentials",actor_user_id:prepared.context.actorUserId,resource_version:1,metadata:{fromState:null,toState:"draft",previousVersion:null,configurationVersion:1,previousConfigurationVersion:null,channel:null},owner_clock:true,idempotency_key:operationId}]);
+      expect(JSON.stringify(audit)).not.toContain(credential);
+      expect(JSON.stringify(audit)).not.toContain(input.name);
       const envelope: MessagingSecretEnvelope = {format:stored.envelope.format,purpose:stored.envelope.purpose,environment:stored.envelope.environment,securityEpoch:stored.envelope.security_epoch,keyId:stored.envelope.key_id,iv:stored.envelope.iv,ciphertext:stored.envelope.ciphertext};
       const cipher = createMessagingSecretCipher(prepared.fixture.config);
       const scope = { tribeId:prepared.context.tribeId,connectionId:created.result.id,connectionVersion:1,resourceId:stored.envelope.secret_ref };

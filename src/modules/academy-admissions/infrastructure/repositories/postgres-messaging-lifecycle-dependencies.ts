@@ -11,6 +11,11 @@ import { MESSAGING_CONNECTION_SECURITY_REASON } from "@/src/modules/messaging/co
 import { MESSAGE_DELIVERY_STATE } from "@/src/modules/messaging/constants/message-delivery";
 import { VERIFICATION_DIAGNOSTIC_OUTCOME } from "@/src/modules/messaging/constants/verification-delivery";
 import { MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON } from "@/src/modules/messaging/constants/messaging-connection-retirement";
+import type {TenantMessagingConnection} from "@/src/modules/messaging/domain/entities/tenant-messaging-connection";
+import {createAdmissionConnectionAuditEvent} from "../../domain/entities/admission-messaging-audit-event";
+import {PostgresAdmissionAuditRepository} from "./postgres-admission-audit-repository";
+import {AdmissionOperationError} from "../../domain/errors/admission-operation-error";
+import {ADMISSION_ERROR_CODE} from "../../constants/admission-errors";
 
 /** A notification owner must supply current settings; missing/unavailable facts must throw rather than silently enable retirement. */
 export type ExternalNotificationLifecycleReader=(context:MessagingConnectionLifecycleContext,database:RequestDatabase)=>Promise<boolean>;
@@ -31,7 +36,7 @@ export class PostgresMessagingLifecycleDependencies implements MessagingConnecti
     await this.database.execute(sql`select request.id from public.academy_admission_requests request join public.academy_admission_verification_proofs proof on proof.id=request.proof_id and proof.tribe_id=request.tribe_id where request.tribe_id=${context.tribeId} and request.status=${ADMISSION_REQUEST_STATUS.pending} and proof.connection_id=${context.connectionId} order by request.id for update of request`);
     const challenges=(await this.database.execute<{id:string;code_envelope_id:string|null}>(sql`select id,code_envelope_id from public.contact_verification_challenges where tribe_id=${context.tribeId} and connection_id=${context.connectionId} order by id for update`)).rows;
     await this.database.execute(sql`select id from public.academy_admission_verification_proofs where tribe_id=${context.tribeId} and connection_id=${context.connectionId} order by id for update`);
-    const now=(await this.database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now,reason=MESSAGING_CONNECTION_SECURITY_REASON.suspectedCompromise;
+    const now=new Date((await this.database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now),reason=MESSAGING_CONNECTION_SECURITY_REASON.suspectedCompromise;
     await this.database.execute(sql`update public.academy_admission_verification_proofs proof set status=${ADMISSION_PROOF_STATUS.invalid},invalidated_at=${now},invalidation_reason=${reason} where proof.tribe_id=${context.tribeId} and proof.connection_id=${context.connectionId} and (proof.status=${ADMISSION_PROOF_STATUS.available} or proof.status=${ADMISSION_PROOF_STATUS.applied} and exists(select 1 from public.academy_admission_requests request where request.id=proof.applied_request_id and request.tribe_id=proof.tribe_id and request.status=${ADMISSION_REQUEST_STATUS.pending}))`);
     for(const challenge of challenges){
       if(challenge.code_envelope_id)await this.database.execute(sql`select id from public.verification_code_envelopes where id=${challenge.code_envelope_id} and challenge_id=${challenge.id} for update`);
@@ -40,16 +45,23 @@ export class PostgresMessagingLifecycleDependencies implements MessagingConnecti
       await this.database.execute(sql`update public.messaging_connection_diagnostics set outcome=${VERIFICATION_DIAGNOSTIC_OUTCOME.invalidated} where challenge_id=${challenge.id} and outcome=${VERIFICATION_DIAGNOSTIC_OUTCOME.pending}`);
     }
     for(const delivery of deliveries)await this.database.execute(sql`update public.message_deliveries set state=${MESSAGE_DELIVERY_STATE.cancelled},last_outcome=${reason},lease_token=null,lease_until=null,version=version+1 where id=${delivery.id} and state=${MESSAGE_DELIVERY_STATE.queued} and not exists(select 1 from public.message_delivery_attempts where delivery_id=${delivery.id})`);
-    await this.database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type,rule) values (${context.tribeId},${context.actorUserId},${ADMISSION_MESSAGING_LIFECYCLE_EVIDENCE.resourceType},${context.connectionId},${ledgerId},${ADMISSION_MESSAGING_LIFECYCLE_EVIDENCE.compromised},${reason})`);
+    await this.recordReferenceAudit(context,ledgerId,ADMISSION_MESSAGING_LIFECYCLE_EVIDENCE.compromised,reason,now);
   }
   /** @param context - Exact ordinarily retired connection after the caller's dependency assessment. @param ledgerId - Original private local action. @returns After detaching current policy references, preserving verification epoch/rules and applied evidence. */
   async retireReferences(context:MessagingConnectionLifecycleContext,ledgerId:string):Promise<void>{
     await this.database.execute(sql`select id from public.message_deliveries where tribe_id=${context.tribeId} and connection_id=${context.connectionId} order by id for update`);
     await this.database.execute(sql`select id from public.contact_verification_challenges where tribe_id=${context.tribeId} and connection_id=${context.connectionId} order by id for update`);
-    const now=(await this.database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now;
+    const now=new Date((await this.database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
     await this.database.execute(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.invalid},invalidated_at=${now},invalidation_reason=${MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON} where tribe_id=${context.tribeId} and connection_id=${context.connectionId} and status=${ADMISSION_PROOF_STATUS.available}`);
     await this.database.execute(sql`update public.contact_verification_challenges set is_current=false,state=case when state=${VERIFICATION_CHALLENGE_STATE.verified} then state else ${VERIFICATION_CHALLENGE_STATE.invalidated} end,version=version+1,invalidated_at=coalesce(invalidated_at,${now}),invalidation_reason=coalesce(invalidation_reason,${MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON}),code_mac=null where tribe_id=${context.tribeId} and connection_id=${context.connectionId} and is_current`);
     await this.database.execute(sql`update public.academy_admission_policies set messaging_connection_id=null,messaging_connection_version=null,version=version+1,changed_by_user_id=${context.actorUserId},updated_at=clock_timestamp() where tribe_id=${context.tribeId} and messaging_connection_id=${context.connectionId}`);
-    await this.database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type) values (${context.tribeId},${context.actorUserId},${ADMISSION_MESSAGING_LIFECYCLE_EVIDENCE.resourceType},${context.connectionId},${ledgerId},${ADMISSION_MESSAGING_LIFECYCLE_EVIDENCE.retired})`);
+    await this.recordReferenceAudit(context,ledgerId,ADMISSION_MESSAGING_LIFECYCLE_EVIDENCE.retired,MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON,now);
+  }
+  /** @param context - Original authorized lifecycle scope. @param ledgerId - Private original command. @param eventType - Effective evidence/reference change. @param reason - Closed owner-selected cause. @param now - Same authoritative clock as those effects. @returns After staging a fact without fabricating a lifecycle transition for the reference effect. */
+  private async recordReferenceAudit(context:MessagingConnectionLifecycleContext,ledgerId:string,eventType:"messaging_connection_compromised"|"messaging_connection_retired",reason:"suspected_compromise"|"connection_disconnected",now:Date){
+    const row=(await this.database.execute<{version:number;state:TenantMessagingConnection["state"];selected_version:number|null;candidate_version:number|null}>(sql`select version,state,selected_version,candidate_version from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId}`)).rows[0];
+    if(!row)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    const configurationVersion=row.selected_version??row.candidate_version;
+    await new PostgresAdmissionAuditRepository(this.database).append(createAdmissionConnectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType,connectionId:context.connectionId,version:row.version,state:row.state,configurationVersion,previous:{state:row.state,version:row.version,configurationVersion},channel:null,rule:reason,cause:reason,createdAt:now}));
   }
 }

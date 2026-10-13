@@ -19,6 +19,8 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { authorizeMessagingTribeManagement } from "./postgres-messaging-usage-authorizer";
 import { executeMessagingLedger } from "./execute-messaging-ledger";
+import { createAdmissionConnectionAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
+import { PostgresAdmissionAuditRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
 /** Keeps every phase tied to the actual current server account's guarded checkout. */
 export type MessagingConnectionCreationExecutor = <Result>(context:MessagingConnectionCreationContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
@@ -47,7 +49,7 @@ export class PostgresMessagingConnectionRepository implements MessagingConnectio
     const ledger=new PostgresAdmissionOperationRepository((run)=>executeMessagingLedger(()=>this.execute(context,run)),async(database)=>{await this.authorize(database,context);return true;},this.readSecurityConfig);
     try {
       if(input.providerId!==MESSAGING_INITIAL_PROVIDER_ID||!input.apiKey||!input.confirmed)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-      return await ledger.run(command,messagingConnectionMutationSchema,async(database)=>{
+      return await ledger.run(command,messagingConnectionMutationSchema,async(database,ledgerId)=>{
         await this.authorize(database,context);
         await database.execute(sql`select id from public.tribes where id=${context.tribeId} for update`);
         await this.authorize(database,context);
@@ -60,12 +62,14 @@ export class PostgresMessagingConnectionRepository implements MessagingConnectio
         await this.authorize(database,context);
         const current=await this.readSecurityConfig();
         if(current.recoveryLocked||current.environment!==config.environment||current.securityEpoch!==config.securityEpoch||!current.keyrings.credential.keys.has(envelope.keyId))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
-        await database.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,name,provider,contributed_by_user_id,state,environment,security_epoch,is_selected,is_candidate,selected_version,candidate_version) values (${connectionId},${context.tribeId},${input.name},${input.providerId},${context.actorUserId},${MESSAGING_CONNECTION_STATE.draft},${config.environment},${config.securityEpoch},false,true,null,1)`);
+        const now=new Date((await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
+        await database.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,name,provider,contributed_by_user_id,state,environment,security_epoch,is_selected,is_candidate,selected_version,candidate_version,created_at,updated_at) values (${connectionId},${context.tribeId},${input.name},${input.providerId},${context.actorUserId},${MESSAGING_CONNECTION_STATE.draft},${config.environment},${config.securityEpoch},false,true,null,1,${now},${now})`);
         await database.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,secret_ref) values (${connectionId},${context.tribeId},1,${config.environment},${config.securityEpoch},${secretRef})`);
         await database.execute(sql`insert into public.messaging_secret_envelopes(secret_ref,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,format,key_id,iv,ciphertext) values (${secretRef},${context.tribeId},${connectionId},1,${envelope.environment},${envelope.securityEpoch},${envelope.purpose},${envelope.format},${envelope.keyId},${Buffer.from(envelope.iv)},${Buffer.from(envelope.ciphertext)})`);
         await this.authorize(database,context);
         const final=await this.readSecurityConfig();
         if(final.recoveryLocked||final.environment!==config.environment||final.securityEpoch!==config.securityEpoch||!final.keyrings.credential.keys.has(envelope.keyId))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
+        await new PostgresAdmissionAuditRepository(database).append(createAdmissionConnectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:REAUTHENTICATION_OPERATION.saveMessagingCredentials,connectionId,version:1,state:MESSAGING_CONNECTION_STATE.draft,configurationVersion:1,previous:null,channel:null,rule:null,cause:null,createdAt:now}));
         return {id:connectionId,name:input.name,version:1,configurationVersion:1,state:MESSAGING_CONNECTION_STATE.draft,maskedCredential:MESSAGING_GENERIC_CREDENTIAL_MASK};
       });
     }catch(error){

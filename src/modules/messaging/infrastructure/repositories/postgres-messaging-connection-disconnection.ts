@@ -19,6 +19,8 @@ import { assessMessagingConnectionRetirement } from "../../domain/policies/messa
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { authorizeMessagingLifecycleResource } from "./postgres-messaging-lifecycle-authorizer";
 import { executeMessagingLedger } from "./execute-messaging-ledger";
+import {createAdmissionConnectionAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
+import {PostgresAdmissionAuditRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 import { purgeVerificationMaterial } from "./postgres-verification-material-maintenance";
 
 /** No secret is opened and no old obligation is redirected to another credential/account. */
@@ -48,6 +50,7 @@ export class PostgresMessagingConnectionDisconnection implements Pick<MessagingC
       await database.execute(sql`update public.tenant_messaging_connections set state=${MESSAGING_CONNECTION_STATE.disconnected},state_reason=${MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON},is_selected=false,selected_version=null,is_candidate=false,candidate_version=null,retired_at=${now},version=version+1,updated_at=${now} where id=${context.connectionId} and tribe_id=${context.tribeId} and version=${input.expectedVersion}`);
       for(const delivery of deliveries)await purgeVerificationMaterial(database,{limit:1,deliveryId:delivery.id});
       await this.authorize(database,context);
+      await new PostgresAdmissionAuditRepository(database).append(createAdmissionConnectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:REAUTHENTICATION_OPERATION.disconnectMessagingConnection,connectionId:row.id,version:row.version+1,state:MESSAGING_CONNECTION_STATE.disconnected,configurationVersion:row.selected_version??row.candidate_version,previous:{state:row.state,version:row.version,configurationVersion:row.selected_version??row.candidate_version},channel:null,rule:MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON,cause:MESSAGING_CONNECTION_ORDINARY_RETIREMENT_REASON,createdAt:now}));
       return{id:row.id,version:row.version+1,state:MESSAGING_CONNECTION_STATE.disconnected,reason:null,changed:true};
     });}catch(error){
       const code=error instanceof AdmissionOperationError?Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure:MESSAGING_ERROR_CODE.unexpectedFailure;

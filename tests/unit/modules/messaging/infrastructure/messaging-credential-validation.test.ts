@@ -71,6 +71,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("private credential i
       expect(stored.counts).toEqual({checks:1,capabilities:0,deliveries:0,usage:0});
       expect(stored.lifecycle).toEqual({state:"draft",is_selected:false,is_candidate:true,version:scenario==="expired"?1:2,candidate_version:1});
       expect(JSON.stringify(stored.results)).not.toContain(credential);for(const reference of Object.values(privateRefs))expect(JSON.stringify(stored.results)).not.toContain(reference);
+      const audit=await database.withContext(fixture.fixture.own,async(transaction)=>(await transaction.execute(sql`select event.metadata,event.actor_user_id,event.resource_version,event.created_at=version.credential_validated_at as owner_clock,operation.idempotency_key from public.academy_admission_audit_events event join public.messaging_connection_versions version on version.connection_id=event.resource_id and version.tribe_id=event.tribe_id and version.version=1 join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.resource_id=${connectionId} and event.event_type='validate_messaging_connection'`)).rows);
+      expect(audit).toEqual(scenario==="success"?[{metadata:{fromState:"draft",toState:"draft",previousVersion:1,configurationVersion:1,previousConfigurationVersion:1,channel:null,previousCredentialState:"not_validated",credentialState:"valid",credentialMode:"test"},actor_user_id:fixture.context.actorUserId,resource_version:2,owner_clock:true,idempotency_key:input.operationId}]:[]);
+      expect(JSON.stringify(audit)).not.toContain(credential);for(const reference of Object.values(privateRefs))expect(JSON.stringify(audit)).not.toContain(reference);
     });
   },300_000);
 

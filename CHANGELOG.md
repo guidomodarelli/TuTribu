@@ -65,6 +65,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El acceso con Google muestra la marca TuTribu verificada y permite comprobar la fecha de autenticación; guardar una conexión de mensajería sigue exigiendo una autenticación de Google de los últimos diez minutos.
 - La auditoría de la lista de habilitados, sus importaciones y las invitaciones personales conserva los estados y versiones anteriores, la operación original y el momento del cambio o retiro de autorización, sin incluir contactos, nombres ni tokens.
 - La auditoría de solicitudes, lista de habilitados, importaciones e invitaciones personales conserva los estados y versiones anteriores, las decisiones, la operación original y el momento del cambio; los permisos para reintentar mantienen su motivo privado y sus fechas, sin incluir contactos, nombres ni tokens.
+- La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta, sin incluir contactos, nombres ni claves.
 
 ### Fixed
 
