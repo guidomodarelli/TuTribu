@@ -66,6 +66,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La auditoría de la lista de habilitados, sus importaciones y las invitaciones personales conserva los estados y versiones anteriores, la operación original y el momento del cambio o retiro de autorización, sin incluir contactos, nombres ni tokens.
 - La auditoría de solicitudes, lista de habilitados, importaciones e invitaciones personales conserva los estados y versiones anteriores, las decisiones, la operación original y el momento del cambio; los permisos para reintentar mantienen su motivo privado y sus fechas, sin incluir contactos, nombres ni tokens.
 - La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta, sin incluir contactos, nombres ni claves.
+- La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta. Las comprobaciones de contacto confirmadas registran la creación de su prueba local por separado de la entrega del mensaje, sin incluir contactos, códigos, nombres ni claves.
 
 ### Fixed
 
