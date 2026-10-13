@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "@guidomodarelli/beez-ui";
+import { toast } from "beez-ui";
 
 import {
   trackTribeEventConversationMutation,

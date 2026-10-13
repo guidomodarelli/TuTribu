@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Textarea, AnimatedCollapse, MOTION_TIMING, MOTION_EASE } from "@guidomodarelli/beez-ui";
+import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Textarea, AnimatedCollapse, MOTION_TIMING, MOTION_EASE } from "beez-ui";
 
 import {
   addDaysToBuenosAiresDateKey,

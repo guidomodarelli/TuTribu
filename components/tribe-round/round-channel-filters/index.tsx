@@ -15,7 +15,7 @@ import { isInPageLinkClick } from "@/lib/plain-link-click";
 import type { TribeChannelResult } from "@/src/modules/messages/application/results/tribe-round-result";
 
 import styles from "./styles.module.scss";
-import { cn, SPRING_LAYOUT } from "@guidomodarelli/beez-ui";
+import { cn, SPRING_LAYOUT } from "beez-ui";
 
 /** Identifier of the "all channels" chip, which has no channel id. */
 const ALL_CHANNELS_FILTER_ID = "all";

@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 concurrency:
   group: quality-gate-${{ github.event_name }}-${{ github.ref }}
@@ -41,8 +40,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        env:
-          PNPM_CONFIG__AUTH: '{"https://npm.pkg.github.com":{"@guidomodarelli":{"authToken":"${{ secrets.GITHUB_TOKEN }}"}}}'
 
       - name: Install browser required by native transport tests
         run: pnpm exec playwright install --with-deps chromium

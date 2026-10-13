@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarPlusIcon, LightbulbIcon } from "lucide-react";
-import { Button } from "@guidomodarelli/beez-ui";
+import { Button } from "beez-ui";
 
 import { TRIBE_EVENT_RECURRENCE_LABEL } from "@/src/modules/events/constants/tribe-event-copy";
 import type { TribeEventTemplate } from "@/src/modules/events/constants/tribe-event-templates";

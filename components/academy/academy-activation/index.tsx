@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   toast,
-} from "@guidomodarelli/beez-ui";
+} from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
 import { activateAcademy } from "@/lib/academy/academy-api-client";

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@guidomodarelli/beez-ui";
+import { Button } from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
 import { ROUTES } from "@/src/constants/routes";

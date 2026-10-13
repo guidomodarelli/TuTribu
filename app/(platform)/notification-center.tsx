@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useIsMobile, useIsHydrated } from "@guidomodarelli/beez-ui/hooks";
+import { useIsMobile, useIsHydrated } from "beez-ui/hooks";
 
 import {
   NOTIFICATION_BELL_SURFACE,

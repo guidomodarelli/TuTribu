@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import Image from "next/image";
 import { ImageIcon, ImageOffIcon, UploadIcon } from "lucide-react";
-import { toast, Button, Input, PresenceSwap, cn } from "@guidomodarelli/beez-ui";
+import { toast, Button, Input, PresenceSwap, cn } from "beez-ui";
 
 import type { TribeIdentityResult } from "@/src/modules/tribes/application/results/tribe-identity-result";
 import styles from "./styles.module.scss";

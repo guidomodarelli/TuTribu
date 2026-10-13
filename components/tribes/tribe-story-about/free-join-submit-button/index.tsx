@@ -9,7 +9,7 @@
  */
 import { useFormStatus } from "react-dom";
 import { LoaderCircleIcon } from "lucide-react";
-import { Button } from "@guidomodarelli/beez-ui";
+import { Button } from "beez-ui";
 
 import styles from "./styles.module.scss";
 

@@ -2,6 +2,7 @@ import { vi, describe, it, expect, beforeEach, afterEach, type MockInstance, typ
 import type { ReactElement, ReactNode } from "react";
 import {
   act,
+  cleanup,
   fireEvent,
   render as renderComponent,
   screen,
@@ -9,7 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast, TooltipProvider } from "@guidomodarelli/beez-ui";
+import { toast, TooltipProvider } from "beez-ui";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 
@@ -27,7 +28,13 @@ import { ATTACHMENT_FILE } from "@/src/constants/attachment-files";
 
 const refreshMock = vi.fn();
 const originalConsoleError = console.error;
+/**
+ * Radix components whose internal state settles after an animated layer closes, outside the
+ * test's `act` scope (a jsdom artifact). Since radix-ui 1.8 the root `Dialog` hosts the
+ * focus-scope branch registry, so a nested menu that unregisters after closing updates `Dialog`.
+ */
 const radixActWarningComponents = new Set([
+  "Dialog",
   "DismissableLayer",
   "FocusScope",
   "Menu",
@@ -244,8 +251,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("@guidomodarelli/beez-ui", async () => ({
-  ...await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -658,6 +665,8 @@ describe("TribeRound", () => {
 
   afterEach(async () => {
     await settleReactUpdates();
+    // Unmount before asserting so a failed assertion never leaves this test's DOM to the next one.
+    cleanup();
     expect(unexpectedConsoleErrors).toEqual([]);
     consoleErrorSpy.mockRestore();
   });

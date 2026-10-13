@@ -13,7 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { Avatar, AvatarFallback, AvatarImage, HoverCard, HoverCardContent, HoverCardTrigger, Popover, PopoverContent, PopoverTrigger } from "@guidomodarelli/beez-ui";
+import { Avatar, AvatarFallback, AvatarImage, HoverCard, HoverCardContent, HoverCardTrigger, Popover, PopoverContent, PopoverTrigger } from "beez-ui";
 
 
 import type { MessageLikerResult } from "@/src/modules/messages/application/results/tribe-round-result";

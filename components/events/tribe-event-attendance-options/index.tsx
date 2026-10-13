@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { LayoutGroup, motion } from "motion/react";
-import { Button, SPRING_LAYOUT } from "@guidomodarelli/beez-ui";
+import { Button, SPRING_LAYOUT } from "beez-ui";
 
 import type {
   TribeEventAttendanceOption,

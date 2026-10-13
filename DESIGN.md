@@ -37,7 +37,7 @@ with restrained spacing and typography.
 ## Component Library
 
 Use `beez-ui` as the shared component library. Group named imports from the
-package root, for example `import { Button, Dialog, Input } from "@guidomodarelli/beez-ui"`.
+package root, for example `import { Button, Dialog, Input } from "beez-ui"`.
 The library owns the shadcn/ui sources and all shared customizations. Add new
 upstream components with the official CLI in the `beez-ui` repository, then
 version and distribute the package. Do not run the shadcn CLI in this app or
@@ -51,7 +51,7 @@ outline, in light and dark, with Arc's blue accent. Style product code with thos
 (`--primary`, `--muted`, `--muted-foreground`…) remain as aliases, and `--accent` is Arc's brand accent, not a hover
 grey. Keep page-specific
 styles and explicit overrides in this repository. Import shared component
-styles once through `@guidomodarelli/beez-ui/styles.css`. Follow the integration contract in
+styles once through `beez-ui/styles.css`. Follow the integration contract in
 `docs/architecture/shared-ui-library.htm`.
 
 Only create a product-specific custom component when the shared library has

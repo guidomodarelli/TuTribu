@@ -1,14 +1,14 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast } from "@guidomodarelli/beez-ui";
+import { toast } from "beez-ui";
 
 import { TribeWelcomeSelectionModal } from "@/components/tribes/tribe-welcome-selection-modal";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("@guidomodarelli/beez-ui", async () => ({
-  ...await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
     error: vi.fn(),
   },

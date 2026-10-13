@@ -4,7 +4,7 @@ import { useId, useMemo, useRef, useState } from "react";
 import { LoaderCircleIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Switch, Textarea, AnimatedCount, AnimatedListItem } from "@guidomodarelli/beez-ui";
+import { toast, Button, Input, Switch, Textarea, AnimatedCount, AnimatedListItem } from "beez-ui";
 
 import { TribeWelcomeDisplay } from "@/components/tribes/tribe-welcome-display";
 import { TribeWelcomeSelectionModal } from "@/components/tribes/tribe-welcome-selection-modal";

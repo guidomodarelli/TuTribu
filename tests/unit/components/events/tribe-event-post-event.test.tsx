@@ -14,8 +14,8 @@ import type { TribeEventOccurrenceResult } from "@/src/modules/events/applicatio
 import { MOTION_SAFE_FAKE_TIMERS } from "@/tests/unit/components/events/support/motion-safe-fake-timers";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("@guidomodarelli/beez-ui", async () => ({
-  ...(await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui")),
+vi.mock("beez-ui", async () => ({
+  ...(await vi.importActual<typeof import("beez-ui")>("beez-ui")),
   toast: {
     error: vi.fn(),
     info: vi.fn(),
@@ -268,7 +268,7 @@ describe("TribeEventOccurrenceActivity", () => {
 
   it("rolls the reaction back to the persisted counts when saving fails", async () => {
     vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
-    const { toast } = await import("@guidomodarelli/beez-ui");
+    const { toast } = await import("beez-ui");
 
     mockApi({
       [`GET /events/${EVENT_ID}/comments`]: conversationHandler,
@@ -628,7 +628,7 @@ describe("TribeEventOccurrenceActivity", () => {
 
   it("reports a reaction that fails after the detail closed while it was in flight", async () => {
     vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
-    const { toast } = await import("@guidomodarelli/beez-ui");
+    const { toast } = await import("beez-ui");
     const reactionBodies: unknown[] = [];
     let settleReaction: (response: RouteResponse) => void = () => undefined;
 
@@ -667,7 +667,7 @@ describe("TribeEventOccurrenceActivity", () => {
 
   it("sends a newer reaction tapped while the previous request was in flight when that request fails", async () => {
     vi.useFakeTimers(MOTION_SAFE_FAKE_TIMERS);
-    const { toast } = await import("@guidomodarelli/beez-ui");
+    const { toast } = await import("beez-ui");
     const reactionBodies: unknown[] = [];
     const reactionSettlers: Array<(response: RouteResponse) => void> = [];
 

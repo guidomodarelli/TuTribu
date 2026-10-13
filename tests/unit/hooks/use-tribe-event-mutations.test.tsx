@@ -7,8 +7,8 @@ import { buildTribeEventAttendanceApiEndpoint } from "@/lib/events/tribe-events-
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("@guidomodarelli/beez-ui", async () => ({
-  ...(await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui")),
+vi.mock("beez-ui", async () => ({
+  ...(await vi.importActual<typeof import("beez-ui")>("beez-ui")),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -625,7 +625,7 @@ describe("useTribeEventMutations streak refresh serialization", () => {
 
   it("retries a read the route answers with an error with a bounded backoff and stops", async () => {
     useFakeRetryTimers();
-    const { toast } = vi.mocked(await import("@guidomodarelli/beez-ui"), true);
+    const { toast } = vi.mocked(await import("beez-ui"), true);
     const { result } = renderMutations();
 
     act(() => {
@@ -1167,7 +1167,7 @@ describe("useTribeEventMutations overlapping mutations and new server renders", 
   });
 
   it("stops retrying a month read that keeps failing and keeps the responses on screen", async () => {
-    const { toast } = vi.mocked(await import("@guidomodarelli/beez-ui"), true);
+    const { toast } = vi.mocked(await import("beez-ui"), true);
     const { result } = await overlapEditAndAttendance();
 
     useFakeRetryTimers();
@@ -1406,7 +1406,7 @@ describe("useTribeEventMutations lone mutations with an ambiguous outcome", () =
   it.each(mutations)(
     "does not read the month after a lone %s the route rejected with a message",
     async (_mutationName, runMutation) => {
-      const { toast } = vi.mocked(await import("@guidomodarelli/beez-ui"), true);
+      const { toast } = vi.mocked(await import("beez-ui"), true);
 
       mutationAnswer = {
         body: { message: "Revisá los datos del evento." },

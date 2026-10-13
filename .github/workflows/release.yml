@@ -19,7 +19,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 
 concurrency:
@@ -69,8 +68,6 @@ jobs:
           version: '12.6.0'
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
-        env:
-          PNPM_CONFIG__AUTH: '{"https://npm.pkg.github.com":{"@guidomodarelli":{"authToken":"${{ secrets.GITHUB_TOKEN }}"}}}'
       - name: Instalar navegador requerido por los tests
         run: pnpm exec playwright install --with-deps chromium
       - name: Configurar Vercel
@@ -116,7 +113,6 @@ jobs:
           cp .vercel/.env.production.local .env
       - name: Construir artefacto de producción
         env:
-          PNPM_CONFIG__AUTH: '{"https://npm.pkg.github.com":{"@guidomodarelli":{"authToken":"${{ secrets.GITHUB_TOKEN }}"}}}'
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
