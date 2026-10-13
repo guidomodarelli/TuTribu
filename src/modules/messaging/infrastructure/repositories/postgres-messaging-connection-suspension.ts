@@ -15,6 +15,8 @@ import { MESSAGING_CONNECTION_SECURITY_REASON } from "../../constants/messaging-
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { authorizeMessagingLifecycleResource } from "./postgres-messaging-lifecycle-authorizer";
 import { executeMessagingLedger } from "./execute-messaging-ledger";
+import {createAdmissionConnectionAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
+import {PostgresAdmissionAuditRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
 /** Own actor executor commits each original ledger/effect phase separately. */
 export type MessagingConnectionLifecycleExecutor=<Result>(context:MessagingConnectionLifecycleContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
@@ -35,10 +37,11 @@ export class PostgresMessagingConnectionSuspension implements Pick<MessagingConn
       if(row.version!==input.expectedVersion)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionConflict);
       if(row.state===MESSAGING_CONNECTION_STATE.disconnected||row.retired_at!==null)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       if(row.state===MESSAGING_CONNECTION_STATE.suspended&&row.state_reason===input.reason)return{id:row.id,version:row.version,state:MESSAGING_CONNECTION_STATE.suspended,reason:input.reason,changed:false};
-      const now=(await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now;
+      const now=new Date((await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
       await database.execute(sql`update public.tenant_messaging_connections set state=${MESSAGING_CONNECTION_STATE.suspended},state_reason=${input.reason},version=version+1,updated_at=${now} where id=${row.id} and tribe_id=${context.tribeId} and version=${input.expectedVersion}`);
       if(input.reason===MESSAGING_CONNECTION_SECURITY_REASON.suspectedCompromise)await this.composeDependencies(database).invalidateCompromisedEvidence(context,ledgerId);
       await this.authorize(database,context);
+      await new PostgresAdmissionAuditRepository(database).append(createAdmissionConnectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:REAUTHENTICATION_OPERATION.suspendMessagingConnection,connectionId:row.id,version:row.version+1,state:MESSAGING_CONNECTION_STATE.suspended,configurationVersion:row.selected_version??row.candidate_version,previous:{state:row.state,version:row.version,configurationVersion:row.selected_version??row.candidate_version},channel:null,rule:input.reason,cause:input.reason,createdAt:now}));
       return{id:row.id,version:row.version+1,state:MESSAGING_CONNECTION_STATE.suspended,reason:input.reason,changed:true};
     });}catch(error){
       const code=error instanceof AdmissionOperationError?Object.values(MESSAGING_ERROR_CODE).find((candidate)=>candidate===error.code)??MESSAGING_ERROR_CODE.unexpectedFailure:MESSAGING_ERROR_CODE.unexpectedFailure;

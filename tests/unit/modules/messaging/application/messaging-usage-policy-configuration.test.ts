@@ -115,6 +115,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging usage co
       expect(await fixture.operations.initialize(fixture.contexts.initialize, randomUUID())).toMatchObject({ state: "completed", result: { version: 2, allowedCountries: ["AR"], verificationDailyLimit: 0, notificationDailyLimit: 0 } });
       expect(await fixture.operations.read(fixture.contexts.read)).toMatchObject({ state: "configured", policy: { version: 2, allowedCountries: ["AR"] } });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as count from public.messaging_usage_policies where tribe_id=${fixture.tribeId}`)).rows)).toEqual([{ count: 1 }]);
+      const audit=await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select event.event_type,event.actor_user_id,event.resource_id,event.resource_version,event.metadata,case when event.event_type='initialize_messaging_usage' then event.created_at=policy.created_at else event.created_at=policy.updated_at end as owner_clock from public.academy_admission_audit_events event join public.messaging_usage_policies policy on policy.tribe_id=event.tribe_id join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.tribe_id=${fixture.tribeId} and event.resource_type='messaging_usage_policy' order by event.resource_version`)).rows);
+      expect(audit).toEqual([
+        {event_type:"initialize_messaging_usage",actor_user_id:fixture.userId,resource_id:fixture.tribeId,resource_version:1,metadata:{previousVersion:null,allowedCountries:[],verificationDailyLimit:100,notificationDailyLimit:200},owner_clock:true},
+        {event_type:"update_messaging_usage",actor_user_id:fixture.userId,resource_id:fixture.tribeId,resource_version:2,metadata:{previousVersion:1,allowedCountries:["AR"],verificationDailyLimit:0,notificationDailyLimit:0},owner_clock:true},
+      ]);
     });
   }, 180_000);
 

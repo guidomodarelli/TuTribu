@@ -23,6 +23,8 @@ import {authorizeMessagingSecret,messagingSecretLifetimeIsCurrent} from "./postg
 import {PostgresMessagingAuthorizationReader} from "./postgres-messaging-authorization-reader";
 import {executeMessagingLedger} from "./execute-messaging-ledger";
 import {retireDiagnosticChallenges} from "./postgres-retired-diagnostic-challenges";
+import {createAdmissionConnectionAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
+import {PostgresAdmissionAuditRepository} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
 /** Uses only protected current native transactions; no callback can access the provider. */
 export type MessagingConfigurationDatabaseExecutor=<Result>(context:AuthorizedMessagingContext,run:(database:RequestDatabase)=>Promise<Result>)=>Promise<Result>;
@@ -92,7 +94,7 @@ export class PostgresMessagingConnectionConfiguration implements MessagingConnec
   async commit(context:AuthorizedMessagingContext,input:MessagingConnectionConfigurationInput,inspection:MessagingConfigurationInspection|null){
     const ledger=this.ledger(context,true),command=this.command(context,input);
     try{
-      return await ledger.run(command,messagingConnectionConfigurationSchema,async(database)=>{
+      return await ledger.run(command,messagingConnectionConfigurationSchema,async(database,ledgerId)=>{
         const current=await this.current(database,context,input),row=current.row;
         if(!current.changed)return{id:context.connectionId,name:row.name,version:row.version,configurationVersion:context.connectionVersion,state:row.state,maskedCredential:MESSAGING_GENERIC_CREDENTIAL_MASK,changed:false};
         if(!inspection?.credential||inspection.sender.resourceId!==input.senderId||!inspection.sender.channels.includes(input.channel)||input.channel===MESSAGING_PUBLIC_CHANNEL.whatsapp&&(!inspection.sender.canSendWhatsappTemplates||!inspection.template?.authenticationApproved||inspection.template.resourceId!==input.templateId||inspection.template.language!==input.templateLanguage))throw new AdmissionOperationError(ADMISSION_ERROR_CODE.missingCapability);
@@ -113,6 +115,7 @@ export class PostgresMessagingConnectionConfiguration implements MessagingConnec
           await database.execute(sql`update public.messaging_secret_envelopes set retired_at=${now},purge_after=${now}::timestamptz+interval '24 hours' where secret_ref=${context.secretRef}`);
         }
         await this.authorize(database,context,true);
+        await new PostgresAdmissionAuditRepository(database).append(createAdmissionConnectionAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:REAUTHENTICATION_OPERATION.configureMessagingConnection,connectionId:context.connectionId,version:row.version+1,state,configurationVersion:nextVersion,previous:{state:row.state,version:row.version,configurationVersion:context.connectionVersion},channel:input.channel,rule:null,cause:null,createdAt:now}));
         return{id:context.connectionId,name:row.name,version:input.expectedVersion+1,configurationVersion:nextVersion,state,maskedCredential:MESSAGING_GENERIC_CREDENTIAL_MASK,changed:true};
       });
     }catch(error){

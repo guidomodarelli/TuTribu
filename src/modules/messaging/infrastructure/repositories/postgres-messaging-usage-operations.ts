@@ -18,6 +18,8 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import { authorizeMessagingUsage } from "./postgres-messaging-usage-authorizer";
 import { executeMessagingLedger } from "./execute-messaging-ledger";
+import { createAdmissionUsageAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-messaging-audit-event";
+import { PostgresAdmissionAuditRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository";
 
 /** Binds all checkouts to the same current server principal, never body-selected identity. */
 type UsageDatabaseExecutor = <Result>(context: MessagingUsageContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -103,10 +105,10 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
    * @param mutate - DB-only callback; no new checkout, SDK or provider call is allowed here.
    * @returns The confirmed original result, including recovered response loss, or genuine unfinished work.
    */
-  private async run(ledger: PostgresAdmissionOperationRepository, command: AdmissionOperationCommand, mutate: (database: RequestDatabase) => Promise<MessagingUsagePolicyResult>): Promise<AdmissionOperationResult<MessagingUsagePolicyResult>> {
+  private async run(ledger: PostgresAdmissionOperationRepository, command: AdmissionOperationCommand, mutate: (database: RequestDatabase,ledgerId:string) => Promise<MessagingUsagePolicyResult>): Promise<AdmissionOperationResult<MessagingUsagePolicyResult>> {
     try {
-      return await ledger.run(command, messagingUsagePolicySchema, async (database) => {
-        try { return await mutate(database); }
+      return await ledger.run(command, messagingUsagePolicySchema, async (database,ledgerId) => {
+        try { return await mutate(database,ledgerId); }
         catch (error) {
           if (error instanceof MessagingUsageOperationError) throw this.ledgerFailure(error);
           throw error;
@@ -135,10 +137,12 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
   async initialize(context: MessagingUsageSensitiveContext, operationId: string) {
     try {
       const ledger = this.ledger(context, REAUTHENTICATION_OPERATION.initializeMessagingUsage);
-      return await this.run(ledger, { actorUserId: context.actorUserId, tribeId: context.tribeId, operationType: context.operation, idempotencyKey: operationId, intent: { confirmed: true } }, async (database) => {
-        await database.execute(sql`insert into public.messaging_usage_policies(tribe_id,changed_by_user_id) values (${context.tribeId},${context.actorUserId}) on conflict(tribe_id) do nothing`);
+      return await this.run(ledger, { actorUserId: context.actorUserId, tribeId: context.tribeId, operationType: context.operation, idempotencyKey: operationId, intent: { confirmed: true } }, async (database,ledgerId) => {
+        const now=new Date((await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
+        const created=(await database.execute(sql`insert into public.messaging_usage_policies(tribe_id,changed_by_user_id,created_at,updated_at) values (${context.tribeId},${context.actorUserId},${now},${now}) on conflict(tribe_id) do nothing returning tribe_id`)).rows[0];
         const row = await this.readLocked(database, context.tribeId, true);
         if (!row) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+        if(created)await new PostgresAdmissionAuditRepository(database).append(createAdmissionUsageAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:REAUTHENTICATION_OPERATION.initializeMessagingUsage,version:row.version,previousVersion:null,allowedCountries:row.allowed_countries,verificationDailyLimit:row.verification_daily_limit,notificationDailyLimit:row.notification_daily_limit,createdAt:now}));
         return this.project(database, context, row);
       });
     } catch (error) { throw this.failure(error); }
@@ -155,7 +159,7 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
       const ledger = this.ledger(context, REAUTHENTICATION_OPERATION.updateMessagingUsage);
       const allowedCountries = [...input.allowedCountries].sort();
       const intent = { expectedVersion: input.expectedVersion, allowedCountries, verificationDailyLimit: input.verificationDailyLimit, notificationDailyLimit: input.notificationDailyLimit, confirmed: input.confirmed };
-      return await this.run(ledger, { actorUserId: context.actorUserId, tribeId: context.tribeId, operationType: context.operation, idempotencyKey: input.operationId, intent }, async (database) => {
+      return await this.run(ledger, { actorUserId: context.actorUserId, tribeId: context.tribeId, operationType: context.operation, idempotencyKey: input.operationId, intent }, async (database,ledgerId) => {
         const row = await this.readLocked(database, context.tribeId, true);
         if (!row || row.version !== input.expectedVersion) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.usagePolicyConflict);
         if (input.verificationDailyLimit > row.platform_verification_daily_maximum || input.notificationDailyLimit > row.platform_notification_daily_maximum) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
@@ -163,9 +167,11 @@ export class PostgresMessagingUsageOperations implements MessagingUsageOperation
         const unchanged = input.verificationDailyLimit === row.verification_daily_limit && input.notificationDailyLimit === row.notification_daily_limit && allowedCountries.length === currentCountries.length && allowedCountries.every((country, index) => country === currentCountries[index]);
         if (!unchanged) {
           await authorizeMessagingUsage(database, context);
-          await database.execute(sql`update public.messaging_usage_policies set allowed_countries=${sql.param(allowedCountries)}::text[],verification_daily_limit=${input.verificationDailyLimit},notification_daily_limit=${input.notificationDailyLimit},version=version+1,changed_by_user_id=${context.actorUserId},updated_at=clock_timestamp() where tribe_id=${context.tribeId} and version=${input.expectedVersion}`);
+          const now=new Date((await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
+          await database.execute(sql`update public.messaging_usage_policies set allowed_countries=${sql.param(allowedCountries)}::text[],verification_daily_limit=${input.verificationDailyLimit},notification_daily_limit=${input.notificationDailyLimit},version=version+1,changed_by_user_id=${context.actorUserId},updated_at=${now} where tribe_id=${context.tribeId} and version=${input.expectedVersion}`);
           const current = await this.readLocked(database, context.tribeId, true);
           if (!current) throw new MessagingUsageOperationError(MESSAGING_ERROR_CODE.resourceUnavailable);
+          await new PostgresAdmissionAuditRepository(database).append(createAdmissionUsageAuditEvent({tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,eventType:REAUTHENTICATION_OPERATION.updateMessagingUsage,version:current.version,previousVersion:row.version,allowedCountries:current.allowed_countries,verificationDailyLimit:current.verification_daily_limit,notificationDailyLimit:current.notification_daily_limit,createdAt:now}));
           return this.project(database, context, current);
         }
         return this.project(database, context, row);
