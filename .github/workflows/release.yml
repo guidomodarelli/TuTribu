@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 
 concurrency:
@@ -31,6 +32,7 @@ jobs:
     env:
       HUSKY: '0'
       DATABASE_MIGRATION_URL: ${{ secrets.DATABASE_MIGRATION_URL }}
+      TUTRIBU_RELEASE_READ_ONLY: '1'
     steps:
       - name: Checkout del release
         uses: actions/checkout@v4
@@ -67,14 +69,43 @@ jobs:
           version: '12.6.0'
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
+        env:
+          PNPM_CONFIG__AUTH: '{"https://npm.pkg.github.com":{"@guidomodarelli":{"authToken":"${{ secrets.GITHUB_TOKEN }}"}}}'
+      - name: Instalar navegador requerido por los tests
+        run: pnpm exec playwright install --with-deps chromium
       - name: Configurar Vercel
         run: npm install --global vercel@62.2.0
+      - name: Verificar esquema sin aplicar migraciones
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from "node:child_process";
+          import { checkPendingMigrations, readMigrationJournalAt, MIGRATION_STATUS } from "./scripts/release/pending-migrations.mjs";
+          import { MIGRATION_JOURNAL_REVISIONS } from "./scripts/release/constants/release-safety.mjs";
+          const git = { tryGit: async (gitArguments) => execFileSync("git", gitArguments, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }) };
+          const journalEntries = await readMigrationJournalAt(git, MIGRATION_JOURNAL_REVISIONS);
+          const result = await checkPendingMigrations({ repositoryRoot: process.cwd(), journalEntries });
+          console.log(JSON.stringify({ status: result.status, pendingCount: result.pending.length }));
+          if (result.status !== MIGRATION_STATUS.upToDate) {
+            throw new Error("La publicación requiere confirmar el esquema existente. No se aplicaron migraciones ni se desplegó producción.");
+          }
+          NODE
       - name: Checks y publicación del release
         env:
           BEEZ_RP_RELEASE_VERSION: ${{ inputs.version }}
           BEEZ_RP_RELEASE_SHA: ${{ inputs.sha }}
           RELEASE_TAG: ${{ inputs.tag }}
-        run: pnpm create-version --ci-release "$RELEASE_TAG"
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in BETTER_AUTH_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+            value="$(openssl rand -hex 32)"
+            echo "::add-mask::$value"
+            export "$variable=$value"
+          done
+          export BETTER_AUTH_URL=http://127.0.0.1:3000
+          export DATABASE_URL=postgresql://127.0.0.1:5432/quality_gate
+          pnpm create-version --ci-release "$RELEASE_TAG"
       - name: Obtener entorno de producción
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -85,6 +116,7 @@ jobs:
           cp .vercel/.env.production.local .env
       - name: Construir artefacto de producción
         env:
+          PNPM_CONFIG__AUTH: '{"https://npm.pkg.github.com":{"@guidomodarelli":{"authToken":"${{ secrets.GITHUB_TOKEN }}"}}}'
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
