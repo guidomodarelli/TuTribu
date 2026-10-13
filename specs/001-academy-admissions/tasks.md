@@ -1256,6 +1256,8 @@ Avance posterior de T169/T170 sobre `f3e19f9f`: invitaciones administrativas, ca
 
 <a id="t172"></a>
 
+Avance posterior de T169/T170 sobre `68532407`: presentación, decisiones manuales/automáticas, cancelación/resolución externa, vencimiento y corrección de reintento usan hechos de la política/decisión efectivas, estado/versionado previos y reloj original. La variante privada de retry conserva su motivo y fechas sin otra decisión. Vencimiento autónomo amplía metadata por migración idx155, manteniendo guards/lotes/ACL. Cincuenta y dos locales, once PostgreSQL seleccionados y una secuencia/replay habitual pasan; quince casos del writer/owner quedan fuera del filtro. Tipos/lint/build y cuatro vistas de arquitectura pasan. Sin cierre de marcadores ni de otros productores/métricas/retención/gates; ver [solicitudes y vencimiento auditados](validation/admission-request-audit-baseline.md).
+
 - [ ] T172 [US11] Aplicar origen/CSRF/no-store/referrer y redacción de bodies a mutaciones sensibles, public projections y sanitización de causas/loggers existentes; resource/context antes de key, inputs/DTO propios validados, SDK/Postgres sin schema revalidation. Identificar y corregir ocurrencias equivalentes dentro del alcance. Archivos: `src/modules/academy-admissions/infrastructure/api/admission-route-http.ts`, `src/modules/messaging/infrastructure/api/messaging-route-http.ts`, `src/modules/messaging/infrastructure/config/messaging-security-config.ts`. Dependencias: `T171`, `T165`. Trazabilidad: `FR-043`–`FR-045`, `FR-064`, `FR-120`, `FR-130`, `US-11-AC-01`–`US-11-AC-04`, `SC-004`, `SC-008`, `D-20`, `TC-013`.
 
 <a id="t173"></a>
