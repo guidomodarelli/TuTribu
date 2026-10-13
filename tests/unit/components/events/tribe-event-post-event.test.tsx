@@ -1062,10 +1062,11 @@ describe("TribeEventOccurrenceActivity", () => {
     await user.type(await screen.findByLabelText("Escribí un comentario"), "¿Suben las slides?");
     await user.click(screen.getByRole("button", { name: "Publicar" }));
 
-    await waitFor(() => {
-      expect(screen.getByLabelText("Escribí un comentario")).toHaveValue("");
-      expect(conversation.getAllByText("¿Suben las slides?", { selector: "p" })).toHaveLength(1);
-    });
+    await waitFor(() => expect(screen.getByLabelText("Escribí un comentario")).toHaveValue(""));
+    // The composer clears before the published comment finishes entering the thread.
+    await waitFor(() =>
+      expect(conversation.getAllByText("¿Suben las slides?", { selector: "p" })).toHaveLength(1)
+    );
   });
 
   it("retries a failed comment with the same client request id and uses a new one afterwards", async () => {

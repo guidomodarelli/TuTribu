@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -140,6 +140,7 @@ function createHookContext(repositoryRoot: string, run: HookContext["run"] = asy
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const directory of temporaryDirectories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -193,6 +194,8 @@ describe("beez-rp create-version config", () => {
   it(
     "should report the database host as target and never throw when the database is unreachable",
     async () => {
+      vi.stubEnv("DATABASE_MIGRATION_URL", UNREACHABLE_DATABASE_URL);
+      vi.stubEnv("DATABASE_URL", undefined);
       const repositoryRoot = createRepositoryWithFeatureMigration();
       writeFileSync(path.join(repositoryRoot, ".env"), `DATABASE_MIGRATION_URL=${UNREACHABLE_DATABASE_URL}\n`);
 
@@ -210,6 +213,7 @@ describe("beez-rp create-version config", () => {
   );
 
   it("should run the migration script and stop the step when it fails", async () => {
+    vi.stubEnv("TUTRIBU_RELEASE_READ_ONLY", undefined);
     const executedCommands: string[] = [];
     const failingContext = createHookContext(process.cwd(), async (commandLine) => {
       executedCommands.push(commandLine);
@@ -219,5 +223,17 @@ describe("beez-rp create-version config", () => {
     await expect(migrations.apply(failingContext)).rejects.toThrow("drizzle-kit migrate falló con código 1.");
     expect(executedCommands).toEqual([`"${process.execPath}" scripts/push-migrations.js`]);
     await expect(migrations.apply(createHookContext(process.cwd()))).resolves.toBeUndefined();
+  });
+
+  it("should reject migration execution before running commands when the release is read-only", async () => {
+    vi.stubEnv("TUTRIBU_RELEASE_READ_ONLY", "1");
+    const executedCommands: string[] = [];
+    const context = createHookContext(process.cwd(), async (commandLine) => {
+      executedCommands.push(commandLine);
+      return 0;
+    });
+
+    await expect(migrations.apply(context)).rejects.toThrow("El release está configurado sin cambios de base de datos.");
+    expect(executedCommands).toEqual([]);
   });
 });

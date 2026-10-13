@@ -1,0 +1,129 @@
+name: Release
+run-name: "beez-rp release ${{ inputs.tag }} ${{ inputs.sha }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión creada desde local"
+        required: true
+        type: string
+      tag:
+        description: "Tag exacto del release"
+        required: true
+        type: string
+      sha:
+        description: "Commit exacto del tag"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+
+concurrency:
+  group: "beez-rp-release"
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: '0'
+      DATABASE_MIGRATION_URL: ${{ secrets.DATABASE_MIGRATION_URL }}
+      TUTRIBU_RELEASE_READ_ONLY: '1'
+    steps:
+      - name: Checkout del release
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Verificar identidad del release
+        env:
+          BEEZ_RP_RELEASE_VERSION: ${{ inputs.version }}
+          BEEZ_RP_RELEASE_SHA: ${{ inputs.sha }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error title=Release no autorizado::$1"; exit 1; }
+          version_pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          sha_pattern='^[a-f0-9]{40,64}$'
+          [[ "$BEEZ_RP_RELEASE_VERSION" =~ $version_pattern ]] || fail "El input version no es una versión estable X.Y.Z; no se instaló nada."
+          [[ "$RELEASE_TAG" == "v$BEEZ_RP_RELEASE_VERSION" ]] || fail "El input tag no es el tag de release v$BEEZ_RP_RELEASE_VERSION; no se instaló nada."
+          [[ "$BEEZ_RP_RELEASE_SHA" =~ $sha_pattern ]] || fail "El input sha no es un commit completo; no se instaló nada."
+          git fetch --no-tags --quiet origin "+refs/heads/main:refs/remotes/origin/main" || fail "No se pudo traer origin/main para verificar $RELEASE_TAG."
+          tag_sha="$(git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG^{commit}")" || fail "$RELEASE_TAG no existe como tag en origin."
+          [[ "$tag_sha" == "$BEEZ_RP_RELEASE_SHA" ]] || fail "$RELEASE_TAG apunta a $tag_sha, no al commit $BEEZ_RP_RELEASE_SHA enviado."
+          [[ "$(git rev-parse HEAD)" == "$BEEZ_RP_RELEASE_SHA" ]] || fail "El checkout no está en el commit $BEEZ_RP_RELEASE_SHA de $RELEASE_TAG."
+          git merge-base --is-ancestor "$BEEZ_RP_RELEASE_SHA" "refs/remotes/origin/main" || fail "El commit $BEEZ_RP_RELEASE_SHA de $RELEASE_TAG no está en origin/main."
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '12.6.0'
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+        env:
+          PNPM_CONFIG__AUTH: '{"https://npm.pkg.github.com":{"@guidomodarelli":{"authToken":"${{ secrets.GITHUB_TOKEN }}"}}}'
+      - name: Instalar navegador requerido por los tests
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Configurar Vercel
+        run: npm install --global vercel@62.2.0
+      - name: Verificar esquema sin aplicar migraciones
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from "node:child_process";
+          import { checkPendingMigrations, readMigrationJournalAt, MIGRATION_STATUS } from "./scripts/release/pending-migrations.mjs";
+          import { MIGRATION_JOURNAL_REVISIONS } from "./scripts/release/constants/release-safety.mjs";
+          const git = { tryGit: async (gitArguments) => execFileSync("git", gitArguments, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }) };
+          const journalEntries = await readMigrationJournalAt(git, MIGRATION_JOURNAL_REVISIONS);
+          const result = await checkPendingMigrations({ repositoryRoot: process.cwd(), journalEntries });
+          console.log(JSON.stringify({ status: result.status, pendingCount: result.pending.length }));
+          if (result.status !== MIGRATION_STATUS.upToDate) {
+            throw new Error("La publicación requiere confirmar el esquema existente. No se aplicaron migraciones ni se desplegó producción.");
+          }
+          NODE
+      - name: Checks y publicación del release
+        env:
+          BEEZ_RP_RELEASE_VERSION: ${{ inputs.version }}
+          BEEZ_RP_RELEASE_SHA: ${{ inputs.sha }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in BETTER_AUTH_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+            value="$(openssl rand -hex 32)"
+            echo "::add-mask::$value"
+            export "$variable=$value"
+          done
+          export BETTER_AUTH_URL=http://127.0.0.1:3000
+          export DATABASE_URL=postgresql://127.0.0.1:5432/quality_gate
+          pnpm create-version --ci-release "$RELEASE_TAG"
+      - name: Obtener entorno de producción
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          cp .vercel/.env.production.local .env
+      - name: Construir artefacto de producción
+        env:
+          PNPM_CONFIG__AUTH: '{"https://npm.pkg.github.com":{"@guidomodarelli":{"authToken":"${{ secrets.GITHUB_TOKEN }}"}}}'
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Desplegar producción después de los checks
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

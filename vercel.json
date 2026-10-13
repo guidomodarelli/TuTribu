@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "bash scripts/ignore-build.sh",
+  "ignoreCommand": "node .beez-rp/vercel-ignore-build.mjs",
   "crons": [
     {
       "path": "/api/maintenance/image-cleanup",

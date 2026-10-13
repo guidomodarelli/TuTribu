@@ -12,7 +12,7 @@
  */
 
 import { checkPendingMigrations, readMigrationJournalAt } from "./scripts/release/pending-migrations.mjs";
-
+import { MIGRATION_JOURNAL_REVISIONS, READ_ONLY_RELEASE_ENABLED_VALUE, READ_ONLY_RELEASE_ENVIRONMENT_VARIABLE } from "./scripts/release/constants/release-safety.mjs";
 /**
  * @typedef {{ status: "up-to-date" | "pending" | "unknown", pending: string[], target: string | null, reason: string | null }} MigrationCheck
  * @typedef {{
@@ -25,12 +25,6 @@ import { checkPendingMigrations, readMigrationJournalAt } from "./scripts/releas
  * }} HookContext
  *   Mirrors `HookContext` of `beez-rp/create-version` (beez-rp >= 0.2.0).
  */
-
-/**
- * Revisions whose Drizzle journals are merged: the checked-out branch and the
- * migrations that are about to land on `origin/main`.
- */
-const MIGRATION_JOURNAL_REVISIONS = ["HEAD", "origin/main"];
 
 /** Lint, typecheck (source and tests), tests and build shared with CI; a failure stops the release before the bump. */
 const RELEASE_CHECKS_COMMAND = "pnpm run ci";
@@ -50,12 +44,17 @@ async function checkMigrations({ repositoryRoot, git }) {
 }
 
 /**
- * Applies the pending migrations with `drizzle-kit migrate`.
+ * Applies pending migrations only when the release permits database mutations.
  *
  * @param {HookContext} context - Hook context from `beez-rp create-version`.
  * @returns {Promise<void>}
+ * @throws Stops the release before command execution when database writes are forbidden.
  */
 async function applyMigrations({ run, fail }) {
+  if (process.env[READ_ONLY_RELEASE_ENVIRONMENT_VARIABLE] === READ_ONLY_RELEASE_ENABLED_VALUE) {
+    fail("El release está configurado sin cambios de base de datos.", "Revisá las migraciones pendientes por separado; no se ejecutó SQL ni se desplegó producción.");
+  }
+
   const exitCode = await run(MIGRATION_COMMAND);
 
   if (exitCode !== 0) {
@@ -83,3 +82,6 @@ const createVersionConfig = {
 };
 
 export default createVersionConfig;
+
+/** GitHub Actions workflow used by create-version. */
+export const ci = {"workflow":"release.yml","secrets":["DATABASE_MIGRATION_URL"],"variables":[],"deployment":"vercel"};

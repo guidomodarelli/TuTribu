@@ -117,8 +117,11 @@ describe("CreateTribeForm", () => {
 
     expect(screen.getByLabelText(/slug/i)).toHaveValue("tribu-de-algebra");
     expect(screen.getByText(/\/tribu-de-algebra/i)).toBeInTheDocument();
-    expect(getAccessibleSlugStatus(/^sincronizado$/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /sincronizar con el nombre/i })).toBeDisabled();
+    // The previous "Sincronizado" label may still be leaving the status swap.
+    await waitFor(() => {
+      expect(getAccessibleSlugStatus(/^sincronizado$/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /sincronizar con el nombre/i })).toBeDisabled();
+    });
   });
 
   it("lets the user apply the suggested slug from a conflict response", async () => {

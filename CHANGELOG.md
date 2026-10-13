@@ -6,7 +6,6 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
-- La política de privacidad puede consultarse sin iniciar sesión desde la página principal e incluye el contacto del responsable del servicio.
 
 - Las conexiones candidatas abandonadas pueden retirarse mediante el proceso interno después de siete días sin actividad, conservando la conexión seleccionada y el consumo original; la programación de esa limpieza sigue pendiente.
 
@@ -99,7 +98,6 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
-- Los botones de la aplicación adoptan un estilo renovado: el botón principal usa el color de texto del tema, responde al presionarlo y anima su ancho cuando cambia su texto.
 
 - Al retomar una presentación con el mismo contacto, la pantalla reconoce su código propio, muestra su canal actual y diferencia la validación de un código vigente del reenvío explícito que reemplaza uno ya utilizado.
 
@@ -197,6 +195,26 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El historial de admisiones conserva la relación con su tribu y sus operaciones, evitando referencias cruzadas entre comunidades.
 - Los resultados confirmados de las operaciones de admisión quedan protegidos contra sobrescrituras y cambios de identidad.
 - Las credenciales de mensajería retiradas o vinculadas a una cuenta o recurso sin autorización quedan fuera de uso; su eliminación conserva el historial de la conexión.
+
+## [1.2.1] - 2026-10-12
+
+### Fixed
+
+- La política de privacidad se publica correctamente y queda disponible desde la página principal.
+
+## [1.2.0] - 2026-10-12
+
+### Added
+
+- La política de privacidad puede consultarse sin iniciar sesión desde la página principal e incluye el contacto del responsable del servicio.
+
+### Changed
+
+- Los botones de la aplicación adoptan un estilo renovado: el botón principal usa el color de texto del tema, responde al presionarlo y anima su ancho cuando cambia su texto.
+
+### Fixed
+
+- Las actualizaciones del servicio comprueban sus dependencias y el esquema existente antes de publicarse.
 
 ## [1.1.3] - 2026-10-04
 
