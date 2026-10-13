@@ -10,6 +10,9 @@ import type { AdmissionCurrentChallengeReader, AdmissionCurrentChallengeQuery } 
 import { admissionCurrentChallengeSelectionSchema } from "../../application/results/admission-current-challenge-schemas";
 import type {VerificationChallengeScope} from "../../domain/entities/contact-verification-challenge";
 import type {AdmissionPolicy} from "../../domain/entities/admission-policy";
+import type {AdmissionVerificationProof} from "../../domain/entities/admission-verification-proof";
+import {createAdmissionResourceAuditEvent} from "../../domain/entities/admission-resource-audit-event";
+import {ADMISSION_AUDIT_RESOURCE_TYPE} from "../../constants/admission-audit";
 import { getAdmissionRetryAllowedAt } from "../../domain/entities/admission-request";
 import type {AdmissionOperationCommand,AdmissionOperationResult} from "../../domain/entities/admission-operation";
 import type {AdmissionProofApplicationOperations,AdmissionProofApplicationIntent} from "../../domain/repositories/admission-verification-proof-repository";
@@ -17,6 +20,7 @@ import type {MessagingSecurityConfig} from "@/src/modules/messaging/infrastructu
 import {PostgresAuthenticatedAccountProvider} from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import {isAuthenticatedSessionLive} from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import {PostgresAdmissionOperationRepository} from "./postgres-admission-operation-repository";
+import {PostgresAdmissionAuditRepository} from "./postgres-admission-audit-repository";
 import {PostgresContactVerificationIssuer} from "./postgres-contact-verification-issuer";
 import {PostgresContactVerificationRepository} from "./postgres-contact-verification-repository";
 import {PostgresMessagingContactBudgetRepository} from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository";
@@ -25,7 +29,7 @@ import {PostgresVerificationFailureBudget} from "@/src/modules/messaging/infrast
 import {admissionIssuanceSnapshotSchema,admissionChallengeVerificationSnapshotSchema} from "../../application/results/admission-contact-verification-schemas";
 import {admissionProofApplicationSnapshotSchema} from "../../application/results/admission-proof-application-schemas";
 import {PostgresAdmissionVerificationProofWriter} from "./postgres-admission-verification-proof-writer";
-import {ADMISSION_PROOF_OPERATION} from "../../constants/admission-proof";
+import {ADMISSION_PROOF_OPERATION,ADMISSION_PROOF_CREATION_AUDIT_EVENT} from "../../constants/admission-proof";
 import {readAdmissionPolicy,readAdmissionControlMarker} from "./postgres-admission-policy-storage";
 import {AdmissionOperationError} from "../../domain/errors/admission-operation-error";
 import {ADMISSION_ERROR_CODE} from "../../constants/admission-errors";
@@ -187,7 +191,12 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
     }));
   }
 
-  /** @param input - Original own challenge and exact code intent. @returns Local proof or committed denial/failure accounting independently of provider, country or send quota. */
+  /**
+   * Confirms a local code and records its new proof within the original authorized ledger transaction.
+   * @param input - Original own challenge and exact code intent.
+   * @returns Local proof with its private creation fact, or committed denial/failure accounting, independently of provider, country or send quota.
+   * @throws AdmissionOperationError when current authority or the confirmed own proof is unavailable, preserving rollback.
+   */
   async verify(input:AdmissionChallengeVerificationIntent){
     const command={actorUserId:input.userId,tribeId:input.tribeId,operationType:ADMISSION_CONTACT_VERIFICATION_OPERATION,idempotencyKey:input.operationId,intent:{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,challengeId:input.challengeId,verificationCode:input.verificationCode}},ledger=this.ledger(input),original=await ledger.read(command,admissionChallengeVerificationSnapshotSchema);
     if(original?.state===OPERATION_STATE.completed)return original;
@@ -200,7 +209,8 @@ export class PostgresAdmissionContactVerificationOperations implements Admission
         return{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,result:VERIFICATION_TRANSITION_OUTCOME.denied,code};
       }
       if(!result.proofId||result.purpose!==ADMISSION_VERIFICATION_PURPOSE.admission)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
-      const proof=(await database.execute<{apply_before:Date|string}>(sql`select apply_before from public.academy_admission_verification_proofs where id=${result.proofId} and user_id=${input.userId} and tribe_id=${input.tribeId}`)).rows[0];if(!proof)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
+      const proof=(await database.execute<{challenge_id:string;status:AdmissionVerificationProof["status"];verification_epoch:number;verified_at:Date|string;apply_before:Date|string}>(sql`select challenge_id,status,verification_epoch,verified_at,apply_before from public.academy_admission_verification_proofs where id=${result.proofId} and user_id=${input.userId} and tribe_id=${input.tribeId}`)).rows[0];if(!proof)throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
+      await new PostgresAdmissionAuditRepository(database).append(createAdmissionResourceAuditEvent({resourceType:ADMISSION_AUDIT_RESOURCE_TYPE.proof,eventType:ADMISSION_PROOF_CREATION_AUDIT_EVENT,tribeId:input.tribeId,actorUserId:input.userId,operationId:ledgerId,resourceId:result.proofId,resourceVersion:null,rule:null,cause:null,createdAt:new Date(proof.verified_at),metadata:{fromState:null,toState:proof.status,challengeId:proof.challenge_id,requestId:null,verificationEpoch:proof.verification_epoch,channel:scope.channel}}));
       return{purpose:ADMISSION_VERIFICATION_PURPOSE.admission,result:VERIFICATION_TRANSITION_OUTCOME.verified,proofId:result.proofId,applyBefore:new Date(proof.apply_before).toISOString()};
     });
   }
