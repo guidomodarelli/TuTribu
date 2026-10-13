@@ -98,7 +98,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
-- El acceso con Google deja de estar limitado a las cuentas de prueba; la confirmación de identidad para conexiones de mensajería sigue pendiente de la verificación de la marca.
+- El acceso con Google muestra la marca TuTribu verificada y permite comprobar la fecha de autenticación; guardar una conexión de mensajería sigue exigiendo una autenticación de Google de los últimos diez minutos.
 
 
 - Al retomar una presentación con el mismo contacto, la pantalla reconoce su código propio, muestra su canal actual y diferencia la validación de un código vigente del reenvío explícito que reemplaza uno ya utilizado.
