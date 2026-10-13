@@ -20,6 +20,7 @@ describe("global reauthentication screen", () => {
     const client = createClient();
     render(<ReauthenticationContainer initialState={{ kind: "ready", intent, oauthFailed: false }} client={client} />);
     expect(screen.getByRole("heading", { name: "Confirmá tu autenticación" })).toBeVisible();
+    expect(screen.getByText("Esta acción requiere una autenticación de Google de los últimos diez minutos. La sesión de TuTribu puede seguir abierta.")).toBeVisible();
     expect(client.start).not.toHaveBeenCalled();
     expect(client.read).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Confirmar con Google" }));
@@ -73,6 +74,24 @@ describe("global reauthentication screen", () => {
     expect(screen.queryByRole("link", { name: "Continuar con la acción" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Volver a la tribu" })).toHaveAttribute("href", intent.returnPath);
     expect(client.start).not.toHaveBeenCalled();
+  });
+
+  it("should explain the separate Google session when a consumed intent lacks recent authentication", () => {
+    // Arrange: a completed Google callback still has no usable recency for this action.
+    const client = createClient();
+    const requiredIntent: ReauthenticationIntentResult = { ...intent, state: "consumed", outcome: "reauthentication_required", safeMessage: "No pudimos acreditar una autenticación reciente de Google para esta acción." };
+
+    // Act: render the same real route container and shared components.
+    render(<ReauthenticationContainer initialState={{ kind: "ready", intent: requiredIntent, oauthFailed: false }} client={client} />);
+
+    // Assert: the recovery explains Google sign-out without retrying or granting the action.
+    expect(screen.getByRole("status")).toHaveTextContent("No pudimos acreditar una autenticación reciente de Google para esta acción.");
+    expect(screen.getByText("Salir de TuTribu no cierra la sesión de Google del navegador. Si Google mantiene una sesión anterior, cerrá sesión en Google y volvé a entrar allí; después volvé a la tribu para iniciar una nueva confirmación. Esta acción todavía no está autorizada.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Confirmar con Google" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Continuar con la acción" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Volver a la tribu" })).toHaveAttribute("href", intent.returnPath);
+    expect(client.start).not.toHaveBeenCalled();
+    expect(client.read).not.toHaveBeenCalled();
   });
 
   it("should clear a read error before retry without repeating the OAuth start", async () => {

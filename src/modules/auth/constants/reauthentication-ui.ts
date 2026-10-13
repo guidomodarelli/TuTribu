@@ -1,11 +1,11 @@
-/** Names the global route and owned browser states independently of OAuth provider payloads. */
+/** Names global confirmation states and distinguishes the Google session from the application session. @module reauthentication-ui */
 export const REAUTHENTICATION_ROUTES = { page: "/auth/reauthenticate", intents: "/api/auth/reauthentication/intents" } as const;
 /** Keeps request lifecycle separate from server-confirmed authentication outcomes. */
 export const REAUTHENTICATION_UI_PHASE = { idle: "idle", checking: "checking", redirecting: "redirecting" } as const;
 /** Uses fixed Spanish feedback; upstream error text is never a rendering source. */
 export const REAUTHENTICATION_UI_COPY = {
   title: "Confirmá tu autenticación",
-  description: "Confirmá tu cuenta de Google para continuar con esta acción. Tu sesión puede seguir abierta.",
+  description: "Esta acción requiere una autenticación de Google de los últimos diez minutos. La sesión de TuTribu puede seguir abierta.",
   verifiedTitle: "Autenticación confirmada",
   unavailableTitle: "No podemos confirmar esta acción",
   loading: "Consultando tu solicitud de autenticación…",
@@ -18,7 +18,7 @@ export const REAUTHENTICATION_UI_COPY = {
   home: "Ir al inicio",
   signIn: "Iniciar sesión",
   authorizing: "La confirmación ya comenzó. Consultá su resultado; si no podés completarla, volvé a la tribu para iniciar una nueva.",
-  required: "Volvé a la tribu para iniciar una nueva confirmación. Esta acción todavía no está autorizada.",
+  required: "Salir de TuTribu no cierra la sesión de Google del navegador. Si Google mantiene una sesión anterior, cerrá sesión en Google y volvé a entrar allí; después volvé a la tribu para iniciar una nueva confirmación. Esta acción todavía no está autorizada.",
   verified: "La acción volverá a comprobar tu sesión, tus permisos y la vigencia de la autenticación al continuar.",
   oauthFailed: "Google no completó la confirmación. Consultá el estado antes de iniciar otra solicitud.",
   startFailed: "No pudimos iniciar la confirmación. Consultá el estado antes de volver a intentarlo.",

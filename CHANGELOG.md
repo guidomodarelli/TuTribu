@@ -107,6 +107,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- La confirmación de cuenta distingue la sesión de TuTribu de la de Google y explica cómo continuar cuando Google conserva una autenticación anterior.
+
+
 - Los eventos de teclado sin una tecla válida ya no interrumpen la navegación lateral; los atajos con Ctrl y Cmd siguen disponibles.
 
 - Una academia que ya activó su control de admisión conserva la entrada mediante solicitud aunque se pierda su configuración, sin volver a ofrecer un ingreso directo.

@@ -1,4 +1,4 @@
-/** Defines own safe intent outcomes and user-facing messages, independently of provider errors. */
+/** Defines safe confirmation outcomes without presenting another app sign-in as Google reauthentication. @module reauthentication-intents */
 export const REAUTHENTICATION_INTENT_OUTCOME={pending:"pending",verified:"verified",required:"reauthentication_required",expired:"expired"} as const;
 export const REAUTHENTICATION_ERROR_CODE={notAuthenticated:"not_authenticated",required:"reauthentication_required",contextUnavailable:"context_unavailable",notFound:"intent_not_found",invalidInput:"invalid_input",unexpected:"unexpected_failure",unusableContract:"public_contract_unusable"} as const;
 export const REAUTHENTICATION_ERROR_MESSAGE={
@@ -10,4 +10,4 @@ export const REAUTHENTICATION_ERROR_MESSAGE={
   [REAUTHENTICATION_ERROR_CODE.unexpected]:"No pudimos completar esta operación. Intentá nuevamente.",
   [REAUTHENTICATION_ERROR_CODE.unusableContract]:"No pudimos mostrar el resultado. Intentá nuevamente.",
 } as const;
-export const REAUTHENTICATION_INTENT_MESSAGE={pending:"Confirmá tu autenticación con Google para continuar.",verified:"Tu autenticación reciente está confirmada para esta acción.",required:"No pudimos acreditar una autenticación reciente. Volvé a intentarlo.",expired:"La solicitud de autenticación venció. Iniciá una nueva."} as const;
+export const REAUTHENTICATION_INTENT_MESSAGE={pending:"Confirmá tu autenticación con Google para continuar.",verified:"Tu autenticación reciente está confirmada para esta acción.",required:"No pudimos acreditar una autenticación reciente de Google para esta acción.",expired:"La solicitud de autenticación venció. Iniciá una nueva."} as const;
