@@ -32,12 +32,13 @@ export function ReauthenticationStatus({ state, phase = REAUTHENTICATION_UI_PHAS
         {errorMessage && <p role="alert" className={styles.ReauthenticationStatus__error}>{errorMessage}</p>}
         {ready && state.intent.state === GLOBAL_REAUTHENTICATION_INTENT_STATE.authorizing && <p className={styles.ReauthenticationStatus__help}>{REAUTHENTICATION_UI_COPY.authorizing}</p>}
         {ready && state.intent.outcome === REAUTHENTICATION_INTENT_OUTCOME.required && <p className={styles.ReauthenticationStatus__help}>{REAUTHENTICATION_UI_COPY.required}</p>}
+        {ready && state.intent.outcome === REAUTHENTICATION_INTENT_OUTCOME.expired && <p className={styles.ReauthenticationStatus__help}>{REAUTHENTICATION_UI_COPY.expired}</p>}
         {verified && <p className={styles.ReauthenticationStatus__help}>{REAUTHENTICATION_UI_COPY.verified}</p>}
         <div className={styles.ReauthenticationStatus__actions}>
           {canStart && <Button type="button" disabled={busy || startBlocked} onClick={onStart}>{phase === REAUTHENTICATION_UI_PHASE.redirecting ? REAUTHENTICATION_UI_COPY.redirecting : REAUTHENTICATION_UI_COPY.start}</Button>}
           {ready && state.intent.outcome !== REAUTHENTICATION_INTENT_OUTCOME.expired && <Button type="button" variant="outline" disabled={busy} onClick={onRead}>{phase === REAUTHENTICATION_UI_PHASE.checking ? REAUTHENTICATION_UI_COPY.checking : REAUTHENTICATION_UI_COPY.read}</Button>}
           {verified && <Link href={state.intent.returnPath}>{REAUTHENTICATION_UI_COPY.continue}</Link>}
-          {ready && <Link href={state.intent.returnPath}>{REAUTHENTICATION_UI_COPY.return}</Link>}
+          {ready && <Link href={state.intent.returnPath}>{state.intent.outcome === REAUTHENTICATION_INTENT_OUTCOME.expired ? REAUTHENTICATION_UI_COPY.restart : REAUTHENTICATION_UI_COPY.return}</Link>}
           {state.kind === "unavailable" && state.code === REAUTHENTICATION_ERROR_CODE.notAuthenticated && <Link href={ROUTES.auth.signIn}>{REAUTHENTICATION_UI_COPY.signIn}</Link>}
           {state.kind === "unavailable" && <Link href={ROUTES.home}>{REAUTHENTICATION_UI_COPY.home}</Link>}
         </div>

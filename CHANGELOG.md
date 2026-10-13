@@ -105,6 +105,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- El guardado de conexiones reconoce la dirección pública segura de TuTribu detrás del servidor local y evita rechazos falsos de permisos.
+
+- Una confirmación de cuenta vencida indica cómo volver a la acción e iniciar otra, sin mantener indefinidamente el resultado de un intento anterior.
+
 - La confirmación de cuenta distingue la sesión de TuTribu de la de Google y explica cómo continuar cuando Google conserva una autenticación anterior.
 
 

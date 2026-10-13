@@ -96,15 +96,17 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("private messaging 
 });
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS!=="1")("native connection creation HTTP",()=>{
-  it("should create and replay a masked draft through the native route without provider or admission effects",async()=>{
+  it.each([false,true])("should create and replay a masked draft without provider effects through the native route with proxy=%s",async(behindProxy)=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const prepared=await prepareMessagingConnectionCreation(database),slug=`connection-${prepared.context.tribeId}`;
       for(const migration of ["20261005093000_guard_academy_membership_sources.sql","20261007001000_read_public_admission_overview.sql"])await database.applyMigration(migration);
       await database.withContext(prepared.fixture.own,(transaction)=>transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${prepared.context.tribeId},'academy',true)`));
       await database.withServerEnvironment((environment)=>withAdmissionNextServer(environment,slug,async(origin,secret)=>{
-        const cookie=`better-auth.session_token=${encodeURIComponent(`${prepared.sessionToken}.${await makeSignature(prepared.sessionToken,secret)}`)}`;
+        const cookieName=behindProxy?"__Secure-better-auth.session_token":"better-auth.session_token",browserOrigin=behindProxy?"https://synthetic-tutribu.example":origin;
+        const cookie=`${cookieName}=${encodeURIComponent(`${prepared.sessionToken}.${await makeSignature(prepared.sessionToken,secret)}`)}`;
         const body={operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Candidata nativa",apiKey:randomUUID()},path=`${origin}/api/tribes/${slug}/messaging/connections`;
-        const post=(input:unknown=body)=>fetch(path,{method:"POST",headers:{cookie,origin,"content-type":"application/json"},body:JSON.stringify(input)});
+        const post=(input:unknown=body,requestOrigin=browserOrigin)=>fetch(path,{method:"POST",headers:{cookie,origin:requestOrigin,"content-type":"application/json"},body:JSON.stringify(input)});
+        expect((await post(body,"https://foreign.example")).status).toBe(403);
         const created=await post();expect(created.status).toBe(201);const initial=await created.json();
         expect(initial).toMatchObject({state:"completed",replayed:false,result:{state:"draft",version:1,configurationVersion:1,name:body.name,maskedCredential:"••••••••"}});
         expect(JSON.stringify(initial)).not.toContain(body.apiKey);
@@ -115,7 +117,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS!=="1")("native connectio
         expect((await post({...body,operationId:randomUUID()})).status).toBe(401);
         await database.withContext(prepared.fixture.own,(transaction)=>transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${prepared.context.sessionId}`));
         expect((await post({...body,operationId:randomUUID()})).status).toBe(401);
-      }));
+      },behindProxy?{publicBaseUrl:"https://synthetic-tutribu.example"}:{}));
       const counts=await database.withContext(prepared.fixture.own,async(transaction)=>(await transaction.execute(sql`select (select count(*)::int from public.tenant_messaging_connections where tribe_id=${prepared.context.tribeId}) as connections,(select count(*)::int from public.messaging_secret_envelopes where tribe_id=${prepared.context.tribeId}) as secrets,(select count(*)::int from public.messaging_usage_policies where tribe_id=${prepared.context.tribeId}) as usage,(select count(*)::int from public.academy_admission_policies where tribe_id=${prepared.context.tribeId}) as policies,(select count(*)::int from public.message_deliveries where tribe_id=${prepared.context.tribeId}) as deliveries,(select count(*)::int from public.messaging_usage_events where tribe_id=${prepared.context.tribeId}) as events`)).rows[0]);
       expect(counts).toEqual({connections:1,secrets:1,usage:0,policies:0,deliveries:0,events:0});
     });

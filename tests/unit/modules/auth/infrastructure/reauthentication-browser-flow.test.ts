@@ -70,16 +70,21 @@ async function captureSyntheticPage(page: Page, name: string, slug: string): Pro
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("authenticated global reauthentication browser flow", () => {
-  it("should preserve a current leader session and explain an old Google authentication in both engines and viewport sizes", async () => {
+  it.each([
+    {browserType:chromium,mobile:false,label:"Chromium desktop"},
+    {browserType:chromium,mobile:true,label:"Chromium mobile"},
+    {browserType:webkit,mobile:false,label:"WebKit desktop"},
+    {browserType:webkit,mobile:true,label:"WebKit mobile"},
+  ])("should preserve a current leader session and recover consumed attempts in $label", async ({browserType,mobile}) => {
     await withAcademyAdmissionDatabase(async (database) => {
       for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005095000_guard_global_identity_context.sql"]) await database.applyMigration(migration);
       const userId = randomUUID(), accountId = randomUUID(), subject = randomUUID(), sessionId = randomUUID(), sessionToken = randomUUID(), tribeId = randomUUID(), slug = `browser-auth-${tribeId}`;
       const own = { userId, email: `${userId}@example.test` };
       await database.withContext(own, async (transaction) => {
-        await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic browser leader',${own.email},false,clock_timestamp(),clock_timestamp())`);
-        await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${userId},'google',${subject},clock_timestamp(),clock_timestamp())`);
-        await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${userId},${sessionToken},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
-        await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic browser academy',${slug},${userId})`);
+        await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic browser leader',${own.email},false,clock_timestamp()-interval '20 minutes',clock_timestamp())`);
+        await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${userId},'google',${subject},clock_timestamp()-interval '20 minutes',clock_timestamp())`);
+        await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${userId},${sessionToken},clock_timestamp()+interval '1 hour',clock_timestamp()-interval '20 minutes',clock_timestamp())`);
+        await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by,created_at) values (${tribeId},'Synthetic browser academy',${slug},${userId},clock_timestamp()-interval '20 minutes')`);
         await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${userId},'leader','active')`);
       });
       const intents = new PostgresRecentAuthenticationRepository((run) => database.withContext(own, run), (transaction) => new PostgresReauthenticationResourceAuthorizer(transaction));
@@ -99,10 +104,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("authenticated 
             await delay(250);
           }
           if (!ready) throw new Error("Reauthentication local Next server did not become ready");
-          for (const browserType of [chromium, webkit]) {
             const browser = await browserType.launch({ headless: true });
             try {
-              for (const mobile of [false, true]) {
                 const created = await intents.create({ userId, sessionId, accountId, subject, tribeId, operation: "update_admission_policy", resourceId: tribeId, returnPath: `/${slug}` });
                 if (created.status !== "created") throw new Error("Synthetic current leader intent could not be created");
                 const context = await browser.newContext(mobile ? devices[browserType === webkit ? "iPhone 13" : "Pixel 7"] : { viewport: { width: 1280, height: 800 } });
@@ -164,10 +167,24 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("authenticated 
                   expect(await page.getByRole("link", { name: "Volver a la tribu", exact: true }).getAttribute("href")).toBe(`/${slug}`);
                   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
                   await captureSyntheticPage(page, `google-session-required-${browserType.name()}-${mobile ? "mobile" : "desktop"}`, slug);
+
+                  // An already consumed historical attempt cannot be renewed by reading it.
+                  const expiredIntentId = randomUUID();
+                  await database.withContext(own, async (transaction) => {
+                    await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,version,created_at,expires_at,consumed_at) values (${expiredIntentId},${userId},${sessionId},${accountId},${subject},${tribeId},'update_admission_policy',${tribeId},${`/${slug}`},decode(repeat('ab',32),'hex'),'consumed',3,clock_timestamp()-interval '11 minutes',clock_timestamp()-interval '1 minute',clock_timestamp()-interval '2 minutes')`);
+                  });
+                  await page.goto(`${origin}/auth/reauthenticate?intentId=${expiredIntentId}`);
+                  await page.getByText("Este intento ya terminó. Prepará una nueva confirmación desde la acción que querés completar; consultar el intento anterior no lo vuelve a habilitar.", { exact: true }).waitFor({ state: "visible" });
+                  expect(await page.getByRole("link", { name: "Volver a la acción e iniciar otra confirmación", exact: true }).getAttribute("href")).toBe(`/${slug}`);
+                  expect(await page.getByRole("button", { name: "Consultar estado", exact: true }).count()).toBe(0);
+                  expect(await page.getByRole("button", { name: "Confirmar con Google", exact: true }).count()).toBe(0);
+                  expect(await page.getByRole("link", { name: "Continuar con la acción", exact: true }).count()).toBe(0);
+                  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+                  const expiredPersisted = await database.withContext(own, async (transaction) => (await transaction.execute(sql`select state,version,(select count(*)::integer from public.recent_authentication_evidence where intent_id=${expiredIntentId}) as evidence_count from public.global_reauthentication_intents where id=${expiredIntentId}`)).rows[0]);
+                  expect(expiredPersisted).toEqual({ state: "consumed", version: 3, evidence_count: 0 });
+                  await captureSyntheticPage(page, `google-session-expired-${browserType.name()}-${mobile ? "mobile" : "desktop"}`, slug);
                 } finally { await context.close(); }
-              }
             } finally { await browser.close(); }
-          }
         } finally {
           if (server.exitCode === null) server.kill();
           await serverExited;

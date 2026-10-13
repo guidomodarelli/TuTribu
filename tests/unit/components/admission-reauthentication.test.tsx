@@ -16,6 +16,17 @@ function createClient(): ReauthenticationBrowserClient {
 
 describe("global reauthentication screen", () => {
   afterEach(() => vi.useRealTimers());
+  it("should direct an expired consumed attempt back to its action without showing another Google sign-out instruction", () => {
+    const client = createClient();
+    const expiredIntent: ReauthenticationIntentResult = { ...intent, state: "consumed", outcome: "expired", safeMessage: "La solicitud de autenticación venció. Iniciá una nueva." };
+    render(<ReauthenticationContainer initialState={{ kind: "ready", intent: expiredIntent, oauthFailed: false }} client={client} />);
+    expect(screen.getByRole("status")).toHaveTextContent("La solicitud de autenticación venció");
+    expect(screen.getByRole("link", { name: "Volver a la acción e iniciar otra confirmación" })).toHaveAttribute("href", intent.returnPath);
+    expect(screen.queryByRole("button", { name: "Consultar estado" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Continuar con la acción" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/cerrá sesión en Google/)).not.toBeInTheDocument();
+    expect(client.start).not.toHaveBeenCalled();expect(client.read).not.toHaveBeenCalled();
+  });
   it("should preserve an existing session and await explicit Google confirmation", async () => {
     const client = createClient();
     render(<ReauthenticationContainer initialState={{ kind: "ready", intent, oauthFailed: false }} client={client} />);
@@ -72,7 +83,7 @@ describe("global reauthentication screen", () => {
     expect(screen.getByText(safeMessage)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Confirmar con Google" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Continuar con la acción" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Volver a la tribu" })).toHaveAttribute("href", intent.returnPath);
+    expect(screen.getByRole("link", { name: outcome === "expired" ? "Volver a la acción e iniciar otra confirmación" : "Volver a la tribu" })).toHaveAttribute("href", intent.returnPath);
     expect(client.start).not.toHaveBeenCalled();
   });
 

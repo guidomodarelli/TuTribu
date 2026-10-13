@@ -15,6 +15,8 @@ export const REAUTHENTICATION_UI_COPY = {
   checking: "Consultando estado…",
   continue: "Continuar con la acción",
   return: "Volver a la tribu",
+  restart: "Volver a la acción e iniciar otra confirmación",
+  expired: "Este intento ya terminó. Prepará una nueva confirmación desde la acción que querés completar; consultar el intento anterior no lo vuelve a habilitar.",
   home: "Ir al inicio",
   signIn: "Iniciar sesión",
   authorizing: "La confirmación ya comenzó. Consultá su resultado; si no podés completarla, volvé a la tribu para iniciar una nueva.",
