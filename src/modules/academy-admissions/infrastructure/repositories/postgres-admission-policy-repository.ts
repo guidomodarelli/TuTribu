@@ -20,6 +20,8 @@ import { PostgresAdmissionOperationRepository } from "./postgres-admission-opera
 import { admissionPolicyMutationResultSchema } from "../../application/results/admission-policy-result-schemas";
 import { admissionPolicyDatabaseNow, authorizeAdmissionPolicy } from "./postgres-admission-policy-authorizer";
 import { readAdmissionControlMarker, readAdmissionPolicy } from "./postgres-admission-policy-storage";
+import { createAdmissionPolicyAuditEvent } from "../../domain/entities/admission-audit-event";
+import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 
 type PolicyIntent = AdmissionPolicyInitializationIntent | AdmissionPolicyUpdateIntent | AdmissionPolicyActivationIntent | AdmissionPolicyPauseIntent;
 type PolicyDatabaseExecutor = <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -49,7 +51,12 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
 
   /** Records only effective changes and their private original operation link. */
   private async audit(database: RequestDatabase, intent: PolicyIntent, ledgerId: string, policy: AdmissionPolicy, reason?: string): Promise<void> {
-    await database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type,rule,resource_version) values (${intent.context.tribeId},${intent.context.userId},${ADMISSION_POLICY_AUDIT.resourceType},${policy.id},${ledgerId},${intent.type},${reason ?? null},${policy.version})`);
+    await new PostgresAdmissionAuditRepository(database).append(createAdmissionPolicyAuditEvent({
+      tribeId: intent.context.tribeId, actorUserId: intent.context.userId,
+      operationId: ledgerId, resourceId: policy.id, operation: intent.type,
+      resourceVersion: policy.version, rule: reason ?? null,
+      createdAt: await admissionPolicyDatabaseNow(database),
+    }));
   }
 
   /** Resource update increments exactly the domain-proposed counters under the expected version. */

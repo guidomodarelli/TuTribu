@@ -4,8 +4,9 @@ import { assertUnreservedAdmissionContact } from "./assert-unreserved-admission-
 import { sql } from "drizzle-orm";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { ADMISSION_RESOURCE_KIND } from "@/src/modules/academy-admissions/constants/admission-authorization";
-import { ADMISSION_PROOF_AUDIT_EVENT, ADMISSION_PROOF_AUDIT_RULE, ADMISSION_PROOF_OPERATION, ADMISSION_CONTACT_BINDING_LOCK_DOMAIN, ADMISSION_PROOF_APPLICATION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-proof";
+import { ADMISSION_PROOF_OPERATION, ADMISSION_CONTACT_BINDING_LOCK_DOMAIN, ADMISSION_PROOF_APPLICATION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-proof";
+import { createAdmissionProofAuditEvent } from "../../domain/entities/admission-audit-event";
+import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 import { ADMISSION_REQUEST_STATUS, ADMISSION_OPERATION_TYPE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_EVIDENCE_KIND, ADMISSION_PROOF_STATUS, ADMISSION_SOURCE_KIND, ADMISSION_INVITATION_STATUS, ADMISSION_VERIFICATION_PURPOSE } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { VERIFICATION_CHALLENGE_STATE } from "@/src/modules/academy-admissions/constants/verification-challenge";
@@ -86,7 +87,11 @@ export class PostgresAdmissionVerificationProofWriter implements AdmissionVerifi
     if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
     const applied = (await this.database.execute(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.applied},applied_request_id=${request.id},applied_at=${now} where id=${row.id} and status=${ADMISSION_PROOF_STATUS.available} returning id`)).rows[0];
     if (!applied) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
-    await this.database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type,rule,resource_version,metadata,created_at) values (${command.scope.tribeId},${command.scope.userId},${ADMISSION_RESOURCE_KIND.request},${request.id},${command.ledgerId},${ADMISSION_PROOF_AUDIT_EVENT},${ADMISSION_PROOF_AUDIT_RULE},${requestVersion},${JSON.stringify({ proofId: row.id, previousRequestVersion: request.version })}::jsonb,${now})`);
+    await new PostgresAdmissionAuditRepository(this.database).append(createAdmissionProofAuditEvent({
+      tribeId: command.scope.tribeId, actorUserId: command.scope.userId,
+      operationId: command.ledgerId, requestId: request.id, proofId: row.id,
+      previousRequestVersion: request.version, createdAt: now,
+    }));
     const currentConfig = await this.readSecurityConfig();
     if (currentConfig.recoveryLocked || currentConfig.environment !== config.environment || currentConfig.securityEpoch !== config.securityEpoch || !await this.isAuthorized(command.scope)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
     return { outcome: ADMISSION_PROOF_APPLICATION_OUTCOME.applied, requestId: request.id, requestVersion, status: ADMISSION_REQUEST_STATUS.pending, proofId: row.id };
