@@ -1,9 +1,19 @@
 /** Exercises owned audit snapshots without copying command payloads or metric labels. @module admission-audit-event-tests */
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { createAdmissionPolicyAuditEvent, createAdmissionProofAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-audit-event";
+import { createAdmissionPolicyAuditEvent, createAdmissionProofAuditEvent, createAdmissionMessagingSelectionAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-audit-event";
 
 describe("owned admission audit events", () => {
+  it("should snapshot effective policy reference lineage and its owner clock without copying private configuration", () => {
+    // Arrange: only locked reference facts belong to this existing policy event.
+    const input={tribeId:randomUUID(),actorUserId:randomUUID(),operationId:randomUUID(),resourceVersion:8,previousVersion:7,previousConnectionId:randomUUID(),previousConnectionVersion:1,connectionId:randomUUID(),connectionVersion:2,verificationEpoch:5,createdAt:new Date("2026-10-13T13:00:00Z"),credential:"synthetic-private-payload",normalizedContact:"hidden@example.test",policyFlags:{isOpen:false}};
+    // Act: the closed variant selects its own metadata and captures the clock.
+    const event=createAdmissionMessagingSelectionAuditEvent(input);
+    input.createdAt.setUTCDate(14);
+    // Assert: identities, lineage and semantic cause stay private and exact.
+    expect(event).toEqual({tribeId:input.tribeId,actorUserId:input.actorUserId,operationId:input.operationId,resourceType:"admission_policy",resourceId:input.tribeId,eventType:"messaging_selection_replaced",rule:"messaging_connection_replaced",cause:"messaging_connection_replaced",resourceVersion:8,metadata:{previousVersion:7,previousConnectionId:input.previousConnectionId,previousConnectionVersion:1,connectionId:input.connectionId,connectionVersion:2,verificationEpoch:5},createdAt:new Date("2026-10-13T13:00:00Z")});
+    expect(event).not.toHaveProperty("credential");expect(event).not.toHaveProperty("normalizedContact");expect(event.metadata).not.toHaveProperty("policyFlags");
+  });
   it("should retain actor, original operation and effective policy version without copying private command fields", () => {
     // Arrange: only owner-derived identity and the applied change belong to audit.
     const command = {
