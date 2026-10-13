@@ -11,6 +11,7 @@ import {createAdmissionProviderTransport,withAdmissionProviderTransport} from "@
 import {googleIdentityEvidencePlugin} from "@/src/modules/auth/infrastructure/better-auth/google-identity-evidence-plugin";
 import {getAuthEvidenceContext,runWithAuthEvidenceContext} from "@/src/modules/auth/infrastructure/better-auth/auth-evidence-context";
 import {createScopedAuthEvidenceHandler} from "@/src/modules/auth/infrastructure/better-auth/scoped-auth-evidence-handler";
+import { SECONDS_PER_DAY } from "@/src/constants/time";
 
 /** Creates a real auth instance with its published in-memory adapter and synthetic credentials. */
 function createTestAuth(clientId:string,mapProfileToUser?:Parameters<typeof google>[0]["mapProfileToUser"],authorizeIntent?:(intentId:string)=>Promise<{allowed:true;nonce:string}|{allowed:false}>) {
@@ -120,6 +121,39 @@ describe("Google evidence plugin",()=>{
     expect(session).not.toBeNull();
     expect(result.completion).toMatchObject({userId:session?.user.id,sessionId:session?.session.id,accountId:accounts[0].id,reauthenticationIntentId:null,evidence:{subject,normalizedEmail:email}});
     expect(JSON.stringify(result.completion)).not.toContain(token);
+  });
+
+  it("should replace old authentication facts when the same Google account returns a new signed token", async () => {
+    // Arrange: the same real SDK instance receives old and recent Google authentication times.
+    const signer = await createAdmissionGoogleTokenFixture();
+    const clientId = randomUUID(), subject = randomUUID(), email = `${subject}@gmail.com`;
+    const instant = Math.floor(Date.now() / 1000);
+    const originalAuthentication = instant - SECONDS_PER_DAY;
+    const originalToken = await signer.sign({ iss: "https://accounts.google.com", aud: clientId, sub: subject, iat: instant, exp: instant + 3600, email, email_verified: true, nonce: randomUUID(), auth_time: originalAuthentication });
+    const currentToken = await signer.sign({ iss: "https://accounts.google.com", aud: clientId, sub: subject, iat: instant, exp: instant + 3600, email, email_verified: true, nonce: randomUUID(), auth_time: instant });
+    const auth = createTestAuth(clientId);
+    const transport = createAdmissionProviderTransport([{ origin: "https://www.googleapis.com", pathname: "/oauth2/v3/certs", method: "GET", respond: () => Response.json(signer.jwks) }]);
+
+    // Act: complete two real sign-ins in independent request-local capture scopes.
+    const [original, current] = await withAdmissionProviderTransport(transport, async () => {
+      const original = await signIn(auth, originalToken);
+      const current = await signIn(auth, currentToken);
+      return [original, current];
+    });
+
+    // Assert: no prior auth_time, nonce or session is reused for the newer token.
+    expect(original.response.status).toBe(200);
+    expect(current.response.status).toBe(200);
+    expect(original.capture).toMatchObject({ status: "verified", evidence: { authenticatedAt: new Date(originalAuthentication * 1000) } });
+    expect(current.capture).toMatchObject({ status: "verified", evidence: { authenticatedAt: new Date(instant * 1000) } });
+    expect(original.completion).not.toBeNull();
+    expect(current.completion).not.toBeNull();
+    expect(current.completion?.accountId).toBe(original.completion?.accountId);
+    expect(current.completion?.sessionId).not.toBe(original.completion?.sessionId);
+    expect(current.completion?.evidence.nonce).not.toBe(original.completion?.evidence.nonce);
+    expect(getAuthEvidenceContext()).toBeUndefined();
+    expect(JSON.stringify([original.capture, current.capture])).not.toContain(originalToken);
+    expect(JSON.stringify([original.capture, current.capture])).not.toContain(currentToken);
   });
 
   it("should preserve a mapped global login without granting authority to mutated profile claims",async()=>{
