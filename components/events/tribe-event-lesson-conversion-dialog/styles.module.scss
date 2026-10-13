@@ -1,3 +1,5 @@
+@use "../../../src/styles/action-link";
+
 .TribeEventLessonConversionDialog {
   width: min(100% - 2rem, 34rem);
 
@@ -12,7 +14,7 @@
     display: grid;
     gap: 0.4rem;
     min-width: 0;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   &__select {
@@ -50,4 +52,9 @@
     gap: 0.5rem;
     justify-content: flex-end;
   }
+}
+
+// Navigation styled as an Arc primary button.
+.TribeEventLessonConversionDialog__actionLink {
+  @include action-link.action-link(primary, md);
 }

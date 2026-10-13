@@ -226,7 +226,7 @@ $media-viewer-overlay-opacity: 72%;
   &__composerTriggerText {
     min-width: 0;
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 500;
     overflow-wrap: anywhere;
   }
 
@@ -370,7 +370,7 @@ $media-viewer-overlay-opacity: 72%;
   }
 
   &__composerErrorTitle {
-    font-weight: 700;
+    font-weight: 500;
   }
 
   &__composerErrorList {
@@ -444,7 +444,7 @@ $media-viewer-overlay-opacity: 72%;
     background: var(--background);
     color: var(--foreground);
     font: inherit;
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.2;
     white-space: nowrap;
   }
@@ -555,7 +555,7 @@ $media-viewer-overlay-opacity: 72%;
   &__titleInput {
     min-height: 2.5rem;
     font-size: 1.25rem;
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.2;
 
     &--invalid {
@@ -1078,7 +1078,7 @@ $media-viewer-overlay-opacity: 72%;
     min-width: 0;
     color: var(--muted-foreground);
     font-size: 1rem;
-    font-weight: 800;
+    font-weight: 500;
     line-height: 1.25;
   }
 
@@ -1152,7 +1152,7 @@ $media-viewer-overlay-opacity: 72%;
 
   &__videoFallbackLabel {
     font-size: 0.8rem;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.2;
   }
 
@@ -1245,7 +1245,7 @@ $media-viewer-overlay-opacity: 72%;
     min-width: 0;
     color: var(--muted-foreground);
     font-size: 1rem;
-    font-weight: 800;
+    font-weight: 500;
     line-height: 1.25;
   }
 
@@ -1313,7 +1313,7 @@ $media-viewer-overlay-opacity: 72%;
 
   &__pollAddOptionButton {
     border-radius: 0.75rem;
-    font-weight: 800;
+    font-weight: 500;
   }
 
   &__pollMultipleToggle {
@@ -1679,7 +1679,7 @@ $media-viewer-overlay-opacity: 72%;
     border-radius: 999rem;
     background: color-mix(in oklab, var(--primary) 14%, var(--background));
     color: var(--primary);
-    font-weight: 700;
+    font-weight: 500;
   }
 
   &__avatar--leader,
@@ -1719,7 +1719,7 @@ $media-viewer-overlay-opacity: 72%;
   }
 
   &__authorName {
-    font-weight: 700;
+    font-weight: 500;
   }
 
   &__authorIdentity {
@@ -1773,7 +1773,7 @@ $media-viewer-overlay-opacity: 72%;
 
   &__messageMetaSeparator {
     color: var(--muted-foreground);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1;
   }
 
@@ -1814,7 +1814,7 @@ $media-viewer-overlay-opacity: 72%;
     color: var(--primary);
     cursor: pointer;
     font: inherit;
-    font-weight: 700;
+    font-weight: 500;
     line-height: inherit;
 
     &:hover,
@@ -1864,7 +1864,7 @@ $media-viewer-overlay-opacity: 72%;
     padding: 0 0.5rem;
     color: color-mix(in oklab, var(--primary) 78%, var(--foreground));
     font-size: 0.72rem;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   &__pollSummaryText {
@@ -1904,7 +1904,7 @@ $media-viewer-overlay-opacity: 72%;
     display: inline-flex;
     gap: 0.35rem;
     align-items: center;
-    font-weight: 700;
+    font-weight: 500;
 
     svg {
       width: 0.9rem;
@@ -1943,7 +1943,7 @@ $media-viewer-overlay-opacity: 72%;
   &__pollResult {
     color: var(--muted-foreground);
     font-size: 0.84rem;
-    font-weight: 700;
+    font-weight: 500;
     white-space: nowrap;
   }
 
@@ -2017,7 +2017,7 @@ $media-viewer-overlay-opacity: 72%;
     flex-wrap: wrap;
     gap: 0.4rem;
     align-items: center;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   &__replyContent {

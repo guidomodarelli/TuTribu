@@ -43,7 +43,13 @@ upstream components with the official CLI in the `beez-ui` repository, then
 version and distribute the package. Do not run the shadcn CLI in this app or
 reintroduce local copies under `components/ui`.
 
-Compose shared components with product SCSS Modules. The library provides the LaTribu palette and fonts by default. Keep page-specific
+Compose shared components with product SCSS Modules. The library ships the [Arc](https://uiarc.dev) foundation:
+semantic color roles (`--surface`, `--surface-muted`, `--text-secondary`, `--text-muted`, `--border`,
+`--border-strong`, `--danger`…), concentric radii (`--radius-control` 18px, `--radius-panel` 26px,
+`--radius-surface` 34px), control heights (`--control-height-sm|md|lg`), shadows, easing and a keyboard-only focus
+outline, in light and dark, with Arc's blue accent. Style product code with those tokens; the shadcn names
+(`--primary`, `--muted`, `--muted-foreground`…) remain as aliases, and `--accent` is Arc's brand accent, not a hover
+grey. Keep page-specific
 styles and explicit overrides in this repository. Import shared component
 styles once through `@guidomodarelli/beez-ui/styles.css`. Follow the integration contract in
 `docs/architecture/shared-ui-library.htm`.
@@ -63,18 +69,20 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
 
 ## Typography
 
-- The product ships two self-hosted typefaces (latin WOFF2 in `app/fonts`,
-  loaded with `next/font/local`, never fetched from Google at runtime):
-  - **Geist** (weights 400-600) is the base sans for everything: body copy,
-    controls, labels, badges, and ordinary headings. It is exposed through the
-    `--font-sans` and `--font-heading` tokens and matches the shadcn/ui feel.
-  - **Poppins** (weight 600) is reserved exclusively for large page-level
-    display headings, exposed through the `--font-display` token. Do not use it
-    for body text, controls, or compact headings.
+- The product follows Arc's typography with two self-hosted typefaces (latin
+  WOFF2 in `app/fonts`, loaded with `next/font/local`, never fetched from Google
+  at runtime):
+  - **Inter** (weights 400-500) is the base sans for body copy, controls,
+    labels, badges, and compact headings, exposed through `--font-sans` and
+    `--font-body`.
+  - **Geist** (weights 400-500) is reserved for page-level display headings of
+    30px and up, exposed through `--font-display` and `--font-heading`.
+- Use only weights 400 and 500. Never 600 or bold: hierarchy comes from size,
+  color (`--foreground` over `--text-secondary`) and spacing.
+- No `text-transform: uppercase` and no wide letter spacing on small labels.
 - Use large type only for true page-level headings.
 - Keep compact panels, forms, sidebars, and tool surfaces visually dense enough
   for repeated use.
-- Avoid negative letter spacing.
 - Keep labels short and specific.
 
 ## Interaction
@@ -85,6 +93,22 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
   - Inputs, selects, checkboxes, switches, and sliders for forms.
   - Lists, tables, or definition lists for structured information.
 - Critical actions must show clear disabled, loading, success, and error states.
+
+## Buttons and action links
+
+- Use `Button` from beez-ui for actions. It follows Arc's API: `variant`
+  `primary` (one per surface), `secondary`, `ghost` or `danger`; `size` `sm`,
+  `md` (default) or `lg`; and `loading` for short async work. It defaults to
+  `type="button"`; pass `type="submit"` to submit a form.
+- Icon-only buttons use `size="sm"` and need an `aria-label` or visually hidden
+  text.
+- `Button` has no `asChild`. A navigation that should look like a button stays a
+  `Link` (or `<a>`, or a `<label>` wrapping a file input) and takes the Arc look
+  in its SCSS Module through the shared mixin:
+  `@use "…/src/styles/action-link";` and
+  `@include action-link.action-link(secondary, sm);`.
+- Radix triggers still compose with `asChild` on the trigger:
+  `<DialogTrigger asChild><Button>…</Button></DialogTrigger>`.
 - Validation feedback must be visible near the affected input or action.
 
 ## Styling

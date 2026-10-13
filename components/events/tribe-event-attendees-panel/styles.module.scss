@@ -1,4 +1,5 @@
 @use "../../../src/styles/motion";
+@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
@@ -41,9 +42,7 @@
     margin: 0;
     color: var(--muted-foreground);
     font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-weight: 500;
   }
 
   &__count {
@@ -105,4 +104,9 @@
     color: var(--destructive);
     padding-left: 0.75rem;
   }
+}
+
+// Navigation styled as an Arc secondary button.
+.TribeEventAttendeesPanel__actionLink {
+  @include action-link.action-link(secondary, sm);
 }

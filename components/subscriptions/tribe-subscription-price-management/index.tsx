@@ -197,7 +197,7 @@ const PRICE_MANAGEMENT_REQUEST = {
   putMethod: "PUT",
   pricesProperty: "prices",
   submitType: "submit",
-  outlineVariant: "outline",
+  secondaryVariant: "secondary",
   readonlyBadgeVariant: "secondary",
   statusRole: "status",
 } as const;
@@ -1909,7 +1909,7 @@ export function TribeSubscriptionPriceManagement({
                     startMercadoPagoConnection(mercadoPagoConnectionEndpoint);
                   }}
                   type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                  variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                  variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
                 >
                   <CreditCardIcon />
                   {PRICE_MANAGEMENT_COPY.connectAnotherAccountButton}
@@ -1962,7 +1962,7 @@ export function TribeSubscriptionPriceManagement({
                     void handleUpdateMercadoPagoAccountLabel();
                   }}
                   type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                  variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                  variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
                 >
                   <CheckCircle2Icon />
                   {pendingAction ===
@@ -1986,7 +1986,7 @@ export function TribeSubscriptionPriceManagement({
                   startMercadoPagoConnection(mercadoPagoConnectionEndpoint);
                 }}
                 type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
               >
                 <CreditCardIcon />
                 {PRICE_MANAGEMENT_COPY.connectButton}
@@ -2072,7 +2072,7 @@ export function TribeSubscriptionPriceManagement({
                   void handleReconcileSubscriberDiagnostics();
                 }}
                 type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
               >
                 <RefreshCwIcon
                   aria-hidden
@@ -2497,7 +2497,7 @@ export function TribeSubscriptionPriceManagement({
                       void handleMakeFreeJoinCurrent();
                     }}
                     type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                    variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                    variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
                   >
                     <StarIcon />
                     {PRICE_MANAGEMENT_COPY.makeCurrentButton}
@@ -2640,7 +2640,7 @@ export function TribeSubscriptionPriceManagement({
                           }}
                           ref={bindEditButton(price.id)}
                           type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                          variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                          variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
                         >
                           <PencilIcon />
                           {PRICE_MANAGEMENT_COPY.editButton}
@@ -2657,7 +2657,7 @@ export function TribeSubscriptionPriceManagement({
                           void handleMakeCurrent(price);
                         }}
                         type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                        variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                        variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
                       >
                         <StarIcon />
                         {PRICE_MANAGEMENT_COPY.makeCurrentButton}
@@ -2671,7 +2671,7 @@ export function TribeSubscriptionPriceManagement({
                           void handleDeletePrice(price);
                         }}
                         type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                        variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                        variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
                       >
                         <Trash2Icon />
                         {PRICE_MANAGEMENT_COPY.removeButton}
@@ -2685,7 +2685,7 @@ export function TribeSubscriptionPriceManagement({
                           void handleVerifyProviderPlan(price);
                         }}
                         type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                        variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                        variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
                       >
                         <RefreshCwIcon
                           aria-hidden
@@ -2708,7 +2708,7 @@ export function TribeSubscriptionPriceManagement({
                           void handleVerifyProviderSubscribers(price);
                         }}
                         type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                        variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                        variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
                       >
                         <RefreshCwIcon
                           aria-hidden
@@ -2852,7 +2852,7 @@ export function TribeSubscriptionPriceManagement({
                               closePriceEditor(price.id);
                             }}
                             type={PRICE_MANAGEMENT_REQUEST.buttonType}
-                            variant={PRICE_MANAGEMENT_REQUEST.outlineVariant}
+                            variant={PRICE_MANAGEMENT_REQUEST.secondaryVariant}
                           >
                             {PRICE_MANAGEMENT_COPY.cancelEditButton}
                           </Button>

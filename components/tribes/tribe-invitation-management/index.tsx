@@ -122,14 +122,15 @@ const INVITATION_MANAGEMENT_REQUEST = {
   dateStyle: "medium",
   deleteMethod: "DELETE",
   destructiveVariant: "destructive",
-  iconSize: "icon",
+  dangerVariant: "danger",
+  iconSize: "sm",
   jsonContentType: "application/json",
   locale: "es",
   menuAlign: "end",
   outlineVariant: "outline",
+  secondaryVariant: "secondary",
   patchMethod: "PATCH",
   postMethod: "POST",
-  secondaryVariant: "secondary",
   submitType: "submit",
   timeStyle: "short",
 } as const;
@@ -1385,7 +1386,7 @@ export function TribeInvitationManagement({
                                 );
                               }}
                               type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                              variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
+                              variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
                             >
                               <PresenceSwap
                                 as="span"
@@ -1412,7 +1413,7 @@ export function TribeInvitationManagement({
                                 disabled={isInvitationPending}
                                 size={INVITATION_MANAGEMENT_REQUEST.iconSize}
                                 type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                                variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
+                                variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
                               >
                                 <MoreHorizontalIcon />
                               </Button>
@@ -1513,7 +1514,7 @@ export function TribeInvitationManagement({
                   handleCreateDialogChange(false);
                 }}
                 type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
+                variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
               >
                 {INVITATION_MANAGEMENT_COPY.submitDialogCancel}
               </Button>
@@ -1571,7 +1572,7 @@ export function TribeInvitationManagement({
                   handleEditDialogChange(false);
                 }}
                 type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
+                variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
               >
                 {INVITATION_MANAGEMENT_COPY.submitDialogCancel}
               </Button>
@@ -1628,7 +1629,7 @@ export function TribeInvitationManagement({
                   handleReferralEditDialogChange(false);
                 }}
                 type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
+                variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
               >
                 {INVITATION_MANAGEMENT_COPY.submitDialogCancel}
               </Button>
@@ -1669,7 +1670,7 @@ export function TribeInvitationManagement({
                 handleRevokeDialogChange(false);
               }}
               type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-              variant={INVITATION_MANAGEMENT_REQUEST.outlineVariant}
+              variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
             >
               {INVITATION_MANAGEMENT_COPY.revokeConfirmCancel}
             </Button>
@@ -1682,7 +1683,7 @@ export function TribeInvitationManagement({
                 }
               }}
               type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-              variant={INVITATION_MANAGEMENT_REQUEST.destructiveVariant}
+              variant={INVITATION_MANAGEMENT_REQUEST.dangerVariant}
             >
               <Trash2Icon />
               {revokeInProgress

@@ -33,7 +33,7 @@ const ATTENDEE_GROUPS: { heading: string; key: AttendeeGroupKey }[] = [
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
-  variantOutline: "outline",
+  variantSecondary: "secondary",
 } as const;
 const ALERT_ROLE = "alert";
 const STATUS_ROLE = "status";
@@ -118,7 +118,7 @@ function TribeEventAttendeesPanelBody({
         <Button
           size={BUTTON_ATTRIBUTE.sizeSmall}
           type={BUTTON_ATTRIBUTE.typeButton}
-          variant={BUTTON_ATTRIBUTE.variantOutline}
+          variant={BUTTON_ATTRIBUTE.variantSecondary}
           onClick={onRetry}
         >
           {COPY.retry}
@@ -142,16 +142,10 @@ function TribeEventAttendeesPanelBody({
     <div className={styles.TribeEventAttendeesPanel}>
       {hasAnswers ? (
         <div className={styles.TribeEventAttendeesPanel__toolbar}>
-          <Button
-            asChild
-            size={BUTTON_ATTRIBUTE.sizeSmall}
-            variant={BUTTON_ATTRIBUTE.variantOutline}
-          >
-            <a download href={exportUrl}>
+          <a className={styles.TribeEventAttendeesPanel__actionLink} download href={exportUrl}>
               <DownloadIcon aria-hidden />
               {COPY.exportCsv}
             </a>
-          </Button>
         </div>
       ) : null}
       {hasAnswers ? (

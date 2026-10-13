@@ -58,9 +58,9 @@ const BADGE_VARIANT = {
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
-  variantDestructive: "destructive",
+  variantDanger: "danger",
   variantGhost: "ghost",
-  variantOutline: "outline",
+  variantSecondary: "secondary",
 } as const;
 const COPY = {
   authorDescription: "Seguí tus propuestas y retirá las que ya no quieras.",
@@ -204,7 +204,7 @@ export function TribeEventProposalsPanel({
                 disabled={isSubmitting}
                 size={BUTTON_ATTRIBUTE.sizeSmall}
                 type={BUTTON_ATTRIBUTE.typeButton}
-                variant={BUTTON_ATTRIBUTE.variantDestructive}
+                variant={BUTTON_ATTRIBUTE.variantDanger}
                 onClick={() => {
                   void confirmReject(proposal);
                 }}
@@ -229,7 +229,7 @@ export function TribeEventProposalsPanel({
               id={REJECT_BUTTON_ID_PREFIX + proposal.id}
               size={BUTTON_ATTRIBUTE.sizeSmall}
               type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantOutline}
+              variant={BUTTON_ATTRIBUTE.variantSecondary}
               onClick={() => startRejecting(proposal)}
             >
               {COPY.rejectButton}
@@ -242,7 +242,7 @@ export function TribeEventProposalsPanel({
               disabled={isSubmitting}
               size={BUTTON_ATTRIBUTE.sizeSmall}
               type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantOutline}
+              variant={BUTTON_ATTRIBUTE.variantSecondary}
               onClick={() => onWithdraw(proposal)}
             >
               {COPY.withdrawButton}
@@ -270,7 +270,7 @@ export function TribeEventProposalsPanel({
           <Button
             size={BUTTON_ATTRIBUTE.sizeSmall}
             type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantOutline}
+            variant={BUTTON_ATTRIBUTE.variantSecondary}
             onClick={onRetry}
           >
             {COPY.retry}

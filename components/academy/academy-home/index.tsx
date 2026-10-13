@@ -536,7 +536,7 @@ export function AcademyHome({
                 disabled={pendingAction !== null}
                 onClick={handleRefresh}
                 type="button"
-                variant="outline"
+                variant="secondary"
               >
                 {pendingAction === "refresh"
                   ? ACADEMY_HOME_COPY.refreshPending
@@ -549,7 +549,7 @@ export function AcademyHome({
                 disabled={pendingAction !== null}
                 onClick={() => setIsCancelDialogOpen(true)}
                 type="button"
-                variant="outline"
+                variant="secondary"
               >
                 {ACADEMY_HOME_COPY.cancelButton}
               </Button>
@@ -646,7 +646,7 @@ export function AcademyHome({
               disabled={pendingAction !== null}
               onClick={() => setIsCancelDialogOpen(false)}
               type="button"
-              variant="outline"
+              variant="secondary"
             >
               {ACADEMY_HOME_COPY.cancelKeep}
             </Button>
@@ -655,7 +655,7 @@ export function AcademyHome({
               disabled={pendingAction !== null}
               onClick={handleCancel}
               type="button"
-              variant="destructive"
+              variant="danger"
             >
               {pendingAction === "cancel" ? ACADEMY_HOME_COPY.cancelPending : ACADEMY_HOME_COPY.cancelConfirm}
             </Button>

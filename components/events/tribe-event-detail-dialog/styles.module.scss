@@ -1,3 +1,5 @@
+@use "../../../src/styles/action-link";
+
 .TribeEventDetailDialog {
   width: min(100% - 2rem, 36rem);
 
@@ -50,9 +52,7 @@
   &__factTerm {
     color: var(--muted-foreground);
     font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-weight: 500;
   }
 
   &__description {
@@ -102,9 +102,7 @@
     margin: 0;
     color: var(--muted-foreground);
     font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-weight: 500;
   }
 
   &__attendanceActions {
@@ -115,7 +113,7 @@
   }
 
   &__attendanceLegend {
-    font-weight: 600;
+    font-weight: 500;
   }
 
   &__actions {
@@ -159,9 +157,7 @@
     margin: 0;
     color: var(--muted-foreground);
     font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-weight: 500;
   }
 
   &__actionGroupButtons {
@@ -169,4 +165,14 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+}
+
+// Navigation styled as an Arc primary button.
+.TribeEventDetailDialog__primaryLink {
+  @include action-link.action-link(primary, md);
+}
+
+// Navigation styled as an Arc secondary button.
+.TribeEventDetailDialog__actionLink {
+  @include action-link.action-link(secondary, sm);
 }

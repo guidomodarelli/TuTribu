@@ -25,7 +25,7 @@ $app-sidebar-pill-background: color-mix(in oklab, var(--sidebar-accent) 70%, tra
     color: var(--sidebar-foreground);
     font: inherit;
     font-size: 0.875rem;
-    font-weight: 600;
+    font-weight: 500;
     text-align: left;
     cursor: pointer;
     outline: none;
@@ -62,7 +62,7 @@ $app-sidebar-pill-background: color-mix(in oklab, var(--sidebar-accent) 70%, tra
     background-color: var(--sidebar-foreground);
     color: var(--sidebar);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   &__brandName {

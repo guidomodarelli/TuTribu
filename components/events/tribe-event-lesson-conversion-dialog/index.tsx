@@ -74,7 +74,7 @@ const BUTTON_ATTRIBUTE = {
   typeButton: "button",
   typeSubmit: "submit",
   variantGhost: "ghost",
-  variantOutline: "outline",
+  variantSecondary: "secondary",
 } as const;
 const COPY = {
   cancelButton: "Cancelar",
@@ -224,9 +224,7 @@ export function TribeEventLessonConversionDialog({
             <Button type={BUTTON_ATTRIBUTE.typeButton} variant={BUTTON_ATTRIBUTE.variantGhost} onClick={onClose}>
               {COPY.closeButton}
             </Button>
-            <Button asChild>
-              <Link href={convertedLesson.lesson.href}>{COPY.openLesson}</Link>
-            </Button>
+            <Link className={styles.TribeEventLessonConversionDialog__actionLink} href={convertedLesson.lesson.href}>{COPY.openLesson}</Link>
           </div>
         </div>
       );
@@ -252,7 +250,7 @@ export function TribeEventLessonConversionDialog({
           <Button
             size={BUTTON_ATTRIBUTE.sizeSmall}
             type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantOutline}
+            variant={BUTTON_ATTRIBUTE.variantSecondary}
             onClick={onRetry}
           >
             {COPY.retry}

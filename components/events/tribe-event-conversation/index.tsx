@@ -50,7 +50,7 @@ const BUTTON_ATTRIBUTE = {
   typeButton: "button",
   typeSubmit: "submit",
   variantGhost: "ghost",
-  variantOutline: "outline",
+  variantSecondary: "secondary",
 } as const;
 const COPY = {
   cancelDelete: "No",
@@ -156,7 +156,7 @@ export function TribeEventConversation({
             className={styles.TribeEventConversation__retry}
             size={BUTTON_ATTRIBUTE.sizeSmall}
             type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantOutline}
+            variant={BUTTON_ATTRIBUTE.variantSecondary}
             onClick={onRetry}
           >
             {COPY.retry}
@@ -232,7 +232,7 @@ export function TribeEventConversation({
                   <Button
                     size={BUTTON_ATTRIBUTE.sizeSmall}
                     type={BUTTON_ATTRIBUTE.typeButton}
-                    variant={BUTTON_ATTRIBUTE.variantOutline}
+                    variant={BUTTON_ATTRIBUTE.variantSecondary}
                     onClick={() => {
                       setConfirmingCommentId(null);
                       onDeleteComment(comment.id);

@@ -143,7 +143,7 @@ export function NotificationPanel({
       {panelView === NOTIFICATION_PANEL_VIEW.error ? (
         <div className={styles.NotificationPanel__state} role="alert">
           <p className={styles.NotificationPanel__message}>No pudimos cargar tus notificaciones.</p>
-          <Button onClick={onRetry} size="sm" type="button" variant="outline">
+          <Button onClick={onRetry} size="sm" type="button" variant="secondary">
             Reintentar
           </Button>
         </div>

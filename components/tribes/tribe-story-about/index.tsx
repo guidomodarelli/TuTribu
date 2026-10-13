@@ -2,7 +2,7 @@ import Image from "next/image";
 import { ArrowUpRightIcon } from "lucide-react";
 
 import { Link } from "@/components/navigation/link";
-import { Button, RichMarkdownContent } from "@guidomodarelli/beez-ui";
+import { RichMarkdownContent } from "@guidomodarelli/beez-ui";
 import { TribeStoryGallery } from "@/components/tribes/tribe-story-gallery";
 import { FreeJoinSubmitButton } from "@/components/tribes/tribe-story-about/free-join-submit-button";
 import type {
@@ -292,11 +292,9 @@ export function TribeStoryAbout({
             </form>
           ) : joinHref ? (
             <div className={styles.TribeStoryAbout__joinAction}>
-              <Button asChild className={styles.TribeStoryAbout__joinButton}>
-                <Link href={joinHref}>
+              <Link className={styles.TribeStoryAbout__joinButton} href={joinHref}>
                   {TRIBE_STORY_ABOUT_COPY.joinButton}
                 </Link>
-              </Button>
             </div>
           ) : null}
         </aside>

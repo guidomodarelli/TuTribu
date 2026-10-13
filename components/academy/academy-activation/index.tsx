@@ -174,7 +174,7 @@ export function AcademyActivation({ settings: initialSettings, tribeSlug }: Acad
               disabled={isSubmitting}
               onClick={() => setIsDialogOpen(false)}
               type="button"
-              variant="outline"
+              variant="secondary"
             >
               {ACADEMY_ACTIVATION_COPY.cancelButton}
             </Button>

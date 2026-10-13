@@ -32,7 +32,7 @@ const CHANNEL_EMOJI_PICKER_CONFIG = {
   pickerHeight: 360,
   /** Fills the popover, which already caps its width to the viewport on phones. */
   pickerWidth: "100%",
-  outlineVariant: "outline",
+  secondaryVariant: "secondary",
 } as const;
 
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), {
@@ -94,7 +94,7 @@ export function ChannelEmojiPicker({
             className={styles.ChannelEmojiPicker__trigger}
             disabled={disabled}
             type={CHANNEL_EMOJI_PICKER_CONFIG.buttonType}
-            variant={CHANNEL_EMOJI_PICKER_CONFIG.outlineVariant}
+            variant={CHANNEL_EMOJI_PICKER_CONFIG.secondaryVariant}
           >
             <PresenceSwap
               as="span"

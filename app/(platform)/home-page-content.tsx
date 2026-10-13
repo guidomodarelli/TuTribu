@@ -2,7 +2,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { Link } from "@/components/navigation/link";
-import { Button } from "@guidomodarelli/beez-ui";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestModules } from "@/src/modules/setup";
 import { resolveRequestContext } from "@/src/modules/shared/infrastructure/observability/request-context";
@@ -69,9 +68,7 @@ export function HomePageView({ isAuthenticated }: HomePageViewProps) {
       <p className={styles.HomePage__description}>{description}</p>
       {isAuthenticated === false ? (
         <div className={styles.HomePage__actions}>
-          <Button asChild>
-            <Link href={ROUTES.auth.signIn}>{HOME_PAGE_COPY.signInAction}</Link>
-          </Button>
+          <Link className={styles.HomePage__actionLink} href={ROUTES.auth.signIn}>{HOME_PAGE_COPY.signInAction}</Link>
         </div>
       ) : null}
       <p className={styles.HomePage__privacy}>

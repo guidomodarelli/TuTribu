@@ -1,5 +1,4 @@
 import { Link } from "@/components/navigation/link";
-import { Button } from "@guidomodarelli/beez-ui";
 import { siteConfig } from "@/lib/site-config";
 import styles from "./styles.module.scss";
 
@@ -33,13 +32,11 @@ export function TribeCreationBlocked({
         </p>
 
         {contactEmail ? (
-          <Button asChild className={styles.TribeCreationBlocked__contact}>
-            <Link href={MAILTO_PROTOCOL + contactEmail}>
+          <Link className={styles.TribeCreationBlocked__contact} href={MAILTO_PROTOCOL + contactEmail}>
               <span className={styles.TribeCreationBlocked__contactLabel}>
                 Escribir a {contactEmail}
               </span>
             </Link>
-          </Button>
         ) : (
           <p className={styles.TribeCreationBlocked__note}>
             Contacta al equipo de {siteConfig.name} para pedir habilitación.

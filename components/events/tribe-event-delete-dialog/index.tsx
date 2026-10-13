@@ -16,7 +16,7 @@ type TribeEventDeleteDialogProps = {
 
 const BUTTON_ATTRIBUTE = {
   typeButton: "button",
-  variantDestructive: "destructive",
+  variantDanger: "danger",
 } as const;
 const COPY = {
   cancelButton: "Cancelar",
@@ -80,7 +80,7 @@ export function TribeEventDeleteDialog({
           <Button
             disabled={isDeleting}
             type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantDestructive}
+            variant={BUTTON_ATTRIBUTE.variantDanger}
             onClick={onConfirm}
           >
             {isDeleting ? COPY.deletingButton : COPY.confirmButton}

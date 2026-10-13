@@ -8,26 +8,24 @@ import localFont from "next/font/local";
  */
 
 /**
- * Geist is the base sans-serif typeface for the whole product, matching the
- * shadcn/ui visual language. The latin subset ships as a single variable WOFF2
- * covering the 400-600 weight range used across body copy, controls, and labels.
+ * Inter is the base sans-serif typeface of Arc, the design system beez-ui follows: body copy, controls, labels and
+ * compact headings. The latin subset ships as a single variable WOFF2 covering the 400-500 weights Arc uses.
  */
-export const geist = localFont({
-  src: "./geist-latin-variable.woff2",
-  variable: "--font-geist",
-  weight: "400 600",
+export const inter = localFont({
+  src: "./inter-latin-variable.woff2",
+  variable: "--font-inter",
+  weight: "400 500",
   display: "swap",
 });
 
 /**
- * Poppins (semibold) is reserved exclusively for large page-level display
- * headings. It is not preloaded because only a few entrypoints render a heading
- * with it, so the small static subset is fetched on demand.
+ * Geist is Arc's display face, reserved for headings of 30px and up. It is not preloaded because only page-level
+ * headings render with it, so the variable subset is fetched on demand.
  */
-export const poppins = localFont({
-  src: "./poppins-latin-600.woff2",
-  variable: "--font-poppins",
-  weight: "600",
+export const geist = localFont({
+  src: "./geist-latin-variable.woff2",
+  variable: "--font-geist",
+  weight: "400 500",
   preload: false,
   display: "swap",
 });

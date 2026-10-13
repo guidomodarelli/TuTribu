@@ -39,9 +39,9 @@
 
   &__title {
     color: var(--foreground);
-    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-family: var(--font-display), var(--font-sans), sans-serif;
     font-size: clamp(2.25rem, 6vw, 3.5rem);
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.05;
     overflow-wrap: anywhere;
   }
@@ -88,7 +88,7 @@
 
   &__listCount {
     color: var(--foreground);
-    font-weight: 600;
+    font-weight: 500;
   }
 
   &__list {
@@ -125,7 +125,7 @@
     gap: 0.5rem;
     color: var(--foreground);
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.4;
   }
 
@@ -189,7 +189,7 @@
   }
 
   &__planName {
-    font-weight: 600;
+    font-weight: 500;
     overflow-wrap: anywhere;
   }
 
@@ -253,7 +253,7 @@
   &__emptyTitle {
     color: var(--foreground);
     font-size: 0.95rem;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.5;
   }
 
@@ -285,7 +285,7 @@
   &__dialogLabel {
     color: var(--foreground);
     font-size: 0.9rem;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.4;
   }
 

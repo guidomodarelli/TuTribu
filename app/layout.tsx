@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { AppProviders } from "@/components/providers/app-providers";
 import { siteConfig } from "@/lib/site-config";
 import { getSitepingEnvironment } from "@/src/modules/siteping/infrastructure/environment/siteping-environment";
-import { geist, ibmPlexMono, poppins } from "./fonts";
+import { geist, ibmPlexMono, inter } from "./fonts";
 import "./globals.css";
 import styles from "./layout.module.scss";
 
@@ -29,7 +29,7 @@ export default function RootLayout({
     <html
       lang={ROOT_LAYOUT_DOCUMENT.language}
       data-scroll-behavior={ROOT_LAYOUT_DOCUMENT.scrollBehavior}
-      className={`${geist.variable} ${poppins.variable} ${ibmPlexMono.variable} ${styles.RootLayout}`}
+      className={`${inter.variable} ${geist.variable} ${ibmPlexMono.variable} ${styles.RootLayout}`}
       suppressHydrationWarning
     >
       <body className={styles.RootLayout__body}>

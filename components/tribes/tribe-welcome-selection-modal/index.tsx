@@ -43,7 +43,7 @@ const PHONE_NUMBER_NON_DIGIT_PATTERN = /\D/g;
 /** Button attributes for the modal close control and the option buttons. */
 const MODAL_BUTTON = {
   buttonType: "button",
-  closeSize: "icon-sm",
+  closeSize: "sm",
   closeVariant: "ghost",
 } as const;
 

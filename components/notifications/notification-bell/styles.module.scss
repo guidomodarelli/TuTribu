@@ -63,7 +63,7 @@ $notification-bell-touch-target: 2.5rem;
     color: var(--primary-foreground);
     // Documented minimum for badge text (docs/conventions/mobile-layout.htm).
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1;
     font-variant-numeric: tabular-nums;
     pointer-events: none;
@@ -91,7 +91,7 @@ $notification-bell-touch-target: 2.5rem;
   &__title {
     margin: 0;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   &__srOnly {

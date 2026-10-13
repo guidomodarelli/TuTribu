@@ -102,8 +102,7 @@ const BADGE_VARIANT = {
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
-  variantDestructive: "destructive",
-  variantOutline: "outline",
+  variantDanger: "danger",
   variantSecondary: "secondary",
 } as const;
 /**
@@ -291,7 +290,7 @@ function TribeEventDetailDialogBody({
               disabled={isSavingException}
               size={BUTTON_ATTRIBUTE.sizeSmall}
               type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantOutline}
+              variant={BUTTON_ATTRIBUTE.variantSecondary}
               onClick={() => onRestoreOccurrence?.(currentOccurrence)}
             >
               {COPY.restoreOccurrenceButton}
@@ -303,7 +302,7 @@ function TribeEventDetailDialogBody({
                 disabled={isSavingException}
                 size={BUTTON_ATTRIBUTE.sizeSmall}
                 type={BUTTON_ATTRIBUTE.typeButton}
-                variant={BUTTON_ATTRIBUTE.variantOutline}
+                variant={BUTTON_ATTRIBUTE.variantSecondary}
                 onClick={() => onMoveOccurrence?.(currentOccurrence)}
               >
                 {COPY.moveOccurrenceButton}
@@ -313,7 +312,7 @@ function TribeEventDetailDialogBody({
                   disabled={isSavingException}
                   size={BUTTON_ATTRIBUTE.sizeSmall}
                   type={BUTTON_ATTRIBUTE.typeButton}
-                  variant={BUTTON_ATTRIBUTE.variantOutline}
+                  variant={BUTTON_ATTRIBUTE.variantSecondary}
                   onClick={() => onCancelOccurrence?.(currentOccurrence)}
                 >
                   {COPY.cancelOccurrenceButton}
@@ -342,7 +341,7 @@ function TribeEventDetailDialogBody({
           <Button
             size={BUTTON_ATTRIBUTE.sizeSmall}
             type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantDestructive}
+            variant={BUTTON_ATTRIBUTE.variantDanger}
             onClick={() => onDelete(currentOccurrence)}
           >
             {COPY.deleteSeriesButton}
@@ -380,8 +379,7 @@ function TribeEventDetailDialogBody({
 
       <div className={styles.TribeEventDetailDialog__links}>
         {isCancelled ? null : occurrence.meetingUrl ? (
-          <Button asChild className={styles.TribeEventDetailDialog__primaryLink}>
-            <a
+          <a className={styles.TribeEventDetailDialog__primaryLink}
               href={occurrence.meetingUrl}
               rel={LINK_ATTRIBUTE.noreferrer}
               target={LINK_ATTRIBUTE.targetBlank}
@@ -389,7 +387,6 @@ function TribeEventDetailDialogBody({
               <ExternalLinkIcon aria-hidden />
               {COPY.linkOpen}
             </a>
-          </Button>
         ) : (
           <p className={styles.TribeEventDetailDialog__missingLink}>
             <LinkIcon aria-hidden className={styles.TribeEventDetailDialog__missingLinkIcon} />
@@ -397,12 +394,7 @@ function TribeEventDetailDialogBody({
           </p>
         )}
         {googleCalendarUrl ? (
-          <Button
-            asChild
-            size={BUTTON_ATTRIBUTE.sizeSmall}
-            variant={BUTTON_ATTRIBUTE.variantOutline}
-          >
-            <a
+          <a className={styles.TribeEventDetailDialog__actionLink}
               href={googleCalendarUrl}
               rel={LINK_ATTRIBUTE.noreferrer}
               target={LINK_ATTRIBUTE.targetBlank}
@@ -410,22 +402,15 @@ function TribeEventDetailDialogBody({
               <CalendarPlusIcon aria-hidden />
               {COPY.googleCalendar}
             </a>
-          </Button>
         ) : null}
-        <Button
-          asChild
-          size={BUTTON_ATTRIBUTE.sizeSmall}
-          variant={BUTTON_ATTRIBUTE.variantOutline}
-        >
-          <a href={buildCalendarDownloadUrl(tribeSlug, occurrence.eventId)}>
+        <a className={styles.TribeEventDetailDialog__actionLink} href={buildCalendarDownloadUrl(tribeSlug, occurrence.eventId)}>
             <DownloadIcon aria-hidden />
             {COPY.downloadIcs}
           </a>
-        </Button>
         <Button
           size={BUTTON_ATTRIBUTE.sizeSmall}
           type={BUTTON_ATTRIBUTE.typeButton}
-          variant={BUTTON_ATTRIBUTE.variantOutline}
+          variant={BUTTON_ATTRIBUTE.variantSecondary}
           onClick={() => onCopyLink(occurrence)}
         >
           <CopyIcon aria-hidden />
@@ -537,7 +522,7 @@ function TribeEventDetailDialogBody({
           </Button>
           <Button
             type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantDestructive}
+            variant={BUTTON_ATTRIBUTE.variantDanger}
             onClick={() => onDelete(occurrence)}
           >
             {COPY.deleteButton}

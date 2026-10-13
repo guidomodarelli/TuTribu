@@ -1,4 +1,5 @@
 @use "../../../src/styles/motion";
+@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
@@ -49,15 +50,13 @@
     margin: 0;
     font-family: var(--font-mono);
     font-size: 0.8rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
     color: color-mix(in oklab, var(--foreground) 62%, transparent);
   }
 
   &__title {
     margin: 0;
     max-width: 12ch;
-    font-family: var(--font-display, var(--font-poppins)), var(--font-sans), sans-serif;
+    font-family: var(--font-display), var(--font-sans), sans-serif;
     font-size: clamp(2.8rem, 8vw, 5.5rem);
     line-height: 0.96;
     text-wrap: balance;
@@ -92,4 +91,9 @@
       width: 100%;
     }
   }
+}
+
+// Navigation styled as an Arc secondary button.
+.ErrorState__actionLink {
+  @include action-link.action-link(secondary, lg);
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Button, AnimatedCount } from "@guidomodarelli/beez-ui";
+import { AnimatedCount } from "@guidomodarelli/beez-ui";
 import { navigateToUrl } from "@/lib/browser-navigation";
 import styles from "./styles.module.scss";
 
@@ -22,10 +22,6 @@ const OPEN_IN_EXTERNAL_BROWSER_COPY = {
   fallbackLink: "O continuá con inicio de sesión acá",
   primaryAction: "Continuar en tu navegador",
   title: "Abrí TuTribu en tu navegador",
-} as const;
-
-const OPEN_IN_EXTERNAL_BROWSER_BUTTON = {
-  size: "lg",
 } as const;
 
 type OpenInExternalBrowserProps = {
@@ -115,15 +111,9 @@ export function OpenInExternalBrowser({
             {OPEN_IN_EXTERNAL_BROWSER_COPY.countdownDescription}
           </p>
         </div>
-        <Button
-          asChild
-          className={styles.OpenInExternalBrowser__primaryAction}
-          size={OPEN_IN_EXTERNAL_BROWSER_BUTTON.size}
-        >
-          <a href={externalBrowserUrl} onClick={handlePrimaryAction}>
+        <a className={styles.OpenInExternalBrowser__primaryAction} href={externalBrowserUrl} onClick={handlePrimaryAction}>
             {OPEN_IN_EXTERNAL_BROWSER_COPY.primaryAction}
           </a>
-        </Button>
         <a
           className={styles.OpenInExternalBrowser__fallbackLink}
           href={fallbackSignInUrl}

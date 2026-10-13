@@ -135,10 +135,10 @@ const WELCOME_MANAGEMENT_ROUTE = {
 const WELCOME_MANAGEMENT_REQUEST = {
   buttonType: "button",
   contentTypeHeader: "Content-Type",
-  destructiveVariant: "destructive",
-  iconButtonSize: "icon",
+  dangerVariant: "danger",
+  iconButtonSize: "sm",
   jsonContentType: "application/json",
-  outlineVariant: "outline",
+  secondaryVariant: "secondary",
   putMethod: "PUT",
   submitButtonType: "submit",
 } as const;
@@ -1147,7 +1147,7 @@ export function TribeWelcomeManagement({
                 onClick={handleAddRule}
                 ref={addRuleButtonRef}
                 type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                variant={WELCOME_MANAGEMENT_REQUEST.outlineVariant}
+                variant={WELCOME_MANAGEMENT_REQUEST.secondaryVariant}
               >
                 <PlusIcon />
                 {TRIBE_WELCOME_MANAGEMENT_COPY.addRuleButton}
@@ -1214,7 +1214,7 @@ export function TribeWelcomeManagement({
                       size={WELCOME_MANAGEMENT_REQUEST.iconButtonSize}
                       title={TRIBE_WELCOME_MANAGEMENT_COPY.removeRuleTitle}
                       type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                      variant={WELCOME_MANAGEMENT_REQUEST.destructiveVariant}
+                      variant={WELCOME_MANAGEMENT_REQUEST.dangerVariant}
                     >
                       <Trash2Icon />
                     </Button>
@@ -1275,7 +1275,7 @@ export function TribeWelcomeManagement({
                 onClick={handleAddLink}
                 ref={addLinkButtonRef}
                 type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                variant={WELCOME_MANAGEMENT_REQUEST.outlineVariant}
+                variant={WELCOME_MANAGEMENT_REQUEST.secondaryVariant}
               >
                 <PlusIcon />
                 {TRIBE_WELCOME_MANAGEMENT_COPY.addLinkButton}
@@ -1656,7 +1656,7 @@ export function TribeWelcomeManagement({
                       size={WELCOME_MANAGEMENT_REQUEST.iconButtonSize}
                       title={TRIBE_WELCOME_MANAGEMENT_COPY.removeLinkTitle}
                       type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-                      variant={WELCOME_MANAGEMENT_REQUEST.destructiveVariant}
+                      variant={WELCOME_MANAGEMENT_REQUEST.dangerVariant}
                     >
                       <Trash2Icon />
                     </Button>
@@ -1680,7 +1680,7 @@ export function TribeWelcomeManagement({
               disabled={!hasActivePreviewLinks}
               onClick={() => setIsPreviewModalOpen(true)}
               type={WELCOME_MANAGEMENT_REQUEST.buttonType}
-              variant={WELCOME_MANAGEMENT_REQUEST.outlineVariant}
+              variant={WELCOME_MANAGEMENT_REQUEST.secondaryVariant}
             >
               {TRIBE_WELCOME_MANAGEMENT_COPY.previewModalButton}
             </Button>

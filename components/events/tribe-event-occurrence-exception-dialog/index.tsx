@@ -80,7 +80,7 @@ const INPUT_TYPE = {
 const BUTTON_ATTRIBUTE = {
   typeButton: "button",
   typeSubmit: "submit",
-  variantDestructive: "destructive",
+  variantDanger: "danger",
   variantGhost: "ghost",
 } as const;
 const COPY = {
@@ -451,7 +451,7 @@ export function TribeEventOccurrenceExceptionDialog({
             <Button
               disabled={isSaving}
               type={BUTTON_ATTRIBUTE.typeSubmit}
-              variant={isMove ? undefined : BUTTON_ATTRIBUTE.variantDestructive}
+              variant={isMove ? undefined : BUTTON_ATTRIBUTE.variantDanger}
             >
               {isSaving ? COPY.saving : isMove ? COPY.moveSubmit : COPY.cancelSubmit}
             </Button>

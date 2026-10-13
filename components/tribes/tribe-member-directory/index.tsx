@@ -43,7 +43,7 @@ const TRIBE_MEMBER_DIRECTORY_COPY = {
 
 const EXPORT_BUTTON = {
   iconAriaHidden: true,
-  triggerVariant: "outline",
+  triggerVariant: "secondary",
 } as const;
 
 const EXPORT_MENU = {
@@ -64,9 +64,9 @@ const BUTTON_SIZE = {
 } as const;
 
 const FILTER_BUTTON = {
-  activeVariant: "default",
+  activeVariant: "primary",
   buttonType: "button",
-  inactiveVariant: "outline",
+  inactiveVariant: "secondary",
   size: BUTTON_SIZE.small,
 } as const;
 
@@ -295,15 +295,9 @@ export function TribeMemberDirectory({
             </DropdownMenu>
           ) : null}
           {canInviteMembers ? (
-            <Button
-              asChild
-              className={styles.TribeMemberDirectory__inviteCta}
-              size={BUTTON_SIZE.small}
-            >
-              <Link href={invitationsHref}>
-                {TRIBE_MEMBER_DIRECTORY_COPY.inviteCtaLabel}
-              </Link>
-            </Button>
+            <Link className={styles.TribeMemberDirectory__inviteCta} href={invitationsHref}>
+              {TRIBE_MEMBER_DIRECTORY_COPY.inviteCtaLabel}
+            </Link>
           ) : null}
         </div>
       </header>

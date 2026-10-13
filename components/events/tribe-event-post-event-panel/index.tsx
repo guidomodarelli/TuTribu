@@ -42,7 +42,6 @@ const LINK_ATTRIBUTE = {
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
   typeButton: "button",
-  variantOutline: "outline",
   variantSecondary: "secondary",
 } as const;
 const COPY = {
@@ -117,7 +116,7 @@ function TribeEventPostEventPanelBody({
           className={styles.TribeEventPostEventPanel__retry}
           size={BUTTON_ATTRIBUTE.sizeSmall}
           type={BUTTON_ATTRIBUTE.typeButton}
-          variant={BUTTON_ATTRIBUTE.variantOutline}
+          variant={BUTTON_ATTRIBUTE.variantSecondary}
           onClick={onRetry}
         >
           {COPY.retry}
@@ -208,7 +207,7 @@ function TribeEventPostEventPanelBody({
             <Button
               size={BUTTON_ATTRIBUTE.sizeSmall}
               type={BUTTON_ATTRIBUTE.typeButton}
-              variant={BUTTON_ATTRIBUTE.variantOutline}
+              variant={BUTTON_ATTRIBUTE.variantSecondary}
               onClick={onConvertToLesson}
             >
               <GraduationCapIcon aria-hidden />

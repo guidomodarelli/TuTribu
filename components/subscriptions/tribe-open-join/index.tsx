@@ -1,5 +1,4 @@
 import { Link } from "@/components/navigation/link";
-import { Button } from "@guidomodarelli/beez-ui";
 
 import { TribeOpenJoinSubmitButton } from "./tribe-open-join-submit-button";
 import styles from "./styles.module.scss";
@@ -126,9 +125,7 @@ export function TribeOpenJoinStatus({
       <p className={styles.TribeOpenJoin__description}>{description}</p>
       {cta ? (
         <div className={styles.TribeOpenJoin__form}>
-          <Button asChild>
-            <Link href={cta.href}>{cta.label}</Link>
-          </Button>
+          <Link className={styles.TribeOpenJoin__actionLink} href={cta.href}>{cta.label}</Link>
         </div>
       ) : null}
     </section>

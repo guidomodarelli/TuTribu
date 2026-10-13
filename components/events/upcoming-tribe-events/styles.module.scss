@@ -20,7 +20,7 @@
   &__heading {
     margin: 0;
     font-size: 1.05rem;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   &__seeAll,
@@ -41,7 +41,7 @@
   &__seeAll {
     color: var(--muted-foreground);
     font-size: 0.9rem;
-    font-weight: 600;
+    font-weight: 500;
     text-decoration: underline;
     text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
 
@@ -82,7 +82,7 @@
 
   &__title {
     color: var(--foreground);
-    font-weight: 600;
+    font-weight: 500;
     overflow-wrap: anywhere;
     text-decoration: underline;
     text-decoration-color: transparent;
@@ -107,14 +107,14 @@
     border-radius: 999rem;
     background: color-mix(in oklab, var(--muted) 80%, transparent);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
     padding: 0.05rem 0.5rem;
   }
 
   &__meetingLink {
     color: var(--foreground);
     font-size: 0.9rem;
-    font-weight: 600;
+    font-weight: 500;
     text-decoration: underline;
     text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
 

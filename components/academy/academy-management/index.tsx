@@ -520,7 +520,7 @@ function ProvidersSection({
         <h2 className={styles.AcademyManagement__sectionTitle} id={sectionId}>
           {MANAGEMENT_COPY.providersTitle}
         </h2>
-        <Button disabled={draft !== null} onClick={() => setDraft(EMPTY_PROVIDER)} size="sm" type="button" variant="outline">
+        <Button disabled={draft !== null} onClick={() => setDraft(EMPTY_PROVIDER)} size="sm" type="button" variant="secondary">
           <PlusIcon aria-hidden />
           {MANAGEMENT_COPY.newProvider}
         </Button>
@@ -556,7 +556,7 @@ function ProvidersSection({
                   })
                 }
                 type="button"
-                variant="outline"
+                variant="secondary"
               >
                 {MANAGEMENT_COPY.edit}
               </Button>
@@ -601,7 +601,7 @@ function ProvidersSection({
             <Button aria-busy={isSaving || undefined} disabled={isSaving} type="submit">
               {isSaving ? MANAGEMENT_COPY.saving : MANAGEMENT_COPY.save}
             </Button>
-            <Button disabled={isSaving} onClick={() => setDraft(null)} type="button" variant="outline">
+            <Button disabled={isSaving} onClick={() => setDraft(null)} type="button" variant="secondary">
               {MANAGEMENT_COPY.cancel}
             </Button>
           </div>
@@ -633,11 +633,11 @@ function Pagination({
 
   return (
     <div className={styles.AcademyManagement__pagination}>
-      <Button disabled={page <= 1} onClick={() => onPageChange(page - 1)} type="button" variant="outline">
+      <Button disabled={page <= 1} onClick={() => onPageChange(page - 1)} type="button" variant="secondary">
         {MANAGEMENT_COPY.previous}
       </Button>
       <span className={styles.AcademyManagement__hint}>{`${page} / ${lastPage}`}</span>
-      <Button disabled={page >= lastPage} onClick={() => onPageChange(page + 1)} type="button" variant="outline">
+      <Button disabled={page >= lastPage} onClick={() => onPageChange(page + 1)} type="button" variant="secondary">
         {MANAGEMENT_COPY.next}
       </Button>
     </div>
@@ -722,7 +722,7 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
           <span>{MANAGEMENT_COPY.searchLabel}</span>
           <Input id={searchId} maxLength={80} onChange={(event) => setSearch(event.currentTarget.value)} value={search} />
         </label>
-        <Button type="submit" variant="outline">
+        <Button type="submit" variant="secondary">
           <SearchIcon aria-hidden />
           {MANAGEMENT_COPY.searchSubmit}
         </Button>
@@ -840,12 +840,12 @@ function ReviewQueueRow({
                 <Button disabled={isSubmitting} onClick={() => decide("verified")} size="sm" type="button">
                   {MANAGEMENT_COPY.verify}
                 </Button>
-                <Button disabled={isSubmitting} onClick={() => decide("rejected")} size="sm" type="button" variant="outline">
+                <Button disabled={isSubmitting} onClick={() => decide("rejected")} size="sm" type="button" variant="secondary">
                   {MANAGEMENT_COPY.reject}
                 </Button>
               </>
             ) : (
-              <Button disabled={isSubmitting} onClick={() => decide("revoked")} size="sm" type="button" variant="outline">
+              <Button disabled={isSubmitting} onClick={() => decide("revoked")} size="sm" type="button" variant="secondary">
                 {MANAGEMENT_COPY.revoke}
               </Button>
             )}
@@ -976,7 +976,7 @@ function MembersSection({
           <span>{MANAGEMENT_COPY.searchLabel}</span>
           <Input id={searchId} maxLength={80} onChange={(event) => setSearch(event.currentTarget.value)} value={search} />
         </label>
-        <Button type="submit" variant="outline">
+        <Button type="submit" variant="secondary">
           <SearchIcon aria-hidden />
           {MANAGEMENT_COPY.searchSubmit}
         </Button>
@@ -1025,7 +1025,7 @@ function MembersSection({
                 ) : null}
               </span>
               {isLeader && (member.membershipStatus === "active" || member.membershipStatus === "muted") ? (
-                <Button className={styles.AcademyManagement__rowAction} onClick={() => setBonusRecipient(member)} size="sm" type="button" variant="outline">
+                <Button className={styles.AcademyManagement__rowAction} onClick={() => setBonusRecipient(member)} size="sm" type="button" variant="secondary">
                   {MANAGEMENT_COPY.bonusButton}
                 </Button>
               ) : null}
@@ -1158,7 +1158,7 @@ function BonusDialog({
             </p>
           ) : null}
           <DialogFooter>
-            <Button disabled={isSubmitting} onClick={onClose} type="button" variant="outline">
+            <Button disabled={isSubmitting} onClick={onClose} type="button" variant="secondary">
               {MANAGEMENT_COPY.cancel}
             </Button>
             <Button

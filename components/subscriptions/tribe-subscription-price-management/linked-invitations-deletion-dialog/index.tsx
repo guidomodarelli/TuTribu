@@ -61,8 +61,8 @@ const PRICE_FORMAT = {
 
 const BUTTON_TYPE = "button";
 const BUTTON_VARIANT = {
-  destructive: "destructive",
-  outline: "outline",
+  danger: "danger",
+  secondary: "secondary",
 } as const;
 
 const PRICE_STATUS_ACTIVE = "active";
@@ -427,7 +427,7 @@ function LinkedInvitationsDeletionDialogBody({
           disabled={isSubmitting}
           onClick={onCancel}
           type={BUTTON_TYPE}
-          variant={BUTTON_VARIANT.outline}
+          variant={BUTTON_VARIANT.secondary}
         >
           {LINKED_INVITATIONS_DIALOG_COPY.cancelButton}
         </Button>
@@ -436,7 +436,7 @@ function LinkedInvitationsDeletionDialogBody({
           disabled={isSubmitting || !allRowsResolved}
           onClick={handleConfirm}
           type={BUTTON_TYPE}
-          variant={BUTTON_VARIANT.destructive}
+          variant={BUTTON_VARIANT.danger}
         >
           {isSubmitting ? (
             <LoaderCircleIcon

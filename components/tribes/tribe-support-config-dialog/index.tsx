@@ -48,7 +48,7 @@ const SUPPORT_DIALOG_FORM = {
 
 const SUPPORT_DIALOG_BUTTON = {
   cancelType: "button",
-  outlineVariant: "outline",
+  secondaryVariant: "secondary",
 } as const;
 
 /** Presence keys for the helper text that swaps with the save error under the phone input. */
@@ -307,7 +307,7 @@ export function TribeSupportConfigDialog({
               disabled={isSaving}
               onClick={() => handleOpenChange(false)}
               type={SUPPORT_DIALOG_BUTTON.cancelType}
-              variant={SUPPORT_DIALOG_BUTTON.outlineVariant}
+              variant={SUPPORT_DIALOG_BUTTON.secondaryVariant}
             >
               {SUPPORT_DIALOG_COPY.cancelLabel}
             </Button>

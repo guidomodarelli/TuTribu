@@ -6,6 +6,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- La aplicación adopta un diseño renovado: colores, superficies y bordes más sobrios, esquinas más redondeadas, botones más altos y cómodos de tocar, el azul como color de acento, la tipografía Inter para el texto y fondos lisos.
 - El acceso con Google muestra la marca TuTribu verificada y permite comprobar la fecha de autenticación; guardar una conexión de mensajería sigue exigiendo una autenticación de Google de los últimos diez minutos.
 
 ## [1.2.1] - 2026-10-12

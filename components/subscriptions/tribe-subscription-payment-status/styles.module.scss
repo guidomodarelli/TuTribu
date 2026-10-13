@@ -28,10 +28,8 @@
 
     color: var(--muted-foreground);
     font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
+    font-weight: 500;
     margin: 0;
-    text-transform: uppercase;
   }
 
   &__title {
@@ -39,7 +37,7 @@
 
     color: var(--foreground);
     font-size: clamp(1.6rem, 4vw, 2rem);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.15;
     margin: 0;
     text-wrap: balance;

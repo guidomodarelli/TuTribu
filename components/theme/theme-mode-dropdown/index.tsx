@@ -25,7 +25,7 @@ const THEME_MODE_DROPDOWN_COPY = {
 
 const THEME_MODE_DROPDOWN_UI = {
   align: "end",
-  buttonSize: "icon",
+  buttonSize: "sm",
   buttonType: "button",
   buttonVariant: "ghost",
   side: "bottom",

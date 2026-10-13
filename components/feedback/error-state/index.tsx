@@ -7,8 +7,6 @@ import styles from "./styles.module.scss";
 
 const ERROR_STATE_UI = {
   backdropAriaHidden: "true",
-  homeButtonSize: "lg",
-  outlineVariant: "outline",
   retryButtonSize: "lg",
 } as const;
 
@@ -49,13 +47,7 @@ export function ErrorState({
         >
           {retryLabel}
         </Button>
-        <Button
-          asChild
-          size={ERROR_STATE_UI.homeButtonSize}
-          variant={ERROR_STATE_UI.outlineVariant}
-        >
-          <Link href={ROUTES.home}>{homeLabel}</Link>
-        </Button>
+        <Link className={styles.ErrorState__actionLink} href={ROUTES.home}>{homeLabel}</Link>
       </div>
     </section>
   );

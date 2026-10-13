@@ -543,7 +543,7 @@ export function TribeCoursesView({
                       disabled={pendingCompletionLessonIds.has(activeLesson.id)}
                       onClick={() => toggleLessonCompletion(activeLesson)}
                       type="button"
-                      variant={isActiveLessonCompleted ? "default" : "outline"}
+                      variant={isActiveLessonCompleted ? "primary" : "secondary"}
                     >
                       <Check aria-hidden />
                       {isActiveLessonCompleted
@@ -614,7 +614,7 @@ export function TribeCoursesView({
                     <Button
                       onClick={() => navigateToLesson(previousLesson.id)}
                       type="button"
-                      variant="outline"
+                      variant="secondary"
                     >
                       <ChevronLeft aria-hidden />
                       {COURSES_COPY.previousLessonButton}
