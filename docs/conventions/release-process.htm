@@ -25,6 +25,7 @@ li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
 strong{font-weight:600;color:#1a1a1a;}
 .callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
 .c-ok{background:#e8f7f2;border-color:#4aaa8c;color:#1a6b52;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
 .c-warn{background:#fdf5e0;border-color:#d4a44c;color:#7a5510;}
 code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
 </style>
@@ -47,7 +48,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
     <tr><td><code>pnpm create-version --set-version X.Y.Z</code></td><td>Fija la versión exacta. Solo se acepta el siguiente patch, minor o major de la versión actual: nunca una menor, igual ni una que saltee versiones (por ejemplo, de <code>0.93.0</code> solo valen <code>0.93.1</code>, <code>0.94.0</code> o <code>1.0.0</code>).</td></tr>
     <tr><td><code>pnpm create-version --dry-run</code></td><td>Diagnostica y muestra el plan sin cambiar nada.</td></tr>
   </table>
-  <div class="callout c-info">Sin terminal interactiva (por ejemplo con stdin redirigido) cada pregunta toma su opción por defecto y lo informa en pantalla. No hay confirmación del plan: correr el comando es el pedido de publicar, y para ver el plan sin ejecutarlo está <code>--dry-run</code>. Las únicas preguntas son la versión (si no se pasa <code>--bump</code> ni <code>--set-version</code>) y las migraciones pendientes. Las opciones están numeradas: se eligen apretando su número, o con las flechas y Enter; cada versión muestra debajo qué significa patch, minor o major. El tiempo total que se muestra al final no cuenta la espera de las respuestas.</div>
+  <div class="callout c-info">Sin terminal interactiva (por ejemplo con stdin redirigido) cada pregunta toma su opción por defecto y lo informa en pantalla. No hay confirmación del plan: correr el comando es el pedido de publicar, y para ver el plan sin ejecutarlo está <code>--dry-run</code>. Las únicas preguntas son dónde hacer el release («¿Dónde hacemos el release?», CI o Local, solo en una terminal interactiva y sin <code>--local</code>), la versión (si no se pasa <code>--bump</code> ni <code>--set-version</code>) y las migraciones pendientes. Sin terminal interactiva la elección de CI o Local no se pregunta: el release se delega a CI salvo que se pase <code>--local</code>. Las opciones están numeradas: se eligen apretando su número, o con las flechas y Enter; cada versión muestra debajo qué significa patch, minor o major. El tiempo total que se muestra al final no cuenta la espera de las respuestas.</div>
 </div>
 
 <div class="section">
