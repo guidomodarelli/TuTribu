@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage, cn, PresenceSwap } from "@guidomodarelli/beez-ui";
+import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage, cn, PresenceSwap } from "beez-ui";
 
 import {
   formatAttendanceCounts,

@@ -20,7 +20,7 @@ import {
   SelectValue,
   Switch,
   toast,
-} from "@guidomodarelli/beez-ui";
+} from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
 import {

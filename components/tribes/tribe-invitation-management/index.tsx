@@ -11,7 +11,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCollapse, AnimatedCount, AnimatedListItem, PresenceSwap, copyTextToClipboard, cn } from "@guidomodarelli/beez-ui";
+import { toast, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCollapse, AnimatedCount, AnimatedListItem, PresenceSwap, copyTextToClipboard, cn } from "beez-ui";
 
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {

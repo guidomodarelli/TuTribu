@@ -25,8 +25,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Preserve the existing Sonner double to isolate its timers and global notification store.
-vi.mock("@guidomodarelli/beez-ui", async () => ({
-  ...await vi.importActual<typeof import("@guidomodarelli/beez-ui")>("@guidomodarelli/beez-ui"),
+vi.mock("beez-ui", async () => ({
+  ...await vi.importActual<typeof import("beez-ui")>("beez-ui"),
   toast: {
     error: vi.fn(),
     success: vi.fn(),
@@ -801,7 +801,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
   });
 
   it("rejects oversized and disallowed files before reserving an upload", async () => {
-    const { toast } = vi.mocked(await import("@guidomodarelli/beez-ui"), true);
+    const { toast } = vi.mocked(await import("beez-ui"), true);
     const user = userEvent.setup();
     render(
       <TribeCoursesManagement
@@ -893,7 +893,7 @@ describe("TribeCoursesManagement optimistic CRUD", () => {
   });
 
   it("disables submit and blocks the save when a file draft is in the error state", async () => {
-    const { toast } = vi.mocked(await import("@guidomodarelli/beez-ui"), true);
+    const { toast } = vi.mocked(await import("beez-ui"), true);
     (global.fetch as Mock).mockResolvedValueOnce(
       buildJsonResponse(500, { message: "Error del servidor." })
     );

@@ -7,7 +7,7 @@ import { NotificationCenter } from "./notification-center";
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { TribeSupportButton } from "@/components/tribes/tribe-support-button";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
-import { SidebarInset, SidebarProvider, SidebarTrigger, TooltipProvider, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "@guidomodarelli/beez-ui";
+import { SidebarInset, SidebarProvider, SidebarTrigger, TooltipProvider, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "beez-ui";
 
 import { ROUTES } from "@/src/constants/routes";
 

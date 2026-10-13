@@ -2,7 +2,7 @@ import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render as renderComponent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement, ReactNode } from "react";
-import { SidebarProvider, SidebarTrigger, TooltipProvider } from "@guidomodarelli/beez-ui";
+import { SidebarProvider, SidebarTrigger, TooltipProvider } from "beez-ui";
 import { usePathname, useRouter } from "next/navigation";
 
 import { AppSidebar } from "@/components/app-sidebar";

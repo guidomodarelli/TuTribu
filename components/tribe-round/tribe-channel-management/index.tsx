@@ -3,7 +3,7 @@
 import { type FormEvent, useRef, useState } from "react";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCount, AnimatedListItem, PresenceSwap } from "@guidomodarelli/beez-ui";
+import { toast, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCount, AnimatedListItem, PresenceSwap } from "beez-ui";
 
 import { ChannelEmojiPicker } from "@/components/tribe-round/channel-emoji-picker";
 import type { TribeChannelResult } from "@/src/modules/messages/application/results/tribe-round-result";

@@ -4,8 +4,8 @@ import type { LucideIcon } from "lucide-react";
 import { MonitorIcon, MoonIcon, SunIcon, SunMoonIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, useTheme, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "@guidomodarelli/beez-ui";
-import { useIsHydrated } from "@guidomodarelli/beez-ui/hooks";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, useTheme, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "beez-ui";
+import { useIsHydrated } from "beez-ui/hooks";
 
 import { isThemeMode } from "@/lib/theme-mode";
 import {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type FormEvent } from "react";
-import { Button, Input, toast } from "@guidomodarelli/beez-ui";
+import { Button, Input, toast } from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
 import { requestMemberVerification } from "@/lib/academy/academy-api-client";

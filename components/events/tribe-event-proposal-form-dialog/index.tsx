@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, cn, AnimatedCollapse } from "@guidomodarelli/beez-ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, cn, AnimatedCollapse } from "beez-ui";
 
 import { buildBuenosAiresInstant } from "@/lib/date-time/buenos-aires-format";
 import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";

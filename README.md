@@ -30,10 +30,9 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 
 ## Setup
 
-1. Install dependencies. `@guidomodarelli/beez-ui` is served from GitHub Packages, so add a GitHub token with the `read:packages` scope to your user-level `~/.npmrc` first (pnpm 12 ignores credentials in the repository `.npmrc`):
+1. Install dependencies:
 
    ```bash
-   echo "//npm.pkg.github.com/:_authToken=<token with read:packages>" >> ~/.npmrc
    pnpm install --frozen-lockfile
    ```
 
@@ -200,7 +199,7 @@ Notes:
   - `infrastructure/` — adapters for auth, persistence, HTTP clients, and provider SDKs. Owns external DTOs and their mappers.
 - `src/modules/shared/*` — cross-module shared code (e.g. `infrastructure/database/`).
 - `beez-ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
-- `@guidomodarelli/beez-ui@^1.0.0` — shared UI package installed from GitHub Packages (requires a `read:packages` token in `~/.npmrc`), with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
+- `beez-ui@^2.0.0` — shared UI package installed from the public npm registry, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
 - `components/<scope>/<component>/{index.tsx,styles.module.scss}` — custom presentational components.
 - `lib/*` — framework-safe helpers, UI utilities, and client-only adapters. Off-limits to `application` and `domain`.
 - `database/migrations/*` — versioned SQL migrations (source of truth for schema and RLS policies).

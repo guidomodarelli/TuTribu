@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { BellIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { Button, cn, Popover, PopoverContent, PopoverTrigger, Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger, AnimatedCount, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "@guidomodarelli/beez-ui";
+import { Button, cn, Popover, PopoverContent, PopoverTrigger, Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger, AnimatedCount, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "beez-ui";
 
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 import {

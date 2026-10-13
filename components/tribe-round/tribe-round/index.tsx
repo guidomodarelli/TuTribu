@@ -38,7 +38,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "@guidomodarelli/beez-ui";
+import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
 import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
 
 import { Link } from "@/components/navigation/link";

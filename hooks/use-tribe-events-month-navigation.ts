@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { toast } from "@guidomodarelli/beez-ui";
+import { toast } from "beez-ui";
 
 import { pushCurrentUrlSearchParams } from "@/lib/browser-navigation";
 import {

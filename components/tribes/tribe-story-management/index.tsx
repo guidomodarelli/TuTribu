@@ -24,7 +24,7 @@ import {
   VideoIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, cn } from "@guidomodarelli/beez-ui";
+import { toast, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, cn } from "beez-ui";
 
 
 
