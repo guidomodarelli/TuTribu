@@ -51,7 +51,7 @@ const GITHUB_ISSUE_STATE = {
 } as const;
 
 const GITHUB_ISSUE_COMMENT = {
-  deletedFeedback: "SitePing feedback {feedbackId} was deleted from LaTribu.",
+  deletedFeedback: "SitePing feedback {feedbackId} was deleted from TuTribu.",
 } as const;
 
 const GITHUB_FETCH_RESILIENCE: FetchResilienceOptions = {

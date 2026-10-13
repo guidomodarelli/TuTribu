@@ -64,10 +64,12 @@ describe("FetchGitHubIssuePublisher", () => {
       ...originalEnvironment,
       SITEPING_GITHUB_TOKEN: "github-token",
     };
+    // The publisher must target the default repository even when the developer's shell exports another one.
+    delete process.env.SITEPING_GITHUB_REPOSITORY;
     global.fetch = fetchMock as unknown as typeof fetch;
     fetchMock.mockResolvedValue({
       json: vi.fn(async () => ({
-        html_url: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        html_url: "https://github.com/guidomodarelli/TuTribu/issues/42",
         number: 42,
       })),
       ok: true,
@@ -194,7 +196,7 @@ describe("FetchGitHubIssuePublisher", () => {
     ).rejects.toThrow("Request timed out");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.github.com/repos/guidomodarelli/LaTribu/issues",
+      "https://api.github.com/repos/guidomodarelli/TuTribu/issues",
       expect.objectContaining({
         method: "POST",
         signal: expect.any(AbortSignal),
@@ -219,7 +221,7 @@ describe("FetchGitHubIssuePublisher", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.github.com/repos/guidomodarelli/LaTribu/issues",
+      "https://api.github.com/repos/guidomodarelli/TuTribu/issues",
       expect.objectContaining({
         method: "POST",
       })
@@ -249,7 +251,7 @@ describe("FetchGitHubIssuePublisher", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "https://api.github.com/repos/guidomodarelli/LaTribu/issues/42",
+      "https://api.github.com/repos/guidomodarelli/TuTribu/issues/42",
       expect.objectContaining({
         body: JSON.stringify({ state: "closed" }),
         method: "PATCH",
@@ -257,17 +259,17 @@ describe("FetchGitHubIssuePublisher", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://api.github.com/repos/guidomodarelli/LaTribu/issues/42/comments?per_page=100",
+      "https://api.github.com/repos/guidomodarelli/TuTribu/issues/42/comments?per_page=100",
       expect.objectContaining({
         method: "GET",
       })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      "https://api.github.com/repos/guidomodarelli/LaTribu/issues/42/comments",
+      "https://api.github.com/repos/guidomodarelli/TuTribu/issues/42/comments",
       expect.objectContaining({
         body: JSON.stringify({
-          body: "SitePing feedback feedback-1 was deleted from LaTribu.",
+          body: "SitePing feedback feedback-1 was deleted from TuTribu.",
         }),
         method: "POST",
       })
@@ -283,7 +285,7 @@ describe("FetchGitHubIssuePublisher", () => {
       .mockResolvedValueOnce({
         json: vi.fn(async () => [
           {
-            body: "SitePing feedback feedback-1 was deleted from LaTribu.",
+            body: "SitePing feedback feedback-1 was deleted from TuTribu.",
           },
         ]),
         ok: true,
@@ -298,7 +300,7 @@ describe("FetchGitHubIssuePublisher", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://api.github.com/repos/guidomodarelli/LaTribu/issues/42/comments?per_page=100",
+      "https://api.github.com/repos/guidomodarelli/TuTribu/issues/42/comments?per_page=100",
       expect.objectContaining({
         method: "GET",
       })

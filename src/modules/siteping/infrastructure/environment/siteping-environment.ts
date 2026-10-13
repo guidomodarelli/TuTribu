@@ -11,7 +11,7 @@ const SITEPING_ENVIRONMENT = {
 
 const SITEPING_ENVIRONMENT_DEFAULT = {
   githubLabels: ["siteping", "feedback"],
-  githubRepository: "guidomodarelli/LaTribu",
+  githubRepository: "guidomodarelli/TuTribu",
 } as const;
 
 const ENABLED_VALUES = new Set(["1", "true", "yes", "on"]);

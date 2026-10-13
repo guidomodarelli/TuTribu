@@ -148,7 +148,7 @@ function buildRepository(
       diagnostics: null,
       githubIssueNumber: 42,
       githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
-      githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+      githubIssueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
       id: FEEDBACK_ID,
       message: "No puedo guardar el precio",
       projectName: "tutribu",
@@ -182,7 +182,7 @@ function buildPublisher(
     close: vi.fn(async () => undefined),
     publish: vi.fn(async () => ({
       issueNumber: 42,
-      issueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+      issueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
     })),
     ...overrides,
   };
@@ -332,7 +332,7 @@ describe("manage Siteping feedback use cases", () => {
     expect(repository.markGitHubIssuePublished).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
       issueNumber: 42,
-      issueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+      issueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
     });
   });
 
@@ -964,7 +964,7 @@ describe("manage Siteping feedback use cases", () => {
       diagnostics: null,
       githubIssueNumber: 42,
       githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
-      githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+      githubIssueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
       id: FEEDBACK_ID,
       message: "No puedo guardar el precio",
       projectName: "tutribu",
@@ -1096,7 +1096,7 @@ describe("manage Siteping feedback use cases", () => {
     expect(repository.markGitHubIssuePublished).toHaveBeenCalledWith({
       feedbackId: FEEDBACK_ID,
       issueNumber: 42,
-      issueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+      issueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
     });
     expect(repository.markGitHubIssueFailed).not.toHaveBeenCalled();
   });
@@ -1154,7 +1154,7 @@ describe("manage Siteping feedback use cases", () => {
         diagnostics: null,
         githubIssueNumber: 42,
         githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted,
-        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        githubIssueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
         id: FEEDBACK_ID,
         message: "No puedo guardar el precio",
         projectName: "tutribu",
@@ -1203,7 +1203,7 @@ describe("manage Siteping feedback use cases", () => {
         diagnostics: null,
         githubIssueNumber: 42,
         githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted,
-        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        githubIssueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
         id: FEEDBACK_ID,
         message: "No puedo guardar el precio",
         projectName: "tutribu",
@@ -1256,7 +1256,7 @@ describe("manage Siteping feedback use cases", () => {
         diagnostics: null,
         githubIssueNumber: 42,
         githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
-        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        githubIssueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
         id: FEEDBACK_ID,
         message: "No puedo guardar el precio",
         projectName: "tutribu",
@@ -1330,7 +1330,7 @@ describe("manage Siteping feedback use cases", () => {
         diagnostics: null,
         githubIssueNumber: 42,
         githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
-        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        githubIssueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
         id: FEEDBACK_ID,
         message: "No puedo guardar el precio",
         projectName: "tutribu",
@@ -1389,7 +1389,7 @@ describe("manage Siteping feedback use cases", () => {
         diagnostics: null,
         githubIssueNumber: 42,
         githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.published,
-        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        githubIssueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
         id: FEEDBACK_ID,
         message: "No puedo guardar el precio",
         projectName: "tutribu",
@@ -1568,7 +1568,7 @@ describe("manage Siteping feedback use cases", () => {
         diagnostics: null,
         githubIssueNumber: 42,
         githubIssueStatus: SITEPING_FEEDBACK_GITHUB_STATUS.deletionCompleted,
-        githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+        githubIssueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
         id: FEEDBACK_ID,
         message: "No puedo guardar el precio",
         projectName: "tutribu",

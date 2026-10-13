@@ -465,14 +465,14 @@ describe("PostgresSitepingFeedbackRepository", () => {
     await repository.create(createFeedbackCommand());
     feedbackRows[0].github_issue_number = 42;
     feedbackRows[0].github_issue_url =
-      "https://github.com/guidomodarelli/LaTribu/issues/42";
+      "https://github.com/guidomodarelli/TuTribu/issues/42";
 
     await expect(repository.findById({
       feedbackId: feedbackRows[0].id,
       projectName: "tutribu",
     })).resolves.toMatchObject({
       githubIssueNumber: 42,
-      githubIssueUrl: "https://github.com/guidomodarelli/LaTribu/issues/42",
+      githubIssueUrl: "https://github.com/guidomodarelli/TuTribu/issues/42",
       id: feedbackRows[0].id,
     });
   });
