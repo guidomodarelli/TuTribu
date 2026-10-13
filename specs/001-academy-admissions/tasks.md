@@ -1250,6 +1250,8 @@ Avance de T169/T170 sin cierre: el contrato privado incorpora once variantes de 
 
 <a id="t171"></a>
 
+Avance posterior de T169/T170 sobre `f3e19f9f`: invitaciones administrativas, canje, cancelación por retiro de autorización y filas CSV añadidas usan el contrato propio y el reloj del efecto, con ledger/CAS/replay/progreso originales. El estado canjeado y el retiro quedan separados; una aprobación y su membresía permanecen intactas. Cuarenta y nueve locales y siete PostgreSQL pasan, junto con tipos/lint/build y cuatro vistas de arquitectura. No cierra esos criterios ni los de otros productores, actividad, métricas o retención; ver [invitaciones e importaciones auditadas](validation/admission-invitation-import-audit-baseline.md).
+
 - [ ] T171 [US11] Implementar mantenimiento bounded idempotente para CSV/report24 h, secret retirado24 h, draft7 días+24 h, OTP mínimo≤10 min, terminal180 días/minimización y audit365; conciliar deletion/privacy existente, preservar vínculo mínimo necesario y stop previo al purge. Archivos: `src/modules/academy-admissions/application/use-cases/purge-admission-data-use-case.ts`, `src/modules/messaging/application/use-cases/purge-messaging-secrets-use-case.ts`, `src/modules/academy-admissions/infrastructure/repositories/postgres-admission-retention-repository.ts`, `src/modules/messaging/infrastructure/repositories/postgres-messaging-retention-repository.ts`. Dependencias: `T168`, `T170`. Trazabilidad: `FR-053`, `FR-056`, `FR-077`–`FR-080`, `FR-128`, `FR-132`, `US-11-AC-01`–`US-11-AC-02`, `EC-38`, `TC-014`, `TC-027`.
 
 <a id="t172"></a>

@@ -6,15 +6,16 @@ import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastruc
 import type { AdmissionCommandScope } from "../../domain/repositories/admission-repositories";
 import type { AdmissionRequest } from "../../domain/entities/admission-request";
 import { redeemPersonalInvitation, type PersonalInvitation } from "../../domain/entities/personal-invitation";
+import { createPersonalInvitationAuditEvent } from "../../domain/entities/personal-invitation-audit-event";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_INVITATION_STATUS } from "../../constants/admission-eligibility";
 import { ADMISSION_REQUEST_SOURCE } from "../../constants/admission-request";
-import { ADMISSION_RESOURCE_KIND } from "../../constants/admission-authorization";
 import { PERSONAL_INVITATION_REDEEMED_EVENT } from "../../constants/personal-invitation-management";
 import { createPersonalInvitationTokenCodec, type PersonalInvitationTokenReference } from "../tokens/personal-invitation-token";
 import { mapPersonalInvitationRow, type PersonalInvitationRow } from "./personal-invitation-row-mapper";
 import { admissionDatabaseNow } from "./postgres-admission-leader-authorizer";
+import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 
 /** Private locked lookup provenance never becomes a recipient/leader public DTO. */
 export type ResolvedPersonalInvitation = { invitation: PersonalInvitation; reference: PersonalInvitationTokenReference; environment: string; securityEpoch: string };
@@ -45,5 +46,5 @@ export async function commitPersonalInvitationRedemption(database: RequestDataba
   const proposal = redeemPersonalInvitation({ invitation, expectedVersion: invitation.version, userId: scope.userId, requestId: request.id, now }).invitation;
   const updated = (await database.execute(sql`update public.academy_personal_invitations set status=${ADMISSION_INVITATION_STATUS.redeemed},redeemed_by_user_id=${scope.userId},redeemed_request_id=${request.id},redeemed_at=${now},updated_at=${now},version=${proposal.version} where id=${invitation.id} and tribe_id=${scope.tribeId} and status=${ADMISSION_INVITATION_STATUS.active} and version=${invitation.version} and authorization_revoked_at is null and (expires_at is null or expires_at>clock_timestamp()) returning id`)).rows[0];
   if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invitationUnavailable);
-  await database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type,resource_version) values (${scope.tribeId},${scope.userId},${ADMISSION_RESOURCE_KIND.personalInvitation},${invitation.id},${ledgerId},${PERSONAL_INVITATION_REDEEMED_EVENT},${proposal.version})`);
+  await new PostgresAdmissionAuditRepository(database).append(createPersonalInvitationAuditEvent({ actorUserId: scope.userId, operationId: ledgerId, eventType: PERSONAL_INVITATION_REDEEMED_EVENT, invitation: proposal, previous: invitation }));
 }

@@ -63,6 +63,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El paso de comprobación de contacto aclara que los códigos usan el servicio conectado por el líder y que comprobar el contacto no acredita identidad civil ni pertenencia a un grupo de WhatsApp.
 - La auditoría de la lista de habilitados conserva los estados y versiones anteriores, la operación original y el momento del cambio, sin incluir contactos ni nombres.
 - El acceso con Google muestra la marca TuTribu verificada y permite comprobar la fecha de autenticación; guardar una conexión de mensajería sigue exigiendo una autenticación de Google de los últimos diez minutos.
+- La auditoría de la lista de habilitados, sus importaciones y las invitaciones personales conserva los estados y versiones anteriores, la operación original y el momento del cambio o retiro de autorización, sin incluir contactos, nombres ni tokens.
 
 ### Fixed
 

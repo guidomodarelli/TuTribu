@@ -34,6 +34,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal in
       const renameContext = { ...await fixture.confirm(REAUTHENTICATION_OPERATION.renamePersonalInvitation, invitationId), action: "manage_invitations" as const };
       const renamed = await repository.rename({ context: renameContext, operationId: randomUUID(), confirmed: true, invitationId, expectedVersion: 1, internalName: "Otro nombre" });
       expect(renamed).toMatchObject({ state: "completed", result: { invitationId, version: 2, changed: true, created: false } });
+      expect(await database.withContext(fixture.own, async (transaction)=>(await transaction.execute(sql`select event.metadata,event.created_at=invitation.updated_at as owner_clock from public.academy_admission_audit_events event join public.academy_personal_invitations invitation on invitation.id=event.resource_id and invitation.tribe_id=event.tribe_id where event.resource_id=${invitationId} and event.event_type='rename_personal_invitation'`)).rows)).toEqual([{metadata:{fromStatus:"active",toStatus:"active",previousVersion:1,requestId:null,fromAuthorizationRevoked:false,toAuthorizationRevoked:false},owner_clock:true}]);
       expect(await repository.create(input)).toMatchObject({ state: "completed", replayed: true, result: { version: 1 } });
       expect(await repository.rename({ context: renameContext, operationId: randomUUID(), confirmed: true, invitationId, expectedVersion: 2, internalName: "Otro nombre" })).toMatchObject({ state: "completed", result: { version: 2, changed: false } });
       await expect(repository.rename({ context: renameContext, operationId: randomUUID(), confirmed: true, invitationId, expectedVersion: 1, internalName: "Otro nombre" })).rejects.toMatchObject({ code: "invitation_conflict", operationState: "completed" });
@@ -52,6 +53,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal in
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select status,version from public.academy_personal_invitations where id=${latestId}`)).rows).toEqual([{ status: "revoked", version: 2 }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_audit_events where resource_id=${latestId}`)).rows).toEqual([{ count: 2 }]);
+        const latestAudit=(await transaction.execute(sql`select event.event_type,event.actor_user_id,event.resource_version,event.metadata,event.created_at=case when event.resource_version=1 then invitation.created_at else invitation.updated_at end as owner_clock from public.academy_admission_audit_events event join public.academy_personal_invitations invitation on invitation.id=event.resource_id and invitation.tribe_id=event.tribe_id join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.resource_id=${latestId} order by event.resource_version`)).rows;
+        expect(latestAudit).toEqual([
+          {event_type:"create_personal_invitation",actor_user_id:fixture.userId,resource_version:1,metadata:{fromStatus:null,toStatus:"active",previousVersion:null,requestId:null,fromAuthorizationRevoked:null,toAuthorizationRevoked:false},owner_clock:true},
+          {event_type:"revoke_personal_invitation",actor_user_id:fixture.userId,resource_version:2,metadata:{fromStatus:"active",toStatus:"revoked",previousVersion:1,requestId:null,fromAuthorizationRevoked:false,toAuthorizationRevoked:false},owner_clock:true},
+        ]);
+        expect(JSON.stringify(latestAudit)).not.toMatch(/recipient\.name|Grupo inicial|Otro nombre|token_hash|token_context_digest/);
       });
       const lostInput = { ...input, operationId: randomUUID(), internalName: "Enlace cuya respuesta se perdió" };
       loseReply = true;
@@ -98,6 +105,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal in
       expect(await repository.create({ ...input, operationId: replacement.operationId, replacement: { invitationId, expectedVersion: 2 } })).toMatchObject({ state: "completed", replayed: true, result: { version: 1 } });
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select status,version from public.academy_personal_invitations where id=${invitationId}`)).rows).toEqual([{ status: "expired", version: 3 }]);
+        expect((await transaction.execute(sql`select event.metadata,event.created_at=invitation.updated_at as owner_clock from public.academy_admission_audit_events event join public.academy_personal_invitations invitation on invitation.id=event.resource_id and invitation.tribe_id=event.tribe_id where event.resource_id=${invitationId} and event.event_type='expired'`)).rows).toEqual([{metadata:{fromStatus:"active",toStatus:"expired",previousVersion:2,requestId:null,fromAuthorizationRevoked:false,toAuthorizationRevoked:false},owner_clock:true}]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_personal_invitations where tribe_id=${fixture.tribeId} and normalized_contact=${contact.value} and status='active'`)).rows).toEqual([{ count: 1 }]);
       });
     });
