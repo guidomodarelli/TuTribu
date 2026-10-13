@@ -75,6 +75,27 @@ async function preparePolicy(database: AcademyAdmissionTestDatabase) {
 }
 
 describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admission policy persistence", () => {
+  it("should preserve the original actor and policy audit once when a committed reply is lost or replayed", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      // Arrange: native current leadership, recency and the real policy/operation owners.
+      const data = await preparePolicy(database), initializeId = randomUUID();
+      await data.initialize(initializeId);
+      const intent = { context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy" as const, confirmed: true as const, expectedVersion: 1, patch: { isOpen: true } };
+      // Act: lose only the confirmed commit reply, then recover/replay that original.
+      data.loseNextReply();
+      expect(await data.repository.update(intent)).toMatchObject({ state: "completed", result: { version: 2, changed: true } });
+      expect(await data.repository.update(intent)).toMatchObject({ state: "completed", replayed: true, result: { version: 2 } });
+      // Assert: audit and ledger preserve one actual effect and the correct scope.
+      const audit = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select event.actor_user_id,event.resource_type,event.resource_id,event.event_type,event.resource_version,event.rule,event.cause,event.metadata,operation.idempotency_key,event.created_at>=operation.created_at as ordered from public.academy_admission_audit_events event join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.tribe_id=${data.tribeId} order by event.resource_version`)).rows);
+      expect(audit).toEqual([
+        { actor_user_id: data.fixture.userId, resource_type: "admission_policy", resource_id: data.tribeId, event_type: "initialize_admission_policy", resource_version: 1, rule: null, cause: null, metadata: {}, idempotency_key: initializeId, ordered: true },
+        { actor_user_id: data.fixture.userId, resource_type: "admission_policy", resource_id: data.tribeId, event_type: "update_admission_policy", resource_version: 2, rule: null, cause: null, metadata: {}, idempotency_key: intent.operationId, ordered: true },
+      ]);
+      await expect(data.repository.update({ ...intent, operationId: randomUUID(), expectedVersion: 1 })).rejects.toMatchObject({ code: "policy_conflict" });
+      expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as count from public.academy_admission_audit_events where tribe_id=${data.tribeId}`)).rows)).toEqual([{ count: 2 }]);
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
+
   it("should use the current evaluator for safe preflight and close disabled recovery and decision-trigger gaps without repairing history", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database); await data.initialize();
