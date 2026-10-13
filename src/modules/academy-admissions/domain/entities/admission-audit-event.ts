@@ -2,6 +2,7 @@
 import { ADMISSION_POLICY_AUDIT } from "../../constants/admission-policy";
 import { ADMISSION_RESOURCE_KIND } from "../../constants/admission-authorization";
 import { ADMISSION_PROOF_AUDIT_EVENT, ADMISSION_PROOF_AUDIT_RULE } from "../../constants/admission-proof";
+import { ADMISSION_MESSAGING_SELECTION_CHANGE } from "../../constants/messaging-selection";
 import type {AdmissionResourceAuditEvent} from "./admission-resource-audit-event";
 
 /** Describes the native actor, original ledger and authoritative owner clock. */
@@ -12,13 +13,34 @@ type AdmissionPolicyAuditOperation = "initialize_admission_policy" | "update_adm
 export type AdmissionPolicyAuditInput = AdmissionAuditScope & { resourceId: string; operation: AdmissionPolicyAuditOperation; resourceVersion: number; rule: string | null };
 /** Records the exact applied proof and the request version preceding its application. */
 export type AdmissionProofAuditInput = AdmissionAuditScope & { requestId: string; proofId: string; previousRequestVersion: number };
+/** Keeps policy-reference lineage independent of its flags, country policy and connection lifecycle counters. */
+export type AdmissionMessagingSelectionAuditInput = AdmissionAuditScope & { resourceVersion: number; previousVersion: number; previousConnectionId: string; previousConnectionVersion: number; connectionId: string; connectionVersion: number; verificationEpoch: number };
+/** Records the existing reference-only transition with its exact closed semantic cause and selected metadata. */
+type AdmissionMessagingSelectionAuditEvent = AdmissionAuditScope & { resourceType: "admission_policy"; resourceId: string; eventType: "messaging_selection_replaced"; rule: "messaging_connection_replaced"; cause: "messaging_connection_replaced"; resourceVersion: number; metadata: { previousVersion: number; previousConnectionId: string; previousConnectionVersion: number; connectionId: string; connectionVersion: number; verificationEpoch: number } };
 /** Keeps private reconstructible resource references separate from public aggregate dimensions. */
 type AdmissionOwnerAuditEvent = AdmissionAuditScope & { resourceId: string; rule: string | null; cause: null; resourceVersion: number } & (
   { resourceType: "admission_policy"; eventType: AdmissionPolicyAuditOperation; metadata: Record<string, never> }
   | { resourceType: "admission_request"; eventType: "proof_attached"; metadata: { proofId: string; previousRequestVersion: number } }
 );
 /** Includes historical owner snapshots and the complete closed private resource vocabulary. */
-export type AdmissionAuditEvent=AdmissionOwnerAuditEvent|AdmissionResourceAuditEvent;
+export type AdmissionAuditEvent=AdmissionOwnerAuditEvent|AdmissionMessagingSelectionAuditEvent|AdmissionResourceAuditEvent;
+
+/**
+ * Selects the previous and confirmed connection references of an effective policy transition.
+ * @param input - Locked policy facts, current actor, original activation ledger and persisted effect clock.
+ * @returns The fixed reference-change event without policy payloads, contacts or provider objects.
+ */
+export function createAdmissionMessagingSelectionAuditEvent(input: AdmissionMessagingSelectionAuditInput): AdmissionAuditEvent {
+  return {
+    tribeId: input.tribeId, actorUserId: input.actorUserId, operationId: input.operationId,
+    resourceType: ADMISSION_POLICY_AUDIT.resourceType, resourceId: input.tribeId,
+    eventType: ADMISSION_MESSAGING_SELECTION_CHANGE.event,
+    rule: ADMISSION_MESSAGING_SELECTION_CHANGE.reason, cause: ADMISSION_MESSAGING_SELECTION_CHANGE.reason,
+    resourceVersion: input.resourceVersion,
+    metadata: { previousVersion: input.previousVersion, previousConnectionId: input.previousConnectionId, previousConnectionVersion: input.previousConnectionVersion, connectionId: input.connectionId, connectionVersion: input.connectionVersion, verificationEpoch: input.verificationEpoch },
+    createdAt: new Date(input.createdAt),
+  };
+}
 
 /**
  * Selects the owner-derived fields of an effective policy change.

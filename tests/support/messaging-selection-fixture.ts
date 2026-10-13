@@ -4,19 +4,20 @@ import {sql} from "drizzle-orm";
 import type {AcademyAdmissionTestDatabase} from "./academy-admission-database";
 import type {prepareMessagingConnectionCreation} from "./messaging-connection-fixture";
 
-/** @param database - Owned isolated branch. @param fixture - Actual encrypted creation owner and native principal. @param candidateId - Locally diagnosed replacement. @returns Historical IDs and safe snapshots; plaintext remains private to creation. */
-export async function seedPreviousMessagingSelection(database:AcademyAdmissionTestDatabase,fixture:Awaited<ReturnType<typeof prepareMessagingConnectionCreation>>,candidateId:string){
+/** @param database - Owned isolated branch. @param fixture - Actual encrypted creation owner and native principal. @param candidateId - Locally diagnosed replacement. @param additionalUnusedCount - Extra available evidence for real collection-retirement scenarios. @returns Historical IDs and safe snapshots; plaintext remains private to creation. */
+export async function seedPreviousMessagingSelection(database:AcademyAdmissionTestDatabase,fixture:Awaited<ReturnType<typeof prepareMessagingConnectionCreation>>,candidateId:string,additionalUnusedCount=0){
   const {tribeId}=fixture.context,own=fixture.fixture.own;
   await database.withContext(own,(transaction)=>transaction.execute(sql`update public.tenant_messaging_connections set is_candidate=false where id=${candidateId}`));
   const created=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Conexión anterior",apiKey:randomUUID()});
   if(created.state!=="completed")throw new Error("Expected encrypted historical selection");
   const connectionId=created.result.id,requestId=randomUUID(),used={userId:randomUUID(),challengeId:randomUUID(),proofId:randomUUID(),deliveryId:randomUUID()},unused={userId:randomUUID(),challengeId:randomUUID(),proofId:randomUUID(),deliveryId:randomUUID()},acceptedDeliveryId=randomUUID(),unknownDeliveryId=randomUUID();
+  const additionalUnused=Array.from({length:additionalUnusedCount},()=>({userId:randomUUID(),challengeId:randomUUID(),proofId:randomUUID(),deliveryId:randomUUID()}));
   await database.withContext(own,async(transaction)=>{
     await transaction.execute(sql`update public.tenant_messaging_connections set is_candidate=false,candidate_version=null,is_selected=true,selected_version=1,state='active' where id=${connectionId}`);
     await transaction.execute(sql`update public.tenant_messaging_connections set is_candidate=true where id=${candidateId}`);
     await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,version,verification_epoch,requires_additional_verification,is_open,messaging_connection_id,messaging_connection_version) values (${tribeId},7,5,false,false,${connectionId},1)`);
     const now=new Date((await transaction.execute<{now:string}>(sql`select clock_timestamp() as now`)).rows[0].now),expiresAt=new Date(now.getTime()+600_000),applyBefore=new Date(now.getTime()+900_000);
-    for(const evidence of[used,unused]){
+    for(const evidence of[used,unused,...additionalUnused]){
       const contact=`${evidence.userId}@example.test`;
       await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${evidence.userId},'Synthetic historical applicant',${contact},false,${now},${now})`);
       await transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,created_at,due_at,deadline_at) values (${evidence.deliveryId},${tribeId},${connectionId},1,${fixture.fixture.config.environment},${fixture.fixture.config.securityEpoch},'admission',${evidence.challengeId},${evidence.userId},${evidence.challengeId},'email',${randomUUID()},${randomBytes(32)},'synthetic-payload','{}',1,${now},${now},${expiresAt})`);
@@ -46,5 +47,5 @@ export async function seedPreviousMessagingSelection(database:AcademyAdmissionTe
     reservations:(await transaction.execute(sql`select id,delivery_id,state,reserved_at,released_at from public.messaging_usage_reservations where tribe_id=${tribeId} order by id`)).rows,
     usage:(await transaction.execute(sql`select version,verification_daily_limit,notification_daily_limit,allowed_countries from public.messaging_usage_policies where tribe_id=${tribeId}`)).rows[0],
   }));
-  return{connectionId,requestId,used,unused,acceptedDeliveryId,unknownDeliveryId,snapshot};
+  return{connectionId,requestId,used,unused,additionalUnused,acceptedDeliveryId,unknownDeliveryId,snapshot};
 }

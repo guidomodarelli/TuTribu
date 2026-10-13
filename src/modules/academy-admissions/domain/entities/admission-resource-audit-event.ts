@@ -8,7 +8,7 @@ import {ADMISSION_RETRY_AUDIT} from "../../constants/admission-decision";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 
 /** Keeps actor and ledger references private; background events never fabricate a user or original command. */
-export type AdmissionResourceAuditScope={tribeId:string;actorUserId:string|null;operationId:string|null;resourceId:string;resourceVersion:number|null;rule:string|null;cause:AdmissionErrorCode|MessagingErrorCode|"authorized_connection_replacement"|"connection_replaced"|"connection_disconnected"|"suspected_compromise"|"security_stop"|"ordinary_retirement"|"scheduled_expiration"|"scope_retired"|null;createdAt:Date};
+export type AdmissionResourceAuditScope={tribeId:string;actorUserId:string|null;operationId:string|null;resourceId:string;resourceVersion:number|null;rule:string|null;cause:AdmissionErrorCode|MessagingErrorCode|"authorized_connection_replacement"|"connection_replaced"|"messaging_connection_replaced"|"connection_disconnected"|"suspected_compromise"|"security_stop"|"ordinary_retirement"|"scheduled_expiration"|"scope_retired"|null;createdAt:Date};
 /** Declares resource names independently of runtime constants. */
 export type AdmissionResourceAuditKind="admission_request"|"allowlist_entry"|"personal_invitation"|"messaging_usage_policy"|"messaging_connection"|"authorized_exposure"|"message_delivery"|"messaging_protection"|"admission_proof"|"membership"|"retention_run";
 /** Limits ordinary request changes to owner-derived states, effective policy and opaque evidence. */

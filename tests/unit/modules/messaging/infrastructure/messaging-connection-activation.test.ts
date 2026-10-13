@@ -8,9 +8,6 @@ import {withAcademyAdmissionDatabase} from "@/tests/support/academy-admission-da
 import {prepareMessagingConnectionActivation as preparedActivation} from "@/tests/support/messaging-activation-fixture";
 import {seedPreviousMessagingSelection} from "@/tests/support/messaging-selection-fixture";
 import {createAdmissionProviderTransport} from "@/tests/support/admission-provider-transport";
-import {PostgresMessagingConnectionActivation} from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation";
-import {readAdmissionEmailLifecycleDependency} from "@/src/modules/notifications/infrastructure/repositories/admission-email-lifecycle-reader";
-import {PostgresMessagingSelectionDependencies} from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
 import {PostgresMessagingCredentialValidation} from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-credential-validation";
 import {PostgresCredentialValidationBudget} from "@/src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget";
 import {ZavuCredentialInspectorFactory} from "@/src/modules/messaging/infrastructure/zavu/zavu-credential-inspector-factory";
@@ -56,7 +53,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native candidate act
   it("should roll back when diagnostic expires during a real delivery lock and then replace only the old selection with fresh evidence",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const prepared=await preparedActivation(database),previous=await seedPreviousMessagingSelection(database,prepared.fixture,prepared.context.connectionId),before=await previous.snapshot(),beforeRequests=prepared.transport.receipts.length;
-      const held=Promise.withResolvers<number>(),started=Promise.withResolvers<number>(),release=Promise.withResolvers<void>();let released=false;
+      const held=Promise.withResolvers<number>(),release=Promise.withResolvers<void>();let released=false;
       const holding=database.withContext(prepared.fixture.fixture.own,async(transaction)=>{
         await transaction.execute(sql`select id from public.message_deliveries where id=${previous.unused.deliveryId} for update`);
         held.resolve((await transaction.execute<{pid:number}>(sql`select pg_backend_pid() as pid`)).rows[0].pid);
@@ -65,15 +62,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native candidate act
       });
       const holderPid=await held.promise;
       await database.withContext(prepared.fixture.fixture.own,(transaction)=>transaction.execute(sql`update public.messaging_connection_diagnostics set validated_at=clock_timestamp()-interval '24 hours'+interval '60 seconds' where connection_id=${prepared.context.connectionId} and connection_version=${prepared.context.connectionVersion} and outcome='verified'`));
-      const owner=new PostgresMessagingConnectionActivation((_context,run)=>database.withContext(prepared.fixture.fixture.own,async(transaction)=>{
-        started.resolve((await transaction.execute<{pid:number}>(sql`select pg_backend_pid() as pid`)).rows[0].pid);return run(transaction);
-      }),async()=>prepared.fixture.fixture.config,(transaction)=>new PostgresMessagingSelectionDependencies(transaction,readAdmissionEmailLifecycleDependency));
-      const outcome=owner.activate(prepared.context,prepared.input).then((value)=>({status:"fulfilled" as const,value}),(error:unknown)=>({status:"rejected" as const,error})),activationPid=await started.promise;
+      const outcome=prepared.owner.activate(prepared.context,prepared.input).then((value)=>({status:"fulfilled" as const,value}),(error:unknown)=>({status:"rejected" as const,error}));
       let observedWait=false;
       try{
         for(let attempt=0;attempt<100;attempt+=1){
-          const blockers=await database.withContext(prepared.fixture.fixture.own,async(transaction)=>(await transaction.execute<{blockers:number[]}>(sql`select pg_blocking_pids(${activationPid}) as blockers`)).rows[0].blockers);
-          if(blockers.includes(holderPid)){observedWait=true;break;}await delay(50);
+          const waiting=await database.withContext(prepared.fixture.fixture.own,async(transaction)=>(await transaction.execute<{pid:number}>(sql`select activity.pid from pg_stat_activity activity where activity.wait_event_type='Lock' and ${holderPid}=any(pg_blocking_pids(activity.pid))`)).rows);
+          if(waiting.length===1){observedWait=true;break;}await delay(50);
         }
         expect(observedWait).toBe(true);
         await database.withContext(prepared.fixture.fixture.own,(transaction)=>transaction.execute(sql`select pg_sleep(greatest(0,extract(epoch from(max(validated_at)+interval '24 hours'-clock_timestamp())))+0.1) from public.messaging_connection_diagnostics where connection_id=${prepared.context.connectionId} and connection_version=${prepared.context.connectionVersion} and outcome='verified'`));
@@ -98,6 +92,27 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native candidate act
       expect(await previous.snapshot()).toEqual(after);expect(prepared.transport.receipts).toHaveLength(beforeRequests);
     });
   },900_000);
+  it("should audit actual policy reference replacement and only retired available proof with their owner clocks and original activation",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const prepared=await preparedActivation(database),previous=await seedPreviousMessagingSelection(database,prepared.fixture,prepared.context.connectionId,1),before=await previous.snapshot();
+      const activated=await prepared.owner.activate(prepared.context,prepared.input);
+      expect(activated).toMatchObject({state:"completed",result:{policyVersion:8}});
+      const audit=await database.withContext(prepared.fixture.fixture.own,async(transaction)=>({
+        policy:(await transaction.execute(sql`select event.metadata,event.actor_user_id,event.rule,event.cause,event.resource_version,event.created_at=policy.updated_at as owner_clock,operation.idempotency_key from public.academy_admission_audit_events event join public.academy_admission_policies policy on policy.tribe_id=event.resource_id and policy.tribe_id=event.tribe_id join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.tribe_id=${prepared.context.tribeId} and event.event_type='messaging_selection_replaced'`)).rows,
+        proof:(await transaction.execute(sql`select event.metadata,event.actor_user_id,event.rule,event.cause,event.resource_version,event.created_at=proof.invalidated_at as owner_clock,operation.idempotency_key from public.academy_admission_audit_events event join public.academy_admission_verification_proofs proof on proof.id=event.resource_id and proof.tribe_id=event.tribe_id join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.tribe_id=${prepared.context.tribeId} and event.event_type='proof_invalidated' order by event.metadata->>'challengeId'`)).rows,
+      }));
+      expect(audit).toEqual({
+        policy:[{metadata:{previousVersion:7,previousConnectionId:previous.connectionId,previousConnectionVersion:1,connectionId:prepared.context.connectionId,connectionVersion:2,verificationEpoch:5},actor_user_id:prepared.context.actorUserId,rule:"messaging_connection_replaced",cause:"messaging_connection_replaced",resource_version:8,owner_clock:true,idempotency_key:prepared.input.operationId}],
+        proof:[previous.unused,...previous.additionalUnused].map((evidence)=>({metadata:{fromState:"available",toState:"invalid",challengeId:evidence.challengeId,requestId:null,verificationEpoch:5,channel:"email"},actor_user_id:prepared.context.actorUserId,rule:"messaging_connection_replaced",cause:"messaging_connection_replaced",resource_version:null,owner_clock:true,idempotency_key:prepared.input.operationId})).sort((left,right)=>left.metadata.challengeId.localeCompare(right.metadata.challengeId)),
+      });
+      const after=await previous.snapshot();
+      expect(after.proofs.find((proof)=>proof.id===previous.used.proofId)).toEqual(before.proofs.find((proof)=>proof.id===previous.used.proofId));
+      expect(after.request).toEqual(before.request);expect(after.usage).toEqual(before.usage);expect(after.reservations).toEqual(before.reservations);
+      expect(await prepared.owner.activate(prepared.context,prepared.input)).toMatchObject({state:"completed",replayed:true});
+      const replayAudits=await database.withContext(prepared.fixture.fixture.own,async(transaction)=>(await transaction.execute(sql`select count(*)::int as count from public.academy_admission_audit_events where tribe_id=${prepared.context.tribeId} and event_type in ('messaging_selection_replaced','proof_invalidated')`)).rows[0]);
+      expect(replayAudits).toEqual({count:3});
+    });
+  },600_000);
   it("should activate only the locally tested production candidate, replay without writes or RPC and preserve usage/admission defaults",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const prepared=await preparedActivation(database),beforeRequests=prepared.transport.receipts.length;
