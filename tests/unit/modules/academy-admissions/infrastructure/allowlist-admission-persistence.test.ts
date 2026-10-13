@@ -38,6 +38,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native trusted lis
         expect((await transaction.execute(sql`select count(*)::int as count from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${applicantId}`)).rows).toEqual([{ count: 1 }]);
         expect((await transaction.execute(sql`select version,status,display_name from public.academy_allowlist_entries where id=${entry.result.entryId}`)).rows).toEqual([{ version: 1, status: "enabled", display_name: "Nombre orientativo" }]);
         expect((await transaction.execute(sql`select event_type from public.academy_admission_notification_obligations where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ event_type: "approved" }]);
+        const audit=(await transaction.execute(sql`select event.actor_user_id,event.rule,event.metadata,event.created_at=decision.decided_at as owner_clock,operation.idempotency_key from public.academy_admission_audit_events event join public.academy_admission_requests request on request.id=event.resource_id and request.tribe_id=event.tribe_id join public.academy_admission_decisions decision on decision.id=request.decision_id and decision.tribe_id=request.tribe_id join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.tribe_id=${fixture.tribeId} and event.event_type='approved'`)).rows;
+        expect(audit).toEqual([{actor_user_id:applicantId,rule:"automatic",metadata:{fromStatus:"pending",toStatus:"approved",previousVersion:2,policyVersion:2,verificationEpoch:1,proofId:null,decisionId:expect.any(String),invitationId:null},owner_clock:true,idempotency_key:input.operationId}]);
+        expect(JSON.stringify(audit)).not.toContain(email);
       });
     });
   }, 1_200_000);

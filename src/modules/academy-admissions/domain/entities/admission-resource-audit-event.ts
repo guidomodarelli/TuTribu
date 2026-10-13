@@ -4,13 +4,20 @@ import type {MessagingErrorCode} from "@/src/modules/messaging/domain/errors/mes
 import {ADMISSION_AUDIT_RESOURCE_TYPE} from "../../constants/admission-audit";
 import {ADMISSION_ERROR_CODE} from "../../constants/admission-errors";
 import {AdmissionOperationError} from "../errors/admission-operation-error";
+import {ADMISSION_RETRY_AUDIT} from "../../constants/admission-decision";
 
 /** Keeps actor and ledger references private; background events never fabricate a user or original command. */
 export type AdmissionResourceAuditScope={tribeId:string;actorUserId:string|null;operationId:string|null;resourceId:string;resourceVersion:number|null;rule:string|null;cause:AdmissionErrorCode|MessagingErrorCode|"authorized_connection_replacement"|"suspected_compromise"|"ordinary_retirement"|"scheduled_expiration"|"scope_retired"|null;createdAt:Date};
 /** Declares resource names independently of runtime constants. */
 export type AdmissionResourceAuditKind="admission_request"|"allowlist_entry"|"personal_invitation"|"messaging_usage_policy"|"messaging_connection"|"authorized_exposure"|"message_delivery"|"messaging_protection"|"admission_proof"|"membership"|"retention_run";
-/** Records only business statuses and opaque evidence; contact and applicant/decision messages stay with their owners. */
-type RequestAuditDetails={resourceType:"admission_request";eventType:"pending_created"|"approved"|"rejected"|"cancelled"|"expired"|"retry_allowed";metadata:{fromStatus:"pending"|"approved"|"rejected"|"cancelled"|"expired"|null;toStatus:"pending"|"approved"|"rejected"|"cancelled"|"expired";previousVersion:number|null;policyVersion:number;verificationEpoch:number;proofId:string|null;decisionId:string|null;invitationId:string|null}};
+/** Limits ordinary request changes to owner-derived states, effective policy and opaque evidence. */
+export type AdmissionRequestAuditEventType="pending_created"|"approved"|"rejected"|"cancelled"|"expired";
+/** Keeps applicant content and ordinary decision reasons with their owners. */
+type RequestAuditMetadata={fromStatus:"pending"|"approved"|"rejected"|"cancelled"|"expired"|null;toStatus:"pending"|"approved"|"rejected"|"cancelled"|"expired";previousVersion:number|null;policyVersion:number;verificationEpoch:number;proofId:string|null;decisionId:string|null;invitationId:string|null};
+/** Records ordinary lifecycle without copying an arbitrary internal reason. */
+type RequestAuditDetails={resourceType:"admission_request";eventType:AdmissionRequestAuditEventType;metadata:RequestAuditMetadata};
+/** Preserves the existing private corrective reason only for its dedicated retry fact, not general request messages. */
+type RetryAuditDetails={resourceType:"admission_request";eventType:"retry_allowed";metadata:RequestAuditMetadata&{internalReason:string;previousRetryAllowedAt:string|null;retryAllowedAt:string}};
 /** Stores list configuration lineage without descriptive names or contact identity. */
 type AllowlistAuditDetails={resourceType:"allowlist_entry";eventType:"create_allowlist_entry"|"update_allowlist_entry"|"confirm_allowlist_import";metadata:{fromStatus:"enabled"|"disabled"|null;toStatus:"enabled"|"disabled";previousVersion:number|null;importId:string|null;contactType:"email"|"phone"}};
 /** Preserves single-use lifecycle and the scoped presentation supported by redemption. */
@@ -34,7 +41,7 @@ type MembershipAuditDetails={resourceType:"membership";eventType:"membership_adm
 /** Keeps bounded maintenance results distinct from evidence that all data or gates were completed. */
 type RetentionAuditDetails={resourceType:"retention_run";eventType:"retention_completed";metadata:{owner:"admission_requests"|"admission_audit"|"allowlist_import_material"|"messaging_secrets"|"verification_material"|"messaging_candidates";processed:number;remaining:boolean;cutoff:string}};
 /** The input is already an owner's business fact; its extra properties must never be copied into storage. */
-export type AdmissionResourceAuditInput=AdmissionResourceAuditScope&(RequestAuditDetails|AllowlistAuditDetails|InvitationAuditDetails|UsageAuditDetails|ConnectionAuditDetails|ExposureAuditDetails|DeliveryAuditDetails|ProtectionAuditDetails|ProofAuditDetails|MembershipAuditDetails|RetentionAuditDetails);
+export type AdmissionResourceAuditInput=AdmissionResourceAuditScope&(RequestAuditDetails|RetryAuditDetails|AllowlistAuditDetails|InvitationAuditDetails|UsageAuditDetails|ConnectionAuditDetails|ExposureAuditDetails|DeliveryAuditDetails|ProtectionAuditDetails|ProofAuditDetails|MembershipAuditDetails|RetentionAuditDetails);
 /** Uses the same closed vocabulary after selecting and snapshotting only its allowed fields. */
 export type AdmissionResourceAuditEvent=AdmissionResourceAuditInput;
 
@@ -52,7 +59,12 @@ export function createAdmissionResourceAuditEvent<Input extends AdmissionResourc
   const current:AdmissionResourceAuditInput=input;
   const scope={tribeId:current.tribeId,actorUserId:current.actorUserId,operationId:current.operationId,resourceId:current.resourceId,resourceVersion:current.resourceVersion,rule:current.rule,cause:current.cause,createdAt:new Date(current.createdAt)};
   switch(current.resourceType){
-    case ADMISSION_AUDIT_RESOURCE_TYPE.request:{const metadata=current.metadata;return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{fromStatus:metadata.fromStatus,toStatus:metadata.toStatus,previousVersion:metadata.previousVersion,policyVersion:metadata.policyVersion,verificationEpoch:metadata.verificationEpoch,proofId:metadata.proofId,decisionId:metadata.decisionId,invitationId:metadata.invitationId}};}
+    case ADMISSION_AUDIT_RESOURCE_TYPE.request:{
+      const metadata=current.metadata;
+      const requestMetadata={fromStatus:metadata.fromStatus,toStatus:metadata.toStatus,previousVersion:metadata.previousVersion,policyVersion:metadata.policyVersion,verificationEpoch:metadata.verificationEpoch,proofId:metadata.proofId,decisionId:metadata.decisionId,invitationId:metadata.invitationId};
+      if(current.eventType===ADMISSION_RETRY_AUDIT.event)return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{...requestMetadata,internalReason:current.metadata.internalReason,previousRetryAllowedAt:current.metadata.previousRetryAllowedAt,retryAllowedAt:current.metadata.retryAllowedAt}};
+      return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:requestMetadata};
+    }
     case ADMISSION_AUDIT_RESOURCE_TYPE.allowlistEntry:{const metadata=current.metadata;return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{fromStatus:metadata.fromStatus,toStatus:metadata.toStatus,previousVersion:metadata.previousVersion,importId:metadata.importId,contactType:metadata.contactType}};}
     case ADMISSION_AUDIT_RESOURCE_TYPE.personalInvitation:{const metadata=current.metadata;return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{fromStatus:metadata.fromStatus,toStatus:metadata.toStatus,previousVersion:metadata.previousVersion,requestId:metadata.requestId,fromAuthorizationRevoked:metadata.fromAuthorizationRevoked,toAuthorizationRevoked:metadata.toAuthorizationRevoked}};}
     case ADMISSION_AUDIT_RESOURCE_TYPE.usagePolicy:{const metadata=current.metadata;return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{previousVersion:metadata.previousVersion,allowedCountries:[...metadata.allowedCountries],verificationDailyLimit:metadata.verificationDailyLimit,notificationDailyLimit:metadata.notificationDailyLimit}};}

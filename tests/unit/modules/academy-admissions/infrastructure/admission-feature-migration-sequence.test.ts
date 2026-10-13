@@ -25,7 +25,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("complete admission
           expect((await transaction.execute(sql`select to_regclass('public.academy_admission_retired_bindings') is not null and to_regclass('public.academy_admission_retired_operations') is not null and to_regclass('public.academy_admission_retired_audit_events') is not null as ready`)).rows).toEqual([{ ready: true }]);
           return (await transaction.execute<{ total: number; latest: string }>(sql`select count(*)::int as total,max(created_at)::text as latest from drizzle.__drizzle_migrations`)).rows[0];
         });
-        expect(applied.total - before.history.total).toBe(54);
+        expect(applied.total - before.history.total).toBe(55);
         expect(BigInt(applied.latest) > BigInt(before.history.latest)).toBe(true);
         await migrate();
         await database.withContext({ userId: null, email: null }, async (transaction) => {
@@ -51,6 +51,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("complete admission
       await database.withContext(context, async (transaction) => {
         expect((await transaction.execute(sql`select status,version from public.academy_admission_requests where id=${requestId}`)).rows).toEqual([{ status: "expired", version: 2 }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_decisions where request_id=${requestId}`)).rows).toEqual([{ count: 1 }]);
+        expect((await transaction.execute(sql`select event.metadata,event.created_at=decision.decided_at as owner_clock from public.academy_admission_audit_events event join public.academy_admission_decisions decision on decision.id=(event.metadata->>'decisionId')::uuid and decision.tribe_id=event.tribe_id where event.resource_id=${requestId} and event.event_type='expired'`)).rows).toEqual([{metadata:{fromStatus:"pending",toStatus:"expired",previousVersion:1,policyVersion:1,verificationEpoch:1,proofId:null,decisionId:expect.any(String),invitationId:null},owner_clock:true}]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.notifications where tribe_id=${tribeId} and type='admission_expired'`)).rows).toEqual([{ count: 1 }]);
       });
       await expect(database.withContext(context, async (transaction) => {

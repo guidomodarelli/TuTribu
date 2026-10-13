@@ -25,6 +25,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native autonomous 
       });
       const second = { fixture: { ...first.fixture, tribeId: otherTribeId }, applicant: first.applicant };
       await database.applyMigration("20261011021000_expire_academy_admission_requests.sql");
+      await database.applyMigration("20261013190000_audit_admission_request_expiration.sql");
       const ordered = [first, second].sort((left, right) => left.fixture.tribeId.localeCompare(right.fixture.tribeId));
       const [held, available] = ordered;
       const requests: string[] = [];
@@ -61,6 +62,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native autonomous 
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, applicant } = await prepareAllowlistAdmission(database);
       await database.applyMigration("20261011021000_expire_academy_admission_requests.sql");
+      await database.applyMigration("20261013190000_audit_admission_request_expiration.sql");
       const dueRequestIds: string[] = [];
       for (let i = 0; i < 3; i += 1) {
         const owner = await applicant();
@@ -94,6 +96,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native autonomous 
         expect((await transaction.execute(sql`select id,status,version from public.academy_admission_requests where tribe_id=${fixture.tribeId} order by id`)).rows).toEqual([...dueRequestIds.map((requestId) => ({ id: requestId, status: "expired", version: 2 })), { id: liveRequestId, status: "pending", version: 1 }].sort((left, right) => left.id.localeCompare(right.id)));
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_decisions where tribe_id=${fixture.tribeId} and outcome='expired' and actor_kind='system' and actor_user_id is null`)).rows).toEqual([{ count: 3 }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} and event_type='expired'`)).rows).toEqual([{ count: 3 }]);
+        const audit=(await transaction.execute(sql`select event.actor_user_id,event.operation_id,event.resource_version,event.metadata,event.created_at=decision.decided_at as owner_clock from public.academy_admission_audit_events event join public.academy_admission_requests request on request.id=event.resource_id and request.tribe_id=event.tribe_id join public.academy_admission_decisions decision on decision.id=request.decision_id and decision.tribe_id=request.tribe_id where event.tribe_id=${fixture.tribeId} and event.event_type='expired'`)).rows;
+        expect(audit).toHaveLength(3);
+        for(const event of audit) expect(event).toEqual({actor_user_id:null,operation_id:null,resource_version:2,metadata:{fromStatus:"pending",toStatus:"expired",previousVersion:1,policyVersion:3,verificationEpoch:1,proofId:null,decisionId:expect.any(String),invitationId:null},owner_clock:true});
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_notification_obligations where tribe_id=${fixture.tribeId} and event_type='expired'`)).rows).toEqual([{ count: 3 }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.notifications where tribe_id=${fixture.tribeId} and type='admission_expired'`)).rows).toEqual([{ count: 3 }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_membership_effects where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 0 }]);
@@ -108,6 +113,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native autonomous 
       const recipient = await applicant();
       await database.applyMigration("20261009130000_add_personal_invitation_context_digest.sql");
       await database.applyMigration("20261011021000_expire_academy_admission_requests.sql");
+      await database.applyMigration("20261013190000_audit_admission_request_expiration.sql");
       const invitationId = randomUUID(), requestId = randomUUID(), bindingId = randomUUID(), evidenceId = randomUUID();
       const contact = { type: "email" as const, value: recipient.email };
       const fingerprint = await createAdmissionContactFingerprint(contact, fixture.config);

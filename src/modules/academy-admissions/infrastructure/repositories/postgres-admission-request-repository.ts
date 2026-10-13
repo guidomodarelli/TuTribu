@@ -26,7 +26,6 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { ADMISSION_ACTION, ADMISSION_DENIAL_REASON, ADMISSION_EVIDENCE_KIND, ADMISSION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_REQUEST_STATUS, ADMISSION_REQUEST_SOURCE, ADMISSION_OPERATION_TYPE, ADMISSION_REQUEST_EVENT } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
-import { ADMISSION_RESOURCE_KIND } from "@/src/modules/academy-admissions/constants/admission-authorization";
 import { ADMISSION_DECISION_ACTOR_KIND, ADMISSION_DECISION_RULE } from "@/src/modules/academy-admissions/constants/admission-decision";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
@@ -40,7 +39,6 @@ import { proposeAdmissionExternalResolution } from "@/src/modules/academy-admiss
 import { evaluateRecentAuthentication } from "@/src/modules/auth/domain/policies/recent-authentication";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
-import { ADMISSION_RETRY_AUDIT } from "@/src/modules/academy-admissions/constants/admission-decision";
 import type { AdmissionExecutionCapabilitiesReader, AdmissionExecutionCapabilities } from "../../domain/repositories/admission-execution-capabilities";
 import { MANUAL_ADMISSION_EXECUTION_CAPABILITIES } from "../../constants/admission-execution-capabilities";
 import { PostgresAdmissionSubmissionProofReader } from "./postgres-admission-submission-proof-reader";
@@ -58,6 +56,8 @@ import { createAdmissionCommandSnapshotSchema } from "../../application/results/
 import { resolvePersonalInvitationForRedemption, commitPersonalInvitationRedemption, assertPersonalInvitationTokenCurrent } from "./postgres-personal-invitation-redemption";
 import type { LegacyAdmissionInvitationReader } from "../../domain/repositories/legacy-admission-invitation-reader";
 import { ADMISSION_OPERATION_TRIBE_LOCK_SQL } from "../../constants/admission-operation";
+import { createAdmissionRequestAuditEvent, createAdmissionRetryAuditEvent, type AdmissionRequestAuditInput, type AdmissionRequestAuditDecision } from "../../domain/entities/admission-request-audit-event";
+import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -199,10 +199,10 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     return { ...original, result: schema.parse(original.result) };
   }
 
-  /** Records notice/audit before the same transaction can publish its own minimal result. */
-  private async record(database: RequestDatabase, scope: AdmissionCommandScope, request: AdmissionRequest, ledgerId: string, event: Parameters<AdmissionNotificationObligationWriter["record"]>[0]["event"], rule?: string): Promise<void> {
+  /** @param database - Original authorized transaction. @param scope - Actual command actor. @param request - Current committed proposal. @param ledgerId - Original private registry identity. @param event - Owner-selected lifecycle event. @param previous - Locked prior lifecycle or absence for the presentation. @param decision - Effective decision policy/rule/clock or initial absence. @returns After staging notice and reconstructible audit within the same commit. */
+  private async record(database: RequestDatabase, scope: AdmissionCommandScope, request: AdmissionRequest, ledgerId: string, event: AdmissionRequestAuditInput["eventType"], previous: AdmissionRequestAuditInput["previous"], decision: AdmissionRequestAuditDecision|null): Promise<void> {
     await this.compose(database).notifications.record({ id: randomUUID(), tribeId: scope.tribeId, admissionRequestId: request.id, applicantUserId: request.userId, event });
-    await database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type,rule,resource_version) values (${scope.tribeId},${scope.userId},${ADMISSION_RESOURCE_KIND.request},${request.id},${ledgerId},${event},${rule ?? null},${request.version})`);
+    await new PostgresAdmissionAuditRepository(database).append(createAdmissionRequestAuditEvent({actorUserId:scope.userId,operationId:ledgerId,eventType:event,request,previous,decision}));
   }
 
   /** Submits common-policy and personal presentations with current own evidence; existing membership/pending precedes lookup, redemption and proof effects. */
@@ -266,7 +266,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       }
       let outcome: AdmissionSubmissionResult;
       if (eligibility.outcome === ADMISSION_OUTCOME.admitted) outcome = await this.approveAutomatic(database, input, committed, facts, ledgerId);
-      else { await this.record(database, input, committed, ledgerId, ADMISSION_REQUEST_EVENT.pendingCreated); outcome = await this.pendingResult(database, input, committed, true); }
+      else { await this.record(database, input, committed, ledgerId, ADMISSION_REQUEST_EVENT.pendingCreated, null, null); outcome = await this.pendingResult(database, input, committed, true); }
       if (personal && input.source.kind === ADMISSION_REQUEST_SOURCE.personal) await assertPersonalInvitationTokenCurrent(personal, input.source.token, await this.readSecurityConfig());
       return outcome;
     });
@@ -281,7 +281,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     await this.transition(database, request, proposal.request);
     const applied = await this.compose(database).memberships.apply({ tribeId: input.tribeId, userId: input.userId, decisionId: decision.id });
     if (applied.status !== TRIBE_FREE_JOIN_STATUS.joined) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
-    await this.record(database, input, proposal.request, ledgerId, ADMISSION_REQUEST_EVENT.approved, decision.rule);
+    await this.record(database, input, proposal.request, ledgerId, ADMISSION_REQUEST_EVENT.approved, request, decision);
     return { operationId: input.operationId, outcome: ADMISSION_OUTCOME.admitted, admissionRequestId: request.id, committedRequestVersion: proposal.request.version, membership: { role: applied.member.role, status: applied.member.status === TRIBE_MEMBERSHIP_STATUS.muted ? TRIBE_MEMBERSHIP_STATUS.muted : TRIBE_MEMBERSHIP_STATUS.active }, created: true };
   }
 
@@ -304,7 +304,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     const decision = proposal.decision;
     await database.execute(sql`insert into public.academy_admission_decisions(id,request_id,tribe_id,user_id,request_version,outcome,actor_user_id,actor_kind,rule,policy_version,verification_epoch,decided_at,evidence_snapshot) values (${decision.id},${decision.requestId},${decision.tribeId},${decision.userId},${decision.requestVersion},${decision.outcome},${decision.actorUserId},${decision.actorKind},${decision.rule},${decision.policyVersion},${decision.verificationEpoch},${decision.decidedAt},${JSON.stringify(decision.evidenceSnapshot)}::jsonb)`);
     await this.transition(database, request, proposal.request);
-    await this.record(database, scope, proposal.request, ledgerId, ADMISSION_REQUEST_EVENT.cancelled, decision.rule);
+    await this.record(database, scope, proposal.request, ledgerId, ADMISSION_REQUEST_EVENT.cancelled, request, decision);
   }
 
   /** Captures the own committed response inside the original transaction; replay never substitutes a current state. */
@@ -336,7 +336,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
         const applied = await this.compose(database).memberships.apply({ tribeId: input.tribeId, userId: request.userId, decisionId: decision.id });
         if (applied.status !== TRIBE_FREE_JOIN_STATUS.joined) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       }
-      await this.record(database, input, proposal.request, ledgerId, decision.outcome, decision.rule);
+      await this.record(database, input, proposal.request, ledgerId, decision.outcome, request, decision);
       return { admissionRequestId: request.id, version: proposal.request.version, status: proposal.request.status };
     }, input.admissionRequestId);
   }
@@ -352,9 +352,10 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       const proposal = proposeAdmissionCancellation({ request, expectedVersion: input.expectedVersion, decisionId: randomUUID(), actor, internalReason: input.internalReason, now: await databaseNow(database) });
       if (!proposal.allowed) throw new AdmissionOperationError(proposal.code);
       const policy = await this.policy(database, input.tribeId);
-      await database.execute(sql`insert into public.academy_admission_decisions(id,request_id,tribe_id,user_id,request_version,outcome,actor_user_id,actor_kind,rule,policy_version,verification_epoch,internal_reason,evidence_snapshot) values (${proposal.request.decisionId},${request.id},${request.tribeId},${request.userId},${request.version},${ADMISSION_REQUEST_STATUS.cancelled},${actor.userId},${ADMISSION_DECISION_ACTOR_KIND.user},${proposal.rule},${policy?.version ?? request.originalPolicy.version},${policy?.verificationEpoch ?? request.originalPolicy.verificationEpoch},${proposal.internalReason},${JSON.stringify(snapshotAdmissionDecisionEvidence(request.evidence))}::jsonb)`);
+      const decision:AdmissionRequestAuditDecision={id:proposal.request.decisionId,rule:proposal.rule,policyVersion:policy?.version??request.originalPolicy.version,verificationEpoch:policy?.verificationEpoch??request.originalPolicy.verificationEpoch,decidedAt:proposal.request.resolvedAt};
+      await database.execute(sql`insert into public.academy_admission_decisions(id,request_id,tribe_id,user_id,request_version,outcome,actor_user_id,actor_kind,rule,policy_version,verification_epoch,internal_reason,evidence_snapshot,decided_at) values (${decision.id},${request.id},${request.tribeId},${request.userId},${request.version},${ADMISSION_REQUEST_STATUS.cancelled},${actor.userId},${ADMISSION_DECISION_ACTOR_KIND.user},${decision.rule},${decision.policyVersion},${decision.verificationEpoch},${proposal.internalReason},${JSON.stringify(snapshotAdmissionDecisionEvidence(request.evidence))}::jsonb,${decision.decidedAt})`);
       await this.transition(database, request, proposal.request);
-      await this.record(database, input, proposal.request, ledgerId, ADMISSION_REQUEST_EVENT.cancelled, proposal.rule);
+      await this.record(database, input, proposal.request, ledgerId, ADMISSION_REQUEST_EVENT.cancelled, request, decision);
       return { admissionRequestId: request.id, version: proposal.request.version, status: proposal.request.status };
     }, input.admissionRequestId);
   }
@@ -372,7 +373,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       if (proposal.changed) {
         const updated = (await database.execute(sql`update public.academy_admission_requests set retry_allowed_at=${proposal.retryAllowedAt},version=${proposal.request.version} where id=${request.id} and tribe_id=${request.tribeId} and user_id=${request.userId} and status=${request.status} and version=${request.version} returning id`)).rows[0];
         if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
-        await database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type,rule,resource_version,metadata) values (${input.tribeId},${input.userId},${ADMISSION_RESOURCE_KIND.request},${request.id},${ledgerId},${ADMISSION_RETRY_AUDIT.event},${ADMISSION_RETRY_AUDIT.rule},${proposal.request.version},${JSON.stringify({ internalReason: proposal.internalReason, previousVersion: request.version })}::jsonb)`);
+        await new PostgresAdmissionAuditRepository(database).append(createAdmissionRetryAuditEvent({actorUserId:input.userId,operationId:ledgerId,request:proposal.request,previous:request,internalReason:proposal.internalReason,retryAllowedAt:proposal.retryAllowedAt}));
       }
       return { admissionRequestId: request.id, version: proposal.request.version, retryAllowedAt: proposal.retryAllowedAt.toISOString() };
     }, input.admissionRequestId);
@@ -387,9 +388,10 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
   /** Expiration is decided after the request lock even if the scheduled sweep has not materialized it. */
   private async expire(database: RequestDatabase, scope: AdmissionCommandScope, request: AdmissionRequest, ledgerId: string, policy: AdmissionPolicy | null): Promise<void> {
     const decisionId = randomUUID();
-    await database.execute(sql`insert into public.academy_admission_decisions(id,request_id,tribe_id,user_id,request_version,outcome,actor_kind,rule,policy_version,verification_epoch,evidence_snapshot) values (${decisionId},${request.id},${request.tribeId},${request.userId},${request.version},${ADMISSION_REQUEST_STATUS.expired},${ADMISSION_DECISION_ACTOR_KIND.system},${ADMISSION_DECISION_RULE.expired},${policy?.version ?? request.originalPolicy.version},${policy?.verificationEpoch ?? request.originalPolicy.verificationEpoch},${JSON.stringify(snapshotAdmissionDecisionEvidence(request.evidence))}::jsonb)`);
+    const decision:AdmissionRequestAuditDecision={id:decisionId,rule:ADMISSION_DECISION_RULE.expired,policyVersion:policy?.version??request.originalPolicy.version,verificationEpoch:policy?.verificationEpoch??request.originalPolicy.verificationEpoch,decidedAt:await databaseNow(database)};
+    await database.execute(sql`insert into public.academy_admission_decisions(id,request_id,tribe_id,user_id,request_version,outcome,actor_kind,rule,policy_version,verification_epoch,evidence_snapshot,decided_at) values (${decision.id},${request.id},${request.tribeId},${request.userId},${request.version},${ADMISSION_REQUEST_STATUS.expired},${ADMISSION_DECISION_ACTOR_KIND.system},${decision.rule},${decision.policyVersion},${decision.verificationEpoch},${JSON.stringify(snapshotAdmissionDecisionEvidence(request.evidence))}::jsonb,${decision.decidedAt})`);
     const updated = (await database.execute(sql`update public.academy_admission_requests set status=${ADMISSION_REQUEST_STATUS.expired},decision_id=${decisionId},version=version+1 where id=${request.id} and tribe_id=${request.tribeId} and user_id=${request.userId} and status=${ADMISSION_REQUEST_STATUS.pending} and version=${request.version} and expires_at<=clock_timestamp() returning id`)).rows[0];
     if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
-    await this.record(database, scope, { ...request, version: request.version + 1, status: ADMISSION_REQUEST_STATUS.expired, decisionId }, ledgerId, ADMISSION_REQUEST_EVENT.expired, ADMISSION_DECISION_RULE.expired);
+    await this.record(database, scope, { ...request, version: request.version + 1, status: ADMISSION_REQUEST_STATUS.expired, decisionId, resolvedAt:decision.decidedAt }, ledgerId, ADMISSION_REQUEST_EVENT.expired, request, decision);
   }
 }
