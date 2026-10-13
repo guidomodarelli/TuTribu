@@ -10,13 +10,14 @@ import type { AllowlistImportRepository, AllowlistImportReference, AllowlistImpo
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "../../domain/entities/admission-operation";
 import { createAllowlistImport, selectAllowlistImportRows } from "../../domain/entities/allowlist-import";
 import { createAllowlistEntry } from "../../domain/entities/allowlist-entry";
+import { createAdmissionResourceAuditEvent } from "../../domain/entities/admission-resource-audit-event";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_ACTION } from "../../constants/admission-eligibility";
 import { ALLOWLIST_IMPORT_DENIAL, ALLOWLIST_IMPORT_EFFECT_SQL, ALLOWLIST_IMPORT_BLOCK_SIZE, ALLOWLIST_IMPORT_STEP_OVERHEAD } from "../../constants/allowlist-import";
 import { ADMISSION_IMPORT_PUBLIC_STATE, ADMISSION_IMPORT_ROW_OUTCOME } from "../../constants/admission-management-contract";
 import { ALLOWLIST_ENTRY_STATUS, ALLOWLIST_ENTRY_SOURCE } from "../../constants/admission-resources";
 import { ALLOWLIST_DATABASE_ORIGIN } from "../../constants/allowlist-management";
-import { ADMISSION_RESOURCE_KIND } from "../../constants/admission-authorization";
+import { ADMISSION_AUDIT_RESOURCE_TYPE } from "../../constants/admission-audit";
 import { ADMISSION_LIMIT } from "../../constants/admission-limits";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { TRIBE_ACCESS_MODEL } from "@/src/modules/product-access/constants/product-access";
@@ -24,6 +25,7 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { PostgresAdmissionOperationRepository } from "./postgres-admission-operation-repository";
+import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 import { createAdmissionOperationFingerprint } from "../verification/admission-operation-fingerprint";
 import { authorizeAdmissionLeader, admissionDatabaseNow } from "./postgres-admission-leader-authorizer";
 import { allowlistImportPreviewSnapshotSchema, allowlistImportDenialSchema, allowlistImportConfirmationSnapshotSchema } from "../../application/results/allowlist-import-operation-schemas";
@@ -202,7 +204,13 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
       const fingerprint = await createAdmissionContactFingerprint(contact, config);
       const entry = createAllowlistEntry({ id: randomUUID(), tribeId: record.tribe_id, actorUserId: context.userId, now, contact, displayName: validation.displayName, source: ALLOWLIST_ENTRY_SOURCE.csv, importId: record.id });
       await database.execute(sql`insert into public.academy_allowlist_entries(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,display_name,status,version,origin,import_id,created_by_user_id,updated_by_user_id,created_at,updated_at) values (${entry.id},${entry.tribeId},${entry.contact.type},${entry.contact.value},${Buffer.from(fingerprint.digest)},${fingerprint.keyId},${entry.displayName},${entry.status},${entry.version},${ALLOWLIST_DATABASE_ORIGIN.csv},${record.id},${context.userId},${context.userId},${now},${now})`);
-      await database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type,resource_version) values (${record.tribe_id},${context.userId},${ADMISSION_RESOURCE_KIND.allowlistEntry},${entry.id},${ledgerId},${REAUTHENTICATION_OPERATION.confirmAllowlistImport},1)`);
+      await new PostgresAdmissionAuditRepository(database).append(createAdmissionResourceAuditEvent({
+        tribeId: entry.tribeId, actorUserId: context.userId, operationId: ledgerId,
+        resourceType: ADMISSION_AUDIT_RESOURCE_TYPE.allowlistEntry, resourceId: entry.id,
+        eventType: REAUTHENTICATION_OPERATION.confirmAllowlistImport, resourceVersion: entry.version,
+        rule: null, cause: null, createdAt: entry.createdAt,
+        metadata: { fromStatus: null, toStatus: entry.status, previousVersion: null, importId: entry.importId, contactType: entry.contact.type },
+      }));
       outcome = ADMISSION_IMPORT_ROW_OUTCOME.added; entryId = entry.id; entryVersion = 1;
     }
     await database.execute(sql`update public.academy_allowlist_import_rows set outcome=${outcome},entry_id=${entryId},entry_version=${entryVersion},confirmed_operation_id=${ledgerId},committed_at=${now} where import_id=${record.id} and tribe_id=${record.tribe_id} and row_number=${row.row_number} and outcome is null`);

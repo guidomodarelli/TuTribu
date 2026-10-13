@@ -3,6 +3,8 @@ import {randomUUID} from "node:crypto";
 import {describe,expect,it} from "vitest";
 import {createAdmissionResourceAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-resource-audit-event";
 import type {AdmissionResourceAuditInput} from "@/src/modules/academy-admissions/domain/entities/admission-resource-audit-event";
+import {createPersonalInvitationAuditEvent} from "@/src/modules/academy-admissions/domain/entities/personal-invitation-audit-event";
+import {createPersonalInvitation,redeemPersonalInvitation,revokePersonalInvitation} from "@/src/modules/academy-admissions/domain/entities/personal-invitation";
 
 /** @returns A native owner scope with fixed provenance and a mutable clock for snapshot checks. */
 function ownerScope(){return{tribeId:randomUUID(),actorUserId:randomUUID(),operationId:randomUUID(),resourceId:randomUUID(),resourceVersion:2,rule:"effective_owner_rule",cause:null,createdAt:new Date("2026-10-13T17:00:00Z")};}
@@ -28,8 +30,8 @@ describe("complete private resource audit facts",()=>{
 
   it("should preserve single-use invitation lineage without copying a token or recipient",()=>{
     const scope=ownerScope(),requestId=randomUUID();
-    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"personal_invitation",eventType:"personal_invitation_redeemed",metadata:{fromStatus:"active",toStatus:"redeemed",previousVersion:1,requestId,token:"synthetic-private-token",contact:"private@example.test"}});
-    expect(event.metadata).toEqual({fromStatus:"active",toStatus:"redeemed",previousVersion:1,requestId});
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"personal_invitation",eventType:"personal_invitation_redeemed",metadata:{fromStatus:"active",toStatus:"redeemed",previousVersion:1,requestId,fromAuthorizationRevoked:false,toAuthorizationRevoked:false,token:"synthetic-private-token",contact:"private@example.test"}});
+    expect(event.metadata).toEqual({fromStatus:"active",toStatus:"redeemed",previousVersion:1,requestId,fromAuthorizationRevoked:false,toAuthorizationRevoked:false});
     expect(JSON.stringify(event)).not.toMatch(/synthetic-private-token|private@example\.test/);
   });
 
@@ -71,7 +73,7 @@ describe("complete private resource audit facts",()=>{
 
   it("should detach the authoritative audit timestamp from later caller clock changes",()=>{
     const scope=ownerScope();
-    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"personal_invitation",eventType:"expired",metadata:{fromStatus:"active",toStatus:"expired",previousVersion:1,requestId:null}});
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"personal_invitation",eventType:"expired",metadata:{fromStatus:"active",toStatus:"expired",previousVersion:1,requestId:null,fromAuthorizationRevoked:false,toAuthorizationRevoked:false}});
     scope.createdAt.setUTCDate(14);
     expect(event.createdAt.toISOString()).toBe("2026-10-13T17:00:00.000Z");
   });
@@ -100,5 +102,32 @@ describe("complete private resource audit facts",()=>{
   it("should close an unusable internal resource kind without reflecting its private content",()=>{
     const input={...ownerScope(),resourceType:"synthetic-private-kind",eventType:"private-label",metadata:{apiKey:"synthetic-private-key"}} as unknown as AdmissionResourceAuditInput;
     expect(()=>createAdmissionResourceAuditEvent(input)).toThrow(expect.objectContaining({code:"invalid_input"}));
+  });
+
+  it("should distinguish withdrawn redeemed authorization while preserving its consumed status and request",()=>{
+    const scope=ownerScope(),requestId=randomUUID();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"personal_invitation",eventType:"revoke_personal_invitation",metadata:{fromStatus:"redeemed",toStatus:"redeemed",previousVersion:2,requestId,fromAuthorizationRevoked:false,toAuthorizationRevoked:true,internalReason:"private-withdrawal-reason"}});
+    expect(event.metadata).toEqual({fromStatus:"redeemed",toStatus:"redeemed",previousVersion:2,requestId,fromAuthorizationRevoked:false,toAuthorizationRevoked:true});
+    expect(JSON.stringify(event)).not.toContain("private-withdrawal-reason");
+  });
+
+  it("should derive creation provenance from the effective invitation without copying its private recipient",()=>{
+    const scope=ownerScope();
+    const invitation=createPersonalInvitation({id:scope.resourceId,tribeId:scope.tribeId,actorUserId:scope.actorUserId,now:scope.createdAt,contact:{type:"email",value:"private@example.test"},internalName:"Private recipient name",requiresAllowlist:false,allowlistExemptionAcknowledged:true,policy:{contactType:"email",requiresAdditionalVerification:false}});
+    const event=createPersonalInvitationAuditEvent({actorUserId:scope.actorUserId,operationId:scope.operationId,eventType:"create_personal_invitation",invitation,previous:null});
+    expect(event).toMatchObject({tribeId:scope.tribeId,resourceId:invitation.id,resourceVersion:1,actorUserId:scope.actorUserId,operationId:scope.operationId,createdAt:scope.createdAt,metadata:{fromStatus:null,toStatus:"active",previousVersion:null,requestId:null,fromAuthorizationRevoked:null,toAuthorizationRevoked:false}});
+    expect(JSON.stringify(event)).not.toMatch(/private@example\.test|Private recipient name/);
+    invitation.updatedAt.setUTCDate(14);
+    expect(event.createdAt.toISOString()).toBe("2026-10-13T17:00:00.000Z");
+  });
+
+  it("should reconstruct an effective redeemed withdrawal independently of terminal request or membership outcomes",()=>{
+    const scope=ownerScope(),requestId=randomUUID();
+    const invitation=createPersonalInvitation({id:scope.resourceId,tribeId:scope.tribeId,actorUserId:scope.actorUserId,now:scope.createdAt,contact:{type:"email",value:"private@example.test"},internalName:"Private recipient name",requiresAllowlist:false,allowlistExemptionAcknowledged:true,policy:{contactType:"email",requiresAdditionalVerification:false}});
+    const redeemed=redeemPersonalInvitation({invitation,expectedVersion:1,userId:randomUUID(),requestId,now:new Date("2026-10-13T17:01:00Z")}).invitation;
+    const withdrawn=revokePersonalInvitation({invitation:redeemed,expectedVersion:2,revokeRedeemedAuthorization:true,now:new Date("2026-10-13T17:02:00Z")}).invitation;
+    const event=createPersonalInvitationAuditEvent({actorUserId:scope.actorUserId,operationId:scope.operationId,eventType:"revoke_personal_invitation",invitation:withdrawn,previous:redeemed});
+    expect(event).toMatchObject({resourceVersion:3,createdAt:withdrawn.updatedAt,metadata:{fromStatus:"redeemed",toStatus:"redeemed",previousVersion:2,requestId,fromAuthorizationRevoked:false,toAuthorizationRevoked:true}});
+    expect(JSON.stringify(event)).not.toMatch(/private@example\.test|Private recipient name/);
   });
 });

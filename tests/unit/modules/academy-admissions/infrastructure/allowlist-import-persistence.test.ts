@@ -40,6 +40,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist i
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 30 }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_audit_events where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 30 }]);
+        const audit=(await transaction.execute(sql`select event.metadata,event.actor_user_id,event.resource_version,event.event_type,event.created_at=entry.created_at and event.created_at=row.committed_at as owner_clock,event.operation_id=row.confirmed_operation_id as original_operation from public.academy_admission_audit_events event join public.academy_allowlist_entries entry on entry.id=event.resource_id and entry.tribe_id=event.tribe_id join public.academy_allowlist_import_rows row on row.entry_id=entry.id and row.tribe_id=entry.tribe_id where event.tribe_id=${fixture.tribeId}`)).rows;
+        expect(audit).toHaveLength(30);
+        for(const event of audit) expect(event).toEqual({metadata:{fromStatus:null,toStatus:"enabled",previousVersion:null,importId,contactType:"email"},actor_user_id:fixture.userId,resource_version:1,event_type:"confirm_allowlist_import",owner_clock:true,original_operation:true});
+        expect(JSON.stringify(audit)).not.toMatch(/person-|example\.test|Grupo|fingerprint|display_name/);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_allowlist_import_selections where import_id=${importId}`)).rows).toEqual([{ count: 2 }]);
       });
     });
@@ -77,6 +81,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist i
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select status,version,display_name from public.academy_allowlist_entries where id=${disabled.result.entryId}`)).rows).toEqual([{ status: "disabled", version: 2, display_name: "Anterior" }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 3 }]);
+        expect((await transaction.execute(sql`select event.metadata,event.created_at=entry.created_at as owner_clock from public.academy_admission_audit_events event join public.academy_allowlist_entries entry on entry.id=event.resource_id and entry.tribe_id=event.tribe_id where event.tribe_id=${fixture.tribeId} and event.event_type='confirm_allowlist_import'`)).rows).toEqual([{metadata:{fromStatus:null,toStatus:"enabled",previousVersion:null,importId,contactType:"email"},owner_clock:true}]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_contact_bindings where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 0 }]);
       });
     });
