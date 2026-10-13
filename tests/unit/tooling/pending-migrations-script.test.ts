@@ -194,6 +194,8 @@ describe("beez-rp create-version config", () => {
   it(
     "should report the database host as target and never throw when the database is unreachable",
     async () => {
+      vi.stubEnv("DATABASE_MIGRATION_URL", UNREACHABLE_DATABASE_URL);
+      vi.stubEnv("DATABASE_URL", undefined);
       const repositoryRoot = createRepositoryWithFeatureMigration();
       writeFileSync(path.join(repositoryRoot, ".env"), `DATABASE_MIGRATION_URL=${UNREACHABLE_DATABASE_URL}\n`);
 
