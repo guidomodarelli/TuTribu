@@ -2,6 +2,12 @@
 
 Preparación sobre `9ca50aa9`. Estado: entorno local indicado por el usuario, envíos autorizados por el usuario con límites explícitos; copia aislada con migraciones y protección interna preparada; cero envíos ejecutados. Complementa [la matriz local](contact-verification-channel-requirements-baseline.md) y [los gates operativos](operational-gates.md), sin sustituir ni aprobar OG-01 a OG-06. T106 permanece abierta; el objetivo conserva las 212 tareas.
 
+## Recuperación del entorno del piloto
+
+La primera copia temporal se cerró automáticamente al alcanzar el límite de doce horas de su orquestador. El cierre detuvo Next y retiró la rama propia; el proxy conservó una ruta hacia un puerto sin proceso y el navegador mostró HTTP 502. El resultado de cierre del orquestador sólo acredita su limpieza, no un ensayo externo completado. No es posible reconstruir en la copia ya retirada si el último guardado llegó a confirmarse; no se afirma éxito ni ausencia de ese guardado. La base original permanece sin cambios.
+
+Se preparó otra copia propia del mismo entorno test mediante el comando real de migraciones, con protección interna nueva y sin guardar claves en archivos. PostgreSQL confirmó el liderazgo canónico y las tablas de mensajería y recencia, con cero conexiones y operaciones en esa copia; la homepage y test respondieron HTTP 200. El orquestador actual permanece hasta la señal explícita de detención, conserva la copia y la configuración privada si el servidor se interrumpe y permite reiniciarlo manualmente sin reenviar escrituras. La sesión e intención de la copia retirada no se reutilizan: se restablece el acceso y se confirma el propósito actual antes de guardar una clave en el formulario privado. No hay un envío nuevo ni cierre de T106 o de gates por recuperar este entorno.
+
 ## Alcance concreto propuesto
 
 Dos tribus de prueba aisladas, un líder autorizado con conexiones Zavu propias y un solicitante de prueba que controla los destinos. Se ensaya correo, SMS y WhatsApp por separado; la política admite un tipo de contacto por tribu, por lo que correo y teléfono requieren configuración y conexiones independientes del mismo líder. No se cambia el tipo fijo de una academia activada. En la tribu telefónica, cambiar el canal principal SMS a WhatsApp y habilitar su alternativa exige comandos versionados explícitos y recursos preparados; no se simula ese cambio con SQL administrativo.
