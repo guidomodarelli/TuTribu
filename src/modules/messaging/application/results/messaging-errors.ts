@@ -1,7 +1,7 @@
 /** Represents messaging failure facts without provider payloads in the public contract. */
-import type { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
+import type {MessagingErrorCode} from "../../domain/errors/messaging-error-code";
 
-export type MessagingErrorCode = (typeof MESSAGING_ERROR_CODE)[keyof typeof MESSAGING_ERROR_CODE];
+export type {MessagingErrorCode} from "../../domain/errors/messaging-error-code";
 export type MessagingFailure = {
   code: MessagingErrorCode; cause?: unknown; upstreamStatus?: number; retryAt?: string;
   operation?: { operationId: string; state: "started" | "completed" };

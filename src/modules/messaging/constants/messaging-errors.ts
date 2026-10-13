@@ -1,4 +1,5 @@
 /** Names closed semantic outcomes and safe Spanish copy; transport mapping remains in infrastructure. */
+import type {MessagingErrorCode} from "../domain/errors/messaging-error-code";
 export const MESSAGING_ERROR_CODE = {
   invalidInput: "invalid_input",
   authenticationRequired: "authentication_required",
@@ -28,7 +29,7 @@ export const MESSAGING_ERROR_CODE = {
   upstreamPayloadUnusable: "upstream_payload_unusable",
   publicContractUnusable: "public_contract_unusable",
   unexpectedFailure: "unexpected_failure",
-} as const;
+} as const satisfies Record<string,MessagingErrorCode>;
 
 /** Only catalogue copy can cross the public error boundary. */
 export const MESSAGING_ERROR_MESSAGE = {

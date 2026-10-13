@@ -1,0 +1,104 @@
+/** Exercises the complete private audit vocabulary and its deliberate metadata projection. @module admission-resource-audit-event-tests */
+import {randomUUID} from "node:crypto";
+import {describe,expect,it} from "vitest";
+import {createAdmissionResourceAuditEvent} from "@/src/modules/academy-admissions/domain/entities/admission-resource-audit-event";
+import type {AdmissionResourceAuditInput} from "@/src/modules/academy-admissions/domain/entities/admission-resource-audit-event";
+
+/** @returns A native owner scope with fixed provenance and a mutable clock for snapshot checks. */
+function ownerScope(){return{tribeId:randomUUID(),actorUserId:randomUUID(),operationId:randomUUID(),resourceId:randomUUID(),resourceVersion:2,rule:"effective_owner_rule",cause:null,createdAt:new Date("2026-10-13T17:00:00Z")};}
+
+describe("complete private resource audit facts",()=>{
+  it("should reconstruct the request transition and its proof without copying applicant content",()=>{
+    // Arrange: the owner supplies references and effective statuses, never a raw command.
+    const scope=ownerScope(),proofId=randomUUID(),decisionId=randomUUID();
+    const input={...scope,resourceType:"admission_request" as const,eventType:"approved" as const,metadata:{fromStatus:"pending" as const,toStatus:"approved" as const,previousVersion:1,policyVersion:3,verificationEpoch:4,proofId,decisionId,invitationId:null,internalReason:"private-applicant-content",normalizedContact:"private@example.test",code:"synthetic-private-code",labels:{account:scope.actorUserId}}};
+    // Act.
+    const event=createAdmissionResourceAuditEvent(input);
+    // Assert: retained fields establish exactly which scoped evidence supported the transition.
+    expect(event).toEqual({...scope,resourceType:"admission_request",eventType:"approved",metadata:{fromStatus:"pending",toStatus:"approved",previousVersion:1,policyVersion:3,verificationEpoch:4,proofId,decisionId,invitationId:null}});
+    expect(JSON.stringify(event)).not.toMatch(/private-applicant-content|private@example\.test|synthetic-private-code|labels/);
+  });
+
+  it("should keep a list entry status and import lineage without copying its contact or name",()=>{
+    const scope=ownerScope(),importId=randomUUID();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"allowlist_entry",eventType:"confirm_allowlist_import",metadata:{fromStatus:null,toStatus:"enabled",previousVersion:null,importId,contactType:"email",normalizedContact:"private@example.test",internalName:"Private recipient"}});
+    expect(event.metadata).toEqual({fromStatus:null,toStatus:"enabled",previousVersion:null,importId,contactType:"email"});
+    expect(JSON.stringify(event)).not.toMatch(/private@example\.test|Private recipient/);
+  });
+
+  it("should preserve single-use invitation lineage without copying a token or recipient",()=>{
+    const scope=ownerScope(),requestId=randomUUID();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"personal_invitation",eventType:"personal_invitation_redeemed",metadata:{fromStatus:"active",toStatus:"redeemed",previousVersion:1,requestId,token:"synthetic-private-token",contact:"private@example.test"}});
+    expect(event.metadata).toEqual({fromStatus:"active",toStatus:"redeemed",previousVersion:1,requestId});
+    expect(JSON.stringify(event)).not.toMatch(/synthetic-private-token|private@example\.test/);
+  });
+
+  it("should snapshot current quota and country changes independently of mutable usage counters",()=>{
+    const scope=ownerScope(),countries=["AR","UY"];
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"messaging_usage_policy",eventType:"update_messaging_usage",metadata:{previousVersion:1,allowedCountries:countries,verificationDailyLimit:100,notificationDailyLimit:200,consumedToday:52,accountId:randomUUID()}});
+    countries.push("BR");
+    expect(event.metadata).toEqual({previousVersion:1,allowedCountries:["AR","UY"],verificationDailyLimit:100,notificationDailyLimit:200});
+    expect(JSON.stringify(event)).not.toMatch(/consumedToday|accountId/);
+  });
+
+  it("should record connection and version changes without copying operational credential material",()=>{
+    const scope=ownerScope();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"messaging_connection",eventType:"configure_messaging_connection",metadata:{fromState:"draft",toState:"ready",previousVersion:1,configurationVersion:2,previousConfigurationVersion:1,channel:"whatsapp",apiKey:"synthetic-private-key",ciphertext:"synthetic-private-envelope",providerPayload:{secret:true}}});
+    expect(event.metadata).toEqual({fromState:"draft",toState:"ready",previousVersion:1,configurationVersion:2,previousConfigurationVersion:1,channel:"whatsapp"});
+    expect(JSON.stringify(event)).not.toMatch(/synthetic-private-key|synthetic-private-envelope|providerPayload/);
+  });
+
+  it("should distinguish an authorized resource exposure from publishing resource or secret payloads",()=>{
+    const scope=ownerScope();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"authorized_exposure",eventType:"authorized_resource_exposure",metadata:{surface:"connection_resources",itemCount:2,resourceKind:"senders",resources:[{phone:"private"}],credential:"synthetic-private-key"}});
+    expect(event.metadata).toEqual({surface:"connection_resources",itemCount:2,resourceKind:"senders"});
+    expect(JSON.stringify(event)).not.toMatch(/synthetic-private-key|phone/);
+  });
+
+  it("should preserve the worker delivery transition without copying a message or recipient",()=>{
+    const scope={...ownerScope(),actorUserId:null,operationId:null};
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"message_delivery",eventType:"delivery_unknown",metadata:{fromState:"queued",toState:"unknown",previousVersion:1,connectionId:randomUUID(),connectionVersion:2,channel:"sms",attemptId:randomUUID(),authorizedUsagePolicyVersion:3,body:"synthetic-private-body",recipient:"private-phone"}});
+    expect(event).toMatchObject({actorUserId:null,operationId:null,metadata:{fromState:"queued",toState:"unknown",channel:"sms",authorizedUsagePolicyVersion:3}});
+    expect(JSON.stringify(event)).not.toMatch(/synthetic-private-body|private-phone/);
+  });
+
+  it("should retain protection rotation references without copying keys or ciphertext",()=>{
+    const scope=ownerScope();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"messaging_protection",eventType:"protection_keys_rotated",metadata:{purpose:"contact_fingerprint",previousKeyId:randomUUID(),activeKeyId:randomUUID(),securityEpoch:randomUUID(),materialBase64:"synthetic-private-key",ciphertext:"synthetic-private-envelope"}});
+    expect(event.metadata).not.toHaveProperty("materialBase64");
+    expect(JSON.stringify(event)).not.toMatch(/synthetic-private-key|synthetic-private-envelope/);
+  });
+
+  it("should detach the authoritative audit timestamp from later caller clock changes",()=>{
+    const scope=ownerScope();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"personal_invitation",eventType:"expired",metadata:{fromStatus:"active",toStatus:"expired",previousVersion:1,requestId:null}});
+    scope.createdAt.setUTCDate(14);
+    expect(event.createdAt.toISOString()).toBe("2026-10-13T17:00:00.000Z");
+  });
+
+  it("should retain the exact local proof references without treating an external receipt as verification",()=>{
+    const scope=ownerScope(),challengeId=randomUUID(),requestId=randomUUID();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"admission_proof",eventType:"proof_applied",metadata:{fromState:"available",toState:"applied",challengeId,requestId,verificationEpoch:3,channel:"email",codeMac:"private-verifier",codeEnvelope:"private-envelope"}});
+    expect(event.metadata).toEqual({fromState:"available",toState:"applied",challengeId,requestId,verificationEpoch:3,channel:"email"});
+    expect(JSON.stringify(event)).not.toMatch(/private-verifier|private-envelope/);
+  });
+
+  it("should preserve role and membership instance changes without copying global account or payment data",()=>{
+    const scope=ownerScope(),membershipInstanceId=randomUUID(),requestId=randomUUID(),decisionId=randomUUID();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"membership",eventType:"membership_admitted",metadata:{membershipInstanceId,fromRole:null,toRole:"tribemate",fromStatus:null,toStatus:"active",requestId,decisionId,globalEmailVerified:true,providerClaims:{private:true},paymentPayload:"private-payment"}});
+    expect(event.metadata).toEqual({membershipInstanceId,fromRole:null,toRole:"tribemate",fromStatus:null,toStatus:"active",requestId,decisionId});
+    expect(JSON.stringify(event)).not.toMatch(/globalEmailVerified|providerClaims|private-payment/);
+  });
+
+  it("should record only the bounded maintenance result without retaining deleted resources",()=>{
+    const scope={...ownerScope(),actorUserId:null,operationId:null,resourceVersion:null};
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"retention_run",eventType:"retention_completed",metadata:{owner:"admission_requests",processed:50,remaining:true,cutoff:"2026-04-16T00:00:00.000Z",deletedRows:[{contact:"private@example.test"}],snapshot:"private-snapshot"}});
+    expect(event.metadata).toEqual({owner:"admission_requests",processed:50,remaining:true,cutoff:"2026-04-16T00:00:00.000Z"});
+    expect(JSON.stringify(event)).not.toMatch(/private@example\.test|private-snapshot/);
+  });
+
+  it("should close an unusable internal resource kind without reflecting its private content",()=>{
+    const input={...ownerScope(),resourceType:"synthetic-private-kind",eventType:"private-label",metadata:{apiKey:"synthetic-private-key"}} as unknown as AdmissionResourceAuditInput;
+    expect(()=>createAdmissionResourceAuditEvent(input)).toThrow(expect.objectContaining({code:"invalid_input"}));
+  });
+});

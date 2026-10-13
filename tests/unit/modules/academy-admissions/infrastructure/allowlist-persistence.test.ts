@@ -35,6 +35,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist p
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_contact_bindings where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 0 }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.tribe_members where tribe_id=${fixture.tribeId} and role='tribemate'`)).rows).toEqual([{ count: 0 }]);
         expect((await transaction.execute(sql`select count(*)::int as count from public.academy_admission_audit_events where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ count: 2 }]);
+        // The original ledger, current actor and actual owner clock reconstruct both changes.
+        const audit = (await transaction.execute(sql`select event.event_type,event.resource_type,event.actor_user_id,event.resource_id,event.resource_version,event.rule,event.cause,event.metadata,operation.idempotency_key,event.created_at=case when event.resource_version=1 then entry.created_at else entry.updated_at end as owner_clock from public.academy_admission_audit_events event join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id join public.academy_allowlist_entries entry on entry.id=event.resource_id and entry.tribe_id=event.tribe_id where event.tribe_id=${fixture.tribeId} order by event.resource_version`)).rows;
+        expect(audit).toEqual([
+          { event_type: "create_allowlist_entry", resource_type: "allowlist_entry", actor_user_id: fixture.userId, resource_id: entryId, resource_version: 1, rule: null, cause: null, metadata: { fromStatus: null, toStatus: "enabled", previousVersion: null, importId: null, contactType: "email" }, idempotency_key: create.operationId, owner_clock: true },
+          { event_type: "update_allowlist_entry", resource_type: "allowlist_entry", actor_user_id: fixture.userId, resource_id: entryId, resource_version: 2, rule: null, cause: null, metadata: { fromStatus: "enabled", toStatus: "disabled", previousVersion: 1, importId: null, contactType: "email" }, idempotency_key: update.operationId, owner_clock: true },
+        ]);
+        expect(JSON.stringify(audit)).not.toMatch(/first\.last|example\.test|Otro nombre|Grupo|contact_fingerprint|fingerprint_key_id/);
       });
       const later = await fixture.writer.update({ ...update, operationId: randomUUID(), expectedVersion: 2, patch: { displayName: "Cambio posterior" } });
       expect(later).toMatchObject({ state: "completed", result: { version: 3, changed: true } });
