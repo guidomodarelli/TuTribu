@@ -2,6 +2,7 @@
 import { ADMISSION_POLICY_AUDIT } from "../../constants/admission-policy";
 import { ADMISSION_RESOURCE_KIND } from "../../constants/admission-authorization";
 import { ADMISSION_PROOF_AUDIT_EVENT, ADMISSION_PROOF_AUDIT_RULE } from "../../constants/admission-proof";
+import type {AdmissionResourceAuditEvent} from "./admission-resource-audit-event";
 
 /** Describes the native actor, original ledger and authoritative owner clock. */
 type AdmissionAuditScope = { tribeId: string; actorUserId: string; operationId: string; createdAt: Date };
@@ -12,10 +13,12 @@ export type AdmissionPolicyAuditInput = AdmissionAuditScope & { resourceId: stri
 /** Records the exact applied proof and the request version preceding its application. */
 export type AdmissionProofAuditInput = AdmissionAuditScope & { requestId: string; proofId: string; previousRequestVersion: number };
 /** Keeps private reconstructible resource references separate from public aggregate dimensions. */
-export type AdmissionAuditEvent = AdmissionAuditScope & { resourceId: string; rule: string | null; cause: null; resourceVersion: number } & (
+type AdmissionOwnerAuditEvent = AdmissionAuditScope & { resourceId: string; rule: string | null; cause: null; resourceVersion: number } & (
   { resourceType: "admission_policy"; eventType: AdmissionPolicyAuditOperation; metadata: Record<string, never> }
   | { resourceType: "admission_request"; eventType: "proof_attached"; metadata: { proofId: string; previousRequestVersion: number } }
 );
+/** Includes historical owner snapshots and the complete closed private resource vocabulary. */
+export type AdmissionAuditEvent=AdmissionOwnerAuditEvent|AdmissionResourceAuditEvent;
 
 /**
  * Selects the owner-derived fields of an effective policy change.

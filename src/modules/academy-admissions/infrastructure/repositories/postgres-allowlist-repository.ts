@@ -11,18 +11,20 @@ import type { AuthorizedAdmissionContext } from "../../domain/repositories/admis
 import type { AllowlistCommandWriter, AllowlistCreationIntent, AllowlistUpdateIntent, AllowlistMutationResult } from "../../domain/repositories/allowlist-management";
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "../../domain/entities/admission-operation";
 import { createAllowlistEntry, proposeAllowlistEntryChange, type AllowlistEntry } from "../../domain/entities/allowlist-entry";
+import { createAdmissionResourceAuditEvent } from "../../domain/entities/admission-resource-audit-event";
 import { normalizeAdmissionContact } from "../../domain/value-objects/admission-contact";
 import { normalizeAllowlistDisplayName } from "../../domain/value-objects/allowlist-display-name";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_ACTION } from "../../constants/admission-eligibility";
-import { ADMISSION_RESOURCE_KIND } from "../../constants/admission-authorization";
+import { ADMISSION_AUDIT_RESOURCE_TYPE } from "../../constants/admission-audit";
 import { ADMISSION_CONTACT_NORMALIZATION_STATUS } from "../../constants/admission-contact";
 import { ALLOWLIST_ENTRY_SOURCE, ALLOWLIST_ENTRY_STATUS } from "../../constants/admission-resources";
 import { ALLOWLIST_DATABASE_ORIGIN, ALLOWLIST_MUTATION_DENIAL, ALLOWLIST_EFFECT_SQL } from "../../constants/allowlist-management";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { allowlistMutationSnapshotSchema, allowlistMutationDenialSchema } from "../../application/results/allowlist-mutation-schemas";
 import { PostgresAdmissionOperationRepository } from "./postgres-admission-operation-repository";
+import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 import { authorizeAdmissionLeader, admissionDatabaseNow } from "./postgres-admission-leader-authorizer";
 import { createAdmissionContactFingerprint } from "../verification/admission-contact-fingerprint";
 import { mapAllowlistEntryRow, type AllowlistEntryRow } from "./allowlist-entry-row-mapper";
@@ -30,6 +32,8 @@ import { mapAllowlistEntryRow, type AllowlistEntryRow } from "./allowlist-entry-
 type ListIntent = AllowlistCreationIntent | AllowlistUpdateIntent;
 type MutationSnapshot = AllowlistMutationResult | { outcome: "denied"; code: "allowlist_conflict" | "invalid_input" | "resource_unavailable" };
 type ContextExecutor = <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
+/** Limits list audit facts to effective creation or editing, with import owned separately. */
+type AllowlistAuditOperation = "create_allowlist_entry" | "update_allowlist_entry";
 
 /** Every phase rechecks native authority; mutation, audit and original outcome commit together. */
 export class PostgresAllowlistRepository implements AllowlistCommandWriter {
@@ -45,9 +49,15 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
     return policy.contact_type;
   }
 
-  /** @param database - Original operation effect. @param context - Native actor/tenant. @param ledgerId - Actual original claim. @param operation - Server-selected command purpose. @param entry - Effectively changed configuration. @returns After its audit is staged without contact or owner payload. */
-  private async audit(database: RequestDatabase, context: AuthorizedAdmissionContext, ledgerId: string, operation: ReauthenticationOperation, entry: AllowlistEntry) {
-    await database.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,operation_id,event_type,resource_version) values (${context.tribeId},${context.userId},${ADMISSION_RESOURCE_KIND.allowlistEntry},${entry.id},${ledgerId},${operation},${entry.version})`);
+  /** @param database - Original operation effect. @param context - Native actor/tenant. @param ledgerId - Actual original claim. @param operation - Server-selected list command. @param entry - Effectively changed configuration and authoritative clock. @param previous - Locked prior status/version, or absence for creation. @returns After staging reconstructible facts without contact, name or fingerprint. */
+  private async audit(database: RequestDatabase, context: AuthorizedAdmissionContext, ledgerId: string, operation: AllowlistAuditOperation, entry: AllowlistEntry, previous: Pick<AllowlistEntry, "status" | "version"> | null) {
+    await new PostgresAdmissionAuditRepository(database).append(createAdmissionResourceAuditEvent({
+      tribeId: context.tribeId, actorUserId: context.userId, operationId: ledgerId,
+      resourceType: ADMISSION_AUDIT_RESOURCE_TYPE.allowlistEntry, resourceId: entry.id,
+      eventType: operation, resourceVersion: entry.version, rule: null, cause: null,
+      metadata: { fromStatus: previous?.status ?? null, toStatus: entry.status, previousVersion: previous?.version ?? null, importId: entry.importId, contactType: entry.contact.type },
+      createdAt: entry.updatedAt,
+    }));
   }
 
   /** @param intent - Exact native proposal, without caller permissions. @param operation - Server-owned namespace/recency. @param resourceId - Tribe for creation or exact entry for editing. @param payload - Canonical intent protected by the ledger. @param mutate - DB-only list effect returning a grant or known denial. @returns Confirmed original result or actual progress; no stale CAS overrides a replay. */
@@ -93,7 +103,7 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
       const config = await this.readSecurityConfig(), fingerprint = await createAdmissionContactFingerprint(contact, config), now = await admissionDatabaseNow(database);
       const entry = createAllowlistEntry({ id: randomUUID(), tribeId: intent.context.tribeId, actorUserId: intent.context.userId, now, contact, displayName, source: ALLOWLIST_ENTRY_SOURCE.manual });
       await database.execute(sql`insert into public.academy_allowlist_entries(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,display_name,status,version,origin,created_by_user_id,updated_by_user_id,created_at,updated_at) values (${entry.id},${entry.tribeId},${entry.contact.type},${entry.contact.value},${Buffer.from(fingerprint.digest)},${fingerprint.keyId},${entry.displayName},${entry.status},${entry.version},${ALLOWLIST_DATABASE_ORIGIN.manual},${entry.createdByUserId},${entry.updatedByUserId},${now},${now})`);
-      await this.audit(database, intent.context, ledgerId, REAUTHENTICATION_OPERATION.createAllowlistEntry, entry);
+      await this.audit(database, intent.context, ledgerId, REAUTHENTICATION_OPERATION.createAllowlistEntry, entry, null);
       const current = await this.readSecurityConfig();
       if (current.recoveryLocked || current.environment !== config.environment || current.securityEpoch !== config.securityEpoch || !current.keyrings.contact_fingerprint.keys.has(fingerprint.keyId)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       return { entryId: entry.id, version: entry.version, changed: true, created: true };
@@ -115,7 +125,7 @@ export class PostgresAllowlistRepository implements AllowlistCommandWriter {
       const entry = proposal.entry;
       const saved = (await database.execute(sql`update public.academy_allowlist_entries set display_name=${entry.displayName},status=${entry.status},version=${entry.version},updated_by_user_id=${entry.updatedByUserId},updated_at=${entry.updatedAt} where tribe_id=${entry.tribeId} and id=${entry.id} and version=${intent.expectedVersion} returning id`)).rows[0];
       if (!saved) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.allowlistConflict);
-      await this.audit(database, intent.context, ledgerId, REAUTHENTICATION_OPERATION.updateAllowlistEntry, entry);
+      await this.audit(database, intent.context, ledgerId, REAUTHENTICATION_OPERATION.updateAllowlistEntry, entry, row);
       return { entryId: entry.id, version: entry.version, changed: true, created: false };
     });
   }

@@ -1244,6 +1244,8 @@ Cierre de T135 sobre1ae66cb4: auditoría read-only de todas sus cláusulas sin b
 
 <a id="t170"></a>
 
+Avance de T169/T170 sin cierre: el contrato privado incorpora once variantes de recurso con metadata seleccionada, además de política y aplicación de prueba existentes. Creación y edición manual de lista usan el mismo puerto y reloj del efecto; actor, ledger, estado y versión anteriores se conservan sin contacto/nombre/fingerprint. Cuarenta y seis locales, tres PostgreSQL, tipos/lint/build y cuatro vistas de arquitectura pasan; los demás productores, actividad, métricas efectivas y retención conservan sus criterios pendientes. Ver [ampliación de auditoría y lista](validation/admission-resource-audit-baseline.md).
+
 - [ ] T170 [US11] Registrar actor/regla/tribu/recurso/version/causa de policy/conexión/quota/lista/canje/proof/decision/delivery y exposiciones autorizadas; agregar counts/queue age/unknown/leases/last successful run sin doble serie por rethrow, con request/trace ids y logger safe. Archivos: `src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository.ts`, `src/modules/academy-admissions/application/use-cases/get-admission-activity-and-metrics-use-cases.ts`, `src/modules/messaging/infrastructure/messaging-observability.ts`, `app/api/tribes/[slug]/admissions/activity/route.ts`, `app/api/tribes/[slug]/admissions/metrics/route.ts`. Dependencias: `T169`, `T165`. Trazabilidad: `FR-131`, `FR-142`, `US-11-AC-01`–`US-11-AC-02`, `US-11-AC-04`, `SC-017`, `TC-027`.
 
 <a id="t171"></a>
