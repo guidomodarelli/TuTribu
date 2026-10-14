@@ -5,6 +5,7 @@ import { ADMISSION_QUERY_LIMIT } from "./admission-public-contract";
 import { VERIFICATION_ISSUANCE_OPERATION } from "./verification-issuance";
 import { MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/message-delivery";
 import { ADMISSION_ADMINISTRATIVE_SURFACE } from "./admission-administrative-exposure";
+import { MESSAGING_SECRET_HUMAN_OPERATIONS, MESSAGING_SECRET_DELIVERY_SCOPE } from "@/src/modules/messaging/constants/messaging-secret-access";
 
 /** Paginates newest-first using the original SQL timestamp, including its microseconds. */
 export const ADMISSION_ACTIVITY_QUERY = { defaultLimit: ADMISSION_QUERY_LIMIT.defaultPageSize, maximumLimit: ADMISSION_QUERY_LIMIT.maximumPageSize, cursorSeparator: "|" } as const;
@@ -48,6 +49,7 @@ export const ADMISSION_ACTIVITY_RULES = [
   ...Object.values(ADMISSION_ACTIVITY_READ_RULE),
   VERIFICATION_ISSUANCE_OPERATION.issue, VERIFICATION_ISSUANCE_OPERATION.resend,
   MESSAGE_STORAGE_OPERATION.authorize, MESSAGE_STORAGE_OPERATION.complete, MESSAGE_STORAGE_OPERATION.reconcile,
+  ...MESSAGING_SECRET_HUMAN_OPERATIONS, MESSAGING_SECRET_DELIVERY_SCOPE.operation,
 ] as const;
 /** Safe causes remain separate from arbitrary exception labels and body content. */
 export const ADMISSION_ACTIVITY_CAUSES = [

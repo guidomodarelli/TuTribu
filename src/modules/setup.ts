@@ -30,8 +30,6 @@ import {createRegisteredMessagingAdapters} from "./messaging/infrastructure/comp
 import {MESSAGING_AUTHORIZATION_PURPOSE} from "./messaging/constants/messaging-connection";
 import {ScopedConnectionDiagnosticDispatcher} from "./messaging/infrastructure/composition/connection-diagnostic-dispatcher";
 import {CONNECTION_DIAGNOSTIC_DISPATCH_LOG} from "./messaging/constants/connection-diagnostic";
-import {MessagingDeliveryStorageError} from "./messaging/domain/errors/messaging-delivery-storage-error";
-import {MessagingDispatchDeadlineError} from "./messaging/domain/errors/messaging-dispatch-deadline-error";
 import {PostgresMessagingLifecycleDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-lifecycle-dependencies";
 import {readAdmissionEmailLifecycleDependency} from "./notifications/infrastructure/repositories/admission-email-lifecycle-reader";
 import {REAUTHENTICATION_OPERATION} from "./auth/constants/reauthentication-resources";
@@ -40,6 +38,7 @@ import type {RequestContext} from "./shared/infrastructure/observability/request
 import { getMessagingUsageCountryChoices } from "./messaging/infrastructure/composition/messaging-usage-country-choices";
 import { createRequestMessagingMaintenanceAuthorizer } from "./messaging/infrastructure/auth/request-maintenance-authorizer";
 import { MessagingSecretAccessError } from "./messaging/domain/errors/messaging-secret-access-error";
+import { createMessagingDispatchReporter } from "./messaging/infrastructure/messaging-observability";
 import { MESSAGING_ERROR_CODE } from "./messaging/constants/messaging-errors";
 import type { AuthenticatedFeatureDependencies } from "./auth/infrastructure/composition/transaction-account-provider";
 import { resolvePublicAppBaseUrl } from "./shared/infrastructure/backend/public-app-base-url";
@@ -616,7 +615,7 @@ export async function createMessagingDiagnosticRequestModule(requestContext:Requ
   const request=buildMessagingModule(dependencies).createRequestModule({selection:"management",readSecurityConfig:()=>readMessagingHostingSecurityConfig()});
   const logger=createServerLogger({feature:CONNECTION_DIAGNOSTIC_DISPATCH_LOG.feature,operation:REAUTHENTICATION_OPERATION.diagnoseMessagingConnection,...requestContext});
   const adapters=createRequestMessagingProviderAdapters(databaseClient);
-  const dispatcher=new ScopedConnectionDiagnosticDispatcher({readSecurityFacts:async()=>readMessagingHostingSecurityFacts(),createDispatcher:(diagnosticScope,authorize)=>buildMessagingWorkModule({diagnosticScope,authorize,execute:(actorUserId,run)=>databaseClient.withRequestContext({userId:actorUserId,email:null},run),readSecurityConfig:()=>readMessagingHostingSecurityConfig(),createSender:adapters.createSender,runtime:{now:Date.now,createId:()=>crypto.randomUUID(),defer:(work)=>{after(()=>work);},report:(diagnostic)=>{const code=diagnostic.cause instanceof MessagingDeliveryStorageError||diagnostic.cause instanceof MessagingSecretAccessError||diagnostic.cause instanceof MessagingDispatchDeadlineError?diagnostic.cause.code:MESSAGING_ERROR_CODE.unexpectedFailure;logger.error({message:CONNECTION_DIAGNOSTIC_DISPATCH_LOG.message,metadata:{stage:diagnostic.stage,code,deliveryId:diagnostic.deliveryId,attemptId:diagnostic.attemptId}});}}}).useCases.dispatch});
+  const dispatcher=new ScopedConnectionDiagnosticDispatcher({readSecurityFacts:async()=>readMessagingHostingSecurityFacts(),createDispatcher:(diagnosticScope,authorize)=>buildMessagingWorkModule({diagnosticScope,authorize,execute:(actorUserId,run)=>databaseClient.withRequestContext({userId:actorUserId,email:null},run),readSecurityConfig:()=>readMessagingHostingSecurityConfig(),createSender:adapters.createSender,runtime:{now:Date.now,createId:()=>crypto.randomUUID(),defer:(work)=>{after(()=>work);},report:createMessagingDispatchReporter(logger,CONNECTION_DIAGNOSTIC_DISPATCH_LOG.message)}}).useCases.dispatch});
   return{issue:request.createDiagnosticIssuance(dispatcher),verify:request.useCases.verifyDiagnostic,resolveTribe:routing.resolveTribe};
 }
 
@@ -639,10 +638,7 @@ export async function createAdmissionContactVerificationRequestModule(requestCon
         focalScope, authorize,
         execute: (actorUserId, run) => databaseClient.withRequestContext({ userId: actorUserId, email: null }, run),
         readSecurityConfig: () => readMessagingHostingSecurityConfig(), createSender: adapters.createSender,
-        runtime: { now: Date.now, createId: () => crypto.randomUUID(), defer: (work) => { after(() => work); }, report: (diagnostic) => {
-          const code = diagnostic.cause instanceof MessagingDeliveryStorageError || diagnostic.cause instanceof MessagingSecretAccessError || diagnostic.cause instanceof MessagingDispatchDeadlineError ? diagnostic.cause.code : MESSAGING_ERROR_CODE.unexpectedFailure;
-          logger.error({ message: ADMISSION_VERIFICATION_DISPATCH_LOG.message, metadata: { stage: diagnostic.stage, code, deliveryId: diagnostic.deliveryId, attemptId: diagnostic.attemptId } });
-        } },
+        runtime: { now: Date.now, createId: () => crypto.randomUUID(), defer: (work) => { after(() => work); }, report: createMessagingDispatchReporter(logger, ADMISSION_VERIFICATION_DISPATCH_LOG.message) },
       }).useCases.dispatch,
     }),
   }).useCases;

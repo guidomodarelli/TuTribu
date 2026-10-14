@@ -8,6 +8,7 @@ import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from 
 import { createMessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 import { PostgresEncryptedSecretStore } from "@/src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store";
+import { PostgresMessagingResourceExposureRecorder } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure";
 import type { AuthorizedDeliveryMessagingContext, AuthorizedMessagingContext, MessagingAuthenticatedAccount } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 
 /** Supplies independent synthetic keys without writing hosting or provider configuration. */
@@ -75,12 +76,24 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("encrypted messagin
       const retained=await database.withContext(fixture.own,async(transaction)=>({connection:(await transaction.execute(sql`select state,contributed_by_user_id,is_selected,selected_version,is_candidate,candidate_version from public.tenant_messaging_connections where id=${fixture.connectionId}`)).rows[0],material:(await transaction.execute(sql`select retired_at,purge_after,purged_at from public.messaging_secret_envelopes where secret_ref=${fixture.secretRef}`)).rows[0],creator:(await transaction.execute(sql`select created_by from public.tribes where id=${fixture.tribeId}`)).rows[0]}));expect(retained).toEqual({connection:{...originalConnection,state:"suspended"},material:{retired_at:null,purge_after:null,purged_at:null},creator:{created_by:fixture.userId}});
     });
   },600_000);
-  it("should return backend-only material from current authoritative identity and leave storage unchanged", async () => {
+  it("should return backend-only material and record only fixed secret/resource facts without changing credential storage", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareStore(database);
       expect(await fixture.store.loadAuthorizedSecret(fixture.context)).toBe(fixture.credential);
       const metadata = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select retired_at,purge_after from public.messaging_secret_envelopes where secret_ref=${fixture.secretRef}`)).rows[0]);
       expect(metadata).toEqual({ retired_at: null, purge_after: null });
+      const recorder = new PostgresMessagingResourceExposureRecorder((context, run) => database.withContext({ userId: context.actorUserId, email: null }, run), async () => ({ environment: fixture.config.environment, securityEpoch: fixture.config.securityEpoch, recoveryLocked: false }));
+      await recorder.record(fixture.context, { kind: "senders", itemCount: 2 });
+      const accesses = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ actor_user_id: string; operation_id: string | null; resource_id: string; resource_version: number; metadata: object }>(sql`select actor_user_id,operation_id,resource_id,resource_version,metadata from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} and event_type='authorized_resource_exposure' order by created_at,id`)).rows);
+      expect(accesses).toHaveLength(2);
+      expect(accesses.map((access) => access.metadata)).toEqual([{ surface: "operational_secret", resourceKind: "credential", itemCount: 1 }, { surface: "connection_resources", resourceKind: "senders", itemCount: 2 }]);
+      expect(accesses.every((access) => access.actor_user_id === fixture.userId && access.operation_id === null && access.resource_id === fixture.connectionId && access.resource_version === 1)).toBe(true);
+      expect(JSON.stringify(accesses)).not.toContain(fixture.credential);
+      expect(JSON.stringify(accesses)).not.toContain(fixture.secretRef);
+      let reads = 0;
+      const stopped = new PostgresMessagingResourceExposureRecorder((context, run) => database.withContext({ userId: context.actorUserId, email: null }, run), async () => ({ environment: fixture.config.environment, securityEpoch: fixture.config.securityEpoch, recoveryLocked: ++reads > 1 }));
+      await expect(stopped.record(fixture.context, { kind: "senders", itemCount: 2 })).rejects.toMatchObject({ code: "connection_incomplete" });
+      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::integer as count from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} and event_type='authorized_resource_exposure'`)).rows)).toEqual([{ count: 2 }]);
     });
   }, 120_000);
 

@@ -48,6 +48,7 @@ import { PostgresMessagingUsageOperations } from "./infrastructure/repositories/
 import { PostgresConnectionDiagnosticOperations } from "./infrastructure/repositories/postgres-connection-diagnostic-operations";
 import { PostgresCredentialValidationBudget } from "./infrastructure/repositories/postgres-credential-validation-budget";
 import { PostgresEncryptedSecretStore } from "./infrastructure/repositories/postgres-encrypted-secret-store";
+import { PostgresMessagingResourceExposureRecorder } from "./infrastructure/repositories/postgres-messaging-authorized-exposure";
 import { PostgresMessageDeliveryRepository } from "./infrastructure/repositories/postgres-message-delivery-repository";
 import { PostgresVerificationDeliveryPreparation } from "./infrastructure/repositories/postgres-verification-delivery-preparation";
 import { PostgresVerificationMaterialMaintenance } from "./infrastructure/repositories/postgres-verification-material-maintenance";
@@ -216,7 +217,7 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
         /** @param inspectors - Explicit approved infrastructure factory; no mutable client/default key. @returns Staged credential validation with current authority, accounting and private material. */
         createCredentialValidation(inspectors:MessagingCredentialInspectorFactory){return new ValidateMessagingConnectionUseCase(resolveContext,new PostgresMessagingCredentialValidation(executeActor,options.readSecurityConfig),new ReserveMessagingUsageUseCase(new PostgresCredentialValidationBudget(executeActor,options.readSecurityConfig),dependencies.clock),secrets,inspectors,dependencies.clock);},
         /** @param inspectors - Explicit scoped SDK readers. @returns Current recency/resource-gated enumeration without mutation or dispatch. */
-        createResourceListing(inspectors:MessagingResourceInspectorFactory){return new ReadMessagingResourcesUseCase(resolveContext,secrets,inspectors);},
+        createResourceListing(inspectors:MessagingResourceInspectorFactory){return new ReadMessagingResourcesUseCase(resolveContext,secrets,inspectors,new PostgresMessagingResourceExposureRecorder(executeActor,async()=>{const current=await options.readSecurityConfig();return{environment:current.environment,securityEpoch:current.securityEpoch,recoveryLocked:current.recoveryLocked};}));},
         /** @param inspectors - Explicit detail-only SDK factory. @returns Original/CAS configuration staging with private immutable envelopes, without a dispatcher. */
         createConnectionConfiguration(inspectors:MessagingConfigurationInspectorFactory){return new ConfigureMessagingConnectionUseCase(resolveContext,new PostgresMessagingConnectionConfiguration(executeActor,options.readSecurityConfig),secrets,inspectors);},
         /** @param dispatcher - Explicit backend focal launch for the committed result. @returns Actual current-account diagnostic issuance with shared budgets/outbox, followed by bounded dispatch. */
