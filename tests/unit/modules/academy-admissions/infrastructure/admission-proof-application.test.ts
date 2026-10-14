@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 /** Exercises proof/contact/request/ledger atomicity without a messaging provider or membership grant. */
 import { randomUUID } from "node:crypto";
+
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -53,6 +54,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof ap
   it("should expose revoked applied evidence to its applicant after verification is disabled without reviving proof or changing the pending request", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareApplication(database), sessionId = randomUUID();
+      await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
       await database.applyMigration("20261006234000_read_own_admission_summary.sql");
       await database.applyMigration("20261011024000_read_current_own_admission_eligibility.sql");
       expect(await fixture.apply()).toMatchObject({ state: "completed", result: { outcome: "applied", requestVersion: 2 } });
@@ -88,6 +90,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof ap
         expect(audits).toHaveLength(1);
         expect(audits[0]).toMatchObject({ event_type: "proof_attached" });
         expect(JSON.stringify(audits)).not.toContain(fixture.own.email);
+        const proofAudits = (await transaction.execute(sql`select event.actor_user_id,event.resource_version,event.rule,event.cause,event.metadata,event.created_at=proof.applied_at as owner_clock,operation.idempotency_key from public.academy_admission_audit_events event join public.academy_admission_verification_proofs proof on proof.id=event.resource_id and proof.tribe_id=event.tribe_id join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.resource_id=${fixture.proofId} and event.event_type='proof_applied'`)).rows;
+        expect(proofAudits).toEqual([{ actor_user_id: fixture.userId, resource_version: null, rule: "local_verification", cause: null, owner_clock: true, idempotency_key: fixture.operationId, metadata: { fromState: "available", toState: "applied", challengeId: fixture.challenge.challengeId, requestId: fixture.requestId, verificationEpoch: fixture.challenge.scope.verificationEpoch, channel: fixture.challenge.scope.channel } }]);
         expect((await transaction.execute(sql`select user_id from public.tribe_members where tribe_id=${fixture.challenge.scope.tribeId}`)).rows).toEqual([]);
       });
     });
@@ -104,6 +108,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof ap
         expect((await transaction.execute(sql`select version,normalized_contact,proof_id,binding_id from public.academy_admission_requests where id=${fixture.requestId}`)).rows).toEqual([{ version: 1, normalized_contact: "fixed@example.test", proof_id: null, binding_id: null }]);
         expect((await transaction.execute(sql`select status from public.academy_admission_verification_proofs where id=${fixture.proofId}`)).rows).toEqual([{ status: "available" }]);
         expect((await transaction.execute(sql`select id from public.academy_admission_contact_bindings where tribe_id=${fixture.challenge.scope.tribeId}`)).rows).toEqual([]);
+        expect((await transaction.execute(sql`select resource_id from public.academy_admission_audit_events where resource_id=${fixture.proofId} and event_type='proof_applied'`)).rows).toEqual([]);
       });
     });
   }, 180_000);
@@ -120,6 +125,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof ap
         expect((await transaction.execute(sql`select status,applied_request_id from public.academy_admission_verification_proofs where id=${fixture.proofId}`)).rows).toEqual([{ status: "available", applied_request_id: null }]);
         expect((await transaction.execute(sql`select id from public.academy_admission_contact_bindings where tribe_id=${fixture.challenge.scope.tribeId}`)).rows).toEqual([]);
         expect((await transaction.execute(sql`select id from public.academy_admission_audit_events where resource_id=${fixture.requestId}`)).rows).toEqual([]);
+        expect((await transaction.execute(sql`select id from public.academy_admission_audit_events where resource_id=${fixture.proofId} and event_type='proof_applied'`)).rows).toEqual([]);
       });
       expect(await fixture.ledger.read(fixture.command, resultSchema)).toMatchObject({ state: "started" });
     });
@@ -146,6 +152,37 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission proof ap
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id from public.academy_admission_contact_bindings where tribe_id=${fixture.challenge.scope.tribeId}`)).rows)).toEqual([]);
     });
   }, 180_000);
+
+  it("should audit applied proof scope retirement once and roll back closure facts with the original request", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareApplication(database);
+      for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261006220000_extend_admission_notifications.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql", "20261011223000_close_admission_scope_lifecycle.sql", "20261014030211_audit_scope_closed_verification_proofs.sql"]) await database.applyMigration(migration);
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,changed_by_user_id) values (${fixture.challenge.scope.tribeId},${fixture.userId})`));
+      expect(await fixture.apply()).toMatchObject({ state: "completed", result: { outcome: "applied" } });
+      const before = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select status,version,proof_id,submitted_at,expires_at from public.academy_admission_requests where id=${fixture.requestId}`)).rows[0]);
+      await expect(database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`select id from public.tribes where id=${fixture.challenge.scope.tribeId} for update`);
+        await transaction.execute(sql`select public.close_academy_admission_scope(${fixture.challenge.scope.tribeId},'academy_unavailable')`);
+        throw new Error("Controlled scope closure loss after proof audit");
+      })).rejects.toThrow("Controlled scope closure loss after proof audit");
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select status,version,proof_id,submitted_at,expires_at from public.academy_admission_requests where id=${fixture.requestId}`)).rows).toEqual([before]);
+        expect((await transaction.execute(sql`select status,invalidated_at from public.academy_admission_verification_proofs where id=${fixture.proofId}`)).rows).toEqual([{ status: "applied", invalidated_at: null }]);
+        expect((await transaction.execute(sql`select resource_id from public.academy_admission_audit_events where resource_id=${fixture.proofId} and event_type='proof_invalidated'`)).rows).toEqual([]);
+      });
+      for (const _replay of [false, true]) {
+        await database.withContext(fixture.own, async (transaction) => {
+          await transaction.execute(sql`select id from public.tribes where id=${fixture.challenge.scope.tribeId} for update`);
+          await transaction.execute(sql`select public.close_academy_admission_scope(${fixture.challenge.scope.tribeId},'academy_unavailable')`);
+        });
+      }
+      await database.withContext(fixture.own, async (transaction) => {
+        const audit = (await transaction.execute(sql`select event.actor_user_id,event.operation_id,event.resource_version,event.rule,event.cause,event.metadata,event.created_at=proof.invalidated_at as owner_clock from public.academy_admission_audit_events event join public.academy_admission_verification_proofs proof on proof.id=event.resource_id and proof.tribe_id=event.tribe_id where event.resource_id=${fixture.proofId} and event.event_type='proof_invalidated'`)).rows;
+        expect(audit).toEqual([{ actor_user_id: fixture.userId, operation_id: null, resource_version: null, rule: "academy_unavailable", cause: "scope_retired", owner_clock: true, metadata: { fromState: "applied", toState: "invalid", challengeId: fixture.challenge.challengeId, requestId: fixture.requestId, verificationEpoch: fixture.challenge.scope.verificationEpoch, channel: fixture.challenge.scope.channel } }]);
+        expect((await transaction.execute(sql`select status,version,proof_id,submitted_at,expires_at from public.academy_admission_requests where id=${fixture.requestId}`)).rows).toEqual([{ ...before, status: "cancelled", version: 3 }]);
+      });
+    });
+  }, 240_000);
 
   it("should upgrade the same declared contact and preserve an earlier binding owned by a different account", async () => {
     await withAcademyAdmissionDatabase(async (database) => {

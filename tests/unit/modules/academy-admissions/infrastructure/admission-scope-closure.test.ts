@@ -12,6 +12,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native academy sco
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareTribeMembershipLifecycle(database), invitationId = randomUUID();
       await database.applyMigration("20261011223000_close_admission_scope_lifecycle.sql");
+      await database.applyMigration("20261014030211_audit_scope_closed_verification_proofs.sql");
       const own = { userId: fixture.leader.userId, email: fixture.leader.email };
       await database.withContext(own, async (transaction) => {
         await transaction.execute(sql`insert into public.academy_personal_invitations(id,tribe_id,contact_type,normalized_contact,internal_name,requires_allowlist,contact_fingerprint,fingerprint_key_id,created_by_user_id,expires_at,token_hash,token_key_id) values (${invitationId},${fixture.tribeId},'email','unused@example.test','Unused synthetic invitation',false,${randomBytes(32)},'synthetic-contact-key',${fixture.leader.userId},clock_timestamp()+interval '7 days',${randomBytes(32)},'synthetic-scope-token')`);

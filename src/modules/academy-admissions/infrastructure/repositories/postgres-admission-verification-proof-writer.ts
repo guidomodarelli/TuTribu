@@ -4,8 +4,10 @@ import { assertUnreservedAdmissionContact } from "./assert-unreserved-admission-
 import { sql } from "drizzle-orm";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { ADMISSION_PROOF_OPERATION, ADMISSION_CONTACT_BINDING_LOCK_DOMAIN, ADMISSION_PROOF_APPLICATION_OUTCOME } from "@/src/modules/academy-admissions/constants/admission-proof";
+import { ADMISSION_PROOF_OPERATION, ADMISSION_CONTACT_BINDING_LOCK_DOMAIN, ADMISSION_PROOF_APPLICATION_OUTCOME, ADMISSION_PROOF_APPLICATION_AUDIT_EVENT, ADMISSION_PROOF_AUDIT_RULE } from "@/src/modules/academy-admissions/constants/admission-proof";
+import { ADMISSION_AUDIT_RESOURCE_TYPE } from "../../constants/admission-audit";
 import { createAdmissionProofAuditEvent } from "../../domain/entities/admission-audit-event";
+import { createAdmissionResourceAuditEvent } from "../../domain/entities/admission-resource-audit-event";
 import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
 import { ADMISSION_REQUEST_STATUS, ADMISSION_OPERATION_TYPE } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_EVIDENCE_KIND, ADMISSION_PROOF_STATUS, ADMISSION_SOURCE_KIND, ADMISSION_INVITATION_STATUS, ADMISSION_VERIFICATION_PURPOSE } from "@/src/modules/academy-admissions/constants/admission-eligibility";
@@ -85,13 +87,20 @@ export class PostgresAdmissionVerificationProofWriter implements AdmissionVerifi
     const requestVersion = request.version + 1;
     const updated = (await this.database.execute(sql`update public.academy_admission_requests set contact_type=${command.scope.contact.type},normalized_contact=${command.scope.contact.value},contact_fingerprint=${Buffer.from(challenge.contact_fingerprint)},fingerprint_key_id=${challenge.fingerprint_key_id},evidence_source=${ADMISSION_EVIDENCE_KIND.local},proof_id=${row.id},binding_id=${binding.id},version=${requestVersion} where id=${request.id} and version=${request.version} and status=${ADMISSION_REQUEST_STATUS.pending} returning id`)).rows[0];
     if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
-    const applied = (await this.database.execute(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.applied},applied_request_id=${request.id},applied_at=${now} where id=${row.id} and status=${ADMISSION_PROOF_STATUS.available} returning id`)).rows[0];
+    const applied = (await this.database.execute<{ id: string; applied_at: Date | string }>(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.applied},applied_request_id=${request.id},applied_at=${now} where id=${row.id} and status=${ADMISSION_PROOF_STATUS.available} returning id,applied_at`)).rows[0];
     if (!applied) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.proofUnavailable);
-    await new PostgresAdmissionAuditRepository(this.database).append(createAdmissionProofAuditEvent({
+    await new PostgresAdmissionAuditRepository(this.database).appendMany([createAdmissionProofAuditEvent({
       tribeId: command.scope.tribeId, actorUserId: command.scope.userId,
       operationId: command.ledgerId, requestId: request.id, proofId: row.id,
       previousRequestVersion: request.version, createdAt: now,
-    }));
+    }), createAdmissionResourceAuditEvent({
+      tribeId: command.scope.tribeId, actorUserId: command.scope.userId, operationId: command.ledgerId,
+      resourceType: ADMISSION_AUDIT_RESOURCE_TYPE.proof, resourceId: applied.id,
+      eventType: ADMISSION_PROOF_APPLICATION_AUDIT_EVENT, resourceVersion: null,
+      rule: ADMISSION_PROOF_AUDIT_RULE, cause: null, createdAt: new Date(applied.applied_at),
+      metadata: { fromState: row.status, toState: ADMISSION_PROOF_STATUS.applied, challengeId: row.challenge_id,
+        requestId: request.id, verificationEpoch: row.verification_epoch, channel: challenge.channel },
+    })]);
     const currentConfig = await this.readSecurityConfig();
     if (currentConfig.recoveryLocked || currentConfig.environment !== config.environment || currentConfig.securityEpoch !== config.securityEpoch || !await this.isAuthorized(command.scope)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
     return { outcome: ADMISSION_PROOF_APPLICATION_OUTCOME.applied, requestId: request.id, requestVersion, status: ADMISSION_REQUEST_STATUS.pending, proofId: row.id };
