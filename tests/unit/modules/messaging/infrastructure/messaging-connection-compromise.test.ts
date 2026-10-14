@@ -12,6 +12,7 @@ import type { MessagingConnectionLifecycleContext } from "@/src/modules/messagin
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admission-proof-invalidation-audit-assertions";
+import { expectMessageDeliveryCancellationAudits } from "@/tests/support/message-delivery-cancellation-audit-assertions";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("compromised connection evidence",()=>{
   it("should preserve actual approved membership, applied proof and decision provenance after a compromised connection is suspended",async()=>{
@@ -64,6 +65,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("compromised connecti
       expect(await owner.suspend(context,input)).toMatchObject({state:"completed",result:{id:previous.connectionId,version:2,state:"suspended",reason:"suspected_compromise",changed:true}});
       const expectedProofAudits={tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:input.operationId,cause:"suspected_compromise",proofs:[{proofId:previous.used.proofId,challengeId:previous.used.challengeId,fromState:"applied" as const,requestId:previous.requestId,verificationEpoch:Number(before.policy.verification_epoch),channel:"email" as const},{proofId:previous.unused.proofId,challengeId:previous.unused.challengeId,fromState:"available" as const,requestId:null,verificationEpoch:Number(before.policy.verification_epoch),channel:"email" as const}]};
       await database.withContext(fixture.fixture.own,(transaction)=>expectAdmissionProofInvalidationAudits(transaction,expectedProofAudits));
+      const expectedDeliveryAudits={tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:input.operationId,cause:"suspected_compromise" as const,deliveries:[previous.used,previous.unused].map((evidence)=>({deliveryId:evidence.deliveryId,connectionId:previous.connectionId,connectionVersion:1,channel:"email" as const,version:2}))};
+      await database.withContext(fixture.fixture.own,(transaction)=>expectMessageDeliveryCancellationAudits(transaction,expectedDeliveryAudits));
       const after=await previous.snapshot();expect(after.policy).toEqual(before.policy);expect(after.request).toEqual(before.request);expect(after.usage).toEqual(before.usage);expect(after.reservations).toEqual(before.reservations);expect(after.secrets).toEqual(before.secrets);
       expect(after.connections.find((connection)=>connection.id===created.result.id)).toEqual(before.connections.find((connection)=>connection.id===created.result.id));expect(after.connections.find((connection)=>connection.id===previous.connectionId)).toMatchObject({state:"suspended",is_selected:true,selected_version:1});
       for(const evidence of[previous.used,previous.unused])expect(after.proofs.find((proof)=>proof.id===evidence.proofId)).toMatchObject({status:"invalid",invalidation_reason:"suspected_compromise"});
@@ -71,6 +74,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("compromised connecti
       for(const deliveryId of[previous.acceptedDeliveryId,previous.unknownDeliveryId])expect(after.deliveries.find((delivery)=>delivery.id===deliveryId)).toEqual(before.deliveries.find((delivery)=>delivery.id===deliveryId));
       for(const evidence of[previous.used,previous.unused])expect(after.deliveries.find((delivery)=>delivery.id===evidence.deliveryId)).toMatchObject({state:"cancelled",last_outcome:"suspected_compromise"});
       expect(await owner.suspend(context,input)).toMatchObject({state:"completed",replayed:true,result:{version:2,changed:true}});expect(await previous.snapshot()).toEqual(after);
+      await database.withContext(fixture.fixture.own,(transaction)=>expectMessageDeliveryCancellationAudits(transaction,expectedDeliveryAudits));
       await database.withContext(fixture.fixture.own,(transaction)=>expectAdmissionProofInvalidationAudits(transaction,expectedProofAudits));
     });
   },600_000);

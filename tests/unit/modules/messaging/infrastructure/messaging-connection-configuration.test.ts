@@ -9,8 +9,45 @@ import {PostgresMessagingConnectionConfiguration} from "@/src/modules/messaging/
 import type {AuthorizedMessagingContext} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database/server-database-client";
 import {createMessagingSecretCipher,type MessagingSecretEnvelope} from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
+import {prepareContactVerificationIssuer} from "@/tests/support/contact-verification-issuance-fixture";
+import {expectMessageDeliveryCancellationAudits} from "@/tests/support/message-delivery-cancellation-audit-assertions";
+import {RECENT_AUTHENTICATION_WINDOW_MS} from "@/src/modules/auth/constants/recent-authentication";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("immutable SQL configuration",()=>{
+  it("should cancel the original queued diagnostic with the current configuration ledger once while preserving its delivery identity",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareContactVerificationIssuer(database,"connection_diagnostic");
+      await database.applyMigration("20261005095000_guard_global_identity_context.sql");
+      await database.applyMigration("20261005100000_guard_messaging_secret_retirement.sql");
+      const issued=await fixture.issue();
+      if(issued.state!=="completed"||issued.result.outcome!=="issued")throw new Error("Synthetic original diagnostic did not complete");
+      const deliveryId=issued.result.deliveryId,sessionId=randomUUID(),accountId=randomUUID(),subject=randomUUID(),intentId=randomUUID();
+      const context=await database.withContext(fixture.own,async(transaction):Promise<AuthorizedMessagingContext>=>{
+        const now=new Date((await transaction.execute<{instant:string|Date}>(sql`select clock_timestamp() as instant`)).rows[0].instant),validUntil=new Date(now.getTime()+RECENT_AUTHENTICATION_WINDOW_MS);
+        await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},'google',${subject},${now},${now})`);
+        await transaction.execute(sql`insert into public.session(id,token,"userId","expiresAt","createdAt","updatedAt") values (${sessionId},${randomUUID()},${fixture.userId},clock_timestamp()+interval '1 hour',${now},${now})`);
+        await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
+        await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.userId},${sessionId},${accountId},${subject},${fixture.scope.tribeId},'configure_messaging_connection',${fixture.scope.connectionId},'/synthetic-diagnostic-configure',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);
+        await transaction.execute(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${intentId},${fixture.userId},${accountId},${subject},${sessionId},${fixture.scope.tribeId},'configure_messaging_connection',${fixture.scope.connectionId},${now},${now},${validUntil})`);
+        const secretRef=(await transaction.execute<{secret_ref:string}>(sql`select secret_ref from public.messaging_connection_versions where connection_id=${fixture.scope.connectionId} and tribe_id=${fixture.scope.tribeId} and version=1`)).rows[0].secret_ref;
+        return{authorizationPurpose:"sensitive_leader",actorUserId:fixture.userId,sessionId,accountId,subject,tribeId:fixture.scope.tribeId,resourceId:fixture.scope.connectionId,connectionId:fixture.scope.connectionId,connectionVersion:1,secretRef,environment:fixture.config.environment,securityEpoch:fixture.config.securityEpoch,requestId:randomUUID(),operation:"configure_messaging_connection",authenticatedAt:now,validUntil};
+      });
+      const before=await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id,source_resource_id,recipient_ref,idempotency_key,created_at,deadline_at from public.message_deliveries where id=${deliveryId}`)).rows[0]);
+      const input={operationId:randomUUID(),expectedVersion:1,confirmed:true as const,channel:"email" as const,senderId:randomUUID()};
+      const inspection={credential:fixture.credential,sender:{resourceId:input.senderId,name:"Remitente de diagnóstico",channels:["email" as const],canSendWhatsappTemplates:false}};
+      const owner=new PostgresMessagingConnectionConfiguration((_context,run)=>database.withContext(fixture.own,run),async()=>fixture.config);
+      const result=await owner.commit(context,input,inspection);
+      expect(result).toMatchObject({state:"completed",result:{version:2,configurationVersion:2,changed:true}});
+      const expected={tribeId:fixture.scope.tribeId,actorUserId:fixture.userId,operationId:input.operationId,cause:"connection_replaced" as const,deliveries:[{deliveryId,connectionId:fixture.scope.connectionId,connectionVersion:1,channel:"email" as const,version:2}]};
+      await database.withContext(fixture.own,async(transaction)=>{
+        await expectMessageDeliveryCancellationAudits(transaction,expected);
+        expect((await transaction.execute(sql`select id,source_resource_id,recipient_ref,idempotency_key,created_at,deadline_at from public.message_deliveries where id=${deliveryId}`)).rows).toEqual([before]);
+        expect((await transaction.execute(sql`select state from public.message_deliveries where id=${deliveryId}`)).rows).toEqual([{state:"cancelled"}]);
+      });
+      expect(await owner.commit(context,input,inspection)).toMatchObject({state:"completed",replayed:true,result:result.state==="completed"?result.result:undefined});
+      await database.withContext(fixture.own,(transaction)=>expectMessageDeliveryCancellationAudits(transaction,expected));
+    });
+  },360_000);
   it("should preserve historical configuration, create a new AAD-bound untested candidate and keep no-op/replay without policy or delivery effects",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await prepareMessagingConnectionCreation(database),credential=randomUUID(),senderId=randomUUID();
