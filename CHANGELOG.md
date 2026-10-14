@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El mantenimiento privado puede minimizar mensajes y contactos innecesarios de solicitudes finalizadas tras ciento ochenta días y purgar auditoría tras trescientos sesenta y cinco, conservando los vínculos necesarios; su programación operativa sigue pendiente.
+
 - El historial privado registra el origen y la creación efectiva de los avisos internos de admisión, sin copiar sus destinatarios ni contenidos.
 
 - Las consultas autorizadas de recursos de mensajería y el uso operativo de la credencial dejan un registro de alcance y configuración, sin guardar claves ni contenido del proveedor en la auditoría.
