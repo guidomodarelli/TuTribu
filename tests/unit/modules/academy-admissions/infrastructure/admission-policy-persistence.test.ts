@@ -32,6 +32,7 @@ import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infr
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import { join } from "node:path";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
+import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admission-proof-invalidation-audit-assertions";
 
 /** @param database - This run's owned branch with native pg/Drizzle. @returns Current signed leader, policy repository and preparation-port controls. */
 async function preparePolicy(database: AcademyAdmissionTestDatabase) {
@@ -311,7 +312,13 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       const proofLedger = new PostgresAdmissionOperationRepository((work) => database.withContext({ userId: usedUserId, email: null }, work), async () => true, async () => data.fixture.config);
       expect(await proofLedger.run({ actorUserId: usedUserId, tribeId: data.tribeId, operationType: ADMISSION_PROOF_OPERATION, idempotencyKey: operationId, intent: { requestId, proofId: ids.used.proofId, expectedVersion: 1 } }, z.object({ outcome: z.literal("applied"), requestVersion: z.int() }), (transaction, ledgerId) => new PostgresAdmissionVerificationProofWriter(transaction, async () => true, async () => data.fixture.config).applyToPending({ scope, ledgerId, operationId, requestId, proofId: ids.used.proofId, expectedRequestVersion: 1 }))).toMatchObject({ state: "completed", result: { outcome: "applied" } });
       const before = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select status,submitted_at,expires_at,version,proof_id from public.academy_admission_requests where id=${requestId}`)).rows);
-      await data.repository.update({ context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), confirmed: true, type: "update_admission_policy", expectedVersion: 3, patch: { requiresAdditionalVerification: false } });
+      const disableOperationId = randomUUID();
+      const disableIntent = { context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: disableOperationId, confirmed: true as const, type: "update_admission_policy" as const, expectedVersion: 3, patch: { requiresAdditionalVerification: false } };
+      const disabled = await data.repository.update(disableIntent);
+      const expectedProofAudits = { tribeId: data.tribeId, actorUserId: data.fixture.userId, operationId: disableOperationId, cause: "policy_verification_context_changed", proofs: [{ proofId: ids.unused.proofId, challengeId: ids.unused.challengeId, fromState: "available" as const, requestId: null, verificationEpoch: 2, channel: "email" as const }] };
+      await database.withContext(data.fixture.own, (transaction) => expectAdmissionProofInvalidationAudits(transaction, expectedProofAudits));
+      expect(await data.repository.update(disableIntent)).toMatchObject({ ...disabled, replayed: true });
+      await database.withContext(data.fixture.own, (transaction) => expectAdmissionProofInvalidationAudits(transaction, expectedProofAudits));
       expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select status,submitted_at,expires_at,version,proof_id from public.academy_admission_requests where id=${requestId}`)).rows)).toEqual(before);
       expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select id,status,applied_request_id,invalidated_at is null as not_invalidated from public.academy_admission_verification_proofs where tribe_id=${data.tribeId} order by id`)).rows)).toEqual(expect.arrayContaining([{ id: ids.used.proofId, status: "applied", applied_request_id: requestId, not_invalidated: true }, { id: ids.unused.proofId, status: "invalid", applied_request_id: null, not_invalidated: false }]));
       expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select is_current,state,invalidated_at is null as not_invalidated from public.contact_verification_challenges where id=${ids.diagnostic.challengeId}`)).rows)).toEqual([{ is_current: true, state: "issued", not_invalidated: true }]);

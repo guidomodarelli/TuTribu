@@ -22,6 +22,7 @@ import { admissionPolicyDatabaseNow, authorizeAdmissionPolicy } from "./postgres
 import { readAdmissionControlMarker, readAdmissionPolicy } from "./postgres-admission-policy-storage";
 import { createAdmissionPolicyAuditEvent } from "../../domain/entities/admission-audit-event";
 import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
+import { appendAdmissionProofInvalidationAudit, type InvalidatedAdmissionProofAuditRow } from "./postgres-admission-proof-invalidation-audit";
 
 type PolicyIntent = AdmissionPolicyInitializationIntent | AdmissionPolicyUpdateIntent | AdmissionPolicyActivationIntent | AdmissionPolicyPauseIntent;
 type PolicyDatabaseExecutor = <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -114,7 +115,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
     if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) return this.result(policy, current.controlActivated, false);
     await this.save(database, proposal.policy, policy.version, intent.context.userId);
-    if (proposal.invalidateUnappliedEvidence) await this.invalidateUnappliedEvidence(database, policy.tribeId);
+    if (proposal.invalidateUnappliedEvidence) await this.invalidateUnappliedEvidence(database, intent.context, ledgerId);
     await this.audit(database, intent, ledgerId, proposal.policy, "reason" in intent ? intent.reason : undefined);
     if (policy.activatedAt && !onlyPausing) await this.assertCurrentPreparation(database, intent.context, proposal.policy);
     return this.result(proposal.policy, current.controlActivated, true);
@@ -127,11 +128,13 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     if (proposal.outcome !== ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
   }
 
-  /** Invalidates admission-only unused authority; diagnostics and applied historical evidence retain their provenance. */
-  private async invalidateUnappliedEvidence(database: RequestDatabase, tribeId: string): Promise<void> {
-    await database.execute(sql`select id from public.contact_verification_challenges where tribe_id=${tribeId} and purpose=${ADMISSION_VERIFICATION_PURPOSE.admission} order by id for update`);
+  /** @param database - Original policy transaction. @param context - Authorized actor and tribe. @param ledgerId - Original policy command. @returns After invalidating and auditing only unused admission evidence; diagnostics and applied evidence retain provenance. */
+  private async invalidateUnappliedEvidence(database: RequestDatabase, context: AuthorizedAdmissionContext, ledgerId: string): Promise<void> {
+    const tribeId = context.tribeId;
+    const challenges = (await database.execute<{ id: string; channel: "email" | "sms" | "whatsapp" }>(sql`select id,channel from public.contact_verification_challenges where tribe_id=${tribeId} and purpose=${ADMISSION_VERIFICATION_PURPOSE.admission} order by id for update`)).rows;
     const now = await admissionPolicyDatabaseNow(database);
-    await database.execute(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.invalid},invalidated_at=${now},invalidation_reason=${ADMISSION_POLICY_AUDIT.invalidationRule} where tribe_id=${tribeId} and status=${ADMISSION_PROOF_STATUS.available}`);
+    const invalidatedProofs = (await database.execute<InvalidatedAdmissionProofAuditRow>(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.invalid},invalidated_at=${now},invalidation_reason=${ADMISSION_POLICY_AUDIT.invalidationRule} where tribe_id=${tribeId} and status=${ADMISSION_PROOF_STATUS.available} returning id,challenge_id,verification_epoch,applied_request_id,invalidated_at`)).rows;
+    await appendAdmissionProofInvalidationAudit(database, { tribeId, actorUserId: context.userId, operationId: ledgerId, cause: ADMISSION_POLICY_AUDIT.invalidationRule }, invalidatedProofs, new Map(challenges.map((challenge) => [challenge.id, challenge.channel])), ADMISSION_PROOF_STATUS.available);
     await database.execute(sql`update public.contact_verification_challenges set is_current=false,state=case when state=${VERIFICATION_CHALLENGE_STATE.verified} then state else ${VERIFICATION_CHALLENGE_STATE.invalidated} end,version=version+1,invalidated_at=coalesce(invalidated_at,${now}),invalidation_reason=coalesce(invalidation_reason,${ADMISSION_POLICY_AUDIT.invalidationRule}),code_mac=null,code_envelope_id=null where tribe_id=${tribeId} and purpose=${ADMISSION_VERIFICATION_PURPOSE.admission} and is_current`);
   }
 
