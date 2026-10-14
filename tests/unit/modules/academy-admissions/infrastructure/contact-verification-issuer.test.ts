@@ -13,6 +13,7 @@ import { ADMISSION_PROOF_OPERATION } from "@/src/modules/academy-admissions/cons
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { prepareContactVerificationIssuer as prepareIssuer, recoverTestVerificationCode as recoverTestCode, advanceVerificationRequestCooldown as finishRequestCooldown } from "@/tests/support/contact-verification-issuance-fixture";
+import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admission-proof-invalidation-audit-assertions";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verification issuance", () => {
   it("should issue one protected code and immutable delivery, recover the ledger result and consume it through the real validator", async () => {
@@ -49,6 +50,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verificati
         expect((await transaction.execute(sql`select operation_type from public.academy_admission_operations where idempotency_key=${operationId} order by operation_type`)).rows).toEqual([{ operation_type: "issue_contact_challenge" }, { operation_type: "resend_contact_challenge" }]);
         expect((await transaction.execute(sql`select count(distinct idempotency_key)::integer as total from public.message_deliveries where tribe_id=${fixture.scope.tribeId}`)).rows).toEqual([{ total: 2 }]);
         expect((await transaction.execute(sql`select count(*)::integer as total from public.message_deliveries delivery inner join public.academy_admission_operations operation on operation.id=delivery.idempotency_key where delivery.tribe_id=${fixture.scope.tribeId} and operation.idempotency_key=${operationId}`)).rows).toEqual([{ total: 2 }]);
+        await expectAdmissionProofInvalidationAudits(transaction, { tribeId: fixture.scope.tribeId, actorUserId: fixture.userId, operationId, cause: "explicit_resend", proofs: [] });
       });
     });
   }, 180_000);
@@ -82,8 +84,18 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verificati
       let release!: () => void;
       const bothSharedLocks = new Promise<void>((complete) => { release = complete; });
       const synchronizeSharedLocks = async (_transaction: RequestDatabase) => { arrived += 1; if (arrived === 2) release(); await bothSharedLocks; };
-      const competitors = await Promise.all([fixture.issue(original.challengeId, randomUUID(), async () => fixture.config, synchronizeSharedLocks), fixture.issue(original.challengeId, randomUUID(), async () => fixture.config, synchronizeSharedLocks)]);
+      const competingOperationIds = [randomUUID(), randomUUID()];
+      const competitors = await Promise.all(competingOperationIds.map((operationId) => fixture.issue(original.challengeId, operationId, async () => fixture.config, synchronizeSharedLocks)));
       expect(competitors.filter((operation) => operation.state === "completed" && operation.result.outcome === "issued")).toHaveLength(1);
+      if (proof.outcome !== "verified" || !proof.proofId) throw new Error("Expected the original available proof");
+      const winning = competitors.find((operation) => operation.state === "completed" && operation.result.outcome === "issued");
+      if (!winning || winning.state !== "completed") throw new Error("Expected one committed resend");
+      const proofId = proof.proofId;
+      const verificationEpoch = fixture.scope.verificationEpoch;
+      if (verificationEpoch === null) throw new Error("Expected the admission verification epoch");
+      const winningOperationId = competingOperationIds[competitors.indexOf(winning)];
+      expect(winning.operationId).toBe(winningOperationId);
+      await database.withContext(fixture.own, (transaction) => expectAdmissionProofInvalidationAudits(transaction, { tribeId: fixture.scope.tribeId, actorUserId: fixture.userId, operationId: winningOperationId, cause: "explicit_resend", proofs: [{ proofId, challengeId: original.challengeId, fromState: "available", requestId: null, verificationEpoch, channel: fixture.scope.channel }] }));
       await database.withContext(fixture.own, async (transaction) => {
         expect((await transaction.execute(sql`select is_current,invalidated_at is not null as invalidated,code_envelope_id from public.contact_verification_challenges where id=${original.challengeId}`)).rows).toEqual([{ is_current: false, invalidated: true, code_envelope_id: null }]);
         expect((await transaction.execute(sql`select status,invalidation_reason from public.academy_admission_verification_proofs where challenge_id=${original.challengeId}`)).rows).toEqual([{ status: "invalid", invalidation_reason: "explicit_resend" }]);
@@ -96,6 +108,51 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verificati
       });
     });
   }, 180_000);
+
+  it("should audit the original WhatsApp channel on an SMS resend and roll back staged proof facts when recovery is locked", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareIssuer(database, "admission", true);
+      fixture.scope.channel = "whatsapp";
+      await database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`update public.messaging_usage_policies set allowed_countries=ARRAY['AR'],version=version+1 where tribe_id=${fixture.scope.tribeId}`);
+        await transaction.execute(sql`insert into public.messaging_connection_capabilities(tribe_id,connection_id,connection_version,channel,sender_id,template_id,template_language,state,checked_at,tested_at) values (${fixture.scope.tribeId},${fixture.scope.connectionId},1,'whatsapp','synthetic-whatsapp-sender','synthetic-otp-template','es','prepared',clock_timestamp(),clock_timestamp())`);
+      });
+      const first = await fixture.issue();
+      if (first.state !== "completed" || first.result.outcome !== "issued") throw new Error("Expected the original WhatsApp issuance");
+      const original = first.result;
+      const { code } = await recoverTestCode(database, fixture, original.challengeId);
+      const verified = await database.withContext(fixture.own, (transaction) => createContactVerificationWriter(transaction, fixture).validate({ scope: fixture.scope, challengeId: original.challengeId, operationId: randomUUID(), code }));
+      if (verified.outcome !== "verified" || !verified.proofId) throw new Error("Expected the original available WhatsApp proof");
+      const proofId = verified.proofId;
+      await finishRequestCooldown(database, fixture);
+      fixture.scope.channel = "sms";
+      let activeTransaction: RequestDatabase | null = null;
+      /** @returns Actual synthetic config until the original transaction has staged the proof audit, then the externally closed recovery condition. */
+      const readInterruptedConfig = async (): Promise<MessagingSecurityConfig> => {
+        if (!activeTransaction) throw new Error("Synthetic issuer transaction not initialized");
+        const staged = (await activeTransaction.execute<{ total: number }>(sql`select count(*)::int as total from public.academy_admission_audit_events where resource_id=${proofId} and tribe_id=${fixture.scope.tribeId} and event_type='proof_invalidated'`)).rows[0].total;
+        return staged > 0 ? { ...fixture.config, recoveryLocked: true } : fixture.config;
+      };
+      await expect(fixture.issue(original.challengeId, randomUUID(), readInterruptedConfig, async (transaction) => { activeTransaction = transaction; })).rejects.toMatchObject({ code: "connection_incomplete" });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select status,invalidated_at from public.academy_admission_verification_proofs where id=${proofId}`)).rows).toEqual([{ status: "available", invalidated_at: null }]);
+        expect((await transaction.execute(sql`select is_current from public.contact_verification_challenges where id=${original.challengeId}`)).rows).toEqual([{ is_current: true }]);
+        expect((await transaction.execute(sql`select (select count(*)::int from public.message_deliveries where tribe_id=${fixture.scope.tribeId}) as deliveries,(select count(*)::int from public.messaging_usage_events where tribe_id=${fixture.scope.tribeId} and event_type='code_request') as requests`)).rows).toEqual([{ deliveries: 1, requests: 1 }]);
+        await expectAdmissionProofInvalidationAudits(transaction, { tribeId: fixture.scope.tribeId, actorUserId: fixture.userId, operationId: randomUUID(), cause: "explicit_resend", proofs: [] });
+      });
+      const operationId = randomUUID();
+      const resent = await fixture.issue(original.challengeId, operationId);
+      expect(resent).toMatchObject({ state: "completed", result: { outcome: "issued" } });
+      if (resent.state !== "completed" || resent.result.outcome !== "issued") throw new Error("Expected the prepared SMS resend");
+      const expected = { tribeId: fixture.scope.tribeId, actorUserId: fixture.userId, operationId, cause: "explicit_resend", proofs: [{ proofId, challengeId: original.challengeId, fromState: "available" as const, requestId: null, verificationEpoch: 1, channel: "whatsapp" as const }] };
+      await database.withContext(fixture.own, async (transaction) => {
+        await expectAdmissionProofInvalidationAudits(transaction, expected);
+        expect((await transaction.execute(sql`select channel from public.contact_verification_challenges where id=${resent.result.outcome === "issued" ? resent.result.challengeId : null}`)).rows).toEqual([{ channel: "sms" }]);
+      });
+      expect(await fixture.issue(original.challengeId, operationId)).toMatchObject({ ...resent, replayed: true });
+      await database.withContext(fixture.own, (transaction) => expectAdmissionProofInvalidationAudits(transaction, expected));
+    });
+  }, 240_000);
 
   it("should require the current phone country before issuance while a later country removal preserves local validation", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -167,6 +224,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verificati
         expect((await transaction.execute(sql`select state from public.message_deliveries where id=${original.deliveryId}`)).rows).toEqual([{ state: "cancelled" }]);
         expect((await transaction.execute(sql`select outcome from public.messaging_connection_diagnostics where id=${original.diagnosticId}`)).rows).toEqual([{ outcome: "invalidated" }]);
         expect((await transaction.execute(sql`select id from public.academy_admission_verification_proofs where tribe_id=${fixture.scope.tribeId}`)).rows).toEqual([]);
+        await expectAdmissionProofInvalidationAudits(transaction, { tribeId: fixture.scope.tribeId, actorUserId: fixture.userId, operationId: randomUUID(), cause: "explicit_resend", proofs: [] });
       });
     });
   }, 180_000);

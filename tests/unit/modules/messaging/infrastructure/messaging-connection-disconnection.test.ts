@@ -10,6 +10,7 @@ import { PostgresMessagingConnectionDisconnection } from "@/src/modules/messagin
 import { PostgresMessagingLifecycleDependencies } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-messaging-lifecycle-dependencies";
 import { readAdmissionEmailLifecycleDependency } from "@/src/modules/notifications/infrastructure/repositories/admission-email-lifecycle-reader";
 import type { MessagingConnectionLifecycleContext } from "@/src/modules/messaging/domain/repositories/messaging-connection-lifecycle";
+import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admission-proof-invalidation-audit-assertions";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("ordinary connection retirement",()=>{
   it("should block enabled external dependencies and retire only after resolution, preserving applied proof and charged delivery history",async()=>{
@@ -39,6 +40,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("ordinary connection 
         expect(await readAdmissionEmailLifecycleDependency(context,transaction)).toBe(false);
       });
       const original={...input,operationId:randomUUID()};expect(await owner.disconnect(context,original)).toMatchObject({state:"completed",result:{id:previous.connectionId,version:2,state:"disconnected",reason:null,changed:true}});
+      const expectedProofAudits={tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:original.operationId,cause:"connection_disconnected",proofs:[{proofId:previous.unused.proofId,challengeId:previous.unused.challengeId,fromState:"available" as const,requestId:null,verificationEpoch:Number(before.policy.verification_epoch),channel:"email" as const}]};
+      await database.withContext(fixture.fixture.own,(transaction)=>expectAdmissionProofInvalidationAudits(transaction,expectedProofAudits));
       const audit=await database.withContext(fixture.fixture.own,async(transaction)=>(await transaction.execute(sql`select event.metadata,event.cause,event.created_at=connection.retired_at as owner_clock,operation.idempotency_key from public.academy_admission_audit_events event join public.tenant_messaging_connections connection on connection.id=event.resource_id and connection.tribe_id=event.tribe_id join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.resource_id=${previous.connectionId} and event.event_type='disconnect_messaging_connection'`)).rows);
       expect(audit).toEqual([{metadata:{fromState:"active",toState:"disconnected",previousVersion:1,configurationVersion:1,previousConfigurationVersion:1,channel:null},cause:"connection_disconnected",owner_clock:true,idempotency_key:original.operationId}]);
       const after=await previous.snapshot();expect(after.request).toEqual(before.request);expect(after.usage).toEqual(before.usage);expect(after.reservations).toEqual(before.reservations);
@@ -49,6 +52,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("ordinary connection 
       for(const evidence of[previous.used,previous.unused])expect(after.deliveries.find((delivery)=>delivery.id===evidence.deliveryId)).toMatchObject({state:"cancelled",last_outcome:"connection_disconnected"});
       expect(after.versions.find((version)=>version.connection_id===previous.connectionId)).toMatchObject({retired_at:expect.anything(),purge_after:expect.anything()});expect(after.secrets.find((secret)=>secret.connection_id===previous.connectionId)).toMatchObject({retired_at:expect.anything(),purge_after:expect.anything()});
       expect(await owner.disconnect(context,original)).toMatchObject({state:"completed",replayed:true,result:{version:2,changed:true}});expect(await previous.snapshot()).toEqual(after);
+      await database.withContext(fixture.fixture.own,(transaction)=>expectAdmissionProofInvalidationAudits(transaction,expectedProofAudits));
     });
   },600_000);
 });

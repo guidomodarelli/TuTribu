@@ -1,5 +1,6 @@
 /** Persists issuance and invalidating resend without a provider call or another checkout. @module postgres-contact-verification-issuer */
 import "server-only";
+import { appendAdmissionProofInvalidationAudit, type InvalidatedAdmissionProofAuditRow } from "./postgres-admission-proof-invalidation-audit";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
@@ -36,7 +37,7 @@ type ResourceRow = {
 /** Private immutable send facts; it contains no API credential or external DTO. */
 type PreparedResource = { environment: string; credentialKeyId: string; usagePolicyVersion: number; senderId: string; templateId: string | null; templateLanguage: string | null };
 /** The old challenge is observed before locking its delivery, preserving the dispatch lock order. */
-type CurrentChallengeRow = { id: string; version: number; delivery_id: string; code_envelope_id: string | null };
+type CurrentChallengeRow = { id: string; version: number; delivery_id: string; code_envelope_id: string | null; channel: "email" | "sms" | "whatsapp" };
 
 /** Reuses the caller's ledger and guarded transaction for all local issuance effects. */
 export class PostgresContactVerificationIssuer implements ContactVerificationIssuer {
@@ -133,11 +134,11 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
     const resource = await this.prepare(scope);
     if ("code" in resource) return denied(resource.code);
     await this.database.execute(sql`select pg_advisory_xact_lock(hashtextextended(${JSON.stringify([VERIFICATION_ISSUANCE_LOCK_DOMAIN, scope.userId, scope.tribeId, scope.contact.type, scope.purpose])},0))`);
-    let current = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id from public.contact_verification_challenges where user_id=${scope.userId} and tribe_id=${scope.tribeId} and contact_type=${scope.contact.type} and normalized_contact=${scope.contact.value} and purpose=${scope.purpose} and is_current`)).rows[0];
+    let current = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id,channel from public.contact_verification_challenges where user_id=${scope.userId} and tribe_id=${scope.tribeId} and contact_type=${scope.contact.type} and normalized_contact=${scope.contact.value} and purpose=${scope.purpose} and is_current`)).rows[0];
     if ((current?.id ?? null) !== command.expectedCurrentChallengeId) return denied(ADMISSION_ERROR_CODE.challengeInvalidated);
     if (current) {
       await this.database.execute(sql`select id from public.message_deliveries where id=${current.delivery_id} and tribe_id=${scope.tribeId} for update`);
-      current = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id from public.contact_verification_challenges where id=${current.id} and is_current for update`)).rows[0];
+      current = (await this.database.execute<CurrentChallengeRow>(sql`select id,version,delivery_id,code_envelope_id,channel from public.contact_verification_challenges where id=${current.id} and is_current for update`)).rows[0];
       if (!current) return denied(ADMISSION_ERROR_CODE.challengeInvalidated);
       await this.database.execute(sql`select id from public.academy_admission_verification_proofs where challenge_id=${current.id} for update`);
       if (current.code_envelope_id) await this.database.execute(sql`select id from public.verification_code_envelopes where id=${current.code_envelope_id} for update`);
@@ -164,7 +165,8 @@ export class PostgresContactVerificationIssuer implements ContactVerificationIss
     if (!await this.isAuthorized(scope) || await this.now() >= expiresAt) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
     if (current) {
       const invalidatedAt = await this.now();
-      await this.database.execute(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.invalid},invalidated_at=${invalidatedAt},invalidation_reason=${VERIFICATION_RESEND_REASON} where challenge_id=${current.id} and status=${ADMISSION_PROOF_STATUS.available}`);
+      const invalidatedProofs = (await this.database.execute<InvalidatedAdmissionProofAuditRow>(sql`update public.academy_admission_verification_proofs set status=${ADMISSION_PROOF_STATUS.invalid},invalidated_at=${invalidatedAt},invalidation_reason=${VERIFICATION_RESEND_REASON} where challenge_id=${current.id} and status=${ADMISSION_PROOF_STATUS.available} returning id,challenge_id,verification_epoch,applied_request_id,invalidated_at`)).rows;
+      await appendAdmissionProofInvalidationAudit(this.database, { tribeId: scope.tribeId, actorUserId: scope.userId, operationId: command.ledgerId, cause: VERIFICATION_RESEND_REASON }, invalidatedProofs, new Map([[current.id, current.channel]]), ADMISSION_PROOF_STATUS.available);
       await this.database.execute(sql`update public.contact_verification_challenges set is_current=false,state=case when state=${VERIFICATION_CHALLENGE_STATE.verified} then state else ${VERIFICATION_CHALLENGE_STATE.invalidated} end,version=version+1,invalidated_at=coalesce(invalidated_at,${invalidatedAt}),invalidation_reason=coalesce(invalidation_reason,${VERIFICATION_RESEND_REASON}),code_mac=null,code_envelope_id=null where id=${current.id} and version=${current.version}`);
       if (current.code_envelope_id) await this.database.execute(sql`delete from public.verification_code_envelopes where id=${current.code_envelope_id}`);
       await this.database.execute(sql`update public.message_deliveries set state=${VERIFICATION_DELIVERY_STATE.cancelled},last_outcome=${VERIFICATION_RESEND_REASON},lease_token=null,lease_until=null,version=version+1 where id=${current.delivery_id} and state=${VERIFICATION_DELIVERY_STATE.queued} and not exists(select 1 from public.message_delivery_attempts where delivery_id=${current.delivery_id})`);

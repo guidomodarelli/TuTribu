@@ -5,11 +5,19 @@ import {createAdmissionResourceAuditEvent} from "@/src/modules/academy-admission
 import type {AdmissionResourceAuditInput} from "@/src/modules/academy-admissions/domain/entities/admission-resource-audit-event";
 import {createPersonalInvitationAuditEvent} from "@/src/modules/academy-admissions/domain/entities/personal-invitation-audit-event";
 import {createPersonalInvitation,redeemPersonalInvitation,revokePersonalInvitation} from "@/src/modules/academy-admissions/domain/entities/personal-invitation";
+import {ADMISSION_POLICY_AUDIT} from "@/src/modules/academy-admissions/constants/admission-policy";
+import {VERIFICATION_RESEND_REASON} from "@/src/modules/academy-admissions/constants/verification-issuance";
 
 /** @returns A native owner scope with fixed provenance and a mutable clock for snapshot checks. */
 function ownerScope(){return{tribeId:randomUUID(),actorUserId:randomUUID(),operationId:randomUUID(),resourceId:randomUUID(),resourceVersion:2,rule:"effective_owner_rule",cause:null,createdAt:new Date("2026-10-13T17:00:00Z")};}
 
 describe("complete private resource audit facts",()=>{
+  it.each([ADMISSION_POLICY_AUDIT.invalidationRule,VERIFICATION_RESEND_REASON] as const)("should retain the owned proof invalidation cause %s and exclude private challenge material",(cause)=>{
+    const scope=ownerScope(),challengeId=randomUUID();
+    const input={...scope,resourceType:"admission_proof" as const,eventType:"proof_invalidated" as const,resourceVersion:null,rule:cause,cause,metadata:{fromState:"available" as const,toState:"invalid" as const,challengeId,requestId:null,verificationEpoch:1,channel:"email" as const,normalizedContact:"synthetic-private@example.test",leaseToken:randomUUID()}};
+    const event=createAdmissionResourceAuditEvent(input);
+    expect(event).toEqual({...scope,resourceType:"admission_proof",eventType:"proof_invalidated",resourceVersion:null,rule:cause,cause,metadata:{fromState:"available",toState:"invalid",challengeId,requestId:null,verificationEpoch:1,channel:"email"}});
+  });
   it("should reconstruct the request transition and its proof without copying applicant content",()=>{
     // Arrange: the owner supplies references and effective statuses, never a raw command.
     const scope=ownerScope(),proofId=randomUUID(),decisionId=randomUUID();
