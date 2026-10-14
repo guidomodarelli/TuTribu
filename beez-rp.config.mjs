@@ -2,7 +2,7 @@
  * TuTribu configuration of `beez-rp create-version` (`pnpm create-version`,
  * alias `pnpm cv`). The shared command diagnoses the repository, plans and
  * ships the release from `main`; this file only describes what is specific to
- * TuTribu: who reads the CHANGELOG, what each version type means for users,
+ * TuTribu: what each version type means for users,
  * the Postgres/Drizzle migrations adapter and the Vercel deploy line.
  *
  * It must not import `beez-rp` at runtime: every helper arrives through the
@@ -65,7 +65,6 @@ async function applyMigrations({ run, fail }) {
 /** @type {import("beez-rp/create-version").CreateVersionConfig} */
 const createVersionConfig = {
   projectName: "TuTribu",
-  changelog: { audience: "quien usa TuTribu (miembros y creadores de tribus)", language: "es" },
   releaseTypeDescriptions: {
     patch: "Solo arreglos o cambios internos; nada nuevo para quien usa la app.",
     minor: "Funcionalidades o mejoras nuevas; lo existente sigue funcionando igual.",
