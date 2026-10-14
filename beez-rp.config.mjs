@@ -67,6 +67,8 @@ const createVersionConfig = {
   projectName: "TuTribu",
   /** IANA time zone for the `## [X.Y.Z] - YYYY-MM-DD` date written when `[Unreleased]` is closed. */
   releaseTimeZone: "America/Argentina/Buenos_Aires",
+  /** Drafts missing `[Unreleased]` entries with Claude Code, then Codex, before a local release stops for them. */
+  changelogDraft: true,
   releaseTypeDescriptions: {
     patch: "Solo arreglos o cambios internos; nada nuevo para quien usa la app.",
     minor: "Funcionalidades o mejoras nuevas; lo existente sigue funcionando igual.",
