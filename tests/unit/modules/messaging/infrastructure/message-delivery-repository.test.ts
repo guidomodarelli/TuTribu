@@ -21,6 +21,7 @@ async function prepareOutbox(database: AcademyAdmissionTestDatabase, phone = fal
   await database.applyMigration("20261005092500_guard_messaging_attempts.sql");
   await database.applyMigration("20261006140000_claim_messaging_deliveries_fairly.sql");
   await database.applyMigration("20261006160000_purge_verification_delivery_material.sql");
+  await database.applyMigration("20261014035258_audit_messaging_delivery_transitions.sql");
   if (phone) await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.messaging_usage_policies set allowed_countries=ARRAY['AR'],version=version+1 where tribe_id=${fixture.scope.tribeId}`));
   const issued = await fixture.issue();
   if (issued.state !== "completed" || issued.result.outcome !== "issued") throw new Error("Synthetic outbox issue did not complete");
@@ -74,6 +75,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
       expect(await fixture.repository.readAttempt(context)).toMatchObject({ id: context.attemptId, state: "in_flight", version: 1 });
       const providerId = randomUUID();
       expect(await fixture.repository.complete({ context, outcome: "accepted", providerMessageId: providerId, correlationId: null, reason: "provider_accepted" })).toMatchObject({ outcome: "completed", attemptVersion: 2 });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select event.created_at=attempt.completed_at as owner_clock from public.academy_admission_audit_events event join public.message_delivery_attempts attempt on attempt.id=${context.attemptId} where event.resource_id=${fixture.original.deliveryId} and event.event_type='delivery_accepted'`)).rows).toEqual([{ owner_clock: true }]);
+      });
       expect(await fixture.repository.complete({ context, outcome: "accepted", providerMessageId: providerId, correlationId: null, reason: "provider_accepted" })).toMatchObject({ outcome: "unchanged", attemptVersion: 2 });
       expect(await fixture.repository.complete({ context, outcome: "delivered", providerMessageId: providerId, correlationId: null, reason: "provider_delivered" })).toMatchObject({ outcome: "completed", attemptVersion: 3 });
       expect(await fixture.repository.complete({ context, outcome: "delivered", providerMessageId: providerId, correlationId: null, reason: "provider_delivered" })).toMatchObject({ outcome: "unchanged", attemptVersion: 3 });
@@ -83,6 +87,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
         expect((await transaction.execute(sql`select state from public.messaging_usage_reservations where attempt_id=${context.attemptId}`)).rows).toEqual([{ state: "consumed" }]);
         expect((await transaction.execute(sql`select state from public.contact_verification_challenges where id=${fixture.original.challengeId}`)).rows).toEqual([{ state: "issued" }]);
         expect((await transaction.execute(sql`select id from public.academy_admission_verification_proofs where challenge_id=${fixture.original.challengeId}`)).rows).toEqual([]);
+        const events = (await transaction.execute(sql`select event.event_type,event.actor_user_id,event.operation_id=delivery.idempotency_key as original_ledger,event.resource_version,event.rule,event.cause,event.metadata from public.academy_admission_audit_events event join public.message_deliveries delivery on delivery.id=event.resource_id and delivery.tribe_id=event.tribe_id where event.resource_type='message_delivery' and event.resource_id=${fixture.original.deliveryId} order by event.created_at,event.id`)).rows;
+        expect(events).toEqual([
+          { event_type: "delivery_attempt_started", actor_user_id: fixture.userId, original_ledger: true, resource_version: 3, rule: "authorize_delivery", cause: null, metadata: { fromState: "queued", toState: "queued", previousVersion: 2, connectionId: fixture.scope.connectionId, connectionVersion: fixture.scope.connectionVersion, channel: "email", attemptId: context.attemptId, authorizedUsagePolicyVersion: context.authorizedUsagePolicyVersion } },
+          { event_type: "delivery_accepted", actor_user_id: fixture.userId, original_ledger: true, resource_version: 4, rule: "complete_attempt", cause: "provider_accepted", metadata: { fromState: "queued", toState: "accepted", previousVersion: 3, connectionId: fixture.scope.connectionId, connectionVersion: fixture.scope.connectionVersion, channel: "email", attemptId: context.attemptId, authorizedUsagePolicyVersion: context.authorizedUsagePolicyVersion } },
+          { event_type: "delivery_delivered", actor_user_id: fixture.userId, original_ledger: true, resource_version: 5, rule: "complete_attempt", cause: "provider_delivered", metadata: { fromState: "accepted", toState: "delivered", previousVersion: 4, connectionId: fixture.scope.connectionId, connectionVersion: fixture.scope.connectionVersion, channel: "email", attemptId: context.attemptId, authorizedUsagePolicyVersion: context.authorizedUsagePolicyVersion } },
+        ]);
       });
       await advanceVerificationRequestCooldown(database, fixture);
       expect(await fixture.issue(fixture.original.challengeId)).toMatchObject({ state: "completed", result: { outcome: "issued" } });
@@ -92,6 +102,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
       const rejection = { context: rejected.context, outcome: "rejected" as const, providerMessageId: null, correlationId: null, reason: "provider_rejected" as const };
       expect(await fixture.repository.complete(rejection)).toMatchObject({ outcome: "completed", attemptVersion: 2 });
       expect(await fixture.repository.complete(rejection)).toMatchObject({ outcome: "unchanged", attemptVersion: 2 });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select event_type,cause from public.academy_admission_audit_events where resource_type='message_delivery' and resource_id=${rejected.context.deliveryId} order by created_at,id`)).rows).toEqual([{ event_type: "delivery_attempt_started", cause: null }, { event_type: "delivery_failed", cause: "provider_rejected" }]);
+      });
     });
   }, 240_000);
 
@@ -112,6 +125,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
         expect((await transaction.execute(sql`select state,version,last_outcome from public.message_deliveries where id=${fixture.original.deliveryId}`)).rows).toEqual([{ state: "queued", version: claim.version, last_outcome: null }]);
         expect((await transaction.execute(sql`select id from public.message_delivery_attempts where delivery_id=${fixture.original.deliveryId}`)).rows).toEqual([]);
         expect((await transaction.execute(sql`select id from public.messaging_usage_reservations where delivery_id=${fixture.original.deliveryId}`)).rows).toEqual([]);
+        expect((await transaction.execute(sql`select event_type from public.academy_admission_audit_events where resource_type='message_delivery' and resource_id=${fixture.original.deliveryId}`)).rows).toEqual([]);
       });
     });
   }, 240_000);
@@ -127,6 +141,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
         expect((await transaction.execute(sql`select id from public.message_delivery_attempts where delivery_id=${fixture.original.deliveryId}`)).rows).toEqual([]);
         expect((await transaction.execute(sql`select id from public.messaging_usage_reservations where delivery_id=${fixture.original.deliveryId}`)).rows).toEqual([]);
         expect((await transaction.execute(sql`select event_type from public.messaging_usage_events where tribe_id=${fixture.scope.tribeId}`)).rows).toEqual([{ event_type: "code_request" }]);
+        expect((await transaction.execute(sql`select event.event_type,event.actor_user_id,event.operation_id=delivery.idempotency_key as original_ledger,event.resource_version,event.cause,event.metadata from public.academy_admission_audit_events event join public.message_deliveries delivery on delivery.id=event.resource_id and delivery.tribe_id=event.tribe_id where event.resource_type='message_delivery' and event.resource_id=${fixture.original.deliveryId}`)).rows).toEqual([{ event_type: "delivery_suppressed", actor_user_id: fixture.userId, original_ledger: true, resource_version: claim.version+1, cause: "recipient_not_allowed", metadata: { fromState: "queued", toState: "suppressed", previousVersion: claim.version, connectionId: fixture.scope.connectionId, connectionVersion: fixture.scope.connectionVersion, channel: fixture.scope.channel, attemptId: null, authorizedUsagePolicyVersion: null } }]);
       });
     });
   }, 240_000);
@@ -140,9 +155,84 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery r
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.message_deliveries set lease_until=clock_timestamp()-interval '1 second',version=version+1 where id=${fixture.original.deliveryId}`));
       expect(await fixture.repository.reconcileExpiredLeases(100)).toBe(1);
       expect(await fixture.repository.readAttempt(authorization.context)).toMatchObject({ state: "unknown", version: 2 });
+      expect(await fixture.repository.reconcileExpiredLeases(100)).toBe(0);
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select event.actor_user_id,event.operation_id=delivery.idempotency_key as original_ledger,event.resource_version,event.cause,event.created_at=attempt.completed_at as owner_clock,event.metadata from public.academy_admission_audit_events event join public.message_deliveries delivery on delivery.id=event.resource_id and delivery.tribe_id=event.tribe_id join public.message_delivery_attempts attempt on attempt.id=${authorization.context.attemptId} where event.resource_type='message_delivery' and event.resource_id=${fixture.original.deliveryId} and event.event_type='delivery_reconciled'`)).rows).toEqual([{ actor_user_id: null, original_ledger: true, resource_version: 5, cause: "worker_lease_expired", owner_clock: true, metadata: { fromState: "queued", toState: "unknown", previousVersion: 4, connectionId: fixture.scope.connectionId, connectionVersion: fixture.scope.connectionVersion, channel: "email", attemptId: authorization.context.attemptId, authorizedUsagePolicyVersion: authorization.context.authorizedUsagePolicyVersion } }]);
+      });
       expect(await fixture.repository.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 90 })).toEqual([]);
       expect(await fixture.repository.complete({ context: authorization.context, outcome: "accepted", providerMessageId: randomUUID(), correlationId: null, reason: "provider_accepted" })).toMatchObject({ outcome: "completed", attemptVersion: 3 });
       await database.withContext(fixture.own, async (transaction) => expect((await transaction.execute(sql`select state from public.messaging_usage_reservations where attempt_id=${authorization.context.attemptId}`)).rows).toEqual([{ state: "consumed" }]));
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select event_type from public.academy_admission_audit_events where resource_type='message_delivery' and resource_id=${fixture.original.deliveryId} order by created_at,id`)).rows).toEqual([{ event_type: "delivery_attempt_started" }, { event_type: "delivery_reconciled" }, { event_type: "delivery_accepted" }]);
+      });
+    });
+  }, 240_000);
+
+  it("should audit quota deferral once without claiming an attempt or treating evaluated policy as authorized usage", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareOutbox(database);
+      const claim = (await fixture.repository.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 90 }))[0];
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.messaging_usage_policies set verification_daily_limit=0,version=version+1 where tribe_id=${fixture.scope.tribeId}`));
+      expect(await fixture.repository.authorize(claim, randomUUID())).toMatchObject({ outcome: "quota_exceeded", deliveryVersion: claim.version+1 });
+      expect(await fixture.repository.authorize(claim, randomUUID())).toMatchObject({ outcome: "stale" });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select event.event_type,event.operation_id=delivery.idempotency_key as original_ledger,event.resource_version,event.cause,event.metadata from public.academy_admission_audit_events event join public.message_deliveries delivery on delivery.id=event.resource_id and delivery.tribe_id=event.tribe_id where event.resource_type='message_delivery' and event.resource_id=${fixture.original.deliveryId}`)).rows).toEqual([{ event_type: "delivery_deferred", original_ledger: true, resource_version: claim.version+1, cause: "quota_exceeded", metadata: { fromState: "queued", toState: "queued", previousVersion: claim.version, connectionId: fixture.scope.connectionId, connectionVersion: fixture.scope.connectionVersion, channel: "email", attemptId: null, authorizedUsagePolicyVersion: null } }]);
+        expect((await transaction.execute(sql`select id from public.message_delivery_attempts where delivery_id=${fixture.original.deliveryId}`)).rows).toEqual([]);
+        expect((await transaction.execute(sql`select id from public.messaging_usage_reservations where delivery_id=${fixture.original.deliveryId}`)).rows).toEqual([]);
+        expect((await transaction.execute(sql`select state,last_outcome from public.message_deliveries where id=${fixture.original.deliveryId}`)).rows).toEqual([{ state: "queued", last_outcome: "quota_exceeded" }]);
+      });
+    });
+  }, 240_000);
+
+  it("should suppress an originally expired unmarked lease once without inventing an actor, ledger or reservation", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareOutbox(database), deliveryId = randomUUID();
+      const original = await database.withContext(fixture.own, async (transaction) => {
+        const createdAt = new Date((await transaction.execute<{ instant: string | Date }>(sql`select clock_timestamp()-interval '20 minutes' as instant`)).rows[0].instant);
+        return (await transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,created_at,due_at,deadline_at,lease_token,lease_until) values (${deliveryId},${fixture.scope.tribeId},${fixture.scope.connectionId},${fixture.scope.connectionVersion},${fixture.config.environment},${fixture.config.securityEpoch},'admission_notification',${randomUUID()},${randomUUID()},'email',${randomUUID()},${randomBytes(32)},'synthetic-expired-notification','{}',1,${createdAt},${createdAt},${new Date(createdAt.getTime()+600_000)},${randomUUID()},${new Date(createdAt.getTime()+60_000)}) returning created_at,deadline_at`)).rows[0];
+      });
+      expect(await fixture.repository.reconcileExpiredLeases(2)).toBe(1);
+      expect(await fixture.repository.reconcileExpiredLeases(2)).toBe(0);
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select event_type,actor_user_id,operation_id,resource_version,cause,metadata from public.academy_admission_audit_events where resource_type='message_delivery' and resource_id=${deliveryId}`)).rows).toEqual([{ event_type: "delivery_suppressed", actor_user_id: null, operation_id: null, resource_version: 2, cause: "delivery_expired", metadata: { fromState: "queued", toState: "suppressed", previousVersion: 1, connectionId: fixture.scope.connectionId, connectionVersion: fixture.scope.connectionVersion, channel: "email", attemptId: null, authorizedUsagePolicyVersion: null } }]);
+        expect((await transaction.execute(sql`select state,created_at,deadline_at from public.message_deliveries where id=${deliveryId}`)).rows).toEqual([{ state: "suppressed", ...original }]);
+        expect((await transaction.execute(sql`select id from public.message_delivery_attempts where delivery_id=${deliveryId}`)).rows).toEqual([]);
+        expect((await transaction.execute(sql`select id from public.messaging_usage_reservations where delivery_id=${deliveryId}`)).rows).toEqual([]);
+      });
+    });
+  }, 240_000);
+
+  it("should keep an unclassified private receipt reason out of the audit while retaining its exact outcome and completion clock", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareOutbox(database);
+      const claim = (await fixture.repository.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 90 }))[0];
+      const authorization = await fixture.repository.authorize(claim, randomUUID());
+      if (authorization.outcome !== "authorized") throw new Error("Synthetic private receipt marker did not commit");
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select outcome from public.complete_messaging_delivery_attempt(${authorization.context.attemptId},${authorization.context.leaseToken},1,'unknown',NULL,NULL,'synthetic-private-provider-detail')`)).rows).toEqual([{ outcome: "completed" }]);
+        const events = (await transaction.execute(sql`select event.event_type,event.cause,event.metadata,event.created_at=attempt.completed_at as owner_clock from public.academy_admission_audit_events event join public.message_delivery_attempts attempt on attempt.id=${authorization.context.attemptId} where event.resource_type='message_delivery' and event.resource_id=${fixture.original.deliveryId} and event.event_type='delivery_unknown'`)).rows;
+        expect(events).toEqual([{ event_type: "delivery_unknown", cause: null, owner_clock: true, metadata: { fromState: "queued", toState: "unknown", previousVersion: 3, connectionId: fixture.scope.connectionId, connectionVersion: fixture.scope.connectionVersion, channel: "email", attemptId: authorization.context.attemptId, authorizedUsagePolicyVersion: authorization.context.authorizedUsagePolicyVersion } }]);
+        expect(JSON.stringify(events)).not.toContain("synthetic-private-provider-detail");
+      });
+    });
+  }, 240_000);
+
+  it("should roll back a receipt and its audit together when post-write maintenance authority is revoked", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareOutbox(database);
+      const claim = (await fixture.repository.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 90 }))[0];
+      const authorization = await fixture.repository.authorize(claim, randomUUID());
+      if (authorization.outcome !== "authorized") throw new Error("Synthetic rollback marker did not commit");
+      const repository = new PostgresMessageDeliveryRepository((actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), async (transaction) => {
+        const delivery = (await transaction.execute<{ state: string }>(sql`select state from public.message_deliveries where id=${fixture.original.deliveryId}`)).rows[0];
+        return delivery.state !== "accepted";
+      }, async () => fixture.config);
+      await expect(repository.complete({ context: authorization.context, outcome: "accepted", providerMessageId: randomUUID(), correlationId: null, reason: "provider_accepted" })).rejects.toMatchObject({ code: "permission_denied" });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select state,version from public.message_delivery_attempts where id=${authorization.context.attemptId}`)).rows).toEqual([{ state: "in_flight", version: 1 }]);
+        expect((await transaction.execute(sql`select state,version from public.message_deliveries where id=${fixture.original.deliveryId}`)).rows).toEqual([{ state: "queued", version: 3 }]);
+        expect((await transaction.execute(sql`select event_type from public.academy_admission_audit_events where resource_type='message_delivery' and resource_id=${fixture.original.deliveryId}`)).rows).toEqual([{ event_type: "delivery_attempt_started" }]);
+      });
     });
   }, 240_000);
 

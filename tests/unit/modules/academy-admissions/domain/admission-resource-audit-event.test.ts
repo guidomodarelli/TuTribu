@@ -12,6 +12,13 @@ import {VERIFICATION_RESEND_REASON} from "@/src/modules/academy-admissions/const
 function ownerScope(){return{tribeId:randomUUID(),actorUserId:randomUUID(),operationId:randomUUID(),resourceId:randomUUID(),resourceVersion:2,rule:"effective_owner_rule",cause:null,createdAt:new Date("2026-10-13T17:00:00Z")};}
 
 describe("complete private resource audit facts",()=>{
+  it.each(["quota_exceeded","worker_lease_expired"] as const)("should retain the owned delivery cause %s without copying private transport fields",(cause)=>{
+    const scope=ownerScope(),connectionId=randomUUID();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"message_delivery",eventType:cause==="quota_exceeded"?"delivery_deferred":"delivery_reconciled",cause,metadata:{fromState:"queued",toState:cause==="quota_exceeded"?"queued":"unknown",previousVersion:1,connectionId,connectionVersion:1,channel:"email",attemptId:null,authorizedUsagePolicyVersion:null,recipient:"private@example.test",providerMessageId:"synthetic-private-provider-id",leaseToken:"synthetic-private-lease"}});
+    expect(event.cause).toBe(cause);
+    expect(event.metadata).toEqual({fromState:"queued",toState:cause==="quota_exceeded"?"queued":"unknown",previousVersion:1,connectionId,connectionVersion:1,channel:"email",attemptId:null,authorizedUsagePolicyVersion:null});
+    expect(JSON.stringify(event)).not.toMatch(/private@example\.test|synthetic-private-provider-id|synthetic-private-lease/);
+  });
   it.each([ADMISSION_POLICY_AUDIT.invalidationRule,VERIFICATION_RESEND_REASON] as const)("should retain the owned proof invalidation cause %s and exclude private challenge material",(cause)=>{
     const scope=ownerScope(),challengeId=randomUUID();
     const input={...scope,resourceType:"admission_proof" as const,eventType:"proof_invalidated" as const,resourceVersion:null,rule:cause,cause,metadata:{fromState:"available" as const,toState:"invalid" as const,challengeId,requestId:null,verificationEpoch:1,channel:"email" as const,normalizedContact:"synthetic-private@example.test",leaseToken:randomUUID()}};
