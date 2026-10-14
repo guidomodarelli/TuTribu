@@ -16,3 +16,5 @@ export const MESSAGE_COMPLETION_OUTCOME = { completed: "completed", unchanged: "
 export const MESSAGE_STORAGE_OPERATION = { claim: "claim_deliveries", authorize: "authorize_delivery", complete: "complete_attempt", read: "read_attempt", reconcile: "reconcile_leases", purgeVerificationMaterial: VERIFICATION_MATERIAL_PURGE_OPERATION } as const;
 /** Names own terminal receipt reasons, never raw provider messages. */
 export const MESSAGE_RECEIPT_REASON = { accepted: "provider_accepted", delivered: "provider_delivered", rejected: "provider_rejected", unknown: "dispatch_result_unknown" } as const;
+/** Names the private fact emitted only after an effective current human status reconciliation. */
+export const MESSAGE_DELIVERY_RECONCILIATION_AUDIT_EVENT = "delivery_reconciled";

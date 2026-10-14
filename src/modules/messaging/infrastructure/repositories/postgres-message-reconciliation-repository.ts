@@ -7,6 +7,7 @@ import type { MessageDeliveryReadContext } from "../../domain/repositories/messa
 import type { AuthorizedMessagingContext } from "../../domain/repositories/messaging-repositories";
 import type { MessageStatusObservation, MessageStatusReference } from "../../domain/repositories/message-status-lookup";
 import type { MessageDeliveryAttempt } from "../../domain/entities/message-delivery-attempt";
+import type { MessageDelivery } from "../../domain/entities/message-delivery";
 import type { z } from "zod";
 import type { MessagingSecurityConfig } from "../config/messaging-security-config";
 import { messageDeliverySchema } from "../../application/results/messaging-flow-result-schemas";
@@ -16,7 +17,7 @@ import { GOOGLE_IDENTITY_PROVIDER } from "@/src/modules/auth/constants/google-id
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { MESSAGING_ERROR_CODE } from "../../constants/messaging-errors";
-import { MESSAGE_ATTEMPT_STATE, MESSAGE_DELIVERY_STATE, MESSAGE_RECEIPT_REASON, MESSAGE_STORAGE_OPERATION } from "../../constants/message-delivery";
+import { MESSAGE_ATTEMPT_STATE, MESSAGE_DELIVERY_STATE, MESSAGE_RECEIPT_REASON, MESSAGE_STORAGE_OPERATION, MESSAGE_DELIVERY_RECONCILIATION_AUDIT_EVENT } from "../../constants/message-delivery";
 import { MessagingSecretAccessError } from "../../domain/errors/messaging-secret-access-error";
 import { MessagingDeliveryStorageError } from "../../domain/errors/messaging-delivery-storage-error";
 import { authorizeMessagingSecret, messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
@@ -26,6 +27,8 @@ import { PostgresMessageDeliveryReader } from "./postgres-message-delivery-reade
 type ReconciliationDatabaseExecutor = <Result>(actorUserId: string, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Projects only consumed immutable original identity and current CAS. */
 type OriginalAttemptRow = { id: string; connection_id: string; connection_version: number; provider_message_id: string; channel: MessageStatusReference["channel"]; state: MessageDeliveryAttempt["state"]; version: number };
+/** Carries the original reservation's effective policy only inside its locked status mutation. */
+type CurrentAttemptRow = Omit<OriginalAttemptRow, "channel"> & { authorized_usage_policy_version: number };
 
 /** Never changes immutable intent, reservation, usage, code material or contact proof. */
 export class PostgresMessageReconciliationRepository implements MessageReconciliationRepository<z.infer<typeof messageDeliverySchema>> {
@@ -66,8 +69,9 @@ export class PostgresMessageReconciliationRepository implements MessageReconcili
     try {
       return await this.execute(context.actorUserId, async (database) => {
         const authority = await authorizeMessagingSecret(database, context);
-        if (!(await database.execute(sql`select id from public.message_deliveries where id=${reference.deliveryId} and tribe_id=${reference.tribeId} and connection_id=${reference.connectionId} and connection_version=${reference.connectionVersion} and environment=${context.environment} and security_epoch=${context.securityEpoch} and channel=${reference.channel} for update`)).rows[0]) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-        const current = (await database.execute<OriginalAttemptRow>(sql`select id,connection_id,connection_version,provider_message_id,state,version from public.message_delivery_attempts where id=${reference.attemptId} and delivery_id=${reference.deliveryId} and tribe_id=${reference.tribeId} and connection_id=${reference.connectionId} and connection_version=${reference.connectionVersion} and provider_message_id=${reference.providerMessageId} for update`)).rows[0];
+        const delivery = (await database.execute<{ state: MessageDelivery["state"]; version: number }>(sql`select state,version from public.message_deliveries where id=${reference.deliveryId} and tribe_id=${reference.tribeId} and connection_id=${reference.connectionId} and connection_version=${reference.connectionVersion} and environment=${context.environment} and security_epoch=${context.securityEpoch} and channel=${reference.channel} for update`)).rows[0];
+        if (!delivery) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+        const current = (await database.execute<CurrentAttemptRow>(sql`select id,connection_id,connection_version,provider_message_id,state,version,authorized_usage_policy_version from public.message_delivery_attempts where id=${reference.attemptId} and delivery_id=${reference.deliveryId} and tribe_id=${reference.tribeId} and connection_id=${reference.connectionId} and connection_version=${reference.connectionVersion} and provider_message_id=${reference.providerMessageId} for update`)).rows[0];
         if (!current) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
         const security = await this.readSecurityConfig();
         if (security.recoveryLocked || security.environment !== context.environment || security.securityEpoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
@@ -78,6 +82,7 @@ export class PostgresMessageReconciliationRepository implements MessageReconcili
           const reason = next === MESSAGE_ATTEMPT_STATE.delivered ? MESSAGE_RECEIPT_REASON.delivered : next === MESSAGE_ATTEMPT_STATE.rejected ? MESSAGE_RECEIPT_REASON.rejected : next === MESSAGE_ATTEMPT_STATE.accepted ? MESSAGE_RECEIPT_REASON.accepted : MESSAGE_RECEIPT_REASON.unknown;
           await database.execute(sql`update public.message_delivery_attempts set state=${next},safe_reason=${reason},completed_at=clock_timestamp(),version=version+1 where id=${current.id} and version=${current.version}`);
           await database.execute(sql`update public.message_deliveries set state=${next === MESSAGE_ATTEMPT_STATE.rejected ? MESSAGE_DELIVERY_STATE.failed : next},last_outcome=${reason},lease_token=null,lease_until=null,version=version+1 where id=${reference.deliveryId}`);
+          await database.execute(sql`select public.record_messaging_delivery_audit(${reference.deliveryId},${delivery.state},${delivery.version},${MESSAGE_DELIVERY_RECONCILIATION_AUDIT_EVENT},${context.operation},${reason},${current.id},${current.authorized_usage_policy_version},(select completed_at from public.message_delivery_attempts where id=${current.id} and delivery_id=${reference.deliveryId}))`);
         }
         const projection = new PostgresMessageDeliveryReader((identity, run) => {
           if (identity.actorUserId !== context.actorUserId || identity.sessionId !== context.sessionId || identity.tribeId !== context.tribeId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
