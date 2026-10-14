@@ -14,7 +14,7 @@ import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastruc
 export async function prepareNotificationDeliveryRecovery(database: AcademyAdmissionTestDatabase, deadlineMs = 3_600_000, securityConfig?: MessagingSecurityConfig) {
   const activation = await prepareMessagingConnectionActivation(database, undefined, undefined, securityConfig);
   const creation = activation.fixture;
-  for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261011065500_record_notification_recovery_lineage.sql", "20261011103000_index_notification_delivery_catalog.sql"]) await database.applyMigration(migration);
+  for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261011065500_record_notification_recovery_lineage.sql", "20261011103000_index_notification_delivery_catalog.sql", "20261013234047_guard_extended_notification_recovery_audit.sql"]) await database.applyMigration(migration);
   const { own } = creation.fixture;
   const activated = await activation.owner.activate(activation.context, activation.input);
   if (activated.state !== "completed") throw new Error("Notification recovery prepared selection unavailable");

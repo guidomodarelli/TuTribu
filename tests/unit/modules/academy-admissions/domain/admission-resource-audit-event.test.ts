@@ -71,6 +71,16 @@ describe("complete private resource audit facts",()=>{
     expect(JSON.stringify(event)).not.toMatch(/synthetic-private-key|synthetic-private-envelope/);
   });
 
+  it.each([{originalFromState:"suppressed",originalToState:"cancelled"},{originalFromState:"failed",originalToState:"failed"}] as const)("should retain both recovery lineages when the original moves from $originalFromState to $originalToState without copying frozen content",({originalFromState,originalToState})=>{
+    const scope={...ownerScope(),resourceVersion:1},connectionId=randomUUID();
+    const metadata={fromState:null,toState:"queued" as const,previousVersion:null,connectionId,connectionVersion:3,channel:"email" as const,attemptId:null,authorizedUsagePolicyVersion:null,originalDeliveryId:randomUUID(),targetConnectionId:connectionId,originalConnectionId:randomUUID(),originalConnectionVersion:2,originalFromState,originalToState,previousOriginalVersion:4,originalVersion:5,originalAttemptId:originalFromState==="failed"?randomUUID():null,originalAuthorizedUsagePolicyVersion:originalFromState==="failed"?2:null};
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"message_delivery",eventType:"notification_delivery_recovered",metadata:{...metadata,frozenIntent:{recipientRef:randomUUID()},recipient:randomUUID(),payloadMac:randomUUID()}});
+    expect(event).toEqual({...scope,resourceType:"message_delivery",eventType:"notification_delivery_recovered",metadata});
+    expect(event.metadata).not.toHaveProperty("frozenIntent");
+    expect(event.metadata).not.toHaveProperty("recipient");
+    expect(event.metadata).not.toHaveProperty("payloadMac");
+  });
+
   it("should detach the authoritative audit timestamp from later caller clock changes",()=>{
     const scope=ownerScope();
     const event=createAdmissionResourceAuditEvent({...scope,resourceType:"personal_invitation",eventType:"expired",metadata:{fromStatus:"active",toStatus:"expired",previousVersion:1,requestId:null,fromAuthorizationRevoked:false,toAuthorizationRevoked:false}});
