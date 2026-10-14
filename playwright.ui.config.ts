@@ -2,17 +2,14 @@
 import { defineConfig, devices, webkit } from "@playwright/test";
 
 import { installExitedBrowserStdioRelease } from "./tests/e2e/support/release-exited-browser-stdio";
+import { UI_TEST_ORIGIN, UI_TEST_PORT } from "./scripts/e2e/ui-test-environment.mjs";
 
 /** Workers load this config too, so WebKit's leftover processes on Windows cannot hang their shutdown. */
 installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] });
 
-/** Uses a dedicated local port so validation cannot reuse an unrelated development server. */
-const UI_TEST_PORT = 3110;
-const UI_TEST_ORIGIN = `http://127.0.0.1:${UI_TEST_PORT}`;
-
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: ["theme-provider.spec.ts", "privacy-policy.spec.ts"],
+  testMatch: ["theme-provider.spec.ts", "privacy-policy.spec.ts", "dialog-motion.spec.ts"],
   use: { baseURL: UI_TEST_ORIGIN, trace: "retain-on-failure" },
   webServer: {
     command: `pnpm exec next start --port ${UI_TEST_PORT}`,

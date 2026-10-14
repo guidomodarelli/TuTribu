@@ -1,6 +1,6 @@
 {
   "name": "tutribu",
-  "version": "1.2.4",
+  "version": "1.3.0",
   "private": true,
   "packageManager": "pnpm@12.6.0",
   "engines": {
@@ -29,7 +29,7 @@
     "db:migrate": "node scripts/push-migrations.js",
     "db:migrate:force": "node scripts/push-migrations.js --force",
     "test:e2e": "playwright test",
-    "test:ui": "pnpm build && playwright test --config playwright.ui.config.ts",
+    "test:ui": "pnpm build && node scripts/e2e/run-ui-tests.mjs",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:beezping": "playwright test --config playwright.beezping.config.ts",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
@@ -42,7 +42,7 @@
     "@better-auth/drizzle-adapter": "^1.6.11",
     "@github/relative-time-element": "^5.0.0",
     "@next/env": "^16.3.4",
-    "beez-ui": "^2.1.0",
+    "beez-ui": "^2.3.0",
     "better-auth": "^1.6.11",
     "drizzle-orm": "^0.45.2",
     "emoji-picker-react": "^4.19.1",
