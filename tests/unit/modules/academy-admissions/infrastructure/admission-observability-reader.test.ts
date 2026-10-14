@@ -13,12 +13,14 @@ import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrast
 import { PostgresAdmissionActivityReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader";
 import { admissionActivityQuerySchema } from "@/src/modules/academy-admissions/constants/admission-activity-schemas";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
+import { PostgresMessageDispatchRunRecorder } from "@/src/modules/messaging/infrastructure/repositories/postgres-message-dispatch-run-recorder";
 
 /** @param database - Exact owned branch. @param withGuardian - Seeds a legitimate guardian before the protected admission cutover. @returns Real leader/applicant command composition and current observability queries without any provider/hosting-key lookup. */
 async function prepareObservability(database: AcademyAdmissionTestDatabase, withGuardian = false) {
   const prepared = withGuardian ? await prepareAllowlistAdmission(database, undefined, "active", "guardian") : await prepareAllowlistAdmission(database);
   for (const migration of TRIBE_LIFECYCLE_AUDIT_MIGRATIONS) await database.applyMigration(migration);
   await database.applyMigration("20261014134826_read_admission_activity_and_metrics.sql");
+  await database.applyMigration("20261014173100_read_dispatch_run_metrics.sql");
   const { fixture } = prepared;
   const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.userId, sessionId: fixture.sessionId }), (_identity, run) => database.withContext(fixture.own, run));
   const observations = buildAcademyAdmissionsModule({ accounts, clock: () => new Date(), execute: (account, run) => database.withContext({ userId: account.userId, email: account.normalizedEmail }, run) }).createActivityQueryModule().useCases;
@@ -26,6 +28,24 @@ async function prepareObservability(database: AcademyAdmissionTestDatabase, with
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission observability", () => {
+  it("should include real completed dispatch and exact per-phase samples while excluding a later incomplete run", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const { fixture, observations, query } = await prepareObservability(database), tribeId = fixture.tribeId;
+      const recorder = new PostgresMessageDispatchRunRecorder((actor, work) => database.withContext({ userId: actor, email: null }, work), async () => true, async () => fixture.config, tribeId);
+      const counters = { claimed: 1, authorized: 1, accepted: 1, delivered: 0, rejected: 0, unknown: 0, suppressed: 0, quotaDeferred: 0, unresolved: 0, deadlineReached: false }, start = await recorder.begin(randomUUID());
+      const phases = [13, 27].map((durationMs) => ({ sampleId: randomUUID(), tribeId, phase: "send" as const, durationMs }));
+      await recorder.finish(start, [{ tribeId, outcome: "completed", counters }], phases, 45_000);
+      await recorder.appendPhases(start, phases);
+      const completed = await observations.metrics(query);
+      expect(completed).toMatchObject({ ok: true, value: { lastSuccessfulRun: { operation: "messaging_dispatch" }, durations: [{ phase: "send", sampleCount: 2, p95Ms: 27 }], deliveries: { accepted: 0, delivered: 0 } } });
+      const incomplete = await recorder.begin(randomUUID());
+      await recorder.finish(incomplete, [{ tribeId, outcome: "incomplete", counters: { ...counters, accepted: 0, unknown: 1, unresolved: 1 } }], [], 45_000);
+      const after = await observations.metrics(query);
+      if (!completed.ok || !after.ok) throw new Error("Native worker metrics failed: own_result_unavailable");
+      expect(after.value.lastSuccessfulRun).toEqual(completed.value.lastSuccessfulRun);
+      expect(after.value.durations).toEqual(completed.value.durations);
+    });
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
   it("should keep empty history, missing usage and absent worker success explicit while recording each authorized read without a ledger or version change", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, observations, query } = await prepareObservability(database);

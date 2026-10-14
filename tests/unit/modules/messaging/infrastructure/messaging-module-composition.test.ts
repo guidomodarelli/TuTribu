@@ -34,6 +34,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module c
       let featureTransaction = false;
       let currentSessionId = sessionId;
       let expireOnIdentityRead: number | null = null, identityReads = 0;
+      let expireAfterStartedOperationId: string | undefined;
       const accounts = new PostgresAuthenticatedAccountProvider(async () => {
         identityReads += 1;
         if (identityReads === expireOnIdentityRead) await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${sessionId}`));
@@ -45,7 +46,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module c
       const messagingRoot = buildMessagingModule({ accounts, clock: () => new Date(), execute: async (account, run) => {
         featureTransaction = true;
         try { return await database.withContext({ userId: account.userId, email: account.normalizedEmail }, run); }
-        finally { featureTransaction = false; }
+        finally {
+          featureTransaction = false;
+          if (expireAfterStartedOperationId) {
+            const original = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id from public.academy_admission_operations where idempotency_key=${expireAfterStartedOperationId} and state='started'`)).rows);
+            if (original.length) { expireAfterStartedOperationId = undefined; await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${sessionId}`)); }
+          }
+        }
       } });
       const messaging = messagingRoot.createRequestModule({ selection: "selected", readSecurityConfig: async () => fixture.config });
       const requestId = randomUUID();
@@ -72,9 +79,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module c
       expect(await messaging.useCases.manageUsage.update(revokedMutation)).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id from public.academy_admission_operations where idempotency_key=${revokedMutation.operationId}`)).rows)).toHaveLength(0);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${sessionId}`));
-      expireOnIdentityRead = 6;
+      expireOnIdentityRead = null;
       identityReads = 0;
       const revokedEffect = { ...revokedMutation, operationId: randomUUID() };
+      expireAfterStartedOperationId = revokedEffect.operationId;
       expect(await messaging.useCases.manageUsage.update(revokedEffect)).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select state,public_result from public.academy_admission_operations where idempotency_key=${revokedEffect.operationId}`)).rows)).toEqual([{ state: "started", public_result: null }]);
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select version,allowed_countries from public.messaging_usage_policies where tribe_id=${fixture.scope.tribeId}`)).rows)).toEqual([{ version: 2, allowed_countries: ["AR"] }]);
@@ -118,6 +126,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module c
       await Promise.all(deferred);
       expect(sends).toBe(1);
       expect(diagnostics).toEqual([]);
+      await database.withContext(fixture.own, async (transaction) => {
+        const runs = (await transaction.execute<{ outcome: string; counters: { accepted: number; delivered: number }; tribe_id: string }>(sql`select outcome,counters,tribe_id from public.messaging_dispatch_runs`)).rows;
+        expect(runs).toEqual([{ outcome: "completed", tribe_id: fixture.scope.tribeId, counters: { claimed: 1, authorized: 1, accepted: 1, delivered: 0, rejected: 0, unknown: 0, suppressed: 0, quotaDeferred: 0, unresolved: 0, deadlineReached: false } }]);
+        const phases = (await transaction.execute<{ phase: string }>(sql`select distinct phase from public.messaging_dispatch_phase_samples where tribe_id=${fixture.scope.tribeId}`)).rows;
+        expect(new Set(phases.map((sample) => sample.phase))).toEqual(new Set(["claim", "authorize", "prepare", "send", "complete"]));
+      });
       currentSecret = undefined;
       await expect(worker.ports.deliveries.claim({ leaseToken: randomUUID(), limit: 1, leaseSeconds: 90 })).rejects.toMatchObject({ code: "permission_denied" });
       expect(sends).toBe(1);

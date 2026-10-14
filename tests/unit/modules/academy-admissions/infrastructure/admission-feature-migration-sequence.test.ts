@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
 import { buildAdmissionExpirationModule } from "@/src/modules/academy-admissions/setup";
+import { PostgresMessageDispatchRunRecorder } from "@/src/modules/messaging/infrastructure/repositories/postgres-message-dispatch-run-recorder";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("complete admission migration sequence", () => {
   it("should apply the real registered feature sequence once and preserve physical retirement protection on replay", async () => {
@@ -25,7 +26,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("complete admission
           expect((await transaction.execute(sql`select to_regclass('public.academy_admission_retired_bindings') is not null and to_regclass('public.academy_admission_retired_operations') is not null and to_regclass('public.academy_admission_retired_audit_events') is not null as ready`)).rows).toEqual([{ ready: true }]);
           return (await transaction.execute<{ total: number; latest: string }>(sql`select count(*)::int as total,max(created_at)::text as latest from drizzle.__drizzle_migrations`)).rows[0];
         });
-        expect(applied.total - before.history.total).toBe(61);
+        expect(applied.total - before.history.total).toBe(63);
         expect(BigInt(applied.latest) > BigInt(before.history.latest)).toBe(true);
         await migrate();
         await database.withContext({ userId: null, email: null }, async (transaction) => {
@@ -46,6 +47,16 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("complete admission
         await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,evidence_source,original_policy_snapshot,submitted_at,expires_at) values (${requestId},${tribeId},${userId},'common','none','{"version":1,"verificationEpoch":1,"mode":"manual_review","contactType":"email","requiresAdditionalVerification":false,"allowCommonExceptions":false}'::jsonb,transaction_timestamp()-interval '31 days',transaction_timestamp()-interval '1 day')`);
       });
       const expiration = buildAdmissionExpirationModule({ execute: (run) => database.withContext({ userId: null, email: null }, run), authorize: async () => true });
+      const recorder = new PostgresMessageDispatchRunRecorder((actor, run) => database.withContext({ userId: actor, email: null }, run), async () => true, async () => ({ environment: "synthetic-migration", securityEpoch: randomUUID(), recoveryLocked: false }));
+      const observationEpoch = randomUUID();
+      const stableRecorder = new PostgresMessageDispatchRunRecorder((actor, run) => database.withContext({ userId: actor, email: null }, run), async () => true, async () => ({ environment: "synthetic-migration", securityEpoch: observationEpoch, recoveryLocked: false }));
+      await expect(recorder.finish(await stableRecorder.begin(randomUUID()), [], [], 45_000)).rejects.toMatchObject({ code: "connection_incomplete" });
+      const observed = await stableRecorder.begin(randomUUID());
+      await stableRecorder.finish(observed, [{ tribeId, outcome: "completed", counters: { claimed: 0, authorized: 0, accepted: 0, delivered: 0, rejected: 0, unknown: 0, suppressed: 0, quotaDeferred: 0, unresolved: 0, deadlineReached: false } }], [{ sampleId: randomUUID(), tribeId, phase: "claim", durationMs: 7 }], 45_000);
+      await database.withContext(context, async (transaction) => {
+        expect((await transaction.execute(sql`select outcome,counters->>'claimed' as claimed from public.messaging_dispatch_runs where run_id=${observed.runId} and tribe_id=${tribeId}`)).rows).toEqual([{ outcome: "completed", claimed: "0" }]);
+        expect((await transaction.execute(sql`select phase,duration_ms::integer as duration from public.messaging_dispatch_phase_samples where run_id=${observed.runId} and tribe_id=${tribeId}`)).rows).toEqual([{ phase: "claim", duration: 7 }]);
+      });
       expect(await expiration.useCases.expireRequests.execute({ limit: 1 })).toEqual({ expired: 1 });
       expect(await expiration.useCases.expireRequests.execute({ limit: 1 })).toEqual({ expired: 0 });
       await database.withContext(context, async (transaction) => {

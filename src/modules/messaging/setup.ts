@@ -42,7 +42,8 @@ import {PostgresMessagingConnectionActivation} from "./infrastructure/repositori
 import type {MessagingSelectionDependencies} from "./domain/repositories/messaging-connection-activation";
 import type {AuthorizedMessagingContext} from "./domain/repositories/messaging-repositories";
 import { ReserveMessagingUsageUseCase } from "./application/use-cases/reserve-messaging-usage-use-case";
-import { DispatchMessageDeliveriesUseCase } from "./application/use-cases/dispatch-message-deliveries-use-case";
+import { ObserveMessageDispatchRunUseCase } from "./application/use-cases/observe-message-dispatch-run-use-case";
+import { PostgresMessageDispatchRunRecorder } from "./infrastructure/repositories/postgres-message-dispatch-run-recorder";
 import { PostgresMessagingAuthorizationReader } from "./infrastructure/repositories/postgres-messaging-authorization-reader";
 import { PostgresMessagingUsageOperations } from "./infrastructure/repositories/postgres-messaging-usage-operations";
 import { PostgresConnectionDiagnosticOperations } from "./infrastructure/repositories/postgres-connection-diagnostic-operations";
@@ -265,7 +266,7 @@ export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies
     },
   };
   return {
-    useCases: { dispatch: new DispatchMessageDeliveriesUseCase(deliveries, sender, createMessagingDispatchConfig(dependencies.settings), dependencies.runtime) },
+    useCases: { dispatch: new ObserveMessageDispatchRunUseCase(deliveries, sender, createMessagingDispatchConfig(dependencies.settings), dependencies.runtime, new PostgresMessageDispatchRunRecorder(dependencies.execute, authorize, async () => { const config = await dependencies.readSecurityConfig(); return { environment: config.environment, securityEpoch: config.securityEpoch, recoveryLocked: config.recoveryLocked }; }, (dependencies.focalScope ?? dependencies.diagnosticScope)?.tribeId, () => dependencies.runtime.now()), (dependencies.focalScope ?? dependencies.diagnosticScope)?.tribeId) },
     ports: {
       deliveries,
       verificationMaterial: new PostgresVerificationMaterialMaintenance((run) => dependencies.execute(null, run), authorize),
