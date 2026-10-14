@@ -11,10 +11,13 @@ import { mapAllowlistEntryRow, type AllowlistEntryRow } from "./allowlist-entry-
 import { TRIBE_ACCESS_MODEL } from "@/src/modules/product-access/constants/product-access";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
+import { presentAllowlistEntry, allowlistPageSchema } from "../../application/results/allowlist-query-schemas";
+import { ADMISSION_ADMINISTRATIVE_SURFACE } from "../../constants/admission-administrative-exposure";
+import { recordAdmissionAdministrativeExposure } from "./postgres-admission-administrative-exposure";
 
 type ContextExecutor = <Result>(context: AuthorizedAdmissionContext, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 
-/** Holds current leader/session scope for the whole read without recency, keyrings or write effects. */
+/** Holds current leader/session scope for the whole read and its fixed access record without keyrings or command effects. */
 export class PostgresAllowlistReader implements AllowlistReader {
   /** @param execute - Existing safe checkout/transaction scope for the current account. */
   constructor(private readonly execute: ContextExecutor) {}
@@ -38,7 +41,11 @@ export class PostgresAllowlistReader implements AllowlistReader {
       const rows = (await database.execute<AllowlistEntryRow & { cursor_timestamp: string }>(sql`select id,tribe_id,contact_type,normalized_contact,display_name,status,version,origin,import_id,created_by_user_id,updated_by_user_id,created_at,updated_at,to_char(created_at at time zone ${ALLOWLIST_CURSOR_TIME_ZONE},${ALLOWLIST_CURSOR_TIMESTAMP_FORMAT}) as cursor_timestamp from public.academy_allowlist_entries where ${sql.join(filters, sql` and `)} order by created_at desc,id desc limit ${query.limit + 1}`)).rows;
       const pageRows = rows.slice(0, query.limit), entries = pageRows.map(mapAllowlistEntryRow), last = pageRows.at(-1);
       await this.authorize(database, context, context.tribeId);
-      return { entries, nextCursor: rows.length > query.limit && last ? [last.cursor_timestamp, last.id].join(ALLOWLIST_CURSOR_SEPARATOR) : null };
+      const page = { entries, nextCursor: rows.length > query.limit && last ? [last.cursor_timestamp, last.id].join(ALLOWLIST_CURSOR_SEPARATOR) : null };
+      allowlistPageSchema.parse({ items: entries.map(presentAllowlistEntry), nextCursor: page.nextCursor });
+      await recordAdmissionAdministrativeExposure(database, context, { surface: ADMISSION_ADMINISTRATIVE_SURFACE.allowlist, resourceId: context.tribeId, resourceVersion: null, itemCount: entries.length });
+      await this.authorize(database, context, context.tribeId);
+      return page;
     });
   }
 
@@ -48,7 +55,12 @@ export class PostgresAllowlistReader implements AllowlistReader {
       await this.authorize(database, context, entryId);
       const row = (await database.execute<AllowlistEntryRow>(sql`select id,tribe_id,contact_type,normalized_contact,display_name,status,version,origin,import_id,created_by_user_id,updated_by_user_id,created_at,updated_at from public.academy_allowlist_entries where tribe_id=${context.tribeId} and id=${entryId}`)).rows[0];
       await this.authorize(database, context, entryId);
-      return row ? mapAllowlistEntryRow(row) : null;
+      if (!row) return null;
+      const entry = mapAllowlistEntryRow(row);
+      presentAllowlistEntry(entry);
+      await recordAdmissionAdministrativeExposure(database, context, { surface: ADMISSION_ADMINISTRATIVE_SURFACE.allowlist, resourceId: entry.id, resourceVersion: entry.version, itemCount: 1 });
+      await this.authorize(database, context, entryId);
+      return entry;
     });
   }
 }

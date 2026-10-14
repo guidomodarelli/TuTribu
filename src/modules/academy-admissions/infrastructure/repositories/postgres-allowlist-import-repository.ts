@@ -1,5 +1,8 @@
 /** Owns temporary preview and original bounded confirmation without membership or binding side effects. @module postgres-allowlist-import-repository */
 import "server-only";
+import { presentAllowlistImport } from "../../application/results/allowlist-import-result";
+import { ADMISSION_ADMINISTRATIVE_SURFACE } from "../../constants/admission-administrative-exposure";
+import { recordAdmissionAdministrativeExposure } from "./postgres-admission-administrative-exposure";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { z } from "zod";
@@ -115,7 +118,11 @@ export class PostgresAllowlistImportRepository implements AllowlistImportReposit
       const record = await this.record(database, context, importId), rows = await this.rows(database, importId, context.tribeId);
       await authorizeAdmissionLeader(database, context, { action: ADMISSION_ACTION.manageAllowlist, resourceId: importId });
       if (new Date(record.expires_at) <= await admissionDatabaseNow(database)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      return mapAllowlistImport(record, rows);
+      const preview = mapAllowlistImport(record, rows);
+      presentAllowlistImport(preview);
+      await recordAdmissionAdministrativeExposure(database, context, { surface: ADMISSION_ADMINISTRATIVE_SURFACE.report, resourceId: preview.id, resourceVersion: preview.version, itemCount: preview.rows.length });
+      await authorizeAdmissionLeader(database, context, { action: ADMISSION_ACTION.manageAllowlist, resourceId: importId });
+      return preview;
     });
   }
   /** @param input - Explicit selected pending rows and current scope. @returns Original bounded confirmation progress/result. */

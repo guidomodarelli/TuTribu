@@ -4,13 +4,14 @@ import { ADMISSION_ERROR_CODE } from "./admission-errors";
 import { ADMISSION_QUERY_LIMIT } from "./admission-public-contract";
 import { VERIFICATION_ISSUANCE_OPERATION } from "./verification-issuance";
 import { MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/message-delivery";
+import { ADMISSION_ADMINISTRATIVE_SURFACE } from "./admission-administrative-exposure";
 
 /** Paginates newest-first using the original SQL timestamp, including its microseconds. */
 export const ADMISSION_ACTIVITY_QUERY = { defaultLimit: ADMISSION_QUERY_LIMIT.defaultPageSize, maximumLimit: ADMISSION_QUERY_LIMIT.maximumPageSize, cursorSeparator: "|" } as const;
 /** Supports exact newest-first resource selection without changing the private audit row contract. */
 export const ADMISSION_ACTIVITY_DATABASE = { resourceHistoryIndex: "admission_audit_resource_history_idx" } as const;
 /** Closes projection-only vocabularies without accepting arbitrary free audit metadata. */
-export const ADMISSION_ACTIVITY_SURFACES = ["activity", "metrics", "allowlist", "allowlist_report", "invitations", "request_details", "connection_resources", "operational_secret"] as const;
+export const ADMISSION_ACTIVITY_SURFACES = ["activity", "metrics", ...Object.values(ADMISSION_ADMINISTRATIVE_SURFACE), "connection_resources", "operational_secret"] as const;
 /** Classifies authorized read extent without exposing its content. */
 export const ADMISSION_ACTIVITY_RESOURCE_KINDS = ["senders", "templates", "entries", "requests", "invitations", "aggregate", "credential"] as const;
 /** Identifies the owner of a retention observation without a caller-selected table name. */
@@ -18,7 +19,7 @@ export const ADMISSION_ACTIVITY_RETENTION_OWNERS = ["admission_requests", "admis
 /** Accepts only the persisted ISO country code form selected by the usage owner. */
 export const ADMISSION_ACTIVITY_COUNTRY_PATTERN = /^[A-Z]{2}$/;
 /** Does not create a command ledger for an authorized read. */
-export const ADMISSION_ACTIVITY_READ_RULE = { activity: "read_admission_activity", metrics: "read_admission_metrics" } as const;
+export const ADMISSION_ACTIVITY_READ_RULE = { activity: "read_admission_activity", metrics: "read_admission_metrics", allowlist: "read_allowlist_entries", allowlistReport: "read_allowlist_report", invitations: "read_personal_invitations", reviews: "read_admission_reviews" } as const;
 /** Records private read extent without a content copy or fictional ledger/version. */
 export const ADMISSION_ACTIVITY_EXPOSURE = { event: "authorized_resource_exposure", resourceKind: "aggregate" } as const;
 /** Keeps policy and the existing resource vocabulary in a single owned selection. */
@@ -44,7 +45,7 @@ export const ADMISSION_ACTIVITY_RULES = [
   "tribe_deleted", "account_deleted", "membership_deleted", "nonrecoverable_membership", "leader_corrective_retry", "local_verification",
   "messaging_connection_replaced", "issue_contact_verification", "resend_contact_verification", "explicit_resend", "suspected_compromise", "connection_replaced",
   "candidate_expired", "accepted", "delivered", "rejected", "unknown", "quota_exceeded", "lease_expired", "reconcile_messaging_delivery",
-  ADMISSION_ACTIVITY_READ_RULE.activity, ADMISSION_ACTIVITY_READ_RULE.metrics,
+  ...Object.values(ADMISSION_ACTIVITY_READ_RULE),
   VERIFICATION_ISSUANCE_OPERATION.issue, VERIFICATION_ISSUANCE_OPERATION.resend,
   MESSAGE_STORAGE_OPERATION.authorize, MESSAGE_STORAGE_OPERATION.complete, MESSAGE_STORAGE_OPERATION.reconcile,
 ] as const;

@@ -1128,6 +1128,13 @@
       "breakpoints": true,
       "when": 1791985706000,
       "tag": "20261014134826_read_admission_activity_and_metrics"
+    },
+    {
+      "idx": 161,
+      "version": "7",
+      "when": 1791992220000,
+      "tag": "20261014153700_audit_admission_administrative_reads",
+      "breakpoints": true
     }
   ]
 }

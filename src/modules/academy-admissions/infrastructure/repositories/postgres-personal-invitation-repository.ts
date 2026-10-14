@@ -1,5 +1,8 @@
 /** Commits private leader invitation management with original metadata and one-view initial material. @module postgres-personal-invitation-repository */
 import "server-only";
+import { presentPersonalInvitation } from "../../application/results/personal-invitation-result";
+import { ADMISSION_ADMINISTRATIVE_SURFACE } from "../../constants/admission-administrative-exposure";
+import { recordAdmissionAdministrativeExposure } from "./postgres-admission-administrative-exposure";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -163,7 +166,12 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
       await authorizeAdmissionLeader(database, context, { action: ADMISSION_ACTION.manageInvitations, resourceId: invitationId });
       const row = (await database.execute<PersonalInvitationRow>(sql`select * from public.academy_personal_invitations where id=${invitationId} and tribe_id=${context.tribeId}`)).rows[0];
       await authorizeAdmissionLeader(database, context, { action: ADMISSION_ACTION.manageInvitations, resourceId: invitationId });
-      return row ? mapPersonalInvitationRow(row) : null;
+      if (!row) return null;
+      const invitation = mapPersonalInvitationRow(row);
+      presentPersonalInvitation(invitation);
+      await recordAdmissionAdministrativeExposure(database, context, { surface: ADMISSION_ADMINISTRATIVE_SURFACE.invitations, resourceId: invitation.id, resourceVersion: invitation.version, itemCount: 1 });
+      await authorizeAdmissionLeader(database, context, { action: ADMISSION_ACTION.manageInvitations, resourceId: invitationId });
+      return invitation;
     });
   }
 
@@ -177,7 +185,11 @@ export class PostgresPersonalInvitationRepository implements PersonalInvitationR
       const rows = (await database.execute<PersonalInvitationRow & { cursor_timestamp: string }>(sql`select *,to_char(created_at at time zone ${PERSONAL_INVITATION_CURSOR.timeZone},${PERSONAL_INVITATION_CURSOR.timestampFormat}) as cursor_timestamp from public.academy_personal_invitations where ${sql.join(filters, sql` and `)} order by created_at desc,id desc limit ${query.limit + 1}`)).rows;
       const visible = rows.slice(0, query.limit), last = visible.at(-1);
       await authorizeAdmissionLeader(database, context, { action: ADMISSION_ACTION.manageInvitations, resourceId: context.tribeId });
-      return { invitations: visible.map(mapPersonalInvitationRow), nextCursor: rows.length > query.limit && last ? [last.cursor_timestamp, last.id].join(PERSONAL_INVITATION_CURSOR.separator) : null };
+      const invitations = visible.map(mapPersonalInvitationRow);
+      for (const invitation of invitations) presentPersonalInvitation(invitation);
+      await recordAdmissionAdministrativeExposure(database, context, { surface: ADMISSION_ADMINISTRATIVE_SURFACE.invitations, resourceId: context.tribeId, resourceVersion: null, itemCount: invitations.length });
+      await authorizeAdmissionLeader(database, context, { action: ADMISSION_ACTION.manageInvitations, resourceId: context.tribeId });
+      return { invitations, nextCursor: rows.length > query.limit && last ? [last.cursor_timestamp, last.id].join(PERSONAL_INVITATION_CURSOR.separator) : null };
     });
   }
 }
