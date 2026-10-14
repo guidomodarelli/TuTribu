@@ -14,7 +14,7 @@ import type { AdmissionOperationCommand, AdmissionOperationResult } from "@/src/
 import { ADMISSION_SCOPE_RETIREMENT_REASON } from "@/src/modules/academy-admissions/constants/admission-scope-lifecycle";
 import { TRIBE_MEMBER_ROLE } from "../../constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "../../constants/tribe-page-access";
-import { TRIBE_LIFECYCLE_ACTION, TRIBE_LIFECYCLE_ACTIONS, TRIBE_LIFECYCLE_ERROR, TRIBE_LIFECYCLE_OPERATION, TRIBE_LIFECYCLE_REAUTHENTICATION } from "../../constants/tribe-lifecycle";
+import { TRIBE_LIFECYCLE_ACTION, TRIBE_LIFECYCLE_ACTIONS, TRIBE_LIFECYCLE_AUDIT_CONTEXT, TRIBE_LIFECYCLE_ERROR, TRIBE_LIFECYCLE_OPERATION, TRIBE_LIFECYCLE_REAUTHENTICATION } from "../../constants/tribe-lifecycle";
 import { TribeLifecycleError } from "../../domain/errors/tribe-lifecycle-error";
 import type { TribeLifecycleContext, TribeLifecycleInput, TribeLifecycleWriter, TribeLifecycleResult } from "../../domain/repositories/tribe-lifecycle-repository";
 import { tribeLifecycleResultSchema } from "../../constants/tribe-lifecycle-result";
@@ -118,13 +118,15 @@ export class PostgresTribeLifecycleRepository implements TribeLifecycleWriter {
         const signed = await fingerprint.sign(command);
         const evidence = await this.authorizeChange(database, context, input);
         const deleted = input.action === TRIBE_LIFECYCLE_ACTION.deleteTribe;
+        const result: TribeLifecycleResult = { action: input.action, deleted, accessModel: deleted ? null : TRIBE_ACCESS_MODEL.legacy, configVersion: deleted ? null : input.expectedConfigVersion + 1 };
+        const publicResult = tribeLifecycleResultSchema.parse(result);
+        // The original is private until commit; a failed effect or recency check rolls it back with its audit.
+        await database.execute(sql`insert into public.tribe_lifecycle_operations(actor_user_id,tribe_id,operation_id,action,fingerprint_key_id,intent_fingerprint,public_result) values (${context.actorUserId},${context.tribeId},${input.operationId},${input.action},${signed.keyId},${Buffer.from(signed.digest)},${JSON.stringify(publicResult)}::jsonb)`);
+        await database.execute(sql`select set_config(${TRIBE_LIFECYCLE_AUDIT_CONTEXT},${input.operationId},true)`);
         await new CloseAcademyAdmissionScopeUseCase(this.admission(database)).execute({ tribeId: context.tribeId, reason: deleted ? ADMISSION_SCOPE_RETIREMENT_REASON.tribeDeletion : ADMISSION_SCOPE_RETIREMENT_REASON.academyExit });
         if (deleted) await database.execute(sql`delete from public.tribes where id=${context.tribeId}`);
         else await database.execute(sql`update public.tribe_academy_settings set access_model=${TRIBE_ACCESS_MODEL.legacy},admission_enabled=false,sales_enabled=false,config_version=config_version+1,updated_at=clock_timestamp() where tribe_id=${context.tribeId} and config_version=${input.expectedConfigVersion}`);
-        if (!deleted) await this.authorizeChange(database, context, input); else await this.authorizeDeletedScope(database, context, evidence);
-        const result: TribeLifecycleResult = { action: input.action, deleted, accessModel: deleted ? null : TRIBE_ACCESS_MODEL.legacy, configVersion: deleted ? null : input.expectedConfigVersion + 1 };
-        const publicResult = tribeLifecycleResultSchema.parse(result);
-        await database.execute(sql`insert into public.tribe_lifecycle_operations(actor_user_id,tribe_id,operation_id,action,fingerprint_key_id,intent_fingerprint,public_result) values (${context.actorUserId},${context.tribeId},${input.operationId},${input.action},${signed.keyId},${Buffer.from(signed.digest)},${JSON.stringify(publicResult)}::jsonb)`);
+        await database.execute(sql`select set_config(${TRIBE_LIFECYCLE_AUDIT_CONTEXT},'',true)`);
         if (!deleted) await this.authorizeChange(database, context, input); else await this.authorizeDeletedScope(database, context, evidence);
         transactionStaged = true;
         return { state: OPERATION_STATE.completed, operationId: input.operationId, replayed: false, result: publicResult };

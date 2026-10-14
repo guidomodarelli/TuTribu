@@ -1114,6 +1114,13 @@
       "when": 1791949978000,
       "tag": "20261014035258_audit_messaging_delivery_transitions",
       "breakpoints": true
+    },
+    {
+      "idx": 159,
+      "version": "7",
+      "when": 1791955310000,
+      "tag": "20261014052150_audit_tribe_lifecycle_scope_retirement",
+      "breakpoints": true
     }
   ]
 }

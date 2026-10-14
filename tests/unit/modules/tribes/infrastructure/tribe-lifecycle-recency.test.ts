@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareAllowlistAdmission } from "@/tests/support/allowlist-admission-database-fixture";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
+import { TRIBE_LIFECYCLE_AUDIT_MIGRATIONS } from "@/tests/support/constants/tribe-lifecycle-audit";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { PostgresTribeLifecycleRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-lifecycle-repository";
@@ -16,7 +17,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native lifecycle s
   it("should roll back a staged retirement and physical deletion when signed evidence expires during the owner await", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, applicant: createApplicant } = await prepareAllowlistAdmission(database);
-      for (const migration of ["20261005100000_guard_messaging_secret_retirement.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql", "20261010100000_minimize_deleted_admission_contact_owners.sql", "20261010113000_preserve_admission_tribe_namespaces.sql", "20261010120000_archive_deleted_admission_tribe_provenance.sql", "20261010121000_retire_deleted_tribe_messaging.sql", "20261011223000_close_admission_scope_lifecycle.sql"]) await database.applyMigration(migration);
+      for (const migration of TRIBE_LIFECYCLE_AUDIT_MIGRATIONS) await database.applyMigration(migration);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set mode='manual_review',version=version+1 where tribe_id=${fixture.tribeId}`));
       const applicant = await createApplicant();
       expect(await applicant.commands.submit.execute({ ...applicant.input, expectedPolicyVersion: 3 })).toMatchObject({ ok: true, value: { state: "completed", result: { outcome: "pending" } } });
@@ -35,6 +36,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native lifecycle s
         async close(event) {
           await createAdmissionScopeClosureWriter(transaction).close(event);
           scopeWasClosed = true;
+          expect((await transaction.execute(sql`select count(*)::integer as total from public.tribe_lifecycle_operations where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ total: 1 }]);
           expect((await transaction.execute(sql`select status from public.academy_admission_requests where tribe_id=${fixture.tribeId} and user_id=${applicant.userId}`)).rows).toEqual([{ status: "cancelled" }]);
           // Observe the persisted deadline using real SQL time; no production clock is replaced.
           await transaction.execute(sql`select pg_sleep(greatest(0,extract(epoch from (${authority.until}::timestamptz-clock_timestamp()))+0.02))`);
@@ -51,6 +53,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native lifecycle s
         expect((await transaction.execute(sql`select status,cancel_reason from public.academy_admission_requests where tribe_id=${fixture.tribeId} and user_id=${applicant.userId}`)).rows).toEqual([{ status: "pending", cancel_reason: null }]);
         expect((await transaction.execute(sql`select retired_at is null as live from public.academy_admission_tribe_namespaces where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ live: true }]);
         expect((await transaction.execute(sql`select count(*)::integer as total from public.tribe_lifecycle_operations where tribe_id=${fixture.tribeId}`)).rows).toEqual([{ total: 0 }]);
+        expect((await transaction.execute(sql`select count(*)::integer as total from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} and tribe_lifecycle_operation_id=${command.operationId}`)).rows).toEqual([{ total: 0 }]);
       });
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);

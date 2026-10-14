@@ -111,17 +111,20 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     retirementCheck: check(ADMISSION_TRIBE_ARCHIVE_DATABASE.operations.timeConstraint, sql`${table.retiredAt}>=${table.createdAt}`),
     versionCheck: check(ADMISSION_TRIBE_ARCHIVE_DATABASE.operations.versionConstraint, sql`${table.version}>0`),
   }));
-  /** Keeps audit provenance without free metadata, account identifiers or provider payload. */
+  /** Keeps opaque originals and selected scope facts without free metadata or account identifiers. */
   const retiredAuditEvents = pgTable(ADMISSION_TRIBE_ARCHIVE_DATABASE.auditEvents.tableName, {
     id: uuid("id").primaryKey(),
     tribeId: uuid("tribe_id").notNull().references(() => tribeNamespaces.tribeId),
     actorReferenceId: uuid("actor_reference_id"),
     operationId: uuid("operation_id"),
+    tribeLifecycleOperationId: uuid("tribe_lifecycle_operation_id"),
     resourceType: text("resource_type").notNull(),
     resourceId: uuid("resource_id"),
     eventType: text("event_type").notNull(),
     rule: text("rule"),
+    cause: text("cause"),
     resourceVersion: integer("resource_version"),
+    metadata: jsonb("metadata").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     retiredAt: timestamp("retired_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   }, (table) => ({
@@ -376,7 +379,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
   }));
   const auditEvents = pgTable("academy_admission_audit_events", {
     id: uuid("id").defaultRandom().primaryKey(), tribeId: uuid("tribe_id").notNull(), actorUserId: text("actor_user_id"), resourceType: text("resource_type").notNull(), resourceId: uuid("resource_id"),
-    operationId: uuid("operation_id"), eventType: text("event_type").notNull(), rule: text("rule"), cause: text("cause"), resourceVersion: integer("resource_version"), metadata: jsonb("metadata").notNull().default({}),
+    operationId: uuid("operation_id"), tribeLifecycleOperationId: uuid("tribe_lifecycle_operation_id"), eventType: text("event_type").notNull(), rule: text("rule"), cause: text("cause"), resourceVersion: integer("resource_version"), metadata: jsonb("metadata").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
   }, (table): PgTableExtraConfig => ({
     tribeForeignKey: parentReference("admission_audit_tribe_fkey",table.tribeId,parents.tribes.id,"restrict"), actorForeignKey: parentReference("admission_audit_actor_fkey",table.actorUserId,parents.users.id,"set null"),
