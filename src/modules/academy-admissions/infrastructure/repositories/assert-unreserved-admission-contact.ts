@@ -8,12 +8,14 @@ import type { AdmissionContact } from "../../domain/value-objects/admission-cont
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { createAdmissionContactFingerprint } from "../verification/admission-contact-fingerprint";
+import { assertAdmissionContactKeyMaterial } from "./assert-admission-contact-key-material";
 
 /** @param database - Transaction already authorized for the actual actor and tribe. @param tribeId - Fixed native scope. @param contact - Canonical contact proposed by that account. @param readSecurity - Live independent keyring, read only when a minimized reservation exists. @returns Nothing while the contact is not reserved; unknown retained keys close safely. */
 export async function assertUnreservedAdmissionContact(database: RequestDatabase, tribeId: string, contact: AdmissionContact, readSecurity: () => Promise<MessagingSecurityConfig>): Promise<void> {
   const exists = (await database.execute(sql`select id from public.academy_admission_contact_bindings where tribe_id=${tribeId} and contact_type=${contact.type} and normalized_contact is null limit 1`)).rows[0];
   if (!exists) return;
   const security = await readSecurity(), ring = security.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint], keyIds = [...ring.keys.keys()];
+  await assertAdmissionContactKeyMaterial(database, security);
   if (!keyIds.length) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
   const availableKeys = keyIds.map((keyId) => sql`${keyId}`);
   const unavailable = (await database.execute(sql`select id from public.academy_admission_contact_bindings where tribe_id=${tribeId} and contact_type=${contact.type} and normalized_contact is null and fingerprint_key_id not in (${sql.join(availableKeys, sql`, `)}) limit 1`)).rows[0];

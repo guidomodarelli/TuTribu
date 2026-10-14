@@ -2,8 +2,9 @@
 import "server-only";
 import { MESSAGING_CRYPTO, MESSAGING_CRYPTO_ERROR, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
+import type { MessagingKeyPurpose } from "../../domain/value-objects/messaging-key-purpose";
 
-export type MessagingKeyPurpose = (typeof MESSAGING_KEY_PURPOSE)[keyof typeof MESSAGING_KEY_PURPOSE];
+export type { MessagingKeyPurpose } from "../../domain/value-objects/messaging-key-purpose";
 export type MessagingKeyringInput = { activeKeyId: string; keys: { id: string; material: Uint8Array }[] };
 export type MessagingKeyring = { purpose: MessagingKeyPurpose; activeKeyId: string; keys: ReadonlyMap<string, CryptoKey> };
 export type MessagingSecurityConfig = {

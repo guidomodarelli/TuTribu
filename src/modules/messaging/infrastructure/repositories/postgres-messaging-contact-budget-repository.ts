@@ -9,6 +9,8 @@ import type { MessagingContactBudgetIdentity, MessagingContactBudgetRepository }
 import type { AdmissionContact } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { assertMessagingAuthenticatedMacKeyMaterial } from "./assert-messaging-key-material";
+import { MessagingCryptographyError } from "../encryption/messaging-cryptography-error";
 
 /** Key ids identify immutable platform key material; a rotation must use a new id and retain its needed predecessors. */
 export class PostgresMessagingContactBudgetRepository implements MessagingContactBudgetRepository {
@@ -24,6 +26,12 @@ export class PostgresMessagingContactBudgetRepository implements MessagingContac
     if (!(await this.database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor || !await this.authorize(this.database)) throw new MessagingUsageBudgetError(MESSAGING_ERROR_CODE.permissionDenied);
   }
 
+  /** @param config - Current native-authorized external snapshot. @returns After immutable contact-key material is attested. @throws MessagingUsageBudgetError for unprovable identity continuity. */
+  private async assertKeyMaterial(config: MessagingSecurityConfig): Promise<void> {
+    try { await assertMessagingAuthenticatedMacKeyMaterial(this.database, config, MESSAGING_KEY_PURPOSE.contactFingerprint); }
+    catch (error) { if (error instanceof MessagingCryptographyError) throw new MessagingUsageBudgetError(MESSAGING_ERROR_CODE.resourceUnavailable, { cause: error }); throw error; }
+  }
+
   /**
    * Resolves retained fingerprints without using tribe, channel, actor or security epoch as a budget reset.
    * @param contact - Already normalized own email/phone; it never becomes a public fingerprint.
@@ -34,6 +42,7 @@ export class PostgresMessagingContactBudgetRepository implements MessagingContac
     await this.assertAuthorized();
     const config = await this.readSecurityConfig();
     if (config.recoveryLocked) throw new MessagingUsageBudgetError(MESSAGING_ERROR_CODE.resourceUnavailable);
+    await this.assertKeyMaterial(config);
     const ring = config.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint];
     if (!ring.keys.has(ring.activeKeyId)) throw new MessagingUsageBudgetError(MESSAGING_ERROR_CODE.resourceUnavailable);
     const fingerprints: { keyId: string; fingerprint: Uint8Array }[] = [];
@@ -68,6 +77,8 @@ export class PostgresMessagingContactBudgetRepository implements MessagingContac
     const current = await this.readSecurityConfig();
     const currentRing = current.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint];
     if (current.recoveryLocked || current.environment !== config.environment || current.securityEpoch !== config.securityEpoch || currentRing.activeKeyId !== ring.activeKeyId || JSON.stringify([...currentRing.keys.keys()].sort()) !== JSON.stringify([...ring.keys.keys()].sort())) throw new MessagingUsageBudgetError(MESSAGING_ERROR_CODE.resourceUnavailable);
+    await this.assertKeyMaterial(current);
+    await this.assertAuthorized();
     const active = fingerprints.find((entry) => entry.keyId === ring.activeKeyId)!;
     return { subjectId, fingerprintKeyId: active.keyId, fingerprint: active.fingerprint };
   }

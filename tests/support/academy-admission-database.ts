@@ -3,7 +3,7 @@
  *
  * @module academy-admission-database
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { access, appendFile, readFile, realpath } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -260,7 +260,7 @@ export async function withAcademyAdmissionDatabase<Result>(
         });
       },
       /**
-       * Executes the real versioned artifact exclusively on the owned branch.
+       * Executes the real versioned artifact exclusively on the owned branch, preserving already registered current migrations.
        *
        * @param fileName - Basename of a SQL artifact under database/migrations.
        * @returns Nothing after committing the artifact's database effects.
@@ -269,7 +269,15 @@ export async function withAcademyAdmissionDatabase<Result>(
       async applyMigration(fileName) {
         if (!/^\d{14}_[a-z0-9_]+\.sql$/.test(fileName)) throw new Error("AcademyAdmissionDatabase.migrate failed: invalid_artifact_name");
         const artifact = await readFile(join(process.cwd(), "database", "migrations", fileName), "utf8");
-        await runWithGuardedTransaction(branchPool, async (transaction) => { await transaction.execute(sql.raw(artifact)); });
+        await runWithGuardedTransaction(branchPool, async (transaction) => {
+          const historyExists = (await transaction.execute<{ ready: boolean }>(sql`select to_regclass('drizzle.__drizzle_migrations') is not null as ready`)).rows[0].ready;
+          if (historyExists) {
+            const hash = createHash("sha256").update(artifact).digest("hex");
+            const registered = (await transaction.execute(sql`select id from drizzle.__drizzle_migrations where hash=${hash} limit 1`)).rows[0];
+            if (registered) return;
+          }
+          await transaction.execute(sql.raw(artifact));
+        });
       },
       /**
        * Grants only explicitly selected tables to the branch's non-bypass role.

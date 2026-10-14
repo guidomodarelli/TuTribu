@@ -11,6 +11,7 @@ import type { AdmissionContact } from "@/src/modules/academy-admissions/domain/v
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { MESSAGING_CRYPTO } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { ADMISSION_SECURITY_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-security";
+import { assertMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native contact key retirement window", () => {
   it("should preserve bridged historical identity and refuse unbridged recent consumption without altering its recorded time", async () => {
@@ -41,6 +42,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native contact key
       const keyId = randomUUID(), key = await crypto.subtle.importKey("raw", randomBytes(MESSAGING_CRYPTO.keyBytes), { name: MESSAGING_CRYPTO.macAlgorithm, hash: MESSAGING_CRYPTO.macHash }, false, ["sign", "verify"]);
       const oldRing = security.config.keyrings.contact_fingerprint;
       const removed: MessagingSecurityConfig = { ...security.config, keyrings: { ...security.config.keyrings, contact_fingerprint: { ...oldRing, activeKeyId: keyId, keys: new Map([[keyId, key]]) } } };
+      await database.withContext({ userId: null, email: null }, (transaction) => assertMessagingPrivateMacKeyMaterial(transaction, removed, "contact_fingerprint"));
       // Expired unrecognized consumption does not keep every new identity closed indefinitely.
       const afterWindow = await resolve(removed);
       expect(afterWindow.subjectId === original.subjectId).toBe(false);

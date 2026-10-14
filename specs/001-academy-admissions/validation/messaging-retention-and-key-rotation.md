@@ -1,6 +1,6 @@
 # Retención, eliminación y continuidad de claves
 
-T166 permanece abierta. Conserva el criterio original completo: retiro y purga de credenciales dentro de 24 horas, candidatas/borradores de siete días más eliminación en 24 horas, solicitudes terminales de 180 días y auditoría de 365 días, OTP de hasta diez minutos, eliminación de cuentas/tribus sin liberar vínculos necesarios, y rotación independiente de fingerprint, payload MAC y cipher sin reiniciar consumo ni revivir secretos retirados.
+T166 permanecía abierta en los checkpoints históricos conservados a continuación. Su contraste y cierre posterior se registran en [rotación privada de protección](messaging-protection-key-rotation-baseline.md#auditoría-de-cierre-de-t166-y-t168). Conserva el criterio original completo: retiro y purga de credenciales dentro de 24 horas, candidatas/borradores de siete días más eliminación en 24 horas, solicitudes terminales de 180 días y auditoría de 365 días, OTP de hasta diez minutos, eliminación de cuentas/tribus sin liberar vínculos necesarios, y rotación independiente de fingerprint, payload MAC y cipher sin reiniciar consumo ni revivir secretos retirados.
 
 ## Evidencia inicial actual
 

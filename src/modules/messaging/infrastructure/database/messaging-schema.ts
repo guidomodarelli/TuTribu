@@ -6,6 +6,8 @@ import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable,
 import type { AnyPgColumn, PgTableExtraConfig } from "drizzle-orm/pg-core";
 import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messaging-limits";
 import { MESSAGING_DEFAULT_CONNECTION_NAME } from "@/src/modules/messaging/constants/messaging-connection";
+import { MESSAGING_KEY_MATERIAL_CONTINUITY } from "../../constants/messaging-key-material-continuity";
+import { MESSAGING_PROTECTION_KEY_ROTATION } from "../../constants/messaging-protection-key-rotation";
 
 type MessagingSchemaParents = {
   tribeNamespaces: { tribeId: AnyPgColumn };
@@ -110,6 +112,14 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingVersionConnectionFkey: foreignKey({name:"messaging_version_connection_fkey",columns:[table.connectionId,table.tribeId,table.environment,table.securityEpoch],foreignColumns:[tenantMessagingConnections.id,tenantMessagingConnections.tribeId,tenantMessagingConnections.environment,tenantMessagingConnections.securityEpoch]}).onDelete("cascade"),
     messagingVersionSecretFkey: foreignKey({name:"messaging_version_secret_fkey",columns:[table.secretRef,table.tribeId,table.connectionId,table.version,table.environment,table.securityEpoch],foreignColumns:[messagingSecretEnvelopes.secretRef,messagingSecretEnvelopes.tribeId,messagingSecretEnvelopes.connectionId,messagingSecretEnvelopes.connectionVersion,messagingSecretEnvelopes.environment,messagingSecretEnvelopes.securityEpoch]}),
   }));
+  const messagingKeyMaterialProofs = pgTable(MESSAGING_KEY_MATERIAL_CONTINUITY.table, {
+    purpose: text("purpose").notNull(), keyId: text("key_id").notNull(), verifier: binaryData("verifier").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql.raw("clock_timestamp()")),
+  }, (table): PgTableExtraConfig => ({
+    primaryKey: primaryKey({ name: MESSAGING_KEY_MATERIAL_CONTINUITY.primaryKey, columns: [table.purpose, table.keyId] }),
+    purposeCheck: check(MESSAGING_KEY_MATERIAL_CONTINUITY.purposeCheck, sql.raw("purpose IN ('contact_fingerprint','operation_payload')")),
+    proofCheck: check(MESSAGING_KEY_MATERIAL_CONTINUITY.proofCheck, sql`octet_length(${table.verifier})=${MESSAGING_KEY_MATERIAL_CONTINUITY.proofBytes}`.inlineParams()),
+  }));
   const messagingSecretEnvelopes = pgTable("messaging_secret_envelopes", {
     secretRef: uuid("secret_ref").primaryKey().defaultRandom(),
     tribeId: uuid("tribe_id").notNull(),
@@ -134,6 +144,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingSecretRetirementPurgeCheck: check("messaging_secret_retirement_purge_check",sql.raw("retired_at IS NULL OR (purge_after IS NOT NULL AND purge_after<=retired_at+interval '24 hours')")),
     messagingSecretMaterialLifecycleCheck: check("messaging_secret_material_lifecycle_check",sql.raw("(purged_at IS NULL AND iv IS NOT NULL AND ciphertext IS NOT NULL) OR (purged_at IS NOT NULL AND retired_at IS NOT NULL AND purged_at>=retired_at AND iv IS NULL AND ciphertext IS NULL)")),
     messagingSecretScopeKey: unique("messaging_secret_scope_key").on(table.secretRef,table.tribeId,table.connectionId,table.connectionVersion,table.environment,table.securityEpoch),
+    messagingSecretRotationIndex: index(MESSAGING_PROTECTION_KEY_ROTATION.credentialIndex).on(table.environment, table.securityEpoch, table.keyId, table.secretRef).where(sql`${table.retiredAt} is null and ${table.purgedAt} is null`),
     messagingSecretVersionFkey: foreignKey({name:"messaging_secret_version_fkey",columns:[table.connectionId,table.tribeId,table.connectionVersion,table.environment,table.securityEpoch],foreignColumns:[messagingConnectionVersions.connectionId,messagingConnectionVersions.tribeId,messagingConnectionVersions.version,messagingConnectionVersions.environment,messagingConnectionVersions.securityEpoch]}).onDelete("cascade"),
   }));
   const messagingConnectionCapabilities = pgTable("messaging_connection_capabilities", {
@@ -366,6 +377,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingUsageTribeWindowIdx: index("messaging_usage_tribe_window_idx").on(table.tribeId,table.eventType,table.channel,table.occurredAt),
   }));
   return {
+    messagingKeyMaterialProofs: messagingKeyMaterialProofs.enableRLS(),
     messagingUsagePolicies: messagingUsagePolicies.enableRLS(),
     tenantMessagingConnections: tenantMessagingConnections.enableRLS(),
     messagingConnectionVersions: messagingConnectionVersions.enableRLS(),

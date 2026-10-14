@@ -62,6 +62,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El historial privado registra el origen y la creación efectiva de los avisos internos de admisión, sin copiar sus destinatarios ni contenidos.
 - El mantenimiento privado puede minimizar mensajes y contactos innecesarios de solicitudes finalizadas tras ciento ochenta días y purgar auditoría tras trescientos sesenta y cinco, conservando los vínculos necesarios; su programación operativa sigue pendiente.
 - La limpieza interna agrupa sus pasos para que un fallo tardío revierta el lote completo y conserva por separado los resultados confirmados de admisión y mensajería.
+- El mantenimiento privado puede renovar el cifrado de conexiones vigentes sin cambiar la clave de Zavu, los códigos pendientes ni el consumo acumulado.
 
 ### Changed
 
