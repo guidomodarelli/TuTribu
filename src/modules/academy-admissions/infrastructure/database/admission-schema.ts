@@ -10,6 +10,7 @@ import { ADMISSION_TRIBE_ARCHIVE_DATABASE } from "@/src/modules/academy-admissio
 import { ADMISSION_METRIC_RUN_OPERATION, ADMISSION_WORKER_RUN_DATABASE } from "@/src/modules/academy-admissions/constants/admission-metrics";
 import { ADMISSION_ACTIVITY_DATABASE } from "@/src/modules/academy-admissions/constants/admission-activity";
 import type { AdmissionMetricRunOperation } from "@/src/modules/academy-admissions/domain/entities/admission-metric-dimensions";
+import { ADMISSION_NOTIFICATION_AUDIT } from "@/src/modules/notifications/constants/admission-notification-audit";
 
 /** Resolves cross-owner columns after both table factories have finished. */
 export type AdmissionMessagingSchemaReferences = {
@@ -389,6 +390,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     operationForeignKey: foreignKey({name:"admission_audit_operation_fkey",columns:[table.operationId,table.tribeId],foreignColumns:[operations.id,operations.tribeId]}).onDelete("restrict"),
     historyIndex: index("admission_audit_history_idx").on(table.tribeId,table.createdAt.desc()),
     resourceHistoryIndex: index(ADMISSION_ACTIVITY_DATABASE.resourceHistoryIndex).on(table.tribeId,table.resourceType,table.resourceId,table.createdAt.desc(),table.id.desc()),
+    notificationFactKey: uniqueIndex(ADMISSION_NOTIFICATION_AUDIT.factIndex).on(table.tribeId,table.resourceId,table.eventType).where(sql`${table.resourceType}=${ADMISSION_NOTIFICATION_AUDIT.resourceType}`.inlineParams()),
   }));
   /** Projects real committed worker effects, separate from delivery outcomes and command ledgers. */
   const workerRuns = pgTable(ADMISSION_WORKER_RUN_DATABASE.tableName, {

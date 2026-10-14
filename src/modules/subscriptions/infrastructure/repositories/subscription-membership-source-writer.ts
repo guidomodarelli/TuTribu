@@ -35,6 +35,8 @@ export async function recoverProtectedSubscriptionMemberships(database: RequestD
   const scopePredicate = sql`affected.mercado_pago_preapproval_id=any(${providerIds})
     and (${scope.tribeSlug ?? null}::text is null or tribe.slug=${scope.tribeSlug ?? null})
     and (${scope.priceId ?? null}::uuid is null or affected.price_id=${scope.priceId ?? null}::uuid)`;
+  // Pin the audit actor before tribe/member locks; deletion checks its creator FKs too.
+  await database.execute(sql`select id from public."user" where id=public.current_app_user_id() for share`);
   await database.execute(sql`select tribe.id from public.tribes tribe where tribe.admissions_control_activated_at is not null and exists(select 1 from public.tribe_member_subscriptions affected where affected.tribe_id=tribe.id and ${scopePredicate}) order by tribe.id for update`);
   // Hold the actual managerial row while the source and its membership are committed.
   await database.execute(sql`select actor.id from public.tribe_members actor join public.tribes tribe on tribe.id=actor.tribe_id where actor.user_id=public.current_app_user_id() and tribe.admissions_control_activated_at is not null and exists(select 1 from public.tribe_member_subscriptions affected where affected.tribe_id=tribe.id and ${scopePredicate}) order by actor.id for share of actor`);

@@ -6,6 +6,7 @@ import { VERIFICATION_ISSUANCE_OPERATION } from "./verification-issuance";
 import { MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/message-delivery";
 import { ADMISSION_ADMINISTRATIVE_SURFACE } from "./admission-administrative-exposure";
 import { MESSAGING_SECRET_HUMAN_OPERATIONS, MESSAGING_SECRET_DELIVERY_SCOPE } from "@/src/modules/messaging/constants/messaging-secret-access";
+import { ADMISSION_NOTIFICATION_AUDIT } from "@/src/modules/notifications/constants/admission-notification-audit";
 
 /** Paginates newest-first using the original SQL timestamp, including its microseconds. */
 export const ADMISSION_ACTIVITY_QUERY = { defaultLimit: ADMISSION_QUERY_LIMIT.defaultPageSize, maximumLimit: ADMISSION_QUERY_LIMIT.maximumPageSize, cursorSeparator: "|" } as const;
@@ -37,12 +38,14 @@ export const ADMISSION_ACTIVITY_EVENTS = [
   "activate_messaging_connection", "suspend_messaging_connection", "disconnect_messaging_connection", "messaging_connection_compromised", "messaging_connection_retired",
   "authorized_resource_exposure", "delivery_created", "delivery_attempt_started", "delivery_accepted", "delivery_delivered", "delivery_failed", "delivery_unknown",
   "delivery_suppressed", "delivery_deferred", "delivery_cancelled", "delivery_reconciled", "notification_delivery_recovered",
+  ADMISSION_NOTIFICATION_AUDIT.obligationCreated, ADMISSION_NOTIFICATION_AUDIT.materialized,
   "proof_created", "proof_applied", "proof_invalidated", "proof_expired", "membership_admitted", "membership_revoked", "membership_role_changed",
   "protection_keys_rotated", "secret_retired", "secret_purged", "recovery_locked", "retention_completed", ADMISSION_ACTIVITY_UNCLASSIFIED_EVENT,
 ] as const;
 /** Closed rules exclude free administrative notes and provider messages from this public history. */
 export const ADMISSION_ACTIVITY_RULES = [
   ...ADMISSION_ACTIVITY_EVENTS, "manual_review", "applicant_cancellation", "management_cancellation", "automatic", "external_resolution", "academy_unavailable",
+  ADMISSION_NOTIFICATION_AUDIT.createRule, ADMISSION_NOTIFICATION_AUDIT.materializeRule,
   "tribe_deleted", "account_deleted", "membership_deleted", "nonrecoverable_membership", "leader_corrective_retry", "local_verification",
   "messaging_connection_replaced", "issue_contact_verification", "resend_contact_verification", "explicit_resend", "suspected_compromise", "connection_replaced",
   "candidate_expired", "accepted", "delivered", "rejected", "unknown", "quota_exceeded", "lease_expired", "reconcile_messaging_delivery",
@@ -68,4 +71,5 @@ export const ADMISSION_ACTIVITY_CHANGE_FIELDS = [
   "previousOriginalVersion", "originalVersion", "originalAttemptId", "originalAuthorizedUsagePolicyVersion", "contactType", "fromAuthorizationRevoked", "toAuthorizationRevoked",
   "allowedCountries", "verificationDailyLimit", "notificationDailyLimit", "membershipInstanceId", "fromRole", "toRole", "surface", "itemCount", "resourceKind",
   "owner", "processed", "remaining", "cutoff", "purpose", "previousKeyId", "activeKeyId", "securityEpoch", "previousCredentialState", "credentialState", "credentialMode",
+  "obligationId", "requestVersion", "sourceEvent", "audience", "durationMs",
 ] as const;

@@ -20,7 +20,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal pa
         request: (await transaction.execute(sql`select status,version,cancel_reason,decision_id,submitted_at::text,expires_at::text from public.academy_admission_requests where id=${scenario.requestId}`)).rows[0],
         invitation: (await transaction.execute(sql`select status,version,redeemed_request_id,redeemed_by_user_id,redeemed_at::text from public.academy_personal_invitations where id=${scenario.invitationId}`)).rows[0],
         binding: (await transaction.execute(sql`select id,owner_user_id,first_request_id,first_proof_id,created_at::text from public.academy_admission_contact_bindings where tribe_id=${fixture.tribeId} and owner_user_id=${recipient.userId}`)).rows[0],
-        counts: (await transaction.execute(sql`select (select count(*)::integer from public.subscription_membership_effects where tribe_id=${fixture.tribeId}) as paid,(select count(*)::integer from public.academy_admission_decisions where request_id=${scenario.requestId}) as decisions,(select count(*)::integer from public.academy_admission_notification_obligations where request_id=${scenario.requestId} and event_type='cancelled') as obligations,(select count(*)::integer from public.notifications where tribe_id=${fixture.tribeId} and recipient_user_id=${recipient.userId} and type='admission_cancelled') as notices`)).rows[0],
+        counts: (await transaction.execute(sql`select (select count(*)::integer from public.subscription_membership_effects where tribe_id=${fixture.tribeId}) as paid,(select count(*)::integer from public.academy_admission_decisions where request_id=${scenario.requestId}) as decisions,(select count(*)::integer from public.academy_admission_notification_obligations where request_id=${scenario.requestId} and event_type='cancelled') as obligations,(select count(*)::integer from public.notifications where tribe_id=${fixture.tribeId} and recipient_user_id=${recipient.userId} and type='admission_cancelled') as notices,(select count(*)::integer from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} and resource_type='admission_notification' and metadata->>'sourceEvent'='cancelled') as notice_audit`)).rows[0],
       }));
       const before = await snapshot();
       expect(before.invitation).toMatchObject({ status: "redeemed", redeemed_request_id: scenario.requestId });
@@ -52,7 +52,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal pa
       expect(committed.request).toMatchObject({ status: "cancelled", cancel_reason: "external_resolution" });
       expect(committed.invitation).toEqual(before.invitation);
       expect(committed.binding).toEqual(before.binding);
-      expect(committed.counts).toEqual({ paid: 1, decisions: 1, obligations: 1, notices: 1 });
+      expect(committed.counts).toEqual({ paid: 1, decisions: 1, obligations: 1, notices: 1, notice_audit: 2 });
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 });

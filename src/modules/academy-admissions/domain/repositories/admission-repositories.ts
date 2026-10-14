@@ -60,5 +60,5 @@ export interface AdmissionExternalResolutionReader {
 }
 /** Scoped transaction collaborator persists obligations; no external notification is sent here. */
 export interface AdmissionNotificationObligationWriter {
-  record(obligation: { id: string; tribeId: string; admissionRequestId: string; applicantUserId: string; event: "pending_created" | "approved" | "rejected" | "cancelled" | "expired" }): Promise<void>;
+  record(obligation: { id: string; tribeId: string; admissionRequestId: string; applicantUserId: string; event: "pending_created" | "approved" | "rejected" | "cancelled" | "expired"; operationId?: string | null }): Promise<void>;
 }

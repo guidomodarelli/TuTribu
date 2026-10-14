@@ -21,6 +21,7 @@ async function prepareNotifications(database: AcademyAdmissionTestDatabase) {
     "20261005090000_create_admission_identity_evidence.sql",
     "20261005091000_create_academy_admission_core.sql",
     "20261006220000_extend_admission_notifications.sql",
+    "20261014185400_audit_admission_notification_creation.sql",
   ]) await database.applyMigration(migration);
   const applicantId = randomUUID(), otherApplicantId = randomUUID();
   const leaderId = randomUUID(), guardianId = randomUUID(), otherLeaderId = randomUUID();

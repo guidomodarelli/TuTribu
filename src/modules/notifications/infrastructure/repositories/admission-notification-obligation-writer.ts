@@ -17,7 +17,7 @@ export function createPostgresAdmissionNotificationObligationWriter(database: Re
   return {
     /** @param obligation - Original admission event/tenant/account identities. @returns After all local notices are staged, before the caller commits. */
     async record(obligation) {
-      await database.execute(sql`insert into public.academy_admission_notification_obligations(id,tribe_id,request_id,applicant_user_id,event_type) values (${obligation.id},${obligation.tribeId},${obligation.admissionRequestId},${obligation.applicantUserId},${obligation.event})`);
+      await database.execute(sql`select public.create_admission_notification_obligation(${obligation.id},${obligation.tribeId},${obligation.admissionRequestId},${obligation.applicantUserId},${obligation.event},${obligation.operationId ?? null})`);
       if (obligation.event === ADMISSION_REQUEST_EVENT.pendingCreated) {
         const reviewers = (await database.execute<{ user_id: string }>(sql`select user_id from public.tribe_members where tribe_id=${obligation.tribeId} and role in (${TRIBE_MEMBER_ROLE.leader},${TRIBE_MEMBER_ROLE.guardian}) and status=${TRIBE_MEMBERSHIP_STATUS.active} order by user_id for share`)).rows;
         for (const reviewer of reviewers) await database.execute(sql`select public.enqueue_admission_notification(${obligation.id},${reviewer.user_id},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer})`);

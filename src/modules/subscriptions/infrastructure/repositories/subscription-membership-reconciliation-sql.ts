@@ -9,16 +9,18 @@ import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database
 type SubscriptionMembershipLockScope={tribeSlug:string}|{tribeId:string}|{providerSubscriptionId:string}|{subscriptionId:string};
 
 /**
- * Serializes membership writers before changing a subscription or member row.
+ * Pins the actual actor before serializing subscription/member writes by tribe.
  * @param database - Existing guarded transaction; no new pool or RPC is created.
  * @param scope - Own stored resource identity resolved by the repository.
- * @returns Nothing after the ordered tribe locks; the next statement gets a fresh snapshot.
+ * @returns Nothing after account then ordered tribe locks; the next statement gets a fresh snapshot.
  */
 export async function lockSubscriptionMembershipTribes(database:RequestDatabase,scope:SubscriptionMembershipLockScope):Promise<void> {
   const predicate="tribeSlug" in scope?sql`tribes.slug=${scope.tribeSlug}`:
     "tribeId" in scope?sql`tribes.id=${scope.tribeId}`:
     "subscriptionId" in scope?sql`tribes.id in(select tribe_id from public.tribe_member_subscriptions where id=${scope.subscriptionId})`:
     sql`tribes.id in(select tribe_id from public.tribe_member_subscriptions where mercado_pago_preapproval_id=${scope.providerSubscriptionId})`;
+  // Creator FK checks during account deletion precede any child tribe/member lock.
+  await database.execute(sql`select id from public."user" where id=public.current_app_user_id() for share`);
   await database.execute(sql`select tribes.id from public.tribes where ${predicate} order by tribes.id for update`);
 }
 

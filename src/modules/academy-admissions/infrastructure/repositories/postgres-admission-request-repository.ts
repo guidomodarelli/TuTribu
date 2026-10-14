@@ -201,7 +201,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
 
   /** @param database - Original authorized transaction. @param scope - Actual command actor. @param request - Current committed proposal. @param ledgerId - Original private registry identity. @param event - Owner-selected lifecycle event. @param previous - Locked prior lifecycle or absence for the presentation. @param decision - Effective decision policy/rule/clock or initial absence. @returns After staging notice and reconstructible audit within the same commit. */
   private async record(database: RequestDatabase, scope: AdmissionCommandScope, request: AdmissionRequest, ledgerId: string, event: AdmissionRequestAuditInput["eventType"], previous: AdmissionRequestAuditInput["previous"], decision: AdmissionRequestAuditDecision|null): Promise<void> {
-    await this.compose(database).notifications.record({ id: randomUUID(), tribeId: scope.tribeId, admissionRequestId: request.id, applicantUserId: request.userId, event });
+    await this.compose(database).notifications.record({ id: randomUUID(), tribeId: scope.tribeId, admissionRequestId: request.id, applicantUserId: request.userId, event, operationId: ledgerId });
     await new PostgresAdmissionAuditRepository(database).append(createAdmissionRequestAuditEvent({actorUserId:scope.userId,operationId:ledgerId,eventType:event,request,previous,decision}));
   }
 
