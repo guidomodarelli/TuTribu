@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Las ventanas y los avisos de confirmación se abren desplegándose desde su centro y se cierran plegándose hacia él, en lugar de aparecer subiendo con un fundido. Con movimiento reducido siguen apareciendo sin animación.
+
 ## [1.2.4] - 2026-10-14
 
 ### Fixed
