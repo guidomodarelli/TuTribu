@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-10-14
+
 ### Fixed
 
 - Los contadores de "me gusta" y de comentarios de cada mensaje de la ronda vuelven a quedar alineados a la misma altura y con el mismo tamaño al pasar el mouse.
