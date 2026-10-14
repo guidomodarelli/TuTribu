@@ -9,6 +9,8 @@ import { PostgresMessageDeliveryRepository } from "@/src/modules/messaging/infra
 import { DispatchMessageDeliveriesUseCase } from "@/src/modules/messaging/application/use-cases/dispatch-message-deliveries-use-case";
 import { createMessagingDispatchConfig } from "@/src/modules/messaging/infrastructure/config/messaging-dispatch-config";
 import type { MessagingDispatchDiagnostic } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
+import type { MessageDeliveryReceipt } from "@/src/modules/messaging/domain/repositories/message-delivery-repository";
+import { TRIBE_LIFECYCLE_AUDIT_MIGRATIONS } from "@/tests/support/constants/tribe-lifecycle-audit";
 
 /**
  * Issues a real own challenge and applies only versioned outbox artifacts to an owned branch.
@@ -30,6 +32,35 @@ async function prepareOutbox(database: AcademyAdmissionTestDatabase, phone = fal
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("message delivery repository", () => {
+  it.each(["accepted", "delivered"] as const)("should preserve a charged attempt through physical retirement and record its late %s receipt privately once", async (outcome) => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareOutbox(database);
+      await database.applyMigration("20261005093000_guard_academy_membership_sources.sql");
+      await database.applyMigration("20261006220000_extend_admission_notifications.sql");
+      for (const migration of TRIBE_LIFECYCLE_AUDIT_MIGRATIONS) await database.applyMigration(migration);
+      const claim = (await fixture.repository.claim({ leaseToken: randomUUID(), limit: 2, leaseSeconds: 90 }))[0];
+      const authorization = await fixture.repository.authorize(claim, randomUUID());
+      if (authorization.outcome !== "authorized") throw new Error("Retired delivery audit fixture failed: committed_attempt_unavailable");
+      const providerMessageId = randomUUID();
+      if (outcome === "delivered") expect(await fixture.repository.complete({ context: authorization.context, outcome: "accepted", providerMessageId, correlationId: null, reason: "provider_accepted" })).toMatchObject({ outcome: "completed" });
+      const before = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ state: "queued" | "accepted"; version: number; delivery_hash: string; attempt_hash: string; reservation_hash: string }>(sql`select delivery.state,delivery.version,md5(to_jsonb(delivery)::text) as delivery_hash,(select md5(to_jsonb(attempt)::text) from public.message_delivery_attempts attempt where attempt.id=${authorization.context.attemptId}) as attempt_hash,(select md5(to_jsonb(reservation)::text) from public.messaging_usage_reservations reservation where reservation.delivery_id=delivery.id) as reservation_hash from public.message_deliveries delivery where delivery.id=${fixture.original.deliveryId}`)).rows[0]);
+      const priorReceipt = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select operation_id,resource_version,cause,metadata,created_at from public.academy_admission_audit_events where resource_id=${fixture.original.deliveryId} and event_type='delivery_accepted'`)).rows);
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`delete from public.tribes where id=${fixture.scope.tribeId}`));
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select delivery.state,delivery.version,md5(to_jsonb(delivery)::text) as delivery_hash,(select md5(to_jsonb(attempt)::text) from public.message_delivery_attempts attempt where attempt.id=${authorization.context.attemptId}) as attempt_hash,(select md5(to_jsonb(reservation)::text) from public.messaging_usage_reservations reservation where reservation.delivery_id=delivery.id) as reservation_hash from public.message_deliveries delivery where delivery.id=${fixture.original.deliveryId}`)).rows).toEqual([before]);
+        expect((await transaction.execute(sql`select operation_id,resource_version,cause,metadata,created_at from public.academy_admission_retired_audit_events where resource_id=${fixture.original.deliveryId} and event_type='delivery_accepted'`)).rows).toEqual(priorReceipt);
+        expect((await transaction.execute(sql`select count(*)::integer as total from public.academy_admission_retired_audit_events where resource_id=${fixture.original.deliveryId} and event_type='delivery_cancelled'`)).rows).toEqual([{ total: 0 }]);
+      });
+      const receipt: MessageDeliveryReceipt = { context: authorization.context, outcome, providerMessageId, correlationId: null, reason: outcome === "accepted" ? "provider_accepted" : "provider_delivered" };
+      expect(await fixture.repository.complete(receipt)).toMatchObject({ outcome: "completed" });
+      expect(await fixture.repository.complete(receipt)).toMatchObject({ outcome: "unchanged" });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select audit.event_type,audit.cause,audit.resource_version,audit.metadata,audit.tribe_lifecycle_operation_id,audit.operation_id=delivery.idempotency_key as original_ledger,audit.actor_reference_id=operation.actor_reference_id as original_actor,audit.created_at=attempt.completed_at as owner_clock from public.academy_admission_retired_audit_events audit join public.message_deliveries delivery on delivery.id=audit.resource_id and delivery.tribe_id=audit.tribe_id join public.message_delivery_attempts attempt on attempt.id=${authorization.context.attemptId} join public.academy_admission_retired_operations operation on operation.id=audit.operation_id and operation.tribe_id=audit.tribe_id where audit.resource_id=${fixture.original.deliveryId} and audit.event_type=${outcome === "accepted" ? "delivery_accepted" : "delivery_delivered"}`)).rows).toEqual([{ event_type: outcome === "accepted" ? "delivery_accepted" : "delivery_delivered", cause: receipt.reason, resource_version: before.version + 1, tribe_lifecycle_operation_id: null, original_ledger: true, original_actor: true, owner_clock: true, metadata: { fromState: before.state, toState: outcome, previousVersion: before.version, connectionId: fixture.scope.connectionId, connectionVersion: 1, channel: "email", attemptId: authorization.context.attemptId, authorizedUsagePolicyVersion: authorization.context.authorizedUsagePolicyVersion } }]);
+        expect((await transaction.execute(sql`select state from public.messaging_usage_reservations where delivery_id=${fixture.original.deliveryId}`)).rows).toEqual([{ state: "consumed" }]);
+      });
+    });
+  }, 240_000);
+
   it("should keep a possibly committed authorization unresolved with no RPC and reconcile the same charged marker after response loss", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareOutbox(database);

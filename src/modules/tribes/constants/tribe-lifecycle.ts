@@ -5,6 +5,8 @@ export const TRIBE_LIFECYCLE_ACTION = { exitAcademy: "exit_academy", deleteTribe
 export const TRIBE_LIFECYCLE_ACTIONS = ["exit_academy", "delete_tribe"] as const;
 /** Separates lifecycle commands from membership changes and admission approvals. */
 export const TRIBE_LIFECYCLE_OPERATION = "change_tribe_lifecycle";
+/** Binds scope audit to the verified original only within its committing transaction. */
+export const TRIBE_LIFECYCLE_AUDIT_CONTEXT = "app.tribe_lifecycle_operation_id";
 /** Fixed operation-scoped reauthentication resources are always the exact tribe. */
 export const TRIBE_LIFECYCLE_REAUTHENTICATION = { exitAcademy: REAUTHENTICATION_OPERATION.exitAcademyMode, deleteTribe: REAUTHENTICATION_OPERATION.deleteTribe } as const;
 /** Defines minimal safe failures without private database/provider diagnostics. */

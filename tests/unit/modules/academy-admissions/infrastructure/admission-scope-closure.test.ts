@@ -6,13 +6,14 @@ import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareTribeMembershipLifecycle } from "@/tests/support/tribe-membership-lifecycle-fixture";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
+import { TRIBE_RETIREMENT_PROVENANCE_MIGRATIONS } from "@/tests/support/constants/tribe-lifecycle-audit";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native academy scope closure", () => {
   it.each(["mode_exit", "settings_delete"] as const)("should close pending and unused authority after %s while pause and return preserve their distinct rules", async (action) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareTribeMembershipLifecycle(database), invitationId = randomUUID();
-      await database.applyMigration("20261011223000_close_admission_scope_lifecycle.sql");
-      await database.applyMigration("20261014030211_audit_scope_closed_verification_proofs.sql");
+      await database.applyMigration("20261005100000_guard_messaging_secret_retirement.sql");
+      for (const migration of TRIBE_RETIREMENT_PROVENANCE_MIGRATIONS) await database.applyMigration(migration);
       const own = { userId: fixture.leader.userId, email: fixture.leader.email };
       await database.withContext(own, async (transaction) => {
         await transaction.execute(sql`insert into public.academy_personal_invitations(id,tribe_id,contact_type,normalized_contact,internal_name,requires_allowlist,contact_fingerprint,fingerprint_key_id,created_by_user_id,expires_at,token_hash,token_key_id) values (${invitationId},${fixture.tribeId},'email','unused@example.test','Unused synthetic invitation',false,${randomBytes(32)},'synthetic-contact-key',${fixture.leader.userId},clock_timestamp()+interval '7 days',${randomBytes(32)},'synthetic-scope-token')`);

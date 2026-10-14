@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareAllowlistAdmission } from "@/tests/support/allowlist-admission-database-fixture";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
+import { TRIBE_LIFECYCLE_AUDIT_MIGRATIONS } from "@/tests/support/constants/tribe-lifecycle-audit";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { PostgresTribeLifecycleRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-lifecycle-repository";
@@ -18,7 +19,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifec
   it("should require exact signed recency, close scope on exit and recover a committed deletion without using a surviving tribe", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, applicant: createApplicant } = await prepareAllowlistAdmission(database);
-      for (const migration of ["20261005100000_guard_messaging_secret_retirement.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql", "20261010100000_minimize_deleted_admission_contact_owners.sql", "20261010113000_preserve_admission_tribe_namespaces.sql", "20261010120000_archive_deleted_admission_tribe_provenance.sql", "20261010121000_retire_deleted_tribe_messaging.sql", "20261011223000_close_admission_scope_lifecycle.sql"]) await database.applyMigration(migration);
+      for (const migration of TRIBE_LIFECYCLE_AUDIT_MIGRATIONS) await database.applyMigration(migration);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set mode='manual_review',version=version+1 where tribe_id=${fixture.tribeId}`));
       const applicant = await createApplicant(), pending = await applicant.commands.submit.execute({ ...applicant.input, expectedPolicyVersion: 3 });
       if (!pending.ok) throw new Error(`Tribe lifecycle pending setup failed: ${pending.failure.code}`, { cause: pending.failure.cause });
@@ -48,6 +49,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifec
         members: (await transaction.execute<{count: number}>(sql`select count(*)::integer as count from public.tribe_members where tribe_id=${fixture.tribeId}`)).rows[0].count,
       }));
       expect(closed).toEqual({ requests: [{ status: "cancelled", cancel_reason: "academy_unavailable" }], marker: true, members: 1 });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select audit.actor_user_id,audit.operation_id,audit.tribe_lifecycle_operation_id,operation.action from public.academy_admission_audit_events audit join public.tribe_lifecycle_operations operation on operation.tribe_id=audit.tribe_id and operation.operation_id=audit.tribe_lifecycle_operation_id where audit.tribe_id=${fixture.tribeId} and audit.resource_type='admission_request' and audit.event_type='cancelled'`)).rows).toEqual([{ actor_user_id: null, operation_id: null, tribe_lifecycle_operation_id: exit.operationId, action: "exit_academy" }]);
+      });
       const deletion = { ...exit, operationId: randomUUID(), action: "delete_tribe" as const, expectedConfigVersion: settings.config_version + 1 };
       loseResponse = true;
       const deleted = await lifecycle.change(deletion).catch((error: unknown) => {
@@ -74,6 +78,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native tribe lifec
         actor: (await transaction.execute<{count: number}>(sql`select count(*)::integer as count from public."user" where id=${fixture.userId}`)).rows[0].count,
       }));
       expect(retired).toEqual({ live: 0, retired: true, originals: 2, archivedSubmission: 1, actor: 1 });
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select tribe_lifecycle_operation_id,operation_id,actor_reference_id from public.academy_admission_retired_audit_events where tribe_id=${fixture.tribeId} and resource_type='admission_request' and event_type='cancelled'`)).rows).toEqual([{ tribe_lifecycle_operation_id: exit.operationId, operation_id: null, actor_reference_id: null }]);
+      });
       await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${fixture.tribeId},'Synthetic prohibited reuse',${`reuse-${fixture.tribeId}`},${fixture.userId})`))).rejects.toMatchObject({ cause: { code: "23514" } });
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);

@@ -46,10 +46,11 @@ export async function prepareContactVerificationDatabase(database: AcademyAdmiss
  * @param diagnosticResource - Optional configured immutable sender/secret seeded at creation for the diagnostic owner.
  * @param channel - Exact synthetic channel sealed into the code, envelope and persisted challenge; existing callers keep email.
  * @param phoneContact - Optional phone contact sealed before persistence, for distinct-contact accounting scenarios.
+ * @param existingTribeId - Optional existing synthetic tribe owned by this fixture, for a real lifecycle command.
  * @returns The test-only code and exact protected challenge scope.
  */
-export async function seedContactVerificationChallenge(database: AcademyAdmissionTestDatabase, fixture: Awaited<ReturnType<typeof prepareContactVerificationDatabase>>, purpose: VerificationChallengeScope["purpose"] = "admission", issuedAt?: Date,diagnosticResource?:{secretRef:string;senderId:string}, channel: VerificationChallengeScope["channel"] = "email", phoneContact?: Extract<VerificationChallengeScope["contact"], { type: "phone" }>) {
-  const tribeId = randomUUID(), connectionId = randomUUID(), challengeId = randomUUID(), deliveryId = randomUUID(), envelopeId = randomUUID();
+export async function seedContactVerificationChallenge(database: AcademyAdmissionTestDatabase, fixture: Awaited<ReturnType<typeof prepareContactVerificationDatabase>>, purpose: VerificationChallengeScope["purpose"] = "admission", issuedAt?: Date,diagnosticResource?:{secretRef:string;senderId:string}, channel: VerificationChallengeScope["channel"] = "email", phoneContact?: Extract<VerificationChallengeScope["contact"], { type: "phone" }>, existingTribeId?: string) {
+  const tribeId = existingTribeId ?? randomUUID(), connectionId = randomUUID(), challengeId = randomUUID(), deliveryId = randomUUID(), envelopeId = randomUUID();
   const scope: VerificationChallengeScope = { userId: fixture.userId, tribeId, connectionId, connectionVersion: 1, securityEpoch: fixture.config.securityEpoch, purpose, verificationEpoch: purpose === "admission" ? 1 : null, channel, contact: channel === "email" ? { type: "email", value: fixture.own.email } : phoneContact ?? { type: "phone", value: "+5491155501234", country: "AR" } };
   const code = "429017";
   await database.withContext(fixture.own, async (transaction) => {
@@ -58,7 +59,7 @@ export async function seedContactVerificationChallenge(database: AcademyAdmissio
     const context = { ...scope, challengeId, createdAt, expiresAt };
     const signed = await createVerificationCodeMac(fixture.config).sign(code, context);
     const envelope = await createVerificationCodeEnvelope(fixture.config).seal(code, context, createdAt);
-    await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic code tribe',${`code-${tribeId}`},${fixture.userId})`);
+    if (!existingTribeId) await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic code tribe',${`code-${tribeId}`},${fixture.userId})`);
     await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,contributed_by_user_id,state,environment,security_epoch,is_candidate,candidate_version) values (${connectionId},${tribeId},${fixture.userId},'degraded',${fixture.config.environment},${scope.securityEpoch},true,1)`);
     await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,secret_ref,email_sender_id) values (${connectionId},${tribeId},1,${fixture.config.environment},${scope.securityEpoch},${diagnosticResource?.secretRef??null},${diagnosticResource?.senderId??null})`);
     if(diagnosticResource){const credential=await createMessagingSecretCipher(fixture.config).seal(randomUUID(),{tribeId,connectionId,connectionVersion:1,resourceId:diagnosticResource.secretRef});await transaction.execute(sql`insert into public.messaging_secret_envelopes(secret_ref,tribe_id,connection_id,connection_version,environment,security_epoch,key_id,iv,ciphertext) values (${diagnosticResource.secretRef},${tribeId},${connectionId},1,${credential.environment},${credential.securityEpoch},${credential.keyId},${Buffer.from(credential.iv)},${Buffer.from(credential.ciphertext)})`);}

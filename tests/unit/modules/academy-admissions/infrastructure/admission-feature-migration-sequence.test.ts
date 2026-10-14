@@ -25,7 +25,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("complete admission
           expect((await transaction.execute(sql`select to_regclass('public.academy_admission_retired_bindings') is not null and to_regclass('public.academy_admission_retired_operations') is not null and to_regclass('public.academy_admission_retired_audit_events') is not null as ready`)).rows).toEqual([{ ready: true }]);
           return (await transaction.execute<{ total: number; latest: string }>(sql`select count(*)::int as total,max(created_at)::text as latest from drizzle.__drizzle_migrations`)).rows[0];
         });
-        expect(applied.total - before.history.total).toBe(58);
+        expect(applied.total - before.history.total).toBe(59);
         expect(BigInt(applied.latest) > BigInt(before.history.latest)).toBe(true);
         await migrate();
         await database.withContext({ userId: null, email: null }, async (transaction) => {

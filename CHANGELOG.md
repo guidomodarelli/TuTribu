@@ -111,6 +111,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- El cierre de academia y la eliminación de una tribu conservan el registro privado de sus mensajes cancelados y de los resultados que llegan para envíos ya iniciados, sin duplicarlos ni devolver su consumo.
+
 - El guardado de conexiones reconoce la dirección pública segura de TuTribu detrás del servidor local y evita rechazos falsos de permisos.
 
 - Una confirmación de cuenta vencida indica cómo volver a la acción e iniciar otra, sin mantener indefinidamente el resultado de un intento anterior.
