@@ -7,6 +7,8 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { ADMISSION_CONTACT_TYPE } from "./admission-contact";
 import { admissionPageSizeSchema } from "./admission-route-input";
+import { ADMISSION_NOTIFICATION_AUDIT_SOURCES } from "@/src/modules/notifications/constants/admission-notification-audit";
+import { ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
 
 /** Keeps opaque reference and count schemas reusable without accepting free bodies. */
 const referenceSchema = z.uuid().nullable().optional();
@@ -33,6 +35,7 @@ export const admissionActivityChangesSchema = z.strictObject({
   purpose: z.enum(MESSAGING_KEY_PURPOSE).optional(),
   previousKeyId: z.string().nullable().optional(), activeKeyId: z.string().nullable().optional(), securityEpoch: z.string().optional(),
   previousCredentialState: z.enum(MESSAGING_CREDENTIAL_PUBLIC_STATE).optional(), credentialState: z.enum(MESSAGING_CREDENTIAL_PUBLIC_STATE).optional(), credentialMode: z.enum(MESSAGING_CREDENTIAL_MODE).optional(),
+  obligationId: referenceSchema, requestVersion: versionSchema, sourceEvent: z.enum(ADMISSION_NOTIFICATION_AUDIT_SOURCES).optional(), audience: z.enum(ADMISSION_NOTIFICATION_AUDIENCE).nullable().optional(), durationMs: countSchema.nullable().optional(),
 });
 /** Returns only a bounded private page with millisecond display time and an exact microsecond cursor. */
 export const admissionActivityPageSchema = z.strictObject({

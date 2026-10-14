@@ -21,6 +21,7 @@ async function prepareObservability(database: AcademyAdmissionTestDatabase, with
   for (const migration of TRIBE_LIFECYCLE_AUDIT_MIGRATIONS) await database.applyMigration(migration);
   await database.applyMigration("20261014134826_read_admission_activity_and_metrics.sql");
   await database.applyMigration("20261014173100_read_dispatch_run_metrics.sql");
+  await database.applyMigration("20261014185500_integrate_admission_notification_audit.sql");
   const { fixture } = prepared;
   const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: fixture.userId, sessionId: fixture.sessionId }), (_identity, run) => database.withContext(fixture.own, run));
   const observations = buildAcademyAdmissionsModule({ accounts, clock: () => new Date(), execute: (account, run) => database.withContext({ userId: account.userId, email: account.normalizedEmail }, run) }).createActivityQueryModule().useCases;

@@ -12,6 +12,11 @@ import {VERIFICATION_RESEND_REASON} from "@/src/modules/academy-admissions/const
 function ownerScope(){return{tribeId:randomUUID(),actorUserId:randomUUID(),operationId:randomUUID(),resourceId:randomUUID(),resourceVersion:2,rule:"effective_owner_rule",cause:null,createdAt:new Date("2026-10-13T17:00:00Z")};}
 
 describe("complete private resource audit facts",()=>{
+  it.each(["notification_obligation_created","notification_materialized"] as const)("should select only the original lineage and extent for %s without recipient or content",(eventType)=>{
+    const scope=ownerScope(),obligationId=randomUUID(),requestId=randomUUID();
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"admission_notification",resourceVersion:null,eventType,metadata:{obligationId,requestId,requestVersion:2,sourceEvent:"pending_created",audience:eventType==="notification_materialized"?"reviewer":null,durationMs:eventType==="notification_materialized"?7:null,recipientUserId:randomUUID(),title:"Synthetic private title",payload:{contact:"synthetic-private@example.test"},token:randomUUID()}});
+    expect(event).toEqual({...scope,resourceType:"admission_notification",resourceVersion:null,eventType,metadata:{obligationId,requestId,requestVersion:2,sourceEvent:"pending_created",audience:eventType==="notification_materialized"?"reviewer":null,durationMs:eventType==="notification_materialized"?7:null}});
+  });
   it.each(["quota_exceeded","worker_lease_expired","candidate_expired"] as const)("should retain the owned delivery cause %s without copying private transport fields",(cause)=>{
     const scope=ownerScope(),connectionId=randomUUID();
     const event=createAdmissionResourceAuditEvent({...scope,resourceType:"message_delivery",eventType:cause==="quota_exceeded"?"delivery_deferred":cause==="candidate_expired"?"delivery_cancelled":"delivery_reconciled",cause,metadata:{fromState:"queued",toState:cause==="quota_exceeded"?"queued":cause==="candidate_expired"?"cancelled":"unknown",previousVersion:1,connectionId,connectionVersion:1,channel:"email",attemptId:null,authorizedUsagePolicyVersion:null,recipient:"private@example.test",providerMessageId:"synthetic-private-provider-id",leaseToken:"synthetic-private-lease"}});
