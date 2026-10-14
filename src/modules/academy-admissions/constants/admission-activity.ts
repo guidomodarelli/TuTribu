@@ -7,6 +7,7 @@ import { MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/mes
 import { ADMISSION_ADMINISTRATIVE_SURFACE } from "./admission-administrative-exposure";
 import { MESSAGING_SECRET_HUMAN_OPERATIONS, MESSAGING_SECRET_DELIVERY_SCOPE } from "@/src/modules/messaging/constants/messaging-secret-access";
 import { ADMISSION_NOTIFICATION_AUDIT } from "@/src/modules/notifications/constants/admission-notification-audit";
+import { ADMISSION_PRIVATE_DATA_RETENTION } from "./admission-retention";
 
 /** Paginates newest-first using the original SQL timestamp, including its microseconds. */
 export const ADMISSION_ACTIVITY_QUERY = { defaultLimit: ADMISSION_QUERY_LIMIT.defaultPageSize, maximumLimit: ADMISSION_QUERY_LIMIT.maximumPageSize, cursorSeparator: "|" } as const;
@@ -46,6 +47,7 @@ export const ADMISSION_ACTIVITY_EVENTS = [
 export const ADMISSION_ACTIVITY_RULES = [
   ...ADMISSION_ACTIVITY_EVENTS, "manual_review", "applicant_cancellation", "management_cancellation", "automatic", "external_resolution", "academy_unavailable",
   ADMISSION_NOTIFICATION_AUDIT.createRule, ADMISSION_NOTIFICATION_AUDIT.materializeRule,
+  ADMISSION_PRIVATE_DATA_RETENTION.requestRule, ADMISSION_PRIVATE_DATA_RETENTION.auditRule,
   "tribe_deleted", "account_deleted", "membership_deleted", "nonrecoverable_membership", "leader_corrective_retry", "local_verification",
   "messaging_connection_replaced", "issue_contact_verification", "resend_contact_verification", "explicit_resend", "suspected_compromise", "connection_replaced",
   "candidate_expired", "accepted", "delivered", "rejected", "unknown", "quota_exceeded", "lease_expired", "reconcile_messaging_delivery",

@@ -1,4 +1,5 @@
 /** Projects admission-owned SQL tables; versioned migrations own RLS, triggers and deferred timing. */
+import { ADMISSION_PRIVATE_DATA_RETENTION } from "../../constants/admission-retention";
 import { sql } from "drizzle-orm";
 import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { AnyPgColumn, PgTableExtraConfig } from "drizzle-orm/pg-core";
@@ -135,6 +136,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     operationForeignKey: foreignKey({ name: ADMISSION_TRIBE_ARCHIVE_DATABASE.auditEvents.operationConstraint, columns: [table.operationId, table.tribeId], foreignColumns: [retiredOperations.id, retiredOperations.tribeId] }),
     retirementCheck: check(ADMISSION_TRIBE_ARCHIVE_DATABASE.auditEvents.timeConstraint, sql`${table.retiredAt}>=${table.createdAt}`),
     historyIndex: index(ADMISSION_TRIBE_ARCHIVE_DATABASE.auditEvents.historyIndex).on(table.tribeId, table.createdAt.desc()),
+    retentionIndex: index(ADMISSION_PRIVATE_DATA_RETENTION.archivedAuditIndex).on(table.createdAt,table.id),
   }));
   const policies = pgTable("academy_admission_policies", {
     tribeId: uuid("tribe_id").primaryKey(),
@@ -285,6 +287,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     evidenceSource: text("evidence_source").notNull().default("none"), globalIdentityEvidenceId: uuid("global_identity_evidence_id"), proofId: uuid("proof_id"), bindingId: uuid("binding_id"),
     requiresAllowlist: boolean("requires_allowlist").notNull().default(false), originalPolicySnapshot: jsonb("original_policy_snapshot").notNull().default({}),
     applicantMessage: text("applicant_message"), status: text("status").notNull().default("pending"),
+    privateMaterialMinimizedAt: timestamp("private_material_minimized_at", { withTimezone: true }),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`), expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     version: integer("version").notNull().default(1), decisionId: uuid("decision_id"), cancelReason: text("cancel_reason"), retryAllowedAt: timestamp("retry_allowed_at", { withTimezone: true }),
   }, (table): PgTableExtraConfig => ({
@@ -293,6 +296,8 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     personalOriginKey: unique("admission_request_personal_origin_key").on(table.id,table.tribeId,table.userId,table.invitationId),
     pendingKey: uniqueIndex("admission_request_pending_key").on(table.tribeId,table.userId).where(sql`${table.status}='pending'`),
     inboxIndex: index("admission_request_inbox_idx").on(table.tribeId,table.status,table.submittedAt),
+    privateRetentionIndex: index(ADMISSION_PRIVATE_DATA_RETENTION.requestIndex).on(table.decisionId,table.id).where(sql`${table.privateMaterialMinimizedAt} is null and ${table.status}<>'pending'`),
+    privateMinimizationCheck: check(ADMISSION_PRIVATE_DATA_RETENTION.requestMinimizationCheck, sql`${table.privateMaterialMinimizedAt} is null or (${table.status}<>'pending' and ${table.privateMaterialMinimizedAt}>=${table.submittedAt} and ${table.contactType} is null and ${table.normalizedContact} is null and ${table.contactFingerprint} is null and ${table.fingerprintKeyId} is null and ${table.applicantMessage} is null)`),
     accountHistoryIndex: index("admission_request_account_history_idx").on(table.tribeId,table.userId,table.submittedAt.desc(),table.id.desc()),
     sourceCheck: check("admission_request_source_check", sql`${table.source} in ('common','personal','legacy')`), contactCheck: check("admission_request_contact_check", sql`${table.contactType} in ('email','phone')`),
     evidenceCheck: check("admission_request_evidence_check", sql`${table.evidenceSource} in ('none','declared','base','local')`),
@@ -334,6 +339,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     internalReason: text("internal_reason"), externalMessage: text("external_message"), decidedAt: timestamp("decided_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`), membershipEffectId: uuid("membership_effect_id"),
   }, (table): PgTableExtraConfig => ({
     tribeForeignKey: parentReference("admission_decision_tribe_fkey",table.tribeId,parents.tribes.id), userForeignKey: parentReference("admission_decision_user_fkey",table.userId,parents.users.id), actorForeignKey: parentReference("admission_decision_actor_fkey",table.actorUserId,parents.users.id,"set null"),
+    retentionIndex: index(ADMISSION_PRIVATE_DATA_RETENTION.decisionIndex).on(table.decidedAt,table.id),
     requestKey: unique("admission_decision_request_key").on(table.requestId), scopeKey: unique("admission_decision_scope_key").on(table.id,table.requestId,table.tribeId,table.userId,table.outcome),
     requestForeignKey: foreignKey({ name: "admission_decision_request_fkey", columns: [table.requestId,table.tribeId,table.userId], foreignColumns: [requests.id,requests.tribeId,requests.userId] }),
     allowlistForeignKey: foreignKey({ name: "admission_decision_allowlist_scope_fkey", columns: [table.allowlistEntryId,table.tribeId], foreignColumns: [allowlistEntries.id,allowlistEntries.tribeId] }).onDelete("restrict"),
@@ -389,6 +395,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     tribeForeignKey: parentReference("admission_audit_tribe_fkey",table.tribeId,parents.tribes.id,"restrict"), actorForeignKey: parentReference("admission_audit_actor_fkey",table.actorUserId,parents.users.id,"set null"),
     operationForeignKey: foreignKey({name:"admission_audit_operation_fkey",columns:[table.operationId,table.tribeId],foreignColumns:[operations.id,operations.tribeId]}).onDelete("restrict"),
     historyIndex: index("admission_audit_history_idx").on(table.tribeId,table.createdAt.desc()),
+    retentionIndex: index(ADMISSION_PRIVATE_DATA_RETENTION.auditIndex).on(table.createdAt,table.id),
     resourceHistoryIndex: index(ADMISSION_ACTIVITY_DATABASE.resourceHistoryIndex).on(table.tribeId,table.resourceType,table.resourceId,table.createdAt.desc(),table.id.desc()),
     notificationFactKey: uniqueIndex(ADMISSION_NOTIFICATION_AUDIT.factIndex).on(table.tribeId,table.resourceId,table.eventType).where(sql`${table.resourceType}=${ADMISSION_NOTIFICATION_AUDIT.resourceType}`.inlineParams()),
   }));

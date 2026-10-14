@@ -1,6 +1,8 @@
 /** Composes implemented admission use cases and protected transaction collaborators. @module academy-admissions-setup */
 import "server-only";
 import { PurgeAllowlistImportMaterialUseCase } from "./application/use-cases/purge-allowlist-import-material-use-case";
+import { PurgeAdmissionPrivateDataUseCase } from "./application/use-cases/purge-admission-private-data-use-case";
+import { PostgresAdmissionPrivateDataRetention, type AdmissionPrivateRetentionExecutor, type AdmissionPrivateRetentionGate } from "./infrastructure/repositories/postgres-admission-private-data-retention";
 import { PostgresAllowlistImportMaterialRetention, type ImportMaterialRetentionExecutor, type ImportMaterialRetentionGate } from "./infrastructure/repositories/postgres-allowlist-import-material-retention";
 import { PostgresLegacyAdmissionInvitationReader } from "@/src/modules/tribes/infrastructure/repositories/postgres-legacy-admission-invitation-reader";
 import { ExpireAdmissionRequestsUseCase } from "./application/use-cases/expire-admission-requests-use-case";
@@ -352,4 +354,9 @@ export function buildAdmissionExpirationModule(dependencies: {
  */
 export function buildAdmissionImportRetentionModule(dependencies: { execute: ImportMaterialRetentionExecutor; authorize: ImportMaterialRetentionGate; readRecoveryLock: ImportMaterialRetentionGate }) {
   return { useCases: { purgeImportMaterial: new PurgeAllowlistImportMaterialUseCase(new PostgresAllowlistImportMaterialRetention(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock)) } };
+}
+
+/** @param dependencies - Existing guarded backend principal and live restore stop; no keyring or provider access. @returns Reachable private owners for terminal-content and security-audit retention. */
+export function buildAdmissionPrivateDataRetentionModule(dependencies: { execute: AdmissionPrivateRetentionExecutor; authorize: AdmissionPrivateRetentionGate; readRecoveryLock: AdmissionPrivateRetentionGate }) {
+  return { useCases: { purgePrivateData: new PurgeAdmissionPrivateDataUseCase(new PostgresAdmissionPrivateDataRetention(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock)) } };
 }

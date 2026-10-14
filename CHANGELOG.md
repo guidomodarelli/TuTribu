@@ -60,6 +60,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El acceso autorizado a habilitados, reportes CSV, invitaciones y solicitudes de admisión queda registrado con quién lo consultó y su alcance, preservando los permisos y evitando copiar datos privados en la auditoría.
 - Las consultas autorizadas de recursos de mensajería y el uso operativo de la credencial dejan un registro de alcance y configuración, sin guardar claves ni contenido del proveedor en la auditoría.
 - El historial privado registra el origen y la creación efectiva de los avisos internos de admisión, sin copiar sus destinatarios ni contenidos.
+- El mantenimiento privado puede minimizar mensajes y contactos innecesarios de solicitudes finalizadas tras ciento ochenta días y purgar auditoría tras trescientos sesenta y cinco, conservando los vínculos necesarios; su programación operativa sigue pendiente.
 
 ### Changed
 
