@@ -12,6 +12,11 @@ export type CandidateExpirationCase = { name: "selected" | "fresh" | "expired" |
 export async function prepareMessagingCandidateExpiration(database: AcademyAdmissionTestDatabase, options: { futureActivity?: string } = {}) {
   const security = await prepareContactVerificationDatabase(database);
   await database.applyMigration("20261005100000_guard_messaging_secret_retirement.sql");
+  return seedMessagingCandidateExpiration(database, security, options);
+}
+
+/** @param database - Already migrated owned branch. @param security - Synthetic fixture principal/configuration. @param options - Optional persisted future activity used by clock tests. @returns Independent candidate scopes without replaying historical migrations. */
+export async function seedMessagingCandidateExpiration(database: AcademyAdmissionTestDatabase, security: Pick<Awaited<ReturnType<typeof prepareContactVerificationDatabase>>, "own" | "config">, options: { futureActivity?: string } = {}) {
   const userId = randomUUID(), own = { userId, email: `${userId}@example.test` };
   await database.withContext(security.own, (transaction) => transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Responsable histórico de ejemplo',${own.email},false,transaction_timestamp()-interval '20 days',transaction_timestamp()-interval '20 days')`));
   const cases: CandidateExpirationCase[] = [];

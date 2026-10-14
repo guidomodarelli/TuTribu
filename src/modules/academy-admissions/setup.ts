@@ -1,5 +1,7 @@
 /** Composes implemented admission use cases and protected transaction collaborators. @module academy-admissions-setup */
 import "server-only";
+import { PurgeAdmissionDataUseCase } from "./application/use-cases/purge-admission-data-use-case";
+import { PostgresAdmissionRetentionRepository } from "./infrastructure/repositories/postgres-admission-retention-repository";
 import { PurgeAllowlistImportMaterialUseCase } from "./application/use-cases/purge-allowlist-import-material-use-case";
 import { PurgeAdmissionPrivateDataUseCase } from "./application/use-cases/purge-admission-private-data-use-case";
 import { PostgresAdmissionPrivateDataRetention, type AdmissionPrivateRetentionExecutor, type AdmissionPrivateRetentionGate } from "./infrastructure/repositories/postgres-admission-private-data-retention";
@@ -359,4 +361,9 @@ export function buildAdmissionImportRetentionModule(dependencies: { execute: Imp
 /** @param dependencies - Existing guarded backend principal and live restore stop; no keyring or provider access. @returns Reachable private owners for terminal-content and security-audit retention. */
 export function buildAdmissionPrivateDataRetentionModule(dependencies: { execute: AdmissionPrivateRetentionExecutor; authorize: AdmissionPrivateRetentionGate; readRecoveryLock: AdmissionPrivateRetentionGate }) {
   return { useCases: { purgePrivateData: new PurgeAdmissionPrivateDataUseCase(new PostgresAdmissionPrivateDataRetention(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock)) } };
+}
+
+/** @param dependencies - Explicit private executor and key-independent live gates. @returns One atomic admission-retention entrypoint, without an endpoint or scheduler. */
+export function buildAdmissionDataRetentionModule(dependencies: { execute: ImportMaterialRetentionExecutor; authorize: ImportMaterialRetentionGate; readRecoveryLock: ImportMaterialRetentionGate }) {
+  return { useCases: { purgeData: new PurgeAdmissionDataUseCase(new PostgresAdmissionRetentionRepository(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock)) } };
 }
