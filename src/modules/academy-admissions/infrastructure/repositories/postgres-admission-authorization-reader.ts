@@ -32,7 +32,7 @@ export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizat
   async getCurrentActor(tribeId: string, userId: string): Promise<AdmissionActorFacts | null> {
     const actor = (await this.database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
     if (!actor || actor !== userId) return null;
-    if (this.action === ADMISSION_ACTION.readInbox || this.action === ADMISSION_ACTION.decideRequest || this.action === ADMISSION_ACTION.rejectRequest) {
+    if (this.action === ADMISSION_ACTION.readInbox || this.action === ADMISSION_ACTION.readAudit || this.action === ADMISSION_ACTION.decideRequest || this.action === ADMISSION_ACTION.rejectRequest) {
       const current = (await this.database.execute<{ user_id: string; role: AdmissionActorFacts["role"]; status: AdmissionActorFacts["status"] }>(sql`select user_id,role,status from public.read_admission_reviewer_context(${tribeId},${this.sessionId})`)).rows[0];
       return current ? { userId: current.user_id, tribeId, role: current.role, status: current.status } : null;
     }

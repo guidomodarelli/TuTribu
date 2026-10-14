@@ -56,6 +56,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El inicio de sesión con Google guarda evidencia del correo autenticado para las comprobaciones de contacto de academias; si esa comprobación adicional no está disponible, se conserva el acceso a la cuenta.
 - Las comprobaciones sensibles distinguen la cuenta Google usada en cada sesión y dejan de reconocer una verificación anterior cuando cambia el correo de la cuenta.
 - La confirmación con Google tiene una pantalla propia que conserva la solicitud y muestra si falta iniciar sesión, confirmar o volver a solicitarla.
+- Se incorpora la consulta privada de actividad y métricas de admisión para el líder, conservando el consumo diario y restringiendo datos sensibles; la pantalla de consulta sigue pendiente.
 
 ### Changed
 
@@ -77,7 +78,6 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 ### Fixed
 
 - El cierre de academia y la eliminación de una tribu conservan el registro privado de sus mensajes cancelados y de los resultados que llegan para envíos ya iniciados, sin duplicarlos ni devolver su consumo.
-
 - El guardado de conexiones reconoce la dirección pública segura de TuTribu detrás del servidor local y evita rechazos falsos de permisos.
 - Una confirmación de cuenta vencida indica cómo volver a la acción e iniciar otra, sin mantener indefinidamente el resultado de un intento anterior.
 - La confirmación de cuenta distingue la sesión de TuTribu de la de Google y explica cómo continuar cuando Google conserva una autenticación anterior.
