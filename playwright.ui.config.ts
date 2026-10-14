@@ -1,7 +1,11 @@
 /** Validates shared UI integration against the real production build in both browser engines. */
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, webkit } from "@playwright/test";
 
+import { installExitedBrowserStdioRelease } from "./tests/e2e/support/release-exited-browser-stdio";
 import { UI_TEST_ORIGIN, UI_TEST_PORT } from "./scripts/e2e/ui-test-environment.mjs";
+
+/** Workers load this config too, so WebKit's leftover processes on Windows cannot hang their shutdown. */
+installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] });
 
 export default defineConfig({
   testDir: "./tests/e2e",
