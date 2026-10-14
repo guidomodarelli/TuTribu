@@ -11,6 +11,8 @@ import { PostgresVerificationFailureBudget } from "@/src/modules/messaging/infra
 import type { VerificationChallengeScope } from "@/src/modules/academy-admissions/domain/entities/contact-verification-challenge";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import {createMessagingSecretCipher} from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
+import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
+import { executeAdmissionMigrationCommand } from "./admission-migration-command";
 
 /**
  * Applies actual feature artifacts exclusively to this run's owned branch.
@@ -19,10 +21,20 @@ import {createMessagingSecretCipher} from "@/src/modules/messaging/infrastructur
  * @returns Synthetic account/context and nonextractable, purpose-separated test keys.
  */
 export async function prepareContactVerificationDatabase(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
-  for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261007040000_add_messaging_connection_name.sql", "20261009043000_lock_admission_canonical_leader.sql", "20261014153700_audit_admission_administrative_reads.sql", "20261014173000_observe_messaging_dispatch_runs.sql", "20261014185400_audit_admission_notification_creation.sql"]) await database.applyMigration(migration);
+  await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+  const fixture = await seedContactVerificationDatabase(database, securityConfig);
+  await database.withContext({ userId: null, email: null }, async (transaction) => {
+    await registerMessagingPrivateMacKeyMaterial(transaction, fixture.config, MESSAGING_KEY_PURPOSE.operationPayload);
+    await registerMessagingPrivateMacKeyMaterial(transaction, fixture.config, MESSAGING_KEY_PURPOSE.contactFingerprint);
+  });
+  return fixture;
+}
+
+/** @param database - Owned branch migrated through the required genuine journal stage. @param securityConfig - Optional original synthetic hosting material. @returns A native account/configuration without applying or disabling schema artifacts. */
+export async function seedContactVerificationDatabase(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
   const userId: string = randomUUID();
   const own = { userId, email: `${userId}@example.test` };
-  const keyring = (purpose: MessagingKeyPurpose): MessagingKeyringInput => ({ activeKeyId: `${purpose}-current`, keys: [{ id: `${purpose}-current`, material: randomBytes(32) }] });
+  const keyring = (purpose: MessagingKeyPurpose): MessagingKeyringInput => { const id = `${purpose}-${randomUUID()}`; return { activeKeyId: id, keys: [{ id, material: randomBytes(32) }] }; };
   const config = securityConfig ?? await createMessagingSecurityConfig({
     environment: "synthetic-local", securityEpoch: "synthetic-epoch", recoveryLocked: false,
     keyrings: {

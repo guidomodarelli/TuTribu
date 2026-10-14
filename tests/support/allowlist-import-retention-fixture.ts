@@ -2,20 +2,29 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { prepareContactVerificationDatabase } from "./contact-verification-database-fixture";
+import { prepareContactVerificationDatabase, seedContactVerificationDatabase } from "./contact-verification-database-fixture";
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { MILLISECONDS_PER_SECOND, SECONDS_PER_HOUR } from "@/src/constants/time";
+import { applyAdmissionRetentionHistoricalPrefix } from "./admission-retention-migration-prefix";
+import { executeAdmissionMigrationCommand } from "./admission-migration-command";
+import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 
 /** Names the original state and immutable identities used by SQL assertions. */
 export type ImportRetentionFixtureCase = { name: "fresh" | "completed" | "processing"; tribeId: string; importId: string; operationId: string };
 
 /** @param database - Exact owned disposable branch. @returns Only scoped identities and original metadata; no contacts, names or protected bytes. */
 export async function prepareAllowlistImportRetention(database: AcademyAdmissionTestDatabase) {
-  const security = await prepareContactVerificationDatabase(database);
-  await database.applyMigration("20261009061000_guard_allowlist_import_progress.sql");
-  return seedAllowlistImportRetention(database, security);
+  await applyAdmissionRetentionHistoricalPrefix(database);
+  const security = await seedContactVerificationDatabase(database);
+  const fixture = await seedAllowlistImportRetention(database, security);
+  await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+  await database.withContext({ userId: null, email: null }, async (transaction) => {
+    await registerMessagingPrivateMacKeyMaterial(transaction, security.config, MESSAGING_KEY_PURPOSE.operationPayload);
+    await registerMessagingPrivateMacKeyMaterial(transaction, security.config, MESSAGING_KEY_PURPOSE.contactFingerprint);
+  });
+  return fixture;
 }
 
 /** @param database - Already migrated owned branch. @param security - Synthetic account/configuration for original fixture fingerprints. @returns Independent imports and snapshots without replaying historical migrations. */

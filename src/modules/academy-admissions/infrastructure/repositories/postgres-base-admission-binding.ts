@@ -13,6 +13,7 @@ import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { createAdmissionContactFingerprint } from "../verification/admission-contact-fingerprint";
 import { assertUnreservedAdmissionContact } from "./assert-unreserved-admission-contact";
+import { assertAdmissionContactKeyMaterial } from "./assert-admission-contact-key-material";
 
 /** @param database - Original protected transaction. @param scope - Native submitting account. @param request - Exact new pending proposal already inserted. @param facts - Locked current native base capture, not browser evidence. @param security - Live private local fingerprint context. @returns After immutable binding and request provenance are staged together; no membership or list edit occurs. */
 export async function bindBaseAdmissionContact(database: RequestDatabase, scope: AdmissionCommandScope, request: AdmissionRequest, facts: AutomaticAdmissionFacts, security: MessagingSecurityConfig): Promise<void> {
@@ -23,6 +24,7 @@ export async function bindBaseAdmissionContact(database: RequestDatabase, scope:
   // A concurrent account deletion may minimize the row while this lock waits.
   await assertUnreservedAdmissionContact(database, scope.tribeId, contact, async () => security);
   if (binding && binding.owner_user_id !== scope.userId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
+  await assertAdmissionContactKeyMaterial(database, security);
   const fingerprint = await createAdmissionContactFingerprint(contact, security);
   if (!binding) binding = (await database.execute<{ id: string; owner_user_id: string }>(sql`insert into public.academy_admission_contact_bindings(tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,owner_user_id,first_request_id,evidence_source) values (${scope.tribeId},${contact.type},${contact.value},${Buffer.from(fingerprint.digest)},${fingerprint.keyId},${scope.userId},${request.id},${ADMISSION_EVIDENCE_KIND.base}) returning id,owner_user_id`)).rows[0];
   const updated = (await database.execute(sql`update public.academy_admission_requests set evidence_source=${ADMISSION_EVIDENCE_KIND.base},global_identity_evidence_id=${capture.id},binding_id=${binding.id},contact_fingerprint=${Buffer.from(fingerprint.digest)},fingerprint_key_id=${fingerprint.keyId},version=version+1 where id=${request.id} and tribe_id=${scope.tribeId} and user_id=${scope.userId} and status=${ADMISSION_REQUEST_STATUS.pending} and version=${request.version} and expires_at>clock_timestamp() returning id`)).rows[0];

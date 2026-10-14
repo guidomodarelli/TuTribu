@@ -9,6 +9,7 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import { assertUnreservedAdmissionContact } from "@/src/modules/academy-admissions/infrastructure/repositories/assert-unreserved-admission-contact";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { randomBytes } from "node:crypto";
+import { assertMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native bound-account deletion", () => {
   it("should remove the account while retaining a minimized identity reservation that cannot be claimed by another account", async () => {
@@ -43,6 +44,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native bound-accou
       const ring = fixture.config.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint], nextKeyId = randomUUID();
       const nextKey = await crypto.subtle.importKey("raw", randomBytes(32), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
       const rotated = { ...fixture.config, keyrings: { ...fixture.config.keyrings, contact_fingerprint: { ...ring, activeKeyId: nextKeyId, keys: new Map([...ring.keys, [nextKeyId, nextKey]]) } } };
+      await database.withContext({ userId: null, email: null }, (transaction) => assertMessagingPrivateMacKeyMaterial(transaction, rotated, MESSAGING_KEY_PURPOSE.contactFingerprint));
       await expect(database.withContext(fixture.own, (transaction) => assertUnreservedAdmissionContact(transaction, fixture.tribeId, { type: "email", value: owner.email }, async () => rotated))).rejects.toMatchObject({ code: "contact_binding_conflict" });
       await expect(database.withContext(fixture.own, (transaction) => assertUnreservedAdmissionContact(transaction, fixture.tribeId, { type: "email", value: "unrelated@example.test" }, async () => rotated))).resolves.toBeUndefined();
       const retired = { ...rotated, keyrings: { ...rotated.keyrings, contact_fingerprint: { ...rotated.keyrings.contact_fingerprint, keys: new Map([[nextKeyId, nextKey]]) } } };

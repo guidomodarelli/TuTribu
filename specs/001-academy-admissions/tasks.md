@@ -1226,7 +1226,7 @@ Cierre de T135 sobre1ae66cb4: auditoría read-only de todas sus cláusulas sin b
 
 <a id="t166"></a>
 
-- [ ] T166 [P] [US11] Ejercer SQL/crypto de retiro/purge24 h, drafts7 días+24 h, requests terminal180 días/audit365, OTP≤10 min y account/tribe deletion sin liberar vínculos necesarios; fingerprint/payload keyId rotation conserva ventanas/identidad y no revive secret retirado. Archivos: `tests/unit/modules/messaging/infrastructure/messaging-retention-and-key-rotation.test.ts`. Trazabilidad: `FR-053`, `FR-056`, `FR-065`–`FR-067`, `FR-070`, `FR-128`, `FR-132`, `US-11-AC-01`–`US-11-AC-02`, `EC-36`, `EC-38`, `SC-011`, `D-24`, `TC-014`, `TC-022`, `TC-027`, `RG-07`.
+- [X] T166 [P] [US11] Ejercer SQL/crypto de retiro/purge24 h, drafts7 días+24 h, requests terminal180 días/audit365, OTP≤10 min y account/tribe deletion sin liberar vínculos necesarios; fingerprint/payload keyId rotation conserva ventanas/identidad y no revive secret retirado. Archivos: `tests/unit/modules/messaging/infrastructure/messaging-retention-and-key-rotation.test.ts`, `tests/unit/modules/messaging/infrastructure/messaging-protection-key-rotation.test.ts`, `tests/unit/modules/messaging/infrastructure/messaging-key-material-continuity.test.ts`, `tests/unit/modules/academy-admissions/infrastructure/admission-retention-composition.test.ts`, `tests/unit/modules/messaging/infrastructure/verification-material-maintenance.test.ts`; matriz íntegra en `validation/messaging-protection-key-rotation-baseline.md`. Trazabilidad: `FR-053`, `FR-056`, `FR-065`–`FR-067`, `FR-070`, `FR-128`, `FR-132`, `US-11-AC-01`–`US-11-AC-02`, `EC-36`, `EC-38`, `SC-011`, `D-24`, `TC-014`, `TC-022`, `TC-027`, `RG-07`.
 
 <a id="t167"></a>
 
@@ -1236,7 +1236,7 @@ Cierre de T135 sobre1ae66cb4: auditoría read-only de todas sus cláusulas sin b
 
 <a id="t168"></a>
 
-- [ ] T168 [US11] Implementar bridges de fingerprint keyId/payload MAC keyId durante toda ventana activa y cipher key rotation separada de BYOK; conservar reservas/identidad existentes. Si continuidad no se puede mantener, cerrar nuevos envíos hasta reconciliar/vencer, jamás arrancar contadores de cero. Archivos: `src/modules/messaging/infrastructure/encryption/protected-contact-fingerprint.ts`, `src/modules/messaging/infrastructure/encryption/delivery-payload-mac.ts`, `src/modules/messaging/application/use-cases/rotate-messaging-protection-keys-use-case.ts`. Dependencias: `T166`, `T087`. Trazabilidad: `FR-065`–`FR-067`, `FR-070`, `FR-132`, `US-11-AC-01`–`US-11-AC-02`, `EC-36`, `SC-011`, `D-24`, `TC-022`, `RG-07`.
+- [X] T168 [US11] Implementar bridges de fingerprint keyId/payload MAC keyId durante toda ventana activa y cipher key rotation separada de BYOK; conservar reservas/identidad existentes. Si continuidad no se puede mantener, cerrar nuevos envíos hasta reconciliar/vencer, jamás arrancar contadores de cero. Archivos: `src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository.ts`, `src/modules/messaging/infrastructure/encryption/verification-delivery-payload-mac.ts`, `src/modules/messaging/infrastructure/encryption/notification-recovery-payload-mac.ts`, `src/modules/messaging/application/use-cases/rotate-messaging-protection-keys-use-case.ts`. Dependencias: `T166`, `T087`. Trazabilidad: `FR-065`–`FR-067`, `FR-070`, `FR-132`, `US-11-AC-01`–`US-11-AC-02`, `EC-36`, `SC-011`, `D-24`, `TC-022`, `RG-07`.
 
 <a id="t169"></a>
 

@@ -1170,6 +1170,20 @@
       "when": 1792008600000,
       "tag": "20261014201000_minimize_expired_admission_private_data",
       "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "7",
+      "when": 1792014600000,
+      "tag": "20261014215000_guard_messaging_key_material_continuity",
+      "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1792015800000,
+      "tag": "20261014221000_rotate_messaging_protection_keys",
+      "breakpoints": true
     }
   ]
 }

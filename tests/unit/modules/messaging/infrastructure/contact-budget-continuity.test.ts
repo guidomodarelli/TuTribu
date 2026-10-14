@@ -7,6 +7,7 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareContactVerificationDatabase, seedContactVerificationChallenge } from "@/tests/support/contact-verification-database-fixture";
 import { PostgresMessagingContactBudgetRepository } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { assertMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 
 /** Keeps every other purpose intact and rotates only the platform-owned contact index key. */
 async function rotateContactKey(config: MessagingSecurityConfig, keyId: string, retainPrevious: boolean): Promise<MessagingSecurityConfig> {
@@ -25,6 +26,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact budget con
       const first = await resolve(fixture.config);
       await database.withContext(fixture.own, async (transaction) => transaction.execute(sql`insert into public.messaging_usage_events(tribe_id,actor_user_id,contact_subject_id,purpose,channel,event_type,operation_id) values (${challenge.scope.tribeId},${fixture.userId},${first.subjectId},'admission','email','code_request',${randomUUID()})`));
       const rotated = await rotateContactKey(fixture.config, "synthetic-contact-next", true);
+      await database.withContext({ userId: null, email: null }, (transaction) => assertMessagingPrivateMacKeyMaterial(transaction, rotated, "contact_fingerprint"));
       const bridged = await resolve(rotated);
       expect(bridged.subjectId).toBe(first.subjectId);
       expect(bridged.fingerprintKeyId).toBe("synthetic-contact-next");
@@ -46,6 +48,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact budget con
       const first = await database.withContext(fixture.own, (transaction) => new PostgresMessagingContactBudgetRepository(transaction, async () => true, async () => fixture.config).resolve(challenge.scope.contact));
       await database.withContext(fixture.own, async (transaction) => transaction.execute(sql`insert into public.messaging_usage_events(tribe_id,actor_user_id,contact_subject_id,purpose,channel,event_type,operation_id) values (${challenge.scope.tribeId},${fixture.userId},${first.subjectId},'admission','email','code_request',${randomUUID()})`));
       const replacement = await rotateContactKey(fixture.config, "unbridged-contact-key", false);
+      await database.withContext({ userId: null, email: null }, (transaction) => assertMessagingPrivateMacKeyMaterial(transaction, replacement, "contact_fingerprint"));
       await expect(database.withContext(fixture.own, (transaction) => new PostgresMessagingContactBudgetRepository(transaction, async () => true, async () => replacement).resolve(challenge.scope.contact))).rejects.toMatchObject({ code: "usage_limit_reached" });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::integer as subjects from public.messaging_contact_budget_subjects`)).rows)).toEqual([{ subjects: 1 }]);
     });

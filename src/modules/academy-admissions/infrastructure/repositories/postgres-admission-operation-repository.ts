@@ -14,6 +14,9 @@ import { ADMISSION_OPERATION_LEASE_MS } from "@/src/modules/academy-admissions/c
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { createAdmissionOperationFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-operation-fingerprint";
 import {readAdmissionOperationVerificationPurpose} from "@/src/modules/academy-admissions/infrastructure/verification/admission-operation-purpose";
+import { assertMessagingAuthenticatedMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
+import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
 
 type DatabaseExecutor = <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Resolves current actor/resource authority inside the exact transaction holding its required locks. */
@@ -60,14 +63,14 @@ export class PostgresAdmissionOperationRepository {
           await this.assertAuthorized(database, command);
           const row = await this.readLocked(database, command);
           if (!row) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
-          const fingerprint = createAdmissionOperationFingerprint(await this.readSecurityConfig());
+          const fingerprint = await this.readFingerprint(database);
           if (!await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict);
           await this.assertAuthorized(database, command);
           if (row.state === OPERATION_STATE.completed) return this.project(command, row, schema);
           const now = await clock(database);
           if (row.lease_owner !== currentClaim.owner || row.version !== currentClaim.version || !row.lease_until || new Date(row.lease_until) <= now) return { state: OPERATION_STATE.started, operationId: command.idempotencyKey };
           const chunk = await mutate(database, row.id);
-          const currentFingerprint = createAdmissionOperationFingerprint(await this.readSecurityConfig());
+          const currentFingerprint = await this.readFingerprint(database);
           if (!await currentFingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
           await this.assertAuthorized(database, command);
           const completedAt = await clock(database);
@@ -115,6 +118,19 @@ export class PostgresAdmissionOperationRepository {
     if (actor !== command.actorUserId || !await authorize(database, command)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
   }
 
+  /** @param database - Native account/resource-authorized original transaction. @returns The original-intent signer only after both HMAC identity domains retain their material. @throws AdmissionOperationError for unprovable key-id continuity. */
+  private async readFingerprint(database: RequestDatabase) {
+    const config = await this.readSecurityConfig();
+    try {
+      await assertMessagingAuthenticatedMacKeyMaterial(database, config, MESSAGING_KEY_PURPOSE.operationPayload);
+      await assertMessagingAuthenticatedMacKeyMaterial(database, config, MESSAGING_KEY_PURPOSE.contactFingerprint);
+    } catch (error) {
+      if (error instanceof MessagingCryptographyError) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable, { cause: error });
+      throw error;
+    }
+    return createAdmissionOperationFingerprint(config);
+  }
+
   /** Locks only the exact actor/tenant/type/client-key namespace, never another actor's operation. */
   private async readLocked(database: RequestDatabase, command: AdmissionOperationCommand): Promise<OperationRow | undefined> {
     return (await database.execute<OperationRow>(sql`select id,state,version,lease_owner,lease_until,fingerprint_key_id,intent_fingerprint,public_result from public.academy_admission_operations where actor_user_id=${command.actorUserId} and tribe_id=${command.tribeId} and operation_type=${command.operationType} and idempotency_key=${command.idempotencyKey} for update`)).rows[0];
@@ -132,8 +148,8 @@ export class PostgresAdmissionOperationRepository {
   private async claim<Result>(command: AdmissionOperationCommand, schema: z.ZodType<Result>): Promise<OperationClaim<Result>> {
     return this.executeWithDatabase(async (database) => {
       await this.assertAuthorized(database, command, this.authorizeRegistration);
-      const fingerprint = createAdmissionOperationFingerprint(await this.readSecurityConfig());
       let row = await this.readLocked(database, command);
+      const fingerprint = await this.readFingerprint(database);
       const owner = randomUUID();
       if (!row) {
         const signed = await fingerprint.sign(command);
@@ -170,7 +186,7 @@ export class PostgresAdmissionOperationRepository {
       await this.assertAuthorized(database, command);
       const row = await this.readLocked(database, command);
       if (!row) return null;
-      const fingerprint = createAdmissionOperationFingerprint(await this.readSecurityConfig());
+      const fingerprint = await this.readFingerprint(database);
       const matches = await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint);
       await this.assertAuthorized(database, command);
       if (!matches) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict, { operationId: command.idempotencyKey });
@@ -235,7 +251,7 @@ export class PostgresAdmissionOperationRepository {
         await this.assertAuthorized(database, command);
         const row = await this.readLocked(database, command);
         if (!row) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: command.idempotencyKey });
-        const fingerprint = createAdmissionOperationFingerprint(await this.readSecurityConfig());
+        const fingerprint = await this.readFingerprint(database);
         const matches = await fingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint);
         await this.assertAuthorized(database, command);
         if (!matches) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.idempotencyConflict, { operationId: command.idempotencyKey });
@@ -245,7 +261,7 @@ export class PostgresAdmissionOperationRepository {
         const value = await mutate(database, row.id);
         const parsed = schema.safeParse(value);
         if (!parsed.success) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable, { operationId: command.idempotencyKey });
-        const currentFingerprint = createAdmissionOperationFingerprint(await this.readSecurityConfig());
+        const currentFingerprint = await this.readFingerprint(database);
         if (!await currentFingerprint.verify(command, row.fingerprint_key_id, row.intent_fingerprint)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete, { operationId: command.idempotencyKey });
         await this.assertAuthorized(database, command);
         const completedAt = await clock(database);

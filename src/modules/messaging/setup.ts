@@ -1,5 +1,7 @@
 /** Composes implemented human and worker messaging capabilities without global clients or key defaults. @module messaging-setup */
 import "server-only";
+import { RotateMessagingProtectionKeysUseCase } from "./application/use-cases/rotate-messaging-protection-keys-use-case";
+import { PostgresMessagingProtectionKeyRotation, type MessagingProtectionKeyRotationDependencies } from "./infrastructure/repositories/postgres-messaging-protection-key-rotation";
 import { PurgeMessagingSecretsUseCase } from "./application/use-cases/purge-messaging-secrets-use-case";
 import { PostgresMessagingRetentionRepository } from "./infrastructure/repositories/postgres-messaging-retention-repository";
 import { ExpireMessagingCandidatesUseCase } from "./application/use-cases/expire-messaging-candidates-use-case";
@@ -290,4 +292,9 @@ export function buildMessagingCandidateMaintenanceModule(dependencies: { execute
 /** @param dependencies - Private executor and current key-independent authority/recovery. @returns One atomic secret-retention entrypoint without constructing a sender or loading keys. */
 export function buildMessagingSecretRetentionModule(dependencies: { execute: CandidateExpirationDatabaseExecutor; authorize: CandidateExpirationGate; readRecoveryLock: CandidateExpirationGate }) {
   return { useCases: { purgeSecrets: new PurgeMessagingSecretsUseCase(new PostgresMessagingRetentionRepository(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock)) } };
+}
+
+/** @param dependencies - Fixed private backend authority, routing-only state and separately authorized key importer. @returns One bounded cipher-rotation entrypoint without BYOK replacement, provider calls or scheduling. */
+export function buildMessagingProtectionKeyRotationModule(dependencies: MessagingProtectionKeyRotationDependencies) {
+  return { useCases: { rotateProtectionKeys: new RotateMessagingProtectionKeysUseCase(new PostgresMessagingProtectionKeyRotation(dependencies)) } };
 }

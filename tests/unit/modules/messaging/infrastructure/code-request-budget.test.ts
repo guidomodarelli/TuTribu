@@ -7,6 +7,7 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareContactVerificationDatabase, seedContactVerificationChallenge } from "@/tests/support/contact-verification-database-fixture";
 import { PostgresVerificationRequestBudget } from "@/src/modules/messaging/infrastructure/repositories/postgres-verification-request-budget";
 import { PostgresMessagingContactBudgetRepository } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-contact-budget-repository";
+import { assertMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("verification code request budget", () => {
   it("should count one request once and share the resend wait between purposes and channels", async () => {
@@ -55,6 +56,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("verification code 
       const key = await crypto.subtle.importKey("raw", crypto.getRandomValues(new Uint8Array(32)), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
       const ring = fixture.config.keyrings.contact_fingerprint;
       const bridgedConfig = { ...fixture.config, keyrings: { ...fixture.config.keyrings, contact_fingerprint: { ...ring, activeKeyId: keyId, keys: new Map([...ring.keys, [keyId, key]]) } } };
+      await database.withContext({ userId: null, email: null }, (transaction) => assertMessagingPrivateMacKeyMaterial(transaction, bridgedConfig, "contact_fingerprint"));
       const subject = await database.withContext(fixture.own, (transaction) => new PostgresMessagingContactBudgetRepository(transaction, async () => true, async () => bridgedConfig).resolve(challenge.scope.contact));
       const otherUserId = randomUUID();
       await database.withContext(fixture.own, async (transaction) => {
