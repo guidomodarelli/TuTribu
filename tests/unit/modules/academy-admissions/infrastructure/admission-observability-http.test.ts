@@ -5,10 +5,11 @@ import { createAdmissionActivityHandlers } from "@/src/modules/academy-admission
 import { mapAdmissionActivityStorage } from "@/src/modules/academy-admissions/infrastructure/repositories/admission-activity-storage-mapper";
 import { VERIFICATION_ISSUANCE_OPERATION } from "@/src/modules/academy-admissions/constants/verification-issuance";
 import { MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/message-delivery";
+import { ADMISSION_ACTIVITY_READ_RULE } from "@/src/modules/academy-admissions/constants/admission-activity";
 import { admissionActivityQuerySchema } from "@/src/modules/academy-admissions/constants/admission-activity-schemas";
 
 describe("private observability HTTP", () => {
-  it.each([VERIFICATION_ISSUANCE_OPERATION.issue, VERIFICATION_ISSUANCE_OPERATION.resend, MESSAGE_STORAGE_OPERATION.authorize, MESSAGE_STORAGE_OPERATION.complete, MESSAGE_STORAGE_OPERATION.reconcile])("should preserve the implemented producer rule %s in its selected activity", (rule) => {
+  it.each([VERIFICATION_ISSUANCE_OPERATION.issue, VERIFICATION_ISSUANCE_OPERATION.resend, MESSAGE_STORAGE_OPERATION.authorize, MESSAGE_STORAGE_OPERATION.complete, MESSAGE_STORAGE_OPERATION.reconcile, ADMISSION_ACTIVITY_READ_RULE.allowlist, ADMISSION_ACTIVITY_READ_RULE.allowlistReport, ADMISSION_ACTIVITY_READ_RULE.invitations, ADMISSION_ACTIVITY_READ_RULE.reviews])("should preserve the implemented producer rule %s in its selected activity", (rule) => {
     const tribeId = randomUUID();
     const page = mapAdmissionActivityStorage(tribeId, [{ id: randomUUID(), tribe_id: tribeId, actor_user_id: null, operation_id: null, tribe_lifecycle_operation_id: null,
       resource_type: "message_delivery", resource_id: randomUUID(), event_type: "delivery_created", rule, cause: null, resource_version: 1,

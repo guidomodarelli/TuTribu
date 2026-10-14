@@ -11,7 +11,7 @@ import { presentAllowlistEntry } from "@/src/modules/academy-admissions/applicat
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist reader", () => {
-  it("should retain microsecond page boundaries and treat wildcard search as literal data without a write", async () => {
+  it("should retain microsecond page boundaries and literal wildcard search while recording only fixed authorized read facts", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareAllowlistManagement(database), ids = [randomUUID(), randomUUID(), randomUUID()], foreignTribeId = randomUUID();
       await database.withContext(fixture.own, async (transaction) => {
@@ -34,6 +34,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native allowlist r
       expect(presentAllowlistEntry(found.entries[0])).toMatchObject({ id: ids[1], version: 1, displayName: "Grupo %_", status: "disabled" });
       expect(presentAllowlistEntry(found.entries[0])).not.toHaveProperty("createdByUserId");
       expect(presentAllowlistEntry(found.entries[0])).not.toHaveProperty("fingerprintKeyId");
+      await database.withContext(fixture.own, async (transaction) => {
+        const accesses = (await transaction.execute<{ actor_user_id: string; operation_id: string | null; resource_version: number | null; metadata: Record<string, unknown> }>(sql`select actor_user_id,operation_id,resource_version,metadata from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} and event_type='authorized_resource_exposure' order by created_at,id`)).rows;
+        expect(accesses).toHaveLength(4);
+        expect(accesses.every((access) => access.actor_user_id === fixture.userId && access.operation_id === null && access.resource_version === null)).toBe(true);
+        expect(accesses.map((access) => access.metadata)).toEqual(Array.from({ length: 4 }, () => ({ surface: "allowlist", itemCount: 1, resourceKind: "entries" })));
+        expect(JSON.stringify(accesses)).not.toContain("@example.test");
+        expect(JSON.stringify(accesses)).not.toContain("Grupo");
+      });
       expect((await database.withContext(fixture.own, (transaction) => transaction.execute(sql`select count(*)::int as count from public.academy_admission_operations where tribe_id=${fixture.tribeId}`))).rows).toEqual([{ count: 0 }]);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.tribeId} and user_id=${fixture.userId}`));
       await expect(reader.list(context, { limit: 25 })).rejects.toMatchObject({ code: "permission_denied" });

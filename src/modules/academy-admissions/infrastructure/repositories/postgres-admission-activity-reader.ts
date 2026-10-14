@@ -20,6 +20,8 @@ export class PostgresAdmissionActivityReader implements AdmissionActivityReader 
   constructor(private readonly execute: AdmissionActivityExecutor) {}
   /** @param database - Current transaction. @param scope - Actual account/session/tribe. @returns After native locks and live permission checks. */
   private async authorize(database: RequestDatabase, scope: AdmissionCommandScope): Promise<void> {
+    const locked = (await database.execute<{ locked: boolean }>(sql`select public.lock_academy_admission_administrative_reader(${scope.tribeId},${scope.sessionId}) as locked where public.current_app_user_id()=${scope.userId}`)).rows[0]?.locked;
+    if (!locked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     const actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readAudit).getCurrentActor(scope.tribeId, scope.userId);
     if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     if (!canPerformAdmissionAction(actor, ADMISSION_ACTION.readAudit, { tribeId: scope.tribeId })) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);

@@ -52,6 +52,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native usage and w
       await database.applyMigration("20261007005000_read_admission_reviews.sql");
       for (const migration of TRIBE_RETIREMENT_PROVENANCE_MIGRATIONS) await database.applyMigration(migration);
       await database.applyMigration("20261014134826_read_admission_activity_and_metrics.sql");
+      await database.applyMigration("20261014153700_audit_admission_administrative_reads.sql");
       const own = { userId: fixture.leader.userId, email: fixture.leader.email };
       const scope = { tribeId: fixture.tribeId, userId: fixture.leader.userId, sessionId: fixture.leader.sessionId, requestId: randomUUID() };
       const reader = new PostgresAdmissionActivityReader((_scope, run) => database.withContext(own, run));

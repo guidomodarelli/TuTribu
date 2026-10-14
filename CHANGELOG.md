@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El acceso autorizado a habilitados, reportes CSV, invitaciones y solicitudes de admisión queda registrado con quién lo consultó y su alcance, preservando los permisos y evitando copiar datos privados en la auditoría.
+
 - Se incorpora la consulta privada de actividad y métricas de admisión para el líder, conservando el consumo diario y restringiendo datos sensibles; la pantalla de consulta sigue pendiente.
 
 - Las conexiones candidatas abandonadas pueden retirarse mediante el proceso interno después de siete días sin actividad, conservando la conexión seleccionada y el consumo original; la programación de esa limpieza sigue pendiente.
