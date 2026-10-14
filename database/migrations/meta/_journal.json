@@ -1100,6 +1100,13 @@
       "when": 1791934847840,
       "tag": "20261013234047_guard_extended_notification_recovery_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1791946931000,
+      "tag": "20261014030211_audit_scope_closed_verification_proofs",
+      "breakpoints": true
     }
   ]
 }

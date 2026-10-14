@@ -16,6 +16,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission d
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareVerificationDeliveryPipeline(database);
       for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql", "20261011223000_close_admission_scope_lifecycle.sql"]) await database.applyMigration(migration);
+      await database.applyMigration("20261014030211_audit_scope_closed_verification_proofs.sql");
       await database.withContext(fixture.own, async (transaction) => {
         await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${fixture.scope.tribeId},'academy',true)`);
         await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,mode,activated_at) values (${fixture.scope.tribeId},'manual_review',clock_timestamp())`);
@@ -74,7 +75,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission d
         expect((await transaction.execute(sql`select count(*)::integer as total from public.verification_code_envelopes where challenge_id=${fixture.original.challengeId}`)).rows).toEqual([{ total: 0 }]);
         expect((await transaction.execute(sql`select state,connection_id,connection_version from public.message_deliveries where id=${fixture.original.deliveryId}`)).rows).toEqual([{ state: stage !== "in_flight" ? "cancelled" : "accepted", connection_id: fixture.scope.connectionId, connection_version: 1 }]);
         expect((await transaction.execute(sql`select state from public.messaging_usage_reservations where delivery_id=${fixture.original.deliveryId}`)).rows).toEqual(stage !== "in_flight" ? [] : [{ state: "consumed" }]);
-        if (proofId) expect((await transaction.execute(sql`select status,invalidation_reason from public.academy_admission_verification_proofs where id=${proofId}`)).rows).toEqual([{ status: "invalid", invalidation_reason: "academy_unavailable" }]);
+        if (proofId) {
+          expect((await transaction.execute(sql`select status,invalidation_reason from public.academy_admission_verification_proofs where id=${proofId}`)).rows).toEqual([{ status: "invalid", invalidation_reason: "academy_unavailable" }]);
+          expect((await transaction.execute(sql`select event.actor_user_id,event.operation_id,event.resource_version,event.rule,event.cause,event.metadata,event.created_at=proof.invalidated_at as owner_clock from public.academy_admission_audit_events event join public.academy_admission_verification_proofs proof on proof.id=event.resource_id and proof.tribe_id=event.tribe_id where event.resource_id=${proofId} and event.event_type='proof_invalidated'`)).rows).toEqual([{ actor_user_id: fixture.userId, operation_id: null, resource_version: null, rule: "academy_unavailable", cause: "scope_retired", owner_clock: true, metadata: { fromState: "available", toState: "invalid", challengeId: fixture.original.challengeId, requestId: null, verificationEpoch: fixture.scope.verificationEpoch, channel: fixture.scope.channel } }]);
+        }
         expect((await transaction.execute(sql`select count(*)::integer as total from public.messaging_usage_events where tribe_id=${fixture.scope.tribeId} and event_type='code_request'`)).rows).toEqual([{ total: 1 }]);
         await transaction.execute(sql`update public.tribe_academy_settings set access_model='academy',admission_enabled=true where tribe_id=${fixture.scope.tribeId}`);
         expect((await transaction.execute(sql`select is_current,code_mac is null as retired from public.contact_verification_challenges where id=${fixture.original.challengeId}`)).rows).toEqual([{ is_current: false, retired: true }]);

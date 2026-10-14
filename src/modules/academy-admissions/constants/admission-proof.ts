@@ -4,6 +4,8 @@ export const ADMISSION_PROOF_AUDIT_EVENT = "proof_attached";
 export const ADMISSION_PROOF_AUDIT_RULE = "local_verification";
 /** Records newly issued local evidence independently of its later attachment or application. */
 export const ADMISSION_PROOF_CREATION_AUDIT_EVENT = "proof_created";
+/** Records the actual proof transition separately from the pending request attachment. */
+export const ADMISSION_PROOF_APPLICATION_AUDIT_EVENT = "proof_applied";
 /** Records actual withdrawal while retaining historical application references. */
 export const ADMISSION_PROOF_INVALIDATION_AUDIT_EVENT = "proof_invalidated";
 /** Serializes first contact claims independently of which proof/request supplied them. */
