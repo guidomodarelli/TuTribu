@@ -65,6 +65,8 @@ async function applyMigrations({ run, fail }) {
 /** @type {import("beez-rp/create-version").CreateVersionConfig} */
 const createVersionConfig = {
   projectName: "TuTribu",
+  /** IANA time zone for the `## [X.Y.Z] - YYYY-MM-DD` date written when `[Unreleased]` is closed. */
+  releaseTimeZone: "America/Argentina/Buenos_Aires",
   releaseTypeDescriptions: {
     patch: "Solo arreglos o cambios internos; nada nuevo para quien usa la app.",
     minor: "Funcionalidades o mejoras nuevas; lo existente sigue funcionando igual.",
