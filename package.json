@@ -29,7 +29,7 @@
     "db:migrate": "node scripts/push-migrations.js",
     "db:migrate:force": "node scripts/push-migrations.js --force",
     "test:e2e": "playwright test",
-    "test:ui": "pnpm build && playwright test --config playwright.ui.config.ts",
+    "test:ui": "pnpm build && node scripts/e2e/run-ui-tests.mjs",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:beezping": "playwright test --config playwright.beezping.config.ts",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
