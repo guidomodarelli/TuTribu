@@ -1,5 +1,10 @@
 /** Validates shared UI integration against the real production build in both browser engines. */
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, webkit } from "@playwright/test";
+
+import { installExitedBrowserStdioRelease } from "./tests/e2e/support/release-exited-browser-stdio";
+
+/** Workers load this config too, so WebKit's leftover processes on Windows cannot hang their shutdown. */
+installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] });
 
 /** Uses a dedicated local port so validation cannot reuse an unrelated development server. */
 const UI_TEST_PORT = 3110;

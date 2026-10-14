@@ -1,4 +1,9 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, webkit } from "@playwright/test";
+
+import { installExitedBrowserStdioRelease } from "./tests/e2e/support/release-exited-browser-stdio";
+
+/** Workers load this config too, so WebKit's leftover processes on Windows cannot hang their shutdown. */
+installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] });
 
 /** Exercises the real application through the existing portless route. */
 export default defineConfig({
