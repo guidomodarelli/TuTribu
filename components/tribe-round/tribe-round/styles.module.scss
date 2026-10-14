@@ -13,29 +13,6 @@
   }
 }
 
-// Opacity-only entrance/exit for the message details modal. It deliberately
-// avoids `transform` so the fixed close button is never dragged by a transient
-// containing block during the animation.
-@keyframes messageDetailsDialogFadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes messageDetailsDialogFadeOut {
-  from {
-    opacity: 1;
-  }
-
-  to {
-    opacity: 0;
-  }
-}
-
 // Shared 1:1 media thumbnail size. Used both by the feed (right-aligned square)
 // and the message modal gallery (squares below the text) so a video/image
 // preview renders at the same size in both places. SCSS variable instead of a
@@ -247,42 +224,16 @@ $media-viewer-overlay-opacity: 72%;
     }
   }
 
+  // beez-ui's `closeButtonPlacement="viewport"` centers this panel with auto margins
+  // (no `translate`) and pins the close button to the viewport corner.
   &__composerDialog--messageDetails:global([data-slot="dialog-content"]) {
-    inset: 0;
-    margin: auto;
-    height: fit-content;
-    // The Tailwind centering uses the CSS `translate` property. We must reset it
-    // to `none` so this element stops being a containing block for the fixed close
-    // button. A plain `translate: none` is dropped by the build minifier as a
-    // redundant initial value, so we route it through an undefined custom property
-    // whose fallback resolves to `none` at runtime — the minifier cannot strip it.
-    // `transform` is intentionally left unset: declaring `transform: none` gets
-    // normalized to `translate3d(0, 0, 0)`, which would re-create the containing block.
-    translate: var(--tribe-message-details-no-translate, none) !important;
+    // Centered by auto margins until `usePixelSnappedCentering` publishes whole-pixel
+    // offsets; the trailing `auto` margins then absorb the remaining space. A half-pixel
+    // center would make the panel jump one pixel when the entrance animation settles.
+    margin: var(--pixel-snapped-top, auto) auto auto var(--pixel-snapped-left, auto);
     width: min(100% - 2rem, 64rem);
     max-width: 64rem;
     max-height: calc(100svh - 2rem);
-
-    :global([data-slot="dialog-close"]) {
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
-    }
-
-    // Replace the default open/close animation (which zooms via a transient
-    // `transform`) with an opacity-only fade. Any transform on this panel would
-    // momentarily re-establish a containing block and drag the fixed close
-    // button, so the entrance/exit must never touch `transform`.
-    // `both` fill-mode is required: it holds the closing frame at `opacity: 0`
-    // until Radix unmounts the dialog. Without it the opacity snaps back to 1
-    // after the animation ends, producing a flicker on close.
-    &:global([data-state="open"]) {
-      animation: messageDetailsDialogFadeIn 0.1s ease both !important;
-    }
-
-    &:global([data-state="closed"]) {
-      animation: messageDetailsDialogFadeOut 0.1s ease both !important;
-    }
   }
 
   &__composerDialog--messageDetails &__messageDetailsBody {
@@ -1333,6 +1284,9 @@ $media-viewer-overlay-opacity: 72%;
   &__actions,
   &__messageActions {
     display: flex;
+    // Like (ReactionButton) and comment (Button) come from controls with
+    // different heights; center them so icons and counts share one baseline.
+    align-items: center;
     justify-content: flex-start;
     margin-top: 0.75rem;
     padding-inline: 0.5rem;
@@ -1341,6 +1295,17 @@ $media-viewer-overlay-opacity: 72%;
       margin-bottom: 0.75rem;
       padding-inline: 0;
     }
+  }
+
+  // Like (beez-ui `ReactionButton`, fixed `h-8`) and comment (`Button`, `md` min
+  // height) come from different controls; one shared box keeps their hover
+  // backgrounds the same size.
+  &__likeButton,
+  &__commentButton {
+    height: var(--control-height-sm);
+    min-height: var(--control-height-sm);
+    gap: 0.375rem;
+    line-height: var(--leading-body);
   }
 
   &__likeButton,
