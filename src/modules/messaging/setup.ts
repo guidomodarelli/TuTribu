@@ -1,5 +1,7 @@
 /** Composes implemented human and worker messaging capabilities without global clients or key defaults. @module messaging-setup */
 import "server-only";
+import { PurgeMessagingSecretsUseCase } from "./application/use-cases/purge-messaging-secrets-use-case";
+import { PostgresMessagingRetentionRepository } from "./infrastructure/repositories/postgres-messaging-retention-repository";
 import { ExpireMessagingCandidatesUseCase } from "./application/use-cases/expire-messaging-candidates-use-case";
 import { PostgresMessagingCandidateExpiration, type CandidateExpirationDatabaseExecutor, type CandidateExpirationGate } from "./infrastructure/repositories/postgres-messaging-candidate-expiration";
 import type { AuthenticatedFeatureDependencies } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
@@ -283,4 +285,9 @@ export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies
  */
 export function buildMessagingCandidateMaintenanceModule(dependencies: { execute: CandidateExpirationDatabaseExecutor; authorize: CandidateExpirationGate; readRecoveryLock: CandidateExpirationGate }) {
   return { useCases: { expireCandidates: new ExpireMessagingCandidatesUseCase(new PostgresMessagingCandidateExpiration(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock)) } };
+}
+
+/** @param dependencies - Private executor and current key-independent authority/recovery. @returns One atomic secret-retention entrypoint without constructing a sender or loading keys. */
+export function buildMessagingSecretRetentionModule(dependencies: { execute: CandidateExpirationDatabaseExecutor; authorize: CandidateExpirationGate; readRecoveryLock: CandidateExpirationGate }) {
+  return { useCases: { purgeSecrets: new PurgeMessagingSecretsUseCase(new PostgresMessagingRetentionRepository(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock)) } };
 }

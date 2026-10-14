@@ -15,6 +15,11 @@ export type ImportRetentionFixtureCase = { name: "fresh" | "completed" | "proces
 export async function prepareAllowlistImportRetention(database: AcademyAdmissionTestDatabase) {
   const security = await prepareContactVerificationDatabase(database);
   await database.applyMigration("20261009061000_guard_allowlist_import_progress.sql");
+  return seedAllowlistImportRetention(database, security);
+}
+
+/** @param database - Already migrated owned branch. @param security - Synthetic account/configuration for original fixture fingerprints. @returns Independent imports and snapshots without replaying historical migrations. */
+export async function seedAllowlistImportRetention(database: AcademyAdmissionTestDatabase, security: Pick<Awaited<ReturnType<typeof prepareContactVerificationDatabase>>, "own" | "config">) {
   const userId = randomUUID(), own = { userId, email: `${userId}@example.test` };
   await database.withContext(security.own, (transaction) => transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Responsable de importaciones de ejemplo',${own.email},false,transaction_timestamp()-interval '5 days',transaction_timestamp()-interval '5 days')`));
   const cases: ImportRetentionFixtureCase[] = [];

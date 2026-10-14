@@ -4,11 +4,11 @@ import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
 import { executeAdmissionMigrationCommand } from "./admission-migration-command";
 import { MESSAGING_CRYPTO } from "@/src/modules/messaging/constants/messaging-cryptography";
-import { createMessagingSecurityConfig, type MessagingKeyringInput } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { createMessagingSecurityConfig, type MessagingKeyringInput, type MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 
-/** @param database - Verified owned branch; both migration URLs remain private and branch-scoped. @returns Live/retired scopes, an original binding and independently aged request/decision pairs. */
-export async function prepareAdmissionPrivateRetention(database: AcademyAdmissionTestDatabase) {
+/** @param database - Verified owned branch; both migration URLs remain private and branch-scoped. @param securityConfig - Optional explicit synthetic configuration shared with an earlier migration-stage fixture. @returns Live/retired scopes, an original binding and independently aged request/decision pairs. */
+export async function prepareAdmissionPrivateRetention(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
   await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
   const managerId = randomUUID(), tribeId = randomUUID(), archivedTribeId = randomUUID();
   const boundUserId = randomUUID(), unboundUserId = randomUUID(), freshUserId = randomUUID(), pendingUserId = randomUUID(), sessionId = randomUUID();
@@ -19,7 +19,7 @@ export async function prepareAdmissionPrivateRetention(database: AcademyAdmissio
   const contact = `${boundUserId}@example.test`;
   /** @returns One independent native fixture key; no hosting or pilot material is read. */
   const keyring = (): MessagingKeyringInput => { const id = randomUUID(); return { activeKeyId: id, keys: [{ id, material: randomBytes(MESSAGING_CRYPTO.keyBytes) }] }; };
-  const security = await createMessagingSecurityConfig({ environment: "synthetic-private-retention", securityEpoch: randomUUID(), recoveryLocked: false, keyrings: { credential: keyring(), otp_envelope: keyring(), verification_mac: keyring(), invitation_token: keyring(), contact_fingerprint: keyring(), operation_payload: keyring() } });
+  const security = securityConfig ?? await createMessagingSecurityConfig({ environment: "synthetic-private-retention", securityEpoch: randomUUID(), recoveryLocked: false, keyrings: { credential: keyring(), otp_envelope: keyring(), verification_mac: keyring(), invitation_token: keyring(), contact_fingerprint: keyring(), operation_payload: keyring() } });
   const fingerprint = await createAdmissionContactFingerprint({ type: "email", value: contact }, security);
   await database.withContext({ userId: null, email: null }, async (transaction) => {
     for (const userId of [managerId, boundUserId, unboundUserId, freshUserId, pendingUserId]) await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic historical retention account',${`${userId}@example.test`},false,clock_timestamp()-interval '500 days',clock_timestamp()-interval '500 days')`);
