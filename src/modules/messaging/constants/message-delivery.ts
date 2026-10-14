@@ -13,7 +13,7 @@ export const MESSAGE_AUTHORIZATION_OUTCOME = { authorized: "authorized", suppres
 /** Distinguishes receipt persistence from a lost CAS or a confirmed identical result. */
 export const MESSAGE_COMPLETION_OUTCOME = { completed: "completed", unchanged: "unchanged", stale: "stale" } as const;
 /** Selects only backend maintenance actions; it is not a browser permission token. */
-export const MESSAGE_STORAGE_OPERATION = { claim: "claim_deliveries", authorize: "authorize_delivery", complete: "complete_attempt", read: "read_attempt", reconcile: "reconcile_leases", purgeVerificationMaterial: VERIFICATION_MATERIAL_PURGE_OPERATION } as const;
+export const MESSAGE_STORAGE_OPERATION = { claim: "claim_deliveries", authorize: "authorize_delivery", complete: "complete_attempt", read: "read_attempt", reconcile: "reconcile_leases", observe: "observe_dispatch_run", purgeVerificationMaterial: VERIFICATION_MATERIAL_PURGE_OPERATION } as const;
 /** Names own terminal receipt reasons, never raw provider messages. */
 export const MESSAGE_RECEIPT_REASON = { accepted: "provider_accepted", delivered: "provider_delivered", rejected: "provider_rejected", unknown: "dispatch_result_unknown" } as const;
 /** Names the private fact emitted only after an effective current human status reconciliation. */

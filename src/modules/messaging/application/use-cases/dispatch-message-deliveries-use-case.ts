@@ -1,7 +1,7 @@
 /** Runs bounded portable outbox work with RPC outside persistence and no ambiguous resend. @module dispatch-message-deliveries-use-case */
 import type { ClaimedMessageDelivery, MessageDeliveryAuthorization, MessageDeliveryCompletion, MessageDeliveryRepository, MessageDeliveryReceipt } from "@/src/modules/messaging/domain/repositories/message-delivery-repository";
 import type { MessageDeliveryAttempt } from "@/src/modules/messaging/domain/entities/message-delivery-attempt";
-import type { MessageDeliverySender, PreparedMessageDeliverySender, MessagingDispatchRuntime, MessagingDispatchSettings } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
+import type { MessageDeliverySender, PreparedMessageDeliverySender, MessagingDispatchRuntime, MessagingDispatchSettings, MessagingDispatchDeferredContext } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { MessageDispatchRunResult } from "@/src/modules/messaging/application/results/message-dispatch-result";
 import { MESSAGE_ATTEMPT_STATE, MESSAGE_AUTHORIZATION_OUTCOME, MESSAGE_COMPLETION_OUTCOME, MESSAGE_RECEIPT_REASON } from "@/src/modules/messaging/constants/message-delivery";
@@ -10,23 +10,7 @@ import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messagin
 import { MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/message-delivery";
 import { MessagingDeliveryStorageError } from "@/src/modules/messaging/domain/errors/messaging-delivery-storage-error";
 import { MessagingDispatchDeadlineError } from "@/src/modules/messaging/domain/errors/messaging-dispatch-deadline-error";
-
-/** A deadline ends observation; the underlying guarded write or RPC may still produce original evidence. */
-type ObservedWithinDeadline<Value> = { settled: true; value: Value } | { settled: false };
-
-/**
- * Observes one promise for a bounded duration without repeating or assuming cancellation of its effect.
- * @param work - Original already-started operation.
- * @param durationMs - Remaining deadline in milliseconds.
- * @param expire - Optional transport abort for that exact original request.
- * @returns Its actual value or an observation deadline, while late rejection remains handled.
- */
-async function observeWithin<Value>(work: Promise<Value>, durationMs: number, expire?: () => void): Promise<ObservedWithinDeadline<Value>> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<ObservedWithinDeadline<Value>>((resolve) => { timer = setTimeout(() => { expire?.(); resolve({ settled: false }); }, Math.max(0, durationMs)); });
-  try { return await Promise.race([work.then((value) => ({ settled: true as const, value })), deadline]); }
-  finally { if (timer !== undefined) clearTimeout(timer); }
-}
+import { observeWithin, type ObservedWithinDeadline } from "./observe-dispatch-deadline";
 
 /** Owns scheduling only; injected adapters own current secret/payload/provider preparation. */
 export class DispatchMessageDeliveriesUseCase {
@@ -44,10 +28,10 @@ export class DispatchMessageDeliveriesUseCase {
    * @param context - Minimal original delivery/attempt identity when known.
    * @returns Nothing after retention, or after reporting a retention failure.
    */
-  private retain(work: Promise<void>, context?: Pick<AuthorizedDeliveryMessagingContext, "deliveryId" | "attemptId">): void {
+  private retain(work: Promise<void>, context?: MessagingDispatchDeferredContext): void {
     const identity = context ? { deliveryId: context.deliveryId, attemptId: context.attemptId } : {};
     const observed = work.catch((error) => { this.runtime.report({ stage: MESSAGING_DISPATCH_STAGE.late, ...identity, cause: error }); });
-    try { this.runtime.defer(observed); }
+    try { this.runtime.defer(observed, context); }
     catch (error) { this.runtime.report({ stage: MESSAGING_DISPATCH_STAGE.defer, ...identity, cause: error }); }
   }
 
@@ -121,7 +105,7 @@ export class DispatchMessageDeliveriesUseCase {
       }
       if (!authorization.settled) {
         stopNewWork = true; result.deadlineReached = true; result.unresolved += 1;
-        this.retain(authorizationWork.then(async (late) => { if (late.outcome === MESSAGE_AUTHORIZATION_OUTCOME.authorized) await this.record(unknown(late.context)); }));
+        this.retain(authorizationWork.then(async (late) => { if (late.outcome === MESSAGE_AUTHORIZATION_OUTCOME.authorized) await this.record(unknown(late.context)); }), { deliveryId: claim.deliveryId });
         return;
       }
       const value = authorization.value;
@@ -178,7 +162,7 @@ export class DispatchMessageDeliveriesUseCase {
       let claims: ObservedWithinDeadline<ClaimedMessageDelivery[]>;
       try { claims = await observeWithin(claiming, deadlineAt - this.runtime.now()); }
       catch (error) { result.unresolved += 1; this.runtime.report({ stage: MESSAGING_DISPATCH_STAGE.claim, cause: error }); break; }
-      if (!claims.settled) { result.unresolved += 1; result.deadlineReached = true; this.retain(claiming.then(() => undefined)); break; }
+      if (!claims.settled) { result.unresolved += 1; result.deadlineReached = true; let originalClaims: ClaimedMessageDelivery[] = []; this.retain(claiming.then((late) => { originalClaims = late; }), { tribeIds: () => originalClaims.map((claim) => claim.tribeId) }); break; }
       if (!claims.value.length) { if (!active.size) break; await Promise.race(active); continue; }
       result.claimed += claims.value.length;
       if (stopNewWork || this.runtime.now() >= deadlineAt) { result.unresolved += claims.value.length; result.deadlineReached ||= this.runtime.now() >= deadlineAt; break; }

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { DispatchMessageDeliveriesUseCase } from "@/src/modules/messaging/application/use-cases/dispatch-message-deliveries-use-case";
 import { createMessagingDispatchConfig } from "@/src/modules/messaging/infrastructure/config/messaging-dispatch-config";
 import type { MessageDeliveryRepository, ClaimedMessageDelivery, MessageDeliveryReceipt } from "@/src/modules/messaging/domain/repositories/message-delivery-repository";
-import type { MessagingDispatchDiagnostic } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
+import type { MessagingDispatchDiagnostic, MessagingDispatchSettings } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { ZavuMessageDeliverySender } from "@/src/modules/messaging/infrastructure/zavu/zavu-message-delivery-sender";
 import { createAdmissionProviderTransport } from "@/tests/support/admission-provider-transport";
@@ -17,7 +17,7 @@ type OwnRpcSender={send(context:AuthorizedDeliveryMessagingContext,signal:AbortS
  * @param count - Number of due synthetic obligations.
  * @returns Own queue/receipt observations, bounded runtime and a dispatcher factory.
  */
-function fixture(count: number) {
+function fixture(count: number, settingsOverride: Partial<MessagingDispatchSettings> = {}) {
   const queue: ClaimedMessageDelivery[] = Array.from({ length: count }, () => ({ deliveryId: randomUUID(), tribeId: randomUUID(), version: 2, leaseToken: randomUUID(), contributingLeaderUserId: randomUUID() }));
   const receipts: MessageDeliveryReceipt[] = [];
   const diagnostics: MessagingDispatchDiagnostic[] = [];
@@ -37,7 +37,7 @@ function fixture(count: number) {
     async readAttempt() { return null; },
     async reconcileExpiredLeases() { return 0; },
   };
-  const settings = createMessagingDispatchConfig({ requestTimeoutMs: 30, runBudgetMs: 150, leaseSeconds: 1 });
+  const settings = createMessagingDispatchConfig({ requestTimeoutMs: 30, runBudgetMs: 150, leaseSeconds: 1, ...settingsOverride });
   const runtime = { now: () => Date.now(), createId: randomUUID, defer: (work: Promise<void>) => { deferred.push(work); }, report: (diagnostic: MessagingDispatchDiagnostic) => { diagnostics.push(diagnostic); } };
   return { queue, receipts, diagnostics, deferred, markers, repository, settings, runtime, get insidePersistence() { return insidePersistence; }, dispatcher: (sender: OwnRpcSender) => new DispatchMessageDeliveriesUseCase(repository, {prepare:async(context)=>({send:(signal)=>sender.send(context,signal)})}, settings, runtime) };
 }
@@ -63,7 +63,7 @@ describe("portable message dispatcher", () => {
   });
 
   it("should enter sender only after each committed marker and keep at most two send requests active", async () => {
-    const state = fixture(5);
+    const state = fixture(5, { requestTimeoutMs: 100, runBudgetMs: 500 });
     let active = 0, maximum = 0;
     const sender: OwnRpcSender = { async send(context) {
       expect(state.insidePersistence).toBe(false);

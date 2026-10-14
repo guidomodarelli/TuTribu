@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {createAuthenticatedAccountSchema} from "@/src/modules/auth/infrastructure/database/authenticated-account-schema";
 import { createAdmissionSchema, type AdmissionMessagingSchemaReferences, type AdmissionMembershipSchemaReferences } from "@/src/modules/academy-admissions/infrastructure/database/admission-schema";
 import { createMessagingSchema } from "@/src/modules/messaging/infrastructure/database/messaging-schema";
+import { createMessagingDispatchObservationSchema } from "@/src/modules/messaging/infrastructure/database/messaging-dispatch-observation-schema";
 import { createAdmissionMembershipEffectsSchema } from "@/src/modules/tribes/infrastructure/database/admission-membership-schema";
 import { createSubscriptionMembershipEffectsSchema } from "@/src/modules/subscriptions/infrastructure/database/subscription-membership-schema";
 import { ADMISSION_NOTIFICATION_AUDIENCE, ADMISSION_NOTIFICATION_TYPES } from "@/src/modules/notifications/constants/admission-notifications";
@@ -1841,6 +1842,9 @@ export const {
   messagingContactBudgetSubjects, messagingContactFingerprintAliases, messageDeliveries,
   verificationCodeEnvelopes, messageDeliveryAttempts, messagingUsageReservations, messagingUsageEvents,
 } = createMessagingSchema({ tribeNamespaces: academyAdmissionTribeNamespaces, user: users, contactVerificationChallenges, admissionOperations: academyAdmissionOperations });
+
+/** Preserves selected worker observations independently of temporary business rows. */
+export const { runs: messagingDispatchRuns, phases: messagingDispatchPhaseSamples } = createMessagingDispatchObservationSchema();
 
 /** Composes the private membership source after both owners' tables exist. */
 export const academyAdmissionMembershipEffects=createAdmissionMembershipEffectsSchema({tribes,users,members:tribeMembers,decisions:academyAdmissionDecisions});
