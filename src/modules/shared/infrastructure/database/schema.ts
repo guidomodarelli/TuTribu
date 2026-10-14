@@ -1827,6 +1827,7 @@ export const {
   imports: academyAllowlistImports,
   importRows: academyAllowlistImportRows,
   auditEvents: academyAdmissionAuditEvents,
+  workerRuns: academyAdmissionWorkerRuns,
   notificationObligations: academyAdmissionNotificationObligations,
 } = createAdmissionSchema({ users, tribes, globalIdentityEvidence, tribeInvitations,
   messaging: (): AdmissionMessagingSchemaReferences => ({versions:messagingConnectionVersions,deliveries:messageDeliveries,codeEnvelopes:verificationCodeEnvelopes}),

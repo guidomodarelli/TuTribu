@@ -4,3 +4,5 @@ export const ADMISSION_HTTP_OPERATION = { overview: "admission-overview", own: "
 export const ADMISSION_ORIGIN_HEADER = "origin";
 /** Next's request URL may use fetchHostname; browser authority is the native Host header. */
 export const ADMISSION_HOST_HEADER = "host";
+/** Names leader-only observation surfaces without accepting browser operation labels. */
+export const ADMISSION_OBSERVABILITY_HTTP_OPERATION = { activity: "admission-activity", metrics: "admission-metrics" } as const;

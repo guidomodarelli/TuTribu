@@ -52,6 +52,8 @@ import type { AdmissionContactChallengeDispatcher, AdmissionChallengeDispatchInt
 import type { ResolvedAdmissionChallengeDispatch } from "./infrastructure/verification/admission-verification-message-sender";
 import { AllowAdmissionRetryUseCase } from "./application/use-cases/allow-admission-retry-use-case";
 import { GetAdmissionReviewUseCases } from "./application/use-cases/get-admission-review-use-cases";
+import { GetAdmissionActivityAndMetricsUseCases } from "./application/use-cases/get-admission-activity-and-metrics-use-cases";
+import { PostgresAdmissionActivityReader } from "./infrastructure/repositories/postgres-admission-activity-reader";
 import { PostgresAdmissionReviewReader } from "./infrastructure/repositories/postgres-admission-review-reader";
 import { GetAdmissionReviewPageUseCase } from "./application/use-cases/get-admission-review-page-use-case";
 import { SubmitAcademyEntryUseCase } from "./application/use-cases/submit-academy-entry-use-case";
@@ -117,6 +119,12 @@ type AdmissionVerificationComposition = { scope: VerificationChallengeScope; aut
  * @returns Current context resolution, read-only original-operation recovery and explicit private collaborator factories.
  */
 export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureDependencies) {
+  /** @param scope - Current account/session and resource scope. @param run - DB-only query work. @returns The guarded query result without requiring a verification purpose or security keys. */
+  const executeScopedQuery = async <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => {
+    const account = await dependencies.accounts.getAuthenticatedAccount();
+    if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    return dependencies.execute(account, run);
+  };
   /** Rechecks native identity on every verification or attachment checkout; no account snapshot is retained. */
   const executeVerification: AdmissionVerificationDatabaseExecutor = async (scope, run) => {
     const account = await dependencies.accounts.getAuthenticatedAccount();
@@ -228,14 +236,13 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
       const entry = new SubmitAcademyEntryUseCase(queries.resolveTribe, manual.submit);
       return { submit: (command: Parameters<typeof entry.execute>[0]) => entry.execute(command) };
     },
+    /** @returns Current leader activity/metrics without loading hosting keys or provider resources. */
+    createActivityQueryModule() {
+      return { useCases: new GetAdmissionActivityAndMetricsUseCases(resolveContext, new PostgresAdmissionActivityReader(executeScopedQuery)) };
+    },
     /** @param options - Live recovery state without provider/keyring access. @returns Current authorized read-only inbox/detail use cases. */
     createReviewQueryModule(options: { readRecoveryLock: () => Promise<boolean> }) {
-      const executeReview = async <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
-        if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-        return dependencies.execute(account, run);
-      };
-      const review = new GetAdmissionReviewUseCases(resolveContext, new PostgresAdmissionReviewReader(executeReview, options.readRecoveryLock));
+      const review = new GetAdmissionReviewUseCases(resolveContext, new PostgresAdmissionReviewReader(executeScopedQuery, options.readRecoveryLock));
       return { useCases: { review,
         /** @param resolveTribe - Public slug resolver composed by the request root. @returns The single server page loader over current reviewer reads. */
         createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionReviewPageUseCase(dependencies.accounts, { review, resolveTribe }, dependencies.clock); },

@@ -1121,6 +1121,13 @@
       "when": 1791955310000,
       "tag": "20261014052150_audit_tribe_lifecycle_scope_retirement",
       "breakpoints": true
+    },
+    {
+      "idx": 160,
+      "version": "7",
+      "breakpoints": true,
+      "when": 1791985706000,
+      "tag": "20261014134826_read_admission_activity_and_metrics"
     }
   ]
 }

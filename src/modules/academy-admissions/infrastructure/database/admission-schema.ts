@@ -7,6 +7,9 @@ import {ADMISSION_VERIFICATION_PURPOSE} from "@/src/modules/academy-admissions/c
 import {VERIFICATION_ISSUANCE_OPERATION} from "@/src/modules/academy-admissions/constants/verification-issuance";
 import { ADMISSION_TRIBE_NAMESPACE_DATABASE } from "@/src/modules/academy-admissions/constants/admission-tribe-namespace";
 import { ADMISSION_TRIBE_ARCHIVE_DATABASE } from "@/src/modules/academy-admissions/constants/admission-tribe-archive";
+import { ADMISSION_METRIC_RUN_OPERATION, ADMISSION_WORKER_RUN_DATABASE } from "@/src/modules/academy-admissions/constants/admission-metrics";
+import { ADMISSION_ACTIVITY_DATABASE } from "@/src/modules/academy-admissions/constants/admission-activity";
+import type { AdmissionMetricRunOperation } from "@/src/modules/academy-admissions/domain/entities/admission-metric-dimensions";
 
 /** Resolves cross-owner columns after both table factories have finished. */
 export type AdmissionMessagingSchemaReferences = {
@@ -385,6 +388,19 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     tribeForeignKey: parentReference("admission_audit_tribe_fkey",table.tribeId,parents.tribes.id,"restrict"), actorForeignKey: parentReference("admission_audit_actor_fkey",table.actorUserId,parents.users.id,"set null"),
     operationForeignKey: foreignKey({name:"admission_audit_operation_fkey",columns:[table.operationId,table.tribeId],foreignColumns:[operations.id,operations.tribeId]}).onDelete("restrict"),
     historyIndex: index("admission_audit_history_idx").on(table.tribeId,table.createdAt.desc()),
+    resourceHistoryIndex: index(ADMISSION_ACTIVITY_DATABASE.resourceHistoryIndex).on(table.tribeId,table.resourceType,table.resourceId,table.createdAt.desc(),table.id.desc()),
+  }));
+  /** Projects real committed worker effects, separate from delivery outcomes and command ledgers. */
+  const workerRuns = pgTable(ADMISSION_WORKER_RUN_DATABASE.tableName, {
+    runId: uuid("run_id").notNull(), tribeId: uuid("tribe_id").notNull(), operation: text("operation").$type<AdmissionMetricRunOperation>().notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(), finishedAt: timestamp("finished_at", { withTimezone: true }).notNull(), processed: integer("processed").notNull(),
+  }, (table) => ({
+    primaryKey: primaryKey({ name: ADMISSION_WORKER_RUN_DATABASE.primaryKey, columns: [table.runId, table.tribeId, table.operation] }),
+    tribeForeignKey: foreignKey({ name: ADMISSION_WORKER_RUN_DATABASE.tribeForeignKey, columns: [table.tribeId], foreignColumns: [tribeNamespaces.tribeId] }),
+    operationCheck: check(ADMISSION_WORKER_RUN_DATABASE.operationCheck, sql`${table.operation} in (${sql.join(Object.values(ADMISSION_METRIC_RUN_OPERATION).map((operation) => sql`${operation}`), sql`, `)})`.inlineParams()),
+    processedCheck: check(ADMISSION_WORKER_RUN_DATABASE.processedCheck, sql`${table.processed}>0`),
+    timeCheck: check(ADMISSION_WORKER_RUN_DATABASE.timeCheck, sql`${table.finishedAt}>=${table.startedAt}`),
+    historyIndex: index(ADMISSION_WORKER_RUN_DATABASE.historyIndex).on(table.tribeId, table.finishedAt.desc()),
   }));
   const notificationObligations = pgTable("academy_admission_notification_obligations", {
     id: uuid("id").defaultRandom().primaryKey(), tribeId: uuid("tribe_id").notNull(), requestId: uuid("request_id").notNull(), applicantUserId: text("applicant_user_id").notNull(), eventType: text("event_type").notNull(),
@@ -400,6 +416,6 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     retiredBindings: retiredBindings.enableRLS(), retiredOperations: retiredOperations.enableRLS(), retiredAuditEvents: retiredAuditEvents.enableRLS(),
     policies: policies.enableRLS(), allowlistEntries: allowlistEntries.enableRLS(), personalInvitations: personalInvitations.enableRLS(), challenges: challenges.enableRLS(),
     proofs: proofs.enableRLS(), requests: requests.enableRLS(), bindings: bindings.enableRLS(), decisions: decisions.enableRLS(), operations: operations.enableRLS(),
-    imports: imports.enableRLS(), importRows: importRows.enableRLS(), auditEvents: auditEvents.enableRLS(), notificationObligations: notificationObligations.enableRLS(),
+    imports: imports.enableRLS(), importRows: importRows.enableRLS(), auditEvents: auditEvents.enableRLS(), workerRuns: workerRuns.enableRLS(), notificationObligations: notificationObligations.enableRLS(),
   };
 }

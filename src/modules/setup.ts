@@ -498,6 +498,7 @@ export async function createAdmissionRequestModules(usage: DatabaseConnectionUsa
     policyCommands: policyModule.useCases,
     policyPreflight: admissionModule.createPreflightModule({ runtime: manualModule.runtime, readRecoveryLock: async () => readMessagingHostingSecurityFacts().recoveryLocked }).useCases,
     reviews: admissionModule.createReviewQueryModule({ readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases,
+    observations: admissionModule.createActivityQueryModule().useCases,
     manual: manualModule.useCases,
   };
 }
