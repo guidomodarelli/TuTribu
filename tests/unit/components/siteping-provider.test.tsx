@@ -20,8 +20,11 @@ function serveIdentity(snapshot: unknown) {
 }
 
 describe("SitepingProvider with the published Beezping widget", () => {
-  beforeEach(() => { localStorage.clear(); });
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
+  // Sonner schedules a 200 ms removal timer after a toast closes. On a slow runner it can outlive the
+  // last test and fire after jsdom is torn down ("window is not defined"). Fake timers (configured to advance
+  // with real time in vitest.config) keep the waits intact; restoring real timers discards pending ones.
+  beforeEach(() => { vi.useFakeTimers(); localStorage.clear(); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); localStorage.clear(); });
 
   it("should keep the widget absent when the server denies access", async () => {
     const request = serveIdentity({ ...identity, enabled: false, identity: null });
