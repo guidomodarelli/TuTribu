@@ -43,6 +43,7 @@ import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
 
 import { Link } from "@/components/navigation/link";
 import { isInPageLinkClick } from "@/lib/plain-link-click";
+import { usePixelSnappedCentering } from "@/hooks/use-pixel-snapped-centering";
 import { useTribeRoundNavigation } from "@/hooks/use-tribe-round-navigation";
 import {
   buildTribeRoundPageHref,
@@ -379,6 +380,7 @@ const TRIBE_ROUND_ATTRIBUTES = {
   contentExpandedDataAttribute: "data-expanded",
   dropdownAlign: "center",
   messageActionsDropdownAlign: "end",
+  messageDetailsCloseButtonPlacement: "viewport",
   inlineEndIcon: "inline-end",
   inlineStartIcon: "inline-start",
   messageMetaSeparatorHidden: true,
@@ -1841,6 +1843,7 @@ function TribeRoundContent({
   // here and flushed once the scroll settles, keeping arrow navigation smooth.
   const pendingImageCarouselReInitRef = useRef(false);
   const [isMessageDetailsOpen, setIsMessageDetailsOpen] = useState(false);
+  const messageDetailsDialogRef = usePixelSnappedCentering();
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [messagePendingDeletion, setMessagePendingDeletion] =
     useState<TribeRoundMessageResult | null>(null);
@@ -6757,6 +6760,8 @@ function TribeRoundContent({
       <Dialog open={isMessageDetailsOpen} onOpenChange={setIsMessageDetailsOpen}>
         <DialogContent
           className={`${styles.TribeRound__composerDialog} ${styles["TribeRound__composerDialog--messageDetails"]}`}
+          closeButtonPlacement={TRIBE_ROUND_ATTRIBUTES.messageDetailsCloseButtonPlacement}
+          ref={messageDetailsDialogRef}
         >
           <DialogHeader className={styles.TribeRound__composerDialogHeader}>
             <DialogTitle

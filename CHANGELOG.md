@@ -4,6 +4,12 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- Los contadores de "me gusta" y de comentarios de cada mensaje de la ronda vuelven a quedar alineados a la misma altura y con el mismo tamaño al pasar el mouse.
+- Al abrir el detalle de un mensaje de la ronda en computadora, el contenido ya no se corre un píxel cuando termina la animación de apertura.
+- El botón para cerrar el detalle de un mensaje de la ronda aparece directamente en la esquina de la pantalla, sin mostrarse antes un instante dentro del detalle.
+
 ## [1.2.3] - 2026-10-14
 
 ### Changed
