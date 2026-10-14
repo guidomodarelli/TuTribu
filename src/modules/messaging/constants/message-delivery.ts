@@ -18,3 +18,5 @@ export const MESSAGE_STORAGE_OPERATION = { claim: "claim_deliveries", authorize:
 export const MESSAGE_RECEIPT_REASON = { accepted: "provider_accepted", delivered: "provider_delivered", rejected: "provider_rejected", unknown: "dispatch_result_unknown" } as const;
 /** Names the private fact emitted only after an effective current human status reconciliation. */
 export const MESSAGE_DELIVERY_RECONCILIATION_AUDIT_EVENT = "delivery_reconciled";
+/** Separates an original queued intent from a later effective cancellation without a possible send. */
+export const MESSAGE_DELIVERY_AUDIT_EVENT = { created: "delivery_created", cancelled: "delivery_cancelled" } as const;

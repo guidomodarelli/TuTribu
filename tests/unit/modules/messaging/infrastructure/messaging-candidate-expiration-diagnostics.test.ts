@@ -8,6 +8,7 @@ import { prepareCandidateDiagnosticHistory } from "@/tests/support/messaging-can
 import { buildMessagingCandidateMaintenanceModule } from "@/src/modules/messaging/setup";
 import { ADMISSION_SECURITY_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-security";
 import { retireDiagnosticChallenges } from "@/src/modules/messaging/infrastructure/repositories/postgres-retired-diagnostic-challenges";
+import { expectMessageDeliveryCancellationAudits } from "@/tests/support/message-delivery-cancellation-audit-assertions";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native expired-candidate diagnostic history", () => {
   it("should release only the expired version's diagnostic namespace and preserve selected history and accepted or unknown accounting", async () => {
@@ -19,6 +20,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native expired-can
       const maintenanceModule = buildMessagingCandidateMaintenanceModule({ execute: (run) => database.withContext({ userId: null, email: null }, run), authorize: async () => true, readRecoveryLock: async () => false });
       expect(await maintenanceModule.useCases.expireCandidates.execute()).toEqual({ expired: 3, purgedImmediately: 1 });
       const after = await diagnostic.snapshot();
+      const expectedCancellation = { tribeId: resource.tribeId, actorUserId: null, operationId: null, cause: "candidate_expired" as const, deliveries: diagnostic.histories.filter((history) => history.connectionVersion === 2 && history.scenario === "queued").map((history) => ({ deliveryId: history.deliveryId, connectionId: history.connectionId, connectionVersion: 2, channel: "email" as const, version: 2 })) };
+      await database.withContext(fixture.own, (transaction) => expectMessageDeliveryCancellationAudits(transaction, expectedCancellation));
       expect(after.attempts).toEqual(before.attempts); expect(after.reservations).toEqual(before.reservations); expect(after.events).toEqual(before.events);
       expect((await fixture.snapshot()).usage).toEqual(usage.usage);
       for (const history of diagnostic.histories) {
@@ -39,6 +42,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native expired-can
       }
       expect(await maintenanceModule.useCases.expireCandidates.execute()).toEqual({ expired: 0, purgedImmediately: 0 });
       expect(await diagnostic.snapshot()).toEqual(after);
+      await database.withContext(fixture.own, (transaction) => expectMessageDeliveryCancellationAudits(transaction, expectedCancellation));
     });
   }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 
@@ -49,7 +53,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native expired-can
       const before = await diagnostic.snapshot();
       await database.withContext(fixture.own, async (transaction) => {
         await transaction.execute(sql`select id from public.tribes where id=${resource.tribeId} for update`);
-        await retireDiagnosticChallenges(transaction, { tribeId: resource.tribeId, connectionId: resource.connectionId, connectionVersion: 2 });
+        await retireDiagnosticChallenges(transaction, { tribeId: resource.tribeId, connectionId: resource.connectionId, connectionVersion: 2, actorUserId: fixture.userId, operationId: null });
       });
       const after = await diagnostic.snapshot();
       expect(after.attempts).toEqual(before.attempts); expect(after.reservations).toEqual(before.reservations); expect(after.events).toEqual(before.events);
@@ -60,6 +64,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native expired-can
         else expect(delivery).toEqual(before.deliveries.find((row) => row.id === history.deliveryId));
       }
       expect(after.envelopes).toHaveLength(0);
+      await database.withContext(fixture.own, (transaction) => expectMessageDeliveryCancellationAudits(transaction, { tribeId: resource.tribeId, actorUserId: fixture.userId, operationId: null, cause: "connection_replaced", deliveries: diagnostic.histories.filter((history) => history.scenario === "queued").map((history) => ({ deliveryId: history.deliveryId, connectionId: history.connectionId, connectionVersion: 2, channel: "email", version: 2 })) }));
     });
   }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 });

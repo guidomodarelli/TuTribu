@@ -17,6 +17,7 @@ import {PostgresAdmissionAuditRepository} from "./postgres-admission-audit-repos
 import {AdmissionOperationError} from "../../domain/errors/admission-operation-error";
 import {ADMISSION_ERROR_CODE} from "../../constants/admission-errors";
 import {appendAdmissionProofInvalidationAudit,type InvalidatedAdmissionProofAuditRow} from "./postgres-admission-proof-invalidation-audit";
+import {appendCancelledMessageDeliveryAudit,type MessageDeliveryAuditRow} from "@/src/modules/messaging/infrastructure/repositories/postgres-message-delivery-audit";
 
 /** A notification owner must supply current settings; missing/unavailable facts must throw rather than silently enable retirement. */
 export type ExternalNotificationLifecycleReader=(context:MessagingConnectionLifecycleContext,database:RequestDatabase)=>Promise<boolean>;
@@ -46,7 +47,9 @@ export class PostgresMessagingLifecycleDependencies implements MessagingConnecti
       if(challenge.code_envelope_id)await this.database.execute(sql`delete from public.verification_code_envelopes where id=${challenge.code_envelope_id} and challenge_id=${challenge.id}`);
       await this.database.execute(sql`update public.messaging_connection_diagnostics set outcome=${VERIFICATION_DIAGNOSTIC_OUTCOME.invalidated} where challenge_id=${challenge.id} and outcome=${VERIFICATION_DIAGNOSTIC_OUTCOME.pending}`);
     }
-    for(const delivery of deliveries)await this.database.execute(sql`update public.message_deliveries set state=${MESSAGE_DELIVERY_STATE.cancelled},last_outcome=${reason},lease_token=null,lease_until=null,version=version+1 where id=${delivery.id} and state=${MESSAGE_DELIVERY_STATE.queued} and not exists(select 1 from public.message_delivery_attempts where delivery_id=${delivery.id})`);
+    const cancelledDeliveries:MessageDeliveryAuditRow[]=[];
+    for(const delivery of deliveries)cancelledDeliveries.push(...(await this.database.execute<MessageDeliveryAuditRow>(sql`update public.message_deliveries set state=${MESSAGE_DELIVERY_STATE.cancelled},last_outcome=${reason},lease_token=null,lease_until=null,version=version+1 where id=${delivery.id} and state=${MESSAGE_DELIVERY_STATE.queued} and not exists(select 1 from public.message_delivery_attempts where delivery_id=${delivery.id}) returning id,state,version,connection_id,connection_version,channel`)).rows);
+    await appendCancelledMessageDeliveryAudit(this.database,{tribeId:context.tribeId,actorUserId:context.actorUserId,operationId:ledgerId,cause:reason,createdAt:now},cancelledDeliveries);
     await this.recordReferenceAudit(context,ledgerId,ADMISSION_MESSAGING_LIFECYCLE_EVIDENCE.compromised,reason,now);
   }
   /** @param context - Exact ordinarily retired connection after the caller's dependency assessment. @param ledgerId - Original private local action. @returns After detaching current policy references, preserving verification epoch/rules and applied evidence. */

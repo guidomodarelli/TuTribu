@@ -7,9 +7,10 @@ import {VERIFICATION_CHALLENGE_STATE} from "@/src/modules/academy-admissions/con
 import {VERIFICATION_DIAGNOSTIC_OUTCOME} from "@/src/modules/messaging/constants/verification-delivery";
 import {MESSAGE_DELIVERY_STATE} from "@/src/modules/messaging/constants/message-delivery";
 import {MESSAGING_CONNECTION_REPLACEMENT} from "@/src/modules/messaging/constants/messaging-connection-replacement";
+import {appendCancelledMessageDeliveryAudit,type MessageDeliveryAuditRow} from "./postgres-message-delivery-audit";
 
 /** Exact immutable resource scope already protected by the configuration owner's exclusive tribe lock. */
-type RetiredDiagnosticScope={tribeId:string;connectionId:string;connectionVersion:number;reason?:"connection_replaced"|"candidate_expired"};
+type RetiredDiagnosticScope={tribeId:string;connectionId:string;connectionVersion:number;actorUserId:string|null;operationId:string|null;reason?:"connection_replaced"|"candidate_expired"};
 
 /**
  * Releases the current diagnostic namespace without sending or altering any admission proof.
@@ -27,7 +28,8 @@ export async function retireDiagnosticChallenges(database:RequestDatabase,scope:
     const now=new Date((await database.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now);
     await database.execute(sql`update public.contact_verification_challenges set is_current=false,state=case when state=${VERIFICATION_CHALLENGE_STATE.verified} then state else ${VERIFICATION_CHALLENGE_STATE.invalidated} end,version=version+1,invalidated_at=coalesce(invalidated_at,${now}),invalidation_reason=coalesce(invalidation_reason,${retirementReason}),code_mac=null,code_envelope_id=null where id=${challenge.id} and version=${challenge.version}`);
     if(challenge.code_envelope_id)await database.execute(sql`delete from public.verification_code_envelopes where id=${challenge.code_envelope_id} and challenge_id=${challenge.id}`);
-    await database.execute(sql`update public.message_deliveries set state=${MESSAGE_DELIVERY_STATE.cancelled},last_outcome=${retirementReason},lease_token=null,lease_until=null,version=version+1 where id=${delivery.id} and state=${MESSAGE_DELIVERY_STATE.queued} and not exists(select 1 from public.message_delivery_attempts where delivery_id=${delivery.id})`);
+    const cancelled=(await database.execute<MessageDeliveryAuditRow>(sql`update public.message_deliveries set state=${MESSAGE_DELIVERY_STATE.cancelled},last_outcome=${retirementReason},lease_token=null,lease_until=null,version=version+1 where id=${delivery.id} and state=${MESSAGE_DELIVERY_STATE.queued} and not exists(select 1 from public.message_delivery_attempts where delivery_id=${delivery.id}) returning id,state,version,connection_id,connection_version,channel`)).rows;
+    await appendCancelledMessageDeliveryAudit(database,{tribeId:scope.tribeId,actorUserId:scope.actorUserId,operationId:scope.operationId,cause:retirementReason,createdAt:now},cancelled);
     await database.execute(sql`update public.messaging_connection_diagnostics set outcome=${VERIFICATION_DIAGNOSTIC_OUTCOME.invalidated} where challenge_id=${challenge.id} and outcome=${VERIFICATION_DIAGNOSTIC_OUTCOME.pending}`);
   }
 }

@@ -14,6 +14,7 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { prepareContactVerificationIssuer as prepareIssuer, recoverTestVerificationCode as recoverTestCode, advanceVerificationRequestCooldown as finishRequestCooldown } from "@/tests/support/contact-verification-issuance-fixture";
 import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admission-proof-invalidation-audit-assertions";
+import { expectMessageDeliveryCancellationAudits } from "@/tests/support/message-delivery-cancellation-audit-assertions";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verification issuance", () => {
   it("should issue one protected code and immutable delivery, recover the ledger result and consume it through the real validator", async () => {
@@ -23,6 +24,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verificati
       const first = await fixture.issue(null, operationId);
       if (first.state !== "completed" || first.result.outcome !== "issued") throw new Error("Synthetic initial issuance did not complete");
       expect(await fixture.issue(null, operationId)).toEqual({ ...first, replayed: true });
+      const createdDeliveryId = first.result.deliveryId;
+      await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select event.actor_user_id,event.operation_id=delivery.idempotency_key as internal_ledger,operation.idempotency_key as command_key,event.resource_version,event.metadata,event.created_at=delivery.created_at as owner_clock from public.academy_admission_audit_events event join public.message_deliveries delivery on delivery.id=event.resource_id and delivery.tribe_id=event.tribe_id join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.resource_id=${createdDeliveryId} and event.event_type='delivery_created'`)).rows).toEqual([{ actor_user_id: fixture.userId, internal_ledger: true, command_key: operationId, resource_version: 1, owner_clock: true, metadata: { fromState: null, toState: "queued", previousVersion: null, connectionId: fixture.scope.connectionId, connectionVersion: fixture.scope.connectionVersion, channel: "email", attemptId: null, authorizedUsagePolicyVersion: null } }]);
+      });
       const { code, context } = await recoverTestCode(database, fixture, first.result.challengeId);
       expect(code).toMatch(/^\d{6}$/);
       expect(context.expiresAt.getTime()-context.createdAt.getTime()).toBe(600_000);
@@ -51,6 +56,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("contact verificati
         expect((await transaction.execute(sql`select count(distinct idempotency_key)::integer as total from public.message_deliveries where tribe_id=${fixture.scope.tribeId}`)).rows).toEqual([{ total: 2 }]);
         expect((await transaction.execute(sql`select count(*)::integer as total from public.message_deliveries delivery inner join public.academy_admission_operations operation on operation.id=delivery.idempotency_key where delivery.tribe_id=${fixture.scope.tribeId} and operation.idempotency_key=${operationId}`)).rows).toEqual([{ total: 2 }]);
         await expectAdmissionProofInvalidationAudits(transaction, { tribeId: fixture.scope.tribeId, actorUserId: fixture.userId, operationId, cause: "explicit_resend", proofs: [] });
+        await expectMessageDeliveryCancellationAudits(transaction, { tribeId: fixture.scope.tribeId, actorUserId: fixture.userId, operationId, cause: "explicit_resend", deliveries: [{ deliveryId: createdDeliveryId, connectionId: fixture.scope.connectionId, connectionVersion: fixture.scope.connectionVersion, channel: "email", version: 2 }] });
       });
     });
   }, 180_000);
