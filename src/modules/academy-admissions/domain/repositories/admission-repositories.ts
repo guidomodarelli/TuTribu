@@ -58,7 +58,10 @@ export interface AdmissionMembershipReader {
 export interface AdmissionExternalResolutionReader {
   hasLegitimateBasicMembership(userId: string, tribeId: string): Promise<boolean>;
 }
+/** One owned lifecycle obligation contains identities and event metadata, without an external payload. */
+export type AdmissionNotificationObligation = { id: string; tribeId: string; admissionRequestId: string; applicantUserId: string; event: "pending_created" | "approved" | "rejected" | "cancelled" | "expired"; operationId?: string | null };
 /** Scoped transaction collaborator persists obligations; no external notification is sent here. */
 export interface AdmissionNotificationObligationWriter {
-  record(obligation: { id: string; tribeId: string; admissionRequestId: string; applicantUserId: string; event: "pending_created" | "approved" | "rejected" | "cancelled" | "expired"; operationId?: string | null }): Promise<void>;
+  record(obligation: AdmissionNotificationObligation): Promise<void>;
+  recordMany(obligations: readonly AdmissionNotificationObligation[]): Promise<void>;
 }

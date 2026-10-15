@@ -1,5 +1,7 @@
 # Validación de seguridad y conservación
 
+Registro de cierre guardado en `390f45e694566ddcdab5d4eec69b08e4b691d8fd`, con su control completo de GitHub Actions aprobado. Los hashes, equivalencias de producto y observaciones de esta matriz corresponden a ese cierre. Los cambios posteriores de decisiones por lote tienen [validación propia](batch-decisions-baseline.md) y no heredan esta certificación por compartir la rama.
+
 T175 queda validada con su alcance original completo: los cinco AC de US11, cuotas concurrentes, rotación, retención PostgreSQL real, superficies de salida, decisiones reconstruibles y blockers operativos concretos. El inventario conserva las 212 tareas: **174 completadas y 38 pendientes**. El cierre de esta validación no cierra T106, T201, T211 ni los gates operativos.
 
 ## Evidencia actual y alcance del conteo
