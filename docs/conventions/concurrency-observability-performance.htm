@@ -34,6 +34,8 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 .code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
 .code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
 .divider{height:1px;background:#e0ddd6;margin:28px 0;}
+.table-wrap{overflow-x:auto;margin:16px 0;}
+.table-wrap--reference table{min-width:40rem;table-layout:fixed;}
 </style>
 </head>
 <body>
@@ -221,5 +223,22 @@ useEffect(() =&gt; {
   <li>Use this document for decision guidance; keep <code>AGENTS.md</code> focused on compact mandatory rules.</li>
 </ul>
 </div>
+<section class="section" aria-labelledby="tenant-admission-observations">
+  <h2 class="section-title" id="tenant-admission-observations">Observabilidad privada de admisión y mensajería</h2>
+  <p>El contexto nativo de cuenta/sesión/tribu y las comprobaciones actuales pertenecen al servidor. Se revalidan después de las esperas y en el commit del efecto; un control oculto en UI, una cookie o un snapshot de cola no sustituyen esa autoridad. Los contratos de entrada y salida siguen la <a href="payload-validation-boundaries.htm">regla canónica de validación de payloads</a>.</p>
+  <div class="table-wrap table-wrap--reference" role="region" aria-labelledby="tenant-admission-observations" tabindex="0"><table>
+    <thead><tr><th scope="col">Superficie</th><th scope="col">Contenido permitido</th><th scope="col">Límite de exposición</th></tr></thead>
+    <tbody>
+      <tr><td>Logs de diagnóstico</td><td>Operación y etapa fijas, código propio, método/ruta plantilla, status y correlación <code>requestId</code>/<code>traceId</code>; referencias mínimas autorizadas cuando correspondan.</td><td>Seleccionar y redactar antes de invocar el logger. El serializador genérico no es un filtro automático de secretos: no pasarle cuerpos, cookies, headers sensibles, Error/causas raw de PostgreSQL o proveedor, ni datos personales completos.</td></tr>
+      <tr><td>Auditoría privada</td><td>Actor o proceso, tribu, recurso, operación original, regla, causa cerrada, versión, transición, reloj y metadata seleccionada por el owner.</td><td>Acceso vigente y scope exacto. No volcar secretos, contacto, ciphertext, cuerpos OTP o payloads completos desde comandos o proveedor. Los motivos internos acotados que conserva su contrato permanecen privados: no tienen redacción automática ni se convierten en labels de métricas. La auditoría de seguridad conserva su fecha original y su política de 365 días.</td></tr>
+      <tr><td>Métricas de la tribu</td><td>Conteos, consumo del día UTC, edades, unknown, leases, último proceso completado y duraciones por canales/fases/códigos cerrados.</td><td>Sin labels de cuenta/contacto/solicitud, IDs de request/trace, mensajes de excepción o datos de otra tribu. Las referencias privadas de auditoría no son dimensiones agregadas.</td></tr>
+      <tr><td>Respuesta y estado de UI</td><td>DTO propio mínimo o error seguro en español, con código y referencia de consulta cuando proceda.</td><td>La causa y su stack permanecen privados. Una respuesta perdida conserva incertidumbre y consulta del original; no habilita otro envío ni un retry automático.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Los agregados derivan de efectos, ledgers, reservas e intentos persistidos. Un rethrow o un log no crean una serie adicional. El reporter de dispatch selecciona campos seguros y deduplica la misma causa en su contexto; esa deduplicación diagnóstica no reemplaza el ledger de la mutación. Una consulta no incrementa la versión, reinicia consumo ni fabrica un run.</p>
+  <p>Una reserva se vuelve a contrastar con países/cupo/versiones vigentes antes del marker. Los intentos inciertos conservan su identidad, conexión y reserva; no se cambian a otra cuenta, tribu, canal o pagador para superar una restricción. La recuperación consulta el resultado original y luego los hechos actuales, manteniendo separadas la versión histórica y la vigente.</p>
+  <p>Los tiempos publicados provienen de fases realmente observadas: operaciones, materialización interna, dispatch y retención con efectos positivos. Un lote vacío o revertido no produce otro éxito de retención y un hecho histórico sin tiempo mantiene su ausencia. El p95 de una fase no acredita por sí solo SC-013/SC-015: los ensayos de carga, entrega externa, cierre de ventana y arranque de infraestructura conservan sus mediciones y gates propios.</p>
+  <p>La señal de fallo y la recuperación deben seguir disponibles dentro de TuTribu aunque falle la mensajería. La consulta no depende de que llegue una alarma por ese mismo canal. Ver <a href="../architecture/academy-admissions.htm#scoped-admission-observations">actividad y métricas</a>, <a href="../architecture/tenant-messaging.htm#messaging-trust-and-recovery">custodia y recuperación</a> y el <a href="../../specs/001-academy-admissions/validation/operational-gates.md">registro de gates</a>.</p>
+</section>
 </body>
 </html>
