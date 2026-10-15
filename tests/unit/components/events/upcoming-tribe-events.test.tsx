@@ -52,7 +52,7 @@ describe("UpcomingTribeEvents", () => {
     expect(screen.getByRole("heading", { name: "Próximos eventos" })).toBeInTheDocument();
     const eventLink = new URL(
       screen.getByRole("link", { name: "Clase abierta" }).getAttribute("href") ?? "",
-      "https://dev-tutribu.app"
+      "https://dev.tutribu.app"
     );
 
     expect(eventLink.pathname).toBe("/matematica-pro/eventos");

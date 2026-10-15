@@ -260,7 +260,7 @@ sin crear agrupaciones genéricas de valores no relacionados.
    Los errores de base proporcionados por el usuario DEBEN investigarse directamente con `pg`
    según [AGENTS.md](../../AGENTS.md), sin imprimir secretos ni datos sensibles.
 6. Las verificaciones manuales locales DEBEN reutilizar el servidor activo de `portless`
-   o iniciarlo con `pnpm run dev`, y usar `https://dev-tutribu.app`. `pnpm run dev:next`
+   o iniciarlo con `pnpm run dev`, y usar `https://dev.tutribu.app`. `pnpm run dev:next`
    se reserva para el entorno automatizado documentado. La UI DEBE verificarse en Chromium
    y WebKit, escritorio y móvil; cualquier motor no ejercitado DEBE reportarse con su bloqueo.
 7. El gate completo `pnpm run ci` DEBE ejecutarse en GitHub Actions

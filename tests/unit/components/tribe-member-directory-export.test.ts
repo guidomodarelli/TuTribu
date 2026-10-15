@@ -208,7 +208,7 @@ describe("tribe member directory export", () => {
 
     it("keeps the blob URL alive until WebKit has started the download", () => {
       vi.useFakeTimers();
-      const blobUrl = "blob:https://dev-tutribu.app/export-1";
+      const blobUrl = "blob:https://dev.tutribu.app/export-1";
       const revokeObjectURL = vi.fn();
       const clickedDownloads: string[] = [];
       const captureDownload = (event: MouseEvent) => {

@@ -1,42 +1,52 @@
 #!/usr/bin/env node
 /**
  * Starts the local dev server the way `AGENTS.md` mandates: restarts the
- * portless proxy with HTTPS on the `app` TLD, makes sure `dev-tutribu.app`
- * resolves to loopback and that the portless CA is trusted, then runs
- * `next dev` through portless so the app is served at
- * `https://dev-tutribu.app`.
+ * portless proxy with HTTPS on the `tutribu.app` TLD, checks that
+ * `dev.tutribu.app` resolves to loopback and that the portless CA is trusted,
+ * then runs `next dev` through portless so the app is served at
+ * `https://dev.tutribu.app`.
  *
  * Usage:
  *   npm run dev [-- --dry-run]
  *   node scripts/dev-portless.mjs [--dry-run]
  *
  * `--dry-run` prints every step and the current machine state without
- * touching the proxy, the hosts file or the trust store.
+ * touching the proxy or the trust store.
  *
- * The hosts file is the only step that needs elevated privileges. On Windows
- * it triggers a UAC prompt for a single `Add-Content` command; on macOS and
- * Linux it asks for the `sudo` password once. Every other step runs as the
- * current user and is idempotent, so the script can be rerun freely.
+ * The hosts file is never written: `dev.tutribu.app` resolves to `127.0.0.1`
+ * through a public DNS record (an `A` record, DNS only, in the `tutribu.app`
+ * zone) and portless runs with hosts sync disabled. On Windows no step asks for
+ * administrator privileges (`portless trust` uses the current user's store); on
+ * macOS and Linux the HTTPS proxy listens on the default port 443, so
+ * `portless proxy start` asks for `sudo` once to bind it. Requires portless
+ * 0.15.5 or newer (`PORTLESS_MIN_VERSION`), the first release that accepts a
+ * dotted TLD; the script checks it before stopping the running proxy.
+ * Every step is idempotent, so the script can be rerun freely.
  *
  * @module dev-portless
  */
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { lookup } from "node:dns/promises";
+import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-/** Portless route and TLD the local environment is configured for. */
+/** Portless route and TLD the local environment is configured for: `dev.tutribu.app`. */
 const PORTLESS_DEV = {
-  appName: "dev-tutribu",
-  tld: "app",
+  appName: "dev",
+  tld: "tutribu.app",
 };
 
-/** Loopback address the dev host must resolve to. */
-const LOOPBACK_ADDRESS = "127.0.0.1";
+/** Addresses the dev host may resolve to: IPv4 and IPv6 loopback. */
+const LOOPBACK_ADDRESSES = ["127.0.0.1", "::1"];
 
-/** Trailing comment that identifies the hosts entry this script writes. */
-const HOSTS_ENTRY_MARKER = "# portless " + PORTLESS_DEV.appName;
+/** Result of resolving the dev host before starting the server. */
+const DEV_HOST_RESOLUTION = {
+  loopback: "loopback",
+  elsewhere: "elsewhere",
+  missing: "missing",
+};
 
 /** Files portless keeps under its state directory. */
 const PORTLESS_STATE = {
@@ -44,35 +54,54 @@ const PORTLESS_STATE = {
   trustedMarkerFile: "ca.trusted",
 };
 
+/**
+ * Environment for every portless invocation: the hosts file stays untouched,
+ * because public DNS already resolves the dev host to loopback and writing the
+ * hosts file would need administrator privileges.
+ */
+const PORTLESS_ENVIRONMENT = {
+  PORTLESS_SYNC_HOSTS: "0",
+};
+
+/**
+ * Oldest portless release that accepts a multi-segment TLD such as
+ * `tutribu.app`; older releases reject `--tld tutribu.app` when the proxy starts.
+ */
+const PORTLESS_MIN_VERSION = "0.15.5";
+
+/**
+ * HTTPS port the proxy must bind. Passing it explicitly makes `portless proxy
+ * start` fail when it cannot bind it (for example when `sudo` is denied),
+ * instead of silently falling back to port 1355 and leaving
+ * `https://dev.tutribu.app` unreachable.
+ */
+const PORTLESS_HTTPS_PORT = "443";
+
+/** First `X.Y.Z` triple in the `portless --version` output. */
+const SEMANTIC_VERSION_PATTERN = /(\d+)\.(\d+)\.(\d+)/;
+
 const PORTLESS_BINARY = "portless";
 const DEV_SERVER_COMMAND = ["next", "dev"];
 const DRY_RUN_FLAG = "--dry-run";
 const WINDOWS_PLATFORM = "win32";
-const DEFAULT_WINDOWS_SYSTEM_ROOT = "C:\\Windows";
-const UNIX_HOSTS_PATH = "/etc/hosts";
-const POWERSHELL_BINARY = "powershell";
-const SUDO_BINARY = "sudo";
 const EXIT_CODE = {
   failure: 1,
   success: 0,
 };
-const HOSTS_LINE_COMMENT_PREFIX = "#";
-const HOSTS_LINE_SEPARATOR = /\r?\n/;
-const HOSTS_FIELD_SEPARATOR = /\s+/;
-const IS_WINDOWS = process.platform === WINDOWS_PLATFORM;
 
 const SCRIPT_MESSAGE = {
   caAlreadyTrusted: "CA de portless ya confiable, no hace falta portless trust.",
-  caTrust: "Registrando la CA de portless en el almacén de certificados...",
+  caTrust: "Registrando la CA de portless en el almacén de certificados del usuario...",
+  devHostElsewhere: (hostName, addresses) =>
+    `${hostName} resuelve a ${addresses.join(", ")} y no a loopback. Revisá el registro A de ${hostName}: tiene que apuntar a 127.0.0.1 en modo DNS only (sin proxy de Cloudflare).`,
+  devHostLoopback: (hostName) => `${hostName} resuelve a loopback por DNS.`,
+  devHostMissing: (hostName) =>
+    `${hostName} no resuelve. Creá en Cloudflare un registro A "dev" → 127.0.0.1 en la zona tutribu.app, en modo DNS only (sin proxy), y volvé a correr el comando.`,
   dryRunHeader: "Modo --dry-run: no se ejecuta nada, solo se muestra el plan.",
-  hostsEntryMissing: (hostName, hostsPath) =>
-    `Falta la entrada de ${hostName} en ${hostsPath}. Se pedirán permisos de administrador para agregarla.`,
-  hostsEntryPresent: (hostName) =>
-    `${hostName} ya resuelve a loopback en el archivo hosts.`,
-  hostsEntryStillMissing: (hostName, hostsPath, entry) =>
-    `No se pudo agregar ${hostName} al archivo hosts. Agregá esta línea a mano en ${hostsPath}:\n  ${entry}`,
   portlessMissing:
     "portless no está instalado. Instalalo con: npm install -g portless",
+  portlessVersionUnsupported: (versionText) =>
+    `portless ${versionText || "(versión ilegible)"} no soporta el TLD con punto tutribu.app: hace falta la ${PORTLESS_MIN_VERSION} o superior. Actualizalo con: npm install -g portless@latest`,
   proxyStartFailed: "No se pudo iniciar el proxy de portless.",
   ready: (hostName) => `Listo: la app se sirve en https://${hostName}`,
   step: (description) => `→ ${description}`,
@@ -101,8 +130,16 @@ export function buildDevHostName(options = PORTLESS_DEV) {
 export function buildPortlessCommands(options = PORTLESS_DEV) {
   return {
     proxyStart: {
-      commandArguments: ["proxy", "start", "--https", "--tld", options.tld],
-      description: `Iniciar el proxy de portless con HTTPS y TLD .${options.tld}`,
+      commandArguments: [
+        "proxy",
+        "start",
+        "--https",
+        "--port",
+        PORTLESS_HTTPS_PORT,
+        "--tld",
+        options.tld,
+      ],
+      description: `Iniciar el proxy de portless con HTTPS en el puerto ${PORTLESS_HTTPS_PORT} y TLD .${options.tld}`,
     },
     proxyStop: {
       commandArguments: ["proxy", "stop"],
@@ -121,62 +158,57 @@ export function buildPortlessCommands(options = PORTLESS_DEV) {
 }
 
 /**
- * Tells whether the hosts file already maps the host name to loopback.
- * Comment lines are ignored and any position inside a loopback line counts.
+ * Classifies the addresses the dev host resolved to: every address must be
+ * loopback for the browser to reach the local portless proxy.
  *
- * @param {string} hostsContent
- * @param {string} hostName
- * @returns {boolean}
+ * @param {string[]} addresses - Addresses returned by DNS, empty when the name does not resolve.
+ * @returns {"loopback" | "elsewhere" | "missing"}
  */
-export function hasHostsEntry(hostsContent, hostName) {
-  return hostsContent.split(HOSTS_LINE_SEPARATOR).some((line) => {
-    const trimmedLine = line.trim();
-
-    if (
-      trimmedLine.length === 0 ||
-      trimmedLine.startsWith(HOSTS_LINE_COMMENT_PREFIX)
-    ) {
-      return false;
-    }
-
-    const [address, ...hostNames] = trimmedLine
-      .split(HOSTS_LINE_COMMENT_PREFIX)[0]
-      .trim()
-      .split(HOSTS_FIELD_SEPARATOR);
-
-    return address === LOOPBACK_ADDRESS && hostNames.includes(hostName);
-  });
-}
-
-/**
- * Builds the loopback line appended to the hosts file for the dev host.
- *
- * @param {string} hostName
- * @returns {string}
- */
-export function buildHostsEntry(hostName) {
-  return `${LOOPBACK_ADDRESS} ${hostName} ${HOSTS_ENTRY_MARKER}`;
-}
-
-/**
- * Resolves the system hosts file for the given platform.
- *
- * @param {string} platform
- * @param {NodeJS.ProcessEnv} [environment]
- * @returns {string}
- */
-export function resolveHostsPath(platform, environment = process.env) {
-  if (platform === WINDOWS_PLATFORM) {
-    return path.win32.join(
-      environment.SystemRoot ?? DEFAULT_WINDOWS_SYSTEM_ROOT,
-      "System32",
-      "drivers",
-      "etc",
-      "hosts"
-    );
+export function classifyDevHostResolution(addresses) {
+  if (addresses.length === 0) {
+    return DEV_HOST_RESOLUTION.missing;
   }
 
-  return UNIX_HOSTS_PATH;
+  return addresses.every((address) => LOOPBACK_ADDRESSES.includes(address))
+    ? DEV_HOST_RESOLUTION.loopback
+    : DEV_HOST_RESOLUTION.elsewhere;
+}
+
+/**
+ * Parses the first `X.Y.Z` version in a text into its numeric parts.
+ *
+ * @param {string} versionText - Raw output of `portless --version`.
+ * @returns {number[] | null} `[major, minor, patch]`, or `null` when the text has no version.
+ */
+function parseSemanticVersion(versionText) {
+  const versionMatch = SEMANTIC_VERSION_PATTERN.exec(versionText);
+
+  return versionMatch ? versionMatch.slice(1).map(Number) : null;
+}
+
+/**
+ * Checks whether the installed portless accepts the dotted `tutribu.app` TLD,
+ * comparing its version numerically against `PORTLESS_MIN_VERSION`.
+ *
+ * @param {string} versionText - Raw output of `portless --version`.
+ * @returns {boolean} `false` for older releases and for output without a readable version.
+ */
+export function isPortlessVersionSupported(versionText) {
+  const installedVersion = parseSemanticVersion(versionText);
+
+  if (!installedVersion) {
+    return false;
+  }
+
+  const minimumVersion = parseSemanticVersion(PORTLESS_MIN_VERSION);
+
+  for (let index = 0; index < minimumVersion.length; index += 1) {
+    if (installedVersion[index] !== minimumVersion[index]) {
+      return installedVersion[index] > minimumVersion[index];
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -245,10 +277,15 @@ function logStep(description) {
   console.log(SCRIPT_MESSAGE.step(description));
 }
 
+function buildPortlessSpawnEnvironment() {
+  return { ...process.env, ...PORTLESS_ENVIRONMENT };
+}
+
 function runPortlessSync(commandArguments, stdio = "inherit") {
   const invocation = buildPortlessInvocation(commandArguments);
 
   return spawnSync(invocation.command, invocation.commandArguments, {
+    env: buildPortlessSpawnEnvironment(),
     shell: invocation.useShell,
     stdio,
   });
@@ -259,77 +296,50 @@ function isPortlessAvailable() {
 }
 
 /**
- * Appends the hosts entry with elevated privileges: a UAC-prompted PowerShell
- * on Windows, `sudo` elsewhere. Returns once the elevated process exits.
+ * Reads the installed portless version.
+ *
+ * @returns {string} Trimmed `portless --version` output, empty when it cannot be read.
  */
-function appendHostsEntryElevated(hostsPath, entry) {
-  if (IS_WINDOWS) {
-    const temporaryDirectory = mkdtempSync(
-      path.join(os.tmpdir(), "dev-portless-hosts-")
-    );
-    const elevatedScriptPath = path.join(temporaryDirectory, "add-hosts-entry.ps1");
+function readPortlessVersion() {
+  const versionResult = runPortlessSync(["--version"], "pipe");
 
-    writeFileSync(
-      elevatedScriptPath,
-      `Add-Content -LiteralPath '${hostsPath}' -Value ([Environment]::NewLine + '${entry}')\n`
-    );
+  return versionResult.status === EXIT_CODE.success
+    ? String(versionResult.stdout ?? "").trim()
+    : "";
+}
 
-    const elevatedArguments = [
-      "-NoProfile",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      elevatedScriptPath,
-    ]
-      .map((argument) => `'${argument}'`)
-      .join(",");
+/**
+ * Resolves every address of the dev host; a name that does not resolve yields
+ * an empty list instead of an error, so the caller can explain how to fix it.
+ *
+ * @param {string} hostName
+ * @returns {Promise<string[]>}
+ */
+async function resolveDevHostAddresses(hostName) {
+  try {
+    const results = await lookup(hostName, { all: true });
 
-    spawnSync(
-      POWERSHELL_BINARY,
-      [
-        "-NoProfile",
-        "-Command",
-        `Start-Process -FilePath ${POWERSHELL_BINARY} -Verb RunAs -Wait -ArgumentList ${elevatedArguments}`,
-      ],
-      { stdio: "inherit" }
-    );
+    return results.map((result) => result.address);
+  } catch {
+    return [];
+  }
+}
 
-    return;
+async function ensureDevHostResolvesToLoopback(hostName) {
+  const addresses = await resolveDevHostAddresses(hostName);
+  const resolution = classifyDevHostResolution(addresses);
+
+  if (resolution === DEV_HOST_RESOLUTION.loopback) {
+    console.log(SCRIPT_MESSAGE.devHostLoopback(hostName));
+
+    return true;
   }
 
-  spawnSync(
-    SUDO_BINARY,
-    ["sh", "-c", `printf '\\n%s\\n' '${entry}' >> '${hostsPath}'`],
-    { stdio: "inherit" }
+  console.error(
+    resolution === DEV_HOST_RESOLUTION.missing
+      ? SCRIPT_MESSAGE.devHostMissing(hostName)
+      : SCRIPT_MESSAGE.devHostElsewhere(hostName, addresses)
   );
-}
-
-function readHostsFile(hostsPath) {
-  return existsSync(hostsPath) ? readFileSync(hostsPath, "utf8") : "";
-}
-
-function ensureHostsEntry(hostName, hostsPath, isDryRun) {
-  if (hasHostsEntry(readHostsFile(hostsPath), hostName)) {
-    console.log(SCRIPT_MESSAGE.hostsEntryPresent(hostName));
-
-    return true;
-  }
-
-  console.log(SCRIPT_MESSAGE.hostsEntryMissing(hostName, hostsPath));
-
-  if (isDryRun) {
-    return true;
-  }
-
-  const entry = buildHostsEntry(hostName);
-
-  appendHostsEntryElevated(hostsPath, entry);
-
-  if (hasHostsEntry(readHostsFile(hostsPath), hostName)) {
-    return true;
-  }
-
-  console.error(SCRIPT_MESSAGE.hostsEntryStillMissing(hostName, hostsPath, entry));
 
   return false;
 }
@@ -351,6 +361,7 @@ function ensurePortlessCaTrusted(isDryRun) {
 function runDevServer(commandArguments) {
   const invocation = buildPortlessInvocation(commandArguments);
   const devServer = spawn(invocation.command, invocation.commandArguments, {
+    env: buildPortlessSpawnEnvironment(),
     shell: invocation.useShell,
     stdio: "inherit",
   });
@@ -366,10 +377,9 @@ function runDevServer(commandArguments) {
   });
 }
 
-function main() {
+async function main() {
   const { isDryRun } = normalizeScriptArguments(process.argv.slice(2));
   const hostName = buildDevHostName();
-  const hostsPath = resolveHostsPath(process.platform);
   const commands = buildPortlessCommands();
 
   if (isDryRun) {
@@ -378,6 +388,19 @@ function main() {
 
   if (!isPortlessAvailable()) {
     console.error(SCRIPT_MESSAGE.portlessMissing);
+    process.exit(EXIT_CODE.failure);
+  }
+
+  // Checked before `proxy stop`: an older portless would stop the running proxy and then fail to restart it on the dotted TLD.
+  const portlessVersion = readPortlessVersion();
+
+  if (!isPortlessVersionSupported(portlessVersion)) {
+    console.error(SCRIPT_MESSAGE.portlessVersionUnsupported(portlessVersion));
+    process.exit(EXIT_CODE.failure);
+  }
+
+  // Checked first: without the DNS record the browser cannot reach the proxy, so nothing else is worth starting.
+  if (!(await ensureDevHostResolvesToLoopback(hostName)) && !isDryRun) {
     process.exit(EXIT_CODE.failure);
   }
 
@@ -396,10 +419,6 @@ function main() {
     }
   }
 
-  if (!ensureHostsEntry(hostName, hostsPath, isDryRun)) {
-    process.exit(EXIT_CODE.failure);
-  }
-
   ensurePortlessCaTrusted(isDryRun);
 
   logStep(commands.runDevServer.description);
@@ -411,5 +430,5 @@ function main() {
 }
 
 if ((process.argv[1] ?? "").endsWith("dev-portless.mjs")) {
-  main();
+  await main();
 }

@@ -9,7 +9,7 @@ installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] })
 export default defineConfig({
   testDir: "./tests/e2e", testMatch: "beezping-provider.spec.ts",
   fullyParallel: false, workers: 1,
-  use: { baseURL: "https://dev-tutribu.app", trace: "retain-on-failure" },
+  use: { baseURL: "https://dev.tutribu.app", trace: "retain-on-failure" },
   projects: [
     { name: "chromium-desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "chromium-mobile", use: { ...devices["Pixel 7"] } },
