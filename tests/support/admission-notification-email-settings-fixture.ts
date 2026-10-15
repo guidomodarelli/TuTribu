@@ -7,14 +7,16 @@ import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastruct
 import { MESSAGING_CRYPTO } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { PostgresAdmissionNotificationEmailSettingsRepository } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-email-settings-repository";
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
 /**
  * Seeds scoped synthetic current identity and resource metadata under every installed guard.
  * @param database - This run's confirmed owned branch; the real migration command installs the journal.
+ * @param securityConfig - Optional purpose-separated synthetic material shared only with an owned native server process.
  * @returns The real settings repository and controls for prerequisite metadata only. This fixture does not claim a new OAuth, diagnostic or activation.
  */
-export async function prepareAdmissionEmailSettings(database: AcademyAdmissionTestDatabase) {
-  const fixture = await prepareContactVerificationDatabase(database), own = fixture.own;
+export async function prepareAdmissionEmailSettings(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
+  const fixture = await prepareContactVerificationDatabase(database, securityConfig), own = fixture.own;
   const tribeId = randomUUID(), connectionId = randomUUID(), secretRef = randomUUID(), sessionId = randomUUID(), accountId = randomUUID(), subject = randomUUID(), intentId = randomUUID();
   const credential = await createMessagingSecretCipher(fixture.config).seal(randomUUID(), { tribeId, connectionId, connectionVersion: 1, resourceId: secretRef });
   const replacementKeyId = randomUUID();

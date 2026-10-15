@@ -8,6 +8,8 @@ import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { AdmissionNotificationPreferencesUseCases } from "./application/use-cases/admission-notification-preferences-use-cases";
 import { AdmissionNotificationEmailSettingsUseCases } from "./application/use-cases/admission-notification-email-settings-use-cases";
+import { GetAdmissionNotificationSettingsPageUseCase } from "./application/use-cases/get-admission-notification-settings-page-use-case";
+import type { ResolveAdmissionTribeUseCase } from "@/src/modules/academy-admissions/application/use-cases/resolve-admission-tribe-use-case";
 import { PostgresAdmissionNotificationPreferenceRepository } from "./infrastructure/repositories/postgres-admission-notification-preference-repository";
 import { PostgresAdmissionNotificationEmailSettingsRepository } from "./infrastructure/repositories/postgres-admission-notification-email-settings-repository";
 import type {
@@ -76,8 +78,9 @@ export function buildAdmissionNotificationSettingsModule(dependencies: Authentic
     if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     return dependencies.execute(account, run);
   };
-  return { useCases: {
+  const useCases = {
     preferences: new AdmissionNotificationPreferencesUseCases(options.resolver, new PostgresAdmissionNotificationPreferenceRepository(execute)),
     email: new AdmissionNotificationEmailSettingsUseCases(options.resolver, new PostgresAdmissionNotificationEmailSettingsRepository(execute, options.readSecurityConfig)),
-  } };
+  };
+  return { useCases, createPage: (resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) => new GetAdmissionNotificationSettingsPageUseCase(dependencies.accounts, { ...useCases, resolveTribe }, dependencies.clock) };
 }

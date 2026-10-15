@@ -86,3 +86,11 @@ La [recuperación posterior del cambio original de correo](admission-notificatio
 La fuente ejecutable es `.github/workflows/quality-gate.yml`: instala el lockfile congelado y ejecuta `pnpm run ci`, que encadena lint, tipos de producto, tipos de pruebas, tests y build. Se usan comprobaciones locales relevantes y ese workflow para el control completo. Un resultado verde no certifica las suites Native omitidas por flags ni los ensayos operativos ausentes.
 
 El cierre final de T211 deberá comprobar el commit vigente, sus dependencias, regresiones y build exigidos. El cierre de T175 no sustituye esa validación ni la de OG-01 a OG-06.
+
+## Pantalla de preferencias y correo de admisión
+
+El checkpoint de recuperación quedó guardado en `d8ad90464ad5f0c85dc6f28c203277c643c7cffb`. Su [CI completo exacto](https://github.com/guidomodarelli/TuTribu/actions/runs/38801684937) aprobó 520 archivos y 5407 casos, con 278 archivos y 804 casos omitidos y build de 53 páginas. El watcher terminó con código cero. Ese resultado no se atribuye a la pantalla posterior.
+
+La [pantalla posterior de ajustes](admission-notification-settings-ui.md) tiene 102 casos distintos aprobados en nueve archivos completos: 95 locales, tres Native de repositorio/lector y cuatro Native de navegador. Chromium/WebKit a 390/1280 comprobaron escrituras, identidad, cero refresh ordinario, respuesta perdida con commit confirmado, histórico frente a ajustes nuevos y pérdida de autoridad con HTTP 403 y formularios ocultos. El claim interrumpido conserva su body, respeta el lease vigente y se recupera una vez al vencer. El build aislado real aprobó 1765 archivos equivalentes y 53/53 páginas; tipos, lint y doce vistas de arquitectura pasaron. La revisión inicial reprodujo y corrigió tres P2, y la repetición estática quedó sin hallazgos. La evidencia final, su nuevo commit y el workflow completo conservan su comprobación propia.
+
+Los dos casos adicionales de variantes para el manual siguen en curso después de un primer timeout 0/1; no se suman como verdes. Se preservó el fallo, se comprobó metadata real sin locks bloqueados y se retiró sólo su rama propia acreditada. El manual, sus índices, capturas y source-trace permanecen dentro del mismo trabajo. No hay cierre de T184, US8 o T211 ni certificación de agrupación, entrega o scheduler por guardar ajustes.

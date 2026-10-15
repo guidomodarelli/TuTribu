@@ -12,12 +12,12 @@ function fixture() {
   const preference = { tribeId, recipientUserId: userId, mode: "grouped" as const, version: 0, effectiveFrom: null, source: "implicit" as const };
   const settings = { tribeId, enabled: false, version: 0, enabledAtMicroseconds: null as number | null, timeZone: "America/Argentina/Buenos_Aires" };
   const preferences = {
-    read: vi.fn<AdmissionNotificationPreferencesUseCases["read"]>(async () => ({ ok: true, value: { preference, canConfigureEmail: true } })),
-    change: vi.fn<AdmissionNotificationPreferencesUseCases["change"]>(async () => ({ ok: true, value: { status: "changed", preference: { ...preference, mode: "daily", version: 1, effectiveFrom: "2026-10-15 19:00:00.123456+00" } } })),
+    read: vi.fn<AdmissionNotificationPreferencesUseCases["read"]>(async () => ({ ok: true, value: { preference, canConfigureEmail: true }, viewerId: userId })),
+    change: vi.fn<AdmissionNotificationPreferencesUseCases["change"]>(async () => ({ ok: true, value: { status: "changed", preference: { ...preference, mode: "daily", version: 1, effectiveFrom: "2026-10-15 19:00:00.123456+00" } }, viewerId: userId })),
   };
   const email = {
-    read: vi.fn<AdmissionNotificationEmailSettingsUseCases["read"]>(async () => ({ ok: true, value: settings })),
-    change: vi.fn<AdmissionNotificationEmailSettingsUseCases["change"]>(async () => ({ ok: true, value: { state: "started", operationId } })),
+    read: vi.fn<AdmissionNotificationEmailSettingsUseCases["read"]>(async () => ({ ok: true, value: settings, viewerId: userId })),
+    change: vi.fn<AdmissionNotificationEmailSettingsUseCases["change"]>(async () => ({ ok: true, value: { state: "started", operationId }, viewerId: userId })),
   };
   const services = { resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) }, preferences, email };
   const open = vi.fn(async () => services);
@@ -30,6 +30,14 @@ function fixture() {
 }
 
 describe("admission notification settings HTTP", () => {
+  it.each(["readOwnPreference", "changeOwnPreference", "readEmailSettings", "changeEmailSettings"] as const)("should bind %s to native viewer metadata without adding identity to its body", async (method) => {
+    const data = fixture();
+    const body = method === "changeOwnPreference" ? { mode: "daily", expectedVersion: 0 } : method === "changeEmailSettings" ? data.command : undefined;
+    const response = await data.handlers[method](data.request(body), data.context);
+    expect(JSON.parse(response.headers.get("x-tutribu-admission-viewer")!)).toEqual({ viewerId: data.userId });
+    expect(await response.json()).not.toHaveProperty("viewerId");
+  });
+
   // Public metadata omits native recipients, exact cuts, credentials and private adapter fields.
   it("should publish only the own preference view when a current read succeeds", async () => {
     const data = fixture(), marker = randomUUID();
@@ -99,7 +107,7 @@ describe("admission notification settings HTTP", () => {
 
     expect(response.status).toBe(202);
     expect(await response.json()).toEqual({ state: "started", operationId: data.operationId });
-    expect(data.services.email.change).toHaveBeenCalledWith({ ...data.command, tribeId: data.tribeId, requestId: expect.any(String) });
+    expect(data.services.email.change).toHaveBeenCalledWith({ ...data.command, tribeId: data.tribeId, requestId: expect.any(String) }, { includeViewer: true });
     expect(data.services.email.read).not.toHaveBeenCalled();
   });
 

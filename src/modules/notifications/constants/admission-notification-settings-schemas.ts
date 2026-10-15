@@ -17,9 +17,9 @@ export const admissionNotificationPreferenceChangeSchema = z.strictObject({ mode
 /** Requires the original confirmed intent and version for an independent email change. */
 export const admissionNotificationEmailSettingsCommandSchema = z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true), expectedVersion: z.int().nonnegative(), enabled: z.boolean(), timeZone }) satisfies z.ZodType<AdmissionNotificationEmailSettingsCommand>;
 /** Retains the distinction between a version-zero default and an actual stored preference. */
-const preference = z.strictObject({ mode, version: z.int().nonnegative(), source: z.enum(ADMISSION_NOTIFICATION_PREFERENCE_SOURCE) }).refine((value) => value.source === ADMISSION_NOTIFICATION_PREFERENCE_SOURCE.implicit ? value.version === 0 : value.version > 0);
+export const admissionNotificationPreferenceViewSchema = z.strictObject({ mode, version: z.int().nonnegative(), source: z.enum(ADMISSION_NOTIFICATION_PREFERENCE_SOURCE) }).refine((value) => value.source === ADMISSION_NOTIFICATION_PREFERENCE_SOURCE.implicit ? value.version === 0 : value.version > 0);
 /** Own read metadata excludes internal recipients, accounts, timestamps and provider resources. */
-export const admissionNotificationPreferenceReadResultSchema = z.strictObject({ preference, canConfigureEmail: z.boolean() }) satisfies z.ZodType<AdmissionNotificationPreferenceReadResult>;
+export const admissionNotificationPreferenceReadResultSchema = z.strictObject({ preference: admissionNotificationPreferenceViewSchema, canConfigureEmail: z.boolean() }) satisfies z.ZodType<AdmissionNotificationPreferenceReadResult>;
 /** Explicit changes can retain an existing stored record or reject its stale observed version. */
 export const admissionNotificationPreferenceChangeResultSchema = z.union([
   z.strictObject({ status: z.enum([ADMISSION_NOTIFICATION_PREFERENCE_STATUS.changed, ADMISSION_NOTIFICATION_PREFERENCE_STATUS.unchanged]), preference: z.strictObject({ mode, version: z.int().positive(), source: z.literal(ADMISSION_NOTIFICATION_PREFERENCE_SOURCE.stored) }) }),

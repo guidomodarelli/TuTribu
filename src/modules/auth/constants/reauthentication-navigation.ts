@@ -1,6 +1,9 @@
 /** The auth owner allows only explicit local destinations for exact sensitive actions. @module reauthentication-navigation */
 import { REAUTHENTICATION_OPERATION } from "./reauthentication-resources";
 import {MESSAGING_CONNECTIONS_SETTINGS_SEGMENT} from "@/src/modules/messaging/constants/messaging-connections-browser";
+import { ADMISSION_NOTIFICATION_SETTINGS_SEGMENT } from "@/src/modules/notifications/constants/admission-notification-settings-page";
+/** The implemented email settings leaf accepts only its exact purpose and native tribe resource. */
+export const REAUTHENTICATION_EMAIL_SETTINGS_SEGMENT = ADMISSION_NOTIFICATION_SETTINGS_SEGMENT;
 export const REAUTHENTICATION_POLICY_OPERATIONS: readonly string[] = [REAUTHENTICATION_OPERATION.updateAdmissionPolicy, REAUTHENTICATION_OPERATION.activateAdmissionPolicy, REAUTHENTICATION_OPERATION.pauseAdmissionPolicy];
 export const REAUTHENTICATION_POLICY_SETTINGS_SEGMENT = "academia/admissions/settings";
 /** Early usage management can return only from its two exact resource-bound purposes. */

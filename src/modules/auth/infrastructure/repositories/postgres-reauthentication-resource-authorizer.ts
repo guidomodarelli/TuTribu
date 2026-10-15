@@ -1,11 +1,11 @@
 /** Resolves current owned sensitive resources and exact return paths without reading any secrets. */
 import "server-only";
 import {sql} from "drizzle-orm";
-import {REAUTHENTICATION_OPERATION_RESOURCE,REAUTHENTICATION_RESOURCE_KIND,type ReauthenticationOperation} from "@/src/modules/auth/constants/reauthentication-resources";
+import {REAUTHENTICATION_OPERATION,REAUTHENTICATION_OPERATION_RESOURCE,REAUTHENTICATION_RESOURCE_KIND,type ReauthenticationOperation} from "@/src/modules/auth/constants/reauthentication-resources";
 import type {ReauthenticationResourceAuthorizer} from "@/src/modules/auth/domain/repositories/recent-authentication-repository";
 import type {RecentAuthenticationScope} from "@/src/modules/auth/domain/entities/recent-authentication-evidence";
 import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database/server-database-client";
-import {REAUTHENTICATION_POLICY_OPERATIONS,REAUTHENTICATION_POLICY_SETTINGS_SEGMENT,REAUTHENTICATION_USAGE_OPERATIONS,REAUTHENTICATION_USAGE_SETTINGS_SEGMENT,REAUTHENTICATION_CONNECTION_OPERATIONS,REAUTHENTICATION_CONNECTION_SETTINGS_SEGMENT} from "../../constants/reauthentication-navigation";
+import {REAUTHENTICATION_POLICY_OPERATIONS,REAUTHENTICATION_POLICY_SETTINGS_SEGMENT,REAUTHENTICATION_USAGE_OPERATIONS,REAUTHENTICATION_USAGE_SETTINGS_SEGMENT,REAUTHENTICATION_CONNECTION_OPERATIONS,REAUTHENTICATION_CONNECTION_SETTINGS_SEGMENT,REAUTHENTICATION_EMAIL_SETTINGS_SEGMENT} from "../../constants/reauthentication-navigation";
 import { NOTIFICATION_DELIVERY_RECOVERY_PURPOSE } from "@/src/modules/messaging/constants/notification-delivery-recovery";
 
 /** Reads resource ownership under the auth writer's existing transaction and lock order. */
@@ -35,6 +35,7 @@ export class PostgresReauthenticationResourceAuthorizer implements Reauthenticat
     }
     if(!exists) return null;
     const landingPath=`/${encodeURIComponent(tribe.slug)}`;
+    if(scope.operation===REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings)return{allowedReturnPaths:[landingPath,`${landingPath}/${REAUTHENTICATION_EMAIL_SETTINGS_SEGMENT}`]};
     if(REAUTHENTICATION_USAGE_OPERATIONS.includes(scope.operation)) return {allowedReturnPaths:[landingPath,`${landingPath}/${REAUTHENTICATION_USAGE_SETTINGS_SEGMENT}`]};
     if(REAUTHENTICATION_CONNECTION_OPERATIONS.includes(scope.operation))return{allowedReturnPaths:[landingPath,`${landingPath}/${REAUTHENTICATION_CONNECTION_SETTINGS_SEGMENT}`]};
     return {allowedReturnPaths:REAUTHENTICATION_POLICY_OPERATIONS.includes(scope.operation)

@@ -1,0 +1,60 @@
+.AdmissionNotificationSettings {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+  max-width: 50rem;
+
+  &__section {
+    display: grid;
+    gap: 1rem;
+    min-width: 0;
+    padding-block: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+
+  &__subtitle {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  &__field {
+    display: grid;
+    gap: 0.5rem;
+    min-width: 0;
+    width: 100%;
+    max-width: 36rem;
+  }
+
+  &__check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+  }
+
+  &__help {
+    color: var(--muted-foreground);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+
+  &__error {
+    color: var(--destructive);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+
+  &__recovery {
+    display: grid;
+    justify-items: start;
+    gap: 0.75rem;
+    min-width: 0;
+    line-height: 1.6;
+  }
+}
