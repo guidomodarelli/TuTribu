@@ -9,6 +9,7 @@ import { createNotificationRecoveryPayloadMac } from "@/src/modules/messaging/in
 import { PostgresNotificationDeliveryRecoveryRepository } from "@/src/modules/messaging/infrastructure/repositories/postgres-notification-delivery-recovery-repository";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { NotificationDeliveryRecoveryContext } from "@/src/modules/messaging/domain/repositories/notification-delivery-recovery";
+import { ADMISSION_SECURITY_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-security";
 
 /** @param fixture - Actual prepared native fixture. @returns A controlled own security-reader wait entered only after SQL child and audit are staged, plus a single drained recovery outcome. */
 function prepareFinalWait(fixture: Awaited<ReturnType<typeof prepareNotificationDeliveryRecovery>>) {
@@ -80,8 +81,37 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("notification recov
       expect(await mac.verify(child.payload_mac_key_id, child.payload_fingerprint, { ...payloadContext, originalDeliveryId: randomUUID() })).toBe(false);
       await expect(fixture.repository.recover(fixture.context, { ...fixture.input, operationId: randomUUID() })).rejects.toMatchObject({ code: "request_conflict" });
       await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.message_deliveries set recovery_of_delivery_id=null,recovery_operation_id=null where id=${child.id}`))).rejects.toMatchObject({ cause: { code: "23514" } });
+      const originalAudit = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select resource_id,operation_id,resource_version,rule,cause,metadata,created_at from public.academy_admission_audit_events where tribe_id=${fixture.context.tribeId} and event_type='notification_delivery_recovered'`)).rows);
+      expect(originalAudit).toHaveLength(1);
+      const recoveryOperationId = originalAudit[0].operation_id as string;
+      const originalOperation = await database.withContext(fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select operation_id,tribe_id from public.messaging_notification_recovery_origins where operation_id=${recoveryOperationId}`)).rows).toEqual([{ operation_id: recoveryOperationId, tribe_id: fixture.context.tribeId }]);
+        return (await transaction.execute(sql`select id,tribe_id,actor_reference_id,operation_type,idempotency_key,intent_fingerprint,fingerprint_key_id,state,version,created_at,completed_at from public.academy_admission_operations where id=${recoveryOperationId}`)).rows;
+      });
+      await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`select operation_id from public.messaging_notification_recovery_origins`), "non_bypass")).rejects.toMatchObject({ cause: { code: "42501" } });
+      await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.messaging_notification_recovery_origins set operation_id=${randomUUID()} where operation_id=${recoveryOperationId}`))).rejects.toMatchObject({ cause: { code: "23514" } });
+      await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`delete from public.messaging_notification_recovery_origins where operation_id=${recoveryOperationId}`))).rejects.toMatchObject({ cause: { code: "23503" } });
+      await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`delete from public.academy_admission_operations where id=${recoveryOperationId}`))).rejects.toMatchObject({ cause: { code: "23503" } });
+      await database.withContext({ userId: null, email: null }, async (transaction) => {
+        try { await transaction.execute(sql`delete from public.tribes where id=${fixture.context.tribeId}`); }
+        catch (error) {
+          const cause = error instanceof Error ? error.cause as { code?: string; schema?: string; table?: string; column?: string; constraint?: string; routine?: string } | undefined : undefined;
+          process.stdout.write(JSON.stringify({ phase: "owned_recovery_archive_delete_failure", code: cause?.code, schema: cause?.schema, table: cause?.table, column: cause?.column, constraint: cause?.constraint, routine: cause?.routine }) + "\n");
+          throw error;
+        }
+        expect((await transaction.execute(sql`select resource_id,operation_id,resource_version,rule,cause,metadata,created_at from public.academy_admission_retired_audit_events where tribe_id=${fixture.context.tribeId} and event_type='notification_delivery_recovered'`)).rows).toEqual(originalAudit);
+        expect((await transaction.execute(sql`select id,tribe_id,actor_reference_id,operation_type,idempotency_key,intent_fingerprint,fingerprint_key_id,state,version,created_at,completed_at from public.academy_admission_retired_operations where id=${recoveryOperationId}`)).rows).toEqual(originalOperation);
+        expect((await transaction.execute(sql`select recovery_operation_id,recovery_of_delivery_id,state,version from public.message_deliveries where id=${child.id}`)).rows).toEqual([{ recovery_operation_id: recoveryOperationId, recovery_of_delivery_id: fixture.context.deliveryId, state: "cancelled", version: 2 }]);
+        expect((await transaction.execute(sql`select (select count(*)::int from public.messaging_usage_reservations where tribe_id=${fixture.context.tribeId}) as reservations,(select count(*)::int from public.message_delivery_attempts where tribe_id=${fixture.context.tribeId}) as attempts,(select count(*)::int from public.academy_admission_operations where id=${recoveryOperationId}) as live_operations`)).rows).toEqual([{ ...fixture.baselineUsage, live_operations: 0 }]);
+      });
+      await expect(database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,recovery_of_delivery_id,recovery_operation_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,created_at,due_at,deadline_at) select ${randomUUID()},tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,recovery_of_delivery_id,recovery_operation_id,actor_user_id,recipient_ref,channel,${randomUUID()},payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,created_at,due_at,deadline_at from public.message_deliveries where id=${child.id}`))).rejects.toMatchObject({ cause: { code: "42501" } });
+      await database.withContext({ userId: null, email: null }, async (transaction) => {
+        await transaction.execute(sql`delete from public.message_deliveries where id=${child.id}`);
+        expect((await transaction.execute(sql`select operation_id from public.messaging_notification_recovery_origins where operation_id=${recoveryOperationId}`)).rows).toEqual([]);
+        expect((await transaction.execute(sql`select resource_id,operation_id,resource_version,rule,cause,metadata,created_at from public.academy_admission_retired_audit_events where tribe_id=${fixture.context.tribeId} and event_type='notification_delivery_recovered'`)).rows).toEqual(originalAudit);
+      });
     });
-  });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 
   it("should block an uncertain original attempt and preserve its consumed reservation", async () => {
     await withAcademyAdmissionDatabase(async (database) => {

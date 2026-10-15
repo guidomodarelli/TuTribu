@@ -8,12 +8,12 @@ import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messagi
 import { MESSAGING_DEFAULT_CONNECTION_NAME } from "@/src/modules/messaging/constants/messaging-connection";
 import { MESSAGING_KEY_MATERIAL_CONTINUITY } from "../../constants/messaging-key-material-continuity";
 import { MESSAGING_PROTECTION_KEY_ROTATION } from "../../constants/messaging-protection-key-rotation";
+import { NOTIFICATION_RECOVERY_ORIGIN_STORAGE } from "../../constants/notification-recovery-origin";
 
 type MessagingSchemaParents = {
   tribeNamespaces: { tribeId: AnyPgColumn };
   user: { id: AnyPgColumn };
   contactVerificationChallenges: { id: AnyPgColumn; tribeId: AnyPgColumn; userId: AnyPgColumn };
-  admissionOperations: { id: AnyPgColumn; tribeId: AnyPgColumn };
 };
 
 /** Maps the binary driver value without validating backend rows. */
@@ -207,6 +207,13 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingContactFingerprintAliasesPkey: primaryKey({name:"messaging_contact_fingerprint_aliases_pkey",columns:[table.fingerprintKeyId,table.contactFingerprint]}),
     messagingContactAliasSubjectKeyIdx: index("messaging_contact_alias_subject_key_idx").on(table.subjectId,table.fingerprintKeyId),
   }));
+  /** Retains only opaque lineage until the last recovered delivery is removed. */
+  const messagingNotificationRecoveryOrigins = pgTable(NOTIFICATION_RECOVERY_ORIGIN_STORAGE.table, {
+    operationId: uuid("operation_id").notNull(), tribeId: uuid("tribe_id").notNull(),
+  }, (table): PgTableExtraConfig => ({
+    primaryKey: primaryKey({ name: NOTIFICATION_RECOVERY_ORIGIN_STORAGE.primaryKey, columns: [table.operationId,table.tribeId] }),
+    namespaceForeignKey: foreignKey({ name: NOTIFICATION_RECOVERY_ORIGIN_STORAGE.namespaceForeignKey, columns: [table.tribeId], foreignColumns: [parents.tribeNamespaces.tribeId] }),
+  }));
   const messageDeliveries = pgTable("message_deliveries", {
     id: uuid("id").primaryKey().defaultRandom(),
     tribeId: uuid("tribe_id").notNull(),
@@ -250,7 +257,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingDeliveryRecoveryParentKey: unique("messaging_delivery_recovery_parent_key").on(table.recoveryOfDeliveryId),
     messagingDeliveryRecoveryScopeCheck: check("messaging_delivery_recovery_scope_check",sql.raw("(recovery_of_delivery_id IS NULL AND recovery_operation_id IS NULL) OR (recovery_of_delivery_id IS NOT NULL AND recovery_operation_id IS NOT NULL AND recovery_of_delivery_id<>id AND purpose='admission_notification' AND channel='email')")),
     messagingDeliveryRecoveryParentFkey: foreignKey({name:"messaging_delivery_recovery_parent_fkey",columns:[table.recoveryOfDeliveryId,table.tribeId],foreignColumns:[table.id,table.tribeId]}),
-    messagingDeliveryRecoveryOperationFkey: foreignKey({name:"messaging_delivery_recovery_operation_fkey",columns:[table.recoveryOperationId,table.tribeId],foreignColumns:[parents.admissionOperations.id,parents.admissionOperations.tribeId]}),
+    messagingDeliveryRecoveryOperationFkey: foreignKey({name:NOTIFICATION_RECOVERY_ORIGIN_STORAGE.deliveryForeignKey,columns:[table.recoveryOperationId,table.tribeId],foreignColumns:[messagingNotificationRecoveryOrigins.operationId,messagingNotificationRecoveryOrigins.tribeId]}),
     messagingDeliveryIdempotencyKey: unique("messaging_delivery_idempotency_key").on(table.connectionId,table.idempotencyKey),
     messagingDeliveryVersionFkey: foreignKey({name:"messaging_delivery_version_fkey",columns:[table.connectionId,table.tribeId,table.connectionVersion,table.environment,table.securityEpoch],foreignColumns:[messagingConnectionVersions.connectionId,messagingConnectionVersions.tribeId,messagingConnectionVersions.version,messagingConnectionVersions.environment,messagingConnectionVersions.securityEpoch]}),
     messagingDeliveryLeaseCheck: check("messaging_delivery_lease_check",sql.raw("(lease_token IS NULL)=(lease_until IS NULL)")),
@@ -386,6 +393,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingConnectionDiagnostics: messagingConnectionDiagnostics.enableRLS(),
     messagingContactBudgetSubjects: messagingContactBudgetSubjects.enableRLS(),
     messagingContactFingerprintAliases: messagingContactFingerprintAliases.enableRLS(),
+    messagingNotificationRecoveryOrigins: messagingNotificationRecoveryOrigins.enableRLS(),
     messageDeliveries: messageDeliveries.enableRLS(),
     verificationCodeEnvelopes: verificationCodeEnvelopes.enableRLS(),
     messageDeliveryAttempts: messageDeliveryAttempts.enableRLS(),

@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { createAdmissionPolicyAuditEvent, createAdmissionProofAuditEvent, createAdmissionMessagingSelectionAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-audit-event";
+import { createDefaultAdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
 
 describe("owned admission audit events", () => {
   it("should snapshot effective policy reference lineage and its owner clock without copying private configuration", () => {
@@ -22,10 +23,11 @@ describe("owned admission audit events", () => {
       resourceVersion: 4, rule: null, createdAt: new Date("2026-10-13T13:00:00Z"),
       apiKey: "synthetic-private-marker", contact: "hidden@example.test", labels: { account: "private" },
     };
+    const policy = { ...createDefaultAdmissionPolicy({ id: command.resourceId, tribeId: command.tribeId }), version: 4, isOpen: true };
     // Act: the domain creates its own fixed event rather than spreading a command.
-    const event = createAdmissionPolicyAuditEvent(command);
+    const event = createAdmissionPolicyAuditEvent({ ...command, previousPolicy: { ...policy, version: 3, isOpen: false }, policy });
     // Assert: private identity is explicit and stays separate from aggregate labels.
-    expect(event).toEqual({ tribeId: command.tribeId, actorUserId: command.actorUserId, resourceType: "admission_policy", resourceId: command.resourceId, operationId: command.operationId, eventType: "update_admission_policy", rule: null, cause: null, resourceVersion: 4, metadata: {}, createdAt: command.createdAt });
+    expect(event).toMatchObject({ tribeId: command.tribeId, actorUserId: command.actorUserId, resourceType: "admission_policy", resourceId: command.resourceId, operationId: command.operationId, eventType: "update_admission_policy", rule: null, cause: null, resourceVersion: 4, metadata: { previousVersion: 3, fromPolicy: { isOpen: false }, toPolicy: { isOpen: true } }, createdAt: command.createdAt });
     expect(JSON.stringify(event)).not.toContain("synthetic-private-marker");
     expect(event).not.toHaveProperty("labels");
   });
@@ -42,7 +44,8 @@ describe("owned admission audit events", () => {
 
   it("should preserve an owner-provided policy reason without promoting it into aggregate dimensions", () => {
     const input = { tribeId: randomUUID(), actorUserId: randomUUID(), resourceId: randomUUID(), operationId: randomUUID(), operation: "pause_admission_policy" as const, resourceVersion: 5, rule: "Pausa temporal por capacidad", createdAt: new Date("2026-10-13T13:00:00Z") };
-    expect(createAdmissionPolicyAuditEvent(input)).toMatchObject({ eventType: "pause_admission_policy", rule: input.rule, metadata: {} });
+    const policy = { ...createDefaultAdmissionPolicy({ id: input.resourceId, tribeId: input.tribeId }), version: 5 };
+    expect(createAdmissionPolicyAuditEvent({ ...input, previousPolicy: { ...policy, version: 4, isOpen: true }, policy })).toMatchObject({ eventType: "pause_admission_policy", rule: input.rule, metadata: { previousVersion: 4, fromPolicy: { isOpen: true }, toPolicy: { isOpen: false } } });
   });
 
   it("should preserve the original event timestamp when its caller later changes its mutable clock", () => {
@@ -50,5 +53,15 @@ describe("owned admission audit events", () => {
     const event = createAdmissionProofAuditEvent({ tribeId: randomUUID(), actorUserId: randomUUID(), requestId: randomUUID(), operationId: randomUUID(), proofId: randomUUID(), previousRequestVersion: 1, createdAt });
     createdAt.setUTCDate(14);
     expect(event.createdAt.toISOString()).toBe("2026-10-13T13:00:00.000Z");
+  });
+
+  it("should select complete immutable policy transitions without treating initialization absence as an unknown previous configuration", () => {
+    const tribeId = randomUUID(), policy = { ...createDefaultAdmissionPolicy({ id: tribeId, tribeId }), activatedAt: new Date("2026-10-14T22:00:00Z"), apiKey: "synthetic-policy-secret", contact: "hidden@example.test" };
+    const scope = { tribeId, actorUserId: randomUUID(), operationId: randomUUID(), operation: "activate_admission_policy" as const, resourceId: tribeId, resourceVersion: 1, rule: null, createdAt: new Date("2026-10-14T22:00:00Z"), previousPolicy: null, policy };
+    const event = createAdmissionPolicyAuditEvent(scope);
+    expect(event.metadata).toEqual({ previousVersion: null, fromPolicy: null, toPolicy: { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: "2026-10-14T22:00:00.000Z" } });
+    policy.activatedAt.setUTCDate(15); policy.isOpen = true;
+    expect(event.metadata).toMatchObject({ fromPolicy: null, toPolicy: { isOpen: false, activatedAt: "2026-10-14T22:00:00.000Z" } });
+    expect(JSON.stringify(event)).not.toContain(policy.apiKey); expect(JSON.stringify(event)).not.toContain(policy.contact);
   });
 });

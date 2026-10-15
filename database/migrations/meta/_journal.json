@@ -1184,6 +1184,20 @@
       "when": 1792015800000,
       "tag": "20261014221000_rotate_messaging_protection_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1792020900000,
+      "tag": "20261014233500_preserve_admission_audit_owner_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1792021500000,
+      "tag": "20261014234500_preserve_notification_recovery_origins",
+      "breakpoints": true
     }
   ]
 }

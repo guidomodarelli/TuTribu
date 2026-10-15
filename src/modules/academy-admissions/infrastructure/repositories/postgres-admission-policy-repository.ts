@@ -50,20 +50,21 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     return admissionPolicyMutationResultSchema.parse({ policyId: policy.id, version: policy.version, verificationEpoch: policy.verificationEpoch, activatedAt: policy.activatedAt?.toISOString() ?? null, controlActivated, changed });
   }
 
-  /** Records only effective changes and their private original operation link. */
-  private async audit(database: RequestDatabase, intent: PolicyIntent, ledgerId: string, policy: AdmissionPolicy, reason?: string): Promise<void> {
+  /** @param database - Original owner transaction. @param intent - Authorized original action. @param ledgerId - Exact claimed operation. @param previousPolicy - Locked predecessor or actual initialization absence. @param policy - Effective persisted configuration. @param createdAt - Same native clock used by the resource write. @param reason - Existing bounded private pause explanation, never a metric dimension. @returns After staging one reconstructible effective change. */
+  private async audit(database: RequestDatabase, intent: PolicyIntent, ledgerId: string, previousPolicy: AdmissionPolicy | null, policy: AdmissionPolicy, createdAt: Date, reason?: string): Promise<void> {
     await new PostgresAdmissionAuditRepository(database).append(createAdmissionPolicyAuditEvent({
       tribeId: intent.context.tribeId, actorUserId: intent.context.userId,
-      operationId: ledgerId, resourceId: policy.id, operation: intent.type,
-      resourceVersion: policy.version, rule: reason ?? null,
-      createdAt: await admissionPolicyDatabaseNow(database),
+      operationId: ledgerId, operation: intent.type, previousPolicy, policy,
+      rule: reason ?? null, createdAt,
     }));
   }
 
-  /** Resource update increments exactly the domain-proposed counters under the expected version. */
-  private async save(database: RequestDatabase, policy: AdmissionPolicy, expectedVersion: number, actorId: string): Promise<void> {
-    const changed = (await database.execute(sql`update public.academy_admission_policies set mode=${policy.mode},contact_type=${policy.contactType},is_open=${policy.isOpen},allow_common_exceptions=${policy.allowCommonExceptions},requires_additional_verification=${policy.requiresAdditionalVerification},phone_channel=${policy.phoneChannel},allow_sms_alternative=${policy.allowSmsAlternative},messaging_connection_id=${policy.messagingConnectionId},messaging_connection_version=${policy.messagingConnectionVersion},verification_epoch=${policy.verificationEpoch},version=${policy.version},activated_at=${policy.activatedAt},changed_by_user_id=${actorId},updated_at=clock_timestamp() where tribe_id=${policy.tribeId} and version=${expectedVersion} returning tribe_id`)).rows[0];
+  /** @param database - Locked current transaction. @param policy - Domain-proposed effective state. @param expectedVersion - Original resource CAS. @param actorId - Native current leader. @returns The shared native resource/audit effect clock. @throws AdmissionOperationError when the original version no longer matches. */
+  private async save(database: RequestDatabase, policy: AdmissionPolicy, expectedVersion: number, actorId: string): Promise<Date> {
+    const changedAt = await admissionPolicyDatabaseNow(database);
+    const changed = (await database.execute(sql`update public.academy_admission_policies set mode=${policy.mode},contact_type=${policy.contactType},is_open=${policy.isOpen},allow_common_exceptions=${policy.allowCommonExceptions},requires_additional_verification=${policy.requiresAdditionalVerification},phone_channel=${policy.phoneChannel},allow_sms_alternative=${policy.allowSmsAlternative},messaging_connection_id=${policy.messagingConnectionId},messaging_connection_version=${policy.messagingConnectionVersion},verification_epoch=${policy.verificationEpoch},version=${policy.version},activated_at=${policy.activatedAt},changed_by_user_id=${actorId},updated_at=${changedAt} where tribe_id=${policy.tribeId} and version=${expectedVersion} returning tribe_id`)).rows[0];
     if (!changed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
+    return changedAt;
   }
 
   /** Original replay precedes new CAS; every phase independently checks current leadership and recency. */
@@ -89,8 +90,9 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
       const current = await this.current(database, intent.context.tribeId);
       if (current.policy) return this.result(current.policy, current.controlActivated, false);
       const policy = createDefaultAdmissionPolicy({ id: intent.context.tribeId, tribeId: intent.context.tribeId });
-      await database.execute(sql`insert into public.academy_admission_policies(tribe_id,changed_by_user_id) values (${policy.tribeId},${intent.context.userId})`);
-      await this.audit(database, intent, ledgerId, policy);
+      const createdAt = await admissionPolicyDatabaseNow(database);
+      await database.execute(sql`insert into public.academy_admission_policies(tribe_id,changed_by_user_id,updated_at) values (${policy.tribeId},${intent.context.userId},${createdAt})`);
+      await this.audit(database, intent, ledgerId, null, policy, createdAt);
       return this.result(policy, false, true);
     });
   }
@@ -114,9 +116,9 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.conflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
     if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
     if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) return this.result(policy, current.controlActivated, false);
-    await this.save(database, proposal.policy, policy.version, intent.context.userId);
+    const changedAt = await this.save(database, proposal.policy, policy.version, intent.context.userId);
     if (proposal.invalidateUnappliedEvidence) await this.invalidateUnappliedEvidence(database, intent.context, ledgerId);
-    await this.audit(database, intent, ledgerId, proposal.policy, "reason" in intent ? intent.reason : undefined);
+    await this.audit(database, intent, ledgerId, policy, proposal.policy, changedAt, "reason" in intent ? intent.reason : undefined);
     if (policy.activatedAt && !onlyPausing) await this.assertCurrentPreparation(database, intent.context, proposal.policy);
     return this.result(proposal.policy, current.controlActivated, true);
   }
@@ -154,10 +156,10 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.conflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.invalid) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       if (proposal.outcome === ADMISSION_POLICY_CHANGE_OUTCOME.unchanged) return this.result(proposal.policy, true, false);
-      await this.save(database, proposal.policy, current.policy.version, intent.context.userId);
+      const changedAt = await this.save(database, proposal.policy, current.policy.version, intent.context.userId);
       const updated = (await database.execute(sql`update public.tribes set admissions_control_activated_at=${proposal.controlActivatedAt} where id=${intent.context.tribeId} and admissions_control_activated_at is null returning id`)).rows[0];
       if (!updated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
-      await this.audit(database, intent, ledgerId, proposal.policy);
+      await this.audit(database, intent, ledgerId, current.policy, proposal.policy, changedAt);
       await this.assertCurrentPreparation(database, intent.context, proposal.policy);
       return this.result(proposal.policy, true, true);
     });

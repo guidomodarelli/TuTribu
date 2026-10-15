@@ -9,6 +9,10 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { buildMessagingModule } from "@/src/modules/messaging/setup";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { createDefaultAdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
+import { createPendingAdmissionRequest } from "@/src/modules/academy-admissions/domain/entities/admission-request";
+import { ADMISSION_REQUEST_SOURCE } from "@/src/modules/academy-admissions/constants/admission-request";
+import { ADMISSION_EVIDENCE_KIND } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 
 /** @param database - This run's isolated real PostgreSQL branch. @param deadlineMs - Optional original lifetime for real final-wait scenarios. @param securityConfig - Optional shared native server security, without serializing key material to artifacts. @returns Actual prepared connections, original obligation and native recovery writer; provider transport is controlled solely during candidate preparation. */
 export async function prepareNotificationDeliveryRecovery(database: AcademyAdmissionTestDatabase, deadlineMs = 3_600_000, securityConfig?: MessagingSecurityConfig) {
@@ -26,8 +30,15 @@ export async function prepareNotificationDeliveryRecovery(database: AcademyAdmis
     const now = new Date((await transaction.execute<{ now: Date | string }>(sql`select clock_timestamp() as now`)).rows[0].now);
     const deadline = new Date(now.getTime() + deadlineMs);
     const intentId = randomUUID(), validUntil = new Date(creation.context.validUntil);
+    const request = createPendingAdmissionRequest({
+      id: requestId, tribeId: creation.context.tribeId, userId: own.userId,
+      source: ADMISSION_REQUEST_SOURCE.common, contact: null,
+      evidence: { kind: ADMISSION_EVIDENCE_KIND.none },
+      policy: createDefaultAdmissionPolicy({ id: randomUUID(), tribeId: creation.context.tribeId }),
+      message: null, now,
+    });
     await transaction.execute(sql`insert into public.admission_email_settings(tribe_id,enabled,enabled_at,changed_by_user_id) values (${creation.context.tribeId},true,${now},${own.userId})`);
-    await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,expires_at) values (${requestId},${creation.context.tribeId},${own.userId},'common',${now}::timestamptz+interval '29 days')`);
+    await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,original_policy_snapshot,submitted_at,expires_at) values (${request.id},${request.tribeId},${request.userId},${request.source},${JSON.stringify(request.originalPolicy)}::jsonb,${request.submittedAt},${request.expiresAt})`);
     await transaction.execute(sql`insert into public.academy_admission_notification_obligations(id,tribe_id,request_id,applicant_user_id,event_type) values (${obligationId},${creation.context.tribeId},${requestId},${own.userId},'pending_created')`);
     await transaction.execute(sql`select public.enqueue_admission_notification(${obligationId},${own.userId},'reviewer')`);
     await transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,state,created_at,due_at,deadline_at) values (${originalDeliveryId},${creation.context.tribeId},${first.result.id},1,${creation.fixture.config.environment},${creation.fixture.config.securityEpoch},'admission_notification',${obligationId},${own.userId},${own.userId},'email',${randomUUID()},${randomBytes(32)},'synthetic-original-payload','{}',1,'suppressed',${now},${now},${deadline})`);

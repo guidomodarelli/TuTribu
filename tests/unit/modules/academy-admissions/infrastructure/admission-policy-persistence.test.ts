@@ -33,6 +33,7 @@ import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modul
 import { join } from "node:path";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
 import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admission-proof-invalidation-audit-assertions";
+import { PostgresAdmissionActivityReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader";
 
 /** @param database - This run's owned branch with native pg/Drizzle. @returns Current signed leader, policy repository and preparation-port controls. */
 async function preparePolicy(database: AcademyAdmissionTestDatabase) {
@@ -86,14 +87,42 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       data.loseNextReply();
       expect(await data.repository.update(intent)).toMatchObject({ state: "completed", result: { version: 2, changed: true } });
       expect(await data.repository.update(intent)).toMatchObject({ state: "completed", replayed: true, result: { version: 2 } });
+      const configured = { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: null };
       // Assert: audit and ledger preserve one actual effect and the correct scope.
       const audit = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select event.actor_user_id,event.resource_type,event.resource_id,event.event_type,event.resource_version,event.rule,event.cause,event.metadata,operation.idempotency_key,event.created_at>=operation.created_at as ordered from public.academy_admission_audit_events event join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.tribe_id=${data.tribeId} order by event.resource_version`)).rows);
       expect(audit).toEqual([
-        { actor_user_id: data.fixture.userId, resource_type: "admission_policy", resource_id: data.tribeId, event_type: "initialize_admission_policy", resource_version: 1, rule: null, cause: null, metadata: {}, idempotency_key: initializeId, ordered: true },
-        { actor_user_id: data.fixture.userId, resource_type: "admission_policy", resource_id: data.tribeId, event_type: "update_admission_policy", resource_version: 2, rule: null, cause: null, metadata: {}, idempotency_key: intent.operationId, ordered: true },
+        { actor_user_id: data.fixture.userId, resource_type: "admission_policy", resource_id: data.tribeId, event_type: "initialize_admission_policy", resource_version: 1, rule: null, cause: null, metadata: { previousVersion: null, fromPolicy: null, toPolicy: configured }, idempotency_key: initializeId, ordered: true },
+        { actor_user_id: data.fixture.userId, resource_type: "admission_policy", resource_id: data.tribeId, event_type: "update_admission_policy", resource_version: 2, rule: null, cause: null, metadata: { previousVersion: 1, fromPolicy: configured, toPolicy: { ...configured, isOpen: true } }, idempotency_key: intent.operationId, ordered: true },
       ]);
       await expect(data.repository.update({ ...intent, operationId: randomUUID(), expectedVersion: 1 })).rejects.toMatchObject({ code: "policy_conflict" });
       expect(await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as count from public.academy_admission_audit_events where tribe_id=${data.tribeId}`)).rows)).toEqual([{ count: 2 }]);
+      const activation = await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId: randomUUID(), type: "activate_admission_policy", confirmed: true, expectedVersion: 2 });
+      if (activation.state !== "completed") throw new Error("Synthetic policy audit activation did not complete");
+      const activated = { ...configured, isOpen: true, activatedAt: activation.result.activatedAt };
+      await data.repository.pause({ context: data.context(REAUTHENTICATION_OPERATION.pauseAdmissionPolicy), operationId: randomUUID(), type: "pause_admission_policy", confirmed: true, expectedVersion: 3, reason: "Pausa sintética de capacidad" });
+      const reader = new PostgresAdmissionActivityReader((_scope, run) => database.withContext(data.fixture.own, run));
+      const scope = { tribeId: data.tribeId, userId: data.fixture.userId, sessionId: data.sessionId, requestId: randomUUID() };
+      const history = await reader.readActivity(scope, { limit: 50, resourceType: "admission_policy" });
+      expect(history.items.map((event) => event.changes)).toEqual([
+        { previousVersion: 3, fromPolicy: activated, toPolicy: { ...activated, isOpen: false } },
+        { previousVersion: 2, fromPolicy: { ...configured, isOpen: true }, toPolicy: activated },
+        { previousVersion: 1, fromPolicy: configured, toPolicy: { ...configured, isOpen: true } },
+        { previousVersion: null, fromPolicy: null, toPolicy: configured },
+      ]);
+      await reader.readMetrics(scope);
+      expect(await data.repository.update(intent)).toMatchObject({ state: "completed", replayed: true, result: { version: 2 } });
+      expect(await data.repository.update({ ...intent, operationId: randomUUID(), expectedVersion: 4, patch: { isOpen: false } })).toMatchObject({ state: "completed", result: { version: 4, changed: false } });
+      const beforeDeletion = await database.withContext(data.fixture.own, async (transaction) => {
+        expect((await transaction.execute(sql`select version,event.created_at=policy.updated_at as same_clock from public.academy_admission_policies policy join public.academy_admission_audit_events event on event.tribe_id=policy.tribe_id and event.resource_type='admission_policy' and event.resource_version=policy.version where policy.tribe_id=${data.tribeId}`)).rows).toEqual([{ version: 4, same_clock: true }]);
+        return (await transaction.execute<{ id: string; metadata: unknown }>(sql`select id,metadata from public.academy_admission_audit_events where tribe_id=${data.tribeId} and resource_type='admission_policy' order by resource_version`)).rows;
+      });
+      expect(beforeDeletion).toHaveLength(4);
+      await database.withContext({ userId: null, email: null }, async (transaction) => {
+        const polluted = { previousVersion: 3, fromPolicy: activated, toPolicy: { ...activated, apiKey: "synthetic-private-key" }, apiKey: "synthetic-private-key", providerBody: { contact: "hidden@example.test" } };
+        expect((await transaction.execute<{ metadata: unknown }>(sql`select public.project_retired_admission_owner_metadata('admission_policy','pause_admission_policy',${JSON.stringify(polluted)}::jsonb) as metadata`)).rows).toEqual([{ metadata: { previousVersion: 3, fromPolicy: activated, toPolicy: activated } }]);
+        await transaction.execute(sql`delete from public.tribes where id=${data.tribeId}`);
+        expect((await transaction.execute(sql`select id,metadata from public.academy_admission_retired_audit_events where tribe_id=${data.tribeId} and resource_type='admission_policy' order by resource_version`)).rows).toEqual(beforeDeletion);
+      });
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 
