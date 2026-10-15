@@ -356,6 +356,7 @@ async function ensureReadWriteEndpoint({ apiKey, projectId, branchId }) {
  * Resets the branch to the latest state of its parent.
  *
  * @param {{ apiKey: string, projectId: string, branch: { id: string, parent_id: string } }} input
+ * @returns {Promise<string>} Id of the reset branch, as returned by the restore endpoint.
  */
 async function resetSandboxBranch({ apiKey, projectId, branch }) {
   const operation = `${OPERATION_PREFIX}:resetSandboxBranch`;
@@ -372,6 +373,8 @@ async function resetSandboxBranch({ apiKey, projectId, branch }) {
     path: `/projects/${projectId}/branches/${branch.id}/restore`,
   });
   await waitForNeonOperations({ apiKey, operation, operationIds: readOperationIds(restored), projectId });
+
+  return restored.branch?.id ?? branch.id;
 }
 
 /**
@@ -519,7 +522,7 @@ async function main(scriptArguments) {
         break;
       case SANDBOX_STEP.resetBranch:
         console.log(SCRIPT_MESSAGE.step.resetBranch(branchName));
-        await resetSandboxBranch({ apiKey, branch: existingBranch, projectId });
+        branchId = await resetSandboxBranch({ apiKey, branch: existingBranch, projectId });
         await ensureReadWriteEndpoint({ apiKey, branchId, projectId });
         break;
       case SANDBOX_STEP.deleteBranch:

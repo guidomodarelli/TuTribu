@@ -18,6 +18,7 @@ const NEON_OPERATION_STATUS = {
 };
 const OPERATION_POLL_INTERVAL_MS = 1000;
 const OPERATION_TIMEOUT_MS = 120_000;
+const HTTP_STATUS_NO_CONTENT = 204;
 
 /** Wraps a Neon API failure with safe, non-secret context. */
 export class NeonApiError extends Error {
@@ -33,7 +34,8 @@ export class NeonApiError extends Error {
 }
 
 /**
- * Calls the Neon API and returns the parsed JSON body.
+ * Calls the Neon API and returns the parsed JSON body, or `{}` when a
+ * successful response has no body.
  *
  * @param {{ apiKey: string, method: string, path: string, body?: unknown, operation: string }} request
  * @returns {Promise<any>} Parsed response.
@@ -53,7 +55,10 @@ export async function callNeonApi({ apiKey, method, path, body, operation }) {
     throw new NeonApiError(operation, `${method} ${path} -> HTTP ${response.status}`);
   }
 
-  return response.json();
+  // A 204 (for example, deleting a branch that is already gone) or an empty body is a success with nothing to parse.
+  const responseText = response.status === HTTP_STATUS_NO_CONTENT ? "" : await response.text();
+
+  return responseText ? JSON.parse(responseText) : {};
 }
 
 /**
