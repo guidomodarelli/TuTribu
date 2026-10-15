@@ -9,7 +9,7 @@ test("loads the home scaffold", async ({ page }) => {
     })
   ).toBeVisible();
   await expect(
-    page.locator("header").getByRole("button", { name: /toggle sidebar/i })
+    page.locator("header").getByRole("button", { name: /(contraer|expandir) barra lateral/i })
   ).toBeVisible();
 });
 
@@ -23,6 +23,6 @@ test("loads Google sign-in page", async ({ page }) => {
     })
   ).toBeVisible();
   await expect(
-    page.locator("header").getByRole("button", { name: /toggle sidebar/i })
+    page.locator("header").getByRole("button", { name: /(contraer|expandir) barra lateral/i })
   ).toHaveCount(0);
 });

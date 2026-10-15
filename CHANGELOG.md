@@ -4,6 +4,16 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Added
+
+- La barra lateral se contrae y se expande también con la tecla [, y el botón del panel muestra hacia dónde se va a mover y qué tecla usar.
+- El encabezado muestra la ruta de la página: la tribu, Gestión cuando corresponde, y la sección abierta.
+
+### Changed
+
+- La barra lateral tiene un diseño nuevo: la marca de la tribu muestra tu rol, tu foto y tu nombre quedan al pie, y al contraerla cada grupo de secciones se separa con una línea y el nombre de cada sección aparece al pasar el mouse por su ícono.
+- En pantallas medianas, la barra abierta flota sobre la página en lugar de achicarla; en el teléfono el menú se abre como una hoja que se puede cerrar deslizándola hacia la izquierda.
+
 ## [1.3.1] - 2026-10-15
 
 ### Changed

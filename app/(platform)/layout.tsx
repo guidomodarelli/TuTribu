@@ -1,13 +1,13 @@
 import { cookies, headers } from "next/headers";
 import { Suspense } from "react";
 
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppRailShell } from "@/components/app-rail/app-rail-shell";
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 import { NotificationCenter } from "./notification-center";
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { TribeSupportButton } from "@/components/tribes/tribe-support-button";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
-import { SidebarInset, SidebarProvider, SidebarTrigger, TooltipProvider, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "beez-ui";
+import { TooltipProvider, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "beez-ui";
 
 import { ROUTES } from "@/src/constants/routes";
 
@@ -79,12 +79,10 @@ async function loadInitialNotificationInbox(
 }
 
 type PlatformLayoutShellProps = Readonly<{
-  authenticatedMember: React.ComponentProps<
-    typeof AppSidebar
-  >["authenticatedMember"];
+  authenticatedMember: React.ComponentProps<typeof AppRailShell>["authenticatedMember"];
   children: React.ReactNode;
   defaultSidebarOpen?: boolean;
-  memberTribes: React.ComponentProps<typeof AppSidebar>["memberTribes"];
+  memberTribes: React.ComponentProps<typeof AppRailShell>["memberTribes"];
   notificationInbox: NotificationInboxResponse | null;
 }>;
 
@@ -109,35 +107,34 @@ function PlatformLayoutShell({
 }: PlatformLayoutShellProps) {
   return (
     <TooltipProvider>
-      <SidebarProvider defaultOpen={defaultSidebarOpen}>
-        <AppSidebar
-          authenticatedMember={authenticatedMember}
-          memberTribes={memberTribes}
-        />
-        <SidebarInset className={styles.PlatformLayout}>
-          <header className={styles.PlatformLayout__header}>
-            <SidebarTrigger className={styles.PlatformLayout__trigger} />
-            <TribeSwitcher
-              memberTribes={memberTribes}
-              showDropdownTrigger={false}
-              showPrivateBadge
+      <AppRailShell
+        authenticatedMember={authenticatedMember}
+        defaultOpen={defaultSidebarOpen}
+        memberTribes={memberTribes}
+        headerAside={
+          <TribeSwitcher
+            memberTribes={memberTribes}
+            showDropdownTrigger={false}
+            showPrivateBadge
+          />
+        }
+        headerActions={
+          <div className={styles.PlatformLayout__accountMenu}>
+            {authenticatedMember ? (
+              <NotificationCenter initialInbox={notificationInbox} />
+            ) : null}
+            <TribeSupportButton memberTribes={memberTribes} />
+            <ThemeModeDropdown />
+            <AvatarSessionMenuClient
+              authenticatedMember={authenticatedMember}
+              signInPath={ROUTES.auth.signIn}
+              signOutCallbackUrl={ROUTES.home}
             />
-            <div className={styles.PlatformLayout__accountMenu}>
-              {authenticatedMember ? (
-                <NotificationCenter initialInbox={notificationInbox} />
-              ) : null}
-              <TribeSupportButton memberTribes={memberTribes} />
-              <ThemeModeDropdown />
-              <AvatarSessionMenuClient
-                authenticatedMember={authenticatedMember}
-                signInPath={ROUTES.auth.signIn}
-                signOutCallbackUrl={ROUTES.home}
-              />
-            </div>
-          </header>
-          <div className={styles.PlatformLayout__content}>{children}</div>
-        </SidebarInset>
-      </SidebarProvider>
+          </div>
+        }
+      >
+        <div className={styles.PlatformLayout__content}>{children}</div>
+      </AppRailShell>
     </TooltipProvider>
   );
 }

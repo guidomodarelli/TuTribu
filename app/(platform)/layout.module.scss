@@ -1,33 +1,9 @@
 $platform-header-touch-target: 2.5rem;
 
 .PlatformLayout {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-
-  &__header {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    height: 3.5rem;
-    align-items: center;
-    border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-    background-color: color-mix(in oklab, var(--background) 80%, transparent);
-    padding-inline: 1rem;
-    backdrop-filter: blur(8px);
-  }
-
-  &__trigger {
-    margin-left: -0.25rem;
-    margin-right: 0.25rem;
-  }
-
   &__accountMenu {
     display: flex;
     gap: 0.25rem;
-    margin-left: auto;
     align-items: center;
     justify-content: flex-end;
   }
@@ -57,7 +33,7 @@ $platform-header-touch-target: 2.5rem;
 
   &__sidebar {
     display: none;
-    width: 16rem;
+    width: 15rem;
     flex-shrink: 0;
     border-right: 1px solid var(--border);
     background: var(--sidebar);
@@ -71,7 +47,7 @@ $platform-header-touch-target: 2.5rem;
   }
 
   &__header {
-    height: 3.5rem;
+    height: 52px;
     border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
     background-color: color-mix(in oklab, var(--background) 80%, transparent);
   }
@@ -81,12 +57,11 @@ $platform-header-touch-target: 2.5rem;
   }
 }
 
-// On touch devices the header controls (sidebar trigger, support, theme and
+// On touch devices the header controls (support, theme and
 // account menu) are the only navigation, so give them a comfortable hit area
 // without changing their icon size on pointer devices.
 @media (pointer: coarse) {
   .PlatformLayout {
-    &__trigger,
     &__accountMenu > :where(button) {
       min-height: $platform-header-touch-target;
       min-width: $platform-header-touch-target;
@@ -95,12 +70,6 @@ $platform-header-touch-target: 2.5rem;
 }
 
 @media (min-width: 1024px) {
-  .PlatformLayout {
-    &__header {
-      padding-inline: 1.5rem;
-    }
-  }
-
   .PlatformLayoutFallback {
     &__sidebar {
       display: block;

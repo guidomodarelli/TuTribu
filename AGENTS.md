@@ -184,7 +184,7 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 
 ### UI baseline
 
-- Use `beez-ui` as the only shared component library consumed by product code.
+- Use `beez-ui` as the only shared component library consumed by product code. Exception: the platform shell is the Arc Pro "Sidebar rail" block adapted in `components/app-rail/app-rail-shell` (see "Arc Pro license"); it uses `radix-ui` primitives directly, on the same version `beez-ui` already installs. Do not use `radix-ui` elsewhere in product code.
 - Group named imports from `beez-ui` (the `beez-ui` package published to npm); do not use component-specific subpaths. General-purpose hooks (`useIsMobile`, `useIsHydrated`, `useViewerTimeZone`, `useHorizontalSwipe`) come from the `beez-ui/hooks` entrypoint.
 - `components/providers/app-providers/app-ui-provider.tsx` is the composition root allowed to import `BeezUIProvider` from `beez-ui/next`. Use `useTheme` from `beez-ui` for theme consumers and preserve the `tutribu-theme` storage key. Do not reintroduce document theme scripts or independent preference state.
 - The sibling `beez-ui` repository owns the extracted shadcn/ui components and their customizations.
@@ -195,6 +195,14 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 - Use `Button` with Arc's API (`variant` `primary`, `secondary`, `ghost` or `danger`; `size` `sm`, `md` or `lg`; `loading`). It has no `asChild`: navigation that looks like a button stays a `Link`, `<a>` or `<label>` styled with the `action-link` mixin from `src/styles/_action-link.scss`. Icon-only buttons use `size="sm"` with an accessible name.
 - Use pnpm 12.6.0 and consume published `beez-ui` releases from the public npm registry with a caret range; no registry mapping or token is needed. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
 - Follow `docs/architecture/shared-ui-library.htm` for package boundaries and distribution.
+
+### Arc Pro license
+
+- Arc components and blocks marked Pro (uiarc.dev, the `@uiarc-pro` registry, or the Arc MCP server) are licensed under the Arc Pro license (https://uiarc.dev/license), not MIT. Read it before using any Pro source; Free Arc items are MIT and only need their copyright notice.
+- TuTribu is an end product, so Pro source may live here, adapted to the product, even though the repository is public. Every file that contains Pro source, copied or adapted (components, styles, SVG paths, timings), must start with this notice: `Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the Arc Pro license (https://uiarc.dev/license). Not covered by this project's license; do not redistribute it on its own.` Never remove that notice.
+- Never move Pro source into `beez-ui` or any other package, registry, template, snippet collection or shared prompt: `beez-ui` is a component library published to npm, and redistributing Pro source as a library is forbidden. Build the shared primitive in `beez-ui` from its own design instead, or keep the Pro-derived code in this application.
+- Do not commit raw Pro source as a standalone reference (for example the unmodified block under `docs/` or a scratch folder); take only what the product needs and integrate it.
+- Use Pro source only with your own Arc Pro seat; do not share Pro tokens, and do not add them to the repository or to CI.
 - Structure rule for custom components :
   - Applies to manually created components under `components/*`.
   - Each custom component must use this structure:

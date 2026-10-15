@@ -57,7 +57,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">02</div>
   <div class="section-title">Rules</div>
 <ul>
-  <li><strong>Animar solo <code>transform</code> y <code>opacity</code></strong> (y altura únicamente a través de <code>AnimatedCollapse</code>). Nunca animar <code>width</code>, <code>top</code>, <code>margin</code> ni sombras pesadas en listas largas.</li>
+  <li><strong>Animar solo <code>transform</code> y <code>opacity</code></strong> (y altura únicamente a través de <code>AnimatedCollapse</code>). Nunca animar <code>width</code>, <code>top</code>, <code>margin</code> ni sombras pesadas en listas largas. Única excepción: el shell de plataforma (<code>components/app-rail/app-rail-shell</code>, bloque «Sidebar rail» de Arc) anima el ancho del sidebar y de la miga de la ruta con resortes, porque el cambio de tamaño es la información; el resto del shell sigue esta regla.</li>
   <li><strong>Duraciones de 120 a 320 ms</strong> con la curva ease-out fuerte <code>cubic-bezier(0.16, 1, 0.3, 1)</code>. Las salidas son más cortas que las entradas para no bloquear la siguiente interacción.</li>
   <li><strong>Sin loops decorativos.</strong> Solo indicadores de carga pueden repetirse, y se detienen con reduced motion.</li>
   <li><strong>Reduced motion siempre.</strong> <code>BeezUIProvider</code> monta <code>MotionConfig reducedMotion="user"</code> para toda la app, y cada mixin SCSS se desactiva bajo <code>prefers-reduced-motion: reduce</code>. No agregar animaciones fuera de esos dos caminos.</li>

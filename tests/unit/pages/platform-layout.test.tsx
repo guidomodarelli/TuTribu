@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { useSidebar } from "beez-ui";
+import { render, screen, within } from "@testing-library/react";
 import { cookies, headers } from "next/headers";
+import { usePathname } from "next/navigation";
 
 import { PlatformLayoutContent } from "@/app/(platform)/layout";
 import { createRequestModules } from "@/src/modules/setup";
@@ -16,23 +16,15 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(),
 }));
 
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn(() => "/"),
+  useRouter: vi.fn(() => ({ push: vi.fn() })),
+}));
+
 const INCOMING_REQUEST_ID = "req-platform-layout-42";
 
-vi.mock("@/components/app-sidebar", () => ({
-  AppSidebar: ({
-    authenticatedMember,
-    memberTribes,
-  }: {
-    authenticatedMember: { name: string } | null;
-    memberTribes: Array<{ name: string }>;
-  }) => (
-    <div>
-      <span>Sidebar</span>
-      <span>{authenticatedMember?.name ?? "Sin sesion"}</span>
-      <span>{memberTribes.map((tribe) => tribe.name).join(",")}</span>
-    </div>
-  ),
-}));
+/** A roomy shell keeps the sidebar state restored from the cookie. */
+const DESKTOP_SHELL_WIDTH_PX = 1280;
 
 vi.mock("@/components/auth/avatar-session-menu-client", () => ({
   AvatarSessionMenuClient: ({ authenticatedMember }: { authenticatedMember: { name: string } | null }) => (
@@ -65,14 +57,11 @@ vi.mock("@/src/modules/setup", () => ({
   createRequestModules: vi.fn(),
 }));
 
-/** Exposes the real public sidebar state to the route integration test. */
-function SidebarState() {
-  return <output aria-label="Estado de navegación">{useSidebar().state}</output>;
-}
-
 describe("PlatformLayout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (usePathname as Mock).mockReturnValue("/");
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => DESKTOP_SHELL_WIDTH_PX });
     getAuthenticatedMember.mockReset();
     getMemberTribes.mockReset();
     getNotificationInbox.mockReset();
@@ -122,11 +111,11 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
-    expect(screen.getByText("Sidebar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Alpha Club" })).toBeInTheDocument();
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
     expect(screen.getByText("Menu de cuenta: Grace Hopper")).toBeInTheDocument();
     expect(screen.getByText("Alpha Club")).toBeInTheDocument();
@@ -151,7 +140,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
@@ -173,7 +162,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
@@ -197,11 +186,47 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
-    expect(screen.getByLabelText("Estado de navegación")).toHaveTextContent("collapsed");
+    expect(screen.getByRole("button", { name: "Expandir barra lateral" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("starts the app rail toggle folded when the sidebar cookie is collapsed and shows the tribe trail", async () => {
+    (cookies as Mock).mockResolvedValue({
+      get: vi.fn(() => ({ value: "false" })),
+    });
+    (usePathname as Mock).mockReturnValue("/alpha-club/eventos");
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "leader@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getMemberTribes.mockResolvedValue([
+      { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
+        tribeId: "tribe-1",
+        name: "Alpha Club",
+        slug: "alpha-club",
+      },
+    ]);
+
+    render(
+      await PlatformLayoutContent({
+        children: <div>Contenido</div>,
+      })
+    );
+
+    expect(screen.getByRole("button", { name: "Expandir barra lateral" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+    expect(
+      within(screen.getByRole("navigation", { name: "Ruta de navegación" })).getByText("Eventos")
+    ).toBeInTheDocument();
   });
 
   it("skips member tribes when there is no authenticated member", async () => {
@@ -210,13 +235,13 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
     expect(getMemberTribes).not.toHaveBeenCalled();
     expect(getNotificationInbox).not.toHaveBeenCalled();
-    expect(screen.getByText("Sin sesion")).toBeInTheDocument();
+    expect(screen.queryByText("Tu cuenta")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Notificaciones/ })).not.toBeInTheDocument();
   });
 
@@ -251,7 +276,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
@@ -276,7 +301,7 @@ describe("PlatformLayout", () => {
     try {
       render(
         await PlatformLayoutContent({
-          children: <div>Contenido<SidebarState /></div>,
+          children: <div>Contenido</div>,
         })
       );
 
@@ -297,7 +322,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
