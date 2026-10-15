@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local Database Sandbox</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fbf3ea;border-color:#d4a15a;color:#7a541a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Local Database Sandbox</div>
+  <div class="doc-sub">Cómo correr el servidor local contra una branch propia de Neon, migrada y aislada de la base compartida, para usarla junto con los mocks de proveedores externos.</div>
+  <div class="doc-meta"><span>Scope: Local development</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+<p>La base local es Postgres real: la app usa <code>pg.Pool</code>, SQL crudo, RLS con <code>set_config</code> y Better Auth, así que no se reemplaza por un driver en memoria. En su lugar, cada desarrollador trabaja sobre una branch de Neon con nombre estable, creada desde la branch default del proyecto (copy-on-write), con su propio compute.</p>
+<p><code>pnpm db:sandbox</code> crea o reutiliza esa branch, le aplica las migraciones pendientes de <code>database/migrations/</code> y escribe sus connection strings en <code>.env.local</code>. Desde ahí, <code>pnpm run dev</code> usa el sandbox sin otro cambio, porque Next.js prioriza <code>.env.local</code> sobre <code>.env</code>.</p>
+<div class="callout c-info">Es el complemento de <a href="external-api-mocks.htm">External API Mocks</a>: con <code>MOCK_EXTERNAL_APIS=1</code>, los planes, preapprovals y cuentas de vendedor que crea el mock de Mercado Pago quedan en el sandbox y nunca se mezclan con la base compartida, cuyos IDs pertenecen al proveedor real.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Setup</div>
+<table>
+  <tr><th>Variable</th><th>Dónde</th><th>Uso</th></tr>
+  <tr><td><code>NEON_API_KEY</code></td><td>Entorno o <code>.env.local</code></td><td>API key personal de Neon. Solo local; nunca en CI ni en el repositorio.</td></tr>
+  <tr><td><code>NEON_PROJECT_ID</code></td><td>Entorno o <code>.env.local</code></td><td>Proyecto de Neon de TuTribu (<code>cold-firefly-92947172</code>).</td></tr>
+  <tr><td><code>NEON_DEV_BRANCH_NAME</code></td><td>Opcional</td><td>Nombre de la branch. Por defecto <code>dev-sandbox-&lt;usuario del sistema&gt;</code>, así cada desarrollador tiene la suya.</td></tr>
+</table>
+<div class="code-block"><pre># .env.local
+NEON_API_KEY=...
+NEON_PROJECT_ID=cold-firefly-92947172
+MOCK_EXTERNAL_APIS=1
+
+pnpm db:sandbox
+pnpm run dev</pre></div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Commands</div>
+<table>
+  <tr><th>Comando</th><th>Efecto</th></tr>
+  <tr><td><code>pnpm db:sandbox</code></td><td>Crea la branch si no existe (o la reutiliza y le asegura un compute read-write), aplica las migraciones pendientes y escribe <code>.env.local</code>. Es idempotente: correrlo de nuevo solo aplica migraciones nuevas.</td></tr>
+  <tr><td><code>pnpm db:sandbox -- --reset</code></td><td>Resetea la branch desde su padre (descarta los datos locales y toma una copia fresca de la default), migra y reescribe <code>.env.local</code>. Si la branch no existe, la crea.</td></tr>
+  <tr><td><code>pnpm db:sandbox -- --delete</code></td><td>Elimina la branch y quita sus variables de <code>.env.local</code>; la app vuelve a la conexión de <code>.env</code>.</td></tr>
+  <tr><td><code>--dry-run</code></td><td>Se combina con cualquiera de los anteriores. Solo consulta Neon e imprime el plan; no crea, migra ni escribe nada. Sin credenciales, asume que la branch no existe.</td></tr>
+</table>
+<p>El script escribe en <code>.env.local</code> un bloque delimitado por comentarios <code># &gt;&gt;&gt; dev-database-sandbox</code> con tres variables, y quita cualquier otra asignación de ellas en ese archivo:</p>
+<ul>
+  <li><code>DATABASE_URL</code>: connection string pooled, para el runtime.</li>
+  <li><code>DATABASE_MIGRATION_URL</code> y <code>DATABASE_MAINTENANCE_URL</code>: connection string directa, para migraciones y el barrido de mantenimiento.</li>
+</ul>
+<p>Si <code>next dev</code> ya estaba corriendo, reinicialo después de crear, resetear o eliminar el sandbox para que tome la nueva conexión.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Safety rules</div>
+<ul>
+  <li>Las migraciones corren con <code>DATABASE_URL</code>, <code>DATABASE_MIGRATION_URL</code> y <code>DATABASE_MAINTENANCE_URL</code> apuntando al sandbox, igual que el runner de <code>pnpm test:ui</code>. Nunca se migra la branch default: aplicar migraciones allí sigue siendo <code>pnpm run db:migrate</code> por pedido explícito.</li>
+  <li>El script se niega a crear, resetear, migrar o eliminar una branch default, primary o protegida, aunque <code>NEON_DEV_BRANCH_NAME</code> la nombre.</li>
+  <li><code>.env.local</code> solo se escribe después de una migración exitosa: una corrida fallida no deja la app apuntando a un sandbox a medio migrar.</li>
+  <li>Nunca se imprimen la API key ni las connection strings. El log muestra solo rol, host y database (<code>postgresql://rol:***@host/db</code>), y los errores de la API de Neon incluyen operación, método, path y status, sin el body.</li>
+  <li>El sandbox nace como copia de la branch default, con sus datos. Tratalo como datos sensibles: no lo compartas ni copies sus filas fuera de la máquina.</li>
+</ul>
+<div class="callout c-warn">El sandbox es de larga vida y consume compute mientras se usa. Cuando no lo necesites, <code>pnpm db:sandbox -- --delete</code> lo elimina. Las branches efímeras de validación de migraciones (ver <code>AGENTS.md</code>) siguen siendo descartables y separadas de este sandbox.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Implementation</div>
+<ul>
+  <li><code>scripts/dev-database-sandbox.mjs</code>: flags, plan de pasos, bloque de <code>.env.local</code> y redacción. Su lógica propia está cubierta en <code>tests/unit/tooling/dev-database-sandbox-script.test.ts</code>.</li>
+  <li><code>scripts/neon/neon-api-client.mjs</code>: cliente mínimo de la API REST de Neon, compartido con <code>scripts/e2e/neon-test-branch.mjs</code>.</li>
+  <li>Las migraciones se aplican con el mismo runner que <code>pnpm run db:migrate</code> (<code>scripts/push-migrations.js</code>).</li>
+</ul>
+</div>
+</body>
+</html>
