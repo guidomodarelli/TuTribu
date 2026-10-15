@@ -137,6 +137,18 @@ describe("development sign-in", () => {
     ]);
   });
 
+  it("signs in with the longest password the startup check allows", async () => {
+    const longestPassword = "x".repeat(128);
+    const auth = createAuth({ ...DEV_ENVIRONMENT, DEV_SIGN_IN_PASSWORD: longestPassword });
+
+    const response = await postAuth(auth, "/sign-in/email", {
+      email: DEV_EMAIL,
+      password: longestPassword,
+    });
+
+    expect(response.status).toBe(200);
+  });
+
   it("rejects any email other than the dev member without creating it", async () => {
     const database = createMemoryDatabase();
 

@@ -35,6 +35,13 @@ export const DEV_SIGN_IN_DEFAULT_MEMBER_NAME = "Integrante de desarrollo";
  */
 export const DEV_SIGN_IN_MIN_PASSWORD_LENGTH = 8;
 
+/**
+ * Longest password Better Auth accepts by default (`maxPasswordLength`),
+ * checked at startup so a longer `DEV_SIGN_IN_PASSWORD` does not render a form
+ * whose every attempt is rejected.
+ */
+export const DEV_SIGN_IN_MAX_PASSWORD_LENGTH = 128;
+
 /** Better Auth endpoint path of the email and password sign-in. */
 export const DEV_SIGN_IN_ENDPOINT_PATH = "/sign-in/email";
 

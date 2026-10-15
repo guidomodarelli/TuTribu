@@ -60,13 +60,25 @@ describe("resolveDevSignInCredentials", () => {
     ).toThrow(/DEV_SIGN_IN_EMAIL or DEV_SIGN_IN_PASSWORD is empty/);
   });
 
-  it("rejects a password Better Auth would refuse", () => {
+  it.each([
+    ["shorter than 8 characters", "short"],
+    ["longer than 128 characters", "x".repeat(129)],
+  ])("rejects a password %s, which Better Auth would refuse", (_lengthDescription, password) => {
     expect(() =>
       resolveDevSignInCredentials({
         DEV_SIGN_IN_EMAIL: "dev@tutribu.example",
-        DEV_SIGN_IN_PASSWORD: "short",
+        DEV_SIGN_IN_PASSWORD: password,
       })
-    ).toThrow(/shorter than 8 characters/);
+    ).toThrow(/between 8 and 128 characters/);
+  });
+
+  it("accepts a password of exactly 128 characters", () => {
+    expect(
+      resolveDevSignInCredentials({
+        DEV_SIGN_IN_EMAIL: "dev@tutribu.example",
+        DEV_SIGN_IN_PASSWORD: "x".repeat(128),
+      }).password
+    ).toHaveLength(128);
   });
 });
 

@@ -10,6 +10,7 @@ import {
   DEV_SIGN_IN_DEFAULT_MEMBER_NAME,
   DEV_SIGN_IN_ENABLED_FLAG_VALUES,
   DEV_SIGN_IN_ENVIRONMENT_VARIABLE,
+  DEV_SIGN_IN_MAX_PASSWORD_LENGTH,
   DEV_SIGN_IN_MIN_PASSWORD_LENGTH,
   DEV_SIGN_IN_NODE_ENVIRONMENT,
 } from "@/src/modules/auth/constants/dev-sign-in";
@@ -26,7 +27,7 @@ const IGNORED_DEV_SIGN_IN_FLAG_LOG = {
 const DEV_SIGN_IN_CONFIGURATION_ERROR_MESSAGE = {
   missingCredentials:
     "Dev sign-in is enabled (DEV_SIGN_IN) but DEV_SIGN_IN_EMAIL or DEV_SIGN_IN_PASSWORD is empty. Set both in .env.local or turn DEV_SIGN_IN off.",
-  shortPassword: `Dev sign-in is enabled (DEV_SIGN_IN) but DEV_SIGN_IN_PASSWORD is shorter than ${DEV_SIGN_IN_MIN_PASSWORD_LENGTH} characters, which Better Auth rejects.`,
+  passwordLength: `Dev sign-in is enabled (DEV_SIGN_IN) but DEV_SIGN_IN_PASSWORD must have between ${DEV_SIGN_IN_MIN_PASSWORD_LENGTH} and ${DEV_SIGN_IN_MAX_PASSWORD_LENGTH} characters, the range Better Auth accepts.`,
 } as const;
 
 /** Outcome of the activation rule; `ignored-outside-development` means the flag was set where it is not allowed. */
@@ -90,7 +91,8 @@ export function reportIgnoredDevSignInFlag(): void {
  *
  * @param environment - Process environment values.
  * @returns The normalized credentials.
- * @throws Error when the email or password is missing or the password is too short.
+ * @throws Error when the email or password is missing or the password length
+ * is outside the range Better Auth accepts.
  */
 export function resolveDevSignInCredentials(
   environment: DevSignInEnvironment
@@ -107,8 +109,11 @@ export function resolveDevSignInCredentials(
     throw new Error(DEV_SIGN_IN_CONFIGURATION_ERROR_MESSAGE.missingCredentials);
   }
 
-  if (password.length < DEV_SIGN_IN_MIN_PASSWORD_LENGTH) {
-    throw new Error(DEV_SIGN_IN_CONFIGURATION_ERROR_MESSAGE.shortPassword);
+  if (
+    password.length < DEV_SIGN_IN_MIN_PASSWORD_LENGTH ||
+    password.length > DEV_SIGN_IN_MAX_PASSWORD_LENGTH
+  ) {
+    throw new Error(DEV_SIGN_IN_CONFIGURATION_ERROR_MESSAGE.passwordLength);
   }
 
   return { email, name, password };

@@ -63,7 +63,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <tr><td>build, <code>next start</code>, Vercel, Cloudflare, tests</td><td>activa</td><td>No se registra. Se loguea un warning (<code>feature: dev-sign-in</code>) y el endpoint responde <code>EMAIL_PASSWORD_DISABLED</code>.</td></tr>
 </table>
 <p>La regla vive en <code>resolveDevSignInActivation</code> (<code>src/modules/auth/infrastructure/dev-sign-in/dev-sign-in-activation.ts</code>) y sigue el mismo patrón que <code>MOCK_EXTERNAL_APIS</code>. Es una flag separada a propósito: se puede simular Mercado Pago sin tocar el login, y al revés.</p>
-<div class="callout c-warn">Con la flag activa y <code>DEV_SIGN_IN_EMAIL</code> o <code>DEV_SIGN_IN_PASSWORD</code> vacíos (o una contraseña de menos de 8 caracteres), el módulo de auth falla al cargar con un mensaje que nombra la variable. Es intencional: la flag se pidió de forma explícita y una configuración a medias no debe pasar desapercibida.</div>
+<div class="callout c-warn">Con la flag activa y <code>DEV_SIGN_IN_EMAIL</code> o <code>DEV_SIGN_IN_PASSWORD</code> vacíos (o una contraseña de menos de 8 o más de 128 caracteres, el rango que acepta Better Auth), el módulo de auth falla al cargar con un mensaje que nombra la variable. Es intencional: la flag se pidió de forma explícita y una configuración a medias no debe pasar desapercibida.</div>
 </div>
 
 <div class="section">
