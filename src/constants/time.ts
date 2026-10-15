@@ -10,6 +10,9 @@
  */
 export const MILLISECONDS_PER_SECOND = 1000;
 
+/** Number of microseconds in one second; native notification clocks retain this precision. */
+export const MICROSECONDS_PER_SECOND = 1_000_000;
+
 /**
  * Number of seconds in one minute.
  */
