@@ -6,6 +6,15 @@ import {describe,expect,it} from "vitest";
 import {postReauthenticationIntent,getReauthenticationIntent} from "@/src/modules/auth/infrastructure/api/reauthentication-route-handlers";
 
 describe("reauthentication intent HTTP",()=>{
+  it.each(["application/json","text/plain"])("should reject a foreign browser origin before reading %s or opening current auth",async(contentType)=>{
+    const tribeId=randomUUID();let invoked=false;
+    const request=new Request("https://app.example.test/api/auth/reauthentication/intents",{method:"POST",headers:{origin:"https://foreign.example.test","content-type":contentType},body:JSON.stringify({tribeId,operation:"save_messaging_credentials",resourceId:tribeId,returnPath:"/tribe",confirmed:true})});
+    const response=await postReauthenticationIntent(request,async()=>{invoked=true;return{useCases:{createIntent:{execute:async()=>({ok:false as const,failure:{code:"context_unavailable" as const}})},readIntent:{execute:async()=>({ok:false as const,failure:{code:"intent_not_found" as const}})}}};});
+    expect(response.status).toBe(403);expect(invoked).toBe(false);expect(request.bodyUsed).toBe(false);
+    expect(response.headers.get("cache-control")).toBe("no-store");expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(await response.json()).toMatchObject({code:"context_unavailable"});
+  });
+
   it("should reject client identity or permission fields before invoking a use case",async()=>{
     let invoked=false;
     const response=await postReauthenticationIntent(new Request("https://app.example.test/api/auth/reauthentication/intents",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tribeId:randomUUID(),operation:"save_messaging_credentials",resourceId:randomUUID(),returnPath:"/tribe",confirmed:true,userId:randomUUID(),verified:true})}),async()=>{invoked=true;throw new Error("Unexpected invocation");});

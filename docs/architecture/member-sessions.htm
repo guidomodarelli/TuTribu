@@ -110,5 +110,16 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 </ul>
 </div>
 
+<div class="section" aria-labelledby="private-auth-http">
+  <div class="section-num">08</div>
+  <h2 class="section-title" id="private-auth-http">Privacidad del transporte y los diagnósticos</h2>
+  <p>El wrapper HTTP de autenticación aplica <code>no-store</code>, <code>no-referrer</code> y correlación opaca acotada a éxitos, errores y redirecciones. La proyección de sesión actual, sesiones del dispositivo y éxitos de acceso selecciona un DTO propio sin el token de sesión ni campos adicionales del SDK. Se valida ese resultado después del mapeo; no se revalida el payload del proveedor. Los estados nativos, las cookies y la renovación siguen a cargo de Better Auth. Un DTO inutilizable devuelve un error controlado 500; no se convierte en una sesión anónima.</p>
+  <p>Las rutas HTTP <code>/get-access-token</code> y <code>/refresh-token</code> están deshabilitadas mediante la opción nativa <code>disabledPaths</code>, antes de cualquier efecto. La API privada del servidor conserva el acceso necesario para la sincronización de la imagen de perfil. El flujo OAuth normal mantiene su URL, estado, PKCE y callback; el acceso con ID token conserva su cookie y sus datos públicos sin devolver el token de sesión.</p>
+  <p>El logger configurado conserva el umbral nativo de advertencia y emite sólo códigos fijos, operación y request/trace propios; descarta mensajes variables y argumentos privados. La correlación se aísla por operación asíncrona. El decorador de la base protege también los errores que el SDK envía a su logger global: conserva la causa original privada, pero texto, inspección de consola y JSON seleccionan sólo hechos seguros. Los argumentos, resultados, metadata y modo transaccional nativos se conservan; los errores de negocio y las redirecciones del callback mantienen su identidad.</p>
+  <p>La creación de una intención de confirmación comprueba el origen antes de leer el body o componer autenticación y persistencia. La autorización actual y la evidencia de autenticación reciente continúan siendo obligatorias. La sesión abierta no sustituye esa evidencia ni la confirmación ejecuta la acción protegida por sí sola.</p>
+  <p>El logger de peticiones de Next en desarrollo no puede redactar URLs: su política excluye las rutas privadas de autenticación/admisión/mensajería/invitaciones, el feed personal, cualquier query y los escapes de URL. Las peticiones ordinarias sin query conservan su diagnóstico. Los fallos privados se observan desde los boundaries con códigos y correlación, sin bodies, cookies ni URLs secretas. Esta decisión corresponde al logger de desarrollo, no a una garantía sobre servicios externos de hosting.</p>
+  <p>La <a href="../../specs/001-academy-admissions/validation/private-http-hardening-baseline.md">validación de T172</a> distingue contratos locales, SDK y criptografía reales, PostgreSQL y el servidor Next compilado; delimita la evidencia reutilizada de admisión y mensajería.</p>
+</div>
+
 </body>
 </html>

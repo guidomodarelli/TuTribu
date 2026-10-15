@@ -2,7 +2,10 @@
 import "server-only";
 import {AUTH_EVIDENCE_CAPTURE_FAILURE,AUTH_EVIDENCE_FAILURE_KIND} from "@/src/modules/auth/constants/auth-evidence-capture";
 import {GLOBAL_IDENTITY_CAPTURE_STATUS} from "@/src/modules/auth/constants/global-identity-evidence-persistence";
-import {resolveRequestContext,type RequestContext} from "@/src/modules/shared/infrastructure/observability/request-context";
+import type {RequestContext} from "@/src/modules/shared/infrastructure/observability/request-context";
+import {resolvePrivateRequestContext} from "@/src/modules/shared/infrastructure/observability/private-request-context";
+import {runWithBetterAuthLoggingContext} from "./better-auth-logger";
+import {projectPublicAuthResponse} from "./public-auth-session-response";
 import {getAuthEvidenceContext,runWithAuthEvidenceContext,type AuthEvidenceCaptureFailure,type CompletedGoogleLogin} from "./auth-evidence-context";
 
 /** Contains only safe correlation and the capture outcome, never a raw cause or profile. */
@@ -17,14 +20,15 @@ export type AuthEvidenceHandlerObservers={
  * Wraps the unchanged native handler with a fresh private capture store per request.
  * @param handler - Existing global Better Auth handler, preserving its response and cookies.
  * @param observers - Own persistence and safe diagnostic boundaries.
- * @returns A handler that closes additional evidence on failure while preserving valid login.
+ * @returns A handler that preserves native auth decisions/cookies while exposing only safe own session DTOs.
  * @throws The original native handler's failure when global authentication itself fails.
  */
 export function createScopedAuthEvidenceHandler(handler:(request:Request)=>Promise<Response>,observers:AuthEvidenceHandlerObservers):(request:Request)=>Promise<Response> {
-  return (request)=>runWithAuthEvidenceContext(async()=>{
+  return (request)=>{
+    const context=resolvePrivateRequestContext(request.headers);
+    return runWithBetterAuthLoggingContext(context,()=>runWithAuthEvidenceContext(async()=>{
     const response=await handler(request);
     const scope=getAuthEvidenceContext();
-    const context=resolveRequestContext(request.headers);
     if(scope?.completedGoogleLogin) {
       try {
         const outcome=await observers.persist(scope.completedGoogleLogin);
@@ -34,6 +38,7 @@ export function createScopedAuthEvidenceHandler(handler:(request:Request)=>Promi
       }
     }
     if(scope?.captureFailure) observers.reportFailure({...context,...scope.captureFailure});
-    return response;
-  });
+    return projectPublicAuthResponse(request,response,context);
+    }));
+  };
 }

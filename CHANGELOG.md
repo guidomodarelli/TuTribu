@@ -128,6 +128,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La recuperación paga de membresías protegidas conserva el silenciamiento y la fecha de ingreso, sin levantar bloqueos por conducta ni reutilizar una admisión anterior.
 - La recuperación de acceso por pago evita bloquearse cuando se intenta eliminar al mismo tiempo la cuenta que creó la tribu.
 - La eliminación de una tribu con avisos recuperados conserva su procedencia y su historial sin quedar bloqueada ni reiniciar consumos.
+- El inicio de sesión, la confirmación de acciones sensibles y las consultas privadas protegen las credenciales en respuestas y registros, conservando la sesión y los errores recuperables.
 
 ### Security
 
