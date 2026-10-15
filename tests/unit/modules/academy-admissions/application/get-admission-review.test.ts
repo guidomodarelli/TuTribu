@@ -38,4 +38,12 @@ describe("current admission review reads", () => {
     data.resolver.execute.mockResolvedValueOnce({ allowed: true, context: data.context }).mockResolvedValueOnce({ allowed: true, context: { ...data.context, sessionId: randomUUID() } });
     expect(await data.useCases.list(data.query)).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
   });
+
+  it.each([true, false])("should preserve the current exception filter %s independently of source and verification", async (requiresExceptionReason) => {
+    const data = fixture();
+    const query = { ...data.query, requiresExceptionReason, needsVerification: false, source: "common" as const, search: "Solicitante", submittedFrom: "2026-10-01T00:00:00Z", submittedUntil: "2026-10-08T00:00:00Z", cursor: { submittedAt: "2026-10-07T00:00:00Z", id: randomUUID() } };
+    expect(await data.useCases.list(query)).toEqual({ ok: true, value: { items: [], nextCursor: null } });
+    expect(data.reader.readList).toHaveBeenCalledWith({ tribeId: data.context.tribeId, requestId: data.context.requestId, userId: data.context.userId, sessionId: data.context.sessionId }, { limit: query.limit, status: undefined, source: query.source, cursor: query.cursor, search: query.search, needsVerification: false, requiresExceptionReason, submittedFrom: query.submittedFrom, submittedUntil: query.submittedUntil });
+    expect(data.resolver.execute).toHaveBeenCalledTimes(2);
+  });
 });

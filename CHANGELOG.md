@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- La consulta autorizada de solicitudes de admisión permite distinguir cuáles necesitan actualmente un motivo de excepción y combinarlo con otros filtros; el control de filtros en la bandeja sigue pendiente.
+
 - Los líderes y guardianes pueden preparar su preferencia de avisos de admisión desde una pantalla propia; el líder ajusta el correo y su zona por separado y puede recuperar respuestas inciertas conservando el cambio original.
 
 - El líder puede consultar el resultado original de un cambio de correo de admisión sin repetir la confirmación de Google; los nuevos cambios siguen requiriéndola.

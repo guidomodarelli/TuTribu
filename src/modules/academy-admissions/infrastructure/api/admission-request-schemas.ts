@@ -4,13 +4,13 @@ import { isSupportedCountry, type CountryCode } from "libphonenumber-js/max";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { ADMISSION_INPUT_CATEGORY, ALLOWLIST_ENTRY_STATUS } from "@/src/modules/academy-admissions/constants/admission-resources";
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
-import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
-import { ADMISSION_PUBLIC_SOURCE, ADMISSION_DECISION, ADMISSION_QUERY_LIMIT, ADMISSION_PUBLIC_CODE_PATTERN, ADMISSION_REVIEW_CURSOR_SEPARATOR } from "@/src/modules/academy-admissions/constants/admission-public-contract";
+import { ADMISSION_DECISION, ADMISSION_QUERY_LIMIT, ADMISSION_PUBLIC_CODE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_POLICY_MODE, ADMISSION_PHONE_CHANNEL } from "@/src/modules/academy-admissions/constants/admission-policy";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { ALLOWLIST_CURSOR_SEPARATOR } from "../../constants/allowlist-management";
 import { admissionTribeParamsSchema, admissionPageSizeSchema as pageSizeSchema } from "../../constants/admission-route-input";
 export { admissionTribeParamsSchema, admissionEmptyQuerySchema, admissionInvitationQuerySchema } from "../../constants/admission-route-input";
+export { admissionReviewQuerySchema } from "../../constants/admission-review-input";
 
 /** Mutations must carry a stable UUID and an explicit fresh confirmation. */
 const operationFields = {
@@ -68,9 +68,6 @@ export const admissionInvitationParamsSchema = admissionTribeParamsSchema.extend
 export const admissionImportParamsSchema = admissionTribeParamsSchema.extend({ importId: z.uuid().transform((importId) => importId.toLowerCase()) });
 
 const pageQueryFields = { limit: pageSizeSchema, cursor: z.string().min(1).max(ADMISSION_QUERY_LIMIT.cursorCharacters).optional(), search: z.string().trim().max(ADMISSION_QUERY_LIMIT.searchCharacters).optional() };
-/** Review filters remain bounded and tenant-local; current permissions are derived separately. */
-const reviewCursorSchema = z.string().max(ADMISSION_QUERY_LIMIT.cursorCharacters).transform((cursor) => cursor.split(ADMISSION_REVIEW_CURSOR_SEPARATOR)).pipe(z.tuple([z.iso.datetime({ offset: true }), z.uuid()])).transform(([submittedAt, id]) => ({ submittedAt, id }));
-export const admissionReviewQuerySchema = z.strictObject({ ...pageQueryFields, cursor: reviewCursorSchema.optional(), status: z.enum(ADMISSION_REQUEST_STATUS).optional(), source: z.enum(ADMISSION_PUBLIC_SOURCE).optional(), needsVerification: z.enum(["true", "false"]).transform((value) => value === "true").optional(), submittedFrom: z.iso.datetime({ offset: true }).optional(), submittedUntil: z.iso.datetime({ offset: true }).optional() }).refine((query) => !query.submittedFrom || !query.submittedUntil || new Date(query.submittedFrom) <= new Date(query.submittedUntil));
 export const admissionAllowlistQuerySchema = z.strictObject({ ...pageQueryFields, cursor: z.string().max(ADMISSION_QUERY_LIMIT.cursorCharacters).transform((cursor) => cursor.split(ALLOWLIST_CURSOR_SEPARATOR)).pipe(z.tuple([z.iso.datetime({ offset: true }), z.uuid()])).transform(([createdAt, id]) => ({ createdAt, id: id.toLowerCase() })).optional(), status: z.enum(ALLOWLIST_ENTRY_STATUS).optional() });
 
 /** The account email/source/identity evidence are server-owned; the body can select only the explicit route intent. */
