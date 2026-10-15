@@ -69,6 +69,14 @@ const PORTLESS_ENVIRONMENT = {
  */
 const PORTLESS_MIN_VERSION = "0.15.5";
 
+/**
+ * HTTPS port the proxy must bind. Passing it explicitly makes `portless proxy
+ * start` fail when it cannot bind it (for example when `sudo` is denied),
+ * instead of silently falling back to port 1355 and leaving
+ * `https://dev.tutribu.app` unreachable.
+ */
+const PORTLESS_HTTPS_PORT = "443";
+
 /** First `X.Y.Z` triple in the `portless --version` output. */
 const SEMANTIC_VERSION_PATTERN = /(\d+)\.(\d+)\.(\d+)/;
 
@@ -122,8 +130,16 @@ export function buildDevHostName(options = PORTLESS_DEV) {
 export function buildPortlessCommands(options = PORTLESS_DEV) {
   return {
     proxyStart: {
-      commandArguments: ["proxy", "start", "--https", "--tld", options.tld],
-      description: `Iniciar el proxy de portless con HTTPS y TLD .${options.tld}`,
+      commandArguments: [
+        "proxy",
+        "start",
+        "--https",
+        "--port",
+        PORTLESS_HTTPS_PORT,
+        "--tld",
+        options.tld,
+      ],
+      description: `Iniciar el proxy de portless con HTTPS en el puerto ${PORTLESS_HTTPS_PORT} y TLD .${options.tld}`,
     },
     proxyStop: {
       commandArguments: ["proxy", "stop"],
