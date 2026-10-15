@@ -1,0 +1,149 @@
+{
+  "capturedAt": "2026-10-15T16:27:26.552Z",
+  "status": "native_private_reminder_primitive_verified",
+  "baseHead": "8e80823030234585061f0563d41c216a9e9e5bdd",
+  "scope": "Primitiva SQL privada DB-only; no coordinador, endpoint, scheduler ni correo.",
+  "native": {
+    "startedAt": "2026-10-15T16:23:05.183Z",
+    "completedAt": "2026-10-15T16:25:46.185Z",
+    "completeFiles": 1,
+    "passed": 3,
+    "failed": 0,
+    "filtered": 0,
+    "sourceInputsStable": true,
+    "sourceFiles": [
+      {
+        "path": "tests/unit/modules/notifications/infrastructure/admission-notification-reminders.test.ts",
+        "sha256": "21239a1333c53ad704488601a999ff39c70a3f06f0ba3bc4b6564a140208fad4"
+      },
+      {
+        "path": "database/migrations/20261015162200_materialize_admission_notification_reminders.sql",
+        "sha256": "f98921e86862872cb8f8286acc42fa9f0ab207412b1a7689754d26e0dfcb3b0a"
+      },
+      {
+        "path": "tests/support/admission-notification-reminder-fixture.ts",
+        "sha256": "ee2aa75dac5d6ce9a945e330ad8bec107af72596facfabedd34878f94cb02986"
+      },
+      {
+        "path": "tests/support/constants/admission-notification-validation.ts",
+        "sha256": "a6386e3b3a7cb458f824ab65a7911ace548de64a05ac0a2efb168f92055c0ec5"
+      },
+      {
+        "path": "database/migrations/meta/_journal.json",
+        "sha256": "c21204d4d5dcb6be3ad5a1a497eced42b8ff242527a72f925e3f7d64e9b56e8e"
+      },
+      {
+        "path": "database/migrations/20261014185400_audit_admission_notification_creation.sql",
+        "sha256": "a00b1802fea6c4cf1558dc3b14c3d622c2b47ce806c65fbd83d958c8da0261b3"
+      },
+      {
+        "path": "tests/support/academy-admission-database.ts",
+        "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+      },
+      {
+        "path": "tests/support/admission-migration-command.ts",
+        "sha256": "7914b750b7077fcc3828097d8a928a64427765fd8964885fd8c5ed5813034630"
+      }
+    ],
+    "cases": [
+      {
+        "title": "native admission notification reminders should materialize one logical reminder per due request with current reviewer notices under concurrent replay",
+        "status": "passed",
+        "durationMs": 54148.9679
+      },
+      {
+        "title": "native admission notification reminders should skip a held tribe before limiting work and catch it up after the original fence is released",
+        "status": "passed",
+        "durationMs": 52005.1921
+      },
+      {
+        "title": "native admission notification reminders should roll back observed reminder effects and deny direct request execution or invalid batch sizes",
+        "status": "passed",
+        "durationMs": 53692.05649999999
+      }
+    ]
+  },
+  "businessRed": {
+    "passed": 0,
+    "failed": 1,
+    "filtered": 2,
+    "sqlState": "42883",
+    "sourceInputsStable": true,
+    "reason": "Función inexistente tras el journal original; la preparación real sí completó.",
+    "countedInCurrent": false
+  },
+  "originalSqlGuardsPreserved": true,
+  "dependencyDoublesInReminderTests": false,
+  "fullVersionedJournal": true,
+  "processedUnit": "original_request",
+  "defaultLimit": 50,
+  "maximumLimit": 100,
+  "minimumElapsedHours": 72,
+  "observedRollback": {
+    "stagedObligations": 2,
+    "stagedNotices": 3,
+    "stagedNotificationAudit": 5,
+    "restoredObligations": 0,
+    "restoredNotices": 0,
+    "restoredNotificationAudit": 0,
+    "explicitRetryCreated": 2,
+    "replayCreated": 0
+  },
+  "busyTribe": {
+    "actualNativeFence": true,
+    "otherScopeProgressedBeforeRelease": true,
+    "originalCatchUpAfterRelease": true,
+    "holderReleasedAndAwaited": true
+  },
+  "directRequestExecuteRejectedSqlState": "42501",
+  "invalidBatchRejectedSqlState": "23514",
+  "originalRequestVersionUnchanged": true,
+  "applicantMembershipGranted": false,
+  "publicApiImplemented": false,
+  "publicUiImplemented": false,
+  "maintenanceCoordinatorImplemented": false,
+  "maintenanceHealthAndRemainingWorkImplemented": false,
+  "schedulerImplemented": false,
+  "groupProducerImplemented": false,
+  "externalEmailDispatchImplemented": false,
+  "fullT185Approved": false,
+  "fullT186Approved": false,
+  "fullUs8Approved": false,
+  "taskClosure": false,
+  "originalTasks": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38
+  },
+  "staticChecks": {
+    "focusedLint": "passed",
+    "productTypes": "unchanged_from_saved_head",
+    "testTypes": "passed",
+    "diffCheck": "passed"
+  },
+  "resources": {
+    "inventoryAt": "2026-10-15T16:27:26.551Z",
+    "productionPreserved": true,
+    "originalPilotPreserved": true,
+    "temporaryBranches": 0,
+    "externalMessagesSent": 0
+  },
+  "nextCommitCiApproved": false,
+  "docs": {
+    "sourceHash": "a8b906690bf4cd8a2734e9a97836e69e7a0b81a8b4bd33bd175b3ed1b8722706",
+    "views": 4,
+    "engines": [
+      "chromium",
+      "webkit"
+    ],
+    "widths": [
+      390,
+      1280
+    ],
+    "visuallyInspected": [
+      "chromium-1280",
+      "webkit-390"
+    ],
+    "horizontalOverflow": false
+  }
+}
