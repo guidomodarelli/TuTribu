@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-15
+
 ### Changed
 
 - Los campos de texto de los formularios tienen un diseño nuevo: son más altos, el borde se marca al enfocarlos y se pone rojo cuando hay un error, y los textos largos se escriben en un área más alta que se puede agrandar.
