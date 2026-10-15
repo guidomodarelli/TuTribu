@@ -74,14 +74,11 @@ pnpm run dev</pre></div>
   <tr><th>Comando</th><th>Efecto</th></tr>
   <tr><td><code>pnpm db:sandbox</code></td><td>Crea la branch si no existe (o la reutiliza y le asegura un compute read-write), aplica las migraciones pendientes y escribe <code>.env.local</code>. Es idempotente: correrlo de nuevo solo aplica migraciones nuevas.</td></tr>
   <tr><td><code>pnpm db:sandbox -- --reset</code></td><td>Resetea la branch desde su padre (descarta los datos locales y toma una copia fresca de la default), migra y reescribe <code>.env.local</code>. Si la branch no existe, la crea.</td></tr>
-  <tr><td><code>pnpm db:sandbox -- --delete</code></td><td>Elimina la branch y quita sus variables de <code>.env.local</code>; la app vuelve a la conexión de <code>.env</code>.</td></tr>
+  <tr><td><code>pnpm db:sandbox -- --delete</code></td><td>Elimina la branch y quita su bloque de <code>.env.local</code>; la app vuelve a la conexión configurada antes del sandbox (una asignación previa en <code>.env.local</code> o, si no hay, la de <code>.env</code>).</td></tr>
   <tr><td><code>--dry-run</code></td><td>Se combina con cualquiera de los anteriores. Solo consulta Neon e imprime el plan; no crea, migra ni escribe nada. Sin credenciales, asume que la branch no existe.</td></tr>
 </table>
-<p>El script escribe en <code>.env.local</code> un bloque delimitado por comentarios <code># &gt;&gt;&gt; dev-database-sandbox</code> con tres variables, y quita cualquier otra asignación de ellas en ese archivo:</p>
-<ul>
-  <li><code>DATABASE_URL</code>: connection string pooled, para el runtime.</li>
-  <li><code>DATABASE_MIGRATION_URL</code> y <code>DATABASE_MAINTENANCE_URL</code>: connection string directa, para migraciones y el barrido de mantenimiento.</li>
-</ul>
+<p>El script escribe al final de <code>.env.local</code> un bloque delimitado por comentarios <code># &gt;&gt;&gt; dev-database-sandbox</code> con <code>DATABASE_URL</code>, <code>DATABASE_MIGRATION_URL</code> y <code>DATABASE_MAINTENANCE_URL</code>. Las tres usan la connection string directa del sandbox: el runtime también la necesita, porque <code>createPostgresPool</code> aplica <code>idle_in_transaction_session_timeout</code> como estado de sesión, que un pooler en modo transacción no preserva (ver <code>docs/architecture/migrating-to-neon.htm</code>).</p>
+<p>El script solo reemplaza o quita ese bloque; no toca las asignaciones de esas variables que ya existían fuera de él. Next.js aplica la última asignación de cada variable, así que el bloque gana mientras exista y, al quitarlo con <code>--delete</code>, vuelven a regir los valores previos.</p>
 <p>Si <code>next dev</code> ya estaba corriendo, reinicialo después de crear, resetear o eliminar el sandbox para que tome la nueva conexión.</p>
 </div>
 

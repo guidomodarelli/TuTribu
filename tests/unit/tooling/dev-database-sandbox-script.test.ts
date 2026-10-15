@@ -1,5 +1,10 @@
 /** @vitest-environment node */
 
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { loadEnvConfig, resetEnv } from "@next/env";
 import { beforeAll, describe, expect, it } from "vitest";
 
 type SandboxMode = "ensure" | "reset" | "delete";
@@ -43,34 +48,48 @@ type DevDatabaseSandboxScript = {
   redactConnectionString: (connectionString: string) => string;
 };
 
-const RUNTIME_URL =
-  "postgresql://neondb_owner:runtime-secret@ep-sandbox-pooler.example.neon.tech/neondb?sslmode=require";
 const DIRECT_URL =
   "postgresql://neondb_owner:direct-secret@ep-sandbox.example.neon.tech/neondb?sslmode=require";
 const SANDBOX_CONNECTION_STRINGS = {
   DATABASE_MAINTENANCE_URL: DIRECT_URL,
   DATABASE_MIGRATION_URL: DIRECT_URL,
-  DATABASE_URL: RUNTIME_URL,
+  DATABASE_URL: DIRECT_URL,
 };
+const PREVIOUS_DATABASE_URL = "postgresql://previous-runtime";
+const PREVIOUS_MIGRATION_URL = "postgresql://previous-migration";
+const FILE_WITH_PREVIOUS_ASSIGNMENTS = [
+  "BETTER_AUTH_URL=https://dev.tutribu.app",
+  `DATABASE_URL=${PREVIOUS_DATABASE_URL}`,
+  `DATABASE_MIGRATION_URL=${PREVIOUS_MIGRATION_URL}`,
+  "MOCK_EXTERNAL_APIS=1",
+  "",
+].join("\n");
 
 let sandboxScript: DevDatabaseSandboxScript;
 
 /**
- * Reads every `KEY=value` assignment of an env file the way a dotenv loader
- * does: the last assignment of a key wins.
+ * Resolves the values Next.js applies from an env file with these contents,
+ * through the real `@next/env` loader, and restores `process.env` afterwards.
+ * The file is written as `.env` because the loader skips `.env.local` while
+ * `NODE_ENV` is `test`; the precedence inside a single file is the same.
  */
-function readEnvironmentAssignments(environmentFileText: string) {
-  const assignments = new Map<string, string>();
+function loadEffectiveEnvironment(environmentFileText: string) {
+  const projectDirectory = mkdtempSync(join(tmpdir(), "dev-database-sandbox-"));
 
-  for (const line of environmentFileText.split(/\r?\n/)) {
-    const match = /^([A-Z_][A-Z0-9_]*)=(.*)$/.exec(line);
+  try {
+    writeFileSync(join(projectDirectory, ".env"), environmentFileText);
+    const { loadedEnvFiles } = loadEnvConfig(
+      projectDirectory,
+      true,
+      { error: () => undefined, info: () => undefined },
+      true
+    );
 
-    if (match) {
-      assignments.set(match[1], match[2]);
-    }
+    return loadedEnvFiles.find((envFile) => envFile.path === ".env")?.env ?? {};
+  } finally {
+    resetEnv();
+    rmSync(projectDirectory, { force: true, recursive: true });
   }
-
-  return assignments;
 }
 
 describe("dev database sandbox script", () => {
@@ -239,28 +258,19 @@ describe("dev database sandbox script", () => {
   });
 
   describe("sandbox environment block", () => {
-    it("should point every database variable at the sandbox and keep unrelated settings", () => {
-      const originalFileText = [
-        "BETTER_AUTH_URL=https://dev.tutribu.app",
-        "DATABASE_URL=postgresql://shared",
-        "MOCK_EXTERNAL_APIS=1",
-        "",
-      ].join("\n");
-
+    it("should make the sandbox effective while keeping earlier assignments in the file", () => {
       const updatedFileText = sandboxScript.upsertSandboxEnvironment(
-        originalFileText,
+        FILE_WITH_PREVIOUS_ASSIGNMENTS,
         SANDBOX_CONNECTION_STRINGS
       );
-      const assignments = readEnvironmentAssignments(updatedFileText);
+      const effectiveEnvironment = loadEffectiveEnvironment(updatedFileText);
 
-      expect(assignments.get("DATABASE_URL")).toBe(RUNTIME_URL);
-      expect(assignments.get("DATABASE_MIGRATION_URL")).toBe(DIRECT_URL);
-      expect(assignments.get("DATABASE_MAINTENANCE_URL")).toBe(DIRECT_URL);
-      expect(assignments.get("BETTER_AUTH_URL")).toBe(
-        "https://dev.tutribu.app"
-      );
-      expect(assignments.get("MOCK_EXTERNAL_APIS")).toBe("1");
-      expect(updatedFileText).not.toContain("postgresql://shared");
+      expect(effectiveEnvironment.DATABASE_URL).toBe(DIRECT_URL);
+      expect(effectiveEnvironment.DATABASE_MIGRATION_URL).toBe(DIRECT_URL);
+      expect(effectiveEnvironment.DATABASE_MAINTENANCE_URL).toBe(DIRECT_URL);
+      expect(effectiveEnvironment.BETTER_AUTH_URL).toBe("https://dev.tutribu.app");
+      expect(effectiveEnvironment.MOCK_EXTERNAL_APIS).toBe("1");
+      expect(updatedFileText.startsWith(FILE_WITH_PREVIOUS_ASSIGNMENTS)).toBe(true);
     });
 
     it("should be idempotent across repeated runs and preserve CRLF files", () => {
@@ -279,7 +289,23 @@ describe("dev database sandbox script", () => {
       expect(firstRun.replace(/\r\n/g, "")).not.toContain("\n");
     });
 
-    it("should remove the sandbox variables so the app falls back to .env", () => {
+    it("should restore the assignments made before the sandbox when the block is removed", () => {
+      const sandboxFileText = sandboxScript.upsertSandboxEnvironment(
+        FILE_WITH_PREVIOUS_ASSIGNMENTS,
+        SANDBOX_CONNECTION_STRINGS
+      );
+
+      const cleanedFileText =
+        sandboxScript.removeSandboxEnvironment(sandboxFileText);
+      const effectiveEnvironment = loadEffectiveEnvironment(cleanedFileText);
+
+      expect(cleanedFileText).toBe(FILE_WITH_PREVIOUS_ASSIGNMENTS);
+      expect(effectiveEnvironment.DATABASE_URL).toBe(PREVIOUS_DATABASE_URL);
+      expect(effectiveEnvironment.DATABASE_MIGRATION_URL).toBe(PREVIOUS_MIGRATION_URL);
+      expect(effectiveEnvironment.DATABASE_MAINTENANCE_URL).toBeUndefined();
+    });
+
+    it("should leave no database variable when the file had none before the sandbox", () => {
       const sandboxFileText = sandboxScript.upsertSandboxEnvironment(
         "BETTER_AUTH_URL=https://dev.tutribu.app\n",
         SANDBOX_CONNECTION_STRINGS
@@ -287,21 +313,19 @@ describe("dev database sandbox script", () => {
 
       const cleanedFileText =
         sandboxScript.removeSandboxEnvironment(sandboxFileText);
-      const assignments = readEnvironmentAssignments(cleanedFileText);
 
-      expect([...assignments.keys()]).toEqual(["BETTER_AUTH_URL"]);
       expect(cleanedFileText).toBe("BETTER_AUTH_URL=https://dev.tutribu.app\n");
     });
   });
 
   describe("redactConnectionString", () => {
     it("should hide the password and query while keeping what identifies the target", () => {
-      const redacted = sandboxScript.redactConnectionString(RUNTIME_URL);
+      const redacted = sandboxScript.redactConnectionString(DIRECT_URL);
 
-      expect(redacted).not.toContain("runtime-secret");
+      expect(redacted).not.toContain("direct-secret");
       expect(redacted).not.toContain("sslmode");
       expect(redacted).toContain("neondb_owner");
-      expect(redacted).toContain("ep-sandbox-pooler.example.neon.tech");
+      expect(redacted).toContain("ep-sandbox.example.neon.tech");
       expect(redacted).toContain("/neondb");
     });
 

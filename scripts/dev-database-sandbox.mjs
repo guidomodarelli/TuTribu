@@ -10,12 +10,13 @@
  *   node scripts/dev-database-sandbox.mjs [--reset | --delete] [--dry-run]
  *
  * - No flag: creates the branch when missing (or reuses it), applies the
- *   pending migrations of `database/migrations/` to it, and writes its runtime
- *   (pooled) and maintenance (direct) connection strings to `.env.local`.
+ *   pending migrations of `database/migrations/` to it, and writes its direct
+ *   connection string (runtime, migrations and maintenance) to `.env.local`.
  * - `--reset`: resets the branch from its parent (a fresh copy of the default
  *   branch, discarding local data), then migrates and rewrites `.env.local`.
  * - `--delete`: deletes the branch and removes its block from `.env.local`, so
- *   the app falls back to the connection configured in `.env`.
+ *   the app falls back to the connection configured before the sandbox (an
+ *   earlier assignment in `.env.local`, or `.env`).
  * - `--dry-run`: only reads; prints the plan without creating, migrating or
  *   writing anything.
  *
@@ -76,9 +77,9 @@ const SANDBOX_STEP = {
 const SCRIPT_MESSAGE = {
   dryRunHeader: "Modo --dry-run: solo se consulta Neon; no se crea, migra ni escribe nada.",
   dryRunWithoutCredentials: `Sin ${SANDBOX_ENVIRONMENT.apiKey} o ${SANDBOX_ENVIRONMENT.projectId}: el plan asume que la branch no existe.`,
-  environmentRemoved: `Variables de base de datos del sandbox quitadas de ${ENVIRONMENT_FILE_NAME}; la app vuelve a usar .env.`,
-  environmentWritten: (redactedRuntime, redactedDirect) =>
-    `${ENVIRONMENT_FILE_NAME} actualizado: runtime ${redactedRuntime}, migraciones y mantenimiento ${redactedDirect}.`,
+  environmentRemoved: `Bloque del sandbox quitado de ${ENVIRONMENT_FILE_NAME}; la app vuelve a la conexión configurada antes del sandbox.`,
+  environmentWritten: (redactedConnectionString) =>
+    `${ENVIRONMENT_FILE_NAME} actualizado: runtime, migraciones y mantenimiento usan la conexión directa ${redactedConnectionString}.`,
   migrationsFailed: "Las migraciones fallaron en el sandbox; .env.local no se modificó.",
   missingCredentials: `Definí ${SANDBOX_ENVIRONMENT.apiKey} y ${SANDBOX_ENVIRONMENT.projectId} (en el entorno o en ${ENVIRONMENT_FILE_NAME}).`,
   plan: (branchName, steps) => `Branch ${branchName}: ${steps.join(" -> ")}`,
@@ -209,11 +210,12 @@ function detectLineEnding(environmentFileText) {
 }
 
 /**
- * Removes the sandbox block and any other assignment of the managed database
- * variables, so the app falls back to `.env`.
+ * Removes only the marked sandbox block. Assignments of the database variables
+ * outside the block are kept, so the connection configured before the sandbox
+ * becomes effective again.
  *
  * @param {string} environmentFileText - Current `.env.local` contents.
- * @returns {string} Contents without sandbox database variables.
+ * @returns {string} Contents without the sandbox block.
  */
 export function removeSandboxEnvironment(environmentFileText) {
   const lineEnding = detectLineEnding(environmentFileText);
@@ -230,9 +232,7 @@ export function removeSandboxEnvironment(environmentFileText) {
       continue;
     }
 
-    const isManagedAssignment = MANAGED_ENVIRONMENT_KEYS.some((key) => line.startsWith(`${key}=`));
-
-    if (!isInsideBlock && !isManagedAssignment) {
+    if (!isInsideBlock) {
       keptLines.push(line);
     }
   }
@@ -245,8 +245,9 @@ export function removeSandboxEnvironment(environmentFileText) {
 }
 
 /**
- * Replaces the sandbox database variables of `.env.local` with the given
- * connection strings, inside a marked block. Idempotent.
+ * Replaces the marked sandbox block of `.env.local` with the given connection
+ * strings, appended at the end of the file. Dotenv applies the last assignment,
+ * so the block wins over earlier assignments while it exists. Idempotent.
  *
  * @param {string} environmentFileText - Current `.env.local` contents.
  * @param {Record<string, string>} connectionStrings - Values keyed by managed variable.
@@ -394,14 +395,15 @@ async function deleteSandboxBranch({ apiKey, projectId, branchId }) {
 }
 
 /**
- * Reads the pooled (runtime) and direct (migrations, maintenance) connection
- * strings of the sandbox.
+ * Reads the direct connection string of the sandbox. Runtime, migrations and
+ * maintenance all use it: the runtime pool applies session settings that a
+ * transaction-mode pooler does not preserve.
  *
  * @param {{ apiKey: string, projectId: string, branchId: string }} input
- * @returns {Promise<{ runtime: string, direct: string }>} Connection strings.
+ * @returns {Promise<string>} Direct connection string.
  */
-async function readSandboxConnectionStrings({ apiKey, projectId, branchId }) {
-  const operation = `${OPERATION_PREFIX}:readSandboxConnectionStrings`;
+async function readSandboxConnectionString({ apiKey, projectId, branchId }) {
+  const operation = `${OPERATION_PREFIX}:readSandboxConnectionString`;
   const { databases } = await callNeonApi({
     apiKey,
     method: "GET",
@@ -410,46 +412,49 @@ async function readSandboxConnectionStrings({ apiKey, projectId, branchId }) {
   });
   const { databaseName, roleName } = selectSandboxDatabase(databases);
 
-  /** @param {boolean} pooled */
-  const readUri = async (pooled) => {
-    const query = new URLSearchParams({
-      branch_id: branchId,
-      database_name: databaseName,
-      pooled: String(pooled),
-      role_name: roleName,
-    });
-    const { uri } = await callNeonApi({
-      apiKey,
-      method: "GET",
-      operation,
-      path: `/projects/${projectId}/connection_uri?${query}`,
-    });
+  const query = new URLSearchParams({
+    branch_id: branchId,
+    database_name: databaseName,
+    pooled: String(false),
+    role_name: roleName,
+  });
+  const { uri } = await callNeonApi({
+    apiKey,
+    method: "GET",
+    operation,
+    path: `/projects/${projectId}/connection_uri?${query}`,
+  });
 
-    if (!uri) {
-      throw new NeonApiError(operation, `response without uri (pooled=${pooled})`);
-    }
+  if (!uri) {
+    throw new NeonApiError(operation, "response without uri (pooled=false)");
+  }
 
-    return uri;
-  };
+  return uri;
+}
 
-  return { direct: await readUri(false), runtime: await readUri(true) };
+/**
+ * Maps every managed database variable to the same connection string.
+ *
+ * @param {string} connectionString - Direct connection string of the sandbox.
+ * @returns {Record<string, string>} Values keyed by managed variable.
+ */
+function buildSandboxEnvironment(connectionString) {
+  return Object.fromEntries(MANAGED_ENVIRONMENT_KEYS.map((key) => [key, connectionString]));
 }
 
 /**
  * Applies pending migrations with every database variable pointing at the
  * sandbox, so the run can never reach the default branch.
  *
- * @param {{ runtime: string, direct: string }} connectionStrings
+ * @param {string} connectionString - Direct connection string of the sandbox.
  * @returns {Promise<number>} Exit code of the migration runner.
  */
-function migrateSandbox({ runtime, direct }) {
+function migrateSandbox(connectionString) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [MIGRATIONS_SCRIPT_PATH], {
       env: {
         ...process.env,
-        [DATABASE_ENVIRONMENT_KEY.maintenance]: direct,
-        [DATABASE_ENVIRONMENT_KEY.migration]: direct,
-        [DATABASE_ENVIRONMENT_KEY.runtime]: runtime,
+        ...buildSandboxEnvironment(connectionString),
       },
       stdio: "inherit",
     });
@@ -507,8 +512,8 @@ async function main(scriptArguments) {
   }
 
   let branchId = existingBranch?.id;
-  /** @type {{ runtime: string, direct: string } | undefined} */
-  let connectionStrings;
+  /** @type {string | undefined} */
+  let connectionString;
 
   for (const step of steps) {
     switch (step) {
@@ -531,8 +536,8 @@ async function main(scriptArguments) {
         break;
       case SANDBOX_STEP.migrate: {
         console.log(SCRIPT_MESSAGE.step.migrate);
-        connectionStrings = await readSandboxConnectionStrings({ apiKey, branchId, projectId });
-        const migrationExitCode = await migrateSandbox(connectionStrings);
+        connectionString = await readSandboxConnectionString({ apiKey, branchId, projectId });
+        const migrationExitCode = await migrateSandbox(connectionString);
         // drizzle-kit leaves its spinner line without a trailing newline.
         console.log();
 
@@ -545,18 +550,12 @@ async function main(scriptArguments) {
       case SANDBOX_STEP.writeEnvironment:
         writeFileSync(
           environmentFilePath,
-          upsertSandboxEnvironment(readEnvironmentFile(environmentFilePath), {
-            [DATABASE_ENVIRONMENT_KEY.maintenance]: connectionStrings.direct,
-            [DATABASE_ENVIRONMENT_KEY.migration]: connectionStrings.direct,
-            [DATABASE_ENVIRONMENT_KEY.runtime]: connectionStrings.runtime,
-          })
-        );
-        console.log(
-          SCRIPT_MESSAGE.environmentWritten(
-            redactConnectionString(connectionStrings.runtime),
-            redactConnectionString(connectionStrings.direct)
+          upsertSandboxEnvironment(
+            readEnvironmentFile(environmentFilePath),
+            buildSandboxEnvironment(connectionString)
           )
         );
+        console.log(SCRIPT_MESSAGE.environmentWritten(redactConnectionString(connectionString)));
         console.log(SCRIPT_MESSAGE.ready);
         break;
       case SANDBOX_STEP.removeEnvironment:
