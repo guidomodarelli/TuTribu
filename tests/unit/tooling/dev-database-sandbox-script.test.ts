@@ -67,6 +67,13 @@ const FILE_WITH_PREVIOUS_ASSIGNMENTS = [
 
 let sandboxScript: DevDatabaseSandboxScript;
 
+/** Variables the sandbox block manages, hidden from `process.env` while loading. */
+const DATABASE_ENVIRONMENT_KEYS = [
+  "DATABASE_URL",
+  "DATABASE_MIGRATION_URL",
+  "DATABASE_MAINTENANCE_URL",
+];
+
 /**
  * Resolves the values Next.js applies from an env file with these contents,
  * through the real `@next/env` loader, and restores `process.env` afterwards.
@@ -75,6 +82,13 @@ let sandboxScript: DevDatabaseSandboxScript;
  */
 function loadEffectiveEnvironment(environmentFileText: string) {
   const projectDirectory = mkdtempSync(join(tmpdir(), "dev-database-sandbox-"));
+  // The loader never overrides variables already in process.env (CI sets DATABASE_URL), so hide them while loading.
+  const inheritedDatabaseEnvironment = Object.fromEntries(
+    DATABASE_ENVIRONMENT_KEYS.map((key) => [key, process.env[key]])
+  );
+  for (const key of DATABASE_ENVIRONMENT_KEYS) {
+    delete process.env[key];
+  }
 
   try {
     writeFileSync(join(projectDirectory, ".env"), environmentFileText);
@@ -88,6 +102,11 @@ function loadEffectiveEnvironment(environmentFileText: string) {
     return loadedEnvFiles.find((envFile) => envFile.path === ".env")?.env ?? {};
   } finally {
     resetEnv();
+    for (const [key, value] of Object.entries(inheritedDatabaseEnvironment)) {
+      if (value !== undefined) {
+        process.env[key] = value;
+      }
+    }
     rmSync(projectDirectory, { force: true, recursive: true });
   }
 }
