@@ -1,0 +1,359 @@
+{
+  "capturedAt": "2026-10-15T19:40:04.980Z",
+  "baseHead": "bd091b231a50af993c3b938fd062143d40df831e",
+  "status": "own_preference_and_independent_email_api_verified",
+  "scope": "Dos rutas y cuatro handlers con composición nativa, DTO propio mínimo y sin controles UI, productor o dispatcher.",
+  "sourceFiles": [
+    {
+      "path": "src/modules/notifications/setup.ts",
+      "sha256": "3365aeb958ac0705469f27f34b3c0c92608aaed2020da654ece7e84aa762bd30"
+    },
+    {
+      "path": "src/modules/setup.ts",
+      "sha256": "eaaa531b66a86678320c53f9e6f574854c4e26cbfbe53ab351900c277c7043fd"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/email-settings/route.ts",
+      "sha256": "82bb5d17b3bf4f18759f34b7a2d0c25fae483c801d8c2150d8d8c8453466e422"
+    },
+    {
+      "path": "app/api/tribes/[slug]/admissions/notification-preferences/route.ts",
+      "sha256": "e637d99cb409d800fdd3f4161c7966b65eec7ff2912981c60f16c84293003460"
+    },
+    {
+      "path": "src/modules/notifications/application/results/admission-notification-settings-result.ts",
+      "sha256": "164dc04ec0eda344e33f1824925050d90ea0793af41110476226139101a30057"
+    },
+    {
+      "path": "src/modules/notifications/application/use-cases/admission-notification-preferences-use-cases.ts",
+      "sha256": "8d60dce5c576d3da6da5cd6fcb202b6e6d2d2dcc131b68068c2e954968bcb333"
+    },
+    {
+      "path": "src/modules/notifications/constants/admission-notification-settings-http.ts",
+      "sha256": "37af4ac78d810579b9d319bdb4c8488dbc64f9a200729ccaad3e283923ba2685"
+    },
+    {
+      "path": "src/modules/notifications/constants/admission-notification-settings-schemas.ts",
+      "sha256": "00faba9d1e98c5a356ce84b106d6e536467552f64e9d3aedc77e672130d67eda"
+    },
+    {
+      "path": "src/modules/notifications/infrastructure/api/admission-notification-settings-handlers.ts",
+      "sha256": "29fac56586fcfafabc30a6fc2ce20ea84917e621f1f816704b21c99f95015b10"
+    },
+    {
+      "path": "src/modules/notifications/infrastructure/api/admission-notification-settings-mapper.ts",
+      "sha256": "e8f243453628b3ce1ae30a08a956d4b006efa0e41622f393ed8bd149d7b2ffce"
+    },
+    {
+      "path": "tests/unit/modules/notifications/application/admission-notification-preferences-use-cases.test.ts",
+      "sha256": "e566ca644bfdc2804ad9ebb04ada17b323519d859961caa630eff41e469684cd"
+    },
+    {
+      "path": "tests/unit/modules/notifications/infrastructure/admission-notification-settings-http.test.ts",
+      "sha256": "9bb95b54a0c5c8d5a25fdb184a3991fc11823378f318d5f52f9a6d2aa738e09c"
+    },
+    {
+      "path": "tests/unit/modules/notifications/infrastructure/admission-notification-settings-native-http.test.ts",
+      "sha256": "596c3421d28d2e204b8583cf3a2ffe27f1d1258a66d5054b71ce10fbd1d5cfa9"
+    },
+    {
+      "path": "tests/unit/modules/notifications/infrastructure/admission-notification-settings-request.test.ts",
+      "sha256": "532fcbe6e6dd0d37f0fdadfc1d52de22e5e272f1c5b80edd6f42fb62e2f897b8"
+    }
+  ],
+  "local": {
+    "completeFiles": 2,
+    "passed": 26,
+    "failed": 0,
+    "filtered": 0,
+    "skipped": 0,
+    "startedAt": "2026-10-15T19:39:26.115Z",
+    "completedAt": "2026-10-15T19:39:28.211Z",
+    "sourceInputsRegisteredBeforeRun": true,
+    "sourceInputsStable": true,
+    "registeredInputs": 2000,
+    "testFiles": [
+      {
+        "path": "tests/unit/modules/notifications/application/admission-notification-preferences-use-cases.test.ts",
+        "sha256": "e566ca644bfdc2804ad9ebb04ada17b323519d859961caa630eff41e469684cd"
+      },
+      {
+        "path": "tests/unit/modules/notifications/infrastructure/admission-notification-settings-http.test.ts",
+        "sha256": "9bb95b54a0c5c8d5a25fdb184a3991fc11823378f318d5f52f9a6d2aa738e09c"
+      }
+    ],
+    "cases": [
+      {
+        "title": "own admission notification preferences should resolve the leader default when no preference has been stored",
+        "status": "passed",
+        "durationMs": 3.276299999999992
+      },
+      {
+        "title": "own admission notification preferences should resolve the guardian default when no preference has been stored",
+        "status": "passed",
+        "durationMs": 0.4133999999999105
+      },
+      {
+        "title": "own admission notification preferences should save only the current guardian preference when browser identity fields are present on the caller object",
+        "status": "passed",
+        "durationMs": 0.4492999999999938
+      },
+      {
+        "title": "own admission notification preferences should deny storage access when the current actor is active tribemate",
+        "status": "passed",
+        "durationMs": 0.330600000000004
+      },
+      {
+        "title": "own admission notification preferences should deny storage access when the current actor is muted guardian",
+        "status": "passed",
+        "durationMs": 0.27800000000002
+      },
+      {
+        "title": "own admission notification preferences should close the private result when read returns another recipient scope",
+        "status": "passed",
+        "durationMs": 0.4957000000000562
+      },
+      {
+        "title": "own admission notification preferences should close the private result when change returns another recipient scope",
+        "status": "passed",
+        "durationMs": 0.27080000000000837
+      },
+      {
+        "title": "own admission notification preferences should preserve expected denials and private causes when the owned storage port fails",
+        "status": "passed",
+        "durationMs": 0.671799999999962
+      },
+      {
+        "title": "admission notification settings HTTP should publish only the own preference view when a current read succeeds",
+        "status": "passed",
+        "durationMs": 16.485500000000002
+      },
+      {
+        "title": "admission notification settings HTTP should publish the independent OFF state when a leader reads email settings without a mutation",
+        "status": "passed",
+        "durationMs": 1.2829999999999018
+      },
+      {
+        "title": "admission notification settings HTTP should reject untrusted preference input unknown at version 0 before opening composition",
+        "status": "passed",
+        "durationMs": 2.144599999999855
+      },
+      {
+        "title": "admission notification settings HTTP should reject untrusted preference input daily at version -1 before opening composition",
+        "status": "passed",
+        "durationMs": 0.7229000000002088
+      },
+      {
+        "title": "admission notification settings HTTP should reject untrusted preference input daily at version 0 before opening composition",
+        "status": "passed",
+        "durationMs": 0.6919000000000324
+      },
+      {
+        "title": "admission notification settings HTTP should reject browser capability claims and missing confirmation before an email command",
+        "status": "passed",
+        "durationMs": 1.9803000000001703
+      },
+      {
+        "title": "admission notification settings HTTP should deny foreign origins before either write opens a service",
+        "status": "passed",
+        "durationMs": 0.9592000000000098
+      },
+      {
+        "title": "admission notification settings HTTP should preserve a personal CAS rejection when no preference was saved",
+        "status": "passed",
+        "durationMs": 0.9302999999999884
+      },
+      {
+        "title": "admission notification settings HTTP should retain registered progress when the original email command has no confirmed completion",
+        "status": "passed",
+        "durationMs": 1.0171000000000276
+      },
+      {
+        "title": "admission notification settings HTTP should retain the original unresolved reference when a lost completion is an application failure",
+        "status": "passed",
+        "durationMs": 1.1204999999999927
+      },
+      {
+        "title": "admission notification settings HTTP should retain the original historical email reply when a later query has a different current version",
+        "status": "passed",
+        "durationMs": 0.9365999999999985
+      },
+      {
+        "title": "admission notification settings HTTP should close the public DTO when the inward result has foreign_email_scope",
+        "status": "passed",
+        "durationMs": 0.6239000000000487
+      },
+      {
+        "title": "admission notification settings HTTP should close the public DTO when the inward result has foreign_operation",
+        "status": "passed",
+        "durationMs": 0.8760999999999513
+      },
+      {
+        "title": "admission notification settings HTTP should close the public DTO when the inward result has incoherent_preference_version",
+        "status": "passed",
+        "durationMs": 0.4779000000000906
+      },
+      {
+        "title": "admission notification settings HTTP should close the public DTO when the inward result has enabled_without_version",
+        "status": "passed",
+        "durationMs": 0.3818999999998596
+      },
+      {
+        "title": "admission notification settings HTTP should close the public DTO when the inward result has wrong_committed_mode",
+        "status": "passed",
+        "durationMs": 0.7109000000000378
+      },
+      {
+        "title": "admission notification settings HTTP should close the public DTO when the inward result has wrong_committed_email_settings",
+        "status": "passed",
+        "durationMs": 0.4653000000000702
+      },
+      {
+        "title": "admission notification settings HTTP should publish only a safe failure when current authority is denied or storage throws",
+        "status": "passed",
+        "durationMs": 0.9316000000001168
+      }
+    ]
+  },
+  "nativeFactory": {
+    "completedAt": "2026-10-15T19:30:37.902Z",
+    "completeFiles": 1,
+    "passed": 1,
+    "failed": 0,
+    "filtered": 0,
+    "skipped": 0,
+    "sourceInputsStable": true,
+    "registeredInputs": 1997,
+    "targetSha256": "274187f6cd3f356eb51527943eb3810b54fe4fa45e67482ef378709623640b50",
+    "cases": [
+      {
+        "title": "native admission notification settings request should bind preferences and original email operations to actual current sessions without sending or enabling OTP",
+        "status": "passed",
+        "durationMs": 216366.17440000002
+      }
+    ],
+    "scope": "Factories y handlers reales, identidad SQL actual, ambos roles, CAS, habilitación positiva, replays, rol/sesión perdidos y controles de ausencia de OTP/envíos."
+  },
+  "nativeHttp": {
+    "completedAt": "2026-10-15T19:34:15.918Z",
+    "completeFiles": 1,
+    "passed": 1,
+    "failed": 0,
+    "filtered": 0,
+    "skipped": 0,
+    "sourceInputsStable": true,
+    "registeredInputs": 1998,
+    "targetSha256": "dc7c70e452adebd20ff84bb86e5f3d3e8d738b64bec81203a9845c82e4a9fd97",
+    "cases": [
+      {
+        "title": "native notification settings HTTP routes should serve and mutate own preferences through real endpoints while keeping sensitive email changes closed without their exact confirmation",
+        "status": "passed",
+        "durationMs": 133253.8726
+      }
+    ],
+    "realBetterAuthCookie": true,
+    "realBuiltAppRouter": true,
+    "preferenceMutationConfirmed": true,
+    "emailReadConfirmed": true,
+    "emailPostDeniedWithoutRecentAuthentication": true,
+    "successfulEmailEnableOverHttpClaimed": false,
+    "scope": "GET/PATCH propios y GET de correo, CAS, body/origen rechazados y POST sensible cerrado sin recencia; la habilitación positiva pertenece al caso de factory."
+  },
+  "uniqueCurrentCases": 28,
+  "build": {
+    "completedAt": "2026-10-15T19:28:35.390Z",
+    "exitCode": 0,
+    "pages": 53,
+    "productFilesEquivalent": 1748,
+    "sourceInputsStable": true
+  },
+  "documentation": {
+    "sourceHash": "cc2e31de640fdd3726115d68563f914489849c8ef6c5d5d4d7958a8c43c823c0",
+    "views": [
+      {
+        "engine": "chromium",
+        "width": 390,
+        "documentWidth": 390,
+        "viewport": 390,
+        "localLinksAvailable": true
+      },
+      {
+        "engine": "chromium",
+        "width": 1280,
+        "documentWidth": 1280,
+        "viewport": 1280,
+        "localLinksAvailable": true
+      },
+      {
+        "engine": "webkit",
+        "width": 390,
+        "documentWidth": 390,
+        "viewport": 390,
+        "localLinksAvailable": true
+      },
+      {
+        "engine": "webkit",
+        "width": 1280,
+        "documentWidth": 1280,
+        "viewport": 1280,
+        "localLinksAvailable": true
+      }
+    ],
+    "originalHistoryManualChanged": false,
+    "historyManualSourceCommit": "620b1c54366a2defcbb10e1fdd76122addd3f8c4"
+  },
+  "diagnostics": {
+    "missingModuleReds": {
+      "executedCases": 0,
+      "sqlRedClaimed": false
+    },
+    "publicDtoSemanticRed": {
+      "passed": 16,
+      "failed": 1,
+      "scenario": "enabled_without_version",
+      "corrected": true
+    },
+    "firstNativeCleanupFailure": {
+      "passed": 0,
+      "failed": 1,
+      "exitCode": 1,
+      "acceptedAsGreen": false,
+      "exactOwnedBranchLaterRemoved": true,
+      "originalProductInputsUnchangedAtSuccessfulRepeat": true,
+      "harnessChangedToPass": false
+    },
+    "pgInspection": {
+      "ownBranchOnly": true,
+      "metadataOnly": true,
+      "acceptedAsNativePass": false
+    }
+  },
+  "resources": {
+    "reconciledAt": "2026-10-15T19:36:48.217Z",
+    "ownedTemporaryBranches": 0,
+    "productionPreserved": true,
+    "originalPilotPreserved": true,
+    "unrelatedDevSandboxPreserved": true,
+    "externalMessagesSent": 0
+  },
+  "automatedCi": {
+    "lastSavedHead": "bd091b231a50af993c3b938fd062143d40df831e",
+    "runId": 38789950792,
+    "conclusion": "success",
+    "currentUncommittedApiCovered": false
+  },
+  "tasks": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38,
+    "checkboxesChanged": false,
+    "completeT184": false,
+    "completeUS8": false,
+    "completeT211": false
+  },
+  "remaining": [
+    "Pantallas y recuperación de preferencias y habilitación en el cliente.",
+    "Productor de grupos/diario, outbox completo y dispatcher.",
+    "Mantenimiento, driver operativo y gates de entrega/latencia originales."
+  ]
+}
