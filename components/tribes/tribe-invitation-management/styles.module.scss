@@ -217,21 +217,21 @@
     min-width: 0;
   }
 
-  &__copyButton {
-    position: relative;
+  &__splitButton {
     flex: 1 1 auto;
     min-width: 0;
 
-    &--copied,
-    &--copied:hover {
+    // The copy half fills the row; the menu half keeps its own width.
+    > :first-child {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    &--copied > :first-child,
+    &--copied > :first-child:hover {
       border-color: color-mix(in srgb, var(--free) 55%, var(--border));
       color: var(--free-foreground);
     }
-  }
-
-  &__copyLabel {
-    gap: 0.5rem;
-    white-space: nowrap;
   }
 
   &__moreButton {
@@ -318,10 +318,13 @@
       gap: 0.75rem;
     }
 
-    &__copyButton {
+    &__splitButton {
       flex: 0 0 auto;
+
       // Reserve the width of the longer label so "Copiado" does not shift the row.
-      min-width: 8.5rem;
+      > :first-child {
+        min-width: 8.5rem;
+      }
     }
 
     &__detailValue--stacked {
