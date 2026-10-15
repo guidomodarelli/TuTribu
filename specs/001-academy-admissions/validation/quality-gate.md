@@ -36,12 +36,16 @@ La batería individual terminó aprobada con fuentes actuales en dos cohortes di
 
 Todos esos procesos terminaron. La conciliación de Neon del `2026-10-15T13:08:54.152Z` confirmó producción y el piloto original, con cero ramas temporales. El alcance y la evidencia están en [batch-decisions-baseline.md](batch-decisions-baseline.md) y [batch-fixture-repair-results.json](batch-fixture-repair-results.json). La reparación acredita esos contratos nombrados; el resto de US8 y T211 permanecen abiertos. El control del commit que la guarde corresponde a su propio workflow y no se anticipa aquí.
 
+La reparación quedó guardada y subida en `521aaf7d4da42e25db270dc9601c43d06cf6c769`. Su [CI completo](https://github.com/guidomodarelli/TuTribu/actions/runs/38741795440) terminó aprobado: **510 archivos y 5262 casos aprobados, 266 archivos y 780 casos omitidos**, lint, tipos de producto/pruebas y build real de las 53 páginas. Este resultado corresponde a ese checkpoint y conserva separados los Native omitidos.
+
+El modelo privado de preferencias posterior tiene su [evidencia propia](admission-notification-preference-model.md): **19 casos locales aprobados**, fuentes estables, lint y tipos correctos, más cuatro vistas de documentación en Chromium/WebKit. Define defaults y propuestas de cambio con versión; persistencia, grupos, API, UI y despacho conservan sus tareas. No se atribuye a ese código posterior el CI de `521aaf7d` ni se cierra T180 o T211.
+
 - Lint focal de los archivos corregidos: aprobado, sin diagnósticos.
 - `pnpm run typecheck:tests`: aprobado después de los últimos ajustes.
 - `git diff --check`: aprobado.
 - Suites completas afectadas: 124 casos de repositorios, nueve de observación y veinte de invitación, sin fallos ni exclusiones; las repeticiones no se suman.
 - Build aislado real de T175: código cero y 1727 archivos de producto equivalentes, con sólo CRLF/LF como diferencia de bytes. Es evidencia separada del CI anterior detenido en tests.
-- Control completo del cierre de T175 en `390f45e6` y del checkpoint privado de lotes en `a79c74ed`: aprobados por sus respectivos workflows. La reparación posterior de fixtures conserva su control pendiente.
+- Control completo del cierre de T175 en `390f45e6`, del checkpoint privado de lotes en `a79c74ed` y de la reparación en `521aaf7d`: aprobados por sus respectivos workflows. El modelo privado de preferencias posterior conserva su validación y su workflow propio al guardarse.
 
 La fuente ejecutable es `.github/workflows/quality-gate.yml`: instala el lockfile congelado y ejecuta `pnpm run ci`, que encadena lint, tipos de producto, tipos de pruebas, tests y build. Se usan comprobaciones locales relevantes y ese workflow para el control completo. Un resultado verde no certifica las suites Native omitidas por flags ni los ensayos operativos ausentes.
 
