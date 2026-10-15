@@ -51,6 +51,23 @@ type MercadoPagoMockPreapproval = {
 
 type MercadoPagoMockRequestBody = Record<string, unknown>;
 
+/** Recurring invoice ("authorized payment") with its already approved payment. */
+type MercadoPagoMockInvoice = {
+  currency_id: string | null;
+  debit_date: string;
+  id: string;
+  last_modified: string;
+  payment: { id: string; status: string; status_detail: string };
+  preapproval_id: string;
+  status: string;
+  transaction_amount: number | null;
+};
+
+type MercadoPagoMockRecurringTerms = {
+  currencyId: string | null;
+  transactionAmount: number | null;
+};
+
 const MERCADO_PAGO_MOCK_PLAN_STATUS = {
   active: "active",
 } as const;
@@ -73,8 +90,16 @@ const MERCADO_PAGO_MOCK_HEADER = {
   idempotencyKey: "X-Idempotency-Key",
 } as const;
 
+const MERCADO_PAGO_MOCK_PAYMENT = {
+  accreditedDetail: "accredited",
+  approvedStatus: "approved",
+  processedInvoiceStatus: "processed",
+} as const;
+
 const MERCADO_PAGO_MOCK_ID_PREFIX = {
   accessToken: "mock-access-token-",
+  invoice: "mock-invoice-",
+  payment: "mock-payment-",
   plan: "mock-plan-",
   preapproval: "mock-preapproval-",
   refreshToken: "mock-refresh-token-",
@@ -120,6 +145,64 @@ function buildReturnUrl(backUrl: string, preapprovalId: string): string {
   returnUrl.searchParams.set(MERCADO_PAGO_MOCK_QUERY_PARAM.preapprovalId, preapprovalId);
 
   return returnUrl.toString();
+}
+
+/**
+ * Reads the charged amount and currency of a checkout: its own monthly terms,
+ * or the terms of the plan it subscribes to.
+ *
+ * @param body - Preapproval creation body.
+ * @param plans - Stored plans.
+ * @returns Recurring terms, with nulls when the checkout carries none.
+ */
+function resolveRecurringTerms(
+  body: MercadoPagoMockRequestBody,
+  plans: Map<string, MercadoPagoMockPlan>
+): MercadoPagoMockRecurringTerms {
+  const autoRecurring =
+    (body.auto_recurring as Record<string, unknown> | undefined) ??
+    (typeof body.preapproval_plan_id === "string"
+      ? plans.get(body.preapproval_plan_id)?.auto_recurring
+      : undefined);
+
+  return {
+    currencyId:
+      typeof autoRecurring?.currency_id === "string" ? autoRecurring.currency_id : null,
+    transactionAmount:
+      typeof autoRecurring?.transaction_amount === "number"
+        ? autoRecurring.transaction_amount
+        : null,
+  };
+}
+
+/**
+ * Builds the first, already paid invoice of an approved checkout, as Mercado
+ * Pago charges it right after the member authorizes the subscription.
+ *
+ * @param preapprovalId - Mock preapproval identifier.
+ * @param terms - Charged amount and currency.
+ * @returns Processed invoice with an approved payment.
+ */
+function buildApprovedInvoice(
+  preapprovalId: string,
+  terms: MercadoPagoMockRecurringTerms
+): MercadoPagoMockInvoice {
+  const chargedAt = new Date().toISOString();
+
+  return {
+    currency_id: terms.currencyId,
+    debit_date: chargedAt,
+    id: MERCADO_PAGO_MOCK_ID_PREFIX.invoice + crypto.randomUUID(),
+    last_modified: chargedAt,
+    payment: {
+      id: MERCADO_PAGO_MOCK_ID_PREFIX.payment + crypto.randomUUID(),
+      status: MERCADO_PAGO_MOCK_PAYMENT.approvedStatus,
+      status_detail: MERCADO_PAGO_MOCK_PAYMENT.accreditedDetail,
+    },
+    preapproval_id: preapprovalId,
+    status: MERCADO_PAGO_MOCK_PAYMENT.processedInvoiceStatus,
+    transaction_amount: terms.transactionAmount,
+  };
 }
 
 /**
@@ -176,6 +259,7 @@ export function createMercadoPagoMockHandlers(
   const plans = new Map<string, MercadoPagoMockPlan>();
   const preapprovals = new Map<string, MercadoPagoMockPreapproval>();
   const preapprovalIdsByIdempotencyKey = new Map<string, string>();
+  const invoices = new Map<string, MercadoPagoMockInvoice>();
   const sellerUserIdsByRefreshToken = new Map<string, number>();
   let nextSellerUserId: number = MERCADO_PAGO_MOCK_OAUTH.firstSellerUserId;
 
@@ -328,6 +412,15 @@ export function createMercadoPagoMockHandlers(
 
       preapprovals.set(preapprovalId, preapproval);
 
+      if (preapproval.status === MERCADO_PAGO_SUBSCRIPTION_STATUS.authorized) {
+        const invoice = buildApprovedInvoice(
+          preapprovalId,
+          resolveRecurringTerms(body, plans)
+        );
+
+        invoices.set(invoice.id, invoice);
+      }
+
       if (idempotencyKey) {
         preapprovalIdsByIdempotencyKey.set(idempotencyKey, preapprovalId);
       }
@@ -366,16 +459,41 @@ export function createMercadoPagoMockHandlers(
       return HttpResponse.json(toPreapprovalResponse(updatedPreapproval));
     }),
 
-    http.get(`${MERCADO_PAGO_URL.authorizedPayments}/search`, () =>
-      HttpResponse.json({ paging: { total: 0 }, results: [] })
+    http.get(`${MERCADO_PAGO_URL.authorizedPayments}/search`, ({ request }) => {
+      const preapprovalId = new URL(request.url).searchParams.get(
+        MERCADO_PAGO_MOCK_QUERY_PARAM.preapprovalId
+      );
+      const results = [...invoices.values()].filter(
+        (invoice) => invoice.preapproval_id === preapprovalId
+      );
+
+      return HttpResponse.json({ paging: { total: results.length }, results });
+    }),
+
+    http.get(
+      `${MERCADO_PAGO_URL.authorizedPayments}/:authorizedPaymentId`,
+      ({ params }) => {
+        const invoice = invoices.get(String(params.authorizedPaymentId));
+
+        return invoice
+          ? HttpResponse.json(invoice)
+          : buildMercadoPagoMockError(HTTP_STATUS_NOT_FOUND, "authorized_payment not found");
+      }
     ),
 
-    http.get(`${MERCADO_PAGO_URL.authorizedPayments}/:authorizedPaymentId`, () =>
-      buildMercadoPagoMockError(HTTP_STATUS_NOT_FOUND, "authorized_payment not found")
-    ),
+    http.get(`${MERCADO_PAGO_URL.payments}/:paymentId`, ({ params }) => {
+      const invoice = [...invoices.values()].find(
+        (candidate) => candidate.payment.id === String(params.paymentId)
+      );
 
-    http.get(`${MERCADO_PAGO_URL.payments}/:paymentId`, () =>
-      buildMercadoPagoMockError(HTTP_STATUS_NOT_FOUND, "payment not found")
-    ),
+      return invoice
+        ? HttpResponse.json({
+            date_last_updated: invoice.last_modified,
+            id: invoice.payment.id,
+            status: invoice.payment.status,
+            status_detail: invoice.payment.status_detail,
+          })
+        : buildMercadoPagoMockError(HTTP_STATUS_NOT_FOUND, "payment not found");
+    }),
   ];
 }

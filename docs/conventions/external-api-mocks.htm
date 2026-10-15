@@ -31,6 +31,9 @@ tr:last-child td{border-bottom:none;}
 code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
 .code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
 .code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
 <div class="doc-header">
   <div class="doc-label">CONVENTION</div>
   <div class="doc-title">External API Mocks</div>
@@ -76,7 +79,7 @@ pnpm run dev</pre></div>
   <tr><td><code>POST /oauth/token</code></td><td>Con <code>authorization_code</code> crea una cuenta de vendedor nueva con cualquier código. Con <code>refresh_token</code> rota los tokens de esa cuenta, y un refresh token desconocido devuelve 400 <code>invalid_grant</code>.</td></tr>
   <tr><td><code>/preapproval_plan</code></td><td>Alta (estado <code>active</code>), lectura, actualización y búsqueda por <code>external_reference</code>.</td></tr>
   <tr><td><code>/preapproval</code></td><td>Alta idempotente por <code>X-Idempotency-Key</code>. Su <code>init_point</code> es el <code>back_url</code> con <code>?preapproval_id=</code>: el miembro vuelve directo a la tribu como si hubiera pasado por el checkout. Incluye lectura, actualización de <code>back_url</code> y <code>status</code>, y búsqueda por <code>q</code>.</td></tr>
-  <tr><td><code>/authorized_payments</code>, <code>/v1/payments</code></td><td>Sin facturas ni pagos: la búsqueda devuelve una lista vacía y la lectura por ID devuelve 404.</td></tr>
+  <tr><td><code>/authorized_payments</code>, <code>/v1/payments</code></td><td>Un checkout aprobado genera su primera factura (<code>processed</code>) con un pago <code>approved</code>, con el monto y la moneda del checkout o de su plan, así la academia otorga el acceso pago. Un checkout <code>pending</code> no genera facturas. Se leen por búsqueda (<code>preapproval_id</code>) o por ID.</td></tr>
 </table>
 <p><strong>Conectar una cuenta de vendedor.</strong> La autorización OAuth es una redirección del navegador a <code>auth.mercadopago.com.ar</code>, y MSW no la intercepta. En esa pantalla, copiá el parámetro <code>state</code> de la URL y abrí <code>https://dev.tutribu.app/api/mercado-pago/oauth/callback?code=mock&amp;state=&lt;state&gt;</code>. El intercambio del código lo responde el mock. <code>MERCADO_PAGO_CLIENT_ID</code> y <code>MERCADO_PAGO_CLIENT_SECRET</code> pueden ser cualquier valor no vacío.</p>
 <p><strong>Webhooks.</strong> El mock no envía notificaciones. El estado de la suscripción se reconcilia cuando el miembro vuelve con <code>preapproval_id</code>, igual que en el flujo de retorno real.</p>

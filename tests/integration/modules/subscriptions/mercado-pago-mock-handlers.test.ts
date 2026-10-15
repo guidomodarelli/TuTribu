@@ -7,6 +7,7 @@ import {
   createMercadoPagoPreapprovalPlan,
   exchangeMercadoPagoAuthorizationCode,
   findMercadoPagoSubscriptionCheckoutByReference,
+  getMercadoPagoAuthorizedPayment,
   getMercadoPagoPayment,
   getMercadoPagoPreapprovalDetails,
   getMercadoPagoPreapprovalPlan,
@@ -45,7 +46,13 @@ describe("Mercado Pago development mock handlers", () => {
   });
 
   afterEach(() => {
-    Object.assign(process.env, previousEnvironment);
+    for (const [name, value] of Object.entries(previousEnvironment)) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
   });
 
   afterAll(() => {
@@ -273,11 +280,65 @@ describe("Mercado Pago development mock handlers", () => {
     ).resolves.toBeNull();
   });
 
-  it("returns an empty invoice history for a new subscription", async () => {
+  it("charges the first invoice of an approved checkout with its own terms", async () => {
+    const checkout = await createMercadoPagoPendingPreapprovalSubscription({
+      accessToken: ACCESS_TOKEN,
+      amountCents: 1_500_00,
+      backUrl: TRIBE_RETURN_URL,
+      currency: "ARS",
+      externalReference: "reservation-6",
+      idempotencyKey: "reservation-6",
+      payerEmail: "miembro@example.com",
+      reason: "Suscripción a Mi Tribu",
+    });
+
+    const invoices = await searchMercadoPagoAuthorizedPayments({
+      accessToken: ACCESS_TOKEN,
+      preapprovalId: checkout.providerSubscriptionId,
+    });
+
+    expect(invoices).toEqual([
+      expect.objectContaining({
+        currencyId: "ARS",
+        paymentStatus: "approved",
+        preapprovalId: checkout.providerSubscriptionId,
+        status: "processed",
+        transactionAmount: 1_500,
+      }),
+    ]);
+    await expect(
+      getMercadoPagoAuthorizedPayment({
+        accessToken: ACCESS_TOKEN,
+        authorizedPaymentId: invoices[0].id,
+      })
+    ).resolves.toEqual(invoices[0]);
+    await expect(
+      getMercadoPagoPayment({
+        accessToken: ACCESS_TOKEN,
+        paymentId: invoices[0].paymentId ?? "",
+      })
+    ).resolves.toMatchObject({ id: invoices[0].paymentId, status: "approved" });
+  });
+
+  it("charges nothing while the checkout is abandoned", async () => {
+    server.resetHandlers(
+      ...createMercadoPagoMockHandlers({ checkoutStatus: "pending" })
+    );
+    const checkout = await createMercadoPagoPendingPreapprovalSubscription({
+      accessToken: ACCESS_TOKEN,
+      amountCents: 1_500_00,
+      backUrl: TRIBE_RETURN_URL,
+      currency: "ARS",
+      externalReference: "reservation-7",
+      idempotencyKey: "reservation-7",
+      payerEmail: "miembro@example.com",
+      reason: "Suscripción a Mi Tribu",
+    });
+
     await expect(
       searchMercadoPagoAuthorizedPayments({
         accessToken: ACCESS_TOKEN,
-        preapprovalId: "any-preapproval",
+        preapprovalId: checkout.providerSubscriptionId,
       })
     ).resolves.toEqual([]);
   });
