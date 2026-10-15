@@ -1,6 +1,6 @@
 # Validación del control de calidad
 
-Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras el cierre de T175 se conservan las 212 tareas: **174 completadas y 38 pendientes**. Este registro distingue las comprobaciones locales y Native del control completo del siguiente commit.
+Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras el cierre de T175 se conservan las 212 tareas: **174 completadas y 38 pendientes**. Este registro distingue las comprobaciones locales y Native del control completo confirmado de `390f45e6` y de los cambios posteriores todavía en desarrollo.
 
 ## Base de fixtures ya corregida
 
@@ -26,12 +26,18 @@ La evidencia completa de T175 y el focal de cupo reducido están en [security-an
 
 ## Controles actuales y trabajo pendiente
 
+El [CI completo de 390f45e6](https://github.com/guidomodarelli/TuTribu/actions/runs/38722223042) terminó aprobado el `2026-10-15T10:54:32Z`: **509 archivos aprobados y 264 omitidos; 5253 casos aprobados y 774 omitidos**. El mismo job completó lint, tipos de producto, tipos de pruebas y build real de Next. La compilación terminó correctamente y se generaron las 53 páginas estáticas. El commit remoto coincide con `390f45e694566ddcdab5d4eec69b08e4b691d8fd`.
+
+Este resultado acredita el cierre guardado de T175, incluidos los ajustes del reporter y del foco. Los casos omitidos mantienen su evidencia Native independiente. La base de decisiones por lote posterior está en desarrollo y requiere sus propias pruebas, revisión y control completo cuando se guarde; este CI no se atribuye a esos cambios.
+
+El checkpoint parcial de lotes tiene 138 locales y 21 Native aprobados, con sus seis casos nuevos de lote/autoridad completos. La batería ampliada terminó además con nueve fallos de fixtures anteriores y quince casos filtrados. El checkout intacto de `390f45e6` reprodujo uno de esos fallos; PostgreSQL confirmó funciones actuales ausentes en su esquema parcial y SQLSTATE 42883. La reparación y la revalidación de esos contratos permanecen abiertas. El alcance exacto está en [batch-decisions-baseline.md](batch-decisions-baseline.md) y su manifiesto; no se declara aprobado el Native completo ni T211.
+
 - Lint focal de los archivos corregidos: aprobado, sin diagnósticos.
 - `pnpm run typecheck:tests`: aprobado después de los últimos ajustes.
 - `git diff --check`: aprobado.
 - Suites completas afectadas: 124 casos de repositorios, nueve de observación y veinte de invitación, sin fallos ni exclusiones; las repeticiones no se suman.
 - Build aislado real de T175: código cero y 1727 archivos de producto equivalentes, con sólo CRLF/LF como diferencia de bytes. Es evidencia separada del CI anterior detenido en tests.
-- Control completo del nuevo commit: pendiente de su push y del terminal de GitHub Actions; todavía no se declara aprobado.
+- Control completo del cierre de T175 en `390f45e6`: aprobado. El próximo checkpoint de decisiones por lote conserva su control pendiente.
 
 La fuente ejecutable es `.github/workflows/quality-gate.yml`: instala el lockfile congelado y ejecuta `pnpm run ci`, que encadena lint, tipos de producto, tipos de pruebas, tests y build. Se usan comprobaciones locales relevantes y ese workflow para el control completo. Un resultado verde no certifica las suites Native omitidas por flags ni los ensayos operativos ausentes.
 

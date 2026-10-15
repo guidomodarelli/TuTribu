@@ -1,5 +1,11 @@
 /** Owns manual request effects and their original ledger result inside protected SQL transactions. @module postgres-admission-request-repository */
 import { snapshotAdmissionDecisionEvidence } from "@/src/modules/academy-admissions/domain/value-objects/admission-decision-evidence";
+import type { AdmissionBatchDecisionIntent, AdmissionBatchDecisionItemResult, AdmissionBatchDecisionSnapshot, AdmissionBatchDecisionWriter } from "../../domain/repositories/admission-batch-decision-writer";
+import { ADMISSION_BATCH_DECISION_OPERATION } from "../../constants/admission-batch-decision";
+import { admissionBatchDecisionSnapshotSchema } from "../../constants/admission-batch-decision-schema";
+import { ADMISSION_BATCH_ITEM_STATUS } from "../../constants/admission-public-contract";
+import type { AdmissionAuditEvent } from "../../domain/entities/admission-audit-event";
+import type { AdmissionNotificationObligation } from "../../domain/repositories/admission-repositories";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
@@ -63,6 +69,12 @@ import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-rep
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Related owners are composed onto the same original transaction, with no provider work. */
 type AdmissionTransactionCollaborators = { memberships: AcademyApprovedMembershipWriter; notifications: AdmissionNotificationObligationWriter; legacyInvitations?: LegacyAdmissionInvitationReader };
+/** Batch facts remain local to one transaction holding their actual scope/account/member locks. */
+type AdmissionBatchFacts = { actor: AdmissionActorFacts; byApplicant: Map<string, AdmissionSubmissionFacts> };
+/** Immutable events are flushed once before the same business transaction completes. */
+type AdmissionBatchEffects = { notifications: AdmissionNotificationObligation[]; audit: AdmissionAuditEvent[] };
+/** A prepared batch context changes only transport work, never the domain decision or final authority guard. */
+type AdmissionPreparedDecision = { facts: AdmissionSubmissionFacts; actor: AdmissionActorFacts; effects: AdmissionBatchEffects };
 /** Owned row fields are consumed directly; this is not a schema for a PostgreSQL response. */
 type RequestRow = {
   id: string; tribe_id: string; user_id: string; source: AdmissionRequest["source"]; invitation_id: string | null; legacy_invitation_id: string | null;
@@ -85,7 +97,7 @@ function requestEvidence(row: RequestRow): AdmissionRequestEvidence {
 }
 
 /** Manual common/OFF writer; personal redemption and local verification are extended in their owning stories. */
-export class PostgresAdmissionRequestRepository implements AdmissionCommandWriter<AdmissionSubmissionResult>, AdmissionRetryWriter, AdmissionExecutionCapabilitiesReader {
+export class PostgresAdmissionRequestRepository implements AdmissionCommandWriter<AdmissionSubmissionResult>, AdmissionBatchDecisionWriter, AdmissionRetryWriter, AdmissionExecutionCapabilitiesReader {
   /** @param execute - Guarded actual actor executor. @param readSecurityConfig - Live local platform keyrings/recovery state. @param compose - Explicit DB-only membership and notification owners. */
   constructor(private readonly execute: AdmissionDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly compose: (database: RequestDatabase) => AdmissionTransactionCollaborators) {}
 
@@ -199,10 +211,13 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     return { ...original, result: schema.parse(original.result) };
   }
 
-  /** @param database - Original authorized transaction. @param scope - Actual command actor. @param request - Current committed proposal. @param ledgerId - Original private registry identity. @param event - Owner-selected lifecycle event. @param previous - Locked prior lifecycle or absence for the presentation. @param decision - Effective decision policy/rule/clock or initial absence. @returns After staging notice and reconstructible audit within the same commit. */
-  private async record(database: RequestDatabase, scope: AdmissionCommandScope, request: AdmissionRequest, ledgerId: string, event: AdmissionRequestAuditInput["eventType"], previous: AdmissionRequestAuditInput["previous"], decision: AdmissionRequestAuditDecision|null): Promise<void> {
-    await this.compose(database).notifications.record({ id: randomUUID(), tribeId: scope.tribeId, admissionRequestId: request.id, applicantUserId: request.userId, event, operationId: ledgerId });
-    await new PostgresAdmissionAuditRepository(database).append(createAdmissionRequestAuditEvent({actorUserId:scope.userId,operationId:ledgerId,eventType:event,request,previous,decision}));
+  /** @param database - Original authorized transaction. @param scope - Actual command actor. @param request - Current committed proposal. @param ledgerId - Original private registry identity. @param event - Owner-selected lifecycle event. @param previous - Locked prior lifecycle or absence for the presentation. @param decision - Effective decision policy/rule/clock or initial absence. @param batchEffects - Optional transaction-local facts collected for one bounded bulk flush. @returns After staging notice and reconstructible audit within the same commit. */
+  private async record(database: RequestDatabase, scope: AdmissionCommandScope, request: AdmissionRequest, ledgerId: string, event: AdmissionRequestAuditInput["eventType"], previous: AdmissionRequestAuditInput["previous"], decision: AdmissionRequestAuditDecision|null, batchEffects?: AdmissionBatchEffects): Promise<void> {
+    const obligation: AdmissionNotificationObligation = { id: randomUUID(), tribeId: scope.tribeId, admissionRequestId: request.id, applicantUserId: request.userId, event, operationId: ledgerId };
+    const audit = createAdmissionRequestAuditEvent({actorUserId:scope.userId,operationId:ledgerId,eventType:event,request,previous,decision});
+    if (batchEffects) { batchEffects.notifications.push(obligation); batchEffects.audit.push(audit); return; }
+    await this.compose(database).notifications.record(obligation);
+    await new PostgresAdmissionAuditRepository(database).append(audit);
   }
 
   /** Submits common-policy and personal presentations with current own evidence; existing membership/pending precedes lookup, redemption and proof effects. */
@@ -320,9 +335,15 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     return this.run(input, command, admissionTransitionResultSchema, async (database, ledgerId) => {
       const request = await this.request(database, input.tribeId, input.admissionRequestId);
       if (!request) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      return this.decideInTransaction(database, input, ledgerId, request);
+    }, input.admissionRequestId);
+  }
+
+  /** @param database - Current business transaction. @param input - Native reviewer and explicit decision. @param ledgerId - Original single or batch ledger. @param request - Locked original request. @param prepared - Actual locked batch facts and its transaction-local effects; individual decisions resolve their facts normally. @returns A confirmed proposal staged together with membership, audit and notice; the caller owns commit. */
+  private async decideInTransaction(database: RequestDatabase, input: AdmissionDecisionIntent, ledgerId: string, request: AdmissionRequest, prepared?: AdmissionPreparedDecision) {
       if (input.decision === ADMISSION_DECISION.approve && request.source !== ADMISSION_REQUEST_SOURCE.common && request.source !== ADMISSION_REQUEST_SOURCE.personal && request.source !== ADMISSION_REQUEST_SOURCE.legacy) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
-      const facts = await this.facts(database, input, request.contact, request.userId);
-      const actor = await new PostgresAdmissionAuthorizationReader(database, input.sessionId, ADMISSION_ACTION.decideRequest).getCurrentActor(input.tribeId, input.userId);
+      const facts = prepared?.facts ?? await this.facts(database, input, request.contact, request.userId);
+      const actor = prepared?.actor ?? await new PostgresAdmissionAuthorizationReader(database, input.sessionId, ADMISSION_ACTION.decideRequest).getCurrentActor(input.tribeId, input.userId);
       if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const requiresEvidence = input.decision === ADMISSION_DECISION.approve && (request.source === ADMISSION_REQUEST_SOURCE.personal || request.evidence.kind === ADMISSION_EVIDENCE_KIND.base || request.evidence.kind === ADMISSION_EVIDENCE_KIND.local || facts.policy?.mode === ADMISSION_POLICY_MODE.allowlist);
       const review = requiresEvidence ? await readAdmissionReviewEvidence(database, input, request, await this.readSecurityConfig()) : { ...facts, request: { id: request.id, userId: request.userId, expiresAt: request.expiresAt, source: facts.source, attachedEvidence: null }, reviewer: actor };
@@ -336,9 +357,107 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
         const applied = await this.compose(database).memberships.apply({ tribeId: input.tribeId, userId: request.userId, decisionId: decision.id });
         if (applied.status !== TRIBE_FREE_JOIN_STATUS.joined) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       }
-      await this.record(database, input, proposal.request, ledgerId, decision.outcome, request, decision);
+      await this.record(database, input, proposal.request, ledgerId, decision.outcome, request, decision, prepared?.effects);
       return { admissionRequestId: request.id, version: proposal.request.version, status: proposal.request.status };
-    }, input.admissionRequestId);
+  }
+
+  /** @param database - Exact claim or business transaction. @param scope - Native human identity. @param registrationOnly - Claim phases retain shared scope locks. @returns Whether the current active leader or guardian may process a selected batch. */
+  private async authorizeBatch(database: RequestDatabase, scope: AdmissionCommandScope, registrationOnly = false): Promise<boolean> {
+    await this.authorize(database, scope, ADMISSION_BATCH_DECISION_OPERATION, undefined, registrationOnly);
+    const actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readInbox).getCurrentActor(scope.tribeId, scope.userId);
+    return Boolean(actor && actor.status === TRIBE_MEMBERSHIP_STATUS.active && (actor.role === TRIBE_MEMBER_ROLE.leader || actor.role === TRIBE_MEMBER_ROLE.guardian));
+  }
+
+  /** @param database - Authorized original business transaction. @param input - Exact explicit selection. @returns Current scope and applicant facts read once under shared locks; each row still reads its locked request and fresh clock before proposing. */
+  private async readBatchFacts(database: RequestDatabase, input: AdmissionBatchDecisionIntent): Promise<AdmissionBatchFacts> {
+    const identities = (await database.execute<{ user_id: string }>(sql`select user_id from public.academy_admission_requests where tribe_id=${input.tribeId} and id=any(${sql.param(input.items.map((item) => item.admissionRequestId))}::uuid[])`)).rows;
+    const applicantIds = [...new Set(identities.map((request) => request.user_id))].sort();
+    const tribe = (await database.execute<{ activated_at: string | null; access_model: string; admission_enabled: boolean }>(sql`select tribe.admissions_control_activated_at as activated_at,settings.access_model,settings.admission_enabled from public.tribes tribe inner join public.tribe_academy_settings settings on settings.tribe_id=tribe.id where tribe.id=${input.tribeId} for share of settings`)).rows[0];
+    const policy = await this.policy(database, input.tribeId);
+    const members = (await database.execute<AdmissionMembershipFacts>(sql`select user_id as "userId",tribe_id as "tribeId",role,status,status_reason as "statusReason",commercial_recovery_status as "commercialRecoveryStatus" from public.tribe_members where tribe_id=${input.tribeId} and user_id=any(${sql.param(applicantIds)}::text[]) order by user_id for share`)).rows;
+    const accounts = (await database.execute<{ id: string; email: string }>(sql`select id,email from public."user" where id=any(${sql.param(applicantIds)}::text[]) order by id for share`)).rows;
+    const actor = await new PostgresAdmissionAuthorizationReader(database, input.sessionId, ADMISSION_ACTION.readInbox).getCurrentActor(input.tribeId, input.userId);
+    if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    if (actor.status !== TRIBE_MEMBERSHIP_STATUS.active || actor.role !== TRIBE_MEMBER_ROLE.leader && actor.role !== TRIBE_MEMBER_ROLE.guardian) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+    const config = await this.readSecurityConfig(), now = await databaseNow(database);
+    const membersByApplicant = new Map(members.map((member) => [member.userId, member]));
+    const accountsById = new Map(accounts.map((account) => [account.id, account]));
+    return { actor, byApplicant: new Map(applicantIds.map((applicantId) => {
+      const account = accountsById.get(applicantId);
+      const facts: AdmissionSubmissionFacts = {
+        now, tribe: { id: input.tribeId, isAcademy: tribe?.access_model === TRIBE_ACCESS_MODEL.academy, controlActivated: Boolean(tribe?.activated_at), evaluatorEnabled: Boolean(tribe?.admission_enabled), recoveryLocked: config.recoveryLocked }, policy,
+        account: account ? { userId: applicantId, normalizedEmail: account.email.trim().toLowerCase(), googleAccount: null } : null,
+        contact: null, source: { kind: ADMISSION_REQUEST_SOURCE.common }, membership: membersByApplicant.get(applicantId) ?? null,
+        baseEvidence: null, localProof: null, currentConnection: null, contactBinding: null, allowlistEntry: null,
+      };
+      return [applicantId, facts];
+    })) };
+  }
+
+  /** @param database - The batch's original transaction. @param ledgerId - One durable original identity. @param input - One explicitly selected version and the common decision. @param lockedFacts - Current scope and applicant facts pinned by this business transaction. @param effects - Immutable notices and audit facts flushed before completing the same ledger. @returns An expected row outcome; unexpected failures escape and roll back the complete business transaction. */
+  private async decideBatchItem(database: RequestDatabase, ledgerId: string, input: AdmissionDecisionIntent, lockedFacts: AdmissionBatchFacts, effects: AdmissionBatchEffects): Promise<AdmissionBatchDecisionItemResult> {
+    await database.execute(sql.raw(ADMISSION_COMMAND_EFFECT_SQL.begin));
+    try {
+      const request = await this.request(database, input.tribeId, input.admissionRequestId);
+      if (!request) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      if (request.userId === input.userId) {
+        await database.execute(sql.raw(ADMISSION_COMMAND_EFFECT_SQL.release));
+        return { admissionRequestId: input.admissionRequestId, status: ADMISSION_BATCH_ITEM_STATUS.denied, code: ADMISSION_ERROR_CODE.permissionDenied };
+      }
+      const facts = lockedFacts.byApplicant.get(request.userId);
+      if (!facts) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      const result = await this.decideInTransaction(database, input, ledgerId, request, { actor: lockedFacts.actor, facts: { ...facts, contact: request.contact }, effects });
+      await database.execute(sql.raw(ADMISSION_COMMAND_EFFECT_SQL.release));
+      return result;
+    } catch (error) {
+      const denial = error instanceof AdmissionOperationError ? admissionCommandDenialSchema.safeParse({ outcome: ADMISSION_OUTCOME.denied, code: error.code, admissionRequestId: input.admissionRequestId }) : null;
+      if (!denial?.success) throw error;
+      await database.execute(sql.raw(ADMISSION_COMMAND_EFFECT_SQL.rollback));
+      await database.execute(sql.raw(ADMISSION_COMMAND_EFFECT_SQL.release));
+      return {
+        admissionRequestId: input.admissionRequestId,
+        status: denial.data.code === ADMISSION_ERROR_CODE.requestConflict || denial.data.code === ADMISSION_ERROR_CODE.policyConflict ? ADMISSION_BATCH_ITEM_STATUS.conflict : ADMISSION_BATCH_ITEM_STATUS.denied,
+        code: denial.data.code,
+      };
+    }
+  }
+
+  /** @param input - Explicit bounded selection, original versions, confirmation and separate messages. @returns The original committed row outcomes or genuine registered progress; no external operation or independently committed row is introduced. */
+  async decideBatch(input: AdmissionBatchDecisionIntent): Promise<AdmissionOperationResult<AdmissionBatchDecisionSnapshot>> {
+    const intent = { ...input, internalReason: input.internalReason.trim(), externalMessage: input.externalMessage?.trim() || null, items: input.items.map((item) => ({ ...item })) };
+    const command = {
+      actorUserId: intent.userId, tribeId: intent.tribeId, operationType: ADMISSION_BATCH_DECISION_OPERATION, idempotencyKey: intent.operationId,
+      intent: {
+        context: { decision: intent.decision, internalReason: intent.internalReason, externalMessage: intent.externalMessage, confirmed: intent.confirmed },
+        items: intent.items.map((item) => ({ resourceId: item.admissionRequestId, expectedVersion: item.expectedVersion, intent: null })),
+      },
+    };
+    const ledger = new PostgresAdmissionOperationRepository((run) => this.execute(intent, run), (database) => this.authorizeBatch(database, intent), this.readSecurityConfig, (database) => this.authorizeBatch(database, intent, true));
+    let lockedFacts: AdmissionBatchFacts | undefined;
+    let processedItems = 0;
+    const effects: AdmissionBatchEffects = { notifications: [], audit: [] };
+    try {
+      return await ledger.runBatch(command, admissionBatchDecisionSnapshotSchema, async (database, ledgerId, item) => {
+        lockedFacts ??= await this.readBatchFacts(database, intent);
+        const result = await this.decideBatchItem(database, ledgerId, { ...intent, type: ADMISSION_OPERATION_TYPE.decide, admissionRequestId: item.resourceId, expectedVersion: item.expectedVersion }, lockedFacts, effects);
+        processedItems += 1;
+        if (processedItems === intent.items.length) {
+          await this.compose(database).notifications.recordMany(effects.notifications);
+          await new PostgresAdmissionAuditRepository(database).appendMany(effects.audit);
+        }
+        return result;
+      });
+    } catch (error) {
+      if (!(error instanceof AdmissionOperationError) || error.code !== ADMISSION_ERROR_CODE.operationUnresolved) throw error;
+      try {
+        const original = await ledger.readBatch(command, admissionBatchDecisionSnapshotSchema);
+        if (original?.state === OPERATION_STATE.completed) return original;
+      } catch (reconciliationError) {
+        if (reconciliationError instanceof AdmissionOperationError) throw reconciliationError;
+        throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { operationId: intent.operationId, cause: new AggregateError([error, reconciliationError], "Admission batch original operation reconciliation failed", { cause: error }) });
+      }
+      throw error;
+    }
   }
 
   /** Owner cancellation remains available during pause and never reopens a consumed source. */

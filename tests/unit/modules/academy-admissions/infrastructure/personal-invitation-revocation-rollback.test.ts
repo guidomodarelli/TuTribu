@@ -15,7 +15,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native redeemed wi
       await database.applyMigration("20261009130000_add_personal_invitation_context_digest.sql");
       // Omit only the project's own notice port to exercise the actual deferred
       // PostgreSQL commit guard; no SDK, validator or persistence is mocked.
-      const repository = new PostgresPersonalInvitationRepository((_context, run) => database.withContext(fixture.own, run), async () => fixture.config, () => ({ record: async () => {} }));
+      const repository = new PostgresPersonalInvitationRepository((_context, run) => database.withContext(fixture.own, run), async () => fixture.config, () => ({ record: async () => {}, recordMany: async () => {} }));
       const creation = { ...await fixture.confirm(REAUTHENTICATION_OPERATION.createPersonalInvitation), action: "manage_invitations" as const };
       const created = await repository.create({ context: creation, operationId: randomUUID(), confirmed: true, contact: { type: "email", value: applicant.email }, internalName: "Autorización protegida", requiresAllowlist: false, allowlistExemptionAcknowledged: true });
       if (created.state !== "completed") throw new Error("Expected native revocation rollback seed");

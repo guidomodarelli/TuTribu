@@ -71,7 +71,7 @@ async function prepareManualAdmission(database: AcademyAdmissionTestDatabase, co
     return result;
   }, async () => config, (transaction) => {
     const notifications = createPostgresAdmissionNotificationObligationWriter(transaction);
-    return { memberships: createAcademyApprovedMembershipWriter(transaction), notifications: { record: async (obligation) => { if (obligation.event === omittedNoticeEvent) return; await notifications.record(obligation); } } };
+    return { memberships: createAcademyApprovedMembershipWriter(transaction), notifications: { record: async (obligation) => { if (obligation.event === omittedNoticeEvent) return; await notifications.record(obligation); }, recordMany: async (obligations) => { await notifications.recordMany(obligations.filter((obligation) => obligation.event !== omittedNoticeEvent)); } } };
   });
   const submission: AdmissionSubmissionIntent = { tribeId, userId: applicantId, sessionId: applicantSessionId, requestId: randomUUID(), operationId: randomUUID(), type: "submit_admission", confirmed: true, expectedPolicyVersion: 1, source: { kind: "common" }, contact: { type: "email", value: `${applicantId}@example.test` }, proofId: null, message: null };
   return { repository, config, submission, tribeId, leaderId, leaderSessionId, otherId, otherSessionId, own, writerPids, observeWriter: () => { observeWriter = true; }, loseNextReply: () => { loseCommittedReply = true; }, omitNextApprovalNotice: () => { omittedNoticeEvent = "approved"; }, omitNextNotice: (event: "cancelled" | "expired") => { omittedNoticeEvent = event; } };

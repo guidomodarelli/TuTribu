@@ -25,7 +25,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal ad
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: applicant.userId, sessionId: applicant.sessionId }), (_identity, run) => database.withContext(own, run));
       // Only the project's own notification port is replaced. SQL, native auth,
       // cryptography, binding and membership collaborators remain real.
-      const writer = new PostgresAdmissionRequestRepository((_scope, run) => database.withContext(own, run), async () => fixture.config, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: { record: async () => {} } }));
+      const writer = new PostgresAdmissionRequestRepository((_scope, run) => database.withContext(own, run), async () => fixture.config, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: { record: async () => {}, recordMany: async () => {} } }));
       const useCase = new SubmitAdmissionUseCase(accounts, writer, () => new Date());
       const input = { ...applicant.input, invitationToken: created.initialToken };
       expect(await useCase.execute(input)).toMatchObject({ ok: false, failure: { code: "operation_unresolved", operation: { operationId: input.operationId, state: "started" }, cause: { cause: { code: "23514" } } } });
