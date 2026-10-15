@@ -32,6 +32,10 @@ $app-rail-touch-target: 40px;
   overflow-x: clip;
   isolation: isolate;
   background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  letter-spacing: var(--tracking-body);
+  text-align: left;
 
   // Sidebar. Icons sit on a fixed 32px axis, so the rail only closes over the labels and nothing jumps sideways.
   &__slot {
@@ -40,15 +44,6 @@ $app-rail-touch-target: 40px;
     z-index: 30;
     flex: none;
     height: 100svh;
-  }
-
-  // The page keeps its own typography: Arc type settings apply to the sidebar and the top bar only.
-  &__sidebar,
-  &__topbar {
-    color: var(--foreground);
-    font-family: var(--font-body);
-    letter-spacing: var(--tracking-body);
-    text-align: left;
   }
 
   &__sidebar {
