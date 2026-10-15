@@ -190,6 +190,23 @@ describe("AppSidebar", () => {
     ).toBeInTheDocument();
   });
 
+  it("turns the section heading into a rail divider while the sidebar is folded", async () => {
+    const user = userEvent.setup();
+
+    render(<AppSidebar authenticatedMember={null} memberTribes={[]} />);
+
+    const heading = screen.getByText("Tribus");
+    const divider = heading.parentElement?.querySelector("[aria-hidden=true]:not([data-slot])");
+
+    expect(heading).not.toHaveAttribute("aria-hidden", "true");
+    expect(divider).toHaveAttribute("data-visible", "false");
+
+    await user.click(screen.getByRole("button", { name: "Abrir navegación" }));
+
+    expect(heading).toHaveAttribute("aria-hidden", "true");
+    expect(divider).toHaveAttribute("data-visible", "true");
+  });
+
   it("does not render the account menu in the sidebar", () => {
     render(
       <AppSidebar

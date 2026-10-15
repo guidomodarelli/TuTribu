@@ -4,6 +4,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Added
+
+- En computadora, la barra lateral se contrae y se expande también con la tecla [, y el botón del panel muestra hacia dónde se va a mover y qué tecla usar. Contraída, cada grupo de secciones queda separado por una línea.
+- Dentro de una tribu, el encabezado muestra la ruta de la página: la tribu, Gestión cuando corresponde, y la sección abierta.
+
 ## [1.3.1] - 2026-10-15
 
 ### Changed

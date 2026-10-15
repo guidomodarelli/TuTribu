@@ -1,13 +1,15 @@
 import { cookies, headers } from "next/headers";
 import { Suspense } from "react";
 
+import { AppRailBreadcrumb } from "@/components/app-rail/app-rail-breadcrumb";
+import { AppRailToggle } from "@/components/app-rail/app-rail-toggle";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AvatarSessionMenuClient } from "@/components/auth/avatar-session-menu-client";
 import { NotificationCenter } from "./notification-center";
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { TribeSupportButton } from "@/components/tribes/tribe-support-button";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
-import { SidebarInset, SidebarProvider, SidebarTrigger, TooltipProvider, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "beez-ui";
+import { SidebarInset, SidebarProvider, TooltipProvider, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "beez-ui";
 
 import { ROUTES } from "@/src/constants/routes";
 
@@ -116,7 +118,8 @@ function PlatformLayoutShell({
         />
         <SidebarInset className={styles.PlatformLayout}>
           <header className={styles.PlatformLayout__header}>
-            <SidebarTrigger className={styles.PlatformLayout__trigger} />
+            <AppRailToggle />
+            <AppRailBreadcrumb memberTribes={memberTribes} />
             <TribeSwitcher
               memberTribes={memberTribes}
               showDropdownTrigger={false}

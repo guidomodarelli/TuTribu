@@ -131,3 +131,47 @@ $app-sidebar-pill-background: color-mix(in oklab, var(--sidebar-accent) 70%, tra
     display: none;
   }
 }
+
+// Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the Arc
+// Pro license (https://uiarc.dev/license). Not covered by this project's license;
+// do not redistribute it on its own.
+//
+// App rail mode: a section heading gives way to a short divider in the icon rail.
+// The divider arrives once the labels have left and leaves first when the rail
+// opens, so text and line never overlap.
+$app-sidebar-divider-enter-delay: 160ms;
+$app-sidebar-divider-enter-duration: 200ms;
+$app-sidebar-divider-exit-duration: 100ms;
+$app-sidebar-divider-rest-scale: 0.3;
+
+.AppSidebar {
+  &__sectionHeading {
+    position: relative;
+  }
+
+  &__railDivider {
+    position: absolute;
+    top: 0.875rem;
+    right: 0.5rem;
+    left: 0.5rem;
+    height: 1px;
+    background-color: var(--border);
+    opacity: 0;
+    pointer-events: none;
+    transform: scaleX($app-sidebar-divider-rest-scale);
+    transition:
+      opacity $app-sidebar-divider-exit-duration motion.$ease-out,
+      transform $app-sidebar-divider-exit-duration motion.$ease-out;
+
+    &[data-visible="true"] {
+      opacity: 1;
+      transform: none;
+      transition-delay: $app-sidebar-divider-enter-delay;
+      transition-duration: $app-sidebar-divider-enter-duration;
+    }
+
+    @include motion.reduced {
+      transition: none;
+    }
+  }
+}

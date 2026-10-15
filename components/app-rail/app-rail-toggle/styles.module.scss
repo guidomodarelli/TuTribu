@@ -1,0 +1,71 @@
+// Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the Arc
+// Pro license (https://uiarc.dev/license). Not covered by this project's license;
+// do not redistribute it on its own.
+@use "../../../src/styles/motion";
+
+$app-rail-toggle-size: 2.25rem;
+$app-rail-toggle-touch-size: 2.5rem;
+$app-rail-toggle-glyph-size: 1.25rem;
+
+.AppRailToggle {
+  width: $app-rail-toggle-size;
+  height: $app-rail-toggle-size;
+  margin-left: -0.25rem;
+  color: var(--muted-foreground);
+  -webkit-tap-highlight-color: transparent;
+
+  @include motion.interactive(background-color, color);
+
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      background-color: var(--accent);
+      color: var(--foreground);
+    }
+  }
+
+  &:active {
+    background-color: color-mix(in oklab, var(--foreground) 9%, transparent);
+    color: var(--foreground);
+  }
+
+  @media (pointer: coarse) {
+    width: $app-rail-toggle-touch-size;
+    height: $app-rail-toggle-touch-size;
+  }
+
+  // Wins over the 1rem icon size the shared trigger gives its svg children.
+  & &__glyph {
+    width: $app-rail-toggle-glyph-size;
+    height: $app-rail-toggle-glyph-size;
+  }
+
+  &__shortcut {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    white-space: nowrap;
+  }
+
+  &__key {
+    display: inline-grid;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    place-items: center;
+    border: 1px solid color-mix(in oklab, var(--background) 30%, var(--foreground));
+    border-radius: 0.375rem;
+    padding: 0 0.3125rem;
+    font-family: inherit;
+    font-size: 0.75rem;
+    line-height: 1;
+  }
+
+  &__announcement {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

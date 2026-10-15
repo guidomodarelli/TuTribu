@@ -1,7 +1,8 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { useSidebar } from "beez-ui";
 import { cookies, headers } from "next/headers";
+import { usePathname } from "next/navigation";
 
 import { PlatformLayoutContent } from "@/app/(platform)/layout";
 import { createRequestModules } from "@/src/modules/setup";
@@ -14,6 +15,10 @@ const getNotificationInbox = vi.fn();
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
   headers: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn(() => "/"),
 }));
 
 const INCOMING_REQUEST_ID = "req-platform-layout-42";
@@ -73,6 +78,7 @@ function SidebarState() {
 describe("PlatformLayout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (usePathname as Mock).mockReturnValue("/");
     getAuthenticatedMember.mockReset();
     getMemberTribes.mockReset();
     getNotificationInbox.mockReset();
@@ -202,6 +208,42 @@ describe("PlatformLayout", () => {
     );
 
     expect(screen.getByLabelText("Estado de navegación")).toHaveTextContent("collapsed");
+  });
+
+  it("starts the app rail toggle folded when the sidebar cookie is collapsed and shows the tribe trail", async () => {
+    (cookies as Mock).mockResolvedValue({
+      get: vi.fn(() => ({ value: "false" })),
+    });
+    (usePathname as Mock).mockReturnValue("/alpha-club/eventos");
+    getAuthenticatedMember.mockResolvedValue({
+      id: "member-1",
+      email: "leader@example.com",
+      name: "Grace Hopper",
+      role: "tribemate",
+      avatarFallback: "GH",
+      image: null,
+    });
+    getMemberTribes.mockResolvedValue([
+      { logoUrl: null, membershipStatus: "active" as const, role: "tribemate" as const,
+        tribeId: "tribe-1",
+        name: "Alpha Club",
+        slug: "alpha-club",
+      },
+    ]);
+
+    render(
+      await PlatformLayoutContent({
+        children: <div>Contenido<SidebarState /></div>,
+      })
+    );
+
+    expect(screen.getByRole("button", { name: "Expandir barra lateral" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+    expect(
+      within(screen.getByRole("navigation", { name: "Ruta de navegación" })).getByText("Eventos")
+    ).toBeInTheDocument();
   });
 
   it("skips member tribes when there is no authenticated member", async () => {
