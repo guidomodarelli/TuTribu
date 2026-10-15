@@ -111,7 +111,23 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
   `<DialogTrigger asChild><Button>…</Button></DialogTrigger>`.
 - Validation feedback must be visible near the affected input or action.
 
-## Styling
+## Form fields
+
+- Use `Input` and `Textarea` from beez-ui; they follow Arc's Input and
+  Textarea (44px controls, 110px textareas with vertical resize, border-only
+  focus, `danger` border when invalid).
+- For a labelled field, pass `label`, plus `description` for helper copy and
+  `error` for validation copy, instead of composing a separate `<label>`, hint
+  and error paragraph. The component ties them to the control through
+  `htmlFor`, `aria-describedby` and `aria-invalid`, announces the error with
+  `role="alert"`, and animates the rows and changed words (counts roll only the
+  digits that change) with a reduced-motion branch.
+- Pass `error` (and `description`) even when it is `undefined`: the field mode
+  depends on which props are present, so the control never remounts when
+  validation appears.
+- Without `label`, `description` or `error` the components render the bare
+  control, for input groups, tables and layouts that place their own label.
+
 
 - Product styles use SCSS Modules.
 - Product classes follow BEM.

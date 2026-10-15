@@ -610,7 +610,6 @@ export function TribeStoryManagement({
   const websiteHeadingId = useId();
   const websiteId = useId();
   const websiteHintId = useId();
-  const websiteErrorId = useId();
   const mediaHeadingId = useId();
   const mediaErrorIdPrefix = useId();
   const trimmedContent = content.trim();
@@ -1181,33 +1180,23 @@ export function TribeStoryManagement({
                 </p>
               </div>
               <div className={styles.TribeStoryManagement__sectionFields}>
-                <div className={styles.TribeStoryManagement__field}>
-                  <Input
-                    aria-describedby={
-                      isWebsiteInvalid
-                        ? `${websiteHintId} ${websiteErrorId}`
-                        : websiteHintId
-                    }
-                    aria-invalid={isWebsiteInvalid}
-                    aria-labelledby={websiteHeadingId}
-                    id={websiteId}
-                    onChange={(event) => {
-                      setWebsiteUrl(event.target.value);
-                      setIsWebsiteInvalid(false);
-                      setValidationMessage(null);
-                    }}
-                    placeholder={TRIBE_STORY_MANAGEMENT_COPY.websitePlaceholder}
-                    value={websiteUrl}
-                  />
-                  {isWebsiteInvalid ? (
-                    <p
-                      className={styles.TribeStoryManagement__fieldError}
-                      id={websiteErrorId}
-                    >
-                      {TRIBE_STORY_MANAGEMENT_COPY.invalidWebsiteUrl}
-                    </p>
-                  ) : null}
-                </div>
+                <Input
+                  aria-describedby={websiteHintId}
+                  aria-labelledby={websiteHeadingId}
+                  error={
+                    isWebsiteInvalid
+                      ? TRIBE_STORY_MANAGEMENT_COPY.invalidWebsiteUrl
+                      : undefined
+                  }
+                  id={websiteId}
+                  onChange={(event) => {
+                    setWebsiteUrl(event.target.value);
+                    setIsWebsiteInvalid(false);
+                    setValidationMessage(null);
+                  }}
+                  placeholder={TRIBE_STORY_MANAGEMENT_COPY.websitePlaceholder}
+                  value={websiteUrl}
+                />
               </div>
             </section>
 

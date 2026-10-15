@@ -38,7 +38,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
+import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
 import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
 
 import { Link } from "@/components/navigation/link";
@@ -6998,22 +6998,17 @@ function TribeRoundContent({
               void handleSubmitCreatedAt(event);
             }}
           >
-            <label className={styles.TribeRound__editCreatedAtLabel}>
-              <span className={styles.TribeRound__editCreatedAtLabelText}>
-                {TRIBE_ROUND_COPY.messageEditCreatedAtInputLabel}
-              </span>
-              <input
-                className={styles.TribeRound__editCreatedAtInput}
-                disabled={isBusy}
-                onChange={(event) => {
-                  setEditingCreatedAtValue(event.target.value);
-                }}
-                required
-                step={TRIBE_ROUND_FORM.dateTimeLocalStep}
-                type={TRIBE_ROUND_FORM.dateTimeLocalInputType}
-                value={editingCreatedAtValue}
-              />
-            </label>
+            <Input
+              disabled={isBusy}
+              label={TRIBE_ROUND_COPY.messageEditCreatedAtInputLabel}
+              onChange={(event) => {
+                setEditingCreatedAtValue(event.target.value);
+              }}
+              required
+              step={TRIBE_ROUND_FORM.dateTimeLocalStep}
+              type={TRIBE_ROUND_FORM.dateTimeLocalInputType}
+              value={editingCreatedAtValue}
+            />
             <DialogFooter>
               <DialogClose asChild>
                 <Button

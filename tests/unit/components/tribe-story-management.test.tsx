@@ -131,6 +131,35 @@ describe("TribeStoryManagement", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("flags an invalid website on its field and clears it once edited", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeStoryManagement
+        story={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await user.type(
+      screen.getByLabelText("Historia de la tribu"),
+      "Nacimos en 2020."
+    );
+    const websiteInput = screen.getByLabelText("Sitio web");
+    await user.type(websiteInput, "tribu.example.com");
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(websiteInput).toHaveAttribute("aria-invalid", "true");
+    expect(websiteInput).toHaveAccessibleDescription(
+      /Ingresá una URL válida que empiece con http:\/\/ o https:\/\//
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.type(websiteInput, "/");
+
+    expect(websiteInput).not.toHaveAttribute("aria-invalid");
+  });
+
   it("limits the gallery to five media items", async () => {
     const user = userEvent.setup();
 

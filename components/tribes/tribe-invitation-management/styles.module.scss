@@ -32,8 +32,7 @@
   &__meta,
   &__itemTitle,
   &__emptyTitle,
-  &__emptyHint,
-  &__fieldError {
+  &__emptyHint {
     margin: 0;
   }
 
@@ -293,13 +292,6 @@
     width: 100%;
     min-width: 0;
     max-width: 100%;
-  }
-
-  &__fieldError {
-    padding-top: 0.125rem;
-    color: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
-    font-size: 0.875rem;
-    line-height: 1.4;
   }
 }
 

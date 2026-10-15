@@ -32,19 +32,6 @@
     min-width: 0;
   }
 
-  &__textarea {
-    min-height: 5rem;
-    resize: vertical;
-  }
-
-  &__error {
-    margin: 0;
-    border-left: 3px solid var(--destructive);
-    color: var(--destructive);
-    font-size: 0.9rem;
-    padding-left: 0.75rem;
-  }
-
   &__actions {
     display: flex;
     flex-wrap: wrap;

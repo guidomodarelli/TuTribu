@@ -100,10 +100,7 @@
   }
 
   &__field {
-    display: grid;
-    gap: 0.35rem;
+    min-width: 0;
     width: min(100%, 26rem);
-    font-size: 0.9rem;
-    font-weight: 500;
   }
 }

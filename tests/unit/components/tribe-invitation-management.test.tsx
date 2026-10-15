@@ -278,9 +278,8 @@ describe("TribeInvitationManagement", () => {
       "Usá letras, números, puntos, guiones o guion bajo, con @ opcional al inicio."
     );
     expect(referrerInput).toHaveAttribute("aria-invalid", "true");
-    expect(referrerInput).toHaveAttribute(
-      "aria-describedby",
-      referrerError.id
+    expect(referrerInput).toHaveAccessibleDescription(
+      /Usá letras, números, puntos, guiones o guion bajo, con @ opcional al inicio\./
     );
     expect(screen.getByRole("button", { name: /^Crear link$/ })).toBeDisabled();
 

@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Textarea,
   toast,
 } from "beez-ui";
 
@@ -207,7 +208,6 @@ function SettingsSection({
   const titleId = useId();
   const descriptionId = useId();
   const benefitsId = useId();
-  const benefitsHelpId = useId();
   const [settings, setSettings] = useState(initialSettings);
   const [title, setTitle] = useState(initialSettings.title);
   const [description, setDescription] = useState(initialSettings.description);
@@ -350,35 +350,36 @@ function SettingsSection({
           <h3 className={styles.AcademyManagement__subTitle}>{MANAGEMENT_COPY.offerTitle}</h3>
           <p className={styles.AcademyManagement__hint}>{MANAGEMENT_COPY.offerDescription}</p>
         </div>
-        <label className={styles.AcademyManagement__field} htmlFor={titleId}>
-          <span>{MANAGEMENT_COPY.titleLabel}</span>
-          <Input id={titleId} maxLength={120} onChange={(event) => setTitle(event.currentTarget.value)} required value={title} />
-        </label>
-        <label className={styles.AcademyManagement__field} htmlFor={descriptionId}>
-          <span>{MANAGEMENT_COPY.descriptionLabel}</span>
-          <textarea
-            className={styles.AcademyManagement__textarea}
+        <div className={styles.AcademyManagement__field}>
+          <Input
+            id={titleId}
+            label={MANAGEMENT_COPY.titleLabel}
+            maxLength={120}
+            onChange={(event) => setTitle(event.currentTarget.value)}
+            required
+            value={title}
+          />
+        </div>
+        <div className={styles.AcademyManagement__field}>
+          <Textarea
             id={descriptionId}
+            label={MANAGEMENT_COPY.descriptionLabel}
             maxLength={2000}
             onChange={(event) => setDescription(event.currentTarget.value)}
             rows={4}
             value={description}
           />
-        </label>
-        <label className={styles.AcademyManagement__field} htmlFor={benefitsId}>
-          <span>{MANAGEMENT_COPY.benefitsLabel}</span>
-          <textarea
-            aria-describedby={benefitsHelpId}
-            className={styles.AcademyManagement__textarea}
+        </div>
+        <div className={styles.AcademyManagement__field}>
+          <Textarea
+            description={MANAGEMENT_COPY.benefitsHelp}
             id={benefitsId}
+            label={MANAGEMENT_COPY.benefitsLabel}
             onChange={(event) => setBenefits(event.currentTarget.value)}
             rows={4}
             value={benefits}
           />
-        </label>
-        <p className={styles.AcademyManagement__hint} id={benefitsHelpId}>
-          {MANAGEMENT_COPY.benefitsHelp}
-        </p>
+        </div>
         <div className={styles.AcademyManagement__actions}>
           <Button aria-busy={pending === "offer" || undefined} disabled={pending !== null || !title.trim()} type="submit">
             {pending === "offer" ? MANAGEMENT_COPY.saving : MANAGEMENT_COPY.save}
@@ -566,29 +567,43 @@ function ProvidersSection({
       )}
       {draft ? (
         <form className={styles.AcademyManagement__panel} noValidate onSubmit={handleSubmit}>
-          <label className={styles.AcademyManagement__field} htmlFor={keyInputId}>
-            <span>{MANAGEMENT_COPY.keyLabel}</span>
-            <Input id={keyInputId} maxLength={40} onChange={(event) => setDraft({ ...draft, key: event.currentTarget.value })} value={draft.key} />
-          </label>
-          <label className={styles.AcademyManagement__field} htmlFor={nameInputId}>
-            <span>{MANAGEMENT_COPY.displayNameLabel}</span>
-            <Input id={nameInputId} maxLength={80} onChange={(event) => setDraft({ ...draft, displayName: event.currentTarget.value })} value={draft.displayName} />
-          </label>
-          <label className={styles.AcademyManagement__field} htmlFor={instructionsId}>
-            <span>{MANAGEMENT_COPY.instructionsLabel}</span>
-            <textarea
-              className={styles.AcademyManagement__textarea}
+          <div className={styles.AcademyManagement__field}>
+            <Input
+              id={keyInputId}
+              label={MANAGEMENT_COPY.keyLabel}
+              maxLength={40}
+              onChange={(event) => setDraft({ ...draft, key: event.currentTarget.value })}
+              value={draft.key}
+            />
+          </div>
+          <div className={styles.AcademyManagement__field}>
+            <Input
+              id={nameInputId}
+              label={MANAGEMENT_COPY.displayNameLabel}
+              maxLength={80}
+              onChange={(event) => setDraft({ ...draft, displayName: event.currentTarget.value })}
+              value={draft.displayName}
+            />
+          </div>
+          <div className={styles.AcademyManagement__field}>
+            <Textarea
               id={instructionsId}
+              label={MANAGEMENT_COPY.instructionsLabel}
               maxLength={1000}
               onChange={(event) => setDraft({ ...draft, instructions: event.currentTarget.value })}
               rows={3}
               value={draft.instructions}
             />
-          </label>
-          <label className={styles.AcademyManagement__field} htmlFor={linkInputId}>
-            <span>{MANAGEMENT_COPY.linkLabel}</span>
-            <Input id={linkInputId} onChange={(event) => setDraft({ ...draft, linkUrl: event.currentTarget.value })} type="url" value={draft.linkUrl} />
-          </label>
+          </div>
+          <div className={styles.AcademyManagement__field}>
+            <Input
+              id={linkInputId}
+              label={MANAGEMENT_COPY.linkLabel}
+              onChange={(event) => setDraft({ ...draft, linkUrl: event.currentTarget.value })}
+              type="url"
+              value={draft.linkUrl}
+            />
+          </div>
           <div className={styles.AcademyManagement__switch}>
             <Switch
               checked={draft.isActive}
@@ -718,10 +733,15 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
             </SelectContent>
           </Select>
         </label>
-        <label className={styles.AcademyManagement__filterSearch} htmlFor={searchId}>
-          <span>{MANAGEMENT_COPY.searchLabel}</span>
-          <Input id={searchId} maxLength={80} onChange={(event) => setSearch(event.currentTarget.value)} value={search} />
-        </label>
+        <div className={styles.AcademyManagement__filterSearch}>
+          <Input
+            id={searchId}
+            label={MANAGEMENT_COPY.searchLabel}
+            maxLength={80}
+            onChange={(event) => setSearch(event.currentTarget.value)}
+            value={search}
+          />
+        </div>
         <Button type="submit" variant="secondary">
           <SearchIcon aria-hidden />
           {MANAGEMENT_COPY.searchSubmit}
@@ -824,16 +844,14 @@ function ReviewQueueRow({
       </span>
       {item.status === "pending" || item.status === "verified" ? (
         <div className={styles.AcademyManagement__decision}>
-          <label className={styles.AcademyManagement__field} htmlFor={reasonId}>
-            <span>{MANAGEMENT_COPY.decisionReasonLabel}</span>
-            <Input
-              id={reasonId}
-              maxLength={500}
-              onChange={(event) => setReason(event.currentTarget.value)}
-              placeholder={MANAGEMENT_COPY.reasonPlaceholder}
-              value={reason}
-            />
-          </label>
+          <Input
+            id={reasonId}
+            label={MANAGEMENT_COPY.decisionReasonLabel}
+            maxLength={500}
+            onChange={(event) => setReason(event.currentTarget.value)}
+            placeholder={MANAGEMENT_COPY.reasonPlaceholder}
+            value={reason}
+          />
           <div className={styles.AcademyManagement__actions}>
             {item.status === "pending" ? (
               <>
@@ -972,10 +990,15 @@ function MembersSection({
         }}
         role="search"
       >
-        <label className={styles.AcademyManagement__filterSearch} htmlFor={searchId}>
-          <span>{MANAGEMENT_COPY.searchLabel}</span>
-          <Input id={searchId} maxLength={80} onChange={(event) => setSearch(event.currentTarget.value)} value={search} />
-        </label>
+        <div className={styles.AcademyManagement__filterSearch}>
+          <Input
+            id={searchId}
+            label={MANAGEMENT_COPY.searchLabel}
+            maxLength={80}
+            onChange={(event) => setSearch(event.currentTarget.value)}
+            value={search}
+          />
+        </div>
         <Button type="submit" variant="secondary">
           <SearchIcon aria-hidden />
           {MANAGEMENT_COPY.searchSubmit}
@@ -1131,14 +1154,27 @@ function BonusDialog({
               {MANAGEMENT_COPY.bonusRenewalWarning}
             </p>
           ) : null}
-          <label className={styles.AcademyManagement__field} htmlFor={endId}>
-            <span>{MANAGEMENT_COPY.bonusEndLabel}</span>
-            <Input id={endId} min={today} onChange={(event) => setEndDate(event.currentTarget.value)} required type="date" value={endDate} />
-          </label>
-          <label className={styles.AcademyManagement__field} htmlFor={reasonId}>
-            <span>{MANAGEMENT_COPY.bonusReasonLabel}</span>
-            <Input id={reasonId} maxLength={500} onChange={(event) => setReason(event.currentTarget.value)} required value={reason} />
-          </label>
+          <div className={styles.AcademyManagement__field}>
+            <Input
+              id={endId}
+              label={MANAGEMENT_COPY.bonusEndLabel}
+              min={today}
+              onChange={(event) => setEndDate(event.currentTarget.value)}
+              required
+              type="date"
+              value={endDate}
+            />
+          </div>
+          <div className={styles.AcademyManagement__field}>
+            <Input
+              id={reasonId}
+              label={MANAGEMENT_COPY.bonusReasonLabel}
+              maxLength={500}
+              onChange={(event) => setReason(event.currentTarget.value)}
+              required
+              value={reason}
+            />
+          </div>
           {!recipient.isVerified ? (
             <div className={styles.AcademyManagement__switch}>
               <Checkbox

@@ -21,7 +21,6 @@
   &__sectionTitle,
   &__sectionDescription,
   &__fieldHelp,
-  &__fieldError,
   &__emptyTitle,
   &__emptyHint {
     margin: 0;
@@ -124,17 +123,6 @@
     width: 100%;
   }
 
-  &__nameField {
-    display: grid;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-
-  &__textInput {
-    width: 100%;
-    min-width: 0;
-  }
-
   &__field {
     display: grid;
     gap: 0.4rem;
@@ -150,14 +138,6 @@
 
   &__fieldHelp {
     color: var(--muted-foreground);
-    font-size: 0.8rem;
-    line-height: 1.45;
-  }
-
-  &__fieldError {
-    @include motion.fade;
-
-    color: color-mix(in srgb, var(--destructive) 75%, var(--foreground));
     font-size: 0.8rem;
     line-height: 1.45;
   }

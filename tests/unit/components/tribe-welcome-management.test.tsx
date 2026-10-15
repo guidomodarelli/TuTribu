@@ -692,15 +692,22 @@ describe("TribeWelcomeManagement", () => {
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(
-      screen.getByText("Ingresá un título para el modal.")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Ingresá una descripción para el modal.")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Ingresá un encabezado para los recursos.")
-    ).toBeInTheDocument();
+    const titleInput = screen.getByLabelText(/Título del modal/);
+    const descriptionInput = screen.getByLabelText(/Descripción del modal/);
+    const headingInput = screen.getByLabelText(/Encabezado de recursos/);
+
+    expect(titleInput).toHaveAttribute("aria-invalid", "true");
+    expect(titleInput).toHaveAccessibleDescription(
+      /Ingresá un título para el modal\./
+    );
+    expect(descriptionInput).toHaveAttribute("aria-invalid", "true");
+    expect(descriptionInput).toHaveAccessibleDescription(
+      /Ingresá una descripción para el modal\./
+    );
+    expect(headingInput).toHaveAttribute("aria-invalid", "true");
+    expect(headingInput).toHaveAccessibleDescription(
+      /Ingresá un encabezado para los recursos\./
+    );
   });
 
   it("rejects WhatsApp phones with an invalid international format", async () => {
