@@ -15,10 +15,14 @@
  *
  * The hosts file is never written: `dev.tutribu.app` resolves to `127.0.0.1`
  * through a public DNS record (an `A` record, DNS only, in the `tutribu.app`
- * zone) and portless runs with hosts sync disabled. On Windows no step asks for
- * administrator privileges (`portless trust` uses the current user's store); on
- * macOS and Linux the HTTPS proxy listens on the default port 443, so
- * `portless proxy start` asks for `sudo` once to bind it. Requires portless
+ * zone) and portless runs with hosts sync disabled. On Windows `portless trust`
+ * uses the current user's store; the only elevated step is optional: when the
+ * network's DNS does not return the record but Cloudflare's public DNS does
+ * (ISP rebinding protection or a cached negative answer), the script asks
+ * through UAC to point the connected physical adapters at Cloudflare's DNS and
+ * clears the DNS cache. Once that is done the record resolves locally and the
+ * prompt never shows again. On macOS and Linux the HTTPS proxy listens on
+ * the default port 443, so `portless proxy start` asks for `sudo` once to bind it. Requires portless
  * 0.15.5 or newer (`PORTLESS_MIN_VERSION`), the first release that accepts a
  * dotted TLD; the script checks it before stopping the running proxy.
  * Every step is idempotent, so the script can be rerun freely.
@@ -27,7 +31,7 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
-import { lookup } from "node:dns/promises";
+import { lookup, Resolver } from "node:dns/promises";
 import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -46,6 +50,21 @@ const DEV_HOST_RESOLUTION = {
   loopback: "loopback",
   elsewhere: "elsewhere",
   missing: "missing",
+};
+
+/**
+ * Cloudflare's public resolvers: queried to tell a missing record apart from a
+ * local resolver that hides it, and set on the adapters when that happens.
+ */
+const PUBLIC_DNS_SERVERS = {
+  ipv4: ["1.1.1.1", "1.0.0.1"],
+  ipv6: ["2606:4700:4700::1111", "2606:4700:4700::1001"],
+};
+
+/** Single short attempt so a blocked public resolver does not stall the start. */
+const PUBLIC_DNS_QUERY = {
+  timeoutMs: 3000,
+  tries: 1,
 };
 
 /** Files portless keeps under its state directory. */
@@ -84,6 +103,9 @@ const PORTLESS_BINARY = "portless";
 const DEV_SERVER_COMMAND = ["next", "dev"];
 const DRY_RUN_FLAG = "--dry-run";
 const WINDOWS_PLATFORM = "win32";
+const POWERSHELL_BINARY = "powershell.exe";
+/** `-EncodedCommand` expects the script as base64 of its UTF-16LE bytes. */
+const POWERSHELL_ENCODED_COMMAND_ENCODING = "utf16le";
 const EXIT_CODE = {
   failure: 1,
   success: 0,
@@ -97,6 +119,12 @@ const SCRIPT_MESSAGE = {
   devHostLoopback: (hostName) => `${hostName} resuelve a loopback por DNS.`,
   devHostMissing: (hostName) =>
     `${hostName} no resuelve. Creá en Cloudflare un registro A "dev" → 127.0.0.1 en la zona tutribu.app, en modo DNS only (sin proxy), y volvé a correr el comando.`,
+  dnsSwitchFailed:
+    "No se pudo cambiar el DNS (¿cancelaste el UAC?). Cambiá el DNS del adaptador a 1.1.1.1 a mano o esperá a que el DNS de tu red resuelva el registro.",
+  dnsSwitchPlanned:
+    "En modo real se pediría permiso de administrador (UAC) para usar el DNS de Cloudflare en los adaptadores conectados.",
+  dnsSwitchRequest: (hostName) =>
+    `${hostName} existe en el DNS público pero el DNS de tu red no lo resuelve. Pidiendo permiso de administrador (UAC) para usar el DNS de Cloudflare (1.1.1.1) en los adaptadores conectados...`,
   dryRunHeader: "Modo --dry-run: no se ejecuta nada, solo se muestra el plan.",
   portlessMissing:
     "portless no está instalado. Instalalo con: npm install -g portless",
@@ -172,6 +200,31 @@ export function classifyDevHostResolution(addresses) {
   return addresses.every((address) => LOOPBACK_ADDRESSES.includes(address))
     ? DEV_HOST_RESOLUTION.loopback
     : DEV_HOST_RESOLUTION.elsewhere;
+}
+
+/**
+ * Decides whether to point the adapters at public DNS: only on Windows, and
+ * only when the record already resolves to loopback publicly but the local
+ * resolver misses it. A missing or wrong public record is fixed in Cloudflare,
+ * not on this machine, and a host that already resolves needs nothing.
+ *
+ * @param {{
+ *   platform: string,
+ *   localResolution: "loopback" | "elsewhere" | "missing",
+ *   publicResolution: "loopback" | "elsewhere" | "missing",
+ * }} options
+ * @returns {boolean}
+ */
+export function shouldSwitchToPublicDns({
+  platform,
+  localResolution,
+  publicResolution,
+}) {
+  return (
+    platform === WINDOWS_PLATFORM &&
+    localResolution !== DEV_HOST_RESOLUTION.loopback &&
+    publicResolution === DEV_HOST_RESOLUTION.loopback
+  );
 }
 
 /**
@@ -325,9 +378,131 @@ async function resolveDevHostAddresses(hostName) {
   }
 }
 
-async function ensureDevHostResolvesToLoopback(hostName) {
-  const addresses = await resolveDevHostAddresses(hostName);
-  const resolution = classifyDevHostResolution(addresses);
+/**
+ * Resolves the dev host's IPv4 addresses through Cloudflare's public DNS,
+ * bypassing the network's resolver; failures yield an empty list.
+ *
+ * @param {string} hostName
+ * @returns {Promise<string[]>}
+ */
+async function resolveDevHostAddressesPublicly(hostName) {
+  const publicResolver = new Resolver({
+    timeout: PUBLIC_DNS_QUERY.timeoutMs,
+    tries: PUBLIC_DNS_QUERY.tries,
+  });
+
+  publicResolver.setServers(PUBLIC_DNS_SERVERS.ipv4);
+
+  try {
+    return await publicResolver.resolve4(hostName);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Builds the elevated PowerShell script that sets Cloudflare's DNS on every
+ * connected physical adapter (Wi-Fi or Ethernet, whichever is up) and clears
+ * the DNS cache so the new servers answer right away.
+ *
+ * @returns {string}
+ */
+function buildPublicDnsSwitchScript() {
+  const serverAddresses = [...PUBLIC_DNS_SERVERS.ipv4, ...PUBLIC_DNS_SERVERS.ipv6]
+    .map((serverAddress) => `'${serverAddress}'`)
+    .join(",");
+
+  return [
+    "$ErrorActionPreference = 'Stop'",
+    "Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | ForEach-Object {",
+    `  Set-DnsClientServerAddress -InterfaceIndex $_.ifIndex -ServerAddresses (${serverAddresses})`,
+    "}",
+    "Clear-DnsClientCache",
+  ].join("\n");
+}
+
+/**
+ * Runs the DNS switch in an elevated PowerShell through UAC and waits for it.
+ * The script travels as `-EncodedCommand`, so no quoting crosses the
+ * elevation boundary.
+ *
+ * @returns {boolean} `false` when UAC is declined or the elevated script fails.
+ */
+function switchAdaptersToPublicDns() {
+  const encodedScript = Buffer.from(
+    buildPublicDnsSwitchScript(),
+    POWERSHELL_ENCODED_COMMAND_ENCODING
+  ).toString("base64");
+  const elevation = spawnSync(
+    POWERSHELL_BINARY,
+    [
+      "-NoProfile",
+      "-Command",
+      `$elevated = Start-Process ${POWERSHELL_BINARY} -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList '-NoProfile','-EncodedCommand','${encodedScript}'; exit $elevated.ExitCode`,
+    ],
+    { stdio: "inherit" }
+  );
+
+  return elevation.status === EXIT_CODE.success;
+}
+
+/**
+ * Fixes a local resolver that hides the public record by switching the
+ * adapters to public DNS, only when `shouldSwitchToPublicDns` allows it.
+ *
+ * @param {string} hostName
+ * @param {"loopback" | "elsewhere" | "missing"} localResolution
+ * @param {boolean} isDryRun
+ * @returns {Promise<string[] | null>} Addresses after the switch, or `null` when no switch ran.
+ */
+async function trySwitchingToPublicDns(hostName, localResolution, isDryRun) {
+  const publicResolution = classifyDevHostResolution(
+    await resolveDevHostAddressesPublicly(hostName)
+  );
+
+  if (
+    !shouldSwitchToPublicDns({
+      localResolution,
+      platform: process.platform,
+      publicResolution,
+    })
+  ) {
+    return null;
+  }
+
+  if (isDryRun) {
+    console.log(SCRIPT_MESSAGE.dnsSwitchPlanned);
+
+    return null;
+  }
+
+  console.log(SCRIPT_MESSAGE.dnsSwitchRequest(hostName));
+
+  if (!switchAdaptersToPublicDns()) {
+    console.error(SCRIPT_MESSAGE.dnsSwitchFailed);
+
+    return null;
+  }
+
+  return resolveDevHostAddresses(hostName);
+}
+
+async function ensureDevHostResolvesToLoopback(hostName, isDryRun) {
+  let addresses = await resolveDevHostAddresses(hostName);
+  let resolution = classifyDevHostResolution(addresses);
+
+  if (resolution !== DEV_HOST_RESOLUTION.loopback) {
+    const addressesAfterSwitch = await trySwitchingToPublicDns(
+      hostName,
+      resolution,
+      isDryRun
+    );
+
+    if (addressesAfterSwitch) {
+      addresses = addressesAfterSwitch;
+      resolution = classifyDevHostResolution(addresses);
+    }
+  }
 
   if (resolution === DEV_HOST_RESOLUTION.loopback) {
     console.log(SCRIPT_MESSAGE.devHostLoopback(hostName));
@@ -400,7 +575,7 @@ async function main() {
   }
 
   // Checked first: without the DNS record the browser cannot reach the proxy, so nothing else is worth starting.
-  if (!(await ensureDevHostResolvesToLoopback(hostName)) && !isDryRun) {
+  if (!(await ensureDevHostResolvesToLoopback(hostName, isDryRun)) && !isDryRun) {
     process.exit(EXIT_CODE.failure);
   }
 

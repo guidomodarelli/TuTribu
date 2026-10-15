@@ -10,6 +10,11 @@ type DevPortlessScript = {
     addresses: string[]
   ) => "loopback" | "elsewhere" | "missing";
   isPortlessCaTrusted: (stateDirectory: string) => boolean;
+  shouldSwitchToPublicDns: (options: {
+    platform: string;
+    localResolution: "loopback" | "elsewhere" | "missing";
+    publicResolution: "loopback" | "elsewhere" | "missing";
+  }) => boolean;
   isPortlessVersionSupported: (versionText: string) => boolean;
   resolvePortlessStateDirectory: (homeDirectory: string) => string;
 };
@@ -40,6 +45,54 @@ describe("dev portless script", () => {
       devPortlessScript.classifyDevHostResolution(["127.0.0.1", "172.67.1.1"])
     ).toBe("elsewhere");
     expect(devPortlessScript.classifyDevHostResolution([])).toBe("missing");
+  });
+
+  it("should switch to public DNS on Windows when only the local resolver misses the loopback record", () => {
+    expect(
+      devPortlessScript.shouldSwitchToPublicDns({
+        localResolution: "missing",
+        platform: "win32",
+        publicResolution: "loopback",
+      })
+    ).toBe(true);
+    expect(
+      devPortlessScript.shouldSwitchToPublicDns({
+        localResolution: "elsewhere",
+        platform: "win32",
+        publicResolution: "loopback",
+      })
+    ).toBe(true);
+  });
+
+  it("should not switch DNS when the record is wrong publicly, already resolves, or the platform is not Windows", () => {
+    expect(
+      devPortlessScript.shouldSwitchToPublicDns({
+        localResolution: "missing",
+        platform: "win32",
+        publicResolution: "missing",
+      })
+    ).toBe(false);
+    expect(
+      devPortlessScript.shouldSwitchToPublicDns({
+        localResolution: "missing",
+        platform: "win32",
+        publicResolution: "elsewhere",
+      })
+    ).toBe(false);
+    expect(
+      devPortlessScript.shouldSwitchToPublicDns({
+        localResolution: "loopback",
+        platform: "win32",
+        publicResolution: "loopback",
+      })
+    ).toBe(false);
+    expect(
+      devPortlessScript.shouldSwitchToPublicDns({
+        localResolution: "missing",
+        platform: "darwin",
+        publicResolution: "loopback",
+      })
+    ).toBe(false);
   });
 
   it("should accept portless 0.15.5 or newer, which supports the dotted TLD", () => {
