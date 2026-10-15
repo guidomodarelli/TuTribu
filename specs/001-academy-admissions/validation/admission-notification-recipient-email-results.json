@@ -1,0 +1,215 @@
+{
+  "capturedAt": "2026-10-15T17:04:31.633Z",
+  "status": "private_current_account_recipient_email_verified",
+  "baseHead": "5944a8cd77de95602cace7052aacaad0e3d822c0",
+  "scope": "Política y reader privados de evidencia actual para el correo de un aviso original. Sin permiso de envío ni composición pública.",
+  "native": {
+    "startedAt": "2026-10-15T16:58:07.415Z",
+    "completedAt": "2026-10-15T17:02:39.200Z",
+    "completeFiles": 1,
+    "passed": 3,
+    "failed": 0,
+    "filtered": 0,
+    "sourceInputsStable": true,
+    "sourceFiles": [
+      {
+        "path": "tests/unit/modules/notifications/infrastructure/admission-notification-recipient-email.test.ts",
+        "sha256": "19f3ea3260dd4454308ad262403c4752684cf66a754ab7fc7ece72400878685a"
+      },
+      {
+        "path": "tests/support/admission-notification-recipient-email-fixture.ts",
+        "sha256": "4726c6cbac51cb2f890dd1382d265ea979da38b0043cf54dc575de96c5055685"
+      },
+      {
+        "path": "src/modules/notifications/domain/entities/admission-notification-recipient-email.ts",
+        "sha256": "ae119c78c965cb87b1a1b6b048fcb835f3ca2b79fd2d6693dbe840fee81d00bf"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-recipient-email.ts",
+        "sha256": "7f804c37025019170bb8a103bddb5c536a5eba07c54c992d8755fbf82ee0ffa6"
+      },
+      {
+        "path": "src/modules/notifications/domain/repositories/admission-notification-recipient-email-reader.ts",
+        "sha256": "434e585d5e33a0f432d6647800104502caaf2c254ff66b632dad701b91e888a0"
+      },
+      {
+        "path": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-recipient-email-reader.ts",
+        "sha256": "41852791d5a15173bcfab1d26a1b77ffd6f9e15197ffcfe3ca2e52c4f25a8bf7"
+      },
+      {
+        "path": "tests/support/constants/admission-notification-validation.ts",
+        "sha256": "a6386e3b3a7cb458f824ab65a7911ace548de64a05ac0a2efb168f92055c0ec5"
+      },
+      {
+        "path": "tests/support/admission-evidence-historical-fixture.ts",
+        "sha256": "d9b2545483ae6d9da6d3f39e91f35195467bf0bb2803a779f60ef9450ef0661c"
+      },
+      {
+        "path": "tests/support/admission-retention-migration-prefix.ts",
+        "sha256": "a2600f085113677ac574bd0fa65f6538ad572dc4b67e7b3c22ae85e8f5242cbb"
+      },
+      {
+        "path": "tests/support/admission-transition-contention.ts",
+        "sha256": "1440a7916061c76d261dbef70504ca6c135a487448e4633749f4448dbfd14640"
+      },
+      {
+        "path": "database/migrations/meta/_journal.json",
+        "sha256": "c21204d4d5dcb6be3ad5a1a497eced42b8ff242527a72f925e3f7d64e9b56e8e"
+      },
+      {
+        "path": "tests/support/academy-admission-database.ts",
+        "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+      },
+      {
+        "path": "tests/support/admission-migration-command.ts",
+        "sha256": "7914b750b7077fcc3828097d8a928a64427765fd8964885fd8c5ed5813034630"
+      }
+    ],
+    "cases": [
+      {
+        "title": "native admission notification recipient email should resolve current linked account email without a live session and reject invalidation or lost reviewer authority",
+        "status": "passed",
+        "durationMs": 91214.7835
+      },
+      {
+        "title": "native admission notification recipient email should retain only an original applied email proof and never infer account email from a phone or generic flag",
+        "status": "passed",
+        "durationMs": 95493.3232
+      },
+      {
+        "title": "native admission notification recipient email should reread current capture after an actual account lock wait instead of returning the pre-wait identity",
+        "status": "passed",
+        "durationMs": 83635.9485
+      }
+    ]
+  },
+  "local": {
+    "completeFiles": 1,
+    "passed": 41,
+    "failed": 0,
+    "filtered": 0,
+    "sourceInputsStable": true,
+    "sourceFiles": [
+      {
+        "path": "tests/unit/modules/notifications/domain/admission-notification-recipient-email.test.ts",
+        "sha256": "b6bb3c93e97b11af58bc167fd328754faa6ec8f6c4057a0bcd09fab1b50cf61f"
+      },
+      {
+        "path": "src/modules/notifications/domain/entities/admission-notification-recipient-email.ts",
+        "sha256": "ae119c78c965cb87b1a1b6b048fcb835f3ca2b79fd2d6693dbe840fee81d00bf"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-recipient-email.ts",
+        "sha256": "7f804c37025019170bb8a103bddb5c536a5eba07c54c992d8755fbf82ee0ffa6"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-audience.ts",
+        "sha256": "3c798997ff941cda3127b628beb16a24cf975c495289b138d938de39d792bcd2"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-preference.ts",
+        "sha256": "e0d8360dc5da571b062173a6d99e0fb32baaffcd5b09208db80a2ba0286ba68a"
+      },
+      {
+        "path": "src/modules/notifications/constants/admission-notifications.ts",
+        "sha256": "87d82e2897913d7ee5c2ca0df69afb2299ba42ebdc747c5f873ccc15361a558b"
+      },
+      {
+        "path": "src/modules/auth/constants/google-identity-evidence.ts",
+        "sha256": "ff30d4a1f61f0c65d4544ae978dc0cee2686defcc498ca4e1ca2c288656d04f7"
+      },
+      {
+        "path": "src/modules/academy-admissions/constants/admission-eligibility.ts",
+        "sha256": "cc1879f2a629c2205c32c68ef921748d5e0121a6df44ce67aa242c4a875d4901"
+      },
+      {
+        "path": "src/modules/academy-admissions/constants/admission-contact.ts",
+        "sha256": "cf90895cb275bdd948957b18c86167ab099cca6feccf38702b325fedb6342aad"
+      }
+    ]
+  },
+  "currentUniqueCases": 44,
+  "initialCollectionReds": [
+    {
+      "stage": "missing_policy_and_model",
+      "executedCases": 0,
+      "failedCases": 0,
+      "failedFiles": 1,
+      "countedInCurrent": false
+    },
+    {
+      "stage": "missing_native_reader",
+      "executedCases": 0,
+      "failedCases": 0,
+      "failedFiles": 1,
+      "fixtureExecuted": false,
+      "countedInCurrent": false
+    }
+  ],
+  "nativeHistoricalFixture": {
+    "originalPrefixAndSnapshot": true,
+    "fullJournalAfterOriginalGuard": true,
+    "disabledGuards": false,
+    "rewrittenDates": false,
+    "syntheticMetadataOnly": true,
+    "liveOAuthCaptureOrOtpSendingClaimed": false
+  },
+  "dependencyDoublesInRecipientTests": false,
+  "actualAccountLockWaitObserved": true,
+  "postWaitInvalidationRejected": true,
+  "roleRevocationRejected": true,
+  "genericEmailVerifiedAndPhoneInsufficient": true,
+  "localOriginalApplicationWindowPreserved": true,
+  "noApplicantMembershipGranted": true,
+  "currentDestinationProjectionOnly": true,
+  "publicApiImplemented": false,
+  "publicUiImplemented": false,
+  "groupProducerIntegrationImplemented": false,
+  "fullSealedOutboxIntentImplemented": false,
+  "externalEmailDispatchImplemented": false,
+  "fullT185Approved": false,
+  "fullUs8Approved": false,
+  "taskClosure": false,
+  "originalTasks": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38
+  },
+  "staticChecks": {
+    "focusedLint": "passed",
+    "productTypes": "passed",
+    "testTypes": "passed",
+    "diffCheck": "passed"
+  },
+  "resources": {
+    "inventoryAt": "2026-10-15T17:04:31.632Z",
+    "productionPreserved": true,
+    "originalPilotPreserved": true,
+    "temporaryBranches": 0,
+    "externalMessagesSent": 0
+  },
+  "previousSavedCi": {
+    "head": "5944a8cd77de95602cace7052aacaad0e3d822c0",
+    "runId": 38770055543,
+    "conclusion": "success",
+    "doesNotApproveLaterRecipientEmail": true
+  },
+  "nextCommitCiApproved": false,
+  "docs": {
+    "sourceHash": "0e745e4a0dd249c746a336696db69c4cfe38e01cf643a34eba323716e1be9ef4",
+    "views": 4,
+    "engines": [
+      "chromium",
+      "webkit"
+    ],
+    "widths": [
+      390,
+      1280
+    ],
+    "visuallyInspected": [
+      "chromium-1280",
+      "webkit-390"
+    ],
+    "horizontalOverflow": false
+  }
+}

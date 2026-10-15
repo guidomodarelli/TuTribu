@@ -56,14 +56,20 @@ El [contrato y writer posterior](admission-notification-obligation-writer.md) ya
 
 El contrato y writer quedaron guardados y subidos en `8e80823030234585061f0563d41c216a9e9e5bdd`, con revisión final sin hallazgos y 35 casos actuales distintos aprobados. Su [workflow propio](https://github.com/guidomodarelli/TuTribu/actions/runs/38767589231) conserva el control de ese commit; no certifica la primitiva SQL posterior.
 
+Ese workflow terminó aprobado: **513 archivos y 5314 casos aprobados, 270 archivos y 789 casos omitidos**, lint, tipos de producto/pruebas y build real de las 53 páginas. Los dos Native del writer conservan su evidencia independiente.
+
 La [materialización privada de recordatorios](admission-notification-reminders.md) añade un lote SQL de pendientes vivas con antigüedad de 72 horas, unicidad original y avisos/auditoría atómicos. Su rojo real fue 42883, función inexistente tras preparar el journal original. El archivo Native actual completo terminó **3/0, sin filtros y con ocho inputs estables**: concurrencia y catch-up, fence ocupado antes del límite, ámbitos/roles, exclusión temporal, rollback observado, tamaños inválidos y EXECUTE denegado. Lint y tipos de pruebas pasaron; no cambió TypeScript productivo. La conciliación posterior conserva solo las dos ramas protegidas. Coordinador, salud, trabajo restante, API, scheduler, correo y aceptación completa conservan sus tareas; cero materializaciones no se declara éxito global.
+
+La primitiva quedó guardada y subida en `5944a8cd77de95602cace7052aacaad0e3d822c0`. Su [CI completo](https://github.com/guidomodarelli/TuTribu/actions/runs/38770055543) terminó aprobado: **513 archivos y 5314 casos aprobados, 271 archivos y 792 casos omitidos**, lint, tipos de producto/pruebas y build real de 53 páginas. Sus tres Native siguen separados del control que los omite por bandera.
+
+El [reader privado de correo actual](admission-notification-recipient-email.md) añade política y puerto para un aviso original, con captura global vigente o prueba local aplicada en su contexto. Pasaron **41 casos de dominio y tres Native completos**, sin filtros e inputs registrados estables: correo actual, invalidación irreversible y después de espera observada, rol actual, ámbito propio y aplicación histórica conservada. Teléfono y emailVerified genérico no acreditan correo. Los rojos fueron módulos inexistentes al cargar, con cero casos ejecutados; no se presentan como SQL rojo. Lint y tipos pasaron y la conciliación oficial posterior conserva las dos ramas protegidas, sin temporales ni envíos. El fixture carga metadata histórica coherente antes del primer guard original y luego el journal completo; no deshabilita guardas ni acredita otro OAuth/OTP. La composición con grupos/outbox y sus autorizaciones/capacidad actuales sigue pendiente; el CI de `5944a8cd` no se atribuye al reader posterior.
 
 - Lint focal de los archivos corregidos: aprobado, sin diagnósticos.
 - `pnpm run typecheck:tests`: aprobado después de los últimos ajustes.
 - `git diff --check`: aprobado.
 - Suites completas afectadas: 124 casos de repositorios, nueve de observación y veinte de invitación, sin fallos ni exclusiones; las repeticiones no se suman.
 - Build aislado real de T175: código cero y 1727 archivos de producto equivalentes, con sólo CRLF/LF como diferencia de bytes. Es evidencia separada del CI anterior detenido en tests.
-- Controles completos de los checkpoints guardados hasta `dd2b184a`: aprobados por sus workflows, incluida la persistencia de grupos en ese último control. El contrato y writer posteriores conservan su propia validación y requieren su workflow al guardarse.
+- Controles completos de los checkpoints guardados hasta `5944a8cd`: aprobados por sus workflows, incluida la primitiva privada de recordatorios en ese último control. El reader de correo posterior conserva su propia validación y requiere su workflow al guardarse.
 
 La fuente ejecutable es `.github/workflows/quality-gate.yml`: instala el lockfile congelado y ejecuta `pnpm run ci`, que encadena lint, tipos de producto, tipos de pruebas, tests y build. Se usan comprobaciones locales relevantes y ese workflow para el control completo. Un resultado verde no certifica las suites Native omitidas por flags ni los ensayos operativos ausentes.
 
