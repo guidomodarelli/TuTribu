@@ -6,6 +6,7 @@ import { ADMISSION_NOTIFICATION_PREFERENCE_IMPLICIT_VERSION, ADMISSION_NOTIFICAT
 import type { AdmissionNotificationCandidatePlan, AdmissionNotificationEmailFacts, AdmissionNotificationEmailCandidate, AdmissionNotificationGroupIdentity, AdmissionNotificationGroupFreezePlan, AdmissionNotificationRequest, AdmissionNotificationSuppressionReason, AdmissionNotificationWindow } from "../entities/admission-notification";
 import type { AdmissionNotificationPreferenceMode } from "../entities/admission-notification-preference";
 import { resolveAdmissionNotificationPreference } from "./admission-notification-preference";
+import { resolveAdmissionNotificationAudience } from "./admission-notification-audience";
 
 /** @param request - Current original request facts. @param nowMicroseconds - Fresh native clock after all waits. @returns Whether the original pending request crossed three elapsed days and has not expired. */
 export function isAdmissionNotificationReminderDue(request: AdmissionNotificationRequest, nowMicroseconds: number): boolean {
@@ -37,7 +38,7 @@ export function planAdmissionNotificationEmailCandidate(facts: AdmissionNotifica
   /** @param reason - Closed private policy outcome. @returns Suppression of optional email only, without changing the source fact. */
   const suppress = (reason: AdmissionNotificationSuppressionReason): AdmissionNotificationCandidatePlan => ({ status: ADMISSION_NOTIFICATION_GROUP_STATUS.suppressed, reason });
   if (source.tribeId !== request.tribeId || source.admissionRequestId !== request.id || source.applicantUserId !== request.applicantUserId || emailSettings.tribeId !== source.tribeId || availability.tribeId !== source.tribeId || availability.recipientUserId !== recipient.userId || recipient.preference && (recipient.preference.tribeId !== source.tribeId || recipient.preference.recipientUserId !== recipient.userId)) return suppress(ADMISSION_NOTIFICATION_GROUP_REASON.scopeMismatch);
-  const reviewerEvent = source.event === ADMISSION_NOTIFICATION_EVENT.pendingCreated || source.event === ADMISSION_NOTIFICATION_EVENT.reminder;
+  const reviewerEvent = resolveAdmissionNotificationAudience(source.event) === ADMISSION_NOTIFICATION_AUDIENCE.reviewer;
   const currentPreference = recipient.audience === ADMISSION_NOTIFICATION_AUDIENCE.reviewer ? resolveAdmissionNotificationPreference({ tribeId: source.tribeId, recipientUserId: recipient.userId, currentRole: recipient.currentRole, membershipStatus: recipient.membershipStatus }, null) : null;
   if (recipient.audience === ADMISSION_NOTIFICATION_AUDIENCE.reviewer ? !reviewerEvent || currentPreference?.status !== ADMISSION_NOTIFICATION_PREFERENCE_STATUS.resolved : reviewerEvent || recipient.userId !== source.applicantUserId) return suppress(ADMISSION_NOTIFICATION_GROUP_REASON.recipientUnauthorized);
   if (reviewerEvent ? request.status !== ADMISSION_REQUEST_STATUS.pending || nowMicroseconds >= request.expiresAtMicroseconds || source.event === ADMISSION_NOTIFICATION_EVENT.reminder && !isAdmissionNotificationReminderDue(request, nowMicroseconds) : request.status !== source.event) return suppress(ADMISSION_NOTIFICATION_GROUP_REASON.eventNotCurrent);
