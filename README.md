@@ -142,6 +142,11 @@ Before testing sign-in locally:
 3. Under **Authorized JavaScript origins**, add `https://dev.tutribu.app`.
 4. Under **Authorized redirect URIs**, add `https://dev.tutribu.app/api/auth/callback/google`.
 
+Other integrations derive their URLs from `BETTER_AUTH_URL`. After moving it to `https://dev.tutribu.app` (for example, from the former `https://dev-tutribu.app`), also update them by hand:
+
+- **Mercado Pago OAuth:** in the development Mercado Pago application, register `https://dev.tutribu.app/api/mercado-pago/oauth/callback` as a Redirect URL. The seller connection sends `BETTER_AUTH_URL` + `/api/mercado-pago/oauth/callback` as `redirect_uri`, and Mercado Pago rejects it unless it matches a registered Redirect URL exactly.
+- **R2 attachment CORS:** rerun `node scripts/configure-r2-cors.mjs` with `BETTER_AUTH_URL=https://dev.tutribu.app` (from `.env.local` or the shell) so the development bucket allows the new origin for presigned lesson and message attachment uploads; Cloudflare matches origins exactly. The script replaces the bucket CORS rules and needs an R2 token with bucket configuration permission; `pnpm run dev` does not run it. Alternatively, add `https://dev.tutribu.app` to the bucket's CORS `AllowedOrigins` by hand.
+
 Security notes:
 
 - Never commit real secrets to the repository.
