@@ -363,8 +363,8 @@ $app-rail-touch-target: 40px;
     &[data-state="closed"] {
       opacity: 0;
       transform: translateX(-2px);
-      transition-duration: 110ms;
-      animation: AppRailTipExit 110ms linear both;
+      transition-duration: 120ms;
+      animation: AppRailTipExit 120ms linear both;
     }
   }
 
@@ -487,13 +487,23 @@ $app-rail-touch-target: 40px;
       color: var(--border-strong);
     }
 
+    // Under a tight header the root gives way first, so the open section always stays readable.
+    &--root {
+      display: block;
+      min-width: 0;
+      flex: 0 1 auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     &--parent {
       overflow: hidden;
     }
 
     &--current {
       min-width: 0;
-      flex: 0 1 auto;
+      flex: 0 0 auto;
+      max-width: 100%;
       color: var(--foreground);
     }
   }
@@ -711,7 +721,7 @@ $app-rail-touch-target: 40px;
     &__tip,
     &__tip[data-state="closed"] {
       transform: none;
-      transition: opacity 90ms linear;
+      transition: opacity 120ms linear;
     }
   }
 }

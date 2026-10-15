@@ -247,6 +247,21 @@ describe("AppRailShell", () => {
     expect(screen.getByRole("button", { name: "Expandir barra lateral" })).toBeInTheDocument();
   });
 
+  it("accepts [ typed with AltGr but not as a Ctrl shortcut", async () => {
+    const user = userEvent.setup();
+
+    renderShell();
+
+    await user.keyboard("{Control>}[[{/Control}");
+
+    expect(screen.getByRole("button", { name: "Contraer barra lateral" })).toBeInTheDocument();
+
+    // Spanish layouts type [ with AltGr, which browsers report as Ctrl+Alt.
+    await user.keyboard("{Control>}{Alt>}[[{/Alt}{/Control}");
+
+    expect(screen.getByRole("button", { name: "Expandir barra lateral" })).toBeInTheDocument();
+  });
+
   it("opens the navigation sheet on narrow screens and closes it after picking a row", async () => {
     const user = userEvent.setup();
     setShellWidth(PHONE_SHELL_WIDTH_PX);

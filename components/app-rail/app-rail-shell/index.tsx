@@ -1,5 +1,3 @@
-"use client";
-
 /*
  * Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the
  * Arc Pro license (https://uiarc.dev/license). Not covered by this project's
@@ -10,6 +8,8 @@
  * persists in the `sidebar_state` cookie read by the platform layout, the
  * shell fills the viewport with window scrolling, and the copy is in Spanish.
  */
+
+"use client";
 
 import { ChevronDownIcon, XIcon } from "lucide-react";
 import Image from "next/image";
@@ -93,11 +93,12 @@ const LABEL_ENTER_DELAY_SECONDS = 0.1;
 /** Rail-only marks arrive once the labels have cleared, and leave first when the rail opens. */
 const MARK_ENTER_SECONDS = 0.2;
 const MARK_ENTER_DELAY_SECONDS = 0.16;
-const MARK_EXIT_SECONDS = 0.1;
+const MARK_EXIT_SECONDS = 0.12;
 
 /** Key that folds and unfolds the rail, or opens the sheet on narrow screens. */
 const RAIL_SHORTCUT_KEY = "[";
 const ESCAPE_KEY = "Escape";
+const ALT_GRAPH_MODIFIER = "AltGraph";
 const TEXT_ENTRY_TAG_NAMES = new Set(["INPUT", "SELECT", "TEXTAREA"]);
 /** Menus and dialogs own their keyboard, so the shortcut stays out of their way. */
 const SHORTCUT_EXCLUDED_CONTAINER_SELECTOR =
@@ -172,11 +173,19 @@ const rise: Variants = {
 };
 
 /**
- * Whether a keyboard event should toggle the rail: the bare `[` key, outside
+ * Whether a keyboard event should toggle the rail: the `[` key, outside
  * text entry, menus and dialogs, and not already handled by someone else.
  */
 function isRailShortcut(event: KeyboardEvent): boolean {
-  if (event.key !== RAIL_SHORTCUT_KEY || event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) {
+  // Layouts that type `[` with AltGr (reported as Ctrl+Alt) or Option still produce the key itself;
+  // only Command and a bare Ctrl turn it into another shortcut.
+  const typedWithAltGraph = event.getModifierState(ALT_GRAPH_MODIFIER) || (event.ctrlKey && event.altKey);
+  if (
+    event.key !== RAIL_SHORTCUT_KEY ||
+    event.metaKey ||
+    (event.ctrlKey && !typedWithAltGraph) ||
+    event.defaultPrevented
+  ) {
     return false;
   }
 
