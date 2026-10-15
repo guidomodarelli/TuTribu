@@ -128,6 +128,8 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
 - Without `label`, `description` or `error` the components render the bare
   control, for input groups, tables and layouts that place their own label.
 
+## Styling
+
 
 - Product styles use SCSS Modules.
 - Product classes follow BEM.
