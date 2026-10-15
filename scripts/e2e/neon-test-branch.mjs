@@ -9,91 +9,10 @@
  * @module neon-test-branch
  */
 
-const NEON_API_BASE_URL = "https://console.neon.tech/api/v2";
+import { callNeonApi, NeonApiError, readOperationIds, waitForNeonOperations } from "../neon/neon-api-client.mjs";
+
 const NEON_ENDPOINT_TYPE = "read_write";
-const NEON_OPERATION_STATUS = {
-  failed: "failed",
-  finished: "finished",
-  cancelled: "cancelled",
-  skipped: "skipped",
-};
-const OPERATION_POLL_INTERVAL_MS = 1000;
-const OPERATION_TIMEOUT_MS = 120_000;
-
-/**
- * Wraps a Neon API failure with the operation and HTTP status, never the body
- * of the request (it may carry connection details).
- */
-class NeonTestBranchError extends Error {
-  /**
-   * @param {string} operation - Operation that failed.
-   * @param {string} detail - Safe, non-secret detail.
-   * @param {unknown} [cause] - Original error.
-   */
-  constructor(operation, detail, cause) {
-    super(`neon-test-branch:${operation} failed: ${detail}`, { cause });
-    this.name = "NeonTestBranchError";
-  }
-}
-
-/**
- * Calls the Neon API and returns the parsed JSON body.
- *
- * @param {{ apiKey: string, method: string, path: string, body?: unknown, operation: string }} request
- * @returns {Promise<any>} Parsed response.
- */
-async function callNeonApi({ apiKey, method, path, body, operation }) {
-  const response = await fetch(`${NEON_API_BASE_URL}${path}`, {
-    body: body === undefined ? undefined : JSON.stringify(body),
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    method,
-  });
-
-  if (!response.ok) {
-    throw new NeonTestBranchError(operation, `${method} ${path} -> HTTP ${response.status}`);
-  }
-
-  return response.json();
-}
-
-/**
- * Waits until every Neon operation started by the branch creation finishes.
- *
- * @param {{ apiKey: string, projectId: string, operationIds: string[] }} input
- */
-async function waitForOperations({ apiKey, projectId, operationIds }) {
-  const deadline = Date.now() + OPERATION_TIMEOUT_MS;
-  const pending = new Set(operationIds);
-
-  while (pending.size > 0) {
-    if (Date.now() > deadline) {
-      throw new NeonTestBranchError("waitForOperations", `timeout after ${OPERATION_TIMEOUT_MS} ms`);
-    }
-
-    for (const operationId of [...pending]) {
-      const { operation } = await callNeonApi({
-        apiKey,
-        method: "GET",
-        operation: "waitForOperations",
-        path: `/projects/${projectId}/operations/${operationId}`,
-      });
-
-      if (operation.status === NEON_OPERATION_STATUS.finished || operation.status === NEON_OPERATION_STATUS.skipped) {
-        pending.delete(operationId);
-      } else if (operation.status === NEON_OPERATION_STATUS.failed || operation.status === NEON_OPERATION_STATUS.cancelled) {
-        throw new NeonTestBranchError("waitForOperations", `operation ${operationId} ended as ${operation.status}`);
-      }
-    }
-
-    if (pending.size > 0) {
-      await new Promise((resolve) => setTimeout(resolve, OPERATION_POLL_INTERVAL_MS));
-    }
-  }
-}
+const OPERATION_PREFIX = "neon-test-branch";
 
 /**
  * Creates a disposable branch of the default branch with a read-write compute.
@@ -102,11 +21,12 @@ async function waitForOperations({ apiKey, projectId, operationIds }) {
  * @returns {Promise<{ branchId: string, connectionString: string }>} Branch id and owner connection string.
  */
 export async function createNeonTestBranch({ apiKey, projectId, branchName }) {
+  const operation = `${OPERATION_PREFIX}:createNeonTestBranch`;
   const created = await callNeonApi({
     apiKey,
     body: { branch: { name: branchName }, endpoints: [{ type: NEON_ENDPOINT_TYPE }] },
     method: "POST",
-    operation: "createNeonTestBranch",
+    operation,
     path: `/projects/${projectId}/branches`,
   });
   const branchId = created.branch?.id;
@@ -116,13 +36,14 @@ export async function createNeonTestBranch({ apiKey, projectId, branchName }) {
     if (branchId) {
       await deleteNeonTestBranch({ apiKey, branchId, projectId });
     }
-    throw new NeonTestBranchError("createNeonTestBranch", "response without branch id or connection uri");
+    throw new NeonApiError(operation, "response without branch id or connection uri");
   }
 
   try {
-    await waitForOperations({
+    await waitForNeonOperations({
       apiKey,
-      operationIds: (created.operations ?? []).map((operation) => operation.id),
+      operation: `${OPERATION_PREFIX}:waitForOperations`,
+      operationIds: readOperationIds(created),
       projectId,
     });
   } catch (error) {
@@ -142,7 +63,7 @@ export async function deleteNeonTestBranch({ apiKey, projectId, branchId }) {
   await callNeonApi({
     apiKey,
     method: "DELETE",
-    operation: "deleteNeonTestBranch",
+    operation: `${OPERATION_PREFIX}:deleteNeonTestBranch`,
     path: `/projects/${projectId}/branches/${branchId}`,
   });
 }
