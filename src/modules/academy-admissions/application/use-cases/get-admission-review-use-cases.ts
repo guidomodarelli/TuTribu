@@ -29,7 +29,7 @@ export class GetAdmissionReviewUseCases {
       const first = await this.resolver.execute(command);
       if (!first.allowed) return { ok: false as const, failure: first.failure };
       const scope = { tribeId: query.tribeId, requestId: query.requestId, userId: first.context.userId, sessionId: first.context.sessionId };
-      const page = await this.reader.readList(scope, { limit: query.limit, status: query.status, source: query.source, cursor: query.cursor, search: query.search, needsVerification: query.needsVerification, submittedFrom: query.submittedFrom, submittedUntil: query.submittedUntil });
+      const page = await this.reader.readList(scope, { limit: query.limit, status: query.status, source: query.source, cursor: query.cursor, search: query.search, needsVerification: query.needsVerification, requiresExceptionReason: query.requiresExceptionReason, submittedFrom: query.submittedFrom, submittedUntil: query.submittedUntil });
       const current = await this.resolver.execute(command);
       if (!current.allowed) return { ok: false as const, failure: current.failure };
       if (current.context.userId !== scope.userId || current.context.sessionId !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);

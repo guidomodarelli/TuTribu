@@ -20,7 +20,7 @@ function fixture() {
 describe("current admission review HTTP", () => {
   it("should reject identity/role flags and malformed tuple cursors before opening any module", async () => {
     const data = fixture();
-    for (const query of ["role=leader", "userId=foreign", "cursor=opaque-but-malformed", "limit=51", "submittedFrom=2026-10-08T00:00:00Z&submittedUntil=2026-10-07T00:00:00Z"]) expect((await data.handlers.list(new Request(`https://tutribu.example.invalid/api/tribes/synthetic-academy/admissions/requests?${query}`), data.context)).status).toBe(400);
+    for (const query of ["role=leader", "userId=foreign", "cursor=opaque-but-malformed", "limit=51", "submittedFrom=2026-10-08T00:00:00Z&submittedUntil=2026-10-07T00:00:00Z", "requiresExceptionReason=1", "requiresExceptionReason=", "requiresExceptionReason=True", "requiresExceptionReason=null"]) expect((await data.handlers.list(new Request(`https://tutribu.example.invalid/api/tribes/synthetic-academy/admissions/requests?${query}`), data.context)).status).toBe(400);
     expect(data.open).not.toHaveBeenCalled();
   });
 
@@ -48,5 +48,14 @@ describe("current admission review HTTP", () => {
     const denied = await data.handlers.list(new Request("https://tutribu.example.invalid/api/tribes/synthetic-academy/admissions/requests"), data.context);
     expect(denied.status).toBe(403);
     expect(await denied.json()).not.toHaveProperty("items");
+  });
+
+  it.each([true, false])("should accept the explicit current exception filter %s together with the other bounded selections", async (requiresExceptionReason) => {
+    const data = fixture();
+    const search = new URLSearchParams({ requiresExceptionReason: String(requiresExceptionReason), needsVerification: "false", source: "common", status: "pending", submittedFrom: "2026-10-01T00:00:00Z", submittedUntil: "2026-10-08T00:00:00Z" });
+    const response = await data.handlers.list(new Request(`https://tutribu.example.invalid/api/tribes/synthetic-academy/admissions/requests?${search}`), data.context);
+    expect(response.status).toBe(200);
+    expect(data.services.review.list).toHaveBeenCalledWith(expect.objectContaining({ tribeId: data.tribeId, requiresExceptionReason, needsVerification: false, source: "common", status: "pending", submittedFrom: "2026-10-01T00:00:00Z", submittedUntil: "2026-10-08T00:00:00Z" }));
+    expect(await response.json()).toMatchObject({ items: [data.value], nextCursor: null });
   });
 });

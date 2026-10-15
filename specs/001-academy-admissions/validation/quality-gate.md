@@ -2,6 +2,10 @@
 
 Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras el cierre de T175 se conservan las 212 tareas: **174 completadas y 38 pendientes**. Este registro distingue las comprobaciones locales y Native del control completo confirmado de `390f45e6` y de los cambios posteriores todavía en desarrollo.
 
+## Avance HTTP del filtro de excepción de T182
+
+Sobre `471e9e8f`, la reproducción completa de dos archivos dio seis aprobados y cuatro fallidos porque el boundary rechazaba el filtro y application descartaba ambos booleanos. Tras corregirlo, pasó la regresión ampliada completa: **50 locales en siete archivos y un caso PostgreSQL en un archivo**, sin filtros ni omisiones, con hashes estables. No se duplica el conteo de la primera comprobación. La prueba Native ejercitó ambos roles, migraciones reales, paginación de páginas vacías, combinaciones de filtros y reautorización actual sin efectos de admisión o envío. Tipos y lint pasaron; la sección de arquitectura se validó en cuatro vistas de Chromium/WebKit. T182/T189 y T211 siguen abiertas; el control y continuidad UI no están instalados por este avance. Ver [el registro específico](admission-review-exception-filter.md). El CI de este cambio pertenece a su propio commit futuro.
+
 ## Base de fixtures ya corregida
 
 El [CI de bff9679a](https://github.com/guidomodarelli/TuTribu/actions/runs/38705046158) falló veintiocho casos de dos suites de suscripciones. La reproducción local completa dio 117 casos: 89 aprobados y 28 fallidos. El [CI de 6959af36](https://github.com/guidomodarelli/TuTribu/actions/runs/38707814976) registró además una comprobación temporal de mensajería: 29 fallos en tres archivos.

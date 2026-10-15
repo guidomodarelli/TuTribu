@@ -16,7 +16,7 @@ export type AdmissionReviewRecord = {
 /** Explicit bounded reviewer filters never select account, role or provider authority. */
 export type AdmissionReviewFilters = {
   limit: number; status?: AdmissionRequest["status"]; source?: AdmissionRequest["source"]; cursor?: { submittedAt: string; id: string };
-  search?: string; needsVerification?: boolean; submittedFrom?: string; submittedUntil?: string;
+  search?: string; needsVerification?: boolean; requiresExceptionReason?: boolean; submittedFrom?: string; submittedUntil?: string;
 };
 
 /** Read queries never create a request, decision, ledger, delivery or membership. */

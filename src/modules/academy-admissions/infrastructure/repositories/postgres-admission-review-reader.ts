@@ -47,7 +47,11 @@ export class PostgresAdmissionReviewReader implements AdmissionReviewReader {
       const records = selected.map((row) => mapAdmissionReviewStorage(row.record, now, recoveryLocked));
       // Derived filters use the same domain/application meaning as the emitted field.
       // A bounded scanned page may be empty; its cursor still advances past every examined record.
-      const visible = records.filter((record) => { const projection = projectAdmissionReview(record); return query.needsVerification === undefined || projection.needsVerification === query.needsVerification; });
+      const visible = records.filter((record) => {
+        const projection = projectAdmissionReview(record);
+        return (query.needsVerification === undefined || projection.needsVerification === query.needsVerification)
+          && (query.requiresExceptionReason === undefined || projection.restrictions.requiresExceptionReason === query.requiresExceptionReason);
+      });
       await recordAdmissionAdministrativeExposure(database, scope, { surface: ADMISSION_ADMINISTRATIVE_SURFACE.reviews, resourceId: scope.tribeId, resourceVersion: null, itemCount: visible.length });
       await this.authorize(database, scope);
       return { records: visible, nextCursor: rows.length > query.limit && last ? `${last.submittedAt}${ADMISSION_REVIEW_CURSOR_SEPARATOR}${last.id}` : null };
