@@ -5,32 +5,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-type PortlessCommand = {
-  commandArguments: string[];
-  description: string;
-};
-
 type DevPortlessScript = {
-  buildPortlessInvocation: (
-    commandArguments: string[],
-    platform?: string
-  ) => { command: string; commandArguments: string[]; useShell: boolean };
-  buildDevHostName: (options?: { appName: string; tld: string }) => string;
-  buildHostsEntry: (hostName: string) => string;
-  buildPortlessCommands: (options?: {
-    appName: string;
-    tld: string;
-  }) => {
-    proxyStart: PortlessCommand;
-    proxyStop: PortlessCommand;
-    runDevServer: PortlessCommand;
-  };
-  hasHostsEntry: (hostsContent: string, hostName: string) => boolean;
+  classifyDevHostResolution: (
+    addresses: string[]
+  ) => "loopback" | "elsewhere" | "missing";
   isPortlessCaTrusted: (stateDirectory: string) => boolean;
-  normalizeScriptArguments: (scriptArguments?: string[]) => {
-    isDryRun: boolean;
-  };
-  resolveHostsPath: (platform: string, environment?: NodeJS.ProcessEnv) => string;
   resolvePortlessStateDirectory: (homeDirectory: string) => string;
 };
 
@@ -43,42 +22,23 @@ describe("dev portless script", () => {
     devPortlessScript = importedModule as unknown as DevPortlessScript;
   });
 
-  it("should detect an existing loopback hosts entry regardless of spacing or comments", () => {
-    const hostName = "dev-tutribu.app";
-
+  it("should accept the dev host only when every DNS address is loopback", () => {
+    expect(devPortlessScript.classifyDevHostResolution(["127.0.0.1"])).toBe(
+      "loopback"
+    );
     expect(
-      devPortlessScript.hasHostsEntry("127.0.0.1 dev-tutribu.app\n", hostName)
-    ).toBe(true);
-    expect(
-      devPortlessScript.hasHostsEntry(
-        "# hosts\r\n\t127.0.0.1\t\tdev-tutribu.app   # portless\r\n",
-        hostName
-      )
-    ).toBe(true);
-    expect(
-      devPortlessScript.hasHostsEntry(
-        "127.0.0.1 otra.app dev-tutribu.app\n",
-        hostName
-      )
-    ).toBe(true);
+      devPortlessScript.classifyDevHostResolution(["127.0.0.1", "::1"])
+    ).toBe("loopback");
   });
 
-  it("should not treat commented, partial or foreign entries as a loopback mapping", () => {
-    const hostName = "dev-tutribu.app";
-
+  it("should report a dev host that resolves elsewhere or does not resolve", () => {
     expect(
-      devPortlessScript.hasHostsEntry("# 127.0.0.1 dev-tutribu.app\n", hostName)
-    ).toBe(false);
+      devPortlessScript.classifyDevHostResolution(["104.21.10.20"])
+    ).toBe("elsewhere");
     expect(
-      devPortlessScript.hasHostsEntry(
-        "127.0.0.1 dev-tutribu.app.example\n",
-        hostName
-      )
-    ).toBe(false);
-    expect(
-      devPortlessScript.hasHostsEntry("10.0.0.5 dev-tutribu.app\n", hostName)
-    ).toBe(false);
-    expect(devPortlessScript.hasHostsEntry("", hostName)).toBe(false);
+      devPortlessScript.classifyDevHostResolution(["127.0.0.1", "172.67.1.1"])
+    ).toBe("elsewhere");
+    expect(devPortlessScript.classifyDevHostResolution([])).toBe("missing");
   });
 
   it("should consider the portless CA trusted only when the trust marker exists", () => {
@@ -96,5 +56,4 @@ describe("dev portless script", () => {
       rmSync(homeDirectory, { force: true, recursive: true });
     }
   });
-
 });

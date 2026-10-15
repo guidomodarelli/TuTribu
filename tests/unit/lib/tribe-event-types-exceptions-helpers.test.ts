@@ -72,7 +72,7 @@ describe("event type filter helpers", () => {
   it("repeats the type parameter in the events route", () => {
     const url = new URL(
       buildTribeEventsRoute("matematica-pro", { eventTypes: ["live", "qa"], month: "2026-05" }),
-      "https://dev-tutribu.app"
+      "https://dev.tutribu.app"
     );
 
     expect(url.searchParams.getAll("type")).toEqual(["live", "qa"]);

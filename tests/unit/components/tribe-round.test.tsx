@@ -1363,7 +1363,7 @@ describe("TribeRound", () => {
           messages: [
             {
               ...round.messages[0],
-              content: "Visitá www.latribu.app para mas info.",
+              content: "Visitá www.tutribu.app para mas info.",
             },
           ],
         }}
@@ -1371,8 +1371,8 @@ describe("TribeRound", () => {
     );
 
     expect(
-      screen.getByRole("link", { name: "www.latribu.app" })
-    ).toHaveAttribute("href", "https://www.latribu.app");
+      screen.getByRole("link", { name: "www.tutribu.app" })
+    ).toHaveAttribute("href", "https://www.tutribu.app");
   });
 
   it("keeps Markdown headings as regular message text", () => {

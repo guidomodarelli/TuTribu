@@ -43,19 +43,19 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
    pnpm run db:migrate
    ```
 
-4. Start the dev server through portless (restarts the proxy on the `app` TLD, adds `dev-tutribu.app` to the hosts file the first time, trusts the local CA and runs `next dev`):
+4. Start the dev server through portless (checks that `dev.tutribu.app` resolves to `127.0.0.1` through its public DNS record, restarts the proxy on the `tutribu.app` TLD, trusts the local CA for the current user and runs `next dev`; nothing asks for administrator privileges):
 
    ```bash
    pnpm run dev
    ```
 
-   The app is then served at `https://dev-tutribu.app`. Use `pnpm run dev -- --dry-run` to see the steps without changing anything.
+   The app is then served at `https://dev.tutribu.app`. Use `pnpm run dev -- --dry-run` to see the steps without changing anything.
 
 ## Scripts
 
 | Script | Description |
 | --- | --- |
-| `pnpm run dev` | Start the Next.js dev server through portless at `https://dev-tutribu.app` (proxy restart, hosts entry, CA trust, `next dev` with hot reload). Accepts `--dry-run`. |
+| `pnpm run dev` | Start the Next.js dev server through portless at `https://dev.tutribu.app` (DNS check, proxy restart, CA trust, `next dev` with hot reload). Accepts `--dry-run`. |
 | `pnpm run dev:next` | Bare `next dev` on a plain port. Reserved for the Playwright web server of the e2e suite; use `pnpm run dev` for manual work. |
 | `pnpm run build` | Build the production bundle. |
 | `pnpm run build:cloudflare` | Build the Cloudflare Workers bundle with OpenNext. |
@@ -71,7 +71,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 | `pnpm run test:watch` | Run Vitest in watch mode. |
 | `pnpm run test:e2e` | Run Playwright E2E tests. |
 | `pnpm run test:e2e:ui` | Run Playwright with the interactive UI runner. |
-| `pnpm run test:e2e:beezping` | Run the Beezping widget E2E spec (Chromium and WebKit, desktop and mobile) against `https://dev-tutribu.app`. Requires `pnpm run dev` with `SITEPING_ENABLED` on; excluded from `test:e2e`. |
+| `pnpm run test:e2e:beezping` | Run the Beezping widget E2E spec (Chromium and WebKit, desktop and mobile) against `https://dev.tutribu.app`. Requires `pnpm run dev` with `SITEPING_ENABLED` on; excluded from `test:e2e`. |
 | `pnpm run db:migrate` | Apply pending SQL migrations to the configured Neon database. |
 | `pnpm run db:migrate:force` | Force a Drizzle push. Use only when an intentional override is required. |
 | `pnpm create-version` (alias `pnpm cv`) | Diagnose the repository and ship a release from `main`: update `main`, apply pending migrations (after confirmation), stop if the `CHANGELOG.md` `[Unreleased]` block is missing or has no entries, bump the version (`--bump patch\|minor\|major` or `-b p\|m\|M`, the shortcuts `--patch`/`-p`, `--minor`/`-m`, `--major`/`-M`, or `--set-version X.Y.Z`/`-sv X.Y.Z`, only the next patch/minor/major; `-l` is `--local`) renaming `[Unreleased]` to `[X.Y.Z] - date` (Argentina date through `releaseTimeZone`) in the version commit with a new empty `[Unreleased]` on top, and push `main` plus the `vX.Y.Z` tag. `--dry-run` only shows the plan. Runs the shared `beez-rp create-version` command, configured for TuTribu in `beez-rp.config.mjs`. See `docs/conventions/release-process.htm`. |

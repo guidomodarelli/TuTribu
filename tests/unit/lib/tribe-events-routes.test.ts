@@ -25,7 +25,7 @@ describe("buildTribeEventsRoute", () => {
       month: "2026-05",
       occurrenceKey: OCCURRENCE_KEY,
     });
-    const url = new URL(route, "https://dev-tutribu.app");
+    const url = new URL(route, "https://dev.tutribu.app");
 
     expect(url.pathname).toBe("/matematica-pro/eventos");
     expect(url.searchParams.get("month")).toBe("2026-05");
@@ -40,7 +40,7 @@ describe("buildTribeEventAttendanceExportUrl", () => {
       occurrenceStartsAt: OCCURRENCE_STARTS_AT,
       tribeSlug: "matematica-pro",
     });
-    const url = new URL(exportUrl, "https://dev-tutribu.app");
+    const url = new URL(exportUrl, "https://dev.tutribu.app");
 
     expect(exportUrl.startsWith("/")).toBe(true);
     expect(url.pathname).toBe(

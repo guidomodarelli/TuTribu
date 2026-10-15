@@ -31,7 +31,7 @@ function resolveWorkspaceRoot(startDir: string): string {
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  allowedDevOrigins: ["127.0.0.1", "dev-tutribu.app"],
+  allowedDevOrigins: ["127.0.0.1", "dev.tutribu.app"],
   cacheComponents: true,
   // The personal calendar feed URL carries a credential (the token is a path
   // segment), so the dev server must not print it in its request log.
