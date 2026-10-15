@@ -129,6 +129,13 @@ describe("complete private resource audit facts",()=>{
     expect(JSON.stringify(event)).not.toMatch(/private@example\.test|private-snapshot/);
   });
 
+  it.each([0,17])("should preserve an observed retention duration of %i milliseconds without copying private extras",(durationMs)=>{
+    const scope={...ownerScope(),actorUserId:null,operationId:null,resourceVersion:null};
+    const event=createAdmissionResourceAuditEvent({...scope,resourceType:"retention_run",eventType:"retention_completed",metadata:{owner:"admission_audit",processed:2,remaining:false,cutoff:"2026-04-16T00:00:00.000Z",durationMs,deletedRows:[{contact:"private@example.test"}],snapshot:"private-snapshot"}});
+    expect(event.metadata).toEqual({owner:"admission_audit",processed:2,remaining:false,cutoff:"2026-04-16T00:00:00.000Z",durationMs});
+    expect(JSON.stringify(event)).not.toMatch(/private@example\.test|private-snapshot/);
+  });
+
   it("should close an unusable internal resource kind without reflecting its private content",()=>{
     const input={...ownerScope(),resourceType:"synthetic-private-kind",eventType:"private-label",metadata:{apiKey:"synthetic-private-key"}} as unknown as AdmissionResourceAuditInput;
     expect(()=>createAdmissionResourceAuditEvent(input)).toThrow(expect.objectContaining({code:"invalid_input"}));

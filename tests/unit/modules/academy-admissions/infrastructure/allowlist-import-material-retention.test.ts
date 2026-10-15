@@ -13,6 +13,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native temporary i
       await database.applyMigration("20261012200000_minimize_expired_allowlist_import_material.sql");
       const first = await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<{ purged_rows: number; completed_imports: number }>(sql`select * from public.purge_expired_allowlist_import_material(2)`)).rows[0]);
       expect(first.purged_rows).toBe(2);
+      const observations = await database.withContext({ userId: null, email: null }, (transaction) => transaction.execute(sql`select count(*)::int as samples,sum((metadata->>'processed')::int)::int as processed,bool_and((metadata->>'remaining')::boolean) as remaining,bool_and((metadata->>'durationMs')::numeric>=0) as timed from public.academy_admission_audit_events where resource_type='retention_run' and metadata->>'owner'='allowlist_import_material'`));
+      expect(observations.rows).toEqual([{ samples: 1, processed: 2, remaining: true, timed: true }]);
       const partial = await fixture.snapshot();
       expect(partial.rows.filter((row) => !row.has_input && !row.has_validation)).toHaveLength(2);
       expect(partial.entries).toEqual(before.entries); expect(partial.operations).toEqual(before.operations); expect(partial.selections).toEqual(before.selections);
