@@ -9,6 +9,9 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 import { ADMISSION_POLICY_RECOVERABLE_OPERATIONS, ADMISSION_POLICY_OPERATION } from "../../constants/admission-policy";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { admissionPolicyMutationResultSchema } from "../results/admission-policy-result-schemas";
+import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
+import { ADMISSION_EMAIL_SETTINGS_STATUS } from "@/src/modules/notifications/constants/admission-notification-email-settings";
+import { toAdmissionNotificationEmailSettingsView } from "@/src/modules/notifications/application/results/admission-notification-settings-projection";
 
 /** Global identity is derived from the native provider; operation existence never implies current permission. */
 export class ReadAdmissionOperationUseCase {
@@ -31,7 +34,15 @@ export class ReadAdmissionOperationUseCase {
         if (parsed.data.operationType === ADMISSION_POLICY_OPERATION.activate && !original.controlActivated) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
         if (parsed.data.operationType === ADMISSION_POLICY_OPERATION.initialize && original.changed && (original.version !== 1 || original.verificationEpoch !== 1 || original.controlActivated)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       }
-      return { ok: true as const, value: admissionOperationRecoverySchema.parse({ type: parsed.data.operationType, ...parsed.data.operation }), ...(options.includeViewer ? { viewerId: first.userId } : {}) };
+      let recovered: unknown = { type: parsed.data.operationType, ...parsed.data.operation };
+      if (parsed.data.operationType === REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings && parsed.data.operation.state === OPERATION_STATE.completed) {
+        const original = parsed.data.operation.result;
+        if (original.status !== ADMISSION_EMAIL_SETTINGS_STATUS.rejected) {
+          if (original.settings.tribeId !== query.tribeId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+          recovered = { type: parsed.data.operationType, ...parsed.data.operation, result: { status: original.status, settings: toAdmissionNotificationEmailSettingsView(original.settings) } };
+        }
+      }
+      return { ok: true as const, value: admissionOperationRecoverySchema.parse(recovered), ...(options.includeViewer ? { viewerId: first.userId } : {}) };
     } catch (error) { return admissionOperationFailure(error); }
   }
 }
