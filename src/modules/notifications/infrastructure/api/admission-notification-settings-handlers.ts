@@ -15,11 +15,18 @@ import { ADMISSION_EMAIL_SETTINGS_STATUS } from "../../constants/admission-notif
 import { ADMISSION_NOTIFICATION_PREFERENCE_STATUS } from "../../constants/admission-notification-preference";
 import { admissionNotificationPreferenceChangeSchema, admissionNotificationEmailSettingsCommandSchema, admissionNotificationPreferenceReadResultSchema, admissionNotificationPreferenceChangeResultSchema, admissionNotificationEmailSettingsViewSchema, admissionNotificationEmailSettingsOperationSchema } from "../../constants/admission-notification-settings-schemas";
 import { toAdmissionNotificationPreferenceView, toAdmissionNotificationEmailSettingsView, toAdmissionNotificationEmailSettingsOperationView } from "./admission-notification-settings-mapper";
+import { PERSONAL_INVITATION_VIEWER_HEADER, personalInvitationViewerMetadataSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-browser";
 
 /** Native composition supplies inward application ports, never a browser-selected actor or provider. */
 export type AdmissionNotificationSettingsServices = { resolveTribe: AdmissionQueryServices["resolveTribe"]; preferences: Pick<AdmissionNotificationPreferencesUseCases, "read" | "change">; email: Pick<AdmissionNotificationEmailSettingsUseCases, "read" | "change"> };
 /** Contains only framework tenant selection, resolved within the current route boundary. */
 type SettingsRouteContext = { params: Promise<{ slug: string }> };
+
+/** @param response - Already guarded own DTO. @param result - Native actor metadata from the use case, never a request claim. @returns The same minimal body bound to its actual viewer through the common private metadata header. */
+function bindViewer(response: Response, result: { viewerId?: string }): Response {
+  if (result.viewerId !== undefined) response.headers.set(PERSONAL_INVITATION_VIEWER_HEADER, JSON.stringify(personalInvitationViewerMetadataSchema.parse({ viewerId: result.viewerId })));
+  return response;
+}
 
 /** @param open - Current authenticated native composition, opened only after own inputs pass. @returns Separate preference and independent email read/write handlers; none creates a sender. */
 export function createAdmissionNotificationSettingsHandlers(open: () => Promise<AdmissionNotificationSettingsServices>) {
@@ -41,10 +48,10 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
         const services = await open(), requestId = boundary.requestContext.requestId;
         const tribe = await services.resolveTribe.execute({ slug: selected.value, requestId });
         if (!tribe.ok) return boundary.failure(tribe.failure);
-        const result = await services.preferences.read({ tribeId: tribe.value.tribeId, requestId });
+        const result = await services.preferences.read({ tribeId: tribe.value.tribeId, requestId }, { includeViewer: true });
         if (!result.ok) return boundary.failure(result.failure);
         if (result.value.preference.tribeId !== tribe.value.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-        return boundary.success(admissionNotificationPreferenceReadResultSchema, { preference: toAdmissionNotificationPreferenceView(result.value.preference), canConfigureEmail: result.value.canConfigureEmail });
+        return bindViewer(boundary.success(admissionNotificationPreferenceReadResultSchema, { preference: toAdmissionNotificationPreferenceView(result.value.preference), canConfigureEmail: result.value.canConfigureEmail }), result);
       } catch (error) { return boundary.unexpected(error); }
     },
 
@@ -60,14 +67,14 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
         const services = await open(), requestId = boundary.requestContext.requestId;
         const tribe = await services.resolveTribe.execute({ slug: selected.value, requestId });
         if (!tribe.ok) return boundary.failure(tribe.failure);
-        const result = await services.preferences.change({ ...body.value, tribeId: tribe.value.tribeId, requestId });
+        const result = await services.preferences.change({ ...body.value, tribeId: tribe.value.tribeId, requestId }, { includeViewer: true });
         if (!result.ok) return boundary.failure(result.failure);
         if (result.value.status !== ADMISSION_NOTIFICATION_PREFERENCE_STATUS.rejected && result.value.preference.tribeId !== tribe.value.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
         const view = result.value.status === ADMISSION_NOTIFICATION_PREFERENCE_STATUS.rejected
           ? { status: result.value.status, reason: result.value.reason }
           : { status: result.value.status, preference: toAdmissionNotificationPreferenceView(result.value.preference) };
         const schema = admissionNotificationPreferenceChangeResultSchema.refine((value) => value.status === ADMISSION_NOTIFICATION_PREFERENCE_STATUS.rejected || value.preference.mode === body.value.mode && value.preference.version === body.value.expectedVersion + (value.status === ADMISSION_NOTIFICATION_PREFERENCE_STATUS.changed ? 1 : 0));
-        return boundary.success(schema, view);
+        return bindViewer(boundary.success(schema, view), result);
       } catch (error) { return boundary.unexpected(error); }
     },
 
@@ -80,10 +87,10 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
         const services = await open(), requestId = boundary.requestContext.requestId;
         const tribe = await services.resolveTribe.execute({ slug: selected.value, requestId });
         if (!tribe.ok) return boundary.failure(tribe.failure);
-        const result = await services.email.read({ tribeId: tribe.value.tribeId, requestId });
+        const result = await services.email.read({ tribeId: tribe.value.tribeId, requestId }, { includeViewer: true });
         if (!result.ok) return boundary.failure(result.failure);
         if (result.value.tribeId !== tribe.value.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
-        return boundary.success(admissionNotificationEmailSettingsViewSchema, toAdmissionNotificationEmailSettingsView(result.value));
+        return bindViewer(boundary.success(admissionNotificationEmailSettingsViewSchema, toAdmissionNotificationEmailSettingsView(result.value)), result);
       } catch (error) { return boundary.unexpected(error); }
     },
 
@@ -99,12 +106,12 @@ export function createAdmissionNotificationSettingsHandlers(open: () => Promise<
         const services = await open(), requestId = boundary.requestContext.requestId;
         const tribe = await services.resolveTribe.execute({ slug: selected.value, requestId });
         if (!tribe.ok) return boundary.failure(tribe.failure);
-        const result = await services.email.change({ ...body.value, tribeId: tribe.value.tribeId, requestId });
+        const result = await services.email.change({ ...body.value, tribeId: tribe.value.tribeId, requestId }, { includeViewer: true });
         if (!result.ok) return boundary.failure(result.failure);
         if (result.value.state === OPERATION_STATE.completed && result.value.result.status !== ADMISSION_EMAIL_SETTINGS_STATUS.rejected && result.value.result.settings.tribeId !== tribe.value.tribeId) return boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.publicContractUnusable));
         const view = toAdmissionNotificationEmailSettingsOperationView(result.value);
         const schema = admissionNotificationEmailSettingsOperationSchema.refine((value) => value.operationId === body.value.operationId && (value.state === OPERATION_STATE.started || value.result.status === ADMISSION_EMAIL_SETTINGS_STATUS.rejected || value.result.settings.enabled === body.value.enabled && value.result.settings.timeZone === body.value.timeZone && value.result.settings.version === body.value.expectedVersion + (value.result.status === ADMISSION_EMAIL_SETTINGS_STATUS.changed ? 1 : 0)));
-        return boundary.success(schema, view, view.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok);
+        return bindViewer(boundary.success(schema, view, view.state === OPERATION_STATE.started ? HTTP_STATUS.accepted : HTTP_STATUS.ok), result);
       } catch (error) { return boundary.unexpected(error); }
     },
   };

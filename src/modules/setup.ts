@@ -614,7 +614,7 @@ export async function createAdmissionNotificationSettingsRequestModule() {
   const admissions = buildAcademyAdmissionsModule(dependencies);
   const routing = admissions.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
   const notifications = buildAdmissionNotificationSettingsModule(dependencies, { resolver: admissions.useCases.resolveContext, readSecurityConfig: () => readMessagingHostingSecurityConfig() });
-  return { resolveTribe: routing.resolveTribe, ...notifications.useCases };
+  return { resolveTribe: routing.resolveTribe, ...notifications.useCases, page: notifications.createPage(routing.resolveTribe) };
 }
 
 /** @param usage - Native guarded read purpose. @returns Sensitive current leader resource enumeration and tenant routing, without a dispatcher. */
