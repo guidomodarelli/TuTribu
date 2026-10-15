@@ -5,6 +5,8 @@
  * @module dev-sign-in-activation
  */
 
+import { z } from "zod";
+
 import {
   DEV_SIGN_IN_ACTIVATION,
   DEV_SIGN_IN_DEFAULT_MEMBER_NAME,
@@ -24,7 +26,12 @@ const IGNORED_DEV_SIGN_IN_FLAG_LOG = {
   requestId: "server-startup",
 } as const;
 
+/** Same email format Better Auth requires on `/sign-in/email`. */
+const DEV_SIGN_IN_EMAIL_SCHEMA = z.email();
+
 const DEV_SIGN_IN_CONFIGURATION_ERROR_MESSAGE = {
+  invalidEmail:
+    "Dev sign-in is enabled (DEV_SIGN_IN) but DEV_SIGN_IN_EMAIL is not a valid email address, which Better Auth rejects.",
   missingCredentials:
     "Dev sign-in is enabled (DEV_SIGN_IN) but DEV_SIGN_IN_EMAIL or DEV_SIGN_IN_PASSWORD is empty. Set both in .env.local or turn DEV_SIGN_IN off.",
   passwordLength: `Dev sign-in is enabled (DEV_SIGN_IN) but DEV_SIGN_IN_PASSWORD must have between ${DEV_SIGN_IN_MIN_PASSWORD_LENGTH} and ${DEV_SIGN_IN_MAX_PASSWORD_LENGTH} characters, the range Better Auth accepts.`,
@@ -91,8 +98,8 @@ export function reportIgnoredDevSignInFlag(): void {
  *
  * @param environment - Process environment values.
  * @returns The normalized credentials.
- * @throws Error when the email or password is missing or the password length
- * is outside the range Better Auth accepts.
+ * @throws Error when the email or password is missing, the email is malformed,
+ * or the password length is outside the range Better Auth accepts.
  */
 export function resolveDevSignInCredentials(
   environment: DevSignInEnvironment
@@ -107,6 +114,10 @@ export function resolveDevSignInCredentials(
 
   if (!email || !password) {
     throw new Error(DEV_SIGN_IN_CONFIGURATION_ERROR_MESSAGE.missingCredentials);
+  }
+
+  if (!DEV_SIGN_IN_EMAIL_SCHEMA.safeParse(email).success) {
+    throw new Error(DEV_SIGN_IN_CONFIGURATION_ERROR_MESSAGE.invalidEmail);
   }
 
   if (

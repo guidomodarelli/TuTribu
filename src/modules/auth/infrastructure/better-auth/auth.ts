@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import { BETTER_AUTH_SESSION_OPTIONS } from "@/src/modules/auth/constants/session";
+import { isMissingProviderAccountError } from "@/src/modules/auth/infrastructure/better-auth/provider-account-errors";
 import { scheduleMemberProfileImageRefresh } from "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh";
 import { withDevSignIn } from "@/src/modules/auth/infrastructure/dev-sign-in/dev-sign-in-auth-options";
 import { createPostgresPool } from "@/src/modules/shared/infrastructure/database/postgres-pool";
@@ -144,9 +145,10 @@ export const auth = betterAuth(withDevSignIn({
 
 /**
  * Resolves a fresh Google access token for a member using the stored offline
- * credentials. Returns `null` only when Better Auth resolves successfully but no
- * access token is available, so operational failures still reach the background
- * refresh use case and are logged.
+ * credentials. Returns `null` when no access token is available, including a
+ * member without a linked Google account (the development email sign-in
+ * member), so the background refresh is skipped. Other operational failures
+ * still reach the refresh use case and are logged.
  *
  * @param userId - Identifier of the member whose access token is requested.
  * @returns A valid access token, or `null` when none is available.
@@ -154,9 +156,18 @@ export const auth = betterAuth(withDevSignIn({
 async function getGoogleAccessTokenForMember(
   userId: string
 ): Promise<string | null> {
-  const tokens = await auth.api.getAccessToken({
-    body: { providerId: BETTER_AUTH_PROVIDER.google, userId },
-  });
+  try {
+    const tokens = await auth.api.getAccessToken({
+      body: { providerId: BETTER_AUTH_PROVIDER.google, userId },
+    });
 
-  return tokens?.accessToken ?? null;
+    return tokens?.accessToken ?? null;
+  } catch (error) {
+    // A member without a Google account has no picture to refresh: skip it.
+    if (isMissingProviderAccountError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }

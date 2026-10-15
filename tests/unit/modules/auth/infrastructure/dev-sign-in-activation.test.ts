@@ -60,6 +60,15 @@ describe("resolveDevSignInCredentials", () => {
     ).toThrow(/DEV_SIGN_IN_EMAIL or DEV_SIGN_IN_PASSWORD is empty/);
   });
 
+  it("rejects an email Better Auth would refuse", () => {
+    expect(() =>
+      resolveDevSignInCredentials({
+        DEV_SIGN_IN_EMAIL: "not-an-email",
+        DEV_SIGN_IN_PASSWORD: "dev-password-123",
+      })
+    ).toThrow(/DEV_SIGN_IN_EMAIL is not a valid email address/);
+  });
+
   it.each([
     ["shorter than 8 characters", "short"],
     ["longer than 128 characters", "x".repeat(129)],

@@ -9,6 +9,7 @@ import { betterAuth } from "better-auth";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { describe, expect, it, vi } from "vitest";
 
+import { isMissingProviderAccountError } from "@/src/modules/auth/infrastructure/better-auth/provider-account-errors";
 import { withDevSignIn } from "@/src/modules/auth/infrastructure/dev-sign-in/dev-sign-in-auth-options";
 
 const BASE_URL = "https://dev.tutribu.example";
@@ -147,6 +148,37 @@ describe("development sign-in", () => {
     });
 
     expect(response.status).toBe(200);
+  });
+
+  it("reports the credential-only dev member as having no Google account", async () => {
+    const database = createMemoryDatabase();
+    const auth = betterAuth(
+      withDevSignIn(
+        {
+          baseURL: BASE_URL,
+          database: memoryAdapter(database),
+          secret: "integration-test-secret-with-enough-entropy",
+          socialProviders: {
+            google: { clientId: "google-client-id", clientSecret: "google-client-secret" },
+          },
+        },
+        DEV_ENVIRONMENT
+      )
+    );
+    await auth.handler(
+      new Request(`${BASE_URL}/api/auth/sign-in/email`, {
+        body: JSON.stringify({ email: DEV_EMAIL, password: DEV_PASSWORD }),
+        headers: { "content-type": "application/json", origin: BASE_URL },
+        method: "POST",
+      })
+    );
+    const [devMember] = database.user as { id: string }[];
+
+    const tokenRequest = auth.api.getAccessToken({
+      body: { providerId: "google", userId: devMember.id },
+    });
+
+    await expect(tokenRequest).rejects.toSatisfy(isMissingProviderAccountError);
   });
 
   it("rejects any email other than the dev member without creating it", async () => {
