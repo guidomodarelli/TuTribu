@@ -1,6 +1,8 @@
 /** @vitest-environment node */
 
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+import { BASE_ERROR_CODES } from "better-auth";
+import { APIError } from "better-auth/api";
 describe("Better Auth configuration", () => {
   const originalEnvironment = { ...process.env };
 
@@ -31,7 +33,8 @@ describe("Better Auth configuration", () => {
       return { api: { getAccessToken } };
     });
 
-    vi.doMock("better-auth", () => ({
+    vi.doMock("better-auth", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("better-auth")>()),
       betterAuth: mockBetterAuth,
     }));
     vi.doMock("@better-auth/drizzle-adapter", () => ({
@@ -95,7 +98,8 @@ describe("Better Auth configuration", () => {
       return { api: { getAccessToken } };
     });
 
-    vi.doMock("better-auth", () => ({
+    vi.doMock("better-auth", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("better-auth")>()),
       betterAuth: mockBetterAuth,
     }));
     vi.doMock("@better-auth/drizzle-adapter", () => ({
@@ -133,5 +137,60 @@ describe("Better Auth configuration", () => {
     await expect(resolveAccessToken("member-1")).rejects.toThrow(
       tokenResolutionError
     );
+  });
+  it("skips the profile refresh for a member without a Google account", async () => {
+    const scheduleMemberProfileImageRefresh = vi.fn();
+    const getAccessToken = vi
+      .fn()
+      .mockRejectedValue(
+        APIError.from("BAD_REQUEST", BASE_ERROR_CODES.ACCOUNT_NOT_FOUND)
+      );
+    let capturedConfiguration: {
+      databaseHooks?: {
+        session?: { update?: { after?: (session: unknown) => Promise<void> } };
+      };
+    } = {};
+    const mockBetterAuth = vi.fn((configuration) => {
+      capturedConfiguration = configuration;
+      return { api: { getAccessToken } };
+    });
+
+    vi.doMock("better-auth", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("better-auth")>()),
+      betterAuth: mockBetterAuth,
+    }));
+    vi.doMock("@better-auth/drizzle-adapter", () => ({
+      drizzleAdapter: vi.fn(() => ({ id: "adapter" })),
+    }));
+    vi.doMock("better-auth/next-js", () => ({
+      nextCookies: vi.fn(() => ({ id: "next-cookies-plugin" })),
+    }));
+    vi.doMock("drizzle-orm/node-postgres", () => ({
+      drizzle: vi.fn(() => ({ id: "database" })),
+    }));
+    vi.doMock("pg", () => ({
+      Pool: vi.fn(function () { return ({ id: "pool", on: vi.fn() }); }),
+    }));
+    vi.doMock(
+      "@/src/modules/shared/infrastructure/database/server-environment",
+      () => ({
+        getServerDatabaseEnvironment: () => ({
+          connectionString: "postgres://tutribu.example.com/db",
+        }),
+      })
+    );
+    vi.doMock(
+      "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh",
+      () => ({ scheduleMemberProfileImageRefresh })
+    );
+
+    await import("@/src/modules/auth/infrastructure/better-auth/auth");
+
+    const afterHook = capturedConfiguration.databaseHooks?.session?.update?.after;
+    await afterHook?.({ userId: "dev-member" });
+
+    const [, resolveAccessToken] =
+      scheduleMemberProfileImageRefresh.mock.calls[0];
+    await expect(resolveAccessToken("dev-member")).resolves.toBeNull();
   });
 });

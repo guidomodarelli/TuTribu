@@ -4,6 +4,11 @@ import { createAuthClient } from "better-auth/client";
 
 import { ROUTES } from "@/src/constants/routes";
 import {
+  DEV_SIGN_IN_REJECTED_HTTP_STATUS,
+  DEV_SIGN_IN_RESULT,
+  type DevSignInResult,
+} from "@/src/modules/auth/constants/dev-sign-in";
+import {
   MEMBER_SESSION_REFRESH_STATUS,
   type MemberSessionRefreshStatus,
 } from "@/src/modules/auth/constants/session";
@@ -45,6 +50,38 @@ export async function startGoogleSignIn(callbackUrl: string) {
   });
 
   throwIfAuthClientFailed(result, AUTH_CLIENT_ERROR.googleSignInRejected);
+}
+
+/**
+ * Signs in with the development-only email and password method. The server
+ * registers it only on `next dev` with `DEV_SIGN_IN` set.
+ *
+ * @param email - Email typed in the development form.
+ * @param password - Password typed in the development form.
+ * @returns `signed-in` once Better Auth set the session cookie,
+ * `invalid-credentials` when the email or password was rejected, and `failed`
+ * for any other error, including the method being unavailable.
+ */
+export async function startDevSignIn(
+  email: string,
+  password: string
+): Promise<DevSignInResult> {
+  try {
+    const result = await authClient.signIn.email({ email, password });
+
+    if (!result.error) {
+      return DEV_SIGN_IN_RESULT.signedIn;
+    }
+
+    return Object.values(DEV_SIGN_IN_REJECTED_HTTP_STATUS).some(
+      (rejectedStatus) => rejectedStatus === result.error.status
+    )
+      ? DEV_SIGN_IN_RESULT.invalidCredentials
+      : DEV_SIGN_IN_RESULT.failed;
+  } catch {
+    // Network failures map to a stable result so the form shows Spanish copy.
+    return DEV_SIGN_IN_RESULT.failed;
+  }
 }
 
 export async function signOutMember() {

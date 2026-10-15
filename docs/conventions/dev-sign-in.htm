@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dev Sign-In</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:#f8f7f4;color:#1a1a1a;padding:48px 24px 80px;max-width:860px;margin:0 auto;}
+.doc-header{border-bottom:2px solid #1a1a1a;padding-bottom:20px;margin-bottom:40px;}
+.doc-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#888;margin-bottom:8px;}
+.doc-title{font-size:28px;font-weight:600;line-height:1.2;margin-bottom:6px;}
+.doc-sub{font-size:14px;color:#555;line-height:1.5;}
+.doc-meta{display:flex;gap:24px;margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:#888;flex-wrap:wrap;}
+.section{margin-bottom:40px;}
+.section-num{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#888;margin-bottom:6px;}
+.section-title{font-size:20px;font-weight:600;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #e0ddd6;}
+p{font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;}
+ul,ol{padding-left:22px;margin-bottom:12px;}
+li{font-size:14px;line-height:1.7;color:#333;margin-bottom:6px;}
+strong{font-weight:600;color:#1a1a1a;}
+a{color:#1a4f7a;text-decoration-thickness:1px;text-underline-offset:2px;}
+.callout{border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;line-height:1.6;border-left:3px solid;}
+.c-info{background:#eaf3fb;border-color:#5a9fd4;color:#1a4f7a;}
+.c-warn{background:#fbf3ea;border-color:#d4a15a;color:#7a541a;}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;}
+th{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#888;text-align:left;padding:8px 12px;border-bottom:1px solid #e0ddd6;background:#f0ede6;}
+td{padding:10px 12px;border-bottom:1px solid #e0ddd6;vertical-align:top;line-height:1.5;color:#333;}
+tr:last-child td{border-bottom:none;}
+code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-radius:3px;font-size:12px;}
+.code-block{background:#1a1a2e;border-radius:8px;padding:20px 24px;margin:16px 0;overflow-x:auto;}
+.code-block pre{font-family:'DM Mono',monospace;font-size:12px;line-height:1.7;color:#e2e8f0;white-space:pre;}
+</style>
+</head>
+<body>
+<div class="doc-header">
+  <div class="doc-label">CONVENTION</div>
+  <div class="doc-title">Dev Sign-In</div>
+  <div class="doc-sub">Login de desarrollo con email y contraseña de Better Auth para entrar a <code>https://dev.tutribu.app</code> sin Google OAuth. Solo existe en <code>next dev</code> y detrás de una flag explícita.</div>
+  <div class="doc-meta"><span>Scope: Auth / Local tooling</span><span>Status: Active</span></div>
+</div>
+
+<div class="section">
+  <div class="section-num">01</div>
+  <div class="section-title">Overview</div>
+<p>Google OAuth es una redirección del navegador hacia Google y de vuelta al callback de Better Auth: no se puede simular con MSW como los proveedores server-side (los mocks de <code>MOCK_EXTERNAL_APIS</code>). Para trabajar en local sin cuenta de Google, sin red hacia Google o con la base de una branch sandbox de Neon, el servidor de desarrollo puede registrar el método email y contraseña de Better Auth para un único usuario de prueba.</p>
+<p>La sesión que crea es una sesión real de Better Auth (misma tabla <code>session</code>, misma cookie, mismo keep-alive), así que el resto de la app no distingue cómo entró el miembro.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">02</div>
+  <div class="section-title">Activación</div>
+<p>El método se registra solo si se cumplen las dos condiciones:</p>
+<ul>
+  <li><code>NODE_ENV === "development"</code>, que solo ocurre con <code>next dev</code> (<code>pnpm run dev</code>).</li>
+  <li><code>DEV_SIGN_IN</code> vale <code>1</code> o <code>true</code> (sin distinguir mayúsculas ni espacios).</li>
+</ul>
+<table>
+  <tr><th>Entorno</th><th>Flag</th><th>Resultado</th></tr>
+  <tr><td><code>next dev</code></td><td>activa</td><td>Se registra <code>/api/auth/sign-in/email</code> y la página de inicio de sesión muestra el formulario.</td></tr>
+  <tr><td><code>next dev</code></td><td>ausente o <code>0</code></td><td>Comportamiento normal: redirección automática a Google.</td></tr>
+  <tr><td>build, <code>next start</code>, Vercel, Cloudflare, tests</td><td>activa</td><td>No se registra. Se loguea un warning (<code>feature: dev-sign-in</code>) y el endpoint responde <code>EMAIL_PASSWORD_DISABLED</code>.</td></tr>
+</table>
+<p>La regla vive en <code>resolveDevSignInActivation</code> (<code>src/modules/auth/infrastructure/dev-sign-in/dev-sign-in-activation.ts</code>) y sigue el mismo patrón que <code>MOCK_EXTERNAL_APIS</code>. Es una flag separada a propósito: se puede simular Mercado Pago sin tocar el login, y al revés.</p>
+<div class="callout c-warn">Con la flag activa y <code>DEV_SIGN_IN_EMAIL</code> o <code>DEV_SIGN_IN_PASSWORD</code> vacíos (o un email con formato inválido, o una contraseña de menos de 8 o más de 128 caracteres, lo que Better Auth rechazaría), el módulo de auth falla al cargar con un mensaje que nombra la variable. Es intencional: la flag se pidió de forma explícita y una configuración a medias no debe pasar desapercibida.</div>
+</div>
+
+<div class="section">
+  <div class="section-num">03</div>
+  <div class="section-title">Configuración</div>
+<p>En <code>.env.local</code> (nunca en código, fixtures ni capturas):</p>
+<div class="code-block"><pre>DEV_SIGN_IN=1
+DEV_SIGN_IN_EMAIL=dev@tutribu.example
+DEV_SIGN_IN_PASSWORD=una-contraseña-local
+# Opcional: nombre del usuario creado (por defecto "Integrante de desarrollo").
+DEV_SIGN_IN_NAME=</pre></div>
+<p>Las variables están documentadas en <code>.env.example</code>. La contraseña solo protege el acceso al servidor local; igual Better Auth la guarda hasheada en la tabla <code>account</code>.</p>
+</div>
+
+<div class="section">
+  <div class="section-num">04</div>
+  <div class="section-title">Cómo funciona</div>
+<ul>
+  <li><strong>Wiring.</strong> <code>withDevSignIn</code> (<code>dev-sign-in-auth-options.ts</code>) envuelve las opciones de <code>betterAuth</code> en <code>src/modules/auth/infrastructure/better-auth/auth.ts</code>. Si la activación no es <code>enabled</code>, devuelve las opciones sin cambios. Si lo es, agrega <code>emailAndPassword: { enabled: true, disableSignUp: true }</code> y un plugin propio antes de <code>nextCookies</code>.</li>
+  <li><strong>Un solo usuario.</strong> El plugin intercepta <code>/sign-in/email</code> con un hook <code>before</code>: cualquier email distinto de <code>DEV_SIGN_IN_EMAIL</code> recibe 403 sin tocar la base. El sign-up público queda deshabilitado.</li>
+  <li><strong>Seed perezoso.</strong> Antes de que Better Auth valide la contraseña, el plugin asegura el usuario con el adapter interno de Better Auth: lo crea si no existe (con <code>emailVerified</code>), vincula una cuenta <code>credential</code> si falta y reescribe el hash solo cuando <code>DEV_SIGN_IN_PASSWORD</code> cambió. No hace falta un script de seed ni una migración. Si el email ya pertenece a un miembro creado con Google, la credencial se vincula a ese mismo miembro y se conservan sus tribus. Un miembro creado solo con email y contraseña no tiene cuenta de Google: al renovar su sesión, el refresh de la foto de perfil se omite en lugar de registrar un error.</li>
+  <li><strong>UI.</strong> <code>SignInContent</code> llama a <code>resolveDevSignInFormEmail(process.env)</code>. Con el método activo, <code>SignInView</code> no arranca la redirección automática a Google: muestra el botón manual de Google y <code>DevSignInForm</code> (<code>components/auth/dev-sign-in-form</code>) con el email precargado. El formulario usa <code>startDevSignIn</code> del cliente de Better Auth y, al entrar, carga la ruta de <code>callbackUrl</code> como documento completo porque cambió la identidad.</li>
+</ul>
+</div>
+
+<div class="section">
+  <div class="section-num">05</div>
+  <div class="section-title">Verificación</div>
+<ul>
+  <li><code>tests/unit/modules/auth/infrastructure/dev-sign-in-activation.test.ts</code>: la regla de activación y la validación de credenciales.</li>
+  <li><code>tests/integration/modules/auth/dev-sign-in.test.ts</code>: Better Auth real con el adapter en memoria. Cubre el alta en el primer login, la reutilización y el cambio de contraseña, el vínculo con un miembro existente, el rechazo de otros emails, el sign-up cerrado y que con <code>NODE_ENV=production</code> el endpoint responde <code>EMAIL_PASSWORD_DISABLED</code> aunque la flag esté activa.</li>
+  <li><code>tests/unit/pages/signin-page.test.tsx</code>: el formulario solo aparece en <code>next dev</code> con la flag, no se redirige a Google y los errores se muestran junto al formulario.</li>
+</ul>
+</div>
+</body>
+</html>

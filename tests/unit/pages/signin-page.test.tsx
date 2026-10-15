@@ -1,5 +1,6 @@
-import { vi, describe, it, expect, beforeEach, afterAll, type Mock } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterAll, afterEach, type Mock } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { headers } from "next/headers";
 import { redirect, useRouter } from "next/navigation";
 
@@ -11,6 +12,7 @@ import { createRequestModules } from "@/src/modules/setup";
 
 const getAuthenticatedMember = vi.fn();
 const startGoogleSignInMock = vi.fn();
+const startDevSignInMock = vi.fn();
 const pushMock = vi.fn();
 
 const SAFARI_IOS_USER_AGENT =
@@ -19,6 +21,7 @@ const MERCADO_PAGO_IOS_WEBVIEW_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MercadoPago/12.34.5";
 
 vi.mock("@/src/modules/auth/infrastructure/better-auth/client", () => ({
+  startDevSignIn: (...args: unknown[]) => startDevSignInMock(...args),
   startGoogleSignIn: (...args: unknown[]) => startGoogleSignInMock(...args),
 }));
 
@@ -67,6 +70,7 @@ describe("SignInPage", () => {
     vi.clearAllMocks();
     getAuthenticatedMember.mockReset();
     startGoogleSignInMock.mockReset();
+    startDevSignInMock.mockReset();
     pushMock.mockReset();
     startGoogleSignInMock.mockResolvedValue(undefined);
 
@@ -86,6 +90,10 @@ describe("SignInPage", () => {
       push: pushMock,
     });
     mockUserAgentHeader(SAFARI_IOS_USER_AGENT);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   afterAll(() => {
@@ -313,6 +321,77 @@ describe("SignInPage", () => {
     ).not.toBeInTheDocument();
     await waitFor(() => {
       expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
+    });
+  });
+  describe("development sign-in", () => {
+    function stubDevSignInEnvironment(nodeEnvironment: string) {
+      vi.stubEnv("NODE_ENV", nodeEnvironment);
+      vi.stubEnv("DEV_SIGN_IN", "1");
+      vi.stubEnv("DEV_SIGN_IN_EMAIL", "dev@tutribu.example");
+      vi.stubEnv("DEV_SIGN_IN_PASSWORD", "dev-password-123");
+    }
+
+    it("shows the dev form instead of redirecting to Google on next dev", async () => {
+      getAuthenticatedMember.mockResolvedValue(null);
+      stubDevSignInEnvironment("development");
+
+      render(await SignInContent({ searchParams: createSearchParams() }));
+
+      expect(
+        screen.getByRole("form", { name: "Acceso de desarrollo" })
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText("Email")).toHaveValue("dev@tutribu.example");
+      expect(
+        screen.getByRole("button", { name: /iniciar sesión con google/i })
+      ).toBeInTheDocument();
+      expect(startGoogleSignInMock).not.toHaveBeenCalled();
+    });
+
+    it("explains a rejected password next to the form", async () => {
+      const user = userEvent.setup();
+      getAuthenticatedMember.mockResolvedValue(null);
+      startDevSignInMock.mockResolvedValue("invalid-credentials");
+      stubDevSignInEnvironment("development");
+
+      render(await SignInContent({ searchParams: createSearchParams() }));
+      await user.type(screen.getByLabelText("Contraseña"), "wrong-password");
+      await user.click(screen.getByRole("button", { name: "Entrar sin Google" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "El email o la contraseña no coinciden con el usuario de desarrollo."
+      );
+      expect(startDevSignInMock).toHaveBeenCalledWith(
+        "dev@tutribu.example",
+        "wrong-password"
+      );
+    });
+
+    it("asks for both fields before calling the server", async () => {
+      const user = userEvent.setup();
+      getAuthenticatedMember.mockResolvedValue(null);
+      stubDevSignInEnvironment("development");
+
+      render(await SignInContent({ searchParams: createSearchParams() }));
+      await user.click(screen.getByRole("button", { name: "Entrar sin Google" }));
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Completá el email y la contraseña."
+      );
+      expect(startDevSignInMock).not.toHaveBeenCalled();
+    });
+
+    it("hides the dev form outside next dev even with the flag set", async () => {
+      getAuthenticatedMember.mockResolvedValue(null);
+      stubDevSignInEnvironment("production");
+
+      render(await SignInContent({ searchParams: createSearchParams() }));
+
+      expect(
+        screen.queryByRole("form", { name: "Acceso de desarrollo" })
+      ).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(startGoogleSignInMock).toHaveBeenCalledWith("/");
+      });
     });
   });
 });

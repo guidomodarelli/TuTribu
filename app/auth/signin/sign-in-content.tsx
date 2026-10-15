@@ -2,13 +2,16 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google";
+import { DevSignInForm } from "@/components/auth/dev-sign-in-form";
 import { OpenInBrowserCta } from "@/components/auth/open-in-browser-cta";
+import { SignInWithGoogleButton } from "@/components/auth/sign-in-with-google-button";
 import { Card, CardContent, CardHeader } from "beez-ui";
 import { siteConfig } from "@/lib/site-config";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
 import { resolvePublicAppBaseUrl } from "@/src/modules/shared/infrastructure/backend/public-app-base-url";
 import { detectInAppBrowser } from "@/src/modules/shared/infrastructure/http/in-app-browser-detection";
+import { resolveDevSignInFormEmail } from "@/src/modules/auth/infrastructure/dev-sign-in/dev-sign-in-activation";
 import { createRequestModules } from "@/src/modules/setup";
 import styles from "./page.module.scss";
 
@@ -154,7 +157,27 @@ export function SignInPendingView() {
   );
 }
 
-export function SignInView({ callbackUrl }: { callbackUrl: string }) {
+/**
+ * Sign-in options. With the development sign-in active (`devSignInEmail` set)
+ * the automatic Google redirect is skipped so the local form stays reachable;
+ * Google remains available through the manual button.
+ */
+export function SignInView({
+  callbackUrl,
+  devSignInEmail = null,
+}: {
+  callbackUrl: string;
+  devSignInEmail?: string | null;
+}) {
+  if (devSignInEmail) {
+    return (
+      <SignInShell>
+        <SignInWithGoogleButton callbackUrl={callbackUrl} />
+        <DevSignInForm callbackUrl={callbackUrl} defaultEmail={devSignInEmail} />
+      </SignInShell>
+    );
+  }
+
   return (
     <SignInShell>
       <AutoSignInWithGoogle callbackUrl={callbackUrl} />
@@ -224,5 +247,10 @@ export async function SignInContent({
     );
   }
 
-  return <SignInView callbackUrl={callbackUrl} />;
+  return (
+    <SignInView
+      callbackUrl={callbackUrl}
+      devSignInEmail={resolveDevSignInFormEmail(process.env)}
+    />
+  );
 }

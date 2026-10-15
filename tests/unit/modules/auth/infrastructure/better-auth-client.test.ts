@@ -2,6 +2,7 @@
 
 import { vi, describe, it, expect, beforeEach } from "vitest";
 const socialSignInMock = vi.fn();
+const emailSignInMock = vi.fn();
 const signOutMock = vi.fn();
 const getSessionMock = vi.fn();
 
@@ -9,6 +10,7 @@ vi.mock("better-auth/client", () => ({
   createAuthClient: () => ({
     getSession: (...args: unknown[]) => getSessionMock(...args),
     signIn: {
+      email: (...args: unknown[]) => emailSignInMock(...args),
       social: (...args: unknown[]) => socialSignInMock(...args),
     },
     signOut: (...args: unknown[]) => signOutMock(...args),
@@ -154,5 +156,37 @@ describe("Better Auth client", () => {
     await expect(
       refreshMemberSession(new AbortController().signal, "member-1")
     ).resolves.toBe("failed");
+  });
+  describe("startDevSignIn", () => {
+    it.each([
+      ["signed-in", { data: { token: "session-token" }, error: null }],
+      ["invalid-credentials", { data: null, error: { status: 401 } }],
+      ["invalid-credentials", { data: null, error: { status: 403 } }],
+      ["failed", { data: null, error: { status: 400 } }],
+    ])("returns %s for the Better Auth answer", async (expectedResult, answer) => {
+      emailSignInMock.mockResolvedValue(answer);
+      const { startDevSignIn } = await import(
+        "@/src/modules/auth/infrastructure/better-auth/client"
+      );
+
+      await expect(
+        startDevSignIn("dev@tutribu.example", "dev-password-123")
+      ).resolves.toBe(expectedResult);
+      expect(emailSignInMock).toHaveBeenCalledWith({
+        email: "dev@tutribu.example",
+        password: "dev-password-123",
+      });
+    });
+
+    it("maps network failures to a stable failed result", async () => {
+      emailSignInMock.mockRejectedValue(new TypeError("Failed to fetch"));
+      const { startDevSignIn } = await import(
+        "@/src/modules/auth/infrastructure/better-auth/client"
+      );
+
+      await expect(
+        startDevSignIn("dev@tutribu.example", "dev-password-123")
+      ).resolves.toBe("failed");
+    });
   });
 });
