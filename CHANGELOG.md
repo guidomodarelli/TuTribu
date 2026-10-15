@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-15
+
 ### Added
 
 - La barra lateral se contrae y se expande también con la tecla [, y el botón del panel muestra hacia dónde se va a mover y qué tecla usar.
