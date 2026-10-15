@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El líder puede consultar el consumo diario UTC y el historial de admisión, con filtros, versiones originales y actualización, incluso antes de conectar mensajería.
+
 - El historial privado conserva la configuración anterior y nueva de cada cambio efectivo de admisión, junto con los hechos permitidos al eliminar una tribu, sin copiar claves ni contactos.
 
 - El mantenimiento privado puede renovar el cifrado de conexiones vigentes sin cambiar la clave de Zavu, los códigos pendientes ni el consumo acumulado.
@@ -20,7 +22,6 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - El acceso autorizado a habilitados, reportes CSV, invitaciones y solicitudes de admisión queda registrado con quién lo consultó y su alcance, preservando los permisos y evitando copiar datos privados en la auditoría.
 
-- Se incorpora la consulta privada de actividad y métricas de admisión para el líder, conservando el consumo diario y restringiendo datos sensibles; la pantalla de consulta sigue pendiente.
 
 - Las conexiones candidatas abandonadas pueden retirarse mediante el proceso interno después de siete días sin actividad, conservando la conexión seleccionada y el consumo original; la programación de esa limpieza sigue pendiente.
 
@@ -113,6 +114,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- Los países y cupos comparan el uso guardado con la propuesta y exigen confirmar nuevamente cada aumento, aclarando su impacto y que el consumo se conserva.
+
 - Las métricas de admisiones registran la última ejecución completa de mensajería y los tiempos de sus pasos por tribu, conservando separados los resultados de entrega.
 
 - La emisión de un código registra el mensaje que quedó en cola; su reemplazo o retiro registra sólo cancelaciones confirmadas y conserva los envíos ya iniciados o inciertos, con la acción original y sin datos privados.
@@ -127,6 +130,9 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El paso de comprobación de contacto aclara que los códigos usan el servicio conectado por el líder y que comprobar el contacto no acredita identidad civil ni pertenencia a un grupo de WhatsApp.
 
 ### Fixed
+
+- Al perder permisos con la misma cuenta, los países, cupos y datos administrativos anteriores se ocultan hasta comprobar el acceso vigente.
+- Las pantallas de configuración de admisión conservan una sola región principal para la navegación con tecnologías de asistencia.
 
 - El inicio de sesión, la confirmación de acciones sensibles y las consultas privadas protegen las credenciales en respuestas y registros, conservando la sesión y los errores recuperables.
 

@@ -17,6 +17,14 @@ function fixture(): MessagingUsageProps {
 
 beforeEach(() => vi.clearAllMocks());
 describe("early messaging usage presenter", () => {
+  it("should explain the UTC budget and provider billing without implying a fixed monetary balance", () => {
+    const props = fixture();
+    render(<MessagingUsage {...props} />, { wrapper: Providers });
+    expect(screen.getByText(/día.*UTC/i)).toBeInTheDocument();
+    expect(screen.getByText(/proveedor.*factura.*cuenta.*líder/i)).toBeInTheDocument();
+    expect(screen.getByText(/cupos.*no.*garantía.*monetaria/i)).toBeInTheDocument();
+  });
+
   it("should show unpersisted defaults and require explicit confirmation before initializing without a connection", () => {
     const props = fixture(); const view = render(<MessagingUsage {...props} />, { wrapper: Providers });
     expect(screen.getByText(/todavía no está configurado/)).toBeInTheDocument();

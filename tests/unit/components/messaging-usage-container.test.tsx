@@ -1,5 +1,6 @@
 /** Exercises the actual early usage container and shared controls through owned browser ports. @module messaging-usage-container-tests */
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { SidebarInset, SidebarProvider } from "@guidomodarelli/beez-ui";
 import { Activity, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -14,7 +15,7 @@ import { AdmissionSettingsPage } from "@/components/academy-admissions/admission
 const slug = "synthetic-academy", viewerId = "synthetic-leader", tribeId = "83ecbfaf-0e7c-4afb-aefc-62b62800d367", operationId = "297d47c2-5419-4c3d-a339-e8b7970275ca";
 const router = { back: vi.fn(), bfcacheId: "usage-container-test", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 /** Native router context and the real UI provider remain in use. */
-function Providers({ children }: { children: ReactNode }) { return <AppRouterContext.Provider value={router}><AppUIProvider>{children}</AppUIProvider></AppRouterContext.Provider>; }
+function Providers({ children }: { children: ReactNode }) { return <AppRouterContext.Provider value={router}><AppUIProvider><SidebarProvider><SidebarInset>{children}</SidebarInset></SidebarProvider></AppUIProvider></AppRouterContext.Provider>; }
 /** Supplies only current application state and feature-owned asynchronous outcomes. */
 function fixture(configured = true) {
   const policy = { version: 3, allowedCountries: ["AR"], verificationDailyLimit: 100, notificationDailyLimit: 200, platformMaximums: { verificationDailyLimit: 1000, notificationDailyLimit: 5000 }, consumption: { verificationToday: 2, notificationToday: 1 } };
@@ -34,6 +35,98 @@ async function confirm() { const checkbox = screen.getByRole("checkbox", { name:
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 
 describe("early usage route workflow", () => {
+  it("should hide the previous private policy when an explicit current read denies the same account", async () => {
+    const data = fixture();
+    data.client.update.mockResolvedValueOnce({ status: "failed", code: "usage_policy_conflict", message: "Los cupos cambiaron. Consultá el uso actual.", uncertain: false });
+    render(data.node, { wrapper: Providers });
+    await confirm(); fireEvent.click(screen.getByRole("button", { name: "Guardar países y cupos" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Consultar uso actual" })).toBeInTheDocument());
+    data.client.read.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "No tenés permiso para consultar el uso.", uncertain: false });
+    fireEvent.click(screen.getByRole("button", { name: "Consultar uso actual" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No tenés permiso"));
+    expect(screen.queryByRole("spinbutton", { name: "Códigos por día" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Países guardados: Argentina.")).not.toBeInTheDocument();
+    expect(data.client.initialize).not.toHaveBeenCalled();
+  });
+
+  it("should hide private usage when original-operation recovery denies current authority", async () => {
+    const data = fixture();
+    writeMessagingUsageIntent(viewerId, slug, { type: "initialize_messaging_usage", input: { operationId, confirmed: true } });
+    data.client.operation.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "No tenés permiso para recuperar esta operación.", uncertain: false });
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No tenés permiso"));
+    expect(screen.queryByRole("spinbutton", { name: "Códigos por día" })).not.toBeInTheDocument();
+    expect(data.client.update).not.toHaveBeenCalled();
+  });
+
+  it("should withhold the old private policy after a mutation reports lost current authority", async () => {
+    const data = fixture();
+    data.client.update.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "No tenés permiso para modificar el uso.", uncertain: false });
+    render(data.node, { wrapper: Providers });
+    await confirm(); fireEvent.click(screen.getByRole("button", { name: "Guardar países y cupos" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No tenés permiso"));
+    expect(screen.queryByRole("spinbutton", { name: "Códigos por día" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/2 códigos y 1 avisos consumidos hoy/)).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)?.input.operationId).toBe(data.client.update.mock.calls[0][1].operationId);
+  });
+
+  it("should explain a quota increase and require a new explicit increase confirmation before writing", async () => {
+    const data = fixture();
+    render(data.node, { wrapper: Providers });
+    await confirm();
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Códigos por día" }), { target: { value: "150" } });
+    expect(screen.getByRole("region", { name: "Impacto de la propuesta" })).toHaveTextContent("De 100 a 150");
+    const increase = screen.getByRole("checkbox", { name: /confirmo el aumento indicado/ });
+    expect(increase).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Guardar países y cupos" })).toBeDisabled();
+    expect(data.client.update).not.toHaveBeenCalled();
+    fireEvent.click(increase);
+    fireEvent.click(screen.getByRole("button", { name: "Guardar países y cupos" }));
+    await waitFor(() => expect(data.client.update).toHaveBeenCalledOnce());
+    expect(data.client.update.mock.calls[0][1]).toMatchObject({ expectedVersion: 3, verificationDailyLimit: 150, confirmed: true });
+    expect(screen.getByText(/2 códigos y 1 avisos consumidos hoy/)).toBeInTheDocument();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should ignore a late aborted usage read after a newer current version and counters are displayed", async () => {
+    const data = fixture();
+    render(data.node, { wrapper: Providers });
+    await confirm();
+    let completeOld!: (value: Awaited<ReturnType<MessagingUsageBrowserClient["read"]>>) => void;
+    data.client.read.mockImplementationOnce(() => new Promise((resolve) => { completeOld = resolve; }));
+    await act(async () => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
+    await waitFor(() => expect(data.client.read).toHaveBeenCalledOnce());
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 9, consumption: { verificationToday: 8, notificationToday: 5 } } } });
+    await act(async () => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
+    await waitFor(() => expect(screen.getByText(/Configuración actual: versión 9/)).toBeInTheDocument());
+    await act(async () => { completeOld({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 4 } } }); });
+    expect(screen.getByText(/Configuración actual: versión 9/)).toBeInTheDocument();
+    expect(screen.getByText(/8 códigos y 5 avisos consumidos hoy/)).toBeInTheDocument();
+    expect(data.client.read.mock.calls[0][1].aborted).toBe(true);
+    expect(data.client.update).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should not expose a superseded usage response when restoration starts after its viewer promise resolves", async () => {
+    const data = fixture(); render(data.node, { wrapper: Providers }); await confirm();
+    data.client.viewer.mockResolvedValueOnce({ status: "ready", value: { id: viewerId } });
+    data.client.viewer.mockImplementationOnce(() => {
+      const result = Promise.resolve({ status: "ready" as const, value: { id: viewerId } });
+      void result.then(() => queueMicrotask(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }))));
+      return result;
+    });
+    let complete!: (value: Awaited<ReturnType<MessagingUsageBrowserClient["read"]>>) => void;
+    data.client.read.mockResolvedValueOnce({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 7 } } }).mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    await act(async () => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
+    await waitFor(() => expect(data.client.read).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("status")).toHaveTextContent("Consultando la cuenta y el uso actual");
+    expect(screen.queryByText(/Configuración actual: versión 7/)).not.toBeInTheDocument();
+    await act(async () => { complete({ status: "ready", value: { state: "configured", policy: { ...data.policy, version: 9 } } }); });
+    await waitFor(() => expect(screen.getByText(/Configuración actual: versión 9/)).toBeInTheDocument());
+    expect(data.client.update).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
   it("should retain a single main landmark when a page-embedded account lookup fails", async () => {
     const data = fixture(); data.client.viewer.mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: "No pudimos confirmar la cuenta actual.", uncertain: false });
     render(<AdmissionSettingsPage title="Mensajería de la academia">{data.node}</AdmissionSettingsPage>, { wrapper: Providers });
@@ -141,9 +234,11 @@ describe("early usage route workflow", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No pudimos consultar"));
     expect(screen.queryByRole("checkbox", { name: /Confirmo reintentar el guardado/ })).not.toBeInTheDocument();
     expect(data.client.update).not.toHaveBeenCalled();
+    expect(screen.queryByRole("spinbutton", { name: "Códigos por día" })).not.toBeInTheDocument();
+    expect(readMessagingUsageIntent(viewerId, slug)).not.toBeNull();
     let signal: AbortSignal | null = null;
     data.client.read.mockImplementationOnce(async (_slug, requestSignal) => { signal = requestSignal; return new Promise(() => undefined); });
-    fireEvent.click(screen.getByRole("button", { name: "Consultar operación original" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
     await waitFor(() => expect(signal).not.toBeNull()); view.unmount(); expect(signal!.aborted).toBe(true);
   });
   it("should read current consumption on Activity restoration without duplicate initial fetching or an automatic write", async () => {

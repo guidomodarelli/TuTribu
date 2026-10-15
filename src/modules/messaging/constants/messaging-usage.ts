@@ -1,5 +1,7 @@
 /** Original usage ledger namespaces stay separate from admission operations and current configuration. @module messaging-usage-constants */
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
+import { MESSAGING_ERROR_CODE } from "./messaging-errors";
+import type { MessagingErrorCode } from "../domain/errors/messaging-error-code";
 export const MESSAGING_USAGE_RECOVERABLE_OPERATION = { initialize: REAUTHENTICATION_OPERATION.initializeMessagingUsage, update: REAUTHENTICATION_OPERATION.updateMessagingUsage } as const;
 /** Editable count input is decimal and nonempty; absence must never silently become zero. */
 export const MESSAGING_USAGE_COUNT_PATTERN = /^\d+$/;
@@ -13,7 +15,11 @@ export const MESSAGING_USAGE_INTENT_STORAGE_PREFIX = "tutribu:messaging-usage-in
 export const MESSAGING_USAGE_BROWSER_PATH = { tribePrefix: "/api/tribes", usageSegment: "messaging/usage-policy", operationsSegment: "operations" } as const;
 /** Actual leaf navigation stays independent of saved policy and provider connection state. */
 export const MESSAGING_USAGE_SETTINGS_SEGMENT = "academia/admissions/messaging";
-export const MESSAGING_USAGE_BROWSER_PHASE = { checking: "checking", idle: "idle", reading: "reading", writing: "writing", uncertain: "uncertain", changedViewer: "changed_viewer" } as const;
+/** UI phases never grant the current role or permission by themselves. */
+export type MessagingUsageBrowserPhase = "checking" | "idle" | "reading" | "writing" | "uncertain" | "changed_viewer";
+export const MESSAGING_USAGE_BROWSER_PHASE = { checking: "checking", idle: "idle", reading: "reading", writing: "writing", uncertain: "uncertain", changedViewer: "changed_viewer" } as const satisfies Record<string, MessagingUsageBrowserPhase>;
+/** Missing recency alone does not revoke read access; actual authority/resource denial does. */
+export const MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES: readonly MessagingErrorCode[] = [MESSAGING_ERROR_CODE.authenticationRequired, MESSAGING_ERROR_CODE.permissionDenied, MESSAGING_ERROR_CODE.resourceUnavailable];
 /** Safe browser feedback never renders database or provider messages. */
 export const MESSAGING_USAGE_UI_COPY = {
   invalid: "Revisá los países y los límites diarios antes de confirmar.",

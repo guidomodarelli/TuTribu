@@ -57,6 +57,8 @@ import type { ResolvedAdmissionChallengeDispatch } from "./infrastructure/verifi
 import { AllowAdmissionRetryUseCase } from "./application/use-cases/allow-admission-retry-use-case";
 import { GetAdmissionReviewUseCases } from "./application/use-cases/get-admission-review-use-cases";
 import { GetAdmissionActivityAndMetricsUseCases } from "./application/use-cases/get-admission-activity-and-metrics-use-cases";
+import { GetAdmissionActivityPageUseCase } from "./application/use-cases/get-admission-activity-page-use-case";
+import type { ManageMessagingUsageUseCases } from "@/src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases";
 import { PostgresAdmissionActivityReader } from "./infrastructure/repositories/postgres-admission-activity-reader";
 import { PostgresAdmissionReviewReader } from "./infrastructure/repositories/postgres-admission-review-reader";
 import { GetAdmissionReviewPageUseCase } from "./application/use-cases/get-admission-review-page-use-case";
@@ -242,7 +244,11 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
     },
     /** @returns Current leader activity/metrics without loading hosting keys or provider resources. */
     createActivityQueryModule() {
-      return { useCases: new GetAdmissionActivityAndMetricsUseCases(resolveContext, new PostgresAdmissionActivityReader(executeScopedQuery)) };
+      const observations = new GetAdmissionActivityAndMetricsUseCases(resolveContext, new PostgresAdmissionActivityReader(executeScopedQuery));
+      return { useCases: observations,
+        /** @param resolveTribe - Canonical routing from the same request root. @param usage - The existing sole current country/quota owner. @returns A read-only page that keeps current and historical facts separate. */
+        createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, usage: Pick<ManageMessagingUsageUseCases, "read">) { return new GetAdmissionActivityPageUseCase(dependencies.accounts, { resolveTribe, observations, usage }, dependencies.clock); },
+      };
     },
     /** @param options - Live recovery state without provider/keyring access. @returns Current authorized read-only inbox/detail use cases. */
     createReviewQueryModule(options: { readRecoveryLock: () => Promise<boolean> }) {

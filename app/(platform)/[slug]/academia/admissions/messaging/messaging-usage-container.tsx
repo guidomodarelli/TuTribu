@@ -6,6 +6,7 @@ import type { MessagingUsagePageState } from "@/src/modules/messaging/applicatio
 import type { MessagingUsageBrowserClient } from "@/src/modules/messaging/application/ports/messaging-usage-browser-client";
 import type { MessagingUsageReauthenticationClient } from "@/src/modules/messaging/application/ports/messaging-usage-reauthentication-client";
 import type { MessagingUsageDraft } from "@/src/modules/messaging/application/commands/messaging-usage-draft";
+import { describeMessagingUsageChangeImpact } from "@/src/modules/messaging/application/results/messaging-usage-change-impact";
 import { createMessagingUsageDraft, parseMessagingUsageDraft, messagingUsageBrowserIntentSchema, type MessagingUsageBrowserIntent } from "@/src/modules/messaging/application/commands/messaging-usage-browser-intent";
 import { messagingUsagePolicyStateSchema } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import { MessagingUsage } from "@/components/academy-admissions/messaging-usage";
@@ -14,7 +15,7 @@ import { messagingUsageBrowserClient } from "@/lib/messaging/messaging-usage-api
 import { messagingUsageReauthenticationClient } from "@/lib/messaging/messaging-usage-reauthentication-client";
 import { readMessagingUsageIntent, writeMessagingUsageIntent } from "@/lib/messaging/messaging-usage-intent";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
-import { MESSAGING_USAGE_BROWSER_PHASE as PHASE, MESSAGING_USAGE_UI_COPY as COPY, MESSAGING_USAGE_RECOVERABLE_OPERATION as OPERATION, MESSAGING_USAGE_SETTINGS_SEGMENT } from "@/src/modules/messaging/constants/messaging-usage";
+import { MESSAGING_USAGE_BROWSER_PHASE as PHASE, MESSAGING_USAGE_UI_COPY as COPY, MESSAGING_USAGE_RECOVERABLE_OPERATION as OPERATION, MESSAGING_USAGE_SETTINGS_SEGMENT, MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES, type MessagingUsageBrowserPhase } from "@/src/modules/messaging/constants/messaging-usage";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 
 /** Own state/ports are the only workflow dependencies serialized or injected here. */
@@ -23,7 +24,7 @@ type UsageContainerProps = { initialState: MessagingUsagePageState; client?: Mes
 export function MessagingUsageContainer({ initialState, client = messagingUsageBrowserClient, reauthentication = messagingUsageReauthenticationClient }: UsageContainerProps) {
   const ready = initialState.kind === "ready" ? initialState : null;
   const [state, setState] = useState(ready?.usage ?? null), [draft, setDraft] = useState<MessagingUsageDraft | null>(ready ? createMessagingUsageDraft(ready.usage) : null);
-  const [phase, setPhase] = useState<typeof PHASE[keyof typeof PHASE]>(PHASE.checking), [fresh, setFresh] = useState(false), [confirmed, setConfirmed] = useState(false), [canRetry, setCanRetry] = useState(false);
+  const [phase, setPhase] = useState<MessagingUsageBrowserPhase>(PHASE.checking), [fresh, setFresh] = useState(false), [confirmed, setConfirmed] = useState(false), [canRetry, setCanRetry] = useState(false);
   const [privateVisible, setPrivateVisible] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [reauthenticationOperation, setReauthenticationOperation] = useState<MessagingUsageBrowserIntent["type"] | null>(null), [reauthenticationHref, setReauthenticationHref] = useState<string | null>(null);
@@ -44,18 +45,20 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
   /** Reads original work before current configuration; recovery never installs an historical version as today's state. */
   const readCurrent = useCallback(async (signal: AbortSignal, initial = false) => {
     if (!ready || signal.aborted) return;
+    if (!initial) setPrivateVisible(false);
     setPhase(PHASE.reading); setFresh(false); setConfirmed(false); setCanRetry(false);
     let recovered = false;
     try {
-      if (!await checkViewer(signal)) return;
+      if (!await checkViewer(signal) || signal.aborted) return;
       if (!loaded.current) {
         pending.current = readMessagingUsageIntent(ready.viewerId, ready.slug); loaded.current = true;
         if (pending.current?.type === OPERATION.update) setDraft({ allowedCountries: [...pending.current.input.allowedCountries], verificationDailyLimit: String(pending.current.input.verificationDailyLimit), notificationDailyLimit: String(pending.current.input.notificationDailyLimit) });
       }
       if (pending.current) {
+        setPrivateVisible(false);
         const intent = pending.current, original = await client.operation(ready.slug, intent.input.operationId, signal);
         if (signal.aborted || original.status === "aborted") return;
-        if (!await checkViewer(signal)) return;
+        if (!await checkViewer(signal) || signal.aborted) return;
         if (original.status === "ready") {
           if (original.value.type !== intent.type || original.value.operationId !== intent.input.operationId || original.value.state !== "completed") { setErrorMessage(COPY.uncertain); return; }
           writeMessagingUsageIntent(ready.viewerId, ready.slug, null); pending.current = null; recovered = true; setStatusMessage(COPY.recovered); setReauthenticationOperation(null); setReauthenticationHref(null);
@@ -65,7 +68,7 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
       if (!initial || recovered || pending.current) {
         const current = await client.read(ready.slug, signal);
         if (signal.aborted || current.status === "aborted") return;
-        if (!await checkViewer(signal)) return;
+        if (!await checkViewer(signal) || signal.aborted) return;
         if (current.status === "failed") { setErrorMessage(current.message); return; }
         setState(current.value);
       }
@@ -78,7 +81,7 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
   const launchRead = useCallback(() => {
     if (busy.current) return;
     readController.current?.abort(); const controller = new AbortController(); readController.current = controller;
-    setErrorMessage(null); setConfirmed(false); void readCurrent(controller.signal);
+    setPrivateVisible(false); setErrorMessage(null); setConfirmed(false); void readCurrent(controller.signal);
   }, [readCurrent]);
   useEffect(() => {
     const controller = new AbortController(); readController.current = controller;
@@ -100,13 +103,14 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
     busy.current = true; readController.current?.abort(); const controller = new AbortController(); writeController.current = controller;
     setPhase(PHASE.writing); setFresh(false); setConfirmed(false); setCanRetry(false); setErrorMessage(null); setStatusMessage(null);
     try {
-      if (!await checkViewer(controller.signal)) return;
+      if (!await checkViewer(controller.signal) || controller.signal.aborted) return;
       writeMessagingUsageIntent(ready.viewerId, ready.slug, intent); pending.current = intent;
       const result = intent.type === OPERATION.initialize ? await client.initialize(ready.slug, intent.input, controller.signal) : await client.update(ready.slug, intent.input, controller.signal);
       if (controller.signal.aborted || result.status === "aborted") return;
-      if (!await checkViewer(controller.signal)) return;
+      if (!await checkViewer(controller.signal) || controller.signal.aborted) return;
       if (result.status === "failed") {
         setErrorMessage(result.message); toast.error(result.message);
+        if (MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES.includes(result.code)) { setPrivateVisible(false); setCanRetry(false); return; }
         if (result.code === MESSAGING_ERROR_CODE.reauthenticationRequired) setReauthenticationOperation(intent.type);
         else if (!result.uncertain) { writeMessagingUsageIntent(ready.viewerId, ready.slug, null); pending.current = null; }
         return;
@@ -127,12 +131,12 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
     if (!ready || !reauthenticationOperation || busy.current) return;
     busy.current = true; readController.current?.abort(); const controller = new AbortController(); writeController.current = controller; setPhase(PHASE.writing); setConfirmed(false);
     try {
-      if (!await checkViewer(controller.signal)) return;
+      if (!await checkViewer(controller.signal) || controller.signal.aborted) return;
       const result = await reauthentication.create({ tribeId: ready.tribeId, resourceId: ready.tribeId, operation: reauthenticationOperation, returnPath: `/${encodeURIComponent(ready.slug)}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`, confirmed: true }, controller.signal);
       if (controller.signal.aborted || result.status === "aborted") return;
-      if (!await checkViewer(controller.signal)) return;
-      if (result.status === "ready") setReauthenticationHref(result.href); else setErrorMessage(COPY.reauthenticationFailed);
-    } catch { if (!controller.signal.aborted) setErrorMessage(COPY.reauthenticationFailed); }
+      if (!await checkViewer(controller.signal) || controller.signal.aborted) return;
+      if (result.status === "ready") setReauthenticationHref(result.href); else { setPrivateVisible(false); setErrorMessage(COPY.reauthenticationFailed); }
+    } catch { if (!controller.signal.aborted) { setPrivateVisible(false); setErrorMessage(COPY.reauthenticationFailed); } }
     finally { if (writeController.current === controller) busy.current = false; if (!controller.signal.aborted) setPhase((current) => current === PHASE.changedViewer ? current : PHASE.uncertain); }
   };
 
@@ -150,7 +154,7 @@ export function MessagingUsageContainer({ initialState, client = messagingUsageB
     if (!parsed.success) { setErrorMessage(COPY.invalid); return; }
     void send(parsed.data);
   };
-  return <MessagingUsage state={state} draft={draft} countryChoices={ready.countryChoices} confirmed={confirmed} busy={isBusy} canEdit={fresh && !uncertain} validationMessage={validationMessage} errorMessage={errorMessage} statusMessage={statusMessage} uncertain={uncertain} canRetry={canRetry && fresh}
+  return <MessagingUsage state={state} draft={draft} impact={state.policy && parsedDraft.ok ? describeMessagingUsageChangeImpact(state.policy, parsedDraft.value) : null} countryChoices={ready.countryChoices} confirmed={confirmed} busy={isBusy} canEdit={fresh && !uncertain} validationMessage={validationMessage} errorMessage={errorMessage} statusMessage={statusMessage} uncertain={uncertain} canRetry={canRetry && fresh}
     onChange={(next) => { setDraft(next); setConfirmed(false); setErrorMessage(null); setStatusMessage(null); }} onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }} onInitialize={() => act(OPERATION.initialize)} onSave={() => act(OPERATION.update)} onReloadCurrent={launchRead}
     onRetryOriginal={() => { if (pending.current && canRetry && fresh && confirmed && !isBusy) void send(pending.current); }} reauthenticationRequired={reauthenticationOperation !== null} reauthenticationHref={reauthenticationHref} onPrepareReauthentication={() => { void prepareReauthentication(); }} />;
 }
