@@ -4,6 +4,7 @@ import type { AdmissionContact } from "@/src/modules/academy-admissions/domain/v
 import type { AdmissionActorFacts, AdmissionSubmissionFacts, PendingAdmissionReviewFacts } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import type { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import type { AdmissionOperationResult } from "../entities/admission-operation";
+import type { AdmissionNotificationObligation } from "@/src/modules/notifications/domain/entities/admission-notification";
 
 /** Account/tenant/correlation originate at the server boundary, never body permissions. */
 export type AdmissionCommandScope = { userId: string; sessionId: string; tribeId: string; requestId: string };
@@ -58,8 +59,8 @@ export interface AdmissionMembershipReader {
 export interface AdmissionExternalResolutionReader {
   hasLegitimateBasicMembership(userId: string, tribeId: string): Promise<boolean>;
 }
-/** One owned lifecycle obligation contains identities and event metadata, without an external payload. */
-export type AdmissionNotificationObligation = { id: string; tribeId: string; admissionRequestId: string; applicantUserId: string; event: "pending_created" | "approved" | "rejected" | "cancelled" | "expired"; operationId?: string | null };
+/** Reuses the notification owner's complete event vocabulary without duplicating its private contract. */
+export type { AdmissionNotificationObligation } from "@/src/modules/notifications/domain/entities/admission-notification";
 /** Scoped transaction collaborator persists obligations; no external notification is sent here. */
 export interface AdmissionNotificationObligationWriter {
   record(obligation: AdmissionNotificationObligation): Promise<void>;

@@ -1,0 +1,231 @@
+{
+  "capturedAt": "2026-10-15T16:09:45.553Z",
+  "status": "canonical_six_event_writer_verified",
+  "baseHead": "dd2b184af563f532a25bc69351d02017bbad2d40",
+  "scope": "Contrato y audiencia compartida de seis eventos; writer interno privado en la transacción original.",
+  "native": {
+    "startedAt": "2026-10-15T16:06:50.990Z",
+    "completedAt": "2026-10-15T16:08:41.210Z",
+    "completeFiles": 1,
+    "passed": 2,
+    "failed": 0,
+    "filtered": 0,
+    "sourceInputsStable": true,
+    "sourceFiles": [
+      {
+        "path": "tests/unit/modules/notifications/infrastructure/admission-notification-obligation-writer.test.ts",
+        "sha256": "d8ece50695c3eeaa91306505b4c5e691f32ccb8c34cca193f4562611c7d15cd0"
+      },
+      {
+        "path": "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts",
+        "sha256": "1345c84e857fb8bf5a3bb9271cf2dfcfe596d73ab04a2de7efdce2d53cc04a28"
+      },
+      {
+        "path": "src/modules/academy-admissions/domain/repositories/admission-repositories.ts",
+        "sha256": "ae7081fc9338cde8eab9d112fb45d15243a71f930e2f7dea723af187f9b608b2"
+      },
+      {
+        "path": "src/modules/notifications/domain/entities/admission-notification.ts",
+        "sha256": "212274f200d5274b9845a448a0588db417253ce05a2fe6ad19abf32e9d3c556f"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-audience.ts",
+        "sha256": "3c798997ff941cda3127b628beb16a24cf975c495289b138d938de39d792bcd2"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-groups.ts",
+        "sha256": "028012f0d45ee2052855087fa7c850b6e0bbeb43f990959456843e818dbac36e"
+      },
+      {
+        "path": "src/modules/notifications/constants/admission-notifications.ts",
+        "sha256": "87d82e2897913d7ee5c2ca0df69afb2299ba42ebdc747c5f873ccc15361a558b"
+      },
+      {
+        "path": "src/modules/notifications/constants/admission-notification-groups.ts",
+        "sha256": "22f213c753d3ef053ee0cd512d45ec9029b2244097a2de9013dd99c185b59e6e"
+      },
+      {
+        "path": "tests/support/constants/admission-notification-validation.ts",
+        "sha256": "a6386e3b3a7cb458f824ab65a7911ace548de64a05ac0a2efb168f92055c0ec5"
+      },
+      {
+        "path": "database/migrations/meta/_journal.json",
+        "sha256": "8dadc5a0b5508fa8798ca8910fd6533faccce6f0c64626e1972fd4b64cc2a93d"
+      },
+      {
+        "path": "database/migrations/20261014185400_audit_admission_notification_creation.sql",
+        "sha256": "a00b1802fea6c4cf1558dc3b14c3d622c2b47ce806c65fbd83d958c8da0261b3"
+      },
+      {
+        "path": "tests/support/academy-admission-database.ts",
+        "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+      },
+      {
+        "path": "tests/support/admission-migration-command.ts",
+        "sha256": "7914b750b7077fcc3828097d8a928a64427765fd8964885fd8c5ed5813034630"
+      }
+    ],
+    "cases": [
+      {
+        "title": "native admission notification obligation writer should deliver a reminder only to current scoped reviewers and reselect reviewers for the next original event",
+        "status": "passed",
+        "durationMs": 52660.5305
+      },
+      {
+        "title": "native admission notification obligation writer should preserve mixed batch audiences and roll back observed obligations, notices and audit before an explicit retry",
+        "status": "passed",
+        "durationMs": 56325.93949999999
+      }
+    ]
+  },
+  "local": {
+    "completeFiles": 2,
+    "passed": 33,
+    "failed": 0,
+    "filtered": 0,
+    "sourceInputsStable": true,
+    "sourceFiles": [
+      {
+        "path": "tests/unit/modules/notifications/domain/admission-notification-groups.test.ts",
+        "sha256": "b647d7bfb2361e556128684e171ef7510ec14246ae973ee3a66fb85bf28afc4a"
+      },
+      {
+        "path": "tests/unit/modules/notifications/domain/admission-notification-audience.test.ts",
+        "sha256": "0613510c1353749563857470b6306be406cd85ef258261a93634e65f78ec9a0d"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-audience.ts",
+        "sha256": "3c798997ff941cda3127b628beb16a24cf975c495289b138d938de39d792bcd2"
+      },
+      {
+        "path": "src/modules/notifications/domain/entities/admission-notification.ts",
+        "sha256": "212274f200d5274b9845a448a0588db417253ce05a2fe6ad19abf32e9d3c556f"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-groups.ts",
+        "sha256": "028012f0d45ee2052855087fa7c850b6e0bbeb43f990959456843e818dbac36e"
+      },
+      {
+        "path": "src/modules/notifications/constants/admission-notification-groups.ts",
+        "sha256": "22f213c753d3ef053ee0cd512d45ec9029b2244097a2de9013dd99c185b59e6e"
+      },
+      {
+        "path": "src/modules/notifications/constants/admission-notification-preference.ts",
+        "sha256": "4c68c28f4c00e3e039f23ddca72536d3fe0b21641d9cbe5ab066e1b8d29bbce2"
+      },
+      {
+        "path": "src/modules/tribes/constants/tribe-member-role.ts",
+        "sha256": "d90c6bed1bd2ee3692e7374882cbd2734d987fb18e0049d196b368c54eca229d"
+      },
+      {
+        "path": "src/modules/tribes/constants/tribe-page-access.ts",
+        "sha256": "18091d5392ed8b450d5ef2fe5dc8aa6da972fa976f8e4e35eb415c8bfe966f5d"
+      },
+      {
+        "path": "src/constants/time.ts",
+        "sha256": "98b5459a77a709b081d3fbb847a656089183910f1b6b6621504b23ec22004927"
+      }
+    ],
+    "newAudienceCases": 6,
+    "existingGroupPolicyCases": 27,
+    "repetitionsCounted": false
+  },
+  "businessRed": {
+    "passed": 0,
+    "failed": 1,
+    "filtered": 1,
+    "sourceInputsStable": true,
+    "reason": "El writer original materializó un aviso frente a los dos revisores actuales esperados.",
+    "countedInCurrent": false
+  },
+  "previousDiagnostics": [
+    {
+      "passed": 0,
+      "failed": 1,
+      "filtered": 1,
+      "stage": "fixture_commit_before_writer",
+      "reason": "Faltaba obligación junto al fixture terminal. Corregido stageando la transición en la transacción original del writer.",
+      "countedInCurrent": false
+    },
+    {
+      "passed": 1,
+      "failed": 1,
+      "filtered": 0,
+      "stage": "explicit_retry_commit",
+      "reason": "El fixture omitía la auditoría propia admission_request/rejected. P2 verificado y corregido sin modificar el producto ni relajar la guarda.",
+      "countedInCurrent": false
+    }
+  ],
+  "acceptedReviewP2ClosedByCurrentNative": true,
+  "observedRollback": {
+    "stagedObligations": 3,
+    "stagedNotices": 5,
+    "stagedNotificationAudit": 8,
+    "stagedSourceAudit": 1,
+    "afterRollbackObligations": 0,
+    "afterRollbackNotices": 0,
+    "afterRollbackNotificationAudit": 0,
+    "afterRollbackSourceAudit": 0,
+    "restoredSourceStatus": "pending",
+    "explicitRetryCommitted": true,
+    "repeatedOriginalsRejectedSqlState": "23505",
+    "notificationAuditAfterReplay": 8
+  },
+  "dependencyDoublesInWriterTests": false,
+  "fullVersionedJournal": true,
+  "originalSqlGuardsPreserved": true,
+  "staticChecks": {
+    "focusedLint": "passed",
+    "productTypes": "passed",
+    "testTypes": "passed_after_fixture_correction",
+    "diffCheck": "passed"
+  },
+  "resources": {
+    "inventoryAt": "2026-10-15T16:09:45.551Z",
+    "productionPreserved": true,
+    "originalPilotPreserved": true,
+    "temporaryBranches": 0,
+    "externalMessagesSent": 0
+  },
+  "canonicalOriginalPortMigrated": true,
+  "automaticReminderProducerImplemented": false,
+  "groupProducerImplemented": false,
+  "currentTrustedEmailResolverImplemented": false,
+  "fullSealedOutboxIntentImplemented": false,
+  "publicApiImplemented": false,
+  "publicUiImplemented": false,
+  "fullT180Approved": false,
+  "fullT181Approved": false,
+  "fullT185Approved": false,
+  "fullUs8Approved": false,
+  "taskClosure": false,
+  "originalTasks": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38
+  },
+  "previousSavedCi": {
+    "head": "dd2b184af563f532a25bc69351d02017bbad2d40",
+    "runId": 38764361941,
+    "conclusion": "success",
+    "doesNotApproveLaterObligationWriter": true
+  },
+  "nextCommitCiApproved": false,
+  "docs": {
+    "sourceHash": "9bd4ba05f381bf71f22ff0ba9a88dde90cad3ca12b51692e3d97497b79e02cb9",
+    "views": 4,
+    "engines": [
+      "chromium",
+      "webkit"
+    ],
+    "widths": [
+      390,
+      1280
+    ],
+    "visuallyInspected": [
+      "chromium-1280",
+      "webkit-390"
+    ],
+    "horizontalOverflow": false
+  }
+}
