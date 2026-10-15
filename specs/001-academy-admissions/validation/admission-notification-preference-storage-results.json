@@ -1,0 +1,145 @@
+{
+  "capturedAt": "2026-10-15T14:27:20.671Z",
+  "status": "native_own_preference_storage_verified",
+  "baseHead": "13758e7a8011b8cc54bc542feda0c4ecea4f3a1c",
+  "scope": "Private own preference storage only; no public composition or delivery authority.",
+  "native": {
+    "completeFiles": 2,
+    "passed": 3,
+    "failed": 0,
+    "filtered": 0,
+    "sourceInputsStable": true,
+    "sourceFiles": [
+      {
+        "path": "tests/unit/modules/notifications/infrastructure/admission-notification-preferences.test.ts",
+        "sha256": "93bcd588ae11fd99440909d5601e7ffdaa59b30ff02a893ee56d214606e634e1"
+      },
+      {
+        "path": "database/migrations/20261015140800_add_admission_notification_preferences.sql",
+        "sha256": "1b4dd3e1209377c870c41839adcc629081104339526cc7bfc020946de6113ab5"
+      },
+      {
+        "path": "database/migrations/meta/_journal.json",
+        "sha256": "4e425d48cb25120bc6151df68de24fd48d927ec31ed558fb58b67504073e5758"
+      },
+      {
+        "path": "src/modules/shared/infrastructure/database/schema.ts",
+        "sha256": "8814d32523fa6d359c75ce43ebed07be1be24ba084b6897989bfc307ef966c2a"
+      },
+      {
+        "path": "src/modules/notifications/domain/repositories/admission-notification-preference-repository.ts",
+        "sha256": "3fdf7a1c33a2cc2bc0a42e0967493c7ba11ccf3c24a1c85db9dd8e4137d08519"
+      },
+      {
+        "path": "src/modules/notifications/infrastructure/repositories/postgres-admission-notification-preference-repository.ts",
+        "sha256": "601dd80532ca420cc7413e6ffed118768aa0be94f303f745f8e7743ef2c73b62"
+      },
+      {
+        "path": "src/modules/notifications/domain/entities/admission-notification-preference.ts",
+        "sha256": "77ce3fe98e4276693c439d054415965fc90d6388b65d10dbe257363b05cc8fcb"
+      },
+      {
+        "path": "src/modules/notifications/domain/policies/admission-notification-preference.ts",
+        "sha256": "e0d8360dc5da571b062173a6d99e0fb32baaffcd5b09208db80a2ba0286ba68a"
+      },
+      {
+        "path": "src/modules/notifications/constants/admission-notification-preference.ts",
+        "sha256": "4c68c28f4c00e3e039f23ddca72536d3fe0b21641d9cbe5ab066e1b8d29bbce2"
+      },
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts",
+        "sha256": "410bcdf79110f2acff40ce032284e1e204c33ba153c94b707d00c58059e1dafc"
+      },
+      {
+        "path": "tests/support/academy-admission-database.ts",
+        "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+      },
+      {
+        "path": "tests/support/admission-migration-command.ts",
+        "sha256": "7914b750b7077fcc3828097d8a928a64427765fd8964885fd8c5ed5813034630"
+      }
+    ],
+    "cases": [
+      {
+        "title": "native admission notification preferences should preserve defaults and exact epochs while rejecting concurrent or stale choices without enabling email",
+        "status": "passed",
+        "durationMs": 61961.7364
+      },
+      {
+        "title": "native admission notification preferences should isolate recipients and reject lost reviewer authority or direct request writes while preserving an explicit choice",
+        "status": "passed",
+        "durationMs": 66736.55050000001
+      },
+      {
+        "title": "native admission notification preferences should guard identity and version and roll back a staged preference when its locked session expires",
+        "status": "passed",
+        "durationMs": 57420.02369999999
+      }
+    ]
+  },
+  "previousDiagnostic": {
+    "passed": 3,
+    "failed": 0,
+    "filtered": 0,
+    "countedInCurrent": false,
+    "limitation": "Initial expiry case did not distinguish rejection before UPDATE from staged-write rollback."
+  },
+  "reviewCorrection": {
+    "acceptedP2": "Observe native mode/version before propagating application failure to rollback, then verify original row after rollback.",
+    "stagedMode": "daily",
+    "stagedVersion": 2,
+    "restoredMode": "grouped",
+    "restoredVersion": 1,
+    "currentCompleteNativePassed": true
+  },
+  "dependencyDoublesInPreferenceTests": false,
+  "nativeSqlAndForcedRls": true,
+  "additionalOwnedDelayTrigger": "Uses real pg_sleep after UPDATE to exercise final SQL-clock expiry; shipped guards remain enabled.",
+  "staticChecks": {
+    "focusedLint": "passed",
+    "productTypes": "passed",
+    "testTypes": "passed",
+    "diffCheck": "passed"
+  },
+  "docs": {
+    "sourceHash": "c3546cc8d31d14c7fdeedee18198e2970ca8b764a33c999c3c5af4e89a560f0c",
+    "views": 4,
+    "engines": [
+      "chromium",
+      "webkit"
+    ],
+    "widths": [
+      390,
+      1280
+    ],
+    "visuallyInspected": [
+      "chromium-1280",
+      "webkit-390"
+    ],
+    "horizontalOverflow": false
+  },
+  "resources": {
+    "inventoryAt": "2026-10-15T14:23:00.531Z",
+    "productionPreserved": true,
+    "originalPilotPreserved": true,
+    "temporaryBranches": 0,
+    "externalMessagesSent": 0
+  },
+  "publicApiImplemented": false,
+  "publicDtoAndInputBoundaryImplemented": false,
+  "publicUiImplemented": false,
+  "emailEnablementImplemented": false,
+  "durableGroupsImplemented": false,
+  "schedulerImplemented": false,
+  "fullT180Approved": false,
+  "fullT181Approved": false,
+  "fullT184Approved": false,
+  "fullUs8Approved": false,
+  "taskClosure": false,
+  "originalTasks": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38
+  },
+  "nextCommitCiApproved": false
+}
