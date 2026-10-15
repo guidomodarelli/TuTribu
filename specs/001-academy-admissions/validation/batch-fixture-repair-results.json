@@ -1,0 +1,1173 @@
+{
+  "formatVersion": 1,
+  "createdAt": "2026-10-15T13:09:57.542Z",
+  "status": "named_fixture_regression_verified",
+  "savedCheckpointHead": "a79c74ed0a3e565c716ab2374ebddfcb1f9b80e6",
+  "inventory": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38,
+    "T176": "open",
+    "T183": "open",
+    "T211": "open"
+  },
+  "savedCheckpointCi": {
+    "runId": 38733364189,
+    "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/38733364189",
+    "conclusion": "success",
+    "passedCases": 5262,
+    "skippedCases": 780,
+    "passedFiles": 510,
+    "skippedFiles": 266,
+    "build": "passed",
+    "staticPages": 53,
+    "appliesToLaterFixtureEdits": false
+  },
+  "scope": "Tests/fixtures and validation evidence only; no new product flow, SQL artifact, permission, pilot key or external send",
+  "caseIdentity": "SHA256(JSON.stringify([relativeFile, fullName, sameNameOrdinal])); duplicate titles stay together in one cohort",
+  "cohorts": [
+    {
+      "id": "membership_intermediate",
+      "scope": "Historical intermediate diagnosis before timeout/audit test adaptation",
+      "state": "terminal",
+      "startedAt": "2026-10-15T12:19:48.908Z",
+      "finishedAt": "2026-10-15T12:27:26.819Z",
+      "exitCode": 1,
+      "sourcesStableDuringRun": true,
+      "capturedInputsMatchCurrent": false,
+      "passed": 3,
+      "failed": 2,
+      "outsideFilter": 0,
+      "sourceFiles": [
+        {
+          "path": "tests/unit/modules/tribes/infrastructure/academy-membership-current-policy.test.ts",
+          "sha256": "f093d8129f20dff9ce102303ffd26b49f7df1ce64570532eb4f7023b3e58254e"
+        },
+        {
+          "path": "tests/unit/modules/tribes/infrastructure/academy-membership-rollback.test.ts",
+          "sha256": "6fee78970c82f7e5244a3b527f0ff4eb290b160862c56c49de2a8e618043694d"
+        },
+        {
+          "path": "tests/unit/modules/tribes/infrastructure/academy-membership-lifecycle.test.ts",
+          "sha256": "6205277e536b50c65c14da3b1e1f13a181007128087e55f7372b191e8dc04d6c"
+        },
+        {
+          "path": "tests/support/admission-batch-database-fixture.ts",
+          "sha256": "0d0838d7cc0d57a26e26e4d2559fb02efce0149c4a71fbb94d51179ab4aa0cca"
+        },
+        {
+          "path": "tests/support/academy-admission-database.ts",
+          "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+        },
+        {
+          "path": "tests/support/allowlist-management-database-fixture.ts",
+          "sha256": "6738aa86b9349a8dcaa1686186b6b7cce097cc3a34ce7634bc9cdec4ff05677b"
+        },
+        {
+          "path": "tests/support/contact-verification-database-fixture.ts",
+          "sha256": "8b15ac8aa00103bcc49f2226bb4fa97b9b6d1fd2de5294cb089e0f4247a3caa1"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+          "sha256": "6277642d32a49d49d608a078f6ef5a6710502cef3670119fed3298484d6c6b1f"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts",
+          "sha256": "12454989fe8bb23cdc3cc87e8e0237587973ebbbb6a258d99fbc3335e6fa2d25"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-batch-decision-writer.ts",
+          "sha256": "c1c1b0e36b5695af1a86d096422a0a637cec47a971c4b2460c413e0d26a00ea9"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision.ts",
+          "sha256": "1b4c50b0eaa3670dea5093b10a71033734a3a3dda8e96033b0a8cea47d1ab168"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts",
+          "sha256": "21d31f0bdcf550856439c1acd8fcc1c91d232d361d7732181b8d4e0f37ee98ef"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-repositories.ts",
+          "sha256": "ea4faacf9e8643944dd5b229812162c3e3b00fd6da6cf9b6783bdb9b7bd1eca5"
+        },
+        {
+          "path": "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts",
+          "sha256": "c9e9d7cc0cd15b17bf1c25605ed5a689b036313c51aa9657515a83623e89e419"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts",
+          "sha256": "63777e7a48eb3ea860bd8ccd4c08f1d3e032e8aac161ec5a6558a290f142f8e5"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/read-approved-academy-membership-context.ts",
+          "sha256": "e5119df7ab38a280f2997d5c717c794cc695afdf47299f0578e6a9f982633b47"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository.ts",
+          "sha256": "47a0830b973ee4a18e55558e4889be3ffdd148b4befa089f1c136794ea23c29b"
+        },
+        {
+          "path": "tests/support/tribe-membership-lifecycle-fixture.ts",
+          "sha256": "3dedd4ba97b0c248dfa923708acd9fd9b2ab7fada1309f6bd94625185f0842e2"
+        }
+      ],
+      "cases": [
+        {
+          "file": "tests/unit/modules/tribes/infrastructure/academy-membership-current-policy.test.ts",
+          "caseId": "40507aaf65a7aae0081325d9593ef543a57f489f2fe26f3e0fb78aff45bdf035",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/tribes/infrastructure/academy-membership-lifecycle.test.ts",
+          "caseId": "cebd926006f2ac276581fd6f98f2215c420e5059bacbdc280c2c9e276746fe36",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/tribes/infrastructure/academy-membership-lifecycle.test.ts",
+          "caseId": "ddd312e4dcc5616804835b9ce2699a631c9ad899e1d1672d6d3b3bb9b1ce7267",
+          "status": "failed"
+        },
+        {
+          "file": "tests/unit/modules/tribes/infrastructure/academy-membership-lifecycle.test.ts",
+          "caseId": "c337d7c44a3bb6de8398f93c4922f7de8333907e495e130cf3446a0bfafdcaaf",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/tribes/infrastructure/academy-membership-rollback.test.ts",
+          "caseId": "2552ac6af64ff1c51566320df2ce6e58e5ce7de1a0b64de2566eedaa677693b6",
+          "status": "failed"
+        }
+      ],
+      "receiptHashes": {
+        "target": "091f57853c1866e01aabf35d3100893814896a921a2cbcce1f8b1b4785ad7c7e",
+        "outcome": "32f3587677266eaa7f91ced6a2cfcfb53d5c0c05dab459ff19b8674ba6b7f1f6",
+        "report": "20b924f8e15cea408eb47e5a87eabc23b57b35c57fb7dff05588bfc16a6999b4"
+      },
+      "historical": true
+    },
+    {
+      "id": "membership_current",
+      "scope": "All five original cases in three complete files",
+      "state": "terminal",
+      "startedAt": "2026-10-15T12:30:34.246Z",
+      "finishedAt": "2026-10-15T12:38:07.064Z",
+      "exitCode": 0,
+      "sourcesStableDuringRun": true,
+      "capturedInputsMatchCurrent": true,
+      "passed": 5,
+      "failed": 0,
+      "outsideFilter": 0,
+      "sourceFiles": [
+        {
+          "path": "tests/unit/modules/tribes/infrastructure/academy-membership-current-policy.test.ts",
+          "sha256": "f093d8129f20dff9ce102303ffd26b49f7df1ce64570532eb4f7023b3e58254e"
+        },
+        {
+          "path": "tests/unit/modules/tribes/infrastructure/academy-membership-rollback.test.ts",
+          "sha256": "df1a122941fdaba353c0becbe8144b3089866dd226c1f0942a58ddf1f77ed013"
+        },
+        {
+          "path": "tests/unit/modules/tribes/infrastructure/academy-membership-lifecycle.test.ts",
+          "sha256": "881eebc4c359aa7ff815831efdc7e767dee8eccaf23daef390bfa25f91d92500"
+        },
+        {
+          "path": "tests/support/admission-batch-database-fixture.ts",
+          "sha256": "0d0838d7cc0d57a26e26e4d2559fb02efce0149c4a71fbb94d51179ab4aa0cca"
+        },
+        {
+          "path": "tests/support/academy-admission-database.ts",
+          "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+        },
+        {
+          "path": "tests/support/allowlist-management-database-fixture.ts",
+          "sha256": "6738aa86b9349a8dcaa1686186b6b7cce097cc3a34ce7634bc9cdec4ff05677b"
+        },
+        {
+          "path": "tests/support/contact-verification-database-fixture.ts",
+          "sha256": "8b15ac8aa00103bcc49f2226bb4fa97b9b6d1fd2de5294cb089e0f4247a3caa1"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+          "sha256": "6277642d32a49d49d608a078f6ef5a6710502cef3670119fed3298484d6c6b1f"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts",
+          "sha256": "12454989fe8bb23cdc3cc87e8e0237587973ebbbb6a258d99fbc3335e6fa2d25"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-batch-decision-writer.ts",
+          "sha256": "c1c1b0e36b5695af1a86d096422a0a637cec47a971c4b2460c413e0d26a00ea9"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision.ts",
+          "sha256": "1b4c50b0eaa3670dea5093b10a71033734a3a3dda8e96033b0a8cea47d1ab168"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts",
+          "sha256": "21d31f0bdcf550856439c1acd8fcc1c91d232d361d7732181b8d4e0f37ee98ef"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-repositories.ts",
+          "sha256": "ea4faacf9e8643944dd5b229812162c3e3b00fd6da6cf9b6783bdb9b7bd1eca5"
+        },
+        {
+          "path": "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts",
+          "sha256": "c9e9d7cc0cd15b17bf1c25605ed5a689b036313c51aa9657515a83623e89e419"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts",
+          "sha256": "63777e7a48eb3ea860bd8ccd4c08f1d3e032e8aac161ec5a6558a290f142f8e5"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/read-approved-academy-membership-context.ts",
+          "sha256": "e5119df7ab38a280f2997d5c717c794cc695afdf47299f0578e6a9f982633b47"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository.ts",
+          "sha256": "47a0830b973ee4a18e55558e4889be3ffdd148b4befa089f1c136794ea23c29b"
+        },
+        {
+          "path": "tests/support/tribe-membership-lifecycle-fixture.ts",
+          "sha256": "3dedd4ba97b0c248dfa923708acd9fd9b2ab7fada1309f6bd94625185f0842e2"
+        }
+      ],
+      "cases": [
+        {
+          "file": "tests/unit/modules/tribes/infrastructure/academy-membership-current-policy.test.ts",
+          "caseId": "40507aaf65a7aae0081325d9593ef543a57f489f2fe26f3e0fb78aff45bdf035",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/tribes/infrastructure/academy-membership-lifecycle.test.ts",
+          "caseId": "cebd926006f2ac276581fd6f98f2215c420e5059bacbdc280c2c9e276746fe36",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/tribes/infrastructure/academy-membership-lifecycle.test.ts",
+          "caseId": "ddd312e4dcc5616804835b9ce2699a631c9ad899e1d1672d6d3b3bb9b1ce7267",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/tribes/infrastructure/academy-membership-lifecycle.test.ts",
+          "caseId": "c337d7c44a3bb6de8398f93c4922f7de8333907e495e130cf3446a0bfafdcaaf",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/tribes/infrastructure/academy-membership-rollback.test.ts",
+          "caseId": "2552ac6af64ff1c51566320df2ce6e58e5ce7de1a0b64de2566eedaa677693b6",
+          "status": "passed"
+        }
+      ],
+      "receiptHashes": {
+        "target": "8d8fd6c0a373c4b2db897191c0fa41ad06d170ad343139811beca6c3e68a7025",
+        "outcome": "41d3f00b029bf3dad53bd12d3e60633fd874f0bf2f611a4f9d664735ed805e08",
+        "report": "6703d437c8499ae6183fbf214c6f251172d2c0f3dab3eae2cf81cde6f4163a80"
+      },
+      "historical": false
+    },
+    {
+      "id": "historical_current_focal",
+      "scope": "Three-day proof focal only;21 cases outside filter, not additional approvals",
+      "state": "terminal",
+      "startedAt": "2026-10-15T12:35:09.444Z",
+      "finishedAt": "2026-10-15T12:36:42.775Z",
+      "exitCode": 0,
+      "sourcesStableDuringRun": true,
+      "capturedInputsMatchCurrent": true,
+      "passed": 1,
+      "failed": 0,
+      "outsideFilter": 21,
+      "sourceFiles": [
+        {
+          "path": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "sha256": "7132b532395e568b6e47cad4f1dd5f045a1f4499d3e6426f40a4480828167488"
+        },
+        {
+          "path": "tests/support/admission-batch-database-fixture.ts",
+          "sha256": "0d0838d7cc0d57a26e26e4d2559fb02efce0149c4a71fbb94d51179ab4aa0cca"
+        },
+        {
+          "path": "tests/support/academy-admission-database.ts",
+          "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+        },
+        {
+          "path": "tests/support/allowlist-management-database-fixture.ts",
+          "sha256": "6738aa86b9349a8dcaa1686186b6b7cce097cc3a34ce7634bc9cdec4ff05677b"
+        },
+        {
+          "path": "tests/support/contact-verification-database-fixture.ts",
+          "sha256": "8b15ac8aa00103bcc49f2226bb4fa97b9b6d1fd2de5294cb089e0f4247a3caa1"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+          "sha256": "6277642d32a49d49d608a078f6ef5a6710502cef3670119fed3298484d6c6b1f"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts",
+          "sha256": "12454989fe8bb23cdc3cc87e8e0237587973ebbbb6a258d99fbc3335e6fa2d25"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-batch-decision-writer.ts",
+          "sha256": "c1c1b0e36b5695af1a86d096422a0a637cec47a971c4b2460c413e0d26a00ea9"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision.ts",
+          "sha256": "1b4c50b0eaa3670dea5093b10a71033734a3a3dda8e96033b0a8cea47d1ab168"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts",
+          "sha256": "21d31f0bdcf550856439c1acd8fcc1c91d232d361d7732181b8d4e0f37ee98ef"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-repositories.ts",
+          "sha256": "ea4faacf9e8643944dd5b229812162c3e3b00fd6da6cf9b6783bdb9b7bd1eca5"
+        },
+        {
+          "path": "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts",
+          "sha256": "c9e9d7cc0cd15b17bf1c25605ed5a689b036313c51aa9657515a83623e89e419"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts",
+          "sha256": "63777e7a48eb3ea860bd8ccd4c08f1d3e032e8aac161ec5a6558a290f142f8e5"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/read-approved-academy-membership-context.ts",
+          "sha256": "e5119df7ab38a280f2997d5c717c794cc695afdf47299f0578e6a9f982633b47"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository.ts",
+          "sha256": "47a0830b973ee4a18e55558e4889be3ffdd148b4befa089f1c136794ea23c29b"
+        },
+        {
+          "path": "tests/support/admission-evidence-historical-fixture.ts",
+          "sha256": "d9b2545483ae6d9da6d3f39e91f35195467bf0bb2803a779f60ef9450ef0661c"
+        },
+        {
+          "path": "tests/support/constants/admission-evidence-history.ts",
+          "sha256": "75262d22db08bc2f1fdfad142108c68d9cca9e01f6e4b73c1ba7e7874cff9744"
+        },
+        {
+          "path": "tests/support/admission-retention-migration-prefix.ts",
+          "sha256": "a2600f085113677ac574bd0fa65f6538ad572dc4b67e7b3c22ae85e8f5242cbb"
+        },
+        {
+          "path": "tests/support/admission-migration-command.ts",
+          "sha256": "7914b750b7077fcc3828097d8a928a64427765fd8964885fd8c5ed5813034630"
+        },
+        {
+          "path": "database/migrations/meta/_journal.json",
+          "sha256": "ea3463f24201519b3e4401e44e949fcd054ece1683905ab1fa02dd3a57cdaf4a"
+        }
+      ],
+      "cases": [
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "79ab36aa4de3272943ef44e8b70f9891185111a09a0d5cc84dfa9f543844d9dd",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "047df3ea66a7eec0fbf4f1290485c11d68f6097999c39b0187974ddabb140b4b",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "e681a411320f2f5a62f03dcefc5576dc504d5414266bab4aa3c010f12ffb5a85",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "499ed817dfd526c4347bf5e831ca408c1973a2684a7f0ad363b2ab4aadae8665",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "9d35757280e43bddc04777399a599a84ef4982ce440abfe333782aa1750e88d6",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "4a26d77b869db91de02c9d46fdda6c2ba46e93c6e1a1dd314d6b2e09d442777c",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "79c6ee23bb9a9a584491b43bb4e0daf21fc286091ac6fff32fe51aa1cfcc1d16",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "82eecd2d4429ccfcb99d872c05b076689629a2dbd2ec24990a3f02507cb40946",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "28481846ffb47e08c2ef4474ebf3340dc462d58ce148555be5b118174d48773f",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "c1e45e1e63d742efdb202d6ab30740b6a2aece4f65d6d91104a53451f6918ae6",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "35b1c18916f62e47b2abce8499ac9a655d6a5a0731dac9798ae425532383218d",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a38a0de668abc7f4b50470b02207ea59fc4ddaff550031bde4d87e1b7c2a4dec",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a35d0d8fb4d319b7e229a48c9884afc9da080a7f65ddc739f2fa4628a30dbbf7",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "f80268e2e71eeaa5d6911ff0f0a2f43eb1e5421fba76dee4d40380e3c0441277",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "5d76507fcacc795d247e9a9c299119284e4d1d74d795205d34397a5cb4028b1b",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "91f67d73b1cbd17a941435612090727fc054415b9d4f84a0fbcdce7fa842ca6b",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a489422edb1f91689b39cb9f2000009f4caaa81f0275147ba0531993e08cded1",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "33e9a62e232cbb7984fb94a83627d452d986731327c447371b87ddb82d248775",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "8de3a8615c0e3e08cc6d97d4d97facc72ba9dcd7282d0b7ce61bd227fa3c7468",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "aa9a7842ab76432c908a80a6e4151b921ff851f51f8773556b32f0554c3d5038",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "f471bdba2b36fd8829fd4a5f63465729b47f9944c62c77cc3264752ec142d18a",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "814eba616dfb7883a0e05e731b92394287a72c234ad971d281195e1b445ece28",
+          "status": "skipped"
+        }
+      ],
+      "receiptHashes": {
+        "target": "ac00d8bca1d3cb73e3448a24307ce1b9d67805d9be4fe85cf00b68966b3aa50f",
+        "outcome": "d2a3ca1e8c7cbd904ccc135995fe30bbf0fe896baff66e61a5295b49946f698f",
+        "report": "3e64fd7149cc2ea7e9b57af4573036190aa4d864afec8898fbc6eee24a3186ce"
+      },
+      "historical": false
+    },
+    {
+      "id": "manual_previous_source",
+      "scope": "Earlier full-file diagnostic loaded before the accepted initial-date fix",
+      "state": "terminal",
+      "startedAt": "2026-10-15T12:21:59.727Z",
+      "finishedAt": "2026-10-15T13:04:51.443Z",
+      "exitCode": 0,
+      "sourcesStableDuringRun": false,
+      "capturedInputsMatchCurrent": false,
+      "passed": 22,
+      "failed": 0,
+      "outsideFilter": 0,
+      "sourceFiles": [
+        {
+          "path": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "sha256": "61bfdac15ee2701ffbfda8372b52b5dd0d452d23e858957e71c10c8cfa4534e2"
+        },
+        {
+          "path": "tests/support/admission-batch-database-fixture.ts",
+          "sha256": "0d0838d7cc0d57a26e26e4d2559fb02efce0149c4a71fbb94d51179ab4aa0cca"
+        },
+        {
+          "path": "tests/support/academy-admission-database.ts",
+          "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+        },
+        {
+          "path": "tests/support/allowlist-management-database-fixture.ts",
+          "sha256": "6738aa86b9349a8dcaa1686186b6b7cce097cc3a34ce7634bc9cdec4ff05677b"
+        },
+        {
+          "path": "tests/support/contact-verification-database-fixture.ts",
+          "sha256": "8b15ac8aa00103bcc49f2226bb4fa97b9b6d1fd2de5294cb089e0f4247a3caa1"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+          "sha256": "6277642d32a49d49d608a078f6ef5a6710502cef3670119fed3298484d6c6b1f"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts",
+          "sha256": "12454989fe8bb23cdc3cc87e8e0237587973ebbbb6a258d99fbc3335e6fa2d25"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-batch-decision-writer.ts",
+          "sha256": "c1c1b0e36b5695af1a86d096422a0a637cec47a971c4b2460c413e0d26a00ea9"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision.ts",
+          "sha256": "1b4c50b0eaa3670dea5093b10a71033734a3a3dda8e96033b0a8cea47d1ab168"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts",
+          "sha256": "21d31f0bdcf550856439c1acd8fcc1c91d232d361d7732181b8d4e0f37ee98ef"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-repositories.ts",
+          "sha256": "ea4faacf9e8643944dd5b229812162c3e3b00fd6da6cf9b6783bdb9b7bd1eca5"
+        },
+        {
+          "path": "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts",
+          "sha256": "c9e9d7cc0cd15b17bf1c25605ed5a689b036313c51aa9657515a83623e89e419"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts",
+          "sha256": "63777e7a48eb3ea860bd8ccd4c08f1d3e032e8aac161ec5a6558a290f142f8e5"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/read-approved-academy-membership-context.ts",
+          "sha256": "e5119df7ab38a280f2997d5c717c794cc695afdf47299f0578e6a9f982633b47"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository.ts",
+          "sha256": "47a0830b973ee4a18e55558e4889be3ffdd148b4befa089f1c136794ea23c29b"
+        },
+        {
+          "path": "tests/support/admission-evidence-historical-fixture.ts",
+          "sha256": "d9b2545483ae6d9da6d3f39e91f35195467bf0bb2803a779f60ef9450ef0661c"
+        },
+        {
+          "path": "tests/support/constants/admission-evidence-history.ts",
+          "sha256": "75262d22db08bc2f1fdfad142108c68d9cca9e01f6e4b73c1ba7e7874cff9744"
+        },
+        {
+          "path": "tests/support/admission-retention-migration-prefix.ts",
+          "sha256": "a2600f085113677ac574bd0fa65f6538ad572dc4b67e7b3c22ae85e8f5242cbb"
+        },
+        {
+          "path": "tests/support/admission-migration-command.ts",
+          "sha256": "7914b750b7077fcc3828097d8a928a64427765fd8964885fd8c5ed5813034630"
+        },
+        {
+          "path": "database/migrations/meta/_journal.json",
+          "sha256": "ea3463f24201519b3e4401e44e949fcd054ece1683905ab1fa02dd3a57cdaf4a"
+        }
+      ],
+      "cases": [
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "79ab36aa4de3272943ef44e8b70f9891185111a09a0d5cc84dfa9f543844d9dd",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "047df3ea66a7eec0fbf4f1290485c11d68f6097999c39b0187974ddabb140b4b",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "e681a411320f2f5a62f03dcefc5576dc504d5414266bab4aa3c010f12ffb5a85",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "499ed817dfd526c4347bf5e831ca408c1973a2684a7f0ad363b2ab4aadae8665",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "9d35757280e43bddc04777399a599a84ef4982ce440abfe333782aa1750e88d6",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "4a26d77b869db91de02c9d46fdda6c2ba46e93c6e1a1dd314d6b2e09d442777c",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "79c6ee23bb9a9a584491b43bb4e0daf21fc286091ac6fff32fe51aa1cfcc1d16",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "82eecd2d4429ccfcb99d872c05b076689629a2dbd2ec24990a3f02507cb40946",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "28481846ffb47e08c2ef4474ebf3340dc462d58ce148555be5b118174d48773f",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "c1e45e1e63d742efdb202d6ab30740b6a2aece4f65d6d91104a53451f6918ae6",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "35b1c18916f62e47b2abce8499ac9a655d6a5a0731dac9798ae425532383218d",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a38a0de668abc7f4b50470b02207ea59fc4ddaff550031bde4d87e1b7c2a4dec",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a35d0d8fb4d319b7e229a48c9884afc9da080a7f65ddc739f2fa4628a30dbbf7",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "f80268e2e71eeaa5d6911ff0f0a2f43eb1e5421fba76dee4d40380e3c0441277",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "5d76507fcacc795d247e9a9c299119284e4d1d74d795205d34397a5cb4028b1b",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "91f67d73b1cbd17a941435612090727fc054415b9d4f84a0fbcdce7fa842ca6b",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a489422edb1f91689b39cb9f2000009f4caaa81f0275147ba0531993e08cded1",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "33e9a62e232cbb7984fb94a83627d452d986731327c447371b87ddb82d248775",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "8de3a8615c0e3e08cc6d97d4d97facc72ba9dcd7282d0b7ce61bd227fa3c7468",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "aa9a7842ab76432c908a80a6e4151b921ff851f51f8773556b32f0554c3d5038",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "f471bdba2b36fd8829fd4a5f63465729b47f9944c62c77cc3264752ec142d18a",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "814eba616dfb7883a0e05e731b92394287a72c234ad971d281195e1b445ece28",
+          "status": "passed"
+        }
+      ],
+      "receiptHashes": {
+        "target": "5001684600a0bc71acbba948ad0981d63851b5df7783cc74338bc788c0b62be5",
+        "outcome": "d8ebe1eb2f6352e7c0e12abc42b7070a4a647082346ac9e5ee31ae4862a254d4",
+        "report": "52af68b6fb5c9d4f456aca25beda347fe8bf3df8e33260d50e622e9496064f0b"
+      },
+      "historical": true
+    },
+    {
+      "id": "manual_current_part1",
+      "scope": "First disjoint cohort,11 selected original cases and11 outside filter",
+      "state": "terminal",
+      "startedAt": "2026-10-15T12:42:13.363Z",
+      "finishedAt": "2026-10-15T13:06:55.698Z",
+      "exitCode": 0,
+      "sourcesStableDuringRun": true,
+      "capturedInputsMatchCurrent": true,
+      "passed": 11,
+      "failed": 0,
+      "outsideFilter": 11,
+      "sourceFiles": [
+        {
+          "path": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "sha256": "7132b532395e568b6e47cad4f1dd5f045a1f4499d3e6426f40a4480828167488"
+        },
+        {
+          "path": "tests/support/admission-batch-database-fixture.ts",
+          "sha256": "0d0838d7cc0d57a26e26e4d2559fb02efce0149c4a71fbb94d51179ab4aa0cca"
+        },
+        {
+          "path": "tests/support/academy-admission-database.ts",
+          "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+        },
+        {
+          "path": "tests/support/allowlist-management-database-fixture.ts",
+          "sha256": "6738aa86b9349a8dcaa1686186b6b7cce097cc3a34ce7634bc9cdec4ff05677b"
+        },
+        {
+          "path": "tests/support/contact-verification-database-fixture.ts",
+          "sha256": "8b15ac8aa00103bcc49f2226bb4fa97b9b6d1fd2de5294cb089e0f4247a3caa1"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+          "sha256": "6277642d32a49d49d608a078f6ef5a6710502cef3670119fed3298484d6c6b1f"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts",
+          "sha256": "12454989fe8bb23cdc3cc87e8e0237587973ebbbb6a258d99fbc3335e6fa2d25"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-batch-decision-writer.ts",
+          "sha256": "c1c1b0e36b5695af1a86d096422a0a637cec47a971c4b2460c413e0d26a00ea9"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision.ts",
+          "sha256": "1b4c50b0eaa3670dea5093b10a71033734a3a3dda8e96033b0a8cea47d1ab168"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts",
+          "sha256": "21d31f0bdcf550856439c1acd8fcc1c91d232d361d7732181b8d4e0f37ee98ef"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-repositories.ts",
+          "sha256": "ea4faacf9e8643944dd5b229812162c3e3b00fd6da6cf9b6783bdb9b7bd1eca5"
+        },
+        {
+          "path": "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts",
+          "sha256": "c9e9d7cc0cd15b17bf1c25605ed5a689b036313c51aa9657515a83623e89e419"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts",
+          "sha256": "63777e7a48eb3ea860bd8ccd4c08f1d3e032e8aac161ec5a6558a290f142f8e5"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/read-approved-academy-membership-context.ts",
+          "sha256": "e5119df7ab38a280f2997d5c717c794cc695afdf47299f0578e6a9f982633b47"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository.ts",
+          "sha256": "47a0830b973ee4a18e55558e4889be3ffdd148b4befa089f1c136794ea23c29b"
+        },
+        {
+          "path": "tests/support/admission-evidence-historical-fixture.ts",
+          "sha256": "d9b2545483ae6d9da6d3f39e91f35195467bf0bb2803a779f60ef9450ef0661c"
+        },
+        {
+          "path": "tests/support/constants/admission-evidence-history.ts",
+          "sha256": "75262d22db08bc2f1fdfad142108c68d9cca9e01f6e4b73c1ba7e7874cff9744"
+        },
+        {
+          "path": "tests/support/admission-retention-migration-prefix.ts",
+          "sha256": "a2600f085113677ac574bd0fa65f6538ad572dc4b67e7b3c22ae85e8f5242cbb"
+        },
+        {
+          "path": "tests/support/admission-migration-command.ts",
+          "sha256": "7914b750b7077fcc3828097d8a928a64427765fd8964885fd8c5ed5813034630"
+        },
+        {
+          "path": "database/migrations/meta/_journal.json",
+          "sha256": "ea3463f24201519b3e4401e44e949fcd054ece1683905ab1fa02dd3a57cdaf4a"
+        }
+      ],
+      "cases": [
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "79ab36aa4de3272943ef44e8b70f9891185111a09a0d5cc84dfa9f543844d9dd",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "047df3ea66a7eec0fbf4f1290485c11d68f6097999c39b0187974ddabb140b4b",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "e681a411320f2f5a62f03dcefc5576dc504d5414266bab4aa3c010f12ffb5a85",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "499ed817dfd526c4347bf5e831ca408c1973a2684a7f0ad363b2ab4aadae8665",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "9d35757280e43bddc04777399a599a84ef4982ce440abfe333782aa1750e88d6",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "4a26d77b869db91de02c9d46fdda6c2ba46e93c6e1a1dd314d6b2e09d442777c",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "79c6ee23bb9a9a584491b43bb4e0daf21fc286091ac6fff32fe51aa1cfcc1d16",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "82eecd2d4429ccfcb99d872c05b076689629a2dbd2ec24990a3f02507cb40946",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "28481846ffb47e08c2ef4474ebf3340dc462d58ce148555be5b118174d48773f",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "c1e45e1e63d742efdb202d6ab30740b6a2aece4f65d6d91104a53451f6918ae6",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "35b1c18916f62e47b2abce8499ac9a655d6a5a0731dac9798ae425532383218d",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a38a0de668abc7f4b50470b02207ea59fc4ddaff550031bde4d87e1b7c2a4dec",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a35d0d8fb4d319b7e229a48c9884afc9da080a7f65ddc739f2fa4628a30dbbf7",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "f80268e2e71eeaa5d6911ff0f0a2f43eb1e5421fba76dee4d40380e3c0441277",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "5d76507fcacc795d247e9a9c299119284e4d1d74d795205d34397a5cb4028b1b",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "91f67d73b1cbd17a941435612090727fc054415b9d4f84a0fbcdce7fa842ca6b",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a489422edb1f91689b39cb9f2000009f4caaa81f0275147ba0531993e08cded1",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "33e9a62e232cbb7984fb94a83627d452d986731327c447371b87ddb82d248775",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "8de3a8615c0e3e08cc6d97d4d97facc72ba9dcd7282d0b7ce61bd227fa3c7468",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "aa9a7842ab76432c908a80a6e4151b921ff851f51f8773556b32f0554c3d5038",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "f471bdba2b36fd8829fd4a5f63465729b47f9944c62c77cc3264752ec142d18a",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "814eba616dfb7883a0e05e731b92394287a72c234ad971d281195e1b445ece28",
+          "status": "skipped"
+        }
+      ],
+      "receiptHashes": {
+        "target": "e01fb01190342eb1bf1d430ec430577760da9c94efd89f7941d49f7d1f138b95",
+        "outcome": "20d0d46a8de5d1e4f26639c094ce43c1006579df229bf737638feaeeb081374b",
+        "report": "df51c464fcba6227915cbb7807f262585b738670e119b433a7ac5e29ceaa9545"
+      },
+      "historical": false
+    },
+    {
+      "id": "manual_current_part2",
+      "scope": "Second disjoint cohort,11 selected original cases and11 outside filter",
+      "state": "terminal",
+      "startedAt": "2026-10-15T12:42:13.363Z",
+      "finishedAt": "2026-10-15T13:00:41.733Z",
+      "exitCode": 0,
+      "sourcesStableDuringRun": true,
+      "capturedInputsMatchCurrent": true,
+      "passed": 11,
+      "failed": 0,
+      "outsideFilter": 11,
+      "sourceFiles": [
+        {
+          "path": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "sha256": "7132b532395e568b6e47cad4f1dd5f045a1f4499d3e6426f40a4480828167488"
+        },
+        {
+          "path": "tests/support/admission-batch-database-fixture.ts",
+          "sha256": "0d0838d7cc0d57a26e26e4d2559fb02efce0149c4a71fbb94d51179ab4aa0cca"
+        },
+        {
+          "path": "tests/support/academy-admission-database.ts",
+          "sha256": "0a5c298742290d16bfa4663b539352e4d40246be616e41bd254659fc0b343482"
+        },
+        {
+          "path": "tests/support/allowlist-management-database-fixture.ts",
+          "sha256": "6738aa86b9349a8dcaa1686186b6b7cce097cc3a34ce7634bc9cdec4ff05677b"
+        },
+        {
+          "path": "tests/support/contact-verification-database-fixture.ts",
+          "sha256": "8b15ac8aa00103bcc49f2226bb4fa97b9b6d1fd2de5294cb089e0f4247a3caa1"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+          "sha256": "6277642d32a49d49d608a078f6ef5a6710502cef3670119fed3298484d6c6b1f"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts",
+          "sha256": "12454989fe8bb23cdc3cc87e8e0237587973ebbbb6a258d99fbc3335e6fa2d25"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-batch-decision-writer.ts",
+          "sha256": "c1c1b0e36b5695af1a86d096422a0a637cec47a971c4b2460c413e0d26a00ea9"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision.ts",
+          "sha256": "1b4c50b0eaa3670dea5093b10a71033734a3a3dda8e96033b0a8cea47d1ab168"
+        },
+        {
+          "path": "src/modules/academy-admissions/constants/admission-batch-decision-schema.ts",
+          "sha256": "21d31f0bdcf550856439c1acd8fcc1c91d232d361d7732181b8d4e0f37ee98ef"
+        },
+        {
+          "path": "src/modules/academy-admissions/domain/repositories/admission-repositories.ts",
+          "sha256": "ea4faacf9e8643944dd5b229812162c3e3b00fd6da6cf9b6783bdb9b7bd1eca5"
+        },
+        {
+          "path": "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts",
+          "sha256": "c9e9d7cc0cd15b17bf1c25605ed5a689b036313c51aa9657515a83623e89e419"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership.ts",
+          "sha256": "63777e7a48eb3ea860bd8ccd4c08f1d3e032e8aac161ec5a6558a290f142f8e5"
+        },
+        {
+          "path": "src/modules/tribes/infrastructure/repositories/read-approved-academy-membership-context.ts",
+          "sha256": "e5119df7ab38a280f2997d5c717c794cc695afdf47299f0578e6a9f982633b47"
+        },
+        {
+          "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-audit-repository.ts",
+          "sha256": "47a0830b973ee4a18e55558e4889be3ffdd148b4befa089f1c136794ea23c29b"
+        },
+        {
+          "path": "tests/support/admission-evidence-historical-fixture.ts",
+          "sha256": "d9b2545483ae6d9da6d3f39e91f35195467bf0bb2803a779f60ef9450ef0661c"
+        },
+        {
+          "path": "tests/support/constants/admission-evidence-history.ts",
+          "sha256": "75262d22db08bc2f1fdfad142108c68d9cca9e01f6e4b73c1ba7e7874cff9744"
+        },
+        {
+          "path": "tests/support/admission-retention-migration-prefix.ts",
+          "sha256": "a2600f085113677ac574bd0fa65f6538ad572dc4b67e7b3c22ae85e8f5242cbb"
+        },
+        {
+          "path": "tests/support/admission-migration-command.ts",
+          "sha256": "7914b750b7077fcc3828097d8a928a64427765fd8964885fd8c5ed5813034630"
+        },
+        {
+          "path": "database/migrations/meta/_journal.json",
+          "sha256": "ea3463f24201519b3e4401e44e949fcd054ece1683905ab1fa02dd3a57cdaf4a"
+        }
+      ],
+      "cases": [
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "79ab36aa4de3272943ef44e8b70f9891185111a09a0d5cc84dfa9f543844d9dd",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "047df3ea66a7eec0fbf4f1290485c11d68f6097999c39b0187974ddabb140b4b",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "e681a411320f2f5a62f03dcefc5576dc504d5414266bab4aa3c010f12ffb5a85",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "499ed817dfd526c4347bf5e831ca408c1973a2684a7f0ad363b2ab4aadae8665",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "9d35757280e43bddc04777399a599a84ef4982ce440abfe333782aa1750e88d6",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "4a26d77b869db91de02c9d46fdda6c2ba46e93c6e1a1dd314d6b2e09d442777c",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "79c6ee23bb9a9a584491b43bb4e0daf21fc286091ac6fff32fe51aa1cfcc1d16",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "82eecd2d4429ccfcb99d872c05b076689629a2dbd2ec24990a3f02507cb40946",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "28481846ffb47e08c2ef4474ebf3340dc462d58ce148555be5b118174d48773f",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "c1e45e1e63d742efdb202d6ab30740b6a2aece4f65d6d91104a53451f6918ae6",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "35b1c18916f62e47b2abce8499ac9a655d6a5a0731dac9798ae425532383218d",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a38a0de668abc7f4b50470b02207ea59fc4ddaff550031bde4d87e1b7c2a4dec",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a35d0d8fb4d319b7e229a48c9884afc9da080a7f65ddc739f2fa4628a30dbbf7",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "f80268e2e71eeaa5d6911ff0f0a2f43eb1e5421fba76dee4d40380e3c0441277",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "5d76507fcacc795d247e9a9c299119284e4d1d74d795205d34397a5cb4028b1b",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "91f67d73b1cbd17a941435612090727fc054415b9d4f84a0fbcdce7fa842ca6b",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "a489422edb1f91689b39cb9f2000009f4caaa81f0275147ba0531993e08cded1",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "33e9a62e232cbb7984fb94a83627d452d986731327c447371b87ddb82d248775",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "8de3a8615c0e3e08cc6d97d4d97facc72ba9dcd7282d0b7ce61bd227fa3c7468",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "aa9a7842ab76432c908a80a6e4151b921ff851f51f8773556b32f0554c3d5038",
+          "status": "passed"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "f471bdba2b36fd8829fd4a5f63465729b47f9944c62c77cc3264752ec142d18a",
+          "status": "skipped"
+        },
+        {
+          "file": "tests/unit/modules/academy-admissions/infrastructure/admission-decision-atomicity.test.ts",
+          "caseId": "814eba616dfb7883a0e05e731b92394287a72c234ad971d281195e1b445ece28",
+          "status": "passed"
+        }
+      ],
+      "receiptHashes": {
+        "target": "a8419683c5e6be021bfd7518fe6265d4985cf87f32d2df6fef4e2b8312efeed8",
+        "outcome": "e5eccdb0ade3eda0bd3aa77a47505ea95a8f7574a01053c7a340ecc03b015345",
+        "report": "6ede114eed231ff9e70d03fe600ad9cb592cec9c503c507ed20de3305969d98f"
+      },
+      "historical": false
+    }
+  ],
+  "manualCoverage": {
+    "expectedOriginalCases": 22,
+    "allPartsTerminal": true,
+    "selectedPassedCases": 22,
+    "uniquePassedCases": 22,
+    "duplicates": 0,
+    "unverifiedCaseIds": [],
+    "allOriginalCasesVerified": true,
+    "completeFileInSingleRun": false,
+    "execution": "Two disjoint current-source named cohorts; raw11 outside-filter cases per cohort remain in their own outcomes"
+  },
+  "currentRegression": {
+    "membershipVerified": true,
+    "manualVerified": true,
+    "uniquePassedCases": 27,
+    "completeSingleRunFiles": 3,
+    "completeCaseUnionFiles": 1,
+    "focalCountedAgain": false,
+    "previousSourceCounted": false
+  },
+  "gates": {
+    "namedCurrentFixtureRegressionPassed": true,
+    "allUs8AcceptanceCriteriaPassed": false,
+    "originalTasksClosed": false,
+    "newFixtureCommitCiPassed": false,
+    "operationalGatesPassed": false
+  },
+  "resources": {
+    "externalMessagesSent": 0,
+    "productionOrPilotChanges": false,
+    "finalEphemeralReconciliation": "passed",
+    "observedAt": "2026-10-15T13:08:54.152Z",
+    "allCurrentNativeRunsTerminal": true,
+    "protectedBranchesPreserved": true,
+    "totalBranches": 2,
+    "nonProtectedBranches": 0,
+    "receiptSha256": "5171f3728c8f800d894739058dca200da7666e7f1c1b1a5134a49d50795bba88"
+  },
+  "baselineReconciliation": {
+    "originalFailedCases": 9,
+    "originalOutsideFilterCases": 15,
+    "failedCaseIdsNowPassed": 9,
+    "outsideFilterCaseIdsNowPassed": 15,
+    "originalReportSha256": "7c23630d0dd15a80caa09b606621dbc382a16723c860d04624a3d405b050986e",
+    "allOriginalFailuresAndOutsideFilterNowPassed": true
+  },
+  "capture": {
+    "beforeNextFixtureCommit": true,
+    "checkNextCommitCiInWorkflow": true,
+    "sourceHashesIdentifyTheReviewedWorkingTree": true
+  }
+}
