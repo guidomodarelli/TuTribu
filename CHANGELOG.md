@@ -4,6 +4,12 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-15
+
+### Changed
+
+- Actualización de mantenimiento sin cambios visibles en el diseño ni en los recorridos de la aplicación.
+
 ## [1.5.0] - 2026-10-15
 
 ### Changed
