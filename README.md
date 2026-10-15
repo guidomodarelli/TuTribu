@@ -139,8 +139,8 @@ Before testing sign-in locally:
 
 1. Configure OAuth 2.0 Client ID credentials in Google Cloud Console (APIs & Services → Credentials).
 2. Add the credentials to `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-3. Under **Authorized JavaScript origins**, add `http://localhost:3000`.
-4. Under **Authorized redirect URIs**, add `http://localhost:3000/api/auth/callback/google`.
+3. Under **Authorized JavaScript origins**, add `https://dev.tutribu.app`.
+4. Under **Authorized redirect URIs**, add `https://dev.tutribu.app/api/auth/callback/google`.
 
 Security notes:
 
