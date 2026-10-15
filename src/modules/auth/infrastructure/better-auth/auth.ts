@@ -1,3 +1,4 @@
+/** Composes the native auth provider with private database, evidence and diagnostic adapters. @module better-auth */
 import "server-only";
 
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
@@ -8,6 +9,9 @@ import { Pool } from "pg";
 
 import { BETTER_AUTH_SESSION_OPTIONS } from "@/src/modules/auth/constants/session";
 import { googleIdentityEvidencePlugin } from "@/src/modules/auth/infrastructure/better-auth/google-identity-evidence-plugin";
+import { createBetterAuthLogger } from "./better-auth-logger";
+import { createPrivateAuthDatabaseAdapter } from "./private-auth-database-adapter";
+import { BETTER_AUTH_ENV, BETTER_AUTH_ERROR_MESSAGE, BETTER_AUTH_PROVIDER, GOOGLE_OFFLINE_ACCESS, BETTER_AUTH_DATABASE_POOL_OPERATION, BETTER_AUTH_SERVER_ONLY_HTTP_PATHS } from "../../constants/better-auth-config";
 import {authorizeGlobalReauthenticationIntent} from "@/src/modules/auth/reauthentication-setup";
 import { scheduleMemberProfileImageRefresh } from "@/src/modules/auth/infrastructure/composition/member-profile-image-refresh";
 import { createPostgresPool } from "@/src/modules/shared/infrastructure/database/postgres-pool";
@@ -19,41 +23,11 @@ import {
   verifications,
 } from "@/src/modules/shared/infrastructure/database/schema";
 
-const BETTER_AUTH_ENV = {
-  googleClientId: "GOOGLE_CLIENT_ID",
-  googleClientSecret: "GOOGLE_CLIENT_SECRET",
-  secret: "BETTER_AUTH_SECRET",
-  url: "BETTER_AUTH_URL",
-} as const;
-
-const BETTER_AUTH_ERROR_MESSAGE = {
-  googleProvider:
-    "Better Auth Google provider environment is incomplete. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.",
-  secret:
-    "Better Auth environment is incomplete. Set BETTER_AUTH_SECRET and BETTER_AUTH_URL.",
-} as const;
-
-const BETTER_AUTH_PROVIDER = {
-  database: "pg",
-  google: "google",
-} as const;
-
-const GOOGLE_OFFLINE_ACCESS = {
-  /** Requests a refresh token so the profile picture can be re-fetched later. */
-  accessType: "offline",
-  /** Forces the consent screen so a refresh token is issued on every sign-in. */
-  prompt: "consent",
-} as const;
-
 const BETTER_AUTH_SCHEMA = {
   account: accounts,
   session: sessions,
   user: users,
   verification: verifications,
-} as const;
-
-const BETTER_AUTH_DATABASE_POOL_OPERATION = {
-  idleError: "better_auth_database_pool_idle_error",
 } as const;
 
 type GlobalBetterAuthDatabase = typeof globalThis & {
@@ -102,11 +76,13 @@ const database = drizzle(getBetterAuthPool(), {
 });
 
 export const auth = betterAuth({
+  logger: createBetterAuthLogger(),
+  disabledPaths: [...BETTER_AUTH_SERVER_ONLY_HTTP_PATHS],
   baseURL: betterAuthEnvironment.url,
-  database: drizzleAdapter(database, {
+  database: createPrivateAuthDatabaseAdapter(drizzleAdapter(database, {
     provider: BETTER_AUTH_PROVIDER.database,
     schema: BETTER_AUTH_SCHEMA,
-  }),
+  })),
   databaseHooks: {
     session: {
       update: {

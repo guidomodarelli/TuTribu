@@ -2,15 +2,12 @@
 import "server-only";
 import type { z } from "zod";
 import { HTTP_STATUS } from "@/src/constants/http-status";
-import { attachRequestContextToResponse, resolveRequestContext, REQUEST_ID_HEADER, TRACE_ID_HEADER } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { attachRequestContextToResponse } from "@/src/modules/shared/infrastructure/observability/request-context";
+import { resolvePrivateRequestContext } from "@/src/modules/shared/infrastructure/observability/private-request-context";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 import { summarizeValidationIssues, type ValidationIssueSummary } from "@/src/modules/shared/infrastructure/validation/validation-issue-summary";
 
-const PRIVATE_RESPONSE_HEADERS = { "cache-control": "no-store", "referrer-policy": "no-referrer" } as const;
-const CORRELATION_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
-const INPUT_BODY_PART = "body";
-const DIAGNOSTIC_STAGE = { input: "input", publicDto: "public_dto", operation: "operation" } as const;
-const BOUNDARY_DIAGNOSTIC_MESSAGE = "Own JSON route boundary rejected an operation";
+import { PRIVATE_RESPONSE_HEADERS, PRIVATE_HTTP_INPUT_BODY_PART as INPUT_BODY_PART, PRIVATE_HTTP_DIAGNOSTIC_STAGE as DIAGNOSTIC_STAGE, PRIVATE_HTTP_BOUNDARY_DIAGNOSTIC_MESSAGE as BOUNDARY_DIAGNOSTIC_MESSAGE } from "../../constants/private-http";
 
 export type OwnHttpDiagnostic = {
   stage: "input" | "public_dto" | "operation"; code: string; status: number;
@@ -36,12 +33,7 @@ export function createOwnJsonRouteBoundary<Failure extends { code: string }, Pub
   invalidInput: () => Failure; unusableContract: () => Failure; unexpectedFailure: (cause: unknown) => Failure;
   diagnostics?: (diagnostic: OwnHttpDiagnostic) => void;
 }) {
-  const headers = new Headers();
-  for (const name of [REQUEST_ID_HEADER, TRACE_ID_HEADER]) {
-    const value = input.request.headers.get(name)?.trim();
-    if (value && CORRELATION_ID_PATTERN.test(value)) headers.set(name, value);
-  }
-  const requestContext = resolveRequestContext(headers);
+  const requestContext = resolvePrivateRequestContext(input.request.headers);
   const logger = createServerLogger({ feature: input.feature, operation: input.operation, ...requestContext });
   const consumedParts = new Set<string>();
   const diagnose = (stage: OwnHttpDiagnostic["stage"], failure: Failure, status: number, issues?: ValidationIssueSummary[]) => {

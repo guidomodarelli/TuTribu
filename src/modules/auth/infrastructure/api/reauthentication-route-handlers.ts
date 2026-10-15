@@ -5,6 +5,9 @@ import type {ReauthenticationIntentUseCaseResult} from "@/src/modules/auth/appli
 import {reauthenticationIntentResultSchema} from "@/src/modules/auth/application/results/reauthentication-intent-result";
 import {createReauthenticationIntentSchema,reauthenticationIntentParamsSchema} from "./reauthentication-request-schemas";
 import {createReauthenticationRouteBoundary} from "./reauthentication-route-http";
+import {hasAllowedRequestOrigin} from "@/src/modules/shared/infrastructure/http/has-allowed-request-origin";
+import {REAUTHENTICATION_ERROR_CODE} from "../../constants/reauthentication-intents";
+import {REAUTHENTICATION_HTTP_OPERATION} from "../../constants/reauthentication-http";
 
 /** Small own module contract; no SDK/database object reaches an application consumer. */
 export type ReauthenticationIntentRouteModule={useCases:{
@@ -19,7 +22,8 @@ export type ReauthenticationIntentRouteModule={useCases:{
  * @returns Safe created DTO or a closed audience/input/operation failure.
  */
 export async function postReauthenticationIntent(request:Request,createModule:()=>Promise<ReauthenticationIntentRouteModule>):Promise<Response> {
-  const boundary=createReauthenticationRouteBoundary(request,"create_reauthentication_intent");
+  const boundary=createReauthenticationRouteBoundary(request,REAUTHENTICATION_HTTP_OPERATION.create);
+  if(!hasAllowedRequestOrigin(request)) return boundary.failure({code:REAUTHENTICATION_ERROR_CODE.contextUnavailable});
   const input=await boundary.readBody(createReauthenticationIntentSchema);
   if(!input.usable) return input.response;
   try {
@@ -37,7 +41,7 @@ export async function postReauthenticationIntent(request:Request,createModule:()
  * @returns Explicit safe intent outcome; a consumed callback alone is not verification.
  */
 export async function getReauthenticationIntent(request:Request,params:unknown,createModule:()=>Promise<ReauthenticationIntentRouteModule>):Promise<Response> {
-  const boundary=createReauthenticationRouteBoundary(request,"read_reauthentication_intent");
+  const boundary=createReauthenticationRouteBoundary(request,REAUTHENTICATION_HTTP_OPERATION.read);
   const input=boundary.input("params",reauthenticationIntentParamsSchema,params);
   if(!input.usable) return input.response;
   try {

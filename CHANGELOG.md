@@ -128,6 +128,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- El inicio de sesión, la confirmación de acciones sensibles y las consultas privadas protegen las credenciales en respuestas y registros, conservando la sesión y los errores recuperables.
+
 - La eliminación de una tribu con avisos recuperados conserva su procedencia y su historial sin quedar bloqueada ni reiniciar consumos.
 
 - La recuperación de acceso por pago evita bloquearse cuando se intenta eliminar al mismo tiempo la cuenta que creó la tribu.
