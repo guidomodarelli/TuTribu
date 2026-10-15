@@ -207,8 +207,9 @@ describe("event forms point validation at the field to fix", () => {
     expect(capacityField).toHaveAttribute("aria-invalid", "true");
     expect(capacityField).toHaveFocus();
     expect(capacityField).toHaveAccessibleDescription(
-      /Ingresá un cupo entre 1 y 10000.*Si se completa, las nuevas respuestas quedan en lista de espera\./
+      /Si se completa, las nuevas respuestas quedan en lista de espera\./
     );
+    expect(capacityField).toHaveAccessibleDescription(/Ingresá un cupo entre 1 y 10000/);
 
     await user.type(capacityField, "5");
 
@@ -239,6 +240,9 @@ describe("event forms point validation at the field to fix", () => {
     );
     expect(within(dialog).getByLabelText("Título")).toHaveAttribute("aria-invalid", "true");
     expect(within(dialog).getByLabelText("Título")).toHaveFocus();
+    expect(within(dialog).getByLabelText("Título")).toHaveAccessibleDescription(
+      /Completá el título, la fecha y la hora de inicio\./
+    );
 
     await user.type(within(dialog).getByLabelText("Título"), "Picnic");
     await user.click(within(dialog).getByRole("button", { name: "Enviar propuesta" }));
@@ -272,7 +276,7 @@ describe("event forms point validation at the field to fix", () => {
     expect(within(dialog).getByLabelText("Hora de inicio")).toHaveAttribute("aria-invalid", "true");
     expect(within(dialog).getByLabelText("Hora de inicio")).toHaveFocus();
     expect(within(dialog).getByLabelText("Hora de inicio")).toHaveAccessibleDescription(
-      "Elegí la nueva fecha y la hora de inicio."
+      /Elegí la nueva fecha y la hora de inicio\./
     );
   });
 

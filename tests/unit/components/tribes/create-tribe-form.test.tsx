@@ -282,12 +282,14 @@ describe("CreateTribeFormContainer (enhanced submission)", () => {
 
     const nameInput = screen.getByLabelText(/nombre de la tribu/i);
 
-    expect(await screen.findByText("Define un nombre para tu tribu.")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Define un nombre para tu tribu."
+    );
     await waitFor(() => {
       expect(nameInput).toHaveFocus();
     });
     expect(nameInput).toHaveAttribute("aria-invalid", "true");
-    expect(nameInput).toHaveAccessibleDescription("Define un nombre para tu tribu.");
+    expect(nameInput).toHaveAccessibleDescription(/Define un nombre para tu tribu\./);
     expect(screen.getByLabelText(/^slug$/i)).not.toHaveAttribute("aria-invalid");
     expect(navigateToUrl).not.toHaveBeenCalled();
 

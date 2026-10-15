@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Textarea, AnimatedCollapse, MOTION_TIMING, MOTION_EASE } from "beez-ui";
+import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Textarea, MOTION_TIMING, MOTION_EASE } from "beez-ui";
 
 import {
   addDaysToBuenosAiresDateKey,
@@ -51,7 +51,6 @@ const FIELD_ID = {
   endsTime: "tribe-event-exception-ends-time",
   reason: "tribe-event-exception-reason",
   startsTime: "tribe-event-exception-starts-time",
-  validationError: "tribe-event-exception-validation-error",
 } as const;
 
 /** Id of a form control that a validation message can point at. */
@@ -243,12 +242,6 @@ export function TribeEventOccurrenceExceptionDialog({
   const [validationIssue, setValidationIssue] = useState<ExceptionFormValidationIssue | null>(
     null
   );
-  // Last message shown, kept while the error region collapses.
-  const [shownValidationMessage, setShownValidationMessage] = useState<string | null>(null);
-
-  if (validationIssue && validationIssue.message !== shownValidationMessage) {
-    setShownValidationMessage(validationIssue.message);
-  }
   const [endsOnAnotherDay, setEndsOnAnotherDay] = useState(values.endsDate !== EMPTY_VALUE);
   const [durationMilliseconds] = useState(() => getOccurrenceDurationMilliseconds(occurrence));
   // While the end still holds the occurrence's own end (or a suggestion built
@@ -258,11 +251,9 @@ export function TribeEventOccurrenceExceptionDialog({
   const isMove = mode === TRIBE_EVENT_OCCURRENCE_EXCEPTION_KIND.moved;
   const dateLabel = occurrence ? formatBuenosAiresWeekdayDay(occurrence.originalStartsAt, true) : EMPTY_VALUE;
 
-  /** ARIA wiring that ties a control to the current validation message. */
-  const getValidationProps = (fieldId: ExceptionFormFieldId) =>
-    validationIssue?.fieldId === fieldId
-      ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
-      : {};
+  /** Validation message of a control, shown under it while it is the one to fix. */
+  const getFieldError = (fieldId: ExceptionFormFieldId) =>
+    validationIssue?.fieldId === fieldId ? validationIssue.message : undefined;
 
   const updateField = (field: keyof ExceptionFormValues, value: string) => {
     setValidationIssue(null);
@@ -356,53 +347,43 @@ export function TribeEventOccurrenceExceptionDialog({
         >
           {isMove ? (
             <>
-              <div className={styles.TribeEventOccurrenceExceptionDialog__field}>
-                <label htmlFor={FIELD_ID.date}>{COPY.dateLabel}</label>
-                <Input
-                  {...getValidationProps(FIELD_ID.date)}
-                  id={FIELD_ID.date}
-                  required
-                  type={INPUT_TYPE.date}
-                  value={values.date}
-                  onChange={(event) => updateStartField("date", event.currentTarget.value)}
-                />
-              </div>
+              <Input
+                error={getFieldError(FIELD_ID.date)}
+                id={FIELD_ID.date}
+                label={COPY.dateLabel}
+                required
+                type={INPUT_TYPE.date}
+                value={values.date}
+                onChange={(event) => updateStartField("date", event.currentTarget.value)}
+              />
               <div className={styles.TribeEventOccurrenceExceptionDialog__row}>
-                <div className={styles.TribeEventOccurrenceExceptionDialog__field}>
-                  <label htmlFor={FIELD_ID.startsTime}>{COPY.startsTimeLabel}</label>
-                  <Input
-                    {...getValidationProps(FIELD_ID.startsTime)}
-                    id={FIELD_ID.startsTime}
-                    required
-                    type={INPUT_TYPE.time}
-                    value={values.startsTime}
-                    onChange={(event) => updateStartField("startsTime", event.currentTarget.value)}
-                  />
-                </div>
-                <div className={styles.TribeEventOccurrenceExceptionDialog__field}>
-                  <label htmlFor={FIELD_ID.endsTime}>{COPY.endsTimeLabel}</label>
-                  <Input
-                    {...getValidationProps(FIELD_ID.endsTime)}
-                    id={FIELD_ID.endsTime}
-                    type={INPUT_TYPE.time}
-                    value={values.endsTime}
-                    onChange={(event) => updateEndField("endsTime", event.currentTarget.value)}
-                  />
-                </div>
+                <Input
+                  error={getFieldError(FIELD_ID.startsTime)}
+                  id={FIELD_ID.startsTime}
+                  label={COPY.startsTimeLabel}
+                  required
+                  type={INPUT_TYPE.time}
+                  value={values.startsTime}
+                  onChange={(event) => updateStartField("startsTime", event.currentTarget.value)}
+                />
+                <Input
+                  error={getFieldError(FIELD_ID.endsTime)}
+                  id={FIELD_ID.endsTime}
+                  label={COPY.endsTimeLabel}
+                  type={INPUT_TYPE.time}
+                  value={values.endsTime}
+                  onChange={(event) => updateEndField("endsTime", event.currentTarget.value)}
+                />
               </div>
               <AnimatePresence initial={false}>
                 {endsOnAnotherDay ? (
-                  <motion.div
-                    className={styles.TribeEventOccurrenceExceptionDialog__field}
-                    key={FIELD_ID.endsDate}
-                    {...CONDITIONAL_FIELD_MOTION}
-                  >
-                    <label htmlFor={FIELD_ID.endsDate}>{COPY.endsDateLabel}</label>
+                  <motion.div key={FIELD_ID.endsDate} {...CONDITIONAL_FIELD_MOTION}>
                     {/* No native `min`: an earlier end must reach the Spanish
                         inline error instead of a browser-language bubble. */}
                     <Input
-                      {...getValidationProps(FIELD_ID.endsDate)}
+                      error={getFieldError(FIELD_ID.endsDate)}
                       id={FIELD_ID.endsDate}
+                      label={COPY.endsDateLabel}
                       type={INPUT_TYPE.date}
                       value={values.endsDate}
                       onChange={(event) => updateEndField("endsDate", event.currentTarget.value)}
@@ -420,26 +401,14 @@ export function TribeEventOccurrenceExceptionDialog({
               </div>
             </>
           ) : null}
-          <div className={styles.TribeEventOccurrenceExceptionDialog__field}>
-            <label htmlFor={FIELD_ID.reason}>{COPY.reasonLabel}</label>
-            <Textarea
-              className={styles.TribeEventOccurrenceExceptionDialog__textarea}
-              id={FIELD_ID.reason}
-              maxLength={TRIBE_EVENT_OCCURRENCE_EXCEPTION_REASON_MAX_LENGTH}
-              placeholder={COPY.reasonPlaceholder}
-              value={values.reason}
-              onChange={(event) => updateField("reason", event.currentTarget.value)}
-            />
-          </div>
-          <AnimatedCollapse isOpen={validationIssue !== null}>
-            <p
-              className={styles.TribeEventOccurrenceExceptionDialog__error}
-              id={FIELD_ID.validationError}
-              role="alert"
-            >
-              {validationIssue?.message ?? shownValidationMessage}
-            </p>
-          </AnimatedCollapse>
+          <Textarea
+            id={FIELD_ID.reason}
+            label={COPY.reasonLabel}
+            maxLength={TRIBE_EVENT_OCCURRENCE_EXCEPTION_REASON_MAX_LENGTH}
+            placeholder={COPY.reasonPlaceholder}
+            value={values.reason}
+            onChange={(event) => updateField("reason", event.currentTarget.value)}
+          />
           <div className={styles.TribeEventOccurrenceExceptionDialog__actions}>
             <Button
               type={BUTTON_ATTRIBUTE.typeButton}

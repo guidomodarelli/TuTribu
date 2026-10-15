@@ -9,7 +9,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { toast, Avatar, AvatarFallback, AvatarImage, Button, AnimatedListItem } from "beez-ui";
+import { toast, Avatar, AvatarFallback, AvatarImage, Button, AnimatedListItem, Textarea } from "beez-ui";
 
 import { LESSON_COMMENT_CONTENT } from "@/src/modules/courses/constants/courses";
 import type { LessonCommentResult } from "@/src/modules/courses/application/results/course-results";
@@ -333,11 +333,8 @@ export function LessonComments({ lessonId, tribeSlug }: LessonCommentsProps) {
       </h3>
 
       <form className={styles.LessonComments__form} onSubmit={handleSubmit}>
-        <label className={styles.LessonComments__label} htmlFor={inputId}>
-          {COMMENTS_COPY.placeholder}
-        </label>
-        <textarea
-          className={styles.LessonComments__input}
+        <Textarea
+          aria-label={COMMENTS_COPY.placeholder}
           id={inputId}
           maxLength={LESSON_COMMENT_CONTENT.maxLength}
           onChange={(event) => setDraftContent(event.target.value)}

@@ -671,6 +671,51 @@ describe("TribeSubscriptionPriceManagement", () => {
     });
   });
 
+  it("flags an out-of-range trial in the inline editor without saving the price", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      json: async () => ({
+        canceledPriceIds: [],
+        message: PROVIDER_PLANS_VERIFIED_MESSAGE,
+        prices: [activePrice],
+        verifiedCount: 1,
+      }),
+      ok: true,
+    }) as Mock;
+
+    render(
+      <TribeSubscriptionPriceManagement
+        freeJoinIsCurrent={false}
+        openFreeJoinEnabled={false}
+        canManagePrices
+        isMercadoPagoConnected
+        prices={[activePrice]}
+        statusMessage={null}
+        tribeSlug="matematica-pro"
+      />
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+    await user.click(screen.getByRole("button", { name: "Editar" }));
+    const editTrialFrequencyInput = screen.getAllByLabelText(
+      "Días de prueba gratis"
+    )[1];
+    await user.clear(editTrialFrequencyInput);
+    await user.type(editTrialFrequencyInput, "15");
+
+    expect(editTrialFrequencyInput).toHaveAttribute("aria-invalid", "true");
+    expect(editTrialFrequencyInput).toHaveAccessibleDescription(
+      "La prueba gratis debe ser de entre 1 y 14 días."
+    );
+    expect(screen.getByRole("alert")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("should remove a canceled price after the delete action", async () => {
     const user = userEvent.setup();
     const canceledPrice = {
@@ -1138,15 +1183,13 @@ describe("TribeSubscriptionPriceManagement", () => {
     await user.click(screen.getByRole("button", { name: "Crear precio" }));
 
     const amountInput = screen.getByLabelText("Precio mensual");
-    const amountError = await screen.findByText(
-      "El precio mensual mínimo es $ 15."
-    );
+    const amountError = await screen.findByRole("alert");
 
+    expect(amountError).toBeVisible();
     expect(amountInput).toHaveAttribute("aria-invalid", "true");
     expect(amountInput).toHaveAccessibleDescription(
       "El precio mensual mínimo es $ 15."
     );
-    expect(amountError).toBeInTheDocument();
   });
 
   it("should create a price without a free trial when the trial checkbox is inactive", async () => {

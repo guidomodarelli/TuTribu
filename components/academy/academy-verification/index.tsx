@@ -125,7 +125,6 @@ function ProviderRequest({
   verification: MemberVerificationDto | undefined;
 }) {
   const emailInputId = useId();
-  const emailHelpId = useId();
   const [declaredEmail, setDeclaredEmail] = useState(verification?.declaredEmail ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ isError: boolean; message: string } | null>(null);
@@ -190,20 +189,17 @@ function ProviderRequest({
         {describeStatus(verification)}
       </p>
       <form className={styles.AcademyVerification__form} noValidate onSubmit={handleSubmit}>
-        <label className={styles.AcademyVerification__field} htmlFor={emailInputId}>
-          <span>{VERIFICATION_COPY.declaredEmailLabel}</span>
+        <div className={styles.AcademyVerification__field}>
           <Input
-            aria-describedby={emailHelpId}
             autoComplete="email"
+            description={VERIFICATION_COPY.declaredEmailHelp}
             id={emailInputId}
+            label={VERIFICATION_COPY.declaredEmailLabel}
             onChange={(event) => setDeclaredEmail(event.currentTarget.value)}
             type="email"
             value={declaredEmail}
           />
-        </label>
-        <p className={styles.AcademyVerification__help} id={emailHelpId}>
-          {VERIFICATION_COPY.declaredEmailHelp}
-        </p>
+        </div>
         <Button aria-busy={isSubmitting || undefined} disabled={isSubmitting} type="submit">
           {isSubmitting ? VERIFICATION_COPY.requestPending : buttonLabel}
         </Button>

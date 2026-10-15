@@ -4,6 +4,12 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Los campos de texto de los formularios tienen un diseño nuevo: son más altos, el borde se marca al enfocarlos y se pone rojo cuando hay un error, y los textos largos se escriben en un área más alta que se puede agrandar.
+- La ayuda y los errores de cada campo aparecen justo debajo con una animación suave y, cuando cambian, solo se mueven las palabras o los números que cambiaron; los lectores de pantalla los anuncian junto con el campo. Con movimiento reducido aparecen sin animación.
+- En los formularios de eventos, propuestas, precios, invitaciones, canales, cursos y bienvenida, cada error de validación aparece debajo del campo que hay que corregir, en lugar de un único aviso al pie del formulario.
+
 ## [1.4.0] - 2026-10-15
 
 ### Added

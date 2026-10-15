@@ -131,9 +131,13 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
     min-width: 0;
   }
 
-  &__textarea {
-    min-height: 5rem;
-    resize: vertical;
+  // Required fields pass their label as plain copy; the marker is drawn after the field label.
+  &__field--required [data-slot="field-label"]::after,
+  &__fieldGroup--required [data-slot="field-label"]::after {
+    color: var(--tribe-welcome-required);
+    content: "*";
+    font-weight: 500;
+    margin-left: 0.15rem;
   }
 
   &__fieldLabel {
@@ -155,13 +159,6 @@ $tribe-welcome-mobile-bar-bleed: 1rem;
     line-height: 1.4;
   }
 
-  &__fieldError {
-    color: var(--destructive);
-    font-size: 0.8rem;
-    line-height: 1.4;
-
-    @include motion.enter($duration: 180ms, $distance: 3px);
-  }
 
   &__defaultHint {
     align-items: center;

@@ -116,7 +116,6 @@ export function CreateTribeForm({
     field: CreateTribeFormErrorField | null;
   } | null>(null);
   const feedbackId = useId();
-  const nameFeedbackId = useId();
   const nameInputRef = useRef<HTMLInputElement>(null);
   const slugInputRef = useRef<HTMLInputElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
@@ -239,16 +238,10 @@ export function CreateTribeForm({
         readOnly
       />
       <div className={styles.CreateTribeForm__field}>
-        <label
-          className={styles.CreateTribeForm__label}
-          htmlFor={nameInputId}
-        >
-          Nombre de la tribu
-        </label>
         <Input
-          aria-describedby={isNameInvalid ? nameFeedbackId : undefined}
-          aria-invalid={isNameInvalid || undefined}
+          error={isNameInvalid ? feedback?.message : undefined}
           id={nameInputId}
+          label="Nombre de la tribu"
           name={CREATE_TRIBE_FORM_FIELD.name}
           onChange={(event) => {
             const nextName = event.currentTarget.value;
@@ -265,15 +258,6 @@ export function CreateTribeForm({
           required
           value={name}
         />
-        <AnimatedCollapse isOpen={isNameInvalid}>
-          <div
-            aria-live={CREATE_TRIBE_FORM_ARIA.livePolite}
-            className={styles.CreateTribeForm__feedback}
-            id={nameFeedbackId}
-          >
-            {feedbackContent}
-          </div>
-        </AnimatedCollapse>
       </div>
 
       <div className={styles.CreateTribeForm__field}>

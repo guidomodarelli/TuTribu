@@ -148,16 +148,18 @@ describe("TribeSupportConfigDialog", () => {
       "Ingresá un número válido en formato internacional."
     );
     expect(phoneInput).toHaveAttribute("aria-invalid", "true");
-    expect(phoneInput).toHaveAttribute("aria-describedby", phoneError.id);
+    expect(phoneInput).toHaveAccessibleDescription(
+      /Ingresá un número válido en formato internacional\./
+    );
 
     await user.type(phoneInput, "1");
 
-    expect(
-      await screen.findByText("Usá formato internacional (ej.: +54 9 11 1234 5678).")
-    ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
+    expect(phoneInput).toHaveAccessibleDescription(
+      /Usá formato internacional \(ej\.: \+54 9 11 1234 5678\)\./
+    );
     expect(phoneInput).not.toHaveAttribute("aria-invalid");
   });
 

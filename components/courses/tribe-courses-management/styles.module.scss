@@ -195,11 +195,6 @@
     }
   }
 
-  &__fieldError {
-    color: var(--destructive);
-    font-size: 0.8125rem;
-  }
-
   &__formHeading {
     font-size: 1rem;
     font-weight: 500;
@@ -219,11 +214,6 @@
   &__formHelp {
     color: var(--muted-foreground);
     font-size: 0.75rem;
-    transition: color motion.$duration-hover motion.$ease-out;
-
-    &--success {
-      color: var(--primary);
-    }
   }
 
   &__descriptionEditor {

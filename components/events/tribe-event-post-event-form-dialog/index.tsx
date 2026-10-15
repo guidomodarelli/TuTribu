@@ -161,11 +161,17 @@ export function TribeEventPostEventFormDialog({
   );
   const [nextRowId, setNextRowId] = useState(materialRows.length);
   const [validationIssue, setValidationIssue] = useState<PostEventValidationIssue | null>(null);
-  // Last message shown, kept while the error region collapses.
-  const [shownValidationMessage, setShownValidationMessage] = useState<string | null>(null);
+  // The recording link shows its own message under it; material rows share
+  // the message under the list.
+  const recordingUrlError =
+    validationIssue?.fieldId === FIELD_ID.recordingUrl ? validationIssue.message : undefined;
+  const materialIssue =
+    validationIssue && validationIssue.fieldId !== FIELD_ID.recordingUrl ? validationIssue : null;
+  // Last material message shown, kept while the error region collapses.
+  const [shownMaterialMessage, setShownMaterialMessage] = useState<string | null>(null);
 
-  if (validationIssue && validationIssue.message !== shownValidationMessage) {
-    setShownValidationMessage(validationIssue.message);
+  if (materialIssue && materialIssue.message !== shownMaterialMessage) {
+    setShownMaterialMessage(materialIssue.message);
   }
   const canAddMaterial = materialRows.length < TRIBE_EVENT_POST_EVENT_LIMIT.materialsMax;
 
@@ -190,7 +196,7 @@ export function TribeEventPostEventFormDialog({
     focusFieldById(FIELD_ID.materialTitle(nextRowId));
   };
 
-  /** ARIA wiring that ties a control to the current validation message. */
+  /** ARIA wiring that ties a material control to the shared validation message. */
   const getValidationProps = (fieldId: string) =>
     validationIssue?.fieldId === fieldId
       ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
@@ -250,22 +256,20 @@ export function TribeEventPostEventFormDialog({
           <DialogDescription>{COPY.description}</DialogDescription>
         </DialogHeader>
         <form className={styles.TribeEventPostEventFormDialog__form} noValidate onSubmit={handleSubmit}>
-          <div className={styles.TribeEventPostEventFormDialog__field}>
-            <label htmlFor={FIELD_ID.recordingUrl}>{COPY.recordingLabel}</label>
-            <Input
-              {...getValidationProps(FIELD_ID.recordingUrl)}
-              id={FIELD_ID.recordingUrl}
-              inputMode={INPUT_TYPE.url}
-              maxLength={TRIBE_EVENT_POST_EVENT_LIMIT.urlMaxLength}
-              placeholder={COPY.recordingPlaceholder}
-              type={INPUT_TYPE.url}
-              value={recordingUrl}
-              onChange={(event) => {
-                setValidationIssue(null);
-                setRecordingUrl(event.currentTarget.value);
-              }}
-            />
-          </div>
+          <Input
+            error={recordingUrlError}
+            id={FIELD_ID.recordingUrl}
+            inputMode={INPUT_TYPE.url}
+            label={COPY.recordingLabel}
+            maxLength={TRIBE_EVENT_POST_EVENT_LIMIT.urlMaxLength}
+            placeholder={COPY.recordingPlaceholder}
+            type={INPUT_TYPE.url}
+            value={recordingUrl}
+            onChange={(event) => {
+              setValidationIssue(null);
+              setRecordingUrl(event.currentTarget.value);
+            }}
+          />
 
           <fieldset className={styles.TribeEventPostEventFormDialog__materials}>
             <legend className={styles.TribeEventPostEventFormDialog__legend}>
@@ -334,13 +338,13 @@ export function TribeEventPostEventFormDialog({
             )}
           </fieldset>
 
-          <AnimatedCollapse isOpen={validationIssue !== null}>
+          <AnimatedCollapse isOpen={materialIssue !== null}>
             <p
               className={styles.TribeEventPostEventFormDialog__error}
               id={FIELD_ID.validationError}
               role="alert"
             >
-              {validationIssue?.message ?? shownValidationMessage}
+              {materialIssue?.message ?? shownMaterialMessage}
             </p>
           </AnimatedCollapse>
           <div className={styles.TribeEventPostEventFormDialog__actions}>

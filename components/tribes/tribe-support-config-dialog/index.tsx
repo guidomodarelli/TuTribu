@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { toast, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, PresenceSwap } from "beez-ui";
+import { toast, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from "beez-ui";
 
 import { TRIBE_SUPPORT_CHANNEL } from "@/src/modules/tribes/constants/tribe-support";
 import type {
@@ -51,12 +51,6 @@ const SUPPORT_DIALOG_BUTTON = {
   secondaryVariant: "secondary",
 } as const;
 
-/** Presence keys for the helper text that swaps with the save error under the phone input. */
-const PHONE_FEEDBACK_KEY = {
-  error: "error",
-  help: "help",
-} as const;
-
 const SUPPORT_DIALOG_MESSAGE_MAX_LENGTH = 1000;
 
 type SupportSettingsPayload = {
@@ -94,9 +88,6 @@ export function TribeSupportConfigDialog({
   const channelInputId = useId();
   const phoneInputId = useId();
   const messageInputId = useId();
-  const phoneErrorId = useId();
-  const phoneHelpId = useId();
-  const messageHelpId = useId();
   // Synchronous guard: two quick submits can run before `isSaving` re-renders.
   const isSubmittingRef = useRef(false);
   const [channel, setChannel] = useState<TribeSupportChannel>(() =>
@@ -234,73 +225,31 @@ export function TribeSupportConfigDialog({
             </Select>
           </div>
 
-          <div className={styles.TribeSupportConfigDialog__field}>
-            <label
-              className={styles.TribeSupportConfigDialog__label}
-              htmlFor={phoneInputId}
-            >
-              {SUPPORT_DIALOG_COPY.phoneLabel}
-            </label>
-            <Input
-              aria-describedby={errorMessage ? phoneErrorId : phoneHelpId}
-              aria-invalid={errorMessage ? true : undefined}
-              autoComplete={SUPPORT_DIALOG_FORM.phoneAutoComplete}
-              id={phoneInputId}
-              onChange={(event) => {
-                setPhoneNumber(event.currentTarget.value);
-                setErrorMessage(null);
-              }}
-              placeholder={SUPPORT_DIALOG_COPY.phonePlaceholder}
-              required
-              type={SUPPORT_DIALOG_FORM.inputType}
-              value={phoneNumber}
-            />
-            <PresenceSwap
-              presenceKey={
-                errorMessage ? PHONE_FEEDBACK_KEY.error : PHONE_FEEDBACK_KEY.help
-              }
-            >
-              {errorMessage ? (
-                <p
-                  className={styles.TribeSupportConfigDialog__error}
-                  id={phoneErrorId}
-                  role="alert"
-                >
-                  {errorMessage}
-                </p>
-              ) : (
-                <p
-                  className={styles.TribeSupportConfigDialog__help}
-                  id={phoneHelpId}
-                >
-                  {SUPPORT_DIALOG_COPY.phoneHelp}
-                </p>
-              )}
-            </PresenceSwap>
-          </div>
+          <Input
+            autoComplete={SUPPORT_DIALOG_FORM.phoneAutoComplete}
+            description={errorMessage ? undefined : SUPPORT_DIALOG_COPY.phoneHelp}
+            error={errorMessage ?? undefined}
+            id={phoneInputId}
+            label={SUPPORT_DIALOG_COPY.phoneLabel}
+            onChange={(event) => {
+              setPhoneNumber(event.currentTarget.value);
+              setErrorMessage(null);
+            }}
+            placeholder={SUPPORT_DIALOG_COPY.phonePlaceholder}
+            required
+            type={SUPPORT_DIALOG_FORM.inputType}
+            value={phoneNumber}
+          />
 
-          <div className={styles.TribeSupportConfigDialog__field}>
-            <label
-              className={styles.TribeSupportConfigDialog__label}
-              htmlFor={messageInputId}
-            >
-              {SUPPORT_DIALOG_COPY.messageLabel}
-            </label>
-            <Textarea
-              aria-describedby={messageHelpId}
-              id={messageInputId}
-              maxLength={SUPPORT_DIALOG_MESSAGE_MAX_LENGTH}
-              onChange={(event) => setMessage(event.currentTarget.value)}
-              placeholder={SUPPORT_DIALOG_COPY.messagePlaceholder}
-              value={message}
-            />
-            <p
-              className={styles.TribeSupportConfigDialog__help}
-              id={messageHelpId}
-            >
-              {SUPPORT_DIALOG_COPY.messageHelp}
-            </p>
-          </div>
+          <Textarea
+            description={SUPPORT_DIALOG_COPY.messageHelp}
+            id={messageInputId}
+            label={SUPPORT_DIALOG_COPY.messageLabel}
+            maxLength={SUPPORT_DIALOG_MESSAGE_MAX_LENGTH}
+            onChange={(event) => setMessage(event.currentTarget.value)}
+            placeholder={SUPPORT_DIALOG_COPY.messagePlaceholder}
+            value={message}
+          />
 
           <DialogFooter>
             <Button

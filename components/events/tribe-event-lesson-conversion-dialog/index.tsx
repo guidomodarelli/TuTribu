@@ -336,30 +336,25 @@ export function TribeEventLessonConversionDialog({
             </SelectContent>
           </Select>
         </div>
-        <div className={styles.TribeEventLessonConversionDialog__field}>
-          <label htmlFor={FIELD_ID.title}>{COPY.titleLabel}</label>
-          <Input
-            {...getValidationProps(FIELD_ID.title)}
-            id={FIELD_ID.title}
-            maxLength={COURSE_LESSON_TITLE.maxLength}
-            required
-            value={title}
-            onChange={(event) => {
-              setInvalidFieldId(null);
-              setTitle(event.currentTarget.value);
-            }}
-          />
-        </div>
-        <div className={styles.TribeEventLessonConversionDialog__field}>
-          <label htmlFor={FIELD_ID.description}>{COPY.descriptionLabel}</label>
-          <Textarea
-            className={styles.TribeEventLessonConversionDialog__textarea}
-            id={FIELD_ID.description}
-            maxLength={COURSE_LESSON_DESCRIPTION.maxLength}
-            value={description}
-            onChange={(event) => setDescription(event.currentTarget.value)}
-          />
-        </div>
+        <Input
+          {...getValidationProps(FIELD_ID.title)}
+          id={FIELD_ID.title}
+          label={COPY.titleLabel}
+          maxLength={COURSE_LESSON_TITLE.maxLength}
+          required
+          value={title}
+          onChange={(event) => {
+            setInvalidFieldId(null);
+            setTitle(event.currentTarget.value);
+          }}
+        />
+        <Textarea
+          id={FIELD_ID.description}
+          label={COPY.descriptionLabel}
+          maxLength={COURSE_LESSON_DESCRIPTION.maxLength}
+          value={description}
+          onChange={(event) => setDescription(event.currentTarget.value)}
+        />
         <AnimatedCollapse isOpen={invalidFieldId !== null}>
           <p
             className={styles.TribeEventLessonConversionDialog__error}
