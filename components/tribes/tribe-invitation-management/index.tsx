@@ -11,7 +11,8 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCollapse, AnimatedCount, AnimatedListItem, PresenceSwap, copyTextToClipboard, cn } from "beez-ui";
+import { toast, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCollapse, AnimatedCount, AnimatedListItem, PresenceSwap, SplitButton, copyTextToClipboard, cn } from "beez-ui";
+import type { SplitButtonAction } from "beez-ui";
 
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {
@@ -250,12 +251,6 @@ const FIELD_ERROR_ID_SUFFIX = "-error";
 const INVITATION_REGION_PRESENCE_KEY = {
   empty: "empty",
   list: "list",
-} as const;
-
-/** Presence keys for the copy button label swap. */
-const COPY_BUTTON_PRESENCE_KEY = {
-  copied: "copied",
-  idle: "idle",
 } as const;
 
 /** Error whose message is safe to show: it comes from the invitations API or a Spanish fallback. */
@@ -1292,6 +1287,28 @@ export function TribeInvitationManagement({
                       pendingInvitationId === invitation.id;
                     const isCopied =
                       copyFeedback?.invitationId === invitation.id;
+                    const invitationActions: SplitButtonAction[] = [
+                      ...(canManagePrices
+                        ? [
+                            {
+                              label: INVITATION_MANAGEMENT_COPY.changePlanButton,
+                              icon: <PencilIcon />,
+                              onSelect: () => openEditDialog(invitation),
+                            },
+                          ]
+                        : []),
+                      {
+                        label: INVITATION_MANAGEMENT_COPY.editChannelButton,
+                        icon: <TagIcon />,
+                        onSelect: () => openReferralEditDialog(invitation),
+                      },
+                      {
+                        label: INVITATION_MANAGEMENT_COPY.revokeButton,
+                        icon: <Trash2Icon />,
+                        destructive: true,
+                        onSelect: () => setRevokeCandidateId(invitation.id),
+                      },
+                    ];
 
                     return (
                       <AnimatedListItem
@@ -1372,12 +1389,20 @@ export function TribeInvitationManagement({
                         </div>
                         <div className={styles.TribeInvitationManagement__itemActions}>
                           {invitation.invitationUrl ? (
-                            <Button
+                            // Copying is the main action of an invitation, joined to its related actions.
+                            <SplitButton
                               className={cn(
-                                styles.TribeInvitationManagement__copyButton,
+                                styles.TribeInvitationManagement__splitButton,
                                 isCopied &&
-                                  styles["TribeInvitationManagement__copyButton--copied"]
+                                  styles["TribeInvitationManagement__splitButton--copied"]
                               )}
+                              label={
+                                isCopied
+                                  ? INVITATION_MANAGEMENT_COPY.copiedButton
+                                  : INVITATION_MANAGEMENT_COPY.copyButton
+                              }
+                              icon={isCopied ? <CheckIcon aria-hidden /> : <ClipboardIcon aria-hidden />}
+                              variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
                               disabled={isInvitationPending}
                               onClick={() => {
                                 void copyInvitationUrl(
@@ -1385,73 +1410,45 @@ export function TribeInvitationManagement({
                                   invitation.invitationUrl!
                                 );
                               }}
-                              type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                              variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
-                            >
-                              <PresenceSwap
-                                as="span"
-                                className={styles.TribeInvitationManagement__copyLabel}
-                                mode="popLayout"
-                                presenceKey={
-                                  isCopied
-                                    ? COPY_BUTTON_PRESENCE_KEY.copied
-                                    : COPY_BUTTON_PRESENCE_KEY.idle
-                                }
-                              >
-                                {isCopied ? <CheckIcon aria-hidden /> : <ClipboardIcon aria-hidden />}
-                                {isCopied
-                                  ? INVITATION_MANAGEMENT_COPY.copiedButton
-                                  : INVITATION_MANAGEMENT_COPY.copyButton}
-                              </PresenceSwap>
-                            </Button>
-                          ) : null}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                aria-label={INVITATION_MANAGEMENT_COPY.moreActionsLabel}
-                                className={styles.TribeInvitationManagement__moreButton}
-                                disabled={isInvitationPending}
-                                size={INVITATION_MANAGEMENT_REQUEST.iconSize}
-                                type={INVITATION_MANAGEMENT_REQUEST.buttonType}
-                                variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
-                              >
-                                <MoreHorizontalIcon />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align={INVITATION_MANAGEMENT_REQUEST.menuAlign}
-                              className={styles.TribeInvitationManagement__menu}
-                            >
-                              {canManagePrices ? (
-                                <DropdownMenuItem
-                                  onSelect={() => {
-                                    openEditDialog(invitation);
-                                  }}
+                              menuLabel={INVITATION_MANAGEMENT_COPY.moreActionsLabel}
+                              actions={invitationActions}
+                            />
+                          ) : (
+                            // Without a link there is nothing to copy, so only the actions menu remains.
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  aria-label={INVITATION_MANAGEMENT_COPY.moreActionsLabel}
+                                  className={styles.TribeInvitationManagement__moreButton}
+                                  disabled={isInvitationPending}
+                                  size={INVITATION_MANAGEMENT_REQUEST.iconSize}
+                                  type={INVITATION_MANAGEMENT_REQUEST.buttonType}
+                                  variant={INVITATION_MANAGEMENT_REQUEST.secondaryVariant}
                                 >
-                                  <PencilIcon />
-                                  {INVITATION_MANAGEMENT_COPY.changePlanButton}
-                                </DropdownMenuItem>
-                              ) : null}
-                              <DropdownMenuItem
-                                onSelect={() => {
-                                  openReferralEditDialog(invitation);
-                                }}
+                                  <MoreHorizontalIcon />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align={INVITATION_MANAGEMENT_REQUEST.menuAlign}
+                                className={styles.TribeInvitationManagement__menu}
                               >
-                                <TagIcon />
-                                {INVITATION_MANAGEMENT_COPY.editChannelButton}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onSelect={() => {
-                                  setRevokeCandidateId(invitation.id);
-                                }}
-                                variant={INVITATION_MANAGEMENT_REQUEST.destructiveVariant}
-                              >
-                                <Trash2Icon />
-                                {INVITATION_MANAGEMENT_COPY.revokeButton}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                {invitationActions.map((action) => (
+                                  <DropdownMenuItem
+                                    key={action.label}
+                                    onSelect={action.onSelect}
+                                    variant={
+                                      action.destructive
+                                        ? INVITATION_MANAGEMENT_REQUEST.destructiveVariant
+                                        : undefined
+                                    }
+                                  >
+                                    {action.icon}
+                                    {action.label}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </div>
                       </AnimatedListItem>
                     );
