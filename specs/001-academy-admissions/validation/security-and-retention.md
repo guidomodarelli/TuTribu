@@ -1,89 +1,102 @@
 # Validación de seguridad y conservación
 
-Checkpoint inicial del 2026-10-15, con las tandas Native observadas en ejecución, sobre `9890f3213257ba27a76ded3887d0861a8112c569`. T175 continúa abierta con su alcance original completo y las 212 tareas: 173 completadas y 39 pendientes. Ningún resultado parcial de este registro cierra T175 ni acredita los gates operativos.
+T175 queda validada con su alcance original completo: los cinco AC de US11, cuotas concurrentes, rotación, retención PostgreSQL real, superficies de salida, decisiones reconstruibles y blockers operativos concretos. El inventario conserva las 212 tareas: **174 completadas y 38 pendientes**. El cierre de esta validación no cierra T106, T201, T211 ni los gates operativos.
 
-## Requisitos y evidencia necesaria
+## Evidencia actual y alcance del conteo
 
-| Requisito obligatorio | Cadena que debe observarse | Estado en el checkpoint inicial |
-|---|---|---|
-| AC-01: último cupo con cien competidores | Claims y autorización PostgreSQL reales, exactamente un ganador, 99 rechazos y reserva consumida tras perder al worker. | Tanda Native de cuotas en curso. |
-| AC-01: cuenta/contacto entre tribus y canales | Solicitudes, fallos y cadencia con ventanas móviles/UTC; canal, contacto, clave, sesión o conexión nuevos conservan los contadores pertinentes. | Presupuestos y continuidad Native en curso. |
-| AC-01: identidad y pagador originales | Intento y reserva mantienen tribu/conexión/versiones; `accepted` y `unknown` no se reenvían ni liberan consumo; no se usa una cuenta global. | Cuotas e integración de aislamiento en curso. |
-| AC-02: reducción con trabajo en cola | El marker relee cupo, países y versión actuales antes de preparar credenciales o llamar al SDK; no autoriza por una reserva antigua. | Cuotas, países y tres canales con cupo cero en curso. |
-| AC-03: caller sin permiso y payload arbitrario | Schemas/handlers reales y Next compilado rechazan sender, destino, texto, plantilla, campos de autoridad y host; objetos cruzados y origen ajeno no producen efectos. | Contratos locales aprobados; integración HTTP Native en curso. |
-| AC-04: respuestas y autenticación | DTOs propios minimizados, cookies y API privada conservadas, causas privadas sin tokens/códigos en respuestas o errores públicos. | Lote local aprobado; bordes Native de auth en curso. |
-| AC-04: logs, analítica y trazas | Reporter final de Next/SDK y agregados SQL seleccionan campos cerrados y correlación, sin canarios privados ni dimensiones arbitrarias. | Contratos locales aprobados; reporter y reader Native en curso. |
-| AC-04: captura de controles privados | Tres componentes reales y widget publicado; captura JPEG real protegida y control negativo en Chromium/WebKit a 1280/390. | Cuatro casos de navegador aprobados; imágenes sólo en memoria. |
-| AC-05: alcance local y Google global | Código genuino no sirve en otra cuenta/tribu/desafío; validar localmente no crea evidencia global, membresía ni recuperación de cuenta. | MAC local aprobado; aislamiento Native en curso. |
-| Rotación de cifrado separada de BYOK | Mismo plaintext/ref/versiones/cuotas; lote bounded idempotente, ausencia de resurrección, rollback y conciliación del original sin retry. | Productor Native y DELETE concurrente en curso. |
-| Fingerprint y payload MAC durante ventanas activas | Aliases/sujeto/consumo originales, clave retenida y material acreditado; ausencia o sustitución bajo el mismo id cierra sin crear otra identidad. | Crypto local aprobado; continuidad y persistencia Native en curso. |
-| Seis propósitos y recuperación cerrada | Claves independientes/no extraíbles, AAD completo y recovery lock/época antes de acceso privado; no hay fallback de material. | Crypto/hosting local aprobado; owners privados Native en curso. |
-| Secreto retirado y candidata | Bloqueo previo al purge, 24 horas desde retirada, siete días de candidata más 24 horas; ejecución tardía no extiende el reloj. | SecretStore, deadline y candidata Native en curso. |
-| OTP de como máximo diez minutos | Material mínimo, expiración original, retiro después de aceptación y conservación del resultado incierto vigente. | Crypto local aprobado; mantenimiento Native en curso. |
-| CSV de 24 horas, terminales de 180 días y auditoría de 365 | SQL real, filas frescas preservadas, lotes/no-op/rollback, archivo con fecha original y resultados mínimos conservados. | Retención y composición Native en curso. |
-| Borrado sin liberar vínculos necesarios | Cuenta/tribu retiradas, referencias minimizadas y contadores conservados; otra identidad no recupera un contacto reservado. | Borrado/vínculos Native en curso. |
-| Decisiones reconstruibles sin secretos | Actor/regla/tribu/recurso/versión/operación originales y metadata seleccionada; agregados y auditoría privada conservan scopes diferentes. | Constructores y casos de uso locales aprobados; lectores Native en curso. |
-| Blockers operativos concretos | Distinguir configuración local, hosting original, restore, abuso operativo y preparación real por canal de las pruebas sintéticas. | Contraste operativo pendiente; no se generan claves sustitutas del piloto. |
+El [manifiesto sanitizado de resultados](security-and-retention-results.json) conserva archivos relativos, hashes normalizados, identificadores opacos de casos, flags de cada grupo y evidencia de build/limpieza. Registra **429 casos aprobados en 54 archivos completos**, más **un caso focal aprobado de reducción del cupo después del claim**. Los trece casos de ese archivo que quedaron fuera del filtro no se presentan como ejecutados ni aprobados.
 
-## Preparación y resultados terminales disponibles
+| Grupo actual | Archivos completos | Casos aprobados | Alcance |
+|---|---:|---:|---|
+| Contratos locales de autenticación, HTTP, cifrado y observabilidad | 21 | 316 | Incluye 78 contratos de rutas y los nueve casos de observación con su fuente corregida. |
+| Captura privada y SDK real con transporte cerrado | 2 | 20 | Cuatro capturas reales Chromium/WebKit a 1280/390 y dieciséis contratos del SDK. |
+| PostgreSQL Native | 30 | 92 | Cuotas, aislamiento, autoridad, keyrings, retención y borrados reales. |
+| Reporter final de Next compilado | 1 | 1 | SQL provoca una causa privada; el logger real produce sólo su JSON permitido. |
+| Total de archivos completos | 54 | 429 | Sin fallos ni casos omitidos dentro de estos archivos con sus flags indicados. |
 
-- El checkout principal comenzó limpio y el remoto coincide con el commit base. La vuelta anterior completó T174 y publicó su documentación; no se repite su resultado como ejecución de T175.
-- El inventario inicial de Neon confirma únicamente producción y el piloto protegido. Los ensayos usan ramas propias del arnés existente y roles reales; no se modifica ni reinicia ninguna de esas dos ramas.
-- La copia administrada `admission-security-validation` conserva el mismo commit y dependencias instaladas mediante `pnpm install --frozen-lockfile`. Next 16.3.4 termina su build real con código cero y configuración exclusivamente sintética. Se contrastaron 1727 archivos de producto; 121 diferencias de bytes eran sólo CRLF/LF según `.gitattributes`. No se modificaron los archivos de producto para igualarlos.
-- Veinte archivos de contratos, autenticación, cifrado y observabilidad terminaron con **238 casos aprobados, cero fallos y cero exclusiones**, sin filtros de nombres. Las fuentes conservan sus hashes. Better Auth, Zod y Web Crypto se ejercen según sus contratos actuales; los dobles pertenecen a puertos propios o APIs ausentes de jsdom con justificación existente.
-- El archivo completo `academy-contact-verification-routes.test.ts` terminó con **78 aprobados, cero fallos y cero exclusiones**. El handler real rechaza los campos de autoridad/payload antes de abrir la composición; esa condición precede a cualquier identidad o rol. Comprueba además DTOs, origen, correlación y salida de errores sin causa privada.
-- El lote de navegador/SDK terminó con **20 aprobados, cero fallos y cero exclusiones**: cuatro del widget publicado y dieciséis del sender con SDK real y transporte propio. Se preservaron los hashes de ambos archivos. Estos 336 casos actuales pertenecen a 23 archivos diferentes y no suman repeticiones.
-- Las tandas Native de cuotas y seguridad/conservación siguen en ejecución en este checkpoint. Sus handles vivos y targets están registrados localmente; la ausencia temporal de un JSON terminal no acredita éxito ni justifica reiniciar una ejecución. La segunda tanda consume el build aislado actual y recibe únicamente un selector no secreto de rol/base: cada URI real pertenece a la rama creada por el arnés y permanece en memoria.
+El caso focal adicional de `message-delivery-repository.test.ts` reclama una entrega ya encolada, reduce el cupo vigente a cero y comprueba `quota_exceeded`, ausencia de intento/reserva y auditoría ligada al ledger original. Su resultado es **1 aprobado, 13 fuera del filtro**. Su alcance se limita a ese escenario.
 
-## Revisión de superficies de salida
+El conteo distingue archivo, título y ordinal de parametrización: conserva variantes con igual título y cuenta una sola vez las repeticiones. Excluye fuentes modificadas sin revalidación, archivos incompletos y entradas vacías del primer reporte. Los cinco casos aprobados de la antigua suite de credenciales no se suman a los ocho de su reemplazo actual; tampoco se duplican los cuatro casos de retención ni los nueve de observación.
 
-| Superficie | Owner inspeccionado | Evidencia y límite |
-|---|---|---|
-| Input y respuesta HTTP | `admission-contact-verification-handlers.ts`, `own-json-route-boundary.ts`, `messaging-route-http.ts` | Input una vez antes de composición, proyección propia mínima y selección de stage/code/status/request/trace. No se pasa la excepción, el body rechazado o la causa al logger. Los 78 contratos ejercen el handler; Next Native conserva su resultado pendiente. |
-| Reporter de dispatch | `createMessagingDispatchReporter` | Elige código propio y referencias privadas de intento/entrega; no copia mensajes/cuerpos. La deduplicación diagnóstica no sustituye el ledger ni las métricas persistidas. El reporter final desde Next sigue en su tanda Native. |
-| SDK y respuestas upstream | `ZavuMessageDeliverySender`, `ZAVU_DELIVERY_TRANSPORT` | Cliente por intento, logging apagado, cero retries, destino/sender ligados al intent y `fallbackEnabled:false`. Selección mínima del resultado de transporte, sin schemas sobre el SDK. Dieciséis casos actuales del SDK aprobados. |
-| Auth y causas SQL | `AuthDatabaseOperationError` y el boundary nativo de auth | `toString`, JSON e inspección de consola tienen campos cerrados; la causa real permanece privada. Los contratos locales están aprobados y las causas PostgreSQL/SDK y rutas compiladas mantienen su prueba Native pendiente. |
-| Métricas y auditoría | `admission-metric-dimensions.ts`, owners y readers de auditoría/métricas | Canales/fases/códigos cerrados y referencias privadas separadas de labels agregados. No se atribuye redacción automática al logger genérico. La lectura SQL actual y los casos de retención siguen pendientes de terminal. |
-| Reporte visual | Tres presenters de contacto, diagnóstico y conexión con `admission-private-widget-capture.test.tsx` | Widget y JPEG reales en ambos motores/anchos; el control negativo demuestra que la exclusión protege el campo visible. No se guardan imágenes ni claves. |
+## Matriz de requisitos originales
 
-El inventario de logs de mensajería/admisión localizó los reporters y las composiciones de invitaciones: seleccionan códigos fijos, no payloads ni causas. El sweep de pools conserva un solo checkout explícito en el guard compartido; los demás pools de auth, refresco de imagen y backfill usan `createPostgresPool`. Este incremento no modifica pools, retries ni el comportamiento del producto.
+| Requisito | Resultado observado y evidencia |
+|---|---|
+| US-11-AC-01: último cupo con cien competidores | `delivery-attempts-and-usage.test.ts` ejerce claims/markers PostgreSQL: un autorizado, 99 rechazos por cuota y consumo conservado al perder el worker. |
+| US-11-AC-01: cuenta/contacto entre tribus y canales | `account-code-request-budget`, `code-request-budget`, `contact-budget-continuity`, `shared-verification-bucket` y límites de fallos verifican ventanas móviles/UTC y continuidad entre contactos, propósitos, canales y tribus. |
+| US-11-AC-01: sesión, clave y pagador originales | `verification-quota-connection-session`, presupuesto de credenciales y `messaging-isolation-and-rotation` conservan consumo, conexión/versión e intent. `accepted` y `unknown` no habilitan otro envío ni otro pagador. |
+| US-11-AC-02: cupo reducido con trabajo en cola | El focal reclama antes de reducir el límite y revalida al autorizar. Los tres casos completos de `messaging-zero-quota-admission` prueban que el worker no prepara credenciales ni llama al SDK con cupo cero, conservando la verificación obligatoria. `platform-country-marker` comprueba también las restricciones actuales de SMS/WhatsApp. |
+| US-11-AC-03: payload y autoridad no elegibles | Los 78 contratos rechazan remitente, destino, texto, plantilla y campos de autoridad antes de componer el módulo. `admission-security-and-privacy` usa Next compilado: recursos cruzados 404, entradas inválidas 400, origen ajeno 403 y ningún efecto persistido. |
+| US-11-AC-04: respuestas y autenticación | Contratos locales, `better-auth-private-http-native` y el logger privado de Better Auth ejercen sesión/cookies reales y rutas de tokens. Las salidas propias conservan campos permitidos y causas privadas. |
+| US-11-AC-04: logs, analítica y trazas | `admission-dispatch-final-logger-native` inyecta mediante PostgreSQL una causa con credencial, OTP y canario generados. El reporter real conserva correlación y claves cerradas, sin material privado ni campo `error`. `admission-observability-reader` verifica agregados privados y dimensiones cerradas. |
+| US-11-AC-04: captura de controles privados | `admission-private-widget-capture` usa componentes y widget publicados, JPEG real, control negativo y ambos motores en dos anchos; las imágenes permanecen en memoria. |
+| US-11-AC-05: confianza local y Google global | `admission-verification-scope-isolation` y los contratos MAC ejercen códigos genuinos en ámbitos distintos y diagnóstico local. Su validación no crea evidencia global, pertenencia ni recuperación de cuenta. |
+| Rotación de cifrado separada de BYOK | `messaging-protection-key-rotation` y su suite de borrado verifican plaintext/referencias/versiones/consumo conservados, CAS, lotes acotados, rollback y conciliación de commit incierto sin retry automático. |
+| Fingerprint y payload MAC durante ventanas activas | `contact-budget-continuity`, `messaging-key-material-continuity` y `payload-key-rotation-persistence` conservan sujeto, aliases, consumo y operación original. Material ausente o sustituido bajo el mismo id cierra antes de crear otra identidad o claim. |
+| Seis propósitos y recuperación cerrada | Crypto/hosting locales, `encrypted-secret-store` y rotación Native verifican material independiente/no extraíble, AAD contextual y rechazo por recovery lock/época. No hay fallback de material. |
+| Secreto retirado y candidata | `encrypted-secret-store`, `retired-secret-purge-deadline` y `messaging-candidate-expiration` verifican bloqueo previo a la purga, plazo de 24 horas y candidata de siete días más 24 horas, con reloj original conservado en ejecuciones tardías. |
+| OTP de como máximo diez minutos | Crypto y `verification-material-maintenance` conservan expiración original, destruyen bytes después de aceptación y retienen el material de un intento incierto todavía vigente; el consumo y los receipts permanecen. |
+| CSV de 24 horas, terminales de 180 días y auditoría de 365 | `allowlist-import-material-retention`, `admission-private-data-retention` y `admission-retention-composition` ejecutan SQL real: material fresco preservado, límites globales, no-op, rollback, archivo con fecha original y resultados mínimos conservados. |
+| Borrado sin liberar vínculos necesarios | `allowlist-binding-account-deletion`, `admission-tribe-deleted-budgets` y retención privada conservan referencias/consumo necesarios y rechazan otra identidad para un contacto reservado. |
+| Decisiones reconstruibles sin secretos | Constructores y casos de uso de auditoría, lectores SQL y fases del worker conservan actor/regla/tribu/recurso/versión/operación originales. Auditoría privada y agregados mantienen sus ámbitos distintos. |
+| Blockers operativos concretos | La observación del piloto y del proceso local se detalla abajo. Registra configuración/restore/preparación real pendientes; los escenarios sintéticos no certifican OG-01 a OG-06. |
 
-## Contraste operativo de sólo lectura
+## Superficies y composición revisadas
 
-La observación del `2026-10-15T07:56:33.302Z` verificó la rama exacta del piloto y ejecutó sólo agregados mediante `pg` en `BEGIN READ ONLY`, con timeouts y cierre de conexión. No seleccionó bytes de clave, contacto, sender o plantilla; tampoco descifró ni llamó al proveedor. Confirmó una tribu, una candidata protegida, validación de credencial `valid`, estado `draft`, cero seleccionadas, cero capacidades preparadas y cero intentos externos.
+La ruta de challenges y `admission-contact-verification-handlers` validan origen, params, query y body antes de abrir la composición. `own-json-route-boundary` valida únicamente inputs y DTOs propios; sus diagnósticos seleccionan etapa/código/correlación y no incluyen el body ni la causa cruda. Este rechazo estructural ocurre antes de resolver la cuenta y se aplica a cualquier caller.
 
-| Condición | Hecho observado | Consecuencia y alcance |
-|---|---|---|
-| Claves/época del proceso local | No están presentes los inputs de entorno, época, recovery lock explícito ni keyrings en el proceso observador. | No acredita uso protegido desde ese proceso. No se inspeccionó ni se declara ausente la configuración del servidor o hosting original; tampoco se verificó coincidencia del material con la candidata conservada. |
-| Restore operativo | Esta revisión no dispone de un ensayo acreditado de reconciliación del inventario original y época externa del entorno objetivo. | La prueba sintética de bloqueo/época no cierra OG-02 ni reemplaza T201. Se conserva el original y no se crean claves sustitutas. |
-| Abuso y consumo reales | El piloto sigue en borrador, sin selección ni capacidad de canal preparada; no se enviaron mensajes externos en estos ensayos. | Las cuotas y el SDK sintéticos no certifican recursos, restricciones, gasto o deduplicación incierta del proveedor. La autorización humana acotada anterior persiste, pero la preparación y el ensayo real conservan T106/OG-03/OG-04. |
+`messaging-route-http` prioriza status y narrowing mínimo del proveedor. El sender real conserva un cliente por intento, URL/método/redirección fijos, `maxRetries=0`, `logLevel=off` y ausencia de fallback. `messaging-observability`, `AuthDatabaseOperationError` y `admission-metric-dimensions` mantienen proyecciones cerradas. La búsqueda de salidas en ambos módulos y el caso Native del reporter contrastan el contrato hasta la consola real de Next.
 
-La observación administrativa encontró las dos ramas protegidas y otras dos durante las tandas independientes. El cierre deberá volver a comprobar la eliminación de las ramas propias después de sus terminales; este checkpoint no las presenta como retiradas mientras los procesos sigan trabajando.
+La revisión de acceso agrupado ya comprobó el checkout guardado y sus usos hermanos; este incremento no modifica pools, transacciones, retries ni llamadas de producto. ORM, Better Auth, Zod, Web Crypto, SDK y controles compartidos se ejercen realmente; los dobles corresponden a puertos propios o al transporte HTTP cerrado. Sólo el caso de reloj controla los timers estándar y los restaura en `finally`.
 
-## Límites que siguen vigentes
+## Entorno, build y recursos
 
-El build sintético no acredita que el hosting original tenga instalados sus keyrings, época o bloqueo de recuperación. Los inputs de una copia de pruebas tampoco permiten abrir la credencial protegida del piloto. No se regeneran claves para intentar descifrarla y no se guardan conexiones ni se realizan envíos externos desde estos ensayos.
+Node 24.21.0, pnpm 12.6.0, Next 16.3.4 y dependencias instaladas con lockfile congelado. El build aislado real terminó con código cero. Se volvieron a contrastar los 1727 archivos de producto con la copia que ejecutó Next: 121 diferencias de bytes son exclusivamente CRLF/LF y no hay otras diferencias. Los 175 artefactos versionados de migración también coinciden normalizando CRLF/LF. El producto permanece equivalente al build de `9890f321`; los cambios posteriores de este trabajo son fixtures, pruebas y registros.
 
-Las pruebas de recovery lock/época y rotación no son un ensayo operativo de restore. La revisión de abuso debe distinguir controles de producto de preparación y restricciones reales del proveedor; ningún contador de llamadas acredita costo monetario exacto. Google global, preparación por canal, scheduler, restore y los seis gates conservan sus evidencias y tareas propias.
+Las ramas SQL pertenecen al arnés verificado; sus migraciones se aplican exclusivamente allí y se prueban roles reales, incluido el que no tiene bypass RLS. La conciliación del `2026-10-15T10:18:52.145Z` confirma ausencia de todas las ramas de validación y conserva producción y el piloto original: dos ramas, ninguna otra. Los receipts de la copia aislada se preservaron antes de su limpieza.
 
-Las baselines [de cuotas](messaging-usage-and-abuse.md), [de permisos y privacidad](admission-security-and-privacy.md), [de bordes privados](private-http-hardening-baseline.md), [de rotación](messaging-protection-key-rotation-baseline.md) y [documental](security-documentation-completion-audit.md) aportan contexto por su alcance. Los casos ejecutados ahora se contabilizarán separadamente, sin sumar repeticiones ni usar evidencia histórica para afirmar una ejecución nueva.
+El último caso del reporter requería `RUN_ADMISSION_BROWSER_TESTS=1` y había quedado omitido con los flags de la primera continuación. Su ejecución original detectó `ENOENT` al tratar `.git` como carpeta dentro de un worktree. Se corrigió únicamente la captura: archivo temporal propio, creación exclusiva y eliminación en `finally`. El caso completo pasó con el servidor, PostgreSQL y SDK reales y transporte cerrado.
 
-## Seguimiento posterior al checkpoint inicial
+## Diagnóstico conservado
 
-El checkpoint inicial quedó guardado y subido en `bff9679a76c27100e8047245ec2c5361e8419785`. T175 sigue abierta, con 173 tareas completadas y 39 pendientes. Las siguientes observaciones no sustituyen los criterios de la matriz ni acreditan los gates operativos.
+La primera tanda de cuotas terminó 28/2. La prueba de sesión vencida había suspendido antes su recurso al perder liderazgo; se separó de ese escenario. El supuesto historial sin vínculo se estaba insertando después del journal completo; ahora se crea mediante el prefijo real previo a su guarda y atraviesa el upgrade íntegro. Los ocho casos actuales pasan, con fechas, identidad, anonimización y consumo conservados.
 
-La tanda Native de cuotas terminó con **28 casos aprobados y dos fallos** en treinta casos. Ambos se reprodujeron sobre ramas propias con `pg` real, antes de editar las pruebas. El caso de sesión vencida había suspendido previamente el recurso al retirar y restituir el liderazgo: el resultado era `resource_unavailable`, coherente con la suspensión persistente. El caso histórico intentaba insertar eventos sin vínculo después de que el fixture común instalara todo el journal; PostgreSQL respondió `23514` desde `guard_credential_validation_usage_identity`.
+La primera tanda de seguridad terminó 36 aprobados, un fallo de confirmación de limpieza y dos pendientes. Se concilió la rama propia y se ejecutaron los archivos faltantes. La continuación terminó 25/0 con un caso omitido; la ejecución explícita posterior del reporter completa ese caso. Los resultados iniciales y sus entradas vacías no se usan como aprobación.
 
-La corrección afecta exclusivamente a los fixtures: conserva la suspensión y el consumo tras perder liderazgo, comprueba la sesión vencida en un recurso que sigue activo y crea los eventos históricos antes de su migración real mediante un prefijo del journal. Después ejecuta el upgrade íntegro y conserva las comprobaciones de identidad, fecha, anonimización y cupo. No desactiva triggers ni cambia los artefactos SQL. El prefijo mantiene su corte predeterminado para CSV y admite el corte explícito del historial de validaciones. Lint antes y después, tipos de las pruebas y `git diff --check` pasaron.
+El CI también expuso una comprobación temporal de observación: los nueve casos originales pasaron localmente, pero el CI obtuvo `deadlineReached=false` con contadores correctos. El caso corregido comprueba espera justo antes del límite, salida al alcanzarlo, una escritura tardía original y cero timers pendientes. Los nueve completos pasan; no cambia el worker.
 
-La tanda Native de seguridad terminó con **36 casos aprobados, un fallo y dos casos pendientes** al detenerse por el primer fallo. El error ocurrió al confirmar la eliminación de una rama temporal. El reporte contiene catorce archivos sin validación completa; sus entradas sin casos ejecutados no se consideran aprobadas. La conciliación administrativa del `2026-10-15T08:31:33.016Z` comprobó la propiedad exacta, eliminó la rama restante y confirmó que sólo quedaban producción y el piloto protegido, ambos conservados.
+## Blockers operativos y límites de la evidencia
 
-Se iniciaron dos tandas de continuación, cada una con un único worker: la suite completa corregida de ocho casos de validación de credenciales junto a los cuatro casos de composición de retención, y los catorce archivos originales de seguridad que no habían terminado. Usan el mismo producto que el build aprobado y los fixtures actuales contrastados entre checkouts. Sus resultados y la limpieza de sus nuevas ramas permanecen pendientes; no se contabilizan como éxito mientras sigan ejecutándose.
+La observación `2026-10-15T10:18:45.381Z` verificó la rama exacta del piloto y consultó sólo agregados con `pg` en una transacción de lectura, timeouts y cierre de conexión. Confirmó una tribu, una candidata, una credencial protegida y validada, estado `draft`, cero seleccionadas, cero capacidades preparadas y cero intentos externos.
 
-## Resultado de la continuación de fixtures
+| Área | Hecho concreto y trabajo conservado |
+|---|---|
+| Keys/época | El proceso observador local no tiene entorno, época, recovery lock explícito ni keyrings configurados. Su material no se decodificó ni se contrastó con la candidata. El servidor/hosting original conserva su verificación propia pendiente; este resultado no afirma pérdida ni ausencia de sus claves. |
+| Restore | Falta el ensayo operativo con inventario original y época externa del entorno objetivo, requerido por T201/OG-02. Los ensayos sintéticos sí prueban bloqueo, rollback y continuidad; el original se conserva y no se crean claves sustitutas. |
+| Abuso/proveedor | El piloto continúa sin selección ni canales preparados y no registra intentos externos. T106 y OG-03/OG-04 requieren recursos reales, restricciones, recepción y consumo comprobados. SDK/cuotas sintéticos no acreditan gasto monetario ni límites reales del proveedor. |
 
-La primera continuación terminó el `2026-10-15T08:49:14.745Z` con **doce aprobados, cero fallos y cero casos pendientes**: los ocho de `credential-validation-budget.test.ts` y los cuatro de `admission-retention-composition.test.ts`, completos y sin filtros de nombres. Los archivos y sus dependencias de fixture conservaron sus hashes. La comprobación administrativa posterior confirmó la ausencia de las doce ramas propias de esa tanda y la conservación de producción y el piloto. Esta comprobación no incluye las nuevas ramas que sigue usando la tanda de seguridad.
+Los tests no realizan envíos externos ni certifican Google global real, hosting, scheduler, restore o los seis gates. La purga observada corresponde a las filas actuales; backups/WAL e historial del proveedor conservan sus requisitos operativos.
 
-El último CI también detectó un fallo intermitente en la prueba de observación tardía: `deadlineReached` resultó falso aunque los contadores y el resultado incompleto eran correctos. Los nueve casos del archivo original pasaron localmente; no se presenta esa corrida como reproducción local del fallo. La prueba afectada ahora controla los timers estándar: el run sigue esperando antes del límite, termina al alcanzarlo, conserva una sola escritura original para su resolución tardía y limpia los timers. Las expectativas de contadores y resultados se conservan; no cambia el worker de producto. Los nueve casos completos vuelven a pasar con la prueba corregida.
+## Reproducción
 
-El inventario actual reúne **403 casos aprobados distintos en cuarenta archivos** para T175. Identifica cada caso por archivo, título y ordinal de parametrización dentro del mismo archivo; las variantes con títulos iguales se conservan y las repeticiones de una misma variante no se suman. Descarta resultados de fuentes modificadas, archivos incompletos y entradas sin casos ejecutados. La tanda de catorce archivos originales de seguridad sigue pendiente de resultado terminal: **T175 permanece abierta** y conserva todos los criterios de la matriz.
+El manifiesto permite ejecutar las mismas listas por grupo, con sus flags indicados, usando el build aislado y el arnés de ramas propias. El grupo de captura requiere Chromium y WebKit instalados. Las credenciales de Neon permanecen en el perfil privado del CLI; el selector de base/rol no sustituye la URL propia que obtiene el arnés.
+
+```powershell
+$securityResults = Get-Content -Raw specs/001-academy-admissions/validation/security-and-retention-results.json | ConvertFrom-Json
+$previousSqlFlag = $env:RUN_ADMISSION_SQL_TESTS
+$previousBrowserFlag = $env:RUN_ADMISSION_BROWSER_TESTS
+try {
+  foreach ($securityGroup in $securityResults.executionGroups) {
+    $env:RUN_ADMISSION_SQL_TESTS = $securityGroup.environment.RUN_ADMISSION_SQL_TESTS
+    $env:RUN_ADMISSION_BROWSER_TESTS = $securityGroup.environment.RUN_ADMISSION_BROWSER_TESTS
+    $securityFiles = @($securityGroup.files)
+    pnpm exec vitest run @securityFiles --maxWorkers 1
+    if ($LASTEXITCODE -ne 0) { throw "Falló la cohorte de seguridad: $($securityGroup.id)" }
+  }
+} finally {
+  $env:RUN_ADMISSION_SQL_TESTS = $previousSqlFlag
+  $env:RUN_ADMISSION_BROWSER_TESTS = $previousBrowserFlag
+}
+```
+
+El focal adicional se ejecuta con los flags Native y su `testNamePattern` exacto del manifiesto; sus trece casos filtrados permanecen fuera de esta evidencia. El control completo de GitHub Actions y sus fixes de sincronización tienen su registro separado en [quality-gate.md](quality-gate.md); T211 continúa abierta.

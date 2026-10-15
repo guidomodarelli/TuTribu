@@ -187,7 +187,8 @@ describe("personal invitation page workflow", () => {
     const confirmation = screen.getByRole("checkbox", { name: /Confirmo que quiero usar esta invitación/i }); await waitFor(() => expect(confirmation).toBeEnabled());
     vi.mocked(data.client.viewer).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos comprobar la cuenta.", uncertain: false });
     fireEvent.click(confirmation); fireEvent.click(screen.getByRole("button", { name: "Confirmar invitación" }));
-    const alert = await screen.findByRole("alert"); expect(alert).toHaveTextContent("No pudimos comprobar la cuenta."); expect(alert).toHaveFocus();
+    const alert = await screen.findByRole("alert"); expect(alert).toHaveTextContent("No pudimos comprobar la cuenta.");
+    await waitFor(() => expect(alert).toHaveFocus());
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar invitación" })).toBeEnabled());
     expect(data.client.submit).not.toHaveBeenCalled();
     fireEvent.click(confirmation); expect(screen.queryByRole("alert")).toBeNull();
