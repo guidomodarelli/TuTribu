@@ -530,6 +530,8 @@ async function main(scriptArguments) {
         console.log(SCRIPT_MESSAGE.step.migrate);
         connectionStrings = await readSandboxConnectionStrings({ apiKey, branchId, projectId });
         const migrationExitCode = await migrateSandbox(connectionStrings);
+        // drizzle-kit leaves its spinner line without a trailing newline.
+        console.log();
 
         if (migrationExitCode !== EXIT_CODE.success) {
           console.error(SCRIPT_MESSAGE.migrationsFailed);
