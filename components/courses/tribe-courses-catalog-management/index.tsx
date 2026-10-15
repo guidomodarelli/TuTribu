@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Switch, AnimatedCollapse, AnimatedListItem, cn } from "beez-ui";
+import { toast, Button, Input, Switch, Textarea, AnimatedCollapse, AnimatedListItem, cn } from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
 import { ROUTES } from "@/src/constants/routes";
@@ -95,7 +95,6 @@ const INPUT_TYPE = {
 } as const;
 const NUMERIC_PARSE_RADIX = 10;
 const ARIA_ROLE_GROUP = "group";
-const ARIA_ROLE_ALERT = "alert";
 
 /**
  * Builds the endpoint that creates courses of a tribe.
@@ -690,7 +689,6 @@ function CourseForm({
   onSubmit,
 }: CourseFormProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const titleErrorId = useId();
   const [titleError, setTitleError] = useState<string | null>(null);
   const [title, setTitle] = useState(initialState.title);
   const [description, setDescription] = useState(initialState.description);
@@ -756,64 +754,45 @@ function CourseForm({
       <h3 className={styles.TribeCoursesCatalogManagement__formHeading}>
         {headingLabel}
       </h3>
-      <label className={styles.TribeCoursesCatalogManagement__formField}>
-        <span>{CATALOG_MANAGEMENT_COPY.titleLabel}</span>
-        <Input
-          aria-describedby={titleError ? titleErrorId : undefined}
-          aria-invalid={titleError ? true : undefined}
-          maxLength={COURSE_TITLE.maxLength}
-          onChange={(event) => {
-            setTitle(event.target.value);
-            setTitleError(null);
-          }}
-          placeholder={CATALOG_MANAGEMENT_COPY.titlePlaceholder}
-          ref={titleInputRef}
-          required
-          value={title}
-        />
-        {titleError ? (
-          <span
-            className={styles.TribeCoursesCatalogManagement__fieldError}
-            id={titleErrorId}
-            role={ARIA_ROLE_ALERT}
-          >
-            {titleError}
-          </span>
-        ) : null}
-      </label>
-      <label className={styles.TribeCoursesCatalogManagement__formField}>
-        <span>{CATALOG_MANAGEMENT_COPY.descriptionLabel}</span>
-        <textarea
-          className={styles.TribeCoursesCatalogManagement__textarea}
-          maxLength={COURSE_DESCRIPTION.maxLength}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder={CATALOG_MANAGEMENT_COPY.descriptionPlaceholder}
-          rows={2}
-          value={description}
-        />
-      </label>
-      <label className={styles.TribeCoursesCatalogManagement__formField}>
-        <span>{CATALOG_MANAGEMENT_COPY.coverLabel}</span>
-        <Input
-          onChange={(event) => setCoverImageUrl(event.target.value)}
-          placeholder={CATALOG_MANAGEMENT_COPY.coverPlaceholder}
-          type="url"
-          value={coverImageUrl}
-        />
-      </label>
-      <label className={styles.TribeCoursesCatalogManagement__formField}>
-        <span>{CATALOG_MANAGEMENT_COPY.sortOrderLabel}</span>
-        <Input
-          min={0}
-          onChange={(event) =>
-            setSortOrder(
-              Number.parseInt(event.target.value, NUMERIC_PARSE_RADIX) || 0
-            )
-          }
-          type={INPUT_TYPE.number}
-          value={sortOrder}
-        />
-      </label>
+      <Input
+        error={titleError ?? undefined}
+        label={CATALOG_MANAGEMENT_COPY.titleLabel}
+        maxLength={COURSE_TITLE.maxLength}
+        onChange={(event) => {
+          setTitle(event.target.value);
+          setTitleError(null);
+        }}
+        placeholder={CATALOG_MANAGEMENT_COPY.titlePlaceholder}
+        ref={titleInputRef}
+        required
+        value={title}
+      />
+      <Textarea
+        label={CATALOG_MANAGEMENT_COPY.descriptionLabel}
+        maxLength={COURSE_DESCRIPTION.maxLength}
+        onChange={(event) => setDescription(event.target.value)}
+        placeholder={CATALOG_MANAGEMENT_COPY.descriptionPlaceholder}
+        rows={2}
+        value={description}
+      />
+      <Input
+        label={CATALOG_MANAGEMENT_COPY.coverLabel}
+        onChange={(event) => setCoverImageUrl(event.target.value)}
+        placeholder={CATALOG_MANAGEMENT_COPY.coverPlaceholder}
+        type="url"
+        value={coverImageUrl}
+      />
+      <Input
+        label={CATALOG_MANAGEMENT_COPY.sortOrderLabel}
+        min={0}
+        onChange={(event) =>
+          setSortOrder(
+            Number.parseInt(event.target.value, NUMERIC_PARSE_RADIX) || 0
+          )
+        }
+        type={INPUT_TYPE.number}
+        value={sortOrder}
+      />
       {isEditing ? (
         <label className={styles.TribeCoursesCatalogManagement__formSwitch}>
           <Switch checked={isActive} onCheckedChange={setIsActive} />

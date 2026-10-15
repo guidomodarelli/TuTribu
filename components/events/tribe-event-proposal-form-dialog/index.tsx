@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, cn, AnimatedCollapse } from "beez-ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, cn } from "beez-ui";
 
 import { buildBuenosAiresInstant } from "@/lib/date-time/buenos-aires-format";
 import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";
@@ -48,7 +48,6 @@ const FIELD_ID = {
   eventType: "tribe-event-proposal-type",
   startsTime: "tribe-event-proposal-starts-time",
   title: "tribe-event-proposal-title",
-  validationError: "tribe-event-proposal-validation-error",
 } as const;
 
 /** Required controls that a validation message can point at. */
@@ -106,7 +105,7 @@ function isTribeEventType(value: string): value is TribeEventType {
  * Reduced form a member uses to propose a meeting: title, date and time,
  * duration, type, and description. Managers complete the rest (link,
  * repetition, capacity) when they approve it. A missing required field is
- * reported under the form, marked invalid and focused.
+ * reported under that field, marked invalid and focused.
  */
 export function TribeEventProposalFormDialog({
   isOpen,
@@ -118,11 +117,9 @@ export function TribeEventProposalFormDialog({
   // Control the "missing fields" message points at; null while valid.
   const [invalidFieldId, setInvalidFieldId] = useState<ProposalRequiredFieldId | null>(null);
 
-  /** ARIA wiring that ties a required control to the validation message. */
-  const getValidationProps = (fieldId: ProposalRequiredFieldId) =>
-    invalidFieldId === fieldId
-      ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
-      : {};
+  /** Missing-fields message, shown under the required control to fix. */
+  const getFieldError = (fieldId: ProposalRequiredFieldId) =>
+    invalidFieldId === fieldId ? COPY.missingFields : undefined;
 
   const updateField = <TField extends keyof ProposalFormValues>(
     field: TField,
@@ -186,40 +183,34 @@ export function TribeEventProposalFormDialog({
           noValidate
           onSubmit={handleSubmit}
         >
-          <div className={styles.TribeEventProposalFormDialog__field}>
-            <label htmlFor={FIELD_ID.title}>{COPY.titleLabel}</label>
-            <Input
-              {...getValidationProps(FIELD_ID.title)}
-              id={FIELD_ID.title}
-              maxLength={TRIBE_EVENT_FIELD_LIMIT.titleMaxLength}
-              required
-              value={values.title}
-              onChange={(event) => updateField("title", event.currentTarget.value)}
-            />
-          </div>
+          <Input
+            error={getFieldError(FIELD_ID.title)}
+            id={FIELD_ID.title}
+            label={COPY.titleLabel}
+            maxLength={TRIBE_EVENT_FIELD_LIMIT.titleMaxLength}
+            required
+            value={values.title}
+            onChange={(event) => updateField("title", event.currentTarget.value)}
+          />
           <div className={styles.TribeEventProposalFormDialog__row}>
-            <div className={styles.TribeEventProposalFormDialog__field}>
-              <label htmlFor={FIELD_ID.date}>{COPY.dateLabel}</label>
-              <Input
-                {...getValidationProps(FIELD_ID.date)}
-                id={FIELD_ID.date}
-                required
-                type={INPUT_TYPE.date}
-                value={values.date}
-                onChange={(event) => updateField("date", event.currentTarget.value)}
-              />
-            </div>
-            <div className={styles.TribeEventProposalFormDialog__field}>
-              <label htmlFor={FIELD_ID.startsTime}>{COPY.startsTimeLabel}</label>
-              <Input
-                {...getValidationProps(FIELD_ID.startsTime)}
-                id={FIELD_ID.startsTime}
-                required
-                type={INPUT_TYPE.time}
-                value={values.startsTime}
-                onChange={(event) => updateField("startsTime", event.currentTarget.value)}
-              />
-            </div>
+            <Input
+              error={getFieldError(FIELD_ID.date)}
+              id={FIELD_ID.date}
+              label={COPY.dateLabel}
+              required
+              type={INPUT_TYPE.date}
+              value={values.date}
+              onChange={(event) => updateField("date", event.currentTarget.value)}
+            />
+            <Input
+              error={getFieldError(FIELD_ID.startsTime)}
+              id={FIELD_ID.startsTime}
+              label={COPY.startsTimeLabel}
+              required
+              type={INPUT_TYPE.time}
+              value={values.startsTime}
+              onChange={(event) => updateField("startsTime", event.currentTarget.value)}
+            />
           </div>
           <div
             className={cn(
@@ -274,25 +265,13 @@ export function TribeEventProposalFormDialog({
               </Select>
             </div>
           </div>
-          <div className={styles.TribeEventProposalFormDialog__field}>
-            <label htmlFor={FIELD_ID.description}>{COPY.descriptionLabel}</label>
-            <Textarea
-              className={styles.TribeEventProposalFormDialog__textarea}
-              id={FIELD_ID.description}
-              maxLength={TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength}
-              value={values.description}
-              onChange={(event) => updateField("description", event.currentTarget.value)}
-            />
-          </div>
-          <AnimatedCollapse isOpen={invalidFieldId !== null}>
-            <p
-              className={styles.TribeEventProposalFormDialog__error}
-              id={FIELD_ID.validationError}
-              role="alert"
-            >
-              {COPY.missingFields}
-            </p>
-          </AnimatedCollapse>
+          <Textarea
+            id={FIELD_ID.description}
+            label={COPY.descriptionLabel}
+            maxLength={TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength}
+            value={values.description}
+            onChange={(event) => updateField("description", event.currentTarget.value)}
+          />
           <div className={styles.TribeEventProposalFormDialog__actions}>
             <Button
               type={BUTTON_ATTRIBUTE.typeButton}

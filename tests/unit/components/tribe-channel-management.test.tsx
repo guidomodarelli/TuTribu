@@ -266,7 +266,9 @@ describe("TribeChannelManagement", () => {
     expect(
       within(getChannelItem("Ronda")).getByRole("textbox", { name: "Nombre" })
     ).toHaveAttribute("maxlength", "30");
-    expect(screen.getAllByText("Máximo 30 caracteres.")).not.toHaveLength(0);
+    expect(
+      within(getCreateForm()).getByRole("textbox", { name: "Nombre" })
+    ).toHaveAccessibleDescription("Máximo 30 caracteres.");
   });
 
   it("keeps Guardar disabled until the channel is edited", async () => {
@@ -318,9 +320,15 @@ describe("TribeChannelManagement", () => {
 
     const longNameChannelItem = getChannelItem("Canal con nombre demasiado largo");
 
-    expect(
-      within(longNameChannelItem).getByText("Usá 30 caracteres o menos.")
-    ).toBeInTheDocument();
+    const longNameInput = within(longNameChannelItem).getByRole("textbox", {
+      name: "Nombre",
+    });
+
+    expect(longNameInput).toHaveAttribute("aria-invalid", "true");
+    expect(longNameInput).toHaveAccessibleDescription(
+      "Usá 30 caracteres o menos."
+    );
+    expect(within(longNameChannelItem).getByRole("alert")).toBeVisible();
     expect(
       within(longNameChannelItem).getByRole("button", { name: "Guardar" })
     ).toBeDisabled();

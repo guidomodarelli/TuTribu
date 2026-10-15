@@ -182,11 +182,9 @@ export function TribeEventProposalsPanel({
         ) : null}
         <AnimatedCollapse isOpen={canReviewProposals && isRejecting}>
           <div className={styles.TribeEventProposalsPanel__rejectForm}>
-            <label className={styles.TribeEventProposalsPanel__label} htmlFor={noteFieldId}>
-              {COPY.reviewNoteLabel}
-            </label>
             <Textarea
               id={noteFieldId}
+              label={COPY.reviewNoteLabel}
               maxLength={TRIBE_EVENT_PROPOSAL_LIMIT.reviewNoteMaxLength}
               value={reviewNote}
               onChange={(event) => setReviewNote(event.currentTarget.value)}

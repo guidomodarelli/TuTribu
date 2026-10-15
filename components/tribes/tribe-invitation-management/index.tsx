@@ -11,7 +11,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCollapse, AnimatedCount, AnimatedListItem, PresenceSwap, SplitButton, copyTextToClipboard, cn } from "beez-ui";
+import { toast, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCount, AnimatedListItem, PresenceSwap, SplitButton, copyTextToClipboard, cn } from "beez-ui";
 import type { SplitButtonAction } from "beez-ui";
 
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
@@ -245,7 +245,6 @@ const CREATE_MUTATION_PENDING_KEY = "create-invitation";
 const COPY_FEEDBACK_DURATION_MS = 2000;
 
 /** Suffix appended to an input id to build the id of its inline error message. */
-const FIELD_ERROR_ID_SUFFIX = "-error";
 
 /** Presence keys for the region that swaps between the list and the empty state. */
 const INVITATION_REGION_PRESENCE_KEY = {
@@ -388,15 +387,6 @@ function getReferralMetadataErrors(
  */
 function hasReferralMetadataErrors(errors: ReferralMetadataErrors): boolean {
   return Boolean(errors.campaignName || errors.referrerHandle);
-}
-
-/**
- * Builds the id of the inline error rendered under an input.
- * @param inputId - Id of the input the error describes.
- * @returns The error element id.
- */
-function buildFieldErrorId(inputId: string): string {
-  return inputId + FIELD_ERROR_ID_SUFFIX;
 }
 
 /**
@@ -765,36 +755,6 @@ function PlanSelectorField({
   );
 }
 
-type InvitationFieldErrorProps = {
-  id: string;
-  message: string | null;
-};
-
-/**
- * Inline validation message that expands under its field and collapses once
- * the value is fixed. The last message is kept while collapsing so the text
- * does not vanish before the height animation ends.
- */
-function InvitationFieldError({ id, message }: InvitationFieldErrorProps) {
-  const [visibleMessage, setVisibleMessage] = useState(message);
-
-  if (message && message !== visibleMessage) {
-    setVisibleMessage(message);
-  }
-
-  return (
-    <AnimatedCollapse isOpen={Boolean(message)}>
-      <p
-        className={styles.TribeInvitationManagement__fieldError}
-        id={id}
-        role="alert"
-      >
-        {message ?? visibleMessage}
-      </p>
-    </AnimatedCollapse>
-  );
-}
-
 type ReferralMetadataFieldsProps = {
   campaignInputId: string;
   channelInputId: string;
@@ -817,9 +777,6 @@ function ReferralMetadataFields({
   onChange,
   referrerHandleInputId,
 }: ReferralMetadataFieldsProps) {
-  const campaignErrorId = buildFieldErrorId(campaignInputId);
-  const referrerHandleErrorId = buildFieldErrorId(referrerHandleInputId);
-
   return (
     <>
       <div className={styles.TribeInvitationManagement__field}>
@@ -852,54 +809,28 @@ function ReferralMetadataFields({
           </SelectContent>
         </Select>
       </div>
-      <div className={styles.TribeInvitationManagement__field}>
-        <label
-          className={styles.TribeInvitationManagement__dialogLabel}
-          htmlFor={campaignInputId}
-        >
-          {INVITATION_MANAGEMENT_COPY.campaignLabel}
-        </label>
-        <Input
-          aria-describedby={errors.campaignName ? campaignErrorId : undefined}
-          aria-invalid={errors.campaignName ? true : undefined}
-          id={campaignInputId}
-          maxLength={REFERRAL_METADATA_LIMIT.campaignNameMaxLength}
-          onChange={(event) => {
-            onChange({ ...formState, campaignName: event.target.value });
-          }}
-          placeholder={INVITATION_MANAGEMENT_COPY.campaignPlaceholder}
-          value={formState.campaignName}
-        />
-        <InvitationFieldError
-          id={campaignErrorId}
-          message={errors.campaignName}
-        />
-      </div>
-      <div className={styles.TribeInvitationManagement__field}>
-        <label
-          className={styles.TribeInvitationManagement__dialogLabel}
-          htmlFor={referrerHandleInputId}
-        >
-          {INVITATION_MANAGEMENT_COPY.referrerHandleLabel}
-        </label>
-        <Input
-          aria-describedby={
-            errors.referrerHandle ? referrerHandleErrorId : undefined
-          }
-          aria-invalid={errors.referrerHandle ? true : undefined}
-          id={referrerHandleInputId}
-          maxLength={REFERRAL_METADATA_LIMIT.referrerHandleMaxLength}
-          onChange={(event) => {
-            onChange({ ...formState, referrerHandle: event.target.value });
-          }}
-          placeholder={INVITATION_MANAGEMENT_COPY.referrerHandlePlaceholder}
-          value={formState.referrerHandle}
-        />
-        <InvitationFieldError
-          id={referrerHandleErrorId}
-          message={errors.referrerHandle}
-        />
-      </div>
+      <Input
+        error={errors.campaignName ?? undefined}
+        id={campaignInputId}
+        label={INVITATION_MANAGEMENT_COPY.campaignLabel}
+        maxLength={REFERRAL_METADATA_LIMIT.campaignNameMaxLength}
+        onChange={(event) => {
+          onChange({ ...formState, campaignName: event.target.value });
+        }}
+        placeholder={INVITATION_MANAGEMENT_COPY.campaignPlaceholder}
+        value={formState.campaignName}
+      />
+      <Input
+        error={errors.referrerHandle ?? undefined}
+        id={referrerHandleInputId}
+        label={INVITATION_MANAGEMENT_COPY.referrerHandleLabel}
+        maxLength={REFERRAL_METADATA_LIMIT.referrerHandleMaxLength}
+        onChange={(event) => {
+          onChange({ ...formState, referrerHandle: event.target.value });
+        }}
+        placeholder={INVITATION_MANAGEMENT_COPY.referrerHandlePlaceholder}
+        value={formState.referrerHandle}
+      />
     </>
   );
 }

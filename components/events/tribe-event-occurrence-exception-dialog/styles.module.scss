@@ -12,32 +12,12 @@
     gap: 0.75rem;
   }
 
-  &__field {
-    display: grid;
-    gap: 0.4rem;
-    min-width: 0;
-    font-weight: 500;
-  }
-
   &__toggle {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     font-size: 0.9rem;
     font-weight: 500;
-  }
-
-  &__textarea {
-    min-height: 4.5rem;
-    resize: vertical;
-  }
-
-  &__error {
-    margin: 0;
-    border-left: 3px solid var(--destructive);
-    color: var(--destructive);
-    font-size: 0.9rem;
-    padding-left: 0.75rem;
   }
 
   &__actions {

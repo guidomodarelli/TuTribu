@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, AnimatedCollapse, MOTION_TIMING, MOTION_EASE } from "beez-ui";
+import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, MOTION_TIMING, MOTION_EASE } from "beez-ui";
 
 import {
   addDaysToBuenosAiresDateKey,
@@ -119,7 +119,6 @@ const FORM_DEFAULTS: EventFormValues = {
 const RECURRENCE_UNTIL_END_OF_DAY_TIME = "23:59";
 const FIELD_ID = {
   capacity: "tribe-event-capacity",
-  capacityHint: "tribe-event-capacity-hint",
   date: "tribe-event-date",
   description: "tribe-event-description",
   endsDate: "tribe-event-ends-date",
@@ -131,15 +130,14 @@ const FIELD_ID = {
   recurrenceUntil: "tribe-event-recurrence-until",
   startsTime: "tribe-event-starts-time",
   title: "tribe-event-title",
-  validationError: "tribe-event-validation-error",
 } as const;
 
 /** Id of a form control that a validation message can point at. */
 type EventFormFieldId = (typeof FIELD_ID)[keyof typeof FIELD_ID];
 
 /**
- * Validation failure shown under the form: the Spanish message and the
- * control it belongs to, which is marked invalid, described by the message
+ * Validation failure shown under the control it belongs to: the Spanish
+ * message and that control, which is marked invalid, described by the message
  * and focused so the manager lands on what to fix.
  */
 type EventFormValidationIssue = {
@@ -472,8 +470,8 @@ function focusFormControl(form: HTMLFormElement, fieldId: EventFormFieldId): voi
 
 /**
  * Create, edit and approve form of an event. Validation runs on submit and
- * reports the first problem next to the form, marking and focusing the
- * control it belongs to.
+ * reports the first problem under the control it belongs to, marking and
+ * focusing it.
  */
 export function TribeEventFormDialog({
   editingOccurrence,
@@ -490,13 +488,6 @@ export function TribeEventFormDialog({
   const initialFormValues = initialFormState.values;
   const [values, setValues] = useState<EventFormValues>(initialFormValues);
   const [validationIssue, setValidationIssue] = useState<EventFormValidationIssue | null>(null);
-  // Last message shown, kept while the error region collapses so the text
-  // does not vanish before the region closes.
-  const [shownValidationMessage, setShownValidationMessage] = useState<string | null>(null);
-
-  if (validationIssue && validationIssue.message !== shownValidationMessage) {
-    setShownValidationMessage(validationIssue.message);
-  }
   const [endsOnAnotherDay, setEndsOnAnotherDay] = useState(
     initialFormValues.endsDate !== EMPTY_VALUE
   );
@@ -530,11 +521,9 @@ export function TribeEventFormDialog({
   const isRecurring =
     values.recurrenceFrequency !== TRIBE_EVENT_RECURRENCE_FREQUENCY.none;
 
-  /** ARIA wiring that ties a control to the current validation message. */
-  const getValidationProps = (fieldId: EventFormFieldId) =>
-    validationIssue?.fieldId === fieldId
-      ? { "aria-describedby": FIELD_ID.validationError, "aria-invalid": true }
-      : {};
+  /** Validation message of a control, shown under it while it is the one to fix. */
+  const getFieldError = (fieldId: EventFormFieldId) =>
+    validationIssue?.fieldId === fieldId ? validationIssue.message : undefined;
 
   const updateField = (field: keyof EventFormValues, value: string) => {
     setValidationIssue(null);
@@ -659,16 +648,14 @@ export function TribeEventFormDialog({
           <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
         <form className={styles.TribeEventFormDialog__form} onSubmit={handleSubmit}>
-          <div className={styles.TribeEventFormDialog__field}>
-            <label htmlFor={FIELD_ID.title}>{COPY.titleLabel}</label>
-            <Input
-              id={FIELD_ID.title}
-              maxLength={TRIBE_EVENT_FIELD_LIMIT.titleMaxLength}
-              required
-              value={values.title}
-              onChange={(event) => updateField("title", event.currentTarget.value)}
-            />
-          </div>
+          <Input
+            id={FIELD_ID.title}
+            label={COPY.titleLabel}
+            maxLength={TRIBE_EVENT_FIELD_LIMIT.titleMaxLength}
+            required
+            value={values.title}
+            onChange={(event) => updateField("title", event.currentTarget.value)}
+          />
           <div className={styles.TribeEventFormDialog__field}>
             <label htmlFor={FIELD_ID.eventType}>{COPY.eventTypeLabel}</label>
             <Select
@@ -691,49 +678,42 @@ export function TribeEventFormDialog({
             </Select>
           </div>
           <div className={styles.TribeEventFormDialog__row}>
-            <div className={styles.TribeEventFormDialog__field}>
-              <label htmlFor={FIELD_ID.date}>{COPY.dateLabel}</label>
-              <Input
-                id={FIELD_ID.date}
-                required
-                type={INPUT_TYPE.date}
-                value={values.date}
-                onChange={(event) => updateDate(event.currentTarget.value)}
-              />
-            </div>
-            <div className={styles.TribeEventFormDialog__field}>
-              <label htmlFor={FIELD_ID.startsTime}>{COPY.startsTimeLabel}</label>
-              <Input
-                id={FIELD_ID.startsTime}
-                required
-                type={INPUT_TYPE.time}
-                value={values.startsTime}
-                onChange={(event) => updateStartsTime(event.currentTarget.value)}
-              />
-            </div>
+            <Input
+              id={FIELD_ID.date}
+              label={COPY.dateLabel}
+              required
+              type={INPUT_TYPE.date}
+              value={values.date}
+              onChange={(event) => updateDate(event.currentTarget.value)}
+            />
+            <Input
+              id={FIELD_ID.startsTime}
+              label={COPY.startsTimeLabel}
+              required
+              type={INPUT_TYPE.time}
+              value={values.startsTime}
+              onChange={(event) => updateStartsTime(event.currentTarget.value)}
+            />
           </div>
           <div className={styles.TribeEventFormDialog__row}>
-            <div className={styles.TribeEventFormDialog__field}>
-              <label htmlFor={FIELD_ID.endsTime}>{COPY.endsTimeLabel}</label>
-              <Input
-                {...getValidationProps(FIELD_ID.endsTime)}
-                id={FIELD_ID.endsTime}
-                type={INPUT_TYPE.time}
-                value={values.endsTime}
-                onChange={(event) => updateEndField("endsTime", event.currentTarget.value)}
-              />
-            </div>
+            <Input
+              error={getFieldError(FIELD_ID.endsTime)}
+              id={FIELD_ID.endsTime}
+              label={COPY.endsTimeLabel}
+              type={INPUT_TYPE.time}
+              value={values.endsTime}
+              onChange={(event) => updateEndField("endsTime", event.currentTarget.value)}
+            />
             <AnimatePresence initial={false}>
               {endsOnAnotherDay ? (
                 <motion.div
-                  className={styles.TribeEventFormDialog__field}
                   key={FIELD_ID.endsDate}
                   {...CONDITIONAL_FIELD_MOTION}
                 >
-                  <label htmlFor={FIELD_ID.endsDate}>{COPY.endsDateLabel}</label>
                   <Input
-                    {...getValidationProps(FIELD_ID.endsDate)}
+                    error={getFieldError(FIELD_ID.endsDate)}
                     id={FIELD_ID.endsDate}
+                    label={COPY.endsDateLabel}
                     min={values.date || undefined}
                     type={INPUT_TYPE.date}
                     value={values.endsDate}
@@ -778,16 +758,13 @@ export function TribeEventFormDialog({
             <AnimatePresence initial={false}>
               {isRecurring ? (
                 <motion.div
-                  className={styles.TribeEventFormDialog__field}
                   key={FIELD_ID.recurrenceUntil}
                   {...CONDITIONAL_FIELD_MOTION}
                 >
-                  <label htmlFor={FIELD_ID.recurrenceUntil}>
-                    {COPY.recurrenceUntilLabel}
-                  </label>
                   <Input
-                    {...getValidationProps(FIELD_ID.recurrenceUntil)}
+                    error={getFieldError(FIELD_ID.recurrenceUntil)}
                     id={FIELD_ID.recurrenceUntil}
+                    label={COPY.recurrenceUntilLabel}
                     min={values.date || undefined}
                     type={INPUT_TYPE.date}
                     value={values.recurrenceUntil}
@@ -799,59 +776,38 @@ export function TribeEventFormDialog({
               ) : null}
             </AnimatePresence>
           </div>
-          <div className={styles.TribeEventFormDialog__field}>
-            <label htmlFor={FIELD_ID.capacity}>{COPY.capacityLabel}</label>
-            <Input
-              aria-describedby={
-                validationIssue?.fieldId === FIELD_ID.capacity
-                  ? FIELD_ID.validationError + " " + FIELD_ID.capacityHint
-                  : FIELD_ID.capacityHint
-              }
-              aria-invalid={validationIssue?.fieldId === FIELD_ID.capacity || undefined}
-              className={styles.TribeEventFormDialog__capacity}
-              id={FIELD_ID.capacity}
-              // Plain text with a numeric keyboard: native number validation
-              // would block the submit with a browser-language bubble instead
-              // of the Spanish inline message.
-              inputMode={INPUT_MODE.numeric}
-              placeholder={COPY.capacityPlaceholder}
-              value={values.capacity}
-              onChange={(event) => updateField("capacity", event.currentTarget.value)}
-            />
-            <p className={styles.TribeEventFormDialog__hint} id={FIELD_ID.capacityHint}>
-              {isEditing ? COPY.capacityHint + " " + COPY.capacityEditHint : COPY.capacityHint}
-            </p>
-          </div>
-          <div className={styles.TribeEventFormDialog__field}>
-            <label htmlFor={FIELD_ID.meetingUrl}>{COPY.meetingUrlLabel}</label>
-            <Input
-              id={FIELD_ID.meetingUrl}
-              inputMode={INPUT_MODE.url}
-              placeholder={COPY.meetingUrlPlaceholder}
-              type={INPUT_TYPE.url}
-              value={values.meetingUrl}
-              onChange={(event) => updateField("meetingUrl", event.currentTarget.value)}
-            />
-          </div>
-          <div className={styles.TribeEventFormDialog__field}>
-            <label htmlFor={FIELD_ID.description}>{COPY.descriptionLabel}</label>
-            <Textarea
-              className={styles.TribeEventFormDialog__textarea}
-              id={FIELD_ID.description}
-              maxLength={TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength}
-              value={values.description}
-              onChange={(event) => updateField("description", event.currentTarget.value)}
-            />
-          </div>
-          <AnimatedCollapse isOpen={validationIssue !== null}>
-            <p
-              className={styles.TribeEventFormDialog__error}
-              id={FIELD_ID.validationError}
-              role="alert"
-            >
-              {validationIssue?.message ?? shownValidationMessage}
-            </p>
-          </AnimatedCollapse>
+          <Input
+            className={styles.TribeEventFormDialog__capacity}
+            description={
+              isEditing ? COPY.capacityHint + " " + COPY.capacityEditHint : COPY.capacityHint
+            }
+            error={getFieldError(FIELD_ID.capacity)}
+            id={FIELD_ID.capacity}
+            // Plain text with a numeric keyboard: native number validation
+            // would block the submit with a browser-language bubble instead
+            // of the Spanish inline message.
+            inputMode={INPUT_MODE.numeric}
+            label={COPY.capacityLabel}
+            placeholder={COPY.capacityPlaceholder}
+            value={values.capacity}
+            onChange={(event) => updateField("capacity", event.currentTarget.value)}
+          />
+          <Input
+            id={FIELD_ID.meetingUrl}
+            inputMode={INPUT_MODE.url}
+            label={COPY.meetingUrlLabel}
+            placeholder={COPY.meetingUrlPlaceholder}
+            type={INPUT_TYPE.url}
+            value={values.meetingUrl}
+            onChange={(event) => updateField("meetingUrl", event.currentTarget.value)}
+          />
+          <Textarea
+            id={FIELD_ID.description}
+            label={COPY.descriptionLabel}
+            maxLength={TRIBE_EVENT_FIELD_LIMIT.descriptionMaxLength}
+            value={values.description}
+            onChange={(event) => updateField("description", event.currentTarget.value)}
+          />
           <div className={styles.TribeEventFormDialog__actions}>
             <Button
               type={BUTTON_ATTRIBUTE.typeButton}

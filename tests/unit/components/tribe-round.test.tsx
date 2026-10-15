@@ -6408,6 +6408,9 @@ describe("TribeRound", () => {
     await user.click(
       screen.getByRole("menuitem", { name: "Editar fecha de creación" })
     );
+
+    expect(screen.getByLabelText("Fecha y hora")).toBeRequired();
+
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => {

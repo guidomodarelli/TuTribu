@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { toast, Button, Input, Switch, AnimatedCollapse, AnimatedListItem, formatFileSize, cn, RichLinkEditor, useRichLinkEditor } from "beez-ui";
 
@@ -134,7 +134,6 @@ const OPTIMISTIC_ID_FALLBACK_SEPARATOR = "-";
 const TYPEOF_UNDEFINED = "undefined";
 const CRYPTO_RANDOM_UUID_PROPERTY = "randomUUID";
 const ARIA_ROLE_GROUP = "group";
-const ARIA_ROLE_ALERT = "alert";
 const ARIA_ROLE_STATUS = "status";
 
 /**
@@ -1366,7 +1365,6 @@ type ModuleFormProps = {
  */
 function useRequiredTitleField(initialTitle: string) {
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const titleErrorId = useId();
   const [title, setTitleValue] = useState(initialTitle);
   const [titleError, setTitleError] = useState<string | null>(null);
 
@@ -1396,37 +1394,9 @@ function useRequiredTitleField(initialTitle: string) {
     setTitle,
     title,
     titleError,
-    titleErrorId,
     titleInputRef,
     validateTitle,
   };
-}
-
-type FieldErrorProps = {
-  id: string;
-  message: string | null;
-};
-
-/**
- * Inline validation message rendered next to the affected field.
- *
- * @param props - Element id referenced by `aria-describedby` and the message.
- * @returns The message, or nothing when there is no error.
- */
-function FieldError({ id, message }: FieldErrorProps) {
-  if (!message) {
-    return null;
-  }
-
-  return (
-    <span
-      className={styles.TribeCoursesManagement__fieldError}
-      id={id}
-      role={ARIA_ROLE_ALERT}
-    >
-      {message}
-    </span>
-  );
 }
 
 /**
@@ -1446,7 +1416,6 @@ function ModuleForm({
     setTitle,
     title,
     titleError,
-    titleErrorId,
     titleInputRef,
     validateTitle,
   } = useRequiredTitleField(initialState.title);
@@ -1496,49 +1465,39 @@ function ModuleForm({
       <h3 className={styles.TribeCoursesManagement__formHeading}>
         {headingLabel}
       </h3>
-      <label className={styles.TribeCoursesManagement__formField}>
-        <span>{COURSES_MANAGEMENT_COPY.titleLabel}</span>
-        <Input
-          aria-describedby={titleError ? titleErrorId : undefined}
-          aria-invalid={titleError ? true : undefined}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder={COURSES_MANAGEMENT_COPY.titleModulePlaceholder}
-          ref={titleInputRef}
-          required
-          value={title}
-        />
-        <FieldError id={titleErrorId} message={titleError} />
-      </label>
-      <label className={styles.TribeCoursesManagement__formField}>
-        <span>{COURSES_MANAGEMENT_COPY.sortOrderLabel}</span>
-        <Input
-          onChange={(event) =>
-            setSortOrder(Number.parseInt(event.target.value, NUMERIC_PARSE_RADIX) || 0)
-          }
-          type={INPUT_TYPE.number}
-          value={sortOrder}
-        />
-      </label>
-      <label className={styles.TribeCoursesManagement__formField}>
-        <span>{COURSES_MANAGEMENT_COPY.unlockAfterDaysLabel}</span>
-        <Input
-          min={0}
-          onChange={(event) => {
-            const parsedValue = Number.parseInt(
-              event.target.value,
-              NUMERIC_PARSE_RADIX
-            );
-            setUnlockAfterDays(
-              Number.isFinite(parsedValue) ? parsedValue : null
-            );
-          }}
-          type={INPUT_TYPE.number}
-          value={unlockAfterDays ?? ""}
-        />
-        <span className={styles.TribeCoursesManagement__formHelp}>
-          {COURSES_MANAGEMENT_COPY.unlockAfterDaysHelp}
-        </span>
-      </label>
+      <Input
+        error={titleError ?? undefined}
+        label={COURSES_MANAGEMENT_COPY.titleLabel}
+        onChange={(event) => setTitle(event.target.value)}
+        placeholder={COURSES_MANAGEMENT_COPY.titleModulePlaceholder}
+        ref={titleInputRef}
+        required
+        value={title}
+      />
+      <Input
+        label={COURSES_MANAGEMENT_COPY.sortOrderLabel}
+        onChange={(event) =>
+          setSortOrder(Number.parseInt(event.target.value, NUMERIC_PARSE_RADIX) || 0)
+        }
+        type={INPUT_TYPE.number}
+        value={sortOrder}
+      />
+      <Input
+        description={COURSES_MANAGEMENT_COPY.unlockAfterDaysHelp}
+        label={COURSES_MANAGEMENT_COPY.unlockAfterDaysLabel}
+        min={0}
+        onChange={(event) => {
+          const parsedValue = Number.parseInt(
+            event.target.value,
+            NUMERIC_PARSE_RADIX
+          );
+          setUnlockAfterDays(
+            Number.isFinite(parsedValue) ? parsedValue : null
+          );
+        }}
+        type={INPUT_TYPE.number}
+        value={unlockAfterDays ?? ""}
+      />
       {isEditing ? (
         <label className={styles.TribeCoursesManagement__formField}>
           <span>{COURSES_MANAGEMENT_COPY.activeLabel}</span>
@@ -1601,7 +1560,6 @@ function LessonForm({
     setTitle,
     title,
     titleError,
-    titleErrorId,
     titleInputRef,
     validateTitle,
   } = useRequiredTitleField(initialState.title);
@@ -1609,7 +1567,6 @@ function LessonForm({
     initialState.externalVideoUrl
   );
   const videoUrlInputRef = useRef<HTMLInputElement>(null);
-  const videoUrlErrorId = useId();
   const [videoUrlError, setVideoUrlError] = useState<string | null>(null);
   const setExternalVideoUrl = (nextVideoUrl: string) => {
     setExternalVideoUrlValue(nextVideoUrl);
@@ -1937,46 +1894,31 @@ function LessonForm({
       <h3 className={styles.TribeCoursesManagement__formHeading}>
         {headingLabel}
       </h3>
-      <label className={styles.TribeCoursesManagement__formField}>
-        <span>{COURSES_MANAGEMENT_COPY.titleLabel}</span>
-        <Input
-          aria-describedby={titleError ? titleErrorId : undefined}
-          aria-invalid={titleError ? true : undefined}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder={COURSES_MANAGEMENT_COPY.titleLessonPlaceholder}
-          ref={titleInputRef}
-          required
-          value={title}
-        />
-        <FieldError id={titleErrorId} message={titleError} />
-      </label>
-      <label className={styles.TribeCoursesManagement__formField}>
-        <span>{COURSES_MANAGEMENT_COPY.videoUrlLabel}</span>
-        <Input
-          aria-describedby={videoUrlError ? videoUrlErrorId : undefined}
-          aria-invalid={videoUrlError ? true : undefined}
-          onChange={(event) => setExternalVideoUrl(event.target.value)}
-          placeholder={COURSES_MANAGEMENT_COPY.videoUrlPlaceholder}
-          ref={videoUrlInputRef}
-          required
-          value={externalVideoUrl}
-        />
-        {videoUrlError ? (
-          <FieldError id={videoUrlErrorId} message={videoUrlError} />
-        ) : (
-          <small
-            className={cn(
-              styles.TribeCoursesManagement__formHelp,
-              detectedProvider &&
-                styles["TribeCoursesManagement__formHelp--success"]
-            )}
-          >
-            {detectedProvider
+      <Input
+        error={titleError ?? undefined}
+        label={COURSES_MANAGEMENT_COPY.titleLabel}
+        onChange={(event) => setTitle(event.target.value)}
+        placeholder={COURSES_MANAGEMENT_COPY.titleLessonPlaceholder}
+        ref={titleInputRef}
+        required
+        value={title}
+      />
+      <Input
+        description={
+          videoUrlError
+            ? undefined
+            : detectedProvider
               ? `Detectado: ${PROVIDER_LABEL[detectedProvider]}`
-              : COURSES_MANAGEMENT_COPY.videoUrlHelp}
-          </small>
-        )}
-      </label>
+              : COURSES_MANAGEMENT_COPY.videoUrlHelp
+        }
+        error={videoUrlError ?? undefined}
+        label={COURSES_MANAGEMENT_COPY.videoUrlLabel}
+        onChange={(event) => setExternalVideoUrl(event.target.value)}
+        placeholder={COURSES_MANAGEMENT_COPY.videoUrlPlaceholder}
+        ref={videoUrlInputRef}
+        required
+        value={externalVideoUrl}
+      />
       <label className={styles.TribeCoursesManagement__formField}>
         <span>{COURSES_MANAGEMENT_COPY.descriptionLabel}</span>
         <div className={styles.TribeCoursesManagement__descriptionEditor}>
@@ -2068,16 +2010,14 @@ function LessonForm({
           {LESSON_FILES_HELP_TEXT}
         </small>
       </div>
-      <label className={styles.TribeCoursesManagement__formField}>
-        <span>{COURSES_MANAGEMENT_COPY.sortOrderLabel}</span>
-        <Input
-          onChange={(event) =>
-            setSortOrder(Number.parseInt(event.target.value, NUMERIC_PARSE_RADIX) || 0)
-          }
-          type={INPUT_TYPE.number}
-          value={sortOrder}
-        />
-      </label>
+      <Input
+        label={COURSES_MANAGEMENT_COPY.sortOrderLabel}
+        onChange={(event) =>
+          setSortOrder(Number.parseInt(event.target.value, NUMERIC_PARSE_RADIX) || 0)
+        }
+        type={INPUT_TYPE.number}
+        value={sortOrder}
+      />
       {isEditing ? (
         <label className={styles.TribeCoursesManagement__formField}>
           <span>{COURSES_MANAGEMENT_COPY.activeLabel}</span>

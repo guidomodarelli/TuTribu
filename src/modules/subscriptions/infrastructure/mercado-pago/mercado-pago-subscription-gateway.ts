@@ -13,6 +13,7 @@ import {
   type HttpResponse,
 } from "@/src/modules/shared/infrastructure/http/fetch-with-resilience";
 import { SERVER_LOG_LEVEL } from "@/src/modules/shared/infrastructure/observability/server-logger";
+import { MERCADO_PAGO_URL } from "@/src/modules/subscriptions/constants/mercado-pago";
 import {
   TRIBE_SUBSCRIPTION_FREQUENCY,
   TRIBE_SUBSCRIPTION_TRIAL_FREQUENCY_TYPE,
@@ -67,16 +68,6 @@ export async function findMercadoPagoSubscriptionCheckoutByReference(input: Merc
 const MERCADO_PAGO_ENV = {
   clientId: "MERCADO_PAGO_CLIENT_ID",
   clientSecret: "MERCADO_PAGO_CLIENT_SECRET",
-} as const;
-
-const MERCADO_PAGO_URL = {
-  apiBase: "https://api.mercadopago.com",
-  authorizedPayments: "https://api.mercadopago.com/authorized_payments",
-  authorization: "https://auth.mercadopago.com.ar/authorization",
-  oauthToken: "https://api.mercadopago.com/oauth/token",
-  payments: "https://api.mercadopago.com/v1/payments",
-  preapproval: "https://api.mercadopago.com/preapproval",
-  preapprovalPlan: "https://api.mercadopago.com/preapproval_plan",
 } as const;
 
 const MERCADO_PAGO_HTTP = {

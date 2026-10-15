@@ -58,9 +58,8 @@ describe("TribeCoursesCatalogManagement", () => {
     await user.type(titleInput, "   ");
     await user.click(screen.getByRole("button", { name: "Crear" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Escribí un título para el curso."
-    );
+    expect(screen.getByRole("alert")).toBeVisible();
+    expect(titleInput).toHaveAccessibleDescription(/Escribí un título para el curso\./);
     expect(titleInput).toHaveAttribute("aria-invalid", "true");
     expect(titleInput).toHaveFocus();
     expect(global.fetch).not.toHaveBeenCalled();

@@ -86,10 +86,8 @@ const CHANNEL_MANAGEMENT_FORM = {
 } as const;
 
 const CHANNEL_MANAGEMENT_FIELD_ID = {
-  createNameHelp: "create-channel-name-help",
   createNameInput: "create-channel-name",
   deleteTargetSelect: "delete-channel-target",
-  editNameHelpPrefix: "edit-channel-name-help-",
   editNameInputPrefix: "edit-channel-name-",
 } as const;
 
@@ -406,28 +404,22 @@ export function TribeChannelManagement({
             onChange={setEmoji}
             value={emoji}
           />
-          <div className={styles.TribeChannelManagement__nameField}>
-            <Input
-              aria-describedby={CHANNEL_MANAGEMENT_FIELD_ID.createNameHelp}
-              aria-label={CHANNEL_MANAGEMENT_COPY.nameLabel}
-              className={styles.TribeChannelManagement__textInput}
-              id={CHANNEL_MANAGEMENT_FIELD_ID.createNameInput}
-              maxLength={TRIBE_CHANNEL_NAME.maxLength}
-              onChange={(event) => {
-                setName(event.currentTarget.value);
-              }}
-              placeholder={CHANNEL_MANAGEMENT_COPY.namePlaceholder}
-              value={name}
-            />
-            <p
-              className={styles.TribeChannelManagement__fieldHelp}
-              id={CHANNEL_MANAGEMENT_FIELD_ID.createNameHelp}
-            >
-              {name.length > TRIBE_CHANNEL_NAME.maxLength
+          <Input
+            aria-label={CHANNEL_MANAGEMENT_COPY.nameLabel}
+            description={CHANNEL_MANAGEMENT_COPY.nameLimitDescription}
+            error={
+              name.length > TRIBE_CHANNEL_NAME.maxLength
                 ? CHANNEL_MANAGEMENT_COPY.nameTooLongError
-                : CHANNEL_MANAGEMENT_COPY.nameLimitDescription}
-            </p>
-          </div>
+                : undefined
+            }
+            id={CHANNEL_MANAGEMENT_FIELD_ID.createNameInput}
+            maxLength={TRIBE_CHANNEL_NAME.maxLength}
+            onChange={(event) => {
+              setName(event.currentTarget.value);
+            }}
+            placeholder={CHANNEL_MANAGEMENT_COPY.namePlaceholder}
+            value={name}
+          />
           <Button
             aria-busy={isCreatePending || undefined}
             className={styles.TribeChannelManagement__createButton}
@@ -483,7 +475,6 @@ export function TribeChannelManagement({
                 const isDirty = hasUnsavedChanges(channel, savedChannel);
                 const isNameTooLong =
                   channel.name.length > TRIBE_CHANNEL_NAME.maxLength;
-                const nameHelpId = `${CHANNEL_MANAGEMENT_FIELD_ID.editNameHelpPrefix}${channel.id}`;
 
                 return (
                   <AnimatedListItem
@@ -501,31 +492,23 @@ export function TribeChannelManagement({
                         }}
                         value={channel.emoji}
                       />
-                      <div className={styles.TribeChannelManagement__nameField}>
-                        <Input
-                          aria-describedby={isNameTooLong ? nameHelpId : undefined}
-                          aria-invalid={isNameTooLong}
-                          aria-label={CHANNEL_MANAGEMENT_COPY.nameLabel}
-                          className={styles.TribeChannelManagement__textInput}
-                          disabled={isPending}
-                          id={`${CHANNEL_MANAGEMENT_FIELD_ID.editNameInputPrefix}${channel.id}`}
-                          maxLength={TRIBE_CHANNEL_NAME.maxLength}
-                          onChange={(event) => {
-                            updateChannelDraft(channel.id, {
-                              name: event.currentTarget.value,
-                            });
-                          }}
-                          value={channel.name}
-                        />
-                        {isNameTooLong ? (
-                          <p
-                            className={styles.TribeChannelManagement__fieldError}
-                            id={nameHelpId}
-                          >
-                            {CHANNEL_MANAGEMENT_COPY.nameTooLongError}
-                          </p>
-                        ) : null}
-                      </div>
+                      <Input
+                        aria-label={CHANNEL_MANAGEMENT_COPY.nameLabel}
+                        disabled={isPending}
+                        error={
+                          isNameTooLong
+                            ? CHANNEL_MANAGEMENT_COPY.nameTooLongError
+                            : undefined
+                        }
+                        id={`${CHANNEL_MANAGEMENT_FIELD_ID.editNameInputPrefix}${channel.id}`}
+                        maxLength={TRIBE_CHANNEL_NAME.maxLength}
+                        onChange={(event) => {
+                          updateChannelDraft(channel.id, {
+                            name: event.currentTarget.value,
+                          });
+                        }}
+                        value={channel.name}
+                      />
                     </div>
                     <div
                       aria-label={`${CHANNEL_MANAGEMENT_COPY.actionsLabelPrefix} ${channel.name}`}

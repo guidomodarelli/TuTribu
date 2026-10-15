@@ -27,31 +27,11 @@
     max-width: 10rem;
   }
 
-  &__hint {
-    margin: 0;
-    color: var(--muted-foreground);
-    font-size: 0.8rem;
-    font-weight: 400;
-  }
-
   &__toggle {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     font-size: 0.9rem;
-  }
-
-  &__textarea {
-    min-height: 5rem;
-    resize: vertical;
-  }
-
-  &__error {
-    margin: 0;
-    border-left: 3px solid var(--destructive);
-    color: var(--destructive);
-    font-size: 0.9rem;
-    padding-left: 0.75rem;
   }
 
   &__actions {

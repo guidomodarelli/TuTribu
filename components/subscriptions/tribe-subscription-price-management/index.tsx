@@ -841,15 +841,10 @@ export function TribeSubscriptionPriceManagement({
   );
   const accountSelectId = useId();
   const accountLabelInputId = useId();
-  const nameInputId = useId();
-  const amountInputId = useId();
   const trialFrequencyToggleId = useId();
   const priceProductSelectId = useId();
   const trialFrequencyInputId = useId();
-  const amountErrorId = useId();
   const trialFrequencyErrorId = useId();
-  const editAmountErrorId = useId();
-  const editTrialFrequencyErrorId = useId();
   const mercadoPagoAccounts = useMemo(
     () =>
       availableMercadoPagoAccounts.map((account) => ({
@@ -2177,59 +2172,30 @@ export function TribeSubscriptionPriceManagement({
             <div
               className={styles.TribeSubscriptionPriceManagement__formMainRow}
             >
-                <div className={styles.TribeSubscriptionPriceManagement__field}>
-                  <label
-                    className={styles.TribeSubscriptionPriceManagement__label}
-                    htmlFor={nameInputId}
-                  >
-                    {PRICE_MANAGEMENT_COPY.nameLabel}
-                  </label>
-                  <Input
-                    disabled={isMercadoPagoConnectionRequired}
-                    id={nameInputId}
-                    onChange={(event) => {
-                      setName(event.currentTarget.value);
-                    }}
-                    placeholder={PRICE_MANAGEMENT_COPY.namePlaceholder}
-                    value={name}
-                  />
-                </div>
-                <div className={styles.TribeSubscriptionPriceManagement__field}>
-                  <label
-                    className={styles.TribeSubscriptionPriceManagement__label}
-                    htmlFor={amountInputId}
-                  >
-                    {PRICE_MANAGEMENT_COPY.amountLabel}
-                  </label>
-                  <Input
-                    disabled={isMercadoPagoConnectionRequired}
-                    id={amountInputId}
-                    inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
-                    aria-describedby={
-                      fieldErrors.amount ? amountErrorId : undefined
-                    }
-                    aria-invalid={fieldErrors.amount ? true : undefined}
-                    onChange={(event) => {
-                      setAmount(event.currentTarget.value);
-                      setFieldErrors((currentFieldErrors) => ({
-                        ...currentFieldErrors,
-                        amount: undefined,
-                      }));
-                    }}
-                    placeholder={PRICE_MANAGEMENT_COPY.amountPlaceholder}
-                    value={amount}
-                  />
-                  {fieldErrors.amount ? (
-                    <span
-                      className={
-                        styles.TribeSubscriptionPriceManagement__fieldError
-                      }
-                      id={amountErrorId}
-                    >
-                      {fieldErrors.amount}
-                    </span>
-                  ) : null}
-                </div>
+                <Input
+                  disabled={isMercadoPagoConnectionRequired}
+                  label={PRICE_MANAGEMENT_COPY.nameLabel}
+                  onChange={(event) => {
+                    setName(event.currentTarget.value);
+                  }}
+                  placeholder={PRICE_MANAGEMENT_COPY.namePlaceholder}
+                  value={name}
+                />
+                <Input
+                  disabled={isMercadoPagoConnectionRequired}
+                  error={fieldErrors.amount}
+                  inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
+                  label={PRICE_MANAGEMENT_COPY.amountLabel}
+                  onChange={(event) => {
+                    setAmount(event.currentTarget.value);
+                    setFieldErrors((currentFieldErrors) => ({
+                      ...currentFieldErrors,
+                      amount: undefined,
+                    }));
+                  }}
+                  placeholder={PRICE_MANAGEMENT_COPY.amountPlaceholder}
+                  value={amount}
+                />
               </div>
 
               <div className={styles.TribeSubscriptionPriceManagement__field}>
@@ -2741,94 +2707,43 @@ export function TribeSubscriptionPriceManagement({
                         }}
                         onSubmit={handleUpdatePrice}
                       >
-                        <div className={styles.TribeSubscriptionPriceManagement__field}>
-                          <label
-                            className={styles.TribeSubscriptionPriceManagement__label}
-                            htmlFor={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.name}`}
-                          >
-                            {PRICE_MANAGEMENT_COPY.editNameLabel}
-                          </label>
-                          <Input
-                            id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.name}`}
-                            onChange={(event) => {
-                              updateEditingPrice({
-                                name: event.currentTarget.value,
-                              });
-                            }}
-                            ref={editNameInputRef}
-                            value={editingPrice.name}
-                          />
-                        </div>
-                        <div className={styles.TribeSubscriptionPriceManagement__field}>
-                          <label
-                            className={styles.TribeSubscriptionPriceManagement__label}
-                            htmlFor={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.amount}`}
-                          >
-                            {PRICE_MANAGEMENT_COPY.editAmountLabel}
-                          </label>
-                          <Input
-                            aria-describedby={
-                              fieldErrors.amount ? editAmountErrorId : undefined
-                            }
-                            aria-invalid={fieldErrors.amount ? true : undefined}
-                            id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.amount}`}
-                            inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
-                            onChange={(event) => {
-                              updateEditingPrice({
-                                amount: event.currentTarget.value,
-                              });
-                            }}
-                            value={editingPrice.amount}
-                          />
-                          {fieldErrors.amount ? (
-                            <span
-                              className={
-                                styles.TribeSubscriptionPriceManagement__fieldError
-                              }
-                              id={editAmountErrorId}
-                            >
-                              {fieldErrors.amount}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className={styles.TribeSubscriptionPriceManagement__field}>
-                          <label
-                            className={styles.TribeSubscriptionPriceManagement__label}
-                            htmlFor={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.trialFrequency}`}
-                          >
-                            {PRICE_MANAGEMENT_COPY.trialDaysLabel}
-                          </label>
-                          <Input
-                            aria-describedby={
-                              editTrialFrequencyError
-                                ? editTrialFrequencyErrorId
-                                : undefined
-                            }
-                            aria-invalid={
-                              editTrialFrequencyError ? true : undefined
-                            }
-                            id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.trialFrequency}`}
-                            inputMode={PRICE_MANAGEMENT_FORMAT.numericInputMode}
-                            onChange={(event) => {
-                              updateEditingPrice({
-                                trialFrequency: event.currentTarget.value,
-                                trialFrequencyType:
-                                  PRICE_MANAGEMENT_FORMAT.trialFrequencyType,
-                              });
-                            }}
-                            value={editingPrice.trialFrequency}
-                          />
-                          {editTrialFrequencyError ? (
-                            <span
-                              className={
-                                styles.TribeSubscriptionPriceManagement__fieldError
-                              }
-                              id={editTrialFrequencyErrorId}
-                            >
-                              {editTrialFrequencyError}
-                            </span>
-                          ) : null}
-                        </div>
+                        <Input
+                          id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.name}`}
+                          label={PRICE_MANAGEMENT_COPY.editNameLabel}
+                          onChange={(event) => {
+                            updateEditingPrice({
+                              name: event.currentTarget.value,
+                            });
+                          }}
+                          ref={editNameInputRef}
+                          value={editingPrice.name}
+                        />
+                        <Input
+                          error={fieldErrors.amount}
+                          id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.amount}`}
+                          inputMode={PRICE_MANAGEMENT_FORMAT.inputMode}
+                          label={PRICE_MANAGEMENT_COPY.editAmountLabel}
+                          onChange={(event) => {
+                            updateEditingPrice({
+                              amount: event.currentTarget.value,
+                            });
+                          }}
+                          value={editingPrice.amount}
+                        />
+                        <Input
+                          error={editTrialFrequencyError}
+                          id={`${price.id}${PRICE_MANAGEMENT_EDIT_FIELD_ID_SUFFIX.trialFrequency}`}
+                          inputMode={PRICE_MANAGEMENT_FORMAT.numericInputMode}
+                          label={PRICE_MANAGEMENT_COPY.trialDaysLabel}
+                          onChange={(event) => {
+                            updateEditingPrice({
+                              trialFrequency: event.currentTarget.value,
+                              trialFrequencyType:
+                                PRICE_MANAGEMENT_FORMAT.trialFrequencyType,
+                            });
+                          }}
+                          value={editingPrice.trialFrequency}
+                        />
                         <div className={styles.TribeSubscriptionPriceManagement__actions}>
                           <Button
                             aria-busy={

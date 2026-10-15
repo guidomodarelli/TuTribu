@@ -29,6 +29,9 @@ describe("AcademyVerification", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(link).toHaveAttribute("target", "_blank");
     expect(screen.queryByLabelText(/dni|clave|contraseña/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Email de la cuenta (opcional)" })).toHaveAccessibleDescription(
+      /Nunca pedimos claves, documentos ni saldos/
+    );
   });
 
   it("requests the verification and shows it as pending", async () => {
