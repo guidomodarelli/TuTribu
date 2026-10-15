@@ -1212,6 +1212,13 @@
       "when": 1792073280000,
       "tag": "20261015140800_add_admission_notification_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1792076580000,
+      "tag": "20261015150300_add_admission_notification_groups",
+      "breakpoints": true
     }
   ]
 }

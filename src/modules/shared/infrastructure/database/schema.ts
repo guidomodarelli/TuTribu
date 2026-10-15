@@ -7,6 +7,7 @@ import { createAdmissionMembershipEffectsSchema } from "@/src/modules/tribes/inf
 import { createSubscriptionMembershipEffectsSchema } from "@/src/modules/subscriptions/infrastructure/database/subscription-membership-schema";
 import { ADMISSION_NOTIFICATION_AUDIENCE, ADMISSION_NOTIFICATION_TYPES } from "@/src/modules/notifications/constants/admission-notifications";
 import { ADMISSION_NOTIFICATION_PREFERENCE_MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
+import { createAdmissionNotificationGroupSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-group-schema";
 import {
   bigint,
   boolean,
@@ -1850,6 +1851,9 @@ export const {
   messaging: (): AdmissionMessagingSchemaReferences => ({versions:messagingConnectionVersions,deliveries:messageDeliveries,codeEnvelopes:verificationCodeEnvelopes}),
   membershipEffects: (): AdmissionMembershipSchemaReferences => academyAdmissionMembershipEffects,
 });
+
+/** Composes private group storage after its immutable original obligation parent exists. */
+export const { groups: admissionNotificationGroups, members: admissionNotificationGroupMembers } = createAdmissionNotificationGroupSchema({ users, tribes, obligations: academyAdmissionNotificationObligations });
 
 /** Composes private messaging models after the admission challenge parent exists. */
 export const {
