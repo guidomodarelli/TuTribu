@@ -2,7 +2,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { SUBSCRIPTION_MEMBERSHIP_MIGRATIONS } from "./constants/subscription-membership-reconciliation";
+import { prepareContactVerificationDatabase } from "./contact-verification-database-fixture";
 import { createMessagingSecurityConfig, type MessagingKeyPurpose } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { PostgresTribeMembershipLifecycleRepository } from "@/src/modules/tribes/infrastructure/repositories/postgres-tribe-membership-lifecycle-repository";
@@ -13,12 +13,9 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 
 /** @param database - Confirmed isolated test branch. @param withSuccessor - Seeds an existing active guardian before cutover for the actual leadership transfer flow. @param historyAgeDays - Initializes a coherent old tenant/account/pending snapshot without editing persisted dates or the database clock. @returns Synthetic native accounts, original memberships and real owner composition without external RPC. */
 export async function prepareTribeMembershipLifecycle(database: AcademyAdmissionTestDatabase, withSuccessor = false, historyAgeDays = 0) {
-  for (const migration of SUBSCRIPTION_MEMBERSHIP_MIGRATIONS) await database.applyMigration(migration);
-  await database.applyMigration("20261005095000_guard_global_identity_context.sql");
-  await database.applyMigration("20261005101000_guard_admission_operation_identity.sql");
-  await database.applyMigration("20261007030000_capture_admission_decision_evidence.sql");
   const keyring = (purpose: MessagingKeyPurpose) => ({ activeKeyId: `${purpose}-synthetic`, keys: [{ id: `${purpose}-synthetic`, material: randomBytes(32) }] });
   const security = await createMessagingSecurityConfig({ environment: "synthetic-local", securityEpoch: "synthetic-membership", recoveryLocked: false, keyrings: { credential: keyring("credential"), otp_envelope: keyring("otp_envelope"), verification_mac: keyring("verification_mac"), invitation_token: keyring("invitation_token"), contact_fingerprint: keyring("contact_fingerprint"), operation_payload: keyring("operation_payload") } });
+  await prepareContactVerificationDatabase(database, security);
   const tribeId = randomUUID(), slug = `membership-${tribeId}`;
   const leader = { userId: randomUUID(), sessionId: randomUUID(), sessionToken: randomUUID(), email: "leader@example.test" };
   const applicant = { userId: randomUUID(), sessionId: randomUUID(), sessionToken: randomUUID(), email: "applicant@example.test" };

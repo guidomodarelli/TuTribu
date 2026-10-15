@@ -12,7 +12,8 @@ import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modul
 import type { AdmissionSubmissionIntent, AdmissionDecisionIntent } from "@/src/modules/academy-admissions/domain/repositories/admission-repositories";
 import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
-import { seedContactVerificationChallenge, createContactVerificationWriter } from "@/tests/support/contact-verification-database-fixture";
+import { prepareContactVerificationDatabase, seedContactVerificationChallenge, createContactVerificationWriter } from "@/tests/support/contact-verification-database-fixture";
+import { prepareHistoricalAdmissionEvidence } from "@/tests/support/admission-evidence-historical-fixture";
 import { PostgresAdmissionOperationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository";
 import { PostgresAdmissionVerificationProofWriter } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-verification-proof-writer";
 import { ADMISSION_PROOF_OPERATION } from "@/src/modules/academy-admissions/constants/admission-proof";
@@ -28,35 +29,39 @@ type HistoricalManualAdmissionSeed = (scope: { tribeId: string; applicantId: str
 
 /** @param database - Owned synthetic branch with actual SQL/native identity. @param commercialMemberStatus - Optional readable instance removed commercially before presentation. @param contactType - Persisted original contact choice before activation. @param historicalSeed - Optional migration-era data loaded before evidence guards; all writers run after installing those guards. @returns A protected manual/OFF academy writer and scoped native participants. */
 async function prepareManualAdmission(database: AcademyAdmissionTestDatabase, commercialMemberStatus?: "active" | "muted", contactType: "email" | "phone" = "email", historicalSeed?: HistoricalManualAdmissionSeed) {
-  for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql", "20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005092500_guard_messaging_attempts.sql", "20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql"]) {
-    if (historicalSeed && migration === "20261005091500_guard_admission_evidence_transitions.sql") continue;
-    await database.applyMigration(migration);
-  }
-  await database.applyMigration("20261007005000_read_admission_reviews.sql");
-  await database.applyMigration("20261007030000_capture_admission_decision_evidence.sql");
-  const tribeId = randomUUID(), applicantId = randomUUID(), leaderId = randomUUID(), otherId = randomUUID();
-  const applicantSessionId = randomUUID(), leaderSessionId = randomUUID(), otherSessionId = randomUUID();
-  const own = { userId: leaderId, email: null };
-  await database.withContext(own, async (transaction) => {
-    for (const [userId, sessionId] of [[applicantId, applicantSessionId], [leaderId, leaderSessionId], [otherId, otherSessionId]]) {
-      await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic manual account',${`${userId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
-      await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${userId},${randomUUID()},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
-    }
-    await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic manual academy',${`manual-${tribeId}`},${leaderId})`);
-    await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
-    await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${leaderId},'leader','active')`);
-    if (commercialMemberStatus) await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${applicantId},'tribemate',${commercialMemberStatus})`);
-    const activatedAt = (await transaction.execute<{ now: string }>(historicalSeed ? sql`select clock_timestamp()-interval '3 days' as now` : sql`select clock_timestamp() as now`)).rows[0].now;
-    await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,contact_type,is_open,activated_at) values (${tribeId},${contactType},true,${activatedAt})`);
-    await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${activatedAt} where id=${tribeId}`);
-    if (commercialMemberStatus) await transaction.execute(sql`update public.tribe_members set status='removed',status_reason='subscription_inactive' where tribe_id=${tribeId} and user_id=${applicantId}`);
-  });
   const keyrings = {} as Parameters<typeof createMessagingSecurityConfig>[0]["keyrings"];
   for (const purpose of Object.values(MESSAGING_KEY_PURPOSE)) { const keyId = randomUUID(); keyrings[purpose] = { activeKeyId: keyId, keys: [{ id: keyId, material: randomBytes(32) }] }; }
   const config = await createMessagingSecurityConfig({ environment: randomUUID(), securityEpoch: randomUUID(), recoveryLocked: false, keyrings });
+  const tribeId = randomUUID(), applicantId = randomUUID(), leaderId = randomUUID(), otherId = randomUUID();
+  const applicantSessionId = randomUUID(), leaderSessionId = randomUUID(), otherSessionId = randomUUID();
+  const own = { userId: leaderId, email: null };
+
+  /** Creates original account/tenant dates with the historical snapshot instead of rewriting stored dates later. */
+  async function seedParticipants(): Promise<void> {
+    await database.withContext(own, async (transaction) => {
+      const createdAt = (await transaction.execute<{ now: string }>(historicalSeed ? sql`select clock_timestamp()-interval '3 days' as now` : sql`select clock_timestamp() as now`)).rows[0].now;
+      for (const [userId, sessionId] of [[applicantId, applicantSessionId], [leaderId, leaderSessionId], [otherId, otherSessionId]]) {
+        await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${userId},'Synthetic manual account',${`${userId}@example.test`},false,${createdAt},clock_timestamp())`);
+        await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${userId},${randomUUID()},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
+      }
+      await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by,created_at) values (${tribeId},'Synthetic manual academy',${`manual-${tribeId}`},${leaderId},${createdAt})`);
+      await transaction.execute(sql`insert into public.tribe_academy_settings(tribe_id,access_model,admission_enabled) values (${tribeId},'academy',true)`);
+      await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${leaderId},'leader','active')`);
+      if (commercialMemberStatus) await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${applicantId},'tribemate',${commercialMemberStatus})`);
+      await transaction.execute(sql`insert into public.academy_admission_policies(tribe_id,contact_type,is_open,activated_at,created_at,updated_at) values (${tribeId},${contactType},true,${createdAt},${createdAt},${historicalSeed ? createdAt : sql`clock_timestamp()`})`);
+      await transaction.execute(sql`update public.tribes set admissions_control_activated_at=${createdAt} where id=${tribeId}`);
+      if (commercialMemberStatus) await transaction.execute(sql`update public.tribe_members set status='removed',status_reason='subscription_inactive' where tribe_id=${tribeId} and user_id=${applicantId}`);
+    });
+  }
   if (historicalSeed) {
-    await historicalSeed({ tribeId, applicantId, leaderId, config });
-    await database.applyMigration("20261005091500_guard_admission_evidence_transitions.sql");
+    await prepareHistoricalAdmissionEvidence(database, async () => {
+      await seedParticipants();
+      await historicalSeed({ tribeId, applicantId, leaderId, config });
+    });
+    await prepareContactVerificationDatabase(database, config);
+  } else {
+    await prepareContactVerificationDatabase(database, config);
+    await seedParticipants();
   }
   let loseCommittedReply = false;
   let omittedNoticeEvent: "approved" | "cancelled" | "expired" | null = null;
@@ -122,8 +127,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
           const verifiedAt = new Date(createdAt.getTime()+60_000), submittedAt = new Date(verifiedAt.getTime()+60_000), appliedAt = submittedAt;
           const codeExpiresAt = new Date(createdAt.getTime()+ADMISSION_LIMIT.verificationCodeValidityMs), applyBefore = new Date(verifiedAt.getTime()+ADMISSION_LIMIT.verificationProofFreshnessMs), expiresAt = new Date(submittedAt.getTime()+ADMISSION_LIMIT.pendingValidityMs);
           const contact = `${applicantId}@example.test`, fingerprint = randomBytes(32), fingerprintKeyId = config.keyrings.contact_fingerprint.activeKeyId;
-          await transaction.execute(sql`update public."user" set "createdAt"=${createdAt} where id in (${applicantId},${leaderId})`);
-          await transaction.execute(sql`update public.tribes set created_at=${createdAt} where id=${tribeId}`);
           await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,contributed_by_user_id,state,environment,security_epoch,is_candidate,candidate_version,created_at) values (${connectionId},${tribeId},${leaderId},'degraded',${config.environment},${config.securityEpoch},true,1,${createdAt})`);
           await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,created_at) values (${connectionId},${tribeId},1,${config.environment},${config.securityEpoch},${createdAt})`);
           await transaction.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,state,queued_usage_policy_version,created_at,deadline_at) values (${deliveryId},${tribeId},${connectionId},1,${config.environment},${config.securityEpoch},'admission',${challengeId},${applicantId},${contact},'email',${randomUUID()},${randomBytes(32)},${config.keyrings.operation_payload.activeKeyId},'{}'::jsonb,'delivered',1,${createdAt},${codeExpiresAt})`);
@@ -135,7 +138,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
           await expect(transaction.$client.query("update public.academy_admission_policies set requires_additional_verification=true where tribe_id=$1", [tribeId])).rejects.toMatchObject({ code: "23514", message: "admission effective change requires one version increment" });
           await transaction.$client.query("rollback to savepoint historical_policy_version_diagnostic");
           await transaction.$client.query("release savepoint historical_policy_version_diagnostic");
-          await transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,verification_epoch=2,version=version+1,messaging_connection_id=${connectionId},messaging_connection_version=1,created_at=${createdAt},updated_at=${createdAt} where tribe_id=${tribeId}`);
+          await transaction.execute(sql`update public.academy_admission_policies set requires_additional_verification=true,verification_epoch=2,version=version+1,messaging_connection_id=${connectionId},messaging_connection_version=1 where tribe_id=${tribeId}`);
           const chronology = (await transaction.execute(sql`select principal."createdAt"<=policy.activated_at as account_existed,tribe.created_at<=policy.activated_at as tribe_existed,policy.created_at<=policy.activated_at as policy_existed from public.academy_admission_policies policy inner join public.tribes tribe on tribe.id=policy.tribe_id inner join public."user" principal on principal.id=${applicantId} where policy.tribe_id=${tribeId}`)).rows[0];
           expect(chronology).toEqual({ account_existed: true, tribe_existed: true, policy_existed: true });
         });

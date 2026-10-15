@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { LEGACY_ADMISSION_SQL_TEST_TIMEOUT_MS } from "@/tests/support/constants/legacy-admission-entry";
+import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
 import { SUBSCRIPTION_MEMBERSHIP_MIGRATIONS } from "@/tests/support/constants/subscription-membership-reconciliation";
 import { prepareTribeMembershipLifecycle } from "@/tests/support/tribe-membership-lifecycle-fixture";
 import type { TribeMembershipLifecycleContext } from "@/src/modules/tribes/domain/repositories/tribe-membership-lifecycle-repository";
@@ -95,7 +96,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native academy mem
       await database.withContext(own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp() where id=${fixture.leaving.sessionId}`));
       await expect(leaving.useCases.recover(leave)).rejects.toMatchObject({ code: "authentication_required", operationId: undefined });
     });
-  }, LEGACY_ADMISSION_SQL_TEST_TIMEOUT_MS);
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 
   it("should authorize the current canonical leader after a real transfer while denying the historical founder", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -109,5 +110,5 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native academy mem
       const history = await database.withContext(own, async (transaction) => (await transaction.execute<{created_by: string;leader: string}>(sql`select tribe.created_by,(select user_id from public.tribe_members where tribe_id=tribe.id and role='leader' and status='active') as leader from public.tribes tribe where tribe.id=${fixture.tribeId}`)).rows[0]);
       expect(history).toEqual({ created_by: fixture.leader.userId, leader: fixture.successor.userId });
     });
-  }, LEGACY_ADMISSION_SQL_TEST_TIMEOUT_MS);
+  }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 });

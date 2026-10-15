@@ -55,7 +55,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native atomic memb
         requests: (await transaction.execute(sql`select id,status,version,decision_id,cancel_reason,submitted_at::text,expires_at::text,binding_id,proof_id from public.academy_admission_requests where tribe_id=${fixture.tribeId} order by id`)).rows,
         effects: (await transaction.execute(sql`select id,member_id,applied_at::text,revoked_at::text,revocation_reason from public.academy_admission_membership_effects where tribe_id=${fixture.tribeId} order by id`)).rows,
         decisions: (await transaction.execute(sql`select id,outcome,rule from public.academy_admission_decisions where tribe_id=${fixture.tribeId} order by id`)).rows,
-        audits: (await transaction.execute(sql`select id,event_type,rule from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} order by id`)).rows,
+        audits: (await transaction.execute(sql`select id,event_type,rule from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} and resource_type='admission_request' order by id`)).rows,
+        notificationAudits: (await transaction.execute(sql`select id,event_type,rule from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} and resource_type='admission_notification' order by id`)).rows,
         obligations: (await transaction.execute(sql`select id,event_type from public.academy_admission_notification_obligations where tribe_id=${fixture.tribeId} order by id`)).rows,
         notices: (await transaction.execute<{count: number}>(sql`select count(*)::integer as count from public.notifications where tribe_id=${fixture.tribeId}`)).rows[0].count,
       }));
@@ -86,6 +87,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native atomic memb
       const blockFinal = await snapshot();
       expect(blockFinal.requests).toMatchObject([{ id: fixture.requestId, status: "cancelled", cancel_reason: "nonrecoverable_membership" }]);
       expect(blockFinal.decisions).toHaveLength(1); expect(blockFinal.obligations).toHaveLength(1); expect(blockFinal.audits).toHaveLength(1);
+      expect(blockFinal.notificationAudits.map((audit) => audit.event_type).sort()).toEqual(["notification_materialized", "notification_obligation_created"]);
       const requestId = randomUUID(), decisionId = randomUUID(), effectId = randomUUID();
       await database.withContext(leaderContext, async (transaction) => {
         await transaction.execute(sql`select id from public.tribes where id=${fixture.tribeId} for update`);
@@ -115,6 +117,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native atomic memb
       expect(final.effects).toMatchObject([{ id: effectId, member_id: null, revocation_reason: "membership_deleted" }]);
       expect(final.members.some((member) => member.id === fixture.memberIds.leaving)).toBe(false);
       expect(final.decisions).toHaveLength(2); expect(final.obligations).toHaveLength(2); expect(final.audits).toHaveLength(2);
+      expect(final.notificationAudits).toEqual(blockFinal.notificationAudits);
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
 });
