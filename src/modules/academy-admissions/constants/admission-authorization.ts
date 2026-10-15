@@ -10,7 +10,7 @@ export const ADMISSION_REQUIRED_RECENCY_ACTIONS = new Set<string>([ADMISSION_ACT
 
 /** Sensitive writers select one of these exact signed operations; an unrelated recency cannot authorize them. */
 export const ADMISSION_SENSITIVE_OPERATIONS: Readonly<Partial<Record<string, readonly string[]>>> = {
-  [ADMISSION_ACTION.configurePolicy]: [REAUTHENTICATION_OPERATION.updateAdmissionPolicy, REAUTHENTICATION_OPERATION.activateAdmissionPolicy, REAUTHENTICATION_OPERATION.pauseAdmissionPolicy],
+  [ADMISSION_ACTION.configurePolicy]: [REAUTHENTICATION_OPERATION.updateAdmissionPolicy, REAUTHENTICATION_OPERATION.activateAdmissionPolicy, REAUTHENTICATION_OPERATION.pauseAdmissionPolicy, REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings],
   [ADMISSION_ACTION.manageAllowlist]: [REAUTHENTICATION_OPERATION.createAllowlistEntry, REAUTHENTICATION_OPERATION.updateAllowlistEntry, REAUTHENTICATION_OPERATION.previewAllowlistImport, REAUTHENTICATION_OPERATION.confirmAllowlistImport],
   [ADMISSION_ACTION.manageInvitations]: [REAUTHENTICATION_OPERATION.createPersonalInvitation, REAUTHENTICATION_OPERATION.renamePersonalInvitation, REAUTHENTICATION_OPERATION.revokePersonalInvitation],
   [ADMISSION_ACTION.allowEarlyRetry]: [REAUTHENTICATION_OPERATION.advanceAdmissionRetry],

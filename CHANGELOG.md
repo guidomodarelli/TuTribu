@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El historial de admisión distingue los cambios de avisos por correo y muestra su habilitación y zona horaria, sin exponer contactos ni credenciales.
+
 - El consumo e historial de admisión reconoce los lotes de conservación y avisos internos completados; muestra sólo duraciones medidas y conserva su ausencia cuando no hay datos.
 
 - El líder puede consultar el consumo diario UTC y el historial de admisión, con filtros, versiones originales y actualización, incluso antes de conectar mensajería.

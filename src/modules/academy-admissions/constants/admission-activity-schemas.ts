@@ -27,6 +27,7 @@ const admissionPolicyAuditSnapshotSchema = z.strictObject({
 });
 /** Every optional change field belongs to a known internal producer. */
 export const admissionActivityChangesSchema = z.strictObject({
+  enabled: z.boolean().optional(), timeZone: z.string().min(1).optional(),
   fromPolicy: admissionPolicyAuditSnapshotSchema.nullable().optional(), toPolicy: admissionPolicyAuditSnapshotSchema.optional(),
   fromState: z.enum(ADMISSION_ACTIVITY_STATES).nullable().optional(), toState: z.enum(ADMISSION_ACTIVITY_STATES).nullable().optional(),
   fromStatus: z.enum(ADMISSION_ACTIVITY_STATES).nullable().optional(), toStatus: z.enum(ADMISSION_ACTIVITY_STATES).nullable().optional(),

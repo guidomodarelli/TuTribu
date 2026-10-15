@@ -1226,6 +1226,13 @@
       "when": 1792081320000,
       "tag": "20261015162200_materialize_admission_notification_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 175,
+      "version": "7",
+      "when": 1792085100000,
+      "tag": "20261015172500_manage_admission_email_settings",
+      "breakpoints": true
     }
   ]
 }

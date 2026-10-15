@@ -14,7 +14,7 @@ export type AdmissionDeliveryAuditCause="provider_accepted"|"provider_delivered"
 /** Keeps actor and ledger references private; background events never fabricate a user or original command. */
 export type AdmissionResourceAuditScope={tribeId:string;actorUserId:string|null;operationId:string|null;resourceId:string;resourceVersion:number|null;rule:string|null;cause:AdmissionErrorCode|MessagingErrorCode|AdmissionDeliveryAuditCause|"authorized_connection_replacement"|"connection_replaced"|"messaging_connection_replaced"|"connection_disconnected"|"suspected_compromise"|"security_stop"|"ordinary_retirement"|"scheduled_expiration"|"scope_retired"|"policy_verification_context_changed"|"explicit_resend"|"candidate_expired"|null;createdAt:Date};
 /** Declares resource names independently of runtime constants. */
-export type AdmissionResourceAuditKind="admission_request"|"allowlist_entry"|"personal_invitation"|"messaging_usage_policy"|"messaging_connection"|"authorized_exposure"|"message_delivery"|"admission_notification"|"messaging_protection"|"admission_proof"|"membership"|"retention_run";
+export type AdmissionResourceAuditKind="admission_request"|"allowlist_entry"|"personal_invitation"|"messaging_usage_policy"|"messaging_connection"|"authorized_exposure"|"message_delivery"|"admission_notification"|"admission_email_settings"|"messaging_protection"|"admission_proof"|"membership"|"retention_run";
 /** Limits ordinary request changes to owner-derived states, effective policy and opaque evidence. */
 export type AdmissionRequestAuditEventType="pending_created"|"approved"|"rejected"|"cancelled"|"expired";
 /** Keeps applicant content and ordinary decision reasons with their owners. */
@@ -59,8 +59,10 @@ type MembershipAuditDetails={resourceType:"membership";eventType:"membership_adm
 type RetentionAuditDetails={resourceType:"retention_run";eventType:"retention_completed";metadata:{owner:"admission_requests"|"admission_audit"|"allowlist_import_material"|"messaging_secrets"|"verification_material"|"messaging_candidates";processed:number;remaining:boolean;cutoff:string;durationMs?:number}};
 /** Keeps original obligation lineage and observed extent without the notice's recipient or content. */
 type NotificationAuditDetails={resourceType:"admission_notification";eventType:"notification_obligation_created"|"notification_materialized";metadata:{obligationId:string;requestId:string;requestVersion:number;sourceEvent:"pending_created"|"approved"|"rejected"|"cancelled"|"expired"|"reminder";audience:"applicant"|"reviewer"|null;durationMs:number|null}};
+/** Keeps the independent email epoch reconstructible without addresses, credentials or OTP policy. */
+type EmailSettingsAuditDetails={resourceType:"admission_email_settings";eventType:"admission_email_settings_changed";metadata:{previousVersion:number|null;enabled:boolean;timeZone:string}};
 /** The input is already an owner's business fact; its extra properties must never be copied into storage. */
-export type AdmissionResourceAuditInput=AdmissionResourceAuditScope&(RequestAuditDetails|RetryAuditDetails|AllowlistAuditDetails|InvitationAuditDetails|UsageAuditDetails|ConnectionAuditDetails|ExposureAuditDetails|DeliveryAuditDetails|NotificationAuditDetails|ProtectionAuditDetails|ProofAuditDetails|MembershipAuditDetails|RetentionAuditDetails);
+export type AdmissionResourceAuditInput=AdmissionResourceAuditScope&(RequestAuditDetails|RetryAuditDetails|AllowlistAuditDetails|InvitationAuditDetails|UsageAuditDetails|ConnectionAuditDetails|ExposureAuditDetails|DeliveryAuditDetails|NotificationAuditDetails|EmailSettingsAuditDetails|ProtectionAuditDetails|ProofAuditDetails|MembershipAuditDetails|RetentionAuditDetails);
 /** Uses the same closed vocabulary after selecting and snapshotting only its allowed fields. */
 export type AdmissionResourceAuditEvent=AdmissionResourceAuditInput;
 
@@ -95,6 +97,7 @@ export function createAdmissionResourceAuditEvent<Input extends AdmissionResourc
     }
     case ADMISSION_AUDIT_RESOURCE_TYPE.exposure:{const metadata=current.metadata;return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{surface:metadata.surface,itemCount:metadata.itemCount,resourceKind:metadata.resourceKind}};}
     case ADMISSION_AUDIT_RESOURCE_TYPE.notification:{const metadata=current.metadata;return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{obligationId:metadata.obligationId,requestId:metadata.requestId,requestVersion:metadata.requestVersion,sourceEvent:metadata.sourceEvent,audience:metadata.audience,durationMs:metadata.durationMs}};}
+    case ADMISSION_AUDIT_RESOURCE_TYPE.emailSettings:{const metadata=current.metadata;return{...scope,resourceType:current.resourceType,eventType:current.eventType,metadata:{previousVersion:metadata.previousVersion,enabled:metadata.enabled,timeZone:metadata.timeZone}};}
     case ADMISSION_AUDIT_RESOURCE_TYPE.delivery:{
       const metadata=current.metadata;
       const deliveryMetadata={fromState:metadata.fromState,toState:metadata.toState,previousVersion:metadata.previousVersion,connectionId:metadata.connectionId,connectionVersion:metadata.connectionVersion,channel:metadata.channel,attemptId:metadata.attemptId,authorizedUsagePolicyVersion:metadata.authorizedUsagePolicyVersion,...(metadata.originalDeliveryId!==undefined?{originalDeliveryId:metadata.originalDeliveryId}:{}),...(metadata.targetConnectionId!==undefined?{targetConnectionId:metadata.targetConnectionId}:{})};
