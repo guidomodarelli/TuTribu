@@ -85,6 +85,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La emisión de un código registra el mensaje que quedó en cola; su reemplazo o retiro registra sólo cancelaciones confirmadas y conserva los envíos ya iniciados o inciertos, con la acción original y sin datos privados.
 - Las métricas de admisiones registran la última ejecución completa de mensajería y los tiempos de sus pasos por tribu, conservando separados los resultados de entrega.
 - Los países y cupos comparan el uso guardado con la propuesta y exigen confirmar nuevamente cada aumento, aclarando su impacto y que el consumo se conserva.
+- La documentación de mensajería explica quién controla la cuenta de envío, los cupos y los plazos de conservación, y cómo se limita el acceso durante una recuperación.
 
 ### Fixed
 
