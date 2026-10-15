@@ -64,6 +64,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La limpieza interna agrupa sus pasos para que un fallo tardío revierta el lote completo y conserva por separado los resultados confirmados de admisión y mensajería.
 - El mantenimiento privado puede renovar el cifrado de conexiones vigentes sin cambiar la clave de Zavu, los códigos pendientes ni el consumo acumulado.
 - El historial privado conserva la configuración anterior y nueva de cada cambio efectivo de admisión, junto con los hechos permitidos al eliminar una tribu, sin copiar claves ni contactos.
+- El líder puede consultar el consumo diario UTC y el historial de admisión, con filtros, versiones originales y actualización, incluso antes de conectar mensajería.
 
 ### Changed
 
@@ -82,6 +83,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta. Las comprobaciones de contacto confirmadas registran la creación de su prueba local por separado de la entrega del mensaje. El reemplazo de conexión registra las referencias anteriores y nuevas y el retiro de pruebas todavía disponibles, conservando las ya aplicadas. La recuperación explícita de un aviso registra la procedencia y los cambios efectivos de la entrega original y su nuevo aviso en cola, sin incluir destinatarios, contenido, códigos, nombres ni claves. La invalidación de pruebas por compromiso, retiro, cambio de política y reenvío conserva su estado anterior y la operación que la produjo; las pruebas históricas de una aprobación conservan su procedencia. La aplicación de una prueba y su invalidación al cerrar el ámbito conservan también los estados de la prueba y el momento del efecto. Los intentos, resultados, aplazamientos por cupo y reconciliaciones de entrega conservan los cambios efectivos y su operación original; repetir una confirmación idéntica no duplica esos registros.
 - La emisión de un código registra el mensaje que quedó en cola; su reemplazo o retiro registra sólo cancelaciones confirmadas y conserva los envíos ya iniciados o inciertos, con la acción original y sin datos privados.
 - Las métricas de admisiones registran la última ejecución completa de mensajería y los tiempos de sus pasos por tribu, conservando separados los resultados de entrega.
+- Los países y cupos comparan el uso guardado con la propuesta y exigen confirmar nuevamente cada aumento, aclarando su impacto y que el consumo se conserva.
 
 ### Fixed
 
@@ -129,6 +131,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La recuperación de acceso por pago evita bloquearse cuando se intenta eliminar al mismo tiempo la cuenta que creó la tribu.
 - La eliminación de una tribu con avisos recuperados conserva su procedencia y su historial sin quedar bloqueada ni reiniciar consumos.
 - El inicio de sesión, la confirmación de acciones sensibles y las consultas privadas protegen las credenciales en respuestas y registros, conservando la sesión y los errores recuperables.
+- Al perder permisos con la misma cuenta, los países, cupos y datos administrativos anteriores se ocultan hasta comprobar el acceso vigente.
+- Las pantallas de configuración de admisión conservan una sola región principal para la navegación con tecnologías de asistencia.
 
 ### Security
 

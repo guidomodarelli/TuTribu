@@ -551,6 +551,24 @@ export async function createMessagingUsageRequestModule(usage: DatabaseConnectio
   return { usage: usageModule.useCases, operation: usageModule.operation, createPage: () => usageModule.createPage(routing.resolveTribe, getMessagingUsageCountryChoices()), resolveTribe: routing.resolveTribe };
 }
 
+/**
+ * Shares one native account projection and database selection across the existing private observation and usage owners.
+ * @param usage - Server-selected read connection purpose, never browser authority.
+ * @returns One page/snapshot composition without an Inspector, Sender, secret read or implicit configuration write.
+ */
+export async function createAdmissionActivityRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request) {
+  const databaseClient = await createServerDatabaseClient(usage);
+  const dependencies: AuthenticatedFeatureDependencies = {
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  };
+  const admission = buildAcademyAdmissionsModule(dependencies);
+  const routing = admission.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const observations = admission.createActivityQueryModule();
+  const currentUsage = buildMessagingModule(dependencies).createUsageModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  return { createPage: () => observations.createPage(routing.resolveTribe, currentUsage.useCases) };
+}
+
 /** @param usage - Native guarded connection purpose; creation uses maintenance with exact human authority. @returns Protected candidate creation and canonical routing without Inspector/Sender execution. */
 export async function createMessagingConnectionManagementRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.maintenance) {
   const databaseClient = await createServerDatabaseClient(usage);

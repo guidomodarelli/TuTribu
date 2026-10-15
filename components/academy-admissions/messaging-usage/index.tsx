@@ -3,6 +3,7 @@ import { useId } from "react";
 import { Button, Checkbox, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "beez-ui";
 import type { MessagingUsagePolicyStateDto } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import type { MessagingUsageDraft, MessagingUsageCountryChoice } from "@/src/modules/messaging/application/commands/messaging-usage-draft";
+import type { MessagingUsageChangeImpact } from "@/src/modules/messaging/application/results/messaging-usage-change-impact";
 import { MESSAGING_USAGE_LIMIT } from "@/src/modules/messaging/constants/messaging-limits";
 import { Link } from "@/components/navigation/link";
 import styles from "./styles.module.scss";
@@ -13,6 +14,7 @@ export type MessagingUsageProps = {
   confirmed: boolean; busy: boolean; canEdit: boolean; validationMessage: string | null; errorMessage: string | null; statusMessage: string | null;
   onChange: (draft: MessagingUsageDraft) => void; onConfirm: (confirmed: boolean) => void; onInitialize: () => void; onSave: () => void; onReloadCurrent: () => void;
   uncertain?: boolean; canRetry?: boolean; onRetryOriginal?: () => void; reauthenticationRequired?: boolean; reauthenticationHref?: string | null; onPrepareReauthentication?: () => void;
+  impact?: MessagingUsageChangeImpact | null;
 };
 
 /** @param props - Safe own data and callback-only workflow. @returns An accessible early usage form that distinguishes saved countries from the proposed draft. */
@@ -22,9 +24,12 @@ export function MessagingUsage(props: MessagingUsageProps) {
   const countryName = (country: string) => props.countryChoices.find((choice) => choice.value === country)?.label ?? country;
   return <section className={styles.MessagingUsage} aria-labelledby={`${instanceId}-title`}>
     <header className={styles.MessagingUsage__header}><h2 id={`${instanceId}-title`} className={styles.MessagingUsage__title}>Países y cupos de mensajería</h2><p>Prepará el uso antes de conectar un canal o solicitar una prueba telefónica.</p></header>
+    <p className={styles.MessagingUsage__help}>El proveedor factura los envíos a la cuenta del líder. Los cupos de TuTribu no son una garantía monetaria exacta.</p>
+    <p className={styles.MessagingUsage__help}>El consumo se agrupa por día UTC y no se reinicia al cambiar países, cupos o conexión.</p>
     {!policy && <p role="status">El uso todavía no está configurado. Los valores iniciales no se guardan al abrir esta pantalla.</p>}
     <p role="status">{policy?.allowedCountries.length ? `Países guardados: ${policy.allowedCountries.map(countryName).join(", ")}.` : "Los países vacíos no habilitan envíos telefónicos. El correo conserva sus reglas independientes."}</p>
     {policy && <p>{policy.consumption.verificationToday} códigos y {policy.consumption.notificationToday} avisos consumidos hoy. Cambiar cupos o países no reinicia ese consumo.</p>}
+    {policy && <p className={styles.MessagingUsage__help}>Configuración actual: versión {policy.version}. Máximos de la plataforma: {policy.platformMaximums.verificationDailyLimit} códigos y {policy.platformMaximums.notificationDailyLimit} avisos por día.</p>}
     <form className={styles.MessagingUsage__form} aria-busy={props.busy} onSubmit={(event) => { event.preventDefault(); if (canSubmit && policy) props.onSave(); }}>
       <fieldset className={styles.MessagingUsage__fields} disabled={disabled}>
         <legend className={styles.MessagingUsage__legend}>Borrador de uso</legend>
@@ -36,7 +41,19 @@ export function MessagingUsage(props: MessagingUsageProps) {
       {props.validationMessage && <p id={validationId} role="alert" className={styles.MessagingUsage__error}>{props.validationMessage}</p>}
       {props.errorMessage && <div role="alert" className={styles.MessagingUsage__error}><p>{props.errorMessage}</p><Button type="button" variant="outline" disabled={props.busy} onClick={props.onReloadCurrent}>Consultar uso actual</Button><p>El borrador se conserva para compararlo antes de confirmar otra vez.</p></div>}
       {!props.canEdit && <p className={styles.MessagingUsage__help}>La edición requiere al líder activo y un estado actual confirmado.</p>}
-      <div className={styles.MessagingUsage__confirmation}><Checkbox id={confirmationId} checked={props.confirmed} disabled={disabled} onCheckedChange={(checked) => props.onConfirm(checked === true)} /><label htmlFor={confirmationId}>Revisé los países y cupos y quiero confirmar esta acción.</label></div>
+      {props.impact?.hasChanges && <section className={styles.MessagingUsage__impact} aria-label="Impacto de la propuesta">
+        <h3 className={styles.MessagingUsage__legend}>Antes de guardar</h3>
+        <p>Comparación con la versión actual {props.impact.configurationVersion}. Los cambios del borrador todavía no están guardados.</p>
+        <dl className={styles.MessagingUsage__comparison}>
+          <div><dt>Códigos por día</dt><dd>De {props.impact.verification.previous} a {props.impact.verification.proposed}</dd></div>
+          <div><dt>Avisos por día</dt><dd>De {props.impact.notification.previous} a {props.impact.notification.proposed}</dd></div>
+        </dl>
+        {props.impact.addedCountries.length > 0 && <p>Países por habilitar: {props.impact.addedCountries.map(countryName).join(", ")}.</p>}
+        {props.impact.removedCountries.length > 0 && <p>Países por retirar: {props.impact.removedCountries.map(countryName).join(", ")}.</p>}
+        {props.impact.increasesQuota && <p>El aumento permite más intentos potencialmente facturables en la cuenta del líder. Confirmá el nuevo límite antes de guardar.</p>}
+        {(props.impact.reducesQuota || props.impact.removedCountries.length > 0) && <p>Los próximos despachos vuelven a comprobar países y cupos. Los códigos ya emitidos conservan su validación y los intentos iniciados mantienen su consumo.</p>}
+      </section>}
+      <div className={styles.MessagingUsage__confirmation}><Checkbox id={confirmationId} checked={props.confirmed} disabled={disabled} onCheckedChange={(checked) => props.onConfirm(checked === true)} /><label htmlFor={confirmationId}>{props.impact?.increasesQuota ? "Revisé los países y cupos y confirmo el aumento indicado." : "Revisé los países y cupos y quiero confirmar esta acción."}</label></div>
       <div className={styles.MessagingUsage__actions}>{policy ? <Button type="submit" disabled={!canSubmit}>{props.busy ? "Procesando…" : "Guardar países y cupos"}</Button> : <Button type="button" disabled={!canInitialize} onClick={props.onInitialize}>{props.busy ? "Procesando…" : "Iniciar configuración de uso"}</Button>}</div>
       {props.statusMessage && <p role="status">{props.statusMessage}</p>}
       {props.reauthenticationRequired && <section className={styles.MessagingUsage__field} aria-label="Confirmación de Google"><p>Confirmá tu cuenta de Google para esta acción. El borrador y la operación original se conservan; al volver revisá el estado y confirmá nuevamente.</p>{props.reauthenticationHref ? <Link href={props.reauthenticationHref}>Continuar con la confirmación de Google</Link> : <Button type="button" variant="outline" disabled={props.busy} onClick={props.onPrepareReauthentication}>Preparar confirmación con Google</Button>}</section>}
