@@ -12,6 +12,9 @@ Estas reglas se aplican a los archivos de `user-guides/` y complementan las inst
 | Archivo | Tema |
 | --- | --- |
 | `academy-mode.html` | Modo academia: activación, verificación, acceso, bonificaciones y renovación |
+| `tenant-messaging.html` | Conexión de mensajería, países, cupos, comprobación y recuperación |
+| `academy-admissions.html` | Solicitud, revisión, configuración e historial de admisión |
+| `academy-admission-notifications.html` | Preferencia personal y correo de admisión, confirmación y recuperación |
 | `classic-mode.html` | Modo clásico y suscripción de membresía |
 | `joining-options.html` | Formas de ingreso: pago, enlace público, gratuito e invitaciones; atribución |
 | `courses.html` | Cursos, módulos, lecciones, progreso y gestión del contenido |
