@@ -4,7 +4,7 @@ Checkpoint inicial del 2026-10-15, con las tandas Native observadas en ejecució
 
 ## Requisitos y evidencia necesaria
 
-| Requisito obligatorio | Cadena que debe observarse | Estado de la validación actual |
+| Requisito obligatorio | Cadena que debe observarse | Estado en el checkpoint inicial |
 |---|---|---|
 | AC-01: último cupo con cien competidores | Claims y autorización PostgreSQL reales, exactamente un ganador, 99 rechazos y reserva consumida tras perder al worker. | Tanda Native de cuotas en curso. |
 | AC-01: cuenta/contacto entre tribus y canales | Solicitudes, fallos y cadencia con ventanas móviles/UTC; canal, contacto, clave, sesión o conexión nuevos conservan los contadores pertinentes. | Presupuestos y continuidad Native en curso. |
@@ -67,3 +67,15 @@ El build sintético no acredita que el hosting original tenga instalados sus key
 Las pruebas de recovery lock/época y rotación no son un ensayo operativo de restore. La revisión de abuso debe distinguir controles de producto de preparación y restricciones reales del proveedor; ningún contador de llamadas acredita costo monetario exacto. Google global, preparación por canal, scheduler, restore y los seis gates conservan sus evidencias y tareas propias.
 
 Las baselines [de cuotas](messaging-usage-and-abuse.md), [de permisos y privacidad](admission-security-and-privacy.md), [de bordes privados](private-http-hardening-baseline.md), [de rotación](messaging-protection-key-rotation-baseline.md) y [documental](security-documentation-completion-audit.md) aportan contexto por su alcance. Los casos ejecutados ahora se contabilizarán separadamente, sin sumar repeticiones ni usar evidencia histórica para afirmar una ejecución nueva.
+
+## Seguimiento posterior al checkpoint inicial
+
+El checkpoint inicial quedó guardado y subido en `bff9679a76c27100e8047245ec2c5361e8419785`. T175 sigue abierta, con 173 tareas completadas y 39 pendientes. Las siguientes observaciones no sustituyen los criterios de la matriz ni acreditan los gates operativos.
+
+La tanda Native de cuotas terminó con **28 casos aprobados y dos fallos** en treinta casos. Ambos se reprodujeron sobre ramas propias con `pg` real, antes de editar las pruebas. El caso de sesión vencida había suspendido previamente el recurso al retirar y restituir el liderazgo: el resultado era `resource_unavailable`, coherente con la suspensión persistente. El caso histórico intentaba insertar eventos sin vínculo después de que el fixture común instalara todo el journal; PostgreSQL respondió `23514` desde `guard_credential_validation_usage_identity`.
+
+La corrección afecta exclusivamente a los fixtures: conserva la suspensión y el consumo tras perder liderazgo, comprueba la sesión vencida en un recurso que sigue activo y crea los eventos históricos antes de su migración real mediante un prefijo del journal. Después ejecuta el upgrade íntegro y conserva las comprobaciones de identidad, fecha, anonimización y cupo. No desactiva triggers ni cambia los artefactos SQL. El prefijo mantiene su corte predeterminado para CSV y admite el corte explícito del historial de validaciones. Lint antes y después, tipos de las pruebas y `git diff --check` pasaron.
+
+La tanda Native de seguridad terminó con **36 casos aprobados, un fallo y dos casos pendientes** al detenerse por el primer fallo. El error ocurrió al confirmar la eliminación de una rama temporal. El reporte contiene catorce archivos sin validación completa; sus entradas sin casos ejecutados no se consideran aprobadas. La conciliación administrativa del `2026-10-15T08:31:33.016Z` comprobó la propiedad exacta, eliminó la rama restante y confirmó que sólo quedaban producción y el piloto protegido, ambos conservados.
+
+Se iniciaron dos tandas de continuación, cada una con un único worker: la suite completa corregida de ocho casos de validación de credenciales junto a los cuatro casos de composición de retención, y los catorce archivos originales de seguridad que no habían terminado. Usan el mismo producto que el build aprobado y los fixtures actuales contrastados entre checkouts. Sus resultados y la limpieza de sus nuevas ramas permanecen pendientes; no se contabilizan como éxito mientras sigan ejecutándose.

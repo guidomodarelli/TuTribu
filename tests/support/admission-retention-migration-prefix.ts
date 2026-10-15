@@ -1,4 +1,4 @@
-/** Applies a genuine migration prefix so historical CSV material predates the insert-time expiry guard. @module admission-retention-migration-prefix */
+/** Applies a genuine migration prefix so historical private material predates its insert-time guard. @module admission-retention-migration-prefix */
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
@@ -10,16 +10,17 @@ import { ADMISSION_RETENTION_COMPOSITION_FIXTURE } from "./constants/admission-r
 type MigrationJournal = { version: string; dialect: string; entries: { tag: string; when: number; idx: number; version: string; breakpoints: boolean }[] };
 
 /**
- * Creates old rows before their real guard migration, without disabling a trigger or changing an original timestamp.
+ * Prepares the real schema before a historical row's guard, without disabling a trigger or rewriting timestamps.
  * @param database - Verified owned branch; the migration URL stays only in the child environment.
+ * @param cutoffMigrationTag - First artifact deliberately left pending; defaults to the temporary-import retention guard.
  * @returns After the actual Drizzle CLI has committed the unchanged journal prefix.
  * @throws When the cutoff is absent, migration fails or cleanup cannot prove its own temporary directory.
  */
-export async function applyAdmissionRetentionHistoricalPrefix(database: AcademyAdmissionTestDatabase): Promise<void> {
+export async function applyAdmissionRetentionHistoricalPrefix(database: AcademyAdmissionTestDatabase, cutoffMigrationTag: string = ADMISSION_RETENTION_COMPOSITION_FIXTURE.importRetentionMigrationTag): Promise<void> {
   const settings = ADMISSION_RETENTION_COMPOSITION_FIXTURE;
   const sourceDirectory = resolve(settings.migrationDirectory);
   const journal = JSON.parse(await readFile(join(sourceDirectory, settings.journalRelativePath), "utf8")) as MigrationJournal;
-  const cutoff = journal.entries.findIndex((entry) => entry.tag === settings.importRetentionMigrationTag);
+  const cutoff = journal.entries.findIndex((entry) => entry.tag === cutoffMigrationTag);
   if (cutoff < 1) throw new Error("AdmissionRetentionFixture.prepare failed: migration_cutoff_missing");
   const entries = journal.entries.slice(0, cutoff);
   const directory = await mkdtemp(join(tmpdir(), settings.prefixDirectoryName));
