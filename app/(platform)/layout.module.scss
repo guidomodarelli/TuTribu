@@ -1,29 +1,9 @@
 $platform-header-touch-target: 2.5rem;
 
 .PlatformLayout {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-
-  &__header {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    height: 3.5rem;
-    align-items: center;
-    border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-    background-color: color-mix(in oklab, var(--background) 80%, transparent);
-    gap: 0.5rem;
-    padding-inline: 1rem;
-    backdrop-filter: blur(8px);
-  }
-
   &__accountMenu {
     display: flex;
     gap: 0.25rem;
-    margin-left: auto;
     align-items: center;
     justify-content: flex-end;
   }
@@ -53,7 +33,7 @@ $platform-header-touch-target: 2.5rem;
 
   &__sidebar {
     display: none;
-    width: 16rem;
+    width: 15rem;
     flex-shrink: 0;
     border-right: 1px solid var(--border);
     background: var(--sidebar);
@@ -67,7 +47,7 @@ $platform-header-touch-target: 2.5rem;
   }
 
   &__header {
-    height: 3.5rem;
+    height: 52px;
     border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
     background-color: color-mix(in oklab, var(--background) 80%, transparent);
   }
@@ -90,12 +70,6 @@ $platform-header-touch-target: 2.5rem;
 }
 
 @media (min-width: 1024px) {
-  .PlatformLayout {
-    &__header {
-      padding-inline: 1.5rem;
-    }
-  }
-
   .PlatformLayoutFallback {
     &__sidebar {
       display: block;

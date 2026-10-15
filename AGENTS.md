@@ -184,7 +184,7 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 
 ### UI baseline
 
-- Use `beez-ui` as the only shared component library consumed by product code.
+- Use `beez-ui` as the only shared component library consumed by product code. Exception: the platform shell is the Arc Pro "Sidebar rail" block adapted in `components/app-rail/app-rail-shell` (see "Arc Pro license"); it uses `radix-ui` primitives directly, on the same version `beez-ui` already installs. Do not use `radix-ui` elsewhere in product code.
 - Group named imports from `beez-ui` (the `beez-ui` package published to npm); do not use component-specific subpaths. General-purpose hooks (`useIsMobile`, `useIsHydrated`, `useViewerTimeZone`, `useHorizontalSwipe`) come from the `beez-ui/hooks` entrypoint.
 - `components/providers/app-providers/app-ui-provider.tsx` is the composition root allowed to import `BeezUIProvider` from `beez-ui/next`. Use `useTheme` from `beez-ui` for theme consumers and preserve the `tutribu-theme` storage key. Do not reintroduce document theme scripts or independent preference state.
 - The sibling `beez-ui` repository owns the extracted shadcn/ui components and their customizations.

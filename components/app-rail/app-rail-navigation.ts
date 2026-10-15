@@ -6,6 +6,7 @@ import {
   HandHeartIcon,
   LibraryBigIcon,
   MailPlusIcon,
+  PlusCircleIcon,
   MedalIcon,
   ReceiptTextIcon,
   ScrollTextIcon,
@@ -253,4 +254,132 @@ export function findActiveTribe(
   return memberTribes.find((tribe) =>
     isSameOrNestedPath(pathname, ROUTES.tribes.bySlug(tribe.slug))
   );
+}
+
+/** Label of the global tribes section shown outside a tribe. */
+export const TRIBES_SECTION_LABEL = "Tribus";
+
+export const CREATE_TRIBE_NAVIGATION_ITEM = {
+  href: ROUTES.tribes.create,
+  icon: PlusCircleIcon,
+  label: "Nueva tribu",
+} as const;
+
+/** Text of the badge that marks sections still in development. */
+export const COMING_SOON_BADGE_LABEL = "Pronto";
+
+const MEMBER_SECTION_ID = "member";
+const ADMIN_SECTION_ID = "admin";
+const TRIBES_SECTION_ID = "tribes";
+
+/** One row of the app rail. */
+export type AppRailEntry = {
+  badge?: string;
+  href: string;
+  icon: LucideIcon;
+  id: string;
+  isActive: boolean;
+  label: string;
+};
+
+/** A group of rows, optionally under a heading that becomes a divider in the rail. */
+export type AppRailSection = {
+  entries: AppRailEntry[];
+  heading?: string;
+  id: string;
+};
+
+/** Everything the app rail shows for the current pathname. */
+export type AppRailNavigation = {
+  activeTribe?: MemberTribeListItemResult;
+  /** Label of the open row, the last breadcrumb step. */
+  currentLabel?: string;
+  /** Heading of the section that holds the open row, the middle breadcrumb step. */
+  currentParent?: string;
+  sections: AppRailSection[];
+};
+
+function toTribeEntry(
+  item: TribeNavigationItem,
+  pathname: string,
+  tribeSlug: string
+): AppRailEntry {
+  return {
+    badge: item.comingSoon ? COMING_SOON_BADGE_LABEL : undefined,
+    href: item.hrefBuilder(tribeSlug),
+    icon: item.icon,
+    id: item.label,
+    isActive: item.matchPath(pathname, tribeSlug),
+    label: item.label,
+  };
+}
+
+/**
+ * Builds the rail for the pathname: the tribe sections inside one of the
+ * member's tribes, and the global tribes list elsewhere. The sidebar and the
+ * breadcrumb read the same result, so they never disagree on the open row.
+ *
+ * @param pathname - Current pathname.
+ * @param memberTribes - Tribes of the member.
+ * @returns Sections, active tribe and the breadcrumb steps of the open row.
+ */
+export function resolveAppRailNavigation(
+  pathname: string,
+  memberTribes: readonly MemberTribeListItemResult[]
+): AppRailNavigation {
+  const activeTribe = findActiveTribe(pathname, memberTribes);
+
+  const sections: AppRailSection[] = activeTribe
+    ? [
+        {
+          entries: getVisibleMemberNavigation(activeTribe).map((item) =>
+            toTribeEntry(item, pathname, activeTribe.slug)
+          ),
+          id: MEMBER_SECTION_ID,
+        },
+        {
+          entries: getVisibleAdminNavigation(activeTribe).map((item) =>
+            toTribeEntry(item, pathname, activeTribe.slug)
+          ),
+          heading: TRIBE_ADMIN_SECTION_LABEL,
+          id: ADMIN_SECTION_ID,
+        },
+      ]
+    : [
+        {
+          entries: [
+            {
+              ...CREATE_TRIBE_NAVIGATION_ITEM,
+              id: CREATE_TRIBE_NAVIGATION_ITEM.href,
+              isActive: pathname === CREATE_TRIBE_NAVIGATION_ITEM.href,
+            },
+            {
+              ...DISCOVER_TRIBES_NAVIGATION_ITEM,
+              id: DISCOVER_TRIBES_NAVIGATION_ITEM.href,
+              isActive: pathname === DISCOVER_TRIBES_NAVIGATION_ITEM.href,
+            },
+            ...memberTribes.map((tribe) => ({
+              href: ROUTES.tribes.bySlug(tribe.slug),
+              icon: UsersIcon,
+              id: tribe.tribeId,
+              isActive: false,
+              label: tribe.name,
+            })),
+          ],
+          heading: TRIBES_SECTION_LABEL,
+          id: TRIBES_SECTION_ID,
+        },
+      ];
+  const visibleSections = sections.filter((section) => section.entries.length > 0);
+  const currentSection = visibleSections.find((section) =>
+    section.entries.some((entry) => entry.isActive)
+  );
+  const currentEntry = currentSection?.entries.find((entry) => entry.isActive);
+
+  return {
+    activeTribe,
+    currentLabel: currentEntry?.label,
+    currentParent: activeTribe ? currentSection?.heading : undefined,
+    sections: visibleSections,
+  };
 }

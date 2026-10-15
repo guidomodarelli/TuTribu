@@ -1,6 +1,5 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-import { useSidebar } from "beez-ui";
 import { cookies, headers } from "next/headers";
 import { usePathname } from "next/navigation";
 
@@ -19,25 +18,13 @@ vi.mock("next/headers", () => ({
 
 vi.mock("next/navigation", () => ({
   usePathname: vi.fn(() => "/"),
+  useRouter: vi.fn(() => ({ push: vi.fn() })),
 }));
 
 const INCOMING_REQUEST_ID = "req-platform-layout-42";
 
-vi.mock("@/components/app-sidebar", () => ({
-  AppSidebar: ({
-    authenticatedMember,
-    memberTribes,
-  }: {
-    authenticatedMember: { name: string } | null;
-    memberTribes: Array<{ name: string }>;
-  }) => (
-    <div>
-      <span>Sidebar</span>
-      <span>{authenticatedMember?.name ?? "Sin sesion"}</span>
-      <span>{memberTribes.map((tribe) => tribe.name).join(",")}</span>
-    </div>
-  ),
-}));
+/** A roomy shell keeps the sidebar state restored from the cookie. */
+const DESKTOP_SHELL_WIDTH_PX = 1280;
 
 vi.mock("@/components/auth/avatar-session-menu-client", () => ({
   AvatarSessionMenuClient: ({ authenticatedMember }: { authenticatedMember: { name: string } | null }) => (
@@ -70,15 +57,11 @@ vi.mock("@/src/modules/setup", () => ({
   createRequestModules: vi.fn(),
 }));
 
-/** Exposes the real public sidebar state to the route integration test. */
-function SidebarState() {
-  return <output aria-label="Estado de navegación">{useSidebar().state}</output>;
-}
-
 describe("PlatformLayout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (usePathname as Mock).mockReturnValue("/");
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => DESKTOP_SHELL_WIDTH_PX });
     getAuthenticatedMember.mockReset();
     getMemberTribes.mockReset();
     getNotificationInbox.mockReset();
@@ -128,11 +111,11 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
-    expect(screen.getByText("Sidebar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Alpha Club" })).toBeInTheDocument();
     expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
     expect(screen.getByText("Menu de cuenta: Grace Hopper")).toBeInTheDocument();
     expect(screen.getByText("Alpha Club")).toBeInTheDocument();
@@ -157,7 +140,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
@@ -179,7 +162,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
@@ -203,11 +186,11 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
-    expect(screen.getByLabelText("Estado de navegación")).toHaveTextContent("collapsed");
+    expect(screen.getByRole("button", { name: "Expandir barra lateral" })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("starts the app rail toggle folded when the sidebar cookie is collapsed and shows the tribe trail", async () => {
@@ -233,7 +216,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
@@ -252,13 +235,13 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
     expect(getMemberTribes).not.toHaveBeenCalled();
     expect(getNotificationInbox).not.toHaveBeenCalled();
-    expect(screen.getByText("Sin sesion")).toBeInTheDocument();
+    expect(screen.queryByText("Tu cuenta")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Notificaciones/ })).not.toBeInTheDocument();
   });
 
@@ -293,7 +276,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
@@ -318,7 +301,7 @@ describe("PlatformLayout", () => {
     try {
       render(
         await PlatformLayoutContent({
-          children: <div>Contenido<SidebarState /></div>,
+          children: <div>Contenido</div>,
         })
       );
 
@@ -339,7 +322,7 @@ describe("PlatformLayout", () => {
 
     render(
       await PlatformLayoutContent({
-        children: <div>Contenido<SidebarState /></div>,
+        children: <div>Contenido</div>,
       })
     );
 
