@@ -1,0 +1,121 @@
+{
+  "formatVersion": 1,
+  "capturedAt": "2026-10-15T13:54:07.104Z",
+  "status": "private_preference_policy_partial",
+  "testedBaseHead": "521aaf7d4da42e25db270dc9601c43d06cf6c769",
+  "inventory": {
+    "total": 212,
+    "completed": 174,
+    "pending": 38,
+    "T177": "open",
+    "T180": "open",
+    "T181": "open",
+    "T184": "open"
+  },
+  "scope": "Private role defaults, scoped projection and pure CAS change planning only; no preference persistence/groups/public endpoint/UI/mail delivery.",
+  "environment": {
+    "runtime": "node",
+    "runSql": false,
+    "runBrowser": false,
+    "dependencyDoublesInPolicyTests": false
+  },
+  "tests": {
+    "completeFiles": 1,
+    "passed": 19,
+    "failed": 0,
+    "filtered": 0,
+    "sourcesStable": true,
+    "caseIdentity": "SHA256(JSON.stringify([relativeFile,fullName,sameNameOrdinal]))",
+    "passedCaseIds": [
+      "7800107c8d2e5420cbbbf850f067b05e58a3080998381da7545950ee042fd6c2",
+      "dfc5142424d66628bf7172152f0d6bd15abc726f63c0243a6aa58ed55859b2d9",
+      "afca39dba0e12de0dadfbc29b9b448eeb9c7387ffbaa46f5e96ff10410c7055e",
+      "2d59f11e019d7e5f3dc7464fe40e8e635df80e8f9d51176ad803fd359d8677bb",
+      "c6c55ef259e98b739dfda92b2fba33fa95621651cb2e2610b72ad12efdd72141",
+      "c31df38db82cb74047273cb8fcfb113f900ab75f133752b7f6317ede555c7083",
+      "ce5b9c12022cf6cd8d294af5e15cda7d533748d83cfb44b5d396c9b51714d6fe",
+      "39377b5ee464a5a76a7debb52fcd6c8706614d3c66b5bda14d1d8b05eb5bac5e",
+      "282ab57a7aad9175d84e7290e5af19a74d284d0e883c6d0856b97a02d11e50ea",
+      "53f238a166516ca05b5057a449f12ce4e1f2e08cc99091c3b61bd033d42fae8d",
+      "5f20a61d65a8586ac25dd0aa35d8513133560bcb6bbf765ced20998c691eb5ea",
+      "66b2685619b38ce164be05eb5cb5e454c4f51b052165110d449d2a133fbc6fba",
+      "6f54806732fda15ed0043f50f87cc5e161cbbc815a4607a69fbab1542e14fcb4",
+      "f6049925ec2b9f44da7bc42c5d223240898e6ee1da9eefed1303baf39ed2b617",
+      "fb2d7182dbd449bf68b55c579d7ce19177076f110a11dc54258ffe22654cba4f",
+      "e32e849cce692cd7a519720db1873ebe1d63b881b3722f5107bc51fbf2723cbc",
+      "68a85214a3ede795fa207fd7caf28478d71bbb227e3b148fb6640c31aa15e2f1",
+      "65d9eb1a6b7515c18a85fce0aca2d1a3b8ed45aee760d95eaf70a52731f2df6e",
+      "91d57576e64acc19b9d3882d2788c8da48c669092dd212b8f9ca654ab0b4e647"
+    ]
+  },
+  "sources": [
+    {
+      "path": "tests/unit/modules/notifications/domain/admission-notification-preference.test.ts",
+      "sha256": "00404cc9350a334ed5b759f34074cef4c5f9118d0dbd03fd0067b603d77d2415"
+    },
+    {
+      "path": "src/modules/notifications/domain/entities/admission-notification-preference.ts",
+      "sha256": "77ce3fe98e4276693c439d054415965fc90d6388b65d10dbe257363b05cc8fcb"
+    },
+    {
+      "path": "src/modules/notifications/constants/admission-notification-preference.ts",
+      "sha256": "4c68c28f4c00e3e039f23ddca72536d3fe0b21641d9cbe5ab066e1b8d29bbce2"
+    },
+    {
+      "path": "src/modules/notifications/domain/policies/admission-notification-preference.ts",
+      "sha256": "e0d8360dc5da571b062173a6d99e0fb32baaffcd5b09208db80a2ba0286ba68a"
+    },
+    {
+      "path": "src/modules/tribes/constants/tribe-member-role.ts",
+      "sha256": "d90c6bed1bd2ee3692e7374882cbd2734d987fb18e0049d196b368c54eca229d"
+    },
+    {
+      "path": "src/modules/tribes/constants/tribe-page-access.ts",
+      "sha256": "18091d5392ed8b450d5ef2fe5dc8aa6da972fa976f8e4e35eb415c8bfe966f5d"
+    }
+  ],
+  "receipts": {
+    "targetSha256": "527fa6989eda435a074496d583d656080ebded090069c9a0ae5e91f31550c35a",
+    "reportSha256": "4c90b49550c4d3f8bf9d9e02d133a20374b1c5003461ca95bdbd481c8d23cb4a",
+    "outcomeSha256": "dfc2d5c2db6d943c857a21a77abc3627bd9ff6acc592b7e529229b64ba02c366"
+  },
+  "checks": {
+    "focusedLint": "passed",
+    "productTypes": "passed",
+    "testTypes": "passed"
+  },
+  "gates": {
+    "fullT180Passed": false,
+    "nativePreferencePersistencePassed": false,
+    "publicWorkflowAvailable": false,
+    "allUs8AcceptanceCriteriaPassed": false,
+    "currentIncrementCiPassed": false,
+    "taskClosure": false
+  },
+  "resources": {
+    "externalMessagesSent": 0,
+    "productionOrPilotChanges": false,
+    "newEphemeralBranchCreated": false
+  },
+  "visualDocumentation": {
+    "views": 4,
+    "engines": [
+      "chromium",
+      "webkit"
+    ],
+    "widths": [
+      390,
+      1280
+    ],
+    "sourceSha256": "4654c01617b4ab0d376ae2a4e7e3d1f868f97a38b945de063a375a4bd80788e8",
+    "visuallyChecked": [
+      "chromium-1280",
+      "webkit-390"
+    ],
+    "receiptSha256": "b80c5aecfd6e34b4d4b6d4923f1b5b1a41309b4197e8cb2072cd1cd4bf0fe906"
+  },
+  "capture": {
+    "beforeNextPreferenceCommit": true,
+    "previousFixtureCiAppliesToModel": false
+  }
+}
