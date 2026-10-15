@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-15
+
 ### Changed
 
 - En la gestión de invitaciones, "Copiar link" y el menú de más acciones quedan unidos en un solo botón dividido: copiar sigue siendo la acción principal, y la flecha de al lado abre "Cambiar plan", "Editar canal" y "Revocar". Al copiar, el texto cambia a "Copiado" letra por letra.
