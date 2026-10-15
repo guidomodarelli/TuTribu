@@ -77,7 +77,7 @@ import { PostgresTribeEventReminderRepository } from "./events/infrastructure/re
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { lockTribeEventOccurrenceRecordingForShare } from "./events/infrastructure/repositories/tribe-event-occurrence-recording-lock";
 import { PostgresNotificationRepository } from "./notifications/infrastructure/repositories/postgres-notification-repository";
-import { buildNotificationsModule } from "./notifications/setup";
+import { buildNotificationsModule, buildAdmissionNotificationSettingsModule } from "./notifications/setup";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
 import { buildSitepingModule } from "./siteping/setup";
 import { PostgresTribeMemberSubscriptionRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
@@ -605,6 +605,16 @@ export async function createMessagingConfigurationRequestModule(usage:DatabaseCo
   const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
   const configuration=buildMessagingModule(dependencies).createConfigurationModule({readSecurityFacts:async()=>readMessagingHostingSecurityFacts()});
   return{configuration:configuration.useCases,resolveTribe:routing.resolveTribe,createPage:()=>configuration.createPage(routing.resolveTribe)};
+}
+
+/** @returns Own preference and independent leader email settings with native owner transactions, current session authority and canonical routing; no provider adapters or sends are composed. */
+export async function createAdmissionNotificationSettingsRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const dependencies: AuthenticatedFeatureDependencies = { accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(), execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run) };
+  const admissions = buildAcademyAdmissionsModule(dependencies);
+  const routing = admissions.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  const notifications = buildAdmissionNotificationSettingsModule(dependencies, { resolver: admissions.useCases.resolveContext, readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  return { resolveTribe: routing.resolveTribe, ...notifications.useCases };
 }
 
 /** @param usage - Native guarded read purpose. @returns Sensitive current leader resource enumeration and tenant routing, without a dispatcher. */
