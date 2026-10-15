@@ -5,6 +5,7 @@ import {
   TRIBE_SUBSCRIPTION_PRICE_STATUS,
 } from "@/src/modules/subscriptions/constants/subscriptions";
 import { PostgresTribeSubscriptionPriceRepository } from "@/src/modules/subscriptions/infrastructure/repositories/postgres-tribe-subscription-price-repository";
+import { createLegacyMembershipExecutorFixture } from "@/tests/support/legacy-membership-executor-fixture";
 
 function getSqlText(statement: unknown): string {
   return ((statement as { queryChunks?: unknown[] }).queryChunks ?? [])
@@ -64,10 +65,11 @@ function createRepository(
   }))
 ) {
   // These legacy own-port fixtures have no protected tribe. Actual source writes are exercised by the SQL suite.
+  const executeWithResourceLocks = createLegacyMembershipExecutorFixture(execute);
   const executeLegacyDatabase = (statement: unknown, ...parameters: unknown[]) => {
     const query = getSqlText(statement).trim();
     if (query.startsWith("select ") && query.includes("tribe.admissions_control_activated_at")) return Promise.resolve({ rows: [] });
-    return execute(statement, ...parameters);
+    return executeWithResourceLocks(statement, ...parameters);
   };
   return new PostgresTribeSubscriptionPriceRepository(
     async (callback) => callback({ execute: executeLegacyDatabase } as never),
@@ -2001,7 +2003,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           createSubscriptionPriceRow({
@@ -2077,7 +2078,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           createSubscriptionPriceRow({
@@ -2149,7 +2149,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           createSubscriptionPriceRow({
@@ -2217,7 +2216,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [
           createSubscriptionPriceRow({
@@ -2470,7 +2468,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
@@ -3154,9 +3151,6 @@ describe("PostgresTribeSubscriptionPriceRepository", () => {
             mercado_pago_preapproval_id: "subscription-4",
           },
         ],
-      })
-      .mockResolvedValueOnce({
-        rows: [],
       })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({

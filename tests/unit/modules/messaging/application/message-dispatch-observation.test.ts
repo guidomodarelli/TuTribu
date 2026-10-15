@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 /** Exercises real portable scheduling through own ports, including late evidence and observation failure. @module message-dispatch-observation-tests */
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ObserveMessageDispatchRunUseCase } from "@/src/modules/messaging/application/use-cases/observe-message-dispatch-run-use-case";
 import type { MessageDeliveryRepository, ClaimedMessageDelivery } from "@/src/modules/messaging/domain/repositories/message-delivery-repository";
 import type { MessageDeliverySender, MessagingDispatchDiagnostic } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
@@ -58,10 +58,23 @@ describe("persistent portable dispatch observations", () => {
     expect(state.reports).toContainEqual(expect.objectContaining({ stage: "observation" }));
   });
   it("should retain one original late observation without blocking the run or retrying its write", async () => {
-    const state = fixture(1); state.settings.runBudgetMs = 40; let calls = 0, finish!: () => void;
-    state.recorder.finish = () => { calls += 1; return new Promise<void>((resolve) => { finish = resolve; }); };
-    const startedAt = Date.now(); expect(await state.execute()).toMatchObject({ accepted: 1, unresolved: 0, deadlineReached: true, workerOutcome: "incomplete", observationOutcome: "unavailable" });
-    expect(Date.now() - startedAt).toBeLessThan(300); expect(state.sends).toBe(1); expect(calls).toBe(1); finish(); await Promise.all(state.deferred); expect(calls).toBe(1);
+    vi.useFakeTimers();
+    const state = fixture(1); state.settings.runBudgetMs = 40;
+    let calls = 0, runFinished = false, finish!: () => void;
+    const originalObservation = new Promise<void>((resolve) => { finish = resolve; });
+    state.recorder.finish = () => { calls += 1; return originalObservation; };
+    try {
+      const run = state.execute().then((result) => { runFinished = true; return result; });
+      await vi.advanceTimersByTimeAsync(state.settings.runBudgetMs - 1);
+      expect(runFinished).toBe(false); expect(state.sends).toBe(1); expect(calls).toBe(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await run).toMatchObject({ accepted: 1, unresolved: 0, deadlineReached: true, workerOutcome: "incomplete", observationOutcome: "unavailable" });
+      expect(state.deferred).toHaveLength(1);
+      finish(); await Promise.all(state.deferred);
+      expect(state.sends).toBe(1); expect(calls).toBe(1); expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      finish(); await Promise.allSettled(state.deferred); vi.useRealTimers();
+    }
   });
   it("should record original late phase evidence after an uncertain send and keep the run incomplete", async () => {
     const state = fixture(1); let finish!: () => void;

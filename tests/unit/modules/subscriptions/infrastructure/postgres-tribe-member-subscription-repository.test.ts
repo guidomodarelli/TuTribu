@@ -379,7 +379,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ id: "subscription-2" }] })
       .mockResolvedValueOnce({ rows: [] });
     const getMercadoPagoPreapprovalDetails = vi.fn(async () => ({
@@ -2067,6 +2066,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
   });
 
   it("checks the provider preapproval status before processing created webhooks", async () => {
+    // The provider's pending state must differ from the stored state to exercise a new transition.
     const execute = vi
       .fn()
       .mockResolvedValueOnce({
@@ -2080,8 +2080,7 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]})
+      .mockResolvedValueOnce({rows:[{local_status:"active",local_status_reason:"none"}]})
       .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
@@ -2169,7 +2168,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]})
       .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
@@ -2204,7 +2202,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]})
       .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
@@ -2244,7 +2241,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]})
       .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
@@ -2293,7 +2289,6 @@ describe("PostgresTribeMemberSubscriptionRepository", () => {
           },
         ],
       })
-      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({rows:[{local_status:"pending",local_status_reason:"payment_blocked"}]})
       .mockResolvedValueOnce({ rows: [{ operation_inserted: "operation-1" }] })
       .mockResolvedValueOnce({ rows: [] })
