@@ -64,7 +64,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission p
         await transaction.execute(sql`delete from public.tribes where id=${fixture.tribeId}`);
         const archived = (await transaction.execute<{ metadata: Record<string, unknown>; actor_reference_id: string | null; operation_id: string | null; resource_version: number | null }>(sql`select metadata,actor_reference_id,operation_id,resource_version from public.academy_admission_retired_audit_events where tribe_id=${fixture.tribeId} and resource_type='retention_run'`)).rows;
         expect(archived).toHaveLength(3);
-        expect(archived.every((event) => Object.keys(event.metadata).sort().join(",") === "cutoff,owner,processed,remaining" && event.actor_reference_id === null && event.operation_id === null && event.resource_version === null)).toBe(true);
+        expect(archived.every((event) => Object.keys(event.metadata).sort().join(",") === "cutoff,durationMs,owner,processed,remaining" && Number.isSafeInteger(event.metadata.durationMs) && Number(event.metadata.durationMs) >= 0 && event.actor_reference_id === null && event.operation_id === null && event.resource_version === null)).toBe(true);
       });
     });
   }, MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS);
