@@ -14,6 +14,7 @@ export const ADMISSION_ACTIVITY_EVENT_LABELS = {
   authorized_resource_exposure: "Consulta privada autorizada", delivery_created: "Entrega preparada", delivery_attempt_started: "Intento externo iniciado", delivery_accepted: "Entrega aceptada por el proveedor", delivery_delivered: "Entrega confirmada", delivery_failed: "Entrega fallida", delivery_unknown: "Resultado de entrega desconocido",
   delivery_suppressed: "Entrega omitida", delivery_deferred: "Entrega diferida", delivery_cancelled: "Entrega cancelada", delivery_reconciled: "Entrega conciliada", notification_delivery_recovered: "Aviso recuperado con otra conexión",
   notification_obligation_created: "Aviso interno registrado", notification_materialized: "Aviso interno disponible",
+  admission_email_settings_changed: "Avisos por correo actualizados",
   proof_created: "Prueba de contacto creada", proof_applied: "Prueba de contacto aplicada", proof_invalidated: "Prueba de contacto invalidada", proof_expired: "Prueba de contacto vencida", membership_admitted: "Ingreso registrado", membership_revoked: "Pertenencia retirada", membership_role_changed: "Rol de pertenencia cambiado",
   protection_keys_rotated: "Protección renovada", secret_retired: "Credencial retirada del uso", secret_purged: "Material de credencial eliminado", recovery_locked: "Recuperación bloqueada", retention_completed: "Lote de conservación completado", unclassified: "Hecho histórico sin clasificación",
 } as const satisfies Record<AdmissionActivityPage["items"][number]["eventType"], string>;
@@ -27,6 +28,7 @@ export const ADMISSION_ACTIVITY_RESOURCE_LABELS = {
   [ADMISSION_ACTIVITY_RESOURCE.protection]: "Protección", [ADMISSION_ACTIVITY_RESOURCE.proof]: "Prueba de contacto",
   [ADMISSION_ACTIVITY_RESOURCE.membership]: "Pertenencia", [ADMISSION_ACTIVITY_RESOURCE.retention]: "Conservación de datos",
   [ADMISSION_ACTIVITY_RESOURCE.policy]: "Política de admisión",
+  [ADMISSION_ACTIVITY_RESOURCE.emailSettings]: "Avisos por correo",
 } as const satisfies Record<AdmissionActivityPage["items"][number]["resourceType"], string>;
 
 /** Phase labels correspond to real observations, without claiming that absent samples were successful. */
@@ -43,6 +45,7 @@ export const ADMISSION_OBSERVATION_COPY = { noData: "Sin datos registrados", noV
 
 /** Detail labels cover only the existing own activity contract, preserving technical reference values. */
 export const ADMISSION_ACTIVITY_CHANGE_LABELS = {
+  enabled: "Correo externo habilitado", timeZone: "Zona horaria",
   fromPolicy: "Política anterior", toPolicy: "Política nueva", fromState: "Estado anterior", toState: "Estado nuevo", fromStatus: "Estado anterior", toStatus: "Estado nuevo",
   previousVersion: "Versión anterior", previousRequestVersion: "Versión anterior de la solicitud", policyVersion: "Versión de política", verificationEpoch: "Época de verificación", configurationVersion: "Versión de configuración", previousConfigurationVersion: "Configuración anterior",
   channel: "Canal", requestId: "Referencia de solicitud", proofId: "Referencia de prueba", challengeId: "Referencia de desafío", decisionId: "Referencia de decisión",

@@ -7,6 +7,7 @@ import { MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/mes
 import { ADMISSION_ADMINISTRATIVE_SURFACE } from "./admission-administrative-exposure";
 import { MESSAGING_SECRET_HUMAN_OPERATIONS, MESSAGING_SECRET_DELIVERY_SCOPE } from "@/src/modules/messaging/constants/messaging-secret-access";
 import { ADMISSION_NOTIFICATION_AUDIT } from "@/src/modules/notifications/constants/admission-notification-audit";
+import { ADMISSION_EMAIL_SETTINGS_AUDIT } from "@/src/modules/notifications/constants/admission-notification-email-settings";
 import { ADMISSION_IMPORT_MATERIAL_RETENTION, ADMISSION_PRIVATE_DATA_RETENTION } from "./admission-retention";
 import { ADMISSION_POLICY_AUDIT_CHANGE } from "./admission-policy-audit";
 
@@ -41,6 +42,7 @@ export const ADMISSION_ACTIVITY_EVENTS = [
   "authorized_resource_exposure", "delivery_created", "delivery_attempt_started", "delivery_accepted", "delivery_delivered", "delivery_failed", "delivery_unknown",
   "delivery_suppressed", "delivery_deferred", "delivery_cancelled", "delivery_reconciled", "notification_delivery_recovered",
   ADMISSION_NOTIFICATION_AUDIT.obligationCreated, ADMISSION_NOTIFICATION_AUDIT.materialized,
+  ADMISSION_EMAIL_SETTINGS_AUDIT.event,
   "proof_created", "proof_applied", "proof_invalidated", "proof_expired", "membership_admitted", "membership_revoked", "membership_role_changed",
   "protection_keys_rotated", "secret_retired", "secret_purged", "recovery_locked", "retention_completed", ADMISSION_ACTIVITY_UNCLASSIFIED_EVENT,
 ] as const;
@@ -69,6 +71,7 @@ export const ADMISSION_ACTIVITY_CAUSES = [
 export const ADMISSION_ACTIVITY_STATES = ["pending", "approved", "rejected", "cancelled", "expired", "enabled", "disabled", "active", "revoked", "redeemed", "draft", "ready", "degraded", "suspended", "disconnected", "queued", "accepted", "delivered", "failed", "unknown", "suppressed", "available", "applied", "invalid", "muted", "blocked", "removed", "not_validated", "valid", "unavailable"] as const;
 /** Copies only reconstructible owner facts, never contact, code, key, ciphertext, token or descriptive notes. */
 export const ADMISSION_ACTIVITY_CHANGE_FIELDS = [
+  "enabled", "timeZone",
   ...Object.values(ADMISSION_POLICY_AUDIT_CHANGE),
   "fromState", "toState", "fromStatus", "toStatus", "previousVersion", "previousRequestVersion", "policyVersion", "verificationEpoch", "configurationVersion", "previousConfigurationVersion",
   "channel", "requestId", "proofId", "challengeId", "decisionId", "invitationId", "importId", "connectionId", "previousConnectionId", "connectionVersion", "previousConnectionVersion",

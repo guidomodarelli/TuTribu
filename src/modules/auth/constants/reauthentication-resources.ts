@@ -7,6 +7,7 @@ export const REAUTHENTICATION_OPERATION={
   recoverNotificationDelivery:MESSAGE_DELIVERY_REAUTHENTICATION_OPERATION.recoverNotification,
   exitAcademyMode: "exit_academy_mode",
   deleteTribe: "delete_tribe",
+  updateAdmissionEmailSettings: "update_admission_email_settings",
 } as const satisfies Record<string, ReauthenticationOperation>;
 /** Enumerates the exact global-recency contract independently of runtime constants. */
 export type ReauthenticationOperation=
@@ -16,7 +17,8 @@ export type ReauthenticationOperation=
   | "update_admission_policy" | "activate_admission_policy" | "pause_admission_policy" | "create_allowlist_entry"
   | "update_allowlist_entry" | "preview_allowlist_import" | "confirm_allowlist_import" | "create_personal_invitation"
   | "rename_personal_invitation" | "revoke_personal_invitation" | "advance_admission_retry"
-  | "reconcile_message_delivery" | "recover_notification_delivery" | "exit_academy_mode" | "delete_tribe";
+  | "reconcile_message_delivery" | "recover_notification_delivery" | "exit_academy_mode" | "delete_tribe"
+  | "update_admission_email_settings";
 /** Static owners select SQL resources; client input can never select a table or permissive query. */
 export const REAUTHENTICATION_RESOURCE_KIND={tribe:"tribe",connection:"connection",delivery:"delivery",allowlistEntry:"allowlist_entry",allowlistImport:"allowlist_import",personalInvitation:"personal_invitation",admissionRequest:"admission_request"} as const;
 export const REAUTHENTICATION_OPERATION_RESOURCE={
@@ -47,4 +49,5 @@ export const REAUTHENTICATION_OPERATION_RESOURCE={
   [REAUTHENTICATION_OPERATION.advanceAdmissionRetry]:REAUTHENTICATION_RESOURCE_KIND.admissionRequest,
   [REAUTHENTICATION_OPERATION.exitAcademyMode]: REAUTHENTICATION_RESOURCE_KIND.tribe,
   [REAUTHENTICATION_OPERATION.deleteTribe]: REAUTHENTICATION_RESOURCE_KIND.tribe,
+  [REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings]: REAUTHENTICATION_RESOURCE_KIND.tribe,
 } as const satisfies Record<ReauthenticationOperation,(typeof REAUTHENTICATION_RESOURCE_KIND)[keyof typeof REAUTHENTICATION_RESOURCE_KIND]>;

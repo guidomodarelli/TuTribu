@@ -8,6 +8,7 @@ import { createSubscriptionMembershipEffectsSchema } from "@/src/modules/subscri
 import { ADMISSION_NOTIFICATION_AUDIENCE, ADMISSION_NOTIFICATION_TYPES } from "@/src/modules/notifications/constants/admission-notifications";
 import { ADMISSION_NOTIFICATION_PREFERENCE_MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { createAdmissionNotificationGroupSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-group-schema";
+import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {
   bigint,
   boolean,
@@ -1338,7 +1339,8 @@ export const eventOccurrenceComments = pgTable("event_occurrence_comments", {
 export const admissionEmailSettings=pgTable("admission_email_settings",{
   tribeId:uuid("tribe_id").primaryKey().references(()=>tribes.id,{onDelete:"cascade"}),
   enabled:boolean("enabled").notNull().default(false),
-  enabledAt:timestamp("enabled_at",{withTimezone:true}),
+  enabledAt:timestamp("enabled_at",{withTimezone:true,mode:"string"}),
+  timeZone:text("time_zone").notNull().default(BUENOS_AIRES_TIME_ZONE),
   version:integer("version").notNull().default(1),
   changedByUserId:text("changed_by_user_id").references(()=>users.id,{onDelete:"set null"}),
   createdAt:timestamp("created_at",{withTimezone:true}).notNull().default(UTC_NOW_SQL),
