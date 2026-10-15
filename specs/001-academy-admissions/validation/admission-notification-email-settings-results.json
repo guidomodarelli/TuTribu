@@ -646,8 +646,21 @@
     "existingCapturesRetained": 51,
     "captures": 52,
     "checkedLocalLinks": 177,
-    "manualDraftRenderedAt": "2026-10-15T18:45:47.160Z",
-    "manualDraftViews": [
+    "sourceTrace": {
+      "codeCommit": "620b1c54366a2defcbb10e1fdd76122addd3f8c4",
+      "files": [
+        "user-guides/academy-admissions.html",
+        "user-guides/index.html",
+        "user-guides/application-flows.html"
+      ],
+      "recordedWithCanonicalHelper": true
+    },
+    "expectedStaticWarnings": [
+      "Manual local sin URL de visor publicada.",
+      "Copy en español sin catálogo central de traducciones; contrastado con la UI real."
+    ],
+    "manualRenderedAt": "2026-10-15T18:55:07.661Z",
+    "manualViews": [
       {
         "engine": "chromium",
         "width": 1280,
@@ -717,10 +730,19 @@
         "pageErrors": []
       }
     ],
-    "sourceTrace": "Se registra sobre el commit de código guardado antes del commit documental del mismo trabajo.",
-    "expectedStaticWarnings": [
-      "Manual local sin URL de visor publicada.",
-      "Copy en español sin catálogo central de traducciones; contrastado con la UI real."
+    "manualSourceFiles": [
+      {
+        "path": "user-guides/academy-admissions.html",
+        "sha256": "28d1c873f7b2042ff776940d8a1018adeb1b89cdb2005ae8473c3a0832c24798"
+      },
+      {
+        "path": "user-guides/index.html",
+        "sha256": "671cbb08eee351f02529d17d016c2046393a3545faa23988a7bd08796c82337e"
+      },
+      {
+        "path": "user-guides/application-flows.html",
+        "sha256": "cdf646e2e9757dfea87b402820f144f50bb2ee70178253fcd04909f364ff9a58"
+      }
     ]
   },
   "diagnostics": {
