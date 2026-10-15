@@ -67,12 +67,9 @@ const FILE_WITH_PREVIOUS_ASSIGNMENTS = [
 
 let sandboxScript: DevDatabaseSandboxScript;
 
-/** Variables the sandbox block manages, hidden from `process.env` while loading. */
-const DATABASE_ENVIRONMENT_KEYS = [
-  "DATABASE_URL",
-  "DATABASE_MIGRATION_URL",
-  "DATABASE_MAINTENANCE_URL",
-];
+/** Matches the variable name of each `KEY=value` assignment line in an env file. */
+const ENVIRONMENT_ASSIGNMENT_KEY_PATTERN =
+  /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/gm;
 
 /**
  * Resolves the values Next.js applies from an env file with these contents,
@@ -82,11 +79,18 @@ const DATABASE_ENVIRONMENT_KEYS = [
  */
 function loadEffectiveEnvironment(environmentFileText: string) {
   const projectDirectory = mkdtempSync(join(tmpdir(), "dev-database-sandbox-"));
-  // The loader never overrides variables already in process.env (CI sets DATABASE_URL), so hide them while loading.
-  const inheritedDatabaseEnvironment = Object.fromEntries(
-    DATABASE_ENVIRONMENT_KEYS.map((key) => [key, process.env[key]])
+  // The loader never overrides variables already in process.env (CI sets DATABASE_URL, BETTER_AUTH_URL, ...),
+  // so hide every key the file assigns while loading it.
+  const assignedKeys = new Set(
+    Array.from(
+      environmentFileText.matchAll(ENVIRONMENT_ASSIGNMENT_KEY_PATTERN),
+      (assignmentMatch) => assignmentMatch[1]
+    )
   );
-  for (const key of DATABASE_ENVIRONMENT_KEYS) {
+  const inheritedEnvironment = Object.fromEntries(
+    Array.from(assignedKeys, (key) => [key, process.env[key]])
+  );
+  for (const key of assignedKeys) {
     delete process.env[key];
   }
 
@@ -102,7 +106,7 @@ function loadEffectiveEnvironment(environmentFileText: string) {
     return loadedEnvFiles.find((envFile) => envFile.path === ".env")?.env ?? {};
   } finally {
     resetEnv();
-    for (const [key, value] of Object.entries(inheritedDatabaseEnvironment)) {
+    for (const [key, value] of Object.entries(inheritedEnvironment)) {
       if (value !== undefined) {
         process.env[key] = value;
       }
