@@ -16,6 +16,8 @@ import { ALLOWLIST_IMPORT_RECOVERABLE_OPERATIONS } from "../../constants/allowli
 import { PERSONAL_INVITATION_RECOVERABLE_OPERATIONS } from "../../constants/personal-invitation-management";
 import { ADMISSION_ACTION } from "../../constants/admission-eligibility";
 import { authorizeAdmissionLeader } from "./postgres-admission-leader-authorizer";
+import { authorizeAdmissionPolicy } from "./postgres-admission-policy-authorizer";
+import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 /** Owned row fields are consumed directly; only the final own recovery DTO is schema-guarded by application. */
 type RegisteredOperationRow = { operation_type: string; state: "started" | "completed"; idempotency_key: string; public_result: unknown; member_role: string | null; member_status: string | null; request_user_id: string | null };
@@ -41,6 +43,10 @@ export class PostgresAdmissionOperationReader implements AdmissionOperationReade
       const leader = row.member_status === TRIBE_MEMBERSHIP_STATUS.active && row.member_role === TRIBE_MEMBER_ROLE.leader;
       const reviewer = row.member_status === TRIBE_MEMBERSHIP_STATUS.active && (row.member_role === TRIBE_MEMBER_ROLE.leader || row.member_role === TRIBE_MEMBER_ROLE.guardian);
       if (ADMISSION_POLICY_RECOVERABLE_OPERATIONS.includes(row.operation_type) && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      if (row.operation_type === REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings) {
+        if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+        await authorizeAdmissionPolicy(database, { ...scope, action: ADMISSION_ACTION.readPolicy, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId });
+      }
       if (PERSONAL_INVITATION_RECOVERABLE_OPERATIONS.includes(row.operation_type)) {
         if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
         await authorizeAdmissionLeader(database, { ...scope, action: ADMISSION_ACTION.manageInvitations, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId }, { action: ADMISSION_ACTION.manageInvitations, resourceId: scope.tribeId });

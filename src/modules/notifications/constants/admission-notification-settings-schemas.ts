@@ -6,7 +6,7 @@ import { ADMISSION_EMAIL_SETTINGS_REJECTION, ADMISSION_EMAIL_SETTINGS_STATUS } f
 import { ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH } from "./admission-notification-settings-http";
 import type { AdmissionNotificationEmailSettingsCommand } from "../domain/repositories/admission-notification-email-settings-repository";
 import type { AdmissionNotificationPreferenceChange } from "../domain/entities/admission-notification-preference";
-import type { AdmissionNotificationPreferenceReadResult, AdmissionNotificationPreferenceChangeResult, AdmissionNotificationEmailSettingsView, AdmissionNotificationEmailSettingsOperationResult } from "../application/results/admission-notification-settings-result";
+import type { AdmissionNotificationPreferenceReadResult, AdmissionNotificationPreferenceChangeResult, AdmissionNotificationEmailSettingsView, AdmissionNotificationEmailSettingsChangeResult, AdmissionNotificationEmailSettingsOperationResult } from "../application/results/admission-notification-settings-result";
 
 /** Reuses the existing closed frequency vocabulary for own input and output. */
 const mode = z.enum(ADMISSION_NOTIFICATION_PREFERENCE_MODE);
@@ -28,10 +28,12 @@ export const admissionNotificationPreferenceChangeResultSchema = z.union([
 /** Current and historical settings omit the native cut and selected credential state. */
 export const admissionNotificationEmailSettingsViewSchema = z.strictObject({ enabled: z.boolean(), version: z.int().nonnegative(), timeZone }).refine((value) => !value.enabled || value.version > 0) satisfies z.ZodType<AdmissionNotificationEmailSettingsView>;
 /** Publishes only the original operation's safe confirmed result or registered progress. */
+export const admissionNotificationEmailSettingsChangeResultSchema = z.union([
+  z.strictObject({ status: z.enum([ADMISSION_EMAIL_SETTINGS_STATUS.changed, ADMISSION_EMAIL_SETTINGS_STATUS.unchanged]), settings: admissionNotificationEmailSettingsViewSchema }),
+  z.strictObject({ status: z.literal(ADMISSION_EMAIL_SETTINGS_STATUS.rejected), reason: z.enum(ADMISSION_EMAIL_SETTINGS_REJECTION) }),
+]) satisfies z.ZodType<AdmissionNotificationEmailSettingsChangeResult>;
+/** Publishes only the original operation's safe confirmed result or registered progress. */
 export const admissionNotificationEmailSettingsOperationSchema = z.union([
   z.strictObject({ state: z.literal(OPERATION_STATE.started), operationId: z.uuid() }),
-  z.strictObject({ state: z.literal(OPERATION_STATE.completed), operationId: z.uuid(), replayed: z.boolean(), result: z.union([
-    z.strictObject({ status: z.enum([ADMISSION_EMAIL_SETTINGS_STATUS.changed, ADMISSION_EMAIL_SETTINGS_STATUS.unchanged]), settings: admissionNotificationEmailSettingsViewSchema }),
-    z.strictObject({ status: z.literal(ADMISSION_EMAIL_SETTINGS_STATUS.rejected), reason: z.enum(ADMISSION_EMAIL_SETTINGS_REJECTION) }),
-  ]) }),
+  z.strictObject({ state: z.literal(OPERATION_STATE.completed), operationId: z.uuid(), replayed: z.boolean(), result: admissionNotificationEmailSettingsChangeResultSchema }),
 ]) satisfies z.ZodType<AdmissionNotificationEmailSettingsOperationResult>;
