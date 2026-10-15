@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El historial privado conserva la configuración anterior y nueva de cada cambio efectivo de admisión, junto con los hechos permitidos al eliminar una tribu, sin copiar claves ni contactos.
+
 - El mantenimiento privado puede renovar el cifrado de conexiones vigentes sin cambiar la clave de Zavu, los códigos pendientes ni el consumo acumulado.
 
 - La limpieza interna agrupa sus pasos para que un fallo tardío revierta el lote completo y conserva por separado los resultados confirmados de admisión y mensajería.
@@ -125,6 +127,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El paso de comprobación de contacto aclara que los códigos usan el servicio conectado por el líder y que comprobar el contacto no acredita identidad civil ni pertenencia a un grupo de WhatsApp.
 
 ### Fixed
+
+- La eliminación de una tribu con avisos recuperados conserva su procedencia y su historial sin quedar bloqueada ni reiniciar consumos.
 
 - La recuperación de acceso por pago evita bloquearse cuando se intenta eliminar al mismo tiempo la cuenta que creó la tribu.
 

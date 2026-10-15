@@ -4,13 +4,15 @@ import { ADMISSION_RESOURCE_KIND } from "../../constants/admission-authorization
 import { ADMISSION_PROOF_AUDIT_EVENT, ADMISSION_PROOF_AUDIT_RULE } from "../../constants/admission-proof";
 import { ADMISSION_MESSAGING_SELECTION_CHANGE } from "../../constants/messaging-selection";
 import type {AdmissionResourceAuditEvent} from "./admission-resource-audit-event";
+import type { AdmissionPolicy } from "./admission-policy";
+import { selectAdmissionPolicyAuditSnapshot, type AdmissionPolicyAuditSnapshot } from "./admission-policy-audit-snapshot";
 
 /** Describes the native actor, original ledger and authoritative owner clock. */
 type AdmissionAuditScope = { tribeId: string; actorUserId: string; operationId: string; createdAt: Date };
 /** Contains only implemented policy command names, never an exception or metric label. */
 type AdmissionPolicyAuditOperation = "initialize_admission_policy" | "update_admission_policy" | "activate_admission_policy" | "pause_admission_policy";
 /** Allows policy identity, effective version and the owner's bounded internal reason. */
-export type AdmissionPolicyAuditInput = AdmissionAuditScope & { resourceId: string; operation: AdmissionPolicyAuditOperation; resourceVersion: number; rule: string | null };
+export type AdmissionPolicyAuditInput = AdmissionAuditScope & { operation: AdmissionPolicyAuditOperation; previousPolicy: AdmissionPolicy | null; policy: AdmissionPolicy; rule: string | null };
 /** Records the exact applied proof and the request version preceding its application. */
 export type AdmissionProofAuditInput = AdmissionAuditScope & { requestId: string; proofId: string; previousRequestVersion: number };
 /** Keeps policy-reference lineage independent of its flags, country policy and connection lifecycle counters. */
@@ -19,7 +21,7 @@ export type AdmissionMessagingSelectionAuditInput = AdmissionAuditScope & { reso
 type AdmissionMessagingSelectionAuditEvent = AdmissionAuditScope & { resourceType: "admission_policy"; resourceId: string; eventType: "messaging_selection_replaced"; rule: "messaging_connection_replaced"; cause: "messaging_connection_replaced"; resourceVersion: number; metadata: { previousVersion: number; previousConnectionId: string; previousConnectionVersion: number; connectionId: string; connectionVersion: number; verificationEpoch: number } };
 /** Keeps private reconstructible resource references separate from public aggregate dimensions. */
 type AdmissionOwnerAuditEvent = AdmissionAuditScope & { resourceId: string; rule: string | null; cause: null; resourceVersion: number } & (
-  { resourceType: "admission_policy"; eventType: AdmissionPolicyAuditOperation; metadata: Record<string, never> }
+  { resourceType: "admission_policy"; eventType: AdmissionPolicyAuditOperation; metadata: { previousVersion: number | null; fromPolicy: AdmissionPolicyAuditSnapshot | null; toPolicy: AdmissionPolicyAuditSnapshot } }
   | { resourceType: "admission_request"; eventType: "proof_attached"; metadata: { proofId: string; previousRequestVersion: number } }
 );
 /** Includes historical owner snapshots and the complete closed private resource vocabulary. */
@@ -50,9 +52,12 @@ export function createAdmissionMessagingSelectionAuditEvent(input: AdmissionMess
 export function createAdmissionPolicyAuditEvent(input: AdmissionPolicyAuditInput): AdmissionAuditEvent {
   return {
     tribeId: input.tribeId, actorUserId: input.actorUserId, operationId: input.operationId,
-    resourceType: ADMISSION_POLICY_AUDIT.resourceType, resourceId: input.resourceId,
+    resourceType: ADMISSION_POLICY_AUDIT.resourceType, resourceId: input.policy.id,
     eventType: input.operation, rule: input.rule, cause: null,
-    resourceVersion: input.resourceVersion, metadata: {}, createdAt: new Date(input.createdAt),
+    resourceVersion: input.policy.version,
+    metadata: { previousVersion: input.previousPolicy?.version ?? null,
+      fromPolicy: input.previousPolicy ? selectAdmissionPolicyAuditSnapshot(input.previousPolicy) : null,
+      toPolicy: selectAdmissionPolicyAuditSnapshot(input.policy) }, createdAt: new Date(input.createdAt),
   };
 }
 

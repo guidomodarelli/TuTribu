@@ -9,6 +9,7 @@ import { ADMISSION_CONTACT_TYPE } from "./admission-contact";
 import { admissionPageSizeSchema } from "./admission-route-input";
 import { ADMISSION_NOTIFICATION_AUDIT_SOURCES } from "@/src/modules/notifications/constants/admission-notification-audit";
 import { ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
+import { ADMISSION_POLICY_MODE, ADMISSION_PHONE_CHANNEL } from "./admission-policy";
 
 /** Keeps opaque reference and count schemas reusable without accepting free bodies. */
 const referenceSchema = z.uuid().nullable().optional();
@@ -16,8 +17,17 @@ const referenceSchema = z.uuid().nullable().optional();
 const versionSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable().optional();
 /** The owner emits finite integral counters and elapsed milliseconds. */
 const countSchema = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+/** Projects only the owned historical policy flags; identity, actor and version stay on the enclosing event. */
+const admissionPolicyAuditSnapshotSchema = z.strictObject({
+  mode: z.enum(ADMISSION_POLICY_MODE), contactType: z.enum(ADMISSION_CONTACT_TYPE), isOpen: z.boolean(),
+  allowCommonExceptions: z.boolean(), requiresAdditionalVerification: z.boolean(),
+  phoneChannel: z.enum(ADMISSION_PHONE_CHANNEL).nullable(), allowSmsAlternative: z.boolean(),
+  messagingConnectionId: z.uuid().nullable(), messagingConnectionVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable(),
+  verificationEpoch: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), activatedAt: z.iso.datetime({ precision: 3 }).nullable(),
+});
 /** Every optional change field belongs to a known internal producer. */
 export const admissionActivityChangesSchema = z.strictObject({
+  fromPolicy: admissionPolicyAuditSnapshotSchema.nullable().optional(), toPolicy: admissionPolicyAuditSnapshotSchema.optional(),
   fromState: z.enum(ADMISSION_ACTIVITY_STATES).nullable().optional(), toState: z.enum(ADMISSION_ACTIVITY_STATES).nullable().optional(),
   fromStatus: z.enum(ADMISSION_ACTIVITY_STATES).nullable().optional(), toStatus: z.enum(ADMISSION_ACTIVITY_STATES).nullable().optional(),
   previousVersion: versionSchema, previousRequestVersion: versionSchema, policyVersion: versionSchema, verificationEpoch: versionSchema, configurationVersion: versionSchema, previousConfigurationVersion: versionSchema,

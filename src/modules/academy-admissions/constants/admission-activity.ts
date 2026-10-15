@@ -8,6 +8,7 @@ import { ADMISSION_ADMINISTRATIVE_SURFACE } from "./admission-administrative-exp
 import { MESSAGING_SECRET_HUMAN_OPERATIONS, MESSAGING_SECRET_DELIVERY_SCOPE } from "@/src/modules/messaging/constants/messaging-secret-access";
 import { ADMISSION_NOTIFICATION_AUDIT } from "@/src/modules/notifications/constants/admission-notification-audit";
 import { ADMISSION_PRIVATE_DATA_RETENTION } from "./admission-retention";
+import { ADMISSION_POLICY_AUDIT_CHANGE } from "./admission-policy-audit";
 
 /** Paginates newest-first using the original SQL timestamp, including its microseconds. */
 export const ADMISSION_ACTIVITY_QUERY = { defaultLimit: ADMISSION_QUERY_LIMIT.defaultPageSize, maximumLimit: ADMISSION_QUERY_LIMIT.maximumPageSize, cursorSeparator: "|" } as const;
@@ -67,6 +68,7 @@ export const ADMISSION_ACTIVITY_CAUSES = [
 export const ADMISSION_ACTIVITY_STATES = ["pending", "approved", "rejected", "cancelled", "expired", "enabled", "disabled", "active", "revoked", "redeemed", "draft", "ready", "degraded", "suspended", "disconnected", "queued", "accepted", "delivered", "failed", "unknown", "suppressed", "available", "applied", "invalid", "muted", "blocked", "removed", "not_validated", "valid", "unavailable"] as const;
 /** Copies only reconstructible owner facts, never contact, code, key, ciphertext, token or descriptive notes. */
 export const ADMISSION_ACTIVITY_CHANGE_FIELDS = [
+  ...Object.values(ADMISSION_POLICY_AUDIT_CHANGE),
   "fromState", "toState", "fromStatus", "toStatus", "previousVersion", "previousRequestVersion", "policyVersion", "verificationEpoch", "configurationVersion", "previousConfigurationVersion",
   "channel", "requestId", "proofId", "challengeId", "decisionId", "invitationId", "importId", "connectionId", "previousConnectionId", "connectionVersion", "previousConnectionVersion",
   "attemptId", "authorizedUsagePolicyVersion", "originalDeliveryId", "targetConnectionId", "originalConnectionId", "originalConnectionVersion", "originalFromState", "originalToState",

@@ -1839,9 +1839,9 @@ export const {
 export const {
   messagingUsagePolicies, tenantMessagingConnections, messagingConnectionVersions,
   messagingSecretEnvelopes, messagingConnectionCapabilities, messagingConnectionDiagnostics,
-  messagingContactBudgetSubjects, messagingContactFingerprintAliases, messageDeliveries,
+  messagingContactBudgetSubjects, messagingContactFingerprintAliases, messagingNotificationRecoveryOrigins, messageDeliveries,
   verificationCodeEnvelopes, messageDeliveryAttempts, messagingUsageReservations, messagingUsageEvents,
-} = createMessagingSchema({ tribeNamespaces: academyAdmissionTribeNamespaces, user: users, contactVerificationChallenges, admissionOperations: academyAdmissionOperations });
+} = createMessagingSchema({ tribeNamespaces: academyAdmissionTribeNamespaces, user: users, contactVerificationChallenges });
 
 /** Preserves selected worker observations independently of temporary business rows. */
 export const { runs: messagingDispatchRuns, phases: messagingDispatchPhaseSamples } = createMessagingDispatchObservationSchema();

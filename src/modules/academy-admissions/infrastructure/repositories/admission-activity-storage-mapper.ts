@@ -5,6 +5,8 @@ import { parseAdmissionMetricsResult, type AdmissionMetricsResult } from "../../
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import type { AdmissionMetricRunOperation } from "../../domain/entities/admission-metric-dimensions";
+import { ADMISSION_POLICY_AUDIT_CHANGE } from "../../constants/admission-policy-audit";
+import { selectAdmissionPolicyAuditSnapshot, type AdmissionPolicyAuditSnapshot } from "../../domain/entities/admission-policy-audit-snapshot";
 
 /** Only consumed private storage fields belong here; none becomes a permission marker. */
 export type AdmissionActivityStorageRow = { id: string; tribe_id: string; actor_user_id: string | null; operation_id: string | null; tribe_lifecycle_operation_id: string | null; resource_type: string; resource_id: string | null; event_type: string; rule: string | null; cause: string | null; resource_version: number | null; metadata: Record<string, unknown>; created_at: Date | string; cursor_at: string };
@@ -17,7 +19,13 @@ export function mapAdmissionActivityStorage(tribeId: string, rows: readonly Admi
   const items = rows.map((row) => {
     if (row.tribe_id !== tribeId || !resources.includes(row.resource_type)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
     const changes: Record<string, unknown> = {};
-    for (const field of ADMISSION_ACTIVITY_CHANGE_FIELDS) if (Object.hasOwn(row.metadata, field)) changes[field] = row.metadata[field];
+    for (const field of ADMISSION_ACTIVITY_CHANGE_FIELDS) {
+      if (!Object.hasOwn(row.metadata, field)) continue;
+      const value = row.metadata[field];
+      changes[field] = field === ADMISSION_POLICY_AUDIT_CHANGE.fromPolicy || field === ADMISSION_POLICY_AUDIT_CHANGE.toPolicy
+        ? value === null ? null : selectAdmissionPolicyAuditSnapshot(value as AdmissionPolicyAuditSnapshot)
+        : value;
+    }
     return { id: row.id, actorUserId: row.actor_user_id, operationId: row.operation_id, tribeLifecycleOperationId: row.tribe_lifecycle_operation_id,
       resourceType: row.resource_type, resourceId: row.resource_id, eventType: events.includes(row.event_type) ? row.event_type : ADMISSION_ACTIVITY_UNCLASSIFIED_EVENT,
       rule: row.rule !== null && rules.includes(row.rule) ? row.rule : null, cause: row.cause !== null && causes.includes(row.cause) ? row.cause : null,
