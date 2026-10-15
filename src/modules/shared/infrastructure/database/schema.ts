@@ -6,6 +6,7 @@ import { createMessagingDispatchObservationSchema } from "@/src/modules/messagin
 import { createAdmissionMembershipEffectsSchema } from "@/src/modules/tribes/infrastructure/database/admission-membership-schema";
 import { createSubscriptionMembershipEffectsSchema } from "@/src/modules/subscriptions/infrastructure/database/subscription-membership-schema";
 import { ADMISSION_NOTIFICATION_AUDIENCE, ADMISSION_NOTIFICATION_TYPES } from "@/src/modules/notifications/constants/admission-notifications";
+import { ADMISSION_NOTIFICATION_PREFERENCE_MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
 import {
   bigint,
   boolean,
@@ -17,6 +18,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -1343,6 +1345,20 @@ export const admissionEmailSettings=pgTable("admission_email_settings",{
 },(table)=>({
   versionCheck:check("admission_email_settings_version_check",sql`${table.version}>0`),
   enabledTimeCheck:check("admission_email_enabled_time_check",sql`not ${table.enabled} or ${table.enabledAt} is not null`),
+}));
+
+/** Explicit own preference epochs remain precise; SQL owns CAS guards and forced RLS. */
+export const admissionNotificationPreferences = pgTable("admission_notification_preferences", {
+  tribeId: uuid("tribe_id").notNull().references(() => tribes.id, { onDelete: "cascade" }),
+  recipientUserId: text("recipient_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  mode: text("mode").notNull(),
+  version: integer("version").notNull().default(1),
+  effectiveFrom: timestamp("effective_from", { withTimezone: true, mode: "string" }).notNull().default(sql`clock_timestamp()`),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().default(sql`clock_timestamp()`),
+}, (table) => ({
+  key: primaryKey({ name: "admission_notification_preferences_pkey", columns: [table.tribeId, table.recipientUserId] }),
+  versionCheck: check("admission_notification_preferences_version_check", sql`${table.version}>0`),
+  modeCheck: check("admission_notification_preferences_mode_check", sql`${table.mode} in (${ADMISSION_NOTIFICATION_PREFERENCE_MODE.individual},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.grouped},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.daily},${ADMISSION_NOTIFICATION_PREFERENCE_MODE.omitted})`),
 }));
 
 // In-app notification inbox. CHECKs, RLS, the recipient update guard, and the
