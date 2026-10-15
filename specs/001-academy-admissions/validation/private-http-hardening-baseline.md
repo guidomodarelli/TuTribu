@@ -1,6 +1,6 @@
 # Bordes privados, autenticación y diagnósticos
 
-T172 en validación final sobre la base `39b6bf85fe44edb993f30b13c79aa04487da3d65`. Su criterio original se conserva completo: origen/CSRF, caché/referrer, proyecciones públicas y causas/loggers equivalentes, autoridad de contexto/recurso antes de claves y validación de inputs/DTOs propios sin revalidar SDK/PostgreSQL. Hasta el cierre revisado conserva 167 tareas completadas y 45 pendientes de 212.
+T172 completada sobre el checkpoint de código `5e123daa358b55c37690fcbe7d0a55bed6f01a03`, después de la revisión final y sus ejecuciones terminales. Se conserva íntegro su criterio original: origen/CSRF, caché/referrer, proyecciones públicas y causas/loggers equivalentes, autoridad de contexto/recurso antes de claves y validación de inputs/DTOs propios sin revalidar SDK/PostgreSQL. Sólo T172 cambia de estado: 168 tareas completadas y 44 pendientes de 212.
 
 ## Correcciones conectadas
 
@@ -38,6 +38,6 @@ Los reportes privados conservan los resultados fallidos previos y no vuelven a c
 
 ## Cierre y pendientes
 
-La auditoría preliminar de cobertura no encontró otras brechas funcionales bloqueantes. El cierre de T172 espera la revisión del conjunto fijo, la documentación validada, trazabilidad de manuales y publicación de los commits. T167/T169/T170/T173, ejecución programada, rollout y gates externos conservan su alcance original.
+La revisión final Codex no encontró hallazgos accionables y confirmó suficiencia para el criterio original íntegro de T172. Conservó 47/47 hashes al inicio y al final, manifiesto SHA256 `568841f093743129f240f94f597aaf6bab1fd5d5e7128c0db1599b2d17483240`. Los tipos de producto y tests, lint y commitlint pasaron. La documentación tuvo veinte vistas y recorridos en Chromium/WebKit a 390/1280, 708 comprobaciones de enlaces y cero errores o desbordes. El manual y el menú conservan sus paths originales y registran el código `5e123daa358b55c37690fcbe7d0a55bed6f01a03`; el validador del manual informa cero errores y sólo las dos advertencias conocidas de documento local sin URL compartida ni catálogo de traducciones. El código ya está publicado en la rama de trabajo. T167/T169/T170/T173, ejecución programada, rollout y gates externos conservan su alcance original.
 
 No hubo envíos externos, gasto, regeneración de protecciones del piloto ni cambios de hosting. Las ramas propias de los ensayos se eliminan después de sus terminales; producción y el piloto guardado permanecen protegidos. Arquitectura: [sesión](../../../docs/architecture/member-sessions.htm#private-auth-http), [mensajería](../../../docs/architecture/tenant-messaging.htm#messaging-private-http) y [admisión](../../../docs/architecture/academy-admissions.htm#admission-private-http).
