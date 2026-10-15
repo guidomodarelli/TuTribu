@@ -9,7 +9,11 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
-import { prepareContactVerificationIssuer } from "@/tests/support/contact-verification-issuance-fixture";
+import { prepareContactVerificationDatabase, seedContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
+import { applyAdmissionRetentionHistoricalPrefix } from "@/tests/support/admission-retention-migration-prefix";
+import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
+import { ADMISSION_RETENTION_COMPOSITION_FIXTURE } from "@/tests/support/constants/admission-retention-composition";
+import { ADMISSION_SECURITY_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-security";
 import type { AuthorizedMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { PostgresCredentialValidationBudget } from "@/src/modules/messaging/infrastructure/repositories/postgres-credential-validation-budget";
 import { ReserveMessagingUsageUseCase } from "@/src/modules/messaging/application/use-cases/reserve-messaging-usage-use-case";
@@ -18,21 +22,38 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 /**
+ * Seeds only the credential resource required by accounting, under the schema actually installed by the caller.
+ * @param database - Disposable branch whose real migration stage is controlled by this test.
+ * @param security - Existing synthetic account and independent protected material.
+ * @returns Original tenant/resource identities for either a current request or a genuine historical upgrade.
+ */
+async function seedCredentialValidationResource(database: AcademyAdmissionTestDatabase, security: Awaited<ReturnType<typeof seedContactVerificationDatabase>>) {
+  const tribeId = randomUUID(), connectionId = randomUUID(), secretRef = randomUUID();
+  await database.withContext(security.own, async (transaction) => {
+    const envelope = await createMessagingSecretCipher(security.config).seal(randomUUID(), { tribeId, connectionId, connectionVersion: 1, resourceId: secretRef });
+    await transaction.execute(sql`insert into public.tribes(id,name,slug,created_by) values (${tribeId},'Synthetic credential accounting tribe',${`credential-${tribeId}`},${security.userId})`);
+    await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${security.userId},'leader','active')`);
+    await transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id) values (${tribeId})`);
+    await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,contributed_by_user_id,state,environment,security_epoch,is_selected,is_candidate,selected_version,candidate_version) values (${connectionId},${tribeId},${security.userId},'active',${security.config.environment},${security.config.securityEpoch},true,false,1,null)`);
+    await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,secret_ref,credential_validation_status,credential_validated_at,is_test_mode) values (${connectionId},${tribeId},1,${security.config.environment},${security.config.securityEpoch},${secretRef},'valid',clock_timestamp(),false)`);
+    await transaction.execute(sql`insert into public.messaging_secret_envelopes(secret_ref,tribe_id,connection_id,connection_version,environment,security_epoch,key_id,iv,ciphertext) values (${secretRef},${tribeId},${connectionId},1,${envelope.environment},${envelope.securityEpoch},${envelope.keyId},${Buffer.from(envelope.iv)},${Buffer.from(envelope.ciphertext)})`);
+  });
+  return { ...security, scope: { tribeId, connectionId }, secretRef };
+}
+
+/**
  * Seeds trusted synthetic global recency for an existing resource without an OAuth or provider request.
  * @param database - Disposable branch owned by this test.
- * @param applyUsageMigration - Whether to install the new guard before seeding, or test a historical upgrade.
+ * @param originalResource - Optional historical resource preserved through the actual completed upgrade.
  * @returns A live private context and the real usage composition.
  */
-async function prepareCredentialValidation(database: AcademyAdmissionTestDatabase, applyUsageMigration = true) {
-  const fixture = await prepareContactVerificationIssuer(database);
-  await database.applyMigration("20261005095000_guard_global_identity_context.sql");
-  await database.applyMigration("20261005100000_guard_messaging_secret_retirement.sql");
-  if (applyUsageMigration) await database.applyMigration("20261006230000_bind_credential_validation_usage.sql");
+async function prepareCredentialValidation(database: AcademyAdmissionTestDatabase, originalResource?: Awaited<ReturnType<typeof seedCredentialValidationResource>>) {
+  const fixture = originalResource ?? await seedCredentialValidationResource(database, await prepareContactVerificationDatabase(database));
   const accountId = randomUUID(), sessionId = randomUUID(), subject = randomUUID(), intentId = randomUUID();
   const context = await database.withContext(fixture.own, async (transaction): Promise<AuthorizedMessagingContext> => {
     const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
     const validUntil = new Date(now.getTime() + 540_000);
-    const secretRef = (await transaction.execute<{ secret_ref: string }>(sql`select secret_ref from public.messaging_connection_versions where connection_id=${fixture.scope.connectionId} and version=1`)).rows[0].secret_ref;
+    const secretRef = fixture.secretRef;
     await transaction.execute(sql`insert into public.account(id,"userId","providerId","accountId","createdAt","updatedAt") values (${accountId},${fixture.userId},'google',${subject},${now},${now})`);
     await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${sessionId},${fixture.userId},${randomUUID()},${new Date(now.getTime()+3_600_000)},${now},${now})`);
     await transaction.execute(sql`insert into public.global_session_identity_bindings(session_id,user_id,account_id,provider_subject,normalized_email) values (${sessionId},${fixture.userId},${accountId},${subject},${fixture.own.email})`);
@@ -94,7 +115,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("credential validat
     });
   }, 180_000);
 
-  it("should reject a crossed action or expired session and preserve usage outside the moving hour", async () => {
+  it("should reject a crossed action or changed leadership and preserve usage outside the moving hour", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareCredentialValidation(database);
       expect(await fixture.reserve(randomUUID(), { ...fixture.context, operation: REAUTHENTICATION_OPERATION.readMessagingSenders })).toEqual({ outcome: "denied", code: "permission_denied" });
@@ -105,11 +126,24 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("credential validat
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.scope.tribeId} and user_id=${fixture.userId}`));
       expect(await fixture.reserve()).toEqual({ outcome: "denied", code: "permission_denied" });
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='leader' where tribe_id=${fixture.scope.tribeId} and user_id=${fixture.userId}`));
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.context.sessionId}`));
-      expect(await fixture.reserve()).toEqual({ outcome: "denied", code: "reauthentication_required" });
+      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select state from public.tenant_messaging_connections where id=${fixture.scope.connectionId}`)).rows)).toEqual([{ state: "suspended" }]);
+      expect(await fixture.reserve()).toEqual({ outcome: "denied", code: "resource_unavailable" });
       expect((await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::integer as total from public.messaging_usage_events where tribe_id=${fixture.scope.tribeId} and event_type='credential_validation'`)).rows))).toEqual([{ total: 11 }]);
     });
   }, 180_000);
+
+  it("should reject an expired session when its original credential resource remains current", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareCredentialValidation(database);
+      expect(await fixture.reserve()).toMatchObject({ outcome: "reserved" });
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${fixture.context.sessionId}`));
+      expect(await fixture.reserve()).toEqual({ outcome: "denied", code: "reauthentication_required" });
+      expect(await database.withContext(fixture.own, async (transaction) => ({
+        resources: (await transaction.execute(sql`select state from public.tenant_messaging_connections where id=${fixture.scope.connectionId}`)).rows,
+        usage: (await transaction.execute(sql`select count(*)::integer as total from public.messaging_usage_events where tribe_id=${fixture.scope.tribeId} and event_type='credential_validation'`)).rows,
+      }))).toEqual({ resources: [{ state: "active" }], usage: [{ total: 1 }] });
+    });
+  }, ADMISSION_SECURITY_TEST_TIMEOUT_MS);
 
   it("should roll back the event when external authority closes after the actual insertion", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
@@ -147,14 +181,16 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("credential validat
 
   it("should anonymize historical unbound events without rewriting their original consumption or allowing new unbound events", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
-      const fixture = await prepareCredentialValidation(database, false);
+      await applyAdmissionRetentionHistoricalPrefix(database, ADMISSION_RETENTION_COMPOSITION_FIXTURE.credentialUsageMigrationTag);
+      const originalResource = await seedCredentialValidationResource(database, await seedContactVerificationDatabase(database));
       const historicalActorId = randomUUID();
-      const original = await database.withContext(fixture.own, async (transaction) => {
+      const original = await database.withContext(originalResource.own, async (transaction) => {
         await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${historicalActorId},'Synthetic historical validator',${`${historicalActorId}@example.invalid`},false,clock_timestamp(),clock_timestamp())`);
-        await transaction.execute(sql`insert into public.messaging_usage_events(tribe_id,actor_user_id,purpose,event_type,operation_id,occurred_at) select ${fixture.scope.tribeId},${historicalActorId},'validate_messaging_connection','credential_validation',gen_random_uuid(),clock_timestamp()-interval '2 minutes' from generate_series(1,10)`);
-        return (await transaction.execute(sql`select id,tribe_id,actor_user_id,operation_id,occurred_at from public.messaging_usage_events where tribe_id=${fixture.scope.tribeId} order by id`)).rows;
+        await transaction.execute(sql`insert into public.messaging_usage_events(tribe_id,actor_user_id,purpose,event_type,operation_id,occurred_at) select ${originalResource.scope.tribeId},${historicalActorId},'validate_messaging_connection','credential_validation',gen_random_uuid(),clock_timestamp()-interval '2 minutes' from generate_series(1,10)`);
+        return (await transaction.execute(sql`select id,tribe_id,actor_user_id,operation_id,occurred_at from public.messaging_usage_events where tribe_id=${originalResource.scope.tribeId} order by id`)).rows;
       });
-      await database.applyMigration("20261006230000_bind_credential_validation_usage.sql");
+      await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+      const fixture = await prepareCredentialValidation(database, originalResource);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`delete from public."user" where id=${historicalActorId}`));
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id,tribe_id,actor_user_id,operation_id,occurred_at from public.messaging_usage_events where tribe_id=${fixture.scope.tribeId} order by id`)).rows)).toEqual(original.map((event) => ({ ...event, actor_user_id: null })));
       expect(await fixture.reserve()).toEqual({ outcome: "denied", code: "credential_validation_limit_reached" });

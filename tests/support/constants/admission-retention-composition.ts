@@ -2,6 +2,7 @@
 export const ADMISSION_RETENTION_COMPOSITION_FIXTURE = {
   prefixDirectoryName: "tutribu-retention-prefix-",
   importRetentionMigrationTag: "20261012200000_minimize_expired_allowlist_import_material",
+  credentialUsageMigrationTag: "20261006230000_bind_credential_validation_usage",
   migrationDirectory: "database/migrations",
   journalRelativePath: "meta/_journal.json",
   defaultConfigPath: "drizzle.config.ts",
