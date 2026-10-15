@@ -13,11 +13,15 @@
  * `--dry-run` prints every step and the current machine state without
  * touching the proxy or the trust store.
  *
- * Nothing here needs elevated privileges: `dev.tutribu.app` resolves to
- * `127.0.0.1` through a public DNS record (an `A` record, DNS only, in the
- * `tutribu.app` zone) instead of the hosts file, portless runs with hosts sync
- * disabled, and `portless trust` adds the CA to the current user's store. Every
- * step is idempotent, so the script can be rerun freely.
+ * The hosts file is never written: `dev.tutribu.app` resolves to `127.0.0.1`
+ * through a public DNS record (an `A` record, DNS only, in the `tutribu.app`
+ * zone) and portless runs with hosts sync disabled. On Windows no step asks for
+ * administrator privileges (`portless trust` uses the current user's store); on
+ * macOS and Linux the HTTPS proxy listens on the default port 443, so
+ * `portless proxy start` asks for `sudo` once to bind it. Requires portless
+ * 0.15.5 or newer (`PORTLESS_MIN_VERSION`), the first release that accepts a
+ * dotted TLD; the script checks it before stopping the running proxy.
+ * Every step is idempotent, so the script can be rerun freely.
  *
  * @module dev-portless
  */
@@ -59,6 +63,15 @@ const PORTLESS_ENVIRONMENT = {
   PORTLESS_SYNC_HOSTS: "0",
 };
 
+/**
+ * Oldest portless release that accepts a multi-segment TLD such as
+ * `tutribu.app`; older releases reject `--tld tutribu.app` when the proxy starts.
+ */
+const PORTLESS_MIN_VERSION = "0.15.5";
+
+/** First `X.Y.Z` triple in the `portless --version` output. */
+const SEMANTIC_VERSION_PATTERN = /(\d+)\.(\d+)\.(\d+)/;
+
 const PORTLESS_BINARY = "portless";
 const DEV_SERVER_COMMAND = ["next", "dev"];
 const DRY_RUN_FLAG = "--dry-run";
@@ -79,6 +92,8 @@ const SCRIPT_MESSAGE = {
   dryRunHeader: "Modo --dry-run: no se ejecuta nada, solo se muestra el plan.",
   portlessMissing:
     "portless no está instalado. Instalalo con: npm install -g portless",
+  portlessVersionUnsupported: (versionText) =>
+    `portless ${versionText || "(versión ilegible)"} no soporta el TLD con punto tutribu.app: hace falta la ${PORTLESS_MIN_VERSION} o superior. Actualizalo con: npm install -g portless@latest`,
   proxyStartFailed: "No se pudo iniciar el proxy de portless.",
   ready: (hostName) => `Listo: la app se sirve en https://${hostName}`,
   step: (description) => `→ ${description}`,
@@ -141,6 +156,43 @@ export function classifyDevHostResolution(addresses) {
   return addresses.every((address) => LOOPBACK_ADDRESSES.includes(address))
     ? DEV_HOST_RESOLUTION.loopback
     : DEV_HOST_RESOLUTION.elsewhere;
+}
+
+/**
+ * Parses the first `X.Y.Z` version in a text into its numeric parts.
+ *
+ * @param {string} versionText - Raw output of `portless --version`.
+ * @returns {number[] | null} `[major, minor, patch]`, or `null` when the text has no version.
+ */
+function parseSemanticVersion(versionText) {
+  const versionMatch = SEMANTIC_VERSION_PATTERN.exec(versionText);
+
+  return versionMatch ? versionMatch.slice(1).map(Number) : null;
+}
+
+/**
+ * Checks whether the installed portless accepts the dotted `tutribu.app` TLD,
+ * comparing its version numerically against `PORTLESS_MIN_VERSION`.
+ *
+ * @param {string} versionText - Raw output of `portless --version`.
+ * @returns {boolean} `false` for older releases and for output without a readable version.
+ */
+export function isPortlessVersionSupported(versionText) {
+  const installedVersion = parseSemanticVersion(versionText);
+
+  if (!installedVersion) {
+    return false;
+  }
+
+  const minimumVersion = parseSemanticVersion(PORTLESS_MIN_VERSION);
+
+  for (let index = 0; index < minimumVersion.length; index += 1) {
+    if (installedVersion[index] !== minimumVersion[index]) {
+      return installedVersion[index] > minimumVersion[index];
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -228,6 +280,19 @@ function isPortlessAvailable() {
 }
 
 /**
+ * Reads the installed portless version.
+ *
+ * @returns {string} Trimmed `portless --version` output, empty when it cannot be read.
+ */
+function readPortlessVersion() {
+  const versionResult = runPortlessSync(["--version"], "pipe");
+
+  return versionResult.status === EXIT_CODE.success
+    ? String(versionResult.stdout ?? "").trim()
+    : "";
+}
+
+/**
  * Resolves every address of the dev host; a name that does not resolve yields
  * an empty list instead of an error, so the caller can explain how to fix it.
  *
@@ -307,6 +372,14 @@ async function main() {
 
   if (!isPortlessAvailable()) {
     console.error(SCRIPT_MESSAGE.portlessMissing);
+    process.exit(EXIT_CODE.failure);
+  }
+
+  // Checked before `proxy stop`: an older portless would stop the running proxy and then fail to restart it on the dotted TLD.
+  const portlessVersion = readPortlessVersion();
+
+  if (!isPortlessVersionSupported(portlessVersion)) {
+    console.error(SCRIPT_MESSAGE.portlessVersionUnsupported(portlessVersion));
     process.exit(EXIT_CODE.failure);
   }
 

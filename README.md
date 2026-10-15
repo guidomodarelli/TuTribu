@@ -43,7 +43,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
    pnpm run db:migrate
    ```
 
-4. Start the dev server through portless (checks that `dev.tutribu.app` resolves to `127.0.0.1` through its public DNS record, restarts the proxy on the `tutribu.app` TLD, trusts the local CA for the current user and runs `next dev`; nothing asks for administrator privileges):
+4. Start the dev server through portless (checks that `dev.tutribu.app` resolves to `127.0.0.1` through its public DNS record, restarts the proxy on the `tutribu.app` TLD, trusts the local CA for the current user and runs `next dev`). Requires portless 0.15.5 or newer (`npm install -g portless@latest`), the first release that accepts the dotted `tutribu.app` TLD. The hosts file is never written; on Windows no step asks for administrator privileges, while on macOS and Linux portless asks for `sudo` once to bind the HTTPS proxy to port 443:
 
    ```bash
    pnpm run dev
@@ -55,7 +55,7 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 
 | Script | Description |
 | --- | --- |
-| `pnpm run dev` | Start the Next.js dev server through portless at `https://dev.tutribu.app` (DNS check, proxy restart, CA trust, `next dev` with hot reload). Accepts `--dry-run`. |
+| `pnpm run dev` | Start the Next.js dev server through portless at `https://dev.tutribu.app` (portless 0.15.5+ check, DNS check, proxy restart, CA trust, `next dev` with hot reload). Needs `sudo` once on macOS and Linux to bind port 443; no administrator privileges on Windows. Accepts `--dry-run`. |
 | `pnpm run dev:next` | Bare `next dev` on a plain port. Reserved for the Playwright web server of the e2e suite; use `pnpm run dev` for manual work. |
 | `pnpm run build` | Build the production bundle. |
 | `pnpm run build:cloudflare` | Build the Cloudflare Workers bundle with OpenNext. |
@@ -113,7 +113,7 @@ Local example (illustrative only — use least-privilege credentials for `DATABA
 ```dotenv
 DATABASE_URL=postgresql://user:password@host.region.aws.neon.tech/database?sslmode=verify-full&channel_binding=require
 DATABASE_MIGRATION_URL=postgresql://user:password@host.region.aws.neon.tech/database?sslmode=verify-full&channel_binding=require
-BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_URL=https://dev.tutribu.app
 BETTER_AUTH_SECRET=replace-with-a-strong-random-secret
 GOOGLE_CLIENT_ID=replace-with-google-client-id
 GOOGLE_CLIENT_SECRET=replace-with-google-client-secret

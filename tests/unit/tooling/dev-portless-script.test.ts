@@ -10,6 +10,7 @@ type DevPortlessScript = {
     addresses: string[]
   ) => "loopback" | "elsewhere" | "missing";
   isPortlessCaTrusted: (stateDirectory: string) => boolean;
+  isPortlessVersionSupported: (versionText: string) => boolean;
   resolvePortlessStateDirectory: (homeDirectory: string) => string;
 };
 
@@ -39,6 +40,23 @@ describe("dev portless script", () => {
       devPortlessScript.classifyDevHostResolution(["127.0.0.1", "172.67.1.1"])
     ).toBe("elsewhere");
     expect(devPortlessScript.classifyDevHostResolution([])).toBe("missing");
+  });
+
+  it("should accept portless 0.15.5 or newer, which supports the dotted TLD", () => {
+    expect(devPortlessScript.isPortlessVersionSupported("0.15.5")).toBe(true);
+    expect(devPortlessScript.isPortlessVersionSupported("0.16.0")).toBe(true);
+    expect(devPortlessScript.isPortlessVersionSupported("1.0.0")).toBe(true);
+    expect(
+      devPortlessScript.isPortlessVersionSupported("portless v0.15.10\n")
+    ).toBe(true);
+  });
+
+  it("should reject older portless releases and output without a readable version", () => {
+    expect(devPortlessScript.isPortlessVersionSupported("0.15.4")).toBe(false);
+    expect(devPortlessScript.isPortlessVersionSupported("0.9.99")).toBe(false);
+    expect(devPortlessScript.isPortlessVersionSupported("")).toBe(false);
+    expect(devPortlessScript.isPortlessVersionSupported("unknown")).toBe(false);
+    expect(devPortlessScript.isPortlessVersionSupported("0.15")).toBe(false);
   });
 
   it("should consider the portless CA trusted only when the trust marker exists", () => {
