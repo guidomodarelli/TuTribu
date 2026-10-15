@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El consumo e historial de admisión reconoce los lotes de conservación y avisos internos completados; muestra sólo duraciones medidas y conserva su ausencia cuando no hay datos.
+
 - El líder puede consultar el consumo diario UTC y el historial de admisión, con filtros, versiones originales y actualización, incluso antes de conectar mensajería.
 
 - El historial privado conserva la configuración anterior y nueva de cada cambio efectivo de admisión, junto con los hechos permitidos al eliminar una tribu, sin copiar claves ni contactos.
