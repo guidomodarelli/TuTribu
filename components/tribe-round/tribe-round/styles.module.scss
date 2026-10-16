@@ -216,6 +216,10 @@ $media-viewer-overlay-opacity: 72%;
     gap: 1rem;
     // Radius, surface, border and the 24px padding come from beez-ui's Arc
     // dialog surface; `DialogFooter` bleeds through that padding to the edges.
+    // Rows that must read as part of the panel, like the sticky author header
+    // and the composer actions, paint the panel's raised surface through this
+    // variable: `--background` is a darker tone in dark mode.
+    --composer-dialog-surface: var(--surface-raised);
     overflow: hidden;
 
     :global([data-slot="dialog-close"]) {
@@ -368,7 +372,7 @@ $media-viewer-overlay-opacity: 72%;
     align-items: center;
     flex-shrink: 0;
     border-top: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
-    background: var(--background);
+    background: var(--composer-dialog-surface);
     padding: 0.75rem 0.25rem 0;
   }
 
@@ -1572,8 +1576,10 @@ $media-viewer-overlay-opacity: 72%;
     position: sticky;
     top: 0;
     z-index: 1;
-    background: var(--background);
-    box-shadow: 0 -1rem 0 1rem var(--background);
+    // The spread shadow covers the scroll gap above the sticky header, so
+    // both paint the dialog panel surface instead of a darker band.
+    background: var(--composer-dialog-surface);
+    box-shadow: 0 -1rem 0 1rem var(--composer-dialog-surface);
     padding-top: 0.25rem;
     padding-bottom: 0.75rem;
     padding-inline-end: 0;

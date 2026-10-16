@@ -9,7 +9,14 @@ installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] })
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: ["theme-provider.spec.ts", "privacy-policy.spec.ts", "dialog-motion.spec.ts", "mobile-sheet-menus.spec.ts", "toast-over-dialog.spec.ts"],
+  testMatch: [
+    "theme-provider.spec.ts",
+    "privacy-policy.spec.ts",
+    "dialog-motion.spec.ts",
+    "mobile-sheet-menus.spec.ts",
+    "toast-over-dialog.spec.ts",
+    "round-message-details.spec.ts",
+  ],
   use: { baseURL: UI_TEST_ORIGIN, trace: "retain-on-failure" },
   webServer: {
     command: `pnpm exec next start --port ${UI_TEST_PORT}`,

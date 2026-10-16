@@ -26,6 +26,9 @@ const DEBOUNCE_FAKE_TIMERS = {
 
 import { ATTACHMENT_FILE } from "@/src/constants/attachment-files";
 
+/** Longer than beez-ui's 500ms hover card open delay, so a pending open would have fired. */
+const LIKES_HOVER_CARD_SETTLE_MS = 700;
+
 const refreshMock = vi.fn();
 const originalConsoleError = console.error;
 /**
@@ -6630,6 +6633,71 @@ describe("TribeRound", () => {
     expect(
       screen.queryByRole("dialog", { name: "Mensaje" })
     ).not.toBeInTheDocument();
+  });
+
+  it("starts the message details dialog on its body so the likes hover card stays closed", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={roundWithDeferredReplies}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Mensaje" });
+    const dialogBody = within(dialog).getByRole("region", {
+      name: "Contenido del mensaje",
+    });
+
+    expect(dialogBody).toHaveFocus();
+    expect(
+      within(dialog).getByRole("button", { name: "Me gusta 2" })
+    ).not.toHaveFocus();
+
+    // Outlast beez-ui's 500ms hover card open delay: a card opened by focus
+    // would be showing by now.
+    await act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, LIKES_HOVER_CARD_SETTLE_MS);
+      });
+    });
+
+    expect(screen.queryByText("Le gustó a")).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      "/api/tribes/matematica-pro/messages/message-1/likes",
+      expect.anything()
+    );
+  });
+
+  it("moves keyboard focus from the message details body to the like button and its likers card", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={round}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Mensaje" });
+
+    await user.tab();
+
+    expect(
+      within(dialog).getByRole("button", { name: "Me gusta 2" })
+    ).toHaveFocus();
+    expect(await screen.findByText("Le gustó a")).toBeInTheDocument();
   });
 
   it("keeps long message content collapsed in the round without an inline toggle", () => {

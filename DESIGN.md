@@ -136,6 +136,9 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
   and padding. Do not restyle the overlay, and do not add a border, background
   or padding to `DialogFooter` or override the panel padding when a footer is
   present.
+- Rows inside a dialog that must read as part of the panel, such as a sticky
+  header or a toolbar, paint the panel's `--surface-raised`, never
+  `--background`, which is a darker tone in dark mode.
 - `Badge` is 26px tall (22px with `size="sm"`). Pick its color with `tone`
   (`neutral`, `success`, `info`, `warning`, `danger`) or the tone its `variant`
   implies, instead of overriding height, border or text color, and do not

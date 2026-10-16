@@ -12,6 +12,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - Los botones de una notificación, como el de cerrarla, funcionan mientras hay una ventana emergente abierta y ya no la cierran. También se alcanzan con el teclado (Alt+T) y, al cerrar la notificación, el foco vuelve a la ventana.
 - El selector de emoji de los canales se desplaza por dentro cuando no entra en la pantalla, en lugar de quedar cortado.
+- En el modo oscuro, el encabezado con el autor y la fecha en el detalle de un mensaje de la ronda, y la barra de acciones al escribir un mensaje, ya no muestran una franja de otro color: usan el mismo fondo que la ventana.
+- Al abrir el detalle de un mensaje de la ronda ya no aparece sola la lista «Le gustó a»: se muestra al pasar el puntero sobre Me gusta o al llegar al botón con el teclado.
 
 ## [1.7.1] - 2026-10-16
 

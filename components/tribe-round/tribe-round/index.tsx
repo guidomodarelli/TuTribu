@@ -1844,6 +1844,7 @@ function TribeRoundContent({
   const pendingImageCarouselReInitRef = useRef(false);
   const [isMessageDetailsOpen, setIsMessageDetailsOpen] = useState(false);
   const messageDetailsDialogRef = usePixelSnappedCentering();
+  const messageDetailsBodyRef = useRef<HTMLElement>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [messagePendingDeletion, setMessagePendingDeletion] =
     useState<TribeRoundMessageResult | null>(null);
@@ -4880,6 +4881,28 @@ function TribeRoundContent({
     }
   };
 
+  /**
+   * Starts the message details modal on its scrollable body instead of Radix's
+   * first tabbable element. When the viewer has no message actions menu, that
+   * element is the like button, and focusing it opens the "Le gustó a" hover
+   * card (Radix HoverCardTrigger opens on focus) without any hover. The body
+   * keeps the dialog name announced, scrolls with the keyboard right away and
+   * hands Tab to the first control; Radix's default applies when no message is
+   * selected.
+   *
+   * @param event - Radix auto-focus event, cancelable.
+   */
+  const focusMessageDetailsBody = useCallback((event: Event) => {
+    const messageDetailsBody = messageDetailsBodyRef.current;
+
+    if (!messageDetailsBody) {
+      return;
+    }
+
+    event.preventDefault();
+    messageDetailsBody.focus({ preventScroll: true });
+  }, []);
+
   const openMessageDetails = (messageId: string) => {
     const message = messages.find((currentMessage) => currentMessage.id === messageId);
 
@@ -6761,6 +6784,7 @@ function TribeRoundContent({
         <DialogContent
           className={`${styles.TribeRound__composerDialog} ${styles["TribeRound__composerDialog--messageDetails"]}`}
           closeButtonPlacement={TRIBE_ROUND_ATTRIBUTES.messageDetailsCloseButtonPlacement}
+          onOpenAutoFocus={focusMessageDetailsBody}
           ref={messageDetailsDialogRef}
         >
           <DialogHeader className={styles.TribeRound__composerDialogHeader}>
@@ -6783,7 +6807,9 @@ function TribeRoundContent({
             <article
               aria-label={TRIBE_ROUND_COPY.messageDetailsContentLabel}
               className={styles.TribeRound__messageDetailsBody}
+              ref={messageDetailsBodyRef}
               role={TRIBE_ROUND_ATTRIBUTES.regionRole}
+              tabIndex={-1}
             >
               <CardHeader
                 className={`${styles.TribeRound__messageHeader} ${styles.TribeRound__messageDetailsHeader}`}

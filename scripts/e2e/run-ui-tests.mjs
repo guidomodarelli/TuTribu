@@ -51,7 +51,7 @@ const RUNNER_MESSAGE = {
   migrationsFailed: "Las migraciones fallaron en la base efímera.",
   noDatabase:
     "Sin NEON_API_KEY + NEON_PROJECT_ID ni E2E_DATABASE_URL: los escenarios con sesión (diálogos) se omiten.",
-  seeded: "Datos de prueba sembrados (miembro, tribu, mensaje y evento).",
+  seeded: "Datos de prueba sembrados (líder, integrante, tribu, mensajes con comentarios y me gustas, y evento).",
 };
 
 /**
@@ -101,9 +101,12 @@ function buildSeededEnvironment({ connectionString, authSecret, fixtures }) {
     TRIBE_INVITATION_TOKEN_ENCRYPTION_KEY:
       process.env.TRIBE_INVITATION_TOKEN_ENCRYPTION_KEY ||
       randomBytes(INVITATION_KEY_BYTES).toString(SECRET_ENCODING),
+    [UI_TEST_SESSION_ENV.discussedMessageTitle]: fixtures.discussedMessageTitle,
     [UI_TEST_SESSION_ENV.eventTitle]: fixtures.eventTitle,
+    [UI_TEST_SESSION_ENV.likedMessageTitle]: fixtures.likedMessageTitle,
     [UI_TEST_SESSION_ENV.messageTitle]: fixtures.messageTitle,
     [UI_TEST_SESSION_ENV.sessionCookie]: fixtures.sessionCookie,
+    [UI_TEST_SESSION_ENV.tribemateSessionCookie]: fixtures.tribemateSessionCookie,
     [UI_TEST_SESSION_ENV.tribeSlug]: fixtures.tribeSlug,
   };
 }
