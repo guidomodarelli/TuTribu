@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
 import { executeAdmissionMigrationCommand } from "./admission-migration-command";
-import { MICROSECONDS_PER_SECOND, SECONDS_PER_DAY, SECONDS_PER_HOUR } from "@/src/constants/time";
+import { createAdmissionRequestSnapshotFixture } from "./admission-request-snapshot-fixture";
+import { MICROSECONDS_PER_SECOND, MILLISECONDS_PER_SECOND, SECONDS_PER_DAY, SECONDS_PER_HOUR } from "@/src/constants/time";
 import { ADMISSION_NOTIFICATION_TIMING } from "@/src/modules/notifications/constants/admission-notification-groups";
 import { createAdmissionNotificationWindow, planAdmissionNotificationEmailCandidate } from "@/src/modules/notifications/domain/policies/admission-notification-groups";
 import type { AdmissionNotificationEmailCandidate, AdmissionNotificationGroupIdentity } from "@/src/modules/notifications/domain/entities/admission-notification";
@@ -31,7 +32,8 @@ export async function prepareAdmissionNotificationGroup(database: AcademyAdmissi
     await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${tribeId},${leaderId},'leader','active'),(${otherTribeId},${otherLeaderId},'leader','active')`);
     for (const index of [0, 1, 2]) {
       const sourceTribeId = index === 2 ? otherTribeId : tribeId;
-      await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,submitted_at,expires_at) values (${requestIds[index]},${sourceTribeId},${applicantIds[index]},'common',${notificationFixtureTimestamp(sourceTimes[index])},${notificationFixtureTimestamp(sourceTimes[index])}+interval '30 days')`);
+      const snapshot = createAdmissionRequestSnapshotFixture({ id: requestIds[index], tribeId: sourceTribeId, userId: applicantIds[index], submittedAt: new Date(sourceTimes[index] / MICROSECONDS_PER_SECOND * MILLISECONDS_PER_SECOND) });
+      await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,original_policy_snapshot,submitted_at,expires_at) values (${requestIds[index]},${sourceTribeId},${applicantIds[index]},'common',${JSON.stringify(snapshot)}::jsonb,${notificationFixtureTimestamp(sourceTimes[index])},${notificationFixtureTimestamp(sourceTimes[index])}+interval '30 days')`);
       await transaction.execute(sql`select public.create_admission_notification_obligation(${obligationIds[index]},${sourceTribeId},${requestIds[index]},${applicantIds[index]},'pending_created',null,${notificationFixtureTimestamp(sourceTimes[index])})`);
       await transaction.execute(sql`select public.enqueue_admission_notification(${obligationIds[index]},${index === 2 ? otherLeaderId : leaderId},'reviewer')`);
     }

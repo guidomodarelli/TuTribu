@@ -151,6 +151,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Los avisos agrupados de admisión conservan un origen separado de los avisos individuales al retirar una tribu; el envío de esos grupos sigue en preparación.
+
 - Los envíos de mensajería rechazan canales vacíos o no admitidos antes de contactar al proveedor.
 
 - Los filtros de admisión rechazan los rangos de fecha invertidos aunque la diferencia sea menor a un milisegundo.

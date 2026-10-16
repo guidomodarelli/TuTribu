@@ -1861,7 +1861,7 @@ export const { groups: admissionNotificationGroups, members: admissionNotificati
 export const {
   messagingUsagePolicies, tenantMessagingConnections, messagingConnectionVersions,
   messagingSecretEnvelopes, messagingConnectionCapabilities, messagingConnectionDiagnostics,
-  messagingContactBudgetSubjects, messagingContactFingerprintAliases, messagingNotificationRecoveryOrigins, messageDeliveries,
+  messagingContactBudgetSubjects, messagingContactFingerprintAliases, messagingNotificationRecoveryOrigins, messagingNotificationGroupOrigins, messageDeliveries,
   verificationCodeEnvelopes, messageDeliveryAttempts, messagingUsageReservations, messagingUsageEvents,
 } = createMessagingSchema({ tribeNamespaces: academyAdmissionTribeNamespaces, user: users, contactVerificationChallenges });
 
