@@ -4,6 +4,15 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Las ventanas emergentes tienen un diseño nuevo: un fondo más oscuro y desenfocado, igual en todas las pantallas, paneles más amplios y una franja inferior para los botones, como en el detalle de un evento o al escribir un mensaje en la ronda.
+- Los interruptores, las casillas, las opciones, los desplegables y las pestañas tienen un diseño nuevo, más fácil de tocar, y se mueven con animaciones suaves al cambiar de estado; las pestañas que no entran en pantalla se desplazan de costado.
+- Las etiquetas como «Tribu privada», «En vivo» u «Hoy» usan colores según su significado, y el aviso «En vivo» se destaca en rojo.
+- Los menús, las notificaciones, las vistas previas de reacciones y los avisos al pasar el puntero tienen un diseño nuevo y aparecen desde el botón que los abre. Los avisos al pasar el puntero esperan un instante antes de mostrarse, y la lista de quienes reaccionaron a un mensaje aparece y se oculta más rápido.
+- El carrusel de imágenes y la paginación de la ronda tienen un diseño nuevo, con controles redondos y más claros.
+- Con movimiento reducido, todas estas animaciones se reemplazan por transiciones simples o desaparecen.
+
 ## [1.6.0] - 2026-10-15
 
 ### Changed

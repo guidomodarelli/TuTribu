@@ -151,7 +151,7 @@ export function TribeEventAgendaItem({
             </Badge>
           ) : null}
           {isLive && !isCancelled ? (
-            <Badge className={styles.TribeEventAgendaItem__liveBadge} variant={BADGE_VARIANT.outline}>
+            <Badge variant={BADGE_VARIANT.destructive}>
               <span aria-hidden className={styles.TribeEventAgendaItem__liveDot} />
               {COPY.liveBadge}
             </Badge>

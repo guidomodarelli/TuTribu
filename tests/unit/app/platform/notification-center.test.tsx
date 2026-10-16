@@ -612,7 +612,7 @@ describe("NotificationCenter", () => {
     await user.keyboard("{Escape}");
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(bell).toHaveFocus();
+    await waitFor(() => expect(bell).toHaveFocus());
   });
 
   it("opens a bottom sheet on narrow viewports", async () => {
