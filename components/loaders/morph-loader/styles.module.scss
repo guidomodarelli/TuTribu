@@ -1,0 +1,48 @@
+// Contains code adapted from Arc Pro (https://uiarc.dev), licensed under the Arc Pro license (https://uiarc.dev/license). Not covered by this project's license; do not redistribute it on its own.
+@use "../../../src/styles/motion";
+
+// Short loads finish before the loader shows, so it never flashes.
+$morph-loader-reveal-delay: 120ms;
+
+@include motion.define-keyframes;
+
+.MorphLoader {
+  --morph-loader-success: var(--success);
+  --morph-loader-error: var(--danger);
+
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  vertical-align: middle;
+  color: currentColor;
+  transition: color motion.$duration-hover motion.$ease-out;
+
+  @include motion.fade($morph-loader-reveal-delay);
+
+  &[data-tone][data-status="success"] {
+    color: var(--morph-loader-success);
+  }
+
+  &[data-tone][data-status="error"] {
+    color: var(--morph-loader-error);
+  }
+
+  &__drawing {
+    display: block;
+    overflow: visible;
+  }
+
+  &__srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @include motion.reduced {
+    transition: none;
+  }
+}
