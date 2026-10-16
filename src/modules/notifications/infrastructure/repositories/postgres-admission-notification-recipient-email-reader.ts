@@ -12,6 +12,8 @@ import { resolveAdmissionNotificationRecipientEmail } from "../../domain/policie
 type SourceRow = AdmissionNotificationRecipientEmailFacts["source"];
 /** Reads live local runtime metadata; the composition must not perform a provider RPC here. */
 type RuntimeReader = () => Promise<AdmissionNotificationRecipientEmailFacts["runtime"]>;
+/** Batches only existing notice references sharing one native tenant, recipient and audience. */
+type AdmissionNotificationRecipientEmailBatchScope = Omit<AdmissionNotificationRecipientEmailScope, "obligationId"> & { readonly obligationIds: readonly string[] };
 
 /** Preserves auth's user/account/capture order and rechecks the exact original notice after source locks. */
 export class PostgresAdmissionNotificationRecipientEmailReader implements AdmissionNotificationRecipientEmailReader {
@@ -24,29 +26,48 @@ export class PostgresAdmissionNotificationRecipientEmailReader implements Admiss
    * @returns Only trusted current account email or genuine absence; native storage/runtime failures propagate.
    */
   async read(scope: AdmissionNotificationRecipientEmailScope): Promise<TrustedAdmissionNotificationEmail | null> {
-    if (!(await this.database.execute(sql`select id from public.tribes where id=${scope.tribeId} for share`)).rows[0]) return null;
-    const locator = await this.findSource(scope);
-    if (!locator) return null;
+    const destinations = await this.readBatch({ tribeId: scope.tribeId, recipientUserId: scope.recipientUserId, audience: scope.audience, obligationIds: [scope.obligationId] });
+    return destinations.get(scope.obligationId) ?? null;
+  }
+
+  /**
+   * Pins shared account/capture/role facts once and resolves every original notice independently.
+   * @param scope - Server-selected native source ids for exactly one tenant, recipient and audience.
+   * @returns Only individually trusted destinations keyed by their original native obligation ids; missing or denied sources remain absent.
+   * @throws Native storage/runtime failures without returning a partial successful batch or caching facts across transactions.
+   */
+  async readBatch(scope: AdmissionNotificationRecipientEmailBatchScope): Promise<ReadonlyMap<string, TrustedAdmissionNotificationEmail>> {
+    const destinations = new Map<string, TrustedAdmissionNotificationEmail>();
+    if (!scope.obligationIds.length || !(await this.database.execute(sql`select id from public.tribes where id=${scope.tribeId} for share`)).rows[0]) return destinations;
+    const locators = await this.findSources(scope);
+    if (!locators.length) return destinations;
     const account = (await this.database.execute<{ userId: string; normalizedEmail: string }>(sql`select id as "userId",lower(btrim(email)) as "normalizedEmail" from public."user" where id=${scope.recipientUserId} for share`)).rows[0];
-    if (!account) return null;
+    if (!account) return destinations;
     const accountIds = (await this.database.execute<{ id: string }>(sql`select id from public.account where "userId"=${scope.recipientUserId} and "providerId"=${GOOGLE_IDENTITY_PROVIDER} order by id for share`)).rows.map((linked) => linked.id);
     if (accountIds.length) await this.database.execute(sql`select id from public.global_identity_evidence where user_id=${scope.recipientUserId} and account_id in (${sql.join(accountIds.map((accountId) => sql`${accountId}`), sql`,`)}) and invalidated_at is null order by account_id,id for share`);
     await this.database.execute(sql`select id from public.tribe_members where tribe_id=${scope.tribeId} and user_id=${scope.recipientUserId} for share`);
-    await this.database.execute(sql`select id from public.academy_admission_requests where id=${locator.admissionRequestId} and tribe_id=${scope.tribeId} for share`);
-    await this.database.execute(sql`select id from public.academy_admission_notification_obligations where id=${scope.obligationId} and tribe_id=${scope.tribeId} for share`);
-    await this.database.execute(sql`select id from public.notifications where admission_obligation_id=${scope.obligationId} and tribe_id=${scope.tribeId} and recipient_user_id=${scope.recipientUserId} and admission_audience=${scope.audience} for share`);
-    const source = await this.findSource(scope);
-    if (!source || source.admissionRequestId !== locator.admissionRequestId) return null;
-    await this.lockLocalProof(scope, source);
+    const requestIds = [...new Set(locators.map((source) => source.admissionRequestId))], obligationIds = locators.map((source) => source.obligationId);
+    await this.database.execute(sql`select id from public.academy_admission_requests where id=any(${sql.param(requestIds)}::uuid[]) and tribe_id=${scope.tribeId} order by id for share`);
+    await this.database.execute(sql`select id from public.academy_admission_notification_obligations where id=any(${sql.param(obligationIds)}::uuid[]) and tribe_id=${scope.tribeId} order by id for share`);
+    await this.database.execute(sql`select id from public.notifications where admission_obligation_id=any(${sql.param(obligationIds)}::uuid[]) and tribe_id=${scope.tribeId} and recipient_user_id=${scope.recipientUserId} and admission_audience=${scope.audience} order by id for share`);
+    const originalRequests = new Map(locators.map((source) => [source.obligationId, source.admissionRequestId]));
+    const requestedIds = new Set(scope.obligationIds);
+    const sources = (await this.findSources(scope)).filter((source) => requestedIds.has(source.obligationId) && originalRequests.get(source.obligationId) === source.admissionRequestId);
+    if (scope.audience === ADMISSION_NOTIFICATION_AUDIENCE.applicant) for (const source of sources) await this.lockLocalProof({ ...scope, obligationId: source.obligationId }, source);
     const runtime = await this.readRuntime();
-    const globalEvidence = await this.readGlobalEvidence(scope, accountIds);
-    const localProof = await this.readLocalProof(scope, source);
+    const globalEvidence = await this.readGlobalEvidence(scope.recipientUserId, accountIds);
     const membership = (await this.database.execute<{ currentRole: string; membershipStatus: string }>(sql`select role as "currentRole",status as "membershipStatus" from public.tribe_members where tribe_id=${scope.tribeId} and user_id=${scope.recipientUserId}`)).rows[0];
-    return resolveAdmissionNotificationRecipientEmail({ scope, source, account: { ...account, currentRole: membership?.currentRole ?? null, membershipStatus: membership?.membershipStatus ?? null }, globalEvidence, localProof, runtime });
+    for (const source of sources) {
+      const originalScope: AdmissionNotificationRecipientEmailScope = { tribeId: scope.tribeId, recipientUserId: scope.recipientUserId, audience: scope.audience, obligationId: source.obligationId };
+      const localProof = scope.audience === ADMISSION_NOTIFICATION_AUDIENCE.applicant ? await this.readLocalProof(originalScope, source) : null;
+      const destination = resolveAdmissionNotificationRecipientEmail({ scope: originalScope, source, account: { ...account, currentRole: membership?.currentRole ?? null, membershipStatus: membership?.membershipStatus ?? null }, globalEvidence, localProof, runtime });
+      if (destination) destinations.set(source.obligationId, destination);
+    }
+    return destinations;
   }
 
-  /** @param scope - Exact existing own notice coordinates. @returns Selected own source fields or absence, without schema-revalidating database rows. */
-  private async findSource(scope: AdmissionNotificationRecipientEmailScope): Promise<SourceRow | null> {
+  /** @param scope - Exact existing own notice coordinates sharing recipient and audience. @returns Selected own source fields, without schema-revalidating database rows or accepting an unrelated source. */
+  private async findSources(scope: AdmissionNotificationRecipientEmailBatchScope): Promise<SourceRow[]> {
     return (await this.database.execute<SourceRow>(sql`
       select obligation.tribe_id as "tribeId",obligation.id as "obligationId",request.id as "admissionRequestId",
         request.user_id as "applicantUserId",obligation.event_type as event,notice.recipient_user_id as "noticeRecipientUserId",
@@ -55,9 +76,10 @@ export class PostgresAdmissionNotificationRecipientEmailReader implements Admiss
       from public.notifications notice
       inner join public.academy_admission_notification_obligations obligation on obligation.id=notice.admission_obligation_id and obligation.tribe_id=notice.tribe_id
       inner join public.academy_admission_requests request on request.id=obligation.request_id and request.tribe_id=obligation.tribe_id and request.user_id=obligation.applicant_user_id
-      where notice.tribe_id=${scope.tribeId} and notice.admission_obligation_id=${scope.obligationId}
+      where notice.tribe_id=${scope.tribeId} and notice.admission_obligation_id=any(${sql.param(scope.obligationIds)}::uuid[])
         and notice.recipient_user_id=${scope.recipientUserId} and notice.admission_audience=${scope.audience}
-    `)).rows[0] ?? null;
+      order by request.id,obligation.id
+    `)).rows;
   }
 
   /** @param scope - Exact recipient and original tribe. @param source - Rechecked source under request/obligation/notice locks. @returns After pinning its own applied-proof lineage and immutable source version, without needing a live credential. */
@@ -70,8 +92,8 @@ export class PostgresAdmissionNotificationRecipientEmailReader implements Admiss
     if (proof) await this.database.execute(sql`select connection_id from public.messaging_connection_versions where connection_id=${proof.connectionId} and tribe_id=${scope.tribeId} and version=${proof.connectionVersion} for share`);
   }
 
-  /** @param scope - Current native recipient. @param accountIds - Only linked accounts actually locked in this transaction, excluding phantoms added during another wait. @returns Current minimal captures after all locks, without imposing OAuth token expiry on durable identity. */
-  private async readGlobalEvidence(scope: AdmissionNotificationRecipientEmailScope, accountIds: readonly string[]): Promise<AdmissionNotificationGlobalEmailEvidence[]> {
+  /** @param recipientUserId - Current native recipient. @param accountIds - Only linked accounts actually locked in this transaction, excluding phantoms added during another wait. @returns Current minimal captures after all locks, without imposing OAuth token expiry on durable identity. */
+  private async readGlobalEvidence(recipientUserId: string, accountIds: readonly string[]): Promise<AdmissionNotificationGlobalEmailEvidence[]> {
     if (!accountIds.length) return [];
     return (await this.database.execute<AdmissionNotificationGlobalEmailEvidence>(sql`
       select evidence.user_id as "userId",linked."userId" as "accountUserId",linked.id as "accountId",evidence.account_id as "evidenceAccountId",
@@ -80,7 +102,7 @@ export class PostgresAdmissionNotificationRecipientEmailReader implements Admiss
         evidence.invalidated_at is not null as invalidated,evidence.verified_at<=clock_timestamp() as "verifiedInPast"
       from public.account linked inner join public.global_identity_evidence evidence
         on evidence.account_id=linked.id and evidence.user_id=linked."userId" and evidence.provider_id=linked."providerId" and evidence.provider_subject=linked."accountId"
-      where linked."userId"=${scope.recipientUserId} and linked."providerId"=${GOOGLE_IDENTITY_PROVIDER}
+      where linked."userId"=${recipientUserId} and linked."providerId"=${GOOGLE_IDENTITY_PROVIDER}
         and linked.id in (${sql.join(accountIds.map((accountId) => sql`${accountId}`), sql`,`)}) and evidence.invalidated_at is null
       order by linked.id,evidence.id
     `)).rows;

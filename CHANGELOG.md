@@ -136,6 +136,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- La preparación interna de avisos agrupados comparte las comprobaciones del destinatario y conserva los permisos y la confianza de cada aviso; el envío automático sigue pendiente.
+
 - La preparación de canales muestra sólo las opciones disponibles para la conexión y bloquea consultas y guardados de un canal que ya no esté disponible, con un aviso para corregirlo.
 
 - La documentación de mensajería explica quién controla la cuenta de envío, los cupos y los plazos de conservación, y cómo se limita el acceso durante una recuperación.
