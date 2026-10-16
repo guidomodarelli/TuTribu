@@ -4,6 +4,16 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Las ventanas emergentes aparecen y se cierran con una transición más corta y sobria: suben apenas mientras aparecen y se desvanecen rápido al cerrarse.
+- Los campos con error ya no tiemblan: el error se indica con el color del borde y el mensaje debajo.
+- Las opciones de las listas desplegables, los avisos y el ícono del cambio de tema aparecen con un fundido breve, sin desenfoque.
+
+### Fixed
+
+- Al moverse con el teclado por una lista desplegable o un menú mientras todavía se está abriendo, el resaltado acompaña a la opción sin saltar al terminar.
+
 ## [1.7.2] - 2026-10-16
 
 ### Changed
