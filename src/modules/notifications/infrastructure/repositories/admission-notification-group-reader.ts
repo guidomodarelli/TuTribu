@@ -54,11 +54,9 @@ export class PostgresAdmissionNotificationGroupReader {
     const locators = (await this.database.execute<{ obligation_id: string; request_id: string }>(sql`select member.obligation_id,obligation.request_id from public.admission_notification_group_members member join public.academy_admission_notification_obligations obligation on obligation.id=member.obligation_id and obligation.tribe_id=member.tribe_id where member.group_id=${group.id} and member.tribe_id=${tribeId} and member.state=${memberState} order by obligation.request_id,member.obligation_id`)).rows;
     const emails = new Map<string, string>();
     const reader = new PostgresAdmissionNotificationRecipientEmailReader(this.database, async () => { const config = await this.readSecurityConfig(); return { environment: config.environment, securityEpoch: config.securityEpoch }; });
-    // Pin current account/captures, role and each original request/source/notice before taking group/member locks.
-    for (const locator of locators) {
-      const email = await reader.read({ tribeId, obligationId: locator.obligation_id, recipientUserId: identity.recipientUserId, audience: identity.audience });
-      if (email) emails.set(locator.obligation_id, email.normalizedEmail);
-    }
+    // Pin shared identity once and every original request/source/notice before group/member locks.
+    const destinations = await reader.readBatch({ tribeId, obligationIds: locators.map((locator) => locator.obligation_id), recipientUserId: identity.recipientUserId, audience: identity.audience });
+    for (const [obligationId, destination] of destinations) emails.set(obligationId, destination.normalizedEmail);
     if (locators.length) {
       await this.database.execute(sql`select id from public.academy_admission_requests where tribe_id=${tribeId} and id in (${sql.join(locators.map((locator) => sql`${locator.request_id}`), sql`,`)}) order by id for share`);
       await this.database.execute(sql`select id from public.academy_admission_notification_obligations where tribe_id=${tribeId} and id in (${sql.join(locators.map((locator) => sql`${locator.obligation_id}`), sql`,`)}) order by id for share`);
