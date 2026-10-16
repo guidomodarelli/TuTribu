@@ -57,12 +57,14 @@ export class PostgresMessageDispatchRunRecorder implements MessageDispatchRunRec
       });
     } catch (error) { if (error instanceof MessagingDeliveryStorageError) throw error; throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.operationUnresolved, { operation: MESSAGE_STORAGE_OPERATION.observe, cause: error }); }
   }
-  /** @param database - Same original transaction. @param start - Original run. @param samples - Selected numeric facts. @returns After idempotent phase writes; an absent run fails instead of silently dropping evidence. */
+  /** @param database - Same original transaction. @param start - Original run. @param samples - Own bounded numeric facts. @returns After one atomic idempotent phase insert; an absent run fails instead of silently dropping evidence. */
   private async writePhases(database: RequestDatabase, start: MessageDispatchRunStart, samples: readonly MessageDispatchPhaseSample[]): Promise<void> {
     for (const sample of samples) {
       if (this.focalTribeId && sample.tribeId !== this.focalTribeId) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.permissionDenied, { operation: MESSAGE_STORAGE_OPERATION.observe });
-      await database.execute(sql`insert into public.messaging_dispatch_phase_samples(sample_id,run_id,tribe_id,phase,duration_ms) values(${sample.sampleId},${start.runId},${sample.tribeId},${sample.phase},${sample.durationMs}) on conflict(sample_id,tribe_id) do nothing`);
     }
+    if (!samples.length) return;
+    const values = samples.map((sample) => sql`(${sample.sampleId},${start.runId},${sample.tribeId},${sample.phase},${sample.durationMs})`);
+    await database.execute(sql`insert into public.messaging_dispatch_phase_samples(sample_id,run_id,tribe_id,phase,duration_ms) values ${sql.join(values, sql`, `)} on conflict(sample_id,tribe_id) do nothing`);
   }
   /** @param start - Original run. @param samples - Actually settled retained work. @returns After current-authority late observations commit without changing original run completion or causing another RPC. */
   async appendPhases(start: MessageDispatchRunStart, samples: readonly MessageDispatchPhaseSample[], lateScopes: readonly MessageDispatchTribeRun[] = []): Promise<void> {

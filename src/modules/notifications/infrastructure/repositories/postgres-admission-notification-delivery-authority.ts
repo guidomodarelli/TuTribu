@@ -18,7 +18,7 @@ import { ADMISSION_NOTIFICATION_GROUP_AUTHORITY_CURRENT, ADMISSION_NOTIFICATION_
 import { ADMISSION_NOTIFICATION_GROUP_REASON } from "../../constants/admission-notification-groups";
 import type { AdmissionNotificationAudience } from "../../domain/entities/admission-notification";
 import type { AdmissionNotificationEmailIntent, AdmissionNotificationEmailIntentContext } from "../../domain/entities/admission-notification-email-intent";
-import type { AdmissionNotificationDeliveryAuthority, AdmissionNotificationDeliveryAuthorityResult, AdmissionNotificationDeliveryAuthorityScope } from "../../domain/repositories/admission-notification-delivery-authority";
+import type { AdmissionNotificationDeliveryAuthority, AdmissionNotificationDeliveryAuthorityResult, AdmissionNotificationDeliveryAuthorityScope, CurrentAdmissionNotificationDelivery } from "../../domain/repositories/admission-notification-delivery-authority";
 import type { AdmissionNotificationGroupAuthorityReason } from "../../domain/entities/admission-notification-group-authority";
 import { admissionNotificationManifestsMatch, resolveAdmissionNotificationGroupAuthority } from "../../domain/policies/admission-notification-group-authority";
 import { createAdmissionNotificationEmailIntentMac } from "../encryption/admission-notification-email-intent-mac";
@@ -27,6 +27,8 @@ import type { AdmissionNotificationCollectionAuthorizer } from "./postgres-admis
 
 /** Consumes selected native fields only; no row or provider schema validation is applied. */
 type DeliveryRow = { id: string; connection_id: string; connection_version: number; environment: string; security_epoch: string; purpose: string; channel: string; state: string; source_resource_id: string; notification_group_id: string | null; notification_group_audience: AdmissionNotificationAudience | null; recipient_ref: string; actor_user_id: string | null; recovery_of_delivery_id: string | null; idempotency_key: string; queued_usage_policy_version: number; created_microseconds: string; deadline_microseconds: string; frozen_intent: unknown; payload_fingerprint: Uint8Array; payload_mac_key_id: string };
+/** Performs only original native work under this owner's complete resource locks, before its final authority/clock/key checks; it grants no durable permission. */
+export type AdmissionNotificationLockedResourceWork = (scope: Readonly<Pick<CurrentAdmissionNotificationDelivery, "deliveryId" | "tribeId" | "connectionId" | "connectionVersion" | "contributingLeaderUserId" | "environment" | "securityEpoch">> & { readonly notificationGroupId: string }) => Promise<void>;
 
 /** @param value - Original private JSON consumed by the MAC. @returns Minimum structural narrowing needed for safe access; this is not a PostgreSQL payload schema. */
 function hasReadableGroupIntent(value: unknown): value is AdmissionNotificationEmailIntent {
@@ -41,8 +43,8 @@ function hasReadableGroupIntent(value: unknown): value is AdmissionNotificationE
 
 /** Uses the caller's original short transaction, with canonical exclusive tribe/policy fences before source/resource locks. */
 export class PostgresAdmissionNotificationDeliveryAuthority implements AdmissionNotificationDeliveryAuthority {
-  /** @param database - Existing guarded native transaction; no checkout or RPC is created. @param authorize - Current purpose-specific backend or original-attempt authority, repeated after waits. @param readSecurityConfig - Current local environment/epoch/keys, never provider work under locks. */
-  constructor(private readonly database: RequestDatabase, private readonly authorize: AdmissionNotificationCollectionAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
+  /** @param database - Existing guarded native transaction; no checkout or RPC is created. @param authorize - Current purpose-specific backend or original-attempt authority, repeated after waits. @param readSecurityConfig - Current local environment/epoch/keys, never provider work under locks. @param whileResourceLocked - Optional same-transaction native reads after complete policy/MAC validation and before final authority, clock and material checks. */
+  constructor(private readonly database: RequestDatabase, private readonly authorize: AdmissionNotificationCollectionAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly whileResourceLocked?: AdmissionNotificationLockedResourceWork) {}
 
   /** @param tribeId - Exact original scope. @returns After current caller purpose is confirmed. @throws MessagingSecretAccessError before private reads when authority is absent. */
   private async assertAuthorized(tribeId: string): Promise<void> {
@@ -89,6 +91,7 @@ export class PostgresAdmissionNotificationDeliveryAuthority implements Admission
       else await assertMessagingAuthenticatedMacKeyMaterial(this.database, config, MESSAGING_KEY_PURPOSE.operationPayload);
       if (!await createAdmissionNotificationEmailIntentMac(config).verify(payloadContext, { keyId: row.payload_mac_key_id, mac: row.payload_fingerprint })) return deny(ADMISSION_NOTIFICATION_GROUP_AUTHORITY_REASON.payloadUnusable);
       if (!admissionNotificationManifestsMatch(plan.manifest, intent.manifest)) return deny(ADMISSION_NOTIFICATION_GROUP_AUTHORITY_REASON.manifestChanged);
+      if (this.whileResourceLocked) await this.whileResourceLocked({ deliveryId: row.id, tribeId: scope.tribeId, connectionId: row.connection_id, connectionVersion: row.connection_version, contributingLeaderUserId: resource.contributingLeaderUserId, environment: row.environment, securityEpoch: row.security_epoch, notificationGroupId: group.id });
       await this.assertAuthorized(scope.tribeId);
       const now = await admissionNotificationNow(this.database), current = await this.readSecurityConfig();
       if (current.recoveryLocked || current.environment !== config.environment || current.securityEpoch !== config.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);

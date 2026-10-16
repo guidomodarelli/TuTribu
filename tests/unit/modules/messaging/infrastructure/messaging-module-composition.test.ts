@@ -10,11 +10,12 @@ import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrast
 import { buildMessagingModule, buildMessagingWorkModule } from "@/src/modules/messaging/setup";
 import { createRequestMessagingMaintenanceAuthorizer } from "@/src/modules/messaging/infrastructure/auth/request-maintenance-authorizer";
 import { ZavuMessageDeliverySender } from "@/src/modules/messaging/infrastructure/zavu/zavu-message-delivery-sender";
+import { ZavuNotificationDeliverySender } from "@/src/modules/messaging/infrastructure/zavu/zavu-notification-delivery-sender";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import type { MessagingDispatchDiagnostic } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module composition", () => {
-  it("should compose usage and sensitive context from real current identity and deny revoked leadership", async () => {
+  it("should compose usage and sensitive context from real current identity and deny revoked leadership", async ({ task }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareContactVerificationIssuer(database);
       for (const migration of ["20261005095000_guard_global_identity_context.sql", "20261005100000_guard_messaging_secret_retirement.sql", "20261006230000_bind_credential_validation_usage.sql"]) await database.applyMigration(migration);
@@ -40,6 +41,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module c
         if (identityReads === expireOnIdentityRead) await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()-interval '1 second' where id=${sessionId}`));
         return { userId: fixture.userId, sessionId: currentSessionId };
       }, (identity, run) => {
+        if (featureTransaction) Object.assign(task.meta, { nestedAccountLookup: { identityReads, featureTransaction } });
         expect(featureTransaction).toBe(false);
         return database.withContext({ userId: identity.userId, email: fixture.own.email }, run);
       });
@@ -69,10 +71,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module c
       currentSessionId = replacementSessionId;
       expect(await messaging.useCases.reserveCredentialValidation.execute({ context: resolved.context, operationId: randomUUID() })).toMatchObject({ outcome: "denied", code: "authentication_required" });
       currentSessionId = sessionId;
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.scope.tribeId} and user_id=${fixture.userId}`));
-      expect(await messaging.useCases.manageUsage.read({ tribeId: fixture.scope.tribeId, requestId })).toMatchObject({ ok: false, failure: { code: "permission_denied" } });
-      expect(await messaging.useCases.resolveContext.execute({ tribeId: fixture.scope.tribeId, connectionId: fixture.scope.connectionId, operation: REAUTHENTICATION_OPERATION.validateMessagingConnection, requestId })).toMatchObject({ allowed: false, failure: { code: "permission_denied" } });
-      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='leader' where tribe_id=${fixture.scope.tribeId} and user_id=${fixture.userId}`));
       expireOnIdentityRead = 5;
       identityReads = 0;
       const revokedMutation = { ...update, operationId: randomUUID(), expectedVersion: 2, allowedCountries: ["US"] };
@@ -90,13 +88,31 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module c
       expireOnIdentityRead = 2;
       identityReads = 0;
       const diagnostic = { tribeId: fixture.scope.tribeId, connectionId: fixture.scope.connectionId, diagnosticId: randomUUID(), operationId: randomUUID(), code: "123456", requestId };
-      expect(await messaging.useCases.verifyDiagnostic.execute(diagnostic)).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
+      const diagnosticResource = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ state: string; connection_retired: boolean; version_retired: boolean; secret_retired: boolean; contribution_matches_actor: boolean }>(sql`select connection.state,connection.retired_at is not null as connection_retired,version.retired_at is not null as version_retired,envelope.retired_at is not null as secret_retired,connection.contributed_by_user_id=${fixture.userId} as contribution_matches_actor from public.tenant_messaging_connections connection left join public.messaging_connection_versions version on version.connection_id=connection.id and version.tribe_id=connection.tribe_id and version.version=${fixture.scope.connectionVersion} left join public.messaging_secret_envelopes envelope on envelope.secret_ref=version.secret_ref where connection.id=${fixture.scope.connectionId} and connection.tribe_id=${fixture.scope.tribeId}`)).rows[0]);
+      const diagnosticResult = await messaging.useCases.verifyDiagnostic.execute(diagnostic);
+      Object.assign(task.meta, { diagnosticExpiry: { diagnosticResource, identityReads, ok: diagnosticResult.ok, code: diagnosticResult.ok ? null : diagnosticResult.failure.code } });
+      expect(diagnosticResult).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id from public.academy_admission_operations where idempotency_key=${diagnostic.operationId}`)).rows)).toHaveLength(0);
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${sessionId}`));
       expireOnIdentityRead = 5;
       identityReads = 0;
-      expect(await messaging.useCases.manageUsage.read({ tribeId: fixture.scope.tribeId, requestId })).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
+      /** @returns Actual native session/binding/evidence state without tokens, account claims or another identity-provider read. */
+      const readSessionState = () => database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ session_active: boolean; binding_present: boolean; binding_invalidated: boolean; current_evidence: number }>(sql`select session."expiresAt">clock_timestamp() as session_active,binding.session_id is not null as binding_present,binding.invalidated_at is not null as binding_invalidated,(select count(*)::int from public.recent_authentication_evidence evidence where evidence.session_id=session.id and evidence.user_id=session."userId" and evidence.invalidated_at is null and evidence.valid_until>clock_timestamp()) as current_evidence from public.session session left join public.global_session_identity_bindings binding on binding.session_id=session.id and binding.user_id=session."userId" where session.id=${sessionId} and session."userId"=${fixture.userId}`)).rows[0]);
+      const beforeUsageRead = await readSessionState();
+      const expiredUsage = await messaging.useCases.manageUsage.read({ tribeId: fixture.scope.tribeId, requestId });
+      const afterUsageRead = await readSessionState();
+      Object.assign(task.meta, { expiryRead: { beforeUsageRead, afterUsageRead, identityReads, ok: expiredUsage.ok, code: expiredUsage.ok ? null : expiredUsage.failure.code } });
+      expect(expiredUsage).toMatchObject({ ok: false, failure: { code: "authentication_required" } });
       expect(identityReads).toBe(5);
+      // Leadership loss suspends the connection; keep it after tests that require an active resource.
+      expireOnIdentityRead = null;
+      identityReads = 0;
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+interval '1 hour' where id=${sessionId}`));
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${fixture.scope.tribeId} and user_id=${fixture.userId}`));
+      expect(await messaging.useCases.manageUsage.read({ tribeId: fixture.scope.tribeId, requestId })).toMatchObject({ ok: false, failure: { code: "permission_denied" } });
+      expect(await messaging.useCases.resolveContext.execute({ tribeId: fixture.scope.tribeId, connectionId: fixture.scope.connectionId, operation: REAUTHENTICATION_OPERATION.validateMessagingConnection, requestId })).toMatchObject({ allowed: false, failure: { code: "permission_denied" } });
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='leader' where tribe_id=${fixture.scope.tribeId} and user_id=${fixture.userId}`));
+      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select state from public.tenant_messaging_connections where id=${fixture.scope.connectionId}`)).rows)).toEqual([{ state: "suspended" }]);
     });
   }, 240_000);
 
@@ -120,6 +136,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("messaging module c
         execute: async (actorUserId, run) => { transactions += 1; try { return await database.withContext({ userId: actorUserId, email: null }, run); } finally { transactions -= 1; } },
         authorize, readSecurityConfig: async () => fixture.config,
         createSender: (preparation) => new ZavuMessageDeliverySender(preparation, transport.fetch),
+        createNotificationSender: (preparation) => new ZavuNotificationDeliverySender(preparation, transport.fetch),
         runtime: { now: Date.now, createId: randomUUID, report: (diagnostic) => diagnostics.push(diagnostic), defer: (work) => { deferred.push(work); } },
       });
       expect(await worker.useCases.dispatch.execute()).toMatchObject({ accepted: 1, unresolved: 0 });

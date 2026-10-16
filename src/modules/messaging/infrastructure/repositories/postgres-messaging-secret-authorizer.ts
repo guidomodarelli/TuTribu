@@ -14,7 +14,7 @@ import type { MarkedMessageDeliveryResourceAuthority } from "../message-delivery
 
 type DatabaseInstant = string | Date;
 /** Contains only scope/lifetime facts; ciphertext is read separately after authorization. */
-export type LockedMessagingSecret = { notBefore: readonly Date[]; expiresAt: readonly Date[]; environment: string; securityEpoch: string; keyId: string };
+export type LockedMessagingSecret = { notBefore: readonly Date[]; expiresAt: readonly Date[]; environment: string; securityEpoch: string; keyId: string; providerId: string };
 
 /** Converts the consumed timestamp without revalidating the PostgreSQL row schema. */
 function instant(value: DatabaseInstant): Date { return new Date(value instanceof Date ? value.getTime() : value); }
@@ -39,7 +39,8 @@ export async function authorizeMessagingSecret(database: RequestDatabase, contex
   const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
   if (actor !== actorUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
   if (!human) {
-    const source = (await database.execute<{ notification_group_id: string | null; notification_group_audience: string | null }>(sql`select notification_group_id,notification_group_audience from public.message_deliveries where id=${context.deliveryId} and tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and environment=${context.environment} and security_epoch=${context.securityEpoch}`)).rows[0];
+    const source = (await database.execute<{ purpose: string; notification_group_id: string | null; notification_group_audience: string | null }>(sql`select purpose,notification_group_id,notification_group_audience from public.message_deliveries where id=${context.deliveryId} and tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and environment=${context.environment} and security_epoch=${context.securityEpoch}`)).rows[0];
+    if (!source || source.purpose !== context.deliveryPurpose || source.notification_group_id !== context.notificationGroupId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
     if (source && (source.notification_group_id !== null || source.notification_group_audience !== null)) {
       if (!authorizeDeliveryResource) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
       // The injected owner takes its exclusive tribe/policy fence before the generic shared locks below.
@@ -62,7 +63,7 @@ export async function authorizeMessagingSecret(database: RequestDatabase, contex
   const leaders = (await database.execute<{ user_id: string }>(sql`select user_id from public.tribe_members where tribe_id=${context.tribeId} and role=${TRIBE_MEMBER_ROLE.leader} and status=${TRIBE_MEMBERSHIP_STATUS.active} order by user_id for share`)).rows;
   if (leaders.length !== 1 || leaders[0].user_id !== actorUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
   const resourceLock=lockResourcesForWrite?sql`for update`:sql`for share`;
-  const connection = (await database.execute<{ state: string; contributed_by_user_id: string | null; environment: string; security_epoch: string; retired_at: DatabaseInstant | null; candidate_version: number | null; selected_version: number | null; is_selected: boolean; is_candidate: boolean }>(sql`select state,contributed_by_user_id,environment,security_epoch,retired_at,candidate_version,selected_version,is_selected,is_candidate from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId} ${resourceLock}`)).rows[0];
+  const connection = (await database.execute<{ provider: string; state: string; contributed_by_user_id: string | null; environment: string; security_epoch: string; retired_at: DatabaseInstant | null; candidate_version: number | null; selected_version: number | null; is_selected: boolean; is_candidate: boolean }>(sql`select provider,state,contributed_by_user_id,environment,security_epoch,retired_at,candidate_version,selected_version,is_selected,is_candidate from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId} ${resourceLock}`)).rows[0];
   if (!connection || connection.contributed_by_user_id !== actorUserId || connection.retired_at !== null || !MESSAGING_CREDENTIAL_USABLE_STATES.has(connection.state) || connection.environment !== context.environment || connection.security_epoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
   const candidate = connection.is_candidate && connection.candidate_version === context.connectionVersion;
   const selected = connection.is_selected && connection.selected_version === context.connectionVersion;
@@ -87,5 +88,5 @@ export async function authorizeMessagingSecret(database: RequestDatabase, contex
   }
   const envelope = (await database.execute<{ environment: string; security_epoch: string; key_id: string }>(sql`select environment,security_epoch,key_id from public.messaging_secret_envelopes where secret_ref=${context.secretRef} and tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and environment=${context.environment} and security_epoch=${context.securityEpoch} and retired_at is null for share`)).rows[0];
   if (!envelope) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-  return { environment: envelope.environment, securityEpoch: envelope.security_epoch, keyId: envelope.key_id, expiresAt, notBefore };
+  return { environment: envelope.environment, securityEpoch: envelope.security_epoch, keyId: envelope.key_id, providerId: connection.provider, expiresAt, notBefore };
 }

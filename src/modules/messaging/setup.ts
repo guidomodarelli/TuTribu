@@ -82,6 +82,9 @@ import type { OriginalMessageContextQuery } from "./domain/repositories/message-
 import { ReadNotificationRecoveryOperationUseCase } from "./application/use-cases/read-notification-recovery-operation-use-case";
 import { PostgresNotificationRecoveryOperationReader } from "./infrastructure/repositories/postgres-notification-recovery-operation-reader";
 import { createAdmissionNotificationResourceAuthority } from "@/src/modules/notifications/infrastructure/messaging/admission-notification-resource-authority";
+import { buildAdmissionNotificationDeliveryModule } from "@/src/modules/notifications/setup";
+import type { NotificationDeliveryPreparation } from "./infrastructure/notification-delivery-preparation";
+import { PurposeRoutedMessageDeliverySender } from "./infrastructure/purpose-routed-message-delivery-sender";
 
 /** The request owner selects a fixed slot and explicit live security source before exposing sensitive capabilities. */
 type MessagingRequestComposition = { selection: "selected" | "candidate" | "management"; readSecurityConfig: () => Promise<MessagingSecurityConfig> };
@@ -90,6 +93,8 @@ export type MessagingWorkDependencies = {
   execute: <Result>(actorUserId: string | null, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
   authorize: () => Promise<boolean>; readSecurityConfig: () => Promise<MessagingSecurityConfig>;
   createSender: (preparation: VerificationDeliveryPreparation) => MessageDeliverySender; runtime: MessagingDispatchRuntime; settings?: Partial<MessagingDispatchSettings>;
+  /** Required for a global worker; exact focal verification launches retain their original sender only. */
+  createNotificationSender?: (preparation: NotificationDeliveryPreparation) => MessageDeliverySender;
   diagnosticScope?:Readonly<DiagnosticDeliveryDispatchScope>;
   focalScope?:Readonly<FocalDeliveryDispatchScope>;
 };
@@ -250,6 +255,8 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
  */
 export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies) {
   if(dependencies.diagnosticScope&&dependencies.focalScope)throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
+  const focalScope = dependencies.focalScope ?? dependencies.diagnosticScope;
+  if (!focalScope && !dependencies.createNotificationSender) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
   const authorize = async () => dependencies.authorize();
   const resourceAuthority = createAdmissionNotificationResourceAuthority(dependencies.readSecurityConfig);
   const deliveries = new PostgresMessageDeliveryRepository(dependencies.execute, authorize, dependencies.readSecurityConfig,dependencies.focalScope??dependencies.diagnosticScope,resourceAuthority.queued);
@@ -264,7 +271,8 @@ export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies
       return prepared;
     },
   };
-  const preparedSender = dependencies.createSender(preparation);
+  const notification = !focalScope && dependencies.createNotificationSender ? buildAdmissionNotificationDeliveryModule({ execute: dependencies.execute, authorize, readSecurityConfig: dependencies.readSecurityConfig, createSender: dependencies.createNotificationSender }) : undefined;
+  const preparedSender = new PurposeRoutedMessageDeliverySender(dependencies.createSender(preparation), notification?.sender);
   const sender: MessageDeliverySender = {
     /** @param context - Original committed marker. @param signal - Remaining run deadline. @returns Original prepared operation after current backend authorization, without RPC. */
     async prepare(context, signal) {

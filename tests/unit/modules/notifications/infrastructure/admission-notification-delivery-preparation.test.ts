@@ -70,16 +70,38 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native prepared ad
       const claim = await fixture.claim(), authorized = await fixture.deliveryRepository.authorize(claim, randomUUID());
       if (authorized.outcome !== "authorized") throw new Error("Native notification preparation did not obtain its original marker");
       let secretRead = false;
-      const preparation = new PostgresAdmissionNotificationDeliveryPreparation(fixture.deliveryExecute, { loadAuthorizedSecret: async (context) => {
-        const credential = await fixture.secrets.loadAuthorizedSecret(context);
+      const preparation = new PostgresAdmissionNotificationDeliveryPreparation(fixture.deliveryExecute, { loadAuthorizedSecretMaterial: async (context) => {
+        const material = await fixture.secrets.loadAuthorizedSecretMaterial(context);
         secretRead = true;
         await fixture.execute((transaction) => transaction.execute(sql`update public.admission_notification_preferences set mode='omitted',version=version+1 where tribe_id=${fixture.tribeId} and recipient_user_id=${fixture.leaderId}`));
-        return credential;
+        return material;
       } }, fixture.readSecurityConfig);
       const transport = createAdmissionProviderTransport([]);
       const adapters = createRegisteredMessagingAdapters({ execute: (scope, run) => fixture.deliveryExecute(scope.authorizationPurpose === "authorized_delivery" ? scope.contributingLeaderUserId : scope.actorUserId, run), readSecurityFacts: async () => ({ environment: fixture.keys.config.environment, securityEpoch: fixture.keys.config.securityEpoch, recoveryLocked: false }), authorizeDeliveryResource: fixture.guards.marked, fetch: transport.fetch });
       await expect(adapters.createNotificationSender(preparation).prepare(authorized.context, new AbortController().signal)).rejects.toMatchObject({ code: "resource_unavailable" });
       expect(secretRead).toBe(true);
+      expect(await fixture.snapshot(authorized.context.deliveryId)).toEqual({ state: "queued", attempts: 1, reservations: 1, exposures: 1, suppressions: 0 });
+      expect(transport.receipts).toHaveLength(0);
+      expect(transport.deniedRequests).toBe(0);
+    });
+  }, ADMISSION_NOTIFICATION_GROUP_PREPARATION_TEST_TIMEOUT_MS);
+
+  it("should reject provider provenance inconsistent with the final native resource after a real credential read", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareAdmissionNotificationGroupAuthority(database);
+      await fixture.queueIndividual(1);
+      const authorized = await fixture.deliveryRepository.authorize(await fixture.claim(), randomUUID());
+      if (authorized.outcome !== "authorized") throw new Error("Native provider provenance fixture did not obtain its original marker");
+      let materialRead = false;
+      const preparation = new PostgresAdmissionNotificationDeliveryPreparation(fixture.deliveryExecute, { loadAuthorizedSecretMaterial: async (context) => {
+        const material = await fixture.secrets.loadAuthorizedSecretMaterial(context);
+        materialRead = true;
+        return { ...material, providerId: randomUUID() };
+      } }, fixture.readSecurityConfig);
+      const transport = createAdmissionProviderTransport([]);
+      const adapters = createRegisteredMessagingAdapters({ execute: (scope, run) => fixture.deliveryExecute(scope.authorizationPurpose === "authorized_delivery" ? scope.contributingLeaderUserId : scope.actorUserId, run), readSecurityFacts: async () => ({ environment: fixture.keys.config.environment, securityEpoch: fixture.keys.config.securityEpoch, recoveryLocked: false }), authorizeDeliveryResource: fixture.guards.marked, fetch: transport.fetch });
+      await expect(adapters.createNotificationSender(preparation).prepare(authorized.context, new AbortController().signal)).rejects.toMatchObject({ code: "resource_unavailable" });
+      expect(materialRead).toBe(true);
       expect(await fixture.snapshot(authorized.context.deliveryId)).toEqual({ state: "queued", attempts: 1, reservations: 1, exposures: 1, suppressions: 0 });
       expect(transport.receipts).toHaveLength(0);
       expect(transport.deniedRequests).toBe(0);

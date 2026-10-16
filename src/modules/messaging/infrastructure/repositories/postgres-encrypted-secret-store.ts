@@ -2,7 +2,7 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
-import type { MessagingAccountProvider, MessagingSecretAccessContext, MessagingSecretStore } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import type { MessagingAccountProvider, MessagingSecretAccessContext, MessagingSecretStore, MessagingSecretMaterialStore, AuthorizedMessagingSecretMaterial } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { createMessagingSecretCipher, type MessagingSecretEnvelope } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
@@ -23,7 +23,7 @@ type SecurityConfigReader = () => Promise<MessagingSecurityConfig>;
  * Keeps human and worker entrypoints separate, with no default execution principal or keyring.
  * Plaintext exists only as a private adapter result; no credential/IV/ciphertext is logged or persisted.
  */
-export class PostgresEncryptedSecretStore implements MessagingSecretStore {
+export class PostgresEncryptedSecretStore implements MessagingSecretStore, MessagingSecretMaterialStore {
   /**
    * @param executeWithDatabase - Existing guarded backend executor; never a new checkout within a transaction.
    * @param accounts - Current server session/account for human access; worker access uses persisted attempt facts.
@@ -34,12 +34,17 @@ export class PostgresEncryptedSecretStore implements MessagingSecretStore {
   constructor(private readonly executeWithDatabase: DatabaseExecutor, private readonly accounts: MessagingAccountProvider, private readonly readSecurityConfig: SecurityConfigReader, private readonly purpose: MessagingSecretAccessContext["authorizationPurpose"], private readonly authorizeDeliveryResource?: MarkedMessageDeliveryResourceAuthority) {}
 
   /**
-   * Revalidates under locks, samples the clock after waits/crypto and returns backend-only material.
+   * Preserves the credential-only port through the same current authorization and material owner.
    * @param context - Private scope from the owning use case or committed attempt writer.
    * @returns The credential exclusively for the private provider adapter's operation.
    * @throws MessagingSecretAccessError for insufficient current authority, external state or cryptographic material.
    */
   async loadAuthorizedSecret(context: MessagingSecretAccessContext): Promise<string> {
+    return (await this.loadAuthorizedSecretMaterial(context)).credential;
+  }
+
+  /** @param context - Private scope from the owning use case or committed marker. @returns Credential and provider from one authorized locked resource, with final clock/key checks and no cache. @throws MessagingSecretAccessError for insufficient current authority, external state or cryptographic material. */
+  async loadAuthorizedSecretMaterial(context: MessagingSecretAccessContext): Promise<AuthorizedMessagingSecretMaterial> {
     if (context.authorizationPurpose !== this.purpose) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
     if (!Number.isInteger(context.connectionVersion) || context.connectionVersion < 1) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
     const human = context.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader;
@@ -68,7 +73,7 @@ export class PostgresEncryptedSecretStore implements MessagingSecretStore {
         await appendMessagingAuthorizedExposure(database, context, { surface: MESSAGING_AUTHORIZED_EXPOSURE.secret, resourceKind: MESSAGING_AUTHORIZED_EXPOSURE.credentialKind, itemCount: MESSAGING_AUTHORIZED_EXPOSURE.itemCount });
         assertConfig(await this.readSecurityConfig());
         if (!messagingSecretLifetimeIsCurrent(authorization, await readClock())) throw new MessagingSecretAccessError(human ? MESSAGING_ERROR_CODE.reauthenticationRequired : MESSAGING_ERROR_CODE.resourceUnavailable);
-        return plaintext;
+        return { credential: plaintext, providerId: authorization.providerId };
       });
     } catch (error) {
       if (error instanceof MessagingSecretAccessError) throw error;

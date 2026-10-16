@@ -6,6 +6,7 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { MessageDeliveryRepository, ClaimedMessageDelivery, MessageDeliveryAuthorization, MessageDeliveryReceipt, MessageDeliveryCompletion,FocalDeliveryDispatchScope } from "@/src/modules/messaging/domain/repositories/message-delivery-repository";
 import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { MessageDeliveryAttempt } from "@/src/modules/messaging/domain/entities/message-delivery-attempt";
+import type { MessageDelivery } from "@/src/modules/messaging/domain/entities/message-delivery";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { MessagingDeliveryStorageError } from "@/src/modules/messaging/domain/errors/messaging-delivery-storage-error";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
@@ -16,7 +17,8 @@ import {ADMISSION_VERIFICATION_PURPOSE} from "@/src/modules/academy-admissions/c
 import { MessagingSecretAccessError } from "../../domain/errors/messaging-secret-access-error";
 import { MessagingCryptographyError } from "../encryption/messaging-cryptography-error";
 import type { QueuedMessageDeliveryResourceAuthority } from "../message-delivery-resource-authority";
-import { NOTIFICATION_GROUP_SUPPRESSION_AUDIT_EVENT, NOTIFICATION_GROUP_SUPPRESSION_AUDIT_RULE } from "../../constants/notification-group-authorization";
+import { NOTIFICATION_GROUP_SUPPRESSION_AUDIT_EVENT, NOTIFICATION_GROUP_SUPPRESSION_AUDIT_RULE, NOTIFICATION_REFERENCE_SUPPRESSION_AUDIT_RULE } from "../../constants/notification-group-authorization";
+import { NOTIFICATION_DELIVERY_RECOVERY_PURPOSE } from "../../constants/notification-delivery-recovery";
 import { MESSAGE_DELIVERY_STATE } from "../../constants/message-delivery";
 
 /** Each call owns a short guarded transaction; RPC and secret reads happen after it returns. */
@@ -37,12 +39,12 @@ export class PostgresMessageDeliveryRepository implements MessageDeliveryReposit
    */
   constructor(private readonly execute: DeliveryDatabaseExecutor, private readonly authorizeMaintenance: DeliveryMaintenanceAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>,private readonly focalScope?:Readonly<FocalDeliveryDispatchScope>, private readonly authorizeQueuedResource?: QueuedMessageDeliveryResourceAuthority) {}
 
-  /** @param database - Original transaction holding canonical current group/resource locks. @param claim - Exact original lease/CAS, without a possible-send marker. @param configuration - Original external epoch. @returns One audited suppression or stale CAS, without reserving or refunding any budget. */
-  private async suppressUnavailableGroupedResource(database: RequestDatabase, claim: ClaimedMessageDelivery, configuration: MessagingSecurityConfig): Promise<MessageDeliveryAuthorization> {
+  /** @param database - Original transaction holding the canonical tribe fence. @param claim - Exact original lease/CAS, without a possible-send marker. @param configuration - Original external epoch. @param auditRule - Current complete-group denial or unsupported legacy reference. @returns One audited suppression or stale CAS, without reserving or refunding any budget. */
+  private async suppressUnavailableNotificationResource(database: RequestDatabase, claim: ClaimedMessageDelivery, configuration: MessagingSecurityConfig, auditRule: string = NOTIFICATION_GROUP_SUPPRESSION_AUDIT_RULE): Promise<MessageDeliveryAuthorization> {
     const changed = (await database.execute<{ version: number }>(sql`update public.message_deliveries delivery set state=${MESSAGE_DELIVERY_STATE.suppressed},last_outcome=${MESSAGING_ERROR_CODE.resourceUnavailable},lease_token=null,lease_until=null,version=version+1
       where delivery.id=${claim.deliveryId} and delivery.tribe_id=${claim.tribeId} and delivery.version=${claim.version} and delivery.state=${MESSAGE_DELIVERY_STATE.queued} and delivery.lease_token=${claim.leaseToken}
         and delivery.lease_until>clock_timestamp() and not exists(select 1 from public.message_delivery_attempts attempt where attempt.delivery_id=delivery.id) returning version`)).rows[0];
-    if (changed) await database.execute(sql`select public.record_messaging_delivery_audit(${claim.deliveryId},${MESSAGE_DELIVERY_STATE.queued},${claim.version},${NOTIFICATION_GROUP_SUPPRESSION_AUDIT_EVENT},${NOTIFICATION_GROUP_SUPPRESSION_AUDIT_RULE},${MESSAGING_ERROR_CODE.resourceUnavailable},null,null,clock_timestamp())`);
+    if (changed) await database.execute(sql`select public.record_messaging_delivery_audit(${claim.deliveryId},${MESSAGE_DELIVERY_STATE.queued},${claim.version},${NOTIFICATION_GROUP_SUPPRESSION_AUDIT_EVENT},${auditRule},${MESSAGING_ERROR_CODE.resourceUnavailable},null,null,clock_timestamp())`);
     await this.authorizeMaintenanceAction(database, MESSAGE_STORAGE_OPERATION.authorize);
     const current = await this.readSecurityConfig();
     if (current.recoveryLocked || current.environment !== configuration.environment || current.securityEpoch !== configuration.securityEpoch) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
@@ -99,8 +101,13 @@ export class PostgresMessageDeliveryRepository implements MessageDeliveryReposit
         if (configuration.recoveryLocked) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
         const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
         if (actor !== claim.contributingLeaderUserId) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.permissionDenied, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
-        const owned = (await database.execute<{ id: string; notification_group_id: string | null; notification_group_audience: string | null }>(sql`select id,notification_group_id,notification_group_audience from public.message_deliveries where id=${claim.deliveryId} and tribe_id=${claim.tribeId}`)).rows[0];
+        const owned = (await database.execute<{ id: string; purpose: MessageDelivery["purpose"]; notification_group_id: string | null; notification_group_audience: string | null }>(sql`select id,purpose,notification_group_id,notification_group_audience from public.message_deliveries where id=${claim.deliveryId} and tribe_id=${claim.tribeId}`)).rows[0];
         if (!owned) return { outcome: MESSAGE_AUTHORIZATION_OUTCOME.stale, deliveryId: claim.deliveryId, deliveryVersion: null };
+        if (this.authorizeQueuedResource && owned.purpose === NOTIFICATION_DELIVERY_RECOVERY_PURPOSE && owned.notification_group_id === null && owned.notification_group_audience === null) {
+          // The old reference-only protocol has no complete email to send. Retain its history and free the queue without charging an attempt.
+          await database.execute(sql`select id from public.tribes where id=${claim.tribeId} for update`);
+          return this.suppressUnavailableNotificationResource(database, claim, configuration, NOTIFICATION_REFERENCE_SUPPRESSION_AUDIT_RULE);
+        }
         if (owned.notification_group_id !== null || owned.notification_group_audience !== null) {
           if (!this.authorizeQueuedResource) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
           const current = await this.authorizeQueuedResource(database, { tribeId: claim.tribeId, deliveryId: claim.deliveryId }, async (transaction, tribeId) => {
@@ -108,21 +115,21 @@ export class PostgresMessageDeliveryRepository implements MessageDeliveryReposit
             await this.authorizeMaintenanceAction(transaction, MESSAGE_STORAGE_OPERATION.authorize);
             return true;
           });
-          if (!current) return this.suppressUnavailableGroupedResource(database, claim, configuration);
+          if (!current) return this.suppressUnavailableNotificationResource(database, claim, configuration);
         }
         const marker = (await database.execute<{ outcome: MessageDeliveryAuthorization["outcome"]; attempt_id: string | null; delivery_version: number | null }>(sql`select * from public.authorize_messaging_delivery_attempt(${claim.deliveryId},${claim.leaseToken},${claim.version},${configuration.environment},${configuration.securityEpoch})`)).rows[0];
         await this.authorizeMaintenanceAction(database, MESSAGE_STORAGE_OPERATION.authorize);
         const afterMarker = await this.readSecurityConfig();
         if (afterMarker.recoveryLocked || afterMarker.environment !== configuration.environment || afterMarker.securityEpoch !== configuration.securityEpoch) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
         if (marker.outcome !== MESSAGE_AUTHORIZATION_OUTCOME.authorized) return { outcome: marker.outcome, deliveryId: claim.deliveryId, deliveryVersion: marker.delivery_version };
-        const row = (await database.execute<{ connection_id: string; connection_version: number; environment: string; security_epoch: string; contributed_by_user_id: string | null; secret_ref: string | null; send_authorized_at: string | Date; authorized_usage_policy_version: number; attempt_version: number; lease_until: string | Date }>(sql`select delivery.connection_id,delivery.connection_version,delivery.environment,delivery.security_epoch,connection.contributed_by_user_id,resource.secret_ref,attempt.send_authorized_at,attempt.authorized_usage_policy_version,attempt.version as attempt_version,delivery.lease_until from public.message_deliveries delivery join public.tenant_messaging_connections connection on connection.id=delivery.connection_id and connection.tribe_id=delivery.tribe_id join public.messaging_connection_versions resource on resource.connection_id=delivery.connection_id and resource.tribe_id=delivery.tribe_id and resource.version=delivery.connection_version join public.message_delivery_attempts attempt on attempt.id=${marker.attempt_id} and attempt.delivery_id=delivery.id where delivery.id=${claim.deliveryId}`)).rows[0];
+        const row = (await database.execute<{ purpose: MessageDelivery["purpose"]; notification_group_id: string | null; connection_id: string; connection_version: number; environment: string; security_epoch: string; contributed_by_user_id: string | null; secret_ref: string | null; send_authorized_at: string | Date; authorized_usage_policy_version: number; attempt_version: number; lease_until: string | Date }>(sql`select delivery.purpose,delivery.notification_group_id,delivery.connection_id,delivery.connection_version,delivery.environment,delivery.security_epoch,connection.contributed_by_user_id,resource.secret_ref,attempt.send_authorized_at,attempt.authorized_usage_policy_version,attempt.version as attempt_version,delivery.lease_until from public.message_deliveries delivery join public.tenant_messaging_connections connection on connection.id=delivery.connection_id and connection.tribe_id=delivery.tribe_id join public.messaging_connection_versions resource on resource.connection_id=delivery.connection_id and resource.tribe_id=delivery.tribe_id and resource.version=delivery.connection_version join public.message_delivery_attempts attempt on attempt.id=${marker.attempt_id} and attempt.delivery_id=delivery.id where delivery.id=${claim.deliveryId}`)).rows[0];
         if (!row || row.contributed_by_user_id !== actor || !row.secret_ref) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
         this.assertDispatchScope({...claim,connectionId:row.connection_id,connectionVersion:row.connection_version},MESSAGE_STORAGE_OPERATION.authorize);
         await this.authorizeMaintenanceAction(database, MESSAGE_STORAGE_OPERATION.authorize);
         const latest = await this.readSecurityConfig();
         const now = new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);
         if (latest.recoveryLocked || latest.environment !== configuration.environment || latest.securityEpoch !== configuration.securityEpoch || new Date(row.lease_until) <= now) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
-        return { outcome: MESSAGE_AUTHORIZATION_OUTCOME.authorized, deliveryVersion: marker.delivery_version!, context: { authorizationPurpose: MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery, contributingLeaderUserId: actor!, tribeId: claim.tribeId, connectionId: row.connection_id, connectionVersion: row.connection_version, environment: row.environment, securityEpoch: row.security_epoch, secretRef: row.secret_ref, requestId, operation: MESSAGING_SECRET_DELIVERY_SCOPE.operation, deliveryId: claim.deliveryId, attemptId: marker.attempt_id!, attemptVersion: row.attempt_version, leaseToken: claim.leaseToken, sendAuthorizedAt: new Date(row.send_authorized_at), authorizedUsagePolicyVersion: row.authorized_usage_policy_version } };
+        return { outcome: MESSAGE_AUTHORIZATION_OUTCOME.authorized, deliveryVersion: marker.delivery_version!, context: { authorizationPurpose: MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery, contributingLeaderUserId: actor!, tribeId: claim.tribeId, connectionId: row.connection_id, connectionVersion: row.connection_version, environment: row.environment, securityEpoch: row.security_epoch, secretRef: row.secret_ref, requestId, operation: MESSAGING_SECRET_DELIVERY_SCOPE.operation, deliveryId: claim.deliveryId, attemptId: marker.attempt_id!, attemptVersion: row.attempt_version, leaseToken: claim.leaseToken, sendAuthorizedAt: new Date(row.send_authorized_at), authorizedUsagePolicyVersion: row.authorized_usage_policy_version, deliveryPurpose: row.purpose, notificationGroupId: row.notification_group_id } };
       });
     } catch (error) {
       if (error instanceof MessagingDeliveryStorageError) throw error;

@@ -1,5 +1,6 @@
 /** Defines inward-facing context/resource/secret ports without HTTP, SDK or persistence types. */
 import type { RecentAuthenticationEvidence } from "@/src/modules/auth/domain/entities/recent-authentication-evidence";
+import type { MessageDelivery } from "../entities/message-delivery";
 
 /** Private account projection adapted from auth, without profile flags or provider payloads. */
 export type MessagingAuthenticatedAccount = {
@@ -51,9 +52,18 @@ export type AuthorizedDeliveryMessagingContext = MessagingSecretResourceScope & 
   contributingLeaderUserId: string; deliveryId: string; attemptId: string;
   attemptVersion: number; leaseToken: string; sendAuthorizedAt: Date;
   authorizedUsagePolicyVersion: number; operation: "dispatch_delivery";
+  /** Native immutable routing facts, independently matched before material access. */
+  deliveryPurpose: MessageDelivery["purpose"]; notificationGroupId: string | null;
 };
 export type MessagingSecretAccessContext = AuthorizedMessagingContext | AuthorizedDeliveryMessagingContext;
 export interface MessagingSecretStore {
   /** Revalidates the purpose-specific authority before returning backend-only material. */
   loadAuthorizedSecret(context: MessagingSecretAccessContext): Promise<string>;
+}
+/** Keeps the credential and its provider from the same authorized locked resource read, exclusively in backend memory. */
+export type AuthorizedMessagingSecretMaterial = { credential: string; providerId: string };
+/** Allows private consumers to compare native provider provenance without repeating business authorization before plaintext. */
+export interface MessagingSecretMaterialStore {
+  /** @param context - Original human or marked worker scope. @returns Transient credential and provider only after independent current marker and complete purpose-specific resource checks before plaintext exposure. */
+  loadAuthorizedSecretMaterial(context: MessagingSecretAccessContext): Promise<AuthorizedMessagingSecretMaterial>;
 }

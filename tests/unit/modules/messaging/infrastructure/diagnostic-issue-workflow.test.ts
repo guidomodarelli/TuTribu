@@ -19,6 +19,7 @@ import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database
 import type {MessagingDispatchDiagnostic} from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 import type {AuthorizedMessagingContext} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import {PostgresMessagingConnectionConfiguration} from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-configuration";
+import {ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS} from "@/tests/support/constants/admission-notification-validation";
 
 /** @param database - Owned disposable branch. @param phone - Whether to exercise required country configuration. @param alternativePhoneChannel - Whether the closed transport accepts explicit SMS/WhatsApp replacement. @returns Actual native account/recency and implemented request/work roots without any provider network. */
 async function workflowFixture(database:AcademyAdmissionTestDatabase,phone=false,alternativePhoneChannel=false){
@@ -151,7 +152,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("native diagnostic is
       const configured=await fixture.usage.update({tribeId:fixture.scope.tribeId,requestId:randomUUID(),operationId:randomUUID(),confirmed:true,expectedVersion:2,allowedCountries:["AR"],verificationDailyLimit:100,notificationDailyLimit:200});expect(configured).toMatchObject({ok:true,value:{state:"completed",result:{version:3,allowedCountries:["AR"]}}});expect(fixture.transport.receipts).toHaveLength(0);
       const permitted=await fixture.issue.execute({...fixture.input,operationId:randomUUID()});expect(permitted).toMatchObject({ok:true,value:{state:"completed",result:{outcome:"issued",channel:"sms"}}});await Promise.all(fixture.deferred);expect(fixture.transport.receipts).toHaveLength(1);expect(fixture.diagnostics).toEqual([]);
     });
-  },240_000);
+  },ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
   it("should read original transport concurrently with a real resend without a delivery/challenge lock inversion",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await workflowFixture(database),issued=await fixture.issue.execute(fixture.input);if(!issued.ok||issued.value.state!=="completed"||issued.value.result.outcome!=="issued")throw new Error("Expected original diagnostic");
