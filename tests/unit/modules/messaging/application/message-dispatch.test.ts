@@ -28,7 +28,7 @@ function fixture(count: number, settingsOverride: Partial<MessagingDispatchSetti
     async claim(command) { return queue.splice(0,command.limit).map((claim) => ({ ...claim, leaseToken: command.leaseToken })); },
     async authorize(claim, requestId) {
       insidePersistence = true;
-      const context: AuthorizedDeliveryMessagingContext = { authorizationPurpose: "authorized_delivery", contributingLeaderUserId: claim.contributingLeaderUserId!, tribeId: claim.tribeId, connectionId: randomUUID(), connectionVersion: 1, environment: "synthetic", securityEpoch: "synthetic-epoch", requestId, secretRef: randomUUID(), deliveryId: claim.deliveryId, attemptId: randomUUID(), attemptVersion: 1, leaseToken: claim.leaseToken, sendAuthorizedAt: new Date(), authorizedUsagePolicyVersion: 1, operation: "dispatch_delivery" };
+      const context: AuthorizedDeliveryMessagingContext = { authorizationPurpose: "authorized_delivery", contributingLeaderUserId: claim.contributingLeaderUserId!, tribeId: claim.tribeId, connectionId: randomUUID(), connectionVersion: 1, environment: "synthetic", securityEpoch: "synthetic-epoch", requestId, secretRef: randomUUID(), deliveryId: claim.deliveryId, attemptId: randomUUID(), attemptVersion: 1, leaseToken: claim.leaseToken, sendAuthorizedAt: new Date(), authorizedUsagePolicyVersion: 1, operation: "dispatch_delivery", deliveryPurpose: "admission", notificationGroupId: null };
       markers.set(claim.deliveryId, context);
       insidePersistence = false;
       return { outcome: "authorized", context, deliveryVersion: 3 };

@@ -10,6 +10,9 @@ import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastruct
 import { PostgresEncryptedSecretStore } from "@/src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store";
 import { PostgresMessagingResourceExposureRecorder } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-authorized-exposure";
 import type { AuthorizedDeliveryMessagingContext, AuthorizedMessagingContext, MessagingAuthenticatedAccount } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
+import { MESSAGING_INITIAL_PROVIDER_ID } from "@/src/modules/messaging/constants/messaging-public-contract";
+import { ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-notification-validation";
 
 /** Supplies independent synthetic keys without writing hosting or provider configuration. */
 async function securityConfig() {
@@ -141,11 +144,12 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("encrypted messagin
 
   it("should require a current marker, consumed reservation and exact live lease for worker material", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
+      await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
       const fixture = await prepareStore(database);
       const deliveryId = randomUUID(), leaseToken = randomUUID();
       const accountLookup = vi.fn(async () => null);
       const store = new PostgresEncryptedSecretStore((actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), { getAuthenticatedAccount: accountLookup }, fixture.configuration, "authorized_delivery");
-      const context: AuthorizedDeliveryMessagingContext = { authorizationPurpose: "authorized_delivery", contributingLeaderUserId: fixture.userId, tribeId: fixture.tribeId, connectionId: fixture.connectionId, connectionVersion: 1, environment: fixture.config.environment, securityEpoch: fixture.config.securityEpoch, secretRef: fixture.secretRef, requestId: randomUUID(), deliveryId, attemptId: randomUUID(), attemptVersion: 1, leaseToken, sendAuthorizedAt: new Date(), authorizedUsagePolicyVersion: 1, operation: "dispatch_delivery" };
+      const context: AuthorizedDeliveryMessagingContext = { authorizationPurpose: "authorized_delivery", contributingLeaderUserId: fixture.userId, tribeId: fixture.tribeId, connectionId: fixture.connectionId, connectionVersion: 1, environment: fixture.config.environment, securityEpoch: fixture.config.securityEpoch, secretRef: fixture.secretRef, requestId: randomUUID(), deliveryId, attemptId: randomUUID(), attemptVersion: 1, leaseToken, sendAuthorizedAt: new Date(), authorizedUsagePolicyVersion: 1, operation: "dispatch_delivery", deliveryPurpose: "admission_notification", notificationGroupId: null };
       await expect(store.loadAuthorizedSecret(context)).rejects.toMatchObject({ code: "resource_unavailable" });
       expect(fixture.configuration).not.toHaveBeenCalled();
       await database.withContext(fixture.own, async (transaction) => {
@@ -161,6 +165,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("encrypted messagin
       const marker = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ id: string; version: number; send_authorized_at: string }>(sql`select id,version,send_authorized_at from public.message_delivery_attempts where id=${authorized.attempt_id}`)).rows[0]);
       const current = { ...context, attemptId: marker.id, attemptVersion: marker.version, sendAuthorizedAt: new Date(marker.send_authorized_at) };
       expect(await store.loadAuthorizedSecret(current)).toBe(fixture.credential);
+      const material = await store.loadAuthorizedSecretMaterial(current);
+      expect(material.providerId).toBe(MESSAGING_INITIAL_PROVIDER_ID);
+      expect(material.credential === fixture.credential).toBe(true);
       expect(accountLookup).not.toHaveBeenCalled();
       fixture.configuration.mockClear();
       for (const changed of [{ leaseToken: randomUUID() }, { attemptVersion: 2 }, { authorizedUsagePolicyVersion: 2 }, { deliveryId: randomUUID() }]) await expect(store.loadAuthorizedSecret({ ...current, ...changed })).rejects.toMatchObject({ code: "resource_unavailable" });
@@ -171,7 +178,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("encrypted messagin
       await expect(store.loadAuthorizedSecret(current)).rejects.toMatchObject({ code: "resource_unavailable" });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::integer as count from public.messaging_usage_reservations where tribe_id=${fixture.tribeId} and state='consumed'`)).rows[0].count)).toBe(1);
     });
-  }, 120_000);
+  }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
 
   it("should deny ordinary leader SQL reads even after a grant without bypass", async () => {
     await withAcademyAdmissionDatabase(async (database) => {

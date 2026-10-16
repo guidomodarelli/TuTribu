@@ -27,8 +27,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native final notif
       /** @param deliveryId - Original native marker. @returns Its remaining lifetime in native milliseconds without retaining a checkout. */
       const readRemainingLeaseMs = (deliveryId: string) => fixture.execute(async (transaction) => Number((await transaction.execute<{ remaining: string }>(sql`select (extract(epoch from (lease_until-clock_timestamp()))*${MILLISECONDS_PER_SECOND})::bigint::text as remaining from public.message_deliveries where id=${deliveryId}`)).rows[0].remaining));
       let secretRead = false, snapshotsAfterSecret = 0, pauseAtSnapshot: number | null = null, pauseDeadline = 0, finalSnapshotPaused = false;
-      const preparation = new PostgresAdmissionNotificationDeliveryPreparation(fixture.deliveryExecute, { loadAuthorizedSecret: async (scope) => {
-        const credential = await fixture.secrets.loadAuthorizedSecret(scope);
+      const preparation = new PostgresAdmissionNotificationDeliveryPreparation(fixture.deliveryExecute, { loadAuthorizedSecretMaterial: async (scope) => {
+        const material = await fixture.secrets.loadAuthorizedSecretMaterial(scope);
         secretRead = true;
         if (pauseAtSnapshot !== null && scope.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery) {
           // Age the genuine marker only after the secret transaction has released all its locks.
@@ -36,7 +36,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native final notif
           const finalWindowMs = IDLE_IN_TRANSACTION_TIMEOUT_MILLISECONDS - ADMISSION_NOTIFICATION_MARKER_EXPIRY_TEST_HEADROOM_MS;
           await new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, remainingLeaseMs - finalWindowMs)));
         }
-        return credential;
+        return material;
       } }, async () => {
         if (secretRead) {
           snapshotsAfterSecret += 1;

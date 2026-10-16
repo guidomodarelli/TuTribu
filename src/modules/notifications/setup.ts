@@ -32,7 +32,7 @@ import {
 } from "@/src/modules/notifications/application/use-cases/notification-use-cases";
 import type { NotificationRepository } from "@/src/modules/notifications/domain/repositories/notification-repository";
 import type { MessageDeliverySender } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
-import type { MessagingSecretStore } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import type { MessagingSecretMaterialStore } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { NotificationDeliveryPreparation } from "@/src/modules/messaging/infrastructure/notification-delivery-preparation";
 import { PostgresEncryptedSecretStore } from "@/src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store";
 import { MESSAGING_AUTHORIZATION_PURPOSE } from "@/src/modules/messaging/constants/messaging-connection";
@@ -98,12 +98,12 @@ export function buildAdmissionNotificationSettingsModule(dependencies: Authentic
 export function buildAdmissionNotificationDeliveryModule(dependencies: { execute: AdmissionNotificationPreparationExecutor; authorize: () => Promise<boolean>; readSecurityConfig: () => Promise<MessagingSecurityConfig>; createSender: (preparation: NotificationDeliveryPreparation) => MessageDeliverySender }) {
   const authority = createAdmissionNotificationResourceAuthority(dependencies.readSecurityConfig);
   const secrets = new PostgresEncryptedSecretStore(dependencies.execute, { getAuthenticatedAccount: async () => null }, dependencies.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery, authority.marked);
-  const authorizedSecrets: MessagingSecretStore = {
-    /** @param context - Original private marker, independently checked by the real store. @returns Its transient credential after current job authority; native resource preparation must run again afterward. @throws MessagingSecretAccessError when job authority is lost after the secret transaction commits. */
-    async loadAuthorizedSecret(context) {
-      const credential = await secrets.loadAuthorizedSecret(context);
+  const authorizedSecrets: MessagingSecretMaterialStore = {
+    /** @param context - Original private marker, independently checked by the real store. @returns Its transient credential/provider after current job authority; native resource preparation must run again afterward. @throws MessagingSecretAccessError when job authority is lost after the secret transaction commits. */
+    async loadAuthorizedSecretMaterial(context) {
+      const material = await secrets.loadAuthorizedSecretMaterial(context);
       if (!await dependencies.authorize()) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
-      return credential;
+      return material;
     },
   };
   const privatePreparation = new PostgresAdmissionNotificationDeliveryPreparation(dependencies.execute, authorizedSecrets, dependencies.readSecurityConfig);

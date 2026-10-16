@@ -8,6 +8,7 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareContactVerificationIssuer } from "@/tests/support/contact-verification-issuance-fixture";
 import { PostgresMessageDispatchRunRecorder } from "@/src/modules/messaging/infrastructure/repositories/postgres-message-dispatch-run-recorder";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { MESSAGE_DISPATCH_OBSERVATION_PHASE } from "@/src/modules/messaging/constants/message-dispatch-observation";
 
 /** @param tribeId - Native fixture scope. @returns Selected own counts, independent of credentials or provider content. */
 function run(tribeId: string) { return { tribeId, outcome: "completed" as const, counters: { claimed: 1, authorized: 1, accepted: 1, delivered: 0, rejected: 0, unknown: 0, suppressed: 0, quotaDeferred: 0, unresolved: 0, deadlineReached: false } }; }
@@ -18,14 +19,18 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native dispatch ru
       const fixture = await prepareContactVerificationIssuer(database), tribeId = fixture.scope.tribeId;
       const recorder = new PostgresMessageDispatchRunRecorder((actor, work) => database.withContext({ userId: actor, email: null }, work), async () => true, async () => fixture.config, tribeId);
       const start = await recorder.begin(randomUUID()), sample = { sampleId: randomUUID(), tribeId, phase: "send" as const, durationMs: 27 };
-      await recorder.finish(start, [run(tribeId)], [sample], 45_000); await recorder.appendPhases(start, [sample]);
+      const preparationSample = { ...sample, sampleId: randomUUID(), phase: MESSAGE_DISPATCH_OBSERVATION_PHASE.prepare, durationMs: sample.durationMs + 1 };
+      const samples = [sample, preparationSample, sample];
+      await recorder.finish(start, [run(tribeId)], samples, 45_000); await recorder.appendPhases(start, samples);
       await database.withContext(fixture.own, async (transaction) => {
         const rows = (await transaction.execute(sql`select run_id,tribe_id,outcome,counters from public.messaging_dispatch_runs`)).rows;
         expect(rows).toEqual([{ run_id: start.runId, tribe_id: tribeId, outcome: "completed", counters: run(tribeId).counters }]);
-        expect((await transaction.execute(sql`select count(*)::integer as count from public.messaging_dispatch_phase_samples`)).rows).toEqual([{ count: 1 }]);
+        const phases = (await transaction.execute(sql`select sample_id,phase,duration_ms::text from public.messaging_dispatch_phase_samples`)).rows;
+        expect(phases).toHaveLength(2);
+        expect(phases).toEqual(expect.arrayContaining([{ sample_id: sample.sampleId, phase: sample.phase, duration_ms: String(sample.durationMs) }, { sample_id: preparationSample.sampleId, phase: preparationSample.phase, duration_ms: String(preparationSample.durationMs) }]));
       });
       const first = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select finished_at,outcome from public.messaging_dispatch_runs where run_id=${start.runId}`)).rows);
-      await recorder.finish(start, [run(tribeId)], [sample], 45_000);
+      await recorder.finish(start, [run(tribeId)], samples, 45_000);
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select finished_at,outcome from public.messaging_dispatch_runs where run_id=${start.runId}`)).rows)).toEqual(first);
       await database.grantTablesToNonBypass(["messaging_dispatch_runs", "messaging_dispatch_phase_samples"]);
       expect(await database.withContext(fixture.own, (transaction) => transaction.execute(sql`select run_id from public.messaging_dispatch_runs`), "non_bypass")).toMatchObject({ rows: [] });
@@ -60,6 +65,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native dispatch ru
       const recorder = new PostgresMessageDispatchRunRecorder((actor, work) => database.withContext({ userId: actor, email: null }, work), async () => true, async () => ({ ...fixture.config, recoveryLocked: ++checks >= lockAt }), tribeId);
       const start = await recorder.begin(randomUUID());
       await expect(recorder.finish(start, [run(tribeId)], [{ sampleId: randomUUID(), tribeId: randomUUID(), phase: "send", durationMs: 9 }], 45_000)).rejects.toMatchObject({ code: "permission_denied" });
+      const valid = { sampleId: randomUUID(), tribeId, phase: MESSAGE_DISPATCH_OBSERVATION_PHASE.send, durationMs: 9 };
+      await expect(recorder.finish(start, [run(tribeId)], [valid, { ...valid, sampleId: randomUUID(), durationMs: -1 }], 45_000)).rejects.toMatchObject({ code: "operation_unresolved", cause: { cause: { code: "23514" } } });
       lockAt = checks + 2;
       await expect(recorder.finish(start, [run(tribeId)], [{ sampleId: randomUUID(), tribeId, phase: "send", durationMs: 9 }], 45_000)).rejects.toMatchObject({ code: "connection_incomplete" });
       await database.withContext(fixture.own, async (transaction) => {

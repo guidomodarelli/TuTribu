@@ -11,10 +11,10 @@ import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messagin
 import { MESSAGE_ATTEMPT_STATE, MESSAGE_DELIVERY_STATE, MESSAGE_RESERVATION_STATE } from "@/src/modules/messaging/constants/message-delivery";
 import { MESSAGING_SECRET_DELIVERY_SCOPE } from "@/src/modules/messaging/constants/messaging-secret-access";
 import { ADMISSION_NOTIFICATION_GROUP_AUTHORITY_CURRENT } from "../../constants/admission-notification-group-authority";
-import { PostgresAdmissionNotificationDeliveryAuthority } from "../repositories/postgres-admission-notification-delivery-authority";
+import { PostgresAdmissionNotificationDeliveryAuthority, type AdmissionNotificationLockedResourceWork } from "../repositories/postgres-admission-notification-delivery-authority";
 
-/** @param database - Original guarded actor transaction. @param context - Confirmed marker, lease and consumed reservation. @param readSecurityConfig - Current local material only. @returns Complete original content and transient destination after current group and marker checks. @throws MessagingSecretAccessError on any closed marker/resource relationship. */
-export async function readCurrentMarkedAdmissionNotificationDelivery(database: RequestDatabase, context: AuthorizedDeliveryMessagingContext, readSecurityConfig: () => Promise<MessagingSecurityConfig>): Promise<CurrentAdmissionNotificationDelivery> {
+/** @param database - Original guarded actor transaction. @param context - Confirmed marker, lease and consumed reservation. @param readSecurityConfig - Current local material only. @param whileResourceLocked - Optional same-transaction native work inside the validated full-resource frame, before its final checks; never an RPC or checkout. @returns Complete original content and transient destination after current group and marker checks. @throws MessagingSecretAccessError on any closed marker/resource relationship. */
+export async function readCurrentMarkedAdmissionNotificationDelivery(database: RequestDatabase, context: AuthorizedDeliveryMessagingContext, readSecurityConfig: () => Promise<MessagingSecurityConfig>, whileResourceLocked?: AdmissionNotificationLockedResourceWork): Promise<CurrentAdmissionNotificationDelivery> {
     /** @param current - Original native transaction. @param tribeId - Exact existing delivery tenant. @returns Actual private principal and committed live marker, never a caller flag. */
     const authorize = async (current: typeof database, tribeId: string) => {
       if (tribeId !== context.tribeId || context.operation !== MESSAGING_SECRET_DELIVERY_SCOPE.operation) return false;
@@ -27,7 +27,7 @@ export async function readCurrentMarkedAdmissionNotificationDelivery(database: R
           and attempt.id=${context.attemptId} and attempt.version=${context.attemptVersion} and attempt.lease_token=${context.leaseToken} and attempt.state=${MESSAGE_ATTEMPT_STATE.inFlight}
           and attempt.authorized_usage_policy_version=${context.authorizedUsagePolicyVersion} and reservation.state=${MESSAGE_RESERVATION_STATE.consumed}`)).rows[0]);
     };
-    const result = await new PostgresAdmissionNotificationDeliveryAuthority(database, authorize, readSecurityConfig).read({ tribeId: context.tribeId, deliveryId: context.deliveryId });
+    const result = await new PostgresAdmissionNotificationDeliveryAuthority(database, authorize, readSecurityConfig, whileResourceLocked).read({ tribeId: context.tribeId, deliveryId: context.deliveryId });
     if (result.status !== ADMISSION_NOTIFICATION_GROUP_AUTHORITY_CURRENT || result.delivery.connectionId !== context.connectionId || result.delivery.connectionVersion !== context.connectionVersion || result.delivery.contributingLeaderUserId !== context.contributingLeaderUserId || result.delivery.environment !== context.environment || result.delivery.securityEpoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
     return result.delivery;
 }

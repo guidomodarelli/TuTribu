@@ -53,10 +53,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native final notif
       const brokenConfig = { ...fixture.keys.config, keyrings: { ...fixture.keys.config.keyrings, [MESSAGING_KEY_PURPOSE.operationPayload]: { ...ring, keys: replaceMaterial ? new Map([[ring.activeKeyId, replacement]]) : new Map<string, CryptoKey>() } } };
       let secretRead = false, snapshotsAfterSecret = 0, faultAtSnapshot: number | null = null, faultObserved = false;
       // Measure this owner's actual final observation without depending on a fixed number of internal reads.
-      const preparation = new PostgresAdmissionNotificationDeliveryPreparation(fixture.deliveryExecute, { loadAuthorizedSecret: async (context) => {
-        const credential = await fixture.secrets.loadAuthorizedSecret(context);
+      const preparation = new PostgresAdmissionNotificationDeliveryPreparation(fixture.deliveryExecute, { loadAuthorizedSecretMaterial: async (context) => {
+        const material = await fixture.secrets.loadAuthorizedSecretMaterial(context);
         secretRead = true;
-        return credential;
+        return material;
       } }, async () => {
         if (!secretRead) return fixture.keys.config;
         snapshotsAfterSecret += 1;
