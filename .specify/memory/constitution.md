@@ -133,7 +133,7 @@ Los componentes propios DEBEN usar
 
 Los estilos de producto DEBEN usar SCSS Modules y BEM. NO DEBEN añadirse utilidades Tailwind
 ni compilación Tailwind en el consumidor. La navegación interna DEBE usar el `Link` compartido
-de `@/components/navigation/link`; las notificaciones DEBEN usar `toast` y `Toaster` de
+de `@/components/navigation/link`; las notificaciones DEBEN usar `toast` y `ThemedToaster` de
 `beez-ui`. El tema DEBE conservar un único propietario mediante el provider compartido.
 
 Las interacciones críticas DEBEN mostrar sus estados de validación, carga, éxito y error

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Toaster } from "beez-ui";
+import { ThemedToaster } from "beez-ui";
 import { SitepingProvider } from "@/components/providers/siteping-provider";
 
 const identity = {
@@ -53,7 +53,7 @@ describe("SitepingProvider with the published Beezping widget", () => {
   it("should keep the widget absent without an error notification when the member is not authenticated", async () => {
     const request = vi.fn(async () => new Response(null, { status: 401 }));
     vi.stubGlobal("fetch", request);
-    render(<><SitepingProvider /><Toaster /></>);
+    render(<><SitepingProvider /><ThemedToaster /></>);
     await waitFor(() => expect(request).toHaveBeenCalled());
     await waitFor(() => expect(document.querySelector("beezping-widget")).toBeNull());
     expect(screen.queryByText("No pudimos cargar las herramientas para reportar problemas.")).toBeNull();
@@ -61,7 +61,7 @@ describe("SitepingProvider with the published Beezping widget", () => {
 
   it("should reject a malformed public identity instead of mounting the widget", async () => {
     serveIdentity({ ...identity, enabled: "yes" });
-    render(<><SitepingProvider /><Toaster /></>);
+    render(<><SitepingProvider /><ThemedToaster /></>);
     await screen.findByText("No pudimos cargar las herramientas para reportar problemas.");
     expect(document.querySelector("beezping-widget")).toBeNull();
   });
@@ -71,7 +71,7 @@ describe("SitepingProvider with the published Beezping widget", () => {
     request.mockResolvedValueOnce(new Response(null, { status: 503 }));
     request.mockResolvedValueOnce(Response.json(identity));
     vi.stubGlobal("fetch", request);
-    render(<><SitepingProvider /><Toaster /></>);
+    render(<><SitepingProvider /><ThemedToaster /></>);
     await screen.findByText("No pudimos cargar las herramientas para reportar problemas.");
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
     await waitFor(() => expect(document.querySelector("beezping-widget")).not.toBeNull());

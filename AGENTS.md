@@ -232,7 +232,7 @@ components/<scope>/<component>/
 
 ### Toast notifications baseline
 
-- Use `toast` and `Toaster` from `beez-ui` (backed by Sonner) as the standard notification system for user-facing events.
+- Use `toast` and `ThemedToaster` from `beez-ui` (backed by Sonner) as the standard notification system for user-facing events. Do not mount the raw `Toaster`, and do not restyle toasts in the product.
 - Mount a global toaster once in `app/layout.tsx` or in a dedicated top-level providers component imported from that layout, and trigger notifications from client components or client-side handlers.
 - Select toast type by event intent:
   - `default`: neutral messages that acknowledge a relevant user action.
