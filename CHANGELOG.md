@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- Con la barra lateral abierta en una pantalla angosta, el menú para cambiar de tribu y los demás menús que se abren desde ella vuelven a verse encima del panel, en lugar de quedar ocultos detrás.
+
 ## [1.7.0] - 2026-10-16
 
 ### Changed
