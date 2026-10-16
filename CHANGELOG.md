@@ -4,6 +4,15 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- Las notificaciones adoptan el estilo del sistema de diseño de TuTribu, con sus íconos y colores en modo claro y oscuro.
+
+### Fixed
+
+- Los botones de una notificación, como el de cerrarla, funcionan mientras hay una ventana emergente abierta y ya no la cierran. También se alcanzan con el teclado (Alt+T) y, al cerrar la notificación, el foco vuelve a la ventana.
+- El selector de emoji de los canales se desplaza por dentro cuando no entra en la pantalla, en lugar de quedar cortado.
+
 ## [1.7.1] - 2026-10-16
 
 ### Fixed

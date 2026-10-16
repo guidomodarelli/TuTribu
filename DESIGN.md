@@ -141,6 +141,14 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
   implies, instead of overriding height, border or text color, and do not
   re-animate it.
 
+## Notifications
+
+- Notifications use `toast` and `ThemedToaster` from beez-ui, mounted once in
+  `components/providers/app-providers`. Do not mount the raw `Toaster` and do
+  not restyle toasts: their surface, icons and theme come from beez-ui, and
+  their buttons stay usable, also with the keyboard (Alt+T), while a dialog
+  is open.
+
 ## Styling
 
 

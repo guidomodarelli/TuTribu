@@ -1,16 +1,20 @@
-import { vi, describe, it, expect, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { Avatar, AvatarImage } from "beez-ui";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { Avatar, AvatarImage, Button, Dialog, DialogContent, DialogTitle, toast } from "beez-ui";
 
 import { AppProviders } from "@/components/providers/app-providers";
 
 const fetchMock = vi.fn();
 
 describe("AppProviders", () => {
+  // Sonner schedules a removal timer after a toast closes that can outlive jsdom; fake timers (advancing with real
+  // time in vitest.config) keep the waits intact and restoring real timers discards the pending ones.
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
+  afterEach(() => { cleanup(); vi.useRealTimers(); });
 
   it("should activate Next Image for shared avatars", () => {
     render(<AppProviders isSitepingEnabled={false}><Avatar><AvatarImage src="/profile.png" alt="Perfil" /></Avatar></AppProviders>);
@@ -26,6 +30,33 @@ describe("AppProviders", () => {
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the dialog open and its focus when a notification raised from it is closed with the keyboard", async () => {
+    render(
+      <AppProviders isSitepingEnabled={false}>
+        <Dialog defaultOpen>
+          <DialogContent>
+            <DialogTitle>Suscribirme al calendario</DialogTitle>
+            <Button onClick={() => toast.success("Link listo.")}>Generar link</Button>
+          </DialogContent>
+        </Dialog>
+      </AppProviders>
+    );
+    const dialog = screen.getByRole("dialog", { name: "Suscribirme al calendario" });
+    const trigger = screen.getByRole("button", { name: "Generar link" });
+    act(() => trigger.focus());
+    act(() => trigger.click());
+    await screen.findByText("Link listo.");
+
+    const closeButton = screen.getByRole("button", { name: "Close toast" });
+    act(() => closeButton.focus());
+    expect(closeButton).toHaveFocus();
+    act(() => closeButton.click());
+
+    await waitFor(() => expect(screen.queryByText("Link listo.")).toBeNull());
+    expect(dialog).toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("fetches Siteping identity when Siteping is enabled", async () => {
