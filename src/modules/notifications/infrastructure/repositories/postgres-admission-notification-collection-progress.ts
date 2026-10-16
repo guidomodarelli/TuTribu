@@ -88,8 +88,7 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
         const collector = new PostgresAdmissionNotificationRepository(database, this.authorize, this.readSecurityConfig);
         const page = await reader.readPage(command.tribeId, collectionProgressCursor(original));
         const counts = { examined: page.sources.length, collected: 0, existing: 0, suppressed: 0, unavailable: 0, bucketClosed: 0 };
-        for (const source of page.sources) {
-          const result = await collector.collect(source);
+        for (const result of await collector.collectMany(command.tribeId, page.sources)) {
           switch (result.status) {
             case ADMISSION_NOTIFICATION_COLLECTED: counts.collected++; break;
             case ADMISSION_NOTIFICATION_COLLECTION_EXISTING: counts.existing++; break;
