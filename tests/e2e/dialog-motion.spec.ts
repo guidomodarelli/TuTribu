@@ -1,6 +1,6 @@
 /**
  * Validates the beez-ui dialog motion contract inside real TuTribu screens: a
- * product dialog (`DialogContent`) and a confirmation (`AlertDialogContent`)
+ * product dialog (`DialogContent`) and a confirmation (`<Dialog alert>`)
  * play Arc's dialog transition (the panel rises from below while it grows from
  * a slightly smaller scale and fades in, then drops a little and shrinks while
  * it fades out), without any clip, appear without animation when the visitor

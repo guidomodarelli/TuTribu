@@ -60,9 +60,20 @@ $media-viewer-overlay-opacity: 72%;
   }
 
   &__composerCard,
+  // Message surface: a plain element, since beez-ui's `Card` is a content
+  // card with its own padded body and quick look.
   &__messageCard {
+    display: flex;
+    flex-direction: column;
+    isolation: isolate;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
     border-radius: 0.5rem;
     background: var(--card);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    padding-block: var(--space-5);
   }
 
   &__messageCard {
@@ -102,7 +113,7 @@ $media-viewer-overlay-opacity: 72%;
 
   &__composer {
     display: grid;
-    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     min-height: 0;
     gap: 0;
   }
@@ -215,7 +226,7 @@ $media-viewer-overlay-opacity: 72%;
     max-height: min(42rem, calc(100svh - 2rem));
     gap: 1rem;
     // Radius, surface, border and the 24px padding come from beez-ui's Arc
-    // dialog surface; `DialogFooter` bleeds through that padding to the edges.
+    // dialog surface; its footer bleeds through that padding to the edges.
     // Rows that must read as part of the panel, like the sticky author header
     // and the composer actions, paint the panel's raised surface through this
     // variable: `--background` is a darker tone in dark mode.
@@ -245,6 +256,24 @@ $media-viewer-overlay-opacity: 72%;
 
   &__composerDialogHeader {
     gap: 0;
+  }
+
+  // Message composer: the author identity, the form and the footer that
+  // `DialogContent` draws are the rows of the panel. The footer closes the
+  // form without a gap, as when it lived inside it.
+  &__composerDialog--form {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    row-gap: 0;
+  }
+
+  &__composerDialog--form &__composerIdentity {
+    margin-bottom: 1rem;
+  }
+
+  // The composer header holds only the visually hidden title and description,
+  // so it takes no row of the panel.
+  &__composerDialogHeader--hidden {
+    display: contents;
   }
 
   &__composerDialogTitle {
@@ -302,8 +331,8 @@ $media-viewer-overlay-opacity: 72%;
     }
   }
 
-  // Border, tint and padding come from beez-ui's `DialogFooter`; the composer
-  // only keeps its actions on one row at every width.
+  // Border, tint and padding come from the footer of beez-ui's `DialogContent`;
+  // the composer only keeps its actions on one row at every width.
   &__composerFooter {
     flex-direction: row;
     justify-content: flex-end;
@@ -458,15 +487,6 @@ $media-viewer-overlay-opacity: 72%;
     height: var(--channel-menu-emoji-size);
     font-size: 1rem;
     line-height: 1;
-  }
-
-  &__channelMenuText {
-    display: block;
-    min-width: 0;
-    overflow: hidden;
-    overflow-wrap: normal;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   &__channelBadge {
@@ -853,7 +873,7 @@ $media-viewer-overlay-opacity: 72%;
 
   &__imageCarouselDialog:global([data-slot="dialog-content"]) {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) clamp(3.75rem, 8vw, 5rem);
+    grid-template-rows: auto minmax(0, 1fr);
     width: min(calc(100vw - 2rem), 72rem);
     max-width: min(calc(100vw - 2rem), 72rem);
     height: min(calc(100svh - 2rem), 48rem);
@@ -892,54 +912,24 @@ $media-viewer-overlay-opacity: 72%;
     min-height: 0;
   }
 
-  &__imageCarouselProgress {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.45rem;
-    min-height: 100%;
-    margin: 0;
-    padding: 0 clamp(1.5rem, 6vw, 5rem);
-  }
-
-  &__imageCarouselProgressDot {
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 999rem;
-    background: color-mix(in oklab, var(--foreground) 34%, transparent);
-    opacity: 0.45;
-    transition:
-      background-color 160ms ease,
-      opacity 160ms ease,
-      transform 160ms ease;
-  }
-
-  &__imageCarouselProgressDot--active {
-    background: color-mix(in oklab, var(--foreground) 82%, transparent);
-    opacity: 1;
-    transform: scale(1.55);
-  }
-
+  // The slides take the free height and the carousel's control row (arrows
+  // and indicator tabs) sits under them.
   &__imageCarousel {
     box-sizing: border-box;
-    display: grid;
-    align-items: center;
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
     min-width: 0;
     min-height: 0;
     height: 100%;
     padding: clamp(4rem, 8vw, 6rem) clamp(1.5rem, 6vw, 5rem)
       clamp(0.75rem, 2vw, 1.25rem);
 
-    :global([data-slot="carousel-content"]) {
+    // beez-ui's `Carousel` exposes no class for its viewport and slide track,
+    // and the video slides need a definite height (`container-type: size`).
+    :global([data-slot="carousel-content"]),
+    :global([data-slot="carousel-content"] > div) {
       min-height: 0;
       height: 100%;
     }
-  }
-
-  &__imageCarouselContent {
-    height: 100%;
-    margin-left: 0;
   }
 
   &__imageCarouselItem {
@@ -950,7 +940,6 @@ $media-viewer-overlay-opacity: 72%;
     display: grid;
     min-height: 0;
     height: 100%;
-    padding-left: 0;
     place-items: center;
   }
 
@@ -973,46 +962,6 @@ $media-viewer-overlay-opacity: 72%;
     margin: auto;
     object-fit: contain;
     object-position: center;
-  }
-
-  &__imageCarouselPrevious,
-  &__imageCarouselNext {
-    z-index: 3;
-    border: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
-    background: color-mix(in oklab, var(--background) 84%, transparent);
-    color: var(--foreground);
-    backdrop-filter: blur(8px);
-
-    // The round control floats over the active slide, which for videos is a
-    // cross-origin player iframe. A circular button leaves the corners of its
-    // bounding box transparent to pointer events, so a near-miss click on the
-    // visible ring is hit-tested through to the iframe behind and plays the
-    // video instead of navigating — the control only responds when the pointer
-    // lands squarely on the icon. This transparent, rectangular hit area
-    // extends the interactive surface to a comfortable 44px target (also the
-    // accessible minimum) so the whole control advances the carousel, not just
-    // its center.
-    &::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 2.75rem;
-      height: 2.75rem;
-      transform: translate(-50%, -50%);
-    }
-
-    &:disabled {
-      opacity: 0.35;
-    }
-  }
-
-  &__imageCarouselPrevious {
-    left: clamp(0.75rem, 3vw, 1.5rem);
-  }
-
-  &__imageCarouselNext {
-    right: clamp(0.75rem, 3vw, 1.5rem);
   }
 
   &__videoComposer {
@@ -1368,36 +1317,19 @@ $media-viewer-overlay-opacity: 72%;
     margin-left: 0.1rem;
   }
 
-  &__commentAuthorAvatar {
-    width: 1.45rem;
-    height: 1.45rem;
-    font-size: 0.68rem;
+  // Wrapper of the message actions menu, so it never changes the header layout.
+  &__messageMenu {
+    display: contents;
   }
 
   &__messageMenuItem {
     white-space: nowrap;
-
-    &--destructive {
-      color: var(--destructive) !important;
-
-      svg {
-        color: var(--destructive) !important;
-      }
-    }
   }
 
   &__messageMenuContent {
     width: max-content;
     min-width: max-content;
     max-width: calc(100vw - 2rem);
-
-    :global([data-variant="destructive"]) {
-      color: var(--destructive) !important;
-
-      svg {
-        color: var(--destructive) !important;
-      }
-    }
   }
 
   &__deleteMessageDialog {
@@ -1521,10 +1453,6 @@ $media-viewer-overlay-opacity: 72%;
     margin-top: 0.25rem;
   }
 
-  &__paginationControl {
-    cursor: not-allowed;
-  }
-
   &__messageDetailsBody {
     display: grid;
     align-content: start;
@@ -1577,6 +1505,7 @@ $media-viewer-overlay-opacity: 72%;
     gap: 0.75rem;
     align-items: start;
     min-height: auto;
+    padding-inline-start: var(--space-5);
     padding-inline-end: min(10rem, 42vw);
   }
 
@@ -1603,6 +1532,7 @@ $media-viewer-overlay-opacity: 72%;
   &__messageContent {
     display: grid;
     gap: 0.75rem;
+    padding-inline: var(--space-5);
     padding-top: 0.5rem;
   }
 

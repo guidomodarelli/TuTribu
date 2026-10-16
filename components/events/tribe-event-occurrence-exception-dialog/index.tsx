@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Textarea, MOTION_TIMING, MOTION_EASE } from "beez-ui";
+import { Button, Checkbox, Dialog, DialogContent, Input, Textarea, MOTION_TIMING, MOTION_EASE } from "beez-ui";
 
 import {
   addDaysToBuenosAiresDateKey,
@@ -331,13 +331,11 @@ export function TribeEventOccurrenceExceptionDialog({
         }
       }}
     >
-      <DialogContent className={styles.TribeEventOccurrenceExceptionDialog}>
-        <DialogHeader>
-          <DialogTitle>{isMove ? COPY.moveTitle : COPY.cancelTitle}</DialogTitle>
-          <DialogDescription>
-            {isMove ? COPY.moveDescription(dateLabel) : COPY.cancelDescription(dateLabel)}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={styles.TribeEventOccurrenceExceptionDialog}
+        title={isMove ? COPY.moveTitle : COPY.cancelTitle}
+        description={isMove ? COPY.moveDescription(dateLabel) : COPY.cancelDescription(dateLabel)}
+      >
         {/* Native validation is off so an empty date or time reaches the
             Spanish inline message instead of a browser-language bubble. */}
         <form

@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 import { act, fireEvent, render as renderComponent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { TooltipProvider } from "beez-ui";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 
@@ -166,9 +165,7 @@ function roundResponse(round: unknown): Response {
 }
 
 function render(ui: ReactElement) {
-  return renderComponent(ui, {
-    wrapper: ({ children }: { children: ReactNode }) => <TooltipProvider>{children}</TooltipProvider>,
-  });
+  return renderComponent(ui);
 }
 
 function renderRound() {
@@ -246,12 +243,12 @@ describe("TribeRound in-place navigation", () => {
     (global.fetch as Mock).mockResolvedValue(roundResponse(secondPageRound));
     renderRound();
 
-    await user.click(screen.getByRole("link", { name: "Siguiente" }));
+    await user.click(screen.getByRole("link", { name: "Ir a la página siguiente" }));
 
     expect(await screen.findByText("Mensaje anterior")).toBeInTheDocument();
     expect(requestedUrls()).toEqual([`${ROUND_API_PATH}?page=2`]);
     expect(window.location.search).toBe("?page=2");
-    expect(screen.getByRole("link", { name: "Anterior" })).toHaveAttribute("href", TRIBE_PATH);
+    expect(screen.getByRole("link", { name: "Ir a la página anterior" })).toHaveAttribute("href", TRIBE_PATH);
     expect(pushMock).not.toHaveBeenCalled();
     expect(refreshMock).not.toHaveBeenCalled();
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage, cn, PresenceSwap } from "beez-ui";
+import { AvatarGroup, cn, PresenceSwap } from "beez-ui";
 
 import {
   formatAttendanceCounts,
@@ -8,7 +8,6 @@ import {
   formatGoingNames,
   formatWaitlistPosition,
 } from "@/lib/events/tribe-event-attendance-copy";
-import { getMemberAvatarInitials } from "@/lib/members/member-avatar-initials";
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import styles from "./styles.module.scss";
 
@@ -29,8 +28,6 @@ type TribeEventAttendanceSummaryProps = {
 
 const AVATAR_SIZE_SMALL = "sm";
 const COMPACT_AVATAR_LIMIT = 3;
-// Stacked avatars overlap, so only the first initial stays readable.
-const STACKED_AVATAR_INITIALS = 1;
 const MORE_PREFIX = "+";
 const DETAILS_SEPARATOR = " · ";
 /** Inline wrapper so each line keeps its paragraph box while its text swaps. */
@@ -87,23 +84,25 @@ export function TribeEventAttendanceSummary({
       )}
     >
       {visiblePreview.length > 0 ? (
-        <AvatarGroup aria-hidden className={styles.TribeEventAttendanceSummary__avatars}>
-          {visiblePreview.map((attendee) => (
-            <Avatar key={attendee.id} size={AVATAR_SIZE_SMALL}>
-              {attendee.image ? <AvatarImage alt="" src={attendee.image} /> : null}
-              <AvatarFallback className={styles.TribeEventAttendanceSummary__initials}>
-                {getMemberAvatarInitials(attendee.name, {
-                  maxInitials: STACKED_AVATAR_INITIALS,
-                })}
-              </AvatarFallback>
-            </Avatar>
-          ))}
+        // Decorative: the sentence next to it names the same people.
+        <span aria-hidden className={styles.TribeEventAttendanceSummary__avatars}>
+          <AvatarGroup
+            max={visiblePreview.length}
+            members={visiblePreview.map((attendee) => ({
+              key: attendee.id,
+              name: attendee.name,
+              src: attendee.image,
+            }))}
+            size={AVATAR_SIZE_SMALL}
+          />
+          {/* The preview holds only some of the people going, so the rest of
+              the count is drawn here instead of by the group. */}
           {hiddenGoingCount > 0 ? (
-            <AvatarGroupCount className={styles.TribeEventAttendanceSummary__more}>
+            <span className={styles.TribeEventAttendanceSummary__more}>
               {MORE_PREFIX + String(hiddenGoingCount)}
-            </AvatarGroupCount>
+            </span>
           ) : null}
-        </AvatarGroup>
+        </span>
       ) : null}
       <div className={styles.TribeEventAttendanceSummary__text}>
         {!isCompact && (namesText || !countsText) ? (

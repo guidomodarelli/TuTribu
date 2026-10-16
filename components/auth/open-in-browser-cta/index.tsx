@@ -1,4 +1,3 @@
-import { CardDescription } from "beez-ui";
 import styles from "./styles.module.scss";
 
 const HTTPS_PROTOCOL = "https://";
@@ -42,9 +41,9 @@ export function OpenInBrowserCta({ isIos, signInUrl }: OpenInBrowserCtaProps) {
       <h2 className={styles.OpenInBrowserCta__title}>
         {OPEN_IN_BROWSER_COPY.title}
       </h2>
-      <CardDescription className={styles.OpenInBrowserCta__description}>
+      <p className={styles.OpenInBrowserCta__description}>
         {OPEN_IN_BROWSER_COPY.description}
-      </CardDescription>
+      </p>
       {isIos ? (
         <>
           <a

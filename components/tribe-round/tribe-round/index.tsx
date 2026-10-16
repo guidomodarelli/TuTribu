@@ -18,8 +18,6 @@ import type {
 } from "react";
 import {
   CalendarClockIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   ChevronDownIcon,
   FileIcon,
   ImageIcon,
@@ -38,10 +36,9 @@ import {
   XIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
+import { toast, Button, Avatar, AvatarGroup, Dialog, DialogClose, DialogContent, DialogTrigger, DropdownMenu, type DropdownItem, Input, Tooltip, Pagination, Carousel, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
 import { MorphLoader } from "@/components/loaders/morph-loader";
 
-import { Link } from "@/components/navigation/link";
 import { isInPageLinkClick } from "@/lib/plain-link-click";
 import { usePixelSnappedCentering } from "@/hooks/use-pixel-snapped-centering";
 import { useTribeRoundNavigation } from "@/hooks/use-tribe-round-navigation";
@@ -92,7 +89,6 @@ import {
   buildPlayerEmbedSource,
 } from "@/src/modules/shared/application/video/build-player-embed-source";
 import { buildVideoThumbnailSource } from "@/src/modules/shared/application/video/build-video-thumbnail-source";
-import { resolveImageCarouselSlideIndicesOnReInit } from "./image-carousel-slide-indices";
 import styles from "./styles.module.scss";
 
 const TRIBE_ROUND_ROUTE = {
@@ -355,7 +351,6 @@ const TRIBE_ROUND_FORM = {
   dateTimeLocalStep: 1,
   dateTimeLocalInputType: "datetime-local",
   defaultVariant: "default",
-  destructiveVariant: "destructive",
   dangerVariant: "danger",
   fileInputType: "file",
   ghostVariant: "ghost",
@@ -379,13 +374,16 @@ const TRIBE_ROUND_MEDIA = {
 
 const TRIBE_ROUND_ATTRIBUTES = {
   channelFilterEmojiHidden: true,
+  commentAuthorsAvatarSize: "sm",
   composerAvatarSize: "lg",
+  // The dialog actions live in `DialogContent`'s footer, outside the forms,
+  // and reach them through the `form` attribute.
+  composerFormId: "tribe-round-composer-form",
+  editCreatedAtFormId: "tribe-round-edit-created-at-form",
   contentExpandedDataAttribute: "data-expanded",
   dropdownAlign: "center",
   messageActionsDropdownAlign: "end",
   messageDetailsCloseButtonPlacement: "viewport",
-  inlineEndIcon: "inline-end",
-  inlineStartIcon: "inline-start",
   messageMetaSeparatorHidden: true,
   relativeTimeFormat: "relative",
   relativeTimeNoTitleAttribute: "no-title",
@@ -397,7 +395,6 @@ const TRIBE_ROUND_ATTRIBUTES = {
   messageComposerRequirementsLabel: "Requisitos pendientes",
   messageDetailsTitleHidden: true,
   regionRole: "region",
-  trueString: "true",
 } as const;
 
 const TRIBE_ROUND_LIMITS = {
@@ -410,8 +407,25 @@ const TRIBE_ROUND_LIMITS = {
 const TRIBE_ROUND_CAROUSEL = {
   imageDecoding: "async",
   imageFetchPriority: "high",
+  // Each medium fills the viewer, without neighbours peeking in.
+  slideSize: "100%",
   transitionDuration: 14,
 } as const;
+
+/**
+ * Names a slide of the media viewer and its indicator, as in "Medio 2 de 5".
+ * @param slideIndex - Zero-based slide position.
+ * @param slideCount - Number of media in the viewer.
+ * @returns The accessible name.
+ */
+function formatImageCarouselSlideLabel(slideIndex: number, slideCount: number): string {
+  return [
+    TRIBE_ROUND_COPY.imageCarouselProgressPrefix,
+    slideIndex + 1,
+    TRIBE_ROUND_COPY.imageCarouselProgressSeparator,
+    slideCount,
+  ].join(TRIBE_ROUND_FORMAT.standardSpace);
+}
 
 /**
  * Arrow keys that drive the media carousel. The dialog intercepts them at the
@@ -421,17 +435,6 @@ const TRIBE_ROUND_CAROUSEL = {
 const TRIBE_ROUND_CAROUSEL_KEY = {
   next: "ArrowRight",
   previous: "ArrowLeft",
-} as const;
-
-/**
- * Embla carousel event names the media dialog subscribes to. `select` fires at
- * the start of a scroll (responsive progress), `settle` once it finishes (safe
- * point to mount/unmount the active video iframe), and `reInit` on re-layout.
- */
-const TRIBE_ROUND_CAROUSEL_EVENT = {
-  reInit: "reInit",
-  select: "select",
-  settle: "settle",
 } as const;
 
 /** Scroll back to the round top after a page loads in place. */
@@ -542,10 +545,8 @@ const TRIBE_ROUND_REPLY_LOAD_STATUS = {
   loading: "loading",
 } as const;
 
-const TRIBE_ROUND_PAGINATION_LABEL = {
-  next: "Siguiente",
-  previous: "Anterior",
-} as const;
+/** Pagination links of the round, found from a click inside the pagination. */
+const HTML_ANCHOR_SELECTOR = "a";
 
 const TRIBE_ROUND_FORMAT = {
   avatarRoleModifierPrefix: "TribeRound__avatar--",
@@ -873,10 +874,12 @@ function renderRoundAuthorAvatar(
     .join(TRIBE_ROUND_FORMAT.standardSpace);
 
   return (
-    <Avatar className={composedClassName}>
-      {author.image ? <AvatarImage alt={author.name} src={author.image} /> : null}
-      <AvatarFallback>{author.avatarFallback}</AvatarFallback>
-    </Avatar>
+    <Avatar
+      className={composedClassName}
+      fallback={author.avatarFallback}
+      name={author.name}
+      src={author.image}
+    />
   );
 }
 
@@ -1330,19 +1333,16 @@ function renderCommentAuthorsPreview(message: TribeRoundMessageResult) {
 
   return (
     <AvatarGroup
-      aria-label={getCommentAuthorsPreviewLabel(authors)}
       className={styles.TribeRound__commentAuthors}
-      role="group"
-    >
-      {authors.map((author) => (
-        <Avatar className={styles.TribeRound__commentAuthorAvatar} key={author.id} size="sm">
-          {author.image ? (
-            <AvatarImage alt={author.name} src={author.image} />
-          ) : null}
-          <AvatarFallback>{author.avatarFallback}</AvatarFallback>
-        </Avatar>
-      ))}
-    </AvatarGroup>
+      label={getCommentAuthorsPreviewLabel(authors)}
+      max={authors.length}
+      members={authors.map((author) => ({
+        key: author.id,
+        name: author.name,
+        src: author.image,
+      }))}
+      size={TRIBE_ROUND_ATTRIBUTES.commentAuthorsAvatarSize}
+    />
   );
 }
 
@@ -1400,19 +1400,15 @@ function renderMessageCreatedTime(
 ) {
   return (
     <div className={styles.TribeRound__messageMetaLine}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className={styles.TribeRound__time}>
-            <MessageRelativeTime dateTime={createdAt} />
-          </span>
-        </TooltipTrigger>
-        <TooltipContent
-          className={styles.TribeRound__messageCreatedTooltip}
-          collisionPadding={TRIBE_ROUND_ATTRIBUTES.tooltipCollisionPadding}
-          sideOffset={TRIBE_ROUND_ATTRIBUTES.tooltipSideOffset}
-        >
-          {formatMessageCreatedTooltip(createdAt)}
-        </TooltipContent>
+      <Tooltip
+        collisionPadding={TRIBE_ROUND_ATTRIBUTES.tooltipCollisionPadding}
+        content={formatMessageCreatedTooltip(createdAt)}
+        contentClassName={styles.TribeRound__messageCreatedTooltip}
+        sideOffset={TRIBE_ROUND_ATTRIBUTES.tooltipSideOffset}
+      >
+        <span className={styles.TribeRound__time}>
+          <MessageRelativeTime dateTime={createdAt} />
+        </span>
       </Tooltip>
       {channel ? (
         <>
@@ -1827,24 +1823,10 @@ function TribeRoundContent({
   const [activeImageCarouselSlideIndex, setActiveImageCarouselSlideIndex] =
     useState(0);
   // The slide that drives video iframe mounting. It only follows the carousel
-  // once a scroll animation has fully settled, so the heavy mount/unmount of a
-  // cross-origin player never runs mid-transition (which stalled Embla's rAF
-  // animation and made the arrow controls appear stuck).
+  // once a scroll has come to rest (`onSettle`), so the heavy mount/unmount of
+  // a cross-origin player never runs mid-transition.
   const [settledImageCarouselSlideIndex, setSettledImageCarouselSlideIndex] =
     useState(0);
-  const [imageCarouselApi, setImageCarouselApi] = useState<CarouselApi | null>(
-    null
-  );
-  // Tracks whether Embla is mid-scroll. `select` opens this window (the target
-  // snap changed); `settle` closes it, and so does a `reInit`, which aborts any
-  // in-flight scroll. While the window is open, the post-decode image-preload
-  // `reInit` is deferred so it never recreates the engine mid-animation and cuts
-  // arrow navigation short.
-  const isImageCarouselScrollInProgressRef = useRef(false);
-  // Holds a post-decode image-preload `reInit` that arrived mid-scroll. Embla's
-  // `reInit` recreates the engine and aborts the running scroll, so it is parked
-  // here and flushed once the scroll settles, keeping arrow navigation smooth.
-  const pendingImageCarouselReInitRef = useRef(false);
   const [isMessageDetailsOpen, setIsMessageDetailsOpen] = useState(false);
   const messageDetailsDialogRef = usePixelSnappedCentering();
   const messageDetailsBodyRef = useRef<HTMLElement>(null);
@@ -2136,22 +2118,36 @@ function TribeRoundContent({
    * Loads another round page in place when a pagination link gets a plain
    * click; modified clicks keep the real link so it can open in a new tab.
    */
-  const previousRoundPage = Math.max(
-    TRIBE_ROUND_FIRST_PAGE,
-    visiblePagination.currentPage - 1
-  );
-  const nextRoundPage = visiblePagination.currentPage + 1;
-
-  const handleRoundPageLinkClick = (
-    event: MouseEvent<HTMLAnchorElement>,
-    location: TribeRoundLocation
+  // `Pagination` reports the requested page without its click event, so the
+  // in-place navigation is decided here, in the capture phase, before the
+  // provider's `Link` navigates: a plain click is taken over and the page is
+  // loaded once `onPageChange` reports it; modified clicks (new tab, new
+  // window) fall through to the browser.
+  const isInPageRoundPaginationClickRef = useRef(false);
+  const handleRoundPaginationClickCapture = (
+    event: MouseEvent<HTMLDivElement>
   ) => {
-    if (!isInPageLinkClick(event)) {
+    const isLinkClick =
+      event.target instanceof Element && event.target.closest(HTML_ANCHOR_SELECTOR) !== null;
+    const isInPageClick =
+      isLinkClick && isInPageLinkClick(event);
+
+    isInPageRoundPaginationClickRef.current = isInPageClick;
+
+    if (isInPageClick) {
+      event.preventDefault();
+    }
+  };
+  const handleRoundPageChange = (page: number) => {
+    if (!isInPageRoundPaginationClickRef.current) {
       return;
     }
 
-    event.preventDefault();
-    void roundNavigation.navigateToLocation(location);
+    isInPageRoundPaginationClickRef.current = false;
+    void roundNavigation.navigateToLocation({
+      channelSlug: activeChannel?.slug ?? null,
+      page,
+    });
   };
   const selectedMessageReplyLoadStatus = selectedMessage
     ? replyLoadStatuses[selectedMessage.id] ??
@@ -2257,157 +2253,6 @@ function TribeRoundContent({
     currentMessageImageDraftsRef.current =
       getImageDraftsFromMediaDrafts(mediaDrafts);
   }, [mediaDrafts]);
-
-  useEffect(() => {
-    if (!activeImageCarousel || !imageCarouselApi) {
-      return;
-    }
-
-    let isCancelled = false;
-
-    const settleFrameId = window.requestAnimationFrame(() => {
-      if (isCancelled) {
-        return;
-      }
-
-      imageCarouselApi.reInit();
-    });
-
-    return () => {
-      isCancelled = true;
-      window.cancelAnimationFrame(settleFrameId);
-    };
-  }, [
-    activeImageCarousel,
-    activeImageCarouselMedia.length,
-    imageCarouselApi,
-  ]);
-
-  useEffect(() => {
-    if (!activeImageCarousel || !imageCarouselApi) {
-      return;
-    }
-
-    // `select` fires as soon as the target snap changes (scroll start) and keeps
-    // the progress indicator responsive. `settle` fires once the scroll
-    // animation has finished; gating video iframe mounting on it avoids tearing
-    // down a cross-origin player while Embla is still animating. A `reInit`
-    // (image preload decode or relayout during navigation) recreates the engine
-    // at rest on the selected snap and emits no follow-up `settle`, so it ends
-    // any in-flight scroll and finalizes the iframe-driving settled index.
-    const beginImageCarouselScroll = () => {
-      isImageCarouselScrollInProgressRef.current = true;
-      setActiveImageCarouselSlideIndex(imageCarouselApi.selectedScrollSnap());
-    };
-
-    // Runs a post-decode image-preload `reInit` that was deferred because it
-    // arrived mid-scroll, now that the carousel is at rest. The follow-up
-    // `reInit` event finalizes the indices again (a no-op at the settled snap).
-    const flushPendingImageCarouselReInit = () => {
-      if (!pendingImageCarouselReInitRef.current) {
-        return;
-      }
-
-      pendingImageCarouselReInitRef.current = false;
-      imageCarouselApi.reInit();
-    };
-
-    const settleImageCarouselSlideIndices = () => {
-      isImageCarouselScrollInProgressRef.current = false;
-      const settledSnapIndex = imageCarouselApi.selectedScrollSnap();
-      setActiveImageCarouselSlideIndex(settledSnapIndex);
-      setSettledImageCarouselSlideIndex(settledSnapIndex);
-      flushPendingImageCarouselReInit();
-    };
-
-    const finalizeImageCarouselSlideIndicesOnReInit = () => {
-      const { activeSlideIndex, settledSlideIndex, isScrollInProgress } =
-        resolveImageCarouselSlideIndicesOnReInit(
-          imageCarouselApi.selectedScrollSnap()
-        );
-      isImageCarouselScrollInProgressRef.current = isScrollInProgress;
-      setActiveImageCarouselSlideIndex(activeSlideIndex);
-      setSettledImageCarouselSlideIndex(settledSlideIndex);
-    };
-
-    // Known non-animated initialization: sync both indices from a settled state.
-    settleImageCarouselSlideIndices();
-    imageCarouselApi.on(
-      TRIBE_ROUND_CAROUSEL_EVENT.reInit,
-      finalizeImageCarouselSlideIndicesOnReInit
-    );
-    imageCarouselApi.on(
-      TRIBE_ROUND_CAROUSEL_EVENT.select,
-      beginImageCarouselScroll
-    );
-    imageCarouselApi.on(
-      TRIBE_ROUND_CAROUSEL_EVENT.settle,
-      settleImageCarouselSlideIndices
-    );
-
-    return () => {
-      isImageCarouselScrollInProgressRef.current = false;
-      pendingImageCarouselReInitRef.current = false;
-      imageCarouselApi.off(
-        TRIBE_ROUND_CAROUSEL_EVENT.reInit,
-        finalizeImageCarouselSlideIndicesOnReInit
-      );
-      imageCarouselApi.off(
-        TRIBE_ROUND_CAROUSEL_EVENT.select,
-        beginImageCarouselScroll
-      );
-      imageCarouselApi.off(
-        TRIBE_ROUND_CAROUSEL_EVENT.settle,
-        settleImageCarouselSlideIndices
-      );
-    };
-  }, [activeImageCarousel, imageCarouselApi]);
-
-  const activeImageCarouselMessageMedia = activeImageCarouselMessage?.media;
-
-  useEffect(() => {
-    const imageMedia = (activeImageCarouselMessageMedia ?? []).filter(
-      (mediaItem) => mediaItem.kind === MESSAGE_MEDIA_KIND.image
-    );
-
-    if (imageMedia.length === 0) {
-      return;
-    }
-
-    let isCancelled = false;
-    const preloadedImages = imageMedia.map((image) => {
-      const preloadedImage = new window.Image();
-      preloadedImage.decoding = TRIBE_ROUND_CAROUSEL.imageDecoding;
-      preloadedImage.fetchPriority = TRIBE_ROUND_CAROUSEL.imageFetchPriority;
-      preloadedImage.src = image.url;
-
-      return preloadedImage;
-    });
-
-    void Promise.allSettled(
-      preloadedImages.map((preloadedImage) =>
-        preloadedImage.decode ? preloadedImage.decode() : Promise.resolve()
-      )
-    ).then(() => {
-      if (isCancelled) {
-        return;
-      }
-
-      // A `reInit` recreates the Embla engine and aborts any running scroll, so
-      // firing it mid-navigation would cut a scroll short. Park it until the
-      // scroll settles; the settle handler flushes the pending reInit at rest.
-      if (isImageCarouselScrollInProgressRef.current) {
-        pendingImageCarouselReInitRef.current = true;
-        return;
-      }
-
-      imageCarouselApi?.reInit();
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [activeImageCarouselMessageMedia, imageCarouselApi]);
 
   useEffect(() => {
     const discardedMessageImageLocalIds =
@@ -5152,7 +4997,6 @@ function TribeRoundContent({
       setActiveImageCarousel(null);
       setActiveImageCarouselSlideIndex(0);
       setSettledImageCarouselSlideIndex(0);
-      setImageCarouselApi(null);
     }
   };
 
@@ -5168,18 +5012,25 @@ function TribeRoundContent({
   const handleImageCarouselKeyDown = (
     event: KeyboardEvent<HTMLDivElement>
   ) => {
-    if (activeImageCarouselMedia.length <= 1) {
+    const slideCount = activeImageCarouselMedia.length;
+
+    if (slideCount <= 1) {
       return;
     }
 
+    // The carousel loops, so both arrows wrap around the ends.
     if (event.key === TRIBE_ROUND_CAROUSEL_KEY.previous) {
       event.preventDefault();
       event.stopPropagation();
-      imageCarouselApi?.scrollPrev();
+      setActiveImageCarouselSlideIndex(
+        (currentIndex) => (currentIndex - 1 + slideCount) % slideCount
+      );
     } else if (event.key === TRIBE_ROUND_CAROUSEL_KEY.next) {
       event.preventDefault();
       event.stopPropagation();
-      imageCarouselApi?.scrollNext();
+      setActiveImageCarouselSlideIndex(
+        (currentIndex) => (currentIndex + 1) % slideCount
+      );
     }
   };
 
@@ -5761,10 +5612,6 @@ function TribeRoundContent({
 
   const renderMessageImageCarouselDialog = () => {
     const messageMedia = activeImageCarouselMedia;
-    const activeImageCarouselSlideNumber = Math.min(
-      activeImageCarouselSlideIndex + 1,
-      messageMedia.length
-    );
     return (
       <Dialog
         open={messageMedia.length > 0}
@@ -5774,123 +5621,78 @@ function TribeRoundContent({
           className={styles.TribeRound__imageCarouselDialog}
           onKeyDownCapture={handleImageCarouselKeyDown}
           showCloseButton
+          title={TRIBE_ROUND_COPY.imageCarouselDialogTitle}
+          description={TRIBE_ROUND_COPY.imageCarouselDialogDescription}
+          headerClassName={styles.TribeRound__imageCarouselHeader}
+          titleClassName={styles.TribeRound__srOnly}
+          descriptionClassName={styles.TribeRound__srOnly}
         >
-          <DialogHeader className={styles.TribeRound__imageCarouselHeader}>
-            <DialogTitle className={styles.TribeRound__srOnly}>
-              {TRIBE_ROUND_COPY.imageCarouselDialogTitle}
-            </DialogTitle>
-            <DialogDescription className={styles.TribeRound__srOnly}>
-              {TRIBE_ROUND_COPY.imageCarouselDialogDescription}
-            </DialogDescription>
-          </DialogHeader>
           <Carousel
             className={styles.TribeRound__imageCarousel}
-            opts={{
-              duration: TRIBE_ROUND_CAROUSEL.transitionDuration,
-              loop: messageMedia.length > 1,
-              startIndex: activeImageCarousel?.mediaIndex ?? 0,
-              // Embla auto-scrolls to whichever slide holds focus. A focused
-              // video iframe would keep snapping the carousel back to its
-              // slide, cancelling arrow navigation. Media slides are navigated
-              // explicitly, so focus must not drive scroll position.
-              watchFocus: false,
-            }}
-            setApi={setImageCarouselApi}
+            duration={TRIBE_ROUND_CAROUSEL.transitionDuration}
+            index={activeImageCarouselSlideIndex}
+            label={TRIBE_ROUND_COPY.imageCarouselDialogTitle}
+            loop={messageMedia.length > 1}
+            nextLabel={TRIBE_ROUND_COPY.imageCarouselNextButton}
+            onIndexChange={setActiveImageCarouselSlideIndex}
+            onSettle={setSettledImageCarouselSlideIndex}
+            previousLabel={TRIBE_ROUND_COPY.imageCarouselPreviousButton}
+            slideClassName={styles.TribeRound__imageCarouselItem}
+            slideLabel={formatImageCarouselSlideLabel}
+            slideSize={TRIBE_ROUND_CAROUSEL.slideSize}
+            // A focused video iframe would keep snapping the carousel back to
+            // its slide, cancelling arrow navigation. Media slides are
+            // navigated explicitly, so focus must not drive scroll position.
+            watchFocus={false}
           >
-            <CarouselContent className={styles.TribeRound__imageCarouselContent}>
-              {messageMedia.map((mediaItem, mediaIndex) => {
-                if (mediaItem.kind === MESSAGE_MEDIA_KIND.video) {
-                  const isActiveSlide =
-                    mediaIndex === settledImageCarouselSlideIndex;
-
-                  return (
-                    <CarouselItem
-                      className={styles.TribeRound__imageCarouselItem}
-                      key={mediaItem.id}
-                    >
-                      <div className={styles.TribeRound__videoEmbed}>
-                        {isActiveSlide ? (
-                          <iframe
-                            allow={PLAYER_IFRAME_ALLOW}
-                            allowFullScreen
-                            className={styles.TribeRound__videoEmbedIframe}
-                            src={buildPlayerEmbedSource(
-                              mediaItem.provider,
-                              mediaItem.externalId
-                            )}
-                            title={`${TRIBE_ROUND_COPY.videoEmbedTitlePrefix}${
-                              activeImageCarouselMessage?.title
-                                ? `: ${activeImageCarouselMessage.title}`
-                                : ""
-                            }`}
-                          />
-                        ) : (
-                          renderCarouselVideoPoster(mediaItem)
-                        )}
-                      </div>
-                    </CarouselItem>
-                  );
-                }
-
-                const imageAlt =
-                  mediaItem.altText ||
-                  activeImageCarouselMessage?.title ||
-                  TRIBE_ROUND_COPY.messageDetailsDialogTitle;
+            {messageMedia.map((mediaItem, mediaIndex) => {
+              if (mediaItem.kind === MESSAGE_MEDIA_KIND.video) {
+                const isActiveSlide =
+                  mediaIndex === settledImageCarouselSlideIndex;
 
                 return (
-                  <CarouselItem
-                    className={styles.TribeRound__imageCarouselItem}
-                    key={mediaItem.id}
-                  >
-                    <div className={styles.TribeRound__imageCarouselFrame}>
-                      {createElement(TRIBE_ROUND_MEDIA.imageElementTag, {
-                        alt: imageAlt,
-                        className: styles.TribeRound__imageCarouselImage,
-                        decoding: TRIBE_ROUND_CAROUSEL.imageDecoding,
-                        fetchPriority: TRIBE_ROUND_CAROUSEL.imageFetchPriority,
-                        loading: TRIBE_ROUND_MEDIA.eagerLoading,
-                        src: mediaItem.url,
-                      })}
-                    </div>
-                  </CarouselItem>
+                  <div className={styles.TribeRound__videoEmbed} key={mediaItem.id}>
+                    {isActiveSlide ? (
+                      <iframe
+                        allow={PLAYER_IFRAME_ALLOW}
+                        allowFullScreen
+                        className={styles.TribeRound__videoEmbedIframe}
+                        src={buildPlayerEmbedSource(
+                          mediaItem.provider,
+                          mediaItem.externalId
+                        )}
+                        title={`${TRIBE_ROUND_COPY.videoEmbedTitlePrefix}${
+                          activeImageCarouselMessage?.title
+                            ? `: ${activeImageCarouselMessage.title}`
+                            : ""
+                        }`}
+                      />
+                    ) : (
+                      renderCarouselVideoPoster(mediaItem)
+                    )}
+                  </div>
                 );
-              })}
-            </CarouselContent>
-            {messageMedia.length > 1 ? (
-              <>
-                <CarouselPrevious
-                  aria-label={TRIBE_ROUND_COPY.imageCarouselPreviousButton}
-                  className={styles.TribeRound__imageCarouselPrevious}
-                />
-                <CarouselNext
-                  aria-label={TRIBE_ROUND_COPY.imageCarouselNextButton}
-                  className={styles.TribeRound__imageCarouselNext}
-                />
-              </>
-            ) : null}
+              }
+
+              const imageAlt =
+                mediaItem.altText ||
+                activeImageCarouselMessage?.title ||
+                TRIBE_ROUND_COPY.messageDetailsDialogTitle;
+
+              return (
+                <div className={styles.TribeRound__imageCarouselFrame} key={mediaItem.id}>
+                  {createElement(TRIBE_ROUND_MEDIA.imageElementTag, {
+                    alt: imageAlt,
+                    className: styles.TribeRound__imageCarouselImage,
+                    decoding: TRIBE_ROUND_CAROUSEL.imageDecoding,
+                    fetchPriority: TRIBE_ROUND_CAROUSEL.imageFetchPriority,
+                    loading: TRIBE_ROUND_MEDIA.eagerLoading,
+                    src: mediaItem.url,
+                  })}
+                </div>
+              );
+            })}
           </Carousel>
-          <p
-            aria-live="polite"
-            className={styles.TribeRound__imageCarouselProgress}
-          >
-            <span className={styles.TribeRound__srOnly}>
-              {TRIBE_ROUND_COPY.imageCarouselProgressPrefix}{" "}
-              {activeImageCarouselSlideNumber}{" "}
-              {TRIBE_ROUND_COPY.imageCarouselProgressSeparator}{" "}
-              {messageMedia.length}
-            </span>
-            {messageMedia.map((mediaItem, mediaIndex) => (
-              <span
-                aria-hidden="true"
-                className={
-                  mediaIndex === activeImageCarouselSlideIndex
-                    ? `${styles.TribeRound__imageCarouselProgressDot} ${styles["TribeRound__imageCarouselProgressDot--active"]}`
-                    : styles.TribeRound__imageCarouselProgressDot
-                }
-                key={mediaItem.id}
-              />
-            ))}
-          </p>
         </DialogContent>
       </Dialog>
     );
@@ -5951,107 +5753,89 @@ function TribeRoundContent({
       return null;
     }
 
+    const menuItems: DropdownItem[] = [
+      ...(canEdit
+        ? [
+            {
+              className: styles.TribeRound__messageMenuItem,
+              disabled: isBusy,
+              icon: <PencilIcon />,
+              label: TRIBE_ROUND_COPY.messageEditButton,
+              onSelect: () => openEditMessageDialog(message),
+            },
+          ]
+        : []),
+      ...(canEditCreatedAt
+        ? [
+            {
+              className: styles.TribeRound__messageMenuItem,
+              disabled: isBusy,
+              icon: <CalendarClockIcon />,
+              label: TRIBE_ROUND_COPY.messageEditCreatedAtButton,
+              onSelect: () => openEditCreatedAtDialog(message),
+            },
+          ]
+        : []),
+      ...(canDelete
+        ? [
+            {
+              className: styles.TribeRound__messageMenuItem,
+              destructive: true,
+              disabled: isBusy,
+              icon: <TrashIcon />,
+              label: TRIBE_ROUND_COPY.messageDeleteButton,
+              onSelect: () => setMessagePendingDeletion(message),
+            },
+          ]
+        : []),
+    ];
+
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={TRIBE_ROUND_COPY.messageMoreActionsAriaLabel}
-            className={styles.TribeRound__messageMoreButton}
-            onClick={(event) => {
-              if (shouldStopDetailsOpening) {
-                stopMessageDetailsOpening(event);
-              }
-            }}
-            size={TRIBE_ROUND_FORM.iconSize}
-            type={TRIBE_ROUND_FORM.buttonType}
-            variant={TRIBE_ROUND_FORM.ghostVariant}
-          >
-            <MoreHorizontalIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
+      // Clicks on the trigger and on the portaled items bubble through the
+      // React tree; stopping them here keeps them from opening the message
+      // details behind the menu.
+      <span
+        className={styles.TribeRound__messageMenu}
+        onClick={shouldStopDetailsOpening ? stopMessageDetailsOpening : undefined}
+      >
+        <DropdownMenu
           align={TRIBE_ROUND_ATTRIBUTES.messageActionsDropdownAlign}
-          className={styles.TribeRound__messageMenuContent}
-        >
-          {canEdit ? (
-            <DropdownMenuItem
-              className={styles.TribeRound__messageMenuItem}
-              disabled={isBusy}
-              onClick={(event) => {
-                if (shouldStopDetailsOpening) {
-                  stopMessageDetailsOpening(event);
-                }
-              }}
-              onSelect={() => {
-                openEditMessageDialog(message);
-              }}
+          contentClassName={styles.TribeRound__messageMenuContent}
+          items={menuItems}
+          label={TRIBE_ROUND_COPY.messageMoreActionsAriaLabel}
+          trigger={
+            <Button
+              aria-label={TRIBE_ROUND_COPY.messageMoreActionsAriaLabel}
+              className={styles.TribeRound__messageMoreButton}
+              size={TRIBE_ROUND_FORM.iconSize}
+              type={TRIBE_ROUND_FORM.buttonType}
+              variant={TRIBE_ROUND_FORM.ghostVariant}
             >
-              <PencilIcon />
-              {TRIBE_ROUND_COPY.messageEditButton}
-            </DropdownMenuItem>
-          ) : null}
-          {canEditCreatedAt ? (
-            <DropdownMenuItem
-              className={styles.TribeRound__messageMenuItem}
-              disabled={isBusy}
-              onClick={(event) => {
-                if (shouldStopDetailsOpening) {
-                  stopMessageDetailsOpening(event);
-                }
-              }}
-              onSelect={() => {
-                openEditCreatedAtDialog(message);
-              }}
-            >
-              <CalendarClockIcon />
-              {TRIBE_ROUND_COPY.messageEditCreatedAtButton}
-            </DropdownMenuItem>
-          ) : null}
-          {canDelete ? (
-            <DropdownMenuItem
-              className={`${styles.TribeRound__messageMenuItem} ${styles["TribeRound__messageMenuItem--destructive"]}`}
-              disabled={isBusy}
-              onClick={(event) => {
-                if (shouldStopDetailsOpening) {
-                  stopMessageDetailsOpening(event);
-                }
-              }}
-              onSelect={() => {
-                setMessagePendingDeletion(message);
-              }}
-              variant={TRIBE_ROUND_FORM.destructiveVariant}
-            >
-              <TrashIcon />
-              {TRIBE_ROUND_COPY.messageDeleteButton}
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <MoreHorizontalIcon />
+            </Button>
+          }
+        />
+      </span>
     );
   };
 
   return (
-    <TooltipProvider>
-      <section
-        className={styles.TribeRound}
-        aria-label={TRIBE_ROUND_COPY.sectionLabel}
-        ref={roundSectionRef}
+    <section
+      className={styles.TribeRound}
+      aria-label={TRIBE_ROUND_COPY.sectionLabel}
+      ref={roundSectionRef}
+    >
+      <Dialog
+        open={Boolean(messagePendingDeletion)}
+        onOpenChange={handleDeleteConfirmationOpenChange}
       >
-        <Dialog
-          open={Boolean(messagePendingDeletion)}
-          onOpenChange={handleDeleteConfirmationOpenChange}
-        >
-          <DialogContent
-            className={styles.TribeRound__deleteMessageDialog}
-            showCloseButton={!isBusy}
-          >
-            <DialogHeader>
-              <DialogTitle>{TRIBE_ROUND_COPY.messageDeleteConfirmTitle}</DialogTitle>
-              <DialogDescription>
-                {TRIBE_ROUND_COPY.messageDeleteConfirmDescription}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
+        <DialogContent
+          className={styles.TribeRound__deleteMessageDialog}
+          showCloseButton={!isBusy}
+          title={TRIBE_ROUND_COPY.messageDeleteConfirmTitle}
+          description={TRIBE_ROUND_COPY.messageDeleteConfirmDescription}
+          footer={
+            <>
               <Button
                 disabled={isBusy}
                 onClick={() => setMessagePendingDeletion(null)}
@@ -6070,996 +5854,925 @@ function TribeRoundContent({
                 <TrashIcon />
                 {TRIBE_ROUND_COPY.messageDeleteConfirmSubmit}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        {!round.viewerPermissions.canCreateMessage ? (
-          <p className={styles.TribeRound__notice}>
-            {TRIBE_ROUND_COPY.mutedNotice}
-          </p>
-        ) : null}
-
-      {round.viewerPermissions.canCreateMessage ? (
-        <Dialog
-          open={isMessageComposerOpen}
-          onOpenChange={handleMessageComposerOpenChange}
-        >
-          <DialogTrigger asChild>
-            <button
-              aria-label={TRIBE_ROUND_COPY.messageComposerCollapsed}
-              className={styles.TribeRound__composerTrigger}
-              type={TRIBE_ROUND_FORM.buttonType}
-            >
-              <Avatar
-                className={styles.TribeRound__composerAvatar}
-                size={TRIBE_ROUND_ATTRIBUTES.composerAvatarSize}
-              >
-                {authenticatedMember.image ? (
-                  <AvatarImage
-                    alt={authenticatedMember.name}
-                    src={authenticatedMember.image}
-                  />
-                ) : null}
-                <AvatarFallback>{authenticatedMember.avatarFallback}</AvatarFallback>
-              </Avatar>
-              <span className={styles.TribeRound__composerTriggerText}>
-                {TRIBE_ROUND_COPY.messageComposerCollapsed}
-              </span>
-            </button>
-          </DialogTrigger>
-          <DialogContent
-            className={styles.TribeRound__composerDialog}
-            showCloseButton={false}
-          >
-            <DialogHeader className={styles.TribeRound__composerDialogHeader}>
-              <DialogTitle className={styles.TribeRound__composerDialogTitle}>
-                {isEditingMessage
-                  ? TRIBE_ROUND_COPY.messageEditTitle
-                  : TRIBE_ROUND_COPY.messageComposerDialogTitle}
-              </DialogTitle>
-              <DialogDescription
-                className={styles.TribeRound__composerDialogDescription}
-              >
-                {isEditingMessage
-                  ? TRIBE_ROUND_COPY.messageEditDescription
-                  : TRIBE_ROUND_COPY.messageComposerDescription}
-              </DialogDescription>
-              <div className={styles.TribeRound__composerIdentity}>
-                <Avatar className={styles.TribeRound__composerDialogAvatar}>
-                  {authenticatedMember.image ? (
-                    <AvatarImage
-                      alt={authenticatedMember.name}
-                      src={authenticatedMember.image}
-                    />
-                  ) : null}
-                  <AvatarFallback>{authenticatedMember.avatarFallback}</AvatarFallback>
-                </Avatar>
-                <p className={styles.TribeRound__composerIdentityText}>
-                  <strong>{authenticatedMember.name}</strong>{" "}
-                  {TRIBE_ROUND_COPY.messageComposerContext}
-                </p>
-              </div>
-            </DialogHeader>
-            <form
-              className={styles.TribeRound__composer}
-              onSubmit={handleCreateMessage}
-            >
-              <div className={styles.TribeRound__composerBody}>
-                <div
-                  ref={registerComposerBlockTarget(
-                    MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.title
-                  )}
-                >
-                  <input
-                    aria-describedby={
-                      hasMessageComposerErrors
-                        ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
-                        : undefined
-                    }
-                    aria-label={TRIBE_ROUND_COPY.messageComposerTitleLabel}
-                    aria-invalid={isMessageTitleInvalid}
-                    className={
-                      isMessageTitleInvalid
-                        ? `${styles.TribeRound__titleInput} ${styles["TribeRound__titleInput--invalid"]}`
-                        : styles.TribeRound__titleInput
-                    }
-                    disabled={isBusy}
-                    onChange={(event) => {
-                      setMessageTitle(event.currentTarget.value);
-                      setMessageComposerErrors([]);
-                    }}
-                    placeholder={TRIBE_ROUND_COPY.messageComposerTitlePlaceholder}
-                    value={messageTitle}
-                  />
-                  {renderComposerFieldError(
-                    TRIBE_ROUND_COPY.messageComposerMissingTitle
-                  )}
-                </div>
-                <div
-                  ref={registerComposerBlockTarget(
-                    MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.content
-                  )}
-                >
-                  <RichLinkEditor
-                    ariaDescribedBy={
-                      hasMessageComposerErrors
-                        ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
-                        : undefined
-                    }
-                    ariaLabel={TRIBE_ROUND_COPY.messageComposerLabel}
-                    copy={{
-                      editAction: TRIBE_ROUND_COPY.messageLinkEditAction,
-                      editCancel: TRIBE_ROUND_COPY.messageLinkEditCancel,
-                      editSave: TRIBE_ROUND_COPY.messageLinkEditSave,
-                      popoverTextLabel:
-                        TRIBE_ROUND_COPY.messageLinkPopoverTextLabel,
-                      popoverUrlLabel:
-                        TRIBE_ROUND_COPY.messageLinkPopoverUrlLabel,
-                      removeAction: TRIBE_ROUND_COPY.messageLinkRemoveAction,
-                    }}
-                    editor={messageEditor}
-                    isDisabled={isBusy}
-                    isInvalid={isMessageContentInvalid}
-                    placeholder={TRIBE_ROUND_COPY.messagePlaceholder}
-                  />
-                  {renderComposerFieldError(
-                    TRIBE_ROUND_COPY.messageComposerMissingContent
-                  )}
-                </div>
-                {isPollComposerEnabled ? (
-                  <section
-                    className={styles.TribeRound__pollComposer}
-                    ref={registerComposerBlockTarget(
-                      TRIBE_ROUND_POLL.composerBlockKey
-                    )}
-                  >
-                  <div className={styles.TribeRound__pollComposerHeader}>
-                    {!isEditingMessage ? (
-                      <Button
-                        disabled={isBusy}
-                        onClick={() => {
-                          setIsPollComposerEnabled(false);
-                        }}
-                        type={TRIBE_ROUND_FORM.buttonType}
-                        variant={TRIBE_ROUND_FORM.ghostVariant}
-                        aria-label={TRIBE_ROUND_COPY.pollRemoveButton}
-                        className={styles.TribeRound__pollComposerCloseButton}
-                      >
-                        <XIcon />
-                      </Button>
-                    ) : null}
-                  </div>
-                  <div className={styles.TribeRound__pollComposerOptions}>
-                    {pollOptions.map((option, optionIndex) => (
-                      <div
-                        className={styles.TribeRound__pollComposerLabel}
-                        key={TRIBE_ROUND_POLL.draftKeyPrefix + String(optionIndex)}
-                      >
-                        <div className={styles.TribeRound__pollOptionDraft}>
-                          <input
-                            aria-label={`${TRIBE_ROUND_COPY.pollOptionPlaceholder} ${
-                              optionIndex + 1
-                            }`}
-                            className={styles.TribeRound__pollInput}
-                            ref={registerComposerFocusTarget(
-                              TRIBE_ROUND_POLL.draftKeyPrefix +
-                                String(optionIndex)
-                            )}
-                            disabled={isBusy}
-                            onChange={(event) => {
-                              const nextValue = event.currentTarget.value;
-
-                              setPollOptions((currentOptions) =>
-                                currentOptions.map((currentOption, currentIndex) =>
-                                  currentIndex === optionIndex
-                                    ? nextValue
-                                    : currentOption
-                                )
-                              );
-                              setMessageComposerErrors([]);
-                            }}
-                            placeholder={`${TRIBE_ROUND_COPY.pollOptionPlaceholder} ${
-                              optionIndex + 1
-                            }`}
-                            value={option}
-                          />
-                          {pollOptions.length > TRIBE_ROUND_POLL.minimumOptionCount ? (
-                            <Button
-                              aria-label={TRIBE_ROUND_COPY.pollRemoveOptionButton}
-                              className={styles.TribeRound__pollOptionRemoveButton}
-                              disabled={isBusy}
-                              onClick={() => {
-                                setPollOptions((currentOptions) =>
-                                  currentOptions.filter(
-                                    (_option, currentIndex) =>
-                                      currentIndex !== optionIndex
-                                  )
-                                );
-                              }}
-                              type={TRIBE_ROUND_FORM.buttonType}
-                              variant={TRIBE_ROUND_FORM.ghostVariant}
-                            >
-                              <TrashIcon />
-                            </Button>
-                          ) : null}
-                        </div>
-                        {shouldShowPollOptionRequiredError(
-                          optionIndex,
-                          option
-                        ) ? (
-                          <p
-                            className={`${styles.TribeRound__fieldError} ${styles["TribeRound__fieldError--pollOption"]}`}
-                          >
-                            {TRIBE_ROUND_COPY.pollOptionRequired}
-                          </p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                  <div className={styles.TribeRound__pollComposerControls}>
-                    <Button
-                      className={styles.TribeRound__pollAddOptionButton}
-                      disabled={isBusy}
-                      onClick={() => {
-                        setPollOptions((currentOptions) => [
-                          ...currentOptions,
-                          "",
-                        ]);
-                        scrollPollComposerIntoView();
-                      }}
-                      type={TRIBE_ROUND_FORM.buttonType}
-                      variant={TRIBE_ROUND_FORM.ghostVariant}
-                    >
-                      <ListPlusIcon />
-                      {TRIBE_ROUND_COPY.pollAddOptionButton}
-                    </Button>
-                    <label className={styles.TribeRound__pollMultipleToggle}>
-                      <input
-                        checked={pollAllowsMultipleVotes}
-                        disabled={isBusy}
-                        onChange={(event) => {
-                          setPollAllowsMultipleVotes(event.currentTarget.checked);
-                        }}
-                        type={TRIBE_ROUND_POLL.multipleInputType}
-                      />
-                      <span>{TRIBE_ROUND_COPY.pollAllowMultipleVotesLabel}</span>
-                    </label>
-                  </div>
-                  {renderComposerPollErrors()}
-                  </section>
-                ) : null}
-                {renderComposerMediaDrafts()}
-                {renderComposerFileDrafts()}
-                {renderComposerFieldError(
-                  TRIBE_ROUND_COPY.imageUploadPendingError
-                )}
-                {renderComposerFieldError(TRIBE_ROUND_COPY.imageUploadError)}
-                {renderComposerFieldError(
-                  TRIBE_ROUND_COPY.fileUploadPendingError
-                )}
-                {renderComposerFieldError(TRIBE_ROUND_COPY.fileUploadError)}
-                {renderComposerFieldError(TRIBE_ROUND_COPY.mediaLimitError)}
-                {hasMessageComposerErrors ? (
-                  <div
-                    className={styles.TribeRound__composerError}
-                    id={TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId}
-                  >
-                    <p className={styles.TribeRound__composerErrorTitle}>
-                      {TRIBE_ROUND_COPY.messageComposerRequirementsTitle}
-                    </p>
-                    <ul
-                      aria-label={
-                        TRIBE_ROUND_ATTRIBUTES.messageComposerRequirementsLabel
-                      }
-                      className={styles.TribeRound__composerErrorList}
-                    >
-                      {messageComposerErrors.map((messageComposerError) => (
-                        <li
-                          className={styles.TribeRound__composerErrorItem}
-                          key={messageComposerError}
-                        >
-                          <span
-                            aria-hidden={
-                              TRIBE_ROUND_ATTRIBUTES.missingRequirementBulletHidden
-                            }
-                            className={styles.TribeRound__composerErrorBullet}
-                          >
-                            {TRIBE_ROUND_SYMBOLS.missingRequirementBullet}
-                          </span>
-                          {messageComposerError}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-              <div className={styles.TribeRound__composerActions}>
-                <label
-                  aria-label={TRIBE_ROUND_COPY.imageAddButton}
-                  className={styles.TribeRound__imageAddButton}
-                >
-                  <ImageIcon />
-                  <input
-                    accept={TRIBE_ROUND_FORM.imageAccept}
-                    className={styles.TribeRound__fileInput}
-                    disabled={
-                      isBusy || mediaDrafts.length >= MESSAGE_MEDIA.maxCount
-                    }
-                    multiple
-                    onChange={handleMessageImageSelection}
-                    type={TRIBE_ROUND_FORM.fileInputType}
-                  />
-                </label>
-                <label
-                  aria-label={TRIBE_ROUND_COPY.fileAddButton}
-                  className={styles.TribeRound__fileAddButton}
-                >
-                  <PaperclipIcon />
-                  <input
-                    accept={ATTACHMENT_FILE_INPUT_ACCEPT}
-                    className={styles.TribeRound__fileInput}
-                    disabled={
-                      isBusy || fileDrafts.length >= MESSAGE_FILES.maxCount
-                    }
-                    multiple
-                    onChange={handleMessageFileSelection}
-                    type={TRIBE_ROUND_FORM.fileInputType}
-                  />
-                </label>
-                {!isEditingMessage && !isPollComposerEnabled ? (
-                  <Button
-                    aria-label={TRIBE_ROUND_COPY.pollAddButton}
-                    className={styles.TribeRound__pollAddButton}
-                    disabled={isBusy}
-                    onClick={() => {
-                      setIsPollComposerEnabled(true);
-                      revealComposerBlock(
-                        TRIBE_ROUND_POLL.composerBlockKey,
-                        TRIBE_ROUND_POLL.draftKeyPrefix +
-                          String(TRIBE_ROUND_POLL.firstOptionIndex)
-                      );
-                    }}
-                    size={TRIBE_ROUND_FORM.iconSize}
-                    type={TRIBE_ROUND_FORM.buttonType}
-                    variant={TRIBE_ROUND_FORM.ghostVariant}
-                  >
-                    <VoteIcon />
-                  </Button>
-                ) : null}
-                <Button
-                  aria-label={TRIBE_ROUND_COPY.videoAddButton}
-                  className={styles.TribeRound__videoAddButton}
-                  disabled={
-                    isBusy || mediaDrafts.length >= MESSAGE_MEDIA.maxCount
-                  }
-                  onClick={addVideoMediaDraft}
-                  size={TRIBE_ROUND_FORM.iconSize}
-                  type={TRIBE_ROUND_FORM.buttonType}
-                  variant={TRIBE_ROUND_FORM.ghostVariant}
-                >
-                  <VideoIcon />
-                </Button>
-                {!isEditingMessage ? (
-                <div className={styles.TribeRound__channelPicker}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      aria-describedby={
-                        hasMessageComposerErrors
-                          ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
-                          : undefined
-                      }
-                      aria-label={TRIBE_ROUND_COPY.tribeChannelLabel}
-                      className={
-                        isMessageChannelInvalid
-                          ? `${styles.TribeRound__channelTrigger} ${styles["TribeRound__channelTrigger--invalid"]}`
-                          : styles.TribeRound__channelTrigger
-                      }
-                      disabled={isBusy}
-                      ref={registerComposerBlockTarget(
-                        MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.channel
-                      )}
-                      type={TRIBE_ROUND_FORM.buttonType}
-                    >
-                      <span>
-                        {selectedChannel
-                          ? `${selectedChannel.emoji} ${selectedChannel.name}`
-                          : TRIBE_ROUND_COPY.tribeChannelSelect}
-                      </span>
-                      <ChevronDownIcon />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}
-                    className={styles.TribeRound__channelMenuContent}
-                  >
-                    {round.channels.map((channel) => (
-                      <DropdownMenuItem
-                        className={styles.TribeRound__channelMenuItem}
-                        key={channel.id}
-                        onSelect={() => {
-                          setSelectedChannelId(channel.id);
-                          setMessageComposerErrors([]);
-                        }}
-                      >
-                        <span
-                          aria-hidden={TRIBE_ROUND_ATTRIBUTES.channelFilterEmojiHidden}
-                          className={styles.TribeRound__channelMenuEmoji}
-                        >
-                          {channel.emoji}
-                        </span>
-                        <span className={styles.TribeRound__channelMenuText}>
-                          {channel.name}
-                        </span>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {renderComposerFieldError(
-                  TRIBE_ROUND_COPY.messageComposerMissingChannel
-                )}
-                </div>
-                ) : null}
-              </div>
-              <DialogFooter className={styles.TribeRound__composerFooter}>
-                <DialogClose asChild>
-                  <Button
-                    disabled={isBusy}
-                    type={TRIBE_ROUND_FORM.buttonType}
-                    variant={TRIBE_ROUND_FORM.secondaryVariant}
-                  >
-                    {TRIBE_ROUND_COPY.messageCancelButton}
-                  </Button>
-                </DialogClose>
-                <Button
-                  disabled={isBusy}
-                  type={TRIBE_ROUND_FORM.submitType}
-                >
-                  {isEditingMessage ? null : <SendIcon />}
-                  {isEditingMessage
-                    ? TRIBE_ROUND_COPY.messageEditSubmit
-                    : TRIBE_ROUND_COPY.messageButton}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      ) : null}
-
-      {round.channels.length > 0 ? (
-        <RoundChannelFilters
-          activeChannelId={round.activeChannelId ?? null}
-          allChannelsLabel={TRIBE_ROUND_COPY.tribeChannelFilterAll}
-          buildChannelHref={(channelSlug) =>
-            buildTribeRoundPageHref({
-              channelSlug,
-              page: 1,
-              tribeSlug,
-            })
-          }
-          channels={round.channels}
-          navigationLabel={TRIBE_ROUND_COPY.tribeChannelLabel}
-          onChannelSelect={(channelSlug) =>
-            roundNavigation.navigateToLocation({
-              channelSlug,
-              page: TRIBE_ROUND_FIRST_PAGE,
-            })
+            </>
           }
         />
-      ) : null}
-
-      {roundNavigation.isLoading ? (
-        <div className={styles.TribeRound__navigationStatus}>
-          <MorphLoader
-            label={TRIBE_ROUND_COPY.roundPageLoading}
-            size={TRIBE_ROUND_LOADER_SIZE_PX}
-          />
-        </div>
-      ) : null}
-      {roundNavigation.errorMessage ? (
-        <div className={styles.TribeRound__navigationError} role="alert">
-          <p className={styles.TribeRound__navigationErrorText}>
-            {roundNavigation.errorMessage}
-          </p>
-          <Button
-            onClick={roundNavigation.retry}
-            type={TRIBE_ROUND_FORM.buttonType}
-            variant={TRIBE_ROUND_FORM.secondaryVariant}
-          >
-            {TRIBE_ROUND_COPY.roundPageRetry}
-          </Button>
-        </div>
-      ) : null}
-
-      {messages.length === 0 ? (
-        <div
-          aria-busy={roundNavigation.isLoading || undefined}
-          className={
-            roundNavigation.isLoading
-              ? `${styles.TribeRound__empty} ${styles["TribeRound__empty--loading"]}`
-              : styles.TribeRound__empty
-          }
-        >
-          <h3 className={styles.TribeRound__emptyTitle}>
-            {TRIBE_ROUND_COPY.emptyTitle}
-          </h3>
-          <p className={styles.TribeRound__emptyDescription}>
-            {TRIBE_ROUND_COPY.emptyDescription}
-          </p>
-        </div>
-      ) : (
-        <ol
-          aria-busy={roundNavigation.isLoading || undefined}
-          className={
-            roundNavigation.isLoading
-              ? `${styles.TribeRound__messageList} ${styles["TribeRound__messageList--loading"]}`
-              : styles.TribeRound__messageList
-          }
-        >
-          <AnimatePresence initial={false}>
-          {messages.map((message, messageIndex) => (
-            <AnimatedListItem
-              aria-busy={isPendingMessage(message) || undefined}
-              className={
-                isPendingMessage(message)
-                  ? `${styles.TribeRound__message} ${styles["TribeRound__message--pending"]}`
-                  : styles.TribeRound__message
-              }
-              key={optimisticRenderKeys[message.id] ?? message.id}
-              layout={false}
-            >
-              <Card
-                className={styles.TribeRound__messageCard}
-                onClick={() => {
-                  openMessageDetails(message.id);
-                }}
-              >
-                <article
-                  className={
-                    (message.media?.length ?? 0) > 0
-                      ? `${styles.TribeRound__messageArticle} ${styles["TribeRound__messageArticle--withMedia"]}`
-                      : styles.TribeRound__messageArticle
-                  }
-                >
-                  <div className={styles.TribeRound__messageMeta}>
-                    {renderMessagePinControl(message, true)}
-                    {renderMessageActionsMenu(message, true)}
-                  </div>
-                  <div className={styles.TribeRound__messageBody}>
-                    <button
-                      aria-label={`${TRIBE_ROUND_COPY.openMessageDetailsAriaLabelPrefix}: ${message.title || message.content}`}
-                      className={styles.TribeRound__messageDetailsTrigger}
-                      disabled={isPendingMessage(message)}
-                      type={TRIBE_ROUND_FORM.buttonType}
-                    >
-                      <CardHeader className={styles.TribeRound__messageHeader}>
-                        {renderRoundAuthorAvatar(
-                          message.author,
-                          styles.TribeRound__avatar,
-                          getAvatarRoleModifierClassName(message.author.role)
-                        )}
-                        <div className={styles.TribeRound__author}>
-                          {renderAuthorIdentity(message.author)}
-                          {renderMessageCreatedTime(
-                            message.createdAt,
-                            message.channel
-                          )}
-                        </div>
-                      </CardHeader>
-                    </button>
-                    <CardContent className={styles.TribeRound__messageContent}>
-                      {message.title ? (
-                        <h3 className={styles.TribeRound__messageTitle}>
-                          {message.title}
-                        </h3>
-                      ) : null}
-                      {renderMessageContent(
-                        message,
-                        "",
-                        true,
-                        TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round,
-                        true
-                      )}
-                      {renderMessageFiles(message, true)}
-                    </CardContent>
-                    {renderMessagePoll(message, true)}
-
-                    <div className={styles.TribeRound__messageActions}>
-                      <MessageLikesHoverCard
-                        isTriggerDisabled={isLikeButtonDisabled(message)}
-                        likeCount={message.likeCount}
-                        messageId={message.id}
-                        onTriggerClick={stopMessageDetailsOpening}
-                        tribeSlug={tribeSlug}
-                      >
-                        <ReactionButton
-                          activeColor="currentColor"
-                          ariaLabel={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${message.likeCount}`}
-                          className={getLikeButtonClassName(message.likedByViewer)}
-                          isDisabled={isLikeButtonDisabled(message)}
-                          isActive={message.likedByViewer}
-                          count={message.likeCount}
-                          onClick={(event) => {
-                            stopMessageDetailsOpening(event);
-                            handleToggleLike(message.id);
-                          }}
-                        />
-                      </MessageLikesHoverCard>
-                      <Button
-                        aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(message)}`}
-                        className={styles.TribeRound__commentButton}
-                        disabled={isPendingMessage(message)}
-                        onClick={(event) => {
-                          stopMessageDetailsOpening(event);
-                          openMessageDetails(message.id);
-                        }}
-                        type={TRIBE_ROUND_FORM.buttonType}
-                        variant={TRIBE_ROUND_FORM.secondaryVariant}
-                      >
-                        <MessageCircleIcon />
-                        <AnimatedCount value={getCommentCount(message)} />
-                      </Button>
-                      {renderCommentAuthorsPreview(message)}
-                    </div>
-                  </div>
-                  {renderMessageFeedMedia(message, {
-                    shouldLoadEagerly: messageIndex === 0,
-                  })}
-              </article>
-              </Card>
-            </AnimatedListItem>
-          ))}
-          </AnimatePresence>
-        </ol>
-      )}
-      {visiblePagination.hasPreviousPage || visiblePagination.hasNextPage ? (
-        <Pagination className={styles.TribeRound__pagination}>
-          <PaginationContent>
-            <PaginationItem>
-              {visiblePagination.hasPreviousPage ? (
-                <PaginationPrevious
-                  component={Link}
-                  aria-label={TRIBE_ROUND_PAGINATION_LABEL.previous}
-                  href={buildTribeRoundPageHref({
-                    channelSlug: activeChannel?.slug ?? null,
-                    page: previousRoundPage,
-                    tribeSlug,
-                  })}
-                  onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-                    handleRoundPageLinkClick(event, {
-                      channelSlug: activeChannel?.slug ?? null,
-                      page: previousRoundPage,
-                    });
-                  }}
-                  text={TRIBE_ROUND_PAGINATION_LABEL.previous}
-                />
-              ) : (
-                <Button
-                  aria-disabled={TRIBE_ROUND_ATTRIBUTES.trueString}
-                  aria-label={TRIBE_ROUND_PAGINATION_LABEL.previous}
-                  className={styles.TribeRound__paginationControl}
-                  disabled
-                  type={TRIBE_ROUND_FORM.buttonType}
-                  variant={TRIBE_ROUND_FORM.ghostVariant}
-                >
-                  <ChevronLeftIcon data-icon={TRIBE_ROUND_ATTRIBUTES.inlineStartIcon} />
-                  <span>{TRIBE_ROUND_PAGINATION_LABEL.previous}</span>
-                </Button>
-              )}
-            </PaginationItem>
-            <PaginationItem>
-              {visiblePagination.hasNextPage ? (
-                <PaginationNext
-                  component={Link}
-                  aria-label={TRIBE_ROUND_PAGINATION_LABEL.next}
-                  href={buildTribeRoundPageHref({
-                    channelSlug: activeChannel?.slug ?? null,
-                    page: nextRoundPage,
-                    tribeSlug,
-                  })}
-                  onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-                    handleRoundPageLinkClick(event, {
-                      channelSlug: activeChannel?.slug ?? null,
-                      page: nextRoundPage,
-                    });
-                  }}
-                  text={TRIBE_ROUND_PAGINATION_LABEL.next}
-                />
-              ) : (
-                <Button
-                  aria-disabled={TRIBE_ROUND_ATTRIBUTES.trueString}
-                  aria-label={TRIBE_ROUND_PAGINATION_LABEL.next}
-                  className={styles.TribeRound__paginationControl}
-                  disabled
-                  type={TRIBE_ROUND_FORM.buttonType}
-                  variant={TRIBE_ROUND_FORM.ghostVariant}
-                >
-                  <span>{TRIBE_ROUND_PAGINATION_LABEL.next}</span>
-                  <ChevronRightIcon data-icon={TRIBE_ROUND_ATTRIBUTES.inlineEndIcon} />
-                </Button>
-              )}
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      ) : null}
-      {renderMessageImageCarouselDialog()}
-      <Dialog open={isMessageDetailsOpen} onOpenChange={setIsMessageDetailsOpen}>
-        <DialogContent
-          className={`${styles.TribeRound__composerDialog} ${styles["TribeRound__composerDialog--messageDetails"]}`}
-          closeButtonPlacement={TRIBE_ROUND_ATTRIBUTES.messageDetailsCloseButtonPlacement}
-          onOpenAutoFocus={focusMessageDetailsBody}
-          ref={messageDetailsDialogRef}
-        >
-          <DialogHeader className={styles.TribeRound__composerDialogHeader}>
-            <DialogTitle
-              className={
-                TRIBE_ROUND_ATTRIBUTES.messageDetailsTitleHidden
-                  ? styles.TribeRound__composerDialogTitle
-                  : undefined
-              }
-            >
-              {TRIBE_ROUND_COPY.messageDetailsDialogTitle}
-            </DialogTitle>
-            <DialogDescription
-              className={styles.TribeRound__composerDialogDescription}
-            >
-              {TRIBE_ROUND_COPY.messageDetailsDialogDescription}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedMessage ? (
-            <article
-              aria-label={TRIBE_ROUND_COPY.messageDetailsContentLabel}
-              className={styles.TribeRound__messageDetailsBody}
-              ref={messageDetailsBodyRef}
-              role={TRIBE_ROUND_ATTRIBUTES.regionRole}
-              tabIndex={-1}
-            >
-              <CardHeader
-                className={`${styles.TribeRound__messageHeader} ${styles.TribeRound__messageDetailsHeader}`}
-              >
-                {renderRoundAuthorAvatar(
-                  selectedMessage.author,
-                  styles.TribeRound__avatar,
-                  getAvatarRoleModifierClassName(selectedMessage.author.role)
-                )}
-                <div className={styles.TribeRound__author}>
-                  {renderAuthorIdentity(selectedMessage.author)}
-                  {renderMessageCreatedTime(
-                    selectedMessage.createdAt,
-                    selectedMessage.channel
-                  )}
-                </div>
-                <div className={styles.TribeRound__messageMeta}>
-                  {renderMessageActionsMenu(selectedMessage)}
-                </div>
-              </CardHeader>
-              <CardContent className={styles.TribeRound__messageContent}>
-                {selectedMessage.title ? (
-                  <h3 className={styles.TribeRound__messageTitle}>
-                    {selectedMessage.title}
-                  </h3>
-                ) : null}
-                {renderMessageContent(selectedMessage)}
-                {renderMessageMedia(selectedMessage, { canOpenCarousel: true })}
-                {renderMessageFiles(selectedMessage)}
-                {renderMessagePoll(selectedMessage)}
-                <div
-                  className={`${styles.TribeRound__messageActions} ${styles["TribeRound__messageActions--dialog"]}`}
-                >
-                  <MessageLikesHoverCard
-                    isTriggerDisabled={isLikeButtonDisabled(selectedMessage)}
-                    likeCount={selectedMessage.likeCount}
-                    messageId={selectedMessage.id}
-                    tribeSlug={tribeSlug}
-                  >
-                    <ReactionButton
-                      activeColor="currentColor"
-                      ariaLabel={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${selectedMessage.likeCount}`}
-                      className={getLikeButtonClassName(
-                        selectedMessage.likedByViewer
-                      )}
-                      isDisabled={isLikeButtonDisabled(selectedMessage)}
-                      isActive={selectedMessage.likedByViewer}
-                      count={selectedMessage.likeCount}
-                      onClick={() => {
-                        handleToggleLike(selectedMessage.id);
-                      }}
-                    />
-                  </MessageLikesHoverCard>
-                  <Button
-                    aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(selectedMessage)}`}
-                    className={styles.TribeRound__commentButton}
-                    disabled={isPendingMessage(selectedMessage)}
-                    type={TRIBE_ROUND_FORM.buttonType}
-                    variant={TRIBE_ROUND_FORM.secondaryVariant}
-                  >
-                    <MessageCircleIcon />
-                    <AnimatedCount value={getCommentCount(selectedMessage)} />
-                  </Button>
-                  {renderCommentAuthorsPreview(selectedMessage)}
-                </div>
-              </CardContent>
-              <div className={styles.TribeRound__modalReplysSection}>
-                <section
-                  aria-label={TRIBE_ROUND_COPY.repliesTitle}
-                  className={styles.TribeRound__replies}
-                >
-                  {selectedMessageReplyLoadStatus ===
-                  TRIBE_ROUND_REPLY_LOAD_STATUS.loading ? (
-                    <div className={styles.TribeRound__replyLoading}>
-                      <MorphLoader
-                        label={TRIBE_ROUND_COPY.repliesLoading}
-                        size={TRIBE_ROUND_LOADER_SIZE_PX}
-                      />
-                    </div>
-                  ) : null}
-                  {selectedMessageReplyLoadStatus ===
-                  TRIBE_ROUND_REPLY_LOAD_STATUS.error ? (
-                    <div className={styles.TribeRound__replyStatus}>
-                      <p className={styles.TribeRound__replyStatusText}>
-                        {TRIBE_ROUND_COPY.repliesLoadError}
-                      </p>
-                      <Button
-                        onClick={() => {
-                          retryLoadingReplies(selectedMessage.id);
-                        }}
-                        type={TRIBE_ROUND_FORM.buttonType}
-                        variant={TRIBE_ROUND_FORM.secondaryVariant}
-                      >
-                        {TRIBE_ROUND_COPY.repliesRetry}
-                      </Button>
-                    </div>
-                  ) : null}
-                  {selectedMessage.replies.length > 0 ? (
-                    <ol className={styles.TribeRound__replyList}>
-                      <AnimatePresence initial={false}>
-                      {selectedMessage.replies.map((reply) => (
-                        <AnimatedListItem
-                          aria-busy={isPendingReply(reply) || undefined}
-                          className={
-                            isPendingReply(reply)
-                              ? `${styles.TribeRound__reply} ${styles["TribeRound__reply--pending"]}`
-                              : styles.TribeRound__reply
-                          }
-                          key={optimisticRenderKeys[reply.id] ?? reply.id}
-                          layout={false}
-                        >
-                          {renderRoundAuthorAvatar(
-                            reply.author,
-                            styles.TribeRound__replyAvatar,
-                            getReplyAvatarRoleModifierClassName(reply.author.role)
-                          )}
-                          <div className={styles.TribeRound__replyBody}>
-                            <p className={styles.TribeRound__replyMeta}>
-                              <span>{reply.author.name}</span>
-                              {renderAuthorRoleAccessibleLabel(reply.author.role)}
-                            </p>
-                            <p className={styles.TribeRound__replyContent}>
-                              {reply.content}
-                            </p>
-                          </div>
-                        </AnimatedListItem>
-                      ))}
-                      </AnimatePresence>
-                    </ol>
-                  ) : null}
-                  {round.viewerPermissions.canReply ? (
-                    <form
-                      className={styles.TribeRound__replyForm}
-                      onSubmit={(event) => {
-                        void handleCreateReply(event, selectedMessage.id);
-                      }}
-                    >
-                      <Avatar className={styles.TribeRound__replyComposerAvatar}>
-                        {authenticatedMember.image ? (
-                          <AvatarImage
-                            alt={authenticatedMember.name}
-                            src={authenticatedMember.image}
-                          />
-                        ) : null}
-                        <AvatarFallback>
-                          {authenticatedMember.avatarFallback}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className={styles.TribeRound__replyInputWrapper}>
-                        <input
-                          aria-label={TRIBE_ROUND_COPY.replyInputLabel}
-                          className={styles.TribeRound__replyInput}
-                          disabled={
-                            selectedMessageReplyLoadStatus ===
-                            TRIBE_ROUND_REPLY_LOAD_STATUS.loading
-                          }
-                          onChange={(event) => {
-                            const nextReplyDraft = event.currentTarget.value;
-
-                            setReplyDrafts((currentDrafts) => ({
-                              ...currentDrafts,
-                              [selectedMessage.id]: nextReplyDraft,
-                            }));
-                          }}
-                          placeholder={TRIBE_ROUND_COPY.replyPlaceholder}
-                          value={
-                            replyDrafts[selectedMessage.id] ??
-                            TRIBE_ROUND_RESET_KEY.empty
-                          }
-                        />
-                        <button
-                          aria-label={TRIBE_ROUND_COPY.replySendButtonAriaLabel}
-                          className={styles.TribeRound__replySendButton}
-                          disabled={
-                            isBusy ||
-                            selectedMessageReplyLoadStatus ===
-                              TRIBE_ROUND_REPLY_LOAD_STATUS.loading ||
-                            !(
-                              replyDrafts[selectedMessage.id] ??
-                              TRIBE_ROUND_RESET_KEY.empty
-                            ).trim()
-                          }
-                          type={TRIBE_ROUND_FORM.submitType}
-                        >
-                          <SendIcon />
-                        </button>
-                      </div>
-                    </form>
-                  ) : null}
-                </section>
-              </div>
-            </article>
-          ) : null}
-        </DialogContent>
       </Dialog>
+      {!round.viewerPermissions.canCreateMessage ? (
+        <p className={styles.TribeRound__notice}>
+          {TRIBE_ROUND_COPY.mutedNotice}
+        </p>
+      ) : null}
+
+    {round.viewerPermissions.canCreateMessage ? (
       <Dialog
-        open={Boolean(editingCreatedAtMessageId)}
-        onOpenChange={handleEditCreatedAtOpenChange}
+        open={isMessageComposerOpen}
+        onOpenChange={handleMessageComposerOpenChange}
       >
-        <DialogContent className={styles.TribeRound__editCreatedAtDialog}>
-          <DialogHeader>
-            <DialogTitle>
-              {TRIBE_ROUND_COPY.messageEditCreatedAtTitle}
-            </DialogTitle>
-            <DialogDescription>
-              {TRIBE_ROUND_COPY.messageEditCreatedAtDescription}
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            className={styles.TribeRound__editCreatedAtForm}
-            onSubmit={(event) => {
-              void handleSubmitCreatedAt(event);
-            }}
+        <DialogTrigger asChild>
+          <button
+            aria-label={TRIBE_ROUND_COPY.messageComposerCollapsed}
+            className={styles.TribeRound__composerTrigger}
+            type={TRIBE_ROUND_FORM.buttonType}
           >
-            <Input
-              disabled={isBusy}
-              label={TRIBE_ROUND_COPY.messageEditCreatedAtInputLabel}
-              onChange={(event) => {
-                setEditingCreatedAtValue(event.target.value);
-              }}
-              required
-              step={TRIBE_ROUND_FORM.dateTimeLocalStep}
-              type={TRIBE_ROUND_FORM.dateTimeLocalInputType}
-              value={editingCreatedAtValue}
+            <Avatar
+              className={styles.TribeRound__composerAvatar}
+              fallback={authenticatedMember.avatarFallback}
+              name={authenticatedMember.name}
+              size={TRIBE_ROUND_ATTRIBUTES.composerAvatarSize}
+              src={authenticatedMember.image}
             />
-            <DialogFooter>
+            <span className={styles.TribeRound__composerTriggerText}>
+              {TRIBE_ROUND_COPY.messageComposerCollapsed}
+            </span>
+          </button>
+        </DialogTrigger>
+        <DialogContent
+          className={`${styles.TribeRound__composerDialog} ${styles["TribeRound__composerDialog--form"]}`}
+          showCloseButton={false}
+          title={
+            isEditingMessage
+              ? TRIBE_ROUND_COPY.messageEditTitle
+              : TRIBE_ROUND_COPY.messageComposerDialogTitle
+          }
+          description={
+            isEditingMessage
+              ? TRIBE_ROUND_COPY.messageEditDescription
+              : TRIBE_ROUND_COPY.messageComposerDescription
+          }
+          footer={
+            <>
               <DialogClose asChild>
                 <Button
                   disabled={isBusy}
                   type={TRIBE_ROUND_FORM.buttonType}
                   variant={TRIBE_ROUND_FORM.secondaryVariant}
                 >
-                  {TRIBE_ROUND_COPY.messageEditCreatedAtCancel}
+                  {TRIBE_ROUND_COPY.messageCancelButton}
                 </Button>
               </DialogClose>
               <Button
-                disabled={isBusy || !editingCreatedAtValue.trim()}
+                disabled={isBusy}
+                form={TRIBE_ROUND_ATTRIBUTES.composerFormId}
                 type={TRIBE_ROUND_FORM.submitType}
               >
-                {TRIBE_ROUND_COPY.messageEditCreatedAtSubmit}
+                {isEditingMessage ? null : <SendIcon />}
+                {isEditingMessage
+                  ? TRIBE_ROUND_COPY.messageEditSubmit
+                  : TRIBE_ROUND_COPY.messageButton}
               </Button>
-            </DialogFooter>
+            </>
+          }
+          footerClassName={styles.TribeRound__composerFooter}
+          headerClassName={`${styles.TribeRound__composerDialogHeader} ${styles["TribeRound__composerDialogHeader--hidden"]}`}
+          titleClassName={styles.TribeRound__composerDialogTitle}
+          descriptionClassName={styles.TribeRound__composerDialogDescription}
+        >
+          <div className={styles.TribeRound__composerIdentity}>
+            {/* Decorative: the name is shown next to it. */}
+            <Avatar
+              aria-hidden
+              className={styles.TribeRound__composerDialogAvatar}
+              fallback={authenticatedMember.avatarFallback}
+              name={authenticatedMember.name}
+              src={authenticatedMember.image}
+            />
+            <p className={styles.TribeRound__composerIdentityText}>
+              <strong>{authenticatedMember.name}</strong>{" "}
+              {TRIBE_ROUND_COPY.messageComposerContext}
+            </p>
+          </div>
+          <form
+            className={styles.TribeRound__composer}
+            id={TRIBE_ROUND_ATTRIBUTES.composerFormId}
+            onSubmit={handleCreateMessage}
+          >
+            <div className={styles.TribeRound__composerBody}>
+              <div
+                ref={registerComposerBlockTarget(
+                  MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.title
+                )}
+              >
+                <input
+                  aria-describedby={
+                    hasMessageComposerErrors
+                      ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                      : undefined
+                  }
+                  aria-label={TRIBE_ROUND_COPY.messageComposerTitleLabel}
+                  aria-invalid={isMessageTitleInvalid}
+                  className={
+                    isMessageTitleInvalid
+                      ? `${styles.TribeRound__titleInput} ${styles["TribeRound__titleInput--invalid"]}`
+                      : styles.TribeRound__titleInput
+                  }
+                  disabled={isBusy}
+                  onChange={(event) => {
+                    setMessageTitle(event.currentTarget.value);
+                    setMessageComposerErrors([]);
+                  }}
+                  placeholder={TRIBE_ROUND_COPY.messageComposerTitlePlaceholder}
+                  value={messageTitle}
+                />
+                {renderComposerFieldError(
+                  TRIBE_ROUND_COPY.messageComposerMissingTitle
+                )}
+              </div>
+              <div
+                ref={registerComposerBlockTarget(
+                  MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.content
+                )}
+              >
+                <RichLinkEditor
+                  ariaDescribedBy={
+                    hasMessageComposerErrors
+                      ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                      : undefined
+                  }
+                  ariaLabel={TRIBE_ROUND_COPY.messageComposerLabel}
+                  copy={{
+                    editAction: TRIBE_ROUND_COPY.messageLinkEditAction,
+                    editCancel: TRIBE_ROUND_COPY.messageLinkEditCancel,
+                    editSave: TRIBE_ROUND_COPY.messageLinkEditSave,
+                    popoverTextLabel:
+                      TRIBE_ROUND_COPY.messageLinkPopoverTextLabel,
+                    popoverUrlLabel:
+                      TRIBE_ROUND_COPY.messageLinkPopoverUrlLabel,
+                    removeAction: TRIBE_ROUND_COPY.messageLinkRemoveAction,
+                  }}
+                  editor={messageEditor}
+                  isDisabled={isBusy}
+                  isInvalid={isMessageContentInvalid}
+                  placeholder={TRIBE_ROUND_COPY.messagePlaceholder}
+                />
+                {renderComposerFieldError(
+                  TRIBE_ROUND_COPY.messageComposerMissingContent
+                )}
+              </div>
+              {isPollComposerEnabled ? (
+                <section
+                  className={styles.TribeRound__pollComposer}
+                  ref={registerComposerBlockTarget(
+                    TRIBE_ROUND_POLL.composerBlockKey
+                  )}
+                >
+                <div className={styles.TribeRound__pollComposerHeader}>
+                  {!isEditingMessage ? (
+                    <Button
+                      disabled={isBusy}
+                      onClick={() => {
+                        setIsPollComposerEnabled(false);
+                      }}
+                      type={TRIBE_ROUND_FORM.buttonType}
+                      variant={TRIBE_ROUND_FORM.ghostVariant}
+                      aria-label={TRIBE_ROUND_COPY.pollRemoveButton}
+                      className={styles.TribeRound__pollComposerCloseButton}
+                    >
+                      <XIcon />
+                    </Button>
+                  ) : null}
+                </div>
+                <div className={styles.TribeRound__pollComposerOptions}>
+                  {pollOptions.map((option, optionIndex) => (
+                    <div
+                      className={styles.TribeRound__pollComposerLabel}
+                      key={TRIBE_ROUND_POLL.draftKeyPrefix + String(optionIndex)}
+                    >
+                      <div className={styles.TribeRound__pollOptionDraft}>
+                        <input
+                          aria-label={`${TRIBE_ROUND_COPY.pollOptionPlaceholder} ${
+                            optionIndex + 1
+                          }`}
+                          className={styles.TribeRound__pollInput}
+                          ref={registerComposerFocusTarget(
+                            TRIBE_ROUND_POLL.draftKeyPrefix +
+                              String(optionIndex)
+                          )}
+                          disabled={isBusy}
+                          onChange={(event) => {
+                            const nextValue = event.currentTarget.value;
+
+                            setPollOptions((currentOptions) =>
+                              currentOptions.map((currentOption, currentIndex) =>
+                                currentIndex === optionIndex
+                                  ? nextValue
+                                  : currentOption
+                              )
+                            );
+                            setMessageComposerErrors([]);
+                          }}
+                          placeholder={`${TRIBE_ROUND_COPY.pollOptionPlaceholder} ${
+                            optionIndex + 1
+                          }`}
+                          value={option}
+                        />
+                        {pollOptions.length > TRIBE_ROUND_POLL.minimumOptionCount ? (
+                          <Button
+                            aria-label={TRIBE_ROUND_COPY.pollRemoveOptionButton}
+                            className={styles.TribeRound__pollOptionRemoveButton}
+                            disabled={isBusy}
+                            onClick={() => {
+                              setPollOptions((currentOptions) =>
+                                currentOptions.filter(
+                                  (_option, currentIndex) =>
+                                    currentIndex !== optionIndex
+                                )
+                              );
+                            }}
+                            type={TRIBE_ROUND_FORM.buttonType}
+                            variant={TRIBE_ROUND_FORM.ghostVariant}
+                          >
+                            <TrashIcon />
+                          </Button>
+                        ) : null}
+                      </div>
+                      {shouldShowPollOptionRequiredError(
+                        optionIndex,
+                        option
+                      ) ? (
+                        <p
+                          className={`${styles.TribeRound__fieldError} ${styles["TribeRound__fieldError--pollOption"]}`}
+                        >
+                          {TRIBE_ROUND_COPY.pollOptionRequired}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+                <div className={styles.TribeRound__pollComposerControls}>
+                  <Button
+                    className={styles.TribeRound__pollAddOptionButton}
+                    disabled={isBusy}
+                    onClick={() => {
+                      setPollOptions((currentOptions) => [
+                        ...currentOptions,
+                        "",
+                      ]);
+                      scrollPollComposerIntoView();
+                    }}
+                    type={TRIBE_ROUND_FORM.buttonType}
+                    variant={TRIBE_ROUND_FORM.ghostVariant}
+                  >
+                    <ListPlusIcon />
+                    {TRIBE_ROUND_COPY.pollAddOptionButton}
+                  </Button>
+                  <label className={styles.TribeRound__pollMultipleToggle}>
+                    <input
+                      checked={pollAllowsMultipleVotes}
+                      disabled={isBusy}
+                      onChange={(event) => {
+                        setPollAllowsMultipleVotes(event.currentTarget.checked);
+                      }}
+                      type={TRIBE_ROUND_POLL.multipleInputType}
+                    />
+                    <span>{TRIBE_ROUND_COPY.pollAllowMultipleVotesLabel}</span>
+                  </label>
+                </div>
+                {renderComposerPollErrors()}
+                </section>
+              ) : null}
+              {renderComposerMediaDrafts()}
+              {renderComposerFileDrafts()}
+              {renderComposerFieldError(
+                TRIBE_ROUND_COPY.imageUploadPendingError
+              )}
+              {renderComposerFieldError(TRIBE_ROUND_COPY.imageUploadError)}
+              {renderComposerFieldError(
+                TRIBE_ROUND_COPY.fileUploadPendingError
+              )}
+              {renderComposerFieldError(TRIBE_ROUND_COPY.fileUploadError)}
+              {renderComposerFieldError(TRIBE_ROUND_COPY.mediaLimitError)}
+              {hasMessageComposerErrors ? (
+                <div
+                  className={styles.TribeRound__composerError}
+                  id={TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId}
+                >
+                  <p className={styles.TribeRound__composerErrorTitle}>
+                    {TRIBE_ROUND_COPY.messageComposerRequirementsTitle}
+                  </p>
+                  <ul
+                    aria-label={
+                      TRIBE_ROUND_ATTRIBUTES.messageComposerRequirementsLabel
+                    }
+                    className={styles.TribeRound__composerErrorList}
+                  >
+                    {messageComposerErrors.map((messageComposerError) => (
+                      <li
+                        className={styles.TribeRound__composerErrorItem}
+                        key={messageComposerError}
+                      >
+                        <span
+                          aria-hidden={
+                            TRIBE_ROUND_ATTRIBUTES.missingRequirementBulletHidden
+                          }
+                          className={styles.TribeRound__composerErrorBullet}
+                        >
+                          {TRIBE_ROUND_SYMBOLS.missingRequirementBullet}
+                        </span>
+                        {messageComposerError}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+            <div className={styles.TribeRound__composerActions}>
+              <label
+                aria-label={TRIBE_ROUND_COPY.imageAddButton}
+                className={styles.TribeRound__imageAddButton}
+              >
+                <ImageIcon />
+                <input
+                  accept={TRIBE_ROUND_FORM.imageAccept}
+                  className={styles.TribeRound__fileInput}
+                  disabled={
+                    isBusy || mediaDrafts.length >= MESSAGE_MEDIA.maxCount
+                  }
+                  multiple
+                  onChange={handleMessageImageSelection}
+                  type={TRIBE_ROUND_FORM.fileInputType}
+                />
+              </label>
+              <label
+                aria-label={TRIBE_ROUND_COPY.fileAddButton}
+                className={styles.TribeRound__fileAddButton}
+              >
+                <PaperclipIcon />
+                <input
+                  accept={ATTACHMENT_FILE_INPUT_ACCEPT}
+                  className={styles.TribeRound__fileInput}
+                  disabled={
+                    isBusy || fileDrafts.length >= MESSAGE_FILES.maxCount
+                  }
+                  multiple
+                  onChange={handleMessageFileSelection}
+                  type={TRIBE_ROUND_FORM.fileInputType}
+                />
+              </label>
+              {!isEditingMessage && !isPollComposerEnabled ? (
+                <Button
+                  aria-label={TRIBE_ROUND_COPY.pollAddButton}
+                  className={styles.TribeRound__pollAddButton}
+                  disabled={isBusy}
+                  onClick={() => {
+                    setIsPollComposerEnabled(true);
+                    revealComposerBlock(
+                      TRIBE_ROUND_POLL.composerBlockKey,
+                      TRIBE_ROUND_POLL.draftKeyPrefix +
+                        String(TRIBE_ROUND_POLL.firstOptionIndex)
+                    );
+                  }}
+                  size={TRIBE_ROUND_FORM.iconSize}
+                  type={TRIBE_ROUND_FORM.buttonType}
+                  variant={TRIBE_ROUND_FORM.ghostVariant}
+                >
+                  <VoteIcon />
+                </Button>
+              ) : null}
+              <Button
+                aria-label={TRIBE_ROUND_COPY.videoAddButton}
+                className={styles.TribeRound__videoAddButton}
+                disabled={
+                  isBusy || mediaDrafts.length >= MESSAGE_MEDIA.maxCount
+                }
+                onClick={addVideoMediaDraft}
+                size={TRIBE_ROUND_FORM.iconSize}
+                type={TRIBE_ROUND_FORM.buttonType}
+                variant={TRIBE_ROUND_FORM.ghostVariant}
+              >
+                <VideoIcon />
+              </Button>
+              {!isEditingMessage ? (
+              <div className={styles.TribeRound__channelPicker}>
+              <DropdownMenu
+                align={TRIBE_ROUND_ATTRIBUTES.dropdownAlign}
+                contentClassName={styles.TribeRound__channelMenuContent}
+                items={round.channels.map((channel) => ({
+                  className: styles.TribeRound__channelMenuItem,
+                  icon: (
+                    <span
+                      aria-hidden={TRIBE_ROUND_ATTRIBUTES.channelFilterEmojiHidden}
+                      className={styles.TribeRound__channelMenuEmoji}
+                    >
+                      {channel.emoji}
+                    </span>
+                  ),
+                  id: channel.id,
+                  label: channel.name,
+                  onSelect: () => {
+                    setSelectedChannelId(channel.id);
+                    setMessageComposerErrors([]);
+                  },
+                }))}
+                label={TRIBE_ROUND_COPY.tribeChannelLabel}
+                trigger={
+                  <button
+                    aria-describedby={
+                      hasMessageComposerErrors
+                        ? TRIBE_ROUND_ATTRIBUTES.messageComposerErrorId
+                        : undefined
+                    }
+                    aria-label={TRIBE_ROUND_COPY.tribeChannelLabel}
+                    className={
+                      isMessageChannelInvalid
+                        ? `${styles.TribeRound__channelTrigger} ${styles["TribeRound__channelTrigger--invalid"]}`
+                        : styles.TribeRound__channelTrigger
+                    }
+                    disabled={isBusy}
+                    ref={registerComposerBlockTarget(
+                      MESSAGE_COMPOSER_FIELD_ANCHOR_KEY.channel
+                    )}
+                    type={TRIBE_ROUND_FORM.buttonType}
+                  >
+                    <span>
+                      {selectedChannel
+                        ? `${selectedChannel.emoji} ${selectedChannel.name}`
+                        : TRIBE_ROUND_COPY.tribeChannelSelect}
+                    </span>
+                    <ChevronDownIcon />
+                  </button>
+                }
+              />
+              {renderComposerFieldError(
+                TRIBE_ROUND_COPY.messageComposerMissingChannel
+              )}
+              </div>
+              ) : null}
+            </div>
           </form>
         </DialogContent>
       </Dialog>
-      </section>
-    </TooltipProvider>
+    ) : null}
+
+    {round.channels.length > 0 ? (
+      <RoundChannelFilters
+        activeChannelId={round.activeChannelId ?? null}
+        allChannelsLabel={TRIBE_ROUND_COPY.tribeChannelFilterAll}
+        buildChannelHref={(channelSlug) =>
+          buildTribeRoundPageHref({
+            channelSlug,
+            page: 1,
+            tribeSlug,
+          })
+        }
+        channels={round.channels}
+        navigationLabel={TRIBE_ROUND_COPY.tribeChannelLabel}
+        onChannelSelect={(channelSlug) =>
+          roundNavigation.navigateToLocation({
+            channelSlug,
+            page: TRIBE_ROUND_FIRST_PAGE,
+          })
+        }
+      />
+    ) : null}
+
+    {roundNavigation.isLoading ? (
+      <div className={styles.TribeRound__navigationStatus}>
+        <MorphLoader
+          label={TRIBE_ROUND_COPY.roundPageLoading}
+          size={TRIBE_ROUND_LOADER_SIZE_PX}
+        />
+      </div>
+    ) : null}
+    {roundNavigation.errorMessage ? (
+      <div className={styles.TribeRound__navigationError} role="alert">
+        <p className={styles.TribeRound__navigationErrorText}>
+          {roundNavigation.errorMessage}
+        </p>
+        <Button
+          onClick={roundNavigation.retry}
+          type={TRIBE_ROUND_FORM.buttonType}
+          variant={TRIBE_ROUND_FORM.secondaryVariant}
+        >
+          {TRIBE_ROUND_COPY.roundPageRetry}
+        </Button>
+      </div>
+    ) : null}
+
+    {messages.length === 0 ? (
+      <div
+        aria-busy={roundNavigation.isLoading || undefined}
+        className={
+          roundNavigation.isLoading
+            ? `${styles.TribeRound__empty} ${styles["TribeRound__empty--loading"]}`
+            : styles.TribeRound__empty
+        }
+      >
+        <h3 className={styles.TribeRound__emptyTitle}>
+          {TRIBE_ROUND_COPY.emptyTitle}
+        </h3>
+        <p className={styles.TribeRound__emptyDescription}>
+          {TRIBE_ROUND_COPY.emptyDescription}
+        </p>
+      </div>
+    ) : (
+      <ol
+        aria-busy={roundNavigation.isLoading || undefined}
+        className={
+          roundNavigation.isLoading
+            ? `${styles.TribeRound__messageList} ${styles["TribeRound__messageList--loading"]}`
+            : styles.TribeRound__messageList
+        }
+      >
+        <AnimatePresence initial={false}>
+        {messages.map((message, messageIndex) => (
+          <AnimatedListItem
+            aria-busy={isPendingMessage(message) || undefined}
+            className={
+              isPendingMessage(message)
+                ? `${styles.TribeRound__message} ${styles["TribeRound__message--pending"]}`
+                : styles.TribeRound__message
+            }
+            key={optimisticRenderKeys[message.id] ?? message.id}
+            layout={false}
+          >
+            <div
+              className={styles.TribeRound__messageCard}
+              onClick={() => {
+                openMessageDetails(message.id);
+              }}
+            >
+              <article
+                className={
+                  (message.media?.length ?? 0) > 0
+                    ? `${styles.TribeRound__messageArticle} ${styles["TribeRound__messageArticle--withMedia"]}`
+                    : styles.TribeRound__messageArticle
+                }
+              >
+                <div className={styles.TribeRound__messageMeta}>
+                  {renderMessagePinControl(message, true)}
+                  {renderMessageActionsMenu(message, true)}
+                </div>
+                <div className={styles.TribeRound__messageBody}>
+                  <button
+                    aria-label={`${TRIBE_ROUND_COPY.openMessageDetailsAriaLabelPrefix}: ${message.title || message.content}`}
+                    className={styles.TribeRound__messageDetailsTrigger}
+                    disabled={isPendingMessage(message)}
+                    type={TRIBE_ROUND_FORM.buttonType}
+                  >
+                    <div className={styles.TribeRound__messageHeader}>
+                      {renderRoundAuthorAvatar(
+                        message.author,
+                        styles.TribeRound__avatar,
+                        getAvatarRoleModifierClassName(message.author.role)
+                      )}
+                      <div className={styles.TribeRound__author}>
+                        {renderAuthorIdentity(message.author)}
+                        {renderMessageCreatedTime(
+                          message.createdAt,
+                          message.channel
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  <div className={styles.TribeRound__messageContent}>
+                    {message.title ? (
+                      <h3 className={styles.TribeRound__messageTitle}>
+                        {message.title}
+                      </h3>
+                    ) : null}
+                    {renderMessageContent(
+                      message,
+                      "",
+                      true,
+                      TRIBE_ROUND_CONTENT_PREVIEW_CLASS.round,
+                      true
+                    )}
+                    {renderMessageFiles(message, true)}
+                  </div>
+                  {renderMessagePoll(message, true)}
+
+                  <div className={styles.TribeRound__messageActions}>
+                    <MessageLikesHoverCard
+                      isTriggerDisabled={isLikeButtonDisabled(message)}
+                      likeCount={message.likeCount}
+                      messageId={message.id}
+                      onTriggerClick={stopMessageDetailsOpening}
+                      tribeSlug={tribeSlug}
+                    >
+                      <ReactionButton
+                        activeColor="currentColor"
+                        ariaLabel={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${message.likeCount}`}
+                        className={getLikeButtonClassName(message.likedByViewer)}
+                        isDisabled={isLikeButtonDisabled(message)}
+                        isActive={message.likedByViewer}
+                        count={message.likeCount}
+                        onClick={(event) => {
+                          stopMessageDetailsOpening(event);
+                          handleToggleLike(message.id);
+                        }}
+                      />
+                    </MessageLikesHoverCard>
+                    <Button
+                      aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(message)}`}
+                      className={styles.TribeRound__commentButton}
+                      disabled={isPendingMessage(message)}
+                      onClick={(event) => {
+                        stopMessageDetailsOpening(event);
+                        openMessageDetails(message.id);
+                      }}
+                      type={TRIBE_ROUND_FORM.buttonType}
+                      variant={TRIBE_ROUND_FORM.secondaryVariant}
+                    >
+                      <MessageCircleIcon />
+                      <AnimatedCount value={getCommentCount(message)} />
+                    </Button>
+                    {renderCommentAuthorsPreview(message)}
+                  </div>
+                </div>
+                {renderMessageFeedMedia(message, {
+                  shouldLoadEagerly: messageIndex === 0,
+                })}
+            </article>
+            </div>
+          </AnimatedListItem>
+        ))}
+        </AnimatePresence>
+      </ol>
+    )}
+    {visiblePagination.hasPreviousPage || visiblePagination.hasNextPage ? (
+      // Plain clicks load the page in place; see `handleRoundPaginationClickCapture`.
+      <div onClickCapture={handleRoundPaginationClickCapture}>
+        <Pagination
+          className={styles.TribeRound__pagination}
+          getHref={(page) =>
+            buildTribeRoundPageHref({
+              channelSlug: activeChannel?.slug ?? null,
+              page,
+              tribeSlug,
+            })
+          }
+          hasNextPage={visiblePagination.hasNextPage}
+          onPageChange={handleRoundPageChange}
+          page={visiblePagination.currentPage}
+        />
+      </div>
+    ) : null}
+    {renderMessageImageCarouselDialog()}
+    <Dialog open={isMessageDetailsOpen} onOpenChange={setIsMessageDetailsOpen}>
+      <DialogContent
+        className={`${styles.TribeRound__composerDialog} ${styles["TribeRound__composerDialog--messageDetails"]}`}
+        closeButtonPlacement={TRIBE_ROUND_ATTRIBUTES.messageDetailsCloseButtonPlacement}
+        onOpenAutoFocus={focusMessageDetailsBody}
+        ref={messageDetailsDialogRef}
+        title={TRIBE_ROUND_COPY.messageDetailsDialogTitle}
+        description={TRIBE_ROUND_COPY.messageDetailsDialogDescription}
+        headerClassName={styles.TribeRound__composerDialogHeader}
+        titleClassName={
+          TRIBE_ROUND_ATTRIBUTES.messageDetailsTitleHidden
+            ? styles.TribeRound__composerDialogTitle
+            : undefined
+        }
+        descriptionClassName={styles.TribeRound__composerDialogDescription}
+      >
+        {selectedMessage ? (
+          <article
+            aria-label={TRIBE_ROUND_COPY.messageDetailsContentLabel}
+            className={styles.TribeRound__messageDetailsBody}
+            ref={messageDetailsBodyRef}
+            role={TRIBE_ROUND_ATTRIBUTES.regionRole}
+            tabIndex={-1}
+          >
+            <div
+              className={`${styles.TribeRound__messageHeader} ${styles.TribeRound__messageDetailsHeader}`}
+            >
+              {renderRoundAuthorAvatar(
+                selectedMessage.author,
+                styles.TribeRound__avatar,
+                getAvatarRoleModifierClassName(selectedMessage.author.role)
+              )}
+              <div className={styles.TribeRound__author}>
+                {renderAuthorIdentity(selectedMessage.author)}
+                {renderMessageCreatedTime(
+                  selectedMessage.createdAt,
+                  selectedMessage.channel
+                )}
+              </div>
+              <div className={styles.TribeRound__messageMeta}>
+                {renderMessageActionsMenu(selectedMessage)}
+              </div>
+            </div>
+            <div className={styles.TribeRound__messageContent}>
+              {selectedMessage.title ? (
+                <h3 className={styles.TribeRound__messageTitle}>
+                  {selectedMessage.title}
+                </h3>
+              ) : null}
+              {renderMessageContent(selectedMessage)}
+              {renderMessageMedia(selectedMessage, { canOpenCarousel: true })}
+              {renderMessageFiles(selectedMessage)}
+              {renderMessagePoll(selectedMessage)}
+              <div
+                className={`${styles.TribeRound__messageActions} ${styles["TribeRound__messageActions--dialog"]}`}
+              >
+                <MessageLikesHoverCard
+                  isTriggerDisabled={isLikeButtonDisabled(selectedMessage)}
+                  likeCount={selectedMessage.likeCount}
+                  messageId={selectedMessage.id}
+                  tribeSlug={tribeSlug}
+                >
+                  <ReactionButton
+                    activeColor="currentColor"
+                    ariaLabel={`${TRIBE_ROUND_COPY.likeButtonAriaLabel} ${selectedMessage.likeCount}`}
+                    className={getLikeButtonClassName(
+                      selectedMessage.likedByViewer
+                    )}
+                    isDisabled={isLikeButtonDisabled(selectedMessage)}
+                    isActive={selectedMessage.likedByViewer}
+                    count={selectedMessage.likeCount}
+                    onClick={() => {
+                      handleToggleLike(selectedMessage.id);
+                    }}
+                  />
+                </MessageLikesHoverCard>
+                <Button
+                  aria-label={`${TRIBE_ROUND_COPY.commentButtonAriaLabel} ${getCommentCount(selectedMessage)}`}
+                  className={styles.TribeRound__commentButton}
+                  disabled={isPendingMessage(selectedMessage)}
+                  type={TRIBE_ROUND_FORM.buttonType}
+                  variant={TRIBE_ROUND_FORM.secondaryVariant}
+                >
+                  <MessageCircleIcon />
+                  <AnimatedCount value={getCommentCount(selectedMessage)} />
+                </Button>
+                {renderCommentAuthorsPreview(selectedMessage)}
+              </div>
+            </div>
+            <div className={styles.TribeRound__modalReplysSection}>
+              <section
+                aria-label={TRIBE_ROUND_COPY.repliesTitle}
+                className={styles.TribeRound__replies}
+              >
+                {selectedMessageReplyLoadStatus ===
+                TRIBE_ROUND_REPLY_LOAD_STATUS.loading ? (
+                  <div className={styles.TribeRound__replyLoading}>
+                    <MorphLoader
+                      label={TRIBE_ROUND_COPY.repliesLoading}
+                      size={TRIBE_ROUND_LOADER_SIZE_PX}
+                    />
+                  </div>
+                ) : null}
+                {selectedMessageReplyLoadStatus ===
+                TRIBE_ROUND_REPLY_LOAD_STATUS.error ? (
+                  <div className={styles.TribeRound__replyStatus}>
+                    <p className={styles.TribeRound__replyStatusText}>
+                      {TRIBE_ROUND_COPY.repliesLoadError}
+                    </p>
+                    <Button
+                      onClick={() => {
+                        retryLoadingReplies(selectedMessage.id);
+                      }}
+                      type={TRIBE_ROUND_FORM.buttonType}
+                      variant={TRIBE_ROUND_FORM.secondaryVariant}
+                    >
+                      {TRIBE_ROUND_COPY.repliesRetry}
+                    </Button>
+                  </div>
+                ) : null}
+                {selectedMessage.replies.length > 0 ? (
+                  <ol className={styles.TribeRound__replyList}>
+                    <AnimatePresence initial={false}>
+                    {selectedMessage.replies.map((reply) => (
+                      <AnimatedListItem
+                        aria-busy={isPendingReply(reply) || undefined}
+                        className={
+                          isPendingReply(reply)
+                            ? `${styles.TribeRound__reply} ${styles["TribeRound__reply--pending"]}`
+                            : styles.TribeRound__reply
+                        }
+                        key={optimisticRenderKeys[reply.id] ?? reply.id}
+                        layout={false}
+                      >
+                        {renderRoundAuthorAvatar(
+                          reply.author,
+                          styles.TribeRound__replyAvatar,
+                          getReplyAvatarRoleModifierClassName(reply.author.role)
+                        )}
+                        <div className={styles.TribeRound__replyBody}>
+                          <p className={styles.TribeRound__replyMeta}>
+                            <span>{reply.author.name}</span>
+                            {renderAuthorRoleAccessibleLabel(reply.author.role)}
+                          </p>
+                          <p className={styles.TribeRound__replyContent}>
+                            {reply.content}
+                          </p>
+                        </div>
+                      </AnimatedListItem>
+                    ))}
+                    </AnimatePresence>
+                  </ol>
+                ) : null}
+                {round.viewerPermissions.canReply ? (
+                  <form
+                    className={styles.TribeRound__replyForm}
+                    onSubmit={(event) => {
+                      void handleCreateReply(event, selectedMessage.id);
+                    }}
+                  >
+                    <Avatar
+                      className={styles.TribeRound__replyComposerAvatar}
+                      fallback={authenticatedMember.avatarFallback}
+                      name={authenticatedMember.name}
+                      src={authenticatedMember.image}
+                    />
+                    <div className={styles.TribeRound__replyInputWrapper}>
+                      <input
+                        aria-label={TRIBE_ROUND_COPY.replyInputLabel}
+                        className={styles.TribeRound__replyInput}
+                        disabled={
+                          selectedMessageReplyLoadStatus ===
+                          TRIBE_ROUND_REPLY_LOAD_STATUS.loading
+                        }
+                        onChange={(event) => {
+                          const nextReplyDraft = event.currentTarget.value;
+
+                          setReplyDrafts((currentDrafts) => ({
+                            ...currentDrafts,
+                            [selectedMessage.id]: nextReplyDraft,
+                          }));
+                        }}
+                        placeholder={TRIBE_ROUND_COPY.replyPlaceholder}
+                        value={
+                          replyDrafts[selectedMessage.id] ??
+                          TRIBE_ROUND_RESET_KEY.empty
+                        }
+                      />
+                      <button
+                        aria-label={TRIBE_ROUND_COPY.replySendButtonAriaLabel}
+                        className={styles.TribeRound__replySendButton}
+                        disabled={
+                          isBusy ||
+                          selectedMessageReplyLoadStatus ===
+                            TRIBE_ROUND_REPLY_LOAD_STATUS.loading ||
+                          !(
+                            replyDrafts[selectedMessage.id] ??
+                            TRIBE_ROUND_RESET_KEY.empty
+                          ).trim()
+                        }
+                        type={TRIBE_ROUND_FORM.submitType}
+                      >
+                        <SendIcon />
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
+              </section>
+            </div>
+          </article>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+    <Dialog
+      open={Boolean(editingCreatedAtMessageId)}
+      onOpenChange={handleEditCreatedAtOpenChange}
+    >
+      <DialogContent
+        className={styles.TribeRound__editCreatedAtDialog}
+        title={TRIBE_ROUND_COPY.messageEditCreatedAtTitle}
+        description={TRIBE_ROUND_COPY.messageEditCreatedAtDescription}
+        footer={
+          <>
+            <DialogClose asChild>
+              <Button
+                disabled={isBusy}
+                type={TRIBE_ROUND_FORM.buttonType}
+                variant={TRIBE_ROUND_FORM.secondaryVariant}
+              >
+                {TRIBE_ROUND_COPY.messageEditCreatedAtCancel}
+              </Button>
+            </DialogClose>
+            <Button
+              disabled={isBusy || !editingCreatedAtValue.trim()}
+              form={TRIBE_ROUND_ATTRIBUTES.editCreatedAtFormId}
+              type={TRIBE_ROUND_FORM.submitType}
+            >
+              {TRIBE_ROUND_COPY.messageEditCreatedAtSubmit}
+            </Button>
+          </>
+        }
+      >
+        <form
+          className={styles.TribeRound__editCreatedAtForm}
+          id={TRIBE_ROUND_ATTRIBUTES.editCreatedAtFormId}
+          onSubmit={(event) => {
+            void handleSubmitCreatedAt(event);
+          }}
+        >
+          <Input
+            disabled={isBusy}
+            label={TRIBE_ROUND_COPY.messageEditCreatedAtInputLabel}
+            onChange={(event) => {
+              setEditingCreatedAtValue(event.target.value);
+            }}
+            required
+            step={TRIBE_ROUND_FORM.dateTimeLocalStep}
+            type={TRIBE_ROUND_FORM.dateTimeLocalInputType}
+            value={editingCreatedAtValue}
+          />
+        </form>
+      </DialogContent>
+    </Dialog>
+    </section>
   );
 }
 

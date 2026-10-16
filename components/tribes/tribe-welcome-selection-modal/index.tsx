@@ -8,8 +8,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
-  DialogTitle,
 } from "beez-ui";
 
 import type { TribeWelcomeLinkResult } from "@/src/modules/tribes/application/results/tribe-welcome-result";
@@ -224,8 +222,6 @@ export function TribeWelcomeSelectionModal({
       open={isOpen}
     >
       <DialogContent
-        // Without a description Radix must not point at a missing element.
-        {...(hasDescription ? {} : { "aria-describedby": undefined })}
         className={styles.TribeWelcomeSelectionModal}
         onCloseAutoFocus={(event) => {
           // The dialog has no Radix trigger, so return focus to whatever opened
@@ -251,32 +247,24 @@ export function TribeWelcomeSelectionModal({
           closeButtonRef.current?.focus();
         }}
         showCloseButton={false}
+        title={title}
+        description={hasDescription ? description : undefined}
+        headerClassName={styles.TribeWelcomeSelectionModal__header}
+        titleClassName={styles.TribeWelcomeSelectionModal__title}
+        descriptionClassName={styles.TribeWelcomeSelectionModal__description}
       >
-        <header className={styles.TribeWelcomeSelectionModal__header}>
-          <DialogTitle className={styles.TribeWelcomeSelectionModal__title}>
-            {title}
-          </DialogTitle>
-          <DialogClose asChild>
-            <Button
-              aria-label={TRIBE_WELCOME_SELECTION_MODAL_COPY.closeLabel}
-              className={styles.TribeWelcomeSelectionModal__close}
-              ref={closeButtonRef}
-              size={MODAL_BUTTON.closeSize}
-              type={MODAL_BUTTON.buttonType}
-              variant={MODAL_BUTTON.closeVariant}
-            >
-              <XIcon aria-hidden />
-            </Button>
-          </DialogClose>
-        </header>
-
-        {hasDescription ? (
-          <DialogDescription
-            className={styles.TribeWelcomeSelectionModal__description}
+        <DialogClose asChild>
+          <Button
+            aria-label={TRIBE_WELCOME_SELECTION_MODAL_COPY.closeLabel}
+            className={styles.TribeWelcomeSelectionModal__close}
+            ref={closeButtonRef}
+            size={MODAL_BUTTON.closeSize}
+            type={MODAL_BUTTON.buttonType}
+            variant={MODAL_BUTTON.closeVariant}
           >
-            {description}
-          </DialogDescription>
-        ) : null}
+            <XIcon aria-hidden />
+          </Button>
+        </DialogClose>
 
         {benefit ? (
           <p className={styles.TribeWelcomeSelectionModal__benefit}>

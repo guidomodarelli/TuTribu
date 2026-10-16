@@ -3,7 +3,7 @@
 import { type FormEvent, useRef, useState } from "react";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCount, AnimatedListItem, PresenceSwap } from "beez-ui";
+import { toast, Button, Dialog, DialogContent, Input, Select, AnimatedCount, AnimatedListItem, PresenceSwap } from "beez-ui";
 
 import { ChannelEmojiPicker } from "@/components/tribe-round/channel-emoji-picker";
 import type { TribeChannelResult } from "@/src/modules/messages/application/results/tribe-round-result";
@@ -580,80 +580,57 @@ export function TribeChannelManagement({
               configuredHeadingRef.current?.focus();
             }
           }}
+          title={CHANNEL_MANAGEMENT_COPY.deleteDialogTitle(deleteDialogChannelName)}
+          description={CHANNEL_MANAGEMENT_COPY.deleteDialogDescription}
+          footer={
+            <>
+              <Button
+                disabled={isDeleteInProgress}
+                onClick={() => {
+                  handleDeleteDialogChange(false);
+                }}
+                type={CHANNEL_MANAGEMENT_FORM.buttonType}
+                variant={CHANNEL_MANAGEMENT_FORM.secondaryVariant}
+              >
+                {CHANNEL_MANAGEMENT_COPY.deleteCancelButton}
+              </Button>
+              <Button
+                disabled={isDeleteInProgress}
+                onClick={() => {
+                  if (deleteCandidate) {
+                    void handleDeleteChannel(deleteCandidate);
+                  }
+                }}
+                type={CHANNEL_MANAGEMENT_FORM.buttonType}
+                variant={CHANNEL_MANAGEMENT_FORM.dangerVariant}
+              >
+                <Trash2Icon />
+                {CHANNEL_MANAGEMENT_COPY.deleteConfirmButton}
+              </Button>
+            </>
+          }
         >
-          <DialogHeader>
-            <DialogTitle>
-              {CHANNEL_MANAGEMENT_COPY.deleteDialogTitle(deleteDialogChannelName)}
-            </DialogTitle>
-            <DialogDescription>
-              {CHANNEL_MANAGEMENT_COPY.deleteDialogDescription}
-            </DialogDescription>
-          </DialogHeader>
           <div className={styles.TribeChannelManagement__dialogBody}>
             {deleteTargetOptions.length > 0 ? (
-              <div className={styles.TribeChannelManagement__field}>
-                <label
-                  className={styles.TribeChannelManagement__fieldLabel}
-                  htmlFor={CHANNEL_MANAGEMENT_FIELD_ID.deleteTargetSelect}
-                >
-                  {CHANNEL_MANAGEMENT_COPY.targetLabel}
-                </label>
-                <Select
-                  onValueChange={setDeleteTargetChannelId}
-                  value={deleteTargetChannelId}
-                >
-                  <SelectTrigger
-                    className={styles.TribeChannelManagement__selectTrigger}
-                    disabled={isDeleteInProgress}
-                    id={CHANNEL_MANAGEMENT_FIELD_ID.deleteTargetSelect}
-                  >
-                    <SelectValue
-                      placeholder={CHANNEL_MANAGEMENT_COPY.selectTargetPlaceholder}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {deleteTargetOptions.map((targetChannel) => (
-                      <SelectItem key={targetChannel.id} value={targetChannel.id}>
-                        {buildChannelOptionLabel(targetChannel)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className={styles.TribeChannelManagement__fieldHelp}>
-                  {CHANNEL_MANAGEMENT_COPY.targetOptional}
-                </p>
-              </div>
+              <Select
+                description={CHANNEL_MANAGEMENT_COPY.targetOptional}
+                disabled={isDeleteInProgress}
+                id={CHANNEL_MANAGEMENT_FIELD_ID.deleteTargetSelect}
+                label={CHANNEL_MANAGEMENT_COPY.targetLabel}
+                onValueChange={setDeleteTargetChannelId}
+                options={deleteTargetOptions.map((targetChannel) => ({
+                  label: buildChannelOptionLabel(targetChannel),
+                  value: targetChannel.id,
+                }))}
+                placeholder={CHANNEL_MANAGEMENT_COPY.selectTargetPlaceholder}
+                value={deleteTargetChannelId}
+              />
             ) : (
               <p className={styles.TribeChannelManagement__fieldHelp}>
                 {CHANNEL_MANAGEMENT_COPY.deleteNoTargetHint}
               </p>
             )}
           </div>
-          <DialogFooter>
-            <Button
-              disabled={isDeleteInProgress}
-              onClick={() => {
-                handleDeleteDialogChange(false);
-              }}
-              type={CHANNEL_MANAGEMENT_FORM.buttonType}
-              variant={CHANNEL_MANAGEMENT_FORM.secondaryVariant}
-            >
-              {CHANNEL_MANAGEMENT_COPY.deleteCancelButton}
-            </Button>
-            <Button
-              disabled={isDeleteInProgress}
-              onClick={() => {
-                if (deleteCandidate) {
-                  void handleDeleteChannel(deleteCandidate);
-                }
-              }}
-              type={CHANNEL_MANAGEMENT_FORM.buttonType}
-              variant={CHANNEL_MANAGEMENT_FORM.dangerVariant}
-            >
-              <Trash2Icon />
-              {CHANNEL_MANAGEMENT_COPY.deleteConfirmButton}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </section>

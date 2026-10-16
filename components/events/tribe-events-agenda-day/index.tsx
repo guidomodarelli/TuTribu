@@ -25,7 +25,6 @@ type TribeEventsAgendaDayProps = {
   todayKey: string | null;
 };
 
-const BADGE_VARIANT_SECONDARY = "secondary";
 const COPY = {
   todayBadge: "Hoy",
 } as const;
@@ -50,7 +49,7 @@ export function TribeEventsAgendaDay({
       <h2 className={styles.TribeEventsAgendaDay__title}>
         {formatBuenosAiresLongDate(firstOccurrence.startsAt)}
         {dayKey === todayKey ? (
-          <Badge variant={BADGE_VARIANT_SECONDARY}>
+          <Badge>
             {COPY.todayBadge}
           </Badge>
         ) : null}

@@ -4,7 +4,7 @@ import { type FormEvent, useState } from "react";
 import { Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 
-import { Avatar, AvatarFallback, AvatarImage, Button, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap, cn } from "beez-ui";
+import { Avatar, Button, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap, cn } from "beez-ui";
 
 
 import {
@@ -187,10 +187,13 @@ export function TribeEventConversation({
               key={comment.id}
             >
               <div className={styles.TribeEventConversation__itemHeader}>
-                <Avatar size={AVATAR_SIZE}>
-                  {comment.authorImageUrl ? <AvatarImage alt="" src={comment.authorImageUrl} /> : null}
-                  <AvatarFallback>{comment.authorName.slice(0, 1).toUpperCase()}</AvatarFallback>
-                </Avatar>
+                {/* Decorative: the author name is shown next to it. */}
+                <Avatar
+                  aria-hidden
+                  name={comment.authorName}
+                  size={AVATAR_SIZE}
+                  src={comment.authorImageUrl}
+                />
                 <span className={styles.TribeEventConversation__author}>{comment.authorName}</span>
                 <time className={styles.TribeEventConversation__date} dateTime={comment.createdAt}>
                   {formatCommentDate(comment.createdAt)}

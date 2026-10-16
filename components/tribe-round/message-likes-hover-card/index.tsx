@@ -13,8 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { Avatar, AvatarFallback, AvatarImage, HoverCard, HoverCardContent, HoverCardTrigger, Popover, PopoverContent, PopoverTrigger } from "beez-ui";
-
+import { Avatar, HoverCard, Popover, PopoverContent, PopoverTrigger } from "beez-ui";
 
 import type { MessageLikerResult } from "@/src/modules/messages/application/results/tribe-round-result";
 
@@ -43,6 +42,8 @@ const MESSAGE_LIKES_HOVER_CARD_COPY = {
 const NO_HOVER_POINTER_MEDIA_QUERY = "(hover: none)";
 
 const MESSAGE_LIKES_HOVER_CARD_UI = {
+  // Centered over the like button, as before beez-ui 3 moved the default to `start`.
+  align: "center",
   ariaLivePolite: "polite",
   buttonType: "button",
   side: "top",
@@ -282,15 +283,15 @@ export function MessageLikesHoverCard({
               className={styles.MessageLikesHoverCard__item}
               key={liker.id}
             >
+              {/* Decorative: the name is shown next to it. */}
               <Avatar
+                aria-hidden
                 className={styles.MessageLikesHoverCard__avatar}
+                fallback={liker.avatarFallback}
+                name={liker.name}
                 size="sm"
-              >
-                {liker.image ? (
-                  <AvatarImage alt={liker.name} src={liker.image} />
-                ) : null}
-                <AvatarFallback>{liker.avatarFallback}</AvatarFallback>
-              </Avatar>
+                src={liker.image}
+              />
               <span className={styles.MessageLikesHoverCard__name}>
                 {liker.name}
               </span>
@@ -337,6 +338,7 @@ export function MessageLikesHoverCard({
               </button>
             </PopoverTrigger>
             <PopoverContent
+              align={MESSAGE_LIKES_HOVER_CARD_UI.align}
               className={styles.MessageLikesHoverCard}
               side={MESSAGE_LIKES_HOVER_CARD_UI.side}
             >
@@ -349,28 +351,26 @@ export function MessageLikesHoverCard({
   }
 
   return (
-    <HoverCard onOpenChange={handleOpenChange}>
-      <HoverCardTrigger asChild>
-        <span
-          aria-disabled={isTriggerDisabled || undefined}
-          className={triggerClassName}
-          onClick={isTriggerDisabled ? onTriggerClick : undefined}
-          tabIndex={isTriggerDisabled ? 0 : undefined}
-        >
-          <span
-            className={styles.MessageLikesHoverCard__triggerInteraction}
-            onTouchStart={stopTriggerTouchStartPropagation}
-          >
-            {children}
-          </span>
-        </span>
-      </HoverCardTrigger>
-      <HoverCardContent
-        className={styles.MessageLikesHoverCard}
-        side={MESSAGE_LIKES_HOVER_CARD_UI.side}
+    <HoverCard
+      align={MESSAGE_LIKES_HOVER_CARD_UI.align}
+      className={styles.MessageLikesHoverCard}
+      content={likersContent}
+      onOpenChange={handleOpenChange}
+      side={MESSAGE_LIKES_HOVER_CARD_UI.side}
+    >
+      <span
+        aria-disabled={isTriggerDisabled || undefined}
+        className={triggerClassName}
+        onClick={isTriggerDisabled ? onTriggerClick : undefined}
+        tabIndex={isTriggerDisabled ? 0 : undefined}
       >
-        {likersContent}
-      </HoverCardContent>
+        <span
+          className={styles.MessageLikesHoverCard__triggerInteraction}
+          onTouchStart={stopTriggerTouchStartPropagation}
+        >
+          {children}
+        </span>
+      </span>
     </HoverCard>
   );
 }

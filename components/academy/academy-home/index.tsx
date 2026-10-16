@@ -16,10 +16,6 @@ import {
   cn,
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   toast,
 } from "beez-ui";
 
@@ -631,35 +627,36 @@ export function AcademyHome({
       ) : null}
 
       <Dialog onOpenChange={setIsCancelDialogOpen} open={isCancelDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{ACADEMY_HOME_COPY.cancelDialogTitle}</DialogTitle>
-            <DialogDescription>{ACADEMY_HOME_COPY.cancelDialogDescription}</DialogDescription>
-          </DialogHeader>
+        <DialogContent
+          title={ACADEMY_HOME_COPY.cancelDialogTitle}
+          description={ACADEMY_HOME_COPY.cancelDialogDescription}
+          footer={
+            <>
+              <Button
+                disabled={pendingAction !== null}
+                onClick={() => setIsCancelDialogOpen(false)}
+                type="button"
+                variant="secondary"
+              >
+                {ACADEMY_HOME_COPY.cancelKeep}
+              </Button>
+              <Button
+                aria-busy={pendingAction === "cancel" || undefined}
+                disabled={pendingAction !== null}
+                onClick={handleCancel}
+                type="button"
+                variant="danger"
+              >
+                {pendingAction === "cancel" ? ACADEMY_HOME_COPY.cancelPending : ACADEMY_HOME_COPY.cancelConfirm}
+              </Button>
+            </>
+          }
+        >
           {errorMessage ? (
             <p className={styles.AcademyHome__error} role="alert">
               {errorMessage}
             </p>
           ) : null}
-          <DialogFooter>
-            <Button
-              disabled={pendingAction !== null}
-              onClick={() => setIsCancelDialogOpen(false)}
-              type="button"
-              variant="secondary"
-            >
-              {ACADEMY_HOME_COPY.cancelKeep}
-            </Button>
-            <Button
-              aria-busy={pendingAction === "cancel" || undefined}
-              disabled={pendingAction !== null}
-              onClick={handleCancel}
-              type="button"
-              variant="danger"
-            >
-              {pendingAction === "cancel" ? ACADEMY_HOME_COPY.cancelPending : ACADEMY_HOME_COPY.cancelConfirm}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </main>

@@ -95,7 +95,7 @@ describe("TribeStoryVideoSlide", () => {
 });
 
 describe("TribeStoryGallery", () => {
-  it("renders one position indicator per resource with the first one current", async () => {
+  it("renders one position tab per resource with the first one selected", async () => {
     render(
       <TribeStoryGallery
         media={[
@@ -106,17 +106,15 @@ describe("TribeStoryGallery", () => {
       />
     );
 
-    const indicators = within(
-      await screen.findByRole("group", { name: "Recursos de la galería" })
-    ).getAllByRole("button");
+    const indicators = within(await screen.findByRole("tablist")).getAllByRole("tab");
 
     expect(indicators.map((indicator) => indicator.getAttribute("aria-label"))).toEqual([
-      "Ir al recurso 1 de 3",
-      "Ir al recurso 2 de 3",
-      "Ir al recurso 3 de 3",
+      "Recurso 1 de 3",
+      "Recurso 2 de 3",
+      "Recurso 3 de 3",
     ]);
-    expect(indicators[0]).toHaveAttribute("aria-current", "true");
-    expect(indicators[1]).not.toHaveAttribute("aria-current");
+    expect(indicators[0]).toHaveAttribute("aria-selected", "true");
+    expect(indicators[1]).toHaveAttribute("aria-selected", "false");
   });
 
   it("omits navigation and indicators for a single resource", async () => {
@@ -125,8 +123,9 @@ describe("TribeStoryGallery", () => {
     // The carousel syncs its scroll state in a microtask after mounting; the
     // async query lets that update land inside `act`.
     expect(await screen.findByAltText("Imagen 1 de la tribu")).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("group", { name: "Recursos de la galería" })
+      screen.queryByRole("button", { name: "Diapositiva siguiente" })
     ).not.toBeInTheDocument();
   });
 });

@@ -7,7 +7,7 @@ import { NotificationCenter } from "./notification-center";
 import { TribeSwitcher } from "@/components/platform/tribe-switcher";
 import { TribeSupportButton } from "@/components/tribes/tribe-support-button";
 import { ThemeModeDropdown } from "@/components/theme/theme-mode-dropdown";
-import { TooltipProvider, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "beez-ui";
+import { SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "beez-ui";
 
 import { ROUTES } from "@/src/constants/routes";
 
@@ -106,36 +106,34 @@ function PlatformLayoutShell({
   notificationInbox,
 }: PlatformLayoutShellProps) {
   return (
-    <TooltipProvider>
-      <AppRailShell
-        authenticatedMember={authenticatedMember}
-        defaultOpen={defaultSidebarOpen}
-        memberTribes={memberTribes}
-        headerAside={
-          <TribeSwitcher
-            memberTribes={memberTribes}
-            showDropdownTrigger={false}
-            showPrivateBadge
+    <AppRailShell
+      authenticatedMember={authenticatedMember}
+      defaultOpen={defaultSidebarOpen}
+      memberTribes={memberTribes}
+      headerAside={
+        <TribeSwitcher
+          memberTribes={memberTribes}
+          showDropdownTrigger={false}
+          showPrivateBadge
+        />
+      }
+      headerActions={
+        <div className={styles.PlatformLayout__accountMenu}>
+          {authenticatedMember ? (
+            <NotificationCenter initialInbox={notificationInbox} />
+          ) : null}
+          <TribeSupportButton memberTribes={memberTribes} />
+          <ThemeModeDropdown />
+          <AvatarSessionMenuClient
+            authenticatedMember={authenticatedMember}
+            signInPath={ROUTES.auth.signIn}
+            signOutCallbackUrl={ROUTES.home}
           />
-        }
-        headerActions={
-          <div className={styles.PlatformLayout__accountMenu}>
-            {authenticatedMember ? (
-              <NotificationCenter initialInbox={notificationInbox} />
-            ) : null}
-            <TribeSupportButton memberTribes={memberTribes} />
-            <ThemeModeDropdown />
-            <AvatarSessionMenuClient
-              authenticatedMember={authenticatedMember}
-              signInPath={ROUTES.auth.signIn}
-              signOutCallbackUrl={ROUTES.home}
-            />
-          </div>
-        }
-      >
-        <div className={styles.PlatformLayout__content}>{children}</div>
-      </AppRailShell>
-    </TooltipProvider>
+        </div>
+      }
+    >
+      <div className={styles.PlatformLayout__content}>{children}</div>
+    </AppRailShell>
   );
 }
 

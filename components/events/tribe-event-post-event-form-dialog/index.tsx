@@ -4,7 +4,7 @@ import { type FormEvent, useState } from "react";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, AnimatedCollapse, AnimatedListItem } from "beez-ui";
+import { Button, Dialog, DialogContent, Input, AnimatedCollapse, AnimatedListItem } from "beez-ui";
 
 import type { TribeEventPostEventView } from "@/src/modules/events/application/results/tribe-event-post-event-public-dto-schemas";
 import { TRIBE_EVENT_POST_EVENT_LIMIT } from "@/src/modules/events/constants/tribe-event-post-event";
@@ -250,11 +250,11 @@ export function TribeEventPostEventFormDialog({
         }
       }}
     >
-      <DialogContent className={styles.TribeEventPostEventFormDialog}>
-        <DialogHeader>
-          <DialogTitle>{COPY.title}</DialogTitle>
-          <DialogDescription>{COPY.description}</DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={styles.TribeEventPostEventFormDialog}
+        title={COPY.title}
+        description={COPY.description}
+      >
         <form className={styles.TribeEventPostEventFormDialog__form} noValidate onSubmit={handleSubmit}>
           <Input
             error={recordingUrlError}

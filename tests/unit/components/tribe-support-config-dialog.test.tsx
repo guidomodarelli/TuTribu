@@ -184,7 +184,8 @@ describe("TribeSupportConfigDialog", () => {
     );
 
     const saveButton = screen.getByRole("button", { name: "Guardar" });
-    const form = saveButton.closest("form");
+    // The submit button lives in the dialog footer and reaches its form through `form`.
+    const form = (saveButton as HTMLButtonElement).form;
 
     expect(form).not.toBeNull();
 

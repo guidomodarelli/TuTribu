@@ -290,12 +290,6 @@
     padding-block: 1rem;
   }
 
-  &__field {
-    display: grid;
-    gap: 0.55rem;
-    min-width: 0;
-  }
-
   &__checkboxField {
     align-items: center;
     display: flex;
@@ -377,10 +371,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-  }
-
-  &__canceledBadge {
-    color: oklch(0.72 0.2 25);
   }
 
   &__actions {

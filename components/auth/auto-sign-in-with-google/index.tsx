@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-import { CardDescription } from "beez-ui";
 import { useIsHydrated } from "beez-ui/hooks";
 import { isBackForwardDocumentLoad } from "@/lib/browser-navigation";
 import { ROUTES } from "@/src/constants/routes";
@@ -55,11 +54,11 @@ export function AutoSignInWithGoogle({ callbackUrl }: AutoSignInWithGoogleProps)
 
   return (
     <div className={styles.AutoSignInWithGoogle}>
-      <CardDescription className={styles.AutoSignInWithGoogle__description}>
+      <p className={styles.AutoSignInWithGoogle__description}>
         {isAutomaticStartSkipped
           ? AUTO_SIGN_IN_COPY.manual
           : AUTO_SIGN_IN_COPY.redirecting}
-      </CardDescription>
+      </p>
       <SignInWithGoogleButton callbackUrl={callbackUrl} />
     </div>
   );

@@ -6,10 +6,6 @@ import {
   Button,
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   toast,
 } from "beez-ui";
 
@@ -159,38 +155,39 @@ export function AcademyActivation({ settings: initialSettings, tribeSlug }: Acad
         }}
         open={isDialogOpen}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{ACADEMY_ACTIVATION_COPY.confirmTitle}</DialogTitle>
-            <DialogDescription>{ACADEMY_ACTIVATION_COPY.classicDescription}</DialogDescription>
-          </DialogHeader>
+        <DialogContent
+          title={ACADEMY_ACTIVATION_COPY.confirmTitle}
+          description={ACADEMY_ACTIVATION_COPY.classicDescription}
+          footer={
+            <>
+              <Button
+                disabled={isSubmitting}
+                onClick={() => setIsDialogOpen(false)}
+                type="button"
+                variant="secondary"
+              >
+                {ACADEMY_ACTIVATION_COPY.cancelButton}
+              </Button>
+              <Button
+                aria-busy={isSubmitting || undefined}
+                disabled={isSubmitting}
+                onClick={() => {
+                  void confirmActivation();
+                }}
+                type="button"
+              >
+                {isSubmitting
+                  ? ACADEMY_ACTIVATION_COPY.activatePending
+                  : ACADEMY_ACTIVATION_COPY.confirmButton}
+              </Button>
+            </>
+          }
+        >
           <ul className={styles.AcademyActivation__effects}>
             {ACADEMY_ACTIVATION_COPY.effects.map((effect) => (
               <li key={effect}>{effect}</li>
             ))}
           </ul>
-          <DialogFooter>
-            <Button
-              disabled={isSubmitting}
-              onClick={() => setIsDialogOpen(false)}
-              type="button"
-              variant="secondary"
-            >
-              {ACADEMY_ACTIVATION_COPY.cancelButton}
-            </Button>
-            <Button
-              aria-busy={isSubmitting || undefined}
-              disabled={isSubmitting}
-              onClick={() => {
-                void confirmActivation();
-              }}
-              type="button"
-            >
-              {isSubmitting
-                ? ACADEMY_ACTIVATION_COPY.activatePending
-                : ACADEMY_ACTIVATION_COPY.confirmButton}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </section>
