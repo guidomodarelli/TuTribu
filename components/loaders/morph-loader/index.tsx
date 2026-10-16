@@ -44,18 +44,20 @@ const DEFAULT_ERROR_LABEL = "No se pudo completar";
 const DEFAULT_SIZE_PX = 24;
 const DEFAULT_STROKE_WIDTH = 2.5;
 
-/** Spring characters restated as stiffness and damping so a retarget keeps its velocity mid flight. */
+/**
+ * Spring characters restated as stiffness and damping so a retarget keeps its velocity mid flight. Their visual
+ * durations come from the shared `MOTION_TIMING` tokens, inside the 120 to 320 ms motion range.
+ */
 const SPRING_PERIOD_SCALE = 1.2;
 const CRITICAL_DAMPING_FACTOR = 2;
 const SPRING_REST_DELTA = 0.001;
 const SPRING_REST_SPEED = 0.01;
-const MORPH_SPRING = { visualDuration: 0.46, bounce: 0.12 };
-const SETTLE_SPRING = { visualDuration: 0.52, bounce: 0.28 };
-const TURN_SPRING = { visualDuration: 0.6, bounce: 0.1 };
+const MORPH_SPRING = { visualDuration: MOTION_TIMING.surfaceClip, bounce: 0.12 };
+const SETTLE_SPRING = { visualDuration: MOTION_TIMING.checkDraw, bounce: 0.28 };
+const TURN_SPRING = { visualDuration: MOTION_TIMING.surfaceClip, bounce: 0.1 };
 
 const POP_PEAK_SCALE = 1.14;
 const POP_PEAK_AT = 0.35;
-const POP_DURATION_SECONDS = 0.42;
 const MAX_FRAME_DELTA_MS = 64;
 const MS_PER_SECOND = 1000;
 const SETTLED_AMOUNT_THRESHOLD = 0.001;
@@ -195,8 +197,13 @@ export function MorphLoader({
       }
     });
     if (reduceMotion) {
+      // Clear every animated offset too, so a preference switched mid flight never freezes a half-drawn shape.
+      turning.current?.stop();
+      turning.current = null;
+      waves.forEach((wave) => wave.set({}));
       loopAmount.set(settling ? 0 : 1);
       rotate.set(0);
+      pop.set(1);
       return undefined;
     }
     controls.push(
@@ -211,14 +218,17 @@ export function MorphLoader({
       turning.current = animate(rotate, nextUprightAngle(rotate.get()), TURN_TRANSITION);
       controls.push(
         animate(pop, [1, POP_PEAK_SCALE, 1], {
-          duration: POP_DURATION_SECONDS,
+          duration: MOTION_TIMING.pop,
           times: [0, POP_PEAK_AT, 1],
           ease: ["easeOut", "easeInOut"],
         }),
       );
+    } else {
+      // Loading resumed: a pop stopped mid flight shrinks back instead of leaving the loader enlarged.
+      controls.push(animate(pop, 1, { duration: MOTION_TIMING.exit, ease: MOTION_EASE }));
     }
     return () => controls.forEach((control) => control.stop());
-  }, [shape, strokeWidth, reduceMotion, loopAmount, pop, rotate, strokes]);
+  }, [shape, strokeWidth, reduceMotion, loopAmount, pop, rotate, strokes, waves]);
 
   useAnimationFrame((_time, deltaMs) => {
     if (reduceMotion) return;
