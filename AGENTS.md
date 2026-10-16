@@ -261,6 +261,7 @@ components/<scope>/<component>/
 - Use `motion` (`motion/react`) and the motion primitives exported by `beez-ui` (`PresenceSwap`, `AnimatedCount`, `AnimatedCollapse`, `AnimatedListItem`) for client-side state changes, and the mixins in `src/styles/_motion.scss` for CSS-only entrances of server-rendered content.
 - Animate only `transform` and `opacity` (height only through `AnimatedCollapse`), keep durations between 120 and 320 ms, take timing from the motion tokens exported by `beez-ui` (`MOTION_TIMING`, `MOTION_EASE`, springs and distances), and never hide server-rendered HTML behind a Motion `initial` state.
 - Do not re-animate `beez-ui` primitives, which already animate. Every animation must respect `prefers-reduced-motion`.
+- Scoped exception: `components/loaders/morph-loader` springs the geometry of its four SVG strokes and runs a continuous idle loop while loading; its durations still come from `MOTION_TIMING` within 120 to 320 ms. See the exception in `docs/conventions/motion.htm`.
 - Follow the motion convention guide at `docs/conventions/motion.htm`.
 
 ### CSS architecture baseline (BEM mandatory)
