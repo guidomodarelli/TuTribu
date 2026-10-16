@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- En el menú «Elegir canal» al escribir un mensaje de la ronda, el emoji de cada canal queda en una columna del mismo ancho y centrado con su nombre, así todas las opciones se ven alineadas.
+
 ## [1.7.3] - 2026-10-16
 
 ### Changed

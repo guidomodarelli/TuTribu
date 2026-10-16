@@ -442,16 +442,22 @@ $media-viewer-overlay-opacity: 72%;
   }
 
   &__channelMenuItem {
+    --channel-menu-emoji-size: 1.25rem;
+
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
+    grid-template-columns: var(--channel-menu-emoji-size) minmax(0, 1fr);
+    align-items: center;
     gap: 0.65rem;
     min-width: 0;
   }
 
   &__channelMenuEmoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--channel-menu-emoji-size);
+    font-size: 1rem;
     line-height: 1;
-    padding-top: 0.12rem;
   }
 
   &__channelMenuText {
