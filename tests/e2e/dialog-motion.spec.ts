@@ -1,14 +1,22 @@
 /**
  * Validates the beez-ui dialog motion contract inside real TuTribu screens: a
  * product dialog (`DialogContent`) and a confirmation (`AlertDialogContent`)
- * unfold from their center and fold back into it, appear without animation
- * when the visitor asks for reduced motion, and the round message details
- * modal does not shift once its entrance settles.
+ * play Arc's dialog transition (the panel rises from below while it grows from
+ * a slightly smaller scale and fades in, then drops a little and shrinks while
+ * it fades out), without any clip, appear without animation when the visitor
+ * asks for reduced motion, and the round message details modal does not shift
+ * once its entrance settles.
  *
  * Runs only through `pnpm test:ui`, which seeds a signed-in leader, a tribe, a
  * round message and an event on a disposable database.
  */
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  MOTION_DIALOG_DISTANCE,
+  MOTION_DIALOG_EXIT_DISTANCE,
+  MOTION_EXIT_SCALE,
+  MOTION_SURFACE_SCALE,
+} from "beez-ui";
 
 import {
   UI_TEST_ORIGIN,
@@ -34,14 +42,21 @@ const RECORDING_TIMEOUT_MS = 10_000;
 const HYDRATION_RETRY_MS = 2000;
 /** Odd viewport so a naive centering would land on a half pixel. */
 const ODD_DESKTOP_VIEWPORT = { height: 721, width: 1281 };
+/** Rounding allowed on computed scales, which the engine serializes with limited precision. */
+const SCALE_TOLERANCE = 0.002;
+/** Rounding allowed on computed translations, in CSS pixels. */
+const TRANSLATE_TOLERANCE_PX = 0.5;
+
 /**
- * One frame of the dialog content: computed opacity, `clip-path` and its
- * `inset()` lengths (`calc()` groups kept whole); `null` while unmounted.
+ * One frame of the dialog content: computed opacity, `clip-path` and the
+ * scale and translation of its computed `transform`; `null` while unmounted.
  */
-type DialogFrame = { clipPath: string; insets: string[]; opacity: number } | null;
+type DialogFrame = { clipPath: string; opacity: number; scale: number; translateX: number; translateY: number } | null;
 type MountedFrame = NonNullable<DialogFrame>;
 /** What ends a recording: the opening settling, or the closing unmounting the content. */
 type RecordingEnd = "settled" | "unmounted";
+/** Range a moving frame must stay in: from the resting panel to the transition's far end. */
+type MotionBounds = { distancePx: number; scale: number };
 
 test.skip(
   !seededSession.sessionCookie,
@@ -61,36 +76,23 @@ test.beforeEach(async ({ context }) => {
 });
 
 /**
- * Samples, on every animation frame, the opacity and `clip-path` of the
- * first element matching `selector` while `action` runs, so the test sees the
- * motion the visitor sees instead of the final state only. Recording ends
- * when the content is settled (`settled`) or gone (`unmounted`), so slow
- * frame rates, such as headless WebKit, never cut an animation short.
+ * Samples, on every animation frame, the opacity, `clip-path` and transform of
+ * the first element matching `selector` while `action` runs, so the test sees
+ * the motion the visitor sees instead of the final state only. Recording ends
+ * when the content is settled (`settled`) or gone (`unmounted`), so slow frame
+ * rates, such as headless WebKit, never cut an animation short.
  */
 async function recordDialogFrames(page: Page, selector: string, end: RecordingEnd, action: () => Promise<void>) {
   await page.evaluate(
     ({ contentSelector, recordingEnd, timeoutMs }) => {
-      const insetFunction = /^inset\((.*?)(?:\s+round\s.*)?\)$/;
-      const readInsets = (clipPath: string) => {
-        const insets: string[] = [];
-        let depth = 0;
-        let current = "";
-        for (const character of insetFunction.exec(clipPath)?.[1] ?? "") {
-          if (character === "(") depth += 1;
-          if (character === ")") depth -= 1;
-          if (character === " " && depth === 0) {
-            if (current) insets.push(current);
-            current = "";
-          } else {
-            current += character;
-          }
-        }
-        if (current) insets.push(current);
-        return insets;
+      // `matrix(a, b, c, d, e, f)`: the transition only scales and translates, so `a` is the scale.
+      const readTransform = (transform: string) => {
+        if (transform === "none") return { scale: 1, translateX: 0, translateY: 0 };
+        const values = /^matrix\((.*)\)$/.exec(transform)?.[1]?.split(",").map(Number) ?? [];
+        return { scale: values[0] ?? Number.NaN, translateX: values[4] ?? Number.NaN, translateY: values[5] ?? Number.NaN };
       };
-      // Unclipped, or clipped only outside the box (negative insets keep the ring and shadow).
       const isSettledFrame = (frame: MountedFrame) =>
-        frame.opacity === 1 && frame.insets.every((inset) => inset.startsWith("-"));
+        frame.opacity === 1 && frame.scale === 1 && frame.translateX === 0 && frame.translateY === 0;
 
       const frames: DialogFrame[] = [];
       const recorder = window as typeof window & { __dialogFrames?: Promise<DialogFrame[]> };
@@ -101,7 +103,7 @@ async function recordDialogFrames(page: Page, selector: string, end: RecordingEn
           let frame: DialogFrame = null;
           if (content) {
             const style = getComputedStyle(content);
-            frame = { clipPath: style.clipPath, insets: readInsets(style.clipPath), opacity: Number(style.opacity) };
+            frame = { clipPath: style.clipPath, opacity: Number(style.opacity), ...readTransform(style.transform) };
           }
           frames.push(frame);
           const ended = recordingEnd === "unmounted" ? frame === null : frame !== null && isSettledFrame(frame);
@@ -122,35 +124,69 @@ function mountedFrames(frames: DialogFrame[]) {
   return frames.filter((frame): frame is MountedFrame => frame !== null);
 }
 
-/** Fully revealed: no inset reaches inside the box. */
-function isRevealed(frame: MountedFrame) {
-  return frame.insets.every((inset) => inset.startsWith("-"));
-}
-
-/** Clipped the same amount on every edge, so the surface grows from or shrinks into its center. */
-function isCenteredClip(frame: MountedFrame) {
-  return frame.insets.length > 0 && frame.insets.every((inset) => inset === frame.insets[0]);
-}
-
+/** At rest: fully opaque, untransformed and unclipped. */
 function isSettled(frame: MountedFrame) {
-  return frame.opacity === 1 && isRevealed(frame);
+  return (
+    frame.opacity === 1 &&
+    frame.clipPath === "none" &&
+    frame.scale === 1 &&
+    frame.translateX === 0 &&
+    frame.translateY === 0
+  );
 }
 
-/** Asserts the center morph: partially clipped centered frames on the way in and out. */
-function expectCenterMorph(openingFrames: DialogFrame[], closingFrames: DialogFrame[]) {
-  const opening = mountedFrames(openingFrames);
-  const unfolding = opening.filter((frame) => !isRevealed(frame));
-  expect(unfolding.length, "opening unfolds through clipped frames").toBeGreaterThan(0);
-  expect(unfolding.every(isCenteredClip), `opening unfolds from the center: ${unfolding[0]?.clipPath}`).toBe(true);
-  expect(isSettled(opening.at(-1)!), `opening settles fully revealed: ${opening.at(-1)?.clipPath}`).toBe(true);
+/** Below its resting place and smaller than it: the frame shows the rise and the scale of Arc's transition. */
+function isRisingAndScaled(frame: MountedFrame) {
+  return frame.translateY > 0 && frame.scale < 1;
+}
 
-  const folding = mountedFrames(closingFrames).filter((frame) => !isRevealed(frame));
-  expect(folding.length, "closing folds through clipped frames").toBeGreaterThan(0);
-  expect(folding.every(isCenteredClip), `closing folds into the center: ${folding[0]?.clipPath}`).toBe(true);
+/**
+ * Never clipped, never sideways, and only between the resting panel and the
+ * far end of the transition: no center morph and no overshoot.
+ */
+function isWithinBounds(frame: MountedFrame, bounds: MotionBounds) {
+  return (
+    frame.clipPath === "none" &&
+    Math.abs(frame.translateX) <= TRANSLATE_TOLERANCE_PX &&
+    frame.translateY >= -TRANSLATE_TOLERANCE_PX &&
+    frame.translateY <= bounds.distancePx + TRANSLATE_TOLERANCE_PX &&
+    frame.scale >= bounds.scale - SCALE_TOLERANCE &&
+    frame.scale <= 1 + SCALE_TOLERANCE
+  );
+}
+
+function describeFrame(frame: MountedFrame | undefined) {
+  return JSON.stringify(frame);
+}
+
+/**
+ * Asserts Arc's dialog transition: the opening rises from up to
+ * `MOTION_DIALOG_DISTANCE` px below and grows from `MOTION_SURFACE_SCALE`
+ * while it fades in, then settles at rest; the closing drops up to
+ * `MOTION_DIALOG_EXIT_DISTANCE` px and shrinks to `MOTION_EXIT_SCALE` while it
+ * fades out, then unmounts. No frame is clipped.
+ */
+function expectArcDialogMotion(openingFrames: DialogFrame[], closingFrames: DialogFrame[]) {
+  const opening = mountedFrames(openingFrames);
+  const entering = opening.filter((frame) => !isSettled(frame));
+  expect(entering.some(isRisingAndScaled), `opening rises and grows: ${describeFrame(entering[0])}`).toBe(true);
+  expect(entering.some((frame) => frame.opacity < 1), "opening fades in").toBe(true);
+  const enterBounds = { distancePx: MOTION_DIALOG_DISTANCE, scale: MOTION_SURFACE_SCALE };
+  const outOfEnterBounds = opening.find((frame) => !isWithinBounds(frame, enterBounds));
+  expect(outOfEnterBounds, `opening stays within Arc's entrance: ${describeFrame(outOfEnterBounds)}`).toBeUndefined();
+  expect(isSettled(opening.at(-1)!), `opening settles at rest: ${describeFrame(opening.at(-1))}`).toBe(true);
+
+  const closing = mountedFrames(closingFrames);
+  const leaving = closing.filter((frame) => !isSettled(frame));
+  expect(leaving.some(isRisingAndScaled), `closing drops and shrinks: ${describeFrame(leaving[0])}`).toBe(true);
+  expect(leaving.some((frame) => frame.opacity < 1), "closing fades out").toBe(true);
+  const exitBounds = { distancePx: MOTION_DIALOG_EXIT_DISTANCE, scale: MOTION_EXIT_SCALE };
+  const outOfExitBounds = closing.find((frame) => !isWithinBounds(frame, exitBounds));
+  expect(outOfExitBounds, `closing stays within Arc's exit: ${describeFrame(outOfExitBounds)}`).toBeUndefined();
   expect(closingFrames.at(-1), "closing unmounts the content").toBeNull();
 }
 
-/** Asserts reduced motion: every mounted frame is already settled, both ways. */
+/** Asserts reduced motion: every mounted frame is already at rest, both ways. */
 function expectNoMotion(openingFrames: DialogFrame[], closingFrames: DialogFrame[]) {
   const opening = mountedFrames(openingFrames);
   expect(opening.length, "the dialog appears").toBeGreaterThan(0);
@@ -207,11 +243,11 @@ async function exerciseEventDialogs(page: Page) {
   };
 }
 
-test("product dialog and confirmation unfold from and fold into their center", async ({ page }) => {
+test("product dialog and confirmation rise in and drop out with Arc's dialog transition", async ({ page }) => {
   const frames = await exerciseEventDialogs(page);
 
-  expectCenterMorph(frames.dialog.opening, frames.dialog.closing);
-  expectCenterMorph(frames.alert.opening, frames.alert.closing);
+  expectArcDialogMotion(frames.dialog.opening, frames.dialog.closing);
+  expectArcDialogMotion(frames.alert.opening, frames.alert.closing);
 });
 
 test("product dialog and confirmation appear without animation under reduced motion", async ({ page }) => {
@@ -222,7 +258,7 @@ test("product dialog and confirmation appear without animation under reduced mot
   expectNoMotion(frames.alert.opening, frames.alert.closing);
 });
 
-/** Reads the dialog box in layout pixels (`clip-path` does not affect it). */
+/** Reads the dialog box in layout pixels. */
 function readBox(dialog: Locator) {
   return dialog.evaluate((element) => {
     const { left, top, width, height } = element.getBoundingClientRect();
