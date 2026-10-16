@@ -20,15 +20,9 @@
     }
   }
 
+  // `Select` field inside a row: lets the grid track shrink below the trigger's
+  // content width.
   &__field {
-    display: grid;
-    gap: 0.4rem;
-    min-width: 0;
-    font-weight: 500;
-  }
-
-  &__select {
-    width: 100%;
     min-width: 0;
   }
 

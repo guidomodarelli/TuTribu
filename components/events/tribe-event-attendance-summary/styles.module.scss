@@ -12,17 +12,6 @@
     flex: 0 0 auto;
   }
 
-  // Stacked avatars show a single initial, readable in both engines.
-  &__initials {
-    font-size: 0.7rem;
-    letter-spacing: 0;
-  }
-
-  &__more {
-    font-size: 0.7rem;
-    font-variant-numeric: tabular-nums;
-  }
-
   &__text {
     display: grid;
     gap: 0.1rem;

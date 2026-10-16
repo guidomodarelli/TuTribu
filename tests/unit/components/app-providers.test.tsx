@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
-import { Avatar, AvatarImage, Button, Dialog, DialogContent, DialogTitle, toast } from "beez-ui";
+import { Avatar, Button, Dialog, DialogContent, toast } from "beez-ui";
 
 import { AppProviders } from "@/components/providers/app-providers";
 
@@ -17,9 +17,11 @@ describe("AppProviders", () => {
   afterEach(() => { cleanup(); vi.useRealTimers(); });
 
   it("should activate Next Image for shared avatars", () => {
-    render(<AppProviders isSitepingEnabled={false}><Avatar><AvatarImage src="/profile.png" alt="Perfil" /></Avatar></AppProviders>);
-    expect(screen.getByAltText("Perfil")).toHaveAttribute("data-nimg", "1");
-    expect((screen.getByAltText("Perfil") as HTMLImageElement).src).toBe(new URL("/profile.png", window.location.href).href);
+    render(<AppProviders isSitepingEnabled={false}><Avatar name="Perfil" src="/profile.png" /></AppProviders>);
+    // The avatar is announced once by its root; the photo inside it is decorative.
+    const photo = screen.getByRole("img", { name: "Perfil" }).querySelector("img");
+    expect(photo).toHaveAttribute("data-nimg", "1");
+    expect(photo?.src).toBe(new URL("/profile.png", window.location.href).href);
   });
 
   it("does not fetch Siteping identity when Siteping is disabled", () => {
@@ -36,8 +38,7 @@ describe("AppProviders", () => {
     render(
       <AppProviders isSitepingEnabled={false}>
         <Dialog defaultOpen>
-          <DialogContent>
-            <DialogTitle>Suscribirme al calendario</DialogTitle>
+          <DialogContent title="Suscribirme al calendario">
             <Button onClick={() => toast.success("Link listo.")}>Generar link</Button>
           </DialogContent>
         </Dialog>

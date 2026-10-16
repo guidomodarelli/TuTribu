@@ -9,12 +9,10 @@ const PRIMARY_MOUSE_BUTTON = 0;
  * window, download) and other buttons must fall through to the browser so the
  * link stays openable on its own.
  *
- * @param event - Click on an anchor.
+ * @param event - Click on an anchor, or on an element that contains it.
  * @returns `true` when the page may take over the navigation.
  */
-export function isInPageLinkClick(
-  event: MouseEvent<HTMLAnchorElement>
-): boolean {
+export function isInPageLinkClick(event: MouseEvent<Element>): boolean {
   return (
     !event.defaultPrevented &&
     event.button === PRIMARY_MOUSE_BUTTON &&

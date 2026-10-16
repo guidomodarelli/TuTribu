@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, cn } from "beez-ui";
+import { Button, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, cn } from "beez-ui";
 
 import { buildBuenosAiresInstant } from "@/lib/date-time/buenos-aires-format";
 import type { TribeEventProposalSubmission } from "@/lib/events/tribe-event-form-submissions";
@@ -97,6 +97,15 @@ function findFirstMissingField(values: ProposalFormValues): ProposalRequiredFiel
   return values.startsTime ? null : FIELD_ID.startsTime;
 }
 
+const DURATION_OPTIONS: SelectOption[] = TRIBE_EVENT_PROPOSAL_DURATION.options.map((minutes) => ({
+  label: COPY.durationOption(minutes),
+  value: String(minutes),
+}));
+const EVENT_TYPE_OPTIONS: SelectOption[] = TRIBE_EVENT_TYPES.map((eventType) => ({
+  label: TRIBE_EVENT_TYPE_LABEL[eventType],
+  value: eventType,
+}));
+
 function isTribeEventType(value: string): value is TribeEventType {
   return TRIBE_EVENT_TYPES.some((eventType) => eventType === value);
 }
@@ -170,11 +179,11 @@ export function TribeEventProposalFormDialog({
         }
       }}
     >
-      <DialogContent className={styles.TribeEventProposalFormDialog}>
-        <DialogHeader>
-          <DialogTitle>{COPY.title}</DialogTitle>
-          <DialogDescription>{COPY.description}</DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={styles.TribeEventProposalFormDialog}
+        title={COPY.title}
+        description={COPY.description}
+      >
         {/* Native validation is off so a missing field reaches the Spanish
             inline message instead of a browser-language bubble; `required`
             still tells assistive technology which fields are mandatory. */}
@@ -218,52 +227,26 @@ export function TribeEventProposalFormDialog({
               styles["TribeEventProposalFormDialog__row--selects"]
             )}
           >
-            <div className={styles.TribeEventProposalFormDialog__field}>
-              <label htmlFor={FIELD_ID.durationMinutes}>{COPY.durationLabel}</label>
-              <Select
-                value={values.durationMinutes}
-                onValueChange={(value) => updateField("durationMinutes", value)}
-              >
-                <SelectTrigger
-                  className={styles.TribeEventProposalFormDialog__select}
-                  id={FIELD_ID.durationMinutes}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TRIBE_EVENT_PROPOSAL_DURATION.options.map((minutes) => (
-                    <SelectItem key={minutes} value={String(minutes)}>
-                      {COPY.durationOption(minutes)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className={styles.TribeEventProposalFormDialog__field}>
-              <label htmlFor={FIELD_ID.eventType}>{COPY.eventTypeLabel}</label>
-              <Select
-                value={values.eventType}
-                onValueChange={(value) => {
-                  if (isTribeEventType(value)) {
-                    updateField("eventType", value);
-                  }
-                }}
-              >
-                <SelectTrigger
-                  className={styles.TribeEventProposalFormDialog__select}
-                  id={FIELD_ID.eventType}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TRIBE_EVENT_TYPES.map((eventType) => (
-                    <SelectItem key={eventType} value={eventType}>
-                      {TRIBE_EVENT_TYPE_LABEL[eventType]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select
+              className={styles.TribeEventProposalFormDialog__field}
+              id={FIELD_ID.durationMinutes}
+              label={COPY.durationLabel}
+              options={DURATION_OPTIONS}
+              value={values.durationMinutes}
+              onValueChange={(value) => updateField("durationMinutes", value)}
+            />
+            <Select
+              className={styles.TribeEventProposalFormDialog__field}
+              id={FIELD_ID.eventType}
+              label={COPY.eventTypeLabel}
+              options={EVENT_TYPE_OPTIONS}
+              value={values.eventType}
+              onValueChange={(value) => {
+                if (isTribeEventType(value)) {
+                  updateField("eventType", value);
+                }
+              }}
+            />
           </div>
           <Textarea
             id={FIELD_ID.description}

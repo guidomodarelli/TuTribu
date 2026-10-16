@@ -275,24 +275,6 @@
     padding-block: 0.25rem;
   }
 
-  &__field {
-    display: grid;
-    gap: 0.4rem;
-    min-width: 0;
-  }
-
-  &__dialogLabel {
-    color: var(--foreground);
-    font-size: 0.9rem;
-    font-weight: 500;
-    line-height: 1.4;
-  }
-
-  &__selectTrigger {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
 }
 
 @media (min-width: 40rem) {

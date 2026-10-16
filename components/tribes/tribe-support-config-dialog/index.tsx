@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { toast, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from "beez-ui";
+import { toast, Button, Dialog, DialogContent, Input, Select, type SelectOption, Textarea } from "beez-ui";
 
 import { TRIBE_SUPPORT_CHANNEL } from "@/src/modules/tribes/constants/tribe-support";
 import type {
@@ -53,6 +53,10 @@ const SUPPORT_DIALOG_BUTTON = {
 
 const SUPPORT_DIALOG_MESSAGE_MAX_LENGTH = 1000;
 
+const SUPPORT_CHANNEL_OPTIONS: SelectOption[] = [
+  { label: SUPPORT_DIALOG_COPY.whatsappOption, value: TRIBE_SUPPORT_CHANNEL.whatsapp },
+];
+
 type SupportSettingsPayload = {
   channel: TribeSupportChannel;
   message: string | null;
@@ -88,6 +92,7 @@ export function TribeSupportConfigDialog({
   const channelInputId = useId();
   const phoneInputId = useId();
   const messageInputId = useId();
+  const formId = useId();
   // Synchronous guard: two quick submits can run before `isSaving` re-renders.
   const isSubmittingRef = useRef(false);
   const [channel, setChannel] = useState<TribeSupportChannel>(() =>
@@ -184,46 +189,48 @@ export function TribeSupportConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className={styles.TribeSupportConfigDialog}>
-        <DialogHeader>
-          <DialogTitle>{SUPPORT_DIALOG_COPY.title}</DialogTitle>
-          <DialogDescription>
-            {SUPPORT_DIALOG_COPY.description}
-          </DialogDescription>
-        </DialogHeader>
-
+      <DialogContent
+        className={styles.TribeSupportConfigDialog}
+        title={SUPPORT_DIALOG_COPY.title}
+        description={SUPPORT_DIALOG_COPY.description}
+        footer={
+          <>
+            <Button
+              disabled={isSaving}
+              onClick={() => handleOpenChange(false)}
+              type={SUPPORT_DIALOG_BUTTON.cancelType}
+              variant={SUPPORT_DIALOG_BUTTON.secondaryVariant}
+            >
+              {SUPPORT_DIALOG_COPY.cancelLabel}
+            </Button>
+            <Button
+              aria-busy={isSaving || undefined}
+              disabled={isSaving}
+              form={formId}
+              type={SUPPORT_DIALOG_FORM.submitType}
+            >
+              {isSaving
+                ? SUPPORT_DIALOG_COPY.savingLabel
+                : SUPPORT_DIALOG_COPY.saveLabel}
+            </Button>
+          </>
+        }
+      >
         <form
+          id={formId}
           className={styles.TribeSupportConfigDialog__form}
           onSubmit={handleSubmit}
         >
-          <div className={styles.TribeSupportConfigDialog__field}>
-            <label
-              className={styles.TribeSupportConfigDialog__label}
-              htmlFor={channelInputId}
-            >
-              {SUPPORT_DIALOG_COPY.channelLabel}
-            </label>
-            <Select
-              value={channel}
-              onValueChange={(nextValue) =>
-                setChannel(nextValue as TribeSupportChannel)
-              }
-            >
-              <SelectTrigger
-                id={channelInputId}
-                className={styles.TribeSupportConfigDialog__selectTrigger}
-              >
-                <SelectValue
-                  placeholder={SUPPORT_DIALOG_COPY.channelPlaceholder}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={TRIBE_SUPPORT_CHANNEL.whatsapp}>
-                  {SUPPORT_DIALOG_COPY.whatsappOption}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select
+            id={channelInputId}
+            label={SUPPORT_DIALOG_COPY.channelLabel}
+            options={SUPPORT_CHANNEL_OPTIONS}
+            placeholder={SUPPORT_DIALOG_COPY.channelPlaceholder}
+            value={channel}
+            onValueChange={(nextValue) =>
+              setChannel(nextValue as TribeSupportChannel)
+            }
+          />
 
           <Input
             autoComplete={SUPPORT_DIALOG_FORM.phoneAutoComplete}
@@ -250,26 +257,6 @@ export function TribeSupportConfigDialog({
             placeholder={SUPPORT_DIALOG_COPY.messagePlaceholder}
             value={message}
           />
-
-          <DialogFooter>
-            <Button
-              disabled={isSaving}
-              onClick={() => handleOpenChange(false)}
-              type={SUPPORT_DIALOG_BUTTON.cancelType}
-              variant={SUPPORT_DIALOG_BUTTON.secondaryVariant}
-            >
-              {SUPPORT_DIALOG_COPY.cancelLabel}
-            </Button>
-            <Button
-              aria-busy={isSaving || undefined}
-              disabled={isSaving}
-              type={SUPPORT_DIALOG_FORM.submitType}
-            >
-              {isSaving
-                ? SUPPORT_DIALOG_COPY.savingLabel
-                : SUPPORT_DIALOG_COPY.saveLabel}
-            </Button>
-          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

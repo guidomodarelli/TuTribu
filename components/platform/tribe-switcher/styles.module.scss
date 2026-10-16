@@ -63,17 +63,9 @@
     }
   }
 
-  &__tribeName {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   &__activeIcon {
     width: 1rem;
     height: 1rem;
     flex: 0 0 auto;
-    margin-left: auto;
   }
 }

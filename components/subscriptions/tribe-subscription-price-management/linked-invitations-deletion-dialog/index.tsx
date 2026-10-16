@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { LoaderCircleIcon, Trash2Icon } from "lucide-react";
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AnimatedCollapse, cn } from "beez-ui";
+import { Button, Dialog, DialogContent, Select, AnimatedCollapse, cn } from "beez-ui";
 
 import type { TribeInvitationListItemResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import styles from "./styles.module.scss";
@@ -285,7 +285,42 @@ function LinkedInvitationsDeletionDialogBody({
   };
 
   return (
-    <Fragment>
+    <DialogContent
+      className={styles.LinkedInvitationsDeletionDialog}
+      title={LINKED_INVITATIONS_DIALOG_COPY.title}
+      description={LINKED_INVITATIONS_DIALOG_COPY.description}
+      footer={
+        <>
+          <Button
+            disabled={isSubmitting}
+            onClick={onCancel}
+            type={BUTTON_TYPE}
+            variant={BUTTON_VARIANT.secondary}
+          >
+            {LINKED_INVITATIONS_DIALOG_COPY.cancelButton}
+          </Button>
+          <Button
+            aria-busy={isSubmitting || undefined}
+            disabled={isSubmitting || !allRowsResolved}
+            onClick={handleConfirm}
+            type={BUTTON_TYPE}
+            variant={BUTTON_VARIANT.danger}
+          >
+            {isSubmitting ? (
+              <LoaderCircleIcon
+                aria-hidden
+                className={styles.LinkedInvitationsDeletionDialog__spinner}
+              />
+            ) : (
+              <Trash2Icon aria-hidden />
+            )}
+            {isSubmitting
+              ? LINKED_INVITATIONS_DIALOG_COPY.confirmPendingButton
+              : LINKED_INVITATIONS_DIALOG_COPY.confirmButton}
+          </Button>
+        </>
+      }
+    >
       <p className={styles.LinkedInvitationsDeletionDialog__intro}>
         {LINKED_INVITATIONS_DIALOG_COPY.intro} ({invitations.length})
       </p>
@@ -309,86 +344,55 @@ function LinkedInvitationsDeletionDialogBody({
               <div
                 className={styles.LinkedInvitationsDeletionDialog__itemControls}
               >
-                <label
-                  className={
-                    styles.LinkedInvitationsDeletionDialog__controlLabel
-                  }
-                  htmlFor={ACTION_INPUT_ID_PREFIX + invitation.id}
-                >
-                  {LINKED_INVITATIONS_DIALOG_COPY.selectActionLabel}
-                </label>
                 <Select
+                  id={ACTION_INPUT_ID_PREFIX + invitation.id}
+                  label={LINKED_INVITATIONS_DIALOG_COPY.selectActionLabel}
                   onValueChange={(value) =>
                     handleActionChange(invitation.id, value)
                   }
+                  options={[
+                    {
+                      label: LINKED_INVITATIONS_DIALOG_COPY.optionSwitchToCurrentLabel,
+                      value: ACTION_VALUE.switchToCurrent,
+                    },
+                    {
+                      disabled: !hasTargetOptions,
+                      label: LINKED_INVITATIONS_DIALOG_COPY.optionSwitchToSpecificLabel,
+                      value: ACTION_VALUE.switchToSpecific,
+                    },
+                    {
+                      label: LINKED_INVITATIONS_DIALOG_COPY.optionRevokeLabel,
+                      value: ACTION_VALUE.revoke,
+                    },
+                  ]}
+                  placeholder={LINKED_INVITATIONS_DIALOG_COPY.actionPlaceholder}
                   value={selection.action}
-                >
-                  <SelectTrigger id={ACTION_INPUT_ID_PREFIX + invitation.id}>
-                    <SelectValue
-                      placeholder={
-                        LINKED_INVITATIONS_DIALOG_COPY.actionPlaceholder
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ACTION_VALUE.switchToCurrent}>
-                      {
-                        LINKED_INVITATIONS_DIALOG_COPY.optionSwitchToCurrentLabel
-                      }
-                    </SelectItem>
-                    <SelectItem
-                      disabled={!hasTargetOptions}
-                      value={ACTION_VALUE.switchToSpecific}
-                    >
-                      {
-                        LINKED_INVITATIONS_DIALOG_COPY.optionSwitchToSpecificLabel
-                      }
-                    </SelectItem>
-                    <SelectItem value={ACTION_VALUE.revoke}>
-                      {LINKED_INVITATIONS_DIALOG_COPY.optionRevokeLabel}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                />
                 <AnimatedCollapse
                   className={
                     styles.LinkedInvitationsDeletionDialog__conditionalControls
                   }
                   isOpen={selection.action === ACTION_VALUE.switchToSpecific}
                 >
-                  <label
-                    className={
-                      styles.LinkedInvitationsDeletionDialog__controlLabel
-                    }
-                    htmlFor={TARGET_INPUT_ID_PREFIX + invitation.id}
-                  >
-                    {LINKED_INVITATIONS_DIALOG_COPY.selectTargetLabel}
-                  </label>
                   {hasTargetOptions ? (
                     <Select
+                      id={TARGET_INPUT_ID_PREFIX + invitation.id}
+                      label={LINKED_INVITATIONS_DIALOG_COPY.selectTargetLabel}
                       onValueChange={(value) =>
                         handleTargetChange(invitation.id, value)
                       }
+                      options={targetPriceOptions.map((price) => ({
+                        label:
+                          price.name +
+                          TARGET_LABEL_SEPARATOR +
+                          formatPlanAmount(price.amountCents),
+                        value: price.id,
+                      }))}
+                      placeholder={
+                        LINKED_INVITATIONS_DIALOG_COPY.selectTargetPlaceholder
+                      }
                       value={selection.targetPriceId}
-                    >
-                      <SelectTrigger
-                        id={TARGET_INPUT_ID_PREFIX + invitation.id}
-                      >
-                        <SelectValue
-                          placeholder={
-                            LINKED_INVITATIONS_DIALOG_COPY.selectTargetPlaceholder
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {targetPriceOptions.map((price) => (
-                          <SelectItem key={price.id} value={price.id}>
-                            {price.name}
-                            {TARGET_LABEL_SEPARATOR}
-                            {formatPlanAmount(price.amountCents)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   ) : (
                     <p
                       className={
@@ -422,36 +426,7 @@ function LinkedInvitationsDeletionDialogBody({
           );
         })}
       </ol>
-      <DialogFooter>
-        <Button
-          disabled={isSubmitting}
-          onClick={onCancel}
-          type={BUTTON_TYPE}
-          variant={BUTTON_VARIANT.secondary}
-        >
-          {LINKED_INVITATIONS_DIALOG_COPY.cancelButton}
-        </Button>
-        <Button
-          aria-busy={isSubmitting || undefined}
-          disabled={isSubmitting || !allRowsResolved}
-          onClick={handleConfirm}
-          type={BUTTON_TYPE}
-          variant={BUTTON_VARIANT.danger}
-        >
-          {isSubmitting ? (
-            <LoaderCircleIcon
-              aria-hidden
-              className={styles.LinkedInvitationsDeletionDialog__spinner}
-            />
-          ) : (
-            <Trash2Icon aria-hidden />
-          )}
-          {isSubmitting
-            ? LINKED_INVITATIONS_DIALOG_COPY.confirmPendingButton
-            : LINKED_INVITATIONS_DIALOG_COPY.confirmButton}
-        </Button>
-      </DialogFooter>
-    </Fragment>
+    </DialogContent>
   );
 }
 
@@ -481,26 +456,29 @@ export function LinkedInvitationsDeletionDialog({
     }
   };
 
+  // Each opening starts from empty selections. The body stays mounted while
+  // the dialog closes, so the panel animates out with the rows it showed.
+  const [openingCount, setOpeningCount] = useState(0);
+  const [wasOpen, setWasOpen] = useState(open);
+
+  if (open !== wasOpen) {
+    setWasOpen(open);
+
+    if (open) {
+      setOpeningCount((currentCount) => currentCount + 1);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className={styles.LinkedInvitationsDeletionDialog}>
-        <DialogHeader>
-          <DialogTitle>{LINKED_INVITATIONS_DIALOG_COPY.title}</DialogTitle>
-          <DialogDescription>
-            {LINKED_INVITATIONS_DIALOG_COPY.description}
-          </DialogDescription>
-        </DialogHeader>
-        {open ? (
-          <LinkedInvitationsDeletionDialogBody
-            invitations={invitations}
-            isSubmitting={isSubmitting}
-            key={buildSelectionsKey(invitations)}
-            onCancel={onCancel}
-            onConfirm={onConfirm}
-            targetPriceOptions={targetPriceOptions}
-          />
-        ) : null}
-      </DialogContent>
+      <LinkedInvitationsDeletionDialogBody
+        invitations={invitations}
+        isSubmitting={isSubmitting}
+        key={`${openingCount}-${buildSelectionsKey(invitations)}`}
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+        targetPriceOptions={targetPriceOptions}
+      />
     </Dialog>
   );
 }

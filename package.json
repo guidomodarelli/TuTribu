@@ -43,7 +43,7 @@
     "@better-auth/drizzle-adapter": "^1.6.11",
     "@github/relative-time-element": "^5.0.0",
     "@next/env": "^16.3.4",
-    "beez-ui": "^2.7.1",
+    "beez-ui": "^3.0.0",
     "better-auth": "^1.6.11",
     "drizzle-orm": "^0.45.2",
     "emoji-picker-react": "^4.19.1",

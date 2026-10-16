@@ -24,7 +24,7 @@ import {
   VideoIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, cn } from "beez-ui";
+import { toast, Button, Input, Select, type SelectOption, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, cn } from "beez-ui";
 
 
 
@@ -187,6 +187,11 @@ const STORY_MODE_TAB = {
   edit: "edit",
   preview: "preview",
 } as const;
+
+const MEDIA_TYPE_OPTIONS: SelectOption[] = [
+  { label: TRIBE_STORY_MANAGEMENT_COPY.mediaTypeImage, value: TRIBE_STORY_MEDIA_TYPE.image },
+  { label: TRIBE_STORY_MANAGEMENT_COPY.mediaTypeVideo, value: TRIBE_STORY_MEDIA_TYPE.video },
+];
 
 const UPLOAD_IMAGE_MIME_PREFIX = "image/";
 const UPLOAD_MAX_MEGABYTES = 10;
@@ -1337,41 +1342,18 @@ export function TribeStoryManagement({
                               position={mediaIndex + 1}
                             />
                             <div className={styles.TribeStoryManagement__mediaFields}>
-                              <div className={styles.TribeStoryManagement__field}>
-                                <label
-                                  className={styles.TribeStoryManagement__fieldLabel}
-                                  htmlFor={mediaTypeSelectId}
-                                >
-                                  {TRIBE_STORY_MANAGEMENT_COPY.mediaTypeLabel}
-                                </label>
-                                <Select
-                                  onValueChange={(value) =>
-                                    updateMediaItem(mediaItem.clientId, {
-                                      mediaType: value as TribeStoryMediaType,
-                                    })
-                                  }
-                                  value={mediaItem.mediaType}
-                                >
-                                  <SelectTrigger
-                                    className={styles.TribeStoryManagement__selectTrigger}
-                                    id={mediaTypeSelectId}
-                                  >
-                                    <SelectValue
-                                      placeholder={
-                                        TRIBE_STORY_MANAGEMENT_COPY.mediaTypePlaceholder
-                                      }
-                                    />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value={TRIBE_STORY_MEDIA_TYPE.image}>
-                                      {TRIBE_STORY_MANAGEMENT_COPY.mediaTypeImage}
-                                    </SelectItem>
-                                    <SelectItem value={TRIBE_STORY_MEDIA_TYPE.video}>
-                                      {TRIBE_STORY_MANAGEMENT_COPY.mediaTypeVideo}
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                              <Select
+                                id={mediaTypeSelectId}
+                                label={TRIBE_STORY_MANAGEMENT_COPY.mediaTypeLabel}
+                                onValueChange={(value) =>
+                                  updateMediaItem(mediaItem.clientId, {
+                                    mediaType: value as TribeStoryMediaType,
+                                  })
+                                }
+                                options={MEDIA_TYPE_OPTIONS}
+                                placeholder={TRIBE_STORY_MANAGEMENT_COPY.mediaTypePlaceholder}
+                                value={mediaItem.mediaType}
+                              />
                               <div className={styles.TribeStoryManagement__field}>
                                 <label
                                   className={styles.TribeStoryManagement__fieldLabel}

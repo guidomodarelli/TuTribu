@@ -369,12 +369,6 @@
     min-width: 0;
   }
 
-  &__selectTrigger {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-
   &__uploadRow {
     display: grid;
     grid-template-columns: minmax(0, 1fr);

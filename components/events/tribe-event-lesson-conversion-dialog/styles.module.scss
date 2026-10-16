@@ -10,18 +10,6 @@
     min-width: 0;
   }
 
-  &__field {
-    display: grid;
-    gap: 0.4rem;
-    min-width: 0;
-    font-weight: 500;
-  }
-
-  &__select {
-    width: 100%;
-    min-width: 0;
-  }
-
   &__muted,
   &__resultText {
     margin: 0;

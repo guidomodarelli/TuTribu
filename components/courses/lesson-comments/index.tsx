@@ -9,7 +9,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { toast, Avatar, AvatarFallback, AvatarImage, Button, AnimatedListItem, Textarea } from "beez-ui";
+import { toast, Avatar, Button, AnimatedListItem, Textarea } from "beez-ui";
 
 import { LESSON_COMMENT_CONTENT } from "@/src/modules/courses/constants/courses";
 import type { LessonCommentResult } from "@/src/modules/courses/application/results/course-results";
@@ -397,12 +397,13 @@ export function LessonComments({ lessonId, tribeSlug }: LessonCommentsProps) {
               key={comment.id}
             >
               <div className={styles.LessonComments__itemHeader}>
-                <Avatar size="sm">
-                  <AvatarImage src={comment.authorImageUrl} />
-                  <AvatarFallback>
-                    {comment.authorName.slice(0, 1).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                {/* Decorative: the author name is shown next to it. */}
+                <Avatar
+                  aria-hidden
+                  name={comment.authorName}
+                  size="sm"
+                  src={comment.authorImageUrl}
+                />
                 <span className={styles.LessonComments__authorName}>
                   {comment.authorName}
                 </span>

@@ -3,7 +3,9 @@
 .TribeEventDetailDialog {
   width: min(100% - 2rem, 36rem);
 
-  &__titleRow {
+  // Type and status badges, drawn in the header between the title and the
+  // schedule.
+  &__badges {
     display: flex;
     flex-wrap: wrap;
     align-items: center;

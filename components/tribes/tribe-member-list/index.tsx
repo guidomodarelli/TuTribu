@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence } from "motion/react";
-import { Avatar, AvatarFallback, AvatarImage, Badge, AnimatedListItem, PresenceSwap } from "beez-ui";
+import { Avatar, Badge, AnimatedListItem, PresenceSwap } from "beez-ui";
 
 import { FreeInvitationAvatarFrame } from "@/components/tribes/free-invitation-avatar-frame";
 import type {
@@ -36,9 +36,6 @@ const MEMBER_LIST_PRESENCE_KEY = {
   list: "list",
 } as const;
 
-/** Decorative avatar alt: the member name is already rendered next to it. */
-const DECORATIVE_IMAGE_ALT = "";
-
 const POSITION_ATTRIBUTES = {
   ariaHidden: true,
 } as const;
@@ -66,7 +63,7 @@ const TRIBE_MEMBER_LIST_COPY = {
 } as const;
 
 const TRIBE_MEMBER_LIST_ATTRIBUTES = {
-  outlineBadgeVariant: "outline",
+  avatarSize: "lg",
 } as const;
 
 export type TribeMemberSelectionBadge = {
@@ -93,7 +90,6 @@ function TribeMemberRoleBadge({ role }: { role: TribeMemberRole }) {
       className={`${styles.TribeMemberList__roleBadge} ${
         styles[`TribeMemberList__roleBadge--${role}`]
       }`}
-      variant={TRIBE_MEMBER_LIST_ATTRIBUTES.outlineBadgeVariant}
     >
       {TRIBE_MEMBER_LIST_COPY.roleLabel[role]}
     </Badge>
@@ -128,7 +124,6 @@ function TribeMemberSelectionBadges({
               aria-label={`${selection.label}, ${countLabel}`}
               className={styles.TribeMemberList__selectionBadge}
               title={countLabel}
-              variant={TRIBE_MEMBER_LIST_ATTRIBUTES.outlineBadgeVariant}
             >
               <span className={styles.TribeMemberList__selectionBadgeLabel}>
                 {selection.label}
@@ -185,12 +180,15 @@ export function TribeMemberList({
               const showFreeFrame =
                 canViewFreeInvitations && member.joinedViaFreeInvitation;
               const avatar = (
-                <Avatar className={styles.TribeMemberList__avatar}>
-                  {member.image ? (
-                    <AvatarImage alt={DECORATIVE_IMAGE_ALT} src={member.image} />
-                  ) : null}
-                  <AvatarFallback>{member.avatarFallback}</AvatarFallback>
-                </Avatar>
+                // Decorative: the member name is shown next to it.
+                <Avatar
+                  aria-hidden
+                  className={styles.TribeMemberList__avatar}
+                  fallback={member.avatarFallback}
+                  name={member.name}
+                  size={TRIBE_MEMBER_LIST_ATTRIBUTES.avatarSize}
+                  src={member.image}
+                />
               );
 
               return (

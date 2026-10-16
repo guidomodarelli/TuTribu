@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence } from "motion/react";
 
-import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap } from "beez-ui";
+import { Badge, Button, Dialog, DialogContent, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap } from "beez-ui";
 
 import { TribeEventTypeBadge } from "@/components/events/tribe-event-type-badge";
 import {
@@ -50,10 +50,6 @@ const BODY_PRESENCE_KEY = {
   error: "error",
   list: "list",
   loading: "loading",
-} as const;
-const BADGE_VARIANT = {
-  outline: "outline",
-  secondary: "secondary",
 } as const;
 const BUTTON_ATTRIBUTE = {
   sizeSmall: "sm",
@@ -156,7 +152,7 @@ export function TribeEventProposalsPanel({
         <div className={styles.TribeEventProposalsPanel__heading}>
           <p className={styles.TribeEventProposalsPanel__title}>{proposal.title}</p>
           {canReviewProposals ? null : (
-            <Badge variant={isPending ? BADGE_VARIANT.outline : BADGE_VARIANT.secondary}>
+            <Badge>
               {TRIBE_EVENT_PROPOSAL_STATUS_LABEL[proposal.status]}
             </Badge>
           )}
@@ -309,13 +305,11 @@ export function TribeEventProposalsPanel({
         }
       }}
     >
-      <DialogContent className={styles.TribeEventProposalsPanel}>
-        <DialogHeader>
-          <DialogTitle>{canReviewProposals ? COPY.managerTitle : COPY.authorTitle}</DialogTitle>
-          <DialogDescription>
-            {canReviewProposals ? COPY.managerDescription : COPY.authorDescription}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={styles.TribeEventProposalsPanel}
+        title={canReviewProposals ? COPY.managerTitle : COPY.authorTitle}
+        description={canReviewProposals ? COPY.managerDescription : COPY.authorDescription}
+      >
         <PresenceSwap presenceKey={bodyPresenceKey}>{renderBody()}</PresenceSwap>
       </DialogContent>
     </Dialog>

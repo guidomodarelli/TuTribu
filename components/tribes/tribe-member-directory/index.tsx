@@ -8,7 +8,7 @@ import {
   TribeMemberList,
   type TribeMemberSelectionBadge,
 } from "@/components/tribes/tribe-member-list";
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, cn } from "beez-ui";
+import { Button, DropdownMenu, Input, cn } from "beez-ui";
 
 import type { TribeMemberResult } from "@/src/modules/tribes/application/results/tribe-member-result";
 import {
@@ -261,8 +261,21 @@ export function TribeMemberDirectory({
         </div>
         <div className={styles.TribeMemberDirectory__headerActions}>
           {canExportMembers ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <DropdownMenu
+              align={EXPORT_MENU.align}
+              items={[
+                {
+                  label: TRIBE_MEMBER_DIRECTORY_COPY.exportCsvLabel,
+                  onSelect: () => handleExport(MEMBER_EXPORT_FORMAT.csv),
+                },
+                {
+                  label: TRIBE_MEMBER_DIRECTORY_COPY.exportHtmlLabel,
+                  onSelect: () => handleExport(MEMBER_EXPORT_FORMAT.html),
+                },
+              ]}
+              label={TRIBE_MEMBER_DIRECTORY_COPY.exportMenuLabel}
+              side={EXPORT_MENU.side}
+              trigger={
                 <Button
                   className={styles.TribeMemberDirectory__exportTrigger}
                   disabled={!canExportFilteredMembers}
@@ -275,24 +288,8 @@ export function TribeMemberDirectory({
                   />
                   {TRIBE_MEMBER_DIRECTORY_COPY.exportTriggerLabel}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align={EXPORT_MENU.align}
-                aria-label={TRIBE_MEMBER_DIRECTORY_COPY.exportMenuLabel}
-                side={EXPORT_MENU.side}
-              >
-                <DropdownMenuItem
-                  onSelect={() => handleExport(MEMBER_EXPORT_FORMAT.csv)}
-                >
-                  {TRIBE_MEMBER_DIRECTORY_COPY.exportCsvLabel}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => handleExport(MEMBER_EXPORT_FORMAT.html)}
-                >
-                  {TRIBE_MEMBER_DIRECTORY_COPY.exportHtmlLabel}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              }
+            />
           ) : null}
           {canInviteMembers ? (
             <Link className={styles.TribeMemberDirectory__inviteCta} href={invitationsHref}>
