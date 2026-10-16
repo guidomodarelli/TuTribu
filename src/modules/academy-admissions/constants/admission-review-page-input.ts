@@ -7,7 +7,7 @@ import { admissionReviewDateRangeSchema, admissionReviewQuerySchema } from "./ad
 import { ADMISSION_REVIEW_ALL_STATUSES } from "./admission-review-selection";
 
 /** The page defaults to pending; all is explicit and becomes an absent API status restriction. */
-const reviewPageQuerySchema = admissionReviewDateRangeSchema.safeExtend({
+export const admissionReviewNavigationQuerySchema = admissionReviewDateRangeSchema.safeExtend({
   [ADMISSION_NAVIGATION.requestQuery]: z.uuid().optional(),
   limit: admissionReviewQuerySchema.shape.limit,
   status: z.union([z.literal(ADMISSION_REVIEW_ALL_STATUSES), admissionReviewQuerySchema.shape.status]).default(ADMISSION_REQUEST_STATUS.pending),
@@ -15,7 +15,10 @@ const reviewPageQuerySchema = admissionReviewDateRangeSchema.safeExtend({
   search: admissionReviewQuerySchema.shape.search,
   needsVerification: admissionReviewQuerySchema.shape.needsVerification,
   requiresExceptionReason: admissionReviewQuerySchema.shape.requiresExceptionReason,
-}).transform((query) => ({ ...query, status: query.status === ADMISSION_REVIEW_ALL_STATUSES ? undefined : query.status }));
+});
+
+/** Page input normalizes the navigation-only all sentinel without changing the reusable query boundary. */
+const reviewPageQuerySchema = admissionReviewNavigationQuerySchema.transform((query) => ({ ...query, status: query.status === ADMISSION_REVIEW_ALL_STATUSES ? undefined : query.status }));
 
 /** Selection never accepts account, role, session, tribe authority or an unbounded scan. */
 export const admissionReviewPageInputSchema = z.strictObject({ params: admissionTribeParamsSchema, query: reviewPageQuerySchema });

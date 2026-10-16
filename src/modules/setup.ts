@@ -569,6 +569,17 @@ export async function createAdmissionActivityRequestModule(usage: DatabaseConnec
   return { createPage: () => observations.createPage(routing.resolveTribe, currentUsage.useCases) };
 }
 
+/** @returns Only native request-history and canonical routing over the request connection, without a sender, keyring or general audit capability. */
+export async function createAdmissionReviewHistoryRequestModule() {
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.request);
+  const admission = buildAcademyAdmissionsModule({
+    accounts: createRequestAuthenticatedAccountProvider(), clock: () => new Date(),
+    execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
+  });
+  const routing = admission.createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
+  return { page: admission.createReviewHistoryQueryModule().createPage(routing.resolveTribe) };
+}
+
 /** @param usage - Native guarded connection purpose; creation uses maintenance with exact human authority. @returns Protected candidate creation and canonical routing without Inspector/Sender execution. */
 export async function createMessagingConnectionManagementRequestModule(usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.maintenance) {
   const databaseClient = await createServerDatabaseClient(usage);
