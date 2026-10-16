@@ -1,6 +1,6 @@
 # Validación del control de calidad
 
-Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras los cierres de T182, T192, T193, T194, T195 y T196 se conservan las 212 tareas: **180 completadas y 32 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
+Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras los cierres de T182, T192, T193, T194, T195, T196 y T197 se conservan las 212 tareas: **181 completadas y 31 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
 
 ## Historial por solicitud y cierre de T182
 
@@ -156,3 +156,11 @@ Tipos y lint actuales, build real de 1803 archivos de producto/2069 de overlay y
 El [CI exacto de `f9482ca5`](https://github.com/guidomodarelli/TuTribu/actions/runs/38873704524) terminó aprobado, con watcher consumido: 533 archivos y 5625 casos aprobados, 288 archivos y 830 casos omitidos y 55/55 páginas. Documenta el antecedente publicado; no acredita por anticipado el próximo commit documental.
 
 La [auditoría de T196](provider-extension-documentation.md) conserva source-trace contra ese código, checker sin errores, 32 capturas, doce vistas de manuales, ocho de arquitectura, cuatro recorridos y 184 enlaces válidos en Chromium/WebKit a 390/1280. Los contextos, factories, mappers, errores, capacidades reales, pasos futuros y significado de la evidencia se contrastan con el código actual. Es un cambio documental sin tests o runtime modificados; sus fuentes y revisión final quedan registradas separadamente. Sólo T196 se cierra: 180 completas/32 pendientes/212 totales. T197, SC-020 integral, T185, T211 y gates operativos permanecen abiertos.
+
+## Validación integral propia de US12 y cierre de T197
+
+La [auditoría integral de T197](provider-substitution-integral.md) acredita los cuatro AC y SC-020 con 160 locales en doce archivos completos, tres SQL de negocio con seis recorridos en dos cohortes, HTTP real y un SQL de readiness/activación propuesta. El informe completo cuatro/uno conserva el fallo del GET de metadatos de Neon; el caso original de lista completo pasa en un focal uno/cero con cuatro fuera del filtro y 2062 inputs comunes idénticos. No se afirma un único cinco/cero. La observación inicial de arranque HTTP fallida queda separada del caso aprobado en Node explícito.
+
+Cuatro recorridos Native UI de T195 se reutilizan con 2070 fuentes relevantes idénticas. Son 165 casos distintos ejecutados ahora y cuatro UI previos aplicables, 169 sin duplicados ni omisiones acreditadas. Lint completo de fronteras y tipos de tests terminan con cero; producto, dependencias y configuración no cambiaron y conservan la compilación anterior. La auditoría oficial posterior a los productores confirma cero ramas propias y tres originales. El [CI exacto de la base a167f4de](https://github.com/guidomodarelli/TuTribu/actions/runs/38876135304) pasó 533 archivos/5625 casos, 288 archivos/830 casos omitidos y 55 páginas; no acredita por anticipado este nuevo incremento.
+
+Sólo T197 se cierra: 181 completas/31 pendientes/212 totales. US12/SC-020 se verifica en su borde propio, sin acreditar recepción externa, hosting, cron o uso humano. T185, T211 y todos los gates operativos conservan sus tareas; la revisión y el nuevo commit/CI mantienen su evidencia propia.

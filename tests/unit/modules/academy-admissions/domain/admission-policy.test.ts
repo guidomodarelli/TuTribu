@@ -57,6 +57,20 @@ describe("admission policy configuration", () => {
     })).toMatchObject({ valid: true, warnings: ["phone_invitations_unavailable"] });
   });
 
+  it.each(["sms", "whatsapp"] as const)("should deny verified phone activation when %s has no prepared capability even with quota and countries", (phoneChannel) => {
+    // Given valid tenant/country/quota facts without an implemented prepared phone capability.
+    const policy = { ...fixtures.policies.manualPhoneOff, requiresAdditionalVerification: true, phoneChannel };
+
+    // When the real domain rule evaluates the requested operational phone configuration.
+    const result = validateAdmissionPolicyConfiguration(policy, {
+      tribeId: policy.tribeId, channelPrepared: false, verificationQuotaPositive: true,
+      usagePolicy: { tribeId: policy.tribeId, version: 1, allowedCountries: ["AR"], platformRestrictions: [] },
+    });
+
+    // Then another prepared channel or positive quota cannot authorize this missing capability.
+    expect(result).toMatchObject({ valid: false, reason: "verification_unavailable" });
+  });
+
   it("should reject an activation fact when its tenant differs from the policy", () => {
     const policy = { ...fixtures.policies.manualEmailOff, requiresAdditionalVerification: true };
     expect(validateAdmissionPolicyConfiguration(policy, {
