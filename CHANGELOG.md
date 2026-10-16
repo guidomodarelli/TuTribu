@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- La preparación interna de avisos conserva el contenido del correo junto con el grupo y permite recuperar el original sin duplicarlo; su envío automático sigue pendiente.
+
 - La preparación interna de avisos guarda el avance confirmado junto con sus grupos y puede retomarlo sin duplicarlos; la ejecución automática y el envío siguen pendientes.
 
 - La preparación interna de avisos puede recorrer lotes separados sin que un aviso omitido frene los siguientes; la ejecución automática y el envío de grupos siguen pendientes.
