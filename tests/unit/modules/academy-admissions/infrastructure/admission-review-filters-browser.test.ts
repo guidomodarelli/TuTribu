@@ -114,7 +114,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await expectBrowser(page.getByRole("heading", { name: applicants[0].name, exact: true })).toBeVisible();
               expect(listReads).toEqual([]);
               let filteredUrl = page.url();
-              if (recordFrames) await captureAdmissionReview(page, "review-filter-applied", forbidden, REVIEW_VALIDATION.captureFile);
+              if (recordFrames) {
+                await expectBrowser(page.getByText(ADMISSION_REVIEW_UI_COPY.reading, { exact: true })).toHaveCount(0);
+                await captureAdmissionReview(page, "review-filter-applied", forbidden, REVIEW_VALIDATION.captureFile);
+              }
               const form = page.getByRole("form", { name: ADMISSION_REVIEW_FILTER_COPY.title, exact: true });
               await form.screenshot({ path: join(artifacts, `${scenario.name}-${scenario.width}-filters.png`) });
               stage = "preserve_precise_cutoff";
