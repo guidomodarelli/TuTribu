@@ -1,6 +1,6 @@
 # API de decisiones por lote y recuperación original
 
-Avance parcial de T176/T183 sobre `6b6a54e401e4352845d69c2d7a59255f915df300`. Conserva **175 tareas completas y 37 pendientes de 212**. Instala composición y POST del lote y registra su namespace en el GET de operaciones originales. La selección múltiple, su confirmación en la bandeja y la integración completa de avisos mantienen sus tareas; este incremento no acredita los seis AC de US8 ni cierra T176, T183, T189 o T211.
+Avance parcial de T176/T183 guardado y subido en `33bc645fee9dd6a8f432d669b23788f75e3ca4e8`, sobre `6b6a54e401e4352845d69c2d7a59255f915df300`. Conserva **175 tareas completas y 37 pendientes de 212**. Instala composición y POST del lote y registra su namespace en el GET de operaciones originales. La selección múltiple, su confirmación en la bandeja y la integración completa de avisos mantienen sus tareas; este incremento no acredita los seis AC de US8 ni cierra T176, T183, T189 o T211.
 
 ## Recorrido implementado
 
@@ -40,7 +40,7 @@ La arquitectura pasó cuatro vistas y 28 regiones, Chromium/WebKit a 390/1280, s
 
 La primera conciliación de ramas se tomó mientras el productor final seguía vivo y registró una rama propia activa; no se eliminó ni se interpretó como una fuga. Tras consumir el resultado final dos/cero, la consulta oficial confirmó **cero ramas temporales propias**, conservando producción, piloto original y la rama ajena. No se aplicaron migraciones productivas ni se modificó el piloto.
 
-El [CI del padre documental `6b6a54e4`](https://github.com/guidomodarelli/TuTribu/actions/runs/38849827253) pasó 530 archivos y 5563 casos, con 285 archivos y 822 casos omitidos y 55 páginas. No valida los cambios posteriores de este lote. El nuevo checkpoint conserva su propia revisión y workflow.
+El [CI del padre documental `6b6a54e4`](https://github.com/guidomodarelli/TuTribu/actions/runs/38849827253) pasó 530 archivos y 5563 casos, con 285 archivos y 822 casos omitidos y 55 páginas. Pertenece al padre. El [CI propio de `33bc645f`](https://github.com/guidomodarelli/TuTribu/actions/runs/38852713182) terminó correctamente para ese head exacto: **531 archivos y 5595 casos aprobados**, **287 archivos y 824 casos omitidos**, tipos/lint y build de **55/55 páginas**. Las omisiones no se cuentan como Native ejecutados. La revisión del checkpoint terminó sin hallazgos sobre 21 modificados, nueve normativos, quince contextos y catorce recibos. Las ediciones posteriores del manual y sus fuentes locales conservan su revisión y validación propias.
 
 ## Alcance que continúa pendiente
 
