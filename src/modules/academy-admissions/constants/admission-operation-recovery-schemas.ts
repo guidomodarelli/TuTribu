@@ -17,8 +17,11 @@ import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthe
 import { allowlistImportPreviewSnapshotSchema, allowlistImportConfirmationSnapshotSchema } from "../application/results/allowlist-import-operation-schemas";
 import { admissionEmailSettingsChangeResultSchema } from "@/src/modules/notifications/application/results/admission-email-settings-result-schemas";
 import { admissionNotificationEmailSettingsChangeResultSchema } from "@/src/modules/notifications/constants/admission-notification-settings-schemas";
+import { ADMISSION_BATCH_DECISION_OPERATION } from "./admission-batch-decision";
+import { admissionBatchDecisionSnapshotSchema } from "./admission-batch-decision-schema";
 /** Infrastructure projects an own recovery envelope; PostgreSQL rows are not schema-validated. */
 export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("operationType", [
+  z.object({ operationType: z.literal(ADMISSION_BATCH_DECISION_OPERATION), operation: createAdmissionOperationStateSchema(admissionBatchDecisionSnapshotSchema) }),
   z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings), operation: createAdmissionOperationStateSchema(admissionEmailSettingsChangeResultSchema) }),
   z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.createPersonalInvitation), operation: createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema) }),
   z.object({ operationType: z.literal(REAUTHENTICATION_OPERATION.renamePersonalInvitation), operation: createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema) }),
@@ -43,6 +46,7 @@ export const admissionOperationRecoveryEnvelopeSchema = z.discriminatedUnion("op
 ]);
 /** Public recovery retains only the type/state/id and original confirmed result. */
 export const admissionOperationRecoverySchema = z.union([
+  z.intersection(z.object({ type: z.literal(ADMISSION_BATCH_DECISION_OPERATION) }), createAdmissionOperationStateSchema(admissionBatchDecisionSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.updateAdmissionEmailSettings) }), createAdmissionOperationStateSchema(admissionNotificationEmailSettingsChangeResultSchema)),
   z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.createPersonalInvitation) }), createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema)),
   z.intersection(z.object({ type: z.literal(REAUTHENTICATION_OPERATION.renamePersonalInvitation) }), createAdmissionOperationStateSchema(personalInvitationMutationSnapshotSchema)),
