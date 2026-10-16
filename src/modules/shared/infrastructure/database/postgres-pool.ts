@@ -2,6 +2,7 @@ import "server-only";
 
 import { Pool } from "pg";
 
+import { normalizePostgresSslMode } from "@/src/modules/shared/infrastructure/database/postgres-ssl-mode";
 import { createServerLogger } from "@/src/modules/shared/infrastructure/observability/server-logger";
 
 const POSTGRES_DEPENDENCY = "postgres";
@@ -94,7 +95,7 @@ export function createPostgresPool(input: CreatePostgresPoolInput) {
   });
   const pool = new Pool({
     ...POSTGRES_POOL_CONFIGURATION,
-    connectionString: input.connectionString,
+    connectionString: normalizePostgresSslMode(input.connectionString),
     onConnect: async (client) => {
       try {
         await client.query(IDLE_IN_TRANSACTION_GUARD.statement, [
