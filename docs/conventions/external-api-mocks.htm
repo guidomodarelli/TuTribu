@@ -44,7 +44,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <div class="section">
   <div class="section-num">01</div>
   <div class="section-title">Overview</div>
-<p>Con <code>MOCK_EXTERNAL_APIS=1</code>, <code>instrumentation.ts</code> arranca un interceptor de MSW (<code>msw/node</code>) al iniciar <code>next dev</code>. Ese interceptor responde las llamadas server-side a proveedores externos con una API en memoria. Los adapters de <code>infrastructure</code> no cambian: siguen haciendo <code>fetch</code> a las URLs reales, y MSW responde antes de que la request salga a la red.</p>
+<p>Con <code>MOCK_EXTERNAL_APIS=1</code>, <code>instrumentation-node.ts</code> arranca un interceptor de MSW (<code>msw/node</code>) al iniciar <code>next dev</code>. Ese interceptor responde las llamadas server-side a proveedores externos con una API en memoria. Los adapters de <code>infrastructure</code> no cambian: siguen haciendo <code>fetch</code> a las URLs reales, y MSW responde antes de que la request salga a la red.</p>
 <p>Por ahora solo se simula Mercado Pago. Cualquier otra request (Postgres, Better Auth, Google, Cloudflare, GitHub) pasa sin cambios a la red real (<code>onUnhandledFrame: "bypass"</code>).</p>
 </div>
 
@@ -59,7 +59,8 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
 <ul>
   <li>La regla de activación vive en <code>src/modules/shared/infrastructure/dev-mocks/external-api-mocks-activation.ts</code>.</li>
   <li>Si la flag aparece fuera de <code>next dev</code> (build, producción, tests), se ignora y se registra un warning <code>resolve-external-api-mocks-activation</code>.</li>
-  <li>El chequeo literal de <code>process.env.NODE_ENV</code> en <code>instrumentation.ts</code> permite que el build de producción elimine los imports de los mocks.</li>
+  <li>Next.js compila <code>instrumentation.ts</code> para los runtimes <code>nodejs</code> y <code>edge</code>, y <code>msw/node</code> no existe en edge. Por eso <code>instrumentation.ts</code> solo importa <code>instrumentation-node.ts</code> dentro de <code>if (process.env.NEXT_RUNTIME === "nodejs")</code>: Next.js reemplaza ese literal en cada bundle y el de edge descarta el import. Mantener el patrón de la guía de instrumentation de Next.js: si el bundle de edge llega a <code>msw/node</code>, todas las páginas responden 500 en <code>next dev</code> con <code>Module not found</code>, haya o no <code>MOCK_EXTERNAL_APIS</code>.</li>
+  <li>El chequeo literal de <code>process.env.NODE_ENV</code> en <code>instrumentation-node.ts</code> permite que el build de producción elimine los imports de los mocks.</li>
   <li>Al arrancar, el servidor registra el warning <code>start-external-api-mocks</code> con la lista <code>mockedProviders</code>, para que sea evidente que no se está usando el proveedor real.</li>
 </ul>
 <div class="code-block"><pre># .env.local
@@ -91,7 +92,7 @@ pnpm run dev</pre></div>
 <ul>
   <li>Crear los handlers en <code>src/modules/&lt;feature&gt;/infrastructure/&lt;provider&gt;/dev-mocks/</code>, con una factory que devuelva handlers con estado propio (<code>create&lt;Provider&gt;MockHandlers</code>).</li>
   <li>Reusar las URLs del adapter desde <code>src/modules/&lt;feature&gt;/constants/</code>, sin duplicarlas.</li>
-  <li>Registrar la fuente en <code>instrumentation.ts</code>, que es el único punto de composición. <code>shared</code> no importa módulos de feature.</li>
+  <li>Registrar la fuente en <code>instrumentation-node.ts</code>, que es el único punto de composición. <code>shared</code> no importa módulos de feature.</li>
   <li>Cubrir los handlers con un test de integración que ejecute el adapter real contra <code>setupServer</code> (ver <code>tests/integration/modules/subscriptions/mercado-pago-mock-handlers.test.ts</code>).</li>
 </ul>
 <div class="callout c-info">Estos mocks son tooling de desarrollo local. No reemplazan los tests unitarios e integrales de los adapters, ni la validación de base de datos en branches efímeras de Neon.</div>

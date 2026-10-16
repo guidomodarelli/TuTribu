@@ -16,6 +16,7 @@
     ".next/dev/types/**/*.ts",
     "config/cloudflare-scheduled-maintenance.ts",
     "instrumentation-client.ts",
+    "instrumentation-node.ts",
     "instrumentation.ts",
     "next.config.ts",
     "proxy.ts",
