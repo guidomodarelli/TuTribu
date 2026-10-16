@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useLayoutEffect, useRef, useState } from "react";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 
@@ -118,17 +118,13 @@ function findInvalidMaterialFieldId(rows: MaterialRow[]): string | null {
   return null;
 }
 
-/** Moves focus to the control with `fieldId` once it is in the document. */
+/** Moves focus to the control with `fieldId` when it is in the document. */
 function focusFieldById(fieldId: string): void {
-  // The target may be a row mounted in this same update, so focus waits for
-  // the next frame, when React has committed it.
-  requestAnimationFrame(() => {
-    const control = document.getElementById(fieldId);
+  const control = document.getElementById(fieldId);
 
-    if (control instanceof HTMLElement) {
-      control.focus();
-    }
-  });
+  if (control instanceof HTMLElement) {
+    control.focus();
+  }
 }
 
 function toMaterialRows(postEvent: TribeEventPostEventView | null): MaterialRow[] {
@@ -174,6 +170,25 @@ export function TribeEventPostEventFormDialog({
     setShownMaterialMessage(materialIssue.message);
   }
   const canAddMaterial = materialRows.length < TRIBE_EVENT_POST_EVENT_LIMIT.materialsMax;
+  // Control that takes the focus once the update that requested it commits.
+  // It may be a row mounted by that update, and a removed row stays mounted
+  // but inert while it leaves, so waiting for a frame would leave the focus
+  // on a control that can no longer be used.
+  const pendingFocusFieldIdRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const pendingFocusFieldId = pendingFocusFieldIdRef.current;
+
+    if (pendingFocusFieldId) {
+      pendingFocusFieldIdRef.current = null;
+      focusFieldById(pendingFocusFieldId);
+    }
+  });
+
+  /** Asks to focus `fieldId` right after the current update commits. */
+  const focusFieldAfterUpdate = (fieldId: string) => {
+    pendingFocusFieldIdRef.current = fieldId;
+  };
 
   const updateMaterial = (rowId: number, field: "title" | "url", value: string) => {
     setValidationIssue(null);
@@ -193,7 +208,7 @@ export function TribeEventPostEventFormDialog({
     ]);
     setNextRowId((currentId) => currentId + 1);
     // The new row is where the manager types next.
-    focusFieldById(FIELD_ID.materialTitle(nextRowId));
+    focusFieldAfterUpdate(FIELD_ID.materialTitle(nextRowId));
   };
 
   /** ARIA wiring that ties a material control to the shared validation message. */
@@ -207,7 +222,7 @@ export function TribeEventPostEventFormDialog({
     setMaterialRows((currentRows) => currentRows.filter((row) => row.id !== rowId));
     // The removed row took the focused button with it; "Agregar material"
     // is the next useful stop and is always shown after a removal.
-    focusFieldById(FIELD_ID.addMaterial);
+    focusFieldAfterUpdate(FIELD_ID.addMaterial);
   };
 
   const handleSubmit = (submitEvent: FormEvent<HTMLFormElement>) => {
@@ -221,7 +236,7 @@ export function TribeEventPostEventFormDialog({
 
     if (trimmedRecordingUrl && !isWebUrl(trimmedRecordingUrl)) {
       setValidationIssue({ fieldId: FIELD_ID.recordingUrl, message: COPY.invalidRecording });
-      focusFieldById(FIELD_ID.recordingUrl);
+      focusFieldAfterUpdate(FIELD_ID.recordingUrl);
       return;
     }
 
@@ -230,7 +245,7 @@ export function TribeEventPostEventFormDialog({
 
     if (invalidMaterialFieldId) {
       setValidationIssue({ fieldId: invalidMaterialFieldId, message: COPY.invalidMaterial });
-      focusFieldById(invalidMaterialFieldId);
+      focusFieldAfterUpdate(invalidMaterialFieldId);
       return;
     }
 
