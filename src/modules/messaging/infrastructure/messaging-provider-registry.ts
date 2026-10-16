@@ -29,10 +29,10 @@ export class MessagingProviderRegistry{
   }
   /** @returns Non-secret catalog of actually registered providers; mutating its arrays cannot change resolution. */
   list():readonly {id:string;channels:readonly MessagingProviderChannel[]}[]{return[...this.descriptors.values()].map((descriptor)=>({id:descriptor.id,channels:[...descriptor.channels]}));}
-  /** @param providerId - Exact authorized provider identity. @param channel - Requested implemented channel when relevant. @returns Only that exact adapter. @throws MessagingConnectionOperationError when identity/channel has no implementation. */
+  /** @param providerId - Exact authorized provider identity. @param channel - Requested implemented channel; only undefined omits channel selection. @returns Only that exact adapter. @throws MessagingConnectionOperationError when identity/channel has no implementation. */
   resolve(providerId:string,channel?:MessagingProviderChannel):MessagingProviderDescriptor{
     const descriptor=this.descriptors.get(providerId);
-    if(!descriptor||channel&&!descriptor.channels.includes(channel))throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability);
+    if(!descriptor||channel!==undefined&&!descriptor.channels.includes(channel))throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.missingCapability);
     return descriptor;
   }
 }

@@ -22,6 +22,37 @@ describe("explicit messaging provider registry",()=>{
     expect(()=>registry.resolve("synthetic-email","sms")).toThrow(expect.objectContaining({code:"missing_capability"}));
     expect(()=>registry.resolve("synthetic-email","whatsapp")).toThrow(expect.objectContaining({code:"missing_capability"}));expect(createInspector).not.toHaveBeenCalled();expect(createSender).not.toHaveBeenCalled();
   });
+  it("should keep public catalog mutation separate from registered identity and actual channel authority",()=>{
+    // Given metadata exposed to a JavaScript consumer, with no inspector or sender construction.
+    const createInspector=vi.fn(),createSender=vi.fn();
+    const descriptor={id:"synthetic-email",channels:["email"] as const,createInspector,createSender};
+    const registry=new MessagingProviderRegistry([descriptor]),catalog=registry.list();
+    expect(catalog).toEqual([{id:"synthetic-email",channels:["email"]}]);
+
+    // When a consumer changes its own returned object and channel array at runtime.
+    expect(Reflect.set(catalog[0],"id","zavu")).toBe(true);
+    expect(Reflect.set(catalog[0].channels,1,"sms")).toBe(true);
+    expect(catalog).toEqual([{id:"zavu",channels:["email","sms"]}]);
+
+    // Then fresh metadata and real resolution retain only the original email implementation.
+    expect(registry.list()).toEqual([{id:"synthetic-email",channels:["email"]}]);
+    expect(registry.resolve("synthetic-email","email")).toBe(descriptor);
+    expect(()=>registry.resolve("synthetic-email","sms")).toThrow(expect.objectContaining({code:"missing_capability"}));
+    expect(()=>registry.resolve("zavu","email")).toThrow(expect.objectContaining({code:"missing_capability"}));
+    expect(createInspector).not.toHaveBeenCalled();expect(createSender).not.toHaveBeenCalled();
+  });
+  it.each(["","__proto__","constructor","toString"])("should deny an unregistered runtime identity %j without constructing a default adapter",(providerId)=>{
+    const createInspector=vi.fn(),createSender=vi.fn();
+    const registry=new MessagingProviderRegistry([{id:"synthetic-email",channels:["email"],createInspector,createSender}]);
+    expect(()=>registry.resolve(providerId,"email")).toThrow(expect.objectContaining({code:"missing_capability"}));
+    expect(createInspector).not.toHaveBeenCalled();expect(createSender).not.toHaveBeenCalled();
+  });
+  it.each(["fax","",null,false,0])("should deny an unsupported runtime channel %j before constructing the registered real SDK adapter",(channel)=>{
+    // JavaScript callers can supply values outside TypeScript's compile-time channel union.
+    const fetch=vi.fn(),registry=new MessagingProviderRegistry([createZavuProviderDescriptor(fetch)]);
+    expect(()=>Reflect.apply(registry.resolve,registry,["zavu",channel])).toThrow(expect.objectContaining({code:"missing_capability"}));
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it("should reject duplicate provider identities rather than silently overriding a registered adapter",()=>{
     const descriptor=createZavuProviderDescriptor(vi.fn());
     expect(()=>new MessagingProviderRegistry([descriptor,descriptor])).toThrow(expect.objectContaining({code:"connection_incomplete"}));

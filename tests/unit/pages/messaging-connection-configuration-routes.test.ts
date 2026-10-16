@@ -5,6 +5,19 @@ import {describe,expect,it,vi} from "vitest";
 import {createMessagingConnectionConfigurationHandler} from "@/src/modules/messaging/infrastructure/api/messaging-connection-configuration-handler";
 
 describe("immutable configuration HTTP",()=>{
+  it.each(["fax","","EMAIL"])("should reject an unsupported channel %j before native composition or provider access",async(channel)=>{
+    // Given a confirmed configuration request with one invalid external channel value.
+    const open=vi.fn(),handler=createMessagingConnectionConfigurationHandler(open),connectionId=randomUUID();
+    const body={operationId:randomUUID(),confirmed:true,expectedVersion:1,channel,senderId:"synthetic-sender"};
+    const response=await handler(new Request(`https://tutribu.example.test/api/tribes/synthetic/messaging/connections/${connectionId}/configuration`,{
+      method:"PUT",headers:{origin:"https://tutribu.example.test","content-type":"application/json"},body:JSON.stringify(body),
+    }),{params:Promise.resolve({slug:"synthetic",connectionId})});
+
+    // Then the real input boundary closes the request before any sensitive service is opened.
+    expect(response.status).toBe(400);expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(await response.json()).toMatchObject({code:"invalid_input",requestId:expect.any(String)});
+    expect(open).not.toHaveBeenCalled();
+  });
   it("should reject invalid channels/resources and browser authority before composing sensitive services",async()=>{
     const open=vi.fn(),handler=createMessagingConnectionConfigurationHandler(open),connectionId=randomUUID(),context={params:Promise.resolve({slug:"synthetic",connectionId})},url=`https://tutribu.example.test/api/tribes/synthetic/messaging/connections/${connectionId}/configuration`,base={operationId:randomUUID(),confirmed:true,expectedVersion:1,channel:"email",senderId:"manual-sender"};
     for(const body of[{...base,expectedVersion:0},{...base,apiKey:"private-input"},{...base,channel:"whatsapp"},{...base,channel:"sms",templateId:"not-for-sms"},{...base,role:"leader"}])expect((await handler(new Request(url,{method:"PUT",headers:{origin:"https://tutribu.example.test","content-type":"application/json"},body:JSON.stringify(body)}),context)).status).toBe(400);
