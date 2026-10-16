@@ -56,6 +56,8 @@ import type { AdmissionContactChallengeDispatcher, AdmissionChallengeDispatchInt
 import type { ResolvedAdmissionChallengeDispatch } from "./infrastructure/verification/admission-verification-message-sender";
 import { AllowAdmissionRetryUseCase } from "./application/use-cases/allow-admission-retry-use-case";
 import { GetAdmissionReviewUseCases } from "./application/use-cases/get-admission-review-use-cases";
+import { GetAdmissionReviewHistoryUseCase } from "./application/use-cases/get-admission-review-history-use-case";
+import { PostgresAdmissionReviewHistoryReader } from "./infrastructure/repositories/postgres-admission-review-history-reader";
 import { GetAdmissionActivityAndMetricsUseCases } from "./application/use-cases/get-admission-activity-and-metrics-use-cases";
 import { GetAdmissionActivityPageUseCase } from "./application/use-cases/get-admission-activity-page-use-case";
 import type { ManageMessagingUsageUseCases } from "@/src/modules/messaging/application/use-cases/manage-messaging-usage-use-cases";
@@ -249,6 +251,10 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         /** @param resolveTribe - Canonical routing from the same request root. @param usage - The existing sole current country/quota owner. @returns A read-only page that keeps current and historical facts separate. */
         createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">, usage: Pick<ManageMessagingUsageUseCases, "read">) { return new GetAdmissionActivityPageUseCase(dependencies.accounts, { resolveTribe, observations, usage }, dependencies.clock); },
       };
+    },
+    /** @returns One request's current-authorized history without a keyring, provider or complete-audit capability. */
+    createReviewHistoryQueryModule() {
+      return { useCases: { history: new GetAdmissionReviewHistoryUseCase(resolveContext, new PostgresAdmissionReviewHistoryReader(executeScopedQuery)) } };
     },
     /** @param options - Live recovery state without provider/keyring access. @returns Current authorized read-only inbox/detail use cases. */
     createReviewQueryModule(options: { readRecoveryLock: () => Promise<boolean> }) {
