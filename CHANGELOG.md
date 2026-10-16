@@ -14,6 +14,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 - Al moverse con el teclado por una lista desplegable o un menú mientras todavía se está abriendo, el resaltado acompaña a la opción sin saltar al terminar.
 - En el menú «Elegir canal» al escribir un mensaje de la ronda, el emoji de cada canal queda en una columna del mismo ancho y centrado con su nombre, así todas las opciones se ven alineadas.
+- Al escribir un mensaje de la ronda, el título y el texto del mensaje usan el mismo fondo que la ventana, en lugar de verse como bloques de otro color en el modo oscuro.
 
 ## [1.7.3] - 2026-10-16
 
