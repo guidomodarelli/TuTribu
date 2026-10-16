@@ -14,6 +14,7 @@ import { MESSAGING_SECRET_HUMAN_OPERATIONS, MESSAGING_SECRET_DELIVERY_SCOPE } fr
 import { authorizeMessagingSecret, messagingSecretLifetimeIsCurrent } from "./postgres-messaging-secret-authorizer";
 import { appendMessagingAuthorizedExposure } from "./postgres-messaging-authorized-exposure";
 import { MESSAGING_AUTHORIZED_EXPOSURE } from "../../constants/messaging-authorized-exposure";
+import type { MarkedMessageDeliveryResourceAuthority } from "../message-delivery-resource-authority";
 
 type DatabaseExecutor = <Result>(actorUserId: string, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 type SecurityConfigReader = () => Promise<MessagingSecurityConfig>;
@@ -28,8 +29,9 @@ export class PostgresEncryptedSecretStore implements MessagingSecretStore {
    * @param accounts - Current server session/account for human access; worker access uses persisted attempt facts.
    * @param readSecurityConfig - Current external hosting-secret snapshot, never PostgreSQL-restored authority.
    * @param purpose - Fixed composition purpose; a public request cannot select worker authority.
+   * @param authorizeDeliveryResource - Purpose-specific native business guard, required before decrypting an explicitly grouped delivery.
    */
-  constructor(private readonly executeWithDatabase: DatabaseExecutor, private readonly accounts: MessagingAccountProvider, private readonly readSecurityConfig: SecurityConfigReader, private readonly purpose: MessagingSecretAccessContext["authorizationPurpose"]) {}
+  constructor(private readonly executeWithDatabase: DatabaseExecutor, private readonly accounts: MessagingAccountProvider, private readonly readSecurityConfig: SecurityConfigReader, private readonly purpose: MessagingSecretAccessContext["authorizationPurpose"], private readonly authorizeDeliveryResource?: MarkedMessageDeliveryResourceAuthority) {}
 
   /**
    * Revalidates under locks, samples the clock after waits/crypto and returns backend-only material.
@@ -50,7 +52,7 @@ export class PostgresEncryptedSecretStore implements MessagingSecretStore {
         if (!account || account.userId !== context.actorUserId || account.session.id !== context.sessionId || account.googleAccount?.id !== context.accountId || account.googleAccount.subject !== context.subject) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.authenticationRequired);
       } else if (context.operation !== MESSAGING_SECRET_DELIVERY_SCOPE.operation) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
       return await this.executeWithDatabase(actorUserId, async (database) => {
-        const authorization = await authorizeMessagingSecret(database, context);
+        const authorization = await authorizeMessagingSecret(database, context, false, this.authorizeDeliveryResource);
         const config = await this.readSecurityConfig();
         const assertConfig = (current: MessagingSecurityConfig) => {
           if (current.recoveryLocked || current.environment !== context.environment || current.securityEpoch !== context.securityEpoch || !current.keyrings[MESSAGING_KEY_PURPOSE.credential].keys.has(authorization.keyId)) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);

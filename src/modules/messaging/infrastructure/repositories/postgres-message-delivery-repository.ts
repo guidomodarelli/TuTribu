@@ -13,6 +13,11 @@ import { MESSAGING_AUTHORIZATION_PURPOSE } from "@/src/modules/messaging/constan
 import { MESSAGING_SECRET_DELIVERY_SCOPE } from "@/src/modules/messaging/constants/messaging-secret-access";
 import { MESSAGE_ATTEMPT_STATE, MESSAGE_AUTHORIZATION_OUTCOME, MESSAGE_COMPLETION_OUTCOME, MESSAGE_STORAGE_OPERATION } from "@/src/modules/messaging/constants/message-delivery";
 import {ADMISSION_VERIFICATION_PURPOSE} from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import { MessagingSecretAccessError } from "../../domain/errors/messaging-secret-access-error";
+import { MessagingCryptographyError } from "../encryption/messaging-cryptography-error";
+import type { QueuedMessageDeliveryResourceAuthority } from "../message-delivery-resource-authority";
+import { NOTIFICATION_GROUP_SUPPRESSION_AUDIT_EVENT, NOTIFICATION_GROUP_SUPPRESSION_AUDIT_RULE } from "../../constants/notification-group-authorization";
+import { MESSAGE_DELIVERY_STATE } from "../../constants/message-delivery";
 
 /** Each call owns a short guarded transaction; RPC and secret reads happen after it returns. */
 type DeliveryDatabaseExecutor = <Result>(actorUserId: string | null, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -27,8 +32,22 @@ export class PostgresMessageDeliveryRepository implements MessageDeliveryReposit
    * @param execute - Existing guarded maintenance/contributing-actor executor, never a nested checkout.
    * @param authorizeMaintenance - Mandatory current backend-purpose/bearer authority, without domain row locks.
    * @param readSecurityConfig - Local external epoch/recovery snapshot, without RPC under locks.
+   * @param focalScope - Optional existing purpose-specific launch scope.
+   * @param authorizeQueuedResource - Current business guard required before charging an explicitly grouped intent.
    */
-  constructor(private readonly execute: DeliveryDatabaseExecutor, private readonly authorizeMaintenance: DeliveryMaintenanceAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>,private readonly focalScope?:Readonly<FocalDeliveryDispatchScope>) {}
+  constructor(private readonly execute: DeliveryDatabaseExecutor, private readonly authorizeMaintenance: DeliveryMaintenanceAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>,private readonly focalScope?:Readonly<FocalDeliveryDispatchScope>, private readonly authorizeQueuedResource?: QueuedMessageDeliveryResourceAuthority) {}
+
+  /** @param database - Original transaction holding canonical current group/resource locks. @param claim - Exact original lease/CAS, without a possible-send marker. @param configuration - Original external epoch. @returns One audited suppression or stale CAS, without reserving or refunding any budget. */
+  private async suppressUnavailableGroupedResource(database: RequestDatabase, claim: ClaimedMessageDelivery, configuration: MessagingSecurityConfig): Promise<MessageDeliveryAuthorization> {
+    const changed = (await database.execute<{ version: number }>(sql`update public.message_deliveries delivery set state=${MESSAGE_DELIVERY_STATE.suppressed},last_outcome=${MESSAGING_ERROR_CODE.resourceUnavailable},lease_token=null,lease_until=null,version=version+1
+      where delivery.id=${claim.deliveryId} and delivery.tribe_id=${claim.tribeId} and delivery.version=${claim.version} and delivery.state=${MESSAGE_DELIVERY_STATE.queued} and delivery.lease_token=${claim.leaseToken}
+        and delivery.lease_until>clock_timestamp() and not exists(select 1 from public.message_delivery_attempts attempt where attempt.delivery_id=delivery.id) returning version`)).rows[0];
+    if (changed) await database.execute(sql`select public.record_messaging_delivery_audit(${claim.deliveryId},${MESSAGE_DELIVERY_STATE.queued},${claim.version},${NOTIFICATION_GROUP_SUPPRESSION_AUDIT_EVENT},${NOTIFICATION_GROUP_SUPPRESSION_AUDIT_RULE},${MESSAGING_ERROR_CODE.resourceUnavailable},null,null,clock_timestamp())`);
+    await this.authorizeMaintenanceAction(database, MESSAGE_STORAGE_OPERATION.authorize);
+    const current = await this.readSecurityConfig();
+    if (current.recoveryLocked || current.environment !== configuration.environment || current.securityEpoch !== configuration.securityEpoch) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
+    return { outcome: changed ? MESSAGE_AUTHORIZATION_OUTCOME.suppressed : MESSAGE_AUTHORIZATION_OUTCOME.stale, deliveryId: claim.deliveryId, deliveryVersion: changed?.version ?? null };
+  }
 
   /** @param context - Claimed or marked own identity. @param operation - Exact server action. @returns Nothing for a matching focal launch or a global backend worker. @throws Closed denial before crossing another request's queue scope. */
   private assertDispatchScope(context:FocalDeliveryDispatchScope|ClaimedMessageDelivery|AuthorizedDeliveryMessagingContext,operation:(typeof MESSAGE_STORAGE_OPERATION)[keyof typeof MESSAGE_STORAGE_OPERATION]):void{
@@ -80,8 +99,17 @@ export class PostgresMessageDeliveryRepository implements MessageDeliveryReposit
         if (configuration.recoveryLocked) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
         const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
         if (actor !== claim.contributingLeaderUserId) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.permissionDenied, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
-        const owned = (await database.execute(sql`select id from public.message_deliveries where id=${claim.deliveryId} and tribe_id=${claim.tribeId}`)).rows[0];
+        const owned = (await database.execute<{ id: string; notification_group_id: string | null; notification_group_audience: string | null }>(sql`select id,notification_group_id,notification_group_audience from public.message_deliveries where id=${claim.deliveryId} and tribe_id=${claim.tribeId}`)).rows[0];
         if (!owned) return { outcome: MESSAGE_AUTHORIZATION_OUTCOME.stale, deliveryId: claim.deliveryId, deliveryVersion: null };
+        if (owned.notification_group_id !== null || owned.notification_group_audience !== null) {
+          if (!this.authorizeQueuedResource) throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId });
+          const current = await this.authorizeQueuedResource(database, { tribeId: claim.tribeId, deliveryId: claim.deliveryId }, async (transaction, tribeId) => {
+            if (tribeId !== claim.tribeId) return false;
+            await this.authorizeMaintenanceAction(transaction, MESSAGE_STORAGE_OPERATION.authorize);
+            return true;
+          });
+          if (!current) return this.suppressUnavailableGroupedResource(database, claim, configuration);
+        }
         const marker = (await database.execute<{ outcome: MessageDeliveryAuthorization["outcome"]; attempt_id: string | null; delivery_version: number | null }>(sql`select * from public.authorize_messaging_delivery_attempt(${claim.deliveryId},${claim.leaseToken},${claim.version},${configuration.environment},${configuration.securityEpoch})`)).rows[0];
         await this.authorizeMaintenanceAction(database, MESSAGE_STORAGE_OPERATION.authorize);
         const afterMarker = await this.readSecurityConfig();
@@ -98,6 +126,7 @@ export class PostgresMessageDeliveryRepository implements MessageDeliveryReposit
       });
     } catch (error) {
       if (error instanceof MessagingDeliveryStorageError) throw error;
+      if (error instanceof MessagingSecretAccessError || error instanceof MessagingCryptographyError) throw new MessagingDeliveryStorageError(error instanceof MessagingSecretAccessError ? error.code : MESSAGING_ERROR_CODE.connectionIncomplete, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId, cause: error });
       throw new MessagingDeliveryStorageError(MESSAGING_ERROR_CODE.operationUnresolved, { operation: MESSAGE_STORAGE_OPERATION.authorize, deliveryId: claim.deliveryId, cause: error });
     }
   }

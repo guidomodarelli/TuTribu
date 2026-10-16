@@ -81,6 +81,7 @@ import { ZavuMessageStatusLookup } from "./infrastructure/zavu/zavu-message-stat
 import type { OriginalMessageContextQuery } from "./domain/repositories/message-status-lookup";
 import { ReadNotificationRecoveryOperationUseCase } from "./application/use-cases/read-notification-recovery-operation-use-case";
 import { PostgresNotificationRecoveryOperationReader } from "./infrastructure/repositories/postgres-notification-recovery-operation-reader";
+import { createAdmissionNotificationResourceAuthority } from "@/src/modules/notifications/infrastructure/messaging/admission-notification-resource-authority";
 
 /** The request owner selects a fixed slot and explicit live security source before exposing sensitive capabilities. */
 type MessagingRequestComposition = { selection: "selected" | "candidate" | "management"; readSecurityConfig: () => Promise<MessagingSecurityConfig> };
@@ -250,8 +251,9 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
 export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies) {
   if(dependencies.diagnosticScope&&dependencies.focalScope)throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
   const authorize = async () => dependencies.authorize();
-  const deliveries = new PostgresMessageDeliveryRepository(dependencies.execute, authorize, dependencies.readSecurityConfig,dependencies.focalScope??dependencies.diagnosticScope);
-  const secrets = new PostgresEncryptedSecretStore(dependencies.execute, { getAuthenticatedAccount: async () => null }, dependencies.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery);
+  const resourceAuthority = createAdmissionNotificationResourceAuthority(dependencies.readSecurityConfig);
+  const deliveries = new PostgresMessageDeliveryRepository(dependencies.execute, authorize, dependencies.readSecurityConfig,dependencies.focalScope??dependencies.diagnosticScope,resourceAuthority.queued);
+  const secrets = new PostgresEncryptedSecretStore(dependencies.execute, { getAuthenticatedAccount: async () => null }, dependencies.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery,resourceAuthority.marked);
   const privatePreparation = new PostgresVerificationDeliveryPreparation(dependencies.execute, secrets, dependencies.readSecurityConfig);
   const preparation: VerificationDeliveryPreparation = {
     /** @param context - Original backend worker scope. @param signal - Original deadline. @returns Material only while live backend authority remains current. */

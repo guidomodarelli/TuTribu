@@ -10,6 +10,7 @@ import { MESSAGING_CANDIDATE_IDLE_LIFETIME_MS, MESSAGING_SECRET_ATTEMPT_STATE, M
 import { GOOGLE_IDENTITY_PROVIDER } from "@/src/modules/auth/constants/google-identity-evidence";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import type { MarkedMessageDeliveryResourceAuthority } from "../message-delivery-resource-authority";
 
 type DatabaseInstant = string | Date;
 /** Contains only scope/lifetime facts; ciphertext is read separately after authorization. */
@@ -28,14 +29,23 @@ export function messagingSecretLifetimeIsCurrent(authorization: LockedMessagingS
  * @param database - Existing guarded transaction, with a server-derived actor.
  * @param context - Private scope that must be independently revalidated.
  * @param lockResourcesForWrite - Acquires exclusive resource locks immediately for a DB-only metadata mutation, avoiding shared-lock upgrades.
+ * @param authorizeDeliveryResource - Injected current whole-resource guard for explicitly grouped worker intents; absence closes that resource.
  * @returns Locked external/resource identity and the applicable time bounds.
  * @throws MessagingSecretAccessError when any current relationship is insufficient.
  */
-export async function authorizeMessagingSecret(database: RequestDatabase, context: MessagingSecretAccessContext, lockResourcesForWrite = false): Promise<LockedMessagingSecret> {
+export async function authorizeMessagingSecret(database: RequestDatabase, context: MessagingSecretAccessContext, lockResourcesForWrite = false, authorizeDeliveryResource?: MarkedMessageDeliveryResourceAuthority): Promise<LockedMessagingSecret> {
   const human = context.authorizationPurpose === MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader;
   const actorUserId = human ? context.actorUserId : context.contributingLeaderUserId;
   const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
   if (actor !== actorUserId) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+  if (!human) {
+    const source = (await database.execute<{ notification_group_id: string | null; notification_group_audience: string | null }>(sql`select notification_group_id,notification_group_audience from public.message_deliveries where id=${context.deliveryId} and tribe_id=${context.tribeId} and connection_id=${context.connectionId} and connection_version=${context.connectionVersion} and environment=${context.environment} and security_epoch=${context.securityEpoch}`)).rows[0];
+    if (source && (source.notification_group_id !== null || source.notification_group_audience !== null)) {
+      if (!authorizeDeliveryResource) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
+      // The injected owner takes its exclusive tribe/policy fence before the generic shared locks below.
+      await authorizeDeliveryResource(database, context);
+    }
+  }
   const expiresAt: Date[] = [];
   const notBefore: Date[] = [];
   if (human) {

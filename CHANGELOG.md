@@ -154,6 +154,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Security
 
+- El procesamiento interno de avisos por correo bloquea todo el grupo si cambian sus permisos o preferencias y conserva el aviso ante problemas reparables de protección; el envío automático sigue pendiente.
+
 - Los campos de códigos de ingreso, pruebas de mensajería y claves de conexión quedan excluidos de las capturas al reportar un problema.
 - Las referencias mínimas de tribus eliminadas quedan protegidas frente a su reactivación o reutilización.
 - Cambiar o perder el liderazgo activo suspende las conexiones del líder anterior en el mismo cambio, conservando las membresías, las invitaciones y el consumo.
