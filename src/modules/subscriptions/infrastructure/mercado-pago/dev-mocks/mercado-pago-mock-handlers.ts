@@ -3,7 +3,7 @@
  *
  * Answers the endpoints consumed by `mercado-pago-subscription-gateway` so
  * seller connections, price plans and member checkouts work without real
- * credentials. Development only: it is started from `instrumentation.ts`
+ * credentials. Development only: it is started from `instrumentation-node.ts`
  * when `MOCK_EXTERNAL_APIS` is on.
  *
  * @module mercado-pago-mock-handlers
