@@ -4,6 +4,7 @@ import type {AuthorizedMessagingContext} from "@/src/modules/messaging/domain/re
 import type {MessagingResourceInspector,MessagingTemplateInspector} from "@/src/modules/messaging/domain/repositories/messaging-connection-inspector";
 import type {MessageDeliverySender} from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 import type {VerificationDeliveryPreparation} from "./verification-delivery-preparation";
+import type {NotificationDeliveryPreparation} from "./notification-delivery-preparation";
 import {MessagingConnectionOperationError} from "@/src/modules/messaging/domain/errors/messaging-connection-operation-error";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 
@@ -19,6 +20,8 @@ export interface MessagingProviderDescriptor{
   createTemplateInspector?(context:AuthorizedMessagingContext,credential:string):MessagingTemplateInspector;
   /** @param preparation - Original protected attempt preparation. @returns Fresh portable sender without an arbitrary browser send entrypoint. */
   createSender(preparation:VerificationDeliveryPreparation):MessageDeliverySender;
+  /** @param preparation - Complete original notification authority and material. @returns A code-free sender only when this provider implements notification email. */
+  createNotificationSender?(preparation:NotificationDeliveryPreparation):MessageDeliverySender;
 }
 /** Infrastructure composition supplies the allowlist; neither browser input nor environment silently adds providers. */
 export class MessagingProviderRegistry{

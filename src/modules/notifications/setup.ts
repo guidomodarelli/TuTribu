@@ -1,4 +1,4 @@
-/** Composes the generic inbox and explicit native admission settings without creating delivery adapters. @module notifications-setup */
+/** Composes the generic inbox, native admission settings and explicitly authorized private email preparation. @module notifications-setup */
 import "server-only";
 import type { AuthenticatedFeatureDependencies } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import type { ResolveAdmissionContextUseCase } from "@/src/modules/academy-admissions/application/use-cases/resolve-admission-context-use-case";
@@ -31,6 +31,15 @@ import {
   purgeReadNotifications,
 } from "@/src/modules/notifications/application/use-cases/notification-use-cases";
 import type { NotificationRepository } from "@/src/modules/notifications/domain/repositories/notification-repository";
+import type { MessageDeliverySender } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
+import type { MessagingSecretStore } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import type { NotificationDeliveryPreparation } from "@/src/modules/messaging/infrastructure/notification-delivery-preparation";
+import { PostgresEncryptedSecretStore } from "@/src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store";
+import { MESSAGING_AUTHORIZATION_PURPOSE } from "@/src/modules/messaging/constants/messaging-connection";
+import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
+import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
+import { PostgresAdmissionNotificationDeliveryPreparation, type AdmissionNotificationPreparationExecutor } from "./infrastructure/repositories/postgres-admission-notification-delivery-preparation";
+import { createAdmissionNotificationResourceAuthority } from "./infrastructure/messaging/admission-notification-resource-authority";
 
 type NotificationsModuleDependencies = {
   notificationRepository: NotificationRepository;
@@ -83,4 +92,28 @@ export function buildAdmissionNotificationSettingsModule(dependencies: Authentic
     email: new AdmissionNotificationEmailSettingsUseCases(options.resolver, new PostgresAdmissionNotificationEmailSettingsRepository(execute, options.readSecurityConfig)),
   };
   return { useCases, createPage: (resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) => new GetAdmissionNotificationSettingsPageUseCase(dependencies.accounts, { ...useCases, resolveTribe }, dependencies.clock) };
+}
+
+/** @param dependencies - Explicit current job authority, original guarded executor, local security and registered code-free sender factory. @returns A private prepared sender and its guarded preparation port; no queue claim, endpoint or scheduler is activated. */
+export function buildAdmissionNotificationDeliveryModule(dependencies: { execute: AdmissionNotificationPreparationExecutor; authorize: () => Promise<boolean>; readSecurityConfig: () => Promise<MessagingSecurityConfig>; createSender: (preparation: NotificationDeliveryPreparation) => MessageDeliverySender }) {
+  const authority = createAdmissionNotificationResourceAuthority(dependencies.readSecurityConfig);
+  const secrets = new PostgresEncryptedSecretStore(dependencies.execute, { getAuthenticatedAccount: async () => null }, dependencies.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery, authority.marked);
+  const authorizedSecrets: MessagingSecretStore = {
+    /** @param context - Original private marker, independently checked by the real store. @returns Its transient credential after current job authority; native resource preparation must run again afterward. @throws MessagingSecretAccessError when job authority is lost after the secret transaction commits. */
+    async loadAuthorizedSecret(context) {
+      const credential = await secrets.loadAuthorizedSecret(context);
+      if (!await dependencies.authorize()) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+      return credential;
+    },
+  };
+  const privatePreparation = new PostgresAdmissionNotificationDeliveryPreparation(dependencies.execute, authorizedSecrets, dependencies.readSecurityConfig);
+  const preparation: NotificationDeliveryPreparation = {
+    /** @param context - Original already committed marker. @param signal - Original remaining run deadline. @returns Current backend-only material while the explicit job remains authorized. @throws MessagingSecretAccessError on lost current job authority. */
+    async prepare(context, signal) {
+      signal.throwIfAborted();
+      if (!await dependencies.authorize()) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+      return privatePreparation.prepare(context, signal);
+    },
+  };
+  return { sender: dependencies.createSender(preparation), preparation };
 }

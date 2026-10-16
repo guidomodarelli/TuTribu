@@ -1,6 +1,9 @@
 /** Composes current complete-group authority at the generic marker, secret and provider seams. @module admission-notification-resource-authority */
 import "server-only";
 import { sql } from "drizzle-orm";
+import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
+import type { CurrentAdmissionNotificationDelivery } from "../../domain/repositories/admission-notification-delivery-authority";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import type { QueuedMessageDeliveryResourceAuthority, MarkedMessageDeliveryResourceAuthority } from "@/src/modules/messaging/infrastructure/message-delivery-resource-authority";
 import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/errors/messaging-secret-access-error";
@@ -10,10 +13,8 @@ import { MESSAGING_SECRET_DELIVERY_SCOPE } from "@/src/modules/messaging/constan
 import { ADMISSION_NOTIFICATION_GROUP_AUTHORITY_CURRENT } from "../../constants/admission-notification-group-authority";
 import { PostgresAdmissionNotificationDeliveryAuthority } from "../repositories/postgres-admission-notification-delivery-authority";
 
-/** @param readSecurityConfig - Current local external configuration, with no provider RPC. @returns Distinct pre-marker and exact marked-resource guards for existing owner transactions. */
-export function createAdmissionNotificationResourceAuthority(readSecurityConfig: () => Promise<MessagingSecurityConfig>): { queued: QueuedMessageDeliveryResourceAuthority; marked: MarkedMessageDeliveryResourceAuthority } {
-  const queued: QueuedMessageDeliveryResourceAuthority = async (database, scope, authorize) => (await new PostgresAdmissionNotificationDeliveryAuthority(database, authorize, readSecurityConfig).read(scope)).status === ADMISSION_NOTIFICATION_GROUP_AUTHORITY_CURRENT;
-  const marked: MarkedMessageDeliveryResourceAuthority = async (database, context) => {
+/** @param database - Original guarded actor transaction. @param context - Confirmed marker, lease and consumed reservation. @param readSecurityConfig - Current local material only. @returns Complete original content and transient destination after current group and marker checks. @throws MessagingSecretAccessError on any closed marker/resource relationship. */
+export async function readCurrentMarkedAdmissionNotificationDelivery(database: RequestDatabase, context: AuthorizedDeliveryMessagingContext, readSecurityConfig: () => Promise<MessagingSecurityConfig>): Promise<CurrentAdmissionNotificationDelivery> {
     /** @param current - Original native transaction. @param tribeId - Exact existing delivery tenant. @returns Actual private principal and committed live marker, never a caller flag. */
     const authorize = async (current: typeof database, tribeId: string) => {
       if (tribeId !== context.tribeId || context.operation !== MESSAGING_SECRET_DELIVERY_SCOPE.operation) return false;
@@ -28,6 +29,12 @@ export function createAdmissionNotificationResourceAuthority(readSecurityConfig:
     };
     const result = await new PostgresAdmissionNotificationDeliveryAuthority(database, authorize, readSecurityConfig).read({ tribeId: context.tribeId, deliveryId: context.deliveryId });
     if (result.status !== ADMISSION_NOTIFICATION_GROUP_AUTHORITY_CURRENT || result.delivery.connectionId !== context.connectionId || result.delivery.connectionVersion !== context.connectionVersion || result.delivery.contributingLeaderUserId !== context.contributingLeaderUserId || result.delivery.environment !== context.environment || result.delivery.securityEpoch !== context.securityEpoch) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.resourceUnavailable);
-  };
+    return result.delivery;
+}
+
+/** @param readSecurityConfig - Current local external configuration, with no provider RPC. @returns Distinct pre-marker and exact marked-resource guards for existing owner transactions. */
+export function createAdmissionNotificationResourceAuthority(readSecurityConfig: () => Promise<MessagingSecurityConfig>): { queued: QueuedMessageDeliveryResourceAuthority; marked: MarkedMessageDeliveryResourceAuthority } {
+  const queued: QueuedMessageDeliveryResourceAuthority = async (database, scope, authorize) => (await new PostgresAdmissionNotificationDeliveryAuthority(database, authorize, readSecurityConfig).read(scope)).status === ADMISSION_NOTIFICATION_GROUP_AUTHORITY_CURRENT;
+  const marked: MarkedMessageDeliveryResourceAuthority = async (database, context) => { await readCurrentMarkedAdmissionNotificationDelivery(database, context, readSecurityConfig); };
   return { queued, marked };
 }

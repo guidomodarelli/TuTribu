@@ -14,3 +14,6 @@ export const ADMISSION_NOTIFICATION_GROUP_TEST_WAIT_SLICE_MS = 30_000;
 
 /** Leaves three real minutes for network-bound collection before the same five-minute bucket closes. */
 export const ADMISSION_NOTIFICATION_GROUP_TEST_COLLECTION_HEADROOM_MICROSECONDS = 3 * SECONDS_PER_MINUTE * MICROSECONDS_PER_SECOND;
+
+/** Keeps final-snapshot expiry waits below the unchanged native idle-transaction guard. */
+export const ADMISSION_NOTIFICATION_MARKER_EXPIRY_TEST_HEADROOM_MS = 5_000;
