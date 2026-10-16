@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.7.5] - 2026-10-16
+
 ### Fixed
 
 - Al escribir un mensaje de la ronda, la barra con los botones de imagen, adjunto, encuesta, video y «Elegir canal» tiene el mismo espacio arriba y abajo, en lugar de quedar pegada al pie de la ventana.
