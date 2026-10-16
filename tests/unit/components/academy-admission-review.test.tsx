@@ -10,6 +10,8 @@ import type { AdmissionReviewPageState } from "@/src/modules/academy-admissions/
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { readAdmissionReviewIntent, writeAdmissionReviewIntent } from "@/lib/academy-admissions/admission-review-intent";
 import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
+import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admissions/constants/admission-review-selection";
+import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
 
 const requestId = "2b71737c-2f11-4dbb-853d-080bda9628e5", operationId = "a86a3f18-a48e-4600-a057-f90e1931f7b0";
 const viewerId = "synthetic-reviewer", slug = "synthetic-academy";
@@ -20,7 +22,7 @@ function Providers({ children }: { children: ReactNode }) { return <AppRouterCon
 /** Provides only own public reviewer data and transport outcomes. */
 function fixture(selected = true) {
   const request: AdmissionReviewDto = { id: requestId, status: "pending", version: 1, submittedAt: "2026-10-07T01:00:00Z", expiresAt: "2026-11-06T01:00:00Z", source: "common", needsVerification: false, eligibilityReasons: [], applicant: { id: "synthetic-applicant", name: "Solicitante sintético" }, rawContact: "applicant@example.test", contact: { type: "email", maskedValue: "a•••@example.test", evidenceKind: "declared" }, evidence: { kind: "declared" }, eligibleActions: ["reject", "approve"], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null }, applicantMessage: "Quiero participar." };
-  const state: Extract<AdmissionReviewPageState, { kind: "ready" }> = { kind: "ready", viewerId, slug, renderedAt: "2026-10-07T01:00:00Z", page: { items: [request], nextCursor: null }, selected: selected ? request : null };
+  const state: Extract<AdmissionReviewPageState, { kind: "ready" }> = { kind: "ready", viewerId, slug, renderedAt: "2026-10-07T01:00:00Z", filters: DEFAULT_ADMISSION_REVIEW_SELECTION, page: { items: [request], nextCursor: null }, selected: selected ? request : null };
   const client = {
     viewer: vi.fn<AdmissionReviewBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })),
     reviewList: vi.fn<AdmissionReviewBrowserClient["reviewList"]>(async () => ({ status: "ready", value: { items: [request], nextCursor: null } })),
@@ -42,6 +44,134 @@ async function confirmDecision() {
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 
 describe("native reviewer container", () => {
+  it("should clear unapplied filter edits when restoring the already active pending selection", async () => {
+    const data = fixture(false);
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset })).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Búsqueda"), { target: { value: "Todavía sin aplicar" } });
+    fireEvent.change(screen.getByLabelText("Desde (UTC)"), { target: { value: "2026-10-01T10:00" } });
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.reset }));
+    expect(screen.getByLabelText("Búsqueda")).toHaveValue("");
+    expect(screen.getByLabelText("Desde (UTC)")).toHaveValue("");
+    expect(router.push).toHaveBeenCalledExactlyOnceWith(`/${slug}/academia/admissions?limit=25&status=pending`);
+    expect(data.client.decide).not.toHaveBeenCalled();
+  });
+
+  it("should retain a decided row that still matches all statuses and show its current terminal status", async () => {
+    const data = fixture();
+    data.state.filters = { limit: 25 };
+    render(data.node, { wrapper: Providers }); await confirmDecision();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve }));
+    await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete);
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close }));
+    expect(await screen.findByText(data.request.applicant.name)).toBeVisible();
+    expect(screen.getByRole("heading", { name: data.request.applicant.name }).closest("li")).toHaveTextContent(/Aprobada · Solicitud común/);
+    expect(data.client.reviewList).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should clear a resolved proof restriction after rejection and keep the terminal row only when its filters allow it", async () => {
+    const data = fixture();
+    data.state.filters = { limit: 25 };
+    data.request.needsVerification = true; data.request.eligibilityReasons = ["local_proof_required"]; data.request.eligibleActions = ["reject"];
+    data.client.decide.mockResolvedValueOnce({ status: "ready", value: { admissionRequestId: requestId, status: "rejected", version: 2 } });
+    render(data.node, { wrapper: Providers }); await confirmDecision();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject }));
+    await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete);
+    expect(screen.queryByText("La persona necesita comprobar el contacto de esta solicitud antes de que pueda aprobarse.")).not.toBeInTheDocument();
+    expect(screen.getByText("Rechazada", { exact: true })).toBeVisible();
+    expect(screen.queryByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).not.toBeInTheDocument();
+  });
+
+  it.each(["needsVerification", "requiresExceptionReason"] as const)("should remove a decided row that no longer matches the applied %s filter", async (field) => {
+    const data = fixture();
+    data.state.filters = { limit: 25, [field]: true };
+    data.request.needsVerification = field === "needsVerification";
+    data.request.restrictions.requiresExceptionReason = field === "requiresExceptionReason";
+    data.request.eligibilityReasons = [field === "needsVerification" ? "local_proof_required" : "exception_reason_required"];
+    data.request.eligibleActions = field === "needsVerification" ? ["reject"] : ["reject", "approve"];
+    data.client.decide.mockResolvedValueOnce({ status: "ready", value: { admissionRequestId: requestId, status: "rejected", version: 2 } });
+    render(data.node, { wrapper: Providers }); await confirmDecision();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reject }));
+    await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete);
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close }));
+    expect(screen.queryByRole("heading", { name: data.request.applicant.name })).not.toBeInTheDocument();
+    expect(screen.getByText(ADMISSION_REVIEW_UI_COPY.empty)).toBeVisible();
+    expect(data.client.reviewList).not.toHaveBeenCalled();
+  });
+
+  it("should recheck a consumed SSR snapshot after Activity restores without an original operation", async () => {
+    const data = fixture(false);
+    const view = render(<Activity mode="visible">{data.node}</Activity>, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeEnabled());
+    expect(data.client.reviewList).not.toHaveBeenCalled();
+    view.rerender(<Activity mode="hidden">{data.node}</Activity>);
+    data.client.reviewList.mockResolvedValueOnce({ status: "failed", code: "permission_denied", message: "Ya no podés revisar solicitudes.", uncertain: false });
+    view.rerender(<Activity mode="visible">{data.node}</Activity>);
+    expect(await screen.findByText("Ya no podés revisar solicitudes.")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: data.request.applicant.name })).not.toBeInTheDocument();
+    expect(data.client.reviewList).toHaveBeenCalledExactlyOnceWith(slug, null, expect.any(AbortSignal), DEFAULT_ADMISSION_REVIEW_SELECTION);
+    expect(data.client.operation).not.toHaveBeenCalled();
+    expect(data.client.decide).not.toHaveBeenCalled();
+  });
+
+  it("should reuse the filtered SSR snapshot without another initial list or detail request", async () => {
+    const data = fixture(false);
+    data.state.filters = { limit: 25, source: "common", needsVerification: false, requiresExceptionReason: false };
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeEnabled());
+    expect(screen.getByText(data.request.applicant.name)).toBeVisible();
+    expect(screen.getByLabelText("Estado")).toHaveTextContent("Todos los estados");
+    expect(screen.getByLabelText("Comprobación de contacto")).toHaveTextContent("Sin ese requisito actual");
+    expect(data.client.reviewList).not.toHaveBeenCalled();
+    expect(data.client.reviewDetail).not.toHaveBeenCalled();
+    expect(data.client.viewer).toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should block reversed filter dates, clear the stale error after editing and navigate only to a validated own selection", async () => {
+    const data = fixture(false);
+    data.state.filters = { limit: 25, source: "common", needsVerification: false, requiresExceptionReason: true };
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply })).toBeEnabled());
+    const apply = screen.getByRole("button", { name: ADMISSION_REVIEW_FILTER_COPY.apply });
+    fireEvent.change(screen.getByLabelText("Búsqueda"), { target: { value: "  Ana + García  " } });
+    fireEvent.change(screen.getByLabelText("Desde (UTC)"), { target: { value: "2026-10-08T12:30" } });
+    fireEvent.change(screen.getByLabelText("Hasta (UTC)"), { target: { value: "2026-10-01T12:30" } });
+    fireEvent.click(apply);
+    expect(screen.getByRole("alert")).toHaveTextContent(ADMISSION_REVIEW_FILTER_COPY.invalid);
+    expect(router.push).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Hasta (UTC)"), { target: { value: "2026-10-09T12:30" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    fireEvent.click(apply);
+    expect(router.push).toHaveBeenCalledOnce();
+    const route = new URL(router.push.mock.calls[0][0], "https://tutribu.example.invalid");
+    expect(route.pathname).toBe(`/${slug}/academia/admissions`);
+    expect(Object.fromEntries(route.searchParams)).toEqual({ limit: "25", status: "all", source: "common", search: "Ana + García", needsVerification: "false", requiresExceptionReason: "true", submittedFrom: "2026-10-08T12:30:00Z", submittedUntil: "2026-10-09T12:30:00Z" });
+    expect(data.client.decide).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should advance an empty scanned page with the same applied filters and preserve that selection after opening and closing detail", async () => {
+    const data = fixture(false), cursor = "opaque-own-continuation";
+    data.state.page = { items: [], nextCursor: cursor };
+    data.state.filters = { limit: 25, status: "pending", source: "common", needsVerification: false, requiresExceptionReason: false, search: "Solicitante" };
+    render(data.node, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.loadMore })).toBeEnabled());
+    expect(screen.getByText(ADMISSION_REVIEW_FILTER_COPY.emptyPage)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.loadMore }));
+    expect(await screen.findByText(data.request.applicant.name)).toBeVisible();
+    expect(data.client.reviewList).toHaveBeenCalledExactlyOnceWith(slug, cursor, expect.any(AbortSignal), data.state.filters);
+    fireEvent.click(screen.getByRole("button", { name: `${ADMISSION_REVIEW_UI_COPY.detail}: ${data.request.applicant.name}` }));
+    await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close }));
+    expect(screen.getByLabelText("Búsqueda")).toHaveValue("Solicitante");
+    for (const call of data.client.reviewList.mock.calls) expect(call[3]).toEqual(data.state.filters);
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
   it("should preserve confirmed feedback when a current read of the same request fails", async () => {
     const data = fixture();
     render(data.node, { wrapper: Providers });
@@ -119,6 +249,12 @@ describe("native reviewer container", () => {
     const second = { ...data.request, id: secondRequestId, applicant: { ...data.request.applicant, name: "Otra solicitud" } };
     view.rerender(<AdmissionReviewRouteContainer initialState={{ ...data.state, selected: second }} client={data.client} />);
     await screen.findByRole("heading", { name: "Otra solicitud" });
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled());
+    expect(data.client.reviewDetail).not.toHaveBeenCalled();
+    expect(data.client.reviewList).not.toHaveBeenCalled();
+    // The new server snapshot owns the initial detail; only an explicit refresh reads it again.
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read }));
+    await waitFor(() => expect(data.client.reviewDetail).toHaveBeenCalled());
     expect(data.client.reviewDetail).toHaveBeenLastCalledWith(slug, secondRequestId, expect.any(AbortSignal));
     expect(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).toHaveValue("");
   });

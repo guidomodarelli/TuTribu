@@ -8,6 +8,8 @@ import { admissionOverviewSchema, admissionRequestSchema, admissionOutcomeSchema
 import { admissionReviewPageSchema } from "@/src/modules/academy-admissions/application/results/admission-review-page-result";
 import type { AdmissionReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-review-browser-client";
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
+import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admissions/constants/admission-review-selection";
+import { admissionReviewSelectionQuery } from "./admission-review-selection";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import type { AdmissionBrowserSubmission, AdmissionStartedResponse } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
 import type { AdmissionOutcomeDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
@@ -106,7 +108,7 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
       if (result.status === "ready" && ("state" in result.value ? result.value.operationId !== input.operationId.toLowerCase() : result.value.admissionRequestId !== requestId.toLowerCase() || result.value.status !== "cancelled")) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
       return result;
     },
-    reviewList: (slug, cursor, signal) => request(`${base(slug)}/requests?${new URLSearchParams({ status: ADMISSION_REQUEST_STATUS.pending, ...(cursor ? { cursor } : {}) })}`, admissionReviewPageSchema, signal),
+    reviewList: (slug, cursor, signal, filters = DEFAULT_ADMISSION_REVIEW_SELECTION) => request(`${base(slug)}/requests?${new URLSearchParams({ ...admissionReviewSelectionQuery(filters), ...(cursor ? { cursor } : {}) })}`, admissionReviewPageSchema, signal),
     reviewDetail: async (slug, requestId, signal) => {
       const result = await request(`${base(slug)}/requests/${encodeURIComponent(requestId)}`, admissionReviewSchema, signal);
       return result.status === "ready" && result.value.id !== requestId.toLowerCase() ? failed(ADMISSION_ERROR_CODE.publicContractUnusable) : result;

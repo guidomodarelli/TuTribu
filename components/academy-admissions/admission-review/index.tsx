@@ -1,16 +1,18 @@
 /** Presents authorized review state and callbacks without importing auth or HTTP adapters. @module admission-review */
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { Button, Checkbox, Textarea } from "beez-ui";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
-import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_ELIGIBILITY_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
+import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_ELIGIBILITY_COPY, ADMISSION_REVIEW_STATUS_LABEL, ADMISSION_REVIEW_SOURCE_LABEL } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_EVIDENCE_KIND, ADMISSION_DENIAL_REASON } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
 import { formatBuenosAiresShortDate, formatBuenosAiresTime } from "@/lib/date-time/buenos-aires-format";
 import styles from "./styles.module.scss";
 
 /** Callback-only props keep current-account and operation recovery in the route container. */
 export type AdmissionReviewProps = {
+  filters?: ReactNode;
   items: AdmissionReviewDto[]; selected: AdmissionReviewDto | null; hasMore: boolean;
   busy: boolean; disabled: boolean; confirmed: boolean; internalReason: string; externalMessage: string;
   errorMessage: string | null; statusMessage: string | null; uncertain: boolean; canRetry: boolean;
@@ -35,6 +37,7 @@ export function AdmissionReview(props: AdmissionReviewProps) {
   const canApprove = selected?.eligibleActions.includes(ADMISSION_DECISION.approve), canReject = selected?.eligibleActions.includes(ADMISSION_DECISION.reject);
   return <main className={styles.AdmissionReview}>
     <header className={styles.AdmissionReview__header}><h1 className={styles.AdmissionReview__title}>{ADMISSION_REVIEW_UI_COPY.title}</h1><p className={styles.AdmissionReview__help}>{ADMISSION_REVIEW_UI_COPY.description}</p></header>
+    {!selected && props.filters}
     <div className={styles.AdmissionReview__actions}><Button variant="outline" onClick={props.onRead} disabled={props.busy}>{props.busy ? ADMISSION_REVIEW_UI_COPY.reading : ADMISSION_REVIEW_UI_COPY.read}</Button>{selected && <Button variant="ghost" onClick={props.onClose} disabled={props.busy || props.uncertain}>{ADMISSION_REVIEW_UI_COPY.close}</Button>}</div>
     {props.errorMessage && <p className={styles.AdmissionReview__error} role="alert">{props.errorMessage}</p>}
     {props.statusMessage && <p className={styles.AdmissionReview__help} role="status">{props.statusMessage}</p>}
@@ -45,6 +48,8 @@ export function AdmissionReview(props: AdmissionReviewProps) {
         <div><dt>Presentación</dt><dd><time dateTime={selected.submittedAt}>{describeInstant(selected.submittedAt)}</time></dd></div>
         <div><dt>Vencimiento</dt><dd><time dateTime={selected.expiresAt}>{describeInstant(selected.expiresAt)}</time></dd></div>
         <div><dt>Contacto</dt><dd>{selected.rawContact ?? "No informado"}</dd></div>
+        <div><dt>Estado</dt><dd>{ADMISSION_REVIEW_STATUS_LABEL[selected.status]}</dd></div>
+        <div><dt>Origen</dt><dd>{ADMISSION_REVIEW_SOURCE_LABEL[selected.source]}</dd></div>
       </dl>
       <p className={styles.AdmissionReview__help}>{evidenceCopy}</p>
       {selected.evidence.verifiedAt && <p className={styles.AdmissionReview__help}>Verificado el <time dateTime={selected.evidence.verifiedAt}>{describeInstant(selected.evidence.verifiedAt)}</time>.</p>}
@@ -61,8 +66,8 @@ export function AdmissionReview(props: AdmissionReviewProps) {
         <div className={styles.AdmissionReview__actions}>{canApprove && <Button type="button" disabled={props.disabled || props.uncertain || !props.confirmed || !props.internalReason.trim()} onClick={() => props.onDecision(ADMISSION_DECISION.approve)}>{props.busy ? ADMISSION_REVIEW_UI_COPY.writing : ADMISSION_REVIEW_UI_COPY.approve}</Button>}{canReject && <Button type="button" variant="outline" disabled={props.disabled || props.uncertain || !props.confirmed || !props.internalReason.trim()} onClick={() => props.onDecision(ADMISSION_DECISION.reject)}>{props.busy ? ADMISSION_REVIEW_UI_COPY.writing : ADMISSION_REVIEW_UI_COPY.reject}</Button>}</div>
       </form>}
     </section> : <section className={styles.AdmissionReview__section} aria-label="Bandeja de solicitudes">
-      {!props.busy && !props.items.length && <p>{ADMISSION_REVIEW_UI_COPY.empty}</p>}
-      <ol className={styles.AdmissionReview__list}>{props.items.map((request) => <li className={styles.AdmissionReview__row} key={request.id}><div><h2 className={styles.AdmissionReview__subtitle}>{request.applicant.name}</h2><p className={styles.AdmissionReview__help}><time dateTime={request.submittedAt}>{describeInstant(request.submittedAt)}</time> · {request.contact?.maskedValue ?? "Sin contacto"}</p></div><Button variant="outline" onClick={() => props.onSelect(request.id)} disabled={props.disabled || props.uncertain} aria-label={`${ADMISSION_REVIEW_UI_COPY.detail}: ${request.applicant.name}`}>{ADMISSION_REVIEW_UI_COPY.detail}</Button></li>)}</ol>
+      {!props.busy && !props.items.length && <p>{props.hasMore ? ADMISSION_REVIEW_FILTER_COPY.emptyPage : ADMISSION_REVIEW_UI_COPY.empty}</p>}
+      <ol className={styles.AdmissionReview__list}>{props.items.map((request) => <li className={styles.AdmissionReview__row} key={request.id}><div><h2 className={styles.AdmissionReview__subtitle}>{request.applicant.name}</h2><p className={styles.AdmissionReview__help}>{ADMISSION_REVIEW_STATUS_LABEL[request.status]} · {ADMISSION_REVIEW_SOURCE_LABEL[request.source]} · <time dateTime={request.submittedAt}>{describeInstant(request.submittedAt)}</time> · {request.contact?.maskedValue ?? "Sin contacto"}</p></div><Button variant="outline" onClick={() => props.onSelect(request.id)} disabled={props.disabled || props.uncertain} aria-label={`${ADMISSION_REVIEW_UI_COPY.detail}: ${request.applicant.name}`}>{ADMISSION_REVIEW_UI_COPY.detail}</Button></li>)}</ol>
       {props.hasMore && <Button variant="outline" disabled={props.disabled || props.uncertain} onClick={props.onLoadMore}>{ADMISSION_REVIEW_UI_COPY.loadMore}</Button>}
     </section>}
   </main>;
