@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-16
+
 ### Changed
 
 - Las ventanas emergentes tienen un diseño nuevo: un fondo más oscuro y desenfocado, igual en todas las pantallas, paneles más amplios y una franja inferior para los botones, como en el detalle de un evento o al escribir un mensaje en la ronda.
