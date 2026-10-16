@@ -147,6 +147,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Al revisar admisiones, una excepción permite preparar su motivo antes de aprobar; las decisiones confirmadas actualizan la selección visible y «Mostrar pendientes» limpia también las ediciones sin aplicar.
 - Los filtros de admisión rechazan los rangos de fecha invertidos aunque la diferencia sea menor a un milisegundo.
 - Los envíos de mensajería rechazan canales vacíos o no admitidos antes de contactar al proveedor.
+- Los avisos agrupados de admisión conservan un origen separado de los avisos individuales al retirar una tribu; el envío de esos grupos sigue en preparación.
 
 ### Security
 

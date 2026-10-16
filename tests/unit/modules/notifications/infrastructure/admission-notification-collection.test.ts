@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
 import { prepareAdmissionNotificationRecipientEmails } from "@/tests/support/admission-notification-recipient-email-fixture";
 import { seedContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
+import { createAdmissionRequestSnapshotFixture } from "@/tests/support/admission-request-snapshot-fixture";
 import { ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-notification-validation";
 import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 import { PostgresAdmissionNotificationRepository } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-repository";
@@ -37,7 +38,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
         const requestId = randomUUID(), obligationId = randomUUID(), applicantId = randomUUID();
         await database.withContext(fixture.own, async (transaction) => {
           await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${applicantId},'Synthetic collection applicant',${`${applicantId}@example.invalid`},false,clock_timestamp(),clock_timestamp())`);
-          await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,expires_at) values (${requestId},${fixture.tribeId},${applicantId},'common',clock_timestamp()+interval '30 days')`);
+          const snapshot = createAdmissionRequestSnapshotFixture({ id: requestId, tribeId: fixture.tribeId, userId: applicantId, submittedAt: new Date() });
+          await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,original_policy_snapshot,expires_at) values (${requestId},${fixture.tribeId},${applicantId},'common',${JSON.stringify(snapshot)}::jsonb,clock_timestamp()+interval '30 days')`);
           await transaction.execute(sql`select public.create_admission_notification_obligation(${obligationId},${fixture.tribeId},${requestId},${applicantId},'pending_created')`);
           for (const userId of [fixture.leaderId, fixture.guardianId]) await transaction.execute(sql`select public.enqueue_admission_notification(${obligationId},${userId},'reviewer')`);
         });
@@ -59,7 +61,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public.admission_notification_preferences(tribe_id,recipient_user_id,mode,version) values (${fixture.tribeId},${fixture.leaderId},'omitted',1)`));
       expect(await collect(scope)).toEqual({ status: "existing", groupId: first.groupId, memberState: "pending" });
       expect(await collect(await createSource())).toEqual({ status: "suppressed", reason: "preference_omitted" });
-      const facts = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.admission_notification_groups where tribe_id=${fixture.tribeId}) as groups,(select count(*)::int from public.admission_notification_group_members where tribe_id=${fixture.tribeId}) as members,(select count(*)::int from public.message_deliveries where tribe_id=${fixture.tribeId} and purpose='notification') as deliveries`)).rows[0]);
+      const facts = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.admission_notification_groups where tribe_id=${fixture.tribeId}) as groups,(select count(*)::int from public.admission_notification_group_members where tribe_id=${fixture.tribeId}) as members,(select count(*)::int from public.message_deliveries where tribe_id=${fixture.tribeId} and purpose='admission_notification') as deliveries`)).rows[0]);
       expect(facts).toEqual({ groups: 1, members: 1, deliveries: 0 });
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select frozen_manifest,deadline_at from public.admission_notification_groups where id=${first.groupId}`)).rows[0])).toEqual({ frozen_manifest: null, deadline_at: null });
 
