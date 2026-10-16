@@ -6,9 +6,10 @@ import {PostgresCurrentMessagingProvider,type MessagingProviderDatabaseExecutor}
 import {MessagingProviderRegistry} from "../messaging-provider-registry";
 import {RegisteredMessagingInspectorFactory,RegisteredMessagingDeliverySender} from "../registered-messaging-adapters";
 import {createZavuProviderDescriptor} from "../zavu/zavu-provider-descriptor";
+import type {MarkedMessageDeliveryResourceAuthority} from "../message-delivery-resource-authority";
 
 /** @param dependencies - Actual native checkout, current non-secret security facts and explicit hosting transport. @returns Provider-independent ports and the implemented catalog; no lookup defaults or client/credential caches. */
-export function createRegisteredMessagingAdapters(dependencies:{execute:MessagingProviderDatabaseExecutor;readSecurityFacts:()=>Promise<MessagingSecurityFacts>;fetch:typeof globalThis.fetch}){
-  const registry=new MessagingProviderRegistry([createZavuProviderDescriptor(dependencies.fetch)]),providers=new PostgresCurrentMessagingProvider(dependencies.execute,dependencies.readSecurityFacts),readProvider=providers.read.bind(providers);
+export function createRegisteredMessagingAdapters(dependencies:{execute:MessagingProviderDatabaseExecutor;readSecurityFacts:()=>Promise<MessagingSecurityFacts>;fetch:typeof globalThis.fetch;authorizeDeliveryResource?:MarkedMessageDeliveryResourceAuthority}){
+  const registry=new MessagingProviderRegistry([createZavuProviderDescriptor(dependencies.fetch)]),providers=new PostgresCurrentMessagingProvider(dependencies.execute,dependencies.readSecurityFacts,dependencies.authorizeDeliveryResource),readProvider=providers.read.bind(providers);
   return{inspectors:new RegisteredMessagingInspectorFactory(registry,readProvider),catalog:registry.list(),createSender:(preparation:VerificationDeliveryPreparation)=>new RegisteredMessagingDeliverySender(registry,readProvider,preparation)};
 }

@@ -8,7 +8,7 @@ import { PostgresAdmissionVerificationReadinessReader } from "@/src/modules/mess
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { ADMISSION_NOTIFICATION_TIMING } from "../../constants/admission-notification-groups";
-import { ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE } from "../../constants/admission-notification-group-storage";
+import { ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE, ADMISSION_NOTIFICATION_GROUP_STATE } from "../../constants/admission-notification-group-storage";
 import type { AdmissionNotificationStoredGroup, AdmissionNotificationGroupMemberState, AdmissionNotificationGroupState } from "../../domain/entities/admission-notification-group";
 import type { AdmissionNotificationAudience, AdmissionNotificationCandidatePlan, AdmissionNotificationEmailFacts, AdmissionNotificationGroupManifest, AdmissionNotificationSuppressionReason } from "../../domain/entities/admission-notification";
 import type { AdmissionNotificationPreferenceMode } from "../../domain/entities/admission-notification-preference";
@@ -30,15 +30,15 @@ export async function admissionNotificationNow(database: RequestDatabase): Promi
   return Number((await database.execute<{ instant: string }>(sql`select (extract(epoch from clock_timestamp())*${MICROSECONDS_PER_SECOND})::bigint::text as instant`)).rows[0].instant);
 }
 
-/** @param database - Existing authorized transaction. @param tribeId - Exact tenant. @param groupId - Existing opaque group. @param lock - Whether preceding canonical source locks are already held. @returns Exact native identity or genuine absence; this metadata never grants send authority. */
-export async function readAdmissionNotificationGroup(database: RequestDatabase, tribeId: string, groupId: string, lock = false): Promise<AdmissionNotificationStoredGroup | null> {
+/** @param database - Existing authorized transaction. @param tribeId - Exact tenant. @param groupId - Existing opaque group. @param lock - Native lock selected after preceding canonical source locks, or a locator read. @returns Exact native identity or genuine absence; this metadata never grants send authority. */
+export async function readAdmissionNotificationGroup(database: RequestDatabase, tribeId: string, groupId: string, lock: "share" | "update" | null = null): Promise<AdmissionNotificationStoredGroup | null> {
   const row = (await database.execute<GroupRow>(sql`select id,tribe_id,recipient_user_id,audience,mode,preference_version,email_settings_version,time_zone,
     (extract(epoch from window_starts_at)*${MICROSECONDS_PER_SECOND})::bigint::text as starts_microseconds,
     (extract(epoch from window_closes_at)*${MICROSECONDS_PER_SECOND})::bigint::text as closes_microseconds,
     individual_obligation_id,state,version,frozen_manifest,(extract(epoch from deadline_at)*${MICROSECONDS_PER_SECOND})::bigint::text as deadline_microseconds,
     suppression_reason,(extract(epoch from closed_at)*${MICROSECONDS_PER_SECOND})::bigint::text as closed_microseconds,
     (extract(epoch from created_at)*${MICROSECONDS_PER_SECOND})::bigint::text as created_microseconds
-    from public.admission_notification_groups where id=${groupId} and tribe_id=${tribeId} ${lock ? sql`for update` : sql``}`)).rows[0];
+    from public.admission_notification_groups where id=${groupId} and tribe_id=${tribeId} ${lock === "update" ? sql`for update` : lock === "share" ? sql`for share` : sql``}`)).rows[0];
   return row ? { id: row.id, identity: { tribeId: row.tribe_id, recipientUserId: row.recipient_user_id, audience: row.audience, mode: row.mode, preferenceVersion: row.preference_version, emailSettingsVersion: row.email_settings_version, individualObligationId: row.individual_obligation_id, window: { startsAtMicroseconds: Number(row.starts_microseconds), closesAtMicroseconds: Number(row.closes_microseconds), timeZone: row.time_zone } }, state: row.state, version: row.version, frozenManifest: row.frozen_manifest, deadlineAtMicroseconds: row.deadline_microseconds === null ? null : Number(row.deadline_microseconds), suppressionReason: row.suppression_reason, closedAtMicroseconds: row.closed_microseconds === null ? null : Number(row.closed_microseconds), createdAtMicroseconds: Number(row.created_microseconds) } : null;
 }
 
@@ -48,9 +48,10 @@ export class PostgresAdmissionNotificationGroupReader {
   constructor(private readonly database: RequestDatabase, private readonly authorize: AdmissionNotificationCollectionAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>) {}
 
   /** @param group - Existing original scoped identity. @returns Every current member plan and exact prepared resource, without dispatch authority or protected material. */
-  async read(group: AdmissionNotificationStoredGroup): Promise<{ members: AdmissionNotificationCurrentGroupMember[]; resource: AdmissionNotificationPreparedResource | null; nowMicroseconds: number }> {
-    const identity = group.identity, tribeId = identity.tribeId;
-    const locators = (await this.database.execute<{ obligation_id: string; request_id: string }>(sql`select member.obligation_id,obligation.request_id from public.admission_notification_group_members member join public.academy_admission_notification_obligations obligation on obligation.id=member.obligation_id and obligation.tribe_id=member.tribe_id where member.group_id=${group.id} and member.tribe_id=${tribeId} and member.state=${ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE.pending} order by obligation.request_id,member.obligation_id`)).rows;
+  async read(group: AdmissionNotificationStoredGroup): Promise<{ group: AdmissionNotificationStoredGroup | null; members: AdmissionNotificationCurrentGroupMember[]; resource: AdmissionNotificationPreparedResource | null; nowMicroseconds: number }> {
+    const identity = group.identity, tribeId = identity.tribeId, frozen = group.state === ADMISSION_NOTIFICATION_GROUP_STATE.frozen;
+    const memberState = frozen ? ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE.included : ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE.pending;
+    const locators = (await this.database.execute<{ obligation_id: string; request_id: string }>(sql`select member.obligation_id,obligation.request_id from public.admission_notification_group_members member join public.academy_admission_notification_obligations obligation on obligation.id=member.obligation_id and obligation.tribe_id=member.tribe_id where member.group_id=${group.id} and member.tribe_id=${tribeId} and member.state=${memberState} order by obligation.request_id,member.obligation_id`)).rows;
     const emails = new Map<string, string>();
     const reader = new PostgresAdmissionNotificationRecipientEmailReader(this.database, async () => { const config = await this.readSecurityConfig(); return { environment: config.environment, securityEpoch: config.securityEpoch }; });
     // Pin current account/captures, role and each original request/source/notice before taking group/member locks.
@@ -72,14 +73,14 @@ export class PostgresAdmissionNotificationGroupReader {
     const config = await this.readSecurityConfig(), security = readiness.securityScope;
     const prepared = Boolean(readiness.channelPrepared && security && !config.recoveryLocked && security.environment === config.environment && security.securityEpoch === config.securityEpoch && config.keyrings[MESSAGING_KEY_PURPOSE.credential].keys.has(security.credentialKeyId));
     const resource: AdmissionNotificationPreparedResource | null = prepared && security && selected && resourceRow?.email_sender_id && usage ? { connectionId: selected.id, connectionVersion: selected.selected_version, contributingLeaderUserId: selected.contributed_by_user_id, senderId: resourceRow.email_sender_id, queuedUsagePolicyVersion: usage.version, credentialKeyId: security.credentialKeyId } : null;
-    await readAdmissionNotificationGroup(this.database, tribeId, group.id, true);
-    await this.database.execute(sql`select obligation_id from public.admission_notification_group_members where group_id=${group.id} order by obligation_id for update`);
+    const lockedGroup = await readAdmissionNotificationGroup(this.database, tribeId, group.id, frozen ? "share" : "update");
+    await this.database.execute(sql`select obligation_id from public.admission_notification_group_members where group_id=${group.id} order by obligation_id ${frozen ? sql`for share` : sql`for update`}`);
     const sources = (await this.database.execute<MemberRow>(sql`select member.obligation_id,member.state,obligation.request_id,obligation.applicant_user_id,obligation.event_type,
       (extract(epoch from obligation.created_at)*${MICROSECONDS_PER_SECOND})::bigint::text as created_microseconds,request.status as request_status,
       (extract(epoch from request.submitted_at)*${MICROSECONDS_PER_SECOND})::bigint::text as submitted_microseconds,(extract(epoch from request.expires_at)*${MICROSECONDS_PER_SECOND})::bigint::text as expires_microseconds
       from public.admission_notification_group_members member join public.academy_admission_notification_obligations obligation on obligation.id=member.obligation_id and obligation.tribe_id=member.tribe_id
       join public.academy_admission_requests request on request.id=obligation.request_id and request.tribe_id=obligation.tribe_id and request.user_id=obligation.applicant_user_id
-      where member.group_id=${group.id} and member.tribe_id=${tribeId} and member.state=${ADMISSION_NOTIFICATION_GROUP_MEMBER_STATE.pending} order by member.obligation_id`)).rows;
+      where member.group_id=${group.id} and member.tribe_id=${tribeId} and member.state=${memberState} order by member.obligation_id`)).rows;
     const nowMicroseconds = await admissionNotificationNow(this.database);
     const members = sources.map((source): AdmissionNotificationCurrentGroupMember => ({ obligationId: source.obligation_id, deadlineAtMicroseconds: Number(source.created_microseconds) + ADMISSION_NOTIFICATION_TIMING.retryLimitMicroseconds, normalizedEmail: emails.get(source.obligation_id) ?? null, plan: planAdmissionNotificationEmailCandidate({
       source: { id: source.obligation_id, tribeId, admissionRequestId: source.request_id, applicantUserId: source.applicant_user_id, event: source.event_type, createdAtMicroseconds: Number(source.created_microseconds) },
@@ -89,6 +90,6 @@ export class PostgresAdmissionNotificationGroupReader {
       availability: { tribeId, recipientUserId: identity.recipientUserId, trustedAccountEmailAvailable: emails.has(source.obligation_id), preparedEmailConnectionAvailable: resource !== null },
       nowMicroseconds, dailyWindow: null,
     }, identity) }));
-    return { members, resource, nowMicroseconds };
+    return { group: lockedGroup, members, resource, nowMicroseconds };
   }
 }
