@@ -6,9 +6,28 @@ import {describe,expect,it,vi} from "vitest";
 import {MessagingConnectionResources} from "@/components/academy-admissions/messaging-connection-resources";
 
 /** @returns An explicitly selected channel and owned resource options, never a provider response. */
-function resourceFixture(){return{channel:"email" as const,senderId:"",templateId:"",templateLanguage:"",confirmed:false,busy:false,canSave:false,senders:{items:[{id:randomUUID(),label:"Remitente de ejemplo",channels:["email" as const],readiness:"ready" as const}],nextCursor:undefined},templates:{items:[],nextCursor:undefined},fieldErrors:{},message:null,onChannelChange:vi.fn(),onSenderChange:vi.fn(),onTemplateChange:vi.fn(),onTemplateLanguageChange:vi.fn(),onConfirmationChange:vi.fn(),onReadSenders:vi.fn(),onReadTemplates:vi.fn(),onMoreSenders:vi.fn(),onMoreTemplates:vi.fn(),onSave:vi.fn(),onReauthenticate:vi.fn(),onReadSendersReauthenticate:vi.fn(),onReadTemplatesReauthenticate:vi.fn()};}
+function resourceFixture(){return{channel:"email" as const,availableChannels:["email","sms","whatsapp"]as const,senderId:"",templateId:"",templateLanguage:"",confirmed:false,busy:false,canSave:false,senders:{items:[{id:randomUUID(),label:"Remitente de ejemplo",channels:["email" as const],readiness:"ready" as const}],nextCursor:undefined},templates:{items:[],nextCursor:undefined},fieldErrors:{},message:null,onChannelChange:vi.fn(),onSenderChange:vi.fn(),onTemplateChange:vi.fn(),onTemplateLanguageChange:vi.fn(),onConfirmationChange:vi.fn(),onReadSenders:vi.fn(),onReadTemplates:vi.fn(),onMoreSenders:vi.fn(),onMoreTemplates:vi.fn(),onSave:vi.fn(),onReauthenticate:vi.fn(),onReadSendersReauthenticate:vi.fn(),onReadTemplatesReauthenticate:vi.fn()};}
 
 describe("connection resource selection",()=>{
+  it("should offer only declared email capability without inventing phone choices",async()=>{
+    const props={...resourceFixture(),availableChannels:["email"]as const},user=userEvent.setup();
+    render(<MessagingConnectionResources {...props} />);
+    await user.click(screen.getByRole("combobox",{name:"Canal que querés preparar"}));
+    expect(screen.getByRole("option",{name:/Correo/})).toBeVisible();
+    expect(screen.queryByRole("option",{name:"SMS"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("option",{name:"WhatsApp"})).not.toBeInTheDocument();
+    expect(props.onReadSenders).not.toHaveBeenCalled();expect(props.onSave).not.toHaveBeenCalled();
+  });
+  it("should hide unsupported template fields and block an unsupported channel even if caller readiness is true",()=>{
+    const props={...resourceFixture(),availableChannels:["email"]as const,channel:"whatsapp"as const,confirmed:true,canSave:true};
+    const view=render(<MessagingConnectionResources {...props} />);
+    expect(screen.queryByLabelText("Identificador de plantilla")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Idioma de la plantilla")).not.toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"Guardar configuración del canal"})).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/canales disponibles/);
+    view.rerender(<MessagingConnectionResources {...props} channel="email" />);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();expect(props.onSave).not.toHaveBeenCalled();
+  });
   it("should require an explicit sender selection and omit WhatsApp-only fields from email",async()=>{
     const props=resourceFixture(),user=userEvent.setup();render(<MessagingConnectionResources {...props} />);
     expect(screen.getByRole("combobox",{name:"Remitente del canal"})).toBeVisible();expect(screen.queryByLabelText("Plantilla de autenticación")).not.toBeInTheDocument();expect(props.onSenderChange).not.toHaveBeenCalled();expect(props.onReadSenders).not.toHaveBeenCalled();expect(screen.getByRole("button",{name:"Guardar configuración del canal"})).toBeDisabled();

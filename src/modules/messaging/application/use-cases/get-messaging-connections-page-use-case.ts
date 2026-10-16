@@ -9,11 +9,12 @@ import {messagingFailure} from "../results/messaging-errors";
 import {messagingConnectionsPageStateSchema} from "../results/messaging-connections-page-state";
 import type {ReadNotificationDeliveryCatalogUseCase} from "./read-notification-delivery-catalog-use-case";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
+import type {MessagingProviderCatalogReader} from "../ports/messaging-provider-catalog-reader";
 
 /** Configuration owns audience and usage metadata; this reader never loads a key or duplicates its request. */
 export class GetMessagingConnectionsPageUseCase{
-  /** @param accounts - Native current viewer. @param readers - Canonical routing and a single authorized metadata query. @param clock - Current time after awaited reads. */
-  constructor(private readonly accounts:MessagingAccountProvider,private readonly readers:{configuration:Pick<ReadMessagingConfigurationUseCase,"execute">;resolveTribe:Pick<ResolveAdmissionTribeUseCase,"execute">;catalog?:Pick<ReadNotificationDeliveryCatalogUseCase,"execute">},private readonly clock:()=>Date){}
+  /** @param accounts - Native current viewer. @param readers - Canonical routing, one authorized configuration read and actual static provider metadata. @param clock - Current time after awaited reads. */
+  constructor(private readonly accounts:MessagingAccountProvider,private readonly readers:{configuration:Pick<ReadMessagingConfigurationUseCase,"execute">;resolveTribe:Pick<ResolveAdmissionTribeUseCase,"execute">;providers:MessagingProviderCatalogReader;catalog?:Pick<ReadNotificationDeliveryCatalogUseCase,"execute">},private readonly clock:()=>Date){}
   /** @param query - Once-validated slug and correlation. @returns Safe current SSR props or a closed localized failure, with no private key or automatic browser fetch. */
   async execute(query:{slug:string;requestId:string}){
     try{
@@ -24,7 +25,10 @@ export class GetMessagingConnectionsPageUseCase{
       if(catalog&&!catalog.ok&&(catalog.failure.code===MESSAGING_ERROR_CODE.permissionDenied||catalog.failure.code===MESSAGING_ERROR_CODE.authenticationRequired))return{ok:false as const,failure:catalog.failure};
       const notificationCatalog=catalog?catalog.ok?{status:"ready" as const,value:catalog.value}:{status:"failed" as const,code:catalog.failure.code,message:MESSAGING_ERROR_MESSAGE[catalog.failure.code]}:undefined;
       const current=await this.accounts.getAuthenticatedAccount(),now=this.clock();if(!current||current.userId!==first.userId||current.session.id!==first.session.id||!isAuthenticatedSessionLive(current.session.expiresAt,now))throw new MessagingConnectionOperationError(MESSAGING_ERROR_CODE.authenticationRequired);
-      return{ok:true as const,value:messagingConnectionsPageStateSchema.parse({kind:"ready",slug:query.slug,tribeId:tribe.value.tribeId,viewerId:current.userId,renderedAt:now.toISOString(),configuration:result.value,...(notificationCatalog?{notificationCatalog}:{})})};
+      const providerCatalog=result.value.audience===TRIBE_MEMBER_ROLE.leader?this.readers.providers.read():undefined;
+      const parsed=messagingConnectionsPageStateSchema.safeParse({kind:"ready",slug:query.slug,tribeId:tribe.value.tribeId,viewerId:current.userId,renderedAt:now.toISOString(),configuration:result.value,...(notificationCatalog?{notificationCatalog}:{}),...(providerCatalog?{providerCatalog}:{})});
+      if(!parsed.success)return{ok:false as const,failure:messagingFailure(MESSAGING_ERROR_CODE.publicContractUnusable,{cause:parsed.error})};
+      return{ok:true as const,value:parsed.data};
     }catch(error){return{ok:false as const,failure:messagingFailure(error instanceof MessagingConnectionOperationError?error.code:MESSAGING_ERROR_CODE.unexpectedFailure,{cause:error})};}
   }
 }

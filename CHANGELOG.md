@@ -94,6 +94,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Las métricas de admisiones registran la última ejecución completa de mensajería y los tiempos de sus pasos por tribu, conservando separados los resultados de entrega.
 - Los países y cupos comparan el uso guardado con la propuesta y exigen confirmar nuevamente cada aumento, aclarando su impacto y que el consumo se conserva.
 - La documentación de mensajería explica quién controla la cuenta de envío, los cupos y los plazos de conservación, y cómo se limita el acceso durante una recuperación.
+- La preparación de canales muestra sólo las opciones disponibles para la conexión y bloquea consultas y guardados de un canal que ya no esté disponible, con un aviso para corregirlo.
 
 ### Fixed
 

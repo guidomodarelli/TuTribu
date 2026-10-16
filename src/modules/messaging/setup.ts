@@ -70,6 +70,7 @@ import { PostgresMessagingConnectionDisconnection } from "./infrastructure/repos
 import { ManageMessagingConnectionLifecycleUseCases } from "./application/use-cases/messaging-connection-lifecycle-use-cases";
 import { ResolveMessagingTribeManagementUseCase } from "./application/use-cases/resolve-messaging-tribe-management-use-case";
 import type { VerificationDeliveryPreparation } from "./infrastructure/verification-delivery-preparation";
+import type { MessagingProviderCatalogReader } from "./application/ports/messaging-provider-catalog-reader";
 import type {DiagnosticDeliveryDispatchScope,FocalDeliveryDispatchScope} from "./domain/repositories/message-delivery-repository";
 import { RecoverNotificationDeliveryUseCase } from "./application/use-cases/recover-notification-delivery-use-case";
 import { ReconcileMessageDeliveryUseCase } from "./application/use-cases/reconcile-message-delivery-use-case";
@@ -155,8 +156,8 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
       const configuration=new ReadMessagingConfigurationUseCase(dependencies.accounts,leadership,new PostgresMessagingConfigurationReader(executeActor,options.readSecurityFacts),dependencies.clock);
       const catalog=new ReadNotificationDeliveryCatalogUseCase(new ResolveMessagingTribeManagementUseCase(dependencies.accounts,leadership,dependencies.clock),new PostgresNotificationDeliveryCatalogReader(executeActor));
       return{useCases:configuration,
-        /** @param resolveTribe - Canonical native routing. @returns One current server entrypoint for the wizard without keyrings or another provider read. */
-        createPage(resolveTribe:Pick<ResolveAdmissionTribeUseCase,"execute">){return new GetMessagingConnectionsPageUseCase(dependencies.accounts,{configuration,resolveTribe,catalog},dependencies.clock);},
+        /** @param resolveTribe - Canonical native routing. @param providers - Actual deployed registry metadata without SQL, keys or provider RPC. @returns One current server entrypoint for the wizard. */
+        createPage(resolveTribe:Pick<ResolveAdmissionTribeUseCase,"execute">,providers:MessagingProviderCatalogReader){return new GetMessagingConnectionsPageUseCase(dependencies.accounts,{configuration,resolveTribe,catalog,providers},dependencies.clock);},
       };
     },
     /** @returns Minimal leader/challenge-owner transport reads without keyrings, recency, provider calls or mutation. */
