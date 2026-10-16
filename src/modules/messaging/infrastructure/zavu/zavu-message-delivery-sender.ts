@@ -5,7 +5,7 @@ import type { MessageSendParams } from "@zavudev/sdk/resources/messages";
 import type { MessageDeliverySender, PreparedMessageDeliverySender } from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
 import type { MessageDeliveryReceipt } from "@/src/modules/messaging/domain/repositories/message-delivery-repository";
 import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
-import type { PreparedVerificationDelivery, VerificationDeliveryPreparation } from "./verification-delivery-preparation";
+import type { PreparedVerificationDelivery, VerificationDeliveryPreparation } from "../verification-delivery-preparation";
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGE_ATTEMPT_STATE, MESSAGE_RECEIPT_REASON } from "@/src/modules/messaging/constants/message-delivery";
 import { ZAVU_DELIVERY_ENDPOINT, ZAVU_DELIVERY_CHANNEL, ZAVU_DELIVERY_STATUS, ZAVU_DELIVERY_HEADER, ZAVU_DELIVERY_TRANSPORT, ZAVU_MESSAGE_TYPE, ZAVU_MESSAGE_DIRECTION, VERIFICATION_MESSAGE_COPY, ZAVU_OTP_TEMPLATE_PARAMETER } from "@/src/modules/messaging/constants/zavu-delivery";

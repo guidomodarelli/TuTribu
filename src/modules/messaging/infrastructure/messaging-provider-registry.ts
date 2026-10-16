@@ -1,9 +1,9 @@
 /** Resolves explicitly registered infrastructure adapters and implemented channels without a fallback. @module messaging-provider-registry */
 import "server-only";
 import type {AuthorizedMessagingContext} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
-import type {MessagingConnectionInspector} from "@/src/modules/messaging/domain/repositories/messaging-connection-inspector";
+import type {MessagingResourceInspector,MessagingTemplateInspector} from "@/src/modules/messaging/domain/repositories/messaging-connection-inspector";
 import type {MessageDeliverySender} from "@/src/modules/messaging/domain/repositories/message-delivery-sender";
-import type {VerificationDeliveryPreparation} from "./zavu/verification-delivery-preparation";
+import type {VerificationDeliveryPreparation} from "./verification-delivery-preparation";
 import {MessagingConnectionOperationError} from "@/src/modules/messaging/domain/errors/messaging-connection-operation-error";
 import {MESSAGING_ERROR_CODE} from "@/src/modules/messaging/constants/messaging-errors";
 
@@ -14,7 +14,9 @@ export interface MessagingProviderDescriptor{
   readonly id:string;
   readonly channels:readonly MessagingProviderChannel[];
   /** @param context - Current exact authorized resource. @param credential - Transient server-only bytes. @returns Fresh provider-independent read-only operations. */
-  createInspector(context:AuthorizedMessagingContext,credential:string):MessagingConnectionInspector;
+  createInspector(context:AuthorizedMessagingContext,credential:string):MessagingResourceInspector;
+  /** @param context - Current exact authorized resource. @param credential - Transient server-only bytes. @returns Actual template operations, supplied only by supporting adapters. */
+  createTemplateInspector?(context:AuthorizedMessagingContext,credential:string):MessagingTemplateInspector;
   /** @param preparation - Original protected attempt preparation. @returns Fresh portable sender without an arbitrary browser send entrypoint. */
   createSender(preparation:VerificationDeliveryPreparation):MessageDeliverySender;
 }

@@ -69,7 +69,7 @@ import { PostgresMessagingConnectionSuspension } from "./infrastructure/reposito
 import { PostgresMessagingConnectionDisconnection } from "./infrastructure/repositories/postgres-messaging-connection-disconnection";
 import { ManageMessagingConnectionLifecycleUseCases } from "./application/use-cases/messaging-connection-lifecycle-use-cases";
 import { ResolveMessagingTribeManagementUseCase } from "./application/use-cases/resolve-messaging-tribe-management-use-case";
-import type { VerificationDeliveryPreparation } from "./infrastructure/zavu/verification-delivery-preparation";
+import type { VerificationDeliveryPreparation } from "./infrastructure/verification-delivery-preparation";
 import type {DiagnosticDeliveryDispatchScope,FocalDeliveryDispatchScope} from "./domain/repositories/message-delivery-repository";
 import { RecoverNotificationDeliveryUseCase } from "./application/use-cases/recover-notification-delivery-use-case";
 import { ReconcileMessageDeliveryUseCase } from "./application/use-cases/reconcile-message-delivery-use-case";

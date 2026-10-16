@@ -7,16 +7,26 @@ export type MessagingSenderResource = { resourceId: string; name: string; channe
 /** Separates resource preparation from an exact sender/version diagnostic. */
 export type MessagingTemplateResource = { resourceId: string; name: string; language: string; authenticationApproved: boolean };
 
-/** Inspects a single already authorized connection; none of these methods sends or provisions resources. */
-export interface MessagingConnectionInspector {
+/** Authenticates an already authorized credential without claiming a channel is prepared. */
+export interface MessagingCredentialInspector {
   /** @param signal - Caller cancellation/deadline. @returns Private authenticated account references and actual test mode. */
   inspectCredential(signal: AbortSignal): Promise<MessagingCredentialInspection>;
+}
+/** Reads only actual sender resources; an email provider need not implement templates or phone operations. */
+export interface MessagingSenderResourceInspector {
   /** @param signal - Caller cancellation/deadline. @returns All available sender selections across bounded cursor pages. */
   listSenders(signal: AbortSignal): Promise<readonly MessagingSenderResource[]>;
   /** @param resourceId - Validated external selection. @param signal - Caller cancellation. @returns A selection confirmed by its actual detail operation. */
   retrieveSender(resourceId: string, signal: AbortSignal): Promise<MessagingSenderResource>;
+}
+/** Reads authentication templates only when an adapter actually supports this capability. */
+export interface MessagingTemplateInspector {
   /** @param signal - Caller cancellation/deadline. @returns All available template selections across bounded cursor pages. */
   listTemplates(signal: AbortSignal): Promise<readonly MessagingTemplateResource[]>;
   /** @param resourceId - Validated external selection. @param signal - Caller cancellation. @returns Confirmed preparation without a delivery claim. */
   retrieveTemplate(resourceId: string, signal: AbortSignal): Promise<MessagingTemplateResource>;
 }
+/** Composes the common read-only operations required for any connectable provider. */
+export interface MessagingResourceInspector extends MessagingCredentialInspector, MessagingSenderResourceInspector {}
+/** Composes application-facing operations; the registry denies absent template capabilities before delegation. */
+export interface MessagingConnectionInspector extends MessagingResourceInspector, MessagingTemplateInspector {}
