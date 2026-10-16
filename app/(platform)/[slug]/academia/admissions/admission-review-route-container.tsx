@@ -6,6 +6,6 @@ import { AdmissionReviewContainer } from "./admission-review-container";
 
 /** @param props - Guarded server snapshot and optional own transport port. @returns A workflow instance belonging to this route's current account and selection. */
 export function AdmissionReviewRouteContainer({ initialState, client }: { initialState: AdmissionReviewPageState; client?: AdmissionReviewBrowserClient }) {
-  const key = initialState.kind === "ready" ? `${initialState.slug}:${initialState.viewerId}:${initialState.selected?.id ?? ""}` : initialState.code;
+  const key = initialState.kind === "ready" ? `${initialState.slug}:${initialState.viewerId}:${initialState.selected?.id ?? ""}:${JSON.stringify(initialState.filters ?? null)}` : initialState.code;
   return <AdmissionReviewContainer key={key} initialState={initialState} client={client} />;
 }

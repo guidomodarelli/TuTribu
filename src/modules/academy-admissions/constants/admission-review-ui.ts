@@ -1,5 +1,12 @@
 /** Owns concise Spanish reviewer feedback and viewer-scoped local storage. @module admission-review-ui */
+import type { AdmissionRequest } from "../domain/entities/admission-request";
+
 export const ADMISSION_REVIEW_STORAGE_PREFIX = "tutribu-admission-review-intent";
+
+/** Mixed-status rows and details display actual request state independently of permitted actions. */
+export const ADMISSION_REVIEW_STATUS_LABEL = { pending: "Pendiente", approved: "Aprobada", rejected: "Rechazada", cancelled: "Cancelada", expired: "Vencida" } as const satisfies Record<AdmissionRequest["status"], string>;
+/** Source is historical provenance, never a verification claim or admission permission. */
+export const ADMISSION_REVIEW_SOURCE_LABEL = { common: "Solicitud común", personal: "Invitación personal", legacy: "Ingreso anterior" } as const satisfies Record<AdmissionRequest["source"], string>;
 
 /** Explains current review restrictions without changing permission, membership or request state. */
 export const ADMISSION_REVIEW_ELIGIBILITY_COPY: Readonly<Record<string, string | undefined>> = {
@@ -25,7 +32,7 @@ export const ADMISSION_REVIEW_PHASE = { idle: "idle", reading: "reading", writin
 /** Labels distinguish an original local intention from confirmed server work. */
 export const ADMISSION_REVIEW_UI_COPY = {
   title: "Solicitudes de ingreso", description: "Revisá las solicitudes más antiguas primero. Aprobar concede la membresía básica de la academia.",
-  empty: "No hay solicitudes pendientes.", read: "Consultar estado actual", loadMore: "Ver más solicitudes", detail: "Revisar solicitud", close: "Volver a la bandeja",
+  empty: "No hay solicitudes para estos filtros.", read: "Consultar estado actual", loadMore: "Ver más solicitudes", detail: "Revisar solicitud", close: "Volver a la bandeja",
   internalReason: "Motivo interno", externalMessage: "Mensaje para el solicitante (opcional)", internalHelp: "Este motivo sólo lo ven quienes revisan las solicitudes.",
   externalHelp: "El solicitante podrá ver este mensaje. No incluyas datos privados.", confirm: "Confirmo esta decisión sobre la solicitud seleccionada",
   approve: "Aprobar ingreso", reject: "Rechazar solicitud", writing: "Guardando decisión…", reading: "Consultando…",

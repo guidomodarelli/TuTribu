@@ -6,7 +6,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
-- La consulta autorizada de solicitudes de admisión permite distinguir cuáles necesitan actualmente un motivo de excepción y combinarlo con otros filtros; el control de filtros en la bandeja sigue pendiente.
+- La bandeja de admisión incorpora búsqueda y filtros de estado, origen, fecha y requisitos actuales, y conserva la selección al revisar un detalle o recargar la página.
 
 - Los líderes y guardianes pueden preparar su preferencia de avisos de admisión desde una pantalla propia; el líder ajusta el correo y su zona por separado y puede recuperar respuestas inciertas conservando el cambio original.
 
@@ -144,6 +144,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El paso de comprobación de contacto aclara que los códigos usan el servicio conectado por el líder y que comprobar el contacto no acredita identidad civil ni pertenencia a un grupo de WhatsApp.
 
 ### Fixed
+
+- Al revisar admisiones, una excepción permite preparar su motivo antes de aprobar; las decisiones confirmadas actualizan la selección visible y «Mostrar pendientes» limpia también las ediciones sin aplicar.
 
 - Al perder permisos con la misma cuenta, los países, cupos y datos administrativos anteriores se ocultan hasta comprobar el acceso vigente.
 - Las pantallas de configuración de admisión conservan una sola región principal para la navegación con tecnologías de asistencia.

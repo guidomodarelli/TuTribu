@@ -7,6 +7,7 @@ import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/au
 import type { GetAdmissionReviewUseCases } from "@/src/modules/academy-admissions/application/use-cases/get-admission-review-use-cases";
 import { loadAdmissionReviewPageState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-review-page";
 import { buildAdmissionReviewRoute } from "@/lib/academy-admissions/admission-routes";
+import { ADMISSION_QUERY_LIMIT } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 
 /** Own current identity never derives a role, applicant or session from page input. */
 function fixture() {
@@ -16,7 +17,7 @@ function fixture() {
   const review = { list: vi.fn<GetAdmissionReviewUseCases["list"]>(async () => ({ ok: true, value: { items: [], nextCursor: null } })), detail: vi.fn<GetAdmissionReviewUseCases["detail"]>(async () => ({ ok: false, failure: { code: "resource_unavailable" } })) };
   const resolveTribe = { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) };
   const page = new GetAdmissionReviewPageUseCase(accounts, { review, resolveTribe }, () => now);
-  return { accounts, account, review, resolveTribe, page, query: { slug: "synthetic-academy", requestId: randomUUID() } };
+  return { accounts, account, tribeId, review, resolveTribe, page, query: { slug: "synthetic-academy", requestId: randomUUID() } };
 }
 
 describe("current reviewer SSR snapshot", () => {
@@ -55,5 +56,24 @@ describe("current reviewer SSR snapshot", () => {
     expect(denied).toMatchObject({ kind: "unavailable", code: "permission_denied", message: expect.any(String) });
     expect(denied).not.toHaveProperty("page");
     expect(JSON.stringify(denied)).not.toContain("Synthetic private SQL diagnostic");
+  });
+
+  it.each(["pending", "all"])("should resolve one filtered server snapshot for status %s without treating selection as authority", async (status) => {
+    const data = fixture(), open = vi.fn(async () => data.page);
+    const result = await loadAdmissionReviewPageState({ params: { slug: data.query.slug }, query: { status, source: "common", search: "  Solicitante  ", needsVerification: "false", requiresExceptionReason: "true", submittedFrom: "2026-10-01T00:00:00Z", submittedUntil: "2026-10-08T00:00:00Z" } }, open);
+    const filters = { limit: 25, status: status === "all" ? undefined : "pending", source: "common", search: "Solicitante", needsVerification: false, requiresExceptionReason: true, submittedFrom: "2026-10-01T00:00:00Z", submittedUntil: "2026-10-08T00:00:00Z" };
+    expect(result).toMatchObject({ kind: "ready", viewerId: data.account.userId, filters });
+    expect(data.review.list).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ ...filters, tribeId: data.tribeId }));
+    expect(data.review.detail).not.toHaveBeenCalled();
+    expect(open).toHaveBeenCalledOnce();
+  });
+
+  it("should reject malformed filters before loading any native server data", async () => {
+    const data = fixture(), open = vi.fn(async () => data.page);
+    for (const query of [{ needsVerification: "1" }, { requiresExceptionReason: "" }, { status: "unknown" }, { search: "x".repeat(ADMISSION_QUERY_LIMIT.searchCharacters + 1) }, { submittedFrom: "2026-10-08T00:00:00Z", submittedUntil: "2026-10-01T00:00:00Z" }, { source: ["common", "personal"] }]) {
+      expect(await loadAdmissionReviewPageState({ params: { slug: data.query.slug }, query }, open)).toMatchObject({ kind: "unavailable", code: "invalid_input" });
+    }
+    expect(open).not.toHaveBeenCalled();
+    expect(data.review.list).not.toHaveBeenCalled();
   });
 });

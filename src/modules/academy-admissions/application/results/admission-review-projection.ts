@@ -16,7 +16,8 @@ export function projectAdmissionReview(record: AdmissionReviewRecord) {
   const expired = pending && review.now >= request.expiresAt;
   const evaluation = pending ? evaluatePendingAdmissionReview(review) : null;
   const reviewerAllowed = canPerformAdmissionAction(review.reviewer, ADMISSION_ACTION.rejectRequest, { tribeId: request.tribeId, applicantUserId: request.userId });
-  const eligibleActions = pending && !expired && reviewerAllowed ? [ADMISSION_DECISION.reject, ...(evaluation?.eligible && record.approvalSupported ? [ADMISSION_DECISION.approve] : [])] : [];
+  const canPrepareApproval = evaluation?.eligible || evaluation?.reason === ADMISSION_DENIAL_REASON.exceptionReasonRequired;
+  const eligibleActions = pending && !expired && reviewerAllowed ? [ADMISSION_DECISION.reject, ...(canPrepareApproval && record.approvalSupported ? [ADMISSION_DECISION.approve] : [])] : [];
   const contact = request.contact;
   const maskedValue = contact?.type === ADMISSION_CONTACT_TYPE.phone ? `${ADMISSION_CONTACT_MASK}${contact.value.slice(-ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH)}` : contact ? `${Array.from(contact.value)[0] ?? ""}${ADMISSION_CONTACT_MASK}@${contact.value.split("@").at(-1) ?? ""}` : null;
   const evidence = request.evidence.kind === ADMISSION_EVIDENCE_KIND.base ? { kind: request.evidence.kind, source: ADMISSION_REVIEW_EVIDENCE_SOURCE.google, scope: ADMISSION_REVIEW_ACCOUNT_SCOPE, verifiedAt: request.evidence.verifiedAt.toISOString() }

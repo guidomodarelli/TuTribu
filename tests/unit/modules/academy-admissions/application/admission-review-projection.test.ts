@@ -24,6 +24,14 @@ function reviewRecord(): AdmissionReviewRecord {
 }
 
 describe("admission reviewer projection", () => {
+  it("should offer an explicit exception approval when only its editable internal reason is missing", () => {
+    const record = reviewRecord();
+    record.review.policy!.mode = "allowlist"; record.review.policy!.allowCommonExceptions = true;
+    expect(projectAdmissionReview(record)).toMatchObject({ eligibilityReasons: ["exception_reason_required"], restrictions: { requiresExceptionReason: true }, eligibleActions: ["reject", "approve"] });
+    record.review.policy!.requiresAdditionalVerification = true;
+    expect(projectAdmissionReview(record)).toMatchObject({ eligibilityReasons: ["local_proof_required"], needsVerification: true, restrictions: { requiresExceptionReason: false }, eligibleActions: ["reject"] });
+  });
+
   it.each([false, true])("should mark a pending request with revoked applied evidence as needing verification even when verification ON is %s", (verificationEnabled) => {
     const record = reviewRecord(), proofId = randomUUID();
     record.review.policy!.requiresAdditionalVerification = verificationEnabled;
