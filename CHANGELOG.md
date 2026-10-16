@@ -80,6 +80,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La preparación interna de avisos de admisión incorpora el correo completo y vuelve a comprobar preferencias y conexión antes de entregarlo al transporte; su ejecución automática sigue pendiente.
 - El procesamiento interno distingue códigos y correos completos de admisión, y conserva un estado visible para avisos antiguos sin contenido utilizable; su ejecución automática sigue pendiente.
 - Los avisos de admisión recuperados conservan el contenido completo del grupo y su vencimiento, y vuelven a comprobar el destinatario y la conexión actuales; el envío automático sigue pendiente.
+- La preparación interna de avisos revisa todas sus páginas antes de cerrar un grupo y alterna las tribus; la ejecución automática sigue pendiente.
 
 ### Changed
 

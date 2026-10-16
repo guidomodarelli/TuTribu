@@ -9,6 +9,7 @@ import { ADMISSION_NOTIFICATION_AUDIENCE, ADMISSION_NOTIFICATION_TYPES } from "@
 import { ADMISSION_NOTIFICATION_PREFERENCE_MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { createAdmissionNotificationGroupSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-group-schema";
 import { createAdmissionNotificationCollectionProgressSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-collection-progress-schema";
+import { createAdmissionNotificationProducerProgressSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-producer-progress-schema";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {
   bigint,
@@ -1860,6 +1861,9 @@ export const { groups: admissionNotificationGroups, members: admissionNotificati
 
 /** Composes the private bounded source checkpoint after its live-tribe parent exists. */
 export const admissionNotificationCollectionProgress = createAdmissionNotificationCollectionProgressSchema(tribes.id);
+
+/** Keeps one fair, key-independent private producer turn per live tribe. */
+export const admissionNotificationProducerProgress = createAdmissionNotificationProducerProgressSchema(tribes.id);
 
 /** Composes private messaging models after the admission challenge parent exists. */
 export const {

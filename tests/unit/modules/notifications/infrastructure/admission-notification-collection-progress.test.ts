@@ -15,7 +15,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
     await withAcademyAdmissionDatabase(async (database) => {
       // Given no initializing write on a read, genuine selected email readiness and both collectable and deliberately omitted sources.
       const fixture = await prepareAdmissionNotificationCollectionProgress(database);
-      expect(await fixture.repository.readProgress(fixture.tribeId)).toEqual({ tribeId: fixture.tribeId, version: 0, hasContinuation: false, lastPage: null, lastSweepCompletedAtMicroseconds: null });
+      expect(await fixture.repository.readProgress(fixture.tribeId)).toEqual({ tribeId: fixture.tribeId, version: 0, hasContinuation: false, lastPage: null, lastSweepCompletedAtMicroseconds: null, lastCertifiedThroughMicroseconds: null });
       expect(await fixture.execute(async (transaction) => (await transaction.execute<{ count: number }>(sql`select count(*)::int as count from public.admission_notification_collection_progress where tribe_id=${fixture.tribeId}`)).rows[0].count)).toBe(0);
       const seeded = await fixture.createSources(13);
       const command = { tribeId: fixture.tribeId, operationId: randomUUID(), expectedVersion: 0 };
@@ -54,7 +54,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
       expect(first.suppressed + second.suppressed).toBe(17);
       expect(first.existing + second.existing).toBe(0);
       const completed = await fixture.repository.readProgress(fixture.tribeId);
-      expect(completed).toMatchObject({ version: 2, hasContinuation: false, lastPage: second, lastSweepCompletedAtMicroseconds: second.completedAtMicroseconds });
+      expect(completed).toMatchObject({ version: 2, hasContinuation: false, lastPage: second, lastSweepCompletedAtMicroseconds: second.completedAtMicroseconds, lastCertifiedThroughMicroseconds: first.sourceThroughMicroseconds });
+      expect(second.sourceThroughMicroseconds).toBe(first.sourceThroughMicroseconds);
+      expect(second.sweepHadUnavailable).toBe(false);
       await expect(fixture.repository.collectPage(command)).rejects.toMatchObject({ code: "request_conflict" });
       await expect(fixture.repository.collectPage({ ...secondCommand, expectedVersion: 0 })).rejects.toMatchObject({ code: "idempotency_conflict" });
 

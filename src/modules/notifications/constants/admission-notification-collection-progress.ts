@@ -8,4 +8,5 @@ export const ADMISSION_NOTIFICATION_COLLECTION_PROGRESS_STORAGE = {
   cursorCheck: "admission_notification_collection_progress_cursor_check",
   audienceCheck: "admission_notification_collection_progress_audience_check",
   clockCheck: "admission_notification_collection_progress_clock_check",
+  certificationCheck: "admission_notification_collection_progress_certification_check",
 } as const;

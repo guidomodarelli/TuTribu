@@ -78,7 +78,8 @@ import { PostgresTribeEventReminderRepository } from "./events/infrastructure/re
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { lockTribeEventOccurrenceRecordingForShare } from "./events/infrastructure/repositories/tribe-event-occurrence-recording-lock";
 import { PostgresNotificationRepository } from "./notifications/infrastructure/repositories/postgres-notification-repository";
-import { buildNotificationsModule, buildAdmissionNotificationSettingsModule, buildAdmissionNotificationRecoveryContent } from "./notifications/setup";
+import { buildNotificationsModule, buildAdmissionNotificationSettingsModule, buildAdmissionNotificationRecoveryContent, buildAdmissionNotificationProducerModule } from "./notifications/setup";
+import type { AdmissionNotificationProducerRuntime } from "./notifications/domain/repositories/admission-notification-producer";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
 import { buildSitepingModule } from "./siteping/setup";
 import { PostgresTribeMemberSubscriptionRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
@@ -473,6 +474,18 @@ export async function createAdmissionMessagingWorkModules(options: Omit<Messagin
   return buildMessagingWorkModule({
     ...options, authorize,
     execute: (actorUserId, run) => databaseClient.withRequestContext({ userId: actorUserId, email: null }, run),
+  });
+}
+
+/** @param options - Native maintenance request, live server secret and the original host-run clock/reporting context. @returns The complete bounded reminder/source/group/outbox producer, without sender execution or a scheduler. @throws MessagingSecretAccessError before database composition unless the native bearer is currently authorized. */
+export async function createAdmissionNotificationProducerWorkModules(options: { request: Request; readCurrentCronSecret: () => string | undefined; runtime: AdmissionNotificationProducerRuntime }) {
+  const authorize = createRequestMessagingMaintenanceAuthorizer(options.request, options.readCurrentCronSecret);
+  if (!await authorize()) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.permissionDenied);
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  return buildAdmissionNotificationProducerModule({
+    execute: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run),
+    authorize, readRecoveryLock: async () => readMessagingRecoveryLock(), readSecurityConfig: () => readMessagingHostingSecurityConfig(),
+    publicAppBaseUrl: resolvePublicAppBaseUrl(), runtime: options.runtime,
   });
 }
 
