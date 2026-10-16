@@ -4860,6 +4860,11 @@ describe("TribeRound", () => {
       "src",
       "https://example.com/ada-lovelace.jpg"
     );
+    // Google rejects some profile photos requested with a cross-site Referer.
+    expect(screen.getByRole("img", { name: "Ada Lovelace" })).toHaveAttribute(
+      "referrerpolicy",
+      "no-referrer"
+    );
 
     await user.click(
       screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
@@ -4869,6 +4874,10 @@ describe("TribeRound", () => {
     expect(screen.getByRole("img", { name: "Grace Hopper" })).toHaveAttribute(
       "src",
       "https://example.com/grace-hopper.jpg"
+    );
+    expect(screen.getByRole("img", { name: "Grace Hopper" })).toHaveAttribute(
+      "referrerpolicy",
+      "no-referrer"
     );
   });
 

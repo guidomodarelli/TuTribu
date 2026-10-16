@@ -14,6 +14,7 @@ import {
 } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage, HoverCard, HoverCardContent, HoverCardTrigger, Popover, PopoverContent, PopoverTrigger } from "beez-ui";
+import { MEMBER_AVATAR_REFERRER_POLICY } from "@/src/constants/member-avatar";
 
 
 import type { MessageLikerResult } from "@/src/modules/messages/application/results/tribe-round-result";
@@ -287,7 +288,7 @@ export function MessageLikesHoverCard({
                 size="sm"
               >
                 {liker.image ? (
-                  <AvatarImage alt={liker.name} src={liker.image} />
+                  <AvatarImage referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY} alt={liker.name} src={liker.image} />
                 ) : null}
                 <AvatarFallback>{liker.avatarFallback}</AvatarFallback>
               </Avatar>

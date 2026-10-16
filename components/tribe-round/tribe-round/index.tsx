@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
+import { MEMBER_AVATAR_REFERRER_POLICY } from "@/src/constants/member-avatar";
 import { MorphLoader } from "@/components/loaders/morph-loader";
 
 import { Link } from "@/components/navigation/link";
@@ -874,7 +875,7 @@ function renderRoundAuthorAvatar(
 
   return (
     <Avatar className={composedClassName}>
-      {author.image ? <AvatarImage alt={author.name} src={author.image} /> : null}
+      {author.image ? <AvatarImage referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY} alt={author.name} src={author.image} /> : null}
       <AvatarFallback>{author.avatarFallback}</AvatarFallback>
     </Avatar>
   );
@@ -1337,7 +1338,7 @@ function renderCommentAuthorsPreview(message: TribeRoundMessageResult) {
       {authors.map((author) => (
         <Avatar className={styles.TribeRound__commentAuthorAvatar} key={author.id} size="sm">
           {author.image ? (
-            <AvatarImage alt={author.name} src={author.image} />
+            <AvatarImage referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY} alt={author.name} src={author.image} />
           ) : null}
           <AvatarFallback>{author.avatarFallback}</AvatarFallback>
         </Avatar>
@@ -6096,6 +6097,7 @@ function TribeRoundContent({
               >
                 {authenticatedMember.image ? (
                   <AvatarImage
+                    referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY}
                     alt={authenticatedMember.name}
                     src={authenticatedMember.image}
                   />
@@ -6128,6 +6130,7 @@ function TribeRoundContent({
                 <Avatar className={styles.TribeRound__composerDialogAvatar}>
                   {authenticatedMember.image ? (
                     <AvatarImage
+                      referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY}
                       alt={authenticatedMember.name}
                       src={authenticatedMember.image}
                     />
@@ -6953,6 +6956,7 @@ function TribeRoundContent({
                       <Avatar className={styles.TribeRound__replyComposerAvatar}>
                         {authenticatedMember.image ? (
                           <AvatarImage
+                            referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY}
                             alt={authenticatedMember.name}
                             src={authenticatedMember.image}
                           />

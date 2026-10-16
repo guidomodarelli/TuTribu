@@ -5,6 +5,7 @@ import { Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 
 import { Avatar, AvatarFallback, AvatarImage, Button, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap, cn } from "beez-ui";
+import { MEMBER_AVATAR_REFERRER_POLICY } from "@/src/constants/member-avatar";
 
 
 import {
@@ -188,7 +189,7 @@ export function TribeEventConversation({
             >
               <div className={styles.TribeEventConversation__itemHeader}>
                 <Avatar size={AVATAR_SIZE}>
-                  {comment.authorImageUrl ? <AvatarImage alt="" src={comment.authorImageUrl} /> : null}
+                  {comment.authorImageUrl ? <AvatarImage referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY} alt="" src={comment.authorImageUrl} /> : null}
                   <AvatarFallback>{comment.authorName.slice(0, 1).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <span className={styles.TribeEventConversation__author}>{comment.authorName}</span>

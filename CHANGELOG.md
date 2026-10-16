@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Fixed
+
+- Las fotos de perfil de Google de los integrantes vuelven a mostrarse en la ronda, los comentarios, los eventos y la lista de integrantes, en lugar de quedar reemplazadas por un ícono vacío.
+
 ## [1.7.6] - 2026-10-16
 
 ### Security

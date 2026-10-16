@@ -1,6 +1,7 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarImage, cn, PresenceSwap } from "beez-ui";
+import { MEMBER_AVATAR_REFERRER_POLICY } from "@/src/constants/member-avatar";
 
 import {
   formatAttendanceCounts,
@@ -90,7 +91,7 @@ export function TribeEventAttendanceSummary({
         <AvatarGroup aria-hidden className={styles.TribeEventAttendanceSummary__avatars}>
           {visiblePreview.map((attendee) => (
             <Avatar key={attendee.id} size={AVATAR_SIZE_SMALL}>
-              {attendee.image ? <AvatarImage alt="" src={attendee.image} /> : null}
+              {attendee.image ? <AvatarImage referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY} alt="" src={attendee.image} /> : null}
               <AvatarFallback className={styles.TribeEventAttendanceSummary__initials}>
                 {getMemberAvatarInitials(attendee.name, {
                   maxInitials: STACKED_AVATAR_INITIALS,

@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { toast, Avatar, AvatarFallback, AvatarImage, Button, AnimatedListItem, Textarea } from "beez-ui";
+import { MEMBER_AVATAR_REFERRER_POLICY } from "@/src/constants/member-avatar";
 
 import { LESSON_COMMENT_CONTENT } from "@/src/modules/courses/constants/courses";
 import type { LessonCommentResult } from "@/src/modules/courses/application/results/course-results";
@@ -398,7 +399,7 @@ export function LessonComments({ lessonId, tribeSlug }: LessonCommentsProps) {
             >
               <div className={styles.LessonComments__itemHeader}>
                 <Avatar size="sm">
-                  <AvatarImage src={comment.authorImageUrl} />
+                  <AvatarImage referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY} src={comment.authorImageUrl} />
                   <AvatarFallback>
                     {comment.authorName.slice(0, 1).toUpperCase()}
                   </AvatarFallback>

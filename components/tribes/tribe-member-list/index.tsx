@@ -2,6 +2,7 @@
 
 import { AnimatePresence } from "motion/react";
 import { Avatar, AvatarFallback, AvatarImage, Badge, AnimatedListItem, PresenceSwap } from "beez-ui";
+import { MEMBER_AVATAR_REFERRER_POLICY } from "@/src/constants/member-avatar";
 
 import { FreeInvitationAvatarFrame } from "@/components/tribes/free-invitation-avatar-frame";
 import type {
@@ -187,7 +188,7 @@ export function TribeMemberList({
               const avatar = (
                 <Avatar className={styles.TribeMemberList__avatar}>
                   {member.image ? (
-                    <AvatarImage alt={DECORATIVE_IMAGE_ALT} src={member.image} />
+                    <AvatarImage referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY} alt={DECORATIVE_IMAGE_ALT} src={member.image} />
                   ) : null}
                   <AvatarFallback>{member.avatarFallback}</AvatarFallback>
                 </Avatar>
