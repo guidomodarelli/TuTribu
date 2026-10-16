@@ -17,6 +17,8 @@ const SESSION_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const EVENT_LEAD_TIME_MS = 2 * 24 * 60 * 60 * 1000;
 const EVENT_DURATION_MS = 60 * 60 * 1000;
 const SESSION_TOKEN_BYTES = 24;
+/** Gap between seeded messages, so the round lists them newest first in a stable order. */
+const MESSAGE_SPACING_MS = 60 * 60 * 1000;
 const SESSION_SIGNATURE_ALGORITHM = "sha256";
 const SESSION_SIGNATURE_ENCODING = "base64";
 
@@ -26,6 +28,12 @@ const FIXTURE_COPY = {
   memberName: "Miembro E2E",
   messageContent: "Contenido del mensaje sembrado para validar los diálogos.",
   messageTitle: "Mensaje de prueba E2E",
+  discussedMessageContent: "Mensaje sembrado con comentarios y me gustas.",
+  discussedMessageReplies: ["Primer comentario sembrado.", "Segundo comentario sembrado."],
+  discussedMessageTitle: "Mensaje con comentarios E2E",
+  likedMessageContent: "Mensaje sembrado con me gustas y sin comentarios.",
+  likedMessageTitle: "Mensaje con me gustas E2E",
+  tribemateName: "Integrante E2E",
   tribeName: "Tribu E2E de diálogos",
 };
 
@@ -33,6 +41,8 @@ const FIXTURE_COPY = {
 const FIXTURE_TRIBE = {
   channel: { emoji: "🔥", name: "Ronda", slug: "ronda", sortOrder: 20, accessScope: "tribemates" },
   memberRole: "leader",
+  reactionType: "like",
+  tribemateRole: "tribemate",
   memberStatus: "active",
   visibility: "private",
 };
@@ -53,33 +63,89 @@ export function signSessionCookieValue(token, secret) {
 }
 
 /**
- * Inserts a leader member with an active session, a tribe with its round
- * channel, one round message and one upcoming event.
+ * Inserts a member with an active session.
+ *
+ * @param {pg.Client} client - Client inside the seeding transaction.
+ * @param {{ userId: string, name: string, now: Date }} member
+ * @returns {Promise<string>} Session token to sign into the cookie.
+ */
+async function insertMemberWithSession(client, { userId, name, now }) {
+  const sessionToken = randomBytes(SESSION_TOKEN_BYTES).toString("base64url");
+
+  await client.query(
+    `insert into public."user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+     values ($1, $2, $3, true, $4, $4)`,
+    [userId, name, `${userId}@tutribu.test`, now]
+  );
+  await client.query(
+    `insert into public.session (id, token, "userId", "expiresAt", "createdAt", "updatedAt")
+     values ($1, $2, $3, $4, $5, $5)`,
+    [randomUUID(), sessionToken, userId, new Date(now.getTime() + SESSION_LIFETIME_MS), now]
+  );
+
+  return sessionToken;
+}
+
+/**
+ * Inserts a round message and returns its id.
+ *
+ * @param {pg.Client} client - Client inside the seeding transaction.
+ * @param {{ tribeId: string, channelId: string, authorId: string, title: string, content: string, createdAt: Date }} message
+ * @returns {Promise<string>} Message id.
+ */
+async function insertMessage(client, { tribeId, channelId, authorId, title, content, createdAt }) {
+  const { rows: [message] } = await client.query(
+    `insert into public.messages (tribe_id, channel_id, author_id, title, content, created_at, updated_at)
+     values ($1, $2, $3, $4, $5, $6, $6) returning id`,
+    [tribeId, channelId, authorId, title, content, createdAt]
+  );
+
+  return message.id;
+}
+
+/**
+ * Inserts a like from each member on a message.
+ *
+ * @param {pg.Client} client - Client inside the seeding transaction.
+ * @param {{ tribeId: string, messageId: string, userIds: string[] }} reactions
+ */
+async function insertLikes(client, { tribeId, messageId, userIds }) {
+  for (const userId of userIds) {
+    await client.query(
+      `insert into public.message_reactions (message_id, tribe_id, user_id, type) values ($1, $2, $3, $4)`,
+      [messageId, tribeId, userId, FIXTURE_TRIBE.reactionType]
+    );
+  }
+}
+
+/**
+ * Inserts a leader and a tribemate, each with an active session, a tribe with
+ * its round channel, three leader messages (a plain one, one with replies and
+ * likes, and one with likes only) and one upcoming event. The tribemate sees
+ * the leader's messages without the actions menu.
  *
  * @param {{ connectionString: string, runId: string, authSecret: string }} input
- * @returns {Promise<{ sessionCookie: string, tribeSlug: string, messageTitle: string, eventTitle: string }>}
+ * @returns {Promise<{ sessionCookie: string, tribemateSessionCookie: string, tribeSlug: string, messageTitle: string, discussedMessageTitle: string, likedMessageTitle: string, eventTitle: string }>}
  */
 export async function seedDialogFixtures({ connectionString, runId, authSecret }) {
   const client = new pg.Client({ connectionString });
   const now = new Date();
   const userId = `e2e-${runId}`;
-  const sessionToken = randomBytes(SESSION_TOKEN_BYTES).toString("base64url");
+  const tribemateId = `e2e-tribemate-${runId}`;
+  let sessionToken = "";
+  let tribemateSessionToken = "";
   const tribeSlug = `e2e-dialogos-${runId}`;
 
   await client.connect();
 
   try {
     await client.query("BEGIN");
-    await client.query(
-      `insert into public."user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
-       values ($1, $2, $3, true, $4, $4)`,
-      [userId, FIXTURE_COPY.memberName, `${userId}@tutribu.test`, now]
-    );
-    await client.query(
-      `insert into public.session (id, token, "userId", "expiresAt", "createdAt", "updatedAt")
-       values ($1, $2, $3, $4, $5, $5)`,
-      [randomUUID(), sessionToken, userId, new Date(now.getTime() + SESSION_LIFETIME_MS), now]
-    );
+    sessionToken = await insertMemberWithSession(client, { name: FIXTURE_COPY.memberName, now, userId });
+    tribemateSessionToken = await insertMemberWithSession(client, {
+      name: FIXTURE_COPY.tribemateName,
+      now,
+      userId: tribemateId,
+    });
     const { rows: [tribe] } = await client.query(
       `insert into public.tribes (name, slug, visibility, created_by)
        values ($1, $2, $3, $4) returning id`,
@@ -89,17 +155,44 @@ export async function seedDialogFixtures({ connectionString, runId, authSecret }
       `insert into public.tribe_members (tribe_id, user_id, role, status) values ($1, $2, $3, $4)`,
       [tribe.id, userId, FIXTURE_TRIBE.memberRole, FIXTURE_TRIBE.memberStatus]
     );
+    await client.query(
+      `insert into public.tribe_members (tribe_id, user_id, role, status) values ($1, $2, $3, $4)`,
+      [tribe.id, tribemateId, FIXTURE_TRIBE.tribemateRole, FIXTURE_TRIBE.memberStatus]
+    );
     const { channel } = FIXTURE_TRIBE;
     const { rows: [insertedChannel] } = await client.query(
       `insert into public.tribe_channels (tribe_id, name, slug, emoji, sort_order, access_scope)
        values ($1, $2, $3, $4, $5, $6) returning id`,
       [tribe.id, channel.name, channel.slug, channel.emoji, channel.sortOrder, channel.accessScope]
     );
-    await client.query(
-      `insert into public.messages (tribe_id, channel_id, author_id, title, content, created_at, updated_at)
-       values ($1, $2, $3, $4, $5, $6, $6)`,
-      [tribe.id, insertedChannel.id, userId, FIXTURE_COPY.messageTitle, FIXTURE_COPY.messageContent, now]
-    );
+    const messageBase = { authorId: userId, channelId: insertedChannel.id, tribeId: tribe.id };
+    await insertMessage(client, {
+      ...messageBase,
+      content: FIXTURE_COPY.messageContent,
+      createdAt: now,
+      title: FIXTURE_COPY.messageTitle,
+    });
+    const discussedMessageId = await insertMessage(client, {
+      ...messageBase,
+      content: FIXTURE_COPY.discussedMessageContent,
+      createdAt: new Date(now.getTime() - MESSAGE_SPACING_MS),
+      title: FIXTURE_COPY.discussedMessageTitle,
+    });
+    const replyAuthorIds = [tribemateId, userId];
+    for (const [replyIndex, replyContent] of FIXTURE_COPY.discussedMessageReplies.entries()) {
+      await client.query(
+        `insert into public.message_replies (message_id, tribe_id, author_id, content) values ($1, $2, $3, $4)`,
+        [discussedMessageId, tribe.id, replyAuthorIds[replyIndex % replyAuthorIds.length], replyContent]
+      );
+    }
+    await insertLikes(client, { messageId: discussedMessageId, tribeId: tribe.id, userIds: [userId, tribemateId] });
+    const likedMessageId = await insertMessage(client, {
+      ...messageBase,
+      content: FIXTURE_COPY.likedMessageContent,
+      createdAt: new Date(now.getTime() - 2 * MESSAGE_SPACING_MS),
+      title: FIXTURE_COPY.likedMessageTitle,
+    });
+    await insertLikes(client, { messageId: likedMessageId, tribeId: tribe.id, userIds: [userId, tribemateId] });
     const eventStartsAt = new Date(now.getTime() + EVENT_LEAD_TIME_MS);
     await client.query(
       `insert into public.events (tribe_id, created_by, title, starts_at, ends_at)
@@ -115,9 +208,12 @@ export async function seedDialogFixtures({ connectionString, runId, authSecret }
   }
 
   return {
+    discussedMessageTitle: FIXTURE_COPY.discussedMessageTitle,
     eventTitle: FIXTURE_COPY.eventTitle,
+    likedMessageTitle: FIXTURE_COPY.likedMessageTitle,
     messageTitle: FIXTURE_COPY.messageTitle,
     sessionCookie: signSessionCookieValue(sessionToken, authSecret),
+    tribemateSessionCookie: signSessionCookieValue(tribemateSessionToken, authSecret),
     tribeSlug,
   };
 }

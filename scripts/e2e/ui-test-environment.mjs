@@ -23,6 +23,12 @@ export const UI_TEST_SESSION_ENV = {
   tribeSlug: "E2E_TRIBE_SLUG",
   /** Title of the round message seeded in the tribe. */
   messageTitle: "E2E_MESSAGE_TITLE",
+  /** Signed session cookie of a tribemate, who sees the leader's messages without the actions menu. */
+  tribemateSessionCookie: "E2E_TRIBEMATE_SESSION_COOKIE",
+  /** Title of the leader's round message seeded with replies and likes. */
+  discussedMessageTitle: "E2E_DISCUSSED_MESSAGE_TITLE",
+  /** Title of the leader's round message seeded with likes and no replies. */
+  likedMessageTitle: "E2E_LIKED_MESSAGE_TITLE",
   /** Title of the event seeded in the tribe. */
   eventTitle: "E2E_EVENT_TITLE",
 };
