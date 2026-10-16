@@ -23,26 +23,12 @@ $tribe-welcome-selection-modal-option-count: 8;
   overscroll-behavior: contain;
   padding: 1.5rem;
 
-  // The title and description come from `DialogContent`; leave room for the
-  // close button pinned to the corner.
-  &__header {
-    padding-inline-end: calc(var(--control-height-sm) + 0.5rem);
-  }
-
   &__title {
     font-size: 1.25rem;
     font-weight: 500;
     line-height: 1.3;
     margin: 0;
     overflow-wrap: anywhere;
-  }
-
-  &__close {
-    color: var(--muted-foreground);
-    // Pin the icon button to the panel corner, next to the title.
-    inset-block-start: 1.125rem;
-    inset-inline-end: 1rem;
-    position: absolute;
   }
 
   &__description {

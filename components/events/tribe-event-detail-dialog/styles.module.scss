@@ -3,14 +3,8 @@
 .TribeEventDetailDialog {
   width: min(100% - 2rem, 36rem);
 
-  // Type and status badges with the viewer's local time, right under the
-  // header that `DialogContent` draws.
-  &__meta {
-    display: grid;
-    gap: 0.4rem;
-    min-width: 0;
-  }
-
+  // Type and status badges, drawn in the header between the title and the
+  // schedule.
   &__badges {
     display: flex;
     flex-wrap: wrap;

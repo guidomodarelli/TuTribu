@@ -783,7 +783,7 @@ function ReferralMetadataFields({
         onValueChange={(value) => {
           onChange({ ...formState, channel: value });
         }}
-        options={[...INVITATION_CHANNEL_OPTIONS]}
+        options={INVITATION_CHANNEL_OPTIONS}
         placeholder={INVITATION_MANAGEMENT_COPY.channelPlaceholder}
         value={formState.channel}
       />

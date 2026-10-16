@@ -87,13 +87,14 @@ type TribeEventDetailDialogSectionsInput = Omit<
 
 /**
  * Parts of the dialog that depend on the occurrence, placed in
- * `DialogContent`'s title, description, body and footer.
+ * `DialogContent`'s title, header content, description, body and footer.
  */
 type TribeEventDetailDialogSections = {
   body: ReactNode;
   description: ReactNode;
   footer: ReactNode;
   footerClassName?: string;
+  headerContent: ReactNode;
   title: string;
 };
 
@@ -252,6 +253,7 @@ export function TribeEventDetailDialog({
         description={sections?.description}
         footer={sections?.footer}
         footerClassName={sections?.footerClassName}
+        headerContent={sections?.headerContent}
         titleClassName={styles.TribeEventDetailDialog__title}
       >
         {sections?.body}
@@ -476,27 +478,9 @@ function buildTribeEventDetailDialogSections({
 
   const body = (
     <>
-      <div className={styles.TribeEventDetailDialog__meta}>
-        <div className={styles.TribeEventDetailDialog__badges}>
-          <TribeEventTypeBadge eventType={occurrence.eventType} />
-          {isCancelled ? (
-            <Badge tone={BADGE_TONE.danger}>
-              {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.cancelledBadge}
-            </Badge>
-          ) : null}
-          {movedFromLabel ? (
-            <Badge tone={BADGE_TONE.neutral}>
-              {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.movedBadge}
-            </Badge>
-          ) : null}
-          {isPast && !isCancelled ? (
-            <Badge tone={BADGE_TONE.neutral}>{COPY.pastBadge}</Badge>
-          ) : null}
-        </div>
-        {localTimeLabel ? (
-          <p className={styles.TribeEventDetailDialog__localTime}>{localTimeLabel}</p>
-        ) : null}
-      </div>
+      {localTimeLabel ? (
+        <p className={styles.TribeEventDetailDialog__localTime}>{localTimeLabel}</p>
+      ) : null}
 
       {attendeesPanel ? (
         <Tabs
@@ -523,6 +507,27 @@ function buildTribeEventDetailDialogSections({
     </>
   );
 
+  // Type and status badges sit in the header, after the title and outside
+  // it, so the dialog keeps the event title as its accessible name.
+  const headerContent = (
+    <div className={styles.TribeEventDetailDialog__badges}>
+      <TribeEventTypeBadge eventType={occurrence.eventType} />
+      {isCancelled ? (
+        <Badge tone={BADGE_TONE.danger}>
+          {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.cancelledBadge}
+        </Badge>
+      ) : null}
+      {movedFromLabel ? (
+        <Badge tone={BADGE_TONE.neutral}>
+          {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.movedBadge}
+        </Badge>
+      ) : null}
+      {isPast && !isCancelled ? (
+        <Badge tone={BADGE_TONE.neutral}>{COPY.pastBadge}</Badge>
+      ) : null}
+    </div>
+  );
+
   const description = (
     <>
       {formatBuenosAiresLongDate(occurrence.startsAt)}
@@ -532,23 +537,22 @@ function buildTribeEventDetailDialogSections({
     </>
   );
 
+  const contentSections = { body, description, headerContent, title: occurrence.title };
+
   if (!canManageEvents) {
-    return { body, description, footer: null, title: occurrence.title };
+    return { ...contentSections, footer: null };
   }
 
   if (isSeries) {
     return {
-      body,
-      description,
+      ...contentSections,
       footer: renderSeriesManagerActions(occurrence),
       footerClassName: styles.TribeEventDetailDialog__managerActions,
-      title: occurrence.title,
     };
   }
 
   return {
-    body,
-    description,
+    ...contentSections,
     footer: (
       <>
         <Button
@@ -567,6 +571,5 @@ function buildTribeEventDetailDialogSections({
         </Button>
       </>
     ),
-    title: occurrence.title,
   };
 }

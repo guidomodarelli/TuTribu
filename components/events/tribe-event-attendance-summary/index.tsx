@@ -28,7 +28,6 @@ type TribeEventAttendanceSummaryProps = {
 
 const AVATAR_SIZE_SMALL = "sm";
 const COMPACT_AVATAR_LIMIT = 3;
-const MORE_PREFIX = "+";
 const DETAILS_SEPARATOR = " · ";
 /** Inline wrapper so each line keeps its paragraph box while its text swaps. */
 const PRESENCE_ELEMENT = "span";
@@ -55,7 +54,6 @@ export function TribeEventAttendanceSummary({
   const visiblePreview = isCompact
     ? attendance.goingPreview.slice(0, COMPACT_AVATAR_LIMIT)
     : attendance.goingPreview;
-  const hiddenGoingCount = attendance.goingCount - visiblePreview.length;
   // Without preview profiles the counts line already says "N van".
   const namesText =
     attendance.goingPreview.length > 0
@@ -84,25 +82,21 @@ export function TribeEventAttendanceSummary({
       )}
     >
       {visiblePreview.length > 0 ? (
-        // Decorative: the sentence next to it names the same people.
-        <span aria-hidden className={styles.TribeEventAttendanceSummary__avatars}>
-          <AvatarGroup
-            max={visiblePreview.length}
-            members={visiblePreview.map((attendee) => ({
-              key: attendee.id,
-              name: attendee.name,
-              src: attendee.image,
-            }))}
-            size={AVATAR_SIZE_SMALL}
-          />
-          {/* The preview holds only some of the people going, so the rest of
-              the count is drawn here instead of by the group. */}
-          {hiddenGoingCount > 0 ? (
-            <span className={styles.TribeEventAttendanceSummary__more}>
-              {MORE_PREFIX + String(hiddenGoingCount)}
-            </span>
-          ) : null}
-        </span>
+        // Decorative: the sentence next to it names the same people. The
+        // preview holds only some of the people going, so `total` makes the
+        // +N chip count the rest.
+        <AvatarGroup
+          aria-hidden
+          className={styles.TribeEventAttendanceSummary__avatars}
+          max={visiblePreview.length}
+          members={visiblePreview.map((attendee) => ({
+            key: attendee.id,
+            name: attendee.name,
+            src: attendee.image,
+          }))}
+          size={AVATAR_SIZE_SMALL}
+          total={attendance.goingCount}
+        />
       ) : null}
       <div className={styles.TribeEventAttendanceSummary__text}>
         {!isCompact && (namesText || !countsText) ? (

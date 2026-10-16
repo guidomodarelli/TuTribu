@@ -10,7 +10,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La confirmación para eliminar un evento ya no se cierra al hacer click afuera y abre con el foco en «Cancelar».
 - En el visor de imágenes y videos de un mensaje y en la galería de la historia de la tribu, las flechas y los indicadores de posición quedan debajo del contenido; los indicadores se pueden recorrer con el teclado y cada cambio se anuncia, por ejemplo «Medio 2 de 5».
 - La paginación de la ronda tiene el diseño nuevo de flechas «Anterior» y «Siguiente», que en el teléfono muestran solo el ícono.
-- En el detalle de un evento, las etiquetas del tipo de encuentro y de su estado (cancelado, movido o finalizado) se muestran debajo del título y la fecha.
+- En el detalle de un evento, las etiquetas del tipo de encuentro y de su estado (cancelado, movido o finalizado) se muestran juntas debajo del título, antes de la fecha.
 - Los desplegables de los formularios muestran su título con el mismo estilo que el resto de los campos y abren la lista debajo, con el mismo ancho.
 - Al pasar el puntero sobre los avatares de quienes comentaron un mensaje o van a un evento se ve el nombre de cada persona, y los avatares sin foto muestran dos iniciales.
 

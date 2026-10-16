@@ -36,7 +36,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Avatar, AvatarGroup, Dialog, DialogClose, DialogContent, DialogTrigger, DropdownMenu, type DropdownItem, Input, Tooltip, Pagination, Carousel, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
+import { toast, Button, Avatar, AvatarGroup, Dialog, DialogClose, DialogContent, DialogTrigger, DropdownMenu, type DropdownItem, Input, Tooltip, Pagination, type PaginationClickEvent, Carousel, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
 import { MorphLoader } from "@/components/loaders/morph-loader";
 
 import { isInPageLinkClick } from "@/lib/plain-link-click";
@@ -46,13 +46,6 @@ import {
   buildTribeRoundPageHref,
   type TribeRoundLocation,
 } from "@/lib/messages/tribe-round-location";
-
-
-
-
-
-
-
 
 import { MessageLikesHoverCard } from "@/components/tribe-round/message-likes-hover-card";
 import { RoundChannelFilters } from "@/components/tribe-round/round-channel-filters";
@@ -374,6 +367,9 @@ const TRIBE_ROUND_MEDIA = {
 
 const TRIBE_ROUND_ATTRIBUTES = {
   channelFilterEmojiHidden: true,
+  // Author and reply composer avatars render at 40px (36px for the reply
+  // composer), so the photo is requested at the 40px `lg` size.
+  authorAvatarSize: "lg",
   commentAuthorsAvatarSize: "sm",
   composerAvatarSize: "lg",
   // The dialog actions live in `DialogContent`'s footer, outside the forms,
@@ -544,9 +540,6 @@ const TRIBE_ROUND_REPLY_LOAD_STATUS = {
   loaded: "loaded",
   loading: "loading",
 } as const;
-
-/** Pagination links of the round, found from a click inside the pagination. */
-const HTML_ANCHOR_SELECTOR = "a";
 
 const TRIBE_ROUND_FORMAT = {
   avatarRoleModifierPrefix: "TribeRound__avatar--",
@@ -878,6 +871,7 @@ function renderRoundAuthorAvatar(
       className={composedClassName}
       fallback={author.avatarFallback}
       name={author.name}
+      size={TRIBE_ROUND_ATTRIBUTES.authorAvatarSize}
       src={author.image}
     />
   );
@@ -2117,33 +2111,19 @@ function TribeRoundContent({
   /**
    * Loads another round page in place when a pagination link gets a plain
    * click; modified clicks keep the real link so it can open in a new tab.
+   *
+   * @param page - Requested round page.
+   * @param event - Click on the pagination link that requested the page.
    */
-  // `Pagination` reports the requested page without its click event, so the
-  // in-place navigation is decided here, in the capture phase, before the
-  // provider's `Link` navigates: a plain click is taken over and the page is
-  // loaded once `onPageChange` reports it; modified clicks (new tab, new
-  // window) fall through to the browser.
-  const isInPageRoundPaginationClickRef = useRef(false);
-  const handleRoundPaginationClickCapture = (
-    event: MouseEvent<HTMLDivElement>
+  const handleRoundPageChange = (
+    page: number,
+    event: PaginationClickEvent
   ) => {
-    const isLinkClick =
-      event.target instanceof Element && event.target.closest(HTML_ANCHOR_SELECTOR) !== null;
-    const isInPageClick =
-      isLinkClick && isInPageLinkClick(event);
-
-    isInPageRoundPaginationClickRef.current = isInPageClick;
-
-    if (isInPageClick) {
-      event.preventDefault();
-    }
-  };
-  const handleRoundPageChange = (page: number) => {
-    if (!isInPageRoundPaginationClickRef.current) {
+    if (!isInPageLinkClick(event)) {
       return;
     }
 
-    isInPageRoundPaginationClickRef.current = false;
+    event.preventDefault();
     void roundNavigation.navigateToLocation({
       channelSlug: activeChannel?.slug ?? null,
       page,
@@ -5640,6 +5620,8 @@ function TribeRoundContent({
             slideClassName={styles.TribeRound__imageCarouselItem}
             slideLabel={formatImageCarouselSlideLabel}
             slideSize={TRIBE_ROUND_CAROUSEL.slideSize}
+            trackClassName={styles.TribeRound__imageCarouselTrack}
+            viewportClassName={styles.TribeRound__imageCarouselViewport}
             // A focused video iframe would keep snapping the carousel back to
             // its slide, cancelling arrow navigation. Media slides are
             // navigated explicitly, so focus must not drive scroll position.
@@ -5791,31 +5773,29 @@ function TribeRoundContent({
     ];
 
     return (
-      // Clicks on the trigger and on the portaled items bubble through the
-      // React tree; stopping them here keeps them from opening the message
-      // details behind the menu.
-      <span
-        className={styles.TribeRound__messageMenu}
-        onClick={shouldStopDetailsOpening ? stopMessageDetailsOpening : undefined}
-      >
-        <DropdownMenu
-          align={TRIBE_ROUND_ATTRIBUTES.messageActionsDropdownAlign}
-          contentClassName={styles.TribeRound__messageMenuContent}
-          items={menuItems}
-          label={TRIBE_ROUND_COPY.messageMoreActionsAriaLabel}
-          trigger={
-            <Button
-              aria-label={TRIBE_ROUND_COPY.messageMoreActionsAriaLabel}
-              className={styles.TribeRound__messageMoreButton}
-              size={TRIBE_ROUND_FORM.iconSize}
-              type={TRIBE_ROUND_FORM.buttonType}
-              variant={TRIBE_ROUND_FORM.ghostVariant}
-            >
-              <MoreHorizontalIcon />
-            </Button>
-          }
-        />
-      </span>
+      // The menu panel keeps its clicks inside it; a click on the trigger
+      // still bubbles, so it is stopped here to keep the message details
+      // behind the menu closed.
+      <DropdownMenu
+        align={TRIBE_ROUND_ATTRIBUTES.messageActionsDropdownAlign}
+        contentClassName={styles.TribeRound__messageMenuContent}
+        items={menuItems}
+        label={TRIBE_ROUND_COPY.messageMoreActionsAriaLabel}
+        trigger={
+          <Button
+            aria-label={TRIBE_ROUND_COPY.messageMoreActionsAriaLabel}
+            className={styles.TribeRound__messageMoreButton}
+            onClick={
+              shouldStopDetailsOpening ? stopMessageDetailsOpening : undefined
+            }
+            size={TRIBE_ROUND_FORM.iconSize}
+            type={TRIBE_ROUND_FORM.buttonType}
+            variant={TRIBE_ROUND_FORM.ghostVariant}
+          >
+            <MoreHorizontalIcon />
+          </Button>
+        }
+      />
     );
   };
 
@@ -6491,22 +6471,19 @@ function TribeRoundContent({
       </ol>
     )}
     {visiblePagination.hasPreviousPage || visiblePagination.hasNextPage ? (
-      // Plain clicks load the page in place; see `handleRoundPaginationClickCapture`.
-      <div onClickCapture={handleRoundPaginationClickCapture}>
-        <Pagination
-          className={styles.TribeRound__pagination}
-          getHref={(page) =>
-            buildTribeRoundPageHref({
-              channelSlug: activeChannel?.slug ?? null,
-              page,
-              tribeSlug,
-            })
-          }
-          hasNextPage={visiblePagination.hasNextPage}
-          onPageChange={handleRoundPageChange}
-          page={visiblePagination.currentPage}
-        />
-      </div>
+      <Pagination
+        className={styles.TribeRound__pagination}
+        getHref={(page) =>
+          buildTribeRoundPageHref({
+            channelSlug: activeChannel?.slug ?? null,
+            page,
+            tribeSlug,
+          })
+        }
+        hasNextPage={visiblePagination.hasNextPage}
+        onPageChange={handleRoundPageChange}
+        page={visiblePagination.currentPage}
+      />
     ) : null}
     {renderMessageImageCarouselDialog()}
     <Dialog open={isMessageDetailsOpen} onOpenChange={setIsMessageDetailsOpen}>
@@ -6673,6 +6650,7 @@ function TribeRoundContent({
                       className={styles.TribeRound__replyComposerAvatar}
                       fallback={authenticatedMember.avatarFallback}
                       name={authenticatedMember.name}
+                      size={TRIBE_ROUND_ATTRIBUTES.authorAvatarSize}
                       src={authenticatedMember.image}
                     />
                     <div className={styles.TribeRound__replyInputWrapper}>

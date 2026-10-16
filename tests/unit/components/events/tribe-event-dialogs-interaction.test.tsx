@@ -175,6 +175,27 @@ describe("event dialogs keep their content while they animate out", () => {
   });
 });
 
+describe("event detail dialog header", () => {
+  it("shows the type and status badges in the header without renaming the dialog", () => {
+    render(
+      <TribeEventDetailDialog
+        {...detailDialogCallbacks}
+        canManageEvents={false}
+        isPast
+        isSavingAttendance={false}
+        occurrence={createOccurrence()}
+        tribeSlug="matematica-pro"
+        viewerTimeZone={null}
+      />
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Clase abierta" });
+
+    expect(within(dialog).getByRole("heading", { name: "Clase abierta" })).toBeInTheDocument();
+    expect(within(dialog).getByText("Finalizado")).toBeInTheDocument();
+  });
+});
+
 describe("event forms point validation at the field to fix", () => {
   it("marks, describes and focuses an invalid capacity, and clears it on edit", async () => {
     const user = userEvent.setup();
@@ -215,6 +236,47 @@ describe("event forms point validation at the field to fix", () => {
 
     expect(capacityField).not.toHaveAttribute("aria-invalid");
     await waitFor(() => expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("ties a missing lesson course to the validation message and focuses it", async () => {
+    const user = userEvent.setup();
+    render(
+      <TribeEventLessonConversionDialog
+        convertedLesson={null}
+        defaultDescription=""
+        defaultTitle="Clase abierta · 6 may"
+        isOpen
+        isSubmitting={false}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+        onSubmit={vi.fn()}
+        targetsState={{
+          courses: [
+            {
+              id: "66666666-cccc-4666-8666-666666666601",
+              modules: [
+                { id: "66666666-dddd-4666-8666-666666666601", title: "Unidad 1" },
+                { id: "66666666-dddd-4666-8666-666666666602", title: "Unidad 2" },
+              ],
+              title: "Álgebra",
+            },
+          ],
+          status: "loaded",
+        }}
+      />
+    );
+    const dialog = screen.getByRole("dialog", { name: "Convertir en lección" });
+    const courseField = within(dialog).getByRole("combobox", { name: "Curso" });
+
+    expect(courseField).not.toHaveAccessibleDescription();
+
+    await user.click(within(dialog).getByRole("button", { name: "Crear lección" }));
+
+    expect(courseField).toHaveAttribute("aria-invalid", "true");
+    expect(courseField).toHaveAccessibleDescription(
+      "Elegí un curso, un módulo y escribí el título de la lección."
+    );
+    expect(courseField).toHaveFocus();
   });
 
   it("reports a missing proposal title in Spanish and focuses it", async () => {

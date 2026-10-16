@@ -272,7 +272,7 @@ export function TribeEventLessonConversionDialog({
         onSubmit={handleSubmit}
       >
         <Select
-          aria-invalid={invalidFieldId === FIELD_ID.course || undefined}
+          {...getValidationProps(FIELD_ID.course)}
           id={FIELD_ID.course}
           label={COPY.courseLabel}
           options={coursesWithModules.map((course) => ({ label: course.title, value: course.id }))}
@@ -294,7 +294,7 @@ export function TribeEventLessonConversionDialog({
           }}
         />
         <Select
-          aria-invalid={invalidFieldId === FIELD_ID.module || undefined}
+          {...getValidationProps(FIELD_ID.module)}
           disabled={!selectedCourse}
           id={FIELD_ID.module}
           label={COPY.moduleLabel}

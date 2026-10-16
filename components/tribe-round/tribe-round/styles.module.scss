@@ -922,14 +922,14 @@ $media-viewer-overlay-opacity: 72%;
     height: 100%;
     padding: clamp(4rem, 8vw, 6rem) clamp(1.5rem, 6vw, 5rem)
       clamp(0.75rem, 2vw, 1.25rem);
+  }
 
-    // beez-ui's `Carousel` exposes no class for its viewport and slide track,
-    // and the video slides need a definite height (`container-type: size`).
-    :global([data-slot="carousel-content"]),
-    :global([data-slot="carousel-content"] > div) {
-      min-height: 0;
-      height: 100%;
-    }
+  // The clipped viewport and the slide track fill the free row, so the video
+  // slides get a definite height (`container-type: size`).
+  &__imageCarouselViewport,
+  &__imageCarouselTrack {
+    min-height: 0;
+    height: 100%;
   }
 
   &__imageCarouselItem {
@@ -1318,10 +1318,6 @@ $media-viewer-overlay-opacity: 72%;
   }
 
   // Wrapper of the message actions menu, so it never changes the header layout.
-  &__messageMenu {
-    display: contents;
-  }
-
   &__messageMenuItem {
     white-space: nowrap;
   }

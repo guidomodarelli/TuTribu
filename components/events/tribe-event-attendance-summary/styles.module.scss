@@ -9,26 +9,7 @@
   }
 
   &__avatars {
-    display: inline-flex;
     flex: 0 0 auto;
-    align-items: center;
-  }
-
-  // People going beyond the preview, overlapping the stack like the group's
-  // own avatars.
-  &__more {
-    display: inline-grid;
-    width: 1.5rem;
-    height: 1.5rem;
-    margin-left: -0.375rem;
-    place-items: center;
-    border: 2px solid var(--surface);
-    border-radius: 999px;
-    background: var(--surface-muted);
-    color: var(--text-secondary);
-    font-size: 0.625rem;
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
   }
 
   &__text {

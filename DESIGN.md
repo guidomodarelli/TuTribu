@@ -143,6 +143,11 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
   form an `id` and the submit button `form={id}`, so Enter in a field still
   submits it. Confirmations use `<Dialog alert>` with a `DialogClose asChild`
   cancel button, which receives the focus when the dialog opens.
+- Header extras such as type or status badges go in `headerContent`, which
+  renders them between the title and the description without changing the
+  dialog's accessible name. Keep the built-in close button; to open a dialog
+  with the focus on it, pass `closeButtonRef` and focus it from
+  `onOpenAutoFocus` instead of drawing a custom close control.
 - Rows inside a dialog that must read as part of the panel, such as a sticky
   header or a toolbar, paint the panel's `--surface-raised`, never
   `--background`, which is a darker tone in dark mode.

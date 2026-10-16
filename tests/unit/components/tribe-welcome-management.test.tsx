@@ -545,7 +545,7 @@ describe("TribeWelcomeManagement", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
 
-    const closeButton = screen.getByRole("button", { name: "Cerrar" });
+    const closeButton = screen.getByRole("button", { name: "Cerrar diálogo" });
 
     await user.click(closeButton);
 

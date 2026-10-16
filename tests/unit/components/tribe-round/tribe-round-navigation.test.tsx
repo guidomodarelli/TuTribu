@@ -265,6 +265,19 @@ describe("TribeRound in-place navigation", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("leaves modified pagination clicks to the browser instead of paging in place", () => {
+    renderRound();
+    const nextPageLink = screen.getByRole("link", { name: "Ir a la página siguiente" });
+    const preventDocumentNavigation = (event: MouseEvent) => event.preventDefault();
+    document.addEventListener("click", preventDocumentNavigation);
+
+    fireEvent.click(nextPageLink, { metaKey: true });
+
+    document.removeEventListener("click", preventDocumentNavigation);
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("");
+  });
+
   it("ignores a stale response and aborts the superseded request", async () => {
     const user = userEvent.setup();
     const rondaResponse = createDeferredResponse();

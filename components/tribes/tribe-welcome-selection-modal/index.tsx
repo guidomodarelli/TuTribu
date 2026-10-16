@@ -1,14 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowUpRightIcon, LoaderCircleIcon, XIcon } from "lucide-react";
-import {
-  toast,
-  Button,
-  Dialog,
-  DialogClose,
-  DialogContent,
-} from "beez-ui";
+import { ArrowUpRightIcon, LoaderCircleIcon } from "lucide-react";
+import { toast, Dialog, DialogContent } from "beez-ui";
 
 import type { TribeWelcomeLinkResult } from "@/src/modules/tribes/application/results/tribe-welcome-result";
 import { TRIBE_WELCOME_LINK_TYPE } from "@/src/modules/tribes/constants/tribe-welcome";
@@ -16,7 +10,6 @@ import styles from "./styles.module.scss";
 
 const TRIBE_WELCOME_SELECTION_MODAL_COPY = {
   benefitEyebrow: "Beneficio por seleccionar una opción",
-  closeLabel: "Cerrar",
   fallbackError:
     "No pudimos registrar tu elección. Probá de nuevo en unos minutos.",
 } as const;
@@ -38,11 +31,9 @@ const WHATSAPP_LINK = {
 
 const PHONE_NUMBER_NON_DIGIT_PATTERN = /\D/g;
 
-/** Button attributes for the modal close control and the option buttons. */
+/** Button attributes for the option buttons. */
 const MODAL_BUTTON = {
   buttonType: "button",
-  closeSize: "sm",
-  closeVariant: "ghost",
 } as const;
 
 const SELECTION_WINDOW_OPEN = {
@@ -246,26 +237,12 @@ export function TribeWelcomeSelectionModal({
               : null;
           closeButtonRef.current?.focus();
         }}
-        showCloseButton={false}
+        closeButtonRef={closeButtonRef}
         title={title}
         description={hasDescription ? description : undefined}
-        headerClassName={styles.TribeWelcomeSelectionModal__header}
         titleClassName={styles.TribeWelcomeSelectionModal__title}
         descriptionClassName={styles.TribeWelcomeSelectionModal__description}
       >
-        <DialogClose asChild>
-          <Button
-            aria-label={TRIBE_WELCOME_SELECTION_MODAL_COPY.closeLabel}
-            className={styles.TribeWelcomeSelectionModal__close}
-            ref={closeButtonRef}
-            size={MODAL_BUTTON.closeSize}
-            type={MODAL_BUTTON.buttonType}
-            variant={MODAL_BUTTON.closeVariant}
-          >
-            <XIcon aria-hidden />
-          </Button>
-        </DialogClose>
-
         {benefit ? (
           <p className={styles.TribeWelcomeSelectionModal__benefit}>
             <span

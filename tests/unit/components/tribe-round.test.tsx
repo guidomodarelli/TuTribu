@@ -2576,6 +2576,40 @@ describe("TribeRound", () => {
     expect(downloadLink).toHaveTextContent("1,5 KB");
   });
 
+  it("keeps the message details closed while the message actions menu is used", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              permissions: {
+                canDelete: false,
+                canEdit: true,
+              },
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Acciones del mensaje" })
+    );
+
+    expect(screen.queryByRole("dialog", { name: "Mensaje" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("menuitem", { name: "Editar mensaje" }));
+
+    expect(await screen.findByRole("button", { name: "Guardar" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Mensaje" })).not.toBeInTheDocument();
+  });
+
   it("omits the files field when editing without touching attachments", async () => {
     const user = userEvent.setup();
 
