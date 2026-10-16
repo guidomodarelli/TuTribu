@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { ReadAdmissionOperationUseCase } from "@/src/modules/academy-admissions/application/use-cases/read-admission-operation-use-case";
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
+import { ADMISSION_BATCH_DECISION_OPERATION } from "@/src/modules/academy-admissions/constants/admission-batch-decision";
 
 /** Supplies only own account/registry read ports; no claim or mutation dependency exists. */
 function recoveryFixture() {
@@ -16,6 +17,24 @@ function recoveryFixture() {
 }
 
 describe("original admission operation read", () => {
+  it.each(["started", "completed"] as const)("should recover the original %s batch without replacing its selected row outcomes or claiming work", async (state) => {
+    const fixture = recoveryFixture();
+    const snapshot = { results: [{ admissionRequestId: randomUUID(), status: "approved", version: 2 }, { admissionRequestId: randomUUID(), status: "conflict", code: "request_conflict" }] };
+    const operation = state === "started" ? { state, operationId: fixture.query.operationId } : { state, operationId: fixture.query.operationId, replayed: true, result: snapshot };
+    fixture.reader.read.mockResolvedValueOnce({ operationType: ADMISSION_BATCH_DECISION_OPERATION, operation });
+    const result = await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query);
+    expect(result).toEqual({ ok: true, value: { type: ADMISSION_BATCH_DECISION_OPERATION, ...operation } });
+    expect(fixture.reader.read).toHaveBeenCalledOnce();
+  });
+
+  it("should reject private notes inside an original batch snapshot rather than projecting them to recovery", async () => {
+    const fixture = recoveryFixture();
+    fixture.reader.read.mockResolvedValueOnce({ operationType: ADMISSION_BATCH_DECISION_OPERATION, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: { results: [{ admissionRequestId: randomUUID(), status: "rejected", version: 2, internalReason: "synthetic-private-batch-note" }] } } });
+    const result = await new ReadAdmissionOperationUseCase(fixture.accounts, fixture.reader, () => fixture.now).execute(fixture.query);
+    expect(result).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
+    expect(JSON.stringify(result.ok ? result.value : { code: result.failure.code })).not.toContain("synthetic-private-batch-note");
+  });
+
   it.each(["create_personal_invitation", "rename_personal_invitation", "revoke_personal_invitation"])("should recover %s metadata without a token and close a snapshot carrying initial material", async (operationType) => {
     const fixture = recoveryFixture(), snapshot = { invitationId: randomUUID(), version: 1, changed: true, created: true };
     fixture.reader.read.mockResolvedValue({ operationType, operation: { state: "completed", operationId: fixture.query.operationId, replayed: true, result: snapshot } });

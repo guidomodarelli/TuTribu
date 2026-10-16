@@ -34,6 +34,7 @@ import { PostgresMessagingUsageRepository } from "@/src/modules/messaging/infras
 import { AdmissionMessagingUsagePolicyReader } from "./infrastructure/verification/messaging-usage-policy-reader";
 import { SubmitAdmissionUseCase } from "./application/use-cases/submit-admission-use-case";
 import { DecideAdmissionRequestUseCase } from "./application/use-cases/decide-admission-request-use-case";
+import { DecideAdmissionRequestsBatchUseCase } from "./application/use-cases/decide-admission-requests-batch-use-case";
 import { CancelAdmissionRequestUseCase } from "./application/use-cases/cancel-admission-request-use-case";
 import { PostgresAdmissionRequestRepository } from "./infrastructure/repositories/postgres-admission-request-repository";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
@@ -308,6 +309,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
           submit: new SubmitAdmissionUseCase(dependencies.accounts, writer, dependencies.clock),
           own: new GetOwnAdmissionUseCases(dependencies.accounts, new PostgresOwnAdmissionRequestReader(executeRequest, async () => (await options.readSecurityConfig()).recoveryLocked), dependencies.clock),
           decide: new DecideAdmissionRequestUseCase(resolveContext, writer),
+          decideBatch: new DecideAdmissionRequestsBatchUseCase(resolveContext, writer),
           cancelOwn: new CancelAdmissionRequestUseCase(resolveContext, writer, ADMISSION_ACTION.cancelOwnRequest),
           cancelByManagement: new CancelAdmissionRequestUseCase(resolveContext, writer, ADMISSION_ACTION.cancelByManagement),
           allowRetry: new AllowAdmissionRetryUseCase(resolveContext, writer),

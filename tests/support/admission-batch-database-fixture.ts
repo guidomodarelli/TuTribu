@@ -6,15 +6,17 @@ import { prepareAllowlistManagement } from "./allowlist-management-database-fixt
 import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
 /**
  * Creates a current manual academy with no provider capability or external transport.
  * @param database - Verified disposable branch with native PostgreSQL and current migrations.
  * @param beforeActivation - Optional genuine existing actors seeded before admission cutover, without bypassing its guards.
+ * @param options - Optional synthetic host security shared privately with an actual local Next process.
  * @returns The concrete writer, real human scope and a helper that submits each pending request normally.
  */
-export async function prepareAdmissionBatch(database: AcademyAdmissionTestDatabase, beforeActivation?: (scope: { tribeId: string; leaderUserId: string }) => Promise<void>) {
-  const fixture = await prepareAllowlistManagement(database);
+export async function prepareAdmissionBatch(database: AcademyAdmissionTestDatabase, beforeActivation?: (scope: { tribeId: string; leaderUserId: string }) => Promise<void>, options: { securityConfig?: MessagingSecurityConfig } = {}) {
+  const fixture = await prepareAllowlistManagement(database, options.securityConfig);
   if (beforeActivation) await beforeActivation({ tribeId: fixture.tribeId, leaderUserId: fixture.userId });
   await database.withContext(fixture.own, async (transaction) => {
     const instant = (await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now;

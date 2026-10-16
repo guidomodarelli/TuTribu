@@ -1,6 +1,6 @@
 # Base de decisiones por lote: avance parcial
 
-T176 y T183 siguen abiertas con su alcance y dependencias originales. El inventario conserva **174 tareas completas y 38 pendientes de 212**. Esta base privada todavía no está compuesta en una ruta HTTP ni en la bandeja; no acredita los seis criterios de US8 ni una función disponible para usuarios.
+Registro histórico del checkpoint privado `a79c74ed`, cuando T176 y T183 seguían abiertas y el inventario conservaba **174 tareas completas y 38 pendientes de 212**. Esa base todavía no estaba compuesta en una ruta HTTP ni en la bandeja. Los avances posteriores de [POST y recuperación original](batch-decisions-http.md) y el [cierre independiente de T182](admission-review-history-ui.md#t182-scope-audit) conservan su propia evidencia: el inventario actual es 175/37, sin cerrar T176/T183 ni acreditar los seis criterios de US8.
 
 El [manifiesto sanitizado](batch-decisions-results.json) registra el checkpoint parcial guardado en `a79c74ed`: **159 casos aprobados en diez archivos completos**, incluyendo 138 locales y 21 Native. Mantiene separados **nueve fallos de tres archivos anteriores y quince casos filtrados**; no los cuenta como aprobados ni declara verde la batería Native completa. La reparación posterior tiene [su propio registro](batch-fixture-repair-results.json); no se reescribe la evidencia histórica como si hubiera pasado con las fuentes nuevas.
 

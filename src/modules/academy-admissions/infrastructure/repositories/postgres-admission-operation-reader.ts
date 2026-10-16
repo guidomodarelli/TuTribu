@@ -18,6 +18,7 @@ import { ADMISSION_ACTION } from "../../constants/admission-eligibility";
 import { authorizeAdmissionLeader } from "./postgres-admission-leader-authorizer";
 import { authorizeAdmissionPolicy } from "./postgres-admission-policy-authorizer";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
+import { ADMISSION_BATCH_DECISION_OPERATION } from "../../constants/admission-batch-decision";
 
 /** Owned row fields are consumed directly; only the final own recovery DTO is schema-guarded by application. */
 type RegisteredOperationRow = { operation_type: string; state: "started" | "completed"; idempotency_key: string; public_result: unknown; member_role: string | null; member_status: string | null; request_user_id: string | null };
@@ -55,7 +56,7 @@ export class PostgresAdmissionOperationReader implements AdmissionOperationReade
         if (!leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
         await authorizeAdmissionLeader(database, { ...scope, action: ADMISSION_ACTION.manageAllowlist, role: TRIBE_MEMBER_ROLE.leader, membershipStatus: TRIBE_MEMBERSHIP_STATUS.active, resourceId: scope.tribeId }, { action: ADMISSION_ACTION.manageAllowlist, resourceId: scope.tribeId });
       }
-      if (row.operation_type === ADMISSION_OPERATION_TYPE.decide && !reviewer) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      if ((row.operation_type === ADMISSION_OPERATION_TYPE.decide || row.operation_type === ADMISSION_BATCH_DECISION_OPERATION) && !reviewer) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
       if (row.operation_type === ADMISSION_OPERATION_TYPE.allowRetry && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
       if (row.operation_type === ADMISSION_OPERATION_TYPE.cancel && row.state === OPERATION_STATE.completed) {
         const result = row.public_result;

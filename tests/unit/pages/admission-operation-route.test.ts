@@ -3,8 +3,19 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { createAdmissionOperationHandler } from "@/src/modules/academy-admissions/infrastructure/api/admission-operation-handler";
+import { ADMISSION_BATCH_DECISION_OPERATION } from "@/src/modules/academy-admissions/constants/admission-batch-decision";
 
 describe("admission original operation GET", () => {
+  it.each(["started", "completed"] as const)("should expose only the registered %s batch original through the existing no-store GET", async (state) => {
+    const operationId = randomUUID(), snapshot = { results: [{ admissionRequestId: randomUUID(), status: "rejected", version: 2 }, { admissionRequestId: randomUUID(), status: "conflict", code: "request_conflict" }] };
+    const value = state === "started" ? { type: ADMISSION_BATCH_DECISION_OPERATION, state, operationId } : { type: ADMISSION_BATCH_DECISION_OPERATION, state, operationId, replayed: true, result: snapshot };
+    const handler = createAdmissionOperationHandler(async () => ({ resolveTribe: { execute: async () => ({ ok: true as const, value: { tribeId: randomUUID() } }) }, operation: { execute: async () => ({ ok: true as const, value }) } }));
+    const response = await handler(new Request(`https://tutribu.example.invalid/api/tribes/synthetic-academy/admissions/operations/${operationId}`), { params: Promise.resolve({ slug: "synthetic-academy", operationId }) });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual(value);
+  });
+
   it.each([
     { purpose: "admission", result: "verified", proofId: randomUUID(), applyBefore: "2026-10-08T19:00:00Z" },
     { purpose: "admission", result: "denied", code: "verification_code_incorrect" },
