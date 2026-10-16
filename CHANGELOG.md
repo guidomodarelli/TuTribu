@@ -4,6 +4,12 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.7.6] - 2026-10-16
+
+### Security
+
+- Las conexiones con la base de datos mantienen la verificación del certificado y de la identidad del servidor ante futuras actualizaciones, evitando que se reduzca la protección de los datos.
+
 ## [1.7.5] - 2026-10-16
 
 ### Fixed
