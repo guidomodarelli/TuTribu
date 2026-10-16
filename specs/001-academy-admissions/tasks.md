@@ -1389,6 +1389,7 @@ Avance parcial de T184: configuración privada, historial, API, recuperación y 
 <a id="t185"></a>
 
 - [ ] T185 [US8] Materializar grupos/diario/reminder3 días lógico una vez y resolutionemail solo trustedactualaccountemail en scope; event/outbox persistentes, sin motivos internos, freshrole/pref/capability al dispatch y stop si desactiva. Retry bounded≤24 h/unknown safe, autoapproved no reviewemail por defecto. Archivos: `src/modules/notifications/application/use-cases/prepare-admission-email-notifications-use-case.ts`, `src/modules/notifications/infrastructure/repositories/postgres-admission-notification-repository.ts`, `src/modules/notifications/infrastructure/messaging/admission-notification-sender.ts`, `src/modules/notifications/setup.ts`, `src/modules/setup.ts`. Dependencias: `T184`, `T183`. Trazabilidad: `FR-113`–`FR-119`, `US-06-AC-07`, `US-08-AC-02`–`US-08-AC-06`, `EC-33`, `EC-37`, `SC-012`, `SC-015`, `D-16`–`D-17`, `TC-001`, `TC-020`.
+Avance parcial de T185: [recolección privada de una fuente](validation/admission-notification-collection.md). El adapter une confianza actual de la cuenta, rol, habilitación/preferencia y capacidad seleccionada con la identidad de grupo ya persistida; no agrega outbox o despacho. El ensayo Native y sus diagnósticos de preparación se registran por separado. La selección acotada y justa, el freeze con intent completo, la procedencia de grupo compatible con recovery y el recorrido integral permanecen pendientes; T185 conserva todos sus criterios y no se agrega ninguna tarea completada.
 
 <a id="t186"></a>
 
