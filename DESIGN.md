@@ -128,6 +128,19 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
 - Without `label`, `description` or `error` the components render the bare
   control, for input groups, tables and layouts that place their own label.
 
+## Dialogs and badges
+
+- `Dialog` and `AlertDialog` own Arc's surface: the dimmed, blurred overlay,
+  the raised panel with a 24px padding and a 440px maximum width, and a
+  `DialogFooter` that bleeds to the panel edges under its own hairline, tint
+  and padding. Do not restyle the overlay, and do not add a border, background
+  or padding to `DialogFooter` or override the panel padding when a footer is
+  present.
+- `Badge` is 26px tall (22px with `size="sm"`). Pick its color with `tone`
+  (`neutral`, `success`, `info`, `warning`, `danger`) or the tone its `variant`
+  implies, instead of overriding height, border or text color, and do not
+  re-animate it.
+
 ## Styling
 
 

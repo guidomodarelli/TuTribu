@@ -214,10 +214,9 @@ $media-viewer-overlay-opacity: 72%;
     max-width: 38rem;
     max-height: min(42rem, calc(100svh - 2rem));
     gap: 1rem;
-    border-radius: 0.5rem;
-    background: var(--background);
+    // Radius, surface, border and the 24px padding come from beez-ui's Arc
+    // dialog surface; `DialogFooter` bleeds through that padding to the edges.
     overflow: hidden;
-    padding: 1.2rem;
 
     :global([data-slot="dialog-close"]) {
       z-index: 2;
@@ -299,13 +298,11 @@ $media-viewer-overlay-opacity: 72%;
     }
   }
 
+  // Border, tint and padding come from beez-ui's `DialogFooter`; the composer
+  // only keeps its actions on one row at every width.
   &__composerFooter {
-    display: flex;
     flex-direction: row;
-    gap: 0.75rem;
     justify-content: flex-end;
-    background: var(--background);
-    padding-top: 0.75rem;
     flex-shrink: 0;
   }
 
@@ -2045,13 +2042,9 @@ $media-viewer-overlay-opacity: 72%;
 
 }
 
+// The scrim and its blur (prefixed for WebKit) come from beez-ui's Arc dialog
+// overlay, so every dialog looks the same whichever page loaded this module.
 :global([data-slot="dialog-overlay"]) {
-  background: color-mix(in oklab, var(--foreground) 18%, transparent);
-  // WebKit (Safari/iOS) still requires the prefixed property; the unprefixed
-  // one alone leaves the blur missing on iOS. The previous `blur(5x)` typo was
-  // an invalid value, so the whole declaration was dropped and no blur applied.
-  -webkit-backdrop-filter: blur(5px);
-  backdrop-filter: blur(5px);
   // Prevent iOS rubber-band scroll from chaining to the page behind the overlay.
   overscroll-behavior: contain;
 }
@@ -2169,7 +2162,13 @@ $media-viewer-overlay-opacity: 72%;
       height: 100dvh;
       max-height: 100dvh;
       border-radius: 0;
-      padding-bottom: calc(1.2rem + env(safe-area-inset-bottom));
+    }
+
+    // The footer bleeds to the bottom edge, so it carries the home-indicator
+    // inset itself and drops the rounded corners of the desktop panel.
+    &__composerFooter {
+      border-radius: 0;
+      padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
     }
 
     &__composerDialog--messageDetails:global([data-slot="dialog-content"]) {

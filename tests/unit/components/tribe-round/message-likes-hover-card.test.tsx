@@ -4,8 +4,8 @@ import userEvent from "@testing-library/user-event";
 
 import { MessageLikesHoverCard } from "@/components/tribe-round/message-likes-hover-card";
 
-const HOVER_OPEN_DELAY_MS = 700;
-const HOVER_CLOSE_DELAY_MS = 300;
+const HOVER_OPEN_DELAY_MS = 500;
+const HOVER_CLOSE_DELAY_MS = 140;
 
 type LikerFixture = {
   avatarFallback: string;

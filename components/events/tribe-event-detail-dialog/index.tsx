@@ -512,7 +512,7 @@ function TribeEventDetailDialogBody({
 
       {canManageEvents && isSeries ? renderSeriesManagerActions(occurrence) : null}
       {canManageEvents && !isSeries ? (
-        <DialogFooter className={styles.TribeEventDetailDialog__actions}>
+        <DialogFooter>
           <Button
             type={BUTTON_ATTRIBUTE.typeButton}
             variant={BUTTON_ATTRIBUTE.variantSecondary}

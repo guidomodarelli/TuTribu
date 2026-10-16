@@ -50,7 +50,7 @@ export function TribeEventsAgendaDay({
       <h2 className={styles.TribeEventsAgendaDay__title}>
         {formatBuenosAiresLongDate(firstOccurrence.startsAt)}
         {dayKey === todayKey ? (
-          <Badge className={styles.TribeEventsAgendaDay__todayBadge} variant={BADGE_VARIANT_SECONDARY}>
+          <Badge variant={BADGE_VARIANT_SECONDARY}>
             {COPY.todayBadge}
           </Badge>
         ) : null}

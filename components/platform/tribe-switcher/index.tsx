@@ -23,6 +23,8 @@ const TRIBE_SWITCHER_UI = {
   nestedRouteSeparator: "/",
   privateBadgeAriaLabel: "Tribu privada",
   privateBadgeLabel: "Tribu privada",
+  privateBadgeSize: "sm",
+  privateBadgeTone: "info",
   privateBadgeVariant: "outline",
   triggerAriaLabel: "Abrir tribus",
 } as const;
@@ -147,8 +149,9 @@ export function TribeSwitcher({
       ) : null}
       {showPrivateBadge ? (
         <Badge
+          size={TRIBE_SWITCHER_UI.privateBadgeSize}
+          tone={TRIBE_SWITCHER_UI.privateBadgeTone}
           variant={TRIBE_SWITCHER_UI.privateBadgeVariant}
-          className={styles.TribeSwitcher__privateBadge}
           aria-label={TRIBE_SWITCHER_UI.privateBadgeAriaLabel}
         >
           {TRIBE_SWITCHER_UI.privateBadgeLabel}
