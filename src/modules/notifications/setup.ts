@@ -42,6 +42,11 @@ import { PostgresAdmissionNotificationDeliveryPreparation, type AdmissionNotific
 import { createAdmissionNotificationResourceAuthority } from "./infrastructure/messaging/admission-notification-resource-authority";
 import { PostgresAdmissionNotificationGroupRecoveryContent } from "./infrastructure/repositories/postgres-admission-notification-group-recovery-content";
 import type { NotificationGroupRecoveryContent } from "@/src/modules/messaging/infrastructure/notification-group-recovery-content";
+import { PrepareAdmissionEmailNotificationsUseCase } from "./application/use-cases/prepare-admission-email-notifications-use-case";
+import { PostgresAdmissionNotificationProducer } from "./infrastructure/repositories/postgres-admission-notification-producer";
+import { PostgresAdmissionNotificationCollectionProgress, type AdmissionNotificationCollectionExecutor } from "./infrastructure/repositories/postgres-admission-notification-collection-progress";
+import { PostgresAdmissionNotificationGroupPreparation } from "./infrastructure/repositories/postgres-admission-notification-group-preparation";
+import type { AdmissionNotificationProducerRuntime } from "./domain/repositories/admission-notification-producer";
 
 type NotificationsModuleDependencies = {
   notificationRepository: NotificationRepository;
@@ -99,6 +104,15 @@ export function buildAdmissionNotificationSettingsModule(dependencies: Authentic
 /** @param readSecurityConfig - Explicit current local epoch and retained keyring source. @returns The complete-group content collaborator for the original human recovery transaction; no pool, RPC or durable authority is created. */
 export function buildAdmissionNotificationRecoveryContent(readSecurityConfig: () => Promise<MessagingSecurityConfig>): NotificationGroupRecoveryContent {
   return new PostgresAdmissionNotificationGroupRecoveryContent(readSecurityConfig);
+}
+
+/** @param dependencies - Native guarded maintenance owner, live bearer/recovery gates, local security and public canonical origin. @returns The composed bounded producer from logical reminders through whole original outbox; no provider call or scheduler is activated. */
+export function buildAdmissionNotificationProducerModule(dependencies: { execute: AdmissionNotificationCollectionExecutor; authorize: () => Promise<boolean>; readRecoveryLock: () => Promise<boolean>; readSecurityConfig: () => Promise<MessagingSecurityConfig>; publicAppBaseUrl: string; runtime: AdmissionNotificationProducerRuntime }) {
+  const producer = new PostgresAdmissionNotificationProducer(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock);
+  const authorize = async () => dependencies.authorize();
+  const progress = new PostgresAdmissionNotificationCollectionProgress(dependencies.execute, authorize, dependencies.readSecurityConfig);
+  const preparation = new PostgresAdmissionNotificationGroupPreparation(dependencies.execute, authorize, dependencies.readSecurityConfig, dependencies.publicAppBaseUrl);
+  return { useCases: { prepareEmailNotifications: new PrepareAdmissionEmailNotificationsUseCase(producer, progress, preparation, dependencies.runtime) } };
 }
 
 /** @param dependencies - Explicit current job authority, original guarded executor, local security and registered code-free sender factory. @returns A private prepared sender and its guarded preparation port; no queue claim, endpoint or scheduler is activated. */

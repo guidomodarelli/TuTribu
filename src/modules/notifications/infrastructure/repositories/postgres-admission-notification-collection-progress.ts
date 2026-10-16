@@ -4,10 +4,11 @@ import { sql } from "drizzle-orm";
 import { MICROSECONDS_PER_SECOND } from "@/src/constants/time";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
+import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_NOTIFICATION_COLLECTED, ADMISSION_NOTIFICATION_COLLECTION_EXISTING, ADMISSION_NOTIFICATION_COLLECTION_UNAVAILABLE, ADMISSION_NOTIFICATION_COLLECTION_BUCKET_CLOSED } from "../../constants/admission-notification-collection";
-import { ADMISSION_NOTIFICATION_SUPPRESSED_STATUS } from "../../constants/admission-notification-groups";
+import { ADMISSION_NOTIFICATION_GROUP_REASON, ADMISSION_NOTIFICATION_SUPPRESSED_STATUS } from "../../constants/admission-notification-groups";
 import type { AdmissionNotificationCollectionProgress, AdmissionNotificationCollectionPageCommand, AdmissionNotificationCollectionPageResult, AdmissionNotificationCollectionProgressSnapshot } from "../../domain/repositories/admission-notification-collection-progress";
 import { admissionNotificationTimestamp } from "../database/admission-notification-timestamp";
 import { PostgresAdmissionNotificationRepository } from "./postgres-admission-notification-repository";
@@ -44,6 +45,8 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
       after_obligation_id,after_recipient_user_id,after_audience,last_operation_id,
       (extract(epoch from last_completed_at)*${MICROSECONDS_PER_SECOND})::bigint::text as last_completed_microseconds,
       (extract(epoch from last_sweep_completed_at)*${MICROSECONDS_PER_SECOND})::bigint::text as last_sweep_completed_microseconds,
+      (extract(epoch from last_page_through_at)*${MICROSECONDS_PER_SECOND})::bigint::text as last_page_through_microseconds,
+      (extract(epoch from last_certified_through_at)*${MICROSECONDS_PER_SECOND})::bigint::text as last_certified_through_microseconds,sweep_had_unavailable,
       examined,collected,existing,suppressed,unavailable,bucket_closed,sweep_complete
       from public.admission_notification_collection_progress where tribe_id=${tribeId}`)).rows[0] ?? null;
   }
@@ -88,7 +91,9 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
         const collector = new PostgresAdmissionNotificationRepository(database, this.authorize, this.readSecurityConfig);
         const page = await reader.readPage(command.tribeId, collectionProgressCursor(original));
         const counts = { examined: page.sources.length, collected: 0, existing: 0, suppressed: 0, unavailable: 0, bucketClosed: 0 };
+        let pageHadUnavailable = false;
         for (const result of await collector.collectMany(command.tribeId, page.sources)) {
+          if (result.status === ADMISSION_NOTIFICATION_COLLECTION_UNAVAILABLE || result.status === ADMISSION_NOTIFICATION_SUPPRESSED_STATUS && (result.reason === ADMISSION_NOTIFICATION_GROUP_REASON.capabilityUnavailable || result.reason === ADMISSION_NOTIFICATION_GROUP_REASON.windowUnavailable)) pageHadUnavailable = true;
           switch (result.status) {
             case ADMISSION_NOTIFICATION_COLLECTED: counts.collected++; break;
             case ADMISSION_NOTIFICATION_COLLECTION_EXISTING: counts.existing++; break;
@@ -100,6 +105,8 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
         await this.assertCurrent(database, command.tribeId, originalConfig);
         const cursor = page.continuation;
         await database.execute(sql`update public.admission_notification_collection_progress set version=version+1,
+          last_page_through_at=${admissionNotificationTimestamp(page.throughMicroseconds)},
+          page_had_unavailable=${pageHadUnavailable},
           through_at=${cursor ? admissionNotificationTimestamp(cursor.throughMicroseconds) : null},
           after_created_at=${cursor ? admissionNotificationTimestamp(cursor.after.createdAtMicroseconds) : null},
           after_obligation_id=${cursor?.after.obligationId ?? null},after_recipient_user_id=${cursor?.after.recipientUserId ?? null},after_audience=${cursor?.after.audience ?? null},
@@ -113,6 +120,7 @@ export class PostgresAdmissionNotificationCollectionProgress implements Admissio
       });
     } catch (error) {
       if (error instanceof AdmissionOperationError) throw error;
+      if (error instanceof MessagingCryptographyError) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete, { cause: error });
       throw new AdmissionOperationError(ADMISSION_ERROR_CODE.operationUnresolved, { cause: error });
     }
   }

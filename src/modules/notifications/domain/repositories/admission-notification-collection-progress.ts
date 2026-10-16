@@ -14,6 +14,8 @@ export type AdmissionNotificationCollectionPageResult = AdmissionNotificationCol
   readonly version: number;
   readonly sweepComplete: boolean;
   readonly completedAtMicroseconds: number;
+  readonly sourceThroughMicroseconds: number | null;
+  readonly sweepHadUnavailable: boolean;
   readonly replayed: boolean;
 };
 
@@ -24,6 +26,7 @@ export type AdmissionNotificationCollectionProgressSnapshot = {
   readonly hasContinuation: boolean;
   readonly lastPage: AdmissionNotificationCollectionPageResult | null;
   readonly lastSweepCompletedAtMicroseconds: number | null;
+  readonly lastCertifiedThroughMicroseconds: number | null;
 };
 
 /** Confirms group/member effects and the next position in the same original transaction. */

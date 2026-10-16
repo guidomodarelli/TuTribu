@@ -56,6 +56,7 @@ export class PostgresAdmissionNotificationSourceReader implements AdmissionNotif
     await this.assertAuthorized(tribeId);
     const selected = rows.slice(0, ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE), last = selected.at(-1);
     return {
+      throughMicroseconds,
       sources: selected.map((source) => ({ tribeId, obligationId: source.obligation_id, recipientUserId: source.recipient_user_id, audience: source.audience })),
       continuation: rows.length > ADMISSION_NOTIFICATION_SOURCE_PAGE_SIZE && last ? { tribeId, throughMicroseconds, after: { createdAtMicroseconds: Number(last.created_at_microseconds), obligationId: last.obligation_id, recipientUserId: last.recipient_user_id, audience: last.audience } } : null,
     };

@@ -19,6 +19,7 @@ export type AdmissionNotificationSourceCursor = {
 
 /** Advances over examined references independently of a collector's existing, suppressed or successful result. */
 export type AdmissionNotificationSourcePage = {
+  readonly throughMicroseconds: number;
   readonly sources: readonly AdmissionNotificationRecipientEmailScope[];
   readonly continuation: AdmissionNotificationSourceCursor | null;
 };
