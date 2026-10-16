@@ -40,6 +40,8 @@ import { MessagingSecretAccessError } from "@/src/modules/messaging/domain/error
 import { MESSAGING_ERROR_CODE } from "@/src/modules/messaging/constants/messaging-errors";
 import { PostgresAdmissionNotificationDeliveryPreparation, type AdmissionNotificationPreparationExecutor } from "./infrastructure/repositories/postgres-admission-notification-delivery-preparation";
 import { createAdmissionNotificationResourceAuthority } from "./infrastructure/messaging/admission-notification-resource-authority";
+import { PostgresAdmissionNotificationGroupRecoveryContent } from "./infrastructure/repositories/postgres-admission-notification-group-recovery-content";
+import type { NotificationGroupRecoveryContent } from "@/src/modules/messaging/infrastructure/notification-group-recovery-content";
 
 type NotificationsModuleDependencies = {
   notificationRepository: NotificationRepository;
@@ -92,6 +94,11 @@ export function buildAdmissionNotificationSettingsModule(dependencies: Authentic
     email: new AdmissionNotificationEmailSettingsUseCases(options.resolver, new PostgresAdmissionNotificationEmailSettingsRepository(execute, options.readSecurityConfig)),
   };
   return { useCases, createPage: (resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) => new GetAdmissionNotificationSettingsPageUseCase(dependencies.accounts, { ...useCases, resolveTribe }, dependencies.clock) };
+}
+
+/** @param readSecurityConfig - Explicit current local epoch and retained keyring source. @returns The complete-group content collaborator for the original human recovery transaction; no pool, RPC or durable authority is created. */
+export function buildAdmissionNotificationRecoveryContent(readSecurityConfig: () => Promise<MessagingSecurityConfig>): NotificationGroupRecoveryContent {
+  return new PostgresAdmissionNotificationGroupRecoveryContent(readSecurityConfig);
 }
 
 /** @param dependencies - Explicit current job authority, original guarded executor, local security and registered code-free sender factory. @returns A private prepared sender and its guarded preparation port; no queue claim, endpoint or scheduler is activated. */

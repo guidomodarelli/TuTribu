@@ -13,15 +13,15 @@ import { NOTIFICATION_DELIVERY_RECOVERY_PURPOSE } from "@/src/modules/messaging/
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { assertMessagingAuthenticatedMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 import { assertReconciledMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-reconciled-messaging-key-material";
-import { ADMISSION_NOTIFICATION_EMAIL_INTENT_FORMAT, ADMISSION_NOTIFICATION_EMAIL_INTENT_KIND } from "../../constants/admission-notification-email-intent";
 import { ADMISSION_NOTIFICATION_GROUP_AUTHORITY_CURRENT, ADMISSION_NOTIFICATION_GROUP_AUTHORITY_DENIED, ADMISSION_NOTIFICATION_GROUP_AUTHORITY_REASON } from "../../constants/admission-notification-group-authority";
 import { ADMISSION_NOTIFICATION_GROUP_REASON } from "../../constants/admission-notification-groups";
 import type { AdmissionNotificationAudience } from "../../domain/entities/admission-notification";
-import type { AdmissionNotificationEmailIntent, AdmissionNotificationEmailIntentContext } from "../../domain/entities/admission-notification-email-intent";
+import type { AdmissionNotificationEmailIntentContext } from "../../domain/entities/admission-notification-email-intent";
 import type { AdmissionNotificationDeliveryAuthority, AdmissionNotificationDeliveryAuthorityResult, AdmissionNotificationDeliveryAuthorityScope, CurrentAdmissionNotificationDelivery } from "../../domain/repositories/admission-notification-delivery-authority";
 import type { AdmissionNotificationGroupAuthorityReason } from "../../domain/entities/admission-notification-group-authority";
 import { admissionNotificationManifestsMatch, resolveAdmissionNotificationGroupAuthority } from "../../domain/policies/admission-notification-group-authority";
 import { createAdmissionNotificationEmailIntentMac } from "../encryption/admission-notification-email-intent-mac";
+import { hasReadableAdmissionNotificationEmailIntent } from "../encryption/readable-admission-notification-email-intent";
 import { admissionNotificationNow, PostgresAdmissionNotificationGroupReader, readAdmissionNotificationGroup } from "./admission-notification-group-reader";
 import type { AdmissionNotificationCollectionAuthorizer } from "./postgres-admission-notification-collection-progress";
 
@@ -29,17 +29,6 @@ import type { AdmissionNotificationCollectionAuthorizer } from "./postgres-admis
 type DeliveryRow = { id: string; connection_id: string; connection_version: number; environment: string; security_epoch: string; purpose: string; channel: string; state: string; source_resource_id: string; notification_group_id: string | null; notification_group_audience: AdmissionNotificationAudience | null; recipient_ref: string; actor_user_id: string | null; recovery_of_delivery_id: string | null; idempotency_key: string; queued_usage_policy_version: number; created_microseconds: string; deadline_microseconds: string; frozen_intent: unknown; payload_fingerprint: Uint8Array; payload_mac_key_id: string };
 /** Performs only original native work under this owner's complete resource locks, before its final authority/clock/key checks; it grants no durable permission. */
 export type AdmissionNotificationLockedResourceWork = (scope: Readonly<Pick<CurrentAdmissionNotificationDelivery, "deliveryId" | "tribeId" | "connectionId" | "connectionVersion" | "contributingLeaderUserId" | "environment" | "securityEpoch">> & { readonly notificationGroupId: string }) => Promise<void>;
-
-/** @param value - Original private JSON consumed by the MAC. @returns Minimum structural narrowing needed for safe access; this is not a PostgreSQL payload schema. */
-function hasReadableGroupIntent(value: unknown): value is AdmissionNotificationEmailIntent {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const intent = value as Record<string, unknown>;
-  if (intent.format !== ADMISSION_NOTIFICATION_EMAIL_INTENT_FORMAT || intent.kind !== ADMISSION_NOTIFICATION_EMAIL_INTENT_KIND || typeof intent.manifest !== "object" || intent.manifest === null || Array.isArray(intent.manifest)) return false;
-  const manifest = intent.manifest as Record<string, unknown>;
-  if (typeof manifest.identity !== "object" || manifest.identity === null || Array.isArray(manifest.identity) || !Array.isArray(manifest.items)) return false;
-  const identity = manifest.identity as Record<string, unknown>;
-  return typeof identity.window === "object" && identity.window !== null && !Array.isArray(identity.window) && manifest.items.every((item) => typeof item === "object" && item !== null && !Array.isArray(item));
-}
 
 /** Uses the caller's original short transaction, with canonical exclusive tribe/policy fences before source/resource locks. */
 export class PostgresAdmissionNotificationDeliveryAuthority implements AdmissionNotificationDeliveryAuthority {
@@ -77,7 +66,7 @@ export class PostgresAdmissionNotificationDeliveryAuthority implements Admission
     }
     const resource = facts.resource;
     if (!resource || resource.connectionId !== row.connection_id || resource.connectionVersion !== row.connection_version || resource.contributingLeaderUserId !== row.actor_user_id) return deny(ADMISSION_NOTIFICATION_GROUP_AUTHORITY_REASON.connectionChanged);
-    if (!hasReadableGroupIntent(row.frozen_intent)) return deny(ADMISSION_NOTIFICATION_GROUP_AUTHORITY_REASON.payloadUnusable);
+    if (!hasReadableAdmissionNotificationEmailIntent(row.frozen_intent)) return deny(ADMISSION_NOTIFICATION_GROUP_AUTHORITY_REASON.payloadUnusable);
     const intent = row.frozen_intent;
     if (intent.groupId !== group.id || intent.groupVersion !== facts.group?.version || intent.channel !== row.channel || intent.senderId !== resource.senderId || Number(row.deadline_microseconds) !== plan.deadlineAtMicroseconds) return deny(ADMISSION_NOTIFICATION_GROUP_REASON.scopeMismatch);
     const destinations = new Set(facts.members.map((member) => member.normalizedEmail));

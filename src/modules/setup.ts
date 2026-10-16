@@ -78,7 +78,7 @@ import { PostgresTribeEventReminderRepository } from "./events/infrastructure/re
 import { PostgresTribeEventRepository } from "./events/infrastructure/repositories/postgres-tribe-event-repository";
 import { lockTribeEventOccurrenceRecordingForShare } from "./events/infrastructure/repositories/tribe-event-occurrence-recording-lock";
 import { PostgresNotificationRepository } from "./notifications/infrastructure/repositories/postgres-notification-repository";
-import { buildNotificationsModule, buildAdmissionNotificationSettingsModule } from "./notifications/setup";
+import { buildNotificationsModule, buildAdmissionNotificationSettingsModule, buildAdmissionNotificationRecoveryContent } from "./notifications/setup";
 import { buildSubscriptionsModule } from "./subscriptions/setup";
 import { buildSitepingModule } from "./siteping/setup";
 import { PostgresTribeMemberSubscriptionRepository } from "./subscriptions/infrastructure/repositories/postgres-tribe-member-subscription-repository";
@@ -776,7 +776,8 @@ export async function createNotificationDeliveryRecoveryRequestModule() {
     execute: (account, run) => databaseClient.withRequestContext({ userId: account.userId, email: account.normalizedEmail }, run),
   };
   const routing = buildAcademyAdmissionsModule(dependencies).createQueryModule({ executePublic: (run) => databaseClient.withRequestContext({ userId: null, email: null }, run), readRecoveryLock: async () => readMessagingRecoveryLock() }).useCases;
-  const recovery = buildMessagingModule(dependencies).createNotificationRecoveryModule({ readSecurityConfig: () => readMessagingHostingSecurityConfig() });
+  const readSecurityConfig = () => readMessagingHostingSecurityConfig();
+  const recovery = buildMessagingModule(dependencies).createNotificationRecoveryModule({ readSecurityConfig, groupContent: buildAdmissionNotificationRecoveryContent(readSecurityConfig) });
   return { recovery: recovery.useCases, resolveTribe: routing.resolveTribe };
 }
 

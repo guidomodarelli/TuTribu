@@ -22,7 +22,7 @@ import type { AdmissionNotificationEmailCandidate, AdmissionNotificationSuppress
 import type { AdmissionNotificationEmailIntentContext } from "../../domain/entities/admission-notification-email-intent";
 import type { AdmissionNotificationGroupPreparation, AdmissionNotificationGroupPreparationCommand, AdmissionNotificationGroupPreparationResult } from "../../domain/repositories/admission-notification-group-preparation";
 import { freezeAdmissionNotificationGroup } from "../../domain/policies/admission-notification-groups";
-import { createAdmissionNotificationEmailIntent } from "../../domain/policies/admission-notification-email-content";
+import { createAdmissionNotificationEmailContent } from "../../domain/policies/admission-notification-email-content";
 import { createAdmissionNotificationEmailIntentMac } from "../encryption/admission-notification-email-intent-mac";
 import { admissionNotificationTimestamp } from "../database/admission-notification-timestamp";
 import type { AdmissionNotificationCollectionExecutor, AdmissionNotificationCollectionAuthorizer } from "./postgres-admission-notification-collection-progress";
@@ -101,11 +101,13 @@ export class PostgresAdmissionNotificationGroupPreparation implements AdmissionN
         if (!resource || !normalizedEmail) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.connectionIncomplete);
         const path = group.identity.audience === ADMISSION_NOTIFICATION_AUDIENCE.reviewer ? `/${encodeURIComponent(tribe.slug)}/${ADMISSION_NAVIGATION.reviewSegment}` : `${ADMISSION_REQUEST_HREF_PREFIX}${encodeURIComponent(plan.manifest.items[0].admissionRequestId)}`;
         const href = new URL(path, this.publicAppBaseUrl).toString();
-        const intent = createAdmissionNotificationEmailIntent({ groupId: group.id, groupVersion: group.version + 1, manifest: plan.manifest, senderId: resource.senderId, href });
+        const content = createAdmissionNotificationEmailContent({ groupId: group.id, groupVersion: group.version + 1, manifest: plan.manifest, senderId: resource.senderId, href });
         const deliveryId = randomUUID();
-        const payloadContext: AdmissionNotificationEmailIntentContext = { tribeId: command.tribeId, deliveryId, originalDeliveryId: null, connectionId: resource.connectionId, connectionVersion: resource.connectionVersion, contributingLeaderUserId: resource.contributingLeaderUserId, recipientUserId: group.identity.recipientUserId, normalizedRecipientEmail: normalizedEmail, idempotencyKey: deliveryId, queuedUsagePolicyVersion: resource.queuedUsagePolicyVersion, createdAtMicroseconds: now, deadlineAtMicroseconds: plan.deadlineAtMicroseconds, intent };
+        const sealingContext = { tribeId: command.tribeId, deliveryId, originalDeliveryId: null, connectionId: resource.connectionId, connectionVersion: resource.connectionVersion, contributingLeaderUserId: resource.contributingLeaderUserId, recipientUserId: group.identity.recipientUserId, normalizedRecipientEmail: normalizedEmail, idempotencyKey: deliveryId, queuedUsagePolicyVersion: resource.queuedUsagePolicyVersion, createdAtMicroseconds: now, deadlineAtMicroseconds: plan.deadlineAtMicroseconds, content };
         await assertReconciledMessagingPrivateMacKeyMaterial(database, config, MESSAGING_KEY_PURPOSE.operationPayload);
-        const payload = await createAdmissionNotificationEmailIntentMac(config).sign(payloadContext);
+        const payload = await createAdmissionNotificationEmailIntentMac(config).seal(sealingContext);
+        const intent = payload.intent;
+        const payloadContext: AdmissionNotificationEmailIntentContext = { ...sealingContext, intent };
         await this.guard(database, command.tribeId, config, payload.keyId);
         await database.execute(sql`update public.admission_notification_groups set state=${ADMISSION_NOTIFICATION_GROUP_STATE.frozen},version=version+1,frozen_manifest=${JSON.stringify(plan.manifest)}::jsonb,deadline_at=${admissionNotificationTimestamp(plan.deadlineAtMicroseconds)} where id=${group.id} and tribe_id=${command.tribeId} and state=${ADMISSION_NOTIFICATION_GROUP_STATE.open} and version=${group.version}`);
         await database.execute(sql`insert into public.message_deliveries(id,tribe_id,connection_id,connection_version,environment,security_epoch,purpose,source_resource_id,notification_group_id,notification_group_audience,actor_user_id,recipient_ref,channel,idempotency_key,payload_fingerprint,payload_mac_key_id,frozen_intent,queued_usage_policy_version,created_at,due_at,deadline_at)
