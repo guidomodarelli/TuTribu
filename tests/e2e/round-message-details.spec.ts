@@ -39,6 +39,8 @@ const LIKES_HOVER_CARD_TITLE = "Le gustó a";
 const HOVER_CARD_SETTLE_MS = 1200;
 /** Wait per hydration attempt before clicking the trigger again. */
 const HYDRATION_RETRY_MS = 2000;
+/** Upper bound for the replies of a message to load after its details open, including a cold server route. */
+const REPLIES_LOAD_TIMEOUT_MS = 15_000;
 
 test.skip(
   !seededSession.sessionCookie || !seededSession.tribemateSessionCookie,
@@ -122,7 +124,7 @@ test.describe("viewed by the leader", () => {
     test(`details header paints the panel surface in the ${theme} theme`, async ({ page }) => {
       await applyTheme(page, theme);
       const dialog = await openMessageDetails(page, seededSession.discussedMessageTitle);
-      await expect(dialog.getByText(FIRST_SEEDED_REPLY)).toBeVisible();
+      await expect(dialog.getByText(FIRST_SEEDED_REPLY)).toBeVisible({ timeout: REPLIES_LOAD_TIMEOUT_MS });
       await expectThemeApplied(page, theme);
 
       const surfaces = await readSurfaces(dialog, DETAILS_HEADER_SELECTOR);
@@ -164,7 +166,7 @@ test.describe("viewed by a tribemate, without the message actions menu", () => {
 
   test("opening a message with comments and likes leaves the likes hover card closed", async ({ page }) => {
     const dialog = await openMessageDetails(page, seededSession.discussedMessageTitle);
-    await expect(dialog.getByText(FIRST_SEEDED_REPLY)).toBeVisible();
+    await expect(dialog.getByText(FIRST_SEEDED_REPLY)).toBeVisible({ timeout: REPLIES_LOAD_TIMEOUT_MS });
 
     await expectLikesHoverCardClosed(page, dialog);
   });
@@ -183,7 +185,7 @@ test.describe("viewed by a tribemate, without the message actions menu", () => {
     await getDetailsTrigger(page, seededSession.discussedMessageTitle).focus();
     await page.keyboard.press("Enter");
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText(FIRST_SEEDED_REPLY)).toBeVisible();
+    await expect(dialog.getByText(FIRST_SEEDED_REPLY)).toBeVisible({ timeout: REPLIES_LOAD_TIMEOUT_MS });
 
     await expectLikesHoverCardClosed(page, dialog);
   });
