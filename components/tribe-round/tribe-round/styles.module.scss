@@ -511,6 +511,8 @@ $media-viewer-overlay-opacity: 72%;
   }
 
   &__titleInput {
+    // Borderless, so it shows the dialog's raised surface instead of the darker page tone.
+    background: transparent;
     min-height: 2.5rem;
     font-size: 1.25rem;
     font-weight: 500;
