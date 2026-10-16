@@ -21,3 +21,6 @@ export const ADMISSION_BATCH_HTTP_VALIDATION = {
     complete: "complete_native_http_validation",
   },
 } as const;
+
+/** Bounds complete native exception and nominative eligibility scenarios, including branch cleanup. */
+export const ADMISSION_BATCH_ELIGIBILITY_TEST_TIMEOUT_MS = 1_200_000;
