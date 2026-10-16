@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- La preparación interna de avisos de admisión incorpora el correo completo y vuelve a comprobar preferencias y conexión antes de entregarlo al transporte; su ejecución automática sigue pendiente.
+
 - La preparación interna de avisos conserva el contenido del correo junto con el grupo y permite recuperar el original sin duplicarlo; su envío automático sigue pendiente.
 
 - La preparación interna de avisos guarda el avance confirmado junto con sus grupos y puede retomarlo sin duplicarlos; la ejecución automática y el envío siguen pendientes.
