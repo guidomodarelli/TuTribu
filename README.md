@@ -1,0 +1,1 @@
+Imágenes de pull requests subidas por pr-description-template. No mergear esta rama.
