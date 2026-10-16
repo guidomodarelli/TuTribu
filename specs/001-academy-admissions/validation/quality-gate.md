@@ -1,6 +1,6 @@
 # Validación del control de calidad
 
-Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras los cierres de T182, T192, T193, T194 y T195 se conservan las 212 tareas: **179 completadas y 33 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
+Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras los cierres de T182, T192, T193, T194, T195 y T196 se conservan las 212 tareas: **180 completadas y 32 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
 
 ## Historial por solicitud y cierre de T182
 
@@ -150,3 +150,9 @@ El [CI exacto de `377903c6`](https://github.com/guidomodarelli/TuTribu/actions/r
 La [auditoría de T195](provider-capabilities-ui.md) conserva 64 aprobados locales en cuatro archivos completos y cuatro casos nativos aprobados en un archivo, con Next, auth y SQL reales en Chromium/WebKit a 390/1280. Son 68 casos distintos, sin sumar repeticiones ni fallos. El cero/cuatro nativo inicial y el aislamiento cero/uno permanecen históricos; pg directo acreditó las filas de routing y se compartió la misma configuración sintética entre los procesos del ensayo. No hubo envíos, consultas automáticas del navegador ni llamadas al proveedor.
 
 Tipos y lint actuales, build real de 1803 archivos de producto/2069 de overlay y 55 páginas aprobados. Los manuales trazados a `377903c6` conservan 32 capturas y pasan doce vistas/cuatro recorridos/181 enlaces, con cero errores del checker y advertencias locales explicadas. La revisión conjunta y el checkpoint documental conservan su evidencia propia; la validación de CI del código guardado se registra separada. Sólo T195 se cierra: 179 completas/33 pendientes/212 totales. T196/T197, SC-020 integral, T211 y gates operativos permanecen abiertos.
+
+## Contrato documental de extensión y cierre individual de T196
+
+El [CI exacto de `f9482ca5`](https://github.com/guidomodarelli/TuTribu/actions/runs/38873704524) terminó aprobado, con watcher consumido: 533 archivos y 5625 casos aprobados, 288 archivos y 830 casos omitidos y 55/55 páginas. Documenta el antecedente publicado; no acredita por anticipado el próximo commit documental.
+
+La [auditoría de T196](provider-extension-documentation.md) conserva source-trace contra ese código, checker sin errores, 32 capturas, doce vistas de manuales, ocho de arquitectura, cuatro recorridos y 184 enlaces válidos en Chromium/WebKit a 390/1280. Los contextos, factories, mappers, errores, capacidades reales, pasos futuros y significado de la evidencia se contrastan con el código actual. Es un cambio documental sin tests o runtime modificados; sus fuentes y revisión final quedan registradas separadamente. Sólo T196 se cierra: 180 completas/32 pendientes/212 totales. T197, SC-020 integral, T185, T211 y gates operativos permanecen abiertos.
