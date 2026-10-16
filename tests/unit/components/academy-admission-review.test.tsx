@@ -1,6 +1,7 @@
 /** Exercises real React/beez-ui/Motion review interactions with doubles only of the owned client port. @module academy-admission-review-tests */
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Activity, type ReactNode } from "react";
+import { renderToString } from "react-dom/server";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdmissionReviewRouteContainer } from "@/app/(platform)/[slug]/academia/admissions/admission-review-route-container";
@@ -44,6 +45,23 @@ async function confirmDecision() {
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 
 describe("native reviewer container", () => {
+  it("should withhold the history action in SSR until the current viewer check makes the detail interactive", async () => {
+    const data = fixture();
+    const document = new DOMParser().parseFromString(renderToString(<Providers>{data.node}</Providers>), "text/html");
+    expect(Array.from(document.querySelectorAll("a")).some((anchor) => anchor.textContent === "Ver historial de la solicitud")).toBe(false);
+    render(data.node, { wrapper: Providers });
+    expect(await screen.findByRole("link", { name: "Ver historial de la solicitud" })).toBeVisible();
+  });
+  it("should link the currently visible authorized detail to its exact history and preserve the applied selection", async () => {
+    const data = fixture();
+    data.state.filters = { limit: 1, source: "common", needsVerification: false, requiresExceptionReason: true, submittedFrom: "2026-10-01T00:00:00.123456Z" };
+    render(data.node, { wrapper: Providers });
+    const link = await screen.findByRole("link", { name: "Ver historial de la solicitud" });
+    const route = new URL(link.getAttribute("href")!, "https://example.invalid");
+    expect(route.pathname).toBe(`/${slug}/academia/admissions/history/${requestId}`);
+    expect(Object.fromEntries(route.searchParams)).toMatchObject({ status: "all", needsVerification: "false", requiresExceptionReason: "true", submittedFrom: data.state.filters.submittedFrom });
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
   it("should clear unapplied filter edits when restoring the already active pending selection", async () => {
     const data = fixture(false);
     render(data.node, { wrapper: Providers });

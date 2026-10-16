@@ -17,4 +17,5 @@ export const ADMISSION_REVIEW_HISTORY_VALIDATION = {
   privateNote: "Nota privada del fixture de historial",
   unknownEvent: "legacy_review_observation",
   unknownCause: "legacy_private_cause",
+  browser: { testTimeoutMs: 600_000, artifactEnvironment: "ADMISSION_REVIEW_HISTORY_ARTIFACT_ROOT", captureFile: "review-history-captures.json", oldestCursorAt: "1970-01-01T00:00:00.000001Z", submittedFrom: "2020-01-01T00:00:00.123456Z", submittedUntil: "2099-01-01T00:00:00.999999Z" },
 } as const;

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ADMISSION_REQUEST_STATUS } from "./admission-request";
 import { ADMISSION_PUBLIC_SOURCE, ADMISSION_QUERY_LIMIT, ADMISSION_REVIEW_CURSOR_SEPARATOR } from "./admission-public-contract";
 import { admissionPageSizeSchema } from "./admission-route-input";
+import { areAdmissionReviewInstantsOrdered } from "../domain/value-objects/admission-review-date-range";
 
 /** Retains SQL timestamp precision and the explicit request tie breaker. */
 const reviewCursorSchema = z.string().max(ADMISSION_QUERY_LIMIT.cursorCharacters)
@@ -19,7 +20,7 @@ const reviewBooleanQuerySchema = z.enum(ADMISSION_REVIEW_BOOLEAN_QUERY).transfor
 export const admissionReviewDateRangeSchema = z.strictObject({
   submittedFrom: z.iso.datetime({ offset: true }).optional(),
   submittedUntil: z.iso.datetime({ offset: true }).optional(),
-}).refine((query) => !query.submittedFrom || !query.submittedUntil || new Date(query.submittedFrom) <= new Date(query.submittedUntil));
+}).refine((query) => !query.submittedFrom || !query.submittedUntil || areAdmissionReviewInstantsOrdered(query.submittedFrom, query.submittedUntil));
 
 /** Derived selections describe the current public projection, never the original presentation or approval authority. */
 export const admissionReviewQuerySchema = admissionReviewDateRangeSchema.safeExtend({

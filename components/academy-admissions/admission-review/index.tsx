@@ -1,18 +1,21 @@
 /** Presents authorized review state and callbacks without importing auth or HTTP adapters. @module admission-review */
 import { useId, type ReactNode } from "react";
 import { Button, Checkbox, Textarea } from "beez-ui";
+import { Link } from "@/components/navigation/link";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_ELIGIBILITY_COPY, ADMISSION_REVIEW_STATUS_LABEL, ADMISSION_REVIEW_SOURCE_LABEL } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_EVIDENCE_KIND, ADMISSION_DENIAL_REASON } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
+import { ADMISSION_REVIEW_HISTORY_COPY } from "@/src/modules/academy-admissions/constants/admission-review-history-page";
 import { formatBuenosAiresShortDate, formatBuenosAiresTime } from "@/lib/date-time/buenos-aires-format";
 import styles from "./styles.module.scss";
 
 /** Callback-only props keep current-account and operation recovery in the route container. */
 export type AdmissionReviewProps = {
   filters?: ReactNode;
+  historyHref?: string;
   items: AdmissionReviewDto[]; selected: AdmissionReviewDto | null; hasMore: boolean;
   busy: boolean; disabled: boolean; confirmed: boolean; internalReason: string; externalMessage: string;
   errorMessage: string | null; statusMessage: string | null; uncertain: boolean; canRetry: boolean;
@@ -44,6 +47,7 @@ export function AdmissionReview(props: AdmissionReviewProps) {
     {props.uncertain && <section className={styles.AdmissionReview__section} aria-label="Recuperación de la decisión"><p role="status">{ADMISSION_REVIEW_UI_COPY.uncertain}</p>{props.canRetry && <Button variant="outline" disabled={props.busy || !props.confirmed} onClick={props.onRetry}>{ADMISSION_REVIEW_UI_COPY.retry}</Button>}</section>}
     {selected ? <section className={styles.AdmissionReview__section} aria-label="Detalle de la solicitud">
       <h2 className={styles.AdmissionReview__subtitle}>{selected.applicant.name}</h2>
+      {props.historyHref && !props.disabled && !props.busy && !props.uncertain && <Link href={props.historyHref}>{ADMISSION_REVIEW_HISTORY_COPY.open}</Link>}
       <dl className={styles.AdmissionReview__facts}>
         <div><dt>Presentación</dt><dd><time dateTime={selected.submittedAt}>{describeInstant(selected.submittedAt)}</time></dd></div>
         <div><dt>Vencimiento</dt><dd><time dateTime={selected.expiresAt}>{describeInstant(selected.expiresAt)}</time></dd></div>

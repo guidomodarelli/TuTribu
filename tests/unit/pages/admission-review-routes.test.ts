@@ -18,6 +18,21 @@ function fixture() {
 }
 
 describe("current admission review HTTP", () => {
+  it.each([
+    { name: "reversed microseconds", from: "2026-10-01T00:00:00.123457Z", until: "2026-10-01T00:00:00.123456Z", expectedStatus: 400 },
+    { name: "equivalent offset with reversed microseconds", from: "2026-10-01T01:00:00.123457+01:00", until: "2026-10-01T00:00:00.123456Z", expectedStatus: 400 },
+    { name: "pre-epoch reversed microseconds", from: "1969-12-31T23:59:59.999457Z", until: "1969-12-31T23:59:59.999456Z", expectedStatus: 400 },
+    { name: "finer reversed fractions", from: "2026-10-01T00:00:00.1234567Z", until: "2026-10-01T00:00:00.1234566Z", expectedStatus: 400 },
+    { name: "ascending microseconds", from: "2026-10-01T00:00:00.123456Z", until: "2026-10-01T00:00:00.123457Z", expectedStatus: 200 },
+    { name: "equivalent fractional padding", from: "2026-10-01T00:00:00.1234Z", until: "2026-10-01T00:00:00.123400Z", expectedStatus: 200 },
+    { name: "equivalent offset instant", from: "2026-10-01T01:00:00.123400+01:00", until: "2026-10-01T00:00:00.1234Z", expectedStatus: 200 },
+  ])("should preserve exact inclusive date ordering for $name", async ({ from, until, expectedStatus }) => {
+    const data = fixture(), query = new URLSearchParams({ submittedFrom: from, submittedUntil: until });
+    expect((await data.handlers.list(new Request(`https://example.invalid/api/tribes/synthetic-academy/admissions/requests?${query}`), data.context)).status).toBe(expectedStatus);
+    if (expectedStatus === 400) expect(data.open).not.toHaveBeenCalled();
+    else expect(data.services.review.list).toHaveBeenCalledWith(expect.objectContaining({ submittedFrom: from, submittedUntil: until }));
+  });
+
   it("should reject identity/role flags and malformed tuple cursors before opening any module", async () => {
     const data = fixture();
     for (const query of ["role=leader", "userId=foreign", "cursor=opaque-but-malformed", "limit=51", "submittedFrom=2026-10-08T00:00:00Z&submittedUntil=2026-10-07T00:00:00Z", "requiresExceptionReason=1", "requiresExceptionReason=", "requiresExceptionReason=True", "requiresExceptionReason=null"]) expect((await data.handlers.list(new Request(`https://tutribu.example.invalid/api/tribes/synthetic-academy/admissions/requests?${query}`), data.context)).status).toBe(400);

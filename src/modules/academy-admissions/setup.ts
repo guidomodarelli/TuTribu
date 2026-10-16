@@ -57,6 +57,7 @@ import type { ResolvedAdmissionChallengeDispatch } from "./infrastructure/verifi
 import { AllowAdmissionRetryUseCase } from "./application/use-cases/allow-admission-retry-use-case";
 import { GetAdmissionReviewUseCases } from "./application/use-cases/get-admission-review-use-cases";
 import { GetAdmissionReviewHistoryUseCase } from "./application/use-cases/get-admission-review-history-use-case";
+import { GetAdmissionReviewHistoryPageUseCase } from "./application/use-cases/get-admission-review-history-page-use-case";
 import { PostgresAdmissionReviewHistoryReader } from "./infrastructure/repositories/postgres-admission-review-history-reader";
 import { GetAdmissionActivityAndMetricsUseCases } from "./application/use-cases/get-admission-activity-and-metrics-use-cases";
 import { GetAdmissionActivityPageUseCase } from "./application/use-cases/get-admission-activity-page-use-case";
@@ -254,7 +255,11 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
     },
     /** @returns One request's current-authorized history without a keyring, provider or complete-audit capability. */
     createReviewHistoryQueryModule() {
-      return { useCases: { history: new GetAdmissionReviewHistoryUseCase(resolveContext, new PostgresAdmissionReviewHistoryReader(executeScopedQuery)) } };
+      const history = new GetAdmissionReviewHistoryUseCase(resolveContext, new PostgresAdmissionReviewHistoryReader(executeScopedQuery));
+      return { useCases: { history },
+        /** @param resolveTribe - Canonical slug reader from the same request root. @returns One current-authorized page without provider or hosting credentials. */
+        createPage(resolveTribe: Pick<ResolveAdmissionTribeUseCase, "execute">) { return new GetAdmissionReviewHistoryPageUseCase(dependencies.accounts, { history, resolveTribe }, dependencies.clock); },
+      };
     },
     /** @param options - Live recovery state without provider/keyring access. @returns Current authorized read-only inbox/detail use cases. */
     createReviewQueryModule(options: { readRecoveryLock: () => Promise<boolean> }) {

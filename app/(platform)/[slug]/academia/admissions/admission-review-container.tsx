@@ -21,6 +21,7 @@ import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admiss
 import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
 import { createAdmissionReviewFilterDraft, parseAdmissionReviewFilterDraft, buildAdmissionReviewSelectionRoute, type AdmissionReviewDateFilter } from "@/lib/academy-admissions/admission-review-filters";
 import type { AdmissionReviewSelection } from "@/src/modules/academy-admissions/application/results/admission-review-selection";
+import { buildAdmissionReviewHistoryRoute } from "@/lib/academy-admissions/admission-review-history-routes";
 import { applyAdmissionReviewTransition, matchesAdmissionReviewTransitionSelection } from "@/src/modules/academy-admissions/application/results/admission-review-transition";
 
 /** Public props contain the server snapshot and an optional own transport port for behavioral tests. */
@@ -203,6 +204,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   const uncertain = phase === ADMISSION_REVIEW_PHASE.uncertain;
   const formDisabled = !fresh || phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating;
   return <AdmissionReview filters={privateVisible ? <AdmissionReviewFilters draft={filterDraft} disabled={formDisabled || uncertain} errorMessage={filterError} onChange={(field, value) => { if (field === "submittedFrom" || field === "submittedUntil") editedDateFilters.current.add(field); setFilterDraft((current) => ({ ...current, [field]: value })); setFilterError(null); }} onApply={() => { const parsed = parseAdmissionReviewFilterDraft(ready.slug, filterDraft, appliedFilters.limit, { original: appliedFilters, editedDates: editedDateFilters.current }); if (!parsed.ok) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.invalid); return; } navigateFilters(parsed.filters); }} onReset={() => navigateFilters(DEFAULT_ADMISSION_REVIEW_SELECTION, true)} /> : undefined}
+    historyHref={privateVisible && selected ? buildAdmissionReviewHistoryRoute(ready.slug, selected.id, appliedFilters) : undefined}
     items={privateVisible ? items : []} selected={privateVisible ? selected : null} hasMore={privateVisible && cursor !== null} busy={phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating} disabled={formDisabled} confirmed={confirmed} internalReason={internalReason} externalMessage={externalMessage} errorMessage={errorMessage} statusMessage={privateVisible ? statusMessage : ADMISSION_REVIEW_UI_COPY.reading} uncertain={uncertain} canRetry={canRetry}
     onSelect={(id) => { if (pending.current) return; setInternalReason(""); setExternalMessage(""); launchRead(id); }} onClose={() => { if (pending.current || busy.current) return; currentSelected.current = null; setSelected(null); setConfirmed(false); setInternalReason(""); setExternalMessage(""); setStatusMessage(null); }}
     onRead={() => launchRead(currentSelected.current?.id)} onLoadMore={() => launchRead(undefined, true, cursor)} onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }}
