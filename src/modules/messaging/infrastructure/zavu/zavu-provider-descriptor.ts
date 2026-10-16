@@ -7,5 +7,5 @@ import {MESSAGING_INITIAL_PROVIDER_ID,MESSAGING_PUBLIC_CHANNEL} from "@/src/modu
 
 /** @param fetch - Explicit current hosting transport or closed own test HTTP boundary. @returns Stateless factories; no credential, client or sender is cached. */
 export function createZavuProviderDescriptor(fetch:typeof globalThis.fetch):MessagingProviderDescriptor{
-  return{id:MESSAGING_INITIAL_PROVIDER_ID,channels:[MESSAGING_PUBLIC_CHANNEL.email,MESSAGING_PUBLIC_CHANNEL.sms,MESSAGING_PUBLIC_CHANNEL.whatsapp],createInspector:(context,credential)=>new ZavuConnectionInspector({...context,credential},fetch),createSender:(preparation)=>new ZavuMessageDeliverySender(preparation,fetch)};
+  return{id:MESSAGING_INITIAL_PROVIDER_ID,channels:[MESSAGING_PUBLIC_CHANNEL.email,MESSAGING_PUBLIC_CHANNEL.sms,MESSAGING_PUBLIC_CHANNEL.whatsapp],createInspector:(context,credential)=>new ZavuConnectionInspector({...context,credential},fetch),createTemplateInspector:(context,credential)=>new ZavuConnectionInspector({...context,credential},fetch),createSender:(preparation)=>new ZavuMessageDeliverySender(preparation,fetch)};
 }

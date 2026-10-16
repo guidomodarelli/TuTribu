@@ -1,4 +1,4 @@
-/** Defines private sender preparation without leaking credential or code into an application result. @module verification-delivery-preparation */
+/** Defines provider-independent private code preparation without leaking material into an application result. @module verification-delivery-preparation */
 import "server-only";
 import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 

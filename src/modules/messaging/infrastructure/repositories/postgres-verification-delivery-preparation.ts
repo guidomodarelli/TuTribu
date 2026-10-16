@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { AuthorizedDeliveryMessagingContext, MessagingSecretStore } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 import type { VerificationChallengeScope } from "@/src/modules/academy-admissions/domain/entities/contact-verification-challenge";
-import type { PreparedVerificationDelivery, VerificationDeliveryPreparation } from "@/src/modules/messaging/infrastructure/zavu/verification-delivery-preparation";
+import type { PreparedVerificationDelivery, VerificationDeliveryPreparation } from "@/src/modules/messaging/infrastructure/verification-delivery-preparation";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { VERIFICATION_FROZEN_PAYLOAD_FORMAT } from "@/src/modules/academy-admissions/constants/verification-issuance";
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";

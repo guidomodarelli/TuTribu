@@ -1,6 +1,6 @@
 # Validación del control de calidad
 
-Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras los cierres de T182 y T193 se conservan las 212 tareas: **176 completadas y 36 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
+Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras los cierres de T182, T192, T193 y T194 se conservan las 212 tareas: **178 completadas y 34 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
 
 ## Historial por solicitud y cierre de T182
 
@@ -134,3 +134,11 @@ El checkpoint de elegibilidad quedó guardado en `68817d75`. Su [CI propio exact
 La [validación de T193](provider-registry-api.md) pasó **52 casos distintos en seis archivos completos**: 51 locales y un Native de resolución actual, todos posteriores al fix y con inputs estables. Ambos tipos y lint focal de tres TypeScript aprobaron con el runtime fijado; el loop de código corrigió el P3 de canal vacío y terminó sin hallazgos. El rojo real de cuatro casos y las ejecuciones previas se conservan sin sumarlas. La limpieza final posterior al Native corregido tiene su recibo propio y conserva los recursos originales.
 
 La auditoría cierra sólo T193 y mantiene 176/36/212. El checkpoint conserva revisión conjunta y nuevo CI propios; T192/T194–T197, T185, T211 y los gates conservan sus criterios originales.
+
+## Sustitución de transporte y cierre exclusivo de T192/T194
+
+La [auditoría de sustitución](messaging-provider-substitution.md) registra 71 locales aprobadas en siete archivos completos, con tres SQL omitidas en esa ejecución, y tres casos SQL aprobados en dos cohortes: informe completo cuatro/uno con dos SQL y dos locales aprobados, más repetición manual uno/cero con cuatro fuera del filtro. Las dos locales ya están incluidas; no se afirma una ejecución única cinco/cero: el total efectivo es **74 casos distintos**, incluidos tres casos SQL con ambos transportes. Los 18 casos del registro son un subconjunto. Node 24.21.0, fuentes estables, tipos de producto/tests y lint de quince archivos aprobados.
+
+El build aislado pasó 1801 archivos productivos equivalentes, overlay de 2067 y 55/55 páginas; las fuentes productivas siguen idénticas después de los ajustes de fixtures/tests. La revisión de código corregido registra cero hallazgos, con el P2 del oráculo manual resuelto. La primera ejecución SQL fallida conserva dos locales aprobadas y tres SQL fallidas; no se suma ni se le atribuye un código de emisión ausente del reporter. El fixture actual conserva los mismos keyrings al sustituir sólo el transporte y usa la versión real de la pendiente. Tras ambas ejecuciones, el inventario oficial conserva cero temporales propias y las tres ramas originales.
+
+El [CI exacto de `036280dc`](https://github.com/guidomodarelli/TuTribu/actions/runs/38860706387) terminó con 531 archivos/5608 casos aprobados, 288 archivos/827 casos omitidos y build de 55 páginas. Su watcher fue consumido con cero y sólo acredita ese checkpoint anterior de T193. El incremento de sustitución y su cierre documental necesitan el CI de su propio commit nuevo. T195–T197, T211, SC-020 integral y todos los gates conservan su alcance pendiente.

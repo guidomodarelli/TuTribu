@@ -3,7 +3,7 @@
 import {describe,expect,it,vi} from "vitest";
 import {randomUUID} from "node:crypto";
 import type {AuthorizedMessagingContext,AuthorizedDeliveryMessagingContext} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
-import type {PreparedVerificationDelivery} from "@/src/modules/messaging/infrastructure/zavu/verification-delivery-preparation";
+import type {PreparedVerificationDelivery} from "@/src/modules/messaging/infrastructure/verification-delivery-preparation";
 import {createAdmissionProviderTransport} from "@/tests/support/admission-provider-transport";
 import {MessagingProviderRegistry} from "@/src/modules/messaging/infrastructure/messaging-provider-registry";
 import {createZavuProviderDescriptor} from "@/src/modules/messaging/infrastructure/zavu/zavu-provider-descriptor";
@@ -71,6 +71,33 @@ describe("explicit messaging provider registry",()=>{
     const transport=createAdmissionProviderTransport([{origin:"https://api.zavu.dev",pathname:"/v1/me",method:"GET",respond:()=>Response.json({isTestMode:false,apiKey:{id:"synthetic-key"},project:{id:"synthetic-project"},team:{id:"synthetic-team"}})}]),readProvider=vi.fn(async()=>"zavu"),registry=new MessagingProviderRegistry([createZavuProviderDescriptor(transport.fetch)]),inspector=new RegisteredMessagingInspectorFactory(registry,readProvider).create(context,credential);
     expect(await inspector.inspectCredential(new AbortController().signal)).toMatchObject({isTestMode:false});expect(readProvider).toHaveBeenCalledExactlyOnceWith(context);
     readProvider.mockResolvedValueOnce("unimplemented");await expect(inspector.inspectCredential(new AbortController().signal)).rejects.toMatchObject({code:"missing_capability"});expect(readProvider).toHaveBeenCalledTimes(2);expect(transport.receipts).toHaveLength(1);
+  });
+  it("should preserve actual Zavu template list and detail when registered template inspection has its own factory",async()=>{
+    // Given the real SDK behind only the own closed HTTP boundary.
+    const now=new Date(),connectionId=randomUUID(),templateId=randomUUID(),credential=randomUUID();
+    const context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"read_messaging_templates",authenticatedAt:now,validUntil:new Date(now.getTime()+540_000)};
+    const template={id:templateId,name:"otp",language:"es",category:"AUTHENTICATION",status:"approved"};
+    const transport=createAdmissionProviderTransport([
+      {origin:"https://api.zavu.dev",pathname:"/v1/templates",method:"GET",respond:(request)=>{expect(request.headers.get("Authorization")===`Bearer ${credential}`).toBe(true);return Response.json({items:[template],nextCursor:null});}},
+      {origin:"https://api.zavu.dev",pathname:`/v1/templates/${templateId}`,method:"GET",respond:()=>Response.json(template)},
+    ]);
+    const inspector=new RegisteredMessagingInspectorFactory(new MessagingProviderRegistry([createZavuProviderDescriptor(transport.fetch)]),async()=>"zavu").create(context,credential),signal=new AbortController().signal;
+
+    // When the application resolves the additional supported capability for each operation.
+    const listed=await inspector.listTemplates(signal),retrieved=await inspector.retrieveTemplate(templateId,signal);
+
+    // Then both real SDK operations retain the same minimal own result and exact transport scope.
+    expect(listed).toEqual([{resourceId:templateId,name:"otp",language:"es",authenticationApproved:true}]);
+    expect(retrieved).toEqual(listed[0]);expect(transport.receipts).toHaveLength(2);
+  });
+  it("should deny a declared template channel without its actual template factory before entering SDK transport",async()=>{
+    // A broken infrastructure descriptor must fail with the own capability error, never a TypeError or a fallback.
+    const now=new Date(),connectionId=randomUUID(),fetch=vi.fn(),descriptor=createZavuProviderDescriptor(fetch);
+    delete descriptor.createTemplateInspector;
+    const context:AuthorizedMessagingContext={authorizationPurpose:"sensitive_leader",actorUserId:randomUUID(),sessionId:randomUUID(),accountId:randomUUID(),subject:randomUUID(),tribeId:randomUUID(),connectionId,connectionVersion:1,secretRef:randomUUID(),environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),resourceId:connectionId,operation:"read_messaging_templates",authenticatedAt:now,validUntil:new Date(now.getTime()+540_000)};
+    const inspector=new RegisteredMessagingInspectorFactory(new MessagingProviderRegistry([descriptor]),async()=>"zavu").create(context,randomUUID()),signal=new AbortController().signal;
+    await expect(inspector.listTemplates(signal)).rejects.toMatchObject({code:"missing_capability"});
+    await expect(inspector.retrieveTemplate(randomUUID(),signal)).rejects.toMatchObject({code:"missing_capability"});expect(fetch).not.toHaveBeenCalled();
   });
   it("should prepare the original attempt once and use the registered real SDK sender without fallback or another message",async()=>{
     const context:AuthorizedDeliveryMessagingContext={authorizationPurpose:"authorized_delivery",contributingLeaderUserId:randomUUID(),tribeId:randomUUID(),connectionId:randomUUID(),connectionVersion:1,environment:"synthetic",securityEpoch:"synthetic-epoch",requestId:randomUUID(),secretRef:randomUUID(),deliveryId:randomUUID(),attemptId:randomUUID(),attemptVersion:1,leaseToken:randomUUID(),sendAuthorizedAt:new Date(),authorizedUsagePolicyVersion:1,operation:"dispatch_delivery"};

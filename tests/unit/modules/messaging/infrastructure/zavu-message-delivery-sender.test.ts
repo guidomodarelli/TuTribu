@@ -4,7 +4,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { createAdmissionProviderTransport } from "@/tests/support/admission-provider-transport";
 import { ZavuMessageDeliverySender } from "@/src/modules/messaging/infrastructure/zavu/zavu-message-delivery-sender";
-import type { PreparedVerificationDelivery } from "@/src/modules/messaging/infrastructure/zavu/verification-delivery-preparation";
+import type { PreparedVerificationDelivery } from "@/src/modules/messaging/infrastructure/verification-delivery-preparation";
 import type { AuthorizedDeliveryMessagingContext } from "@/src/modules/messaging/domain/repositories/messaging-repositories";
 
 /**

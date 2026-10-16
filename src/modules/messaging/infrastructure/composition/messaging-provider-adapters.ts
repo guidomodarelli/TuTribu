@@ -1,7 +1,7 @@
 /** Composes explicit provider resolution with the current protected scope and existing application ports. @module messaging-provider-adapters */
 import "server-only";
 import type {MessagingSecurityFacts} from "@/src/modules/messaging/domain/repositories/messaging-repositories";
-import type {VerificationDeliveryPreparation} from "../zavu/verification-delivery-preparation";
+import type {VerificationDeliveryPreparation} from "../verification-delivery-preparation";
 import {PostgresCurrentMessagingProvider,type MessagingProviderDatabaseExecutor} from "../repositories/postgres-current-messaging-provider";
 import {MessagingProviderRegistry} from "../messaging-provider-registry";
 import {RegisteredMessagingInspectorFactory,RegisteredMessagingDeliverySender} from "../registered-messaging-adapters";
