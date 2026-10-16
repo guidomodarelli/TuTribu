@@ -1247,6 +1247,13 @@
       "when": 1792147309000,
       "tag": "20261016104149_bind_notification_group_delivery_origins",
       "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1792150312000,
+      "tag": "20261016113152_index_admission_notification_source_selection",
+      "breakpoints": true
     }
   ]
 }

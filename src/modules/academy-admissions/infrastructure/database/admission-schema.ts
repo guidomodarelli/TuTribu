@@ -12,6 +12,7 @@ import { ADMISSION_METRIC_RUN_OPERATION, ADMISSION_WORKER_RUN_DATABASE } from "@
 import { ADMISSION_ACTIVITY_DATABASE } from "@/src/modules/academy-admissions/constants/admission-activity";
 import type { AdmissionMetricRunOperation } from "@/src/modules/academy-admissions/domain/entities/admission-metric-dimensions";
 import { ADMISSION_NOTIFICATION_AUDIT } from "@/src/modules/notifications/constants/admission-notification-audit";
+import { ADMISSION_NOTIFICATION_SOURCE_POSITION_INDEX } from "@/src/modules/notifications/constants/admission-notification-source-selection";
 
 /** Resolves cross-owner columns after both table factories have finished. */
 export type AdmissionMessagingSchemaReferences = {
@@ -418,6 +419,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     tribeForeignKey: parentReference("admission_obligation_tribe_fkey",table.tribeId,parents.tribes.id), applicantForeignKey: parentReference("admission_obligation_applicant_fkey",table.applicantUserId,parents.users.id),
     eventKey: unique("admission_obligation_event_key").on(table.requestId,table.eventType), eventCheck: check("admission_obligation_event_check", sql`${table.eventType} in ('pending_created','approved','rejected','cancelled','expired','reminder')`),
     tenantKey: unique("admission_obligation_tenant_key").on(table.id,table.tribeId),
+    sourcePositionIndex: index(ADMISSION_NOTIFICATION_SOURCE_POSITION_INDEX).on(table.tribeId,table.createdAt,table.id),
     requestForeignKey: foreignKey({ name: "admission_obligation_request_fkey", columns: [table.requestId,table.tribeId,table.applicantUserId], foreignColumns: [requests.id,requests.tribeId,requests.userId] }).onDelete("cascade"),
   }));
   return {

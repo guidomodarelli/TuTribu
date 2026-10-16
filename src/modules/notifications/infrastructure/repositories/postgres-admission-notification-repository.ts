@@ -21,16 +21,12 @@ import type { AdmissionNotificationPreferenceMode } from "../../domain/entities/
 import { planAdmissionNotificationEmailCandidate } from "../../domain/policies/admission-notification-groups";
 import { PostgresAdmissionNotificationRecipientEmailReader } from "./postgres-admission-notification-recipient-email-reader";
 import { createPostgresAdmissionNotificationCalendar } from "./postgres-admission-notification-calendar";
+import { admissionNotificationTimestamp } from "../database/admission-notification-timestamp";
 
 /** Consumes only selected original native fields; database rows are not schema-validated. */
 type SourceRow = { id: string; request_id: string; applicant_user_id: string; event_type: AdmissionNotificationEmailFacts["source"]["event"]; created_at_microseconds: string; status: string; submitted_at_microseconds: string; expires_at_microseconds: string };
 /** Requires current backend-purpose authority without taking domain locks before the tribe fence. */
 type CollectionAuthorizer = (database: RequestDatabase, tribeId: string) => Promise<boolean>;
-
-/** @param microseconds - Native safe integer instant already constrained by its owning schema. @returns A PostgreSQL timestamp retaining the original microsecond remainder. */
-function notificationTimestamp(microseconds: number) {
-  return sql`(to_timestamp(${Math.trunc(microseconds / MICROSECONDS_PER_SECOND)}::double precision)+${microseconds % MICROSECONDS_PER_SECOND}::integer*interval '1 microsecond')`;
-}
 
 /** Keeps source collection inside the caller's short transaction; no SDK, credential decryption or outbox side effect exists here. */
 export class PostgresAdmissionNotificationRepository implements AdmissionNotificationRepository {
@@ -59,12 +55,12 @@ export class PostgresAdmissionNotificationRepository implements AdmissionNotific
   /** @param identity - Current exact owner identity. @returns Its original open bucket, or absence when a previous bucket was closed. */
   private async findOrCreateGroup(identity: AdmissionNotificationGroupIdentity): Promise<string | null> {
     await this.database.execute(sql`insert into public.admission_notification_groups(id,tribe_id,recipient_user_id,audience,mode,preference_version,email_settings_version,time_zone,window_starts_at,window_closes_at,individual_obligation_id)
-      values (${randomUUID()},${identity.tribeId},${identity.recipientUserId},${identity.audience},${identity.mode},${identity.preferenceVersion},${identity.emailSettingsVersion},${identity.window.timeZone},${notificationTimestamp(identity.window.startsAtMicroseconds)},${notificationTimestamp(identity.window.closesAtMicroseconds)},${identity.individualObligationId})
+      values (${randomUUID()},${identity.tribeId},${identity.recipientUserId},${identity.audience},${identity.mode},${identity.preferenceVersion},${identity.emailSettingsVersion},${identity.window.timeZone},${admissionNotificationTimestamp(identity.window.startsAtMicroseconds)},${admissionNotificationTimestamp(identity.window.closesAtMicroseconds)},${identity.individualObligationId})
       on conflict on constraint admission_notification_group_bucket_key do nothing`);
     const group = (await this.database.execute<{ id: string; state: string }>(sql`select id,state from public.admission_notification_groups
       where tribe_id=${identity.tribeId} and recipient_user_id=${identity.recipientUserId} and audience=${identity.audience} and mode=${identity.mode}
         and preference_version=${identity.preferenceVersion} and email_settings_version=${identity.emailSettingsVersion} and time_zone=${identity.window.timeZone}
-        and window_starts_at=${notificationTimestamp(identity.window.startsAtMicroseconds)} and window_closes_at=${notificationTimestamp(identity.window.closesAtMicroseconds)}
+        and window_starts_at=${admissionNotificationTimestamp(identity.window.startsAtMicroseconds)} and window_closes_at=${admissionNotificationTimestamp(identity.window.closesAtMicroseconds)}
         and individual_obligation_id is not distinct from ${identity.individualObligationId}::uuid for update`)).rows[0];
     return group?.state === ADMISSION_NOTIFICATION_GROUP_STATE.open ? group.id : null;
   }
