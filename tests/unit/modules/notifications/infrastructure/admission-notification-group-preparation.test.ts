@@ -48,7 +48,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native complete ad
       expect(row.frozen_intent.manifest).toEqual(row.frozen_manifest);
       expect(row.frozen_intent.manifest.items.map((item) => item.obligationId).sort()).toEqual(created.sources.map((source) => source.obligation_id).sort());
       expect(row.deadline_microseconds).toBe(row.group_deadline_microseconds);
-      expect(row.frozen_intent).toMatchObject({ format: 1, kind: "admission_notification_group", channel: "email", groupId: first.groupId, groupVersion: 2, subject: "TuTribu: solicitudes de ingreso pendientes" });
+      expect(row.frozen_intent).toMatchObject({ format: 2, kind: "admission_notification_group", channel: "email", groupId: first.groupId, groupVersion: 2, subject: "TuTribu: solicitudes de ingreso pendientes" });
       expect(new URL(row.frozen_intent.href).pathname.endsWith("/academia/admissions")).toBe(true);
       expect(new URL(row.frozen_intent.href).search).toBe("");
       expect(JSON.stringify(row.frozen_intent)).not.toContain(row.recipient_email);

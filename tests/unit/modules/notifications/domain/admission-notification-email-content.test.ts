@@ -1,6 +1,6 @@
 /** Exercises complete generic content through its domain contract without reading source text. @module admission-notification-email-content-tests */
 import { describe, expect, it } from "vitest";
-import { createAdmissionNotificationEmailIntent } from "@/src/modules/notifications/domain/policies/admission-notification-email-content";
+import { createAdmissionNotificationEmailContent } from "@/src/modules/notifications/domain/policies/admission-notification-email-content";
 import type { AdmissionNotificationGroupManifest, AdmissionNotificationEvent } from "@/src/modules/notifications/domain/entities/admission-notification";
 
 /** @returns Original safe reference metadata independent of any provider, note or contact. */
@@ -9,14 +9,14 @@ function manifest(): AdmissionNotificationGroupManifest {
 }
 
 /** @param original - Exact frozen reference metadata. @returns Complete own intent with a passive authenticated consultation path. */
-const prepare = (original = manifest()) => createAdmissionNotificationEmailIntent({ groupId: "group-a", groupVersion: 2, manifest: original, senderId: "sender-a", href: "https://example.test/test/academia/admissions" });
+const prepare = (original = manifest()) => createAdmissionNotificationEmailContent({ groupId: "group-a", groupVersion: 2, manifest: original, senderId: "sender-a", href: "https://example.test/test/academia/admissions" });
 
 describe("admission notification complete email content", () => {
   it("should render a fixed reviewer consultation message and project only owned manifest fields", () => {
     // Given accidental extra runtime metadata that must never join the immutable intent.
     const source = { ...manifest(), privateNote: "private-note-canary", destination: "private@example.invalid" };
     const intent = prepare(source);
-    expect(intent).toMatchObject({ format: 1, kind: "admission_notification_group", groupId: "group-a", groupVersion: 2, channel: "email", senderId: "sender-a", subject: "TuTribu: solicitudes de ingreso pendientes" });
+    expect(intent).toMatchObject({ kind: "admission_notification_group", groupId: "group-a", groupVersion: 2, channel: "email", senderId: "sender-a", subject: "TuTribu: solicitudes de ingreso pendientes" });
     expect(intent.text).toContain("Tenés una solicitud de ingreso pendiente para revisar.");
     expect(intent.text).toContain("Necesitás iniciar sesión:");
     expect(intent.text).toContain(intent.href);

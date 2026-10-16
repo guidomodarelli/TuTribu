@@ -75,6 +75,7 @@ import type {DiagnosticDeliveryDispatchScope,FocalDeliveryDispatchScope} from ".
 import { RecoverNotificationDeliveryUseCase } from "./application/use-cases/recover-notification-delivery-use-case";
 import { ReconcileMessageDeliveryUseCase } from "./application/use-cases/reconcile-message-delivery-use-case";
 import { PostgresNotificationDeliveryRecoveryRepository } from "./infrastructure/repositories/postgres-notification-delivery-recovery-repository";
+import type { NotificationGroupRecoveryContent } from "./infrastructure/notification-group-recovery-content";
 import { PostgresMessageReconciliationRepository } from "./infrastructure/repositories/postgres-message-reconciliation-repository";
 import { PostgresMessageStatusPreparation } from "./infrastructure/repositories/postgres-message-status-preparation";
 import { ZavuMessageStatusLookup } from "./infrastructure/zavu/zavu-message-status-lookup";
@@ -169,10 +170,10 @@ export function buildMessagingModule(dependencies: AuthenticatedFeatureDependenc
     /** @returns Minimal leader/challenge-owner transport reads without keyrings, recency, provider calls or mutation. */
     createDeliveryReadModule(){const{executeActor}=createManagement();return{useCases:new ReadMessageDeliveryUseCase(dependencies.accounts,new PostgresMessageDeliveryReader(executeActor),dependencies.clock)};},
     /** @param options - Current native security/keyrings for the original ledger and explicit child only. @returns Exact original-delivery recovery with no provider call or automatic dispatch. */
-    createNotificationRecoveryModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
+    createNotificationRecoveryModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig>; groupContent?: NotificationGroupRecoveryContent }) {
       const { executeActor, leadership } = createManagement();
       const management = new ResolveMessagingTribeManagementUseCase(dependencies.accounts, leadership, dependencies.clock);
-      return { useCases: new RecoverNotificationDeliveryUseCase(management, new PostgresNotificationDeliveryRecoveryRepository(executeActor, options.readSecurityConfig)) };
+      return { useCases: new RecoverNotificationDeliveryUseCase(management, new PostgresNotificationDeliveryRecoveryRepository(executeActor, options.readSecurityConfig, options.groupContent)) };
     },
     /** @returns Bounded own notification metadata under current leadership, without keyrings, claims or provider queries. */
     createNotificationDeliveryCatalogModule() {
