@@ -1,6 +1,6 @@
 # Validación del control de calidad
 
-Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras los cierres de T182, T192, T193 y T194 se conservan las 212 tareas: **178 completadas y 34 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
+Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras los cierres de T182, T192, T193, T194 y T195 se conservan las 212 tareas: **179 completadas y 33 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
 
 ## Historial por solicitud y cierre de T182
 
@@ -142,3 +142,11 @@ La [auditoría de sustitución](messaging-provider-substitution.md) registra 71 
 El build aislado pasó 1801 archivos productivos equivalentes, overlay de 2067 y 55/55 páginas; las fuentes productivas siguen idénticas después de los ajustes de fixtures/tests. La revisión de código corregido registra cero hallazgos, con el P2 del oráculo manual resuelto. La primera ejecución SQL fallida conserva dos locales aprobadas y tres SQL fallidas; no se suma ni se le atribuye un código de emisión ausente del reporter. El fixture actual conserva los mismos keyrings al sustituir sólo el transporte y usa la versión real de la pendiente. Tras ambas ejecuciones, el inventario oficial conserva cero temporales propias y las tres ramas originales.
 
 El [CI exacto de `036280dc`](https://github.com/guidomodarelli/TuTribu/actions/runs/38860706387) terminó con 531 archivos/5608 casos aprobados, 288 archivos/827 casos omitidos y build de 55 páginas. Su watcher fue consumido con cero y sólo acredita ese checkpoint anterior de T193. El incremento de sustitución y su cierre documental necesitan el CI de su propio commit nuevo. T195–T197, T211, SC-020 integral y todos los gates conservan su alcance pendiente.
+
+## Proyección de capacidades y cierre individual de T195
+
+El [CI exacto de `377903c6`](https://github.com/guidomodarelli/TuTribu/actions/runs/38871901638) termina aprobado con **533 archivos y 5625 casos**, **288 archivos y 830 casos omitidos** y **55/55 páginas**. Su watcher fue consumido con exit cero; el checkpoint documental posterior conserva su propio workflow y los Native se acreditan separadamente.
+
+La [auditoría de T195](provider-capabilities-ui.md) conserva 64 aprobados locales en cuatro archivos completos y cuatro casos nativos aprobados en un archivo, con Next, auth y SQL reales en Chromium/WebKit a 390/1280. Son 68 casos distintos, sin sumar repeticiones ni fallos. El cero/cuatro nativo inicial y el aislamiento cero/uno permanecen históricos; pg directo acreditó las filas de routing y se compartió la misma configuración sintética entre los procesos del ensayo. No hubo envíos, consultas automáticas del navegador ni llamadas al proveedor.
+
+Tipos y lint actuales, build real de 1803 archivos de producto/2069 de overlay y 55 páginas aprobados. Los manuales trazados a `377903c6` conservan 32 capturas y pasan doce vistas/cuatro recorridos/181 enlaces, con cero errores del checker y advertencias locales explicadas. La revisión conjunta y el checkpoint documental conservan su evidencia propia; la validación de CI del código guardado se registra separada. Sólo T195 se cierra: 179 completas/33 pendientes/212 totales. T196/T197, SC-020 integral, T211 y gates operativos permanecen abiertos.
