@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { toast, Button, Avatar, AvatarFallback, AvatarGroup, AvatarImage, Card, CardContent, CardHeader, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious, Carousel, type CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, formatFileSize, AnimatedCount, AnimatedListItem, RichLinkEditor, useRichLinkEditor, RichTextContent, type RichLink, ReactionButton } from "beez-ui";
-import { BouncingDotsLoader } from "@/components/loaders/bouncing-dots-loader";
+import { MorphLoader } from "@/components/loaders/morph-loader";
 
 import { Link } from "@/components/navigation/link";
 import { isInPageLinkClick } from "@/lib/plain-link-click";
@@ -181,6 +181,9 @@ const TRIBE_ROUND_ENDPOINT = {
     TRIBE_ROUND_ROUTE.messagesSegment +
     messageId,
 } as const;
+
+/** Size of the inline loaders shown while messages or replies load. */
+const TRIBE_ROUND_LOADER_SIZE_PX = 24;
 
 const TRIBE_ROUND_COPY = {
   openMessageDetailsAriaLabelPrefix: "Abrir mensaje",
@@ -6547,9 +6550,9 @@ function TribeRoundContent({
 
       {roundNavigation.isLoading ? (
         <div className={styles.TribeRound__navigationStatus}>
-          <BouncingDotsLoader
+          <MorphLoader
             label={TRIBE_ROUND_COPY.roundPageLoading}
-            size="sm"
+            size={TRIBE_ROUND_LOADER_SIZE_PX}
           />
         </div>
       ) : null}
@@ -6884,9 +6887,9 @@ function TribeRoundContent({
                   {selectedMessageReplyLoadStatus ===
                   TRIBE_ROUND_REPLY_LOAD_STATUS.loading ? (
                     <div className={styles.TribeRound__replyLoading}>
-                      <BouncingDotsLoader
+                      <MorphLoader
                         label={TRIBE_ROUND_COPY.repliesLoading}
-                        size="sm"
+                        size={TRIBE_ROUND_LOADER_SIZE_PX}
                       />
                     </div>
                   ) : null}

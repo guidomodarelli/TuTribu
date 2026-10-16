@@ -4,6 +4,10 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+### Changed
+
+- El indicador de carga de la ronda, al cargar mensajes y respuestas, tiene un diseño nuevo: más pequeño y con una animación de puntos que se transforma con suavidad.
+
 ## [1.7.2] - 2026-10-16
 
 ### Changed
