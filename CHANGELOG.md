@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-10-16
+
 ### Changed
 
 - Las notificaciones adoptan el estilo del sistema de diseño de TuTribu, con sus íconos y colores en modo claro y oscuro.
