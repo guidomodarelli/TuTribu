@@ -1,6 +1,6 @@
 # Validación del control de calidad
 
-Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras el cierre de T182 se conservan las 212 tareas: **175 completadas y 37 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
+Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras los cierres de T182 y T193 se conservan las 212 tareas: **176 completadas y 36 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
 
 ## Historial por solicitud y cierre de T182
 
@@ -126,3 +126,11 @@ El núcleo de filtros quedó guardado y subido en `50ea53ffa6ea5d26838efb8a4ee46
 El [checkpoint documental `edbb2cf4`](https://github.com/guidomodarelli/TuTribu/actions/runs/38854473238) pasó su control exacto: 531 archivos y 5595 casos aprobados, 287 archivos y 824 casos omitidos y 55 páginas; watcher cero. Es un resultado propio del manual posterior a la API `33bc645f` y no se atribuye a las nuevas pruebas de elegibilidad.
 
 El [ensayo posterior](batch-decisions-eligibility.md) acredita tres casos Native únicos en dos cohortes, sin cambiar producto ni SQL. La primera completa terminó dos aprobados y un fallido, sin omisiones y con 2057 inputs estables. Se corrigió únicamente el oráculo nominativo de FR-092; tipos de tests, lint focal y la revisión de código posterior pasaron. El tercero corregido aprobó, sin fallos y con los otros dos fuera del filtro y 2057 inputs estables. Los dos primeros callbacks y los otros 2056 inputs permanecen idénticos; las identidades se concilian sin duplicar casos ni declarar un único archivo completo verde. La limpieza final confirmó cero temporales propias y tres ramas originales o ajenas conservadas. El nuevo checkpoint requiere su revisión conjunta y control propios. T176, T183, T211 y los gates conservan sus criterios abiertos.
+
+## Registro de proveedores y cierre de T193
+
+El checkpoint de elegibilidad quedó guardado en `68817d75`. Su [CI propio exacto](https://github.com/guidomodarelli/TuTribu/actions/runs/38856993096) terminó con 531 archivos y 5595 casos aprobados, 288 archivos y 827 casos omitidos y 55 páginas; watcher cero. Las omisiones no sustituyen los tres Native únicos registrados por separado y ese control no valida el registro corregido posteriormente.
+
+La [validación de T193](provider-registry-api.md) pasó **52 casos distintos en seis archivos completos**: 51 locales y un Native de resolución actual, todos posteriores al fix y con inputs estables. Ambos tipos y lint focal de tres TypeScript aprobaron con el runtime fijado; el loop de código corrigió el P3 de canal vacío y terminó sin hallazgos. El rojo real de cuatro casos y las ejecuciones previas se conservan sin sumarlas. La limpieza final posterior al Native corregido tiene su recibo propio y conserva los recursos originales.
+
+La auditoría cierra sólo T193 y mantiene 176/36/212. El checkpoint conserva revisión conjunta y nuevo CI propios; T192/T194–T197, T185, T211 y los gates conservan sus criterios originales.

@@ -149,6 +149,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Los envíos de mensajería rechazan canales vacíos o no admitidos antes de contactar al proveedor.
+
 - Los filtros de admisión rechazan los rangos de fecha invertidos aunque la diferencia sea menor a un milisegundo.
 
 - Al revisar admisiones, una excepción permite preparar su motivo antes de aprobar; las decisiones confirmadas actualizan la selección visible y «Mostrar pendientes» limpia también las ediciones sin aplicar.
