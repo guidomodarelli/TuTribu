@@ -1,6 +1,14 @@
 # Validación del control de calidad
 
-Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras el cierre de T175 se conservan las 212 tareas: **174 completadas y 38 pendientes**. Este registro distingue las comprobaciones locales y Native del control completo confirmado de `390f45e6` y de los cambios posteriores todavía en desarrollo.
+Registro parcial de T211, que sigue abierta junto a sus dependencias y gates operativos. Tras el cierre de T182 se conservan las 212 tareas: **175 completadas y 37 pendientes**. Este registro distingue las comprobaciones locales y Native de los controles completos de sus commits exactos y de los cambios posteriores todavía en desarrollo.
+
+## Historial por solicitud y cierre de T182
+
+El [CI exacto de `f850a826`](https://github.com/guidomodarelli/TuTribu/actions/runs/38847886360) pasó **530 archivos y 5563 casos**, con **285 archivos y 822 casos omitidos**, tipos/lint y build de **55/55 páginas**. El workflow terminó correctamente y su watcher fue consumido con exit cero; no se atribuyen sus resultados al manual posterior ni a las pruebas nuevas de lotes.
+
+La validación local del historial conserva 133 casos en doce archivos completos, tipos y lint actuales, build aislado de 1799 archivos equivalentes y cuatro recorridos Native únicos Chromium/WebKit a 390/1280. La matriz tres/uno y la repetición completa uno/cero con tres fuera del filtro conservan sus cohortes y los fallos originales; no se presenta una ejecución única cuatro/cero. El único cambio de tipos posterior al runtime tiene JavaScript idéntico y validaciones locales posteriores aprobadas.
+
+El manual final tiene 59 marcos, incluidos los 55 anteriores intactos; está trazado al código guardado y pasa doce vistas, cuatro recorridos y 184 enlaces, con revisión independiente sin hallazgos. La [auditoría de T182](admission-review-history-ui.md#t182-scope-audit) cierra únicamente bandeja/filtros/detalle/historial y continuidad. T176, T189, los demás criterios de US8 y los gates externos siguen pendientes. El checkpoint documental mantiene su workflow propio; T211 continúa abierta.
 
 ## Avance HTTP del filtro de excepción de T182
 
