@@ -162,11 +162,13 @@ function expectNoMotion(openingFrames: DialogFrame[], closingFrames: DialogFrame
 /**
  * Opens and closes `dialog` once, retrying the click until the page has
  * hydrated (a click on server HTML before hydration does nothing), so the
- * recorded openings never race the first client render.
+ * recorded openings never race the first client render. A dialog that opened
+ * slower than one attempt is not clicked again: the modal hides its trigger,
+ * so a second click would wait for an element that never comes back.
  */
 async function warmUpDialog(page: Page, trigger: Locator, dialog: Locator) {
   await expect(async () => {
-    await trigger.click({ timeout: HYDRATION_RETRY_MS });
+    if (!(await dialog.isVisible())) await trigger.click({ timeout: HYDRATION_RETRY_MS });
     await expect(dialog).toBeVisible({ timeout: HYDRATION_RETRY_MS });
   }).toPass();
   await page.keyboard.press("Escape");
