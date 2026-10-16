@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
 import { prepareHistoricalAdmissionEvidence } from "./admission-evidence-historical-fixture";
 import { executeAdmissionMigrationCommand } from "./admission-migration-command";
+import { createAdmissionRequestSnapshotFixture } from "./admission-request-snapshot-fixture";
 import type { AdmissionNotificationRecipientEmailScope } from "@/src/modules/notifications/domain/entities/admission-notification-recipient-email";
 
 /**
@@ -54,7 +55,8 @@ export async function prepareAdmissionNotificationRecipientEmails(database: Acad
       await transaction.execute(sql`insert into public.academy_admission_audit_events(tribe_id,actor_user_id,resource_type,resource_id,event_type,rule,resource_version) values (${sourceTribeId},${actorId},'admission_request',${requestIds[index]},'rejected','synthetic_historical_rejection',1)`);
       await transaction.execute(sql`select public.enqueue_admission_notification(${obligationIds[index]},${applicantIds[index]},'applicant')`);
     }
-    await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,submitted_at,expires_at) values (${reviewRequestId},${tribeId},${reviewApplicantId},'common',clock_timestamp(),clock_timestamp()+interval '29 days')`);
+    const reviewSnapshot = createAdmissionRequestSnapshotFixture({ id: reviewRequestId, tribeId, userId: reviewApplicantId, submittedAt: new Date() });
+    await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,original_policy_snapshot,submitted_at,expires_at) values (${reviewRequestId},${tribeId},${reviewApplicantId},'common',${JSON.stringify(reviewSnapshot)}::jsonb,clock_timestamp(),clock_timestamp()+interval '29 days')`);
     await transaction.execute(sql`insert into public.academy_admission_notification_obligations(id,tribe_id,request_id,applicant_user_id,event_type) values (${reviewObligationId},${tribeId},${reviewRequestId},${reviewApplicantId},'pending_created')`);
     await transaction.execute(sql`select public.enqueue_admission_notification(${reviewObligationId},${guardianId},'reviewer')`);
   }));
