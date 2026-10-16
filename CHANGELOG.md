@@ -74,6 +74,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - La bandeja de admisión incorpora búsqueda y filtros de estado, origen, fecha y requisitos actuales, y conserva la selección al revisar un detalle o recargar la página.
 - Los líderes y guardianes pueden abrir el historial de una solicitud desde su detalle, recorrer los eventos conservados y volver con los mismos filtros; el acceso se vuelve a comprobar al regresar a la pantalla.
 - Las decisiones de admisión por lote conservan un resultado por solicitud y permiten recuperar la operación original sin repetir decisiones.
+- La preparación interna de avisos puede recorrer lotes separados sin que un aviso omitido frene los siguientes; la ejecución automática y el envío de grupos siguen pendientes.
 
 ### Changed
 
