@@ -4,11 +4,9 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
-import { prepareAdmissionNotificationRecipientEmails } from "@/tests/support/admission-notification-recipient-email-fixture";
-import { seedContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
+import { prepareAdmissionNotificationCollection } from "@/tests/support/admission-notification-collection-fixture";
 import { createAdmissionRequestSnapshotFixture } from "@/tests/support/admission-request-snapshot-fixture";
 import { ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-notification-validation";
-import { createMessagingSecretCipher } from "@/src/modules/messaging/infrastructure/encryption/messaging-secret-cipher";
 import { PostgresAdmissionNotificationRepository } from "@/src/modules/notifications/infrastructure/repositories/postgres-admission-notification-repository";
 import type { AdmissionNotificationRecipientEmailScope } from "@/src/modules/notifications/domain/entities/admission-notification-recipient-email";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -17,18 +15,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
   it("should collect each current trusted notice once without outbox effects and preserve its original group across preference changes", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       // Given genuine account evidence installed before its original guard, and a selected encrypted email resource under all current guards.
-      const fixture = await prepareAdmissionNotificationRecipientEmails(database), keys = await seedContactVerificationDatabase(database);
-      const connectionId = randomUUID(), secretRef = randomUUID(), senderId = randomUUID();
-      const envelope = await createMessagingSecretCipher(keys.config).seal(randomUUID(), { tribeId: fixture.tribeId, connectionId, connectionVersion: 1, resourceId: secretRef });
-      await database.withContext(fixture.own, async (transaction) => {
-        await transaction.execute(sql`insert into public.messaging_usage_policies(tribe_id,verification_daily_limit) values (${fixture.tribeId},0)`);
-        await transaction.execute(sql`insert into public.tenant_messaging_connections(id,tribe_id,contributed_by_user_id,state,environment,security_epoch,is_candidate,candidate_version) values (${connectionId},${fixture.tribeId},${fixture.leaderId},'degraded',${keys.config.environment},${keys.config.securityEpoch},false,null)`);
-        await transaction.execute(sql`insert into public.messaging_connection_versions(connection_id,tribe_id,version,environment,security_epoch,secret_ref,credential_validation_status,is_test_mode,email_sender_id) values (${connectionId},${fixture.tribeId},1,${keys.config.environment},${keys.config.securityEpoch},${secretRef},'valid',false,${senderId})`);
-        await transaction.execute(sql`insert into public.messaging_secret_envelopes(secret_ref,tribe_id,connection_id,connection_version,environment,security_epoch,key_id,iv,ciphertext) values (${secretRef},${fixture.tribeId},${connectionId},1,${envelope.environment},${envelope.securityEpoch},${envelope.keyId},${Buffer.from(envelope.iv)},${Buffer.from(envelope.ciphertext)})`);
-        await transaction.execute(sql`insert into public.messaging_connection_capabilities(connection_id,tribe_id,connection_version,channel,state,sender_id,checked_at,tested_at) values (${connectionId},${fixture.tribeId},1,'email','prepared',${senderId},clock_timestamp(),clock_timestamp())`);
-        await transaction.execute(sql`update public.tenant_messaging_connections set is_selected=true,selected_version=1,is_candidate=false,candidate_version=null,state='active' where id=${connectionId}`);
-        await transaction.execute(sql`insert into public.admission_email_settings(tribe_id,enabled,enabled_at,version,time_zone,changed_by_user_id) values (${fixture.tribeId},true,clock_timestamp(),1,'UTC',${fixture.leaderId})`);
-      });
+      const { fixture, keys, connectionId } = await prepareAdmissionNotificationCollection(database);
       /** @param transaction - Existing synthetic native owner transaction. @param tribeId - Exact protected producer scope. @returns Current canonical owner authority, not a browser flag or a test of the future bearer endpoint. */
       const authorize = async (transaction: RequestDatabase, tribeId: string) => tribeId === fixture.tribeId && Boolean((await transaction.execute(sql`select id from public.tribe_members where tribe_id=${tribeId} and user_id=public.current_app_user_id() and role='leader' and status='active'`)).rows[0]);
       /** @param scope - Existing exact original notice. @returns The committed collection result, never a simulated sender receipt. */
@@ -39,7 +26,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission n
         await database.withContext(fixture.own, async (transaction) => {
           await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${applicantId},'Synthetic collection applicant',${`${applicantId}@example.invalid`},false,clock_timestamp(),clock_timestamp())`);
           const snapshot = createAdmissionRequestSnapshotFixture({ id: requestId, tribeId: fixture.tribeId, userId: applicantId, submittedAt: new Date() });
-          await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,original_policy_snapshot,expires_at) values (${requestId},${fixture.tribeId},${applicantId},'common',${JSON.stringify(snapshot)}::jsonb,clock_timestamp()+interval '30 days')`);
+          await transaction.execute(sql`with original_clock as materialized(select clock_timestamp() as submitted_at)
+            insert into public.academy_admission_requests(id,tribe_id,user_id,source,original_policy_snapshot,submitted_at,expires_at)
+            select ${requestId},${fixture.tribeId},${applicantId},'common',${JSON.stringify(snapshot)}::jsonb,submitted_at,submitted_at+interval '30 days' from original_clock`);
           await transaction.execute(sql`select public.create_admission_notification_obligation(${obligationId},${fixture.tribeId},${requestId},${applicantId},'pending_created')`);
           for (const userId of [fixture.leaderId, fixture.guardianId]) await transaction.execute(sql`select public.enqueue_admission_notification(${obligationId},${userId},'reviewer')`);
         });

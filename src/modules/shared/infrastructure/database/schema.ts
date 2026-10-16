@@ -8,6 +8,7 @@ import { createSubscriptionMembershipEffectsSchema } from "@/src/modules/subscri
 import { ADMISSION_NOTIFICATION_AUDIENCE, ADMISSION_NOTIFICATION_TYPES } from "@/src/modules/notifications/constants/admission-notifications";
 import { ADMISSION_NOTIFICATION_PREFERENCE_MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { createAdmissionNotificationGroupSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-group-schema";
+import { createAdmissionNotificationCollectionProgressSchema } from "@/src/modules/notifications/infrastructure/database/admission-notification-collection-progress-schema";
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {
   bigint,
@@ -1856,6 +1857,9 @@ export const {
 
 /** Composes private group storage after its immutable original obligation parent exists. */
 export const { groups: admissionNotificationGroups, members: admissionNotificationGroupMembers } = createAdmissionNotificationGroupSchema({ users, tribes, obligations: academyAdmissionNotificationObligations });
+
+/** Composes the private bounded source checkpoint after its live-tribe parent exists. */
+export const admissionNotificationCollectionProgress = createAdmissionNotificationCollectionProgressSchema(tribes.id);
 
 /** Composes private messaging models after the admission challenge parent exists. */
 export const {
