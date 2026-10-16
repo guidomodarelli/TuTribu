@@ -136,6 +136,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- La recolección interna de avisos comparte comprobaciones por página, conserva un resultado por cada aviso y recupera los ya incorporados aunque la conexión actual no esté disponible; la ejecución automática sigue pendiente.
+
 - La preparación interna de avisos agrupados comparte las comprobaciones del destinatario y conserva los permisos y la confianza de cada aviso; el envío automático sigue pendiente.
 
 - La preparación de canales muestra sólo las opciones disponibles para la conexión y bloquea consultas y guardados de un canal que ya no esté disponible, con un aviso para corregirlo.
