@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-10-16
+
 ### Changed
 
 - Las ventanas emergentes aparecen y se cierran con una transición más corta y sobria: suben apenas mientras aparecen y se desvanecen rápido al cerrarse.
