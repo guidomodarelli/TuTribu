@@ -3,7 +3,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { chromium, webkit, type Page } from "@playwright/test";
+import { chromium, webkit, type Page, type Response } from "@playwright/test";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -21,7 +21,26 @@ import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infr
 import { PostgresPersonalInvitationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-personal-invitation-repository";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { buildAdmissionEntryRoute, buildOwnAdmissionRequestRoute, buildAdmissionReviewRoute } from "@/lib/academy-admissions/admission-routes";
-import { admissionOutcomeSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import { admissionOutcomeSchema, createAdmissionOperationStateSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
+import { OPERATION_STATE } from "@/src/constants/operation-state";
+import { HTTP_STATUS } from "@/src/constants/http-status";
+
+/** @param response - Actual own submission reply. @param name - Synthetic engine and viewport identifier. @returns Whether accepted progress requires an explicit original-state read; diagnostics exclude payload values and identities. */
+async function inspectSubmissionReply(response: Response, name: string): Promise<boolean> {
+  let value: unknown;
+  try { value = await response.json(); } catch { value = undefined; }
+  const outcome = admissionOutcomeSchema.safeParse(value), progress = createAdmissionOperationStateSchema(admissionOutcomeSchema).safeParse(value), failure = admissionPublicErrorSchema.safeParse(value);
+  const expectedOperationId = (response.request().postDataJSON() as { operationId: string }).operationId;
+  const observedOperationId = outcome.success ? outcome.data.operationId : progress.success ? progress.data.operationId : failure.success ? failure.data.operation?.operationId : null;
+  const started = progress.success && progress.data.state === OPERATION_STATE.started;
+  const acceptedFailure = response.status() >= HTTP_STATUS.serverError && failure.success && failure.data.operation?.state === OPERATION_STATE.started;
+  const directory = process.env[VALIDATION.captureDirectoryEnvironment];
+  if (directory) await writeFile(join(directory, `${name}.submission.json`), JSON.stringify({ status: response.status(), jsonReceived: value !== undefined, outcomeValid: outcome.success, progressValid: progress.success, errorValid: failure.success, code: failure.success ? failure.data.code : null, operationMatches: observedOperationId === expectedOperationId, outcomeIssues: outcome.success ? [] : outcome.error.issues.map((issue) => ({ path: issue.path, code: issue.code })) }));
+  expect(response.ok() && (outcome.success || started) || acceptedFailure).toBe(true);
+  expect(observedOperationId).toBe(expectedOperationId);
+  return !outcome.success;
+}
 
 /** @param page - Actual rendered page. @param name - Synthetic surface identifier. @param privateValues - Native identities and secrets excluded from the capture. @returns After checking mobile sizing and optionally saving actual rendered captures. */
 async function inspectSurface(page: Page, name: string, privateValues: string[]): Promise<void> {
@@ -67,7 +86,12 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             await page.getByText(COPY.invalid, { exact: true }).waitFor(); expect(commonWrites).toBe(0);
             await number.fill("+1 (415) 555-2671"); await number.press("Tab");
             await inspectSurface(page, `${engineName}-${width}-common`, privateValues);
+            const commonResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/submissions"));
             await page.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();
+            if (await inspectSubmissionReply(await commonResponse, `${engineName}-${width}-common`)) {
+              await page.getByText(ADMISSION_UI_COPY.uncertain, { exact: true }).waitFor();
+              await page.getByRole("button", { name: ADMISSION_UI_COPY.read, exact: true }).click();
+            }
             await page.getByRole("link", { name: "Ver solicitud", exact: true }).waitFor(); expect(commonWrites).toBe(1);
             const request = await database.withContext({ userId: common.userId, email: common.email }, async (transaction) => (await transaction.execute<{ id: string }>(sql`select id,source,status,version,contact_type,normalized_contact,evidence_source,submitted_at,expires_at from public.academy_admission_requests where tribe_id=${fixture.tribeId} and user_id=${common.userId}`)).rows[0]);
             let dropped = false;
@@ -135,6 +159,10 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
           } catch (error) {
             const directory = process.env[VALIDATION.captureDirectoryEnvironment];
             if (directory) {
+              try {
+                const diagnostic = await database.withContext({ userId: common.userId, email: common.email }, async (transaction) => (await transaction.execute(sql`select (select jsonb_agg(jsonb_build_object('type',operation_type,'state',state,'version',version,'hasResult',public_result is not null,'outcome',public_result->>'outcome')) from public.academy_admission_operations where tribe_id=${fixture.tribeId} and actor_user_id=${common.userId}) as operations,(select jsonb_agg(jsonb_build_object('status',status,'version',version,'source',source,'hasWhatsapp',whatsapp_number is not null)) from public.academy_admission_requests where tribe_id=${fixture.tribeId} and user_id=${common.userId}) as requests`)).rows[0]);
+                await writeFile(join(directory, `${engineName}-${width}.failure-state.json`), JSON.stringify(diagnostic));
+              } catch { process.stdout.write(JSON.stringify({ stage: "optional_failure_state_unavailable", engine: engineName, width }) + "\n"); }
               try { await page.screenshot({ path: join(directory, `${engineName}-${width}-failure-page.png`), timeout: 5_000 }); await leader.screenshot({ path: join(directory, `${engineName}-${width}-failure-leader.png`), timeout: 5_000 }); }
               catch { process.stdout.write(JSON.stringify({ stage: "optional_failure_capture_unavailable", engine: engineName, width }) + "\n"); }
             }
