@@ -2,7 +2,7 @@
 
 ## Estado
 
-T199, T201 y T203 permanecen abiertas. Este avance incorpora un owner privado de reconciliación y prepara el ensayo de reapertura. No acredita un restore completo aprobado, recursos instalados en todos los hosts, Workers operativos ni OG-02. El inventario conserva 196 tareas completas, 16 pendientes y las 71 temáticas aprobadas.
+T199 está completa en su alcance de copia aislada: el ensayo Native de bloqueo, reconciliación y reapertura terminó aprobado. T201 y T203 permanecen abiertas; no se acreditan recursos instalados en todos los hosts, Workers operativos ni OG-02. El inventario queda en 197 tareas completas, 15 pendientes y las 71 temáticas aprobadas.
 
 La composición no monta endpoints, no activa drivers y no modifica configuración productiva. Los ensayos utilizan ramas Neon propias, Web Crypto y PostgreSQL reales, claves sintéticas en memoria y transporte HTTP cerrado del SDK real; no envían mensajes reales.
 
@@ -37,7 +37,7 @@ Antes de limpiar la copia se ejecutó una consulta directa con `pg`, en transacc
 
 La limpieza retiró primero `br-cold-silence-anclxbm6` y después su padre propio `br-broad-salad-answdkea`, comprobando ID, nombre, padre, ausencia de hijos y condición no default. Ambas ausencias quedaron confirmadas. Permanecieron las tres ramas originales: producción, desarrollo y piloto anterior. No se borraron recursos por prefijo ni se repitió un DELETE incierto.
 
-## Ajustes posteriores y evidencia pendiente
+## Ajustes posteriores
 
 1. La expectativa manual usa el código del owner y agrega un assert SQL de cero solicitudes y cero membresías; conserva el assert de política cerrada.
 2. Sólo el presupuesto del caso Native aumenta a cuarenta y cinco minutos para incluir su preparación y sus fases acumuladas. No cambia ningún TTL, cuota, plazo de recencia, presupuesto de producción ni timeout global de Vitest.
@@ -50,7 +50,15 @@ La regresión general del cohort corregido pasó con `pnpm run ci`: lint sin err
 
 La copia al checkout principal conserva exactamente los hashes de los veintiún paths de código, migración y tests revisados; el observer ya estaba guardado en `a1158f1c`. Este último commit tiene CI completo aprobado en el run `39039826032`. La integración no incorpora cambios ajenos ni convierte el Native fallido en aprobado.
 
-La nueva ejecución Native conserva su resultado independiente y sigue pendiente. La reapertura sólo se acreditará al observar una conexión nueva, diagnóstico actual, política confirmada, prueba nueva y admisión básica efectiva, manteniendo intactos el padre, las solicitudes anteriores y los intentos inciertos. El protocolo operativo y el ensayo en ambos targets permanecen sujetos a T201/T203 y sus gates.
+## Repetición Native aprobada y cierre de T199
+
+La ejecución independiente `.git/messaging-recovery-native-ea857be3/` terminó con código 0: un caso aprobado, cero fallidos y cero omitidos, en 1.805.411,438 ms. Conservó los 3.632 inputs y los dos helpers sin cambios. Los veintidós paths de fuente, integración y cohorte ejecutado coinciden byte por byte; el código y sus pruebas están guardados en `acf8240361b41768fea3d2e55b2fbe1212b51dc6`, con el observer ya corregido en `a1158f1c`.
+
+El caso confirmó la copia restaurada bajo recovery lock, época externa y retirada del secreto; reconciliación por lotes con lectura después de perder una respuesta; rechazo de un principal ordinario; política manual/OFF cerrada; retiro y purga contra las fechas originales; conservación de historia, membresías e intentos inciertos. Después confirmó por separado reemplazo preparado, desafío nuevo, despacho al transporte cerrado, prueba nueva, presentación y decisión. La admisión básica nueva y la integridad del padre quedaron comprobadas al final. Ningún mensaje real fue enviado.
+
+El inventario posterior confirmó ausentes `br-wandering-butterfly-an7jsmnl` y su padre propio `br-aged-smoke-an0c98ql`, con las tres ramas originales preservadas. Las ramas distintas que otros ensayos propios tenían activas no se atribuyen a esta limpieza. Recibo privado: `.git/codex-messaging-recovery-native-final-proof.json`.
+
+La revisión post-Native concluyó sin hallazgos y verificó el criterio completo de T199. Dictamen privado `.git/codex-messaging-recovery-post-native-closure-review.json`; SHA256 `5994804bb2319d9b2a8a749ae7d605f7f28a39f78bcf326dd5a5f592fe36e3b8`. El ensayo anterior de treinta minutos permanece fallido. Sólo se cierra T199: esta evidencia usa Node, Web Crypto, PostgreSQL y el SDK real con HTTP cerrado. El protocolo operativo, el hosting original, ambos targets y la entrega externa conservan T201/T203 y sus gates.
 
 ## Documentación propietaria
 
