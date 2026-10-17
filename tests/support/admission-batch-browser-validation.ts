@@ -1,6 +1,6 @@
 /** Exercises real named batch decisions, a concurrent reviewer and recovery after a lost response. @module admission-batch-browser-validation */
 import { randomUUID } from "node:crypto";
-import { expect, type BrowserContext } from "@playwright/test";
+import { expect, type BrowserContext, type Request } from "@playwright/test";
 import { admissionBatchResultSchema, type AdmissionBatchResultDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
 import { admissionTransitionResultSchema } from "@/src/modules/academy-admissions/application/results/admission-writer-result-schemas";
@@ -35,13 +35,22 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
   page.setDefaultTimeout(VALIDATION.responseTimeoutMs);
   const rootPath = `/api/tribes/${input.slug}/admissions`, batchPath = `${rootPath}/request-decisions`;
   const documents: string[] = [], operationReads: string[] = [], batchWrites: string[] = [];
+  const viewerRequestsAfterSecondPost = new WeakSet<Request>();
+  input.observations.browserBatchFailures = 0; input.observations.browserBatchFinishes = 0;
+  input.observations.viewerStartsAfterSecondPost = 0; input.observations.viewerFinishesAfterSecondPost = 0;
+  const browserBatchStatuses: number[] = [], viewerStatusesAfterSecondPost: number[] = [];
+  input.observations.browserBatchStatuses = browserBatchStatuses; input.observations.viewerStatusesAfterSecondPost = viewerStatusesAfterSecondPost;
   page.on("pageerror", (error) => input.errors.push(error.name));
   page.on("request", (request) => {
     const path = new URL(request.url()).pathname;
     if (request.isNavigationRequest() && request.resourceType() === "document") documents.push("document");
     if (request.method() === "POST" && path === batchPath) { batchWrites.push("POST"); input.observations.batchPostCount = batchWrites.length; }
-    if (request.method() === "GET" && path.startsWith(`${rootPath}/operations/`)) operationReads.push(path.slice(`${rootPath}/operations/`.length));
+    if (request.method() === "GET" && path.startsWith(`${rootPath}/operations/`)) { operationReads.push(path.slice(`${rootPath}/operations/`.length)); input.observations.originalOperationGetCount = operationReads.length; }
+    if (request.method() === "GET" && path === "/api/auth/get-session" && batchWrites.length === 2) { viewerRequestsAfterSecondPost.add(request); input.observations.viewerStartsAfterSecondPost = Number(input.observations.viewerStartsAfterSecondPost) + 1; }
   });
+  page.on("requestfailed", (request) => { if (new URL(request.url()).pathname === batchPath) input.observations.browserBatchFailures = Number(input.observations.browserBatchFailures) + 1; });
+  page.on("requestfinished", (request) => { if (new URL(request.url()).pathname === batchPath) input.observations.browserBatchFinishes = Number(input.observations.browserBatchFinishes) + 1; if (viewerRequestsAfterSecondPost.has(request)) input.observations.viewerFinishesAfterSecondPost = Number(input.observations.viewerFinishesAfterSecondPost) + 1; });
+  page.on("response", (response) => { if (new URL(response.url()).pathname === batchPath) browserBatchStatuses.push(response.status()); if (viewerRequestsAfterSecondPost.has(response.request())) viewerStatusesAfterSecondPost.push(response.status()); });
   const outcomes: { mixed: AdmissionBatchResultDto | null; lost: AdmissionBatchResultDto | null } = { mixed: null, lost: null };
   let concurrentDecisionConfirmed = false, failedListReads = 0;
   /** @param rows - Explicit currently visible names. @returns After a trusted native selection and confirmation. */
@@ -56,9 +65,19 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
     await form.getByRole("checkbox", { name: COPY.confirmation, exact: true }).check();
     await current(form.getByRole("button", { name: COPY.approve, exact: true })).toBeEnabled();
   };
-  /** @param name - Actual visible capture. @param selector - Optional focused rendered region. */
+  /**
+   * Captures settled controls without freezing an outgoing button label.
+   * @param name - Actual visible capture.
+   * @param selector - Optional focused rendered region.
+   * @returns After the real accessible control and its visual label have settled.
+   */
   const capture = async (name: string, selector?: string) => {
-    if (input.capture) await captureAdmissionReview(page, name, input.privateValues, VALIDATION.batchCaptureFile, selector ? { selector } : {});
+    if (!input.capture) return;
+    const readControl = page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true });
+    await current(readControl).toBeEnabled();
+    await current(readControl.getByText(ADMISSION_REVIEW_UI_COPY.reading, { exact: true })).toHaveCount(0);
+    await current(readControl.getByText(ADMISSION_REVIEW_UI_COPY.read, { exact: true })).toHaveCSS("opacity", "1");
+    await captureAdmissionReview(page, name, input.privateValues, VALIDATION.batchCaptureFile, selector ? { selector } : {});
   };
   try {
     await input.onStage("open_native_batch_reviewer");
