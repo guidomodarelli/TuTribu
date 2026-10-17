@@ -3,7 +3,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { chromium, webkit, type Page, type Response } from "@playwright/test";
+import { chromium, webkit, type Page, type Request, type Response } from "@playwright/test";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -73,8 +73,23 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
           let documents = 0, commonWrites = 0, correctionWrites = 0;
           let phase: AdmissionWhatsappBrowserPhase = PHASE.configuration, submissionUrl: string | null = null, correctionUrl: string | null = null;
           const accountProbeUrls = new Set<string>(), browserErrors: AdmissionWhatsappBrowserErrorObservation[] = [];
+          const activeSessionRequests = new Map<Request, number>();
+          const sessionEvents: { kind: "request" | "requestfinished" | "requestfailed"; ordinal: number; phase: AdmissionWhatsappBrowserPhase; leaderSurface: boolean; canceled: boolean }[] = [];
+          let nextSessionRequest = 0, sessionEventCount = 0;
+          /** Records current observation phase and native lifecycle only; request URLs remain in memory. */
+          const observeSessionRequest = (surface: Page, request: Request, kind: "request" | "requestfinished" | "requestfailed") => {
+            if (kind === "request") { const address = new URL(request.url()); if (address.origin !== origin || address.pathname !== ADMISSION_WHATSAPP_BROWSER_ERROR.accountPath) return; activeSessionRequests.set(request, ++nextSessionRequest); }
+            const ordinal = activeSessionRequests.get(request);
+            if (ordinal === undefined) return;
+            sessionEventCount += 1;
+            if (sessionEvents.length < ADMISSION_WHATSAPP_BROWSER_ERROR.maximumSessionEvents) sessionEvents.push({ kind, ordinal, phase, leaderSurface: surface === leader, canceled: ADMISSION_WHATSAPP_BROWSER_ERROR.canceledPattern.test(request.failure()?.errorText ?? "") });
+            if (kind !== "request") activeSessionRequests.delete(request);
+          };
           for (const surface of [leader, page]) {
             surface.setDefaultTimeout(VALIDATION.actionTimeoutMs);
+            surface.on("request", (request) => observeSessionRequest(surface, request, "request"));
+            surface.on("requestfinished", (request) => observeSessionRequest(surface, request, "requestfinished"));
+            surface.on("requestfailed", (request) => observeSessionRequest(surface, request, "requestfailed"));
             surface.on("pageerror", (error) => {
               const observation = observeAdmissionWhatsappBrowserError(error, { phase, leaderSurface: surface === leader, origin, submissionUrl, correctionUrl, accountUrls: accountProbeUrls });
               failures.push(observation.name);
@@ -153,10 +168,14 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             await inspectSurface(leader, `${engineName}-${width}-review`, privateValues);
             phase = PHASE.personal;
             const invitations = new PostgresPersonalInvitationRepository((_scope, run) => database.withContext(fixture.own, run), async () => fixture.config);
+            phase = PHASE.personalInvitationCreate;
             const invitation = await invitations.create({ context: { ...await fixture.confirm(REAUTHENTICATION_OPERATION.createPersonalInvitation), action: "manage_invitations" }, operationId: randomUUID(), confirmed: true, contact: { type: "email", value: personal.email }, internalName: "Invitación de prueba", requiresAllowlist: false, allowlistExemptionAcknowledged: true });
             if (invitation.state !== "completed" || !invitation.initialToken) throw new Error("Synthetic personal WhatsApp invitation did not complete");
-            await applicantContext.clearCookies(); await bindAdmissionBatchBrowserSession(applicantContext, personal, origin, secret);
+            phase = PHASE.personalCookieClear; await applicantContext.clearCookies();
+            phase = PHASE.personalCookieBind; await bindAdmissionBatchBrowserSession(applicantContext, personal, origin, secret);
+            phase = PHASE.personalNavigation;
             await runPrivateBrowserRequest("open_synthetic_whatsapp_invitation", () => page.goto(`${origin}/admissions/invitations/${invitation.initialToken}`));
+            phase = PHASE.personalForm;
             await setVisibleCheckboxChecked(page.getByRole("checkbox", { name: /Confirmo que quiero usar esta invitación/ }), true, VALIDATION.actionTimeoutMs); await page.getByRole("button", { name: "Confirmar invitación", exact: true }).click();
             await page.getByText(COPY.required, { exact: true }).waitFor(); expect(commonWrites).toBe(1);
             await page.getByRole("textbox", { name: COPY.label, exact: true }).fill("+1 (415) 555-2671");
@@ -191,7 +210,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             expect(personalOutcome.request.version).toBe(2);
             expect(personalRows).toEqual([{ source: "personal", status: "pending", version: personalOutcome.request.version, contact_type: "email", normalized_contact: personal.email, whatsapp_number: "+14155552671" }]);
             const observedEffects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.message_deliveries where tribe_id=${fixture.tribeId}) as deliveries,(select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and user_id in (${common.userId},${personal.userId})) as memberships`)).rows);
-            if (evidenceDirectory) await writeFile(join(evidenceDirectory, `${engineName}-${width}.final-observation.json`), JSON.stringify({ observedEffects, pageErrorCount: failures.length, browserErrors, browserErrorsTruncated: failures.length > browserErrors.length }));
+            if (evidenceDirectory) await writeFile(join(evidenceDirectory, `${engineName}-${width}.final-observation.json`), JSON.stringify({ observedEffects, pageErrorCount: failures.length, browserErrors, browserErrorsTruncated: failures.length > browserErrors.length, sessionEvents, sessionEventCount, sessionEventsTruncated: sessionEventCount > sessionEvents.length }));
             expect(observedEffects).toEqual([{ deliveries: 0, memberships: 0 }]);
             expect(failures).toEqual([]);
             const progress = { stage: "whatsapp_views_passed", engine: engineName, width, surfaces: 5, sends: 0, submissionPosts: commonWrites, correctionPosts: correctionWrites, unresolvedReplyRecovered: unresolvedReplyInjected };
@@ -201,7 +220,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
           } catch (error) {
             const directory = process.env[VALIDATION.captureDirectoryEnvironment];
             if (directory) {
-              try { await writeFile(join(directory, `${engineName}-${width}.browser-errors.json`), JSON.stringify({ phase, pageErrorCount: failures.length, browserErrors, browserErrorsTruncated: failures.length > browserErrors.length })); }
+              try { await writeFile(join(directory, `${engineName}-${width}.browser-errors.json`), JSON.stringify({ phase, pageErrorCount: failures.length, browserErrors, browserErrorsTruncated: failures.length > browserErrors.length, sessionEvents, sessionEventCount, sessionEventsTruncated: sessionEventCount > sessionEvents.length })); }
               catch { process.stdout.write(JSON.stringify({ stage: "optional_browser_observation_unavailable", engine: engineName, width }) + "\n"); }
               try {
                 const diagnostic = await database.withContext({ userId: common.userId, email: common.email }, async (transaction) => (await transaction.execute(sql`select (select jsonb_agg(jsonb_build_object('type',operation_type,'state',state,'version',version,'hasResult',public_result is not null,'outcome',public_result->>'outcome')) from public.academy_admission_operations where tribe_id=${fixture.tribeId} and actor_user_id=${common.userId}) as operations,(select jsonb_agg(jsonb_build_object('status',status,'version',version,'source',source,'hasWhatsapp',whatsapp_number is not null)) from public.academy_admission_requests where tribe_id=${fixture.tribeId} and user_id=${common.userId}) as requests`)).rows[0]);

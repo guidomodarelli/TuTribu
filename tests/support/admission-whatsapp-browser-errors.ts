@@ -20,6 +20,8 @@ export type AdmissionWhatsappBrowserErrorObservation = {
   matchesSubmission: boolean;
   matchesCorrection: boolean;
   matchesAccountProbe: boolean;
+  accessControl: boolean;
+  canceled: boolean;
   frames: { chunk: string; line: number; column: number }[];
 };
 
@@ -34,8 +36,11 @@ export function observeAdmissionWhatsappBrowserError(error: Error, context: Admi
   const nativeFetch = description.startsWith(ADMISSION_WHATSAPP_BROWSER_ERROR.nativeFetchPrefix);
   const name = nativeFetch ? ADMISSION_WHATSAPP_BROWSER_ERROR.nativeFetchName : ADMISSION_WHATSAPP_BROWSER_ERROR.knownNames.some((knownName) => knownName === error.name) ? error.name : ADMISSION_WHATSAPP_BROWSER_ERROR.unknownName;
   let networkUrl: URL | null = null;
+  let networkDescription = "";
   if (nativeFetch) {
-    try { networkUrl = new URL(description.slice(ADMISSION_WHATSAPP_BROWSER_ERROR.nativeFetchPrefix.length).split(" ")[0]); }
+    const fetchDescription = description.slice(ADMISSION_WHATSAPP_BROWSER_ERROR.nativeFetchPrefix.length), address = fetchDescription.split(" ")[0];
+    networkDescription = fetchDescription.slice(address.length);
+    try { networkUrl = new URL(address); }
     catch { networkUrl = null; }
   }
   const rawStack = error.stack ?? "", messageLines = new Set(error.message.split(/\r?\n/).map((line) => line.trim()));
@@ -63,5 +68,5 @@ export function observeAdmissionWhatsappBrowserError(error: Error, context: Admi
     frames.push({ chunk, line, column });
     if (frames.length >= ADMISSION_WHATSAPP_BROWSER_ERROR.maximumFrames) break;
   }
-  return { phase: context.phase, leaderSurface: context.leaderSurface, name, sameOrigin: networkUrl ? networkUrl.origin === context.origin : null, matchesSubmission: networkUrl !== null && networkUrl.href === context.submissionUrl, matchesCorrection: networkUrl !== null && networkUrl.href === context.correctionUrl, matchesAccountProbe: networkUrl !== null && context.accountUrls.has(networkUrl.href), frames };
+  return { phase: context.phase, leaderSurface: context.leaderSurface, name, sameOrigin: networkUrl ? networkUrl.origin === context.origin : null, matchesSubmission: networkUrl !== null && networkUrl.href === context.submissionUrl, matchesCorrection: networkUrl !== null && networkUrl.href === context.correctionUrl, matchesAccountProbe: networkUrl !== null && context.accountUrls.has(networkUrl.href), accessControl: networkUrl !== null && ADMISSION_WHATSAPP_BROWSER_ERROR.accessControlPattern.test(networkDescription), canceled: networkUrl !== null && ADMISSION_WHATSAPP_BROWSER_ERROR.canceledPattern.test(networkDescription), frames };
 }

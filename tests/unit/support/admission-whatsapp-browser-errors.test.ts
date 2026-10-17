@@ -11,7 +11,7 @@ describe("native WhatsApp browser diagnostics", () => {
     error.name = "Fetch API cannot load http";
     const result = observeAdmissionWhatsappBrowserError(error, { phase: ADMISSION_WHATSAPP_BROWSER_PHASE.correction, leaderSurface: false, origin: "http://127.0.0.1:1234", submissionUrl: null, correctionUrl, accountUrls: new Set() });
 
-    expect(result).toMatchObject({ name: "NativeFetchError", phase: "correction", sameOrigin: true, matchesCorrection: true, matchesSubmission: false, matchesAccountProbe: false });
+    expect(result).toMatchObject({ name: "NativeFetchError", phase: "correction", sameOrigin: true, matchesCorrection: true, matchesSubmission: false, matchesAccountProbe: false, accessControl: true, canceled: false });
     expect(JSON.stringify(result)).not.toContain(correctionUrl);
     expect(result).not.toHaveProperty("message");
     expect(result).not.toHaveProperty("stack");
@@ -26,6 +26,25 @@ describe("native WhatsApp browser diagnostics", () => {
     expect(result.name).toBe("TypeError");
     expect(JSON.stringify(result)).not.toContain("private");
     expect(JSON.stringify(result)).not.toContain("127.0.0.1");
+  });
+
+  it("should distinguish native cancellation wording without exporting the account URL", () => {
+    const accountUrl = "http://127.0.0.1:1234/api/auth/get-session";
+    const error = new Error(`${accountUrl.slice("http:".length)} Request cancelled.`);
+    error.name = "Fetch API cannot load http";
+    const result = observeAdmissionWhatsappBrowserError(error, { phase: ADMISSION_WHATSAPP_BROWSER_PHASE.personalNavigation, leaderSurface: false, origin: "http://127.0.0.1:1234", submissionUrl: null, correctionUrl: null, accountUrls: new Set([accountUrl]) });
+
+    expect(result).toMatchObject({ name: "NativeFetchError", phase: "personal_navigation", matchesAccountProbe: true, accessControl: false, canceled: true });
+    expect(JSON.stringify(result)).not.toContain(accountUrl);
+  });
+
+  it("should exclude private URL values and ordinary JavaScript text from native transport wording", () => {
+    const error = new Error("//127.0.0.1:1234/api/auth/get-session?private=aborted Network failure.");
+    error.name = "Fetch API cannot load http";
+    const context = { phase: ADMISSION_WHATSAPP_BROWSER_PHASE.personalNavigation, leaderSurface: false, origin: "http://127.0.0.1:1234", submissionUrl: null, correctionUrl: null, accountUrls: new Set<string>() };
+
+    expect(observeAdmissionWhatsappBrowserError(error, context)).toMatchObject({ name: "NativeFetchError", accessControl: false, canceled: false });
+    expect(observeAdmissionWhatsappBrowserError(new TypeError("Private abort or access control text"), context)).toMatchObject({ name: "TypeError", accessControl: false, canceled: false });
   });
 
   it("should exclude message text and foreign frames even when they contain the own chunk path", () => {
