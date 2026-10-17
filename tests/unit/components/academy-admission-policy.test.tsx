@@ -21,6 +21,17 @@ function fixture(): AdmissionPolicyFormProps {
 }
 
 describe("policy controlled presentation", () => {
+  it("should edit the declared WhatsApp requirement without enabling code verification or a provider", () => {
+    const props = fixture();
+    render(<AdmissionPolicyForm {...props} />, { wrapper: Providers });
+    const requirement = screen.getByRole("checkbox", { name: "Exigir el número de WhatsApp del grupo" });
+    expect(requirement).not.toBeChecked();
+    fireEvent.click(requirement);
+    expect(props.onChange).toHaveBeenCalledWith({ ...props.draft, requiresWhatsappNumber: true });
+    expect(props.onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("checkbox", { name: "Comprobar el contacto con un código" })).not.toBeChecked();
+  });
+
   it("should distinguish protected ingress from unverified channel readiness when codes are enabled", () => {
     const props = fixture();
     props.draft.requiresAdditionalVerification = true;

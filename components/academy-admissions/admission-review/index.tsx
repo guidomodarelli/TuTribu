@@ -14,6 +14,7 @@ import { ADMISSION_BATCH_REVIEW_COPY } from "@/src/modules/academy-admissions/co
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { formatBuenosAiresShortDate, formatBuenosAiresTime } from "@/lib/date-time/buenos-aires-format";
 import styles from "./styles.module.scss";
+import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 
 /** Callback-only props keep current-account and operation recovery in the route container. */
 export type AdmissionReviewProps = {
@@ -59,6 +60,7 @@ export function AdmissionReview(props: AdmissionReviewProps) {
         <div><dt>Presentación</dt><dd><time dateTime={selected.submittedAt}>{describeInstant(selected.submittedAt)}</time></dd></div>
         <div><dt>Vencimiento</dt><dd><time dateTime={selected.expiresAt}>{describeInstant(selected.expiresAt)}</time></dd></div>
         <div><dt>Contacto</dt><dd>{selected.rawContact ?? "No informado"}</dd></div>
+        <div><dt>{ADMISSION_WHATSAPP_COPY.label}</dt><dd>{selected.whatsappNumber ?? ADMISSION_WHATSAPP_COPY.notProvided}{selected.whatsappNumber && <p className={styles.AdmissionReview__help}>{ADMISSION_WHATSAPP_COPY.declared}</p>}</dd></div>
         <div><dt>Estado</dt><dd>{ADMISSION_REVIEW_STATUS_LABEL[selected.status]}</dd></div>
         <div><dt>Origen</dt><dd>{ADMISSION_REVIEW_SOURCE_LABEL[selected.source]}</dd></div>
       </dl>

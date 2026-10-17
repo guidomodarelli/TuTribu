@@ -86,6 +86,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los líderes y guardianes pueden seleccionar hasta cincuenta solicitudes visibles, confirmar sus nombres y consultar el resultado de cada decisión; recuperar el lote original evita repetir decisiones.
 - La bandeja y el detalle de admisión destacan las solicitudes que llevan tres días o más pendientes; la marca se actualiza al consultar y desaparece al resolverlas o vencer su plazo.
 - El mantenimiento interno de admisión incorpora disparadores preparados con activación explícita y fallos visibles; su ejecución automática sigue pendiente.
+- El líder puede pedir el número de WhatsApp del grupo como dato opcional u obligatorio; el equipo lo revisa junto al nombre de Google, sin pedir nuevamente nombre y apellido.
+- Cada aspirante puede corregir su WhatsApp mientras la solicitud siga pendiente y vigente; el formulario conserva el cambio original si se pierde la respuesta y avisa cuando debe revisarse de nuevo.
 
 ### Changed
 

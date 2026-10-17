@@ -10,6 +10,7 @@ import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admi
 import { ADMISSION_POLICY_PREFLIGHT_REASON_COPY, ADMISSION_POLICY_ACTIVATION_REQUIREMENT_COPY } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import type { AdmissionPolicyPreflightDto } from "@/src/modules/academy-admissions/application/ports/admission-policy-browser-client";
 import styles from "./styles.module.scss";
+import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 
 /** Preparation and safe messages come from the route container; they are never authority supplied by a form. */
 export type AdmissionPolicyFormProps = {
@@ -24,7 +25,7 @@ export type AdmissionPolicyFormProps = {
 
 /** @param props - Current safe state, retained draft and validated container callbacks. @returns Accessible policy form with independent controls, explicit impact and current protection status. */
 export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
-  const instanceId = useId(), modeId = `${instanceId}-mode`, contactId = `${instanceId}-contact`, checkId = `${instanceId}-check`, openId = `${instanceId}-open`, exceptionsId = `${instanceId}-exceptions`, phoneId = `${instanceId}-phone`, smsId = `${instanceId}-sms`, confirmId = `${instanceId}-confirm`, reasonId = `${instanceId}-reason`;
+  const instanceId = useId(), modeId = `${instanceId}-mode`, contactId = `${instanceId}-contact`, checkId = `${instanceId}-check`, whatsappId = `${instanceId}-whatsapp`, openId = `${instanceId}-open`, exceptionsId = `${instanceId}-exceptions`, phoneId = `${instanceId}-phone`, smsId = `${instanceId}-sms`, confirmId = `${instanceId}-confirm`, reasonId = `${instanceId}-reason`;
   const unavailable = props.state.state === ADMISSION_POLICY_PUBLIC_STATE.unavailable, disabled = !props.canEdit || props.busy || unavailable, hasPolicy = props.state.policy !== null;
   const activationRequirements = [...new Set([...props.state.preparation.requirements, ...(props.state.policy?.requirements ?? [])])];
   const mayConfirm = !disabled && props.confirmed && !props.validationMessage;
@@ -39,6 +40,8 @@ export function AdmissionPolicyForm(props: AdmissionPolicyFormProps) {
       <div className={styles.AdmissionPolicyForm__field}><label htmlFor={contactId}>Contacto para el ingreso</label><Select value={props.draft.contactType} disabled={disabled || props.state.impact.contactTypeLocked} onValueChange={(value) => { if (value === ADMISSION_CONTACT_TYPE.email || value === ADMISSION_CONTACT_TYPE.phone) props.onChange({ ...props.draft, contactType: value }); }}><SelectTrigger id={contactId}><SelectValue /></SelectTrigger><SelectContent><SelectItem value={ADMISSION_CONTACT_TYPE.email}>Correo</SelectItem><SelectItem value={ADMISSION_CONTACT_TYPE.phone}>Teléfono</SelectItem></SelectContent></Select>{props.state.impact.contactTypeLocked && <p className={styles.AdmissionPolicyForm__help}>El tipo de contacto quedó fijado al activar el control.</p>}</div>
       <div className={styles.AdmissionPolicyForm__check}><Checkbox id={checkId} checked={props.draft.requiresAdditionalVerification} disabled={disabled} onCheckedChange={(checked) => props.onChange({ ...props.draft, requiresAdditionalVerification: checked === true })} /><label htmlFor={checkId}>Comprobar el contacto con un código</label></div>
       <p className={styles.AdmissionPolicyForm__help}>Esta comprobación se elige por separado de los avisos y de la conexión de mensajería. Podés preparar un borrador antes de tener un canal disponible.</p>
+      <div className={styles.AdmissionPolicyForm__check}><Checkbox id={whatsappId} checked={props.draft.requiresWhatsappNumber ?? false} disabled={disabled} aria-describedby={`${whatsappId}-help`} onCheckedChange={(checked) => props.onChange({ ...props.draft, requiresWhatsappNumber: checked === true })} /><label htmlFor={whatsappId}>{ADMISSION_WHATSAPP_COPY.policyLabel}</label></div>
+      <p className={styles.AdmissionPolicyForm__help} id={`${whatsappId}-help`}>{ADMISSION_WHATSAPP_COPY.policyHelp}</p>
       <div className={styles.AdmissionPolicyForm__check}><Checkbox id={openId} checked={props.draft.isOpen} disabled={disabled} onCheckedChange={(checked) => props.onChange({ ...props.draft, isOpen: checked === true })} /><label htmlFor={openId}>Recibir nuevas solicitudes</label></div>
       <div className={styles.AdmissionPolicyForm__check}><Checkbox id={exceptionsId} checked={props.draft.allowCommonExceptions} disabled={disabled} onCheckedChange={(checked) => props.onChange({ ...props.draft, allowCommonExceptions: checked === true })} /><label htmlFor={exceptionsId}>Permitir solicitudes comunes como excepción</label></div>
       {props.draft.contactType === ADMISSION_CONTACT_TYPE.phone && <>

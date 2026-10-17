@@ -104,7 +104,7 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
       if (result.status !== "ready") return result;
       const operation = result.value;
       if (operation.operationId !== input.operationId.toLowerCase() || operation.state === OPERATION_STATE.completed && (operation.result.admissionRequestId.toLowerCase() !== requestId.toLowerCase() || operation.result.version !== input.expectedVersion + (operation.result.changed ? 1 : 0))) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
-      return result;
+      return { status: "ready", value: operation.state === OPERATION_STATE.completed ? operation.result : operation };
     },
     operation: (slug, operationId, signal) => request(`${base(slug)}/operations/${encodeURIComponent(operationId)}`, admissionOperationRecoverySchema, signal),
     submit: async (slug, input, signal) => {

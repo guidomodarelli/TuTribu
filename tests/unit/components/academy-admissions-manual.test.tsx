@@ -13,6 +13,8 @@ import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/appli
 import { admissionDraftKey, readAdmissionDraft, writeAdmissionDraft } from "@/lib/academy-admissions/admission-draft";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { RequestStatus } from "@/components/academy-admissions/request-status";
+import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
+import type { AdmissionWhatsappNumberBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-whatsapp-number-browser-client";
 
 const VIEWER_ID = "synthetic-manual-viewer";
 const REQUEST_ID = "6f3c7a1e-2b4d-4c8e-9f10-1a2b3c4d5e6f";
@@ -37,6 +39,177 @@ function fixture() {
 }
 
 describe("manual admission screen", () => {
+  it.each([false, true])("should conceal a retained private WhatsApp on Activity reactivation for pending=%s until the account is validated", async (isPending) => {
+    const data = fixture(), own = { ...data.request, whatsappNumber: "+14155552671", requiresWhatsappNumber: false };
+    if (isPending) { data.state.request = own; data.state.overview.state = "pending"; }
+    vi.mocked(data.client.overview).mockResolvedValue({ status: "ready", value: data.state.overview }); vi.mocked(data.client.own).mockResolvedValue({ status: "ready", value: isPending ? own : null });
+    const content = (mode: "hidden" | "visible") => <Activity mode={mode}><AdmissionContainer initialState={data.state} client={data.client} /></Activity>, view = render(content("visible"));
+    const input = await screen.findByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel });
+    if (!isPending) fireEvent.change(input, { target: { value: own.whatsappNumber } });
+    view.rerender(content("hidden"));
+    vi.mocked(data.client.viewer).mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: ADMISSION_UI_COPY.readFailed, uncertain: false });
+    view.rerender(content("visible"));
+    await screen.findByText(ADMISSION_UI_COPY.readFailed);
+    expect(screen.queryByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel })).not.toBeInTheDocument();
+    expect(data.client.submit).not.toHaveBeenCalled(); expect(data.client.cancel).not.toHaveBeenCalled();
+    vi.mocked(data.client.viewer).mockResolvedValue({ status: "ready", value: { id: VIEWER_ID } });
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.read }));
+    expect(await screen.findByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel })).toHaveValue(own.whatsappNumber);
+  });
+  it("should validate and save an own pending correction without changing the admission contact or refreshing the route", async () => {
+    const data = fixture(), own = { ...data.request, whatsappNumber: null, requiresWhatsappNumber: true };
+    data.state.request = own; data.state.overview.state = "pending";
+    vi.mocked(data.client.own).mockImplementation(async () => ({ status: "ready", value: own }));
+    const updateWhatsappNumber = vi.fn<AdmissionWhatsappNumberBrowserClient["updateWhatsappNumber"]>(async (_slug, _requestId, input) => {
+      Object.assign(own, { whatsappNumber: input.whatsappNumber, version: 2 });
+      return { status: "ready", value: { admissionRequestId: REQUEST_ID, version: 2, changed: true } };
+    });
+    render(<AdmissionContainer initialState={data.state} client={data.client} whatsappClient={{ updateWhatsappNumber }} requestPage />, { wrapper: Providers });
+    const input = await screen.findByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.label });
+    const confirmation = await screen.findByRole("checkbox", { name: ADMISSION_WHATSAPP_COPY.confirmEdit });
+    await waitFor(() => expect(confirmation).toBeEnabled());
+    fireEvent.click(confirmation); fireEvent.click(screen.getByRole("button", { name: ADMISSION_WHATSAPP_COPY.save }));
+    expect(await screen.findByText(ADMISSION_WHATSAPP_COPY.required)).toBeVisible();
+    expect(updateWhatsappNumber).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "+1 (415) 555-2671" } });
+    expect(screen.queryByText(ADMISSION_WHATSAPP_COPY.required)).not.toBeInTheDocument();
+    expect(confirmation).not.toBeChecked();
+    fireEvent.click(confirmation); fireEvent.click(screen.getByRole("button", { name: ADMISSION_WHATSAPP_COPY.save }));
+    expect(await screen.findByText(ADMISSION_WHATSAPP_COPY.saved)).toBeVisible();
+    await waitFor(() => expect(readAdmissionDraft(VIEWER_ID, data.state.overview.tribe.slug)?.pending).toBeNull());
+    expect(updateWhatsappNumber).toHaveBeenCalledExactlyOnceWith("synthetic-academy", REQUEST_ID, { operationId: expect.any(String), expectedVersion: 1, confirmed: true, whatsappNumber: "+14155552671" }, expect.any(AbortSignal));
+    expect(own.contact).toEqual(data.request.contact); expect(own.submittedAt).toBe(data.request.submittedAt); expect(own.expiresAt).toBe(data.request.expiresAt);
+    expect(data.client.submit).not.toHaveBeenCalled(); expect(data.client.cancel).not.toHaveBeenCalled(); expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should retain an exact lost correction and recover it without another POST or route refresh", async () => {
+    const data = fixture(), own = { ...data.request, whatsappNumber: "+14155552671", requiresWhatsappNumber: false };
+    data.state.request = own; data.state.overview.state = "pending";
+    const updateWhatsappNumber = vi.fn<AdmissionWhatsappNumberBrowserClient["updateWhatsappNumber"]>(async () => ({ status: "failed", code: "dependency_unavailable", message: ADMISSION_WHATSAPP_COPY.uncertain, uncertain: true }));
+    render(<AdmissionContainer initialState={data.state} client={data.client} whatsappClient={{ updateWhatsappNumber }} requestPage />, { wrapper: Providers });
+    const confirmation = await screen.findByRole("checkbox", { name: ADMISSION_WHATSAPP_COPY.confirmEdit });
+    await waitFor(() => expect(confirmation).toBeEnabled());
+    fireEvent.change(screen.getByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel }), { target: { value: "" } });
+    fireEvent.click(confirmation); fireEvent.click(screen.getByRole("button", { name: ADMISSION_WHATSAPP_COPY.save }));
+    await screen.findByText(ADMISSION_WHATSAPP_COPY.uncertain);
+    const original = readAdmissionDraft(VIEWER_ID, data.state.overview.tribe.slug)?.pending;
+    expect(original).toMatchObject({ kind: "whatsapp", requestId: REQUEST_ID, input: { expectedVersion: 1, whatsappNumber: null, confirmed: true } });
+    vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "update_admission_whatsapp", operationId: original!.input.operationId, state: "completed", replayed: true, result: { admissionRequestId: REQUEST_ID, version: 2, changed: true } } });
+    vi.mocked(data.client.own).mockResolvedValue({ status: "ready", value: { ...own, whatsappNumber: null, version: 2 } });
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.read }));
+    expect(await screen.findByText(ADMISSION_WHATSAPP_COPY.saved)).toBeVisible();
+    await waitFor(() => expect(readAdmissionDraft(VIEWER_ID, data.state.overview.tribe.slug)?.pending).toBeNull());
+    expect(updateWhatsappNumber).toHaveBeenCalledOnce(); expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should require a new confirmation after a current request version changes while preserving the proposed number", async () => {
+    const data = fixture(), own = { ...data.request, whatsappNumber: "+14155552671", requiresWhatsappNumber: false };
+    data.state.request = own; data.state.overview.state = "pending";
+    const updateWhatsappNumber = vi.fn<AdmissionWhatsappNumberBrowserClient["updateWhatsappNumber"]>(async () => ({ status: "ready", value: { admissionRequestId: REQUEST_ID, version: 3, changed: true } }));
+    render(<AdmissionContainer initialState={data.state} client={data.client} whatsappClient={{ updateWhatsappNumber }} requestPage />, { wrapper: Providers });
+    const confirmation = await screen.findByRole("checkbox", { name: ADMISSION_WHATSAPP_COPY.confirmEdit });
+    await waitFor(() => expect(confirmation).toBeEnabled());
+    const input = screen.getByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel });
+    fireEvent.change(input, { target: { value: "+44 20 7946 0018" } }); fireEvent.click(confirmation);
+    vi.mocked(data.client.own).mockResolvedValue({ status: "ready", value: { ...own, whatsappNumber: null, version: 2 } });
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.read }));
+    await waitFor(() => expect(confirmation).not.toBeChecked());
+    await waitFor(() => expect(confirmation).toBeEnabled());
+    expect(input).toHaveValue("+44 20 7946 0018"); expect(screen.getByRole("button", { name: ADMISSION_WHATSAPP_COPY.save })).toBeDisabled();
+    expect(updateWhatsappNumber).not.toHaveBeenCalled();
+    fireEvent.click(confirmation); fireEvent.click(screen.getByRole("button", { name: ADMISSION_WHATSAPP_COPY.save }));
+    await waitFor(() => expect(updateWhatsappNumber).toHaveBeenCalledOnce());
+    expect(updateWhatsappNumber.mock.calls[0][2]).toMatchObject({ expectedVersion: 2, whatsappNumber: "+442079460018" });
+  });
+
+  it("should preserve an unresolved correction and hide private data when the account changes before its reply is consumed", async () => {
+    const data = fixture(), own = { ...data.request, whatsappNumber: "+14155552671", requiresWhatsappNumber: false };
+    data.state.request = own; data.state.overview.state = "pending";
+    const updateWhatsappNumber = vi.fn<AdmissionWhatsappNumberBrowserClient["updateWhatsappNumber"]>(async () => {
+      vi.mocked(data.client.viewer).mockResolvedValue({ status: "ready", value: { id: "another-native-viewer" } });
+      return { status: "ready", value: { admissionRequestId: REQUEST_ID, version: 1, changed: false } };
+    });
+    render(<AdmissionContainer initialState={data.state} client={data.client} whatsappClient={{ updateWhatsappNumber }} requestPage />, { wrapper: Providers });
+    const confirmation = await screen.findByRole("checkbox", { name: ADMISSION_WHATSAPP_COPY.confirmEdit });
+    await waitFor(() => expect(confirmation).toBeEnabled());
+    fireEvent.click(confirmation); fireEvent.click(screen.getByRole("button", { name: ADMISSION_WHATSAPP_COPY.save }));
+    await screen.findByText(ADMISSION_UI_COPY.accountChanged);
+    expect(screen.queryByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel })).not.toBeInTheDocument();
+    expect(screen.queryByText(ADMISSION_WHATSAPP_COPY.unchanged)).not.toBeInTheDocument();
+    expect(readAdmissionDraft(VIEWER_ID, data.state.overview.tribe.slug)?.pending?.kind).toBe("whatsapp");
+    expect(updateWhatsappNumber).toHaveBeenCalledOnce(); expect(router.refresh).not.toHaveBeenCalled();
+  });
+  it("should hide the private declared number until the native account is revalidated after a bfcache restore", async () => {
+    const data = fixture(), own = { ...data.request, whatsappNumber: "+14155552671", requiresWhatsappNumber: false };
+    data.state.request = own; data.state.overview.state = "pending";
+    vi.mocked(data.client.own).mockResolvedValue({ status: "ready", value: own });
+    const updateWhatsappNumber = vi.fn<AdmissionWhatsappNumberBrowserClient["updateWhatsappNumber"]>();
+    render(<AdmissionContainer initialState={data.state} client={data.client} whatsappClient={{ updateWhatsappNumber }} requestPage />, { wrapper: Providers });
+    expect(await screen.findByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel })).toHaveValue(own.whatsappNumber);
+    vi.mocked(data.client.viewer).mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: ADMISSION_UI_COPY.readFailed, uncertain: false });
+    fireEvent(window, new PageTransitionEvent("pageshow", { persisted: true }));
+    await screen.findByText(ADMISSION_UI_COPY.readFailed);
+    expect(screen.queryByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel })).not.toBeInTheDocument();
+    expect(screen.queryByText(own.whatsappNumber, { exact: false })).not.toBeInTheDocument();
+    expect(updateWhatsappNumber).not.toHaveBeenCalled();
+    vi.mocked(data.client.viewer).mockResolvedValue({ status: "ready", value: { id: VIEWER_ID } });
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.read }));
+    expect(await screen.findByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel })).toHaveValue(own.whatsappNumber);
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should conceal the common WhatsApp draft on a failed restored account check and preserve it for the same account", async () => {
+    const data = fixture();
+    vi.mocked(data.client.overview).mockResolvedValue({ status: "ready", value: data.state.overview }); vi.mocked(data.client.own).mockResolvedValue({ status: "ready", value: null });
+    render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    fireEvent.change(await screen.findByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel }), { target: { value: "+14155552671" } });
+    vi.mocked(data.client.viewer).mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: ADMISSION_UI_COPY.readFailed, uncertain: false });
+    fireEvent(window, new PageTransitionEvent("pageshow", { persisted: true }));
+    await screen.findByText(ADMISSION_UI_COPY.readFailed);
+    expect(screen.queryByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel })).not.toBeInTheDocument();
+    expect(data.client.submit).not.toHaveBeenCalled();
+    vi.mocked(data.client.viewer).mockResolvedValue({ status: "ready", value: { id: VIEWER_ID } });
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.read }));
+    expect(await screen.findByRole("textbox", { name: ADMISSION_WHATSAPP_COPY.optionalLabel })).toHaveValue("+14155552671");
+    expect(data.client.submit).not.toHaveBeenCalled();
+  });
+
+  it("should validate declared WhatsApp before a required common submission and keep it separate from account contact", async () => {
+    const data = fixture(); data.state.overview.policy!.requiresWhatsappNumber = true;
+    render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    const input = await screen.findByRole("textbox", { name: "WhatsApp del grupo" });
+    expect(input).toBeRequired();
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
+    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
+    expect(await screen.findByText(ADMISSION_WHATSAPP_COPY.required)).toBeVisible();
+    expect(data.client.submit).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "invalid" } });
+    expect(screen.queryByText(ADMISSION_WHATSAPP_COPY.required)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
+    expect(await screen.findByText("Ingresá un número de WhatsApp válido con el prefijo del país.")).toBeVisible();
+    fireEvent.change(input, { target: { value: "+1 (415) 555-2671" } });
+    expect(screen.queryByText("Ingresá un número de WhatsApp válido con el prefijo del país.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
+    await waitFor(() => expect(data.client.submit).toHaveBeenCalledOnce());
+    const command = vi.mocked(data.client.submit).mock.calls[0][1];
+    expect(command).toMatchObject({ whatsappNumber: "+14155552671", expectedPolicyVersion: 1 });
+    expect(command).not.toHaveProperty("phone"); expect(command).not.toHaveProperty("proofId");
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should leave declared WhatsApp optional by default and reuse the Google name without new name fields", async () => {
+    const data = fixture();
+    render(<AdmissionContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    expect(await screen.findByRole("textbox", { name: "WhatsApp del grupo (opcional)" })).not.toBeRequired();
+    expect(screen.queryByRole("textbox", { name: /^(Nombre|Apellido)$/i })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm })).toBeEnabled());
+    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirm }));
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_UI_COPY.submit }));
+    await waitFor(() => expect(data.client.submit).toHaveBeenCalledOnce());
+    expect(vi.mocked(data.client.submit).mock.calls[0][1]).not.toHaveProperty("whatsappNumber");
+  });
+
   it("should preserve a source-scoped original while adding historical URL material only to the explicit transport", async () => {
     const data = fixture(), arrivalScope = "b".repeat(64), token = "synthetic-historical-arrival";
     vi.mocked(data.client.submit).mockResolvedValueOnce({ status: "failed", code: "unexpected_failure", message: "La respuesta no quedó confirmada.", uncertain: true });

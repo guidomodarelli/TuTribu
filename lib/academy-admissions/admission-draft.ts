@@ -5,15 +5,18 @@ import { z } from "zod";
 import { ADMISSION_DRAFT_STORAGE_PREFIX } from "@/src/modules/academy-admissions/constants/admission-ui";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { LEGACY_ADMISSION_ARRIVAL } from "@/src/modules/academy-admissions/constants/legacy-admission-arrival";
+import { ADMISSION_WHATSAPP_INTENT_KIND } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
+import { admissionWhatsappNumberBrowserInputSchema } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number-schemas";
 
 /** A restored draft never silently restores user confirmation. */
-export const admissionDraftSchema = z.object({ phone: z.string(), country: z.string(), message: z.string().max(ADMISSION_LIMIT.internalMessageCharacters) });
-const submissionInputSchema = z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true), expectedPolicyVersion: z.int().positive(), phone: z.string().optional(), country: z.string().optional(), proofId: z.uuid().optional(), message: z.string().max(ADMISSION_LIMIT.internalMessageCharacters).optional() });
+export const admissionDraftSchema = z.object({ phone: z.string(), country: z.string(), whatsappNumber: z.string().optional(), message: z.string().max(ADMISSION_LIMIT.internalMessageCharacters) });
+const submissionInputSchema = z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true), expectedPolicyVersion: z.int().positive(), phone: z.string().optional(), country: z.string().optional(), whatsappNumber: z.string().optional(), proofId: z.uuid().optional(), message: z.string().max(ADMISSION_LIMIT.internalMessageCharacters).optional() });
 const cancellationInputSchema = z.strictObject({ operationId: z.uuid(), confirmed: z.literal(true), expectedVersion: z.int().positive() });
 /** This is a local intent; it is never represented as server-accepted progress. */
 export const admissionPendingIntentSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("submit"), input: submissionInputSchema }),
   z.object({ kind: z.literal("cancel"), requestId: z.uuid(), input: cancellationInputSchema }),
+  z.object({ kind: z.literal(ADMISSION_WHATSAPP_INTENT_KIND), requestId: z.uuid(), input: admissionWhatsappNumberBrowserInputSchema }),
 ]);
 const storageSchema = z.object({ viewerId: z.string().min(1), slug: z.string().min(1), draft: admissionDraftSchema, pending: admissionPendingIntentSchema.nullable(), arrivalScope: z.string().regex(LEGACY_ADMISSION_ARRIVAL.scopePattern).optional() });
 export type AdmissionDraft = z.infer<typeof admissionDraftSchema>;

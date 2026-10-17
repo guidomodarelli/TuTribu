@@ -23,7 +23,7 @@ describe("declared WhatsApp browser transport", () => {
     const operationId = randomUUID(), admissionRequestId = randomUUID(), input = { operationId, expectedVersion: 1, confirmed: true as const, whatsappNumber: "+14155552671" };
     const result = { state: "completed", operationId, replayed: false, result: { admissionRequestId, version: 2, changed: true } };
     const data = browserClient({ ...result, result: { ...result.result, whatsappNumber: input.whatsappNumber } });
-    expect(await data.client.updateWhatsappNumber("synthetic", admissionRequestId, input, new AbortController().signal)).toEqual({ status: "ready", value: result });
+    expect(await data.client.updateWhatsappNumber("synthetic", admissionRequestId, input, new AbortController().signal)).toEqual({ status: "ready", value: result.result });
     expect(data.transport).toHaveBeenCalledExactlyOnceWith(`/api/tribes/synthetic/admissions/requests/${admissionRequestId}/whatsapp`, expect.objectContaining({ method: "POST", body: JSON.stringify(input), credentials: "same-origin", cache: "no-store" }));
   });
 

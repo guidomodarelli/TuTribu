@@ -16,6 +16,7 @@ import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admiss
 import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
+import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 
 const requestId = "2b71737c-2f11-4dbb-853d-080bda9628e5", operationId = "a86a3f18-a48e-4600-a057-f90e1931f7b0";
 const viewerId = "synthetic-reviewer", slug = "synthetic-academy";
@@ -49,6 +50,15 @@ async function confirmDecision() {
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
 
 describe("visible reviewer inbox refresh", () => {
+  it("should show the account name and declared group number without claiming group verification or changing evidence", () => {
+    const data = fixture();
+    data.request.whatsappNumber = "+14155552671"; data.request.requiresWhatsappNumber = true;
+    render(data.node, { wrapper: Providers });
+    expect(screen.getAllByText(data.request.applicant.name).length).toBeGreaterThan(0);
+    expect(screen.getByText(data.request.whatsappNumber)).toBeVisible();
+    expect(screen.getByText(ADMISSION_WHATSAPP_COPY.declared)).toBeVisible();
+    expect(data.request.evidence.kind).toBe("declared"); expect(data.client.decide).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.useFakeTimers();
     // JSDOM has no foreground tab; real events, React and cancellation remain in use.

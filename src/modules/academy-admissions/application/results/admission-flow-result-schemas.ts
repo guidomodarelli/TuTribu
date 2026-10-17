@@ -15,7 +15,7 @@ import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-pa
 import { admissionPublicIdSchema, admissionPublicVersionSchema, admissionPublicInstantSchema, admissionLocalHrefSchema, admissionMaskedContactSchema } from "./admission-contract-fields";
 import { admissionContactOptionsSchema } from "./admission-contact-options-schema";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
-import { ADMISSION_WHATSAPP_CANONICAL_PATTERN } from "../../constants/admission-whatsapp-number";
+import { admissionWhatsappOwnRequestFields, admissionWhatsappPolicyFields } from "../../constants/admission-whatsapp-number-schemas";
 
 /** Own-request projection; reviewer/account ids, raw contacts and internal reasons are absent. */
 export const admissionRequestSchema = z.object({
@@ -25,9 +25,7 @@ export const admissionRequestSchema = z.object({
   externalMessage: z.string().max(ADMISSION_LIMIT.externalMessageCharacters).optional(), retryAllowedAt: admissionPublicInstantSchema.optional(),
 });
 /** Only authenticated own/reviewer queries include declared group data; durable command snapshots strip it. */
-export const admissionOwnRequestSchema = admissionRequestSchema.extend({
-  whatsappNumber: z.string().regex(ADMISSION_WHATSAPP_CANONICAL_PATTERN).nullable().optional(), requiresWhatsappNumber: z.boolean().optional(),
-});
+export const admissionOwnRequestSchema = admissionRequestSchema.extend(admissionWhatsappOwnRequestFields);
 /** Declared input carries no verification time; base and local evidence have disjoint scopes. */
 const reviewEvidenceSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal(ADMISSION_EVIDENCE_KIND.none), verifiedAt: z.never().optional() }),
@@ -50,7 +48,7 @@ export const admissionReviewSchema = admissionOwnRequestSchema.extend({
   && (review.evidence.kind !== ADMISSION_EVIDENCE_KIND.local || review.evidence.scope.requestId === review.id)
   && (review.source !== ADMISSION_PUBLIC_SOURCE.personal || review.restrictions.invitation !== null));
 /** Public policy summary omits list matches, exceptions and management-only data. */
-const overviewPolicySchema = z.object({ mode: z.enum(ADMISSION_POLICY_MODE), contactType: z.enum(ADMISSION_CONTACT_TYPE), requiresAdditionalVerification: z.boolean(), requiresWhatsappNumber: z.boolean().optional(), isOpen: z.boolean(), version: admissionPublicVersionSchema });
+const overviewPolicySchema = z.object({ mode: z.enum(ADMISSION_POLICY_MODE), contactType: z.enum(ADMISSION_CONTACT_TYPE), requiresAdditionalVerification: z.boolean(), ...admissionWhatsappPolicyFields, isOpen: z.boolean(), version: admissionPublicVersionSchema });
 /** Public/own overview can represent missing configuration without a fabricated version. */
 export const admissionOverviewSchema = z.object({
   tribe: z.object({ slug: z.string().regex(TRIBE_SLUG_PATTERN), name: z.string(), accessModel: z.literal("academy") }),

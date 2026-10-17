@@ -1,6 +1,6 @@
 # WhatsApp declarado para revisión humana
 
-FR-143–FR-146 y WA-01–WA-05 amplían el contrato. T213–T215 están completas; T216/T217 conservan el cierre de interfaz, validación y manuales pendientes. Las 71 aprobaciones originales no certifican esta ampliación.
+FR-143–FR-146 y WA-01–WA-05 amplían el contrato. T213–T216 están completas; T217 conserva el cierre de recorridos reales y manuales pendientes. Las 71 aprobaciones originales no certifican esta ampliación.
 
 ## Contrato y decisiones implementadas
 
@@ -36,4 +36,10 @@ La comprobación oficial posterior confirmó **tres ramas originales y ninguna t
 
 La interfaz tiene controles de política, presentación común/personal, revisión con nombre y número, y edición propia mediante el motor de recuperación existente. La suite local de cinco archivos pasó 115 casos y la ampliada 1.138; 408 integraciones fuera de esa corrida permanecieron omitidas. Son cohortes anteriores al cierre de la revisión de privacidad al restaurar desde bfcache; sus recibos no sustituyen la repetición final. La revisión encontró dos exposiciones visuales del número ante fallo de cuenta; se corrigieron y se agregaron escenarios de ocultación/recuperación.
 
-La primera compilación aislada terminó correctamente con 3.683 inputs estables, antes de la última corrección visual. Faltan la compilación de ese cierre, los recorridos reales Chromium/WebKit 390/1280 y la validación final de manuales/capturas/source-trace. T216/T217 no se consideran cerradas por estos avances. T198/T208 y los demás gates originales permanecen abiertos.
+El cierre de interfaz pasó **121 casos actuales en cinco archivos, sin fallos ni omisiones**, con 3.132 inputs congelados y sin diferencias (`.git/admission-whatsapp-ui-unit-dc2d1cd6/`). Incluye presentaciones común/personal, edición propia y recuperación, cambios de cuenta, bfcache y Activity real con fallo de observación nativa: el número no reaparece hasta validar la cuenta y no se repite un POST. Los dos owners retiran la frescura al limpiar sus efectos, sin desactivar reglas de lint; la restauración por pageshow también la invalida. Tipos, tipos de tests y lint pasan. La revisión final conserva treinta hashes estables y cero hallazgos (`.git/codex-whatsapp-ui-final-activity-review.json`).
+
+La compilación de este cierre terminó con **exit 0 y 3.683 inputs estables**, sin diferencias (`.git/admission-whatsapp-ui-build-cc52bb76/`). Las exportaciones de capturas esperadas están excluidas expresamente de los inputs; no se excluye código de aplicación. Las compilaciones anteriores conservan su alcance histórico. Un auxiliar de copia anterior encontró el límite del buffer al inspeccionar un HTML grande; se comprobó la paridad del código, se sincronizaron las cuarenta y cuatro rutas propias contra el manifiesto nativo y se volvió a compilar el conjunto final.
+
+El primer recorrido real `.git/admission-whatsapp-ui-native-f164f556/` terminó con exit 1, cero casos aprobados y uno fallido, sin omisiones y fuentes estables. Obtuvo las capturas de política, formulario común y corrección propia en Chromium móvil, pero agotó la espera del texto exacto del número en el detalle del revisor. Esa lectura comparte un elemento con su explicación; se ajustó el selector al dato dentro del detalle y se preparó la repetición, incorporando ida/vuelta real con fallo temporal de observación de cuenta. No se presenta aquella ejecución como aprobación de los cuatro tamaños/motores.
+
+T216 queda completa y el inventario pasa a **201 completas, 16 pendientes, 217 totales**. T217 mantiene la repetición real Chromium/WebKit 390/1280 y la validación final de manuales/capturas/source-trace. T198/T208 y los demás gates originales permanecen abiertos.

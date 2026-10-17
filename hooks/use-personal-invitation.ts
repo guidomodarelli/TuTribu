@@ -137,9 +137,10 @@ export function usePersonalInvitation(options: { initialState: PersonalInvitatio
       finally { window.clearTimeout(deadline); if (controller.current === initialization) { busy.current = false; controller.current = null; if (active.current && initialization.signal.aborted) { setPhase(pending.current ? PERSONAL_INVITATION_UI_PHASE.uncertain : PERSONAL_INVITATION_UI_PHASE.idle); setErrorMessage(PERSONAL_INVITATION_UI_COPY.uncertain); } } }
     };
     void initialize();
-    const onPageShow = (event: PageTransitionEvent) => { if (event.persisted) { setConfirmed(false); void observe(); } };
+    const onPageShow = (event: PageTransitionEvent) => { if (event.persisted) { setReady(false); setConfirmed(false); void observe(); } };
     window.addEventListener("pageshow", onPageShow);
-    return () => { active.current = false; initialization.abort(); controller.current?.abort(); controller.current = null; busy.current = false; window.clearTimeout(deadline); window.removeEventListener("pageshow", onPageShow); };
+    // Activity retains state while retiring effects; invalidate freshness before this draft can reappear.
+    return () => { active.current = false; setReady(false); setConfirmed(false); initialization.abort(); controller.current?.abort(); controller.current = null; busy.current = false; window.clearTimeout(deadline); window.removeEventListener("pageshow", onPageShow); };
   }, [authorize, observe, options.token, recover, restoreReference]);
 
   /** Saves original metadata before dispatch; uncertain/aborted results cannot enable another canje. */

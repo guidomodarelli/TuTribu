@@ -23,6 +23,8 @@ import { buildSignInRedirectUrl } from "@/lib/auth/sign-in-redirect";
 import { buildAdmissionEntryRoute, buildOwnAdmissionRequestRoute } from "@/lib/academy-admissions/admission-routes";
 import { replaceCurrentPageWithUrl } from "@/lib/browser-navigation";
 import { ROUTES } from "@/src/constants/routes";
+import { validateBrowserAdmissionWhatsappNumberDraft } from "@/src/modules/academy-admissions/infrastructure/browser/validate-admission-whatsapp-number-draft";
+import { getAdmissionWhatsappNumberDraftMessage } from "@/src/modules/academy-admissions/application/results/admission-whatsapp-number-draft-message";
 
 type PersonalContainerProps = { initialState: PersonalInvitationPageState; client?: PersonalInvitationBrowserClient; contactClient?: AdmissionContactBrowserClient };
 
@@ -38,6 +40,8 @@ export function PersonalInvitationContainer(props: PersonalContainerProps) {
 function PersonalInvitationWorkflow({ initialState, token, client, contactClient }: PersonalContainerProps & { token: string }) {
   const flow = usePersonalInvitation({ initialState, token, client });
   const [phone, setPhone] = useState(""), [country, setCountry] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [whatsappValidationError, setWhatsappValidationError] = useState<{ message: string; policyVersion: number } | null>(null);
   const preview = flow.state.kind === "ready" && flow.state.preview.state === PERSONAL_INVITATION_OVERVIEW_STATE.available ? flow.state.preview : null;
   const page = flow.state.kind === "ready" ? flow.state : null, overview = preview?.overview, policy = overview?.policy;
   const initialPreview = initialState.kind === "ready" && initialState.preview.state === PERSONAL_INVITATION_OVERVIEW_STATE.available ? initialState.preview.overview : null;
@@ -49,6 +53,14 @@ function PersonalInvitationWorkflow({ initialState, token, client, contactClient
   const phoneNormalized = policy?.contactType === ADMISSION_CONTACT_TYPE.phone ? normalizeAdmissionContact({ type: ADMISSION_CONTACT_TYPE.phone, value: phone, country: country || undefined }) : null;
   const phoneReady = !phoneNormalized || phoneNormalized.status === ADMISSION_CONTACT_NORMALIZATION_STATUS.valid;
   const canSubmit = Boolean(flow.ready && !flow.accountChanged && !flow.hasPending && preview && !terminal && policy && (overview?.state === ADMISSION_OVERVIEW_STATE.available || overview?.state === ADMISSION_OVERVIEW_STATE.verificationRequired && contact.proofFresh) && phoneReady && (!policy.requiresAdditionalVerification || contact.proofFresh) && !contactBusy && !contact.pending && !contact.recoveryRequired);
+  /** Validates only declared group data before delegating the original personal command. */
+  const submit = () => {
+    if (!canSubmit || !policy) return;
+    const whatsapp = validateBrowserAdmissionWhatsappNumberDraft(whatsappNumber, policy.requiresWhatsappNumber ?? false);
+    if (!whatsapp.valid) { setWhatsappValidationError({ message: getAdmissionWhatsappNumberDraftMessage(whatsapp), policyVersion: policy.version }); return; }
+    setWhatsappValidationError(null);
+    void flow.submit({ expectedPolicyVersion: policy.version, ...(whatsapp.value ? { whatsappNumber: whatsapp.value } : {}), ...(policy.contactType === ADMISSION_CONTACT_TYPE.phone ? { phone, ...(country ? { country } : {}) } : {}), ...(contact.proofFresh && contact.proof ? { proofId: contact.proof.proofId } : {}) });
+  };
   const returnPath = `${PERSONAL_INVITATION_BROWSER_ROUTE.publicPrefix}/${encodeURIComponent(token)}`, signInHref = buildSignInRedirectUrl(returnPath);
   const verification = showContact && options ? <>
     <ContactVerification channel={options.channel} phone={phone} country={country} verificationCode={contact.code} confirmed={contact.confirmed} busy={contactBusy || flow.phase === PERSONAL_INVITATION_UI_PHASE.submitting} ready={contact.ready && !contact.recoveryRequired} canIssue={contact.ready && !contact.pending} canVerify={contact.ready && !contact.pending} canResend={contact.ready && !contact.pending} canUseSmsAlternative={options.allowedAlternative === MESSAGING_PUBLIC_CHANNEL.sms} contactLocked={Boolean(contact.challenge || contact.pending)} allowedCountries={options.allowedCountries} challenge={contact.delivery && contact.challenge ? { ...contact.challenge, deliveryState: contact.delivery.state } : contact.challenge} challengeUnavailable={contact.challengeUnavailable} requiresReplacement={contact.requiresReplacement} proofReady={contact.proofFresh} proofExpired={Boolean(contact.proof && !contact.proofFresh)} expiresInSeconds={contact.expiresInSeconds} resendInSeconds={contact.resendInSeconds} errorMessage={contact.errorMessage ?? contact.challengeMessage ?? contact.deliveryMessage} feedback={contact.feedback} fieldErrors={contact.fieldErrors}
@@ -56,6 +68,6 @@ function PersonalInvitationWorkflow({ initialState, token, client, contactClient
     {(contact.pending || contact.recoveryRequired) && <Button type="button" variant="outline" disabled={contactBusy} onClick={() => void contact.readOriginal()}>Consultar operación del código</Button>}
     {contact.challenge?.deliveryId && <Button type="button" variant="outline" disabled={contactBusy} onClick={() => void contact.readDelivery()}>Consultar envío del código</Button>}
   </> : policy?.requiresAdditionalVerification && !terminal ? <p role="status">{PERSONAL_INVITATION_UI_COPY.verificationUnavailable}</p> : undefined;
-  return <PersonalInvitation state={flow.state} ready={flow.ready && !contactBusy && !contact.recoveryRequired} confirmed={flow.confirmed} canSubmit={canSubmit} phase={flow.phase} accountChanged={flow.accountChanged} hasPending={flow.hasPending} errorMessage={flow.errorMessage} feedback={flow.feedback} signInHref={signInHref} commonHref={overview ? buildAdmissionEntryRoute(overview.tribe.slug) : undefined} ownRequestHref={overview?.request ? buildOwnAdmissionRequestRoute(overview.tribe.slug, overview.request.id) : undefined} academyHref={overview ? ROUTES.tribes.academy(overview.tribe.slug) : undefined} verification={verification}
-    onConfirm={flow.setConfirmed} onSubmit={() => { if (canSubmit && policy) void flow.submit({ expectedPolicyVersion: policy.version, ...(policy.contactType === ADMISSION_CONTACT_TYPE.phone ? { phone, ...(country ? { country } : {}) } : {}), ...(contact.proofFresh && contact.proof ? { proofId: contact.proof.proofId } : {}) }); }} onRead={() => void flow.read(contact.proofFresh ? contact.proof?.proofId : undefined)} onChangeAccount={() => { void flow.changeAccount().then((changed) => { if (changed) replaceCurrentPageWithUrl(signInHref); }); }} onReloadAccount={() => { window.location.reload(); /* An actual account change requires a fresh server snapshot. */ }} />;
+  return <PersonalInvitation state={flow.state} ready={flow.ready && !contactBusy && !contact.recoveryRequired} confirmed={flow.confirmed} canSubmit={canSubmit} phase={flow.phase} accountChanged={flow.accountChanged} hasPending={flow.hasPending} errorMessage={flow.errorMessage} feedback={flow.feedback} whatsappNumber={whatsappNumber} whatsappErrorMessage={whatsappValidationError?.policyVersion === policy?.version ? whatsappValidationError?.message ?? null : null} onWhatsappNumberChange={(value) => { setWhatsappNumber(value); setWhatsappValidationError(null); flow.setConfirmed(false); }} signInHref={signInHref} commonHref={overview ? buildAdmissionEntryRoute(overview.tribe.slug) : undefined} ownRequestHref={overview?.request ? buildOwnAdmissionRequestRoute(overview.tribe.slug, overview.request.id) : undefined} academyHref={overview ? ROUTES.tribes.academy(overview.tribe.slug) : undefined} verification={verification}
+    onConfirm={flow.setConfirmed} onSubmit={submit} onRead={() => void flow.read(contact.proofFresh ? contact.proof?.proofId : undefined)} onChangeAccount={() => { void flow.changeAccount().then((changed) => { if (changed) replaceCurrentPageWithUrl(signInHref); }); }} onReloadAccount={() => { window.location.reload(); /* An actual account change requires a fresh server snapshot. */ }} />;
 }
