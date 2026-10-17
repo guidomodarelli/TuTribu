@@ -2,7 +2,7 @@
 
 ## Estado y procedencia
 
-La auditoría conserva los seis escenarios de US8 y el alcance completo de T176–T191. El inventario actual es **185 tareas completas, 27 pendientes y 212 totales**, con **71 temáticas aprobadas**. Este documento registra el cierre del modelo T180 y de persistencia, lote y preferencias T181/T183/T184, y señala las verificaciones pendientes; las demás casillas y los gates operativos conservan sus requisitos.
+La auditoría conserva los seis escenarios de US8 y el alcance completo de T176–T191. El inventario actual es **188 tareas completas, 24 pendientes y 212 totales**, con **71 temáticas aprobadas**. Este documento registra los cierres del modelo T180, persistencia/lote/preferencias T181/T183/T184 y productor/mantenimiento/disparadores T185–T187, y señala las verificaciones pendientes; las demás casillas y los gates operativos conservan sus requisitos.
 
 El código de producto de esta cohorte corresponde a `ff227a521f3d9bcf16b24799459aa87f643bdae8`. El checkpoint `2d688865f8d6606bbd4642dadd900ee6f80a1b2d` agrega el ensayo de caída y su evidencia. La corrección del oráculo de refresco de navegador tiene su repetición funcional completa, detallada abajo.
 
@@ -48,11 +48,15 @@ El cierre conserva íntegra su descripción, incluidas ambas restricciones. Los 
 
 Los casos locales de esta tabla pertenecen a la cohorte de 296 y los Native de almacenamiento/calendario/correo/recordatorios a la de diecisiete; no se suman de nuevo ni se presentan todos los 296 como exclusivos de T180. El modelo mantiene las restricciones de transacción, contenido mínimo, clocks y ausencia de autoridad durable de envío. La medición de p95 y el scheduler saludable se exigen antes de activar; su falta no se convierte en una supuesta carencia del modelo ni se certifica con estas pruebas.
 
-Este apartado corresponde al cierre de T180. Los owners de persistencia, lote y preferencias tienen su cierre propio a continuación; T176–T179, T185–T191 y los gates conservan sus criterios completos. La matriz integral de US8 y el driver operativo no se sustituyen por el cierre del modelo.
+Este apartado corresponde al cierre de T180. Los owners de persistencia, lote, preferencias, productor, mantenimiento y disparadores tienen sus cierres propios a continuación; T176–T179, T188–T191 y los gates conservan sus criterios completos. La matriz integral de US8 y el driver operativo no se sustituyen por el cierre del modelo.
 
 ### Cierre de persistencia, lote y preferencias
 
 La [auditoría de T181/T183/T184](storage-batch-settings-completion.md) acredita sus siete, nueve y ocho cláusulas originales, sin brechas ni hallazgos accionables y con 126 inputs estables. Identifica las migraciones reales y el modelo Drizzle, los owners compartidos del lote y el original durable, y la separación entre ajustes de correo, preferencias y política de admisión. Conserva las excepciones históricas de elegibilidad y HTTP; no atribuye estas tres casillas a un cronfile, un import o una entrega externa simulada.
+
+### Cierre del productor, mantenimiento y disparadores
+
+La [auditoría de T185/T186/T187](producer-maintenance-trigger-completion.md) acredita sus ocho, siete y cuatro cláusulas originales, sin hallazgos accionables y con 131 inputs estables. Vincula obligación/grupo/outbox, sender por propósito, siete fases privadas y disparadores portables con sus pruebas actuales y equivalencias verificadas. El build y la ejecución real de Workers conservan su configuración cerrada; no se presentan como operación saludable, activación ni mediciones de OG-05. La nueva cohorte de interfaz estaba en ejecución al registrar esa auditoría y queda fuera de su cierre.
 
 ### PostgreSQL real
 
@@ -98,4 +102,4 @@ La [integración de disparadores](admission-maintenance-trigger.md) conserva su 
 
 No se ha activado ni medido aquí un driver frecuente saludable. **SC-015, RG-08 y OG-05 siguen pendientes** de infraestructura, capacidad y mediciones reales: disponibilidad hacia inbox/lista/avisos p95 menor a treinta segundos y cierre de ventana hacia aceptación del agrupado dentro de cinco minutos. Un cronfile, el workflow, un 200 aislado o el transporte controlado no acreditan esos objetivos.
 
-OG-03 y OG-04 conservan los ensayos reales expresamente autorizados y los límites originales del piloto. No hubo nuevos mensajes reales, despliegue ni migración productiva en estas cohortes. Después de terminar todos los productores Native, incluida la cohorte adicional de resultados y avisos, Neon confirmó la conservación de las tres ramas originales o ajenas, la ausencia de ramas temporales propias y ninguna rama sin clasificar. El recibo privado final es `.git/codex-us8-notification-scenarios-neon-final.json`; los snapshots anteriores de las cohortes SQL, HTTP y ejecución activa se conservan separados con sus momentos históricos.
+OG-03 y OG-04 conservan los ensayos reales expresamente autorizados y los límites originales del piloto. No hubo nuevos mensajes reales, despliegue ni migración productiva en estas cohortes. Después de terminar la cohorte adicional de resultados y avisos y las anteriores, Neon confirmó a las 10:04 UTC la conservación de las tres ramas originales o ajenas, cero temporales propias y ninguna sin clasificar. El recibo es `.git/codex-us8-notification-scenarios-neon-final.json`; no describe la cohorte `ui-current` iniciada después y todavía activa. Sus resultados y limpieza se registrarán al terminar; todos los snapshots anteriores conservan su momento histórico.
