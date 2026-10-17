@@ -10,6 +10,8 @@ import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/aca
 import { ADMISSION_CONTEXTUAL_REFRESH_VALIDATION as VALIDATION } from "./constants/admission-contextual-refresh-validation";
 import { captureAdmissionReview } from "./admission-review-capture";
 import { runPrivateBrowserRequest } from "./private-browser-request";
+import { createAdmissionReviewBrowserInteractions } from "./admission-review-browser-interactions";
+import { ADMISSION_REVIEW_BROWSER_INTERACTION, type AdmissionReviewBrowserInteraction } from "./constants/admission-review-keyboard-validation";
 
 /** Contains only the synthetic public selection created through the real submission endpoint. */
 export type AdmissionBatchBrowserRow = { readonly requestId: string; readonly name: string };
@@ -21,6 +23,7 @@ type AdmissionBatchBrowserValidationInput = {
   readonly capture: boolean; readonly artifactPath: string; readonly errors: string[];
   readonly observations: Record<string, unknown>;
   readonly onStage: (stage: string) => Promise<void>;
+  readonly interaction?: AdmissionReviewBrowserInteraction;
 };
 
 /**
@@ -32,9 +35,13 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
   if (input.rows.length !== 4) throw new Error("Native admission batch validation requires four pending rows");
   const current = expect.configure({ timeout: VALIDATION.responseTimeoutMs });
   const page = await input.context.newPage();
+  const interaction = input.interaction ?? ADMISSION_REVIEW_BROWSER_INTERACTION.pointer;
+  const keyboard = interaction === ADMISSION_REVIEW_BROWSER_INTERACTION.keyboard;
+  const actions = createAdmissionReviewBrowserInteractions(page, interaction);
   page.setDefaultTimeout(VALIDATION.responseTimeoutMs);
   const rootPath = `/api/tribes/${input.slug}/admissions`, batchPath = `${rootPath}/request-decisions`;
   const documents: string[] = [], operationReads: string[] = [], batchWrites: string[] = [];
+  let serverComponentReads = 0, initialServerComponentReads = 0, accessibleResultSummaries = 0;
   const viewerRequestsAfterSecondPost = new WeakSet<Request>();
   input.observations.browserBatchFailures = 0; input.observations.browserBatchFinishes = 0;
   input.observations.viewerStartsAfterSecondPost = 0; input.observations.viewerFinishesAfterSecondPost = 0;
@@ -44,6 +51,7 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
   page.on("request", (request) => {
     const path = new URL(request.url()).pathname;
     if (request.isNavigationRequest() && request.resourceType() === "document") documents.push("document");
+    if (path === `/${input.slug}/academia/admissions` && request.headers().rsc === "1") serverComponentReads += 1;
     if (request.method() === "POST" && path === batchPath) { batchWrites.push("POST"); input.observations.batchPostCount = batchWrites.length; }
     if (request.method() === "GET" && path.startsWith(`${rootPath}/operations/`)) { operationReads.push(path.slice(`${rootPath}/operations/`.length)); input.observations.originalOperationGetCount = operationReads.length; }
     if (request.method() === "GET" && path === "/api/auth/get-session" && batchWrites.length === 2) { viewerRequestsAfterSecondPost.add(request); input.observations.viewerStartsAfterSecondPost = Number(input.observations.viewerStartsAfterSecondPost) + 1; }
@@ -57,12 +65,14 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
   const confirm = async (rows: readonly AdmissionBatchBrowserRow[]) => {
     for (const row of rows) {
       const checkbox = page.getByRole("checkbox", { name: `${COPY.selectPrefix} ${row.name}`, exact: true });
-      await current(checkbox).toBeEnabled(); await checkbox.check();
+      await current(checkbox).toBeEnabled(); await actions.check(checkbox);
     }
     const form = page.getByRole("region", { name: COPY.title, exact: true });
     for (const row of rows) await current(form.getByText(row.name, { exact: true })).toBeVisible();
-    await form.getByLabel(ADMISSION_REVIEW_UI_COPY.internalReason, { exact: true }).fill("Revisión explícita de prueba controlada");
-    await form.getByRole("checkbox", { name: COPY.confirmation, exact: true }).check();
+    await actions.fill(form.getByLabel(ADMISSION_REVIEW_UI_COPY.internalReason, { exact: true }), "Revisión explícita de prueba controlada");
+    const confirmation = form.getByRole("checkbox", { name: COPY.confirmation, exact: true });
+    if (keyboard) await current(confirmation).not.toBeChecked();
+    await actions.check(confirmation);
     await current(form.getByRole("button", { name: COPY.approve, exact: true })).toBeEnabled();
   };
   /**
@@ -84,8 +94,9 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
     await runPrivateBrowserRequest("open_native_batch_reviewer", () => page.goto(`${input.origin}/${input.slug}/academia/admissions`, { waitUntil: "domcontentloaded" }));
     await page.bringToFront();
     await current(page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true })).toBeEnabled();
+    initialServerComponentReads = serverComponentReads;
     await confirm(input.rows.slice(0, 2));
-    await page.getByRole("button", { name: COPY.approve, exact: true }).click({ trial: true });
+    if (!keyboard) await page.getByRole("button", { name: COPY.approve, exact: true }).click({ trial: true });
     await capture("admission-batch-confirmation");
     await input.onStage("submit_native_batch_with_concurrent_reviewer");
     await page.route((url) => url.pathname === batchPath, async (route) => {
@@ -113,7 +124,7 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
         await input.onStage("record_native_mixed_http_result");
       });
     }, { times: 1 });
-    await page.getByRole("button", { name: COPY.approve, exact: true }).click();
+    await actions.activate(page.getByRole("button", { name: COPY.approve, exact: true }));
     await input.onStage("await_native_concurrent_decision_confirmation");
     await current.poll(() => concurrentDecisionConfirmed).toBe(true);
     await input.onStage("await_native_batch_response_after_concurrent_confirmation");
@@ -121,6 +132,16 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
     expect(input.observations.mixedHttpStatus).toBe(200);
     await input.onStage("observe_native_mixed_batch_feedback");
     const results = page.getByRole("region", { name: COPY.results, exact: true });
+    /** @param summary - Confirmed status, independent of the live list. @param rows - Names from its immutable authorized manifest. @returns After browser accessibility exposes status/names without private fixture values. */
+    const assertAccessibleResult = async (summary: string, rows: readonly AdmissionBatchBrowserRow[]) => {
+      if (!keyboard) return;
+      await current(results.getByRole("status")).toHaveText(summary);
+      const snapshot = await results.ariaSnapshot();
+      expect(snapshot.includes(summary)).toBe(true);
+      for (const row of rows) expect(snapshot.includes(row.name)).toBe(true);
+      expect(input.privateValues.some((value) => value.length > 0 && snapshot.includes(value))).toBe(false);
+      accessibleResultSummaries += 1;
+    };
     await current(results.getByText(ADMISSION_BATCH_REVIEW_RESULT_COPY.mixed, { exact: true })).toBeVisible();
     await input.onStage("check_native_mixed_batch_public_result");
     expect(input.observations.mixedHttpStatus).toBe(200);
@@ -128,9 +149,10 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
     expect(outcomes.mixed).toMatchObject({ state: "completed", result: "mixed", completedCount: 1, failedCount: 1, unresolvedCount: 0 });
     expect(outcomes.mixed?.items).toEqual(expect.arrayContaining([{ requestId: input.rows[0].requestId, status: "approved", version: 2, safeMessage: "Solicitud aprobada." }, { requestId: input.rows[1].requestId, status: "conflict", code: "request_conflict", safeMessage: ADMISSION_ERROR_MESSAGE.request_conflict }]));
     for (const row of input.rows.slice(0, 2)) await current(results.getByRole("heading", { name: row.name, exact: true })).toBeVisible();
+    await assertAccessibleResult(ADMISSION_BATCH_REVIEW_RESULT_COPY.mixed, input.rows.slice(0, 2));
     await capture("admission-batch-mixed-results", `[aria-label="${COPY.results}"]`);
-    await results.getByRole("button", { name: COPY.dismiss, exact: true }).click();
-    await page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true }).click();
+    await actions.activate(results.getByRole("button", { name: COPY.dismiss, exact: true }));
+    await actions.activate(page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true }));
     await confirm(input.rows.slice(2));
     await input.onStage("lose_native_batch_response_after_real_commit");
     await page.route((url) => url.pathname === batchPath, async (route) => {
@@ -148,7 +170,7 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
       }
       await input.onStage("record_native_lost_response_result");
     }, { times: 1 });
-    await page.getByRole("button", { name: COPY.approve, exact: true }).click();
+    await actions.activate(page.getByRole("button", { name: COPY.approve, exact: true }));
     await input.onStage("await_native_second_batch_request");
     await current.poll(() => batchWrites.length).toBe(2);
     await input.onStage("await_native_second_batch_server_confirmation");
@@ -157,6 +179,10 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
     expect(input.observations.lostResponseHttpStatus).toBe(200);
     await input.onStage("observe_native_uncertain_committed_batch");
     await current(page.getByText(COPY.uncertain, { exact: true })).toBeVisible();
+    if (keyboard) {
+      await current(page.getByRole("region", { name: COPY.title, exact: true }).getByRole("status").filter({ hasText: COPY.uncertain })).toBeVisible();
+      expect(serverComponentReads).toBe(initialServerComponentReads);
+    }
     await current(page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true })).toBeEnabled();
     input.observations.lostResponseRecoveryControlEnabled = true;
     expect(outcomes.lost).toMatchObject({ state: "completed", result: "all_succeeded", completedCount: 2, failedCount: 0, unresolvedCount: 0 });
@@ -173,21 +199,24 @@ export async function validateAdmissionBatchBrowser(input: AdmissionBatchBrowser
     await current(results.getByText(ADMISSION_BATCH_REVIEW_RESULT_COPY.all_succeeded, { exact: true })).toBeVisible();
     for (const row of input.rows.slice(2)) await current(results.getByRole("heading", { name: row.name, exact: true })).toBeVisible();
     await current(page.getByRole("alert").filter({ hasText: ADMISSION_ERROR_MESSAGE.dependency_unavailable })).toBeVisible();
+    await assertAccessibleResult(ADMISSION_BATCH_REVIEW_RESULT_COPY.all_succeeded, input.rows.slice(2));
     expect(failedListReads).toBe(1);
     expect(operationReads).toEqual([outcomes.lost?.operationId]);
     expect(batchWrites).toHaveLength(2);
     expect(documents).toHaveLength(2);
+    if (keyboard) expect(serverComponentReads).toBe(initialServerComponentReads);
     await capture("admission-batch-recovered-results");
     await results.screenshot({ path: input.artifactPath });
     await input.onStage("stop_native_original_recovery_after_terminal_result");
-    await page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true }).click();
+    await actions.activate(page.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read, exact: true }));
     await current(page.getByRole("alert").filter({ hasText: ADMISSION_ERROR_MESSAGE.dependency_unavailable })).toHaveCount(0);
     await current(results).toBeVisible();
     await new Promise((resolve) => setTimeout(resolve, VALIDATION.terminalObservationMs));
     expect(operationReads).toEqual([outcomes.lost?.operationId]); expect(batchWrites).toHaveLength(2); expect(documents).toHaveLength(2);
     expect(input.errors).toHaveLength(0);
+    if (keyboard) expect(serverComponentReads).toBe(initialServerComponentReads);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    return { originals: batchWrites.length, mixedCompleted: outcomes.mixed?.completedCount, mixedConflicts: outcomes.mixed?.failedCount, lostResponseCommitted: outcomes.lost?.state === "completed", recoveredOriginalReads: operationReads.length, recoveredResultSurvivedListFailure: failedListReads === 1, originalRecoveryStopped: true, documentLoads: documents.length, perOriginalSelection: 2, realMessages: 0 };
+    return { originals: batchWrites.length, mixedCompleted: outcomes.mixed?.completedCount, mixedConflicts: outcomes.mixed?.failedCount, lostResponseCommitted: outcomes.lost?.state === "completed", recoveredOriginalReads: operationReads.length, recoveredResultSurvivedListFailure: failedListReads === 1, originalRecoveryStopped: true, documentLoads: documents.length, perOriginalSelection: 2, realMessages: 0, interaction, accessibleResultSummaries };
   } catch (error) {
     try { await page.screenshot({ path: input.artifactPath.replace("-batch-recovered.png", "-batch-failure.png"), fullPage: true }); input.observations.failureScreenshotCaptured = true; }
     catch { input.observations.failureScreenshotCaptured = false; }
