@@ -1540,6 +1540,8 @@ La [auditoría integral US12/SC-020](validation/provider-substitution-integral.m
 
 - [ ] T199 [P] Reproducir restore de copia aislada con keys/época fuera de snapshot, todos los drivers cerrados/recovery lock, secret retirado y outbox/pruebas antiguos; cero decrypt/dispatch/admisión abierta hasta reconexión/policy válida. Web Crypto/DB reales. Archivos: `tests/unit/modules/messaging/infrastructure/messaging-restore-safety.test.ts`. Trazabilidad: `FR-053`, `FR-056`, `FR-132`, `US-10-AC-06`, `TC-014`, `RG-04`, `RG-07`, `OG-02`.
 
+Avance de infraestructura para T199: [copia aislada y restauración real](validation/messaging-restore-copy-baseline.md). El arnés acredita propiedad exacta, pool nuevo, rol copiado sin bypass y limpieza confirmada; ocho casos Native pasan y la revisión posterior a una extracción mecánica de constantes queda sin hallazgos. No se cierra T199 ni se atribuyen a este fixture los ensayos de secretos, outbox, pruebas o reapertura. Inventario y 71 temáticas sin cambios.
+
 <a id="t200"></a>
 
 - [ ] T200 [P] Preparar carga reproducible de 10.000 entradas/100 solicitantes concurrentes y sampleSC-021 1.000/800/200, registrar latencias/exclusiones/pool acquisitions/abandonos, p95<3 s y visibility<30 s/window-close→accept5 min; no benchmark de mocks como rendimiento externo. Usar entorno Node real y timeout bounded para carga/SQL, sin cambiar globalmente Vitest o tests de configuración. Archivos: `tests/performance/academy-admissions.performance.test.ts`. Trazabilidad: `FR-141`, `SC-013`, `SC-021`, `D-24`.
