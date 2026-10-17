@@ -49,10 +49,22 @@ La revisión confirmó contención por tribu y muchas consultas de autoridad sec
 
 T200 y T209 siguen pendientes. Esta evidencia no reemplaza el primer resultado fallido ni acredita SC-013, SC-015 o SC-021 completos. La muestra SC-021 de 1.000/800/200 y las mediciones de visibilidad y agrupación conservan sus propios casos y criterios.
 
-## Red y próxima ejecución independiente
+## Red y preparación de la ejecución independiente
 
 La sonda `.git/admission-network-probe-c23a6dd7/` usó una rama propia y sólo `SELECT 1`, sin leer filas de la aplicación. En PostgreSQL 17.11 y región `aws-us-east-1`, veinte consultas después del warm-up dieron mediana de 163,92 ms y p95 de 166,04 ms desde esta computadora. La transacción fue de sólo lectura y la ausencia posterior de la rama quedó confirmada. Esta medida identifica el costo local de un viaje, sin atribuir a la red todos los fallos de las cargas anteriores ni certificar un host operativo.
 
 La regresión completa del checkpoint previo pasó: lint, tipos de producto y tests, suites y build real de Next, con los 3.639 inputs y el helper conservados. Registro privado `.git/admission-performance-quality-d38f3872/`. El commit integrado `eaeda2287efba215fc14b655538b0d7d0d5fdb58` también tiene CI completo aprobado en [el run 39045728599](https://github.com/guidomodarelli/TuTribu/actions/runs/39045728599). Esta regresión no convierte su carga Native fallida en aprobada.
 
-El siguiente harness agrega las veinte consultas mínimas al warm-up, conserva las cien llamadas simultáneas y sus límites, permite dos nonces externos para reconciliar recursos tras un fallo de CI y produce sólo un reporte sanitizado. Once pruebas focales pasan, con dos SQL opt-in omitidas; pasaron tipos y lint. La preparación en curso todavía no acredita la ejecución nueva. El workflow exige una capacidad efímera limitada al proyecto y el SHA exacto antes de usarla; su propietario revoca esa capacidad y verifica la limpieza al terminar.
+El harness agrega las veinte consultas mínimas al warm-up, conserva las cien llamadas simultáneas y sus límites, permite dos nonces externos para reconciliar recursos tras un fallo de CI y produce sólo un reporte sanitizado. Once pruebas focales pasan, con dos SQL opt-in omitidas; pasaron tipos y lint. El workflow exige una capacidad efímera limitada al proyecto y el SHA exacto antes de usarla; su propietario revoca esa capacidad y verifica la limpieza al terminar. La preparación se revisó separadamente de la ejecución siguiente.
+
+## Carga Native en GitHub Actions
+
+El [run 39048734681](https://github.com/guidomodarelli/TuTribu/actions/runs/39048734681), sobre `47ecb74d8403230e67784436e68b8a64adc1061f`, ejecutó los dos casos con Node, `pg` y Neon reales. El caso de carga falló y el de abandono pasó; no hubo pasos Native omitidos. Artefacto público saneado `admission-native-performance`, copia privada `.git/admission-native-ci-ac4b523c/artifact/admission-native-performance.json`. El reporte conserva ese SHA, exit 1 y ausencia de truncamiento.
+
+Con las mismas 10.000 entradas y 100 llamadas concurrentes hubo 11 admisiones, 0 pendientes y 89 fallos de adquisición del pool. El p95 de confirmación fue 75.853,26 ms frente al objetivo estricto inferior a 3.000 ms. Las veinte consultas mínimas dieron p95 de 72,66 ms; preparación y warm-up separados duraron 63.629,28 ms y 43.033,54 ms. El event loop dio p95 de 20,97 ms. El pool mantuvo máximo 10 y pico de 90 esperas, con 391 adquisiciones y 391 liberaciones, cero esperas y cero conexiones retenidas al final. Los efectos confirmados fueron 10.000 entradas, 11 solicitudes, 11 membresías básicas y cero entregas.
+
+El abandono observó el guard real de 30.000 ms, SQLSTATE `25P03`, recuperación en 31.212,58 ms y consulta sana posterior. Sus dos adquisiciones tuvieron sus liberaciones, con cero esperas y cero conexiones retenidas al final.
+
+El owner externo comprobó el estado terminal del run, vinculó el job y el paso realmente ejecutado al SHA, registró `not_passed` y terminó con exit 1. Confirmó la revocación de su key limitada al proyecto, la eliminación de su secreto y tres variables temporales, y la ausencia de las dos ramas previstas, preservando los tres recursos originales. No hubo errores de limpieza y el helper mantuvo su hash. Registro privado `.git/admission-native-ci-ac4b523c/owner.json`; once contratos previos del owner ejercieron respuestas perdidas y preservación de configuración concurrente sin credenciales ni operaciones reales.
+
+La reproducción remota conserva el fallo de rendimiento y reduce el costo de red observado frente al host local, sin acreditar infraestructura sana ni atribuir toda la demora a la red. T200/T209 y SC-013/SC-015/SC-021 siguen pendientes; se debe reducir el trabajo bajo contención y comprobar la carga en un target con latencia adecuada, conservando todas las barreras y los criterios.
