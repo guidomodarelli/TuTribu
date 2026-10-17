@@ -23,3 +23,5 @@ La segunda revisión cerró con cero hallazgos accionables y cuatro fuentes esta
 ## Trabajo pendiente
 
 El archivo `messaging-restore-safety.test.ts` y los cambios funcionales de recuperación se validan por separado. El cierre de T199 exige datos sensibles reales sintéticos y Web Crypto nativo, filas retiradas y restauradas, drivers cerrados, configuración externa fuera del snapshot y rechazo de secretos, envíos y pruebas anteriores hasta una conexión, diagnóstico y política vigentes. Este avance no declara esos resultados, no modifica hosting ni despliega la aplicación.
+
+El [hito posterior de bloqueo tras restore](messaging-restore-safety-baseline.md) acredita las negativas de secretos, códigos, pruebas y outbox con datos sintéticos y Web Crypto reales. Conserva pendiente la reapertura controlada y no modifica los resultados históricos de infraestructura registrados aquí.
