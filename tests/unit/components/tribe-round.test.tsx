@@ -4887,6 +4887,8 @@ describe("TribeRound", () => {
       .querySelector("img") as HTMLImageElement;
     fireEvent.load(adaPhoto);
     expect(adaPhoto).toHaveAttribute("src", "https://example.com/ada-lovelace.jpg");
+    // Google rejects some profile photos requested with a cross-site Referer.
+    expect(adaPhoto).toHaveAttribute("referrerpolicy", "no-referrer");
 
     await user.click(
       screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
@@ -4898,6 +4900,7 @@ describe("TribeRound", () => {
       .querySelector("img") as HTMLImageElement;
     fireEvent.load(gracePhoto);
     expect(gracePhoto).toHaveAttribute("src", "https://example.com/grace-hopper.jpg");
+    expect(gracePhoto).toHaveAttribute("referrerpolicy", "no-referrer");
   });
 
   it("keeps author images mounted when avatar preloading reports an error", () => {
