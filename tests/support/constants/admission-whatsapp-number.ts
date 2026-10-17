@@ -1,7 +1,7 @@
 /** Bounds real migration and concurrency scenarios without changing global Vitest timing. @module admission-whatsapp-number-test-constants */
 export const ADMISSION_WHATSAPP_SQL_TIMEOUT_MS = 600_000;
 /** Bounds actual browser rendering and migration without changing product limits. */
-export const ADMISSION_WHATSAPP_BROWSER_VALIDATION = { timeoutMs: 1_200_000, actionTimeoutMs: 90_000, widths: [390, 1280], height: 900, securityEnvironment: "synthetic-whatsapp-ui", captureDirectoryEnvironment: "ADMISSION_WHATSAPP_CAPTURE_DIRECTORY", commonSubmissionRoute: "**/admissions/submissions" } as const;
+export const ADMISSION_WHATSAPP_BROWSER_VALIDATION = { timeoutMs: 1_200_000, actionTimeoutMs: 90_000, widths: [390, 1280], height: 900, securityEnvironment: "synthetic-whatsapp-ui", captureDirectoryEnvironment: "ADMISSION_WHATSAPP_CAPTURE_DIRECTORY", commonSubmissionRoute: "**/admissions/submissions", forwardingOperations: { common: "receive_synthetic_common_reply", correction: "receive_synthetic_whatsapp_reply" }, forwardingObservationUnavailableStage: "optional_forwarding_observation_unavailable" } as const;
 
 /** Describes the visible workflow stage when a native browser event arrives. */
 export type AdmissionWhatsappBrowserPhase = "configuration" | "common" | "correction" | "own_account_recovery" | "review" | "personal" | "personal_invitation_create" | "personal_cookie_clear" | "personal_cookie_bind" | "personal_navigation" | "personal_form" | "personal_account_recovery" | "optional_settings" | "persistence";
@@ -14,6 +14,7 @@ export const ADMISSION_WHATSAPP_BROWSER_ERROR = {
   frameLocationPattern: /^(https?:\/\/[^\s()]+):(\d+):(\d+)$/,
   ownFramePath: "/_next/static/chunks/", chunkNamePattern: /^[A-Za-z0-9_.~-]+\.js$/,
   accessControlPattern: /access control/i, canceledPattern: /cancel(?:l)?ed|abort/i,
+  forwardingTimeoutPattern: /^(?:(?:route\.fetch|apiRequestContext\.[A-Za-z]+): )?Timeout \d+ms exceeded\.?$/,
   accountPath: "/api/auth/get-session", maximumSessionEvents: 48,
   maximumFrames: 3, maximumEvents: 16,
 } as const;

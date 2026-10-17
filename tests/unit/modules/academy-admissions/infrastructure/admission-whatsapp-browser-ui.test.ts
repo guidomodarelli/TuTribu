@@ -3,7 +3,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { chromium, webkit, type Page, type Request, type Response } from "@playwright/test";
+import { chromium, webkit, type APIResponse, type Page, type Request, type Response, type Route } from "@playwright/test";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -28,6 +28,34 @@ import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/app
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+
+/**
+ * Forwards one original HTTP call within its existing action budget and preserves only transport timing.
+ * @param route - Actual intercepted own request; native cookies and URLs remain within Playwright.
+ * @param operation - Fixed private-request boundary label selected by this test.
+ * @param name - Synthetic engine, viewport and action used for the optional receipt filename.
+ * @returns The actual response without changing its status, DTO or original operation identity.
+ * @throws The sanitized private-request failure when the original transport cannot settle.
+ */
+async function receiveNativeReply(route: Route, operation: string, name: string): Promise<APIResponse> {
+  const startedAt = performance.now();
+  let status: number | null = null;
+  let timeoutWording = false;
+  try {
+    const response = await runPrivateBrowserRequest(operation, async () => {
+      try { return await route.fetch({ timeout: VALIDATION.actionTimeoutMs, maxRetries: 0 }); }
+      catch (error) { timeoutWording = error instanceof Error && ADMISSION_WHATSAPP_BROWSER_ERROR.forwardingTimeoutPattern.test(error.message.split("\n", 1)[0].trim()); throw error; }
+    });
+    status = response.status();
+    return response;
+  } finally {
+    const directory = process.env[VALIDATION.captureDirectoryEnvironment];
+    if (directory) {
+      try { await writeFile(join(directory, `${name}.forwarding.json`), JSON.stringify({ elapsedMs: Math.round(performance.now() - startedAt), budgetMs: VALIDATION.actionTimeoutMs, status, transportSettled: status !== null, timeoutWording })); }
+      catch { process.stdout.write(JSON.stringify({ stage: VALIDATION.forwardingObservationUnavailableStage }) + "\n"); }
+    }
+  }
+}
 
 /** @param response - Actual own submission reply. @param name - Synthetic engine and viewport identifier. @returns Whether accepted progress requires an explicit original-state read; diagnostics exclude payload values and identities. */
 async function inspectSubmissionReply(response: Response, name: string): Promise<boolean> {
@@ -76,7 +104,13 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
           const activeSessionRequests = new Map<Request, number>();
           const sessionEvents: { kind: "request" | "requestfinished" | "requestfailed"; ordinal: number; phase: AdmissionWhatsappBrowserPhase; leaderSurface: boolean; canceled: boolean }[] = [];
           let nextSessionRequest = 0, sessionEventCount = 0;
-          /** Records current observation phase and native lifecycle only; request URLs remain in memory. */
+          /**
+           * Records current observation phase and native lifecycle only; request URLs remain in memory.
+           * @param surface - Actual leader or applicant page emitting the native event.
+           * @param request - Native request used only for in-memory identity and transport classification.
+           * @param kind - Observed platform lifecycle event; it does not assert business success.
+           * @returns Nothing after retaining bounded metadata and retiring completed request identities.
+           */
           const observeSessionRequest = (surface: Page, request: Request, kind: "request" | "requestfinished" | "requestfailed") => {
             if (kind === "request") { const address = new URL(request.url()); if (address.origin !== origin || address.pathname !== ADMISSION_WHATSAPP_BROWSER_ERROR.accountPath) return; activeSessionRequests.set(request, ++nextSessionRequest); }
             const ordinal = activeSessionRequests.get(request);
@@ -121,7 +155,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             await page.route(VALIDATION.commonSubmissionRoute, async (route) => {
               if (route.request().method() !== "POST") { await route.continue(); return; }
               submissionUrl = route.request().url();
-              const response = await runPrivateBrowserRequest("receive_synthetic_common_reply", () => route.fetch());
+              const response = await receiveNativeReply(route, VALIDATION.forwardingOperations.common, `${engineName}-${width}-common`);
               let value: unknown;
               try { value = await response.json(); } catch { value = undefined; }
               const outcome = admissionOutcomeSchema.safeParse(value);
@@ -144,7 +178,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             const request = await database.withContext({ userId: common.userId, email: common.email }, async (transaction) => (await transaction.execute<{ id: string }>(sql`select id,source,status,version,contact_type,normalized_contact,evidence_source,submitted_at,expires_at from public.academy_admission_requests where tribe_id=${fixture.tribeId} and user_id=${common.userId}`)).rows[0]);
             phase = PHASE.correction;
             let dropped = false;
-            await page.route("**/requests/*/whatsapp", async (route) => { if (route.request().method() === "POST" && !dropped) { dropped = true; correctionUrl = route.request().url(); const response = await runPrivateBrowserRequest("receive_synthetic_whatsapp_reply", () => route.fetch()); expect(response.status()).toBe(200); await route.abort(); } else await route.continue(); });
+            await page.route("**/requests/*/whatsapp", async (route) => { if (route.request().method() === "POST" && !dropped) { dropped = true; correctionUrl = route.request().url(); const response = await receiveNativeReply(route, VALIDATION.forwardingOperations.correction, `${engineName}-${width}-correction`); expect(response.status()).toBe(200); await route.abort(); } else await route.continue(); });
             await page.getByRole("textbox", { name: COPY.label, exact: true }).fill("+44 20 7946 0018");
             await setVisibleCheckboxChecked(page.getByRole("checkbox", { name: COPY.confirmEdit }), true, VALIDATION.actionTimeoutMs); await page.getByRole("button", { name: COPY.save, exact: true }).click();
             await page.getByText(ADMISSION_UI_COPY.uncertain, { exact: true }).waitFor();
