@@ -153,4 +153,13 @@ describe("bounded complete admission email producer", () => {
     expect(test.producer.selectNextTribe).toHaveBeenCalledTimes(2);
     expect(test.progress.collectPage).toHaveBeenCalledTimes(1);
   });
+
+  it("should prepare groups without repeating the independently composed logical reminder phase", async () => {
+    const test = fixture();
+    test.producer.selectNextTribe.mockResolvedValueOnce("first");
+    const result = await test.useCase.prepareGroups(test.deadline);
+    expect(result.reminders).toEqual({ status: "not_run", count: 0, code: null });
+    expect(result.tribes[0]).toMatchObject({ tribeId: "first", collection: { status: "completed", count: 1 } });
+    expect(test.producer.materializeReminders).not.toHaveBeenCalled();
+  });
 });

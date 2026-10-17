@@ -1,5 +1,7 @@
 /** Projects versioned messaging SQL; migrations own deferred FKs, grants, FORCE RLS and triggers. */
 import { sql } from "drizzle-orm";
+import { ADMISSION_MESSAGING_MAINTENANCE_STORAGE } from "../../constants/admission-messaging-maintenance";
+import { MESSAGE_DELIVERY_STATE } from "../../constants/message-delivery";
 import { CODE_REQUEST_EVENT } from "@/src/modules/messaging/constants/code-request-budget";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { boolean, check, customType, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
@@ -275,6 +277,7 @@ export function createMessagingSchema(parents: MessagingSchemaParents) {
     messagingDeliveryPhoneCountryCheck: check("messaging_delivery_phone_country_check",sql.raw("channel='email' OR (recipient_country IS NOT NULL AND recipient_country ~ '^[A-Z]{2}$')")),
     messagingDeliveryDeadlineCheck: check("messaging_delivery_deadline_check",sql.raw("deadline_at>created_at AND deadline_at<=created_at+interval '24 hours'")),
     messagingDeliveryDueIdx: index("messaging_delivery_due_idx").on(table.dueAt,table.id).where(sql.raw("state='queued'")),
+    messagingDeliveryQueuedAgeIdx: index(ADMISSION_MESSAGING_MAINTENANCE_STORAGE.queueAgeIndex).on(table.createdAt,table.id).where(sql`${table.state}=${MESSAGE_DELIVERY_STATE.queued}`),
     messagingDeliveryTenantDueIdx: index("messaging_delivery_tenant_due_idx").on(table.tribeId,table.dueAt,table.id).where(sql.raw("state='queued'")),
   }));
   const verificationCodeEnvelopes = pgTable("verification_code_envelopes", {

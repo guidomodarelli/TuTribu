@@ -43,6 +43,7 @@ import { createAdmissionNotificationResourceAuthority } from "./infrastructure/m
 import { PostgresAdmissionNotificationGroupRecoveryContent } from "./infrastructure/repositories/postgres-admission-notification-group-recovery-content";
 import type { NotificationGroupRecoveryContent } from "@/src/modules/messaging/infrastructure/notification-group-recovery-content";
 import { PrepareAdmissionEmailNotificationsUseCase } from "./application/use-cases/prepare-admission-email-notifications-use-case";
+import { MaterializeAdmissionNotificationRemindersUseCase } from "./application/use-cases/materialize-admission-notification-reminders-use-case";
 import { PostgresAdmissionNotificationProducer } from "./infrastructure/repositories/postgres-admission-notification-producer";
 import { PostgresAdmissionNotificationCollectionProgress, type AdmissionNotificationCollectionExecutor } from "./infrastructure/repositories/postgres-admission-notification-collection-progress";
 import { PostgresAdmissionNotificationGroupPreparation } from "./infrastructure/repositories/postgres-admission-notification-group-preparation";
@@ -104,6 +105,11 @@ export function buildAdmissionNotificationSettingsModule(dependencies: Authentic
 /** @param readSecurityConfig - Explicit current local epoch and retained keyring source. @returns The complete-group content collaborator for the original human recovery transaction; no pool, RPC or durable authority is created. */
 export function buildAdmissionNotificationRecoveryContent(readSecurityConfig: () => Promise<MessagingSecurityConfig>): NotificationGroupRecoveryContent {
   return new PostgresAdmissionNotificationGroupRecoveryContent(readSecurityConfig);
+}
+
+/** @param dependencies - Private current job authority and original transaction, without keys or public-link configuration. @returns An independently observable unique internal reminder phase. */
+export function buildAdmissionNotificationReminderModule(dependencies: { execute: AdmissionNotificationCollectionExecutor; authorize: () => Promise<boolean>; readRecoveryLock: () => Promise<boolean> }) {
+  return { useCases: { materializeReminders: new MaterializeAdmissionNotificationRemindersUseCase(new PostgresAdmissionNotificationProducer(dependencies.execute, dependencies.authorize, dependencies.readRecoveryLock)) } };
 }
 
 /** @param dependencies - Native guarded maintenance owner, live bearer/recovery gates, local security and public canonical origin. @returns The composed bounded producer from logical reminders through whole original outbox; no provider call or scheduler is activated. */

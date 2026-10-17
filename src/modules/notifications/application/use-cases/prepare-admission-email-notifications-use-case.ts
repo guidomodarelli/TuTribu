@@ -19,14 +19,24 @@ export class PrepareAdmissionEmailNotificationsUseCase {
     return { status: code === ADMISSION_ERROR_CODE.operationUnresolved ? ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.unresolved : ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.failed, count: 0, code };
   }
 
-  /** @param deadlineAtMilliseconds - Existing host-run deadline; it is never extended for this phase. @returns Bounded confirmed work with omissions and uncertain commits visible, without a provider call or global-empty claim. */
+  /** @param deadlineAtMilliseconds - Existing host-run deadline; it is never extended for this phase. @returns The original combined logical-reminder and email preparation workflow, without sending a message. */
   async execute(deadlineAtMilliseconds: number): Promise<AdmissionNotificationProducerResult> {
+    return this.runBoundedPreparation(deadlineAtMilliseconds, true);
+  }
+
+  /** @param deadlineAtMilliseconds - Original shared maintenance deadline. @returns Only email source/group preparation when the maintenance owner composes logical reminders independently. */
+  async prepareGroups(deadlineAtMilliseconds: number): Promise<AdmissionNotificationProducerResult> {
+    return this.runBoundedPreparation(deadlineAtMilliseconds, false);
+  }
+
+  /** @param deadlineAtMilliseconds - Original host deadline, never extended. @param includeReminders - Explicit private composition, never browser input. @returns Bounded confirmed work with every omission or uncertainty visible. */
+  private async runBoundedPreparation(deadlineAtMilliseconds: number, includeReminders: boolean): Promise<AdmissionNotificationProducerResult> {
     const tribes: AdmissionNotificationProducerTribeResult[] = [];
     const notRun: AdmissionNotificationProducerStep = { status: ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.notRun, count: 0, code: null };
     let reminders = notRun, selection = notRun;
     let stoppedAtDeadline = this.runtime.now() >= deadlineAtMilliseconds;
     if (!Number.isFinite(deadlineAtMilliseconds)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-    if (!stoppedAtDeadline) {
+    if (!stoppedAtDeadline && includeReminders) {
       try { reminders = { status: ADMISSION_NOTIFICATION_PRODUCER_STEP_STATUS.completed, count: await this.producer.materializeReminders(), code: null }; }
       catch (error) { reminders = this.failed(error, ADMISSION_NOTIFICATION_PRODUCER_PHASE.reminders); }
     }
