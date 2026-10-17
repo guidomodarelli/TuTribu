@@ -8,7 +8,7 @@ export function applyAdmissionReviewTransition(review: AdmissionReviewDto, trans
   if (review.id !== transition.admissionRequestId || review.version >= transition.version) return review;
   return {
     ...review, status: transition.status, version: transition.version,
-    eligibleActions: [], needsVerification: false, eligibilityReasons: [], restrictions: { ...review.restrictions, requiresExceptionReason: false },
+    eligibleActions: [], needsVerification: false, pendingAgeThresholdReached: false, eligibilityReasons: [], restrictions: { ...review.restrictions, requiresExceptionReason: false },
   };
 }
 

@@ -23,7 +23,7 @@ function Providers({ children }: { children: ReactNode }) { return <AppRouterCon
 
 /** Provides only own public reviewer data and transport outcomes. */
 function fixture(selected = true) {
-  const request: AdmissionReviewDto = { id: requestId, status: "pending", version: 1, submittedAt: "2026-10-07T01:00:00Z", expiresAt: "2026-11-06T01:00:00Z", source: "common", needsVerification: false, eligibilityReasons: [], applicant: { id: "synthetic-applicant", name: "Solicitante sintético" }, rawContact: "applicant@example.test", contact: { type: "email", maskedValue: "a•••@example.test", evidenceKind: "declared" }, evidence: { kind: "declared" }, eligibleActions: ["reject", "approve"], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null }, applicantMessage: "Quiero participar." };
+  const request: AdmissionReviewDto = { id: requestId, status: "pending", version: 1, submittedAt: "2026-10-07T01:00:00Z", expiresAt: "2026-11-06T01:00:00Z", source: "common", needsVerification: false, pendingAgeThresholdReached: false, eligibilityReasons: [], applicant: { id: "synthetic-applicant", name: "Solicitante sintético" }, rawContact: "applicant@example.test", contact: { type: "email", maskedValue: "a•••@example.test", evidenceKind: "declared" }, evidence: { kind: "declared" }, eligibleActions: ["reject", "approve"], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null }, applicantMessage: "Quiero participar." };
   const state: Extract<AdmissionReviewPageState, { kind: "ready" }> = { kind: "ready", viewerId, slug, renderedAt: "2026-10-07T01:00:00Z", filters: DEFAULT_ADMISSION_REVIEW_SELECTION, page: { items: [request], nextCursor: null }, selected: selected ? request : null };
   const client = {
     viewer: vi.fn<AdmissionReviewBrowserClient["viewer"]>(async () => ({ status: "ready", value: { id: viewerId } })),
@@ -54,6 +54,24 @@ describe("visible reviewer inbox refresh", () => {
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
   });
   afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it.each([false, true])("should reconcile the server age highlight in the visible inbox or detail %s without another timer or route refresh", async (selected) => {
+    const data = fixture(selected);
+    const highlighted = { ...data.request, pendingAgeThresholdReached: true };
+    data.client.reviewList.mockResolvedValueOnce({ status: "ready", value: { items: [highlighted], nextCursor: null } });
+    data.client.reviewDetail.mockResolvedValueOnce({ status: "ready", value: highlighted });
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    expect(screen.queryByText("Pendiente hace tres días o más")).not.toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(screen.getByText("Pendiente hace tres días o más")).toBeVisible();
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(screen.queryByText("Pendiente hace tres días o más")).not.toBeInTheDocument();
+    expect(data.client.reviewList).toHaveBeenCalledTimes(2);
+    expect(data.client.reviewDetail).toHaveBeenCalledTimes(selected ? 2 : 0);
+    expect(data.client.decide).not.toHaveBeenCalled();
+    expect(data.client.decideBatch).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
 
   it("should show a newly available pending request after fifteen seconds without refreshing the route", async () => {
     const data = fixture(false);
@@ -180,6 +198,18 @@ describe("visible reviewer inbox refresh", () => {
 });
 
 describe("native reviewer container", () => {
+  it.each([false, true])("should preserve the server-provided age highlight in the initial inbox or detail %s", async (selected) => {
+    const data = fixture(selected);
+    data.request.pendingAgeThresholdReached = true;
+    const rendered = new DOMParser().parseFromString(renderToString(<Providers>{data.node}</Providers>), "text/html");
+    expect(rendered.body.textContent).toContain("Pendiente hace tres días o más");
+    render(data.node, { wrapper: Providers });
+    expect(screen.getByText("Pendiente hace tres días o más")).toBeVisible();
+    await waitFor(() => expect(data.client.viewer).toHaveBeenCalled());
+    expect(data.client.reviewList).not.toHaveBeenCalled();
+    expect(data.client.reviewDetail).not.toHaveBeenCalled();
+  });
+
   it("should withhold the history action in SSR until the current viewer check makes the detail interactive", async () => {
     const data = fixture();
     const document = new DOMParser().parseFromString(renderToString(<Providers>{data.node}</Providers>), "text/html");
@@ -212,14 +242,17 @@ describe("native reviewer container", () => {
 
   it("should retain a decided row that still matches all statuses and show its current terminal status", async () => {
     const data = fixture();
+    data.request.pendingAgeThresholdReached = true;
     data.state.filters = { limit: 25 };
     render(data.node, { wrapper: Providers }); await confirmDecision();
+    expect(screen.getByText("Pendiente hace tres días o más")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve }));
     await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete);
     await waitFor(() => expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.close }));
     expect(await screen.findByText(data.request.applicant.name)).toBeVisible();
     expect(screen.getByRole("heading", { name: data.request.applicant.name }).closest("li")).toHaveTextContent(/Aprobada · Solicitud común/);
+    expect(screen.queryByText("Pendiente hace tres días o más")).not.toBeInTheDocument();
     expect(data.client.reviewList).not.toHaveBeenCalled();
     expect(router.refresh).not.toHaveBeenCalled();
   });

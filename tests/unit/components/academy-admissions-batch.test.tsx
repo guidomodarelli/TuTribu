@@ -22,7 +22,7 @@ function Providers({ children }: { children: ReactNode }) { return <AppRouterCon
 
 /** @param index - Synthetic row identity. @returns One genuine public pending review projection. */
 function request(index: number): AdmissionReviewDto {
-  return { id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, status: "pending", version: 1, submittedAt: "2026-10-16T12:00:00Z", expiresAt: "2100-11-16T12:00:00Z", source: "common", needsVerification: false, eligibilityReasons: [], applicant: { id: `synthetic-batch-applicant-${index}`, name: `Persona ${index + 1}` }, rawContact: `persona${index + 1}@example.test`, contact: { type: "email", maskedValue: "p•••@example.test", evidenceKind: "declared" }, evidence: { kind: "declared" }, eligibleActions: ["approve", "reject"], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null } };
+  return { id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, status: "pending", version: 1, submittedAt: "2026-10-16T12:00:00Z", expiresAt: "2100-11-16T12:00:00Z", source: "common", needsVerification: false, pendingAgeThresholdReached: false, eligibilityReasons: [], applicant: { id: `synthetic-batch-applicant-${index}`, name: `Persona ${index + 1}` }, rawContact: `persona${index + 1}@example.test`, contact: { type: "email", maskedValue: "p•••@example.test", evidenceKind: "declared" }, evidence: { kind: "declared" }, eligibleActions: ["approve", "reject"], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null } };
 }
 
 /** @param count - Visible initial rows. @returns The actual route input and doubles of its owned transport only. */
