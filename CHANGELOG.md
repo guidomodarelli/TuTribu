@@ -165,6 +165,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los envíos de mensajería rechazan canales vacíos o no admitidos antes de contactar al proveedor.
 - Los avisos agrupados de admisión conservan un origen separado de los avisos individuales al retirar una tribu; el envío de esos grupos sigue en preparación.
 - La revisión de admisiones mantiene preparado el aviso accesible del resultado para que los lectores de pantalla puedan anunciar una decisión guardada o recuperada.
+- Una solicitud cuyo resultado sigue sin confirmar conserva su operación y permite consultarla, en lugar de mostrar un falso error de contrato o repetir la presentación.
 
 ### Security
 

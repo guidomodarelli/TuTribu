@@ -4,8 +4,49 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { createAdmissionApiClient } from "@/lib/academy-admissions/admission-api-client";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+import { admissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
+import { createAdmissionRouteBoundary } from "@/src/modules/academy-admissions/infrastructure/api/admission-route-http";
+import { ADMISSION_HTTP_OPERATION } from "@/src/modules/academy-admissions/constants/admission-http";
+import { OPERATION_STATE } from "@/src/constants/operation-state";
+import { HTTP_STATUS } from "@/src/constants/http-status";
 
 describe("admission browser API", () => {
+  it.each([OPERATION_STATE.started, OPERATION_STATE.completed])("should preserve an unresolved original when the real HTTP boundary returns 202 with %s metadata", async (state) => {
+    const operationId = randomUUID();
+    const boundary = createAdmissionRouteBoundary({ request: new Request("https://synthetic.invalid/api/tribes/synthetic-academy/admissions/submissions"), operation: ADMISSION_HTTP_OPERATION.submit, diagnostics: vi.fn() });
+    const response = boundary.failure(admissionFailure(ADMISSION_ERROR_CODE.operationUnresolved, { operation: { operationId, state } }));
+    expect(response.status).toBe(HTTP_STATUS.accepted);
+    const fetch = vi.fn(async () => response);
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+
+    expect(await client.submit("synthetic-academy", { operationId, confirmed: true, expectedPolicyVersion: 1 }, new AbortController().signal)).toMatchObject({ status: "failed", code: ADMISSION_ERROR_CODE.operationUnresolved, message: ADMISSION_ERROR_MESSAGE.operation_unresolved, uncertain: true });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("should reject unregistered or foreign 202 errors without repeating the write", async () => {
+    const operationId = randomUUID();
+    const error = { code: ADMISSION_ERROR_CODE.operationUnresolved, message: ADMISSION_ERROR_MESSAGE.operation_unresolved, requestId: randomUUID() };
+    const fetch = vi.fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(Response.json(error, { status: HTTP_STATUS.accepted }))
+      .mockResolvedValueOnce(Response.json({ ...error, operation: { operationId: randomUUID(), state: OPERATION_STATE.started } }, { status: HTTP_STATUS.accepted }));
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    const input = { operationId, confirmed: true as const, expectedPolicyVersion: 1 };
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      expect(await client.submit("synthetic-academy", input, new AbortController().signal)).toMatchObject({ status: "failed", code: ADMISSION_ERROR_CODE.publicContractUnusable, uncertain: true });
+      expect(fetch).toHaveBeenCalledTimes(attempt + 1);
+    }
+  });
+
+  it("should keep genuine 202 progress separate from an unresolved error", async () => {
+    const operationId = randomUUID();
+    const fetch = vi.fn(async () => Response.json({ state: OPERATION_STATE.started, operationId }, { status: HTTP_STATUS.accepted }));
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+
+    expect(await client.submit("synthetic-academy", { operationId, confirmed: true, expectedPolicyVersion: 1 }, new AbortController().signal)).toEqual({ status: "ready", value: { state: OPERATION_STATE.started, operationId } });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("should treat a completed original business denial as definitive and keep a registered started failure uncertain", async () => {
     const operationId = randomUUID(), fetch = vi.fn<typeof globalThis.fetch>();
     for (const state of ["completed", "started"] as const) fetch.mockResolvedValueOnce(Response.json({ code: "admission_ineligible", message: "Falta un requisito actual para resolver el ingreso. Consultá el estado de la solicitud.", requestId: randomUUID(), operation: { operationId, state } }, { status: 409 }));

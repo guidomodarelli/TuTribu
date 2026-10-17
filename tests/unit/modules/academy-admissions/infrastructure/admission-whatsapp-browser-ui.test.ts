@@ -26,6 +26,7 @@ import { admissionOutcomeSchema, createAdmissionOperationStateSchema } from "@/s
 import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/application/results/admission-public-result-schemas";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { HTTP_STATUS } from "@/src/constants/http-status";
+import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 
 /** @param response - Actual own submission reply. @param name - Synthetic engine and viewport identifier. @returns Whether accepted progress requires an explicit original-state read; diagnostics exclude payload values and identities. */
 async function inspectSubmissionReply(response: Response, name: string): Promise<boolean> {
@@ -37,10 +38,11 @@ async function inspectSubmissionReply(response: Response, name: string): Promise
   const started = progress.success && progress.data.state === OPERATION_STATE.started;
   const acceptedFailure = response.status() >= HTTP_STATUS.serverError && failure.success && failure.data.operation?.state === OPERATION_STATE.started;
   const directory = process.env[VALIDATION.captureDirectoryEnvironment];
-  if (directory) await writeFile(join(directory, `${name}.submission.json`), JSON.stringify({ status: response.status(), jsonReceived: value !== undefined, outcomeValid: outcome.success, progressValid: progress.success, errorValid: failure.success, code: failure.success ? failure.data.code : null, operationMatches: observedOperationId === expectedOperationId, outcomeIssues: outcome.success ? [] : outcome.error.issues.map((issue) => ({ path: issue.path, code: issue.code })) }));
+  if (directory) await writeFile(join(directory, `${name}.submission.json`), JSON.stringify({ status: response.status(), jsonReceived: value !== undefined, outcomeValid: outcome.success, progressValid: progress.success, errorValid: failure.success, code: failure.success ? failure.data.code : null, operationState: failure.success ? failure.data.operation?.state ?? null : null, operationMatches: observedOperationId === expectedOperationId, outcomeIssues: outcome.success ? [] : outcome.error.issues.map((issue) => ({ path: issue.path, code: issue.code })) }));
   const confirmed = (response.status() === HTTP_STATUS.ok || response.status() === HTTP_STATUS.created) && outcome.success;
   const acceptedProgress = response.status() === HTTP_STATUS.accepted && started;
-  expect(confirmed || acceptedProgress || acceptedFailure).toBe(true);
+  const acceptedUnresolved = response.status() === HTTP_STATUS.accepted && failure.success && failure.data.code === ADMISSION_ERROR_CODE.operationUnresolved && Boolean(failure.data.operation);
+  expect(confirmed || acceptedProgress || acceptedUnresolved || acceptedFailure).toBe(true);
   expect(observedOperationId === expectedOperationId).toBe(true);
   return !outcome.success;
 }
@@ -89,6 +91,21 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             await page.getByText(COPY.invalid, { exact: true }).waitFor(); expect(commonWrites).toBe(0);
             await number.fill("+1 (415) 555-2671"); await number.press("Tab");
             await inspectSurface(page, `${engineName}-${width}-common`, privateValues);
+            let unresolvedReplyInjected = false;
+            await page.route(VALIDATION.commonSubmissionRoute, async (route) => {
+              if (route.request().method() !== "POST") { await route.continue(); return; }
+              const response = await runPrivateBrowserRequest("receive_synthetic_common_reply", () => route.fetch());
+              let value: unknown;
+              try { value = await response.json(); } catch { value = undefined; }
+              const outcome = admissionOutcomeSchema.safeParse(value);
+              const originalOperationId = (route.request().postDataJSON() as { operationId: string }).operationId;
+              const confirmed = (response.status() === HTTP_STATUS.ok || response.status() === HTTP_STATUS.created) && outcome.success && outcome.data.operationId === originalOperationId;
+              const directory = process.env[VALIDATION.captureDirectoryEnvironment];
+              if (directory) await writeFile(join(directory, `${engineName}-${width}.common-original.json`), JSON.stringify({ status: response.status(), outcomeValid: outcome.success, operationMatches: outcome.success && outcome.data.operationId === originalOperationId, unresolvedReplyInjected: confirmed }));
+              if (!confirmed) { await route.fulfill({ response }); return; }
+              unresolvedReplyInjected = true;
+              await route.fulfill({ response, status: HTTP_STATUS.accepted, json: { code: ADMISSION_ERROR_CODE.operationUnresolved, message: ADMISSION_ERROR_MESSAGE.operation_unresolved, requestId: randomUUID(), operation: { operationId: originalOperationId, state: OPERATION_STATE.completed } } });
+            });
             const commonResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/submissions"));
             await page.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();
             if (await inspectSubmissionReply(await commonResponse, `${engineName}-${width}-common`)) {
@@ -96,6 +113,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
               await page.getByRole("button", { name: ADMISSION_UI_COPY.read, exact: true }).click();
             }
             await page.getByRole("link", { name: "Ver solicitud", exact: true }).waitFor(); expect(commonWrites).toBe(1);
+            expect(unresolvedReplyInjected).toBe(true); await page.unroute(VALIDATION.commonSubmissionRoute);
             const request = await database.withContext({ userId: common.userId, email: common.email }, async (transaction) => (await transaction.execute<{ id: string }>(sql`select id,source,status,version,contact_type,normalized_contact,evidence_source,submitted_at,expires_at from public.academy_admission_requests where tribe_id=${fixture.tribeId} and user_id=${common.userId}`)).rows[0]);
             let dropped = false;
             await page.route("**/requests/*/whatsapp", async (route) => { if (route.request().method() === "POST" && !dropped) { dropped = true; const response = await runPrivateBrowserRequest("receive_synthetic_whatsapp_reply", () => route.fetch()); expect(response.status()).toBe(200); await route.abort(); } else await route.continue(); });
@@ -155,7 +173,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             expect(personalRows).toEqual([{ source: "personal", status: "pending", version: personalOutcome.request.version, contact_type: "email", normalized_contact: personal.email, whatsapp_number: "+14155552671" }]);
             expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.message_deliveries where tribe_id=${fixture.tribeId}) as deliveries,(select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and user_id in (${common.userId},${personal.userId})) as memberships`)).rows)).toEqual([{ deliveries: 0, memberships: 0 }]);
             expect(failures).toEqual([]);
-            const progress = { stage: "whatsapp_views_passed", engine: engineName, width, surfaces: 5, sends: 0, submissionPosts: commonWrites, correctionPosts: correctionWrites };
+            const progress = { stage: "whatsapp_views_passed", engine: engineName, width, surfaces: 5, sends: 0, submissionPosts: commonWrites, correctionPosts: correctionWrites, unresolvedReplyRecovered: unresolvedReplyInjected };
             const directory = process.env[VALIDATION.captureDirectoryEnvironment];
             if (directory) await writeFile(join(directory, `${engineName}-${width}.passed.json`), JSON.stringify(progress));
             process.stdout.write(JSON.stringify(progress) + "\n");

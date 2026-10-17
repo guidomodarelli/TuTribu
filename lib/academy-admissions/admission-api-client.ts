@@ -48,7 +48,15 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
   const failed = (code: typeof ADMISSION_ERROR_CODE[keyof typeof ADMISSION_ERROR_CODE], uncertain = false): AdmissionBrowserResult<never> => ({ status: "failed", code, message: ADMISSION_ERROR_MESSAGE[code], uncertain });
   const base = (slug: string) => `${ADMISSION_API_PREFIX}/${encodeURIComponent(slug)}/${ADMISSION_API_SEGMENT}`;
 
-  /** Reads only own public JSON contracts; a malformed successful write remains ambiguous. */
+  /**
+   * Consumes own result/error DTOs without turning accepted unresolved work into success or rollback.
+   * @param url - Same-origin own route.
+   * @param schema - Public result contract selected by the caller.
+   * @param signal - Original caller cancellation.
+   * @param body - Optional original write intent.
+   * @param method - Explicit write method when it differs from POST.
+   * @returns Guarded data, cancellation or safe failure retaining uncertainty and original identity.
+   */
   async function request<Value>(url: string, schema: z.ZodType<Value>, signal: AbortSignal, body?: object, method?: "POST" | "PUT"): Promise<AdmissionBrowserResult<Value>> {
     const writing = body !== undefined;
     if (signal.aborted) return { status: "aborted" };
@@ -56,10 +64,10 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
       const response = await transport(url, { method: writing ? method ?? "POST" : "GET", credentials: "same-origin", cache: "no-store", signal, ...(writing ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}) });
       const value: unknown = await response.json();
       if (signal.aborted) return { status: "aborted" };
-      if (!response.ok) {
-        const error = admissionPublicErrorSchema.safeParse(value);
+      const error = !response.ok || response.status === HTTP_STATUS.accepted ? admissionPublicErrorSchema.safeParse(value) : null;
+      if (error && (!response.ok || error.success && error.data.code === ADMISSION_ERROR_CODE.operationUnresolved)) {
         if (writing && error.success && error.data.operation && (!body || !("operationId" in body) || typeof body.operationId !== "string" || error.data.operation.operationId !== body.operationId.toLowerCase())) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
-        return error.success ? failed(error.data.code, writing && (response.status >= HTTP_STATUS.serverError || error.data.operation?.state === OPERATION_STATE.started)) : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
+        return error.success ? failed(error.data.code, writing && (error.data.code === ADMISSION_ERROR_CODE.operationUnresolved || response.status >= HTTP_STATUS.serverError || error.data.operation?.state === OPERATION_STATE.started)) : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
       }
       const parsed = schema.safeParse(value);
       return parsed.success ? { status: "ready", value: parsed.data } : failed(ADMISSION_ERROR_CODE.publicContractUnusable, writing);
