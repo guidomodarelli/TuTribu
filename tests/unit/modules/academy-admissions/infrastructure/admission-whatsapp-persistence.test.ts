@@ -50,6 +50,30 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native declare
       expect(await data.writer.decide({ ...decision, operationId: randomUUID(), expectedVersion: 2 })).toMatchObject({ state: "completed", result: { status: "approved", version: 3 } });
       expect(await data.writer.updateWhatsappNumber(intent)).toMatchObject({ state: "completed", replayed: true, result: { version: 2 } });
       await expect(data.writer.updateWhatsappNumber({ ...intent, operationId: randomUUID(), expectedVersion: 3, whatsappNumber: "+442079460018" })).rejects.toMatchObject({ code: "request_conflict" });
+      const otherScope = { ...scope, userId: other.applicantId, sessionId: other.sessionId };
+      const otherEdit = { ...otherScope, admissionRequestId: other.admissionRequestId, operationId: randomUUID(), expectedVersion: 1, confirmed: true as const, whatsappNumber: "+14155552671" };
+      const otherDecision = { ...decision, admissionRequestId: other.admissionRequestId, operationId: randomUUID(), expectedVersion: 1 };
+      const [requiredEdit, incompleteApproval] = await Promise.allSettled([data.writer.updateWhatsappNumber(otherEdit), data.writer.decide(otherDecision)]);
+      expect(requiredEdit).toMatchObject({ status: "fulfilled", value: { state: "completed", result: { version: 2, changed: true } } });
+      expect(incompleteApproval.status).toBe("rejected");
+      if (incompleteApproval.status !== "rejected") throw new Error("Incomplete concurrent approval unexpectedly committed");
+      expect(["request_conflict", "admission_ineligible"]).toContain(incompleteApproval.reason.code);
+      await database.withContext(data.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set requires_whatsapp_number=false,version=version+1 where tribe_id=${data.tribeId}`));
+      const [edited, approved] = await Promise.allSettled([
+        data.writer.updateWhatsappNumber({ ...otherEdit, operationId: randomUUID(), expectedVersion: 2, whatsappNumber: "+442079460018" }),
+        data.writer.decide({ ...otherDecision, operationId: randomUUID(), expectedVersion: 2 }),
+      ]);
+      expect([edited, approved].filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      const otherState = await database.withContext(data.own, async (transaction) => (await transaction.execute(sql`select status,version,whatsapp_number,(select count(*)::int from public.tribe_members where tribe_id=${data.tribeId} and user_id=${other.applicantId}) as memberships from public.academy_admission_requests where id=${other.admissionRequestId}`)).rows[0]);
+      if (edited.status === "fulfilled") {
+        expect(edited.value).toMatchObject({ state: "completed", result: { version: 3, changed: true } });
+        expect(approved).toMatchObject({ status: "rejected", reason: { code: "request_conflict" } });
+        expect(otherState).toEqual({ status: "pending", version: 3, whatsapp_number: "+442079460018", memberships: 0 });
+      } else {
+        expect(edited).toMatchObject({ status: "rejected", reason: { code: "request_conflict" } });
+        expect(approved).toMatchObject({ status: "fulfilled", value: { state: "completed", result: { status: "approved", version: 3 } } });
+        expect(otherState).toEqual({ status: "approved", version: 3, whatsapp_number: "+14155552671", memberships: 1 });
+      }
       expect(await database.withContext(data.own, async (transaction) => (await transaction.execute(sql`select verification_epoch,(select count(*)::int from public.message_deliveries where tribe_id=${data.tribeId}) as deliveries,(select count(*)::int from public.tribe_members where tribe_id=${data.tribeId} and user_id=${pending.applicantId} and role='tribemate') as memberships from public.academy_admission_policies where tribe_id=${data.tribeId}`)).rows)).toEqual([{ verification_epoch: 1, deliveries: 0, memberships: 1 }]);
     });
   }, ADMISSION_WHATSAPP_SQL_TIMEOUT_MS);

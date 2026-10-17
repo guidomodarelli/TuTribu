@@ -1,6 +1,6 @@
 # WhatsApp declarado para revisión humana
 
-FR-143–FR-146 y WA-01–WA-05 amplían el contrato. T213 y T214 están completas; T215–T217 conservan integración, concurrencia y pantallas pendientes. Las 71 aprobaciones originales no certifican esta ampliación.
+FR-143–FR-146 y WA-01–WA-05 amplían el contrato. T213–T215 están completas; T216/T217 conservan el cierre de interfaz, validación y manuales pendientes. Las 71 aprobaciones originales no certifican esta ampliación.
 
 ## Contrato y decisiones implementadas
 
@@ -22,6 +22,18 @@ La repetición `.git/admission-whatsapp-native-744d4e7a/` terminó con **exit 0,
 
 La consulta final confirmó ausencia de ambas ramas de la repetición y de la diagnóstica y las tres originales conservadas, tres en total (`.git/codex-whatsapp-native-cleanup.json`). No hubo destinatarios reales ni envíos. Las dos revisiones del backend terminaron sin hallazgos accionables y conservan sus hashes.
 
-## Alcance pendiente
+## Concurrencia y conservación de la política: T215 completa
 
-Faltan el ensayo simultáneo de edición/decisión y el caso del writer de política con este flag, además de controles del líder, formulario común/personal, edición pendiente y recuperación visibles. Faltan build y recorridos completos Chromium/WebKit 390/1280, manuales y changelog de la interfaz. T198/T208 y los demás gates originales permanecen abiertos.
+La selección ampliada inicial `.git/admission-whatsapp-concurrency-native-cba6e0ff/` terminó con tres casos aprobados y uno fallido, fuentes estables. El caso previo de auditoría detectó que la proyección SQL de una tribu retirada descartaba el nuevo flag. Se agregó la migración versionada `20261017191000_preserve_declared_whatsapp_audit.sql`: selecciona el campo sólo si existía y admite el motivo seguro de WhatsApp obligatorio, sin conservar causas o campos arbitrarios ni inventar defaults históricos.
+
+La repetición `.git/admission-whatsapp-concurrency-native-bef6a8d2/` terminó con **exit 0, cuatro casos seleccionados aprobados, cero fallidos**, 3.291 inputs estables, cero diferencias y herramientas estables. Los dieciocho casos ajenos al filtro no se ejecutaron y no se presentan como aprobados. Los cuatro seleccionados incluyen las dos integraciones previas ampliadas, política con cliente anterior/canal caído y auditoría con respuesta perdida y retiro físico.
+
+Se ejercieron simultáneamente edición y aprobación: sin número obligatorio la revisión no aprobó datos incompletos; con requisito opcional y la misma versión, sólo una acción confirmó el incremento y la otra detectó conflicto. También se comprobó que el flag aislado funciona sin readiness de mensajería, conserva época y entregas en cero, mantiene un valor exigido ante un cliente que lo omite y rechaza al líder degradado. La auditoría retirada conserva los snapshots actuales, preserva la ausencia histórica y descarta diagnósticos desconocidos.
+
+La comprobación oficial posterior confirmó **tres ramas originales y ninguna temporal de validación** (`.git/codex-whatsapp-concurrency-cleanup.json`), después de consumir el productor. No se usó SQL de producción ni se enviaron mensajes. T215 queda completa; el inventario pasa a **200 completas, 17 pendientes, 217 totales**.
+
+## Avance de interfaz y alcance pendiente
+
+La interfaz tiene controles de política, presentación común/personal, revisión con nombre y número, y edición propia mediante el motor de recuperación existente. La suite local de cinco archivos pasó 115 casos y la ampliada 1.138; 408 integraciones fuera de esa corrida permanecieron omitidas. Son cohortes anteriores al cierre de la revisión de privacidad al restaurar desde bfcache; sus recibos no sustituyen la repetición final. La revisión encontró dos exposiciones visuales del número ante fallo de cuenta; se corrigieron y se agregaron escenarios de ocultación/recuperación.
+
+La primera compilación aislada terminó correctamente con 3.683 inputs estables, antes de la última corrección visual. Faltan la compilación de ese cierre, los recorridos reales Chromium/WebKit 390/1280 y la validación final de manuales/capturas/source-trace. T216/T217 no se consideran cerradas por estos avances. T198/T208 y los demás gates originales permanecen abiertos.

@@ -34,6 +34,7 @@ import { join } from "node:path";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
 import { expectAdmissionProofInvalidationAudits } from "@/tests/support/admission-proof-invalidation-audit-assertions";
 import { PostgresAdmissionActivityReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activity-reader";
+import { ADMISSION_WHATSAPP_SQL_TIMEOUT_MS } from "@/tests/support/constants/admission-whatsapp-number";
 
 /** @param database - This run's owned branch with native pg/Drizzle. @returns Current signed leader, policy repository and preparation-port controls. */
 async function preparePolicy(database: AcademyAdmissionTestDatabase) {
@@ -77,6 +78,31 @@ async function preparePolicy(database: AcademyAdmissionTestDatabase) {
 }
 
 describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admission policy persistence", () => {
+  it("should preserve the declared WhatsApp requirement across old clients and messaging outages", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const data = await preparePolicy(database);
+      await data.initialize();
+      const command = { context: data.context(REAUTHENTICATION_OPERATION.updateAdmissionPolicy), operationId: randomUUID(), type: "update_admission_policy" as const, confirmed: true as const, expectedVersion: 1, patch: { requiresWhatsappNumber: true } };
+      expect(await data.repository.update(command)).toMatchObject({ state: "completed", result: { version: 2, verificationEpoch: 1, changed: true } });
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: true, version: 2, verificationEpoch: 1 });
+      expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 2, patch: { isOpen: true } })).toMatchObject({ state: "completed", result: { version: 3, changed: true } });
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: true, isOpen: true, version: 3 });
+      expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 3 })).toMatchObject({ state: "completed", result: { version: 3, changed: false } });
+      await expect(data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 2 })).rejects.toMatchObject({ code: "policy_conflict" });
+      data.setPrepared(true);
+      expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 3, patch: { requiresAdditionalVerification: true } })).toMatchObject({ state: "completed", result: { version: 4, verificationEpoch: 2 } });
+      expect(await data.repository.activate({ context: data.context(REAUTHENTICATION_OPERATION.activateAdmissionPolicy), operationId: randomUUID(), type: "activate_admission_policy", confirmed: true, expectedVersion: 4 })).toMatchObject({ state: "completed", result: { version: 5, controlActivated: true } });
+      const preparedReads = data.preparationCount();
+      data.setPrepared(false); data.setPreparationFailure(true);
+      expect(await data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 5, patch: { requiresWhatsappNumber: false } })).toMatchObject({ state: "completed", result: { version: 6, verificationEpoch: 2, changed: true } });
+      expect(data.preparationCount()).toBe(preparedReads);
+      expect((await data.reader.read(data.readContext)).policy).toMatchObject({ requiresWhatsappNumber: false, requiresAdditionalVerification: true, version: 6, verificationEpoch: 2 });
+      await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.tribe_members set role='guardian' where tribe_id=${data.tribeId} and user_id=${data.fixture.userId}`));
+      await expect(data.repository.update({ ...command, operationId: randomUUID(), expectedVersion: 6 })).rejects.toMatchObject({ code: "permission_denied" });
+      expect(await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute(sql`select requires_whatsapp_number,version,verification_epoch,(select count(*)::int from public.message_deliveries where tribe_id=${data.tribeId}) as deliveries from public.academy_admission_policies where tribe_id=${data.tribeId}`)).rows)).toEqual([{ requires_whatsapp_number: false, version: 6, verification_epoch: 2, deliveries: 0 }]);
+    });
+  }, ADMISSION_WHATSAPP_SQL_TIMEOUT_MS);
+
   it("should preserve the original actor and policy audit once when a committed reply is lost or replayed", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       // Arrange: native current leadership, recency and the real policy/operation owners.
@@ -120,6 +146,8 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       await database.withContext({ userId: null, email: null }, async (transaction) => {
         const polluted = { previousVersion: 3, fromPolicy: activated, toPolicy: { ...activated, apiKey: "synthetic-private-key" }, apiKey: "synthetic-private-key", providerBody: { contact: "hidden@example.test" } };
         expect((await transaction.execute<{ metadata: unknown }>(sql`select public.project_retired_admission_owner_metadata('admission_policy','pause_admission_policy',${JSON.stringify(polluted)}::jsonb) as metadata`)).rows).toEqual([{ metadata: { previousVersion: 3, fromPolicy: activated, toPolicy: activated } }]);
+        const { requiresWhatsappNumber: _omittedRequirement, ...historicalPolicy } = activated;
+        expect((await transaction.execute(sql`select public.project_retired_admission_policy_snapshot(${JSON.stringify(historicalPolicy)}::jsonb) as snapshot,public.project_retired_admission_owner_cause('whatsapp_number_required') as cause,public.project_retired_admission_owner_cause('synthetic-private-cause') as unknown_cause`)).rows).toEqual([{ snapshot: historicalPolicy, cause: "whatsapp_number_required", unknown_cause: null }]);
         await transaction.execute(sql`delete from public.tribes where id=${data.tribeId}`);
         expect((await transaction.execute(sql`select id,metadata from public.academy_admission_retired_audit_events where tribe_id=${data.tribeId} and resource_type='admission_policy' order by resource_version`)).rows).toEqual(beforeDeletion);
       });

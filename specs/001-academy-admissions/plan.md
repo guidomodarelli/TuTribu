@@ -6,7 +6,7 @@
 
 **Estado del baseline inicial**: fases 0 y 1 de diseño completadas; revisión I1/U1 incorporada y tareas/trazabilidad sincronizadas en `7198047f126bcde6b0a5f0cdb60abf4191903e10`. T001–T050 y T059–T062 completadas (54 de 212); bases parciales de dominio, auth, desafíos, crypto y contratos con sus pruebas ejecutadas, ver [dominio](validation/domain-baseline.md), [auth](validation/auth-baseline.md), [desafíos/crypto](validation/challenge-crypto-baseline.md), [contratos](validation/resource-contract-baseline.md), [HTTP/contexto](validation/http-boundary-baseline.md) y [gates](validation/operational-gates.md). El baseline SQL real reprodujo tabla de policy ausente. La persistencia privada de conexiones/intentos agrega evidencia de concurrencia, países y recuperación en [messaging-persistence-baseline.md](validation/messaging-persistence-baseline.md); el [dispatcher privado](validation/message-dispatch-baseline.md), la [configuración de uso](validation/messaging-usage-configuration-baseline.md) y la [procedencia paga/reconciliación](validation/subscription-membership-baseline.md) tienen evidencia adicional. Los escritores, rutas, migraciones de integración y pruebas operativas de producto siguen pendientes. El usuario autorizó commit y push de avances con `--no-verify` y confirmó la revisión humana completa.
 
-**Estado actual de WhatsApp**: T213/T214 completas; T215–T217 pendientes. Hay 199 tareas completas y 18 pendientes de 217; ver [evidencia y alcance](validation/whatsapp-number.md). Las comprobaciones iniciales descritas arriba son históricas.
+**Estado actual de WhatsApp**: T213–T215 completas; T216/T217 pendientes. Hay 200 tareas completas y 17 pendientes de 217; ver [evidencia y alcance](validation/whatsapp-number.md). Las comprobaciones iniciales descritas arriba son históricas.
 
 ## Summary
 
@@ -22,7 +22,7 @@ Módulos verticales `academy-admissions` y `messaging` con puertos propios, exte
 
 **Language/Version**: TypeScript 7; Next.js 16.3.4 App Router y React 19.3; Node `24.21.0` según `.nvmrc` y pnpm `12.6.0`, usados en la preparación y validación. Lockfile es autoridad de versiones.
 
-**Primary Dependencies**: Better Auth 1.6.11/Drizzle adapter, Drizzle 0.45.2, pg 8.21 y pg-cloudflare 1.4, Zod 4, beez-ui 0.10, motion 12, libphonenumber-js 1.13.3, OpenNext Cloudflare 1.20.6. SDK oficial `@zavudev/sdk@0.57.0` incorporado con manifest/lockfile coordinados y age/frozen install respetados. Su instalación no acredita la integración productiva ni OG-03. Reutilizar verificador Google existente, sin agregar otra librería JWT por duplicación.
+**Primary Dependencies**: Better Auth 1.6.11/Drizzle adapter, Drizzle 0.45.2, pg 8.21 y pg-cloudflare 1.4, Zod 4, beez-ui 0.13.0, motion 12, libphonenumber-js 1.13.3, OpenNext Cloudflare 1.20.6. SDK oficial `@zavudev/sdk@0.57.0` incorporado con manifest/lockfile coordinados y age/frozen install respetados. Su instalación no acredita la integración productiva ni OG-03. Reutilizar verificador Google existente, sin agregar otra librería JWT por duplicación.
 
 **Storage**: Neon Postgres shared schema; SQL versionado como fuente de policies/guards. Nuevos recursos de admisión/mensajería/auth y extensiones de membresía/notificaciones; crypto envelopes privados, keyrings/época externa en secretos del hosting. R2 es integración existente, no ledger de revocación ya provisto; alternativa no seleccionada.
 
