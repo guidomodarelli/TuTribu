@@ -23,6 +23,12 @@ import { createAdmissionReviewFilterDraft, parseAdmissionReviewFilterDraft, buil
 import type { AdmissionReviewSelection } from "@/src/modules/academy-admissions/application/results/admission-review-selection";
 import { buildAdmissionReviewHistoryRoute } from "@/lib/academy-admissions/admission-review-history-routes";
 import { applyAdmissionReviewTransition, matchesAdmissionReviewTransitionSelection } from "@/src/modules/academy-admissions/application/results/admission-review-transition";
+import { useAdmissionNotificationRefresh } from "@/hooks/use-admission-notification-refresh";
+import { useAdmissionViewFeedback } from "@/hooks/use-admission-view-feedback";
+import { invalidateAdmissionNotificationRefresh } from "@/lib/notifications/admission-notification-refresh-store";
+import { readVisibleAdmissionReviewSnapshot } from "@/lib/academy-admissions/admission-review-refresh-client";
+import { NOTIFICATION_REFRESH_OUTCOME } from "@/src/modules/notifications/constants/admission-notification-refresh";
+import type { AdmissionNotificationRefreshOutcome } from "@/src/modules/notifications/application/results/notification-refresh-state";
 
 /** Public props contain the server snapshot and an optional own transport port for behavioral tests. */
 type ReviewContainerProps = { initialState: AdmissionReviewPageState; client?: AdmissionReviewBrowserClient };
@@ -41,36 +47,39 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   const [fresh, setFresh] = useState(false), [confirmed, setConfirmed] = useState(false), [canRetry, setCanRetry] = useState(false);
   const [privateVisible, setPrivateVisible] = useState(true);
   const [internalReason, setInternalReason] = useState(""), [externalMessage, setExternalMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null), [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const { errorMessage, setErrorMessage, setReadErrorMessage, clearReadError } = useAdmissionViewFeedback();
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const pending = useRef<AdmissionReviewIntent | null>(null), currentSelected = useRef(selected), loaded = useRef(false), busy = useRef(false);
   const readController = useRef<AbortController | null>(null), writeController = useRef<AbortController | null>(null);
   const consumedSnapshotAt = useRef<string | null>(null);
+  const visibleReadRevision = useRef(0), loadedPageCount = useRef(1);
 
   /** Hides previous-account or revoked-audience facts before showing recovery controls. */
   const hidePrivate = useCallback((message: string, changed = false) => {
-    setItems([]); setSelected(null); currentSelected.current = null; setCursor(null); setFresh(false); setConfirmed(false); setCanRetry(false);
+    setItems([]); setSelected(null); currentSelected.current = null; setCursor(null); setFresh(false); setConfirmed(false); setCanRetry(false); setPrivateVisible(false);
     setInternalReason(""); setExternalMessage(""); setErrorMessage(message);
     if (changed) setPhase(ADMISSION_REVIEW_PHASE.changedViewer);
-  }, []);
+  }, [setErrorMessage]);
 
-  /** Validates native identity before every read/write and again before publishing asynchronous results. */
-  const checkViewer = useCallback(async (signal: AbortSignal): Promise<boolean> => {
+  /** @param signal - Original current read or write. @param quiet - Keeps background transport failures separate from existing form feedback. @returns Current native identity without inheriting another account's state. */
+  const checkViewer = useCallback(async (signal: AbortSignal, quiet = false): Promise<boolean> => {
     if (!ready || signal.aborted) return false;
     const viewer = await client.viewer(signal);
     if (signal.aborted || viewer.status === "aborted") return false;
-    if (viewer.status === "failed") { setPrivateVisible(false); setFresh(false); setErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); return false; }
+    if (viewer.status === "failed") { if (!quiet) { setPrivateVisible(false); setFresh(false); setReadErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); } return false; }
     if (viewer.value?.id !== ready.viewerId) { hidePrivate(ADMISSION_REVIEW_UI_COPY.changedViewer, true); return false; }
     return true;
-  }, [client, ready, hidePrivate]);
+  }, [client, ready, hidePrivate, setReadErrorMessage]);
 
-  /** Current auth/permission denial clears stale private data; recoverable transport errors keep edits disabled. */
-  const readFailure = useCallback((result: { code: string; message: string }) => {
+  /** @param result - Safe owned failure; denial clears private data. @param options - Action feedback remains visible after a successful resource refresh. */
+  const handleResourceFailure = useCallback((result: { code: string; message: string }, options?: { readonly action: boolean }) => {
     if (result.code === ADMISSION_ERROR_CODE.authenticationRequired || result.code === ADMISSION_ERROR_CODE.permissionDenied) hidePrivate(result.message);
-    else { setFresh(false); setErrorMessage(result.message); }
-  }, [hidePrivate]);
+    else { setFresh(false); if (options?.action) setErrorMessage(result.message); else setReadErrorMessage(result.message); }
+  }, [hidePrivate, setErrorMessage, setReadErrorMessage]);
 
   /** Applies only minimal confirmed resource changes; older replay cannot replace newer reviewer data. */
   const applyTransition = useCallback((result: AdmissionTransitionResult) => {
+    visibleReadRevision.current += 1;
     setItems((current) => current.flatMap((request) => {
       const next = applyAdmissionReviewTransition(request, result);
       return next === request || matchesAdmissionReviewTransitionSelection(next, appliedFilters) ? [next] : [];
@@ -78,6 +87,34 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
     setSelected((current) => current ? applyAdmissionReviewTransition(current, result) : null);
     if (currentSelected.current) currentSelected.current = applyAdmissionReviewTransition(currentSelected.current, result);
   }, [appliedFilters]);
+
+  /** Refreshes the already loaded window without clearing selection, drafts or confirmation for equal data. */
+  const refreshVisibleReview = useCallback(async (signal: AbortSignal): Promise<AdmissionNotificationRefreshOutcome> => {
+    if (!ready || busy.current || pending.current) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+    const revision = visibleReadRevision.current, selectedId = currentSelected.current?.id;
+    const current = () => !signal.aborted && revision === visibleReadRevision.current && !busy.current && !pending.current && currentSelected.current?.id === selectedId;
+    try {
+      if (!await checkViewer(signal, true)) { if (!signal.aborted) setFresh(false); return signal.aborted ? NOTIFICATION_REFRESH_OUTCOME.skipped : NOTIFICATION_REFRESH_OUTCOME.failed; }
+      const snapshot = await readVisibleAdmissionReviewSnapshot({ client, slug: ready.slug, filters: appliedFilters, pages: loadedPageCount.current, selectedId, signal, isCurrent: current });
+      if (!current() || snapshot.status === "aborted") return NOTIFICATION_REFRESH_OUTCOME.skipped;
+      if (snapshot.status === "failed") {
+        if (snapshot.code === ADMISSION_ERROR_CODE.authenticationRequired || snapshot.code === ADMISSION_ERROR_CODE.permissionDenied) handleResourceFailure(snapshot);
+        else setFresh(false);
+        return NOTIFICATION_REFRESH_OUTCOME.failed;
+      }
+      if (!await checkViewer(signal, true)) { if (!signal.aborted) setFresh(false); return signal.aborted ? NOTIFICATION_REFRESH_OUTCOME.skipped : NOTIFICATION_REFRESH_OUTCOME.failed; }
+      if (!current()) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+      setItems((previous) => JSON.stringify(previous) === JSON.stringify(snapshot.value.items) ? previous : snapshot.value.items);
+      setCursor(snapshot.value.nextCursor);
+      if (JSON.stringify(currentSelected.current) !== JSON.stringify(snapshot.value.selected)) { setSelected(snapshot.value.selected); currentSelected.current = snapshot.value.selected; setConfirmed(false); }
+      setFresh(true); clearReadError();
+      return NOTIFICATION_REFRESH_OUTCOME.refreshed;
+    } catch {
+      if (!current()) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+      setFresh(false); return NOTIFICATION_REFRESH_OUTCOME.failed;
+    }
+  }, [ready, client, appliedFilters, checkViewer, handleResourceFailure, clearReadError]);
+  const { refreshUnavailable: reviewRefreshUnavailable, clearRefreshFailure } = useAdmissionNotificationRefresh({ enabled: Boolean(ready && privateVisible && phase !== ADMISSION_REVIEW_PHASE.changedViewer && !navigating), paused: phase !== ADMISSION_REVIEW_PHASE.idle, scopeKey: ready ? `${ready.viewerId}:${ready.slug}` : "", refresh: refreshVisibleReview });
 
   /** Reads the original operation first, then current inbox/detail; absence never manufactures started work. */
   const readCurrent = useCallback(async (signal: AbortSignal, selectionId?: string, append = false, after?: string | null, useServerSnapshot = false) => {
@@ -106,32 +143,34 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
             } else {
               const expected = original.input.decision === ADMISSION_DECISION.approve ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected;
               if (operation.result.admissionRequestId !== original.requestId.toLowerCase() || operation.result.status !== expected || operation.result.version !== original.input.expectedVersion + 1) { setErrorMessage(ADMISSION_REVIEW_UI_COPY.readFailed); return; }
-              writeAdmissionReviewIntent(ready.viewerId, ready.slug, null); pending.current = null; applyTransition(operation.result); setStatusMessage(ADMISSION_REVIEW_UI_COPY.recovered);
+              writeAdmissionReviewIntent(ready.viewerId, ready.slug, null); pending.current = null; applyTransition(operation.result); setStatusMessage(ADMISSION_REVIEW_UI_COPY.recovered); invalidateAdmissionNotificationRefresh();
             }
           }
         } else if (recovery.code === ADMISSION_ERROR_CODE.resourceUnavailable) setCanRetry(true);
-        else { readFailure(recovery); return; }
+        else { handleResourceFailure(recovery); return; }
         selectionId = original.requestId;
       }
       const fromSnapshot = useServerSnapshot && !original && (!selectionId || selectionId === ready.selected?.id);
       const page = fromSnapshot ? { status: "ready" as const, value: ready.page } : await client.reviewList(ready.slug, append ? after ?? null : null, signal, ready.filters ?? DEFAULT_ADMISSION_REVIEW_SELECTION);
       if (signal.aborted || page.status === "aborted") return;
-      if (page.status === "failed") { readFailure(page); return; }
+      if (page.status === "failed") { handleResourceFailure(page); return; }
       const detail = fromSnapshot ? ready.selected ? { status: "ready" as const, value: ready.selected } : null : selectionId ? await client.reviewDetail(ready.slug, selectionId, signal) : null;
       if (signal.aborted || detail?.status === "aborted") return;
-      if (detail?.status === "failed") { readFailure(detail); return; }
+      if (detail?.status === "failed") { handleResourceFailure(detail); return; }
       if (!await checkViewer(signal) || signal.aborted || readController.current?.signal !== signal) return;
       setItems((current) => append ? [...current, ...page.value.items.filter((request) => !current.some((existing) => existing.id === request.id))] : page.value.items);
+      loadedPageCount.current = append ? loadedPageCount.current + 1 : 1;
       setCursor(page.value.nextCursor);
       const selectedValue = detail?.status === "ready" ? detail.value : null;
-      setSelected(selectedValue); currentSelected.current = selectedValue; setPrivateVisible(true); setFresh(true);
+      setSelected(selectedValue); currentSelected.current = selectedValue; setPrivateVisible(true); setFresh(true); clearReadError(); clearRefreshFailure();
     } catch { if (!signal.aborted) { setFresh(false); setErrorMessage(ADMISSION_REVIEW_UI_COPY.storageFailed); } }
     finally { if (!signal.aborted) setPhase((current) => current === ADMISSION_REVIEW_PHASE.changedViewer ? current : pending.current ? ADMISSION_REVIEW_PHASE.uncertain : ADMISSION_REVIEW_PHASE.idle); }
-  }, [ready, client, checkViewer, readFailure, applyTransition]);
+  }, [ready, client, checkViewer, handleResourceFailure, applyTransition, setErrorMessage, clearReadError, clearRefreshFailure]);
 
   /** Explicit interactions share one cancellable read slot; a concurrent write cannot be replaced by a read. */
   const launchRead = useCallback((selectionId?: string, append = false, after?: string | null) => {
     if (busy.current) return;
+    visibleReadRevision.current += 1;
     if (selectionId && selectionId !== currentSelected.current?.id) setStatusMessage(null);
     readController.current?.abort();
     const controller = new AbortController(); readController.current = controller;
@@ -140,12 +179,13 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   }, [readCurrent]);
 
   useEffect(() => {
+    visibleReadRevision.current += 1;
     const controller = new AbortController(); readController.current = controller;
     void Promise.resolve().then(() => {
       if (controller.signal.aborted) return;
       const snapshotAt = ready?.renderedAt ?? null, useServerSnapshot = snapshotAt !== consumedSnapshotAt.current;
       consumedSnapshotAt.current = snapshotAt;
-      loaded.current = false; setPrivateVisible(false); setConfirmed(false);
+      loaded.current = false; loadedPageCount.current = 1; setPrivateVisible(false); setConfirmed(false);
       return readCurrent(controller.signal, currentSelected.current?.id, false, null, useServerSnapshot);
     });
     /** Restored Activity/bfcache must reload the original scoped intent before enabling another decision. */
@@ -161,7 +201,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   /** Persists the immutable original intention before sending; uncertain/aborted writes reconcile before any retry. */
   const send = async (intent: AdmissionReviewIntent) => {
     if (!ready || busy.current) return;
-    busy.current = true; readController.current?.abort();
+    busy.current = true; visibleReadRevision.current += 1; readController.current?.abort();
     const controller = new AbortController(); writeController.current = controller;
     setPhase(ADMISSION_REVIEW_PHASE.writing); setFresh(false); setErrorMessage(null); setStatusMessage(null); setConfirmed(false);
     try {
@@ -171,13 +211,13 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
       if (controller.signal.aborted || result.status === "aborted") return;
       if (!await checkViewer(controller.signal)) return;
       if (result.status === "failed") {
-        readFailure(result);
+        handleResourceFailure(result, { action: true });
         if (!result.uncertain) { writeAdmissionReviewIntent(ready.viewerId, ready.slug, null); pending.current = null; }
         return;
       }
       if ("state" in result.value) return;
       writeAdmissionReviewIntent(ready.viewerId, ready.slug, null); pending.current = null;
-      applyTransition(result.value); setStatusMessage(ADMISSION_REVIEW_UI_COPY.complete);
+      applyTransition(result.value); setStatusMessage(ADMISSION_REVIEW_UI_COPY.complete); invalidateAdmissionNotificationRefresh();
     } catch { if (!controller.signal.aborted) setErrorMessage(ADMISSION_REVIEW_UI_COPY.storageFailed); }
     finally {
       if (writeController.current === controller) busy.current = false;
@@ -205,7 +245,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   const formDisabled = !fresh || phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating;
   return <AdmissionReview filters={privateVisible ? <AdmissionReviewFilters draft={filterDraft} disabled={formDisabled || uncertain} errorMessage={filterError} onChange={(field, value) => { if (field === "submittedFrom" || field === "submittedUntil") editedDateFilters.current.add(field); setFilterDraft((current) => ({ ...current, [field]: value })); setFilterError(null); }} onApply={() => { const parsed = parseAdmissionReviewFilterDraft(ready.slug, filterDraft, appliedFilters.limit, { original: appliedFilters, editedDates: editedDateFilters.current }); if (!parsed.ok) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.invalid); return; } navigateFilters(parsed.filters); }} onReset={() => navigateFilters(DEFAULT_ADMISSION_REVIEW_SELECTION, true)} /> : undefined}
     historyHref={privateVisible && selected ? buildAdmissionReviewHistoryRoute(ready.slug, selected.id, appliedFilters) : undefined}
-    items={privateVisible ? items : []} selected={privateVisible ? selected : null} hasMore={privateVisible && cursor !== null} busy={phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating} disabled={formDisabled} confirmed={confirmed} internalReason={internalReason} externalMessage={externalMessage} errorMessage={errorMessage} statusMessage={privateVisible ? statusMessage : ADMISSION_REVIEW_UI_COPY.reading} uncertain={uncertain} canRetry={canRetry}
+    items={privateVisible ? items : []} selected={privateVisible ? selected : null} hasMore={privateVisible && cursor !== null} busy={phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating} disabled={formDisabled} confirmed={confirmed} internalReason={internalReason} externalMessage={externalMessage} errorMessage={errorMessage ?? (reviewRefreshUnavailable ? ADMISSION_REVIEW_UI_COPY.readFailed : null)} statusMessage={privateVisible ? statusMessage : ADMISSION_REVIEW_UI_COPY.reading} uncertain={uncertain} canRetry={canRetry}
     onSelect={(id) => { if (pending.current) return; setInternalReason(""); setExternalMessage(""); launchRead(id); }} onClose={() => { if (pending.current || busy.current) return; currentSelected.current = null; setSelected(null); setConfirmed(false); setInternalReason(""); setExternalMessage(""); setStatusMessage(null); }}
     onRead={() => launchRead(currentSelected.current?.id)} onLoadMore={() => launchRead(undefined, true, cursor)} onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }}
     onInternalReason={(value) => { setInternalReason(value); setErrorMessage(null); }} onExternalMessage={(value) => { setExternalMessage(value); setErrorMessage(null); }}
