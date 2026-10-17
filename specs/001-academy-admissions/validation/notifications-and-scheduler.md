@@ -2,7 +2,7 @@
 
 ## Estado y procedencia
 
-La auditoría conserva los seis escenarios de US8 y el alcance completo de T176–T191. El inventario actual es **188 tareas completas, 24 pendientes y 212 totales**, con **71 temáticas aprobadas**. Este documento registra los cierres del modelo T180, persistencia/lote/preferencias T181/T183/T184 y productor/mantenimiento/disparadores T185–T187, y señala las verificaciones pendientes; las demás casillas y los gates operativos conservan sus requisitos.
+La auditoría conserva los seis escenarios de US8 y el alcance completo de T176–T191. El inventario actual es **196 tareas completas, 16 pendientes y 212 totales**, con **71 temáticas aprobadas**. Este documento registra los cierres de implementación y pruebas de T176–T191, incluida la [verificación funcional final](us8-functional-completion.md); las dieciséis tareas restantes y los gates operativos conservan sus requisitos.
 
 El código de producto de esta cohorte corresponde a `ff227a521f3d9bcf16b24799459aa87f643bdae8`. El checkpoint `2d688865f8d6606bbd4642dadd900ee6f80a1b2d` agrega el ensayo de caída y su evidencia. La corrección del oráculo de refresco de navegador tiene su repetición funcional completa, detallada abajo.
 
@@ -48,7 +48,7 @@ El cierre conserva íntegra su descripción, incluidas ambas restricciones. Los 
 
 Los casos locales de esta tabla pertenecen a la cohorte de 296 y los Native de almacenamiento/calendario/correo/recordatorios a la de diecisiete; no se suman de nuevo ni se presentan todos los 296 como exclusivos de T180. El modelo mantiene las restricciones de transacción, contenido mínimo, clocks y ausencia de autoridad durable de envío. La medición de p95 y el scheduler saludable se exigen antes de activar; su falta no se convierte en una supuesta carencia del modelo ni se certifica con estas pruebas.
 
-Este apartado corresponde al cierre de T180. Los owners de persistencia, lote, preferencias, productor, mantenimiento y disparadores tienen sus cierres propios a continuación; T176–T179, T188–T191 y los gates conservan sus criterios completos. La matriz integral de US8 y el driver operativo no se sustituyen por el cierre del modelo.
+Este apartado corresponde al cierre de T180. Los owners de persistencia, lote, preferencias, productor, mantenimiento y disparadores tienen sus cierres propios a continuación; la verificación funcional tiene su cierre propio más abajo y los gates conservan sus criterios completos. El driver operativo no se sustituye por el cierre del modelo.
 
 ### Cierre de persistencia, lote y preferencias
 
@@ -57,6 +57,16 @@ La [auditoría de T181/T183/T184](storage-batch-settings-completion.md) acredita
 ### Cierre del productor, mantenimiento y disparadores
 
 La [auditoría de T185/T186/T187](producer-maintenance-trigger-completion.md) acredita sus ocho, siete y cuatro cláusulas originales, sin hallazgos accionables y con 131 inputs estables. Vincula obligación/grupo/outbox, sender por propósito, siete fases privadas y disparadores portables con sus pruebas actuales y equivalencias verificadas. El build y la ejecución real de Workers conservan su configuración cerrada; no se presentan como operación saludable, activación ni mediciones de OG-05. La nueva cohorte de interfaz estaba en ejecución al registrar esa auditoría y queda fuera de su cierre.
+
+### Cierre de pruebas de lotes, avisos y refresco
+
+La [auditoría de T176/T177/T188](batch-notification-refresh-completion.md) acredita sus nueve, trece y nueve cláusulas originales con 315 inputs estables. Esa primera revisión dejó T178 pendiente de una repetición focal de cuota, sin identificar un defecto de producto. Ambas cohortes posteriores y el cierre de las cinco tareas restantes se registran a continuación; el dictamen inicial conserva su estado histórico y los gates mantienen sus requisitos.
+
+### Cierre funcional de interfaz y seis AC
+
+La [auditoría final de T178/T179/T189/T190/T191](us8-functional-completion.md) acredita sus 48 cláusulas originales y los seis AC con 387 inputs estables y cero hallazgos accionables. ui-current terminó con dos archivos completos y ocho casos aprobados, cero fallidos u omitidos, en Chromium/WebKit a 390/1280. quota-current aprobó el único caso seleccionado y conservó seis fuera del filtro: política real reducida a cero, sin llamadas SDK, intentos ni reservas y con el código/original intactos. Ambas cohortes conservaron 3.603 inputs y equivalencia de 3.081 inputs de runtime.
+
+El [CI de 144dd842](https://github.com/guidomodarelli/TuTribu/actions/runs/39026272441) terminó aprobado: 551 archivos y 5.934 casos, con 317 archivos y 882 casos omitidos, lint, ambos chequeos de tipos y build real. Los Native conservan su evidencia independiente. La corrección del contador privado distingue un archivo de cuota de sus dos suites; no motivó otra ejecución. Los tres cierres anteriores y los cinco manuales también quedaron revalidados. SC-015/RG-08/OG-05 siguen pendientes de operación saludable.
 
 ### PostgreSQL real
 
@@ -90,11 +100,13 @@ La [cohorte adicional de resultados y avisos](admission-outcomes-and-notificatio
 
 Las dos arquitecturas corrigen catorce descripciones que aún presentaban productores, preparación, recuperación o mantenimiento integrados como trabajo sin implementar. El manual interno corrige cinco frases del mismo alcance y aclara la cadencia especial de admisión. La activación por entorno, el monitoreo operativo y las mediciones permanecen pendientes.
 
-La trazabilidad del manual y de sus dos índices apunta a `b49dcf1c`. Conserva los 278, 209 y 197 paths previos de cada documento, el contenido posterior a las correcciones y los saltos LF; el recorder sólo modifica sus metas y pies de fuente. La verificación final termina con **veinte vistas, cuatro recorridos y 220 destinos locales comprobados**, en Chromium/WebKit a 390/1280, sin errores JavaScript ni desbordes. Los cinco inputs permanecieron estables. El verificador usa los IDs reales del documento abierto para incluir las referencias que el glosario genera en runtime; no exige que esas referencias existan literalmente en el archivo HTML.
+En aquel checkpoint, la trazabilidad del manual interno y de sus dos índices apuntaba a `b49dcf1c`, conservando sus 278, 209 y 197 paths, contenido y LF. La QA de ese momento terminó con **veinte vistas, cuatro recorridos y 220 destinos locales comprobados**, en Chromium/WebKit a 390/1280, sin errores JavaScript ni desbordes. Los cinco inputs permanecieron estables. El verificador usa los IDs reales del documento abierto para incluir las referencias que el glosario genera en runtime; no exige que esas referencias existan literalmente en el archivo HTML.
 
 `check-manual.mjs` termina con cero errores en el manual interno y el índice detallado. Conserva dos advertencias conocidas: documento local sin URL de publicación y ausencia de catálogo central de traducciones para contrastar textos citados. Las frases modificadas son explicación del estado y de límites; no añaden textos citados de la UI. Los únicos hosts adicionales admitidos son las atribuciones existentes de las fuentes (`scripts.sil.org` y `www.github.com`). El diseño canónico está en CRLF y los manuales en LF: una copia con sólo esa normalización evita el aviso falso de navegación distinta; el código de navegación coincide completo después de normalizar y permanece sin cambios.
 
 Recibos privados: `.git/codex-us8-doc-copy-updates-result.json`, `.git/codex-us8-manual-source-proof.json`, `.git/codex-us8-manual-final-static-result.json` y `.git/codex-us8-final-docs-qa-result.json`. Los ensayos anteriores de encabezado/glosario se conservan separados de esta QA aprobada; no se modificó producto para satisfacer esos supuestos del verificador temporal. Las capturas y esquemas existentes conservan su procedencia.
+
+El cierre posterior actualiza las fuentes de cuatro manuales/índices y corrige un párrafo del manual específico de avisos. Las capturas, fechas y navegación permanecen intactas. La nueva QA del manual específico y los índices terminó con doce vistas, cuatro recorridos y 127 destinos locales, sin errores en ambos motores y tamaños. Los otros dos manuales conservan ocho vistas reutilizables por sus bytes originales y equivalencia de metadatos; tres documentos propietarios mantienen sus inputs ya comprobados. La [verificación final](us8-functional-completion.md) distingue estos recibos del snapshot anterior, sin sumar repeticiones.
 
 ## Driver, latencias y gates
 
@@ -102,4 +114,4 @@ La [integración de disparadores](admission-maintenance-trigger.md) conserva su 
 
 No se ha activado ni medido aquí un driver frecuente saludable. **SC-015, RG-08 y OG-05 siguen pendientes** de infraestructura, capacidad y mediciones reales: disponibilidad hacia inbox/lista/avisos p95 menor a treinta segundos y cierre de ventana hacia aceptación del agrupado dentro de cinco minutos. Un cronfile, el workflow, un 200 aislado o el transporte controlado no acreditan esos objetivos.
 
-OG-03 y OG-04 conservan los ensayos reales expresamente autorizados y los límites originales del piloto. No hubo nuevos mensajes reales, despliegue ni migración productiva en estas cohortes. Después de terminar la cohorte adicional de resultados y avisos y las anteriores, Neon confirmó a las 10:04 UTC la conservación de las tres ramas originales o ajenas, cero temporales propias y ninguna sin clasificar. El recibo es `.git/codex-us8-notification-scenarios-neon-final.json`; no describe la cohorte `ui-current` iniciada después y todavía activa. Sus resultados y limpieza se registrarán al terminar; todos los snapshots anteriores conservan su momento histórico.
+OG-03 y OG-04 conservan los ensayos reales expresamente autorizados y los límites originales del piloto. No hubo nuevos mensajes reales, despliegue ni migración productiva en estas cohortes. Después de terminar la cohorte adicional de resultados y avisos y las anteriores, Neon confirmó a las 10:04 UTC la conservación de las tres ramas originales o ajenas, cero temporales propias y ninguna sin clasificar. El recibo `.git/codex-us8-notification-scenarios-neon-final.json` conserva ese momento histórico. Después de terminar ui-current y quota-current, una nueva consulta a las 11:10:32 UTC confirmó las mismas tres ramas originales o ajenas, cero temporales propias y cero desconocidas; el cierre es `.git/codex-us8-ui-and-quota-neon-final.json`. No se eliminaron ramas adicionales.
