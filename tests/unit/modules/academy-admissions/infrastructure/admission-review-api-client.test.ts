@@ -17,7 +17,7 @@ function batchFixture() {
 describe("reviewer own browser contracts", () => {
   it("should reject a substituted detail id and strip provider fields from a valid review list", async () => {
     const requestId = randomUUID();
-    const review = { id: randomUUID(), status: "pending", version: 1, submittedAt: "2026-10-07T00:00:00Z", expiresAt: "2026-11-06T00:00:00Z", source: "common", needsVerification: false, eligibilityReasons: [], applicant: { id: "synthetic-account", name: "Solicitante" }, evidence: { kind: "none" }, eligibleActions: ["reject"], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null }, providerToken: "synthetic-private-field" };
+    const review = { id: randomUUID(), status: "pending", version: 1, submittedAt: "2026-10-07T00:00:00Z", expiresAt: "2026-11-06T00:00:00Z", source: "common", needsVerification: false, pendingAgeThresholdReached: false, eligibilityReasons: [], applicant: { id: "synthetic-account", name: "Solicitante" }, evidence: { kind: "none" }, eligibleActions: ["reject"], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null }, providerToken: "synthetic-private-field" };
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(Response.json(review)).mockResolvedValueOnce(Response.json({ items: [review], nextCursor: null }));
     const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
     expect(await client.reviewDetail("synthetic-academy", requestId, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: false });

@@ -34,11 +34,14 @@ const reviewEvidenceSchema = z.discriminatedUnion("kind", [
 const reviewRestrictionsSchema = z.object({ requiresAllowlist: z.boolean(), requiresExceptionReason: z.boolean(), invitation: z.object({ status: z.enum(ADMISSION_INVITATION_STATUS), requiresAllowlist: z.boolean(), authorizationRevoked: z.boolean(), recipientMatches: z.boolean(), expiresAt: admissionPublicInstantSchema.nullable() }).nullable() });
 /** Only a current reviewer route may select this schema; audience never comes from query/body. */
 export const admissionReviewSchema = admissionRequestSchema.extend({
+  /** Server-observed age highlight, independent of reminder production or email delivery. */
+  pendingAgeThresholdReached: z.boolean(),
   applicant: z.object({ id: z.string().min(1), name: z.string() }),
   rawContact: z.string().optional(), internalReason: z.string().max(ADMISSION_LIMIT.internalMessageCharacters).optional(),
   applicantMessage: z.string().max(ADMISSION_LIMIT.internalMessageCharacters).optional(),
   eligibleActions: z.array(z.enum(ADMISSION_DECISION)), evidence: reviewEvidenceSchema, restrictions: reviewRestrictionsSchema,
 }).refine((review) => (!review.contact || review.contact.evidenceKind === review.evidence.kind)
+  && (!review.pendingAgeThresholdReached || review.status === ADMISSION_REQUEST_STATUS.pending && !review.eligibilityReasons.includes(ADMISSION_DENIAL_REASON.requestExpired))
   && (review.evidence.kind !== ADMISSION_EVIDENCE_KIND.local || review.evidence.scope.requestId === review.id)
   && (review.source !== ADMISSION_PUBLIC_SOURCE.personal || review.restrictions.invitation !== null));
 /** Public policy summary omits list matches, exceptions and management-only data. */

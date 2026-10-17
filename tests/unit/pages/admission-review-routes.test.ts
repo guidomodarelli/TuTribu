@@ -8,7 +8,7 @@ import type { GetAdmissionReviewUseCases } from "@/src/modules/academy-admission
 /** Uses only public own DTOs; infrastructure auth/database are never mocked. */
 function fixture() {
   const tribeId = randomUUID(), requestId = randomUUID();
-  const value = { id: requestId, status: "pending" as const, version: 1, submittedAt: "2026-10-07T00:00:00.000Z", expiresAt: "2026-11-06T00:00:00.000Z", source: "common" as const, needsVerification: false, eligibilityReasons: [], applicant: { id: randomUUID(), name: "Solicitante" }, evidence: { kind: "none" as const }, eligibleActions: ["reject" as const, "approve" as const], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null } };
+  const value = { id: requestId, status: "pending" as const, version: 1, submittedAt: "2026-10-07T00:00:00.000Z", expiresAt: "2026-11-06T00:00:00.000Z", source: "common" as const, needsVerification: false, pendingAgeThresholdReached: false, eligibilityReasons: [], applicant: { id: randomUUID(), name: "Solicitante" }, evidence: { kind: "none" as const }, eligibleActions: ["reject" as const, "approve" as const], restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null } };
   const services = {
     resolveTribe: { execute: vi.fn(async () => ({ ok: true as const, value: { tribeId } })) },
     review: { list: vi.fn<GetAdmissionReviewUseCases["list"]>(async () => ({ ok: true, value: { items: [value], nextCursor: null } })), detail: vi.fn<GetAdmissionReviewUseCases["detail"]>(async () => ({ ok: true, value })) },

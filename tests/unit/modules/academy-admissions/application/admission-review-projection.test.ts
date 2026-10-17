@@ -24,6 +24,37 @@ function reviewRecord(): AdmissionReviewRecord {
 }
 
 describe("admission reviewer projection", () => {
+  it.each([
+    ["2026-10-07T02:59:59.999Z", false],
+    ["2026-10-10T02:59:59.999Z", false],
+    ["2026-10-10T03:00:00.000Z", true],
+    ["2026-10-10T03:00:00.001Z", true],
+  ])("should expose the pending age threshold from the authoritative read clock %s as %s", (observedAt, expected) => {
+    const record = reviewRecord();
+    record.review.now = new Date(observedAt);
+    const result = projectAdmissionReview(record);
+    expect(result.pendingAgeThresholdReached).toBe(expected);
+    expect(result).toMatchObject({ status: "pending", version: 1, submittedAt: "2026-10-07T03:00:00.000Z" });
+    expect(admissionRequestSchema.parse(result)).not.toHaveProperty("pendingAgeThresholdReached");
+  });
+
+  it.each(["approved", "rejected", "cancelled", "expired"] as const)("should remove the age highlight for a terminal %s request", (status) => {
+    const record = reviewRecord();
+    record.request.status = status;
+    record.review.now = new Date("2026-10-10T03:00:00.000Z");
+    record.request.resolvedAt = record.review.now;
+    expect(projectAdmissionReview(record)).toMatchObject({ status, pendingAgeThresholdReached: false });
+  });
+
+  it("should keep an old unexpired request highlighted during pause and clear it at expiration", () => {
+    const record = reviewRecord();
+    record.review.policy!.isOpen = false;
+    record.review.now = new Date("2026-10-10T03:00:00.000Z");
+    expect(projectAdmissionReview(record)).toMatchObject({ pendingAgeThresholdReached: true, eligibleActions: ["reject"] });
+    record.review.now = record.request.expiresAt;
+    expect(projectAdmissionReview(record)).toMatchObject({ pendingAgeThresholdReached: false, eligibleActions: [], eligibilityReasons: ["request_expired"] });
+  });
+
   it("should offer an explicit exception approval when only its editable internal reason is missing", () => {
     const record = reviewRecord();
     record.review.policy!.mode = "allowlist"; record.review.policy!.allowCommonExceptions = true;

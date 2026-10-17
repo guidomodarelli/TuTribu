@@ -8,6 +8,7 @@ import { ADMISSION_ACTION, ADMISSION_DENIAL_REASON, ADMISSION_EVIDENCE_KIND, ADM
 import { ADMISSION_DECISION, ADMISSION_REVIEW_ACCOUNT_SCOPE, ADMISSION_REVIEW_EVIDENCE_SOURCE } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
 import { ADMISSION_CONTACT_MASK, ADMISSION_PHONE_VISIBLE_SUFFIX_LENGTH } from "@/src/modules/academy-admissions/constants/admission-contact-presentation";
+import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 
 /** @param record - Private scoped request and current evaluation facts. @returns An allowlisted reviewer DTO, never a permission token or provider record. */
 export function projectAdmissionReview(record: AdmissionReviewRecord) {
@@ -28,6 +29,7 @@ export function projectAdmissionReview(record: AdmissionReviewRecord) {
     id: request.id, status: request.status, version: request.version, submittedAt: request.submittedAt.toISOString(), expiresAt: request.expiresAt.toISOString(), source: request.source,
     ...(contact && maskedValue ? { contact: { type: contact.type, maskedValue, evidenceKind: request.evidence.kind }, rawContact: contact.value } : {}),
     needsVerification: pending && !expired && (evaluation?.reason === ADMISSION_DENIAL_REASON.proofRequired || evaluation?.reason === ADMISSION_DENIAL_REASON.evidenceRevoked),
+    pendingAgeThresholdReached: pending && !expired && review.now.getTime() - request.submittedAt.getTime() >= ADMISSION_LIMIT.pendingReminderDelayMs,
     eligibilityReasons: expired ? [ADMISSION_DENIAL_REASON.requestExpired] : evaluation?.reason ? [evaluation.reason] : [],
     ...(record.externalMessage ? { externalMessage: record.externalMessage } : {}), ...(record.internalReason ? { internalReason: record.internalReason } : {}),
     ...(request.applicantMessage ? { applicantMessage: request.applicantMessage } : {}), ...(retryAt ? { retryAllowedAt: retryAt.toISOString() } : {}),

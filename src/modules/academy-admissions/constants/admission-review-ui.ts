@@ -42,4 +42,5 @@ export const ADMISSION_REVIEW_UI_COPY = {
   changedViewer: "La cuenta cambió. Recargá la página para consultar la bandeja de esta cuenta.", storageFailed: "No pudimos conservar la decisión en este navegador. Habilitá el almacenamiento de sesión y volvé a consultar.",
   reload: "Recargar con la cuenta actual", declared: "Contacto declarado: no acredita verificación", none: "Solicitud sin contacto verificado",
   base: "Correo acreditado por Google para la cuenta", local: "Contacto verificado para esta solicitud de la academia",
+  pendingAgeHighlight: "Pendiente hace tres días o más",
 } as const;

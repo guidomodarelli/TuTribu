@@ -34,12 +34,15 @@ describe("admission flow contracts", () => {
 
   it("should strip review-only and storage facts from own responses and preserve them only in the reviewer projection", async () => {
     const request = ownRequest();
-    const raw = { ...request, internalReason: "Synthetic internal review", applicant: { id: randomUUID(), name: "Synthetic applicant" }, rawContact: "synthetic@example.invalid", code: "123456", codeMac: "synthetic-private", apiKey: "synthetic-private", eligibleActions: ["approve", "reject"], evidence: { kind: "declared" }, restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null } };
+    const raw = { ...request, pendingAgeThresholdReached: true, internalReason: "Synthetic internal review", applicant: { id: randomUUID(), name: "Synthetic applicant" }, rawContact: "synthetic@example.invalid", code: "123456", codeMac: "synthetic-private", apiKey: "synthetic-private", eligibleActions: ["approve", "reject"], evidence: { kind: "declared" }, restrictions: { requiresAllowlist: false, requiresExceptionReason: false, invitation: null } };
     expect(await boundary().success(admissionRequestSchema, raw).json()).toEqual(request);
     const review = await boundary().success(admissionReviewSchema, raw).json();
-    expect(review).toMatchObject({ internalReason: raw.internalReason, applicant: raw.applicant });
+    expect(review).toMatchObject({ internalReason: raw.internalReason, applicant: raw.applicant, pendingAgeThresholdReached: true });
     expect(review).not.toHaveProperty("apiKey");
     expect(review).not.toHaveProperty("codeMac");
+    expect(boundary().success(admissionReviewSchema, { ...raw, pendingAgeThresholdReached: undefined }).status).toBe(500);
+    expect(boundary().success(admissionReviewSchema, { ...raw, status: "approved" }).status).toBe(500);
+    expect(boundary().success(admissionReviewSchema, { ...raw, eligibilityReasons: ["request_expired"] }).status).toBe(500);
   });
 
   it("should reject an unmasked own contact, unknown state or a version-zero public resource", async () => {
@@ -85,7 +88,7 @@ describe("admission flow contracts", () => {
     const request = ownRequest();
     const evidence = { kind: "local", source: "local_code", verifiedAt: "2026-10-06T12:00:00.000Z", scope: { tribeId: randomUUID(), requestId: request.id, purpose: "admission" } };
     const restrictions = { requiresAllowlist: true, requiresExceptionReason: false, invitation: { status: "redeemed", requiresAllowlist: true, authorizationRevoked: false, recipientMatches: true, expiresAt: null } };
-    const review = { ...request, source: "personal", contact: { ...request.contact, evidenceKind: "local" }, applicant: { id: randomUUID(), name: "Synthetic applicant" }, rawContact: "synthetic@example.invalid", eligibleActions: ["approve", "reject"], evidence, restrictions };
+    const review = { ...request, pendingAgeThresholdReached: false, source: "personal", contact: { ...request.contact, evidenceKind: "local" }, applicant: { id: randomUUID(), name: "Synthetic applicant" }, rawContact: "synthetic@example.invalid", eligibleActions: ["approve", "reject"], evidence, restrictions };
     const published = await boundary().success(admissionReviewSchema, review).json();
     expect(published).toMatchObject({ evidence, restrictions });
     const own = await boundary().success(admissionRequestSchema, review).json();

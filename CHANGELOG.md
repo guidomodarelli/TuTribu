@@ -84,6 +84,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - El mantenimiento interno de admisión reúne vencimientos, limpieza y avisos, conserva el avance de cada paso e informa la configuración pendiente; su ejecución automática sigue pendiente.
 - La bandeja, la solicitud propia y los avisos abiertos de admisión se actualizan mientras mirás la página; conservan los datos y muestran un aviso si falla la actualización.
 - Los líderes y guardianes pueden seleccionar hasta cincuenta solicitudes visibles, confirmar sus nombres y consultar el resultado de cada decisión; recuperar el lote original evita repetir decisiones.
+- La bandeja y el detalle de admisión destacan las solicitudes que llevan tres días o más pendientes; la marca se actualiza al consultar y desaparece al resolverlas o vencer su plazo.
 
 ### Changed
 
