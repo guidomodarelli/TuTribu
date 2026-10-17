@@ -56,6 +56,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             await leader.getByRole("checkbox", { name: "Revisé las reglas y su impacto y quiero confirmar esta acción." }).check();
             const configured = leader.waitForResponse((response) => response.request().method() === "PUT" && new URL(response.url()).pathname.endsWith("/policy"));
             await leader.getByRole("button", { name: "Guardar configuración", exact: true }).click(); expect((await configured).status()).toBe(200);
+            await leader.getByRole("button", { name: "Guardar configuración", exact: true }).waitFor();
             await inspectSurface(leader, `${engineName}-${width}-leader`, privateValues);
             await page.goto(new URL(buildAdmissionEntryRoute(fixture.slug), origin).href);
             expect(await page.getByRole("textbox", { name: /^(Nombre|Apellido)$/i }).count()).toBe(0);
@@ -84,6 +85,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             await applicantContext.unroute("**/api/auth/get-session**"); await page.getByRole("button", { name: ADMISSION_UI_COPY.read, exact: true }).click();
             await page.getByRole("textbox", { name: COPY.label, exact: true }).waitFor({ state: "visible" });
             expect(correctionWrites).toBe(1);
+            await page.getByText(`${COPY.currentNumber}: +442079460018`, { exact: true }).waitFor();
+            await page.getByRole("button", { name: ADMISSION_UI_COPY.read, exact: true }).waitFor();
             await inspectSurface(page, `${engineName}-${width}-own`, privateValues);
             await leader.goto(new URL(buildAdmissionReviewRoute(fixture.slug, request.id), origin).href);
             await leader.locator("dd").filter({ hasText: "+442079460018" }).waitFor(); expect(await leader.getByText(common.name, { exact: true }).count()).toBeGreaterThan(0); await leader.getByText(COPY.declared, { exact: true }).waitFor();
