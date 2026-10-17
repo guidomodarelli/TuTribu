@@ -1727,6 +1727,14 @@ Todas las filas de quickstart 4.1/4.2 se trasladan a tests de actor/tribu correc
 
 Asignar owner por archivo compartido y usar lotes `[P]` preparados. Respetar ports/results y secuenciar integración de roots/DDL/containers/manuales; no crear chats o agentes por iniciativa del documento.
 
+## Ampliación: WhatsApp para revisión humana
+
+- [x] T213 Actualizar spec, plan, modelo, contratos y trazabilidad con FR-143–FR-146 y WA-01–WA-05, conservando IDs y aprobaciones anteriores. Nombre de Google; WhatsApp opcional por defecto, exigible por líder e independiente de códigos. Archivos: `spec.md`, `plan.md`, `data-model.md`, `contracts/http-api.md`, `contracts/ui-flows.md`, `traceability.md`. Validación de coherencia documental sin certificar implementación.
+- [ ] T214 Agregar reglas y contratos de política/número declarado con pruebas de default, exigencia al presentar/aprobar, formato, independencia de prueba/época y actualización de clientes anteriores. Archivos: `src/modules/academy-admissions/domain/`, `src/modules/academy-admissions/application/`, `src/modules/academy-admissions/constants/`, `tests/unit/modules/academy-admissions/`. Dependencias: `T213`. Trazabilidad: `FR-143`–`FR-146`, `WA-01`–`WA-05`.
+- [ ] T215 Implementar migración versionada, lectura/persistencia privada y edición propia pendiente con operación original/CAS, guards, retención y pruebas SQL reales aisladas de autoridad/concurrencia/replay. Archivos: `database/migrations/`, `src/modules/academy-admissions/infrastructure/`, `app/api/tribes/[slug]/admissions/requests/[requestId]/whatsapp/route.ts`, `tests/unit/modules/academy-admissions/infrastructure/`. Dependencias: `T214`. Trazabilidad: `FR-144`–`FR-146`, `WA-02`–`WA-05`.
+- [ ] T216 Integrar opción del líder, campo de solicitud, edición propia pendiente y revisión con nombre/número, validación y recuperación visibles, sin doble pedido de nombre o atribución de pertenencia verificada. Archivos: `components/academy-admissions/`, `app/(admission)/admissions/`, `app/(platform)/[slug]/academia/admissions/`, `lib/academy-admissions/`, `tests/unit/components/`. Dependencias: `T215`. Trazabilidad: `FR-143`–`FR-146`, `WA-01`–`WA-05`.
+- [ ] T217 Validar ampliación con suites relevantes, tipos/lint/build y recorridos Chromium/WebKit 390/1280; actualizar documentación propietaria .htm, manuales .html/índices/source-trace, CHANGELOG Unreleased y trazabilidad con alcance real. Archivos: `docs/architecture/academy-admissions.htm`, `docs/user-manual/academy-admissions.htm`, `user-guides/academy-admissions.html`, `user-guides/index.html`, `user-guides/application-flows.html`, `CHANGELOG.md`, `validation/whatsapp-number.md`, `traceability.md`. Dependencias: `T216`. Trazabilidad: `FR-143`–`FR-146`, `WA-01`–`WA-05`.
+
 ## Resumen de tareas
 
 | Bloque | Cantidad | Rango |
@@ -1746,7 +1754,8 @@ Asignar owner por archivo compartido y usar lotes `[P]` preparados. Respetar por
 | US8 | 16 | T176–T191 |
 | US12 | 6 | T192–T197 |
 | Fase 15 | 15 | T198–T212 |
-| Total | 212 | T001–T212 |
+| WhatsApp para revisión humana | 5 | T213–T217 |
+| Total | 217 | T001–T217 |
 
 Las pruebas independientes están completas en cada fase/tabla de historias. 64 oportunidades `[P]`, todas las casillas pendientes; la equivalencia de las 207 identidades anteriores y las cinco nuevas figura en traceability.
 

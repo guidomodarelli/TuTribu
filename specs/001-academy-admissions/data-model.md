@@ -269,6 +269,14 @@ Se conservan habilitaciones/vínculos mínimos mientras sostengan autorización 
 
 Eliminación/salida de academia cancela pendientes, invalida invitaciones y detiene entregas antes de purgar. History privada conserva mínimos dentro de finalidad y retención, con asociaciones archivadas que no conceden permisos ni liberan un vínculo por cascada accidental. La implementación debe conciliar deletion/privacy existentes y ensayar cuenta/tribu eliminadas y restore. Proyectos, facturación e historial del proveedor permanecen fuera de esta feature.
 
+## Ampliación: WhatsApp declarado para revisión humana
+
+FR-143–FR-146 agregan `AdmissionPolicy.requiresWhatsappNumber`, booleano por tribu con valor inicial `false`, y `AdmissionRequest.whatsappNumber`, número canónico E.164 o ausencia. El nombre sigue perteneciendo a la cuenta; no se agregan campos de nombre/apellido. El número declarado no reemplaza `contact`, su evidencia, binding ni el teléfono global, y no se somete a la lista de países de envío porque este recorrido no envía mensajes.
+
+La migración versionada agrega las columnas con defaults compatibles, actualiza proyecciones autorizadas y los guards de versión/retención. El guard de solicitud permite modificar este dato sólo mientras siga pendiente, con incremento de versión ante cambio efectivo; la minimización privada puede eliminarlo sin reabrir o reversionar historia terminal. Su contenido no se copia a ledger público, audit, notificación o snapshot de decisión.
+
+La edición propia requiere cuenta/sesión vigentes, scope exacto, operación original, confirmación y CAS de solicitud. Conserva fecha/vencimiento y prueba. Un conflicto con decisión o edición no se reconcilia cambiando silenciosamente la versión. La política vigente vuelve a exigir el dato al presentar y aprobar, incluidas las pendientes anteriores. Cambiar sólo esta exigencia no inicia época ni invalida códigos o pruebas.
+
 ## Validación posterior requerida
 
 Constraints/índices/FK/RLS y writers se ejercen contra el SQL real en una rama efímera Neon; rollback, timeout/abandonos, actores concurrentes, flags y rol efectivo se prueban con fixtures sintéticos. Los mismos casos de negocio usan puertos propios y reloj inyectable; crypto real y SDK real en su transporte. Ninguna casilla documental acredita esas pruebas. [quickstart.md](quickstart.md) define casos y [traceability.md](traceability.md) conserva todas las obligaciones individuales.

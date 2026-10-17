@@ -145,6 +145,14 @@ Selección manual de recurso existe cuando la enumeración no está permitida: i
 
 Una importación conserva filas confirmadas si falla un bloque posterior. La selección nueva de retry contiene solo filas no confirmadas elegibles y revalida datos actuales. El lote DB-only no presume commit parcial ante caída: consulta ledger. Cualquier retomada requiere autorización vigente y no sustituye expected versions/motivos silenciosamente.
 
+## Ampliación: WhatsApp declarado
+
+FR-143–FR-146 agregan `requiresWhatsappNumber` a la configuración y resumen público de política y `whatsappNumber` al input de presentación, separado de `phone`/`country` y `proofId`. El número se normaliza como teléfono internacional; no inicia códigos ni cambia el contacto principal. En una actualización de política, omitir el nuevo campo conserva su valor vigente, para que un cliente anterior no desactive una exigencia ya configurada.
+
+`POST /api/tribes/[slug]/admissions/requests/[requestId]/whatsapp` edita sólo el número de la solicitud propia: `operationId`, `expectedVersion`, `confirmed: true` y `whatsappNumber` (número internacional o `null` para retirarlo cuando sea opcional). Resuelve replay original antes de CAS; ante cambio efectivo incrementa versión y conserva estado/fecha/vencimiento/prueba. La respuesta mínima confirma referencia, versión y cambio, sin número ni identidad ajena. Un resultado indeterminado conserva la intención original y se consulta mediante el ledger; no hay rePOST automático. Sesión propia no autoriza editar otra cuenta, tribu o solicitud terminal.
+
+La consulta propia y la revisión seleccionan el dato sólo para sus audiencias autorizadas. El resumen anónimo no contiene números personales. La revisión muestra el número declarado junto al nombre de cuenta sin atribuir verificación del grupo. Los DTOs públicos y los inputs se validan en sus boundaries propios; no se schema-validan filas SQL. Casos WA-01–WA-05 y tareas T213–T217 concretan la ampliación.
+
 ## Invariantes que deben ejercer los tests del contrato
 
 Inputs extra/ajenos rechazados; schemas públicos reales; creación version 1/no sentinel 0, no-op, replay previo al CAS, intent distinto con misma clave, writers competidores/stale 409, canje/revocación e historial vs vista actual; lista de países vacía/prohibidos/reducción en cola y política de uso disponible antes de conexión; cuenta/tribu cruzadas denegadas; GET sin efectos; stale versions/conflictos; códigos locales no globales; secretos/notas internos ausentes; invitación perdida no recuperable; datos declarados nunca vinculantes; sin refresh global salvo excepción de cambio real de contexto de seguridad documentada; abort de consulta sin toast ni estado stale; operación/rows confirmadas preservadas y ninguna repetida por resultado incierto.
