@@ -1275,6 +1275,13 @@
       "when": 1792188724000,
       "tag": "20261016221204_rotate_admission_notification_producer_scopes",
       "breakpoints": true
+    },
+    {
+      "idx": 182,
+      "version": "7",
+      "when": 1792192350000,
+      "tag": "20261016231230_persist_admission_messaging_maintenance_progress",
+      "breakpoints": true
     }
   ]
 }

@@ -25,7 +25,11 @@ import { PostgresTribeAcademyAdmissionRepository } from "./tribes/infrastructure
 import { buildAcademyAdmissionsModule, createPaidAdmissionResolutionWriter, createAdmissionMembershipLifecycleWriter, createAdmissionScopeClosureWriter } from "./academy-admissions/setup";
 import { PostgresAdmissionActivationRepository } from "./academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
 import {PostgresMessagingSelectionDependencies} from "./academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
-import { buildMessagingModule, buildMessagingWorkModule, type MessagingWorkDependencies } from "./messaging/setup";
+import { buildMessagingModule, buildMessagingWorkModule, buildAdmissionMessagingMaintenanceModule, type MessagingWorkDependencies } from "./messaging/setup";
+import { AdmissionMessagingMaintenanceError } from "./messaging/domain/errors/admission-messaging-maintenance-error";
+import type { AdmissionMessagingMaintenanceRuntime } from "./messaging/domain/repositories/admission-messaging-maintenance";
+import { ADMISSION_MESSAGING_MAINTENANCE_LOG, ADMISSION_MESSAGING_MAINTENANCE_REASON } from "./messaging/constants/admission-messaging-maintenance";
+import { MessagingCryptographyError } from "./messaging/infrastructure/encryption/messaging-cryptography-error";
 import {createRegisteredMessagingAdapters} from "./messaging/infrastructure/composition/messaging-provider-adapters";
 import {createAdmissionNotificationResourceAuthority} from "./notifications/infrastructure/messaging/admission-notification-resource-authority";
 import {MESSAGING_AUTHORIZATION_PURPOSE} from "./messaging/constants/messaging-connection";
@@ -833,4 +837,38 @@ export async function createMessagingConnectionOperationRequestModule(){
   const dependencies:AuthenticatedFeatureDependencies={accounts:createRequestAuthenticatedAccountProvider(),clock:()=>new Date(),execute:(account,run)=>databaseClient.withRequestContext({userId:account.userId,email:account.normalizedEmail},run)};
   const routing=buildAcademyAdmissionsModule(dependencies).createQueryModule({executePublic:(run)=>databaseClient.withRequestContext({userId:null,email:null},run),readRecoveryLock:async()=>readMessagingRecoveryLock()}).useCases;
   return{operation:buildMessagingModule(dependencies).createConnectionOperationReadModule().useCases,resolveTribe:routing.resolveTribe};
+}
+
+/** @param request - Actual native request, never a browser principal or authority flag. @param context - Bounded private correlation selected by the HTTP boundary. @returns The complete workflow after current bearer authorization, with no global provider credential or pre-composition database read. */
+export async function createAdmissionMessagingMaintenanceRequestModule(request: Request, context: RequestContext) {
+  const authorize = createRequestMessagingMaintenanceAuthorizer(request);
+  if (!await authorize()) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.authorityUnavailable);
+  const databaseClient = await createServerDatabaseClient(DATABASE_CONNECTION_USAGE.maintenance);
+  const logger = createServerLogger({ feature: ADMISSION_MESSAGING_MAINTENANCE_LOG.feature, operation: ADMISSION_MESSAGING_MAINTENANCE_LOG.operation, ...context });
+  const runtime: AdmissionMessagingMaintenanceRuntime = {
+    now: Date.now,
+    createId: () => crypto.randomUUID(),
+    defer: (work) => { after(() => work); },
+    report: (error, diagnostic) => {
+      const reason = error instanceof AdmissionMessagingMaintenanceError ? error.reason : error instanceof MessagingCryptographyError ? ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable : ADMISSION_MESSAGING_MAINTENANCE_REASON.operationUnresolved;
+      logger.error({ message: ADMISSION_MESSAGING_MAINTENANCE_LOG.failureMessage, metadata: { operation: diagnostic.operation, reason, ...(diagnostic.runId ? { runId: diagnostic.runId } : {}), ...(diagnostic.phase ? { phase: diagnostic.phase } : {}) } });
+    },
+  };
+  return buildAdmissionMessagingMaintenanceModule({
+    execute: (actorUserId, work) => databaseClient.withRequestContext({ userId: actorUserId, email: null }, work),
+    authorize,
+    readRecoveryLock: async () => readMessagingRecoveryLock(),
+    readExternalScope: async () => { const facts = readMessagingHostingSecurityFacts(); return facts.environment && facts.securityEpoch ? { environment: facts.environment, securityEpoch: facts.securityEpoch } : null; },
+    readSecurityConfig: () => readMessagingHostingSecurityConfig(),
+    publicAppBaseUrl: () => { try { return resolvePublicAppBaseUrl(); } catch (error) { throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.configurationUnavailable, { cause: error }); } },
+    runtime,
+    dispatchRuntime: { now: runtime.now, createId: runtime.createId, defer: (work) => runtime.defer(work), report: createMessagingDispatchReporter(logger, ADMISSION_MESSAGING_MAINTENANCE_LOG.failureMessage) },
+    createSenders: (execute) => {
+      const adapters = createRegisteredMessagingAdapters({ execute: (scope, work) => {
+        if (scope.authorizationPurpose !== MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.authorityUnavailable);
+        return execute(scope.contributingLeaderUserId, work);
+      }, readSecurityFacts: async () => readMessagingHostingSecurityFacts(), fetch: globalThis.fetch, authorizeDeliveryResource: createAdmissionNotificationResourceAuthority(() => readMessagingHostingSecurityConfig()).marked });
+      return { createSender: adapters.createSender, createNotificationSender: adapters.createNotificationSender };
+    },
+  });
 }

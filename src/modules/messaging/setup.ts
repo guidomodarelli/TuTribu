@@ -84,6 +84,16 @@ import { ReadNotificationRecoveryOperationUseCase } from "./application/use-case
 import { PostgresNotificationRecoveryOperationReader } from "./infrastructure/repositories/postgres-notification-recovery-operation-reader";
 import { createAdmissionNotificationResourceAuthority } from "@/src/modules/notifications/infrastructure/messaging/admission-notification-resource-authority";
 import { buildAdmissionNotificationDeliveryModule } from "@/src/modules/notifications/setup";
+import { buildAdmissionNotificationProducerModule, buildAdmissionNotificationReminderModule } from "@/src/modules/notifications/setup";
+import { buildAdmissionExpirationModule, buildAdmissionDataRetentionModule } from "@/src/modules/academy-admissions/setup";
+import { MESSAGE_STORAGE_OPERATION } from "./constants/message-delivery";
+import { ADMISSION_MESSAGING_MAINTENANCE_OPERATION, ADMISSION_MESSAGING_MAINTENANCE_PHASE, ADMISSION_MESSAGING_MAINTENANCE_REASON, ADMISSION_MESSAGING_MAINTENANCE_RECONCILIATION_LIMIT } from "./constants/admission-messaging-maintenance";
+import type { AdmissionMessagingMaintenanceExternalScope, AdmissionMessagingMaintenanceRun, AdmissionMessagingMaintenanceRuntime } from "./domain/repositories/admission-messaging-maintenance";
+import { AdmissionMessagingMaintenanceError } from "./domain/errors/admission-messaging-maintenance-error";
+import { RunAdmissionMessagingMaintenanceUseCase } from "./application/use-cases/run-admission-messaging-maintenance-use-case";
+import { PostgresAdmissionMessagingMaintenanceProgress } from "./infrastructure/repositories/postgres-admission-messaging-maintenance-progress";
+import { OriginalAdmissionMessagingMaintenanceWork } from "./infrastructure/composition/admission-messaging-maintenance-work";
+import { guardMaintenanceMessageDeliverySender } from "./infrastructure/composition/maintenance-message-delivery-sender";
 import type { NotificationDeliveryPreparation } from "./infrastructure/notification-delivery-preparation";
 import { PurposeRoutedMessageDeliverySender } from "./infrastructure/purpose-routed-message-delivery-sender";
 
@@ -96,6 +106,8 @@ export type MessagingWorkDependencies = {
   createSender: (preparation: VerificationDeliveryPreparation) => MessageDeliverySender; runtime: MessagingDispatchRuntime; settings?: Partial<MessagingDispatchSettings>;
   /** Required for a global worker; exact focal verification launches retain their original sender only. */
   createNotificationSender?: (preparation: NotificationDeliveryPreparation) => MessageDeliverySender;
+  /** Pins a current private workflow only for new claims, markers and preparation; original late receipts/observations remain recordable. */
+  guardNewWork?: (database: RequestDatabase) => Promise<void>;
   diagnosticScope?:Readonly<DiagnosticDeliveryDispatchScope>;
   focalScope?:Readonly<FocalDeliveryDispatchScope>;
 };
@@ -259,10 +271,23 @@ export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies
   const focalScope = dependencies.focalScope ?? dependencies.diagnosticScope;
   if (!focalScope && !dependencies.createNotificationSender) throw new MessagingSecretAccessError(MESSAGING_ERROR_CODE.connectionIncomplete);
   const authorize = async () => dependencies.authorize();
+  /** @param database - Original owner transaction. @param operation - Existing private delivery operation. @returns Live purpose authority, pinning new effects while preserving original late receipts. */
+  const authorizeOperation = async (database: RequestDatabase, operation: string) => {
+    if (!dependencies.guardNewWork) return authorize();
+    if (!await authorize()) return false;
+    if (dependencies.guardNewWork && (operation === MESSAGE_STORAGE_OPERATION.claim || operation === MESSAGE_STORAGE_OPERATION.authorize || operation === MESSAGE_STORAGE_OPERATION.reconcile)) await dependencies.guardNewWork(database);
+    return authorize();
+  };
+  const executePreparation: MessagingWorkDependencies["execute"] = dependencies.guardNewWork ? async (actorUserId, run) => dependencies.execute(actorUserId, async (database) => {
+    await dependencies.guardNewWork!(database);
+    const result = await run(database);
+    await dependencies.guardNewWork!(database);
+    return result;
+  }) : dependencies.execute;
   const resourceAuthority = createAdmissionNotificationResourceAuthority(dependencies.readSecurityConfig);
-  const deliveries = new PostgresMessageDeliveryRepository(dependencies.execute, authorize, dependencies.readSecurityConfig,dependencies.focalScope??dependencies.diagnosticScope,resourceAuthority.queued);
-  const secrets = new PostgresEncryptedSecretStore(dependencies.execute, { getAuthenticatedAccount: async () => null }, dependencies.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery,resourceAuthority.marked);
-  const privatePreparation = new PostgresVerificationDeliveryPreparation(dependencies.execute, secrets, dependencies.readSecurityConfig);
+  const deliveries = new PostgresMessageDeliveryRepository(dependencies.execute, authorizeOperation, dependencies.readSecurityConfig,dependencies.focalScope??dependencies.diagnosticScope,resourceAuthority.queued);
+  const secrets = new PostgresEncryptedSecretStore(executePreparation, { getAuthenticatedAccount: async () => null }, dependencies.readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.authorizedDelivery,resourceAuthority.marked);
+  const privatePreparation = new PostgresVerificationDeliveryPreparation(executePreparation, secrets, dependencies.readSecurityConfig);
   const preparation: VerificationDeliveryPreparation = {
     /** @param context - Original backend worker scope. @param signal - Original deadline. @returns Material only while live backend authority remains current. */
     async prepare(context, signal) {
@@ -272,7 +297,7 @@ export function buildMessagingWorkModule(dependencies: MessagingWorkDependencies
       return prepared;
     },
   };
-  const notification = !focalScope && dependencies.createNotificationSender ? buildAdmissionNotificationDeliveryModule({ execute: dependencies.execute, authorize, readSecurityConfig: dependencies.readSecurityConfig, createSender: dependencies.createNotificationSender }) : undefined;
+  const notification = !focalScope && dependencies.createNotificationSender ? buildAdmissionNotificationDeliveryModule({ execute: executePreparation, authorize, readSecurityConfig: dependencies.readSecurityConfig, createSender: dependencies.createNotificationSender }) : undefined;
   const preparedSender = new PurposeRoutedMessageDeliverySender(dependencies.createSender(preparation), notification?.sender);
   const sender: MessageDeliverySender = {
     /** @param context - Original committed marker. @param signal - Remaining run deadline. @returns Original prepared operation after current backend authorization, without RPC. */
@@ -309,4 +334,54 @@ export function buildMessagingSecretRetentionModule(dependencies: { execute: Can
 /** @param dependencies - Fixed private backend authority, routing-only state and separately authorized key importer. @returns One bounded cipher-rotation entrypoint without BYOK replacement, provider calls or scheduling. */
 export function buildMessagingProtectionKeyRotationModule(dependencies: MessagingProtectionKeyRotationDependencies) {
   return { useCases: { rotateProtectionKeys: new RotateMessagingProtectionKeysUseCase(new PostgresMessagingProtectionKeyRotation(dependencies)) } };
+}
+
+/** Owns explicit native composition only; message credentials and human sessions are never supplied as workflow inputs. */
+export type AdmissionMessagingMaintenanceDependencies = {
+  readonly execute: MessagingWorkDependencies["execute"];
+  readonly authorize: () => Promise<boolean>;
+  readonly readRecoveryLock: () => Promise<boolean>;
+  readonly readExternalScope: () => Promise<AdmissionMessagingMaintenanceExternalScope | null>;
+  readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>;
+  readonly publicAppBaseUrl: () => string;
+  readonly runtime: AdmissionMessagingMaintenanceRuntime;
+  readonly dispatchRuntime: MessagingDispatchRuntime;
+  readonly createSenders: (execute: MessagingWorkDependencies["execute"]) => Pick<MessagingWorkDependencies, "createSender"> & Required<Pick<MessagingWorkDependencies, "createNotificationSender">>;
+};
+
+/** @param dependencies - Current bearer, original guarded executors, local hosting scope and registered prepared transports. @returns The complete bounded maintenance use case; no schedule, deployment or provider request is activated by composition. */
+export function buildAdmissionMessagingMaintenanceModule(dependencies: AdmissionMessagingMaintenanceDependencies) {
+  const metadataExecute = <Result>(run: (database: RequestDatabase) => Promise<Result>) => dependencies.execute(null, run);
+  const progress = new PostgresAdmissionMessagingMaintenanceProgress(metadataExecute, dependencies.authorize, dependencies.readRecoveryLock, dependencies.readExternalScope, dependencies.runtime.now);
+  /** @param run - Original acquired workflow. @param deadline - Original shared host deadline. @param signal - Original phase cancellation. @returns Lazy real owners with no checkout spanning a phase or RPC. */
+  const createOwners = (run: AdmissionMessagingMaintenanceRun, deadline: number, signal: AbortSignal) => {
+    /** @param database - Original business transaction, never a nested checkout. @returns Only while the same native workflow, purpose and deadline still permit starting work. */
+    const guardNewWork = async (database: RequestDatabase) => {
+      if (signal.aborted || dependencies.runtime.now() >= deadline) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
+      await progress.guardWorkTransaction(database, run);
+      if (signal.aborted || dependencies.runtime.now() >= deadline) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
+    };
+    const executeNew: MessagingWorkDependencies["execute"] = (actorUserId, work) => dependencies.execute(actorUserId, async (database) => { await guardNewWork(database); const result = await work(database); await guardNewWork(database); return result; });
+    const execute = <Result>(work: (database: RequestDatabase) => Promise<Result>) => executeNew(null, work);
+    /** @returns Current backend purpose only; original late receipt/observation writes do not require an unexpired acquisition window. */
+    const authorize = async () => dependencies.authorize();
+    /** @returns A current prepared global worker; provider lookup is guarded, while original late receipts retain the base executor. */
+    const worker = () => {
+      const remaining = Math.floor(deadline - dependencies.runtime.now());
+      if (signal.aborted || remaining < 1) throw new AdmissionMessagingMaintenanceError(ADMISSION_MESSAGING_MAINTENANCE_REASON.deadlineReached);
+      const senders = dependencies.createSenders(executeNew);
+      return buildMessagingWorkModule({ execute: dependencies.execute, authorize, guardNewWork, readSecurityConfig: dependencies.readSecurityConfig, runtime: dependencies.dispatchRuntime, settings: { runBudgetMs: remaining }, createSender: (preparation) => guardMaintenanceMessageDeliverySender(senders.createSender(preparation), signal, deadline, dependencies.runtime.now), createNotificationSender: (preparation) => guardMaintenanceMessageDeliverySender(senders.createNotificationSender(preparation), signal, deadline, dependencies.runtime.now) });
+    };
+    return {
+      expireRequests: () => buildAdmissionExpirationModule({ execute, authorize }).useCases.expireRequests.execute(),
+      purgeAdmission: () => buildAdmissionDataRetentionModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock }).useCases.purgeData.execute(),
+      purgeMessaging: () => buildMessagingSecretRetentionModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock }).useCases.purgeSecrets.execute(),
+      materializeReminders: () => buildAdmissionNotificationReminderModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock }).useCases.materializeReminders.execute(),
+      prepareNotifications: () => buildAdmissionNotificationProducerModule({ execute, authorize, readRecoveryLock: dependencies.readRecoveryLock, readSecurityConfig: dependencies.readSecurityConfig, publicAppBaseUrl: dependencies.publicAppBaseUrl(), runtime: { now: dependencies.runtime.now, createId: dependencies.runtime.createId, report: (error) => dependencies.runtime.report(error, { operation: ADMISSION_MESSAGING_MAINTENANCE_OPERATION.phase, runId: run.runId, phase: ADMISSION_MESSAGING_MAINTENANCE_PHASE.notifications }) } }).useCases.prepareEmailNotifications.prepareGroups(deadline),
+      dispatchOutbox: () => worker().useCases.dispatch.execute(),
+      reconcileLeases: () => new PostgresMessageDeliveryRepository(executeNew, async () => authorize(), dependencies.readSecurityConfig).reconcileExpiredLeases(ADMISSION_MESSAGING_MAINTENANCE_RECONCILIATION_LIMIT),
+    };
+  };
+  const work = new OriginalAdmissionMessagingMaintenanceWork(createOwners, progress.assertRunnable.bind(progress), dependencies.readSecurityConfig, dependencies.runtime);
+  return { useCases: { runMaintenance: new RunAdmissionMessagingMaintenanceUseCase(work, progress, dependencies.runtime) } };
 }

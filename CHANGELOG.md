@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El mantenimiento interno de admisión reúne vencimientos, limpieza y avisos, conserva el avance de cada paso e informa la configuración pendiente; su ejecución automática sigue pendiente.
+
 - La preparación interna de avisos revisa todas sus páginas antes de cerrar un grupo y alterna las tribus; la ejecución automática sigue pendiente.
 
 - Los avisos de admisión recuperados conservan el contenido completo del grupo y su vencimiento, y vuelven a comprobar el destinatario y la conexión actuales; el envío automático sigue pendiente.
