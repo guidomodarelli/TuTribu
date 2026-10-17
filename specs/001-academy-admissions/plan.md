@@ -8,6 +8,8 @@
 
 ## Summary
 
+Ampliación del 17 de octubre de 2026: FR-143–FR-146 y casos WA-01–WA-05 incorporan WhatsApp opcional/obligatorio por líder, independiente de la prueba de contacto, y reutilizan el nombre de Google. T213–T217 cubren contrato, dominio, SQL/migración/retención y edición propia, UI y validación/documentación. Se preservan T001–T212 y las 71 aprobaciones originales; los 142 FR originales se amplían a 146. La arquitectura mantiene los owners de política, solicitud y cuenta existentes, con edición propia por operación original/CAS y sin acceso al grupo de WhatsApp.
+
 Controlar todas las altas/recuperaciones básicas gratuitas de academias con una política única de lista o revisión manual, manteniendo login global obligatorio y código adicional opcional. Implementar lista/CSV, invitaciones nominativas, solicitudes/decisiones, evidencia y avisos con todas las matrices/estados/límites existentes. Solo Zavu es conectable; credenciales por líder/tribu, transporte y seguridad global permanecen separados.
 
 Módulos verticales `academy-admissions` y `messaging` con puertos propios, extensiones concretas de `auth/tribes/notifications/subscriptions`, SQL transaccional autoritativo y outbox Postgres. SDK oficial con defaults peligrosos desactivados, keyrings externos y crypto portable. No requiere una cola externa, nuevo login ni framework de plugins. La entrega funcional es única: prioridades ordenan trabajo, no permiten omitir requisitos.

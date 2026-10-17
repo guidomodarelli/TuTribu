@@ -66,3 +66,8 @@ Conservar el significado de todas las filas “Pantallas, formularios y mensajes
 ## Documentación de implementación
 
 Actualizar el manual temático de ingreso (`academy-mode.html`/`joining-options.html`) y los topics pertinentes de cuenta, miembros, notificaciones/operaciones/media, junto con index/application-flows, preservando trazabilidad y navegación. Crear tema independiente de admisión/mensajería si el recorrido no cabe con owner claro; la implementación determina el archivo real y aplica user-manual. Arquitectura/conventions/user-manual bajo docs usan .htm; controles y artefactos Spec Kit permanecen .md. CHANGELOG Unreleased describe cambios para integrantes/creadores. No publicar/commitear manuales sin autorización del trabajo de entrega.
+# Ampliación: número de WhatsApp configurable
+
+FR-143–FR-146: el formulario no vuelve a pedir nombre/apellido; la revisión reutiliza el nombre de la cuenta autenticada con Google. El líder elige si el número usado en el grupo de WhatsApp es opcional (predeterminado) u obligatorio. Se explica junto al control que sirve para la comparación manual con el grupo y no activa códigos ni comprueba pertenencia.
+
+El solicitante ve el campo con su condición, ayuda de formato internacional y validación antes de confirmar. Su contacto principal y la comprobación por código mantienen controles y estados independientes. En una solicitud pendiente vigente puede completar/corregir el dato; retirarlo sólo cuando sea opcional. Una respuesta incierta conserva la intención exacta y ofrece consulta del original. Cambiar el input limpia errores anteriores. El revisor ve nombre y WhatsApp declarado juntos; una nueva exigencia bloquea aprobar pendientes incompletas y una edición concurrente exige revisar la nueva versión.

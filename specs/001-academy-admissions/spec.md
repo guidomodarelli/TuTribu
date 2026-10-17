@@ -514,7 +514,7 @@ La gestión de una conexión no da permiso para enviar texto arbitrario a cualqu
 
 - **FR-021**: El teléfono DEBE normalizarse con país y validación inequívoca. Verificarlo DEBE asociarlo a la cuenta existente únicamente para el propósito/tribu correspondiente, sin crear o enlazar cuentas globales por ese dato.
 
-- **FR-022**: Un contacto declarado NO DEBE reclamar, consumir, bloquear o vincular una habilitación para esa cuenta. No disponer de teléfono es válido en una solicitud manual común con OFF.
+- **FR-022**: Un contacto declarado NO DEBE reclamar, consumir, bloquear o vincular una habilitación para esa cuenta. No disponer de teléfono es válido en una solicitud manual común con OFF cuando el líder no exige el número de WhatsApp conforme a FR-144. Esa exigencia adicional no activa la comprobación por código.
 
 - **FR-023**: Dentro de una tribu, un contacto comprobado utilizado en una presentación NO DEBE quedar vinculado a dos cuentas distintas. La vinculación válida se fija al presentar, no por escribir el dato ni solo por solicitar un código.
 
@@ -773,6 +773,25 @@ La gestión de una conexión no da permiso para enviar texto arbitrario a cualqu
 - **FR-141**: La entrega DEBE incluir pruebas reales de reglas, persistencia, concurrencia, aislamiento, interfaz e integración preparada, además de manuales y documentación. Una pantalla o un adaptador simulado NO DEBE reportarse como capacidad externa validada.
 
 - **FR-142**: El sistema DEBE registrar métricas agregadas de admisiones, revisiones, pruebas, intentos/entregas, antigüedad de pendientes, errores y consumo por tribu sin divulgar datos de otras tribus.
+
+#### L. Número de WhatsApp para revisión humana
+
+- **FR-143**: La solicitud DEBE reutilizar el nombre de la cuenta autenticada, obtenido en el ingreso con Google, y mostrarlo al revisor. NO DEBE exigir nombre y apellido por separado ni tratar el nombre de perfil como identidad civil acreditada.
+- **FR-144**: El líder DEBE poder elegir por tribu si el número de WhatsApp de la persona es opcional u obligatorio; el valor inicial DEBE ser opcional. Se DEBE pedir el número usado en el grupo con formato telefónico válido e internacional. Esta regla DEBE estar disponible con correo o teléfono como contacto de admisión, independientemente de la modalidad, los códigos, Zavu y sus países/cupos. Cuando sea obligatorio, una presentación nueva y una aprobación pendiente DEBEN exigir el número. Un cambio de esta regla DEBE incrementar la versión de política, sin cambiar la época de verificación ni invalidar pruebas por sí solo.
+- **FR-145**: El solicitante DEBE poder completar, corregir o retirar su número declarado mientras la solicitud siga pendiente y no haya vencido; si actualmente es obligatorio, NO DEBE poder retirarlo. La edición DEBE conservar la cuenta, contacto de verificación, prueba, fuente, estado, fecha original y vencimiento; DEBE usar operación original y versión observada, incrementar la versión sólo ante cambio efectivo y producir conflicto ante revisión concurrente. Una respuesta incierta DEBE recuperarse antes de repetir. Las solicitudes terminales NO DEBEN poder editarse por este recorrido.
+- **FR-146**: El número de WhatsApp DEBE mostrarse junto al nombre en la revisión autorizada y como dato declarado sin comprobación de pertenencia. El líder o guardián compara manualmente esos datos con el grupo; TuTribu NO consulta ni extrae integrantes de WhatsApp. El dato NO DEBE crear evidencia, vínculos, habilitaciones, envíos, cambios de teléfono global ni autoridad sobre el contacto principal, aunque coincidan los números. Sólo el solicitante y revisores autorizados DEBEN acceder al número; su minimización/eliminación DEBE seguir la retención privada de la solicitud, sin copiarlo a auditoría, métricas, avisos o diagnósticos.
+
+Los requisitos FR-143–FR-146 amplían el contrato por la indicación del usuario del 17 de octubre de 2026. Conservan las 71 aprobaciones temáticas anteriores; esa revisión histórica no acredita la implementación o validación de esta ampliación.
+
+Casos de aceptación de la ampliación:
+
+| Caso | Acción y resultado esperado |
+| --- | --- |
+| WA-01 | Con el valor inicial opcional, una persona solicita por correo/manual/OFF sin teléfono; se muestra el nombre de su cuenta y no se envían mensajes. |
+| WA-02 | El líder exige WhatsApp sin configurar proveedor; el formulario explica la exigencia, rechaza ausencia/número inválido y permite presentar un número válido sin atribuirle verificación. |
+| WA-03 | Una solicitud ya pendiente sin número queda pendiente al activar la exigencia; la aprobación queda impedida hasta que su titular lo complete. La época y la prueba anterior se conservan. |
+| WA-04 | El titular corrige el número con versión vigente; el revisor ve el nuevo dato junto al nombre. Una decisión con versión anterior entra en conflicto y debe revisarse de nuevo. Replay no duplica la edición; otra cuenta o tribu y una solicitud terminal no pueden editarla. |
+| WA-05 | Correo/número principal y prueba local no cambian al editar WhatsApp. El número no aparece en avisos/auditoría/métricas y se elimina con el material privado al cumplir la retención. |
 
 ### Estados y transiciones
 

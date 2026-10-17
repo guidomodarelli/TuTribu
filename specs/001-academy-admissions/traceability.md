@@ -1,6 +1,6 @@
 # Traceability: Academy Admissions and Tenant Messaging
 
-**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 197 completadas y 15 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
+**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks, ampliado con FR-143–FR-146. [tasks.md](tasks.md) conserva las 212 identidades anteriores y agrega T213–T217: 217 tareas, 198 completadas y 19 pendientes. T213 cierra el contrato de la ampliación; T214–T217 conservan implementación y pruebas pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
 
 T199 completa el ensayo de recuperación en copia aislada: bloqueo externo, época y claves fuera del snapshot, material retirado inutilizable, reconciliación con respuesta perdida y reapertura mediante conexión, prueba y política nuevas. Native final 1/1, 3.632 inputs y dos helpers estables; veintidós paths coinciden y ambas ramas propias quedaron retiradas. La ejecución anterior permanece fallida y T201/T203/OG-02 siguen abiertos para hosting, Workers y operación externa. [Evidencia y alcance del cierre](validation/messaging-recovery-reconciliation-baseline.md).
 
@@ -976,3 +976,15 @@ La [evidencia del correo completo](validation/admission-notification-email-sende
 ### Procedencia nativa y selección del worker — T185/T186 abiertas
 
 La [evidencia del worker](validation/admission-worker-purpose-routing.md) vincula el propósito y grupo nativos con la preparación correspondiente y su comprobación independiente antes del material. La cola compuesta conserva sus límites, ámbitos focales, observación y reservas; una referencia antigua incompleta con guard de negocio conserva historial y supresión auditada antes del marker. Las cohortes locales y Native y el CI de base tienen alcances separados. La selección no cierra productor protegido, recuperación íntegra, mantenimiento, purga, mediciones o gates; se preservan todas las filas normativas, 181/31/212 y las 71 aprobaciones.
+# Ampliación autorizada: WhatsApp para revisión manual
+
+Esta ampliación conserva todos los IDs previos y las 71 aprobaciones temáticas históricas. Las cinco nuevas tareas no acreditan implementación al registrarse.
+
+| Requisito | Caso | Tareas | Evidencia requerida |
+| --- | --- | --- | --- |
+| FR-143 | WA-01, WA-04 | T213, T216, T217 | Formulario sin nombre/apellido; revisión con nombre de cuenta y número declarado. |
+| FR-144 | WA-01–WA-03 | T213–T217 | Default opcional, flag por líder, validación y guard vigente al presentar/aprobar sin proveedor ni cambio de época. |
+| FR-145 | WA-03–WA-04 | T213–T217 | Edición propia pendiente, CAS/replay/no-op, desconocido y decisión concurrente; aislamiento y terminales. |
+| FR-146 | WA-02, WA-05 | T213–T217 | Número independiente de evidencia/binding, proyecciones propias/revisor, privacidad y minimización SQL real. |
+
+Estado inicial: contrato actualizado; implementación y pruebas de la ampliación pendientes. Los documentos propietarios y manuales se actualizarán con comportamiento alcanzable en T217.
