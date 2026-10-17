@@ -20,6 +20,7 @@ import {
 import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
 import { confirmOwnedBranchRemoval } from "./confirm-owned-branch-removal";
 import { withAcademyAdmissionRestoreCopy, type AcademyAdmissionRestoreCopy } from "./academy-admission-restore-copy";
+import { readPostgresTestDiagnostics, type PostgresTestDiagnostics } from "./postgres-test-diagnostics";
 
 /** Fixes the project allowed by the repository's standing validation authorization. */
 const ADMISSION_NEON_PROJECT_ID = "cold-firefly-92947172";
@@ -31,6 +32,19 @@ const runExecutable = promisify(execFile);
 type NeonBranch = { id: string; name: string; parent_id: string; default: boolean };
 /** Records actual role flags rather than assuming that RLS protects runtime writes. */
 type DatabaseRole = { name: string; bypassesRls: boolean; isSuperuser: boolean };
+
+/** Observes the actual owned pool without exposing a client, connection URI or query data. */
+export type AcademyAdmissionPoolMetrics = {
+  maximum: number | null;
+  totalCount: number;
+  idleCount: number;
+  waitingCount: number;
+  acquisitions: number;
+  releases: number;
+  errorReleases: number;
+  removals: number;
+  lastErrorRelease: PostgresTestDiagnostics | null;
+};
 
 /** Supplies an explicit administrative boundary for controlled recovery tests. */
 export type AcademyAdmissionDatabaseOptions = {
@@ -46,6 +60,8 @@ export type AcademyAdmissionTestDatabase = {
   branch: { id: string; name: string; parentId: string; isDefault: false };
   runtimeRole: DatabaseRole;
   nonBypassRole: DatabaseRole;
+  /** Reads native pg events and current pool gauges without acquiring another connection. */
+  readPoolMetrics: () => AcademyAdmissionPoolMetrics;
   withContext: <Result>(
     context: RequestDatabaseContext,
     run: (database: RequestDatabase) => Promise<Result>,
@@ -221,6 +237,10 @@ export async function withAcademyAdmissionDatabase<Result>(
     const branchConnection = new URL(connection.uri);
     branchConnection.searchParams.set("sslmode", "verify-full");
     pool = createPostgresPool({ connectionString: branchConnection.toString(), operation: "academy_admission_validation" });
+    const observedPool = { acquisitions: 0, releases: 0, errorReleases: 0, removals: 0, lastErrorRelease: null as PostgresTestDiagnostics | null };
+    pool.on("acquire", () => { observedPool.acquisitions += 1; });
+    pool.on("release", (error) => { observedPool.releases += 1; if (error) { observedPool.errorReleases += 1; observedPool.lastErrorRelease = readPostgresTestDiagnostics(error); } });
+    pool.on("remove", () => { observedPool.removals += 1; });
     if (options.concurrentTransactions !== undefined) {
       if (!Number.isInteger(options.concurrentTransactions) || options.concurrentTransactions < 1 || options.concurrentTransactions > 100) throw new Error("AcademyAdmissionDatabase.configure failed: invalid_concurrency");
       // pg exposes Pool.options; these are read by each subsequent checkout.
@@ -249,6 +269,10 @@ export async function withAcademyAdmissionDatabase<Result>(
       branch: { id: ownedBranch.id, name, parentId: parent.id, isDefault: false },
       runtimeRole,
       nonBypassRole,
+      /** @returns Current native gauges and event totals for this exact owned pool; no SQL is executed. */
+      readPoolMetrics() {
+        return { maximum: branchPool.options.max ?? null, totalCount: branchPool.totalCount, idleCount: branchPool.idleCount, waitingCount: branchPool.waitingCount, ...observedPool };
+      },
       /**
        * Runs a request using the existing guarded checkout and local role/context.
        *
