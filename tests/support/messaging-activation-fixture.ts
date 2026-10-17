@@ -17,10 +17,18 @@ import {VERIFICATION_MESSAGE_COPY} from "@/src/modules/messaging/constants/zavu-
 import type {RequestDatabase} from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
+/** Allows a restore child to prepare a replacement without acquiring migration or seed capabilities. */
+type ActivationSql = Pick<AcademyAdmissionTestDatabase, "withContext">;
+/** @param database - Actual owned full fixture or SQL-only restore child. @returns Full preparation capability only when originally supplied. @throws Before initial setup if a SQL-only child has no existing native principal. */
+function initialActivationDatabase(database: AcademyAdmissionTestDatabase | ActivationSql): AcademyAdmissionTestDatabase {
+  if ("applyMigration" in database) return database;
+  throw new Error("Messaging activation fixture initial setup requires its owned migration capability");
+}
+
 /** @param database - Owned branch. @param existing - Optional current native owner/tribe for a separate replacement candidate. @param diagnosticRecipient - Optional distinct synthetic destination, preserving the specified account/contact/tribe/purpose challenge namespace. @param securityConfig - Optional native host keyrings/environment shared in memory with a server fixture. @returns Real configuration/validation/diagnostic evidence and the exact activation context without external network. */
-export async function prepareMessagingConnectionActivation(database:AcademyAdmissionTestDatabase,existing?:Awaited<ReturnType<typeof prepareMessagingConnectionCreation>>,diagnosticRecipient?:string,securityConfig?:MessagingSecurityConfig){
-  let fixture=existing??await prepareMessagingConnectionCreation(database,securityConfig);const credential=randomUUID(),senderId=randomUUID();
-  if(!existing)for(const migration of["20261005092500_guard_messaging_attempts.sql","20261005100000_guard_messaging_secret_retirement.sql","20261006120000_index_messaging_contact_windows.sql","20261006140000_claim_messaging_deliveries_fairly.sql","20261006160000_purge_verification_delivery_material.sql","20261006230000_bind_credential_validation_usage.sql","20261007050000_claim_scoped_diagnostic_delivery.sql","20261008161500_create_admission_email_settings.sql"])await database.applyMigration(migration);
+export async function prepareMessagingConnectionActivation(database:AcademyAdmissionTestDatabase | ActivationSql,existing?:Awaited<ReturnType<typeof prepareMessagingConnectionCreation>>,diagnosticRecipient?:string,securityConfig?:MessagingSecurityConfig){
+  let fixture=existing??await prepareMessagingConnectionCreation(initialActivationDatabase(database),securityConfig);const credential=randomUUID(),senderId=randomUUID();
+  if(!existing)for(const migration of["20261005092500_guard_messaging_attempts.sql","20261005100000_guard_messaging_secret_retirement.sql","20261006120000_index_messaging_contact_windows.sql","20261006140000_claim_messaging_deliveries_fairly.sql","20261006160000_purge_verification_delivery_material.sql","20261006230000_bind_credential_validation_usage.sql","20261007050000_claim_scoped_diagnostic_delivery.sql","20261008161500_create_admission_email_settings.sql"])await initialActivationDatabase(database).applyMigration(migration);
   if(existing){const context=await refreshMessagingActivationRecency(database,fixture,"save_messaging_credentials",fixture.context.tribeId);fixture={...fixture,context:{...fixture.context,authenticatedAt:context.authenticatedAt,validUntil:context.validUntil}};}
   const created=await fixture.repository.create(fixture.context,{operationId:randomUUID(),confirmed:true,providerId:"zavu",name:"Activación real",apiKey:credential});if(created.state!=="completed")throw new Error("Expected protected candidate");
   await database.withContext(fixture.fixture.own,async(transaction)=>{
@@ -47,7 +55,7 @@ export async function prepareMessagingConnectionActivation(database:AcademyAdmis
 }
 
 /** @param database - Exact owned branch. @param fixture - Native account/session and tribe from the existing owner. @param operation - Actual sensitive action. @param resourceId - Exact action resource. @returns Current SQL authentication bounds after persisting fresh native evidence. */
-export async function refreshMessagingActivationRecency(database:AcademyAdmissionTestDatabase,fixture:Awaited<ReturnType<typeof prepareMessagingConnectionCreation>>,operation:string,resourceId:string){
+export async function refreshMessagingActivationRecency(database:ActivationSql,fixture:Awaited<ReturnType<typeof prepareMessagingConnectionCreation>>,operation:string,resourceId:string){
   return database.withContext(fixture.fixture.own,async(transaction)=>{
     const now=new Date((await transaction.execute<{now:Date|string}>(sql`select clock_timestamp() as now`)).rows[0].now),validUntil=new Date(now.getTime()+540_000),intentId=randomUUID();
     await transaction.execute(sql`insert into public.global_reauthentication_intents(id,user_id,original_session_id,account_id,provider_subject,tribe_id,operation,resource_id,return_path,nonce_hash,state,created_at,expires_at,consumed_at) values (${intentId},${fixture.context.actorUserId},${fixture.context.sessionId},${fixture.context.accountId},${fixture.context.subject},${fixture.context.tribeId},${operation},${resourceId},'/synthetic-rotation',${randomBytes(32)},'consumed',${now},${validUntil},${now})`);

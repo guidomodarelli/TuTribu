@@ -18,7 +18,7 @@ export type CreatedMessageDeliveryAuditRow = MessageDeliveryAuditRow & { created
 type MessageDeliveryAuditScope = { tribeId: string; actorUserId: string | null; operationId: string | null };
 /** Restricts cancellation to the exact closed reasons of existing local owners. */
 type MessageDeliveryCancellationAuditScope = MessageDeliveryAuditScope & {
-  cause: "explicit_resend" | "suspected_compromise" | "connection_replaced" | "candidate_expired";
+  cause: "explicit_resend" | "suspected_compromise" | "connection_replaced" | "candidate_expired" | "security_context_changed";
   createdAt: Date;
 };
 

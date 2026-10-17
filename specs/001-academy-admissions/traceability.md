@@ -1,6 +1,6 @@
 # Traceability: Academy Admissions and Tenant Messaging
 
-**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 181 completadas y 31 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
+**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks. [tasks.md](tasks.md) conserva 212 tareas con IDs sincronizados: 196 completadas y 16 pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
 
 T165 completa el criterio íntegro de seguridad y privacidad sobre `a767de9c`: referencias y roles cruzados, campos de envío/host prohibidos, autoridad actual antes de secretos, scopes locales y todas las superficies de salida. La matriz final en ambos motores a 390/1280 conserva cuatro estados sin membresía y deniega al antiguo guardián sin efectos. Cuatro capturas reales del widget y el borde de transporte negativo protegen los artefactos; cuarenta fuentes estables y auditoría sin brechas, con observabilidad T164 reutilizada por alcance y rojos anteriores conservados. [Evidencia de seguridad y privacidad](validation/admission-security-and-privacy.md). Este cierre no completa T166/T167, audit/métricas futuras ni gates externos.
 

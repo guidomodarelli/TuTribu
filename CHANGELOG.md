@@ -269,6 +269,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Security
 
+- La recuperación interna de una copia puede cerrar admisiones y retirar conexiones, códigos y pruebas anteriores por lotes, conservando los intentos inciertos y su consumo; reabrir requiere una conexión y una confirmación de política vigentes. El ensayo operativo sigue pendiente.
+
 - El procesamiento interno de avisos por correo bloquea todo el grupo si cambian sus permisos o preferencias y conserva el aviso ante problemas reparables de protección; el envío automático sigue pendiente.
 
 - Los campos de códigos de ingreso, pruebas de mensajería y claves de conexión quedan excluidos de las capturas al reportar un problema.

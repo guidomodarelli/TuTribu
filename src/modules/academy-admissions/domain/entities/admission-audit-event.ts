@@ -5,6 +5,8 @@ import { ADMISSION_PROOF_AUDIT_EVENT, ADMISSION_PROOF_AUDIT_RULE } from "../../c
 import { ADMISSION_MESSAGING_SELECTION_CHANGE } from "../../constants/messaging-selection";
 import type {AdmissionResourceAuditEvent} from "./admission-resource-audit-event";
 import type { AdmissionPolicy } from "./admission-policy";
+import { MESSAGING_RECOVERY } from "@/src/modules/messaging/constants/messaging-recovery";
+import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { selectAdmissionPolicyAuditSnapshot, type AdmissionPolicyAuditSnapshot } from "./admission-policy-audit-snapshot";
 
 /** Describes the native actor, original ledger and authoritative owner clock. */
@@ -25,7 +27,26 @@ type AdmissionOwnerAuditEvent = AdmissionAuditScope & { resourceId: string; rule
   | { resourceType: "admission_request"; eventType: "proof_attached"; metadata: { proofId: string; previousRequestVersion: number } }
 );
 /** Includes historical owner snapshots and the complete closed private resource vocabulary. */
-export type AdmissionAuditEvent=AdmissionOwnerAuditEvent|AdmissionMessagingSelectionAuditEvent|AdmissionResourceAuditEvent;
+export type AdmissionAuditEvent=AdmissionOwnerAuditEvent|AdmissionMessagingSelectionAuditEvent|AdmissionResourceAuditEvent|AdmissionRecoveryPolicyAuditEvent;
+
+/** Attributes an actual private recovery closure to the backend without fabricating a human or ledger. */
+type AdmissionRecoveryPolicyAuditEvent = {
+  tribeId: string; actorUserId: null; operationId: null; resourceId: string; resourceVersion: number;
+  resourceType: "admission_policy"; eventType: "pause_admission_policy";
+  rule: "security_context_changed"; cause: "security_context_changed"; createdAt: Date;
+  metadata: { previousVersion: number; fromPolicy: AdmissionPolicyAuditSnapshot; toPolicy: AdmissionPolicyAuditSnapshot };
+};
+
+/** @param input - Locked actual predecessor and confirmed closed policy under private recovery authority. @returns Reconstructible policy snapshots with explicitly absent human/ledger attribution. */
+export function createAdmissionRecoveryPolicyAuditEvent(input: { tribeId: string; previousPolicy: AdmissionPolicy; policy: AdmissionPolicy; createdAt: Date }): AdmissionRecoveryPolicyAuditEvent {
+  return {
+    tribeId: input.tribeId, actorUserId: null, operationId: null,
+    resourceType: ADMISSION_POLICY_AUDIT.resourceType, resourceId: input.policy.id, resourceVersion: input.policy.version,
+    eventType: REAUTHENTICATION_OPERATION.pauseAdmissionPolicy, rule: MESSAGING_RECOVERY.cause, cause: MESSAGING_RECOVERY.cause,
+    metadata: { previousVersion: input.previousPolicy.version, fromPolicy: selectAdmissionPolicyAuditSnapshot(input.previousPolicy), toPolicy: selectAdmissionPolicyAuditSnapshot(input.policy) },
+    createdAt: new Date(input.createdAt),
+  };
+}
 
 /**
  * Selects the previous and confirmed connection references of an effective policy transition.

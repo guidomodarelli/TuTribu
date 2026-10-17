@@ -19,7 +19,8 @@ type PreviousAdmissionProofState = "available" | "applied" | "invalid";
 /** Uses the challenged channel rather than the next issuance channel. */
 type AdmissionProofAuditChannel = "email" | "sms" | "whatsapp";
 /** Binds the private facts to their authorized action and closed owner-selected reason. */
-type AdmissionProofInvalidationAuditScope = { tribeId: string; actorUserId: string; operationId: string; cause: "suspected_compromise" | "connection_disconnected" | "policy_verification_context_changed" | "explicit_resend" };
+type AdmissionProofInvalidationAuditScope = { tribeId: string; actorUserId: string; operationId: string; cause: "suspected_compromise" | "connection_disconnected" | "policy_verification_context_changed" | "explicit_resend" }
+  | { tribeId: string; actorUserId: null; operationId: null; cause: "security_context_changed" };
 
 /**
  * Selects invalidated proof facts and stages one batch in the owner's existing transaction.
