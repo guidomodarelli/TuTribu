@@ -1,5 +1,8 @@
 /** Composes implemented human and worker messaging capabilities without global clients or key defaults. @module messaging-setup */
 import "server-only";
+import { ReconcileMessagingRecoveryUseCase } from "./application/use-cases/reconcile-messaging-recovery-use-case";
+import { PostgresMessagingRecovery, type MessagingRecoveryDependencies } from "./infrastructure/repositories/postgres-messaging-recovery";
+import { PostgresAdmissionRecovery } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-recovery";
 import { RotateMessagingProtectionKeysUseCase } from "./application/use-cases/rotate-messaging-protection-keys-use-case";
 import { PostgresMessagingProtectionKeyRotation, type MessagingProtectionKeyRotationDependencies } from "./infrastructure/repositories/postgres-messaging-protection-key-rotation";
 import { PurgeMessagingSecretsUseCase } from "./application/use-cases/purge-messaging-secrets-use-case";
@@ -334,6 +337,11 @@ export function buildMessagingSecretRetentionModule(dependencies: { execute: Can
 /** @param dependencies - Fixed private backend authority, routing-only state and separately authorized key importer. @returns One bounded cipher-rotation entrypoint without BYOK replacement, provider calls or scheduling. */
 export function buildMessagingProtectionKeyRotationModule(dependencies: MessagingProtectionKeyRotationDependencies) {
   return { useCases: { rotateProtectionKeys: new RotateMessagingProtectionKeysUseCase(new PostgresMessagingProtectionKeyRotation(dependencies)) } };
+}
+
+/** @param dependencies - Explicit private backend purpose and live external recovery facts, without a key importer. @returns Bounded recovery and read-only inspection; neither method releases the lock or reopens admission. */
+export function buildMessagingRecoveryModule(dependencies: MessagingRecoveryDependencies) {
+  return { useCases: { reconcileRecovery: new ReconcileMessagingRecoveryUseCase(new PostgresMessagingRecovery(dependencies, (database) => new PostgresAdmissionRecovery(database))) } };
 }
 
 /** Owns explicit native composition only; message credentials and human sessions are never supplied as workflow inputs. */

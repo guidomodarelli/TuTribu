@@ -1,10 +1,20 @@
 /** Exercises owned audit snapshots without copying command payloads or metric labels. @module admission-audit-event-tests */
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { createAdmissionPolicyAuditEvent, createAdmissionProofAuditEvent, createAdmissionMessagingSelectionAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-audit-event";
+import { createAdmissionPolicyAuditEvent, createAdmissionProofAuditEvent, createAdmissionMessagingSelectionAuditEvent, createAdmissionRecoveryPolicyAuditEvent } from "@/src/modules/academy-admissions/domain/entities/admission-audit-event";
 import { createDefaultAdmissionPolicy } from "@/src/modules/academy-admissions/domain/entities/admission-policy";
 
 describe("owned admission audit events", () => {
+  it("should record the actual recovery closure without inventing a human, ledger or changed verification rules", () => {
+    const tribeId = randomUUID(), createdAt = new Date(), previousPolicy = { ...createDefaultAdmissionPolicy({ id: tribeId, tribeId }), isOpen: true, requiresAdditionalVerification: true };
+    const policy = { ...previousPolicy, isOpen: false, version: previousPolicy.version + 1 };
+    const event = createAdmissionRecoveryPolicyAuditEvent({ tribeId, previousPolicy, policy, createdAt });
+    expect(event).toMatchObject({ actorUserId: null, operationId: null, resourceType: "admission_policy", eventType: "pause_admission_policy", rule: "security_context_changed", cause: "security_context_changed", resourceVersion: policy.version, metadata: { previousVersion: previousPolicy.version, fromPolicy: { isOpen: true, requiresAdditionalVerification: true }, toPolicy: { isOpen: false, requiresAdditionalVerification: true } } });
+    previousPolicy.isOpen = false; policy.requiresAdditionalVerification = false;
+    expect(event.metadata.fromPolicy.isOpen).toBe(true);
+    expect(event.metadata.toPolicy.requiresAdditionalVerification).toBe(true);
+    expect(event.createdAt).not.toBe(createdAt);
+  });
   it("should snapshot effective policy reference lineage and its owner clock without copying private configuration", () => {
     // Arrange: only locked reference facts belong to this existing policy event.
     const input={tribeId:randomUUID(),actorUserId:randomUUID(),operationId:randomUUID(),resourceVersion:8,previousVersion:7,previousConnectionId:randomUUID(),previousConnectionVersion:1,connectionId:randomUUID(),connectionVersion:2,verificationEpoch:5,createdAt:new Date("2026-10-13T13:00:00Z"),credential:"synthetic-private-payload",normalizedContact:"hidden@example.test",policyFlags:{isOpen:false}};
