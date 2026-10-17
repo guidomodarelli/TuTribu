@@ -4,7 +4,9 @@
 import { z } from "zod";
 import { createAuthClient } from "better-auth/client";
 import type { AdmissionBrowserClient, AdmissionBrowserResult } from "@/src/modules/academy-admissions/application/ports/admission-browser-client";
-import { admissionOverviewSchema, admissionRequestSchema, admissionOutcomeSchema, admissionReviewSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import { admissionOverviewSchema, admissionRequestSchema, admissionOutcomeSchema, admissionReviewSchema, admissionBatchResultSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import { matchesAdmissionBatchDecisionResult } from "@/src/modules/academy-admissions/application/results/admission-batch-browser-result";
+import { ADMISSION_REVIEW_BROWSER_PATH } from "@/src/modules/academy-admissions/constants/admission-review-browser";
 import { admissionReviewPageSchema } from "@/src/modules/academy-admissions/application/results/admission-review-page-result";
 import type { AdmissionReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-review-browser-client";
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
@@ -118,6 +120,11 @@ export function createAdmissionApiClient(options: { fetch?: typeof globalThis.fe
       const expectedStatus = input.decision === ADMISSION_DECISION.approve ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected;
       if (result.status === "ready" && ("state" in result.value ? result.value.operationId !== input.operationId.toLowerCase() : result.value.admissionRequestId !== requestId.toLowerCase() || result.value.status !== expectedStatus || result.value.version !== input.expectedVersion + 1)) return failed(ADMISSION_ERROR_CODE.publicContractUnusable, true);
       return result;
+    },
+    decideBatch: async (slug, input, signal) => {
+      const body = { operationId: input.operationId, confirmed: input.confirmed, decision: input.decision, internalReason: input.internalReason, ...(input.externalMessage !== undefined ? { externalMessage: input.externalMessage } : {}), items: input.items.map((item) => ({ requestId: item.requestId, expectedVersion: item.expectedVersion })) };
+      const result = await request(`${base(slug)}/${ADMISSION_REVIEW_BROWSER_PATH.batchDecisions}`, admissionBatchResultSchema, signal, body);
+      return result.status === "ready" && !matchesAdmissionBatchDecisionResult(body, result.value) ? failed(ADMISSION_ERROR_CODE.publicContractUnusable, true) : result;
     },
   };
 }
