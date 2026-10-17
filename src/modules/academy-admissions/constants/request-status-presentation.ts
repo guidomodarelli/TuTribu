@@ -12,6 +12,7 @@ export const ADMISSION_REQUEST_REVERIFICATION_COPY = {
 
 /** Explains current nonterminal restrictions without exposing reviewer notes or account/provider identifiers. */
 export const ADMISSION_REQUEST_ELIGIBILITY_COPY: Readonly<Record<string, string | undefined>> = {
+  whatsapp_number_required: "Completá el número de WhatsApp que usás en el grupo para que puedan revisar y aprobar tu solicitud.",
   admission_closed: "Por ahora esta solicitud no puede aprobarse porque las admisiones no están disponibles. Su plazo sigue corriendo.",
   admission_scope_mismatch: "No se puede confirmar la elegibilidad actual de esta solicitud. Volvé a consultar con tu cuenta o contactá al equipo de la academia.",
   contact_account_mismatch: "El contacto de esta solicitud no coincide con tu cuenta actual. Consultá al equipo de la academia antes de continuar.",

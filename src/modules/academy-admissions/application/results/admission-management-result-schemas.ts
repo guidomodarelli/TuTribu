@@ -11,6 +11,7 @@ import { admissionPublicIdSchema, admissionPublicVersionSchema, admissionPublicI
 export const admissionPolicySchema = z.object({
   id: admissionPublicIdSchema, version: admissionPublicVersionSchema, verificationEpoch: admissionPublicVersionSchema,
   mode: z.enum(ADMISSION_POLICY_MODE), contactType: z.enum(ADMISSION_CONTACT_TYPE), isOpen: z.boolean(), allowCommonExceptions: z.boolean(), requiresAdditionalVerification: z.boolean(),
+  requiresWhatsappNumber: z.boolean().optional(),
   phoneChannel: z.enum(ADMISSION_PHONE_CHANNEL).nullable(), allowSmsAlternative: z.boolean(), activatedAt: admissionPublicInstantSchema.nullable(),
   messagingConnectionId: admissionPublicIdSchema.nullable(), messagingConnectionVersion: admissionPublicVersionSchema.nullable(),
   usage: z.object({ version: admissionPublicVersionSchema, allowedCountries: z.array(z.string()) }).nullable(),

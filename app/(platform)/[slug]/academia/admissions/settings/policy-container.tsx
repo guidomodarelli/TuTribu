@@ -39,7 +39,8 @@ export function AdmissionPolicyContainer({ initialState, client = admissionApiCl
   const pending = useRef<AdmissionPolicyBrowserIntent | null>(null), loaded = useRef(false), busy = useRef(false);
   const mounted = useRef(false);
   const readController = useRef<AbortController | null>(null), writeController = useRef<AbortController | null>(null);
-  const draftChanged = Boolean(state?.policy && draft && ADMISSION_POLICY_EDITABLE_FIELDS.some((field) => draft[field] !== state.policy![field]));
+  const savedDraft = state?.policy ? createAdmissionPolicyDraft(state) : null;
+  const draftChanged = Boolean(savedDraft && draft && ADMISSION_POLICY_EDITABLE_FIELDS.some((field) => draft[field] !== savedDraft[field]));
 
   /** Checks the native account before reading a local intention or accepting a private response. */
   const checkViewer = useCallback(async (signal: AbortSignal) => {

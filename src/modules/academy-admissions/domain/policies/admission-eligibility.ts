@@ -47,6 +47,8 @@ export type AdmissionSubmissionFacts = {
   policy: AdmissionPolicy | null;
   source: AdmissionSourceFacts;
   contact: AdmissionContact | null;
+  /** Declared group number never grants contact evidence or binding authority. */
+  whatsappNumber?: string | null;
   baseEvidence: { userId: string; accountId: string; subject: string; normalizedEmail: string; authority: "gmail" | "workspace" | "insufficient"; invalidated: boolean } | null;
   localProof: AdmissionLocalProofFacts | null;
   currentConnection: { id: string; version: number; securityEpoch: string } | null;
@@ -126,14 +128,14 @@ function hasUsableAppliedProof(facts: AdmissionSubmissionFacts, proof: Admission
  * confirmation, rate limits, operation-ledger replay/CAS, and an atomic writer.
  *
  * @param facts - Current account, policy, evidence, invitation, and membership facts.
- * @param stage - Real lifecycle phase: new presentation or an existing pending request.
+ * @param stage - Read-only form preview, new presentation, or existing pending review.
  * @param appliedProof - Evidence previously attached to this request for review only.
  * @param requestId - Pending request owning applied evidence in the review phase.
  * @returns A safe domain outcome without changing any supplied resource.
  */
 function evaluateAdmission(
   facts: AdmissionSubmissionFacts,
-  stage: "submission" | "review",
+  stage: "submission" | "review" | "preview",
   appliedProof: AdmissionLocalProofFacts | null,
   requestId: string | null,
 ): AdmissionEligibilityResult {
@@ -156,6 +158,7 @@ function evaluateAdmission(
     if (!isCommercial || membership.role !== TRIBE_MEMBER_ROLE.tribemate) return denied(ADMISSION_DENIAL_REASON.membershipRestricted);
     if (membership.commercialRecoveryStatus === null) return denied(ADMISSION_DENIAL_REASON.recoveryUnknown);
   }
+  if (stage !== "preview" && policy.requiresWhatsappNumber && !facts.whatsappNumber) return denied(ADMISSION_DENIAL_REASON.whatsappNumberRequired);
   if (facts.contact && facts.contact.type !== policy.contactType) return denied(ADMISSION_DENIAL_REASON.contactTypeMismatch);
   if (facts.contact?.type === ADMISSION_CONTACT_TYPE.email && facts.contact.value !== facts.account.normalizedEmail) return denied(ADMISSION_DENIAL_REASON.contactAccountMismatch);
   if (policy.contactType === ADMISSION_CONTACT_TYPE.phone && policy.mode === ADMISSION_POLICY_MODE.allowlist && !policy.requiresAdditionalVerification) return denied(ADMISSION_DENIAL_REASON.closed);
@@ -175,9 +178,9 @@ function evaluateAdmission(
   const invitation = facts.source.kind === ADMISSION_SOURCE_KIND.personal ? facts.source.invitation : null;
   if (invitation) {
     const expectedStatus = stage === "review" ? ADMISSION_INVITATION_STATUS.redeemed : ADMISSION_INVITATION_STATUS.active;
-    const isNewInvitationExpired = stage === "submission" && invitation.expiresAt && facts.now.getTime() >= invitation.expiresAt.getTime();
+    const isNewInvitationExpired = stage !== "review" && invitation.expiresAt && facts.now.getTime() >= invitation.expiresAt.getTime();
     if (invitation.tribeId !== facts.tribe.id || invitation.status !== expectedStatus || invitation.authorizationRevoked || isNewInvitationExpired) return denied(ADMISSION_DENIAL_REASON.invitationUnusable);
-    if (stage === "submission" && policy.contactType === ADMISSION_CONTACT_TYPE.phone && !policy.requiresAdditionalVerification) return denied(ADMISSION_DENIAL_REASON.phoneInvitationUnavailable);
+    if (stage !== "review" && policy.contactType === ADMISSION_CONTACT_TYPE.phone && !policy.requiresAdditionalVerification) return denied(ADMISSION_DENIAL_REASON.phoneInvitationUnavailable);
     if (!hasTrustedContact || !sameContact(invitation.contact, facts.contact)) return denied(ADMISSION_DENIAL_REASON.invitationRecipientUnproven);
   }
   const entry = facts.allowlistEntry;
@@ -209,6 +212,15 @@ export function evaluateAdmissionSubmission(facts: AdmissionSubmissionFacts): Ad
   return evaluateAdmission(facts, "submission", null, null);
 }
 
+/**
+ * Evaluates a read-only form preview before the person supplies their declared group number.
+ * @param facts - Current private account, invitation, contact and policy facts.
+ * @returns A prediction that defers only declared-number completion; writers must use submission or review evaluation.
+ */
+export function evaluateAdmissionPreview(facts: AdmissionSubmissionFacts): AdmissionEligibilityResult {
+  return evaluateAdmission(facts, "preview", null, null);
+}
+
 /** Represents a scoped account; absent membership never invents an active role. */
 export type AdmissionActorFacts = { userId: string; tribeId: string; role: "leader" | "guardian" | "tribemate" | null; status: "active" | "muted" | "blocked" | "removed" | null };
 export type AdmissionAction = (typeof ADMISSION_ACTION)[keyof typeof ADMISSION_ACTION];
@@ -224,7 +236,7 @@ export type AdmissionAction = (typeof ADMISSION_ACTION)[keyof typeof ADMISSION_A
 export function canPerformAdmissionAction(actor: AdmissionActorFacts | null, action: AdmissionAction, resource: { tribeId: string; applicantUserId?: string; hasRecentAuthentication?: boolean }): boolean {
   if (!actor || actor.tribeId !== resource.tribeId) return false;
   if (action === ADMISSION_ACTION.readSecret || action === ADMISSION_ACTION.grantProductOrRole) return false;
-  if (action === ADMISSION_ACTION.readOwnRequest || action === ADMISSION_ACTION.cancelOwnRequest || action === ADMISSION_ACTION.attachOwnProof) return actor.userId === resource.applicantUserId;
+  if (action === ADMISSION_ACTION.readOwnRequest || action === ADMISSION_ACTION.cancelOwnRequest || action === ADMISSION_ACTION.attachOwnProof || action === ADMISSION_ACTION.updateOwnWhatsappNumber) return actor.userId === resource.applicantUserId;
   const isLeader = actor.status === TRIBE_MEMBERSHIP_STATUS.active && actor.role === TRIBE_MEMBER_ROLE.leader;
   const isReviewer = actor.status === TRIBE_MEMBERSHIP_STATUS.active && (actor.role === TRIBE_MEMBER_ROLE.leader || actor.role === TRIBE_MEMBER_ROLE.guardian);
   if (action === ADMISSION_ACTION.decideRequest || action === ADMISSION_ACTION.rejectRequest) return isReviewer && Boolean(resource.applicantUserId) && actor.userId !== resource.applicantUserId;

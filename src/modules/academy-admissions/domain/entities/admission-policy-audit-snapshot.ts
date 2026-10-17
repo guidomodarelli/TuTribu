@@ -5,6 +5,7 @@ import type { AdmissionPolicy } from "./admission-policy";
 export type AdmissionPolicyAuditSnapshot = {
   mode: "manual_review" | "allowlist"; contactType: "email" | "phone"; isOpen: boolean;
   allowCommonExceptions: boolean; requiresAdditionalVerification: boolean;
+  requiresWhatsappNumber?: boolean;
   phoneChannel: "sms" | "whatsapp" | null; allowSmsAlternative: boolean;
   messagingConnectionId: string | null; messagingConnectionVersion: number | null;
   verificationEpoch: number; activatedAt: string | null;
@@ -18,6 +19,7 @@ export type AdmissionPolicyAuditSnapshot = {
 export function selectAdmissionPolicyAuditSnapshot(policy: AdmissionPolicy | AdmissionPolicyAuditSnapshot): AdmissionPolicyAuditSnapshot {
   return { mode: policy.mode, contactType: policy.contactType, isOpen: policy.isOpen,
     allowCommonExceptions: policy.allowCommonExceptions, requiresAdditionalVerification: policy.requiresAdditionalVerification,
+    ...(policy.requiresWhatsappNumber !== undefined ? { requiresWhatsappNumber: policy.requiresWhatsappNumber } : {}),
     phoneChannel: policy.phoneChannel, allowSmsAlternative: policy.allowSmsAlternative,
     messagingConnectionId: policy.messagingConnectionId, messagingConnectionVersion: policy.messagingConnectionVersion,
     verificationEpoch: policy.verificationEpoch,

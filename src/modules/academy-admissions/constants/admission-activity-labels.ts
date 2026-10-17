@@ -5,6 +5,7 @@ import { ADMISSION_ACTIVITY_RESOURCE } from "./admission-activity";
 
 /** Each event already belongs to an implemented owner; unknown storage events use the closed unclassified value. */
 export const ADMISSION_ACTIVITY_EVENT_LABELS = {
+  whatsapp_number_changed: "Número de WhatsApp declarado actualizado",
   initialize_admission_policy: "Inicio de la política de admisión", update_admission_policy: "Cambio de la política de admisión", activate_admission_policy: "Activación de la admisión", pause_admission_policy: "Pausa de la admisión", messaging_selection_replaced: "Cambio de la conexión seleccionada", proof_attached: "Prueba de contacto adjuntada",
   pending_created: "Solicitud pendiente creada", approved: "Solicitud aprobada", rejected: "Solicitud rechazada", cancelled: "Solicitud cancelada", expired: "Solicitud vencida", retry_allowed: "Nueva presentación autorizada",
   create_allowlist_entry: "Contacto habilitado añadido", update_allowlist_entry: "Contacto habilitado actualizado", confirm_allowlist_import: "Lote de contactos confirmado",
@@ -60,6 +61,7 @@ export const ADMISSION_ACTIVITY_CHANGE_LABELS = {
 
 /** Nested policy snapshots choose each original field instead of serializing an arbitrary object. */
 export const ADMISSION_POLICY_SNAPSHOT_LABELS = {
+  requiresWhatsappNumber: "Número de WhatsApp obligatorio",
   mode: "Modo", contactType: "Tipo de contacto", isOpen: "Recepción abierta", allowCommonExceptions: "Excepciones comunes permitidas", requiresAdditionalVerification: "Verificación adicional requerida",
   phoneChannel: "Canal telefónico", allowSmsAlternative: "Alternativa SMS permitida", messagingConnectionId: "Conexión", messagingConnectionVersion: "Versión de conexión", verificationEpoch: "Época de verificación", activatedAt: "Activación",
 } as const satisfies Record<keyof NonNullable<AdmissionActivityPage["items"][number]["changes"]["toPolicy"]>, string>;

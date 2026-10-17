@@ -21,6 +21,8 @@ export type AdmissionRequestAuditEventType="pending_created"|"approved"|"rejecte
 type RequestAuditMetadata={fromStatus:"pending"|"approved"|"rejected"|"cancelled"|"expired"|null;toStatus:"pending"|"approved"|"rejected"|"cancelled"|"expired";previousVersion:number|null;policyVersion:number;verificationEpoch:number;proofId:string|null;decisionId:string|null;invitationId:string|null};
 /** Records ordinary lifecycle without copying an arbitrary internal reason. */
 type RequestAuditDetails={resourceType:"admission_request";eventType:AdmissionRequestAuditEventType;metadata:RequestAuditMetadata};
+/** Records a declared-field correction without its former or current value. */
+type WhatsappNumberAuditDetails={resourceType:"admission_request";eventType:"whatsapp_number_changed";metadata:RequestAuditMetadata};
 /** Preserves the existing private corrective reason only for its dedicated retry fact, not general request messages. */
 type RetryAuditDetails={resourceType:"admission_request";eventType:"retry_allowed";metadata:RequestAuditMetadata&{internalReason:string;previousRetryAllowedAt:string|null;retryAllowedAt:string}};
 /** Stores list configuration lineage without descriptive names or contact identity. */
@@ -62,7 +64,7 @@ type NotificationAuditDetails={resourceType:"admission_notification";eventType:"
 /** Keeps the independent email epoch reconstructible without addresses, credentials or OTP policy. */
 type EmailSettingsAuditDetails={resourceType:"admission_email_settings";eventType:"admission_email_settings_changed";metadata:{previousVersion:number|null;enabled:boolean;timeZone:string}};
 /** The input is already an owner's business fact; its extra properties must never be copied into storage. */
-export type AdmissionResourceAuditInput=AdmissionResourceAuditScope&(RequestAuditDetails|RetryAuditDetails|AllowlistAuditDetails|InvitationAuditDetails|UsageAuditDetails|ConnectionAuditDetails|ExposureAuditDetails|DeliveryAuditDetails|NotificationAuditDetails|EmailSettingsAuditDetails|ProtectionAuditDetails|ProofAuditDetails|MembershipAuditDetails|RetentionAuditDetails);
+export type AdmissionResourceAuditInput=AdmissionResourceAuditScope&(RequestAuditDetails|WhatsappNumberAuditDetails|RetryAuditDetails|AllowlistAuditDetails|InvitationAuditDetails|UsageAuditDetails|ConnectionAuditDetails|ExposureAuditDetails|DeliveryAuditDetails|NotificationAuditDetails|EmailSettingsAuditDetails|ProtectionAuditDetails|ProofAuditDetails|MembershipAuditDetails|RetentionAuditDetails);
 /** Uses the same closed vocabulary after selecting and snapshotting only its allowed fields. */
 export type AdmissionResourceAuditEvent=AdmissionResourceAuditInput;
 

@@ -29,7 +29,7 @@ export const ADMISSION_POLICY_CONFIGURATION_WARNING = { phoneInvitationsUnavaila
 
 /** Limits mutation proposals to policy settings; identity and counters stay server-owned. */
 export const ADMISSION_POLICY_EDITABLE_FIELDS = [
-  "mode", "contactType", "isOpen", "allowCommonExceptions", "requiresAdditionalVerification",
+  "mode", "contactType", "isOpen", "allowCommonExceptions", "requiresAdditionalVerification", "requiresWhatsappNumber",
   "phoneChannel", "allowSmsAlternative", "messagingConnectionId", "messagingConnectionVersion",
 ] as const;
 

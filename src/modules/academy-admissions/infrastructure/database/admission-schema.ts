@@ -12,6 +12,7 @@ import { ADMISSION_METRIC_RUN_OPERATION, ADMISSION_WORKER_RUN_DATABASE } from "@
 import { ADMISSION_ACTIVITY_DATABASE } from "@/src/modules/academy-admissions/constants/admission-activity";
 import type { AdmissionMetricRunOperation } from "@/src/modules/academy-admissions/domain/entities/admission-metric-dimensions";
 import { ADMISSION_NOTIFICATION_AUDIT } from "@/src/modules/notifications/constants/admission-notification-audit";
+import { ADMISSION_WHATSAPP_NUMBER_CONSTRAINT, ADMISSION_WHATSAPP_CANONICAL_PATTERN } from "../../constants/admission-whatsapp-number";
 import { ADMISSION_NOTIFICATION_SOURCE_POSITION_INDEX } from "@/src/modules/notifications/constants/admission-notification-source-selection";
 
 /** Resolves cross-owner columns after both table factories have finished. */
@@ -144,6 +145,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     mode: text("mode").notNull().default("manual_review"), contactType: text("contact_type").notNull().default("email"),
     isOpen: boolean("is_open").notNull().default(false), allowCommonExceptions: boolean("allow_common_exceptions").notNull().default(false),
     requiresAdditionalVerification: boolean("requires_additional_verification").notNull().default(false),
+    requiresWhatsappNumber: boolean("requires_whatsapp_number").notNull().default(false),
     phoneChannel: text("phone_channel"), allowSmsAlternative: boolean("allow_sms_alternative").notNull().default(false),
     messagingConnectionId: uuid("messaging_connection_id"), messagingConnectionVersion: integer("messaging_connection_version"),
     verificationEpoch: integer("verification_epoch").notNull().default(1), version: integer("version").notNull().default(1),
@@ -287,7 +289,7 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     contactType: text("contact_type"), normalizedContact: text("normalized_contact"), contactFingerprint: binaryData("contact_fingerprint"), fingerprintKeyId: text("fingerprint_key_id"),
     evidenceSource: text("evidence_source").notNull().default("none"), globalIdentityEvidenceId: uuid("global_identity_evidence_id"), proofId: uuid("proof_id"), bindingId: uuid("binding_id"),
     requiresAllowlist: boolean("requires_allowlist").notNull().default(false), originalPolicySnapshot: jsonb("original_policy_snapshot").notNull().default({}),
-    applicantMessage: text("applicant_message"), status: text("status").notNull().default("pending"),
+    whatsappNumber: text("whatsapp_number"), applicantMessage: text("applicant_message"), status: text("status").notNull().default("pending"),
     privateMaterialMinimizedAt: timestamp("private_material_minimized_at", { withTimezone: true }),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`), expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     version: integer("version").notNull().default(1), decisionId: uuid("decision_id"), cancelReason: text("cancel_reason"), retryAllowedAt: timestamp("retry_allowed_at", { withTimezone: true }),
@@ -298,10 +300,11 @@ export function createAdmissionSchema(parents: AdmissionSchemaParents) {
     pendingKey: uniqueIndex("admission_request_pending_key").on(table.tribeId,table.userId).where(sql`${table.status}='pending'`),
     inboxIndex: index("admission_request_inbox_idx").on(table.tribeId,table.status,table.submittedAt),
     privateRetentionIndex: index(ADMISSION_PRIVATE_DATA_RETENTION.requestIndex).on(table.decisionId,table.id).where(sql`${table.privateMaterialMinimizedAt} is null and ${table.status}<>'pending'`),
-    privateMinimizationCheck: check(ADMISSION_PRIVATE_DATA_RETENTION.requestMinimizationCheck, sql`${table.privateMaterialMinimizedAt} is null or (${table.status}<>'pending' and ${table.privateMaterialMinimizedAt}>=${table.submittedAt} and ${table.contactType} is null and ${table.normalizedContact} is null and ${table.contactFingerprint} is null and ${table.fingerprintKeyId} is null and ${table.applicantMessage} is null)`),
+    privateMinimizationCheck: check(ADMISSION_PRIVATE_DATA_RETENTION.requestMinimizationCheck, sql`${table.privateMaterialMinimizedAt} is null or (${table.status}<>'pending' and ${table.privateMaterialMinimizedAt}>=${table.submittedAt} and ${table.contactType} is null and ${table.normalizedContact} is null and ${table.whatsappNumber} is null and ${table.contactFingerprint} is null and ${table.fingerprintKeyId} is null and ${table.applicantMessage} is null)`),
     accountHistoryIndex: index("admission_request_account_history_idx").on(table.tribeId,table.userId,table.submittedAt.desc(),table.id.desc()),
     sourceCheck: check("admission_request_source_check", sql`${table.source} in ('common','personal','legacy')`), contactCheck: check("admission_request_contact_check", sql`${table.contactType} in ('email','phone')`),
     evidenceCheck: check("admission_request_evidence_check", sql`${table.evidenceSource} in ('none','declared','base','local')`),
+    whatsappNumberCheck: check(ADMISSION_WHATSAPP_NUMBER_CONSTRAINT, sql`${table.whatsappNumber} is null or ${table.whatsappNumber} ~ ${ADMISSION_WHATSAPP_CANONICAL_PATTERN.source}`.inlineParams()),
     messageCheck: check("admission_request_message_check", sql`char_length(${table.applicantMessage})<=${ADMISSION_LIMIT.internalMessageCharacters}`.inlineParams()),
     stateCheck: check("admission_request_state_check", sql`${table.status} in ('pending','approved','rejected','cancelled','expired')`), versionCheck: check("admission_request_version_check", sql`${table.version}>0`),
     sourceScopeCheck: check("admission_request_source_scope_check", sql`(${table.source}='common' and ${table.invitationId} is null and ${table.legacyInvitationId} is null) or (${table.source}='personal' and ${table.invitationId} is not null and ${table.legacyInvitationId} is null) or (${table.source}='legacy' and ${table.invitationId} is null and ${table.legacyInvitationId} is not null)`),

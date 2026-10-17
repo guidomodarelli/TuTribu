@@ -9,11 +9,12 @@ export type AdmissionErrorCode =
   | "admissions_paused" | "admission_ineligible" | "membership_recovery_required" | "connection_incomplete"
   | "missing_capability" | "invalid_credentials" | "upstream_rejected" | "provider_rate_limited"
   | "transport_timeout" | "dependency_unavailable" | "delivery_unknown" | "operation_unresolved"
-  | "upstream_payload_unusable" | "public_contract_unusable" | "unexpected_failure";
+  | "upstream_payload_unusable" | "public_contract_unusable" | "unexpected_failure" | "whatsapp_number_required";
 
 /** Names closed semantic outcomes and safe Spanish copy; transport mapping remains in infrastructure. */
 export const ADMISSION_ERROR_CODE = {
   invalidInput: "invalid_input",
+  whatsappNumberRequired: "whatsapp_number_required",
   authenticationRequired: "authentication_required",
   permissionDenied: "permission_denied",
   resourceUnavailable: "resource_unavailable",
@@ -57,6 +58,7 @@ export const ADMISSION_ERROR_CODE = {
 /** Only catalogue copy can cross the public error boundary. */
 export const ADMISSION_ERROR_MESSAGE = {
   [ADMISSION_ERROR_CODE.invalidInput]: "Revisá los datos de la operación antes de confirmar.",
+  [ADMISSION_ERROR_CODE.whatsappNumberRequired]: "Completá el número de WhatsApp que usás en el grupo para continuar.",
   [ADMISSION_ERROR_CODE.authenticationRequired]: "Iniciá sesión para continuar con el ingreso.",
   [ADMISSION_ERROR_CODE.permissionDenied]: "No tenés permiso para realizar esta operación.",
   [ADMISSION_ERROR_CODE.resourceUnavailable]: "El recurso solicitado no está disponible.",

@@ -1,6 +1,6 @@
 /** Projects authorized private facts into own personal-preview DTOs without revealing the recipient or token. @module personal-invitation-overview-result */
 import type { PersonalInvitationOverviewFacts } from "../../domain/repositories/personal-invitation-overview-reader";
-import { evaluateAdmissionSubmission } from "../../domain/policies/admission-eligibility";
+import { evaluateAdmissionPreview } from "../../domain/policies/admission-eligibility";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_SOURCE_KIND, ADMISSION_OUTCOME, ADMISSION_INVITATION_STATUS, ADMISSION_DENIAL_REASON } from "../../constants/admission-eligibility";
@@ -11,7 +11,7 @@ import { ADMISSION_OVERVIEW_STATE, ADMISSION_NEXT_ACTION } from "../../constants
 import { ADMISSION_OVERVIEW_MESSAGE } from "../../constants/admission-overview";
 import { PERSONAL_INVITATION_OVERVIEW_STATE, PERSONAL_INVITATION_OVERVIEW_MESSAGE } from "../../constants/personal-invitation-overview";
 import { personalInvitationOverviewSchema } from "../../constants/personal-invitation-overview-schemas";
-import { admissionRequestSchema } from "./admission-flow-result-schemas";
+import { admissionOwnRequestSchema } from "./admission-flow-result-schemas";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 
 /** @returns The same closed view for absence, wrong account and unusable personal authorization. */
@@ -26,10 +26,10 @@ export function projectPersonalInvitationOverview(facts: PersonalInvitationOverv
   const eligibility = { ...facts.eligibility, now }, overview = facts.overview;
   if (!eligibility.account || eligibility.account.userId !== viewer.userId || eligibility.tribe.id !== overview.tribe.id || invitation.tribeId !== overview.tribe.id) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
   const policy = eligibility.policy, publicPolicy = overview.policy;
-  if (policy === null ? publicPolicy !== null : !publicPolicy || policy.tribeId !== overview.tribe.id || policy.mode !== publicPolicy.mode || policy.version !== publicPolicy.version || policy.contactType !== publicPolicy.contactType || policy.requiresAdditionalVerification !== publicPolicy.requiresAdditionalVerification || policy.isOpen !== publicPolicy.isOpen) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
+  if (policy === null ? publicPolicy !== null : !publicPolicy || policy.tribeId !== overview.tribe.id || policy.mode !== publicPolicy.mode || policy.version !== publicPolicy.version || policy.contactType !== publicPolicy.contactType || policy.requiresAdditionalVerification !== publicPolicy.requiresAdditionalVerification || Boolean(policy.requiresWhatsappNumber) !== Boolean(publicPolicy.requiresWhatsappNumber) || policy.isOpen !== publicPolicy.isOpen) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
   if (eligibility.tribe.controlActivated !== overview.tribe.controlActivated || eligibility.tribe.evaluatorEnabled !== overview.tribe.evaluatorEnabled || eligibility.tribe.recoveryLocked !== overview.recoveryLocked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
   const membership = overview.membership;
-  const request = overview.request === null ? null : admissionRequestSchema.parse(overview.request);
+  const request = overview.request === null ? null : admissionOwnRequestSchema.parse(overview.request);
   const activeMember = membership?.status === TRIBE_MEMBERSHIP_STATUS.active || membership?.status === TRIBE_MEMBERSHIP_STATUS.muted;
   const pending = request?.status === ADMISSION_REQUEST_STATUS.pending && now < new Date(request.expiresAt);
   const ownedRedemption = invitation.status === ADMISSION_INVITATION_STATUS.redeemed && facts.redeemedByUserId === viewer.userId && facts.redeemedRequestId === request?.id && request?.source === ADMISSION_SOURCE_KIND.personal;
@@ -37,7 +37,7 @@ export function projectPersonalInvitationOverview(facts: PersonalInvitationOverv
   if (eligibility.contactBinding && eligibility.contactBinding.ownerUserId !== viewer.userId && eligibility.contactBinding.contact.type === invitation.contact.type && eligibility.contactBinding.contact.value === invitation.contact.value) return unavailablePersonalInvitationOverview();
   if (!facts.tokenAvailable && !activeMember && !ownedRedemption || !activeMember && !ownedRedemption && invitation.status !== ADMISSION_INVITATION_STATUS.active) return unavailablePersonalInvitationOverview();
   if (!activeMember && !ownedRedemption && (invitation.authorizationRevoked || invitation.expiresAt && now >= invitation.expiresAt)) return unavailablePersonalInvitationOverview();
-  const evaluated = evaluateAdmissionSubmission(eligibility);
+  const evaluated = evaluateAdmissionPreview(eligibility);
   if (!activeMember && !pending && (evaluated.outcome === ADMISSION_OUTCOME.denied || evaluated.outcome === ADMISSION_OUTCOME.alreadyMember)) return unavailablePersonalInvitationOverview();
   if (evaluated.outcome === ADMISSION_OUTCOME.verificationRequired && invitation.requiresAllowlist && (!eligibility.allowlistEntry?.enabled || eligibility.allowlistEntry.contact.type !== invitation.contact.type || eligibility.allowlistEntry.contact.value !== invitation.contact.value)) return unavailablePersonalInvitationOverview();
   if (evaluated.outcome === ADMISSION_OUTCOME.denied && evaluated.reason === ADMISSION_DENIAL_REASON.contactConflict) return unavailablePersonalInvitationOverview();

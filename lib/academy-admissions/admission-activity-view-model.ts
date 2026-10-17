@@ -31,6 +31,7 @@ export function createAdmissionActivityDetailRows(changes: ActivityChanges): Adm
       const policy = value as PolicySnapshot;
       for (const [policyName, policyLabel] of Object.entries(ADMISSION_POLICY_SNAPSHOT_LABELS)) {
         const policyValue = policy[policyName as keyof PolicySnapshot];
+        if (policyValue === undefined) continue;
         rows.push({ label: `${label} · ${policyLabel}`, value: policyName === "activatedAt" && typeof policyValue === "string" ? formatAdmissionObservationTime(policyValue) : displayPrimitive(policyValue) });
       }
     } else {

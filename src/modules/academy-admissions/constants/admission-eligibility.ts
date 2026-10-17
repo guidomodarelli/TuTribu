@@ -23,6 +23,7 @@ export const ADMISSION_DENIAL_REASON = {
   membershipRestricted: "membership_restricted",
   recoveryUnknown: "membership_recovery_unknown",
   proofRequired: "local_proof_required",
+  whatsappNumberRequired: "whatsapp_number_required",
   reviewerUnauthorized: "reviewer_unauthorized",
   requestExpired: "request_expired",
   evidenceRevoked: "evidence_revoked",
@@ -42,6 +43,7 @@ export const ADMISSION_ACTION = {
   cancelByManagement: "cancel_by_management", allowEarlyRetry: "allow_early_retry",
   readAudit: "read_audit", readReviewHistory: "read_review_history",
   readOwnRequest: "read_own_request", cancelOwnRequest: "cancel_own_request",
+  updateOwnWhatsappNumber: "update_own_whatsapp_number",
   attachOwnProof: "attach_own_proof", updateOwnNotificationPreferences: "update_own_notification_preferences",
   grantProductOrRole: "grant_product_or_role",
 } as const;

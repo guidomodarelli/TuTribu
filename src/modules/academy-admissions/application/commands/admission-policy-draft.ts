@@ -2,6 +2,7 @@
 export type AdmissionPolicyDraft = {
   mode: "manual_review" | "allowlist"; contactType: "email" | "phone"; isOpen: boolean;
   allowCommonExceptions: boolean; requiresAdditionalVerification: boolean;
+  requiresWhatsappNumber?: boolean;
   phoneChannel: "sms" | "whatsapp" | null; allowSmsAlternative: boolean;
   messagingConnectionId: string | null; messagingConnectionVersion: number | null;
 };

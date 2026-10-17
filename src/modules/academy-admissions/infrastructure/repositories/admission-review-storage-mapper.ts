@@ -52,7 +52,7 @@ export function mapAdmissionReviewStorage(row: AdmissionReviewStorageRecord, now
   const stored = row.request;
   const contact = contactFromStorage(stored.contactType, stored.contactValue);
   const request: AdmissionRequest = { id: stored.id, tribeId: stored.tribeId, userId: stored.userId, source: stored.source, invitationId: stored.invitationId, legacyInvitationId: stored.legacyInvitationId,
-    requiresAllowlist: stored.requiresAllowlist, bindingId: stored.bindingId, proofId: stored.proofId, originalPolicy: stored.originalPolicy, applicantMessage: stored.applicantMessage,
+    requiresAllowlist: stored.requiresAllowlist, bindingId: stored.bindingId, proofId: stored.proofId, originalPolicy: stored.originalPolicy, applicantMessage: stored.applicantMessage, whatsappNumber: stored.whatsappNumber ?? null,
     status: stored.status, version: stored.version, decisionId: stored.decisionId, cancelReason: stored.cancelReason,
     contact, evidence: evidenceFromStorage(stored), submittedAt: new Date(stored.submittedAt), expiresAt: new Date(stored.expiresAt), resolvedAt: stored.resolvedAt ? new Date(stored.resolvedAt) : null, retryAllowedAt: stored.retryAllowedAt ? new Date(stored.retryAllowedAt) : null };
   const policy = row.policy ? { ...row.policy, activatedAt: row.policy.activatedAt ? new Date(row.policy.activatedAt) : null } : null;
@@ -65,7 +65,7 @@ export function mapAdmissionReviewStorage(row: AdmissionReviewStorageRecord, now
   const bindingContact = row.contactBinding ? contactFromStorage(row.contactBinding.contactType, row.contactBinding.contactValue) : null;
   const approvalSupported = (stored.source === ADMISSION_REQUEST_SOURCE.common || stored.source === ADMISSION_REQUEST_SOURCE.personal && source.kind === ADMISSION_SOURCE_KIND.personal && stored.bindingId !== null) && (policy?.mode === ADMISSION_POLICY_MODE.manualReview || policy?.mode === ADMISSION_POLICY_MODE.allowlist);
   return { request, applicantName: row.applicantName, internalReason: row.internalReason, externalMessage: row.externalMessage, approvalSupported,
-    review: { now, tribe: { ...row.tribe, recoveryLocked }, account: { userId: stored.userId, normalizedEmail: row.applicantEmail.trim().toLowerCase(), googleAccount: row.googleAccount }, policy, source, contact,
+    review: { now, tribe: { ...row.tribe, recoveryLocked }, account: { userId: stored.userId, normalizedEmail: row.applicantEmail.trim().toLowerCase(), googleAccount: row.googleAccount }, policy, source, contact, whatsappNumber: request.whatsappNumber,
       membership: row.membership, localProof: proof, baseEvidence: row.baseEvidence, currentConnection: row.connection,
       contactBinding: row.contactBinding && bindingContact ? { ownerUserId: row.contactBinding.ownerUserId, contact: bindingContact } : null,
       allowlistEntry: row.allowlistEntry && entryContact ? { tribeId: row.allowlistEntry.tribeId, contact: entryContact, enabled: row.allowlistEntry.enabled, boundUserId: row.allowlistEntry.boundUserId } : null,

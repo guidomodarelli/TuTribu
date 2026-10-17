@@ -19,6 +19,7 @@ import { authorizeAdmissionLeader } from "./postgres-admission-leader-authorizer
 import { authorizeAdmissionPolicy } from "./postgres-admission-policy-authorizer";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 import { ADMISSION_BATCH_DECISION_OPERATION } from "../../constants/admission-batch-decision";
+import { ADMISSION_WHATSAPP_OPERATION } from "../../constants/admission-whatsapp-number";
 
 /** Owned row fields are consumed directly; only the final own recovery DTO is schema-guarded by application. */
 type RegisteredOperationRow = { operation_type: string; state: "started" | "completed"; idempotency_key: string; public_result: unknown; member_role: string | null; member_status: string | null; request_user_id: string | null };
@@ -58,6 +59,7 @@ export class PostgresAdmissionOperationReader implements AdmissionOperationReade
       }
       if ((row.operation_type === ADMISSION_OPERATION_TYPE.decide || row.operation_type === ADMISSION_BATCH_DECISION_OPERATION) && !reviewer) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
       if (row.operation_type === ADMISSION_OPERATION_TYPE.allowRetry && !leader) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      if (row.operation_type === ADMISSION_WHATSAPP_OPERATION && row.state === OPERATION_STATE.completed && row.request_user_id !== scope.userId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
       if (row.operation_type === ADMISSION_OPERATION_TYPE.cancel && row.state === OPERATION_STATE.completed) {
         const result = row.public_result;
         if (typeof result !== "object" || result === null || !("admissionRequestId" in result) || typeof result.admissionRequestId !== "string") throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);

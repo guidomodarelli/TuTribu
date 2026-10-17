@@ -2,7 +2,7 @@
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import type { AdmissionOverviewReader } from "@/src/modules/academy-admissions/domain/repositories/admission-query-reader";
-import { admissionOverviewSchema, admissionRequestSchema } from "../results/admission-flow-result-schemas";
+import { admissionOverviewSchema, admissionOwnRequestSchema } from "../results/admission-flow-result-schemas";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
@@ -29,7 +29,7 @@ export class GetAdmissionOverviewUseCase {
       if (first ? !current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, now) : current !== null) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       if (!facts || facts.tribe.slug !== query.slug) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
       if (!scope && (facts.membership !== null || facts.request !== null)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
-      const request = facts.request === null ? null : admissionRequestSchema.parse(facts.request);
+      const request = facts.request === null ? null : admissionOwnRequestSchema.parse(facts.request);
       const membership = facts.membership;
       const membershipEligibility = evaluateAcademyMembershipEligibility(membership);
       let state: typeof ADMISSION_OVERVIEW_STATE[keyof typeof ADMISSION_OVERVIEW_STATE] = ADMISSION_OVERVIEW_STATE.available;

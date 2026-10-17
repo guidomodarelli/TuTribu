@@ -15,6 +15,7 @@ import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-pa
 import { admissionPublicIdSchema, admissionPublicVersionSchema, admissionPublicInstantSchema, admissionLocalHrefSchema, admissionMaskedContactSchema } from "./admission-contract-fields";
 import { admissionContactOptionsSchema } from "./admission-contact-options-schema";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
+import { ADMISSION_WHATSAPP_CANONICAL_PATTERN } from "../../constants/admission-whatsapp-number";
 
 /** Own-request projection; reviewer/account ids, raw contacts and internal reasons are absent. */
 export const admissionRequestSchema = z.object({
@@ -22,6 +23,10 @@ export const admissionRequestSchema = z.object({
   submittedAt: admissionPublicInstantSchema, expiresAt: admissionPublicInstantSchema, source: z.enum(ADMISSION_PUBLIC_SOURCE),
   contact: admissionMaskedContactSchema.optional(), needsVerification: z.boolean(), eligibilityReasons: z.array(z.enum(ADMISSION_DENIAL_REASON)),
   externalMessage: z.string().max(ADMISSION_LIMIT.externalMessageCharacters).optional(), retryAllowedAt: admissionPublicInstantSchema.optional(),
+});
+/** Only authenticated own/reviewer queries include declared group data; durable command snapshots strip it. */
+export const admissionOwnRequestSchema = admissionRequestSchema.extend({
+  whatsappNumber: z.string().regex(ADMISSION_WHATSAPP_CANONICAL_PATTERN).nullable().optional(), requiresWhatsappNumber: z.boolean().optional(),
 });
 /** Declared input carries no verification time; base and local evidence have disjoint scopes. */
 const reviewEvidenceSchema = z.discriminatedUnion("kind", [
@@ -33,7 +38,7 @@ const reviewEvidenceSchema = z.discriminatedUnion("kind", [
 /** Reviewers see the constraints needed to decide, without an invitation's token, internal name or other recipient. */
 const reviewRestrictionsSchema = z.object({ requiresAllowlist: z.boolean(), requiresExceptionReason: z.boolean(), invitation: z.object({ status: z.enum(ADMISSION_INVITATION_STATUS), requiresAllowlist: z.boolean(), authorizationRevoked: z.boolean(), recipientMatches: z.boolean(), expiresAt: admissionPublicInstantSchema.nullable() }).nullable() });
 /** Only a current reviewer route may select this schema; audience never comes from query/body. */
-export const admissionReviewSchema = admissionRequestSchema.extend({
+export const admissionReviewSchema = admissionOwnRequestSchema.extend({
   /** Server-observed age highlight, independent of reminder production or email delivery. */
   pendingAgeThresholdReached: z.boolean(),
   applicant: z.object({ id: z.string().min(1), name: z.string() }),
@@ -45,11 +50,11 @@ export const admissionReviewSchema = admissionRequestSchema.extend({
   && (review.evidence.kind !== ADMISSION_EVIDENCE_KIND.local || review.evidence.scope.requestId === review.id)
   && (review.source !== ADMISSION_PUBLIC_SOURCE.personal || review.restrictions.invitation !== null));
 /** Public policy summary omits list matches, exceptions and management-only data. */
-const overviewPolicySchema = z.object({ mode: z.enum(ADMISSION_POLICY_MODE), contactType: z.enum(ADMISSION_CONTACT_TYPE), requiresAdditionalVerification: z.boolean(), isOpen: z.boolean(), version: admissionPublicVersionSchema });
+const overviewPolicySchema = z.object({ mode: z.enum(ADMISSION_POLICY_MODE), contactType: z.enum(ADMISSION_CONTACT_TYPE), requiresAdditionalVerification: z.boolean(), requiresWhatsappNumber: z.boolean().optional(), isOpen: z.boolean(), version: admissionPublicVersionSchema });
 /** Public/own overview can represent missing configuration without a fabricated version. */
 export const admissionOverviewSchema = z.object({
   tribe: z.object({ slug: z.string().regex(TRIBE_SLUG_PATTERN), name: z.string(), accessModel: z.literal("academy") }),
-  policy: overviewPolicySchema.nullable(), state: z.enum(ADMISSION_OVERVIEW_STATE), nextAction: z.enum(ADMISSION_NEXT_ACTION), safeMessage: z.string(), request: admissionRequestSchema.optional(), verification: admissionContactOptionsSchema.optional(),
+  policy: overviewPolicySchema.nullable(), state: z.enum(ADMISSION_OVERVIEW_STATE), nextAction: z.enum(ADMISSION_NEXT_ACTION), safeMessage: z.string(), request: admissionOwnRequestSchema.optional(), verification: admissionContactOptionsSchema.optional(),
 }).refine((overview) => !overview.verification || overview.policy?.requiresAdditionalVerification === true && (overview.policy.contactType === ADMISSION_CONTACT_TYPE.email ? overview.verification.channel === MESSAGING_PUBLIC_CHANNEL.email : overview.verification.channel !== MESSAGING_PUBLIC_CHANNEL.email));
 /** Legible membership states are preserved; a new admission cannot grant a privileged role. */
 const legibleMembershipSchema = z.object({ status: z.enum([TRIBE_MEMBERSHIP_STATUS.active, TRIBE_MEMBERSHIP_STATUS.muted]), role: z.enum(TRIBE_MEMBER_ROLE) });
@@ -92,6 +97,7 @@ export function createAdmissionOperationStateSchema<Result>(resultSchema: z.ZodT
 
 /** Own parsed DTO types used by route props and browser consumers. */
 export type AdmissionRequestDto = z.infer<typeof admissionRequestSchema>;
+export type AdmissionOwnRequestDto = z.infer<typeof admissionOwnRequestSchema>;
 export type AdmissionReviewDto = z.infer<typeof admissionReviewSchema>;
 export type AdmissionOverviewDto = z.infer<typeof admissionOverviewSchema>;
 export type AdmissionOutcomeDto = z.infer<typeof admissionOutcomeSchema>;

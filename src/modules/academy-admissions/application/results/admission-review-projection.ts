@@ -1,6 +1,6 @@
 /** Projects only reviewer-owned display facts and current decision eligibility. @module admission-review-projection */
 import type { AdmissionReviewRecord } from "@/src/modules/academy-admissions/domain/repositories/admission-review-reader";
-import { evaluatePendingAdmissionReview, canPerformAdmissionAction } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
+import { evaluatePendingAdmissionReview, canPerformAdmissionAction, needsPendingAdmissionVerification } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import { getAdmissionRetryAllowedAt } from "@/src/modules/academy-admissions/domain/entities/admission-request";
 import { admissionReviewSchema } from "./admission-flow-result-schemas";
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
@@ -28,12 +28,13 @@ export function projectAdmissionReview(record: AdmissionReviewRecord) {
   return admissionReviewSchema.parse({
     id: request.id, status: request.status, version: request.version, submittedAt: request.submittedAt.toISOString(), expiresAt: request.expiresAt.toISOString(), source: request.source,
     ...(contact && maskedValue ? { contact: { type: contact.type, maskedValue, evidenceKind: request.evidence.kind }, rawContact: contact.value } : {}),
-    needsVerification: pending && !expired && (evaluation?.reason === ADMISSION_DENIAL_REASON.proofRequired || evaluation?.reason === ADMISSION_DENIAL_REASON.evidenceRevoked),
+    needsVerification: pending && !expired && needsPendingAdmissionVerification(review),
     pendingAgeThresholdReached: pending && !expired && review.now.getTime() - request.submittedAt.getTime() >= ADMISSION_LIMIT.pendingReminderDelayMs,
     eligibilityReasons: expired ? [ADMISSION_DENIAL_REASON.requestExpired] : evaluation?.reason ? [evaluation.reason] : [],
     ...(record.externalMessage ? { externalMessage: record.externalMessage } : {}), ...(record.internalReason ? { internalReason: record.internalReason } : {}),
     ...(request.applicantMessage ? { applicantMessage: request.applicantMessage } : {}), ...(retryAt ? { retryAllowedAt: retryAt.toISOString() } : {}),
     applicant: { id: request.userId, name: record.applicantName }, evidence, eligibleActions,
+    whatsappNumber: request.whatsappNumber ?? null, requiresWhatsappNumber: review.policy?.requiresWhatsappNumber ?? false,
     restrictions: { requiresAllowlist: request.requiresAllowlist, requiresExceptionReason: evaluation?.reason === ADMISSION_DENIAL_REASON.exceptionReasonRequired,
       invitation: invitation ? { status: invitation.status, requiresAllowlist: invitation.requiresAllowlist, authorizationRevoked: invitation.authorizationRevoked, recipientMatches: invitation.contact.type === contact?.type && invitation.contact.value === contact?.value, expiresAt: invitation.expiresAt?.toISOString() ?? null } : null },
   });

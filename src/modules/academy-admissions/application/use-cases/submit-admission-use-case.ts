@@ -8,11 +8,13 @@ import { ADMISSION_OPERATION_TYPE, ADMISSION_REQUEST_SOURCE } from "@/src/module
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
+import { normalizeAdmissionWhatsappNumber } from "../../domain/value-objects/admission-whatsapp-number";
 
 /** The validated browser action cannot select email, actor, session, role, evidence or API credentials. */
 export type SubmitAdmissionInput = {
   tribeId: string; requestId: string; operationId: string; expectedPolicyVersion: number; confirmed: true;
   phone?: string; country?: string; proofId?: string; message?: string; invitationToken?: string; legacyInvitationToken?: string;
+  whatsappNumber?: string;
 };
 
 /** The writer owns current opening, prior state, cadence, ledger/CAS and the final indivisible effect. */
@@ -38,6 +40,7 @@ export class SubmitAdmissionUseCase<Result extends AdmissionCommittedOutcome = A
         tribeId: input.tribeId, requestId: input.requestId, userId: account.userId, sessionId: account.session.id,
         operationId: input.operationId, type: ADMISSION_OPERATION_TYPE.submit, expectedPolicyVersion: input.expectedPolicyVersion, confirmed: input.confirmed,
         source, contact: normalized.contact, proofId: input.proofId ?? null, message: input.message?.trim() || null,
+        ...(input.whatsappNumber !== undefined ? { whatsappNumber: normalizeAdmissionWhatsappNumber(input.whatsappNumber) } : {}),
       };
       return { ok: true as const, value: await this.writer.submit(intent) };
     } catch (error) { return admissionOperationFailure(error); }

@@ -1,6 +1,6 @@
 # Traceability: Academy Admissions and Tenant Messaging
 
-**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks, ampliado con FR-143–FR-146. [tasks.md](tasks.md) conserva las 212 identidades anteriores y agrega T213–T217: 217 tareas, 198 completadas y 19 pendientes. T213 cierra el contrato de la ampliación; T214–T217 conservan implementación y pruebas pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
+**Estado**: implementación en curso sobre el diseño I1/U1 de speckit-plan y speckit-tasks, ampliado con FR-143–FR-146. [tasks.md](tasks.md) conserva las 212 identidades anteriores y agrega T213–T217: 217 tareas, 199 completadas y 18 pendientes. T213 cierra el contrato y T214 las reglas y contratos de la ampliación; T215–T217 conservan integración y pruebas pendientes. Los marcadores de tasks.md son el registro autoritativo de cierre por tarea; las filas normativas mantienen su validación integral pendiente hasta completar los recorridos y gates propios.
 
 T199 completa el ensayo de recuperación en copia aislada: bloqueo externo, época y claves fuera del snapshot, material retirado inutilizable, reconciliación con respuesta perdida y reapertura mediante conexión, prueba y política nuevas. Native final 1/1, 3.632 inputs y dos helpers estables; veintidós paths coinciden y ambas ramas propias quedaron retiradas. La ejecución anterior permanece fallida y T201/T203/OG-02 siguen abiertos para hosting, Workers y operación externa. [Evidencia y alcance del cierre](validation/messaging-recovery-reconciliation-baseline.md).
 
@@ -987,4 +987,4 @@ Esta ampliación conserva todos los IDs previos y las 71 aprobaciones temáticas
 | FR-145 | WA-03–WA-04 | T213–T217 | Edición propia pendiente, CAS/replay/no-op, desconocido y decisión concurrente; aislamiento y terminales. |
 | FR-146 | WA-02, WA-05 | T213–T217 | Número independiente de evidencia/binding, proyecciones propias/revisor, privacidad y minimización SQL real. |
 
-Estado inicial: contrato actualizado; implementación y pruebas de la ampliación pendientes. Los documentos propietarios y manuales se actualizarán con comportamiento alcanzable en T217.
+Avance: contrato y reglas completos, con dos casos SQL aprobados y fuentes estables, según [la evidencia de WhatsApp](validation/whatsapp-number.md). La ejecución anterior y el diagnóstico `42703` se conservan. T215 mantiene la concurrencia y el writer de política pendientes; T216/T217 mantienen interfaz, validación y manuales pendientes.

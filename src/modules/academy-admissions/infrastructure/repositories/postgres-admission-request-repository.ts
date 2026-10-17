@@ -64,6 +64,13 @@ import type { LegacyAdmissionInvitationReader } from "../../domain/repositories/
 import { ADMISSION_OPERATION_TRIBE_LOCK_SQL } from "../../constants/admission-operation";
 import { createAdmissionRequestAuditEvent, createAdmissionRetryAuditEvent, type AdmissionRequestAuditInput, type AdmissionRequestAuditDecision } from "../../domain/entities/admission-request-audit-event";
 import { PostgresAdmissionAuditRepository } from "./postgres-admission-audit-repository";
+import { readAdmissionPolicy } from "./postgres-admission-policy-storage";
+import type { AdmissionWhatsappNumberWriter, AdmissionWhatsappNumberIntent, AdmissionWhatsappNumberResult } from "../../domain/repositories/admission-whatsapp-number-writer";
+import { proposeAdmissionWhatsappNumberChange } from "../../domain/value-objects/admission-whatsapp-number";
+import { createAdmissionWhatsappNumberAuditEvent } from "../../domain/entities/admission-whatsapp-number-audit-event";
+import { ADMISSION_WHATSAPP_OPERATION, ADMISSION_WHATSAPP_CHANGE_OUTCOME } from "../../constants/admission-whatsapp-number";
+import { admissionWhatsappNumberResultSchema } from "../../application/results/admission-writer-result-schemas";
+import { admissionRequestSchema } from "../../application/results/admission-flow-result-schemas";
 
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -80,7 +87,7 @@ type RequestRow = {
   id: string; tribe_id: string; user_id: string; source: AdmissionRequest["source"]; invitation_id: string | null; legacy_invitation_id: string | null;
   contact_type: "email" | "phone" | null; normalized_contact: string | null; evidence_source: "none" | "declared" | "base" | "local";
   proof_id: string | null; binding_id: string | null; requires_allowlist: boolean; original_policy_snapshot: AdmissionRequest["originalPolicy"];
-  applicant_message: string | null; status: AdmissionRequest["status"]; submitted_at: string; expires_at: string; version: number;
+  whatsapp_number: string | null; applicant_message: string | null; status: AdmissionRequest["status"]; submitted_at: string; expires_at: string; version: number;
   decision_id: string | null; cancel_reason: string | null; retry_allowed_at: string | null; resolved_at: string | null;
   global_identity_evidence_id: string | null; evidence_verified_at: string | null;
 };
@@ -97,7 +104,7 @@ function requestEvidence(row: RequestRow): AdmissionRequestEvidence {
 }
 
 /** Manual common/OFF writer; personal redemption and local verification are extended in their owning stories. */
-export class PostgresAdmissionRequestRepository implements AdmissionCommandWriter<AdmissionSubmissionResult>, AdmissionBatchDecisionWriter, AdmissionRetryWriter, AdmissionExecutionCapabilitiesReader {
+export class PostgresAdmissionRequestRepository implements AdmissionCommandWriter<AdmissionSubmissionResult>, AdmissionBatchDecisionWriter, AdmissionRetryWriter, AdmissionExecutionCapabilitiesReader, AdmissionWhatsappNumberWriter {
   /** @param execute - Guarded actual actor executor. @param readSecurityConfig - Live local platform keyrings/recovery state. @param compose - Explicit DB-only membership and notification owners. */
   constructor(private readonly execute: AdmissionDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly compose: (database: RequestDatabase) => AdmissionTransactionCollaborators) {}
 
@@ -127,6 +134,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     if (!requestId) return true;
     const request = (await database.execute<{ user_id: string }>(sql`select user_id from public.academy_admission_requests where id=${requestId} and tribe_id=${scope.tribeId}`)).rows[0];
     if (!request) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    if (operation === ADMISSION_WHATSAPP_OPERATION) return request.user_id === scope.userId;
     const reviewer = actor.status === TRIBE_MEMBERSHIP_STATUS.active && (actor.role === TRIBE_MEMBER_ROLE.leader || actor.role === TRIBE_MEMBER_ROLE.guardian);
     if (operation === ADMISSION_OPERATION_TYPE.decide) return reviewer && request.user_id !== scope.userId;
     if (operation === ADMISSION_OPERATION_TYPE.allowRetry) {
@@ -146,8 +154,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
 
   /** Reads current configuration without fabricating a policy for missing historical storage. */
   private async policy(database: RequestDatabase, tribeId: string): Promise<AdmissionPolicy | null> {
-    const row = (await database.execute<AdmissionPolicy>(sql`select tribe_id as id,tribe_id as "tribeId",mode,contact_type as "contactType",is_open as "isOpen",allow_common_exceptions as "allowCommonExceptions",requires_additional_verification as "requiresAdditionalVerification",phone_channel as "phoneChannel",allow_sms_alternative as "allowSmsAlternative",messaging_connection_id as "messagingConnectionId",messaging_connection_version as "messagingConnectionVersion",verification_epoch as "verificationEpoch",version,activated_at as "activatedAt" from public.academy_admission_policies where tribe_id=${tribeId} for share`)).rows[0];
-    return row ? { ...row, activatedAt: row.activatedAt ? new Date(row.activatedAt) : null } : null;
+    return readAdmissionPolicy(database, tribeId, false);
   }
 
   /** Current membership facts retain role, moderation and the actual known commercial snapshot. */
@@ -157,11 +164,11 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
 
   /** Reads original provenance for every terminal action; approval authority remains a separate current evaluation. */
   private async request(database: RequestDatabase, tribeId: string, requestId?: string, userId?: string): Promise<AdmissionRequest | null> {
-    const row = (await database.execute<RequestRow>(sql`select request.id,request.tribe_id,request.user_id,request.source,request.invitation_id,request.legacy_invitation_id,request.contact_type,request.normalized_contact,request.evidence_source,request.proof_id,request.binding_id,request.requires_allowlist,request.original_policy_snapshot,request.applicant_message,request.status,request.submitted_at,request.expires_at,request.version,request.decision_id,request.cancel_reason,request.retry_allowed_at,request.global_identity_evidence_id,(select decided_at from public.academy_admission_decisions where id=request.decision_id) as resolved_at,case when request.evidence_source=${ADMISSION_EVIDENCE_KIND.local} then (select verified_at from public.academy_admission_verification_proofs where id=request.proof_id) when request.evidence_source=${ADMISSION_EVIDENCE_KIND.base} then (select verified_at from public.global_identity_evidence where id=request.global_identity_evidence_id) end as evidence_verified_at from public.academy_admission_requests request where request.tribe_id=${tribeId} ${requestId ? sql`and request.id=${requestId}` : sql`and request.user_id=${userId} order by request.submitted_at desc,request.id desc limit 1`} for update of request`)).rows[0];
+    const row = (await database.execute<RequestRow>(sql`select request.id,request.tribe_id,request.user_id,request.source,request.invitation_id,request.legacy_invitation_id,request.contact_type,request.normalized_contact,request.evidence_source,request.proof_id,request.binding_id,request.requires_allowlist,request.original_policy_snapshot,request.applicant_message,request.whatsapp_number,request.status,request.submitted_at,request.expires_at,request.version,request.decision_id,request.cancel_reason,request.retry_allowed_at,request.global_identity_evidence_id,(select decided_at from public.academy_admission_decisions where id=request.decision_id) as resolved_at,case when request.evidence_source=${ADMISSION_EVIDENCE_KIND.local} then (select verified_at from public.academy_admission_verification_proofs where id=request.proof_id) when request.evidence_source=${ADMISSION_EVIDENCE_KIND.base} then (select verified_at from public.global_identity_evidence where id=request.global_identity_evidence_id) end as evidence_verified_at from public.academy_admission_requests request where request.tribe_id=${tribeId} ${requestId ? sql`and request.id=${requestId}` : sql`and request.user_id=${userId} order by request.submitted_at desc,request.id desc limit 1`} for update of request`)).rows[0];
     if (!row) return null;
     const contact = row.contact_type === ADMISSION_CONTACT_TYPE.email && row.normalized_contact ? { type: ADMISSION_CONTACT_TYPE.email, value: row.normalized_contact }
       : row.contact_type === ADMISSION_CONTACT_TYPE.phone && row.normalized_contact ? { type: ADMISSION_CONTACT_TYPE.phone, value: row.normalized_contact, country: parsePhoneNumber(row.normalized_contact).country ?? "" } : null;
-    return { id: row.id, tribeId: row.tribe_id, userId: row.user_id, source: row.source, invitationId: row.invitation_id, legacyInvitationId: row.legacy_invitation_id, requiresAllowlist: row.requires_allowlist, contact, evidence: requestEvidence(row), bindingId: row.binding_id, proofId: row.proof_id, originalPolicy: row.original_policy_snapshot, applicantMessage: row.applicant_message, status: row.status, submittedAt: new Date(row.submitted_at), expiresAt: new Date(row.expires_at), version: row.version, decisionId: row.decision_id, cancelReason: row.cancel_reason, resolvedAt: row.resolved_at ? new Date(row.resolved_at) : null, retryAllowedAt: row.retry_allowed_at ? new Date(row.retry_allowed_at) : null };
+    return { id: row.id, tribeId: row.tribe_id, userId: row.user_id, source: row.source, invitationId: row.invitation_id, legacyInvitationId: row.legacy_invitation_id, requiresAllowlist: row.requires_allowlist, contact, evidence: requestEvidence(row), bindingId: row.binding_id, proofId: row.proof_id, originalPolicy: row.original_policy_snapshot, applicantMessage: row.applicant_message, whatsappNumber: row.whatsapp_number, status: row.status, submittedAt: new Date(row.submitted_at), expiresAt: new Date(row.expires_at), version: row.version, decisionId: row.decision_id, cancelReason: row.cancel_reason, resolvedAt: row.resolved_at ? new Date(row.resolved_at) : null, retryAllowedAt: row.retry_allowed_at ? new Date(row.retry_allowed_at) : null };
   }
 
   /** Own current facts are resolved after locks; no sender or external key can participate. */
@@ -222,9 +229,9 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
 
   /** Submits common-policy and personal presentations with current own evidence; existing membership/pending precedes lookup, redemption and proof effects. */
   async submit(input: AdmissionSubmissionIntent) {
-    const command = { actorUserId: input.userId, tribeId: input.tribeId, operationType: ADMISSION_OPERATION_TYPE.submit, idempotencyKey: input.operationId, intent: { expectedPolicyVersion: input.expectedPolicyVersion, source: input.source, contact: input.contact, proofId: input.proofId, message: input.message, confirmed: input.confirmed } };
+    const command = { actorUserId: input.userId, tribeId: input.tribeId, operationType: ADMISSION_OPERATION_TYPE.submit, idempotencyKey: input.operationId, intent: { expectedPolicyVersion: input.expectedPolicyVersion, source: input.source, contact: input.contact, proofId: input.proofId, message: input.message, ...(input.whatsappNumber !== undefined ? { whatsappNumber: input.whatsappNumber } : {}), confirmed: input.confirmed } };
     return this.run(input, command, admissionCommittedOutcomeSchema, async (database, ledgerId): Promise<AdmissionSubmissionResult> => {
-      const facts: AutomaticAdmissionFacts = { ...await this.facts(database, input, input.contact), source: { kind: ADMISSION_REQUEST_SOURCE.common }, allowlistEntry: null, baseEvidence: null };
+      const facts: AutomaticAdmissionFacts = { ...await this.facts(database, input, input.contact), whatsappNumber: input.whatsappNumber ?? null, source: { kind: ADMISSION_REQUEST_SOURCE.common }, allowlistEntry: null, baseEvidence: null };
       const existing = facts.membership;
       const previous = await this.request(database, input.tribeId, undefined, input.userId);
       facts.now = await databaseNow(database);
@@ -253,12 +260,13 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       if (local) { facts.localProof = local.proof; facts.currentConnection = local.currentConnection; facts.contactBinding = local.contactBinding; }
       facts.now = await databaseNow(database);
       const eligibility = evaluateAdmissionSubmission(facts);
+      if (eligibility.outcome === ADMISSION_OUTCOME.denied && eligibility.reason === ADMISSION_DENIAL_REASON.whatsappNumberRequired) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.whatsappNumberRequired);
       if (eligibility.outcome === ADMISSION_OUTCOME.verificationRequired) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.additionalVerificationRequired);
       if (eligibility.outcome === ADMISSION_OUTCOME.denied && eligibility.reason === ADMISSION_DENIAL_REASON.contactConflict) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.contactBindingConflict);
       if (eligibility.outcome !== ADMISSION_OUTCOME.pending && eligibility.outcome !== ADMISSION_OUTCOME.admitted) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       if (eligibility.outcome === ADMISSION_OUTCOME.pending && eligibility.requiresExceptionReason && !input.message?.trim()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.invalidInput);
-      const request = createPendingAdmissionRequest({ id: randomUUID(), tribeId: input.tribeId, userId: input.userId, source: personal ? ADMISSION_REQUEST_SOURCE.personal : legacy ? ADMISSION_REQUEST_SOURCE.legacy : ADMISSION_REQUEST_SOURCE.common, ...(personal ? { invitationId: personal.invitation.id } : {}), ...(legacy ? { legacyInvitationId: legacy.id } : {}), requiresAllowlist: personal?.invitation.requiresAllowlist ?? facts.policy.mode === ADMISSION_POLICY_MODE.allowlist, contact: facts.contact, evidence: { kind: eligibility.evidenceKind === ADMISSION_EVIDENCE_KIND.none ? ADMISSION_EVIDENCE_KIND.none : ADMISSION_EVIDENCE_KIND.declared }, policy: facts.policy, message: input.message, now: await databaseNow(database) });
-      await database.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,invitation_id,legacy_invitation_id,requires_allowlist,contact_type,normalized_contact,evidence_source,original_policy_snapshot,applicant_message,submitted_at,expires_at) values (${request.id},${request.tribeId},${request.userId},${request.source},${request.invitationId},${request.legacyInvitationId},${request.requiresAllowlist},${request.contact?.type ?? null},${request.contact?.value ?? null},${request.evidence.kind},${JSON.stringify(request.originalPolicy)}::jsonb,${request.applicantMessage},${request.submittedAt},${request.expiresAt})`);
+      const request = createPendingAdmissionRequest({ id: randomUUID(), tribeId: input.tribeId, userId: input.userId, source: personal ? ADMISSION_REQUEST_SOURCE.personal : legacy ? ADMISSION_REQUEST_SOURCE.legacy : ADMISSION_REQUEST_SOURCE.common, ...(personal ? { invitationId: personal.invitation.id } : {}), ...(legacy ? { legacyInvitationId: legacy.id } : {}), requiresAllowlist: personal?.invitation.requiresAllowlist ?? facts.policy.mode === ADMISSION_POLICY_MODE.allowlist, contact: facts.contact, evidence: { kind: eligibility.evidenceKind === ADMISSION_EVIDENCE_KIND.none ? ADMISSION_EVIDENCE_KIND.none : ADMISSION_EVIDENCE_KIND.declared }, policy: facts.policy, message: input.message, whatsappNumber: facts.whatsappNumber, now: await databaseNow(database) });
+      await database.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,invitation_id,legacy_invitation_id,requires_allowlist,contact_type,normalized_contact,evidence_source,original_policy_snapshot,applicant_message,whatsapp_number,submitted_at,expires_at) values (${request.id},${request.tribeId},${request.userId},${request.source},${request.invitationId},${request.legacyInvitationId},${request.requiresAllowlist},${request.contact?.type ?? null},${request.contact?.value ?? null},${request.evidence.kind},${JSON.stringify(request.originalPolicy)}::jsonb,${request.applicantMessage},${request.whatsappNumber ?? null},${request.submittedAt},${request.expiresAt})`);
       if (personal && input.source.kind === ADMISSION_REQUEST_SOURCE.personal) await commitPersonalInvitationRedemption(database, input, personal, request, ledgerId, input.source.token, await this.readSecurityConfig());
       let committed = request;
       if (local && input.proofId) {
@@ -324,9 +332,32 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
 
   /** Captures the own committed response inside the original transaction; replay never substitutes a current state. */
   private async pendingResult(database: RequestDatabase, input: AdmissionSubmissionIntent, request: AdmissionRequest, created: boolean): Promise<AdmissionSubmissionResult> {
-    const snapshot = await new PostgresOwnAdmissionRequestReader((_scope, run) => run(database), async () => (await this.readSecurityConfig()).recoveryLocked).readOwn(input);
+    const own = await new PostgresOwnAdmissionRequestReader((_scope, run) => run(database), async () => (await this.readSecurityConfig()).recoveryLocked).readOwn(input);
+    const snapshot = own ? admissionRequestSchema.parse(own) : null;
     if (!snapshot || snapshot.id !== request.id || snapshot.status !== ADMISSION_REQUEST_STATUS.pending || snapshot.version !== request.version) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
     return { operationId: input.operationId, outcome: ADMISSION_OUTCOME.pending, admissionRequestId: request.id, committedRequestVersion: request.version, membership: null, requestSnapshot: { ...snapshot, status: ADMISSION_REQUEST_STATUS.pending }, created };
+  }
+
+  /** @param input - Own canonical declared number and original observed version. @returns Confirmed minimal lineage or original registered progress, with no message or evidence changes. */
+  async updateWhatsappNumber(input: AdmissionWhatsappNumberIntent): Promise<AdmissionOperationResult<AdmissionWhatsappNumberResult>> {
+    const command: AdmissionOperationCommand = { actorUserId: input.userId, tribeId: input.tribeId, operationType: ADMISSION_WHATSAPP_OPERATION, idempotencyKey: input.operationId,
+      intent: { requestId: input.admissionRequestId, expectedVersion: input.expectedVersion, whatsappNumber: input.whatsappNumber, confirmed: input.confirmed } };
+    return this.run(input, command, admissionWhatsappNumberResultSchema, async (database, ledgerId) => {
+      const request = await this.request(database, input.tribeId, input.admissionRequestId);
+      if (!request) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      const policy = await this.policy(database, input.tribeId);
+      if (!policy) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      const changedAt = await databaseNow(database);
+      const proposal = proposeAdmissionWhatsappNumberChange({ request, policy, actorUserId: input.userId, expectedVersion: input.expectedVersion, whatsappNumber: input.whatsappNumber, now: changedAt });
+      if (proposal.outcome === ADMISSION_WHATSAPP_CHANGE_OUTCOME.denied) throw new AdmissionOperationError(proposal.code);
+      const changed = proposal.outcome === ADMISSION_WHATSAPP_CHANGE_OUTCOME.changed;
+      if (changed) {
+        const saved = (await database.execute(sql`update public.academy_admission_requests set whatsapp_number=${proposal.request.whatsappNumber ?? null},version=${proposal.request.version} where tribe_id=${input.tribeId} and id=${request.id} and user_id=${input.userId} and status=${ADMISSION_REQUEST_STATUS.pending} and version=${input.expectedVersion} returning id`)).rows[0];
+        if (!saved) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
+        await new PostgresAdmissionAuditRepository(database).append(createAdmissionWhatsappNumberAuditEvent({ actorUserId: input.userId, operationId: ledgerId, previous: request, request: proposal.request, policy, changedAt }));
+      }
+      return { admissionRequestId: request.id, version: proposal.request.version, changed };
+    }, input.admissionRequestId);
   }
 
   /** Writes exactly one terminal decision and its basic effect/obligations before completion. */
@@ -342,7 +373,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
   /** @param database - Current business transaction. @param input - Native reviewer and explicit decision. @param ledgerId - Original single or batch ledger. @param request - Locked original request. @param prepared - Actual locked batch facts and its transaction-local effects; individual decisions resolve their facts normally. @returns A confirmed proposal staged together with membership, audit and notice; the caller owns commit. */
   private async decideInTransaction(database: RequestDatabase, input: AdmissionDecisionIntent, ledgerId: string, request: AdmissionRequest, prepared?: AdmissionPreparedDecision) {
       if (input.decision === ADMISSION_DECISION.approve && request.source !== ADMISSION_REQUEST_SOURCE.common && request.source !== ADMISSION_REQUEST_SOURCE.personal && request.source !== ADMISSION_REQUEST_SOURCE.legacy) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
-      const facts = prepared?.facts ?? await this.facts(database, input, request.contact, request.userId);
+      const facts = { ...(prepared?.facts ?? await this.facts(database, input, request.contact, request.userId)), whatsappNumber: request.whatsappNumber ?? null };
       const actor = prepared?.actor ?? await new PostgresAdmissionAuthorizationReader(database, input.sessionId, ADMISSION_ACTION.decideRequest).getCurrentActor(input.tribeId, input.userId);
       if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       const requiresEvidence = input.decision === ADMISSION_DECISION.approve && (request.source === ADMISSION_REQUEST_SOURCE.personal || request.evidence.kind === ADMISSION_EVIDENCE_KIND.base || request.evidence.kind === ADMISSION_EVIDENCE_KIND.local || facts.policy?.mode === ADMISSION_POLICY_MODE.allowlist);

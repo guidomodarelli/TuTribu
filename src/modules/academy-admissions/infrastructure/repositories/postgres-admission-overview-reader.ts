@@ -17,7 +17,7 @@ import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/mess
 
 /** Explicit account state is never fabricated for an anonymous public projection. */
 type OverviewAccountScope = Pick<AdmissionCommandScope, "userId" | "sessionId">;
-type PublicOverviewRow = { tribe_id: string; slug: string; name: string; control_activated: boolean; evaluator_enabled: boolean; mode: "manual_review" | "allowlist" | null; contact_type: "email" | "phone" | null; requires_additional_verification: boolean | null; is_open: boolean | null; policy_version: number | null };
+type PublicOverviewRow = { tribe_id: string; slug: string; name: string; control_activated: boolean; evaluator_enabled: boolean; mode: "manual_review" | "allowlist" | null; contact_type: "email" | "phone" | null; requires_additional_verification: boolean | null; requires_whatsapp_number: boolean | null; is_open: boolean | null; policy_version: number | null };
 /** Restricted display metadata keeps ordinary request roles off the full private policy and usage tables. */
 type ContactChoicePolicyRow = { version: number; contactType: "email" | "phone"; requiresAdditionalVerification: boolean; phoneChannel: "sms" | "whatsapp" | null; allowSmsAlternative: boolean };
 
@@ -66,7 +66,7 @@ export class PostgresAdmissionOverviewReader implements AdmissionOverviewReader<
       if (scope) await this.authorize(database, scope);
       return {
         tribe: { id: row.tribe_id, slug: row.slug, name: row.name, accessModel: TRIBE_ACCESS_MODEL.academy, controlActivated: row.control_activated, evaluatorEnabled: row.evaluator_enabled },
-        policy: row.policy_version !== null && row.mode && row.contact_type ? { mode: row.mode, contactType: row.contact_type, requiresAdditionalVerification: row.requires_additional_verification === true, isOpen: row.is_open === true, version: row.policy_version } : null,
+        policy: row.policy_version !== null && row.mode && row.contact_type ? { mode: row.mode, contactType: row.contact_type, requiresAdditionalVerification: row.requires_additional_verification === true, requiresWhatsappNumber: row.requires_whatsapp_number === true, isOpen: row.is_open === true, version: row.policy_version } : null,
         membership, request, recoveryLocked, ...(verification ? { verification } : {}),
       };
     };

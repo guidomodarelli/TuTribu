@@ -8,6 +8,7 @@ import type { AdmissionPolicyCommandWriter, AdmissionPolicyInitializationIntent,
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "../../domain/entities/admission-operation";
 import { createDefaultAdmissionPolicy, proposeAdmissionPolicyChange, type AdmissionPolicy, type AdmissionPolicyPatch, type AdmissionPolicyConfigurationFacts } from "../../domain/entities/admission-policy";
 import { proposeAdmissionPolicyActivation } from "../../domain/policies/admission-policy-activation";
+import { requiresAdmissionPolicyReadiness } from "../../domain/policies/admission-policy-readiness";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
 import { ADMISSION_POLICY_AUDIT, ADMISSION_POLICY_EDITABLE_FIELDS, ADMISSION_POLICY_CHANGE_OUTCOME } from "../../constants/admission-policy";
@@ -62,7 +63,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
   /** @param database - Locked current transaction. @param policy - Domain-proposed effective state. @param expectedVersion - Original resource CAS. @param actorId - Native current leader. @returns The shared native resource/audit effect clock. @throws AdmissionOperationError when the original version no longer matches. */
   private async save(database: RequestDatabase, policy: AdmissionPolicy, expectedVersion: number, actorId: string): Promise<Date> {
     const changedAt = await admissionPolicyDatabaseNow(database);
-    const changed = (await database.execute(sql`update public.academy_admission_policies set mode=${policy.mode},contact_type=${policy.contactType},is_open=${policy.isOpen},allow_common_exceptions=${policy.allowCommonExceptions},requires_additional_verification=${policy.requiresAdditionalVerification},phone_channel=${policy.phoneChannel},allow_sms_alternative=${policy.allowSmsAlternative},messaging_connection_id=${policy.messagingConnectionId},messaging_connection_version=${policy.messagingConnectionVersion},verification_epoch=${policy.verificationEpoch},version=${policy.version},activated_at=${policy.activatedAt},changed_by_user_id=${actorId},updated_at=${changedAt} where tribe_id=${policy.tribeId} and version=${expectedVersion} returning tribe_id`)).rows[0];
+    const changed = (await database.execute(sql`update public.academy_admission_policies set mode=${policy.mode},contact_type=${policy.contactType},is_open=${policy.isOpen},allow_common_exceptions=${policy.allowCommonExceptions},requires_additional_verification=${policy.requiresAdditionalVerification},requires_whatsapp_number=${policy.requiresWhatsappNumber ?? false},phone_channel=${policy.phoneChannel},allow_sms_alternative=${policy.allowSmsAlternative},messaging_connection_id=${policy.messagingConnectionId},messaging_connection_version=${policy.messagingConnectionVersion},verification_epoch=${policy.verificationEpoch},version=${policy.version},activated_at=${policy.activatedAt},changed_by_user_id=${actorId},updated_at=${changedAt} where tribe_id=${policy.tribeId} and version=${expectedVersion} returning tribe_id`)).rows[0];
     if (!changed) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.policyConflict);
     return changedAt;
   }
@@ -105,9 +106,9 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     const next = { ...policy, ...patch };
     const effective = ADMISSION_POLICY_EDITABLE_FIELDS.some((field) => next[field] !== policy[field]);
     if (!effective) return this.result(policy, current.controlActivated, false);
-    const onlyPausing = policy.isOpen && !next.isOpen && ADMISSION_POLICY_EDITABLE_FIELDS.every((field) => field === "isOpen" || next[field] === policy[field]);
+    const requiresReadiness = requiresAdmissionPolicyReadiness(policy, next);
     let configuration: AdmissionPolicyConfigurationFacts = { tribeId: policy.tribeId, channelPrepared: false, verificationQuotaPositive: false, usagePolicy: null, lockedContactType: policy.activatedAt ? policy.contactType : null };
-    if (policy.activatedAt && !onlyPausing) {
+    if (requiresReadiness) {
       const preparation = await this.composePreparation(database, intent.context).read(next);
       if (preparation.tribeId !== policy.tribeId || !preparation.isAcademy || !preparation.controlActivated || !preparation.preflightComplete || !preparation.evaluatorEnabled || preparation.recoveryLocked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.admissionIneligible);
       configuration = preparation.configuration;
@@ -119,7 +120,7 @@ export class PostgresAdmissionPolicyRepository implements AdmissionPolicyCommand
     const changedAt = await this.save(database, proposal.policy, policy.version, intent.context.userId);
     if (proposal.invalidateUnappliedEvidence) await this.invalidateUnappliedEvidence(database, intent.context, ledgerId);
     await this.audit(database, intent, ledgerId, policy, proposal.policy, changedAt, "reason" in intent ? intent.reason : undefined);
-    if (policy.activatedAt && !onlyPausing) await this.assertCurrentPreparation(database, intent.context, proposal.policy);
+    if (requiresReadiness) await this.assertCurrentPreparation(database, intent.context, proposal.policy);
     return this.result(proposal.policy, current.controlActivated, true);
   }
 

@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { AdmissionCommandScope } from "@/src/modules/academy-admissions/domain/repositories/admission-repositories";
 import type { AdmissionOwnRequestReader } from "@/src/modules/academy-admissions/domain/repositories/admission-query-reader";
-import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import type { AdmissionRequestDto, AdmissionOwnRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
@@ -36,7 +36,7 @@ function maskedContact(row: OwnRequestRow): AdmissionRequestDto["contact"] {
 }
 
 /** The public DTO is validated by application/boundary; this adapter never returns reviewer notes or identity ids. */
-export class PostgresOwnAdmissionRequestReader implements AdmissionOwnRequestReader<AdmissionRequestDto> {
+export class PostgresOwnAdmissionRequestReader implements AdmissionOwnRequestReader<AdmissionOwnRequestDto> {
   /** @param execute - Current actor executor. @param readRecoveryLock - Live non-secret hosting closure, without keyring or provider access. */
   constructor(private readonly execute: OwnQueryExecutor, private readonly readRecoveryLock: () => Promise<boolean> = async () => readMessagingRecoveryLock()) {}
 
@@ -52,7 +52,7 @@ export class PostgresOwnAdmissionRequestReader implements AdmissionOwnRequestRea
    * @param scope - Server-derived actual account/session/tribe and correlation.
    * @returns An own DTO or null, without claiming an operation, initializing a policy or materializing expiration.
    */
-  async readOwn(scope: AdmissionCommandScope & { admissionRequestId?: string }): Promise<AdmissionRequestDto | null> {
+  async readOwn(scope: AdmissionCommandScope & { admissionRequestId?: string }): Promise<AdmissionOwnRequestDto | null> {
     return this.execute(scope, async (database) => {
       await this.authorize(database, scope);
       const row = (await database.execute<OwnRequestRow>(scope.admissionRequestId
@@ -63,6 +63,7 @@ export class PostgresOwnAdmissionRequestReader implements AdmissionOwnRequestRea
       const pending = row.status === ADMISSION_REQUEST_STATUS.pending;
       let eligibilityReasons: AdmissionRequestDto["eligibilityReasons"] = [];
       let needsVerification = false;
+      let declaredWhatsapp: Pick<AdmissionOwnRequestDto, "whatsappNumber" | "requiresWhatsappNumber"> = {};
       if (pending && now < new Date(row.expires_at)) {
         const current = (await database.execute<{ record: AdmissionReviewStorageRecord }>(sql`select record from public.read_own_admission_request_eligibility(${scope.tribeId},${scope.sessionId},${row.id})`)).rows[0];
         const recoveryLocked = await this.readRecoveryLock();
@@ -70,6 +71,7 @@ export class PostgresOwnAdmissionRequestReader implements AdmissionOwnRequestRea
         if (!current) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
         const facts = mapAdmissionReviewStorage(current.record, now, recoveryLocked);
         if (facts.request.id !== row.id || facts.request.userId !== scope.userId || facts.request.tribeId !== scope.tribeId || facts.request.version !== row.version) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.requestConflict);
+        declaredWhatsapp = { whatsappNumber: facts.request.whatsappNumber ?? null, requiresWhatsappNumber: facts.review.policy?.requiresWhatsappNumber ?? false };
         const evaluation = evaluatePendingAdmissionEligibility(facts.review);
         needsVerification = needsPendingAdmissionVerification(facts.review);
         if (!evaluation.eligible) eligibilityReasons = [evaluation.reason];
@@ -86,7 +88,7 @@ export class PostgresOwnAdmissionRequestReader implements AdmissionOwnRequestRea
       return {
         id: row.id, status: row.status, version: row.version, submittedAt: new Date(row.submitted_at).toISOString(), expiresAt: new Date(row.expires_at).toISOString(), source: row.source,
         ...(contact ? { contact } : {}), needsVerification,
-        eligibilityReasons,
+        eligibilityReasons, ...declaredWhatsapp,
         ...(row.external_message ? { externalMessage: row.external_message } : {}), ...(retryAt ? { retryAllowedAt: retryAt.toISOString() } : {}),
       };
     });

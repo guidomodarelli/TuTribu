@@ -8,7 +8,7 @@ export interface AdmissionOwnRequestReader<Result> {
 /** Public tribe/policy facts are separate from current account state and expose no list/invitation matches. */
 export type AdmissionOverviewFacts<Request = unknown> = {
   tribe: { id: string; slug: string; name: string; accessModel: "academy"; controlActivated: boolean; evaluatorEnabled: boolean };
-  policy: { mode: "manual_review" | "allowlist"; contactType: "email" | "phone"; requiresAdditionalVerification: boolean; isOpen: boolean; version: number } | null;
+  policy: { mode: "manual_review" | "allowlist"; contactType: "email" | "phone"; requiresAdditionalVerification: boolean; requiresWhatsappNumber?: boolean; isOpen: boolean; version: number } | null;
   membership: { role: "leader" | "guardian" | "tribemate"; status: "active" | "muted" | "blocked" | "removed"; statusReason: string; commercialRecoveryStatus: "active" | "muted" | null } | null;
   request: Request | null; recoveryLocked: boolean;
   /** Applicant-facing choices are hints only; issuance rechecks policy, country, capability and budgets. */

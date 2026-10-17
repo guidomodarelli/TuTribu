@@ -21,3 +21,5 @@ export type AdmissionSubmissionResult = z.infer<typeof admissionCommittedOutcome
 export const admissionTransitionResultSchema = z.object({ admissionRequestId: z.uuid(), version: z.int().positive(), status: z.enum([ADMISSION_REQUEST_STATUS.approved, ADMISSION_REQUEST_STATUS.rejected, ADMISSION_REQUEST_STATUS.cancelled]) });
 /** Only a committed eligibility date/version is exposed; reason and original terminal decision remain private. */
 export const admissionRetryResultSchema = z.object({ admissionRequestId: z.uuid(), version: z.int().positive(), retryAllowedAt: z.iso.datetime({ offset: true }) });
+/** A declared-number correction confirms only lineage, with no private number in durable results. */
+export const admissionWhatsappNumberResultSchema = z.object({ admissionRequestId: z.uuid(), version: z.int().positive(), changed: z.boolean() });

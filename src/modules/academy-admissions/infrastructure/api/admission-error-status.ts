@@ -4,6 +4,7 @@ import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants
 
 export const ADMISSION_ERROR_HTTP_STATUS = {
   [ADMISSION_ERROR_CODE.invalidInput]: HTTP_STATUS.badRequest,
+  [ADMISSION_ERROR_CODE.whatsappNumberRequired]: HTTP_STATUS.unprocessableEntity,
   [ADMISSION_ERROR_CODE.authenticationRequired]: HTTP_STATUS.unauthorized,
   [ADMISSION_ERROR_CODE.permissionDenied]: HTTP_STATUS.forbidden,
   [ADMISSION_ERROR_CODE.resourceUnavailable]: HTTP_STATUS.notFound,

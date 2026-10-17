@@ -6,9 +6,9 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import type { AdmissionCommandScope } from "../../domain/repositories/admission-repositories";
 import type { PersonalInvitationOverviewReader, PersonalInvitationOverviewFacts } from "../../domain/repositories/personal-invitation-overview-reader";
-import type { AdmissionPolicy } from "../../domain/entities/admission-policy";
 import type { AdmissionSubmissionFacts, AdmissionMembershipFacts } from "../../domain/policies/admission-eligibility";
-import { evaluateAdmissionSubmission } from "../../domain/policies/admission-eligibility";
+import { evaluateAdmissionPreview } from "../../domain/policies/admission-eligibility";
+import { readAdmissionPolicy } from "./postgres-admission-policy-storage";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { AdmissionOperationError } from "../../domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "../../constants/admission-errors";
@@ -64,7 +64,7 @@ export class PostgresPersonalInvitationOverviewReader implements PersonalInvitat
       if (invitation.contact.type === ADMISSION_CONTACT_TYPE.email && invitation.contact.value !== refreshed.normalizedEmail && invitation.redeemedByUserId !== scope.userId) return null;
       const overview = await new PostgresAdmissionOverviewReader((run) => run(database), (_own, run) => run(database), async () => (await this.readSecurityConfig()).recoveryLocked).readOverview({ slug: tribe.slug, requestId: query.requestId }, scope);
       if (!overview) return null;
-      const policy = (await database.execute<AdmissionPolicy>(sql`select tribe_id as id,tribe_id as "tribeId",mode,contact_type as "contactType",is_open as "isOpen",allow_common_exceptions as "allowCommonExceptions",requires_additional_verification as "requiresAdditionalVerification",phone_channel as "phoneChannel",allow_sms_alternative as "allowSmsAlternative",messaging_connection_id as "messagingConnectionId",messaging_connection_version as "messagingConnectionVersion",verification_epoch as "verificationEpoch",version,activated_at as "activatedAt" from public.academy_admission_policies where tribe_id=${invitation.tribeId} for share`)).rows[0] ?? null;
+      const policy = await readAdmissionPolicy(database, invitation.tribeId, false);
       try { await assertUnreservedAdmissionContact(database, context.tribeId, invitation.contact, this.readSecurityConfig); }
       catch (error) { if (error instanceof AdmissionOperationError && error.code === ADMISSION_ERROR_CODE.contactBindingConflict) return null; throw error; }
       const own = await readAllowlistAdmissionFacts(database, context, invitation.contact);
@@ -74,7 +74,7 @@ export class PostgresPersonalInvitationOverviewReader implements PersonalInvitat
       const local = query.proofId ? await new PostgresAdmissionSubmissionProofReader(database, this.readSecurityConfig).read(context, query.proofId, eligibility) : null;
       if (local) { eligibility.localProof = local.proof; eligibility.currentConnection = local.currentConnection; eligibility.contactBinding = local.contactBinding; }
       const bindingMatches = own.contactBinding?.ownerUserId === scope.userId;
-      const evaluated = local ? evaluateAdmissionSubmission({ ...eligibility, now: new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now) }) : null;
+      const evaluated = local ? evaluateAdmissionPreview({ ...eligibility, now: new Date((await database.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now) }) : null;
       const usableLocalProof = evaluated?.outcome === ADMISSION_OUTCOME.admitted || evaluated?.outcome === ADMISSION_OUTCOME.pending;
       const foreignBinding = own.contactBinding !== null && own.contactBinding.ownerUserId !== scope.userId;
       const recipientMatchesAccount = !foreignBinding && (invitation.contact.type === ADMISSION_CONTACT_TYPE.email ? invitation.contact.value === refreshed.normalizedEmail : bindingMatches || !own.contactBinding && policy?.requiresAdditionalVerification === true || usableLocalProof);

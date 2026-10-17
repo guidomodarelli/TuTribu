@@ -13,6 +13,7 @@ export type AdmissionSubmissionIntent = AdmissionCommandScope & AdmissionOperati
   type: "submit_admission"; expectedPolicyVersion: number; confirmed: true;
   source: { kind: "common" } | { kind: "personal"; token: string } | { kind: "legacy"; token: string };
   contact: AdmissionContact | null; proofId: string | null; message: string | null;
+  whatsappNumber?: string | null;
 };
 export type AdmissionDecisionIntent = AdmissionCommandScope & AdmissionOperationIdentity & {
   type: "decide_admission_request"; admissionRequestId: string; expectedVersion: number; decision: "approve" | "reject";

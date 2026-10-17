@@ -10,6 +10,7 @@ import { ADMISSION_NOTIFICATION_AUDIT } from "@/src/modules/notifications/consta
 import { ADMISSION_EMAIL_SETTINGS_AUDIT } from "@/src/modules/notifications/constants/admission-notification-email-settings";
 import { ADMISSION_IMPORT_MATERIAL_RETENTION, ADMISSION_PRIVATE_DATA_RETENTION } from "./admission-retention";
 import { ADMISSION_POLICY_AUDIT_CHANGE } from "./admission-policy-audit";
+import { ADMISSION_WHATSAPP_AUDIT_EVENT } from "./admission-whatsapp-number";
 
 /** Paginates newest-first using the original SQL timestamp, including its microseconds. */
 export const ADMISSION_ACTIVITY_QUERY = { defaultLimit: ADMISSION_QUERY_LIMIT.defaultPageSize, maximumLimit: ADMISSION_QUERY_LIMIT.maximumPageSize, cursorSeparator: "|" } as const;
@@ -33,6 +34,7 @@ export const ADMISSION_ACTIVITY_RESOURCE = { ...ADMISSION_AUDIT_RESOURCE_TYPE, p
 export const ADMISSION_ACTIVITY_UNCLASSIFIED_EVENT = "unclassified";
 /** Limits event names to implemented owner facts, independently of resource or exception text. */
 export const ADMISSION_ACTIVITY_EVENTS = [
+  ADMISSION_WHATSAPP_AUDIT_EVENT,
   "initialize_admission_policy", "update_admission_policy", "activate_admission_policy", "pause_admission_policy", "messaging_selection_replaced", "proof_attached",
   "pending_created", "approved", "rejected", "cancelled", "expired", "retry_allowed",
   "create_allowlist_entry", "update_allowlist_entry", "confirm_allowlist_import",

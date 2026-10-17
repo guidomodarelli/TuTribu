@@ -14,6 +14,7 @@ import {
 } from "@/src/modules/academy-admissions/constants/admission-policy";
 import type { AdmissionContactType } from "@/src/modules/academy-admissions/domain/value-objects/admission-contact";
 import type { AdmissionMessagingUsagePolicy } from "@/src/modules/academy-admissions/domain/repositories/messaging-usage-policy-reader";
+import { requiresAdmissionPolicyReadiness } from "../policies/admission-policy-readiness";
 
 /** Describes editable policy settings without duplicating allowed countries. */
 export type AdmissionPolicyConfiguration = {
@@ -23,6 +24,8 @@ export type AdmissionPolicyConfiguration = {
   isOpen: boolean;
   allowCommonExceptions: boolean;
   requiresAdditionalVerification: boolean;
+  /** Optional only for existing internal callers; persisted policies default to false. */
+  requiresWhatsappNumber?: boolean;
   phoneChannel?: "sms" | "whatsapp" | null;
   allowSmsAlternative?: boolean;
 };
@@ -67,6 +70,7 @@ export function createDefaultAdmissionPolicy(identity: { id: string; tribeId: st
     isOpen: false,
     allowCommonExceptions: false,
     requiresAdditionalVerification: false,
+    requiresWhatsappNumber: false,
     phoneChannel: null,
     allowSmsAlternative: false,
     messagingConnectionId: null,
@@ -184,11 +188,9 @@ export function proposeAdmissionPolicyChange(
   }
   const hasEffectiveChange = ADMISSION_POLICY_EDITABLE_FIELDS.some((field) => current[field] !== next[field]);
   if (!hasEffectiveChange) return { outcome: ADMISSION_POLICY_CHANGE_OUTCOME.unchanged, policy: current };
-  const isOnlyPausing = current.isOpen && !next.isOpen
-    && ADMISSION_POLICY_EDITABLE_FIELDS.every((field) => field === "isOpen" || current[field] === next[field]);
   const validation = validatePolicyConfiguration(next, {
     ...facts, lockedContactType: current.activatedAt ? current.contactType : facts.lockedContactType,
-  }, current.activatedAt !== null && !isOnlyPausing);
+  }, requiresAdmissionPolicyReadiness(current, next));
   if (!validation.valid) return { outcome: ADMISSION_POLICY_CHANGE_OUTCOME.invalid, reason: validation.reason };
   const verificationChanged = current.requiresAdditionalVerification !== next.requiresAdditionalVerification;
   const verificationContextChanged = current.phoneChannel !== next.phoneChannel

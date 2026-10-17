@@ -2,7 +2,7 @@
 import type { AuthenticatedAccountProvider } from "@/src/modules/auth/domain/repositories/authenticated-account-provider";
 import { isAuthenticatedSessionLive } from "@/src/modules/auth/domain/policies/authenticated-session-liveness";
 import type { AdmissionOwnRequestReader } from "@/src/modules/academy-admissions/domain/repositories/admission-query-reader";
-import { admissionRequestSchema } from "../results/admission-flow-result-schemas";
+import { admissionOwnRequestSchema } from "../results/admission-flow-result-schemas";
 import { admissionOperationFailure } from "../results/admission-operation-failure";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
@@ -27,7 +27,7 @@ export class GetOwnAdmissionUseCases {
       const current = await this.accounts.getAuthenticatedAccount();
       if (!current || current.userId !== first.userId || current.session.id !== first.session.id || !isAuthenticatedSessionLive(current.session.expiresAt, this.clock())) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       if (result === null) return { ok: true as const, value: null };
-      const parsed = admissionRequestSchema.safeParse(result);
+      const parsed = admissionOwnRequestSchema.safeParse(result);
       if (!parsed.success || query.admissionRequestId && parsed.data.id !== query.admissionRequestId.toLowerCase()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.publicContractUnusable);
       return { ok: true as const, value: parsed.data };
     } catch (error) { return admissionOperationFailure(error); }

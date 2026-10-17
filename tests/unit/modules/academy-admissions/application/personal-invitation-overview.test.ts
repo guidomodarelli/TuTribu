@@ -7,6 +7,7 @@ import { createDefaultAdmissionPolicy } from "@/src/modules/academy-admissions/d
 import type { AuthenticatedAccount } from "@/src/modules/auth/domain/entities/authenticated-account";
 import type { PersonalInvitationOverviewFacts } from "@/src/modules/academy-admissions/domain/repositories/personal-invitation-overview-reader";
 import { personalInvitationOverviewSchema } from "@/src/modules/academy-admissions/constants/personal-invitation-overview-schemas";
+import { evaluateAdmissionSubmission } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 
 /** @returns Exact private personal facts without any write/issuer or provider dependency. */
 function fixture() {
@@ -22,6 +23,21 @@ function fixture() {
 }
 
 describe("personal invitation read-only overview", () => {
+  it.each(["allowlist", "manual_review"] as const)("should show the own %s form before WhatsApp completion while actual submission still requires it", async (mode) => {
+    const data = fixture();
+    data.facts.eligibility.policy = { ...data.facts.eligibility.policy!, mode, requiresWhatsappNumber: true };
+    data.facts.overview.policy = { ...data.facts.overview.policy!, mode, requiresWhatsappNumber: true };
+    expect(await data.useCase.execute(data.query)).toMatchObject({ ok: true, value: { state: "available", overview: { state: "available", policy: { requiresWhatsappNumber: true } } } });
+    expect(evaluateAdmissionSubmission(data.facts.eligibility)).toEqual({ outcome: "denied", reason: "whatsapp_number_required" });
+    data.facts.eligibility.contactBinding = { ownerUserId: "another-account", contact: data.facts.eligibility.contact! };
+    expect(await data.useCase.execute(data.query)).toMatchObject({ ok: true, value: { state: "unavailable" } });
+  });
+
+  it("should reject a personal preview with a conflicting declared-number requirement", async () => {
+    const data = fixture();
+    data.facts.overview.policy = { ...data.facts.overview.policy!, requiresWhatsappNumber: true };
+    expect(await data.useCase.execute(data.query)).toMatchObject({ ok: false, failure: { code: "public_contract_unusable" } });
+  });
   it("should close an own preview whose public policy conflicts with the internal policy used to predict the result", async () => {
     const data = fixture();
     data.facts.overview.policy = { ...data.facts.overview.policy!, mode: "manual_review", version: 3 };

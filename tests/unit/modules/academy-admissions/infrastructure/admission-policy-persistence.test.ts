@@ -87,7 +87,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
       data.loseNextReply();
       expect(await data.repository.update(intent)).toMatchObject({ state: "completed", result: { version: 2, changed: true } });
       expect(await data.repository.update(intent)).toMatchObject({ state: "completed", replayed: true, result: { version: 2 } });
-      const configured = { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: null };
+      const configured = { mode: "manual_review", contactType: "email", isOpen: false, allowCommonExceptions: false, requiresAdditionalVerification: false, requiresWhatsappNumber: false, phoneChannel: null, allowSmsAlternative: false, messagingConnectionId: null, messagingConnectionVersion: null, verificationEpoch: 1, activatedAt: null };
       // Assert: audit and ledger preserve one actual effect and the correct scope.
       const audit = await database.withContext(data.fixture.own, async (transaction) => (await transaction.execute(sql`select event.actor_user_id,event.resource_type,event.resource_id,event.event_type,event.resource_version,event.rule,event.cause,event.metadata,operation.idempotency_key,event.created_at>=operation.created_at as ordered from public.academy_admission_audit_events event join public.academy_admission_operations operation on operation.id=event.operation_id and operation.tribe_id=event.tribe_id where event.tribe_id=${data.tribeId} order by event.resource_version`)).rows);
       expect(audit).toEqual([

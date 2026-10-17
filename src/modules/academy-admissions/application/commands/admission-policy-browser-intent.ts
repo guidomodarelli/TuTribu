@@ -13,6 +13,7 @@ const versionFields = { ...confirmationFields, expectedVersion: z.int().positive
 export const admissionPolicyDraftSchema = z.strictObject({
   mode: z.enum(ADMISSION_POLICY_MODE), contactType: z.enum(ADMISSION_CONTACT_TYPE), isOpen: z.boolean(),
   allowCommonExceptions: z.boolean(), requiresAdditionalVerification: z.boolean(),
+  requiresWhatsappNumber: z.boolean().optional(),
   phoneChannel: z.enum(ADMISSION_PHONE_CHANNEL).nullable(), allowSmsAlternative: z.boolean(),
   messagingConnectionId: z.uuid().nullable(), messagingConnectionVersion: z.int().positive().nullable(),
 }).refine((draft) => (draft.messagingConnectionId === null) === (draft.messagingConnectionVersion === null));
@@ -30,7 +31,7 @@ export type AdmissionPolicyBrowserIntent = z.infer<typeof admissionPolicyBrowser
 export function createAdmissionPolicyDraft(state: AdmissionPolicyStateDto): AdmissionPolicyDraft {
   const policy = state.policy ?? createDefaultAdmissionPolicy({ id: "", tribeId: "" });
   return { mode: policy.mode, contactType: policy.contactType, isOpen: policy.isOpen, allowCommonExceptions: policy.allowCommonExceptions,
-    requiresAdditionalVerification: policy.requiresAdditionalVerification, phoneChannel: policy.phoneChannel, allowSmsAlternative: policy.allowSmsAlternative,
+    requiresAdditionalVerification: policy.requiresAdditionalVerification, requiresWhatsappNumber: policy.requiresWhatsappNumber ?? false, phoneChannel: policy.phoneChannel, allowSmsAlternative: policy.allowSmsAlternative,
     messagingConnectionId: policy.messagingConnectionId, messagingConnectionVersion: policy.messagingConnectionVersion };
 }
 

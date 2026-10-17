@@ -1,5 +1,6 @@
 /** Composes implemented admission use cases and protected transaction collaborators. @module academy-admissions-setup */
 import "server-only";
+import { UpdateAdmissionWhatsappNumberUseCase } from "./application/use-cases/update-admission-whatsapp-number-use-case";
 import { PurgeAdmissionDataUseCase } from "./application/use-cases/purge-admission-data-use-case";
 import { PostgresAdmissionRetentionRepository } from "./infrastructure/repositories/postgres-admission-retention-repository";
 import { PurgeAllowlistImportMaterialUseCase } from "./application/use-cases/purge-allowlist-import-material-use-case";
@@ -307,6 +308,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         runtime: new ReadAdmissionRuntimeUseCase(writer),
         useCases: {
           submit: new SubmitAdmissionUseCase(dependencies.accounts, writer, dependencies.clock),
+          updateWhatsappNumber: new UpdateAdmissionWhatsappNumberUseCase(resolveContext, writer),
           own: new GetOwnAdmissionUseCases(dependencies.accounts, new PostgresOwnAdmissionRequestReader(executeRequest, async () => (await options.readSecurityConfig()).recoveryLocked), dependencies.clock),
           decide: new DecideAdmissionRequestUseCase(resolveContext, writer),
           decideBatch: new DecideAdmissionRequestsBatchUseCase(resolveContext, writer),

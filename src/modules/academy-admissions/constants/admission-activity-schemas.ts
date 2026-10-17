@@ -21,6 +21,7 @@ const countSchema = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const admissionPolicyAuditSnapshotSchema = z.strictObject({
   mode: z.enum(ADMISSION_POLICY_MODE), contactType: z.enum(ADMISSION_CONTACT_TYPE), isOpen: z.boolean(),
   allowCommonExceptions: z.boolean(), requiresAdditionalVerification: z.boolean(),
+  requiresWhatsappNumber: z.boolean().optional(),
   phoneChannel: z.enum(ADMISSION_PHONE_CHANNEL).nullable(), allowSmsAlternative: z.boolean(),
   messagingConnectionId: z.uuid().nullable(), messagingConnectionVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable(),
   verificationEpoch: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), activatedAt: z.iso.datetime({ precision: 3 }).nullable(),

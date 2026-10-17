@@ -1,7 +1,7 @@
 /** Executes own query ports through native HTTP and one input boundary without membership middleware. @module admission-query-handlers */
 import "server-only";
 import type { AdmissionFailure } from "@/src/modules/academy-admissions/application/results/admission-errors";
-import { admissionOverviewSchema, admissionRequestSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+import { admissionOverviewSchema, admissionOwnRequestSchema } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { createAdmissionRouteBoundary } from "./admission-route-http";
 import { admissionTribeParamsSchema, admissionEmptyQuerySchema, admissionOwnRequestQuerySchema } from "./admission-request-schemas";
 import { ADMISSION_HTTP_OPERATION } from "@/src/modules/academy-admissions/constants/admission-http";
@@ -34,7 +34,7 @@ export function createAdmissionQueryHandlers(open: () => Promise<AdmissionQueryS
       const identity = await services.resolveTribe.execute({ slug: params.value.slug, requestId });
       if (!identity.ok) return boundary.failure(identity.failure);
       const result = await services.own.getOwn({ tribeId: identity.value.tribeId, requestId, ...("admissionRequestId" in query.value && typeof query.value.admissionRequestId === "string" ? { admissionRequestId: query.value.admissionRequestId } : {}) });
-      return result.ok ? boundary.success(admissionRequestSchema.nullable(), result.value) : boundary.failure(result.failure);
+      return result.ok ? boundary.success(admissionOwnRequestSchema.nullable(), result.value) : boundary.failure(result.failure);
     } catch (error) { return boundary.unexpected(error); }
   }
   return {

@@ -2,6 +2,7 @@
 export type RequestAcademyAdmissionCommand = {
   tribeSlug: string; requestId: string; operationId: string; expectedPolicyVersion: number; confirmed: true;
   phone?: string; country?: string; proofId?: string; message?: string; invitationToken?: string; legacyInvitationToken?: string;
+  whatsappNumber?: string;
 };
 /** The owner determines its own result contract; this compatibility entry never invents membership. */
 export interface AcademyAdmissionEntry<Result> {

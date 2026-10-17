@@ -22,6 +22,8 @@ export type AdmissionRequest = {
   contact: AdmissionContact | null; evidence: AdmissionRequestEvidence; bindingId: string | null; proofId: string | null;
   originalPolicy: Pick<AdmissionPolicy, "version" | "verificationEpoch" | "mode" | "contactType" | "requiresAdditionalVerification" | "allowCommonExceptions">;
   applicantMessage: string | null; status: (typeof ADMISSION_REQUEST_STATUS)[keyof typeof ADMISSION_REQUEST_STATUS];
+  /** Declared group number is independent of the contact and evidence; old callers may omit it. */
+  whatsappNumber?: string | null;
   submittedAt: Date; expiresAt: Date; version: number; decisionId: string | null; cancelReason: string | null;
   resolvedAt: Date | null; retryAllowedAt: Date | null;
 };
@@ -36,6 +38,7 @@ export function createPendingAdmissionRequest(input: {
   id: string; tribeId: string; userId: string; source: AdmissionRequest["source"]; contact: AdmissionContact | null;
   evidence: AdmissionRequestEvidence; policy: AdmissionPolicy; message: string | null; now: Date;
   invitationId?: string; legacyInvitationId?: string; requiresAllowlist?: boolean; bindingId?: string;
+  whatsappNumber?: string | null;
 }): AdmissionRequest {
   const trustedEvidence = input.evidence.kind === ADMISSION_EVIDENCE_KIND.base || input.evidence.kind === ADMISSION_EVIDENCE_KIND.local;
   const sourceValid = input.source === ADMISSION_REQUEST_SOURCE.common ? !input.invitationId && !input.legacyInvitationId
@@ -51,7 +54,7 @@ export function createPendingAdmissionRequest(input: {
     contact: input.contact ? { ...input.contact } : null, evidence: { ...input.evidence }, bindingId: input.bindingId ?? null,
     proofId: input.evidence.kind === ADMISSION_EVIDENCE_KIND.local ? input.evidence.proofId : null,
     originalPolicy: { version: input.policy.version, verificationEpoch: input.policy.verificationEpoch, mode: input.policy.mode, contactType: input.policy.contactType, requiresAdditionalVerification: input.policy.requiresAdditionalVerification, allowCommonExceptions: input.policy.allowCommonExceptions },
-    applicantMessage: input.message?.trim() || null, status: ADMISSION_REQUEST_STATUS.pending,
+    applicantMessage: input.message?.trim() || null, whatsappNumber: input.whatsappNumber ?? null, status: ADMISSION_REQUEST_STATUS.pending,
     submittedAt: new Date(input.now), expiresAt: new Date(input.now.getTime() + ADMISSION_LIMIT.pendingValidityMs),
     version: 1, decisionId: null, cancelReason: null, resolvedAt: null, retryAllowedAt: null,
   };
