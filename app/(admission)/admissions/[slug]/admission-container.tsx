@@ -5,6 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, toast } from "beez-ui";
 import { ContactVerification } from "@/components/academy-admissions/contact-verification";
 import { useAdmissionContactVerification } from "@/hooks/use-admission-contact-verification";
+import { useAdmissionNotificationRefresh } from "@/hooks/use-admission-notification-refresh";
+import { useAdmissionViewFeedback } from "@/hooks/use-admission-view-feedback";
+import { NOTIFICATION_REFRESH_OUTCOME } from "@/src/modules/notifications/constants/admission-notification-refresh";
+import type { AdmissionNotificationRefreshOutcome } from "@/src/modules/notifications/application/results/notification-refresh-state";
 import type { AdmissionContactBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-contact-browser-client";
 import { ADMISSION_CONTACT_PHASE, ADMISSION_CONTACT_COPY } from "@/src/modules/academy-admissions/constants/admission-contact-browser";
 import { MESSAGING_PUBLIC_CHANNEL } from "@/src/modules/messaging/constants/messaging-public-contract";
@@ -39,7 +43,8 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
   const [draft, setDraft] = useState<AdmissionDraft>({ phone: "", country: "", message: "" });
   const [confirmed, setConfirmed] = useState(false), [cancelConfirmed, setCancelConfirmed] = useState(false);
   const [phase, setPhase] = useState<typeof ADMISSION_UI_PHASE[keyof typeof ADMISSION_UI_PHASE]>(ADMISSION_UI_PHASE.idle);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null), [feedback, setFeedback] = useState<string | null>(null);
+  const { errorMessage, setErrorMessage, setReadErrorMessage, clearReadError } = useAdmissionViewFeedback();
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [formReady, setFormReady] = useState(false), [accountChanged, setAccountChanged] = useState(false), [retryOriginal, setRetryOriginal] = useState(false);
   const [now, setNow] = useState(initialState.kind === "ready" ? initialState.renderedAt : "");
   const currentState = useRef(initialState), currentDraft = useRef(draft), pending = useRef<AdmissionPendingIntent | null>(null);
@@ -58,33 +63,51 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     if (legacyInvitationToken && !arrivalScope) return false;
     try { writeAdmissionDraft({ viewerId: snapshot.viewerId, slug: snapshot.overview.tribe.slug, draft: currentDraft.current, pending: intent, ...(arrivalScope ? { arrivalScope } : {}) }); return true; }
     catch { setErrorMessage(ADMISSION_UI_COPY.storageFailed); return false; }
-  }, [arrivalScope, legacyInvitationToken]);
+  }, [arrivalScope, legacyInvitationToken, setErrorMessage]);
 
-  /** A stale or absent native viewer cannot inherit another account's draft or actions. */
-  const checkViewer = useCallback(async (signal: AbortSignal): Promise<boolean> => {
+  /** @param signal - Original operation cancellation. @param quiet - Leaves background transport feedback with its refresh owner. @returns Whether the current native viewer may retain this account's draft and actions. */
+  const checkViewer = useCallback(async (signal: AbortSignal, quiet = false): Promise<boolean> => {
     const snapshot = currentState.current;
     if (snapshot.kind !== "ready") return false;
     const result = await client.viewer(signal);
     if (!active.current || signal.aborted) return false;
-    if (result.status !== "ready") { if (result.status === "failed") setErrorMessage(ADMISSION_UI_COPY.readFailed); return false; }
+    if (result.status !== "ready") { if (result.status === "failed" && !quiet) setReadErrorMessage(ADMISSION_UI_COPY.readFailed); return false; }
     if ((result.value?.id ?? null) !== snapshot.viewerId) { setAccountChanged(true); setFormReady(false); setErrorMessage(ADMISSION_UI_COPY.accountChanged); return false; }
     setFormReady(draftLoaded.current || snapshot.viewerId === null);
     return true;
-  }, [client]);
+  }, [client, setErrorMessage, setReadErrorMessage]);
 
-  /** Reads the current own projection after a confirmed result without substituting it into the original ledger response. */
-  const refresh = useCallback(async (signal: AbortSignal) => {
+  /** @param signal - Original current own read. @param quiet - Preserves form state and uses the scheduler's failure feedback. @returns Current own freshness without substituting it into the original ledger response. */
+  const refresh = useCallback(async (signal: AbortSignal, quiet = false): Promise<AdmissionNotificationRefreshOutcome> => {
     const snapshot = currentState.current;
-    if (snapshot.kind !== "ready" || !await checkViewer(signal)) return;
+    if (snapshot.kind !== "ready" || quiet && (busy.current || pending.current)) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+    if (!await checkViewer(signal, quiet)) return signal.aborted ? NOTIFICATION_REFRESH_OUTCOME.skipped : NOTIFICATION_REFRESH_OUTCOME.failed;
     const [overview, own] = await Promise.all([
       client.overview(snapshot.overview.tribe.slug, signal),
       snapshot.viewerId ? client.own(snapshot.overview.tribe.slug, targetRequestId, signal) : Promise.resolve({ status: "ready" as const, value: null }),
     ]);
-    if (!active.current || signal.aborted || !await checkViewer(signal)) return;
-    if (overview.status !== "ready" || own.status !== "ready" || overview.value.tribe.slug !== snapshot.overview.tribe.slug || targetRequestId && own.value?.id !== targetRequestId) { setErrorMessage(ADMISSION_UI_COPY.readFailed); return; }
-    applyState({ ...snapshot, overview: overview.value, request: retainCurrentRequest(snapshot.request, own.value), renderedAt: new Date().toISOString() });
-    setNow(new Date().toISOString());
-  }, [client, checkViewer, applyState, targetRequestId]);
+    if (!active.current || signal.aborted || quiet && (busy.current || pending.current)) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+    if (!await checkViewer(signal, quiet)) return signal.aborted ? NOTIFICATION_REFRESH_OUTCOME.skipped : NOTIFICATION_REFRESH_OUTCOME.failed;
+    if (overview.status !== "ready" || own.status !== "ready" || overview.value.tribe.slug !== snapshot.overview.tribe.slug || targetRequestId && own.value?.id !== targetRequestId) { if (!quiet) setReadErrorMessage(ADMISSION_UI_COPY.readFailed); return NOTIFICATION_REFRESH_OUTCOME.failed; }
+    if (quiet && (busy.current || pending.current)) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+    const current = currentState.current;
+    if (current.kind !== "ready" || current.viewerId !== snapshot.viewerId || current.overview.tribe.slug !== snapshot.overview.tribe.slug) return NOTIFICATION_REFRESH_OUTCOME.skipped;
+    const request = retainCurrentRequest(current.request, own.value);
+    // Both projections are owned JSON contracts. Their dynamic rendering clock
+    // is excluded so an equal read cannot replace form state or row identities.
+    if (JSON.stringify(current.overview) !== JSON.stringify(overview.value) || JSON.stringify(current.request) !== JSON.stringify(request)) applyState({ ...current, overview: overview.value, request, renderedAt: new Date().toISOString() });
+    if (!quiet) setNow(new Date().toISOString());
+    clearReadError();
+    return NOTIFICATION_REFRESH_OUTCOME.refreshed;
+  }, [client, checkViewer, applyState, targetRequestId, setReadErrorMessage, clearReadError]);
+
+  const refreshVisibleRequest = useCallback((signal: AbortSignal) => refresh(signal, true), [refresh]);
+  const { refreshUnavailable: ownRequestRefreshUnavailable, clearRefreshFailure, confirmOwnAction } = useAdmissionNotificationRefresh({
+    enabled: state.kind === "ready" && Boolean(state.viewerId) && !accountChanged,
+    paused: state.kind !== "ready" || state.request?.status !== ADMISSION_REQUEST_STATUS.pending || phase !== ADMISSION_UI_PHASE.idle,
+    scopeKey: state.kind === "ready" ? `${state.viewerId ?? ""}:${state.overview.tribe.slug}:${state.request?.id ?? ""}` : "",
+    refresh: refreshVisibleRequest,
+  });
 
   /** Clears only a known final local intent; storage failures never turn that result into a new write. */
   const clearIntent = useCallback(() => { pending.current = null; canRetryOriginal.current = false; setRetryOriginal(false); persist(null); }, [persist]);
@@ -124,8 +147,10 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     }
     if (operation.type === ADMISSION_OPERATION_TYPE.cancel && intent.kind === "cancel" && (operation.result.admissionRequestId !== intent.requestId || operation.result.status !== "cancelled")) { setErrorMessage(ADMISSION_UI_COPY.readFailed); setPhase(ADMISSION_UI_PHASE.uncertain); return; }
     clearIntent(); setFeedback(operation.type === ADMISSION_OPERATION_TYPE.submit ? operation.result.outcome === ADMISSION_OUTCOME.pending ? ADMISSION_UI_COPY.outcomePending : ADMISSION_UI_COPY.outcomeMember : ADMISSION_UI_COPY.cancelled);
-    await refresh(signal); if (active.current && !signal.aborted) setPhase(ADMISSION_UI_PHASE.idle);
-  }, [client, checkViewer, clearIntent, refresh]);
+    confirmOwnAction();
+    if (await refresh(signal) === NOTIFICATION_REFRESH_OUTCOME.refreshed) clearRefreshFailure();
+    if (active.current && !signal.aborted) setPhase(ADMISSION_UI_PHASE.idle);
+  }, [client, checkViewer, clearIntent, refresh, clearRefreshFailure, confirmOwnAction, setErrorMessage]);
 
   /** Applies minimal confirmed mutation data while the current projection is reconciled. */
   const completeWrite = useCallback(async (intent: AdmissionPendingIntent, result: Awaited<ReturnType<AdmissionBrowserClient["submit"]>> | Awaited<ReturnType<AdmissionBrowserClient["cancel"]>>, signal: AbortSignal) => {
@@ -149,8 +174,10 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
       setFeedback(ADMISSION_UI_COPY.cancelled); toast.success(ADMISSION_UI_COPY.cancelled);
     }
     clearIntent(); setConfirmed(false); setCancelConfirmed(false);
-    await refresh(signal); if (live(signal)) setPhase(ADMISSION_UI_PHASE.idle);
-  }, [applyState, clearIntent, refresh]);
+    confirmOwnAction();
+    if (await refresh(signal) === NOTIFICATION_REFRESH_OUTCOME.refreshed) clearRefreshFailure();
+    if (live(signal)) setPhase(ADMISSION_UI_PHASE.idle);
+  }, [applyState, clearIntent, refresh, clearRefreshFailure, confirmOwnAction, setErrorMessage]);
 
   /** Reuses exactly the retained original body; changes to a draft cannot rewrite an ambiguous intent. */
   const write = useCallback(async (intent: AdmissionPendingIntent) => {
@@ -168,7 +195,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
       await completeWrite(intent, result, request.signal);
     } catch { if (live(request.signal)) { setErrorMessage(ADMISSION_UI_COPY.uncertain); setPhase(ADMISSION_UI_PHASE.uncertain); } }
     finally { toast.dismiss(notice); if (controller.current === request) busy.current = false; }
-  }, [accountChanged, checkViewer, client, completeWrite, persist, legacyInvitationToken]);
+  }, [accountChanged, checkViewer, client, completeWrite, persist, legacyInvitationToken, setErrorMessage]);
 
   const read = useCallback(async (restored = false) => {
     if (busy.current && !restored) return;
@@ -177,11 +204,11 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     setErrorMessage(null); setFeedback(null); setPhase(ADMISSION_UI_PHASE.checking);
     try {
       if (restored || !draftLoaded.current) { if (!await checkViewer(request.signal)) return; restoreDraft(); }
-      if (pending.current) await recover(request.signal); else { await refresh(request.signal); if (live(request.signal)) setPhase(ADMISSION_UI_PHASE.idle); }
+      if (pending.current) await recover(request.signal); else { if (await refresh(request.signal) === NOTIFICATION_REFRESH_OUTCOME.refreshed) clearRefreshFailure(); if (live(request.signal)) setPhase(ADMISSION_UI_PHASE.idle); }
     }
     catch { if (live(request.signal)) { setErrorMessage(ADMISSION_UI_COPY.readFailed); if (!draftLoaded.current) setFormReady(false); } }
     finally { if (controller.current === request) { busy.current = false; if (live(request.signal)) setPhase((current) => current === ADMISSION_UI_PHASE.checking ? pending.current ? ADMISSION_UI_PHASE.uncertain : ADMISSION_UI_PHASE.idle : current); } }
-  }, [recover, refresh, checkViewer, restoreDraft]);
+  }, [recover, refresh, checkViewer, restoreDraft, clearRefreshFailure, setErrorMessage]);
 
   const contactState = state.kind === "ready" ? state : null, contactOptions = contactState?.overview.verification;
   const currentPending = contactState?.request?.status === "pending" && new Date(contactState.request.expiresAt) > new Date(now || contactState.renderedAt) ? contactState.request : null;
@@ -225,7 +252,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     window.addEventListener("pageshow", onPageShow);
     const timer = setInterval(() => { if (!lifecycle.signal.aborted) setNow(new Date().toISOString()); }, ADMISSION_UI_CLOCK_INTERVAL_MS);
     return () => { lifecycle.abort(); initialization.abort(); controller.current?.abort(); active.current = false; window.removeEventListener("pageshow", onPageShow); clearInterval(timer); };
-  }, [checkViewer, recover, read, restoreDraft]);
+  }, [checkViewer, recover, read, restoreDraft, setErrorMessage]);
 
   const changeDraft = (next: AdmissionDraft) => { if (busy.current || pending.current) return; const normalizedDraft = contact.challenge || contact.pending ? { ...next, phone: currentDraft.current.phone, country: currentDraft.current.country } : next; currentDraft.current = normalizedDraft; setDraft(normalizedDraft); setErrorMessage(null); setFeedback(null); persist(null); };
   const submit = () => {
@@ -254,7 +281,7 @@ export function AdmissionContainer({ initialState, requestPage = false, client =
     {contact.challenge?.deliveryId && <Button type="button" variant="outline" disabled={contactBusy} onClick={() => void contact.readDelivery()}>Consultar envío del código</Button>}
     {currentPending && proofFresh && <Button type="button" disabled={contactBusy || Boolean(contact.pending)} onClick={() => void contact.apply()}>Aplicar prueba a esta solicitud</Button>}
   </> : undefined;
-  return <AdmissionScreen state={state} requestPage={requestPage} verification={verification} canSubmitWithProof={canSubmitWithProof} contactLocked={Boolean(contact.challenge || contact.pending)} draft={draft} confirmed={confirmed} cancelConfirmed={cancelConfirmed} phase={phase} now={now} errorMessage={errorMessage} feedback={feedback} accountChanged={accountChanged} formReady={formReady && !contactBusy && !contact.recoveryRequired} retryOriginal={retryOriginal} signInHref={signInHref} retryHref={retryHref}
+  return <AdmissionScreen state={state} requestPage={requestPage} verification={verification} canSubmitWithProof={canSubmitWithProof} contactLocked={Boolean(contact.challenge || contact.pending)} draft={draft} confirmed={confirmed} cancelConfirmed={cancelConfirmed} phase={phase} now={now} errorMessage={errorMessage ?? (ownRequestRefreshUnavailable ? ADMISSION_UI_COPY.readFailed : null)} feedback={feedback} accountChanged={accountChanged} formReady={formReady && !contactBusy && !contact.recoveryRequired} retryOriginal={retryOriginal} signInHref={signInHref} retryHref={retryHref}
     onChange={changeDraft} onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }} onCancelConfirm={(value) => { setCancelConfirmed(value); setErrorMessage(null); }} onSubmit={submit} onCancel={cancel} onRead={() => void read()} onRetryOriginal={() => { if (canRetryOriginal.current && pending.current) void write(pending.current); }}
     onReloadAccount={() => { window.location.reload(); /* An actual authentication change requires a fresh server snapshot. */ }} />;
 }

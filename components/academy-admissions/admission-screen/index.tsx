@@ -29,11 +29,14 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
   const canSubmit = ready && !requestPage && (state.overview.state === ADMISSION_OVERVIEW_STATE.available || canSubmitWithProof) && (!state.request || state.request.status !== "pending");
   const readyToRetry = ready && state.request && state.request.status !== ADMISSION_REQUEST_STATUS.pending
     && (state.overview.nextAction === ADMISSION_NEXT_ACTION.requestAdmission || state.overview.nextAction === ADMISSION_NEXT_ACTION.verifyContact);
+  // Parallel own reads can observe a resolution just after the overview read.
+  // Keep the newer terminal request visible without repeating an older pending hint.
+  const stalePendingOverview = ready && state.request && state.request.status !== ADMISSION_REQUEST_STATUS.pending && state.overview.state === ADMISSION_OVERVIEW_STATE.pending;
   return <main className={styles.AdmissionScreen} aria-busy={busy || loading}>
     <header className={styles.AdmissionScreen__header}><p className={styles.AdmissionScreen__eyebrow}>TuTribu{ready ? ` · ${state.overview.tribe.name}` : " · Admisión"}</p><h1 className={styles.AdmissionScreen__title}>{state.kind === "unavailable" ? ADMISSION_UI_COPY.unavailableTitle : ready && state.request ? ADMISSION_UI_COPY.statusTitle : ADMISSION_UI_COPY.title}</h1><p className={styles.AdmissionScreen__description}>{ADMISSION_UI_COPY.description}</p></header>
     <section className={styles.AdmissionScreen__content} aria-label="Admisión a la academia">
       {loading ? <p role="status" className={styles.AdmissionScreen__loading}>{ADMISSION_UI_COPY.reading}</p> : state.kind === "unavailable" ? <p role="alert">{state.message}</p> : accountChanged ? null : <>
-        <p role="status">{state.overview.safeMessage}</p>
+        {!stalePendingOverview && <p role="status">{state.overview.safeMessage}</p>}
         {state.request && <RequestStatus request={state.request} now={now ?? state.renderedAt} confirmed={cancelConfirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={null} retryHref={readyToRetry ? retryHref : undefined} onConfirm={(value) => onCancelConfirm?.(value)} onCancel={() => onCancel?.()} />}
         {!requestPage && state.request && <Link href={buildOwnAdmissionRequestRoute(state.overview.tribe.slug, state.request.id)}>Ver solicitud</Link>}
         {verification}

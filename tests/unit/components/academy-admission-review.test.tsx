@@ -1,10 +1,11 @@
 /** Exercises real React/beez-ui/Motion review interactions with doubles only of the owned client port. @module academy-admission-review-tests */
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Activity, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdmissionReviewRouteContainer } from "@/app/(platform)/[slug]/academia/admissions/admission-review-route-container";
+import { NotificationCenter } from "@/app/(platform)/notification-center";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import type { AdmissionReviewBrowserClient } from "@/src/modules/academy-admissions/application/ports/admission-review-browser-client";
 import type { AdmissionReviewPageState } from "@/src/modules/academy-admissions/application/results/admission-review-page-state";
@@ -43,6 +44,139 @@ async function confirmDecision() {
 }
 
 beforeEach(() => { window.sessionStorage.clear(); vi.clearAllMocks(); });
+
+describe("visible reviewer inbox refresh", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // JSDOM has no foreground tab; real events, React and cancellation remain in use.
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+  });
+  afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it("should show a newly available pending request after fifteen seconds without refreshing the route", async () => {
+    const data = fixture(false);
+    const incoming = { ...data.request, id: "02d6f9d4-f47a-4eb6-bbae-7a82b7c3dace", applicant: { id: "synthetic-new-applicant", name: "Nueva persona solicitante" } };
+    data.client.reviewList.mockResolvedValue({ status: "ready", value: { items: [incoming, data.request], nextCursor: null } });
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    expect(screen.queryByText("Nueva persona solicitante")).not.toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(screen.getByText("Nueva persona solicitante")).toBeVisible();
+    expect(data.client.decide).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should preserve decision drafts, confirmation and focus during an equal background snapshot", async () => {
+    const data = fixture();
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    const reason = screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason);
+    fireEvent.change(reason, { target: { value: "Motivo que todavía estoy editando" } });
+    fireEvent.change(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.externalMessage), { target: { value: "Mensaje conservado" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm }));
+    act(() => reason.focus());
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(data.client.reviewList).toHaveBeenCalledTimes(1);
+    expect(reason).toHaveValue("Motivo que todavía estoy editando");
+    expect(reason).toHaveFocus();
+    expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeChecked();
+    expect(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.externalMessage)).toHaveValue("Mensaje conservado");
+  });
+
+  it("should reconcile every previously loaded page while keeping the current selection policy", async () => {
+    const data = fixture(false);
+    const older = { ...data.request, id: "47af84ef-717b-4be5-9613-f72aa6da295d", applicant: { id: "synthetic-older-applicant", name: "Persona de la segunda página" } };
+    data.state.filters = { ...DEFAULT_ADMISSION_REVIEW_SELECTION, limit: 1 };
+    data.state.page.nextCursor = "own-second-page";
+    let refreshed = false;
+    data.client.reviewList.mockImplementation(async (_slug, cursor) => ({ status: "ready", value: cursor ? { items: [older], nextCursor: null } : { items: [{ ...data.request, applicant: { ...data.request.applicant, name: refreshed ? "Nombre actualizado" : data.request.applicant.name } }], nextCursor: "own-second-page" } }));
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.loadMore })));
+    expect(screen.getByText("Persona de la segunda página")).toBeVisible();
+    refreshed = true;
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(screen.getByText("Nombre actualizado")).toBeVisible();
+    expect(screen.getByText("Persona de la segunda página")).toBeVisible();
+    expect(data.client.reviewList.mock.calls.at(-1)?.[3]).toEqual(data.state.filters);
+  });
+
+  it("should clear an earlier manual read failure after a successful automatic refresh", async () => {
+    const data = fixture();
+    data.client.reviewList.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: ADMISSION_REVIEW_UI_COPY.readFailed, uncertain: false });
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read })));
+    expect(screen.getByRole("alert")).toHaveTextContent(ADMISSION_REVIEW_UI_COPY.readFailed);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(data.client.reviewList).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).toBeEnabled();
+  });
+
+  it("should clear a polling failure after a successful manual current read", async () => {
+    const data = fixture();
+    data.client.reviewList.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: ADMISSION_REVIEW_UI_COPY.readFailed, uncertain: false });
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(screen.getByRole("alert")).toHaveTextContent(ADMISSION_REVIEW_UI_COPY.readFailed);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read })));
+    expect(data.client.reviewList).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).toBeEnabled();
+  });
+
+  it("should reconcile the open real notification center as soon as an original decision is recovered while private review data remains hidden", async () => {
+    const data = fixture();
+    const original = Promise.withResolvers<Awaited<ReturnType<AdmissionReviewBrowserClient["operation"]>>>();
+    const currentPage = Promise.withResolvers<Awaited<ReturnType<AdmissionReviewBrowserClient["reviewList"]>>>();
+    data.client.operation.mockImplementation(() => original.promise);
+    data.client.reviewList.mockImplementation(() => currentPage.promise);
+    data.client.reviewDetail.mockResolvedValue({ status: "ready", value: { ...data.request, status: "approved", version: 2, eligibleActions: [] } });
+    writeAdmissionReviewIntent(viewerId, slug, { requestId, input: { operationId, confirmed: true, expectedVersion: 1, decision: "approve", internalReason: "Motivo original" } });
+    const transport = vi.fn<typeof fetch>().mockImplementation(async (input) => Response.json(String(input).endsWith("unread-count") ? { unreadCount: 1 } : { notifications: [], unreadCount: 0 }));
+    vi.stubGlobal("fetch", transport);
+    await act(async () => { render(<>{data.node}<NotificationCenter initialInbox={{ notifications: [], unreadCount: 0 }} /></>, { wrapper: Providers }); });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Notificaciones" })));
+    expect(transport.mock.calls.map(([input]) => String(input))).toEqual(["/api/notifications"]);
+    await act(async () => original.resolve({ status: "ready", value: { type: "decide_admission_request", state: "completed", operationId, replayed: true, result: { admissionRequestId: requestId, status: "approved", version: 2 } } }));
+    expect(data.client.reviewList).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).not.toBeInTheDocument();
+    expect(transport.mock.calls.map(([input]) => String(input))).toEqual(["/api/notifications", "/api/notifications"]);
+    await act(async () => currentPage.resolve({ status: "ready", value: { items: [], nextCursor: null } }));
+    expect(data.client.decide).not.toHaveBeenCalled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("should preserve a decision failure after a successful background read", async () => {
+    const data = fixture();
+    const message = "No se pudo guardar esta decisión. Revisá el motivo antes de intentar otra vez.";
+    data.client.decide.mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message, uncertain: false });
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    fireEvent.change(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason), { target: { value: "Motivo conservado" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })));
+    expect(screen.getByRole("alert")).toHaveTextContent(message);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(data.client.reviewList).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert")).toHaveTextContent(message);
+    expect(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).toHaveValue("Motivo conservado");
+  });
+
+  it("should disable decisions when the final viewer read fails and restore them only after a complete current read", async () => {
+    const data = fixture();
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    fireEvent.change(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason), { target: { value: "Motivo conservado" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm }));
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeEnabled();
+    data.client.viewer.mockResolvedValueOnce({ status: "ready", value: { id: viewerId } }).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "No pudimos consultar la sesión.", uncertain: false });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeDisabled();
+    expect(screen.getByLabelText(ADMISSION_REVIEW_UI_COPY.internalReason)).toHaveValue("Motivo conservado");
+    expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeChecked();
+    expect(data.client.decide).not.toHaveBeenCalled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeEnabled();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+});
 
 describe("native reviewer container", () => {
   it("should withhold the history action in SSR until the current viewer check makes the detail interactive", async () => {
