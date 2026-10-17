@@ -33,7 +33,7 @@ export type AdmissionReviewProps = {
 /** @param value - Own validated instant. @returns Deterministic Buenos Aires date/time on server and first client render. */
 function describeInstant(value: string): string { return `${formatBuenosAiresShortDate(value)} · ${formatBuenosAiresTime(value)}`; }
 
-/** @param props - Current allowlisted review data and route-owned state/callbacks. @returns A semantic responsive inbox/detail with explicit pre-action confirmation and visible feedback. */
+/** @param props - Current allowlisted review data and route-owned state/callbacks. @returns A semantic inbox/detail with explicit confirmation and a live region registered before its feedback changes. */
 export function AdmissionReview(props: AdmissionReviewProps) {
   const id = useId();
   const selected = props.selected;
@@ -49,7 +49,7 @@ export function AdmissionReview(props: AdmissionReviewProps) {
     {!selected && props.filters}
     <div className={styles.AdmissionReview__actions}><Button variant="outline" onClick={props.onRead} disabled={props.busy}>{props.busy ? ADMISSION_REVIEW_UI_COPY.reading : ADMISSION_REVIEW_UI_COPY.read}</Button>{selected && <Button variant="ghost" onClick={props.onClose} disabled={props.busy || props.uncertain}>{ADMISSION_REVIEW_UI_COPY.close}</Button>}</div>
     {props.errorMessage && <p className={styles.AdmissionReview__error} role="alert">{props.errorMessage}</p>}
-    {props.statusMessage && <p className={styles.AdmissionReview__help} role="status">{props.statusMessage}</p>}
+    <p className={styles.AdmissionReview__feedback} role="status" aria-live="polite" aria-atomic="true">{props.statusMessage ?? ""}</p>
     {props.recovery !== undefined ? props.recovery : props.uncertain && <section className={styles.AdmissionReview__section} aria-label="Recuperación de la decisión"><p role="status">{ADMISSION_REVIEW_UI_COPY.uncertain}</p>{props.canRetry && <Button variant="outline" disabled={props.busy || !props.confirmed} onClick={props.onRetry}>{ADMISSION_REVIEW_UI_COPY.retry}</Button>}</section>}
     {selected ? <section className={styles.AdmissionReview__section} aria-label="Detalle de la solicitud">
       <h2 className={styles.AdmissionReview__subtitle}>{selected.applicant.name}</h2>
