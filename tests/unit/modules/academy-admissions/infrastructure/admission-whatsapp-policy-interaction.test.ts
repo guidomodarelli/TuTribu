@@ -10,6 +10,7 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { bindAdmissionBatchBrowserSession } from "@/tests/support/admission-batch-browser-fixture";
 import { prepareAdmissionWhatsappBrowser } from "@/tests/support/admission-whatsapp-browser-fixture";
+import { setVisibleCheckboxChecked } from "@/tests/support/set-visible-checkbox";
 import { ADMISSION_WHATSAPP_POLICY_OBSERVATION as OBSERVATION } from "@/tests/support/constants/admission-whatsapp-policy-observation";
 import { ADMISSION_WHATSAPP_BROWSER_VALIDATION as VALIDATION } from "@/tests/support/constants/admission-whatsapp-number";
 import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
@@ -18,7 +19,7 @@ import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messagi
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declared WhatsApp policy interaction", () => {
-  it("should preserve each actual pointer toggle after initial account observation in WebKit", async () => {
+  it.concurrent.each(OBSERVATION.profiles)("should preserve each actual pointer toggle after initial account observation in WebKit with $name", async (profile) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => { const id = randomUUID(); return [purpose, { activeKeyId: id, keys: [{ id, materialBase64: randomBytes(32).toString("base64") }] }]; }));
       const messagingSecurity = { environment: OBSERVATION.securityEnvironment, securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
@@ -67,27 +68,25 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
           }, { label: ADMISSION_WHATSAPP_COPY.policyLabel, maximumEvents: OBSERVATION.maximumEvents });
           await bindAdmissionBatchBrowserSession(context, fixture.leader, origin, secret);
           const url = `${origin}/${fixture.slug}/${ADMISSION_POLICY_SETTINGS_SEGMENT}`;
-          for (const motionPreference of OBSERVATION.motionPreferences) {
-            await page.emulateMedia({ reducedMotion: motionPreference });
-            const lostBeforeMode = lost.length;
-            for (let loadIndex = 0; loadIndex < OBSERVATION.loads; loadIndex += 1) {
-              await page.goto(url);
-              const checkbox = page.getByRole("checkbox", { name: ADMISSION_WHATSAPP_COPY.policyLabel });
-              await checkbox.waitFor();
-              const trials = [];
-              for (let trialIndex = 0; trialIndex < OBSERVATION.togglesPerLoad; trialIndex += 1) {
-                const before = await checkbox.isChecked(), wanted = !before;
-                let actionError = false;
-                try { await checkbox.setChecked(wanted); } catch { actionError = true; }
-                const immediate = await checkbox.isChecked();
-                await page.waitForTimeout(OBSERVATION.settleObservationMs);
-                const settled = await checkbox.isChecked();
-                const trial = { motionPreference, loadIndex, trialIndex, before, wanted, immediate, settled, actionError, draftNoticeVisible: await page.locator("main:visible").getByText(ADMISSION_POLICY_BROWSER_COPY.draftChanged, { exact: true }).first().isVisible() };
-                trials.push(trial); if (settled !== wanted) { lost.push(trial); break; }
-              }
-              observations.push({ motionPreference, loadIndex, trials, events: await page.evaluate(() => (window as unknown as { declaredWhatsappPolicyEvents: object[] }).declaredWhatsappPolicyEvents) });
-              if (lost.length > lostBeforeMode) break;
+          const motionPreference = profile.reducedMotion;
+          if (motionPreference !== null) await page.emulateMedia({ reducedMotion: motionPreference });
+          for (let loadIndex = 0; loadIndex < OBSERVATION.loads; loadIndex += 1) {
+            await page.goto(url);
+            const checkbox = page.getByRole("checkbox", { name: ADMISSION_WHATSAPP_COPY.policyLabel });
+            await checkbox.waitFor();
+            const trials = [];
+            for (let trialIndex = 0; trialIndex < OBSERVATION.togglesPerLoad; trialIndex += 1) {
+              const before = await checkbox.isChecked(), wanted = !before;
+              let actionError = false;
+              try { await setVisibleCheckboxChecked(checkbox, wanted, VALIDATION.actionTimeoutMs); } catch { actionError = true; }
+              const immediate = await checkbox.isChecked();
+              await page.waitForTimeout(OBSERVATION.settleObservationMs);
+              const settled = await checkbox.isChecked();
+              const trial = { motionPreference, loadIndex, trialIndex, before, wanted, immediate, settled, actionError, draftNoticeVisible: await page.locator("main:visible").getByText(ADMISSION_POLICY_BROWSER_COPY.draftChanged, { exact: true }).first().isVisible() };
+              trials.push(trial); if (settled !== wanted) { lost.push(trial); break; }
             }
+            observations.push({ motionPreference, loadIndex, trials, events: await page.evaluate(() => (window as unknown as { declaredWhatsappPolicyEvents: object[] }).declaredWhatsappPolicyEvents) });
+            if (lost.length) break;
           }
           expect(policyWrites).toBe(0);
           storedPolicy = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select requires_whatsapp_number,version,verification_epoch from public.academy_admission_policies where tribe_id=${fixture.tribeId}`)).rows);
@@ -97,7 +96,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
         } finally {
           try {
             const directory = process.env[OBSERVATION.directoryEnvironment];
-            if (directory) { await mkdir(directory, { recursive: true }); await writeFile(join(directory, "webkit-policy-interaction.json"), JSON.stringify({ policyWrites, initialPolicy, storedPolicy, pageErrorNames, lost, observations }, null, 2)); }
+            if (directory) { await mkdir(directory, { recursive: true }); await writeFile(join(directory, `${profile.name}-policy-interaction.json`), JSON.stringify({ profile: profile.name, policyWrites, initialPolicy, storedPolicy, pageErrorNames, lost, observations }, null, 2)); }
           } finally { try { await context?.close(); } finally { await browser.close(); } }
         }
       }, { messagingSecurity }));
