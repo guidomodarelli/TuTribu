@@ -1,0 +1,36 @@
+# Shared setup for every quality gate job: pnpm, Node.js from `.nvmrc`, a
+# frozen-lockfile install and the isolated build environment. The caller must
+# check out the repository first, because this action lives in it.
+name: Set up quality gate
+description: Install the toolchain and dependencies and configure the isolated build environment.
+
+runs:
+  using: composite
+  steps:
+    - name: Set up pnpm
+      uses: pnpm/action-setup@v6
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Configure isolated build environment
+      shell: bash
+      run: |
+        set -euo pipefail
+        for variable in BETTER_AUTH_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+          value="$(openssl rand -hex 32)"
+          echo "::add-mask::$value"
+          printf '%s=%s\n' "$variable" "$value" >> "$GITHUB_ENV"
+        done
+        printf '%s\n' \
+          'BETTER_AUTH_URL=http://127.0.0.1:3000' \
+          'DATABASE_URL=postgresql://127.0.0.1:5432/quality_gate' \
+          >> "$GITHUB_ENV"
