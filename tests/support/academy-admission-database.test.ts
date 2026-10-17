@@ -11,6 +11,35 @@ import { withAcademyAdmissionDatabase } from "./academy-admission-database";
 import { createAdmissionProviderTransport, withAdmissionProviderTransport } from "./admission-provider-transport";
 
 describe("academy admission database creation recovery", () => {
+  it("should reject an invalid planned ownership nonce before native credentials or resource requests are used", async () => {
+    const transport = createAdmissionProviderTransport([]);
+    const run = vi.fn(async () => undefined);
+    await expect(withAdmissionProviderTransport(transport, () => withAcademyAdmissionDatabase(run, {
+      authorization: randomUUID(), fetch: transport.fetch,
+      databaseSelection: { databaseName: "neondb", roleName: "synthetic_runtime" },
+      ownershipNonce: "invalid-native-ownership",
+    }))).rejects.toThrow("invalid_branch_nonce");
+    expect(run).not.toHaveBeenCalled();
+    expect(transport.receipts).toEqual([]);
+    expect(transport.deniedRequests).toBe(0);
+  });
+
+  it("should preserve an existing branch when a planned ownership name is already present", async () => {
+    const ownershipNonce = randomUUID(), name = `codex-academy-admissions-${ownershipNonce}`;
+    const run = vi.fn(async () => undefined);
+    const transport = createAdmissionProviderTransport([
+      { origin: "https://console.neon.tech", pathname: "/api/v2/projects/cold-firefly-92947172", method: "GET", respond: () => Response.json({ project: { id: "cold-firefly-92947172", name: "TuTribu" } }) },
+      { origin: "https://console.neon.tech", pathname: "/api/v2/projects/cold-firefly-92947172/branches", method: "GET", respond: () => Response.json({ branches: [{ id: "br-synthetic-parent", name: "production", default: true }, { id: "br-existing-child", name, parent_id: "br-synthetic-parent", default: false }] }) },
+    ]);
+    await expect(withAdmissionProviderTransport(transport, () => withAcademyAdmissionDatabase(run, {
+      authorization: randomUUID(), fetch: transport.fetch,
+      databaseSelection: { databaseName: "neondb", roleName: "synthetic_runtime" }, ownershipNonce,
+    }))).rejects.toThrow("branch_name_already_exists");
+    expect(run).not.toHaveBeenCalled();
+    expect(transport.receipts).toHaveLength(2);
+    expect(transport.deniedRequests).toBe(0);
+  });
+
   it("should require explicit authorization for an injected transport before accessing native credentials or creating resources",async()=>{
     const transport=createAdmissionProviderTransport([]);
     const run=vi.fn(async()=>undefined);

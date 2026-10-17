@@ -11,6 +11,7 @@ export const ADMISSION_PERFORMANCE = {
   expectedPolicyVersion: 2,
   latencyPercentile: 0.95,
   confirmationBudgetMs: 3_000,
+  networkSampleCount: 20,
   poolSampleIntervalMs: 20,
   eventLoopResolutionMs: 20,
   nanosecondsPerMillisecond: 1_000_000,
@@ -25,14 +26,7 @@ export const ADMISSION_PERFORMANCE = {
   exceptionReason: "Solicito una revisión de mi ingreso.",
 } as const;
 
-/** Emits only fixed progress identifiers from native workload setup and execution. */
-export const ADMISSION_PERFORMANCE_PHASE = {
-  identities: "seed_native_performance_identities",
-  allowlist: "seed_native_performance_allowlist",
-  ready: "native_performance_fixture_ready",
-  measurement: "native_performance_measurement",
-  abandonment: "native_performance_abandonment",
-} as const;
+export { ADMISSION_PERFORMANCE_ENVIRONMENT, ADMISSION_PERFORMANCE_PHASE, ADMISSION_PERFORMANCE_CASE } from "./admission-performance-runtime.mjs";
 
 /** Classifies test observations without logging private exceptions or identity fields. */
 export const ADMISSION_PERFORMANCE_FAILURE = {

@@ -21,11 +21,9 @@ import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructur
 import { confirmOwnedBranchRemoval } from "./confirm-owned-branch-removal";
 import { withAcademyAdmissionRestoreCopy, type AcademyAdmissionRestoreCopy } from "./academy-admission-restore-copy";
 import { readPostgresTestDiagnostics, type PostgresTestDiagnostics } from "./postgres-test-diagnostics";
+import { normalizeUuid } from "@/src/modules/shared/application/validation/uuid";
+import { ADMISSION_NEON_PROJECT_ID, NEON_ADMIN_TIMEOUT_MS, ADMISSION_BRANCH_NAME_PREFIX, ADMISSION_DATABASE_OWNERSHIP_FAILURE } from "./constants/academy-admission-database";
 
-/** Fixes the project allowed by the repository's standing validation authorization. */
-const ADMISSION_NEON_PROJECT_ID = "cold-firefly-92947172";
-/** Bounds administrative HTTP requests without retrying uncertain mutations. */
-const NEON_ADMIN_TIMEOUT_MS = 15_000;
 const runExecutable = promisify(execFile);
 
 /** Describes consumed branch metadata; no provider schema validation is performed. */
@@ -53,6 +51,8 @@ export type AcademyAdmissionDatabaseOptions = {
   fetch?: typeof globalThis.fetch;
   /** Bounds only this owned branch's real pool for SQL concurrency scenarios. */
   concurrentTransactions?: number;
+  /** Caller-generated unpredictable UUID used by a separate CI cleanup owner; existing names are always refused. */
+  ownershipNonce?: string;
 };
 
 /** Exposes only branch-scoped SQL execution and safe resource metadata. */
@@ -132,6 +132,9 @@ export async function withAcademyAdmissionDatabase<Result>(
   run: (database: AcademyAdmissionTestDatabase) => Promise<Result>,
   options: AcademyAdmissionDatabaseOptions = {},
 ): Promise<Result> {
+  const ownershipNonce = options.ownershipNonce ?? randomUUID();
+  if (normalizeUuid(ownershipNonce) !== ownershipNonce) throw new Error(ADMISSION_DATABASE_OWNERSHIP_FAILURE.invalidNonce);
+  const name = `${ADMISSION_BRANCH_NAME_PREFIX}${ownershipNonce}`;
   let selection = options.databaseSelection;
   if (!selection) {
     loadEnvConfig(process.cwd());
@@ -185,9 +188,9 @@ export async function withAcademyAdmissionDatabase<Result>(
     throw new Error("AcademyAdmissionDatabase.authorize failed: project_mismatch");
   }
   const existing = await adminRequest<{ branches: NeonBranch[] }>(`${projectPath}/branches`);
+  if (existing.branches.some((branch) => branch.name === name)) throw new Error(ADMISSION_DATABASE_OWNERSHIP_FAILURE.existingName);
   const parent = existing.branches.find((branch) => branch.default);
   if (!parent) throw new Error("AcademyAdmissionDatabase.create failed: default_branch_unknown");
-  const name = `codex-academy-admissions-${randomUUID()}`;
   let ownedBranch: NeonBranch | undefined;
   let pool: ReturnType<typeof createPostgresPool> | undefined;
   let workError: unknown;
