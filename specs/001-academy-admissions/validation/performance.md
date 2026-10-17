@@ -48,3 +48,11 @@ El caso de abandono reforzado pasó: setting real de 30.000 ms, liberación con 
 La revisión confirmó contención por tribu y muchas consultas de autoridad secuenciales. La mejora requiere reducir trabajo conservando locks, frescura y barreras; aumentar timeouts o el pool no acredita el objetivo. El cambio posterior de la constante de carga sólo fija las 10.000 entradas en su owner de rendimiento, independientes del límite CSV, conservando el mismo valor efectivo; no se le atribuye una ejecución Native nueva.
 
 T200 y T209 siguen pendientes. Esta evidencia no reemplaza el primer resultado fallido ni acredita SC-013, SC-015 o SC-021 completos. La muestra SC-021 de 1.000/800/200 y las mediciones de visibilidad y agrupación conservan sus propios casos y criterios.
+
+## Red y próxima ejecución independiente
+
+La sonda `.git/admission-network-probe-c23a6dd7/` usó una rama propia y sólo `SELECT 1`, sin leer filas de la aplicación. En PostgreSQL 17.11 y región `aws-us-east-1`, veinte consultas después del warm-up dieron mediana de 163,92 ms y p95 de 166,04 ms desde esta computadora. La transacción fue de sólo lectura y la ausencia posterior de la rama quedó confirmada. Esta medida identifica el costo local de un viaje, sin atribuir a la red todos los fallos de las cargas anteriores ni certificar un host operativo.
+
+La regresión completa del checkpoint previo pasó: lint, tipos de producto y tests, suites y build real de Next, con los 3.639 inputs y el helper conservados. Registro privado `.git/admission-performance-quality-d38f3872/`. El commit integrado `eaeda2287efba215fc14b655538b0d7d0d5fdb58` también tiene CI completo aprobado en [el run 39045728599](https://github.com/guidomodarelli/TuTribu/actions/runs/39045728599). Esta regresión no convierte su carga Native fallida en aprobada.
+
+El siguiente harness agrega las veinte consultas mínimas al warm-up, conserva las cien llamadas simultáneas y sus límites, permite dos nonces externos para reconciliar recursos tras un fallo de CI y produce sólo un reporte sanitizado. Once pruebas focales pasan, con dos SQL opt-in omitidas; pasaron tipos y lint. La preparación en curso todavía no acredita la ejecución nueva. El workflow exige una capacidad efímera limitada al proyecto y el SHA exacto antes de usarla; su propietario revoca esa capacidad y verifica la limpieza al terminar.
