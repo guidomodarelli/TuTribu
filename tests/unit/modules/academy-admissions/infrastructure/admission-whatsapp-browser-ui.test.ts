@@ -198,7 +198,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             await inspectSurface(page, `${engineName}-${width}-own`, privateValues);
             phase = PHASE.review;
             await leader.goto(new URL(buildAdmissionReviewRoute(fixture.slug, request.id), origin).href);
-            await leader.locator("dd").filter({ hasText: "+442079460018" }).waitFor(); expect(await leader.getByText(common.name, { exact: true }).count()).toBeGreaterThan(0); await leader.getByText(COPY.declared, { exact: true }).waitFor();
+            await leader.locator("dd").filter({ hasText: "+442079460018" }).waitFor(); await leader.getByRole("heading", { level: 2, name: common.name, exact: true }).waitFor({ state: "visible" }); await leader.getByText(COPY.declared, { exact: true }).waitFor();
             await inspectSurface(leader, `${engineName}-${width}-review`, privateValues);
             phase = PHASE.personal;
             const invitations = new PostgresPersonalInvitationRepository((_scope, run) => database.withContext(fixture.own, run), async () => fixture.config);
