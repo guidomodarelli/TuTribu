@@ -4,6 +4,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-16
+
 ### Changed
 
 - El botón de cerrar de las ventanas emergentes se anuncia como «Cerrar diálogo».
