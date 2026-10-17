@@ -37,8 +37,10 @@ async function inspectSubmissionReply(response: Response, name: string): Promise
   const acceptedFailure = response.status() >= HTTP_STATUS.serverError && failure.success && failure.data.operation?.state === OPERATION_STATE.started;
   const directory = process.env[VALIDATION.captureDirectoryEnvironment];
   if (directory) await writeFile(join(directory, `${name}.submission.json`), JSON.stringify({ status: response.status(), jsonReceived: value !== undefined, outcomeValid: outcome.success, progressValid: progress.success, errorValid: failure.success, code: failure.success ? failure.data.code : null, operationMatches: observedOperationId === expectedOperationId, outcomeIssues: outcome.success ? [] : outcome.error.issues.map((issue) => ({ path: issue.path, code: issue.code })) }));
-  expect(response.ok() && (outcome.success || started) || acceptedFailure).toBe(true);
-  expect(observedOperationId).toBe(expectedOperationId);
+  const confirmed = (response.status() === HTTP_STATUS.ok || response.status() === HTTP_STATUS.created) && outcome.success;
+  const acceptedProgress = response.status() === HTTP_STATUS.accepted && started;
+  expect(confirmed || acceptedProgress || acceptedFailure).toBe(true);
+  expect(observedOperationId === expectedOperationId).toBe(true);
   return !outcome.success;
 }
 
@@ -89,7 +91,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             const commonResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/submissions"));
             await page.getByRole("button", { name: ADMISSION_UI_COPY.submit, exact: true }).click();
             if (await inspectSubmissionReply(await commonResponse, `${engineName}-${width}-common`)) {
-              await page.getByText(ADMISSION_UI_COPY.uncertain, { exact: true }).waitFor();
+              await page.locator("main:visible").getByText(ADMISSION_UI_COPY.uncertain, { exact: true }).waitFor();
               await page.getByRole("button", { name: ADMISSION_UI_COPY.read, exact: true }).click();
             }
             await page.getByRole("link", { name: "Ver solicitud", exact: true }).waitFor(); expect(commonWrites).toBe(1);
