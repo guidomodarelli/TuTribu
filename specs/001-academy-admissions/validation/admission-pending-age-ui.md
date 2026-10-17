@@ -8,6 +8,10 @@ Este incremento de T179/T189 implementa la distinción visual de FR-119 en la ba
 
 El DTO de revisión exige el booleano; la proyección de la solicitud propia lo omite. El contrato rechaza una marca positiva con estado terminal o vencimiento actual. La UI muestra texto visible y una señal de estilo, conserva SSR y primer render deterministas y recibe la actualización por su owner contextual existente. No agrega un reloj ni consultas. Una decisión confirmada limpia la marca mediante la transición mínima, sin refrescar la ruta completa.
 
+## Fuente comprobada
+
+El código de producto y sus pruebas quedaron guardados en `098d62c74a346a145e586f98b00b3b994e23a47c`. Los manuales y sus índices registran ese mismo commit. El CI anterior de `46219e08a7859e915073cb3d4f26f9f289d0d6f8` pasó con 5893 casos y 878 omitidos; corresponde a esa revisión anterior y no sustituye las cohortes locales de este indicador.
+
 ## Validación local
 
 - 115 casos pasaron en siete archivos: límites anterior/exacto/posterior al umbral, reloj anterior a la presentación, los cuatro estados terminales, pausa y vencimiento, allowlist del DTO propio, contrato público inválido, SSR de lista/detalle, cambio contextual de la marca sin otra versión y conciliación de una decisión. Las pruebas de revisión, lotes, rutas y adaptadores usan bibliotecas reales y dobles sólo de sus puertos propios.
