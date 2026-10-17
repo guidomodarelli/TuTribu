@@ -4,7 +4,7 @@
 
 Incremento de pruebas para T177/T185/T191 sobre el código de producto de `ff227a521f3d9bcf16b24799459aa87f643bdae8`. El nuevo ensayo [admission-notification-outage-restart.test.ts](../../../tests/unit/modules/messaging/infrastructure/admission-notification-outage-restart.test.ts) terminó con **un caso aprobado, cero fallidos y cero omitidos**, con **3.602 inputs estables**. La cohorte identifica por hash el ensayo agregado y el resto del árbol de trabajo.
 
-El inventario conserva **181 completas, 31 pendientes y 212 totales**, junto con las 71 temáticas aprobadas. Este caso incorpora evidencia del fallo y de su procesamiento posterior; la verificación integral de los seis escenarios de US8 conserva su alcance completo.
+Al registrar este ensayo en `2d688865`, el inventario conservaba **181 completas, 31 pendientes y 212 totales**, junto con las 71 temáticas aprobadas. Este caso incorpora evidencia del fallo y de su procesamiento posterior; la verificación integral de los seis escenarios de US8 conserva su alcance completo. El cierre posterior del modelo T180 y el inventario vigente figuran en [la auditoría consolidada](notifications-and-scheduler.md#cierre-del-modelo-t180), sin ampliar lo acreditado por este Native.
 
 ## Recorrido ejecutado
 
@@ -42,6 +42,8 @@ En Windows se configuró la variable sólo en el proceso de prueba. El comando t
 El chequeo actual de tipos de tests y el lint de los dos ensayos modificados pasaron. La revisión aislada de Codex verificó dos fuentes, siete contextos y nueve recibos estables y terminó sin hallazgos accionables; SHA256 del dictamen: `162c5a06982058db257a409bd92719a79c54be1a7e10225bf005ce3efbdd0133`.
 
 El [CI exacto de `ff227a52`](https://github.com/guidomodarelli/TuTribu/actions/runs/39015288706) aprobó 551 archivos y 5.934 casos, con 315 archivos y 879 casos omitidos, además de lint, ambos chequeos de tipos y build de 56 páginas. Pertenece al padre del nuevo ensayo; el Native de este documento tiene su ejecución propia y el checkpoint que lo guarde requiere su propio CI.
+
+El checkpoint `2d688865f8d6606bbd4642dadd900ee6f80a1b2d` ya guarda el ensayo y este documento. Su [CI propio](https://github.com/guidomodarelli/TuTribu/actions/runs/39018974323) terminó aprobado con 551 archivos y 5.934 casos aprobados, 316 archivos y 880 casos omitidos, lint, ambos chequeos de tipos y build de 56 páginas. El Native sigue siendo el caso independiente descrito arriba; su omisión en CI no se presenta como otra ejecución Native.
 
 ## Límites conservados
 
