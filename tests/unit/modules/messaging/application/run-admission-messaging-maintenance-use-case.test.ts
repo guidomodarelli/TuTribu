@@ -92,12 +92,16 @@ describe("fixed bounded admission messaging maintenance", () => {
     expect(test.progress.finish.mock.calls[0][2]).toBe(true);
   });
 
-  it("should not start business work or claim a registered new run after its original begin response misses the deadline", async () => {
+  it.each([0, 1])("should not start business work or claim a registered new run when its original begin is observed %i ms after the deadline", async (lateMilliseconds) => {
     const test = fixture();
+    let observedAtMilliseconds = test.run.startedAtMilliseconds;
+    test.runtime.now = () => observedAtMilliseconds;
     let settle!: (value: Awaited<ReturnType<AdmissionMessagingMaintenanceProgress["begin"]>>) => void;
     test.progress.begin.mockImplementationOnce(async () => new Promise((resolve) => { settle = resolve; }));
     const result = await new RunAdmissionMessagingMaintenanceUseCase(test.work, test.progress, test.runtime, ADMISSION_MESSAGING_MAINTENANCE_TEST_BUDGET_MS).execute();
     expect(result).toMatchObject({ runId: null, status: "unresolved", newRunStarted: false, observation: "pending" });
+    // Advance the owned clock explicitly; native timer rounding must not decide deadline expiry.
+    observedAtMilliseconds += ADMISSION_MESSAGING_MAINTENANCE_TEST_BUDGET_MS + lateMilliseconds;
     settle({ acquired: true, run: test.run });
     await Promise.all(test.deferred);
     expect(test.work.runPhase).not.toHaveBeenCalled();

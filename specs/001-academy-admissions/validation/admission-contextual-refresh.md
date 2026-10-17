@@ -43,6 +43,12 @@ Son observaciones individuales de estos cuatro recorridos, no percentiles ni med
 
 Los cuatro manuales e índices registran como fuente el código `2145e4c3a5259b5d2f7fa04ae0605a24abe78468`. Se conservaron las 59 capturas anteriores y se añadieron tres capturas reales con datos sintéticos. La comprobación documental final aprobó 24 vistas y ocho recorridos de navegación en ambos motores a 390 y 1280 px: 279 enlaces locales válidos, sin desbordes ni errores de JavaScript. Los tres documentos numerados pasaron la validación estática; las advertencias restantes corresponden a documentos locales sin URL publicada y a la ausencia de un catálogo central de traducciones. El menú se validó como menú local.
 
+## Verificación automática del checkpoint
+
+El [CI de `5c662591`](https://github.com/guidomodarelli/TuTribu/actions/runs/38997926852) aprobó lint y ambos chequeos de tipos. La suite completa terminó con 5862 casos aprobados, uno fallido y 874 omitidos; 548 archivos aprobados, uno fallido y 313 omitidos. El build de ese CI no llegó a ejecutarse. La falla pertenecía al ensayo de inicio tardío del mantenimiento: esperaba un presupuesto de observación exactamente igual a cero mientras combinaba `Date.now()` con un temporizador relativo nativo; el entorno observó un milisegundo restante.
+
+Se corrigió el reloj propio de ese ensayo, sin modificar el coordinador ni sus límites: el temporizador sigue siendo real y la fuente de tiempo del puerto cruza explícitamente el plazo original antes de resolver el inicio tardío. Los casos en el instante del vencimiento y un milisegundo después exigen que no comience trabajo de negocio, que no se anuncie un nuevo run registrado y que la observación final conserve cero presupuesto. La suite focal aprobó sus 13 casos. Las pruebas funcionales de refresco y sus capturas corresponden al código de producto anterior, que esta corrección de testing no modifica.
+
 ## Trabajo requerido antes del cierre
 
 Guardar y subir normalmente este checkpoint y consumir su CI propio. Ninguna prueba de reloj controlado, declaración de timer o componente aislado certifica SC-015 ni los gates de hosting, recuperación o piloto real. T188 y sus dependencias conservan el alcance y estado originales hasta completar su verificación integral: no se modificó ninguno de los 212 IDs, descripciones, dependencias o checkboxes ni las 71 aprobaciones temáticas.
