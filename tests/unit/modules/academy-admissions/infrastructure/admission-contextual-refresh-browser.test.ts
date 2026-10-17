@@ -191,12 +191,19 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
             stage = "observe_native_decision_response_confirmation";
             const confirmation = decisionObservation.current;
             if (!confirmation) throw new Error("Native contextual refresh did not observe the confirmed decision response");
-            /** @returns Only the original GET that starts within the immediate reconciliation window; its response has the ordinary read timeout. */
-            const currentCountRead = () => countReads.find((read) => read.sequence > confirmation.sequence && read.startedAtMs >= confirmation.observedAtMs && read.startedAtMs - confirmation.observedAtMs <= VALIDATION.ownReconciliationStartTimeoutMs);
+            /** @returns Reads within the original start window; an ordinary tick can precede the own-action revision and be superseded. */
+            const currentCountReads = () => countReads.filter((read) => read.sequence > confirmation.sequence && read.startedAtMs >= confirmation.observedAtMs && read.startedAtMs - confirmation.observedAtMs <= VALIDATION.ownReconciliationStartTimeoutMs);
             stage = "verify_current_count_read_after_confirmed_native_decision";
-            await expectBrowser.poll(() => Boolean(currentCountRead()), { timeout: VALIDATION.ownReconciliationStartTimeoutMs }).toBe(true);
-            const reconciled = currentCountRead();
+            await expectBrowser.poll(() => currentCountReads().length > 0, { timeout: VALIDATION.ownReconciliationStartTimeoutMs }).toBe(true);
+            // Wait for that same bounded start window before selecting its latest owner.
+            // A tick after response headers can still belong to the older revision while
+            // the client rechecks its session; the confirmed action correctly cancels it.
+            const remainingStartWindowMs = Math.max(0, confirmation.observedAtMs + VALIDATION.ownReconciliationStartTimeoutMs - performance.now());
+            if (remainingStartWindowMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, remainingStartWindowMs));
+            const candidates = currentCountReads();
+            const reconciled = candidates.at(-1);
             if (!reconciled) throw new Error("Native contextual refresh did not start a current count read");
+            observations.ownReconciliationEarlierCountReads = candidates.slice(0, -1).map((read) => ({ sequence: read.sequence, canceled: read.failureObservedAtMs !== undefined }));
             stage = "await_current_count_response_after_confirmed_native_decision";
             await expectBrowser.poll(() => reconciled.finishedAtMs !== undefined || reconciled.failureObservedAtMs !== undefined).toBe(true);
             expect(reconciled.failureObservedAtMs).toBeUndefined();
