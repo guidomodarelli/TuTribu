@@ -24,7 +24,8 @@ Do not use Cards unless the user explicitly asks for cards.
 
 This applies to:
 
-- `Card`, `CardHeader`, `CardContent`, and related `shadcn/ui` Card components.
+- beez-ui's `Card` (Arc's content card with `title`, `description`, `media`,
+  `footer` and quick look).
 - Custom card-like wrappers with borders, elevated backgrounds, shadows, or
   framed sections.
 - Page sections styled as floating containers.
@@ -130,19 +131,34 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
 
 ## Dialogs and badges
 
-- `Dialog` and `AlertDialog` own Arc's surface: the dimmed, blurred overlay,
-  the raised panel with a 24px padding and a 440px maximum width, and a
-  `DialogFooter` that bleeds to the panel edges under its own hairline, tint
-  and padding. Do not restyle the overlay, and do not add a border, background
-  or padding to `DialogFooter` or override the panel padding when a footer is
-  present.
+- `Dialog` (also in its `alert` mode, which replaces `AlertDialog`) owns
+  Arc's surface: the dimmed, blurred overlay, the raised panel with a 24px
+  padding and a 440px maximum width, the header that `DialogContent` draws
+  from `title` and `description`, its close button ("Cerrar diálogo"), and the
+  `footer` that bleeds to the panel edges under its own hairline, tint and
+  padding. Do not restyle the overlay, and do not add a border, background or
+  padding to the footer (`footerClassName`) or override the panel padding when
+  a footer is present.
+- Dialog actions go in `footer`. When they submit a form in the body, give the
+  form an `id` and the submit button `form={id}`, so Enter in a field still
+  submits it. Confirmations use `<Dialog alert>` with a `DialogClose asChild`
+  cancel button, which receives the focus when the dialog opens.
+- Header extras such as type or status badges go in `headerContent`, which
+  renders them between the title and the description without changing the
+  dialog's accessible name. Keep the built-in close button; to open a dialog
+  with the focus on it, pass `closeButtonRef` and focus it from
+  `onOpenAutoFocus` instead of drawing a custom close control.
 - Rows inside a dialog that must read as part of the panel, such as a sticky
   header or a toolbar, paint the panel's `--surface-raised`, never
   `--background`, which is a darker tone in dark mode.
 - `Badge` is 26px tall (22px with `size="sm"`). Pick its color with `tone`
-  (`neutral`, `success`, `info`, `warning`, `danger`) or the tone its `variant`
-  implies, instead of overriding height, border or text color, and do not
-  re-animate it.
+  (`neutral`, the default, `success`, `info`, `warning`, `danger`) and pass a
+  leading icon through `icon`, instead of overriding height, border or text
+  color, and do not re-animate it.
+- Choice fields use `Select` with its own `label` (the same field label as
+  `Input`) and `options`; use `hideLabel` only when the layout already shows
+  that text, never next to an external `<label>` for the same trigger, which
+  would announce the name twice.
 
 ## Notifications
 

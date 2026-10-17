@@ -1,8 +1,5 @@
 import { vi, describe, it, expect, beforeAll, afterAll } from "vitest";
-import type { ReactElement, ReactNode } from "react";
 import { render as renderComponent, screen } from "@testing-library/react";
-
-import { TooltipProvider } from "beez-ui";
 
 const refreshMock = vi.fn();
 
@@ -60,13 +57,6 @@ globalThis.Image = ImageMock as unknown as typeof Image;
 const originalTimeZone = process.env.TZ;
 const OriginalDateTimeFormat = Intl.DateTimeFormat;
 
-function renderWithTooltipProvider(ui: ReactElement) {
-  return renderComponent(ui, {
-    wrapper: ({ children }: { children: ReactNode }) => (
-      <TooltipProvider>{children}</TooltipProvider>
-    ),
-  });
-}
 
 describe("timezone-stable hydration formatting", () => {
   beforeAll(() => {
@@ -129,7 +119,7 @@ describe("timezone-stable hydration formatting", () => {
   it("renders tribe round message timestamps in Buenos Aires time", async () => {
     const { TribeRound } = await import("@/components/tribe-round/tribe-round");
 
-    renderWithTooltipProvider(
+    renderComponent(
       <TribeRound
         authenticatedMember={{
           avatarFallback: "GH",

@@ -123,19 +123,6 @@
     width: 100%;
   }
 
-  &__field {
-    display: grid;
-    gap: 0.4rem;
-    min-width: 0;
-  }
-
-  &__fieldLabel {
-    color: var(--foreground);
-    font-size: 0.9rem;
-    font-weight: 500;
-    line-height: 1.4;
-  }
-
   &__fieldHelp {
     color: var(--muted-foreground);
     font-size: 0.8rem;
@@ -233,12 +220,6 @@
     display: grid;
     gap: 1rem;
     padding-block: 0.25rem;
-  }
-
-  &__selectTrigger {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
   }
 }
 

@@ -40,8 +40,7 @@ import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
 import type { AuthenticatedMemberResult } from "@/src/modules/auth/application/results/authenticated-member-result";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
-import { Avatar, AvatarFallback, AvatarImage, SIDEBAR_COOKIE_COLLAPSED_VALUE, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "beez-ui";
-import { MEMBER_AVATAR_REFERRER_POLICY } from "@/src/constants/member-avatar";
+import { Avatar, SIDEBAR_COOKIE_COLLAPSED_VALUE, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_COOKIE_OPEN_VALUE } from "beez-ui";
 import { APP_RAIL_INSTANT, APP_RAIL_MOTION } from "../app-rail-motion";
 import {
   resolveAppRailNavigation,
@@ -441,10 +440,8 @@ function Brand({ collapsed, memberTribes, onNavigate, onTribeSwitch, reduce, tri
 function Profile({ collapsed, member, reduce }: { collapsed: boolean; member: AuthenticatedMemberResult; reduce: boolean }) {
   return (
     <div className={styles.AppRailShell__profile}>
-      <Avatar size="sm">
-        <AvatarImage referrerPolicy={MEMBER_AVATAR_REFERRER_POLICY} src={member.image} alt="" />
-        <AvatarFallback>{member.avatarFallback}</AvatarFallback>
-      </Avatar>
+      {/* Decorative: the name is shown next to it. */}
+      <Avatar aria-hidden fallback={member.avatarFallback} name={member.name} size="sm" src={member.image} />
       <motion.span
         className={styles.AppRailShell__stack}
         initial={false}

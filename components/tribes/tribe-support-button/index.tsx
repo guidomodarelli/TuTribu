@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, WhatsappIcon, cn } from "beez-ui";
+import { Button, DropdownMenu, WhatsappIcon, cn } from "beez-ui";
 
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
@@ -17,6 +17,7 @@ import styles from "./styles.module.scss";
 const SUPPORT_BUTTON_COPY = {
   configureLabel: "Configurar",
   loadingLabel: "Cargando soporte",
+  menuLabel: "Soporte",
   openLinkLabel: "Abrir enlace",
   triggerLabelLeader: "Botón de soporte",
   triggerLabelMember: "Abrir WhatsApp de soporte",
@@ -308,8 +309,22 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <DropdownMenu
+        align={SUPPORT_BUTTON_UI.align}
+        items={[
+          {
+            href: linkHref,
+            label: SUPPORT_BUTTON_COPY.openLinkLabel,
+            rel: SUPPORT_BUTTON_LINK.newTabRel,
+            target: SUPPORT_BUTTON_LINK.newTabTarget,
+          },
+          {
+            label: SUPPORT_BUTTON_COPY.configureLabel,
+            onSelect: () => setIsDialogOpen(true),
+          },
+        ]}
+        label={SUPPORT_BUTTON_COPY.menuLabel}
+        trigger={
           <Button
             aria-label={SUPPORT_BUTTON_COPY.triggerLabelLeader}
             className={styles.TribeSupportButton}
@@ -319,22 +334,8 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
           >
             <WhatsappIcon aria-hidden className={RESOLVED_ICON_CLASS_NAME} />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align={SUPPORT_BUTTON_UI.align}>
-          <DropdownMenuItem asChild>
-            <a
-              href={linkHref}
-              rel={SUPPORT_BUTTON_LINK.newTabRel}
-              target={SUPPORT_BUTTON_LINK.newTabTarget}
-            >
-              {SUPPORT_BUTTON_COPY.openLinkLabel}
-            </a>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setIsDialogOpen(true)}>
-            {SUPPORT_BUTTON_COPY.configureLabel}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        }
+      />
       <TribeSupportConfigDialog
         initialSettings={settings}
         onOpenChange={setIsDialogOpen}

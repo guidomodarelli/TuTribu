@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button } from "beez-ui";
+import { Button, Dialog, DialogClose, DialogContent } from "beez-ui";
 
 import type { TribeEventOccurrenceResult } from "@/src/modules/events/application/results/tribe-event-result";
 import { TRIBE_EVENT_RECURRENCE_FREQUENCY } from "@/src/modules/events/constants/tribe-events";
@@ -17,6 +17,7 @@ type TribeEventDeleteDialogProps = {
 const BUTTON_ATTRIBUTE = {
   typeButton: "button",
   variantDanger: "danger",
+  variantSecondary: "secondary",
 } as const;
 const COPY = {
   cancelButton: "Cancelar",
@@ -39,9 +40,10 @@ function formatDescription(occurrence: TribeEventOccurrenceResult): string {
 }
 
 /**
- * Confirmation step before an irreversible event deletion. The confirm button
- * is a plain button (not `AlertDialogAction`) so the dialog stays open and
- * disabled while the request is in flight instead of closing optimistically.
+ * Confirmation step before an irreversible event deletion, in the `alert`
+ * mode of `Dialog`. The confirm button is a plain button (not a
+ * `DialogClose`) so the dialog stays open and disabled while the request is
+ * in flight instead of closing optimistically.
  * The last occurrence is retained while the dialog animates out, so the
  * description does not go blank on its way out.
  */
@@ -60,7 +62,8 @@ export function TribeEventDeleteDialog({
   const visibleOccurrence = occurrence ?? retainedOccurrence;
 
   return (
-    <AlertDialog
+    <Dialog
+      alert
       open={occurrence !== null}
       onOpenChange={(open) => {
         if (!open && !isDeleting) {
@@ -68,25 +71,32 @@ export function TribeEventDeleteDialog({
         }
       }}
     >
-      <AlertDialogContent className={styles.TribeEventDeleteDialog}>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{COPY.title}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {visibleOccurrence ? formatDescription(visibleOccurrence) : null}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>{COPY.cancelButton}</AlertDialogCancel>
-          <Button
-            disabled={isDeleting}
-            type={BUTTON_ATTRIBUTE.typeButton}
-            variant={BUTTON_ATTRIBUTE.variantDanger}
-            onClick={onConfirm}
-          >
-            {isDeleting ? COPY.deletingButton : COPY.confirmButton}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      <DialogContent
+        className={styles.TribeEventDeleteDialog}
+        title={COPY.title}
+        description={visibleOccurrence ? formatDescription(visibleOccurrence) : null}
+        footer={
+          <>
+            <DialogClose asChild>
+              <Button
+                disabled={isDeleting}
+                type={BUTTON_ATTRIBUTE.typeButton}
+                variant={BUTTON_ATTRIBUTE.variantSecondary}
+              >
+                {COPY.cancelButton}
+              </Button>
+            </DialogClose>
+            <Button
+              disabled={isDeleting}
+              type={BUTTON_ATTRIBUTE.typeButton}
+              variant={BUTTON_ATTRIBUTE.variantDanger}
+              onClick={onConfirm}
+            >
+              {isDeleting ? COPY.deletingButton : COPY.confirmButton}
+            </Button>
+          </>
+        }
+      />
+    </Dialog>
   );
 }

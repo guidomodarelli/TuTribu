@@ -5,7 +5,6 @@ import { AutoSignInWithGoogle } from "@/components/auth/auto-sign-in-with-google
 import { DevSignInForm } from "@/components/auth/dev-sign-in-form";
 import { OpenInBrowserCta } from "@/components/auth/open-in-browser-cta";
 import { SignInWithGoogleButton } from "@/components/auth/sign-in-with-google-button";
-import { Card, CardContent, CardHeader } from "beez-ui";
 import { siteConfig } from "@/lib/site-config";
 import { QUERY_PARAMS } from "@/src/constants/query-params";
 import { ROUTES } from "@/src/constants/routes";
@@ -127,22 +126,20 @@ function SignInShell({
 }: SignInShellProps) {
   return (
     <main className={styles.SignInPage}>
-      <Card className={styles.SignInPage__card}>
+      <section className={styles.SignInPage__card}>
         <div
           aria-hidden={AUTH_SIGN_IN_UI.ariaHidden}
           className={styles.SignInPage__highlight}
         />
-        <CardHeader className={styles.SignInPage__cardHeader}>
+        <header className={styles.SignInPage__cardHeader}>
           <p className={styles.SignInPage__eyebrow}>
             {eyebrow ?? SIGN_IN_PAGE_COPY.eyebrowAccessPrefix + siteConfig.name}
           </p>
           <h1 className={styles.SignInPage__title}>{title}</h1>
           <p className={styles.SignInPage__description}>{description}</p>
-        </CardHeader>
-        <CardContent className={styles.SignInPage__cardContent}>
-          {children}
-        </CardContent>
-      </Card>
+        </header>
+        <div>{children}</div>
+      </section>
     </main>
   );
 }

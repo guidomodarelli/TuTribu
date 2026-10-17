@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CalendarPlusIcon, CopyIcon, ShieldAlertIcon } from "lucide-react";
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, PresenceSwap } from "beez-ui";
+import { Button, Dialog, DialogContent, Input, PresenceSwap } from "beez-ui";
 
 import {
   TRIBE_EVENT_CALENDAR_FEED_LOAD_STATUS,
@@ -283,11 +283,11 @@ export function TribeEventCalendarFeedDialog({
         }
       }}
     >
-      <DialogContent className={styles.TribeEventCalendarFeedDialog}>
-        <DialogHeader>
-          <DialogTitle>{COPY.title}</DialogTitle>
-          <DialogDescription>{COPY.description}</DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={styles.TribeEventCalendarFeedDialog}
+        title={COPY.title}
+        description={COPY.description}
+      >
         <p className={styles.TribeEventCalendarFeedDialog__warning}>
           <ShieldAlertIcon aria-hidden className={styles.TribeEventCalendarFeedDialog__warningIcon} />
           <span>{COPY.personalWarning}</span>

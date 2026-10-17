@@ -7,10 +7,10 @@ import {
   PlusCircleIcon,
   UsersIcon,
 } from "lucide-react";
+import type { ReactElement } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Badge, cn } from "beez-ui";
-
+import { DropdownMenu, type DropdownItem, Badge, cn } from "beez-ui";
 
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
@@ -20,12 +20,12 @@ const TRIBE_SWITCHER_UI = {
   buttonType: "button",
   contentAlign: "start",
   contentSide: "bottom",
+  menuLabel: "Tribus",
   nestedRouteSeparator: "/",
   privateBadgeAriaLabel: "Tribu privada",
   privateBadgeLabel: "Tribu privada",
   privateBadgeSize: "sm",
   privateBadgeTone: "info",
-  privateBadgeVariant: "outline",
   triggerAriaLabel: "Abrir tribus",
 } as const;
 
@@ -34,7 +34,8 @@ const ACTIVE_TRIBE_CURRENT = "page";
 
 type TribeSwitcherProps = {
   className?: string;
-  dropdownTrigger?: React.ReactNode;
+  /** Own trigger of the menu; it must accept a ref and be focusable. */
+  dropdownTrigger?: ReactElement;
   memberTribes: MemberTribeListItemResult[];
   onNavigate?: () => void;
   showDropdownTrigger?: boolean;
@@ -84,12 +85,53 @@ export function TribeSwitcher({
     return null;
   }
 
+  const menuItems: DropdownItem[] = [
+    {
+      className: styles.TribeSwitcher__item,
+      icon: <PlusCircleIcon />,
+      itemProps: { "data-active": false },
+      label: "Nueva tribu",
+      onSelect: navigateToCreateTribe,
+    },
+    {
+      className: styles.TribeSwitcher__item,
+      icon: <CompassIcon />,
+      itemProps: { "data-active": false },
+      label: "Descubrir tribus",
+      onSelect: navigateToDiscovery,
+    },
+    ...memberTribes.map((tribe, tribeIndex): DropdownItem => {
+      const isActiveTribe = activeTribe.tribeId === tribe.tribeId;
+
+      return {
+        className: styles.TribeSwitcher__item,
+        icon: <UsersIcon />,
+        id: tribe.tribeId,
+        itemProps: {
+          "aria-current": isActiveTribe ? ACTIVE_TRIBE_CURRENT : undefined,
+          "data-active": isActiveTribe,
+        },
+        label: tribe.name,
+        onSelect: () => navigateToTribe(ROUTES.tribes.bySlug(tribe.slug)),
+        separatorBefore: tribeIndex === 0,
+        trailing: isActiveTribe ? (
+          <CheckIcon aria-hidden="true" className={styles.TribeSwitcher__activeIcon} />
+        ) : undefined,
+      };
+    }),
+  ];
+
   return (
     <div className={cn(styles.TribeSwitcher, className)}>
       {showDropdownTrigger ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            {dropdownTrigger ?? (
+        <DropdownMenu
+          align={TRIBE_SWITCHER_UI.contentAlign}
+          contentClassName={styles.TribeSwitcher__content}
+          items={menuItems}
+          label={TRIBE_SWITCHER_UI.menuLabel}
+          side={TRIBE_SWITCHER_UI.contentSide}
+          trigger={
+            dropdownTrigger ?? (
               <button
                 type={TRIBE_SWITCHER_UI.buttonType}
                 className={styles.TribeSwitcher__trigger}
@@ -97,61 +139,14 @@ export function TribeSwitcher({
               >
                 <ChevronDownIcon aria-hidden="true" className={styles.TribeSwitcher__triggerIcon} />
               </button>
-            )}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            side={TRIBE_SWITCHER_UI.contentSide}
-            align={TRIBE_SWITCHER_UI.contentAlign}
-            className={styles.TribeSwitcher__content}
-          >
-            <DropdownMenuItem
-              className={styles.TribeSwitcher__item}
-              data-active={false}
-              onClick={navigateToCreateTribe}
-            >
-              <PlusCircleIcon />
-              Nueva tribu
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className={styles.TribeSwitcher__item}
-              data-active={false}
-              onClick={navigateToDiscovery}
-            >
-              <CompassIcon />
-              Descubrir tribus
-            </DropdownMenuItem>
-            {memberTribes.length > 0 ? <DropdownMenuSeparator /> : null}
-            {memberTribes.map((tribe) => {
-              const tribePath = ROUTES.tribes.bySlug(tribe.slug);
-              const isActiveTribe =
-                activeTribe.tribeId === tribe.tribeId;
-
-              return (
-                <DropdownMenuItem
-                  key={tribe.tribeId}
-                  className={styles.TribeSwitcher__item}
-                  aria-current={isActiveTribe ? ACTIVE_TRIBE_CURRENT : undefined}
-                  data-active={isActiveTribe}
-                  onClick={() => navigateToTribe(tribePath)}
-                >
-                  <UsersIcon />
-                  <span className={styles.TribeSwitcher__tribeName}>
-                    {tribe.name}
-                  </span>
-                  {isActiveTribe ? (
-                    <CheckIcon aria-hidden="true" className={styles.TribeSwitcher__activeIcon} />
-                  ) : null}
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            )
+          }
+        />
       ) : null}
       {showPrivateBadge ? (
         <Badge
           size={TRIBE_SWITCHER_UI.privateBadgeSize}
           tone={TRIBE_SWITCHER_UI.privateBadgeTone}
-          variant={TRIBE_SWITCHER_UI.privateBadgeVariant}
           aria-label={TRIBE_SWITCHER_UI.privateBadgeAriaLabel}
         >
           {TRIBE_SWITCHER_UI.privateBadgeLabel}

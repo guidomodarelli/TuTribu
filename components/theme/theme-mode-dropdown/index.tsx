@@ -4,7 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { MonitorIcon, MoonIcon, SunIcon, SunMoonIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger, useTheme, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "beez-ui";
+import { Button, DropdownMenu, type DropdownItem, useTheme, MOTION_TIMING, MOTION_EASE, SPRING_POP } from "beez-ui";
 import { useIsHydrated } from "beez-ui/hooks";
 
 import { isThemeMode } from "@/lib/theme-mode";
@@ -71,6 +71,17 @@ const THEME_MODE_OPTIONS = [
 
 type ThemeModeOption = (typeof THEME_MODE_OPTIONS)[number];
 
+/** Radio rows of the menu, one per theme mode. */
+const THEME_MODE_MENU_ITEMS: DropdownItem[] = THEME_MODE_OPTIONS.map((themeModeOption) => {
+  const ThemeModeIcon = themeModeOption.icon;
+
+  return {
+    icon: <ThemeModeIcon aria-hidden />,
+    label: themeModeOption.label,
+    value: themeModeOption.value,
+  };
+});
+
 /**
  * Finds the option of the selected mode. The stored preference only exists in
  * the browser, so it is ignored until hydration to keep the server markup and
@@ -107,8 +118,14 @@ export function ThemeModeDropdown() {
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <DropdownMenu
+      align={THEME_MODE_DROPDOWN_UI.align}
+      contentClassName={styles.ThemeModeDropdown__content}
+      items={THEME_MODE_MENU_ITEMS}
+      label={THEME_MODE_DROPDOWN_COPY.label}
+      selection={{ onValueChange: handleThemeModeChange, value: theme }}
+      side={THEME_MODE_DROPDOWN_UI.side}
+      trigger={
         <Button
           type={THEME_MODE_DROPDOWN_UI.buttonType}
           variant={THEME_MODE_DROPDOWN_UI.buttonVariant}
@@ -130,31 +147,7 @@ export function ThemeModeDropdown() {
             </motion.span>
           </AnimatePresence>
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        side={THEME_MODE_DROPDOWN_UI.side}
-        align={THEME_MODE_DROPDOWN_UI.align}
-        className={styles.ThemeModeDropdown__content}
-      >
-        <DropdownMenuRadioGroup
-          value={theme}
-          onValueChange={handleThemeModeChange}
-        >
-          {THEME_MODE_OPTIONS.map((themeModeOption) => {
-            const ThemeModeIcon = themeModeOption.icon;
-
-            return (
-              <DropdownMenuRadioItem
-                key={themeModeOption.value}
-                value={themeModeOption.value}
-              >
-                <ThemeModeIcon aria-hidden />
-                {themeModeOption.label}
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      }
+    />
   );
 }

@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, AnimatedCollapse, PresenceSwap } from "beez-ui";
+import { Button, Dialog, DialogContent, Input, Select, Textarea, AnimatedCollapse, PresenceSwap } from "beez-ui";
 
 import { Link } from "@/components/navigation/link";
 import {
@@ -271,71 +271,48 @@ export function TribeEventLessonConversionDialog({
         noValidate
         onSubmit={handleSubmit}
       >
-        <div className={styles.TribeEventLessonConversionDialog__field}>
-          <label htmlFor={FIELD_ID.course}>{COPY.courseLabel}</label>
-          <Select
-            value={courseId}
-            onValueChange={(value) => {
-              const course = coursesWithModules.find((candidate) => candidate.id === value);
+        <Select
+          {...getValidationProps(FIELD_ID.course)}
+          id={FIELD_ID.course}
+          label={COPY.courseLabel}
+          options={coursesWithModules.map((course) => ({ label: course.title, value: course.id }))}
+          placeholder={COPY.coursePlaceholder}
+          value={courseId}
+          onValueChange={(value) => {
+            const course = coursesWithModules.find((candidate) => candidate.id === value);
 
-              // Radix mirrors the choice into a hidden native select that can
-              // report an empty value while the options are unmounted.
-              if (!course) {
-                return;
-              }
+            // Radix mirrors the choice into a hidden native select that can
+            // report an empty value while the options are unmounted.
+            if (!course) {
+              return;
+            }
 
-              setInvalidFieldId(null);
-              setCourseId(value);
-              // A course with a single module preselects it.
-              setCourseModuleId(course.modules.length === 1 ? course.modules[0].id : EMPTY_VALUE);
-            }}
-          >
-            <SelectTrigger
-              {...getValidationProps(FIELD_ID.course)}
-              className={styles.TribeEventLessonConversionDialog__select}
-              id={FIELD_ID.course}
-            >
-              <SelectValue placeholder={COPY.coursePlaceholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {coursesWithModules.map((course) => (
-                <SelectItem key={course.id} value={course.id}>
-                  {course.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className={styles.TribeEventLessonConversionDialog__field}>
-          <label htmlFor={FIELD_ID.module}>{COPY.moduleLabel}</label>
-          <Select
-            disabled={!selectedCourse}
-            value={courseModuleId}
-            onValueChange={(value) => {
-              if (!value) {
-                return;
-              }
+            setInvalidFieldId(null);
+            setCourseId(value);
+            // A course with a single module preselects it.
+            setCourseModuleId(course.modules.length === 1 ? course.modules[0].id : EMPTY_VALUE);
+          }}
+        />
+        <Select
+          {...getValidationProps(FIELD_ID.module)}
+          disabled={!selectedCourse}
+          id={FIELD_ID.module}
+          label={COPY.moduleLabel}
+          options={(selectedCourse?.modules ?? []).map((courseModule) => ({
+            label: courseModule.title,
+            value: courseModule.id,
+          }))}
+          placeholder={COPY.modulePlaceholder}
+          value={courseModuleId}
+          onValueChange={(value) => {
+            if (!value) {
+              return;
+            }
 
-              setInvalidFieldId(null);
-              setCourseModuleId(value);
-            }}
-          >
-            <SelectTrigger
-              {...getValidationProps(FIELD_ID.module)}
-              className={styles.TribeEventLessonConversionDialog__select}
-              id={FIELD_ID.module}
-            >
-              <SelectValue placeholder={COPY.modulePlaceholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {(selectedCourse?.modules ?? []).map((courseModule) => (
-                <SelectItem key={courseModule.id} value={courseModule.id}>
-                  {courseModule.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            setInvalidFieldId(null);
+            setCourseModuleId(value);
+          }}
+        />
         <Input
           {...getValidationProps(FIELD_ID.title)}
           id={FIELD_ID.title}
@@ -385,11 +362,11 @@ export function TribeEventLessonConversionDialog({
         }
       }}
     >
-      <DialogContent className={styles.TribeEventLessonConversionDialog}>
-        <DialogHeader>
-          <DialogTitle>{COPY.title}</DialogTitle>
-          <DialogDescription>{COPY.description}</DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={styles.TribeEventLessonConversionDialog}
+        title={COPY.title}
+        description={COPY.description}
+      >
         <PresenceSwap presenceKey={bodyPresenceKey}>{renderBody()}</PresenceSwap>
       </DialogContent>
     </Dialog>

@@ -144,7 +144,7 @@ describe("TribeWelcomeSelectionModal", () => {
       </>
     );
 
-    const closeButton = screen.getByRole("button", { name: "Cerrar" });
+    const closeButton = screen.getByRole("button", { name: "Cerrar diálogo" });
     const optionButton = screen.getByRole("button", { name: "Soporte" });
     // The shared dialog hides the rest of the page from assistive technology.
     const backgroundButton = screen.getByRole("button", {

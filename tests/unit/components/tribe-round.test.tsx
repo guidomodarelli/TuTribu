@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach, type MockInstance, type Mock } from "vitest";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 import {
   act,
   cleanup,
@@ -10,7 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast, TooltipProvider } from "beez-ui";
+import { toast } from "beez-ui";
 
 import { TribeRound } from "@/components/tribe-round/tribe-round";
 
@@ -117,11 +117,7 @@ class FailingImagePreloadMock {
 }
 
 function render(ui: ReactElement) {
-  return renderComponent(ui, {
-    wrapper: ({ children }: { children: ReactNode }) => (
-      <TooltipProvider>{children}</TooltipProvider>
-    ),
-  });
+  return renderComponent(ui);
 }
 
 async function settleReactUpdates() {
@@ -1093,9 +1089,9 @@ describe("TribeRound", () => {
     expect(carouselDialog).toHaveClass(
       "TribeRound__imageCarouselDialog"
     );
-    expect(within(carouselDialog).getByText("Medio 1 de 2")).toHaveClass(
-      "TribeRound__srOnly"
-    );
+    expect(
+      within(carouselDialog).getByRole("tab", { name: "Medio 1 de 2" })
+    ).toHaveAttribute("aria-selected", "true");
     expect(
       within(carouselDialog).getAllByRole("img", {
         name: "Mensaje con imagen principal",
@@ -1128,13 +1124,9 @@ describe("TribeRound", () => {
     );
     expect(carouselDialog).toBeInTheDocument();
 
-    const imageCarouselProgressDot = carouselDialog.querySelector(
-      ".TribeRound__imageCarouselProgressDot"
+    await user.click(
+      within(carouselDialog).getByRole("tab", { name: "Medio 2 de 2" })
     );
-
-    expect(imageCarouselProgressDot).not.toBeNull();
-
-    await user.click(imageCarouselProgressDot as HTMLElement);
     expect(carouselDialog).toBeInTheDocument();
 
     const imageCarousel = carouselDialog.querySelector(
@@ -1150,7 +1142,7 @@ describe("TribeRound", () => {
     ).toBeInTheDocument();
 
     await user.click(
-      within(carouselDialog).getByRole("button", { name: "Cerrar" })
+      within(carouselDialog).getByRole("button", { name: "Cerrar diálogo" })
     );
 
     expect(
@@ -2582,6 +2574,40 @@ describe("TribeRound", () => {
     );
     expect(downloadLink).toHaveTextContent("guia-algebra.pdf");
     expect(downloadLink).toHaveTextContent("1,5 KB");
+  });
+
+  it("keeps the message details closed while the message actions menu is used", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TribeRound
+        authenticatedMember={authenticatedMember}
+        tribeSlug="matematica-pro"
+        round={{
+          ...round,
+          messages: [
+            {
+              ...round.messages[0],
+              permissions: {
+                canDelete: false,
+                canEdit: true,
+              },
+            },
+          ],
+        }}
+      />
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Acciones del mensaje" })
+    );
+
+    expect(screen.queryByRole("dialog", { name: "Mensaje" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("menuitem", { name: "Editar mensaje" }));
+
+    expect(await screen.findByRole("button", { name: "Guardar" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Mensaje" })).not.toBeInTheDocument();
   });
 
   it("omits the files field when editing without touching attachments", async () => {
@@ -4855,30 +4881,23 @@ describe("TribeRound", () => {
     );
 
     // jsdom does not load native images; the real primitive reveals them after load.
-    fireEvent.load(screen.getByAltText("Ada Lovelace"));
-    expect(screen.getByRole("img", { name: "Ada Lovelace" })).toHaveAttribute(
-      "src",
-      "https://example.com/ada-lovelace.jpg"
-    );
-    // Google rejects some profile photos requested with a cross-site Referer.
-    expect(screen.getByRole("img", { name: "Ada Lovelace" })).toHaveAttribute(
-      "referrerpolicy",
-      "no-referrer"
-    );
+    // The avatar is announced once by its root; its photo is decorative.
+    const adaPhoto = screen
+      .getByRole("img", { name: "Ada Lovelace" })
+      .querySelector("img") as HTMLImageElement;
+    fireEvent.load(adaPhoto);
+    expect(adaPhoto).toHaveAttribute("src", "https://example.com/ada-lovelace.jpg");
 
     await user.click(
       screen.getByRole("button", { name: /Abrir mensaje: Anuncio inicial/i })
     );
 
-    fireEvent.load(screen.getByAltText("Grace Hopper"));
-    expect(screen.getByRole("img", { name: "Grace Hopper" })).toHaveAttribute(
-      "src",
-      "https://example.com/grace-hopper.jpg"
-    );
-    expect(screen.getByRole("img", { name: "Grace Hopper" })).toHaveAttribute(
-      "referrerpolicy",
-      "no-referrer"
-    );
+    // Grace Hopper shows up as a reply author and in the commenters preview.
+    const gracePhoto = within(screen.getByRole("dialog", { name: "Mensaje" }))
+      .getAllByRole("img", { name: "Grace Hopper" })[0]
+      .querySelector("img") as HTMLImageElement;
+    fireEvent.load(gracePhoto);
+    expect(gracePhoto).toHaveAttribute("src", "https://example.com/grace-hopper.jpg");
   });
 
   it("keeps author images mounted when avatar preloading reports an error", () => {
@@ -4892,7 +4911,9 @@ describe("TribeRound", () => {
       />
     );
 
-    const authorImage = screen.getByAltText("Ada Lovelace");
+    const authorImage = screen
+      .getByRole("img", { name: "Ada Lovelace" })
+      .querySelector("img") as HTMLImageElement;
     expect(authorImage).toHaveAttribute(
       "src",
       "https://example.com/ada-lovelace.jpg"
@@ -5569,7 +5590,7 @@ describe("TribeRound", () => {
       ).not.toBeInTheDocument();
     });
     expect(within(messageList as HTMLElement).getAllByRole("listitem")).toHaveLength(1);
-    expect(screen.getByRole("link", { name: "Siguiente" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Ir a la página siguiente" })).toHaveAttribute(
       "href",
       "/matematica-pro?page=2"
     );
@@ -5851,17 +5872,17 @@ describe("TribeRound", () => {
       />
     );
 
-    expect(screen.getByRole("link", { name: "Anterior" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Ir a la página anterior" })).toHaveAttribute(
       "href",
       "/matematica-pro?channel=ronda"
     );
-    expect(screen.getByRole("link", { name: "Siguiente" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Ir a la página siguiente" })).toHaveAttribute(
       "href",
       "/matematica-pro?channel=ronda&page=3"
     );
   });
 
-  it("renders the unavailable next page control without a navigable link", () => {
+  it("renders the unavailable next page control as a disabled link", () => {
     render(
       <TribeRound
         authenticatedMember={authenticatedMember}
@@ -5870,12 +5891,15 @@ describe("TribeRound", () => {
       />
     );
 
-    expect(screen.getByRole("link", { name: "Anterior" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Ir a la página anterior" })).toHaveAttribute(
       "href",
       "/matematica-pro?channel=ronda&page=2"
     );
-    expect(screen.queryByRole("link", { name: "Siguiente" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled();
+    // The last page keeps the arrow focusable but disabled, pointing at itself.
+    expect(screen.getByRole("link", { name: "Ir a la página siguiente" })).toHaveAttribute(
+      "aria-disabled",
+      "true"
+    );
   });
 
   it("syncs local messages when the server round changes", async () => {
@@ -6090,7 +6114,11 @@ describe("TribeRound", () => {
         name: "Comentaron Grace Hopper, Katherine Johnson",
       })
     ).toHaveClass("TribeRound__commentAuthors");
-    expect(screen.getByAltText("Grace Hopper")).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("group", { name: "Comentaron Grace Hopper, Katherine Johnson" })
+      ).getByRole("img", { name: "Grace Hopper" })
+    ).toBeInTheDocument();
     expect(screen.getByText("KJ")).toBeInTheDocument();
 
     await user.click(commentButton);
@@ -6589,7 +6617,7 @@ describe("TribeRound", () => {
       ).not.toBeInTheDocument();
     });
 
-    await user.click(messageDetailsButton.closest('[data-slot="card"]') as HTMLElement);
+    await user.click(messageDetailsButton.closest(".TribeRound__messageCard") as HTMLElement);
 
     expect(
       screen.getByRole("dialog", { name: "Mensaje" })
@@ -6746,7 +6774,7 @@ describe("TribeRound", () => {
       name: "Contenido del mensaje",
     });
     const stickyHeader = within(dialogBody).getByText("Ada Lovelace")
-      .closest('[data-slot="card-header"]');
+      .closest(".TribeRound__messageHeader");
 
     expect(dialog).toHaveClass("TribeRound__composerDialog--messageDetails");
     expect(dialogBody).toHaveClass("TribeRound__messageDetailsBody");
@@ -8303,9 +8331,9 @@ describe("TribeRound", () => {
     expect(
       carouselDialog.querySelector(".TribeRound__videoThumbnail")
     ).toHaveAttribute("src", "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg");
-    expect(within(carouselDialog).getByText("Medio 1 de 2")).toHaveClass(
-      "TribeRound__srOnly"
-    );
+    expect(
+      within(carouselDialog).getByRole("tab", { name: "Medio 1 de 2" })
+    ).toHaveAttribute("aria-selected", "true");
   });
 
   it("shows video thumbnail previews in the message modal and keeps playback in the carousel", async () => {
@@ -8462,7 +8490,7 @@ describe("TribeRound", () => {
       name: "Medios del mensaje",
     });
     const closeButton = within(carouselDialog).getByRole("button", {
-      name: "Cerrar",
+      name: "Cerrar diálogo",
     });
 
     closeButton.focus();

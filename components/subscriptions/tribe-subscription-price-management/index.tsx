@@ -32,7 +32,7 @@ import {
   UserRoundXIcon,
   UsersRoundIcon,
 } from "lucide-react";
-import { toast, Badge, Button, Checkbox, Input, Separator, Switch, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, AnimatedCount, cn } from "beez-ui";
+import { toast, Badge, Button, Checkbox, Input, Separator, Switch, Select, type SelectOption, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, AnimatedCount, cn } from "beez-ui";
 
 import type {
   TribeSubscriberDiagnosticsResult,
@@ -188,7 +188,7 @@ const PRICE_MANAGEMENT_REQUEST = {
   tableColumnCount: 5,
   contentTypeHeader: "Content-Type",
   deleteMethod: "DELETE",
-  destructiveBadgeVariant: "destructive",
+  dangerBadgeTone: "danger",
   enterKey: "Enter",
   escapeKey: "Escape",
   jsonContentType: "application/json",
@@ -198,7 +198,7 @@ const PRICE_MANAGEMENT_REQUEST = {
   pricesProperty: "prices",
   submitType: "submit",
   secondaryVariant: "secondary",
-  readonlyBadgeVariant: "secondary",
+  infoBadgeTone: "info",
   statusRole: "status",
 } as const;
 
@@ -220,6 +220,11 @@ const PRICE_PRODUCT = {
 } as const;
 
 type PriceProduct = "academy" | "membership";
+
+const PRICE_PRODUCT_OPTIONS: SelectOption[] = [
+  { label: PRICE_MANAGEMENT_COPY.productMembershipOption, value: PRICE_PRODUCT.membership },
+  { label: PRICE_MANAGEMENT_COPY.productAcademyOption, value: PRICE_PRODUCT.academy },
+];
 
 /**
  * Product of a price; prices created before the academy are membership.
@@ -1828,7 +1833,7 @@ export function TribeSubscriptionPriceManagement({
             {PRICE_MANAGEMENT_COPY.accountSectionTitle}
           </h2>
           {!canManagePrices ? (
-            <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
+            <Badge>
               {PRICE_MANAGEMENT_COPY.readonlyBadge}
             </Badge>
           ) : null}
@@ -1846,54 +1851,41 @@ export function TribeSubscriptionPriceManagement({
               >
                 <Select
                   disabled={!canManagePrices}
+                  hideLabel
+                  id={accountSelectId}
+                  label={PRICE_MANAGEMENT_COPY.accountSelectorLabel}
                   onValueChange={setSelectedPaymentIntegrationId}
+                  options={mercadoPagoAccounts.map((account) => ({
+                    disabled:
+                      account.status !== MERCADO_PAGO_CONNECTION_STATUS.connected,
+                    label:
+                      (account.providerAccountEmail ?? account.accountLabel) +
+                      (account.status !== MERCADO_PAGO_CONNECTION_STATUS.connected
+                        ? ` (${PRICE_MANAGEMENT_COPY.requiresReconnectionStatus})`
+                        : ""),
+                    value: account.id,
+                  }))}
+                  placeholder={PRICE_MANAGEMENT_COPY.accountSelectorPlaceholder}
+                  triggerClassName={
+                    styles.TribeSubscriptionPriceManagement__accountSelect
+                  }
                   value={effectiveSelectedPaymentIntegrationId}
-                >
-                  <SelectTrigger
-                    aria-label={PRICE_MANAGEMENT_COPY.accountSelectorLabel}
-                    className={
-                      styles.TribeSubscriptionPriceManagement__accountSelect
-                    }
-                    id={accountSelectId}
-                  >
-                    <SelectValue
-                      placeholder={
-                        PRICE_MANAGEMENT_COPY.accountSelectorPlaceholder
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mercadoPagoAccounts.map((account) => (
-                      <SelectItem
-                        disabled={
-                          account.status !==
-                          MERCADO_PAGO_CONNECTION_STATUS.connected
-                        }
-                        key={account.id}
-                        value={account.id}
-                      >
-                        {account.providerAccountEmail ?? account.accountLabel}
-                        {account.status !==
-                        MERCADO_PAGO_CONNECTION_STATUS.connected
-                          ? ` (${PRICE_MANAGEMENT_COPY.requiresReconnectionStatus})`
-                          : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
                 {canManagePrices ? (
                   <Badge
-                    variant={
+                    icon={
+                      isMercadoPagoConnected ? (
+                        <CheckCircle2Icon />
+                      ) : (
+                        <RefreshCwIcon />
+                      )
+                    }
+                    tone={
                       isMercadoPagoConnected
-                        ? undefined
-                        : PRICE_MANAGEMENT_REQUEST.destructiveBadgeVariant
+                        ? PRICE_MANAGEMENT_REQUEST.infoBadgeTone
+                        : PRICE_MANAGEMENT_REQUEST.dangerBadgeTone
                     }
                   >
-                    {isMercadoPagoConnected ? (
-                      <CheckCircle2Icon />
-                    ) : (
-                      <RefreshCwIcon />
-                    )}
                     {mercadoPagoConnectionStatusLabel}
                   </Badge>
                 ) : null}
@@ -2198,43 +2190,26 @@ export function TribeSubscriptionPriceManagement({
                 />
               </div>
 
-              <div className={styles.TribeSubscriptionPriceManagement__field}>
-                <label
-                  className={styles.TribeSubscriptionPriceManagement__label}
-                  htmlFor={priceProductSelectId}
-                >
-                  {PRICE_MANAGEMENT_COPY.productLabel}
-                </label>
-                <Select
-                  disabled={isMercadoPagoConnectionRequired}
-                  onValueChange={(value) => {
-                    const nextProduct =
-                      value === PRICE_PRODUCT.academy
-                        ? PRICE_PRODUCT.academy
-                        : PRICE_PRODUCT.membership;
+              <Select
+                disabled={isMercadoPagoConnectionRequired}
+                id={priceProductSelectId}
+                label={PRICE_MANAGEMENT_COPY.productLabel}
+                onValueChange={(value) => {
+                  const nextProduct =
+                    value === PRICE_PRODUCT.academy
+                      ? PRICE_PRODUCT.academy
+                      : PRICE_PRODUCT.membership;
 
-                    setPriceProduct(nextProduct);
+                  setPriceProduct(nextProduct);
 
-                    if (nextProduct === PRICE_PRODUCT.academy) {
-                      setIsTrialEnabled(false);
-                      setTrialFrequency("");
-                    }
-                  }}
-                  value={priceProduct}
-                >
-                  <SelectTrigger id={priceProductSelectId}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={PRICE_PRODUCT.membership}>
-                      {PRICE_MANAGEMENT_COPY.productMembershipOption}
-                    </SelectItem>
-                    <SelectItem value={PRICE_PRODUCT.academy}>
-                      {PRICE_MANAGEMENT_COPY.productAcademyOption}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  if (nextProduct === PRICE_PRODUCT.academy) {
+                    setIsTrialEnabled(false);
+                    setTrialFrequency("");
+                  }
+                }}
+                options={PRICE_PRODUCT_OPTIONS}
+                value={priceProduct}
+              />
 
               {isAcademyPriceSelected ? (
                 <p className={styles.TribeSubscriptionPriceManagement__notice}>
@@ -2437,14 +2412,14 @@ export function TribeSubscriptionPriceManagement({
                 className={styles.TribeSubscriptionPriceManagement__badges}
               >
                 {isFreeJoinCurrent ? (
-                  <Badge>
-                    <CheckCircle2Icon />
+                  <Badge
+                    icon={<CheckCircle2Icon />}
+                    tone={PRICE_MANAGEMENT_REQUEST.infoBadgeTone}
+                  >
                     {PRICE_MANAGEMENT_COPY.currentBadge}
                   </Badge>
                 ) : (
-                  <Badge
-                    variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}
-                  >
+                  <Badge>
                     {PRICE_MANAGEMENT_COPY.activeBadge}
                   </Badge>
                 )}
@@ -2557,7 +2532,7 @@ export function TribeSubscriptionPriceManagement({
                 <TableCell>
                   <span className={styles.TribeSubscriptionPriceManagement__badges}>
                     {readPriceProduct(price) === PRICE_PRODUCT.academy ? (
-                      <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
+                      <Badge>
                         {PRICE_MANAGEMENT_COPY.academyBadge}
                       </Badge>
                     ) : null}
@@ -2566,28 +2541,26 @@ export function TribeSubscriptionPriceManagement({
                         className={
                           styles.TribeSubscriptionPriceManagement__currentBadge
                         }
+                        icon={<CheckCircle2Icon />}
+                        tone={PRICE_MANAGEMENT_REQUEST.infoBadgeTone}
                       >
-                        <CheckCircle2Icon aria-hidden />
                         {PRICE_MANAGEMENT_COPY.currentBadge}
                       </Badge>
                     ) : null}
                     {price.status === PRICE_MANAGEMENT_STATUS.canceled ? (
-                      <Badge
-                        className={styles.TribeSubscriptionPriceManagement__canceledBadge}
-                        variant={PRICE_MANAGEMENT_REQUEST.destructiveBadgeVariant}
-                      >
+                      <Badge tone={PRICE_MANAGEMENT_REQUEST.dangerBadgeTone}>
                         {PRICE_MANAGEMENT_COPY.canceledBadge}
                       </Badge>
                     ) : null}
                     {price.status === PRICE_MANAGEMENT_STATUS.paused ? (
-                      <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
+                      <Badge>
                         {PRICE_MANAGEMENT_COPY.pausedBadge}
                       </Badge>
                     ) : null}
                     {!price.isCurrent &&
                     price.status !== PRICE_MANAGEMENT_STATUS.canceled &&
                     price.status !== PRICE_MANAGEMENT_STATUS.paused ? (
-                      <Badge variant={PRICE_MANAGEMENT_REQUEST.readonlyBadgeVariant}>
+                      <Badge>
                         {PRICE_MANAGEMENT_COPY.activeBadge}
                       </Badge>
                     ) : null}

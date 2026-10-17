@@ -8,16 +8,9 @@ import {
   Checkbox,
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Input,
   Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  type SelectOption,
   Switch,
   Textarea,
   toast,
@@ -144,6 +137,10 @@ const QUEUE_STATUS_LABEL: Record<ReviewQueueItemDto["status"], string> = {
 };
 
 const ALL_STATUSES_VALUE = "all";
+const QUEUE_STATUS_OPTIONS: SelectOption[] = [
+  { label: MANAGEMENT_COPY.allStatuses, value: ALL_STATUSES_VALUE },
+  ...Object.entries(QUEUE_STATUS_LABEL).map(([value, label]) => ({ label, value })),
+];
 const MIN_REASON_LENGTH = 3;
 const HTTP_STATUS_CONFLICT = 409;
 const PAGE_SIZE = 20;
@@ -310,7 +307,7 @@ function SettingsSection({
         <h2 className={styles.AcademyManagement__sectionTitle} id={`${titleId}-section`}>
           {MANAGEMENT_COPY.settingsTitle}
         </h2>
-        <Badge variant={isAcademyMode ? "default" : "secondary"}>
+        <Badge tone={isAcademyMode ? "info" : "neutral"}>
           {isAcademyMode ? MANAGEMENT_COPY.modeAcademy : MANAGEMENT_COPY.modeLegacy}
         </Badge>
       </div>
@@ -536,7 +533,7 @@ function ProvidersSection({
               <span className={styles.AcademyManagement__rowMain}>
                 <span className={styles.AcademyManagement__rowTitle}>
                   <strong>{provider.displayName}</strong>
-                  <Badge variant={provider.isActive ? "secondary" : "outline"}>
+                  <Badge>
                     {provider.isActive ? MANAGEMENT_COPY.activeLabel : MANAGEMENT_COPY.inactiveLabel}
                   </Badge>
                 </span>
@@ -717,22 +714,13 @@ function ReviewQueueSection({ initialQueue, tribeSlug }: { initialQueue: QueuePa
         }}
         role="search"
       >
-        <label className={styles.AcademyManagement__filterStatus}>
-          <span>{MANAGEMENT_COPY.statusFilterLabel}</span>
-          <Select onValueChange={setStatus} value={status}>
-            <SelectTrigger aria-label={MANAGEMENT_COPY.statusFilterLabel}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_STATUSES_VALUE}>{MANAGEMENT_COPY.allStatuses}</SelectItem>
-              {Object.entries(QUEUE_STATUS_LABEL).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
+        <Select
+          className={styles.AcademyManagement__filterStatus}
+          label={MANAGEMENT_COPY.statusFilterLabel}
+          onValueChange={setStatus}
+          options={QUEUE_STATUS_OPTIONS}
+          value={status}
+        />
         <div className={styles.AcademyManagement__filterSearch}>
           <Input
             id={searchId}
@@ -831,7 +819,7 @@ function ReviewQueueRow({
       <span className={styles.AcademyManagement__rowMain}>
         <span className={styles.AcademyManagement__rowTitle}>
           <strong>{item.memberDisplayName}</strong>
-          <Badge variant={item.status === "verified" ? "default" : item.status === "pending" ? "secondary" : "outline"}>
+          <Badge tone={item.status === "verified" ? "info" : "neutral"}>
             {QUEUE_STATUS_LABEL[item.status]}
           </Badge>
         </span>
@@ -1018,14 +1006,14 @@ function MembersSection({
               <span className={styles.AcademyManagement__rowMain}>
                 <strong>{member.displayName}</strong>
                 <span className={styles.AcademyManagement__badges}>
-                  <Badge variant={member.hasAcademyAccess ? "default" : "outline"}>
+                  <Badge tone={member.hasAcademyAccess ? "info" : "neutral"}>
                     {member.hasAcademyAccess ? MANAGEMENT_COPY.accessYes : MANAGEMENT_COPY.accessNo}
                   </Badge>
-                  <Badge variant={member.isVerified ? "secondary" : "outline"}>
+                  <Badge>
                     {member.isVerified ? MANAGEMENT_COPY.verifiedYes : MANAGEMENT_COPY.verifiedNo}
                   </Badge>
                   {member.renewalStatus === "active" ? (
-                    <Badge variant="secondary">{MANAGEMENT_COPY.renewalActive}</Badge>
+                    <Badge>{MANAGEMENT_COPY.renewalActive}</Badge>
                   ) : null}
                 </span>
                 {isLeader && member.grants.length > 0 ? (
@@ -1087,6 +1075,7 @@ function BonusDialog({
   const endId = useId();
   const reasonId = useId();
   const exceptionId = useId();
+  const formId = useId();
   // One key per dialog opening: a double click or a retry replays the grant.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const [endDate, setEndDate] = useState("");
@@ -1141,14 +1130,31 @@ function BonusDialog({
 
   return (
     <Dialog onOpenChange={(open) => (open ? undefined : onClose())} open>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{MANAGEMENT_COPY.bonusDialogTitle}</DialogTitle>
-          <DialogDescription>
-            {`${recipient.displayName}. ${MANAGEMENT_COPY.bonusDialogDescription}`}
-          </DialogDescription>
-        </DialogHeader>
-        <form className={styles.AcademyManagement__form} noValidate onSubmit={handleSubmit}>
+      <DialogContent
+        title={MANAGEMENT_COPY.bonusDialogTitle}
+        description={`${recipient.displayName}. ${MANAGEMENT_COPY.bonusDialogDescription}`}
+        footer={
+          <>
+            <Button disabled={isSubmitting} onClick={onClose} type="button" variant="secondary">
+              {MANAGEMENT_COPY.cancel}
+            </Button>
+            <Button
+              aria-busy={isSubmitting || undefined}
+              disabled={
+                isSubmitting ||
+                !endDate ||
+                reason.trim().length < MIN_REASON_LENGTH ||
+                (!recipient.isVerified && !allowUnverified)
+              }
+              form={formId}
+              type="submit"
+            >
+              {isSubmitting ? MANAGEMENT_COPY.saving : MANAGEMENT_COPY.bonusSubmit}
+            </Button>
+          </>
+        }
+      >
+        <form className={styles.AcademyManagement__form} id={formId} noValidate onSubmit={handleSubmit}>
           {recipient.renewalStatus === "active" ? (
             <p className={styles.AcademyManagement__warning} role="status">
               {MANAGEMENT_COPY.bonusRenewalWarning}
@@ -1193,23 +1199,6 @@ function BonusDialog({
               {feedback.message}
             </p>
           ) : null}
-          <DialogFooter>
-            <Button disabled={isSubmitting} onClick={onClose} type="button" variant="secondary">
-              {MANAGEMENT_COPY.cancel}
-            </Button>
-            <Button
-              aria-busy={isSubmitting || undefined}
-              disabled={
-                isSubmitting ||
-                !endDate ||
-                reason.trim().length < MIN_REASON_LENGTH ||
-                (!recipient.isVerified && !allowUnverified)
-              }
-              type="submit"
-            >
-              {isSubmitting ? MANAGEMENT_COPY.saving : MANAGEMENT_COPY.bonusSubmit}
-            </Button>
-          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

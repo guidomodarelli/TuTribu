@@ -39,11 +39,10 @@ type TribeEventAgendaItemProps = {
   viewerTimeZone: string | null;
 };
 
-const BADGE_VARIANT = {
-  default: "default",
-  destructive: "destructive",
-  outline: "outline",
-  secondary: "secondary",
+const BADGE_TONE = {
+  danger: "danger",
+  info: "info",
+  neutral: "neutral",
 } as const;
 const BUTTON_TYPE = "button";
 const LINK_ATTRIBUTE = {
@@ -61,12 +60,12 @@ const COPY = {
  * Badge of the viewer's own answer on each agenda row.
  */
 const VIEWER_ANSWER_BADGE = {
-  [TRIBE_EVENT_ATTENDANCE_STATUS.going]: { label: "Vas", variant: BADGE_VARIANT.default },
-  [TRIBE_EVENT_ATTENDANCE_STATUS.maybe]: { label: "Tal vez", variant: BADGE_VARIANT.outline },
-  [TRIBE_EVENT_ATTENDANCE_STATUS.notGoing]: { label: "No vas", variant: BADGE_VARIANT.outline },
+  [TRIBE_EVENT_ATTENDANCE_STATUS.going]: { label: "Vas", tone: BADGE_TONE.info },
+  [TRIBE_EVENT_ATTENDANCE_STATUS.maybe]: { label: "Tal vez", tone: BADGE_TONE.neutral },
+  [TRIBE_EVENT_ATTENDANCE_STATUS.notGoing]: { label: "No vas", tone: BADGE_TONE.neutral },
   [TRIBE_EVENT_ATTENDANCE_STATUS.waitlisted]: {
     label: "En espera",
-    variant: BADGE_VARIANT.secondary,
+    tone: BADGE_TONE.neutral,
   },
 } as const;
 
@@ -79,7 +78,7 @@ function AttendanceBadge({ occurrence }: { occurrence: TribeEventOccurrenceResul
 
   const badge = VIEWER_ANSWER_BADGE[viewerStatus];
 
-  return <Badge variant={badge.variant}>{badge.label}</Badge>;
+  return <Badge tone={badge.tone}>{badge.label}</Badge>;
 }
 
 /**
@@ -146,24 +145,23 @@ export function TribeEventAgendaItem({
         <div className={styles.TribeEventAgendaItem__meta}>
           <TribeEventTypeBadge eventType={occurrence.eventType} />
           {isCancelled ? (
-            <Badge variant={BADGE_VARIANT.destructive}>
+            <Badge tone={BADGE_TONE.danger}>
               {TRIBE_EVENT_OCCURRENCE_EXCEPTION_COPY.cancelledBadge}
             </Badge>
           ) : null}
           {isLive && !isCancelled ? (
-            <Badge variant={BADGE_VARIANT.destructive}>
+            <Badge tone={BADGE_TONE.danger}>
               <span aria-hidden className={styles.TribeEventAgendaItem__liveDot} />
               {COPY.liveBadge}
             </Badge>
           ) : null}
           {isCancelled ? null : isPast ? (
-            <Badge variant={BADGE_VARIANT.secondary}>{COPY.pastBadge}</Badge>
+            <Badge tone={BADGE_TONE.neutral}>{COPY.pastBadge}</Badge>
           ) : (
             <AttendanceBadge occurrence={occurrence} />
           )}
           {hasRecording && !isCancelled ? (
-            <Badge className={styles.TribeEventAgendaItem__recordingBadge} variant={BADGE_VARIANT.outline}>
-              <VideoIcon aria-hidden />
+            <Badge icon={<VideoIcon />} tone={BADGE_TONE.neutral}>
               {COPY.recordingBadge}
             </Badge>
           ) : null}

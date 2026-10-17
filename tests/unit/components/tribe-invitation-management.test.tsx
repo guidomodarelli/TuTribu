@@ -554,9 +554,10 @@ describe("TribeInvitationManagement", () => {
     await user.click((await screen.findAllByRole("combobox"))[0]);
     await user.click(await screen.findByRole("option", { name: "Plan actual" }));
 
-    const createForm = screen
-      .getByRole("button", { name: /^Crear link$/ })
-      .closest("form");
+    // The submit button lives in the dialog footer and reaches its form through `form`.
+    const createForm = (
+      screen.getByRole("button", { name: /^Crear link$/ }) as HTMLButtonElement
+    ).form;
 
     expect(createForm).not.toBeNull();
 

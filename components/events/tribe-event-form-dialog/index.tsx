@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea, MOTION_TIMING, MOTION_EASE } from "beez-ui";
+import { Button, Checkbox, Dialog, DialogContent, Input, Select, type SelectOption, Textarea, MOTION_TIMING, MOTION_EASE } from "beez-ui";
 
 import {
   addDaysToBuenosAiresDateKey,
@@ -180,6 +180,14 @@ const RECURRENCE_OPTIONS = [
   TRIBE_EVENT_RECURRENCE_FREQUENCY.biweekly,
   TRIBE_EVENT_RECURRENCE_FREQUENCY.monthly,
 ] as const;
+const EVENT_TYPE_OPTIONS: SelectOption[] = TRIBE_EVENT_TYPES.map((eventType) => ({
+  label: TRIBE_EVENT_TYPE_LABEL[eventType],
+  value: eventType,
+}));
+const RECURRENCE_SELECT_OPTIONS: SelectOption[] = RECURRENCE_OPTIONS.map((frequency) => ({
+  label: TRIBE_EVENT_RECURRENCE_LABEL[frequency],
+  value: frequency,
+}));
 const COPY = {
   approveButton: "Aprobar y publicar",
   approveDescription: "Revisá y completá los datos antes de publicar el encuentro propuesto.",
@@ -642,11 +650,11 @@ export function TribeEventFormDialog({
         }
       }}
     >
-      <DialogContent className={styles.TribeEventFormDialog}>
-        <DialogHeader>
-          <DialogTitle>{dialogTitle}</DialogTitle>
-          <DialogDescription>{dialogDescription}</DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={styles.TribeEventFormDialog}
+        title={dialogTitle}
+        description={dialogDescription}
+      >
         <form className={styles.TribeEventFormDialog__form} onSubmit={handleSubmit}>
           <Input
             id={FIELD_ID.title}
@@ -656,27 +664,13 @@ export function TribeEventFormDialog({
             value={values.title}
             onChange={(event) => updateField("title", event.currentTarget.value)}
           />
-          <div className={styles.TribeEventFormDialog__field}>
-            <label htmlFor={FIELD_ID.eventType}>{COPY.eventTypeLabel}</label>
-            <Select
-              value={values.eventType}
-              onValueChange={(value) => updateField("eventType", value)}
-            >
-              <SelectTrigger
-                className={styles.TribeEventFormDialog__select}
-                id={FIELD_ID.eventType}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TRIBE_EVENT_TYPES.map((eventType) => (
-                  <SelectItem key={eventType} value={eventType}>
-                    {TRIBE_EVENT_TYPE_LABEL[eventType]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Select
+            id={FIELD_ID.eventType}
+            label={COPY.eventTypeLabel}
+            options={EVENT_TYPE_OPTIONS}
+            value={values.eventType}
+            onValueChange={(value) => updateField("eventType", value)}
+          />
           <div className={styles.TribeEventFormDialog__row}>
             <Input
               id={FIELD_ID.date}
@@ -732,29 +726,14 @@ export function TribeEventFormDialog({
             <label htmlFor={FIELD_ID.endsOnAnotherDay}>{COPY.endsOnAnotherDayLabel}</label>
           </div>
           <div className={styles.TribeEventFormDialog__row}>
-            <div className={styles.TribeEventFormDialog__field}>
-              <label htmlFor={FIELD_ID.recurrenceFrequency}>
-                {COPY.recurrenceFrequencyLabel}
-              </label>
-              <Select
-                value={values.recurrenceFrequency}
-                onValueChange={(value) => updateField("recurrenceFrequency", value)}
-              >
-                <SelectTrigger
-                  className={styles.TribeEventFormDialog__select}
-                  id={FIELD_ID.recurrenceFrequency}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RECURRENCE_OPTIONS.map((frequency) => (
-                    <SelectItem key={frequency} value={frequency}>
-                      {TRIBE_EVENT_RECURRENCE_LABEL[frequency]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select
+              className={styles.TribeEventFormDialog__field}
+              id={FIELD_ID.recurrenceFrequency}
+              label={COPY.recurrenceFrequencyLabel}
+              options={RECURRENCE_SELECT_OPTIONS}
+              value={values.recurrenceFrequency}
+              onValueChange={(value) => updateField("recurrenceFrequency", value)}
+            />
             <AnimatePresence initial={false}>
               {isRecurring ? (
                 <motion.div
