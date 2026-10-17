@@ -162,11 +162,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 - Los filtros de admisión rechazan los rangos de fecha invertidos aunque la diferencia sea menor a un milisegundo.
 - Los envíos de mensajería rechazan canales vacíos o no admitidos antes de contactar al proveedor.
 - Los avisos agrupados de admisión conservan un origen separado de los avisos individuales al retirar una tribu; el envío de esos grupos sigue en preparación.
+- La revisión de admisiones mantiene preparado el aviso accesible del resultado para que los lectores de pantalla puedan anunciar una decisión guardada o recuperada.
 
 ### Security
 
 - La recuperación interna de una copia puede cerrar admisiones y retirar conexiones, códigos y pruebas anteriores por lotes, conservando los intentos inciertos y su consumo; reabrir requiere una conexión y una confirmación de política vigentes. El ensayo operativo sigue pendiente.
-
 - El procesamiento interno de avisos por correo bloquea todo el grupo si cambian sus permisos o preferencias y conserva el aviso ante problemas reparables de protección; el envío automático sigue pendiente.
 - Los campos de códigos de ingreso, pruebas de mensajería y claves de conexión quedan excluidos de las capturas al reportar un problema.
 - Las referencias mínimas de tribus eliminadas quedan protegidas frente a su reactivación o reutilización.

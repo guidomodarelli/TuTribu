@@ -14,6 +14,8 @@ import { readAdmissionReviewIntent, writeAdmissionReviewIntent } from "@/lib/aca
 import { ADMISSION_REVIEW_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { DEFAULT_ADMISSION_REVIEW_SELECTION } from "@/src/modules/academy-admissions/constants/admission-review-selection";
 import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
+import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
+import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 
 const requestId = "2b71737c-2f11-4dbb-853d-080bda9628e5", operationId = "a86a3f18-a48e-4600-a057-f90e1931f7b0";
 const viewerId = "synthetic-reviewer", slug = "synthetic-academy";
@@ -198,6 +200,25 @@ describe("visible reviewer inbox refresh", () => {
 });
 
 describe("native reviewer container", () => {
+  it.each([ADMISSION_DECISION.approve, ADMISSION_DECISION.reject])("should retain the initial live region when the %s decision completes without refreshing the route", async (decision) => {
+    const data = fixture();
+    data.client.decide.mockResolvedValueOnce({ status: "ready", value: { admissionRequestId: requestId, status: decision === ADMISSION_DECISION.approve ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected, version: 2 } });
+    render(data.node, { wrapper: Providers });
+    await confirmDecision();
+    const feedback = screen.getByRole("status");
+    expect(feedback).toBeEmptyDOMElement();
+    expect(feedback).toHaveAttribute("aria-live", "polite");
+    expect(feedback).toHaveAttribute("aria-atomic", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: decision === ADMISSION_DECISION.approve ? ADMISSION_REVIEW_UI_COPY.approve : ADMISSION_REVIEW_UI_COPY.reject }));
+
+    const completion = await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete);
+    expect(feedback).toContainElement(completion);
+    expect(screen.getByRole("status")).toBe(feedback);
+    expect(data.client.decide).toHaveBeenCalledOnce();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
   it.each([false, true])("should preserve the server-provided age highlight in the initial inbox or detail %s", async (selected) => {
     const data = fixture(selected);
     data.request.pendingAgeThresholdReached = true;
