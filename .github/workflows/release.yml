@@ -62,6 +62,14 @@ jobs:
         with:
           node-version-file: '.nvmrc'
 
+      # La CLI de Vercel sólo depende de Node.js: se instala en segundo plano
+      # mientras corren la instalación, el preflight y los checks, y se espera
+      # antes del primer paso que la usa.
+      - name: Configurar Vercel
+        id: install-vercel-cli
+        background: true
+        run: npm install --global vercel@62.2.0
+
       - name: Configurar pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -69,9 +77,9 @@ jobs:
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
       - name: Instalar navegador requerido por los tests
+        id: install-test-browser
+        background: true
         run: pnpm exec playwright install --with-deps chromium
-      - name: Configurar Vercel
-        run: npm install --global vercel@62.2.0
       - name: Verificar esquema sin aplicar migraciones
         shell: bash
         run: |
@@ -87,6 +95,8 @@ jobs:
             throw new Error("La publicación requiere confirmar el esquema existente. No se aplicaron migraciones ni se desplegó producción.");
           }
           NODE
+      - name: Esperar el navegador de los tests
+        wait: install-test-browser
       - name: Checks y publicación del release
         env:
           BEEZ_RP_RELEASE_VERSION: ${{ inputs.version }}
@@ -103,6 +113,8 @@ jobs:
           export BETTER_AUTH_URL=http://127.0.0.1:3000
           export DATABASE_URL=postgresql://127.0.0.1:5432/quality_gate
           pnpm create-version --ci-release "$RELEASE_TAG"
+      - name: Esperar la CLI de Vercel
+        wait: install-vercel-cli
       - name: Obtener entorno de producción
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

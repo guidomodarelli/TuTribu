@@ -41,9 +41,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install browser required by native transport tests
-        run: pnpm exec playwright install --with-deps chromium
-
       - name: Configure isolated build environment
         shell: bash
         run: |
@@ -58,5 +55,26 @@ jobs:
             'DATABASE_URL=postgresql://127.0.0.1:5432/quality_gate' \
             >> "$GITHUB_ENV"
 
-      - name: Run quality gate
-        run: pnpm run ci
+      # Mirrors `pnpm run ci` (lint, typecheck, typecheck:tests, test, build):
+      # keep both in sync. The static checks need neither Chromium nor the
+      # build output, so they run alongside the browser download. Tests and
+      # the build stay sequential so CPU contention cannot make the suite's
+      # timing-sensitive tests flaky.
+      - parallel:
+          - name: Lint
+            run: pnpm run lint
+
+          - name: Type-check product code
+            run: pnpm run typecheck
+
+          - name: Type-check tests
+            run: pnpm run typecheck:tests
+
+          - name: Install browser required by native transport tests
+            run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run tests
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run build
