@@ -18,10 +18,12 @@ El código quedó guardado en `0a1e71172b1098b4ab867703afbfdf35df50f5ab`. Se com
 
 Los manuales se vincularon a ese código. Pasaron dieciséis vistas y cuatro recorridos de navegación en Chromium/WebKit a 390/1280 px, 132 destinos locales y conservación de hashes. Registro `.git/codex-reader-live-region-final-docs-qa-result.json`. Los checks estáticos del manual temático y el índice detallado tienen cero errores; los hosts adicionales permitidos corresponden a las atribuciones SIL/DM Mono/Tailwind ya presentes en sus capturas, conservadas. Las dos advertencias por archivo corresponden a manuales locales sin URL publicada y a la ausencia de un catálogo de traducciones central. El menú temático se validó mediante su navegación real según su contrato propio.
 
-## Repetición observada en Chromium de escritorio
+## Repetición observada en Chromium
 
 En `.git/admission-screen-reader-native-ebba706d/`, Chromium 155 a 1280 px completó por teclado la cancelación propia y la aprobación administrativa. El Visualizador real de NVDA anunció «La solicitud fue cancelada» y, con la corrección, «La decisión quedó guardada». La captura `chromium-1280-admin-completed.jpg` tiene SHA256 `04def886ae729580bb8ae3739752c80ec3ef29aa79c1d266719140e56f15c499`; el registro `nvda-observations.json` conserva su superficie y nonce propios.
 
-Después de ambos recorridos, el harness emitió `owned_reader_effects_confirmed` para esa variante, tras comprobar SQL: solicitud pública `cancelled`, revisión `approved`, una membresía básica y cero entregas. Este hito confirma esa variante observada y no equivale a un resultado terminal del caso completo.
+La misma ejecución completó también ambos recorridos a 390 px, con los resultados anunciados por NVDA. Es una ventana de Windows con viewport reducido; no acredita un dispositivo móvil físico. Después de cada pareja, el harness emitió `owned_reader_effects_confirmed` tras comprobar SQL: solicitud pública `cancelled`, revisión `approved`, una membresía básica y cero entregas.
 
-El proceso sigue activo para las otras seis superficies de Chromium/WebKit a 390/1280 px; su resultado agregado y la conservación final de inputs siguen pendientes. T198/T208 permanecen abiertas y no se sustituye una comprobación de lector por el árbol accesible o una revisión de código. Ninguno de estos ensayos envía mensajes reales.
+WebKit 26.4 en Windows presentó la página, pero NVDA anunció `unknown` y la integración del sistema expuso sólo la barra y el panel del navegador, sin los controles HTML. Se interrumpió de forma controlada antes de modificar la solicitud de WebKit; `webkit-1280-reader-limitation.json` conserva esa limitación. El caso agregado terminó con exit 1, los 3.639 inputs y las herramientas estables, sin diferencias. La consulta final confirmó que la rama propia ya no existe y que se conservaron las tres originales (`.git/codex-reader-final-cleanup.json`). NVDA se cerró al finalizar.
+
+T198/T208 permanecen abiertas: cuatro superficies de Chromium observadas no completan las ocho requeridas, y el árbol accesible no sustituye un lector compatible. Ninguno de estos ensayos envió mensajes reales.
