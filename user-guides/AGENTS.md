@@ -59,7 +59,7 @@ Estas reglas se aplican a los archivos de `user-guides/` y complementan las inst
 
 - Aplicar la skill `user-manual` para crear o actualizar estos manuales.
 - Los manuales de este directorio usan `.html`, no `.htm`. `AGENTS.md` es un archivo de control y permanece en Markdown. Esta instrucción no modifica el formato exigido a la documentación bajo `docs/`.
-- Usar Heritage Spec desde `~/system-config/configs/.agents/DESIGN.md`, con sus componentes, tokens, HTML semántico y script de navegación vigente.
+- Usar Heritage Spec desde `DESIGN.md` de la skill `user-manual` del plugin `ai-assets-kit`, con sus componentes, tokens, HTML semántico y script de navegación vigente. Su fuente canónica está en `guidomodarelli/ai-assets-marketplace`; no usar la ruta anterior de `system-config`, de donde fue retirada.
 - Mantener cada HTML autocontenido: estilos y scripts del documento embebidos y recursos visuales necesarios incorporados cuando corresponda.
 - Seguir el orden estándar: Contenido; ¿Para qué sirve?; Audiencia; Permisos y prerrequisitos; ¿Cómo se accede?; Flujo general del proceso; particularidades; Flujos no felices; secciones de referencia pertinentes; Glosario al final cuando corresponda.
 - Filtrar permisos, mensajes, límites y preguntas frecuentes por tema. No duplicar tablas globales completas en todos los archivos.

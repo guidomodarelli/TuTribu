@@ -1,0 +1,11 @@
+.AdmissionBatchReview {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+
+  &__section { display: grid; gap: 1rem; min-width: 0; }
+  &__title { font-size: 1.125rem; font-weight: 600; }
+  &__error { color: var(--destructive); line-height: 1.5; }
+  &__names { margin: 0; padding-inline-start: 1.5rem; }
+}

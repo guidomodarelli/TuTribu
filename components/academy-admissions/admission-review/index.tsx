@@ -1,6 +1,7 @@
 /** Presents authorized review state and callbacks without importing auth or HTTP adapters. @module admission-review */
 import { useId, type ReactNode } from "react";
-import { Button, Checkbox, Textarea } from "@guidomodarelli/beez-ui";
+import { Button, Checkbox } from "@guidomodarelli/beez-ui";
+import { AdmissionDecisionForm } from "@/components/academy-admissions/admission-decision-form";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_ELIGIBILITY_COPY, ADMISSION_REVIEW_STATUS_LABEL, ADMISSION_REVIEW_SOURCE_LABEL } from "@/src/modules/academy-admissions/constants/admission-review-ui";
@@ -9,12 +10,17 @@ import { ADMISSION_EVIDENCE_KIND, ADMISSION_DENIAL_REASON } from "@/src/modules/
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { ADMISSION_REVIEW_FILTER_COPY } from "@/src/modules/academy-admissions/constants/admission-review-filters";
 import { ADMISSION_REVIEW_HISTORY_COPY } from "@/src/modules/academy-admissions/constants/admission-review-history-page";
+import { ADMISSION_BATCH_REVIEW_COPY } from "@/src/modules/academy-admissions/constants/admission-batch-review-ui";
+import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { formatBuenosAiresShortDate, formatBuenosAiresTime } from "@/lib/date-time/buenos-aires-format";
 import styles from "./styles.module.scss";
 
 /** Callback-only props keep current-account and operation recovery in the route container. */
 export type AdmissionReviewProps = {
   filters?: ReactNode;
+  batch?: ReactNode;
+  recovery?: ReactNode;
+  batchSelection?: { ids: ReadonlySet<string>; disabled: boolean; onToggle: (id: string, checked: boolean) => void };
   historyHref?: string;
   items: AdmissionReviewDto[]; selected: AdmissionReviewDto | null; hasMore: boolean;
   busy: boolean; disabled: boolean; confirmed: boolean; internalReason: string; externalMessage: string;
@@ -29,7 +35,7 @@ function describeInstant(value: string): string { return `${formatBuenosAiresSho
 
 /** @param props - Current allowlisted review data and route-owned state/callbacks. @returns A semantic responsive inbox/detail with explicit pre-action confirmation and visible feedback. */
 export function AdmissionReview(props: AdmissionReviewProps) {
-  const id = useId(), reasonId = `${id}-reason`, externalId = `${id}-external`, confirmId = `${id}-confirm`;
+  const id = useId();
   const selected = props.selected;
   const eligibilityMessages = selected?.eligibilityReasons.flatMap((reason) => {
     const message = ADMISSION_REVIEW_ELIGIBILITY_COPY[reason];
@@ -44,7 +50,7 @@ export function AdmissionReview(props: AdmissionReviewProps) {
     <div className={styles.AdmissionReview__actions}><Button variant="outline" onClick={props.onRead} disabled={props.busy}>{props.busy ? ADMISSION_REVIEW_UI_COPY.reading : ADMISSION_REVIEW_UI_COPY.read}</Button>{selected && <Button variant="ghost" onClick={props.onClose} disabled={props.busy || props.uncertain}>{ADMISSION_REVIEW_UI_COPY.close}</Button>}</div>
     {props.errorMessage && <p className={styles.AdmissionReview__error} role="alert">{props.errorMessage}</p>}
     {props.statusMessage && <p className={styles.AdmissionReview__help} role="status">{props.statusMessage}</p>}
-    {props.uncertain && <section className={styles.AdmissionReview__section} aria-label="Recuperación de la decisión"><p role="status">{ADMISSION_REVIEW_UI_COPY.uncertain}</p>{props.canRetry && <Button variant="outline" disabled={props.busy || !props.confirmed} onClick={props.onRetry}>{ADMISSION_REVIEW_UI_COPY.retry}</Button>}</section>}
+    {props.recovery !== undefined ? props.recovery : props.uncertain && <section className={styles.AdmissionReview__section} aria-label="Recuperación de la decisión"><p role="status">{ADMISSION_REVIEW_UI_COPY.uncertain}</p>{props.canRetry && <Button variant="outline" disabled={props.busy || !props.confirmed} onClick={props.onRetry}>{ADMISSION_REVIEW_UI_COPY.retry}</Button>}</section>}
     {selected ? <section className={styles.AdmissionReview__section} aria-label="Detalle de la solicitud">
       <h2 className={styles.AdmissionReview__subtitle}>{selected.applicant.name}</h2>
       {props.historyHref && !props.disabled && !props.busy && !props.uncertain && <Link href={props.historyHref}>{ADMISSION_REVIEW_HISTORY_COPY.open}</Link>}
@@ -63,16 +69,12 @@ export function AdmissionReview(props: AdmissionReviewProps) {
       {selected.needsVerification && !proofReasonVisible && <p className={styles.AdmissionReview__help}>La solicitud necesita verificación adicional antes de aprobarse.</p>}
       {eligibilityMessages.map(({ reason, message }) => <p key={reason} role="status" className={styles.AdmissionReview__help}>{message}</p>)}
       {!canApprove && <p className={styles.AdmissionReview__help}>La aprobación no está disponible para el estado y las condiciones actuales de esta solicitud.</p>}
-      {(canApprove || canReject || props.uncertain) && <form className={styles.AdmissionReview__section} onSubmit={(event) => event.preventDefault()}>
-        <div className={styles.AdmissionReview__field}><label className={styles.AdmissionReview__label} htmlFor={reasonId}>{ADMISSION_REVIEW_UI_COPY.internalReason}</label><Textarea id={reasonId} value={props.internalReason} onChange={(event) => props.onInternalReason(event.target.value)} maxLength={ADMISSION_LIMIT.internalMessageCharacters} disabled={props.disabled || props.uncertain} aria-describedby={`${reasonId}-help`} /><p id={`${reasonId}-help`} className={styles.AdmissionReview__help}>{ADMISSION_REVIEW_UI_COPY.internalHelp} Hasta {ADMISSION_LIMIT.internalMessageCharacters} caracteres.</p></div>
-        <div className={styles.AdmissionReview__field}><label className={styles.AdmissionReview__label} htmlFor={externalId}>{ADMISSION_REVIEW_UI_COPY.externalMessage}</label><Textarea id={externalId} value={props.externalMessage} onChange={(event) => props.onExternalMessage(event.target.value)} maxLength={ADMISSION_LIMIT.externalMessageCharacters} disabled={props.disabled || props.uncertain} aria-describedby={`${externalId}-help`} /><p id={`${externalId}-help`} className={styles.AdmissionReview__help}>{ADMISSION_REVIEW_UI_COPY.externalHelp} Hasta {ADMISSION_LIMIT.externalMessageCharacters} caracteres.</p></div>
-        <div className={styles.AdmissionReview__confirmation}><Checkbox id={confirmId} checked={props.confirmed} disabled={props.disabled} onCheckedChange={(checked) => props.onConfirm(checked === true)} /><label htmlFor={confirmId}>{ADMISSION_REVIEW_UI_COPY.confirm}</label></div>
-        <div className={styles.AdmissionReview__actions}>{canApprove && <Button type="button" disabled={props.disabled || props.uncertain || !props.confirmed || !props.internalReason.trim()} onClick={() => props.onDecision(ADMISSION_DECISION.approve)}>{props.busy ? ADMISSION_REVIEW_UI_COPY.writing : ADMISSION_REVIEW_UI_COPY.approve}</Button>}{canReject && <Button type="button" variant="outline" disabled={props.disabled || props.uncertain || !props.confirmed || !props.internalReason.trim()} onClick={() => props.onDecision(ADMISSION_DECISION.reject)}>{props.busy ? ADMISSION_REVIEW_UI_COPY.writing : ADMISSION_REVIEW_UI_COPY.reject}</Button>}</div>
-      </form>}
+      {(canApprove || canReject || props.uncertain) && <AdmissionDecisionForm internalReason={props.internalReason} externalMessage={props.externalMessage} confirmed={props.confirmed} disabled={props.disabled} busy={props.busy} locked={props.uncertain} allowApprove={Boolean(canApprove)} allowReject={Boolean(canReject)} onInternalReason={props.onInternalReason} onExternalMessage={props.onExternalMessage} onConfirm={props.onConfirm} onDecision={props.onDecision} />}
     </section> : <section className={styles.AdmissionReview__section} aria-label="Bandeja de solicitudes">
       {!props.busy && !props.items.length && <p>{props.hasMore ? ADMISSION_REVIEW_FILTER_COPY.emptyPage : ADMISSION_REVIEW_UI_COPY.empty}</p>}
-      <ol className={styles.AdmissionReview__list}>{props.items.map((request) => <li className={styles.AdmissionReview__row} key={request.id}><div><h2 className={styles.AdmissionReview__subtitle}>{request.applicant.name}</h2><p className={styles.AdmissionReview__help}>{ADMISSION_REVIEW_STATUS_LABEL[request.status]} · {ADMISSION_REVIEW_SOURCE_LABEL[request.source]} · <time dateTime={request.submittedAt}>{describeInstant(request.submittedAt)}</time> · {request.contact?.maskedValue ?? "Sin contacto"}</p></div><Button variant="outline" onClick={() => props.onSelect(request.id)} disabled={props.disabled || props.uncertain} aria-label={`${ADMISSION_REVIEW_UI_COPY.detail}: ${request.applicant.name}`}>{ADMISSION_REVIEW_UI_COPY.detail}</Button></li>)}</ol>
+      <ol className={styles.AdmissionReview__list}>{props.items.map((request) => <li className={styles.AdmissionReview__row} key={request.id}><div><h2 className={styles.AdmissionReview__subtitle}>{request.applicant.name}</h2><p className={styles.AdmissionReview__help}>{ADMISSION_REVIEW_STATUS_LABEL[request.status]} · {ADMISSION_REVIEW_SOURCE_LABEL[request.source]} · <time dateTime={request.submittedAt}>{describeInstant(request.submittedAt)}</time> · {request.contact?.maskedValue ?? "Sin contacto"}</p></div>{props.batchSelection && <div className={styles.AdmissionReview__rowSelection}><Checkbox id={`${id}-${request.id}`} aria-label={`${ADMISSION_BATCH_REVIEW_COPY.selectPrefix} ${request.applicant.name}`} checked={props.batchSelection.ids.has(request.id)} disabled={props.batchSelection.disabled || request.status !== ADMISSION_REQUEST_STATUS.pending || !request.eligibleActions.length || !props.batchSelection.ids.has(request.id) && props.batchSelection.ids.size >= ADMISSION_LIMIT.batchRequestCount} onCheckedChange={(checked) => props.batchSelection?.onToggle(request.id, checked === true)} /><label htmlFor={`${id}-${request.id}`}>{ADMISSION_BATCH_REVIEW_COPY.select}</label></div>}<Button variant="outline" onClick={() => props.onSelect(request.id)} disabled={props.disabled || props.uncertain} aria-label={`${ADMISSION_REVIEW_UI_COPY.detail}: ${request.applicant.name}`}>{ADMISSION_REVIEW_UI_COPY.detail}</Button></li>)}</ol>
       {props.hasMore && <Button variant="outline" disabled={props.disabled || props.uncertain} onClick={props.onLoadMore}>{ADMISSION_REVIEW_UI_COPY.loadMore}</Button>}
     </section>}
+    {!selected && props.batch}
   </main>;
 }

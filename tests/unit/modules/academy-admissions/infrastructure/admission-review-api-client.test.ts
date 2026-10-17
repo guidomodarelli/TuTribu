@@ -4,6 +4,15 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { createAdmissionApiClient } from "@/lib/academy-admissions/admission-api-client";
 import { ADMISSION_REVIEW_CURSOR_SEPARATOR } from "@/src/modules/academy-admissions/constants/admission-public-contract";
+import type { AdmissionBrowserBatchDecision } from "@/src/modules/academy-admissions/application/ports/admission-review-browser-client";
+import type { AdmissionBatchResultDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
+
+/** @returns One explicit public batch command and its matching committed acknowledgement. */
+function batchFixture() {
+  const input: AdmissionBrowserBatchDecision = { operationId: randomUUID(), confirmed: true, decision: "approve", internalReason: "Revisión del lote", items: [{ requestId: randomUUID(), expectedVersion: 1 }, { requestId: randomUUID(), expectedVersion: 3 }] };
+  const value: AdmissionBatchResultDto = { operationId: input.operationId, state: "completed", result: "all_succeeded", completedCount: 2, failedCount: 0, unresolvedCount: 0, items: input.items.map((item) => ({ requestId: item.requestId, status: "approved", version: item.expectedVersion + 1, safeMessage: "Solicitud aprobada." })) };
+  return { input, value };
+}
 
 describe("reviewer own browser contracts", () => {
   it("should reject a substituted detail id and strip provider fields from a valid review list", async () => {
@@ -35,5 +44,59 @@ describe("reviewer own browser contracts", () => {
     const query = new URL(String(href), "https://tutribu.example.invalid").searchParams;
     expect(Object.fromEntries(query)).toEqual({ limit: "25", ...(status ? { status } : {}), cursor, source: "common", search: filters.search, needsVerification: "false", requiresExceptionReason: "true", submittedFrom: filters.submittedFrom, submittedUntil: filters.submittedUntil });
     expect(options).toMatchObject({ method: "GET", credentials: "same-origin", cache: "no-store", signal });
+  });
+});
+
+describe("explicit reviewer batch transport", () => {
+  it("should send only the explicit command when local names or unrelated fields are present", async () => {
+    const data = batchFixture(), signal = new AbortController().signal;
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json({ ...data.value, providerToken: "synthetic-private-response", items: data.value.items.map((item) => ({ ...item, providerToken: "synthetic-private-row" })) }));
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    const result = await client.decideBatch("synthetic-academy", { ...data.input, items: data.input.items.map((item) => ({ ...item, applicantName: "Nombre exclusivamente local" })) }, signal);
+    expect(result).toEqual({ status: "ready", value: data.value });
+    expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/tribes/synthetic-academy/admissions/request-decisions", expect.objectContaining({ method: "POST", credentials: "same-origin", cache: "no-store", signal }));
+    expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(data.input);
+    expect(JSON.stringify(result)).not.toContain("providerToken");
+  });
+
+  it.each(["operation", "selection", "version", "decision", "cancelled", "partial_started", "missing_row"])("should retain uncertainty when the batch acknowledgement substitutes %s", async (variant) => {
+    const data = batchFixture(), value = structuredClone(data.value);
+    if (variant === "operation") value.operationId = randomUUID();
+    if (variant === "selection") value.items[0].requestId = randomUUID();
+    if (variant === "version") value.items[0].version = 99;
+    if (variant === "decision") value.items = value.items.map((item) => ({ ...item, status: "rejected" }));
+    if (variant === "cancelled") value.items[0].status = "cancelled";
+    if (variant === "missing_row") { value.items.pop(); value.completedCount = 1; }
+    if (variant === "partial_started") { value.state = "started"; value.result = "incomplete"; value.completedCount = 1; value.unresolvedCount = 1; value.items[1] = { requestId: data.input.items[1].requestId, status: "unresolved", code: "operation_unresolved", safeMessage: "Sin resolución confirmada." }; }
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json(value));
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    expect(await client.decideBatch("synthetic-academy", data.input, new AbortController().signal)).toMatchObject({ status: "failed", code: "public_contract_unusable", uncertain: true });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("should expose all rejected rows as a terminal result when no decision was applied", async () => {
+    const data = batchFixture();
+    const value: AdmissionBatchResultDto = { ...data.value, result: "all_rejected", completedCount: 0, failedCount: 2, items: data.input.items.map((item) => ({ requestId: item.requestId, status: "conflict", code: "request_conflict", safeMessage: "La solicitud cambió." })) };
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json(value));
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    expect(await client.decideBatch("synthetic-academy", data.input, new AbortController().signal)).toEqual({ status: "ready", value });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("should preserve registered unresolved work when the atomic original is still started", async () => {
+    const data = batchFixture();
+    const value: AdmissionBatchResultDto = { ...data.value, state: "started", result: "incomplete", completedCount: 0, unresolvedCount: 2, items: data.input.items.map((item) => ({ requestId: item.requestId, status: "unresolved", code: "operation_unresolved", safeMessage: "Sin resolución confirmada." })) };
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json(value, { status: 202 }));
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    expect(await client.decideBatch("synthetic-academy", data.input, new AbortController().signal)).toEqual({ status: "ready", value });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("should avoid transport when the original batch signal was already aborted", async () => {
+    const data = batchFixture(), controller = new AbortController(), fetch = vi.fn<typeof globalThis.fetch>();
+    const client = createAdmissionApiClient({ fetch, viewer: async () => ({ status: "ready", value: null }) });
+    controller.abort();
+    expect(await client.decideBatch("synthetic-academy", data.input, controller.signal)).toEqual({ status: "aborted" });
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

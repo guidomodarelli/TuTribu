@@ -31,6 +31,7 @@ function fixture(selected = true) {
     reviewDetail: vi.fn<AdmissionReviewBrowserClient["reviewDetail"]>(async () => ({ status: "ready", value: request })),
     operation: vi.fn<AdmissionReviewBrowserClient["operation"]>(async () => ({ status: "failed", code: "resource_unavailable", message: "La operación no está disponible.", uncertain: false })),
     decide: vi.fn<AdmissionReviewBrowserClient["decide"]>(async () => ({ status: "ready", value: { admissionRequestId: requestId, status: "approved", version: 2 } })),
+    decideBatch: vi.fn<AdmissionReviewBrowserClient["decideBatch"]>(),
   };
   return { request, state, client, node: <AdmissionReviewRouteContainer initialState={state} client={client} /> };
 }

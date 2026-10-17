@@ -8,6 +8,7 @@ export const ADMISSION_CONTEXTUAL_REFRESH_VALIDATION = {
   artifactEnvironment: "ADMISSION_CONTEXTUAL_REFRESH_ARTIFACT_ROOT",
   noticeCaptureFile: "contextual-notice-captures.json",
   ownCaptureFile: "contextual-own-request-captures.json",
+  batchCaptureFile: "contextual-batch-review-captures.json",
   focusFixturePath: "/__admission-native-focus-fixture",
   focusOutsideLabel: "Control externo a la aplicación",
   focusFrameTitle: "Aplicación real para verificar foco",
