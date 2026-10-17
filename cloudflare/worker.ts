@@ -9,7 +9,7 @@
  *
  * It re-uses the generated OpenNext `fetch` handler and adds a `scheduled`
  * handler so the maintenance crons (orphan image and file sweeps, event
- * reminders) run on Cloudflare too. Vercel installs them from `vercel.json`;
+ * reminders, and explicitly enabled admission maintenance) run on Cloudflare too. Vercel installs daily crons from `vercel.json`;
  * the matching Cloudflare crons live in `wrangler.jsonc` under
  * `triggers.crons` and dispatch here by expression.
  *

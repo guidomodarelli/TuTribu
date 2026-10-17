@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- El mantenimiento interno de admisión incorpora disparadores preparados con activación explícita y fallos visibles; su ejecución automática sigue pendiente.
+
 - La bandeja y el detalle de admisión destacan las solicitudes que llevan tres días o más pendientes; la marca se actualiza al consultar y desaparece al resolverlas o vencer su plazo.
 
 - La bandeja, la solicitud propia y los avisos abiertos de admisión se actualizan mientras mirás la página; conservan los datos y muestran un aviso si falla la actualización.
