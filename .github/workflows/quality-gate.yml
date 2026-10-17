@@ -14,52 +14,29 @@ concurrency:
   group: quality-gate-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  HUSKY: "0"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+# Runs the contract of `pnpm run ci` (lint, typecheck, typecheck:tests, test,
+# build) split across jobs; keep both in sync. The Vitest suite is most of the
+# run time, so it is sharded across runners while the static checks and the
+# build run on another one. The final `Quality gate` job is the single check to
+# require in branch protection.
 jobs:
-  quality-gate:
-    name: Quality gate
+  static-checks-and-build:
+    name: Static checks and build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      HUSKY: "0"
-      NEXT_TELEMETRY_DISABLED: "1"
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
+      - name: Set up quality gate
+        uses: ./.github/actions/setup-quality-gate
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Configure isolated build environment
-        shell: bash
-        run: |
-          set -euo pipefail
-          for variable in BETTER_AUTH_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
-            value="$(openssl rand -hex 32)"
-            echo "::add-mask::$value"
-            printf '%s=%s\n' "$variable" "$value" >> "$GITHUB_ENV"
-          done
-          printf '%s\n' \
-            'BETTER_AUTH_URL=http://127.0.0.1:3000' \
-            'DATABASE_URL=postgresql://127.0.0.1:5432/quality_gate' \
-            >> "$GITHUB_ENV"
-
-      # Mirrors `pnpm run ci` (lint, typecheck, typecheck:tests, test, build):
-      # keep both in sync. The static checks need neither Chromium nor the
-      # build output, so they run alongside the browser download. Tests and
-      # the build stay sequential so CPU contention cannot make the suite's
-      # timing-sensitive tests flaky.
       - parallel:
           - name: Lint
             run: pnpm run lint
@@ -70,11 +47,47 @@ jobs:
           - name: Type-check tests
             run: pnpm run typecheck:tests
 
-          - name: Install browser required by native transport tests
-            run: pnpm exec playwright install --with-deps chromium
-
-      - name: Run tests
-        run: pnpm run test
-
       - name: Build
         run: pnpm run build
+
+  tests:
+    name: Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up quality gate
+        uses: ./.github/actions/setup-quality-gate
+
+      - name: Install browser required by native transport tests
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run test shard
+        run: pnpm run test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+
+  quality-gate:
+    name: Quality gate
+    needs: [static-checks-and-build, tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every quality gate job to succeed
+        env:
+          STATIC_CHECKS_RESULT: ${{ needs.static-checks-and-build.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+        run: |
+          set -euo pipefail
+          echo "Static checks and build: ${STATIC_CHECKS_RESULT}; tests: ${TESTS_RESULT}"
+          if [ "${STATIC_CHECKS_RESULT}" != "success" ] || [ "${TESTS_RESULT}" != "success" ]; then
+            echo "::error title=Quality gate failed::Static checks and build ended as ${STATIC_CHECKS_RESULT} and the test shards as ${TESTS_RESULT}."
+            exit 1
+          fi
