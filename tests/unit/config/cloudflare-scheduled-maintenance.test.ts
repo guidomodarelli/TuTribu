@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 
 import { vi, describe, it, expect } from "vitest";
+import { randomUUID } from "node:crypto";
 import {
   EVENT_REMINDERS_MAINTENANCE_PATH,
   FILE_CLEANUP_MAINTENANCE_PATH,
@@ -12,7 +13,7 @@ import {
   runScheduledMaintenanceCleanup,
 } from "@/config/cloudflare-scheduled-maintenance";
 
-const CRON_SECRET = "cron-secret-value";
+const CRON_SECRET = randomUUID();
 
 interface CapturedRequest {
   authorization: string | null;
@@ -71,6 +72,41 @@ describe("resolveMaintenancePathForCron", () => {
 });
 
 describe("runScheduledMaintenanceCleanup", () => {
+  it.each([undefined, "false", "0", "1", "TRUE"])("should refuse admission cron activation %s without entering any route", async (enabled) => {
+    const fetchHandler = vi.fn(() => new Response(null, { status: 200 }));
+    await expect(runScheduledMaintenanceCleanup({ context: createExecutionContextStub(), cron: "* * * * *", env: { CRON_SECRET, ADMISSION_MESSAGING_MAINTENANCE_ENABLED: enabled }, fetchHandler })).rejects.toMatchObject({ code: "disabled" });
+    expect(fetchHandler).not.toHaveBeenCalled();
+  });
+
+  it("should enter the exact authorized admission route once for an explicitly enabled minute event", async () => {
+    const fetchHandler = vi.fn((request: Request) => {
+      expect(captureRequest(request)).toEqual({ authorization: `Bearer ${CRON_SECRET}`, method: "GET", pathname: "/api/maintenance/admission-messaging" });
+      return new Response(null, { status: 200 });
+    });
+    expect(resolveMaintenancePathForCron("* * * * *")).toBe("/api/maintenance/admission-messaging");
+    await runScheduledMaintenanceCleanup({ context: createExecutionContextStub(), cron: "* * * * *", env: { CRON_SECRET, ADMISSION_MESSAGING_MAINTENANCE_ENABLED: "true" }, fetchHandler });
+    expect(fetchHandler).toHaveBeenCalledOnce();
+  });
+
+  it("should require the native secret after explicit activation without constructing an unauthorized request", async () => {
+    const fetchHandler = vi.fn(() => new Response(null, { status: 200 }));
+    await expect(runScheduledMaintenanceCleanup({ context: createExecutionContextStub(), cron: "* * * * *", env: { ADMISSION_MESSAGING_MAINTENANCE_ENABLED: "true" }, fetchHandler })).rejects.toMatchObject({ code: "missing_secret" });
+    expect(fetchHandler).not.toHaveBeenCalled();
+  });
+
+  it.each([202, 401, 503])("should expose an incomplete admission invocation with HTTP %s without retrying", async (status) => {
+    const fetchHandler = vi.fn(() => new Response("Private response body", { status }));
+    await expect(runScheduledMaintenanceCleanup({ context: createExecutionContextStub(), cron: "* * * * *", env: { CRON_SECRET, ADMISSION_MESSAGING_MAINTENANCE_ENABLED: "true" }, fetchHandler })).rejects.toMatchObject({ code: status === 202 ? "request_unconfirmed" : "request_failed", status });
+    expect(fetchHandler).toHaveBeenCalledOnce();
+  });
+
+  it("should retain an original transport cause without claiming rollback or retrying the minute event", async () => {
+    const original = new Error("Synthetic original transport failure");
+    const fetchHandler = vi.fn(async (): Promise<Response> => { throw original; });
+    await expect(runScheduledMaintenanceCleanup({ context: createExecutionContextStub(), cron: "* * * * *", env: { CRON_SECRET, ADMISSION_MESSAGING_MAINTENANCE_ENABLED: "true" }, fetchHandler })).rejects.toMatchObject({ code: "request_unconfirmed", cause: original });
+    expect(fetchHandler).toHaveBeenCalledOnce();
+  });
+
   it("re-enters the file cleanup route when the file cron fires", async () => {
     const env: { CRON_SECRET?: string } = { CRON_SECRET };
     let captured: CapturedRequest | undefined;

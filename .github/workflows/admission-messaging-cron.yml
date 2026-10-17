@@ -1,0 +1,33 @@
+name: Mantenimiento de admisión
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admission-messaging-maintenance
+  cancel-in-progress: false
+
+jobs:
+  catch-up:
+    name: Ejecutar recuperación de mantenimiento
+    if: github.event_name == 'workflow_dispatch' || vars.ADMISSION_MESSAGING_MAINTENANCE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Ejecutar una única invocación autorizada
+        env:
+          ADMISSION_MESSAGING_MAINTENANCE_ENABLED: ${{ vars.ADMISSION_MESSAGING_MAINTENANCE_ENABLED }}
+          ADMISSION_MESSAGING_MAINTENANCE_BASE_URL: ${{ vars.ADMISSION_MESSAGING_MAINTENANCE_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: node scripts/run-admission-maintenance.mjs
