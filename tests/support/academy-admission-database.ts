@@ -19,6 +19,7 @@ import {
 } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { getServerDatabaseEnvironment } from "@/src/modules/shared/infrastructure/database/server-environment";
 import { confirmOwnedBranchRemoval } from "./confirm-owned-branch-removal";
+import { withAcademyAdmissionRestoreCopy, type AcademyAdmissionRestoreCopy } from "./academy-admission-restore-copy";
 
 /** Fixes the project allowed by the repository's standing validation authorization. */
 const ADMISSION_NEON_PROJECT_ID = "cold-firefly-92947172";
@@ -54,6 +55,8 @@ export type AcademyAdmissionTestDatabase = {
   grantTablesToNonBypass: (tableNames: readonly string[]) => Promise<void>;
   /** Passes only this owned branch's private connection to a bounded local server fixture. */
   withServerEnvironment: <Result>(run: (environment: Readonly<{ DATABASE_URL: string; DATABASE_MAINTENANCE_URL: string }>) => Promise<Result>) => Promise<Result>;
+  /** Creates only an owned restore-capable child from this live fixture checkpoint. */
+  withRestorableCopy: <Result>(run: (copy: AcademyAdmissionRestoreCopy) => Promise<Result>) => Promise<Result>;
 };
 
 /**
@@ -174,6 +177,8 @@ export async function withAcademyAdmissionDatabase<Result>(
   let workError: unknown;
   let didWorkFail = false;
   let result: Result | undefined;
+  let active = true;
+  let activeServers = 0;
 
   try {
     try {
@@ -299,7 +304,15 @@ export async function withAcademyAdmissionDatabase<Result>(
        */
       async withServerEnvironment(run) {
         assertOwnedBranch(ownedBranch!, name, parent.id);
-        return run({ DATABASE_URL: branchConnection.toString(), DATABASE_MAINTENANCE_URL: branchConnection.toString() });
+        activeServers += 1;
+        try { return await run({ DATABASE_URL: branchConnection.toString(), DATABASE_MAINTENANCE_URL: branchConnection.toString() }); }
+        finally { activeServers -= 1; }
+      },
+      /** @param run - Child-only SQL workflow, with its drivers stopped before reset. @returns Its result after the child is removed. */
+      async withRestorableCopy(run) {
+        if (!active || activeServers || branchPool.totalCount > branchPool.idleCount) throw new Error("AcademyAdmissionDatabase.copy failed: checkpoint_not_idle");
+        assertOwnedBranch(ownedBranch!, name, parent.id);
+        return withAcademyAdmissionRestoreCopy({ projectId: ADMISSION_NEON_PROJECT_ID, source: ownedBranch!, databaseName, roleName, nonBypassRoleName: nonBypassName, requestAdmin: adminRequest }, run);
       },
     };
     result = await run(database);
@@ -307,6 +320,7 @@ export async function withAcademyAdmissionDatabase<Result>(
     didWorkFail = true;
     workError = error;
   }
+  active = false;
 
   const cleanupErrors: unknown[] = [];
   try { await pool?.end(); } catch (error) { cleanupErrors.push(error); }
