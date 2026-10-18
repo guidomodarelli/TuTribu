@@ -150,7 +150,7 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 - Prefer composition of existing shared primitives before custom product components.
 - Import browser-ready `beez-ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the Arc foundation (semantic color roles, concentric radii, control heights, shadows, keyboard-only focus outline, blue accent) in light and dark; product SCSS Modules use those tokens and explicit overrides stay here. Fonts come from `app/fonts` through `next/font/local`: Inter for text and controls, Geist for display headings; use only weights 400 and 500.
 - Use `Button` with Arc's API (`variant` `primary`, `secondary`, `ghost` or `danger`; `size` `sm`, `md` or `lg`; `loading`). It has no `asChild`: navigation that looks like a button stays a `Link`, `<a>` or `<label>` styled with the `action-link` mixin from `src/styles/_action-link.scss`. Icon-only buttons use `size="sm"` with an accessible name.
-- Use pnpm 12.6.0 and consume published `beez-ui` releases from the public npm registry with a caret range; no registry mapping or token is needed. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
+- Use pnpm 12.14.0 and consume published `beez-ui` releases from the public npm registry with a caret range; no registry mapping or token is needed. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
 - Follow `docs/architecture/shared-ui-library.htm` for package boundaries and distribution.
 
 ### Arc Pro license
@@ -440,7 +440,7 @@ pnpm run dev
 
 ### Test tooling
 
-- Use pnpm 12.6.0 and the committed pnpm-lock.yaml. Install with `pnpm install --frozen-lockfile`.
+- Use pnpm 12.14.0 and the committed pnpm-lock.yaml. Install with `pnpm install --frozen-lockfile`.
 - Use Vitest 5 for unit and integration tests; `pnpm test` runs once and `pnpm test:watch` watches.
 - Run `pnpm typecheck:tests` against `tsconfig.test.json`; keep Vitest and Testing Library globals out of the application tsconfig.
 
@@ -450,4 +450,4 @@ pnpm run dev
 - TypeScript 7 is the project compiler for application tests and Next builds. Keep the separate `tsconfig.test.json` and run `pnpm typecheck:tests`.
 - Keep the root `typescript` dependency on version 7 and do not disable Next build type checking.
 - Lint runs with oxlint (`.oxlintrc.json`). Inline `eslint-disable` and `oxlint-disable` directives are rejected by `scripts/oxlint/no-lint-disable-plugin.mjs`.
-- The local runtime and GitHub Actions must match `.nvmrc` and `packageManager` (pnpm 12.6.0). Update runtime pins, Node types and lockfiles together.
+- The local runtime and GitHub Actions must match `.nvmrc` and `packageManager` (pnpm 12.14.0). Update runtime pins, Node types and lockfiles together.
