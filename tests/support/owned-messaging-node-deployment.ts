@@ -10,6 +10,7 @@ import { ADMISSION_NEON_PROJECT_ID } from "./constants/academy-admission-databas
 import { ADMISSION_NODE_HOST } from "./constants/admission-node-host";
 import { OWNED_MESSAGING_NODE_DEPLOYMENT as DEPLOYMENT } from "./constants/owned-messaging-node-deployment";
 import { MESSAGING_HOSTING_ENV } from "@/src/modules/messaging/constants/messaging-hosting";
+import { createOwnedMessagingCommandFailure, createOwnedMessagingOutputFailure } from "./owned-messaging-command-failure";
 
 const execute = promisify(execFile);
 type FunctionMetadata = { slug: string; invocation_url?: string; branch_id?: string };
@@ -59,8 +60,12 @@ export async function deployOwnedMessagingNodes(branch: AcademyAdmissionTestData
   async function command(argumentsList: string[]): Promise<unknown> {
     if (argumentsList.some((argument) => protectedValues.some((value) => argument.includes(value)))) throw new Error("OwnedMessagingDeployment.command failed: private_argument_rejected");
     const commandScope = argumentsList[0] === "api" ? ["--profile", DEPLOYMENT.cliProfile, "--output", "json"] : scope;
-    const result = await execute(process.execPath, [cli!, ...argumentsList, ...commandScope], { cwd: directory, env: childEnvironment, windowsHide: true, timeout: ADMISSION_NODE_HOST.deploymentTimeoutMs, maxBuffer: 2_000_000 });
-    return result.stdout.trim() ? JSON.parse(result.stdout) as unknown : null;
+    let result: { stdout: string };
+    try {
+      result = await execute(process.execPath, [cli!, ...argumentsList, ...commandScope], { cwd: directory, env: childEnvironment, windowsHide: true, timeout: ADMISSION_NODE_HOST.deploymentTimeoutMs, maxBuffer: 2_000_000 });
+    } catch (error) { throw createOwnedMessagingCommandFailure(argumentsList[0], error); }
+    try { return result.stdout.trim() ? JSON.parse(result.stdout) as unknown : null; }
+    catch (error) { throw createOwnedMessagingOutputFailure(argumentsList[0], error); }
   }
   /** Reads only original branch metadata before any deployment or removal. */
   async function assertBranchScope() {
@@ -139,7 +144,11 @@ export async function deployOwnedMessagingNodes(branch: AcademyAdmissionTestData
     }
     return { hosts, directory, sourceCommit, bundleSha256, compilerVersion: compiler.version, sourceInputs, compute, assertInputsUnchanged, assertPrivateMaterialAbsent, remove };
   } catch (error) {
-    try { await remove(); } catch (cleanupError) { throw new AggregateError([error, cleanupError], "OwnedMessagingDeployment.deploy failed: cleanup_unconfirmed", { cause: error }); }
+    const cleanupFailures: unknown[] = [];
+    try { await remove(); } catch (cleanupError) { cleanupFailures.push(cleanupError); }
+    const audits = await Promise.allSettled([assertInputsUnchanged(), assertPrivateMaterialAbsent()]);
+    for (const audit of audits) if (audit.status === "rejected") cleanupFailures.push(audit.reason);
+    if (cleanupFailures.length) throw new AggregateError([error, ...cleanupFailures], "OwnedMessagingDeployment.deploy failed: cleanup_unconfirmed", { cause: error });
     throw new Error("OwnedMessagingDeployment.deploy failed: owned_functions_unavailable", { cause: error });
   }
 }

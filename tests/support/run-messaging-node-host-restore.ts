@@ -31,6 +31,7 @@ export type MessagingNodeHostRestoreObservation = {
   requests: Array<{ phase: MessagingRestoreNodePhase; method: string; stage: string; status: number; code?: string }>;
   profileOutsideSqlSurvivedRestore?: boolean; originalRecordsPreserved?: boolean;
   inputsStable?: boolean; privateMaterialAbsent?: boolean; functionsRemoved?: boolean; branchesRemoved?: boolean;
+  deploymentAttempts?: number; auditedReturnedDeployments?: number;
   failure?: { stage: string; name: string; code: string | null; causes: Array<{ name: string; code: string | null }> };
 };
 
@@ -120,6 +121,7 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
           await stop();
           await progress(`deploy_${phase}`);
           const token = randomBytes(ADMISSION_NODE_HOST.tokenBytes).toString("base64url"), input = await phaseInput(phase, environment);
+          report.deploymentAttempts = (report.deploymentAttempts ?? 0) + 1;
           const deployment = await deployOwnedMessagingNodes(copy.branch, phaseIds[phase], token, environment, [input], { entrypoint: HOST.entrypoint, privateInputVariable: HOST.inputVariable, supportingFiles: [HOST.supportMigration, HOST.coordinator, HOST.testFile], sensitiveValues: [source.fixture.credential, prepared.queuedVerificationCode] });
           deployments.push(deployment);
           active = { deployment, token, phase };
@@ -225,7 +227,11 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
         } finally {
           await stop();
           for (const deployment of deployments) { await deployment.assertInputsUnchanged(); await deployment.assertPrivateMaterialAbsent(); }
-          report.inputsStable = true; report.privateMaterialAbsent = true; report.functionsRemoved = true;
+          report.auditedReturnedDeployments = deployments.length;
+          // A failed deployment has no returned capability; do not attest global coverage from successful returns alone.
+          if (deployments.length === report.deploymentAttempts) {
+            report.inputsStable = true; report.privateMaterialAbsent = true; report.functionsRemoved = true;
+          }
         }
       });
     }, { databaseSelection: { databaseName: "neondb", roleName: "neondb_owner" }, computeUnits: MESSAGING_NATIVE_ACTIVATION.nativeComputeUnits });
