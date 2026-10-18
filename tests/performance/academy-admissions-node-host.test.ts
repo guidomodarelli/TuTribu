@@ -40,7 +40,8 @@ describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated na
         const headers = { authorization: `${ADMISSION_NODE_HOST.tokenPrefix}${token}` };
         const before = await fetch(url(ADMISSION_NODE_HOST.statusPath), { headers, redirect: "manual", signal: AbortSignal.timeout(ADMISSION_NODE_HOST.requestTimeoutMs) });
         expect(admissionNodeStatusSchema.parse(await before.json()).state).toBe(ADMISSION_NODE_RUN_STATE.prepared);
-        const backendObserver = process.env[ADMISSION_BACKEND_OBSERVATION.environmentVariable] === ADMISSION_BACKEND_OBSERVATION.enabledValue ? startAdmissionBackendObservation(database, operationId) : undefined;
+        const observeLocks = process.env[ADMISSION_BACKEND_OBSERVATION.lockEnvironmentVariable] === ADMISSION_BACKEND_OBSERVATION.enabledValue;
+        const backendObserver = observeLocks || process.env[ADMISSION_BACKEND_OBSERVATION.environmentVariable] === ADMISSION_BACKEND_OBSERVATION.enabledValue ? startAdmissionBackendObservation(database, operationId, observeLocks) : undefined;
         let backendObservations: AdmissionBackendObservation | undefined, response: Response;
         try { response = await fetch(url(ADMISSION_NODE_HOST.runPath), { method: "POST", headers, redirect: "manual", signal: AbortSignal.timeout(ADMISSION_NODE_HOST.requestTimeoutMs) }); }
         finally {
@@ -66,6 +67,11 @@ describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated na
           expect(backendObservations.errors).toEqual([]);
           expect(backendObservations.samples.length).toBeGreaterThan(0);
           expect(backendObservations.samples.some((sample) => sample.backends > 0)).toBe(true);
+          expect(backendObservations.lockInventoryEnabled).toBe(observeLocks);
+          if (observeLocks) {
+            expect(backendObservations.samples.every((sample) => sample.locks !== undefined)).toBe(true);
+            expect(backendObservations.samples.some((sample) => (sample.locks?.mainTableRelationLocks ?? 0) > 0)).toBe(true);
+          }
         }
         if (process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue) {
           expect(measured.cpuProfile?.status).toBe("available");
