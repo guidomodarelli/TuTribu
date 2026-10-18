@@ -28,10 +28,17 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
     while (Date.now() < deadline) { if (await predicate()) return; await delay(SETTINGS.pollMs); }
     throw new Error(code);
   }
-  /** @returns {Promise<void>} After the actual output monitor has a complete silent tail. */
-  async function quiet() {
+  /** @param {(()=>Promise<void>)|undefined} [interruptIntroduction] - Real native interruption restricted to initial readiness. @returns {Promise<void>} After the actual output monitor has a complete silent tail. */
+  async function quiet(interruptIntroduction = undefined) {
+    let speechOffset = (await log()).length;
     const length = Math.ceil(SETTINGS.sampleRate * SETTINGS.bytesPerSample * SETTINGS.silenceWindowMs / SETTINGS.millisecondsPerSecond);
-    await until(async () => { const end = await size(); return end >= length && await peak(end - length) <= SETTINGS.audiblePeak; }, SETTINGS.failures.silence);
+    await until(async () => {
+      if (interruptIntroduction) {
+        const observed = await log();
+        if (observed.slice(speechOffset).includes(SETTINGS.speechMarker)) { speechOffset = observed.length; await interruptIntroduction(); }
+      }
+      const end = await size(); return end >= length && await peak(end - length) <= SETTINGS.audiblePeak;
+    }, SETTINGS.failures.silence);
   }
   /** @param {string} title - Actual current application page title. @returns {void} Before native input is delivered to its owned CI window. */
   function assertWindow(title) {
@@ -73,7 +80,7 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
       await page.bringToFront();
       await until(async () => { try { assertWindow(await page.title()); return true; } catch { return false; } }, SETTINGS.failures.window);
       await key(page, SETTINGS.nativeKeys.interrupt);
-      await quiet();
+      await quiet(() => key(page, SETTINGS.nativeKeys.interrupt));
     },
     /** @param {import('@playwright/test').Page} page - Owned product page. @param {import('@playwright/test').Locator} target - Real control. @param {string} label - Safe expected announcement. @returns {Promise<{speechObserved:boolean,audioPeak:number}>} Native focus and spoken name. */
     async focus(page, target, label) {

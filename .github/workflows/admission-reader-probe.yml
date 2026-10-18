@@ -44,7 +44,7 @@ jobs:
       - name: Instalar el lector y su infraestructura nativa
         run: |
           sudo apt-get update
-          sudo apt-get install -y orca dbus-x11 at-spi2-core gsettings-desktop-schemas openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng meson ninja-build pkg-config libatspi2.0-dev libatk-bridge2.0-dev python-gi-dev gettext itstool yelp-tools
+          sudo apt-get install -y locales orca dbus-x11 at-spi2-core gsettings-desktop-schemas openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng meson ninja-build pkg-config libatspi2.0-dev libatk-bridge2.0-dev python-gi-dev gettext itstool yelp-tools
           pnpm exec playwright install --with-deps chromium webkit
 
       - name: Preparar Orca con soporte web de WebKitGTK

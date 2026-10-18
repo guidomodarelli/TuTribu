@@ -53,7 +53,7 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
         for (const [scenarioIndex, { name, engine, width }] of scenarios.entries()) {
           await progress("browser_starting", name, width);
           const current = { ...fixture, applicants: fixture.applicants.slice(scenarioIndex * VALIDATION.participantsPerScenario, (scenarioIndex + 1) * VALIDATION.participantsPerScenario) };
-          const browser = await engine.launch({ headless: false, ...(name === "chromium" ? { args: ADMISSION_READER_PROBE.chromiumLaunchArguments } : {}) });
+          const browser = await engine.launch({ headless: false, env: { ...process.env, LANG: ADMISSION_READER_PROBE.nativeBrowserLocale, LC_ALL: ADMISSION_READER_PROBE.nativeBrowserLocale }, ...(name === "chromium" ? { args: ADMISSION_READER_PROBE.chromiumLaunchArguments } : {}) });
           try {
             const applicant = await browser.newContext({ viewport: { width, height: ADMISSION_READER_PROBE.height }, reducedMotion: "reduce", locale: ADMISSION_READER_PROBE.locale });
             const rows = await submitAdmissionBatchBrowserRows(applicant, current, origin, secret);

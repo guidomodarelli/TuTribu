@@ -49,10 +49,17 @@ async function until(predicate, code) {
   while (Date.now() < deadline) { if (await predicate()) return; await delay(PROBE.pollMs); }
   throw new Error(code);
 }
-/** @returns After the native audio monitor has produced a full silent tail. */
-async function quiet() {
+/** @param {(()=>void)|undefined} [interruptIntroduction] - Real native cancellation only during initial preparation. @returns {Promise<void>} After the monitor produces a silent tail. */
+async function quiet(interruptIntroduction = undefined) {
+  let speechOffset = (await readerLog()).length;
   const bytes = Math.ceil(PROBE.sampleRate * PROBE.bytesPerSample * PROBE.silenceWindowMs / PROBE.millisecondsPerSecond);
-  await until(async () => { const size = await audioSize(); return size >= bytes && await audioPeak(size - bytes) <= PROBE.audiblePeak; }, PROBE.failures.silence);
+  await until(async () => {
+    if (interruptIntroduction) {
+      const observed = await readerLog();
+      if (observed.slice(speechOffset).includes(PROBE.speechMarker)) { speechOffset = observed.length; interruptIntroduction(); }
+    }
+    const size = await audioSize(); return size >= bytes && await audioPeak(size - bytes) <= PROBE.audiblePeak;
+  }, PROBE.failures.silence);
 }
 /** @param {string} title - Unique title of this owned fixture. @returns Before native input is delivered exclusively to its active window. */
 function assertActiveWindow(title) {
@@ -74,7 +81,7 @@ try {
     observation.speechPhase = PROBE.speechPhases.setup;
     let browser;
     try {
-      browser = await ({ chromium, webkit })[item.engine].launch({ headless: false, ...(item.engine === "chromium" ? { args: PROBE.chromiumLaunchArguments } : {}) });
+      browser = await ({ chromium, webkit })[item.engine].launch({ headless: false, env: { ...process.env, LANG: PROBE.nativeBrowserLocale, LC_ALL: PROBE.nativeBrowserLocale }, ...(item.engine === "chromium" ? { args: PROBE.chromiumLaunchArguments } : {}) });
       observation.browserVersion = browser.version();
       const context = await browser.newContext({ viewport: { width: item.width, height: PROBE.height }, reducedMotion: "reduce", locale: PROBE.locale });
       const page = await context.newPage();
@@ -84,7 +91,8 @@ try {
       await until(async () => { try { assertActiveWindow(item.title); return true; } catch { return false; } }, PROBE.failures.window);
       nativeKey(item.title, PROBE.nativeKeys.interrupt);
       observation.initialInterruptSent = true;
-      await quiet();
+      observation.initialInterruptCount = 1;
+      await quiet(() => { nativeKey(item.title, PROBE.nativeKeys.interrupt); observation.initialInterruptCount += 1; });
       let speechOffset = (await readerLog()).length, audioOffset = await audioSize();
       speechPhaseOffset = speechOffset;
       observation.speechPhase = PROBE.speechPhases.focus;
@@ -135,6 +143,7 @@ try {
       observation.speechDiagnostics = diagnoseNativeReaderSpeech(recordedLog.slice(speechPhaseOffset), expectedSpeech);
       process.exitCode = 1;
     } finally { await browser?.close(); }
+    observation.automaticReadingDisabledObserved = (await readerLog()).slice(caseLogOffset).includes(PROBE.automaticReadingDisabledMarker);
     report.cases.push(observation);
     console.log(JSON.stringify({ phase: "reader_capability_observed", ...observation }));
   }
