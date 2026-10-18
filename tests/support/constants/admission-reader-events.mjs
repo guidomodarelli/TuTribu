@@ -1,0 +1,20 @@
+/** Bounds passive diagnostics on the owned Linux display; it never changes reader acceptance. */
+export const ADMISSION_READER_EVENTS = {
+  application: "MiniBrowser",
+  engine: "webkit",
+  eventTypes: ["object:text-changed:insert", "object:announcement", "object:children-changed:add", "object:property-change:accessible-name", "object:state-changed:busy"],
+  toolkitFamilies: ["gtk", "webkit", "other"],
+  toolkits: { gtk: ["GTK", "GAIL"], webkit: ["WebKitGTK", "WPEWebKit"], other: [] },
+  defaultToolkit: "other",
+  phases: { ready: "ready", completed: "completed" },
+  completions: { stopped: "stopped", deadline: "deadline" },
+  caseIdentifierPattern: /^[a-f0-9]{8}$/u,
+  failures: { platform: "disposable_display_required", input: "synthetic_status_required", start: "native_listener_start_failed", protocol: "native_listener_invalid_report", output: "native_listener_output_limit", stop: "native_listener_stop_failed", missing: "native_listener_report_missing" },
+  durationMs: 45_000,
+  readyTimeoutMs: 5_000,
+  stopTimeoutMs: 5_000,
+  maximumGroups: 128,
+  maximumDataLength: 512,
+  maximumOutputBytes: 65_536,
+  script: "tests/support/admission-reader-events.py",
+};

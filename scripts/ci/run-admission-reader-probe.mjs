@@ -10,6 +10,8 @@ import { ADMISSION_READER_PROBE as PROBE } from "../../tests/support/constants/a
 import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, hasNativeReaderTargetFocus, measureNativeAudioPeak } from "../../tests/support/admission-reader-observation.mjs";
 import { configureAdmissionBrowserNativeFocus } from "../../tests/support/admission-browser-native-focus.mjs";
 import { renderAdmissionReaderProbePage } from "../../tests/support/admission-reader-probe-page.mjs";
+import { startAdmissionNativeEventObservation } from "../../tests/support/admission-native-events.mjs";
+import { ADMISSION_READER_EVENTS } from "../../tests/support/constants/admission-reader-events.mjs";
 
 if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY || !process.env.RUNNER_TEMP) throw new Error("AdmissionReaderProbe.start failed: disposable_linux_display_required");
 const directory = join(process.env.RUNNER_TEMP, "admission-reader-probe");
@@ -118,13 +120,31 @@ try {
       await quiet();
       observation.nativeFocusBeforeLive = nativeFocus(item.focus);
       if (!await button.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement) || !hasNativeReaderTargetFocus(observation.nativeFocusBeforeLive)) throw new Error(PROBE.failures.focus);
+      let nativeEventObserver;
+      if (item.engine === ADMISSION_READER_EVENTS.engine) {
+        try { nativeEventObserver = await startAdmissionNativeEventObservation(item.status); }
+        catch (error) {
+          const code = error instanceof Error && "code" in error && Object.values(ADMISSION_READER_EVENTS.failures).includes(error.code) ? error.code : ADMISSION_READER_EVENTS.failures.start;
+          observation.nativeEventObservation = { available: false, failureCode: code };
+        }
+      }
       speechOffset = (await readerLog()).length; audioOffset = await audioSize();
       speechPhaseOffset = speechOffset; expectedSpeech = item.status;
       observation.speechPhase = PROBE.speechPhases.live;
-      nativeKey(item.title, PROBE.nativeKeys.invoke);
-      await until(async () => await page.locator("#status").textContent() === item.status, PROBE.failures.status);
-      await until(async () => hasNativeReaderSpeech((await readerLog()).slice(speechOffset), item.status), PROBE.failures.speech);
-      await until(async () => await audioPeak(audioOffset) > PROBE.audiblePeak, PROBE.failures.audio);
+      try {
+        nativeKey(item.title, PROBE.nativeKeys.invoke);
+        await until(async () => await page.locator("#status").textContent() === item.status, PROBE.failures.status);
+        await until(async () => hasNativeReaderSpeech((await readerLog()).slice(speechOffset), item.status), PROBE.failures.speech);
+        await until(async () => await audioPeak(audioOffset) > PROBE.audiblePeak, PROBE.failures.audio);
+      } finally {
+        if (nativeEventObserver) {
+          try { observation.nativeEventObservation = { available: true, ...await nativeEventObserver.stop() }; }
+          catch (error) {
+            const code = error instanceof Error && "code" in error && Object.values(ADMISSION_READER_EVENTS.failures).includes(error.code) ? error.code : ADMISSION_READER_EVENTS.failures.stop;
+            observation.nativeEventObservation = { available: false, failureCode: code };
+          }
+        }
+      }
       observation.liveSpeechObserved = true; observation.liveAudioPeak = await audioPeak(audioOffset);
       observation.passed = true;
       observation.nativeAccessibility = nativeStatus(item.status);
@@ -156,7 +176,10 @@ try {
 } finally {
   await new Promise((fulfill) => server.close(fulfill));
   report.nativeTextInspectionValidated = report.cases.length === cases.length && report.cases.every((item) => item.nativeTextInspectionValidated);
-  report.passed = report.cases.length === cases.length && report.cases.every((item) => item.passed) && report.nativeTextInspectionValidated;
+  const observedNativeEventCases = report.cases.filter((item) => item.engine === ADMISSION_READER_EVENTS.engine);
+  report.nativeEventObservationValidated = observedNativeEventCases.length === PROBE.widths.length * Object.values(PROBE.markupVariants).length && observedNativeEventCases.every((item) => item.nativeEventObservation?.available && item.nativeEventObservation.complete && item.nativeEventObservation.observedEvents > 0);
+  report.passed = report.cases.length === cases.length && report.cases.every((item) => item.passed) && report.nativeTextInspectionValidated && report.nativeEventObservationValidated;
+  if (!report.nativeEventObservationValidated) process.exitCode = 1;
   if (!report.nativeTextInspectionValidated) process.exitCode = 1;
   // This service observes only the loopback synthetic fixture, never the product or private pilot.
   if (!report.passed && process.env.ORCA_SERVICE_LOG) {
