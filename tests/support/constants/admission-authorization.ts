@@ -6,4 +6,5 @@ export const ADMISSION_AUTHORIZATION_TEST = {
   statementTimeoutSetting: "statement_timeout",
   sessionExpiryDelaySeconds: 10,
   sessionExpiryGraceSeconds: 0.1,
+  insufficientPrivilegeSqlState: "42501",
 } as const;

@@ -1,0 +1,82 @@
+{
+  "source": {
+    "baseCommit": "324a372b89b3d926a048564b5f88babe8190bae5",
+    "worktreeChanges": true,
+    "changedRuntimeInputs": [
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts",
+        "before": "9a4865832f27b19af51af78a22e663a690524a64a4862c7bee6ecaebc2a0bef9",
+        "after": "11b279dfdd77d7d6630ea79c3b8108803f6369f7b02c99004021b4c52e5fcec4"
+      },
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+        "before": "c4d216aa4527ae87feb5db86e89a03289dfc4ed1bf8bfdfc422988ecac251852",
+        "after": "b41c6757f60007667579b55c2c79bb80cd7408285298a0a3f5c5b5f7009c3fc5"
+      }
+    ],
+    "runtimeStableAcrossNativeRuns": true
+  },
+  "native": {
+    "red": {
+      "passed": 0,
+      "failed": 1,
+      "skipped": 8,
+      "success": false
+    },
+    "firstFull": {
+      "passed": 8,
+      "failed": 2,
+      "skipped": 0,
+      "success": false
+    },
+    "focused": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 7,
+      "success": true
+    },
+    "final": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 28,
+      "success": true
+    },
+    "distinctPassingBehaviors": 12,
+    "allReceiptsStable": true,
+    "permissionParitySqlState": "42501",
+    "fixtureGrantColumns": [
+      "id"
+    ],
+    "fixtureGrantPrivileges": [
+      "SELECT",
+      "UPDATE"
+    ],
+    "productionPrivilegesChanged": false
+  },
+  "quality": {
+    "domainAndApplication": {
+      "passed": 718,
+      "failed": 0,
+      "skipped": 3,
+      "success": true
+    },
+    "productTypes": true,
+    "testTypes": true,
+    "lint": true,
+    "nextBuild": true,
+    "liveDatabaseBuildCredentials": false
+  },
+  "cleanup": {
+    "count": 3,
+    "originalsPreserved": true,
+    "onlyOriginals": true
+  },
+  "scope": {
+    "realMessages": 0,
+    "schemaChanged": false,
+    "latencyMeasured": false,
+    "confirmationTargetMs": 3000,
+    "T200Complete": false,
+    "T209Complete": false
+  }
+}

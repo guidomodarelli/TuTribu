@@ -129,11 +129,9 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       ? await this.compose(database).lockSubmissionScope(scope)
       : Boolean((await database.execute(sql`select id from public.tribes where id=${scope.tribeId} ${sql.raw(scopeLock)}`)).rows[0]);
     if (!locked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-    const account = (await database.execute<{ id: string }>(sql`select id from public."user" where id=${scope.userId} for share`)).rows[0];
-    if (!account) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
-    // Current native session/actor facts provide the same presence gate under their ordered locks.
-    // Rich Google identity and recency are read below only where those facts are required.
-    const actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readOwnRequest).getCurrentActor(scope.tribeId, scope.userId);
+    // The account SHARE fence precedes current native session/member facts in the same query.
+    // Rich Google identity and recency remain with their owning fact readers below.
+    const actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithLockedAccount(scope.tribeId, scope.userId);
     if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     if (!requestId) return true;
     const request = (await database.execute<{ user_id: string }>(sql`select user_id from public.academy_admission_requests where id=${requestId} and tribe_id=${scope.tribeId}`)).rows[0];

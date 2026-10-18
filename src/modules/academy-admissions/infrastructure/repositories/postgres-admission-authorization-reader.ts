@@ -33,12 +33,38 @@ export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizat
    * @returns Current membership or null fields for an authenticated nonmember; null for unavailable scope/session.
    */
   async getCurrentActor(tribeId: string, userId: string): Promise<AdmissionActorFacts | null> {
+    return this.readCurrentActor(tribeId, userId, false);
+  }
+
+  /**
+   * Retains the writer's account lock before resolving current session and membership facts in one query.
+   * @param tribeId - Exact tenant whose outer admission fence is already held by the writer.
+   * @param userId - Actual native account, never a client-selected beneficiary.
+   * @returns Current actor facts after the account lock, or null for an absent account or expired session.
+   */
+  async getCurrentActorWithLockedAccount(tribeId: string, userId: string): Promise<AdmissionActorFacts | null> {
+    return this.readCurrentActor(tribeId, userId, true);
+  }
+
+  /**
+   * Keeps the optional account fence inside the same statement without caching authorization facts.
+   * @param tribeId - Exact authorized tenant scope.
+   * @param userId - Expected native actor, checked before any account or context locks.
+   * @param lockAccount - Whether this writer also requires its original account SHARE lock.
+   * @returns Only the current native actor projection after all required waits.
+   */
+  private async readCurrentActor(tribeId: string, userId: string, lockAccount: boolean): Promise<AdmissionActorFacts | null> {
+    const accountFence = lockAccount ? sql`with locked_account as materialized (
+      select id from public."user" where id=${userId} and public.current_app_user_id()=${userId} for share
+    )` : sql``;
+    const accountGuard = lockAccount ? sql`and locked_account.id=${userId}` : sql``;
+    const accountSource = lockAccount ? sql`from locked_account` : sql``;
     // CASE rejects a foreign/missing native actor before invoking the locking projection.
-    // The existing VOLATILE helper retains fresh snapshots and final expiry after ordered waits.
-    const current = (await this.database.execute<CurrentActorRow>(sql`select case when public.current_app_user_id()=${userId} then (
+    // Its account dependency precedes the VOLATILE helper, which checks final expiry after waits.
+    const current = (await this.database.execute<CurrentActorRow>(sql`${accountFence} select case when public.current_app_user_id()=${userId} ${accountGuard} then (
       select jsonb_build_object('userId',current_actor.user_id,'role',current_actor.role,'status',current_actor.status)
       from public.read_admission_reviewer_context(${tribeId},${this.sessionId}) current_actor
-    ) else null end as actor`)).rows[0]?.actor;
+    ) else null end as actor ${accountSource}`)).rows[0]?.actor;
     return current?.userId === userId ? { userId: current.userId, tribeId, role: current.role, status: current.status } : null;
   }
 
