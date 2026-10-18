@@ -71,7 +71,7 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
             await progress("public_cancel_announcement", name, width);
             const publicOutput = await reader.activateAndHear(page, ADMISSION_UI_COPY.cancelled);
             await progress("public_cancel_announced", name, width);
-            await expectBrowser(page.getByText(ADMISSION_UI_COPY.cancelled, { exact: true })).toBeVisible();
+            await expectBrowser(page.getByRole("region", { name: "Estado de tu solicitud", exact: true }).getByText(ADMISSION_UI_COPY.cancelled, { exact: true })).toBeVisible();
             await page.screenshot({ path: join(root, `${name}-${width}-public.png`) });
             observations.push({ engine: name, width, surface: "public", ...publicOutput });
             await writeFile(join(root, "observations.json"), JSON.stringify({ observations, realMessages: 0 }, null, 2) + "\n");
@@ -95,7 +95,7 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
             await progress("administrative_approve_announcement", name, width);
             const reviewOutput = await reader.activateAndHear(review, ADMISSION_REVIEW_UI_COPY.complete);
             await progress("administrative_approve_announced", name, width);
-            await expectBrowser(review.getByText(ADMISSION_REVIEW_UI_COPY.complete, { exact: true })).toBeVisible();
+            await expectBrowser(review.getByRole("main").getByRole("status").filter({ hasText: ADMISSION_REVIEW_UI_COPY.complete })).toBeVisible();
             await review.screenshot({ path: join(root, `${name}-${width}-administrative.png`) });
             observations.push({ engine: name, width, surface: "administrative", ...reviewOutput });
             await writeFile(join(root, "observations.json"), JSON.stringify({ observations, realMessages: 0 }, null, 2) + "\n");
@@ -111,7 +111,14 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
             await writeFile(join(root, "observations.json"), JSON.stringify({ observations, realMessages: 0 }, null, 2) + "\n");
           } catch (error) {
             const code = error instanceof Error && Object.values(ADMISSION_READER_PROBE.failures).includes(error.message) ? error.message : ADMISSION_READER_PROBE.failures.journey;
-            failures.push({ ...latestMilestone, code });
+            // A closed browser must retain its original failure even when its DOM is no longer observable.
+            const interfaces = await Promise.all(browser.contexts().flatMap((context) => context.pages()).map(async (page) => ({
+              cancellationMessages: await page.getByText(ADMISSION_UI_COPY.cancelled, { exact: true }).count(),
+              ownedCancellationMessages: await page.getByRole("region", { name: "Estado de tu solicitud", exact: true }).getByText(ADMISSION_UI_COPY.cancelled, { exact: true }).count(),
+              approvalMessages: await page.getByRole("main").getByRole("status").filter({ hasText: ADMISSION_REVIEW_UI_COPY.complete }).count(),
+              busyMainRegions: await page.locator('main[aria-busy="true"]').count(),
+            }))).catch(() => null);
+            failures.push({ ...latestMilestone, code, interfaces, interfaceObservationUnavailable: interfaces === null });
             await writeFile(join(root, "failures.json"), JSON.stringify(failures, null, 2) + "\n");
           } finally { await browser.close(); }
         }
