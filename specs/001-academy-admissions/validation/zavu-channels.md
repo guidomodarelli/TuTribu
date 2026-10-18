@@ -34,4 +34,6 @@ Se creó una copia archivada del commit4c3ec071 en Ubuntu22.04/WSL, con Node24.2
 
 Los ensayos operativos y la activación de academias permanecen sujetos a operational-gates.md. La copia Linux, sus variables sintéticas y outputs son recursos temporales de este trabajo; no forman parte del producto ni de una entrega desplegada.
 
+El [checkpoint del piloto nuevo](isolated-local-pilot.md) conserva la preparación real posterior en Zavu y Meta. La confirmación telefónica hecha por el usuario permitió abrir facturación, pero la nueva creación de la misma plantilla Authentication volvió a recibir el rechazo de permisos. La cuenta sigue sin método de pago; el formulario financiero quedó para el usuario. Esta inspección no equivale a diagnóstico recibido, canal listo, activación ni aislamiento A/B: el piloto conserva cero mensajes y OG-03/OG-04 siguen pendientes.
+
 Se verificó ausencia de procesos cuyo cwd perteneciera al directorio Linux propio y se comprobó su identidad exacta, parent y source-commit antes de eliminarlo. La ausencia final quedó confirmada; sus .dev.vars y variables de prueba no permanecen. El worker generado medía2278bytes y su SHA256 era d05223bf4d44c84108a102ab62aa3bc9c5568f0c3ac2064c37be5cc65c64bc45. Se conserva sólo metadata sanitizada del receipt local, sin credenciales ni conexión.

@@ -23,9 +23,22 @@
   },
   "additionalSecurityVerification": {
     "type": "business_phone_sms",
-    "state": "requires_user",
+    "state": "completed_by_user",
     "agentSentSms": false,
-    "codeReadOrStored": false
+    "agentSubmittedCode": false,
+    "codePersistedByAgent": false,
+    "verificationDialogCleared": true,
+    "billingPageAccessible": true
+  },
+  "postPhoneVerification": {
+    "metaTemplateCatalogBeforeAttempt": 0,
+    "sameTemplateAttemptResult": "blocked",
+    "observedMessage": "Esta cuenta de WhatsApp Business no tiene permiso para crear una plantilla de mensaje",
+    "paymentMethod": "missing",
+    "paymentForm": "requires_user_location_currency_and_payment_details",
+    "currencyChangeWarningObserved": true,
+    "agentSelectedCurrency": false,
+    "agentEnteredPaymentDetails": false
   },
   "causality": {
     "paymentExplainsTemplatePermission": "not_established",

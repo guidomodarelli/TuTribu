@@ -28,7 +28,7 @@ export const ADMISSION_READER_PROBE = {
   headingText: "Prueba de lector",
   focusPrefix: "Control de lectura",
   statusPrefix: "Aviso de lectura",
-  markupVariants: { empty: "empty", seededText: "seeded_text", seededMarker: "seeded_marker" },
+  markupVariants: { empty: "empty", seededText: "seeded_text", seededMarker: "seeded_marker", politeParagraph: "polite_paragraph" },
   initialStatusText: "Sin novedades",
   initialStatusMarker: "\u200b",
   speechMarker: "SPEECH DISPATCHER: Speaking",

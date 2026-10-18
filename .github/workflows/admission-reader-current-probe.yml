@@ -68,7 +68,7 @@ jobs:
           glib-compile-schemas "$RUNNER_TEMP/admission-current-orca-install/share/glib-2.0/schemas"
           printf '%s\n' "ORCA_BINARY_PATH=$RUNNER_TEMP/admission-current-orca-install/bin/orca" "GSETTINGS_SCHEMA_DIR=$RUNNER_TEMP/admission-current-orca-install/share/glib-2.0/schemas" 'ORCA_SOURCE_COMMIT=244bdadd98f07fe9bfda9326fab621d686c70d2d' 'ORCA_EXPECTED_VERSION=51.1' 'ORCA_SETTINGS_FORMAT=gsettings' >> "$GITHUB_ENV"
 
-      - name: Probar los mismos doce casos con teclado, voz y audio reales
+      - name: Contrastar las cuatro variantes con teclado, voz y audio reales
         run: |
           mkdir -p "$RUNNER_TEMP/admission-reader-probe"
           printf '{"atspiVersion":"%s","atspiSourceCommit":"1e883ff1739ad584571d38d63735e1cc67a18b0b","orcaSourceCommit":"244bdadd98f07fe9bfda9326fab621d686c70d2d","configuredProfileBackend":"gsettings"}\n' "$(pkg-config --modversion atspi-2)" > "$RUNNER_TEMP/admission-reader-probe/native-platform.json"

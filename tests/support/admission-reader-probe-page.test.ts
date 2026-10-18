@@ -12,13 +12,18 @@ describe("native reader comparison page", () => {
       const item = { title: "Prueba nativa", focus: "Control de lectura ab12", status: "Aviso de lectura ab12", markupVariant };
       const page = new JSDOM(renderAdmissionReaderProbePage(item), { runScripts: "dangerously" });
       try {
-        const content = within(page.window.document.body), region = content.getByRole("status"), originalText = region.firstChild;
+        const content = within(page.window.document.body);
+        const region = markupVariant === PROBE.markupVariants.politeParagraph
+          ? content.getAllByRole("paragraph").find((paragraph) => paragraph.getAttribute("aria-live") === "polite")
+          : content.getByRole("status");
+        if (!region) throw new Error("AdmissionReaderProbePage.test failed: live_region_not_exposed");
+        const originalText = region.firstChild;
         expect(content.getByRole("heading", { name: PROBE.headingText }).textContent).toBe(PROBE.headingText);
         expect(region.getAttribute("aria-live")).toBe("polite");
         expect(region.getAttribute("aria-atomic")).toBe("true");
         expect(region.textContent).not.toBe(item.status);
         content.getByRole("button", { name: item.focus }).click();
-        expect(content.getByRole("status")).toBe(region);
+        expect(page.window.document.getElementById("status")).toBe(region);
         expect(region.textContent).toBe(item.status);
         if (markupVariant !== PROBE.markupVariants.empty) expect(region.firstChild).toBe(originalText);
       } finally { page.window.close(); }
