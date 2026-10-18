@@ -13,6 +13,17 @@ export async function captureAdmissionReview(page: Page, name: string, forbidden
     const root = Array.from(document.querySelectorAll(selector ?? "main")).find((element) => element.getClientRects().length > 0);
     if (!root) throw new Error("Visible reviewer capture root was unavailable");
     if (helpers.__umCap(captureName, root, { transform: (clone) => {
+      // WAAPI can leave initial inline values under a finished, visible composed animation.
+      // Copy only its rendered motion properties onto the clone; never mutate the live page.
+      const liveNodes = [root, ...root.querySelectorAll("*")], cloneNodes = [clone, ...clone.querySelectorAll("*")];
+      liveNodes.forEach((node, index) => {
+        const target = cloneNodes[index];
+        if (!(target instanceof HTMLElement) && !(target instanceof SVGElement)) return;
+        const keyframes = node.getAnimations().flatMap((animation) => animation.effect instanceof KeyframeEffect ? animation.effect.getKeyframes() : []);
+        if (!keyframes.length) return;
+        const style = getComputedStyle(node);
+        for (const property of ["opacity", "transform"]) if (keyframes.some((keyframe) => property in keyframe)) target.style.setProperty(property, style.getPropertyValue(property));
+      });
       if (omit) clone.querySelectorAll(omit).forEach((element) => element.remove());
       // Keep real labels while preventing a captured navigation target from retaining private route material.
       clone.querySelectorAll("a[href]").forEach((element) => { const href = element.getAttribute("href") ?? ""; if (privateValues.some((value) => value && (href.includes(value) || href.includes(encodeURIComponent(value))))) element.setAttribute("href", "#"); });
