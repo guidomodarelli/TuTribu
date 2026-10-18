@@ -1560,6 +1560,8 @@ Avance de T200/T209: el [comando versionado de cuatro hosts Node y 4 CU](validat
 
 - [ ] T201 Implementar recovery lock/época externa server-only en todos los targets y preflight beforedecrypt/dispatch/activate: stop antes de restore, rotate externalepoch/keys, suspend/invalidate oldrows y reabrir solo tras conexión/prueba/policy vigentes; ensayo aislado, sin alteración productiva ni auto recovery desde DB tombstone. Archivos: `src/modules/messaging/infrastructure/config/messaging-security-config.ts`, `src/modules/academy-admissions/application/use-cases/preflight-admission-activation-use-case.ts`, `docs/architecture/tenant-messaging.htm`. Dependencias: `T199`, `T175`, `T163`. Trazabilidad: `FR-053`, `FR-056`, `FR-132`, `US-10-AC-06`, `TC-014`, `RG-04`, `RG-07`, `OG-02`.
 
+Avance de preparación de T201/T203: la [composición separada de seeders y Vitest](validation/keyrings-and-restore.md#separación-de-la-composición-del-ensayo) aprobó el caso completo de restore/reapertura en Node local y PostgreSQL, con configuración externa original explícita: 1/1, sin omisiones, 3.226 inputs estables y retiro independiente de sus dos ramas, conservando las cuatro persistentes. Las cuatro vistas y seis enlaces de la convención también aprobaron. Esto no acredita todavía controles y restauración instalados en los hosts Node/Workers; ambas tareas y OG-02 conservan su estado pendiente.
+
 ### Ensayos operativos con autorización específica
 
 <a id="t202"></a>
