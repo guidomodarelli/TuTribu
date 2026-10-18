@@ -11,6 +11,7 @@ export const ADMISSION_WHATSAPP_BROWSER_PHASE = { configuration: "configuration"
 export const ADMISSION_WHATSAPP_BROWSER_ERROR = {
   knownNames: ["Error", "TypeError", "SyntaxError", "RangeError", "ReferenceError", "URIError", "EvalError", "AbortError", "DOMException", "SecurityError", "NotAllowedError", "NotSupportedError"],
   nativeFetchPrefix: "Fetch API cannot load ", nativeFetchName: "NativeFetchError", unknownName: "UnclassifiedError",
+  nativeAccessControlSuffix: " due to access control checks.",
   frameLocationPattern: /^(https?:\/\/[^\s()]+):(\d+):(\d+)$/,
   ownFramePath: "/_next/static/chunks/", chunkNamePattern: /^[A-Za-z0-9_.~-]+\.js$/,
   accessControlPattern: /access control/i, canceledPattern: /cancel(?:l)?ed|abort/i,

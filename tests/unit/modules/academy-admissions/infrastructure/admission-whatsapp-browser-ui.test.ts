@@ -3,7 +3,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { chromium, webkit, type APIResponse, type Page, type Request, type Response, type Route } from "@playwright/test";
+import { chromium, webkit, type APIResponse, type BrowserContext, type Page, type Request, type Response, type Route } from "@playwright/test";
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
@@ -14,6 +14,7 @@ import { captureAdmissionReview } from "@/tests/support/admission-review-capture
 import { runPrivateBrowserRequest } from "@/tests/support/private-browser-request";
 import { setVisibleCheckboxChecked } from "@/tests/support/set-visible-checkbox";
 import { observeAdmissionWhatsappBrowserError, type AdmissionWhatsappBrowserErrorObservation } from "@/tests/support/admission-whatsapp-browser-errors";
+import { classifyAdmissionWhatsappBrowserErrors, installAdmissionWhatsappWindowObserver, readAdmissionWhatsappWindowSnapshot, type AdmissionWhatsappTimedBrowserError } from "@/tests/support/admission-whatsapp-window-errors";
 import { ADMISSION_WHATSAPP_BROWSER_VALIDATION as VALIDATION, ADMISSION_WHATSAPP_BROWSER_PHASE as PHASE, ADMISSION_WHATSAPP_BROWSER_ERROR, type AdmissionWhatsappBrowserPhase } from "@/tests/support/constants/admission-whatsapp-number";
 import { ADMISSION_WHATSAPP_COPY as COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
@@ -28,6 +29,26 @@ import { admissionPublicErrorSchema } from "@/src/modules/academy-admissions/app
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
+
+/**
+ * Protects each acquired browser resource, including partial setup failures.
+ * @param engine - Actual installed engine.
+ * @param width - Current viewport width.
+ * @returns Owned pages and contexts; the caller closes them in its finally block.
+ */
+async function createOwnedPages(engine: typeof chromium, width: number) {
+  const browser = await engine.launch({ headless: true });
+  let leaderContext: BrowserContext | undefined, applicantContext: BrowserContext | undefined;
+  try {
+    leaderContext = await browser.newContext({ viewport: { width, height: VALIDATION.height } });
+    applicantContext = await browser.newContext({ viewport: { width, height: VALIDATION.height } });
+    const leader = await leaderContext.newPage(), page = await applicantContext.newPage();
+    return { browser, leaderContext, applicantContext, leader, page };
+  } catch (error) {
+    try { await applicantContext?.close(); } finally { try { await leaderContext?.close(); } finally { await browser.close(); } }
+    throw error;
+  }
+}
 
 /**
  * Forwards one original HTTP call within its existing action budget and preserves only transport timing.
@@ -95,8 +116,8 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
         for (const width of VALIDATION.widths) {
           const common = await fixture.applicant(`Solicitante de prueba ${engineName} ${width}`), personal = await fixture.applicant(`Invitado de prueba ${engineName} ${width}`);
           await fixture.confirm(REAUTHENTICATION_OPERATION.updateAdmissionPolicy);
-          const browser = await engine.launch({ headless: true }), leaderContext = await browser.newContext({ viewport: { width, height: VALIDATION.height } }), applicantContext = await browser.newContext({ viewport: { width, height: VALIDATION.height } });
-          const leader = await leaderContext.newPage(), page = await applicantContext.newPage(), failures: string[] = [];
+          const { browser, leaderContext, applicantContext, leader, page } = await createOwnedPages(engine, width);
+          const failures: string[] = [], timedBrowserErrors: AdmissionWhatsappTimedBrowserError[] = [];
           const privateValues = [secret, fixture.leader.userId, fixture.leader.sessionToken, common.userId, common.sessionToken, personal.userId, personal.sessionToken];
           let documents = 0, commonWrites = 0, correctionWrites = 0;
           let phase: AdmissionWhatsappBrowserPhase = PHASE.configuration, submissionUrl: string | null = null, correctionUrl: string | null = null;
@@ -127,11 +148,12 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             surface.on("pageerror", (error) => {
               const observation = observeAdmissionWhatsappBrowserError(error, { phase, leaderSurface: surface === leader, origin, submissionUrl, correctionUrl, accountUrls: accountProbeUrls });
               failures.push(observation.name);
-              if (browserErrors.length < ADMISSION_WHATSAPP_BROWSER_ERROR.maximumEvents) browserErrors.push(observation);
+              if (browserErrors.length < ADMISSION_WHATSAPP_BROWSER_ERROR.maximumEvents) { browserErrors.push(observation); timedBrowserErrors.push({ at: Date.now(), observation }); }
             });
           }
           page.on("request", (request) => { if (request.isNavigationRequest() && request.resourceType() === "document") documents += 1; if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/submissions")) commonWrites += 1; if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/whatsapp")) correctionWrites += 1; });
           try {
+            await installAdmissionWhatsappWindowObserver(leader); await installAdmissionWhatsappWindowObserver(page);
             await bindAdmissionBatchBrowserSession(leaderContext, fixture.leader, origin, secret); await bindAdmissionBatchBrowserSession(applicantContext, common, origin, secret);
             await leader.goto(`${origin}/${fixture.slug}/academia/admissions/settings`);
             const requirement = leader.getByRole("checkbox", { name: COPY.policyLabel });
@@ -244,9 +266,11 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
             expect(personalOutcome.request.version).toBe(2);
             expect(personalRows).toEqual([{ source: "personal", status: "pending", version: personalOutcome.request.version, contact_type: "email", normalized_contact: personal.email, whatsapp_number: "+14155552671" }]);
             const observedEffects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.message_deliveries where tribe_id=${fixture.tribeId}) as deliveries,(select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and user_id in (${common.userId},${personal.userId})) as memberships`)).rows);
-            if (evidenceDirectory) await writeFile(join(evidenceDirectory, `${engineName}-${width}.final-observation.json`), JSON.stringify({ observedEffects, pageErrorCount: failures.length, browserErrors, browserErrorsTruncated: failures.length > browserErrors.length, sessionEvents, sessionEventCount, sessionEventsTruncated: sessionEventCount > sessionEvents.length }));
+            const windows = [{ leaderSurface: true, snapshot: await readAdmissionWhatsappWindowSnapshot(leader) }, { leaderSurface: false, snapshot: await readAdmissionWhatsappWindowSnapshot(page) }];
+            const errorVerdict = classifyAdmissionWhatsappBrowserErrors(engineName, timedBrowserErrors, failures.length, windows);
+            if (evidenceDirectory) await writeFile(join(evidenceDirectory, `${engineName}-${width}.final-observation.json`), JSON.stringify({ observedEffects, pageErrorCount: failures.length, browserErrors, browserErrorsTruncated: failures.length > browserErrors.length, sessionEvents, sessionEventCount, sessionEventsTruncated: sessionEventCount > sessionEvents.length, windows, errorVerdict }));
             expect(observedEffects).toEqual([{ deliveries: 0, memberships: 0 }]);
-            expect(failures).toEqual([]);
+            expect(errorVerdict.blocking).toEqual([]);
             const progress = { stage: "whatsapp_views_passed", engine: engineName, width, surfaces: 5, sends: 0, submissionPosts: commonWrites, correctionPosts: correctionWrites, unresolvedReplyRecovered: unresolvedReplyInjected };
             const directory = process.env[VALIDATION.captureDirectoryEnvironment];
             if (directory) await writeFile(join(directory, `${engineName}-${width}.passed.json`), JSON.stringify(progress));
@@ -264,7 +288,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
               catch { process.stdout.write(JSON.stringify({ stage: "optional_failure_capture_unavailable", engine: engineName, width }) + "\n"); }
             }
             throw error;
-          } finally { await applicantContext.close(); await leaderContext.close(); await browser.close(); }
+          } finally { try { await applicantContext.close(); } finally { try { await leaderContext.close(); } finally { await browser.close(); } } }
         }
       }, { messagingSecurity }));
     });

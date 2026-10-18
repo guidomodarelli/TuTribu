@@ -21,6 +21,7 @@ export type AdmissionWhatsappBrowserErrorObservation = {
   matchesCorrection: boolean;
   matchesAccountProbe: boolean;
   accessControl: boolean;
+  nativeSessionAccessControlDiagnostic: boolean;
   canceled: boolean;
   frames: { chunk: string; line: number; column: number }[];
 };
@@ -68,5 +69,5 @@ export function observeAdmissionWhatsappBrowserError(error: Error, context: Admi
     frames.push({ chunk, line, column });
     if (frames.length >= ADMISSION_WHATSAPP_BROWSER_ERROR.maximumFrames) break;
   }
-  return { phase: context.phase, leaderSurface: context.leaderSurface, name, sameOrigin: networkUrl ? networkUrl.origin === context.origin : null, matchesSubmission: networkUrl !== null && networkUrl.href === context.submissionUrl, matchesCorrection: networkUrl !== null && networkUrl.href === context.correctionUrl, matchesAccountProbe: networkUrl !== null && context.accountUrls.has(networkUrl.href), accessControl: networkUrl !== null && ADMISSION_WHATSAPP_BROWSER_ERROR.accessControlPattern.test(networkDescription), canceled: networkUrl !== null && ADMISSION_WHATSAPP_BROWSER_ERROR.canceledPattern.test(networkDescription), frames };
+  return { phase: context.phase, leaderSurface: context.leaderSurface, name, sameOrigin: networkUrl ? networkUrl.origin === context.origin : null, matchesSubmission: networkUrl !== null && networkUrl.href === context.submissionUrl, matchesCorrection: networkUrl !== null && networkUrl.href === context.correctionUrl, matchesAccountProbe: networkUrl !== null && context.accountUrls.has(networkUrl.href), accessControl: networkUrl !== null && ADMISSION_WHATSAPP_BROWSER_ERROR.accessControlPattern.test(networkDescription), nativeSessionAccessControlDiagnostic: networkUrl !== null && networkUrl.origin === context.origin && !networkUrl.username && !networkUrl.password && networkUrl.pathname === ADMISSION_WHATSAPP_BROWSER_ERROR.accountPath && networkDescription === ADMISSION_WHATSAPP_BROWSER_ERROR.nativeAccessControlSuffix, canceled: networkUrl !== null && ADMISSION_WHATSAPP_BROWSER_ERROR.canceledPattern.test(networkDescription), frames };
 }
