@@ -19,6 +19,7 @@ export const ADMISSION_READER_PROBE = {
   maximumAudioBytes: 4_194_304,
   maximumFailureHintCharacters: 160,
   maximumDiagnosticLines: 16,
+  maximumServiceDiagnosticLines: 64,
   maximumDiagnosticCharacters: 240,
   maximumAccessibilityNodes: 2000,
   maximumAccessibilityDepth: 8,

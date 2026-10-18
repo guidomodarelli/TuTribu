@@ -9,6 +9,7 @@ export GTK_A11Y=atspi
 export NO_AT_BRIDGE=0
 export ORCA_DEBUG_LOG="$RUNNER_TEMP/admission-reader-native.out"
 export ORCA_AUDIO_FILE="$RUNNER_TEMP/admission-reader-audio.raw"
+export ORCA_SERVICE_LOG="$RUNNER_TEMP/admission-reader-service.log"
 reader_browser_locale="$(node --input-type=module -e 'import {ADMISSION_READER_PROBE} from "./tests/support/constants/admission-reader-probe.mjs"; process.stdout.write(ADMISSION_READER_PROBE.nativeBrowserLocale)')"
 sudo locale-gen "$reader_browser_locale"
 mkdir -p "$XDG_RUNTIME_DIR" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME/orca/app-settings"
@@ -52,7 +53,7 @@ if [[ -n "${ORCA_EXPECTED_VERSION:-}" && "$ORCA_BINARY_VERSION" != "$ORCA_EXPECT
   exit 1
 fi
 export SPEECH_DISPATCHER_VERSION="$(speech-dispatcher --version | head -n 1)"
-"$reader_binary" --user-prefs="$XDG_DATA_HOME/orca" --replace --enable=speech --disable=braille --debug --debug-file="$ORCA_DEBUG_LOG" > "$RUNNER_TEMP/admission-reader-service.log" 2>&1 &
+"$reader_binary" --user-prefs="$XDG_DATA_HOME/orca" --replace --enable=speech --disable=braille --debug --debug-file="$ORCA_DEBUG_LOG" > "$ORCA_SERVICE_LOG" 2>&1 &
 if [[ "$#" -eq 0 ]]; then exit 2; fi
 reader_command_status=0
 "$@" || reader_command_status=$?

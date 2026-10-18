@@ -151,5 +151,10 @@ try {
 } finally {
   await new Promise((fulfill) => server.close(fulfill));
   report.passed = report.cases.length === cases.length && report.cases.every((item) => item.passed);
+  // This service observes only the loopback synthetic fixture, never the product or private pilot.
+  if (!report.passed && process.env.ORCA_SERVICE_LOG) {
+    const serviceLog = await readFile(process.env.ORCA_SERVICE_LOG, "utf8").catch((error) => { if (error.code === "ENOENT") return ""; throw error; });
+    report.nativeServiceTail = serviceLog.split(PROBE.outputPatterns.lineSeparator).slice(-PROBE.maximumServiceDiagnosticLines).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters));
+  }
   await writeFile(join(directory, "report.json"), JSON.stringify(report, null, 2) + "\n");
 }
