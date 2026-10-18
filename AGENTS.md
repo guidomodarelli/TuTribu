@@ -70,11 +70,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ### Mandatory architecture
 
-- Prioritize hexagonal architecture from the first commit and in every change.
 - Use `~/hexagonal-architecture` as the implementation reference when there is any doubt about structure, boundaries, ports, adapters, DTO placement, or testing strategy.
-- Organize the codebase by vertical slice, not by technical layer at the repository root.
-- Do not create or reintroduce a generic `src/server` layer. Server-only code must belong to a feature module or to a dedicated shared module under `src/modules`.
-- Keep all technical identifiers in English: folders, files, modules, symbols, DTOs, ports, adapters, tests, and comments.
 
 ### Migration mandate (Immediate cutover)
 
@@ -84,21 +80,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `src/features` cannot be used as an integration layer for new adapters; dependency composition must happen in `src/modules/<feature>/setup.ts`.
 - Route entrypoints must consume use cases from `application` and must not import repository implementations directly.
 - Add and keep a lint/static check (run by `pnpm run ci` locally and in GitHub Actions) that fails on imports matching `@/src/features/`.
-
-### Dependency rule
-
-- Dependencies must always point inward.
-- Allowed directions:
-  - `app` entrypoints (`page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `route.ts`) -> `application`
-  - `app` entrypoints -> `infrastructure` only for framework wiring, adapter selection, dependency composition, and server-only adapter execution
-  - `application` -> `domain`
-  - `infrastructure` -> `application`
-  - `infrastructure` -> `domain`
-- Forbidden directions:
-  - `domain` -> `application` or `infrastructure`
-  - `application` -> `infrastructure` or generic `lib`
-  - UI or route components importing external DTOs directly
-  - Any layer importing from a generic `src/server` folder
 
 ### Target structure
 
@@ -140,33 +121,9 @@ styles/
 
 ### Layer responsibilities
 
-- `app/**/*`
-  - Route entrypoints and framework composition roots only.
-  - `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, and `route.ts` may import `application` and module-scoped `infrastructure` only to wire framework adapters to use cases.
-  - Prefer Server Components by default. Add `"use client"` only when browser APIs, client state, or direct event handlers are required.
-  - Keep client-side session lookup, async workflows, and complex form orchestration in route-level client containers or dedicated client components, not inside presentational components.
-  - Never host domain rules.
-- `components/*`
-  - Presentational components by default.
-  - Receive state, derived messages, results, and callbacks through props when an interaction depends on auth session state, HTTP requests, or multi-step UI workflows.
-  - Do not call module infrastructure adapters directly from presentational components.
-  - Do not import client adapters from `lib` either. Files named like `*api*`, `*client*`, or `*adapter*` under `lib` must be treated as adapter code and kept out of presentational components.
-- `domain`
-  - Pure business rules, entities, value objects, and ports.
-  - No framework, HTTP, provider SDK, or persistence details.
-- `application`
-  - Use cases and internal contracts (`commands`, `queries`, `results`).
-  - Orchestrates domain behavior through ports.
-  - Validate and normalize inputs through domain value objects or application contracts, not through generic helpers in `lib`.
-- `infrastructure`
-  - Adapters for authentication, Better Auth integration, database access, HTTP clients, storage, and third-party SDKs.
-  - Owns external DTOs and their mappers.
-  - Shared server-only helpers must still live under a module infrastructure folder, never under `src/server`.
-- `lib`
-  - Reserved for framework-safe helpers, UI utilities, and client-only adapters that are not business rules.
-  - `application` and `domain` must never import from `lib`.
-  - If a file under `lib` wraps endpoint calls or transport concerns, name it clearly (`*api*`, `*client*`, `*adapter*`) so lint can classify it as adapter code.
-  - If a helper starts encoding use-case rules, provider details, or DTO mapping, move it into the owning module.
+- `app/**/*`: `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, and `route.ts` are the composition roots. Prefer Server Components by default; add `"use client"` only when browser APIs, client state, or direct event handlers are required.
+- `components/*`: presentational components by default.
+- `infrastructure` also hosts the Better Auth integration.
 
 ## 3. Bootstrap Standards
 
@@ -302,62 +259,21 @@ components/<scope>/<component>/
 </article>
 ```
 
-### Cross-engine compatibility (Chromium and WebKit) — mandatory
-
-- Always keep in mind that every style (`SCSS`, `*.module.scss`, inline runtime values) and every piece of client-side JavaScript in product code must render and behave correctly on both Chromium (Chrome, Edge, Android Chrome) and WebKit (Safari, iOS Safari, iOS Chrome, and iOS WebViews). A change is not done until it works on both engines.
-- Treat mobile as a first-class target: validate small viewports on both engines, because several engine divergences only surface on mobile Chrome and iOS Safari/Chrome.
-- Be especially careful with layout features whose intrinsic-sizing or rendering behavior diverges between engines, such as: CSS Grid `fr`/`minmax()` tracks inside `fit-content`/`auto`-sized containers, `-webkit-line-clamp` with `-webkit-box`, flexbox/grid `min-height`/`min-width` defaults, sticky positioning, fixed positioning combined with `inset`/`margin: auto`, and dynamic viewport units (`svh`, `dvh`, `vh`). When a scroll container relies on an `fr` track, give it a definite size instead of depending on engine-specific intrinsic sizing.
-- For viewport-relative heights, follow the viewport units convention at `docs/conventions/viewport-units.htm`: use `svh` for page/section `min-height` and viewport-bound scroll containers, and `dvh` only for fullscreen mobile overlays. Do not use bare `100vh` in product code, and never do a blanket `svh` → `dvh` swap.
-- Keep the required `-webkit-` prefixes and provide standard fallbacks; never ship a property or value that only one engine understands without an equivalent path for the other.
-- For client-side JavaScript, do not depend on Chromium-only APIs or behaviors. Guard non-universal Web APIs with feature detection and provide a safe WebKit fallback so iOS users are never left with a broken flow.
-- When fixing or reviewing a UI bug, confirm the root cause is not an engine-specific behavior and verify the fix holds on both Chromium and WebKit before closing the task. If one engine cannot be exercised in the current environment, state the concrete blocker and the closest validation performed.
-
 ## 4. Server-First Data Flow
+
+For viewport-relative heights, also follow `docs/conventions/viewport-units.htm`.
 
 ### Default data strategy
 
-- Prioritize server-side data retrieval through App Router entrypoints.
-- In App Router, `page.tsx`, `layout.tsx`, and route-level async server components are the preferred inbound adapters for initial data loading.
-- A route segment should have a single primary data entrypoint whenever possible.
 - Instant navigation (Next.js 16.3+) validates every route on page loads and on client navigations: `params`, `searchParams`, `cookies()` and `headers()` are runtime data and must resolve inside a `<Suspense>` boundary that belongs to the segment being rendered. Consequences for this repository:
   - Every page segment ships its own `loading.tsx`. A boundary in a parent segment (for example `app/(platform)/[slug]/loading.tsx`) only covers page loads; on a navigation between sibling routes only the target segment re-renders, so the parent boundary sits above the re-render scope and the page's top-level `await params` blocks the navigation. Leaf segments re-export the nearest skeleton (`export { default } from "../loading";`).
   - A `layout.tsx` must not read `params` on the server, not even behind its own `<Suspense>`. When a layout-mounted client component needs the slug, resolve it on the client with `useParams` inside a `<Suspense>` (see `components/tribes/tribe-presence-heartbeat` and `app/(platform)/[slug]/layout.tsx`).
   - Do not paper over the insight with `instant = false`.
-- Do not scatter external fetches across presentational components when the route can resolve them on the server.
 
 ### Middleend rule
 
-- Centralize mapping and adaptation of external data in a middleend layer inside the hexagonal flow.
-- External contracts belong to infrastructure:
-  - `src/modules/<feature>/infrastructure/api/dto/*`
-  - `src/modules/<feature>/infrastructure/api/mapper.ts`
-- Internal contracts for the UI belong to application:
-  - `commands/`
-  - `queries/`
-  - `results/`
-- Use this conversion flow:
-
-```text
-External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity/value object -> use case -> application result -> route view model/component props
-```
-
-- Never pass provider DTOs directly to route components.
 - Validate route `params`, query, and body (and page `params`/`searchParams`) once at the boundary with Zod, and validate every public DTO (JSON responses, server → client props, browser adapters) against its schema; never schema-validate Postgres rows or provider responses. Follow `docs/conventions/payload-validation-boundaries.htm`.
 - Never import Better Auth, database context helpers, or provider error mappers from a generic `src/server` path.
-- Any route entrypoint, server component, or action that calls external infrastructure must translate failures into a safe UX in Spanish and must not expose raw provider messages, stack traces, or internal diagnostics to the UI.
-- When those flows fail unexpectedly, log them with structured context at the boundary that owns the user-facing response, including correlation identifiers and safe business metadata when available.
-
-### Client-side fetching
-
-- Client-side fetching is allowed only when server-side loading is not a fit, such as user-triggered refreshes, incremental interactions, or post-render mutations.
-- If client-side fetching is necessary, keep it behind use cases and adapters instead of calling third-party SDKs from components.
-- When a route needs client-side fetching plus auth/session state, prefer a container/presenter split:
-  - route-level client container owns session, fetch, mutation state, and validation flow
-  - presentational component renders props and emits callbacks only
-- Interactive mutations must prefer incremental responses over full route refreshes when the mutated UI can be updated from a safe application result.
-- Route handlers or Server Actions that serve user-triggered mutations should return the minimum view model needed to update the affected UI state, instead of forcing the client to reload the whole route.
-- A full refresh after a mutation is allowed only when it is explicitly justified by broad cache invalidation, data that cannot be reconstructed safely from the mutation result, security or authorization state changes, or critical cross-view synchronization.
-- Tests for user-triggered mutations must assert that the interaction does not trigger a full route refresh unless the refresh exception is documented in the test or adjacent implementation.
 
 ## 5. Better Auth and Authorization
 
@@ -375,12 +291,10 @@ External API/SDK -> infrastructure DTO -> infrastructure mapper -> domain entity
 - When the user provides an error related to the database, reproduce and inspect the failure directly against the database using the `pg` library before proposing a fix. Use the application's configured database connection, run the smallest safe query or transaction needed to trigger or diagnose the issue, and report the exact database cause found from PostgreSQL metadata, constraints, RLS policies, schema state, or query results.
 - Database debugging with `pg` must never print or persist secrets, tokens, raw connection strings, or sensitive row data. Redact sensitive values in any shared output and prefer metadata-focused queries when possible.
 - If direct `pg` validation cannot be executed because credentials, network access, or the database are unavailable, state the concrete blocker and the closest validation performed instead.
-- When an implemented change affects database structure (`schema`, tables, columns, constraints, indexes, relationships, or RLS-relevant storage layout), include a versioned SQL migration in the same work item.
-- Use the dashboard SQL editor only for quick experiments or debugging. It does not replace a versioned migration committed with the change.
 - Keep provider tokens, session secrets, and sensitive auth data server-side only.
 - Use custom sign-in and error pages when product UX requires it, but keep sensitive failure details out of the UI.
 
-Example SQL migration for a structural change:
+Example SQL migration for a structural change (every structural change ships one):
 
 ```sql
 -- database/migrations/20260325090000_create_posts.sql
@@ -449,63 +363,8 @@ WITH CHECK (nullif(current_setting('app.current_user_id', true), '') = user_id);
 - Before creating a new constant, search for an existing domain constant and follow nearby patterns instead of duplicating it.
 - See the constants convention guide at `docs/conventions/constants.htm`.
 
-### TDD is mandatory
-
-- Work in strict TDD for every feature, bug fix, and architectural change.
-- The development sequence is always:
-  1. `testing`
-  2. `code`
-  3. `refactor`
-  4. `green`
-
-### How to apply the cycle
-
-#### 1. Testing
-
-- Start by writing the smallest failing test at the correct architectural layer.
-- Define the expected behavior before implementing production code.
-- Prefer one clear behavior per test.
-
-#### 2. Code
-
-- Implement the minimum code needed to make the failing test pass.
-- Respect hexagonal boundaries even in the first implementation.
-- Do not skip ports, mappers, or value objects just to move faster.
-
-#### 3. Refactor
-
-- Refactor only after the behavior is covered.
-- Improve naming, remove duplication, extract helpers, simplify adapters, and tighten boundaries.
-- Preserve behavior while clarifying the design.
-
-#### 4. Green
-
-- The cycle is only complete once the new behavior is fully covered by passing tests.
-
-### Testing responsibilities by layer
-
-- `domain`
-  - Unit tests for entities, value objects, and pure business rules.
-- `application`
-  - Unit tests for use cases using doubles for domain ports.
-- `infrastructure`
-  - Integration tests for adapters, DTO mappers, Better Auth wiring, and RLS or provider boundaries.
-- `app` and UI
-  - React Testing Library tests for server/client component boundaries, rendering, and critical user flows.
-- End-to-end
-  - Add smoke coverage for critical authentication and authorization workflows.
-
 ### Testing rules
 
-- Never place test files inside `app`, because App Router can treat colocated special files as route artifacts and it keeps entrypoints harder to scan.
-- When functionality changes, add or update the corresponding tests in the same work item.
-- Prefer mocks at the port boundary, not at low-level vendor internals, unless the test is explicitly for an adapter.
-- Only write tests that exercise functionality: observable behavior of the product or of a script (rendered UI and interactions, use case results, adapter and mapper outputs, route handler responses, SQL executed against a real database, effects of running a script). Do not keep tests that only restate constants or configuration values, check that a module exports or imports something, assert on mocks the test itself configured with no product logic in between (for example a use case that returns the repository double's value unchanged, or a wrapper test that only checks a mocked SDK was called), duplicate another case without adding coverage, check function arity or other language details, assert static CSS classes that carry no conditional logic, test the behavior of a third-party library instead of the app code, or snapshot static data. Delete such tests when found.
-- Never write tests that read repository files (source code, SQL migrations, styles, configs, scripts, `package.json`, `AGENTS.md`, docs) from the filesystem to assert on their text, regexes, or internal strings. Tests must exercise observable behavior: run the code, the script, the linter, or the migration (for example on PGlite or an ephemeral Neon branch) and assert on its effects. Reading a file only to feed it to the real tool under test is allowed; asserting on its content is not.
-- Never write tests for framework, platform, or build configuration (`next.config.ts` redirects, headers, and options, `drizzle.config.ts`, Vercel or Cloudflare/OpenNext build settings, `robots` rules, environment-file loading). Applying that configuration is the framework's responsibility; verify changes by running the app or the build, not with unit tests.
-- Never assert on SQL text, query chunks, or how many statements a mocked executor received. Repository tests must assert the mapped result, the returned status, or the calls to external providers; to verify what the SQL does, run it against a real Postgres (PGlite or an ephemeral Neon branch).
-- Never test scripts or thin wrappers by asserting the argument lists, command lines, file paths, or names they build for an external CLI or SDK (for example `drizzle-kit`, `portless`, `git`). Test only their own logic (parsing, decisions, redaction, error handling) or the effects of actually running them.
-- Never write tests whose only purpose is to verify that tooling is configured or active (linter rules and plugins, formatter, TypeScript, build, bundler, or hook configuration). Keeping tooling active is the developer's responsibility: verify it by running the tool itself (`pnpm lint`, `pnpm typecheck`, `pnpm build`) when changing its configuration, not with a test suite.
 - During migration, each moved feature must include at least:
   - application use-case tests using domain ports doubles
   - infrastructure adapter or mapper tests for DTO to entity mapping
@@ -568,29 +427,16 @@ pnpm run dev
 - Never rely on the client to guarantee consistency for shared or persisted state.
 - Clean up async effects and guard against stale or outdated responses before updating UI state.
 
-### Observability baseline
-
-- Use structured, contextual logs for relevant server-side flows and include correlation identifiers such as `requestId` or `traceId` when available.
-- Keep logs and error reporting safe: never expose secrets, tokens, raw provider payloads, or internal diagnostics in user-facing messages.
-- Do not add `catch` blocks that only swallow errors or redirect control flow without classification, logging, or user feedback. Every `catch` must do at least one intentional responsibility: map an expected failure to a stable result, log an unexpected failure with context, trigger safe user feedback, or rethrow to the appropriate error boundary.
-- For retryable operations and external provider integration calls, log each attempt and final outcome with a stable trace context. Include `operation_key`, `requestId`, relevant business identifiers such as `priceId` or `tribeSlug`, redacted provider identifiers such as `providerPlanId` or `preapprovalId`, and `result` when available.
-
 ### Reliability and performance baseline
 
 - Make critical mutations safe under retries and duplicate submissions through idempotency, transactional protection, optimistic locking, or equivalent server-side controls.
 - Avoid blocking the event loop, overfetching, and repeated expensive work in latency-sensitive paths.
 - For examples and decision guidance, see the concurrency, observability, and performance convention guide at `docs/conventions/concurrency-observability-performance.htm`.
 
-### Pooled connection and render-abort resilience (mandatory investigation)
+### Pooled connection and render-abort resilience
 
-A server render or an `after()` callback can be aborted mid-flight (Next.js dev render restarts on cache miss, or a client disconnect in production). An aborted async flow suspends the `finally` that returns a checked-out resource, so a pooled database client leaks until the pool is exhausted and every later acquisition fails with `timeout exceeded when trying to connect`. A direct connection that resolves quickly means the database is healthy and the timeout is client-side pool starvation, not a slow database.
-
-- Any code path that acquires a pooled client with `pool.connect()` must release it even when the awaiting flow is abandoned. Register a client `error` listener that releases (destroys) the client, guard against double-release, and never issue `ROLLBACK` on a socket that already errored. Reuse the safe checkout in `withRequestContext` instead of writing a new bare `connect()`/`finally` pair.
-- Any request-scoped transaction must set a local `idle_in_transaction_session_timeout` right after `BEGIN` so an abandoned transaction is terminated server-side and its pool slot reclaimed. The window must stay far larger than any legitimate request transaction. `createPostgresPool` also applies the same guard at the connection level through the pool `onConnect` hook, and must reject acquisition when the session `set_config` fails, so transactions opened by library adapters that own their own checkout — such as the Better Auth Drizzle adapter — are covered even though they cannot be wrapped by the request-scoped helper. The Neon pooler rejects the `options` startup parameter, so the `onConnect` `set_config` is the supported way to apply a connection-level GUC through the pooler.
-- Size each pool `max` for concurrent renders; the Neon pooler tolerates hundreds of connections, so a small ceiling only starves legitimate concurrency.
-- Do not retry a failure whose cause is a connection-acquisition timeout: retrying while the pool is saturated only doubles the pressure. Reserve retries for genuinely transient terminations such as a backend-closed idle client.
-- Do not run a provider HTTP call plus a write on every server-rendered read path. Throttle provider reconciliation behind a freshness window so concurrent renders of the same page collapse into a single provider call, and keep authorization staleness bounded.
-- Standing investigation rule: before closing any task that touches database access, a request-scoped transaction, a pool, a retry, or a provider call on a server-render path, sweep the whole app for the same class of failure (search at least `pool.connect()`, `createPostgresPool`, request-scoped transactions, retry helpers, and provider calls inside `page.tsx`/`layout.tsx`) and confirm every sibling occurrence follows the rules above or record why it is exempt.
+- Reuse the safe checkout in `withRequestContext` instead of writing a new bare `connect()`/`finally` pair.
+- `createPostgresPool` applies `idle_in_transaction_session_timeout` per connection through the pool `onConnect` hook and must reject acquisition when the session `set_config` fails, so transactions opened by library adapters that own their checkout, such as the Better Auth Drizzle adapter, are covered too. The Neon pooler rejects the `options` startup parameter, so the `onConnect` `set_config` is the supported way to apply a connection-level GUC.
 
 ### Test tooling
 
@@ -603,5 +449,5 @@ A server render or an `after()` callback can be aborted mid-flight (Next.js dev 
 - Use Node.js 24.21.0 from `.nvmrc` locally and in GitHub Actions; `engines.node` permits only Node 24. The workflow installs the exact `.nvmrc` version through `actions/setup-node`.
 - TypeScript 7 is the project compiler for application tests and Next builds. Keep the separate `tsconfig.test.json` and run `pnpm typecheck:tests`.
 - Keep the root `typescript` dependency on version 7 and do not disable Next build type checking.
-- Lint runs with oxlint (`.oxlintrc.json`). Inline `eslint-disable` and `oxlint-disable` directives are rejected by `scripts/oxlint/no-lint-disable-plugin.mjs`; fix the reported code instead. When adding or changing an oxlint rule or JS plugin, run `pnpm lint` against a deliberately violating change and confirm it reports before relying on it: a plugin that fails to load produces no diagnostics.
+- Lint runs with oxlint (`.oxlintrc.json`). Inline `eslint-disable` and `oxlint-disable` directives are rejected by `scripts/oxlint/no-lint-disable-plugin.mjs`.
 - The local runtime and GitHub Actions must match `.nvmrc` and `packageManager` (pnpm 12.6.0). Update runtime pins, Node types and lockfiles together.
