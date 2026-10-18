@@ -74,7 +74,7 @@ const BELL_NUDGE_ROTATION_DEGREES = [
 
 /** Timing of the bell swing, within the product's 320 ms reveal budget. */
 const BELL_NUDGE_TRANSITION = {
-  duration: MOTION_TIMING.pop,
+  duration: MOTION_TIMING.standard,
   ease: MOTION_EASE,
 } as const;
 
