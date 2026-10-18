@@ -8,7 +8,7 @@ describe("admission statement diagnostics projection", () => {
   it("should retain ranking and derive execution milliseconds without publishing SQL or private fields", () => {
     const privateMarker = randomUUID(), privateEmail = `private.${randomUUID()}@example.test`;
     const projected = projectAdmissionStatementProfile([{ total_exec_time: "00:00:02.500000", prop_exec_time: "62.5%", ncalls: "5", query: `select '${privateMarker}' from public.session where email='${privateEmail}'`, credential: privateMarker }]);
-    expect(projected.statements).toEqual([{ position: 1, operation: "select", mentionedObjects: ["session"], calls: 5, totalExecutionMs: 2500, meanExecutionMs: 500, sharePercent: 62.5 }]);
+    expect(projected.statements).toEqual([{ position: 1, operation: "select", scalarProjection: false, mentionedObjects: ["session"], calls: 5, totalExecutionMs: 2500, meanExecutionMs: 500, sharePercent: 62.5 }]);
     expect(JSON.stringify(projected)).not.toContain(privateMarker);
     expect(JSON.stringify(projected)).not.toContain(privateEmail);
     expect(projected.statements[0]).not.toHaveProperty("query");
@@ -36,6 +36,14 @@ describe("admission statement diagnostics projection", () => {
     const projected = projectAdmissionStatementProfile([{ total_exec_time: "00:00:01", prop_exec_time: "100.0%", ncalls: 10, query: `SELECT * FROM academy_admission_requests request JOIN ${privateObject} private_data ON true` }]);
     expect(projected.statements[0].mentionedObjects).toEqual(["academy_admission_requests"]);
     expect(JSON.stringify(projected)).not.toContain(privateObject);
+  });
+  it("should distinguish a scalar parameter projection from a function call without exposing either SQL text", () => {
+    const projected = projectAdmissionStatementProfile([
+      { total_exec_time: "00:00:01", prop_exec_time: "50.0%", ncalls: 100, query: "select $1" },
+      { total_exec_time: "00:00:01", prop_exec_time: "50.0%", ncalls: 100, query: "select public.enqueue_admission_notification($1,$2,$3)" },
+    ]);
+    expect(projected.statements[0]).toMatchObject({ scalarProjection: true, mentionedObjects: [] });
+    expect(projected.statements[1]).toMatchObject({ scalarProjection: false, mentionedObjects: ["enqueue_admission_notification"] });
   });
   it.each([
     { total_exec_time: "invalid", prop_exec_time: "50.0%", ncalls: 1, query: "select 1" },
