@@ -14,6 +14,18 @@ import { assertAdmissionContactKeyMaterial } from "./assert-admission-contact-ke
 export async function assertUnreservedAdmissionContact(database: RequestDatabase, tribeId: string, contact: AdmissionContact, readSecurity: () => Promise<MessagingSecurityConfig>): Promise<void> {
   const exists = (await database.execute(sql`select id from public.academy_admission_contact_bindings where tribe_id=${tribeId} and contact_type=${contact.type} and normalized_contact is null limit 1`)).rows[0];
   if (!exists) return;
+  await assertMinimizedAdmissionContactAvailable(database, tribeId, contact, readSecurity);
+}
+
+/**
+ * Checks current protected reservations after their presence was observed under the caller's fences.
+ * @param database - Original authorized transaction retaining any binding lock.
+ * @param tribeId - Fixed native academy.
+ * @param contact - Canonical own proposed contact.
+ * @param readSecurity - Current external keyring read after the reservation observation.
+ * @returns After retained-key completeness and absence of a matching minimized reservation are proved.
+ */
+export async function assertMinimizedAdmissionContactAvailable(database: RequestDatabase, tribeId: string, contact: AdmissionContact, readSecurity: () => Promise<MessagingSecurityConfig>): Promise<void> {
   const security = await readSecurity(), ring = security.keyrings[MESSAGING_KEY_PURPOSE.contactFingerprint], keyIds = [...ring.keys.keys()];
   await assertAdmissionContactKeyMaterial(database, security);
   if (!keyIds.length) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);

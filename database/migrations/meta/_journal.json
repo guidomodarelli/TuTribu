@@ -1324,6 +1324,13 @@
       "when": 1792326841000,
       "tag": "20261018123401_read_locked_admission_facts",
       "breakpoints": true
+    },
+    {
+      "idx": 189,
+      "version": "7",
+      "when": 1792329725000,
+      "tag": "20261018132205_batch_base_admission_binding",
+      "breakpoints": true
     }
   ]
 }
