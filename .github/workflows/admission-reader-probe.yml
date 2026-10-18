@@ -16,7 +16,6 @@ concurrency:
 env:
   HUSKY: "0"
   NEXT_TELEMETRY_DISABLED: "1"
-  PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/admission-reader-browsers
 
 jobs:
   reader-probe:
@@ -31,6 +30,9 @@ jobs:
 
       - name: Preparar herramientas aisladas
         uses: ./.github/actions/setup-quality-gate
+
+      - name: Compartir la caché de navegadores del runner
+        run: printf '%s\n' "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/admission-reader-browsers" >> "$GITHUB_ENV"
 
       - name: Instalar el lector y su infraestructura nativa
         run: |
