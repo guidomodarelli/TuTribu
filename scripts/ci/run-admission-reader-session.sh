@@ -38,8 +38,14 @@ reader_sample_rate="$(node --input-type=module -e 'import {ADMISSION_READER_PROB
 parec --device=admission_reader.monitor --format=s16le --rate="$reader_sample_rate" --channels=1 > "$ORCA_AUDIO_FILE" &
 openbox --sm-disable > "$RUNNER_TEMP/admission-reader-window-manager.log" 2>&1 &
 reader_binary="${ORCA_BINARY_PATH:-orca}"
-export ORCA_BINARY_VERSION="$("$reader_binary" --version)"
-if [[ -n "${ORCA_EXPECTED_VERSION:-}" ]]; then test "$ORCA_BINARY_VERSION" = "$ORCA_EXPECTED_VERSION"; fi
+reader_version_output="$("$reader_binary" --version)"
+reader_version="$(printf '%s' "$reader_version_output" | node --input-type=module -e 'import {parseNativeReaderVersion} from "./tests/support/admission-reader-observation.mjs"; let output=""; for await(const chunk of process.stdin) output+=chunk; const version=parseNativeReaderVersion(output); if(!version) throw new Error("NativeReaderSession.readVersion failed: native_reader_version_unrecognized"); process.stdout.write(version);')"
+export ORCA_BINARY_VERSION="$reader_version"
+printf '{"phase":"reader_version_observed","version":"%s"}\n' "$ORCA_BINARY_VERSION"
+if [[ -n "${ORCA_EXPECTED_VERSION:-}" && "$ORCA_BINARY_VERSION" != "$ORCA_EXPECTED_VERSION" ]]; then
+  printf '%s\n' 'NativeReaderSession.verifyVersion failed: unexpected_reader_version' >&2
+  exit 1
+fi
 export SPEECH_DISPATCHER_VERSION="$(speech-dispatcher --version | head -n 1)"
 "$reader_binary" --replace --enable=speech --disable=braille --debug --debug-file="$ORCA_DEBUG_LOG" > "$RUNNER_TEMP/admission-reader-service.log" 2>&1 &
 if [[ "$#" -eq 0 ]]; then exit 2; fi

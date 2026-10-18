@@ -28,6 +28,7 @@ export const ADMISSION_READER_PROBE = {
   fallbackSpeechMarker: "SPEECH OUTPUT:",
   automaticReadingDisabledMarker: "WEB: Not doing SayAll due to sayAllOnLoad being False",
   outputPatterns: {
+    versionLine: /^(?:(?<plainVersion>\d+\.\d+(?:\.\d+)?)\s*$|Orca version (?<detailedVersion>\d+\.\d+(?:\.\d+)?)(?=,|\s|$))/gmu,
     lineSeparator: /\r?\n/u,
     markup: /<[^>]*>/gu,
     speechEnvelope: /^[\s:'"]+|[\s'"]+$/gu,
@@ -44,5 +45,6 @@ export const ADMISSION_READER_PROBE = {
     status: "native_status_not_updated",
     runtime: "reader_probe_runtime_failed",
     journey: "native_journey_failed",
+    journeyNotStarted: "native_journey_not_started",
   },
 };

@@ -1,9 +1,28 @@
 /** @vitest-environment node */
 /** Distinguishes native speech backend observations from DOM/debug fallback and actual audio silence. */
 import { describe, expect, it } from "vitest";
-import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
+import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak, parseNativeReaderVersion } from "./admission-reader-observation.mjs";
 
 describe("native reader observation boundary", () => {
+  it("should read the bare version reported by older Orca releases", () => {
+    expect(parseNativeReaderVersion("47.2\n")).toBe("47.2");
+  });
+
+  it("should read Orca's version independently from its session and AT-SPI details", () => {
+    expect(parseNativeReaderVersion("Orca version 48.9 (rev 4b964097f), AT-SPI2 version: 2.50.6, Session: x11 GNOME\n")).toBe("48.9");
+    expect(parseNativeReaderVersion("Orca version 48.9, AT-SPI2 version: 2.50.6\n")).toBe("48.9");
+  });
+
+  it("should reject absent or malformed reader versions instead of using a dependency version", () => {
+    expect(parseNativeReaderVersion("AT-SPI2 version: 2.50.6\n")).toBeNull();
+    expect(parseNativeReaderVersion("Orca version 48.9-invalid, AT-SPI2 version: 2.50.6\n")).toBeNull();
+    expect(parseNativeReaderVersion("")).toBeNull();
+  });
+
+  it("should reject contradictory reader versions", () => {
+    expect(parseNativeReaderVersion("47.2\nOrca version 48.9, AT-SPI2 version: 2.50.6\n")).toBeNull();
+  });
+
   it("should accept a canary sent to the actual Speech Dispatcher backend", () => {
     const log = "SPEECH DISPATCHER: Speaking '<speak>Control de lectura ab12</speak>'";
     expect(hasNativeReaderSpeech(log, "Control de lectura ab12")).toBe(true);

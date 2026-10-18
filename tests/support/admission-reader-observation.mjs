@@ -1,6 +1,17 @@
 /** Reads actual reader/PCM observations while exposing only canary matches and numeric amplitude. */
 import { ADMISSION_READER_PROBE } from "./constants/admission-reader-probe.mjs";
 
+/** @param {string} output - Native --version stdout, kept private. @returns {string|null} The unambiguous Orca version, excluding dependency/session information. */
+export function parseNativeReaderVersion(output) {
+  /** @type {Set<string>} */
+  const versions = new Set();
+  for (const match of output.trim().matchAll(ADMISSION_READER_PROBE.outputPatterns.versionLine)) {
+    const version = match.groups?.plainVersion ?? match.groups?.detailedVersion;
+    if (version) versions.add(version);
+  }
+  return versions.size === 1 ? versions.values().next().value ?? null : null;
+}
+
 /** @param {string} log - Private native Orca debug output. @param {string} canary - Expected synthetic UI label. @returns {boolean} Whether the real speech backend received that label. */
 export function hasNativeReaderSpeech(log, canary) {
   if (!canary.trim()) return false;
