@@ -1,0 +1,372 @@
+{
+  "workflowRun": 39164146520,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39164146520",
+  "sourceCommit": "d74069f572310685204e8daebb98bb29568ffb0d",
+  "kind": "platform_preflight",
+  "backend": "webkitgtk",
+  "stockPackageVersion": "2.52.6-0ubuntu0.24.04.1",
+  "orcaVersion": "51.1",
+  "passedVariants": 8,
+  "failedVariants": 8,
+  "cases": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "empty",
+      "passed": true,
+      "phase": "live",
+      "browserBackend": "playwright",
+      "browserVersion": "148.0.7778.96",
+      "observedViewport": {
+        "width": 390,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "failureHint": null
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "seeded_text",
+      "passed": true,
+      "phase": "live",
+      "browserBackend": "playwright",
+      "browserVersion": "148.0.7778.96",
+      "observedViewport": {
+        "width": 390,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "failureHint": null
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "seeded_marker",
+      "passed": true,
+      "phase": "live",
+      "browserBackend": "playwright",
+      "browserVersion": "148.0.7778.96",
+      "observedViewport": {
+        "width": 390,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "failureHint": null
+    },
+    {
+      "engine": "chromium",
+      "width": 390,
+      "markupVariant": "polite_paragraph",
+      "passed": true,
+      "phase": "live",
+      "browserBackend": "playwright",
+      "browserVersion": "148.0.7778.96",
+      "observedViewport": {
+        "width": 390,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "failureHint": null
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "empty",
+      "passed": true,
+      "phase": "live",
+      "browserBackend": "playwright",
+      "browserVersion": "148.0.7778.96",
+      "observedViewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "failureHint": null
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "seeded_text",
+      "passed": true,
+      "phase": "live",
+      "browserBackend": "playwright",
+      "browserVersion": "148.0.7778.96",
+      "observedViewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "failureHint": null
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "seeded_marker",
+      "passed": true,
+      "phase": "live",
+      "browserBackend": "playwright",
+      "browserVersion": "148.0.7778.96",
+      "observedViewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "failureHint": null
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "markupVariant": "polite_paragraph",
+      "passed": true,
+      "phase": "live",
+      "browserBackend": "playwright",
+      "browserVersion": "148.0.7778.96",
+      "observedViewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": true,
+      "failureCode": null,
+      "failureHint": null
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "empty",
+      "passed": false,
+      "phase": "setup",
+      "browserBackend": null,
+      "browserVersion": null,
+      "observedViewport": null,
+      "focusSpeechObserved": false,
+      "liveSpeechObserved": false,
+      "failureCode": "reader_probe_runtime_failed",
+      "failureHint": "reader_webdriver_viewport_mismatch"
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "phase": "setup",
+      "browserBackend": null,
+      "browserVersion": null,
+      "observedViewport": null,
+      "focusSpeechObserved": false,
+      "liveSpeechObserved": false,
+      "failureCode": "reader_probe_runtime_failed",
+      "failureHint": "reader_webdriver_viewport_mismatch"
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "phase": "setup",
+      "browserBackend": null,
+      "browserVersion": null,
+      "observedViewport": null,
+      "focusSpeechObserved": false,
+      "liveSpeechObserved": false,
+      "failureCode": "reader_probe_runtime_failed",
+      "failureHint": "reader_webdriver_viewport_mismatch"
+    },
+    {
+      "engine": "webkit",
+      "width": 390,
+      "markupVariant": "polite_paragraph",
+      "passed": false,
+      "phase": "setup",
+      "browserBackend": null,
+      "browserVersion": null,
+      "observedViewport": null,
+      "focusSpeechObserved": false,
+      "liveSpeechObserved": false,
+      "failureCode": "reader_probe_runtime_failed",
+      "failureHint": "reader_webdriver_viewport_mismatch"
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "empty",
+      "passed": false,
+      "phase": "live",
+      "browserBackend": "webkitgtk",
+      "browserVersion": "2.52.6",
+      "observedViewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "failureHint": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "protocolVersion": 2,
+        "scope": "owned_ci_display",
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 0,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [],
+        "expectedTextSignals": 0,
+        "expectedMainApplicationTextSignals": 0,
+        "complete": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "seeded_text",
+      "passed": false,
+      "phase": "live",
+      "browserBackend": "webkitgtk",
+      "browserVersion": "2.52.6",
+      "observedViewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "failureHint": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "protocolVersion": 2,
+        "scope": "owned_ci_display",
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 0,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [],
+        "expectedTextSignals": 0,
+        "expectedMainApplicationTextSignals": 0,
+        "complete": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "seeded_marker",
+      "passed": false,
+      "phase": "live",
+      "browserBackend": "webkitgtk",
+      "browserVersion": "2.52.6",
+      "observedViewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "failureHint": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "protocolVersion": 2,
+        "scope": "owned_ci_display",
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 1,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [
+          {
+            "eventType": "object:children-changed:add",
+            "application": "browser",
+            "toolkit": "webkit",
+            "roleId": 95,
+            "liveRegion": false,
+            "payloadIsText": false,
+            "expectedTextInPayload": false,
+            "maximumDataLength": 0,
+            "count": 1
+          }
+        ],
+        "expectedTextSignals": 0,
+        "expectedMainApplicationTextSignals": 0,
+        "complete": true
+      }
+    },
+    {
+      "engine": "webkit",
+      "width": 1280,
+      "markupVariant": "polite_paragraph",
+      "passed": false,
+      "phase": "live",
+      "browserBackend": "webkitgtk",
+      "browserVersion": "2.52.6",
+      "observedViewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "focusSpeechObserved": true,
+      "liveSpeechObserved": false,
+      "failureCode": "native_reader_speech_missing",
+      "failureHint": "native_reader_speech_missing",
+      "nativeStatusTextObserved": true,
+      "nativeEventObservation": {
+        "available": true,
+        "protocolVersion": 2,
+        "scope": "owned_ci_display",
+        "registeredEvents": [
+          "object:text-changed:insert",
+          "object:announcement",
+          "object:children-changed:add",
+          "object:property-change:accessible-name",
+          "object:state-changed:busy"
+        ],
+        "completion": "stopped",
+        "observedEvents": 0,
+        "readFailures": 0,
+        "droppedEvents": 0,
+        "groups": [],
+        "expectedTextSignals": 0,
+        "expectedMainApplicationTextSignals": 0,
+        "complete": true
+      }
+    }
+  ],
+  "productJourneysValidated": false,
+  "realMessages": 0,
+  "operationalGatesClosed": []
+}
