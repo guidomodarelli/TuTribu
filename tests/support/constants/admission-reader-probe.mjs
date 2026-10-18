@@ -3,6 +3,7 @@ export const ADMISSION_READER_PROBE = {
   engines: ["chromium", "webkit"],
   widths: [390, 1280],
   height: 900,
+  locale: "es-AR",
   pollMs: 100,
   observationTimeoutMs: 30_000,
   windowCommandTimeoutMs: 5_000,

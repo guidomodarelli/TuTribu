@@ -40,7 +40,7 @@ jobs:
       - name: Instalar el lector y su infraestructura nativa
         run: |
           sudo apt-get update
-          sudo apt-get install -y orca dbus-x11 at-spi2-core gsettings-desktop-schemas openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng meson ninja-build pkg-config libatspi2.0-dev libatk-bridge2.0-dev python3-gi-dev gettext itstool yelp-tools
+          sudo apt-get install -y orca dbus-x11 at-spi2-core gsettings-desktop-schemas openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng meson ninja-build pkg-config libatspi2.0-dev libatk-bridge2.0-dev python-gi-dev gettext itstool yelp-tools
           pnpm exec playwright install --with-deps chromium webkit
 
       - name: Preparar Orca con soporte web de WebKitGTK
@@ -52,6 +52,7 @@ jobs:
           meson install -C "$RUNNER_TEMP/admission-orca-build"
           printf '%s\n' "ORCA_BINARY_PATH=$RUNNER_TEMP/admission-orca-install/bin/orca" >> "$GITHUB_ENV"
           printf '%s\n' 'ORCA_SOURCE_COMMIT=7da13d868338c4c75751155258b51a82ab273583' >> "$GITHUB_ENV"
+          printf '%s\n' 'ORCA_EXPECTED_VERSION=47.2' >> "$GITHUB_ENV"
 
       - name: Probar teclado, voz y audio reales
         run: dbus-run-session -- xvfb-run -a --server-args="-screen 0 1600x1200x24" bash scripts/ci/run-admission-reader-probe.sh

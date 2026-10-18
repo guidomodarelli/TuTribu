@@ -29,6 +29,7 @@ parec --device=admission_reader.monitor --format=s16le --rate="$reader_sample_ra
 openbox --sm-disable > "$RUNNER_TEMP/admission-reader-window-manager.log" 2>&1 &
 reader_binary="${ORCA_BINARY_PATH:-orca}"
 export ORCA_BINARY_VERSION="$("$reader_binary" --version)"
+if [[ -n "${ORCA_EXPECTED_VERSION:-}" ]]; then test "$ORCA_BINARY_VERSION" = "$ORCA_EXPECTED_VERSION"; fi
 export SPEECH_DISPATCHER_VERSION="$(speech-dispatcher --version | head -n 1)"
 "$reader_binary" --replace --enable=speech --disable=braille --debug --debug-file="$ORCA_DEBUG_LOG" > "$RUNNER_TEMP/admission-reader-service.log" 2>&1 &
 node scripts/ci/run-admission-reader-probe.mjs

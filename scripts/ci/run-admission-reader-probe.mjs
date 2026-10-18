@@ -23,7 +23,7 @@ const server = createServer((request, response) => {
   const item = cases.find((candidate) => new URL(request.url, "http://127.0.0.1").pathname === `/${candidate.id}`);
   if (!item) { response.writeHead(404); response.end(); return; }
   response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-  response.end(`<!doctype html><html lang="es"><meta charset="utf-8"><title>${item.title}</title><body><button id="control">${item.focus}</button><p id="status" role="status" aria-live="polite" aria-atomic="true"></p><script>document.getElementById("control").addEventListener("click",()=>{document.getElementById("status").textContent=${JSON.stringify(item.status)}})</script></body></html>`);
+  response.end(`<!doctype html><html lang="es"><meta charset="utf-8"><title>${item.title}</title><body><h1>Prueba de lector</h1><button id="control">${item.focus}</button><p id="status" role="status" aria-live="polite" aria-atomic="true"></p><p>Fin</p><script>document.getElementById("control").addEventListener("click",()=>{document.getElementById("status").textContent=${JSON.stringify(item.status)}})</script></body></html>`);
 });
 await new Promise((fulfill) => server.listen(0, "127.0.0.1", fulfill));
 const address = server.address();
@@ -66,9 +66,9 @@ try {
     const caseLogOffset = (await readerLog()).length;
     let browser;
     try {
-      browser = await ({ chromium, webkit })[item.engine].launch({ headless: false, ...(item.engine === "chromium" ? { args: ["--force-renderer-accessibility"] } : {}) });
+      browser = await ({ chromium, webkit })[item.engine].launch({ headless: false, ...(item.engine === "chromium" ? { args: ["--force-renderer-accessibility", "--disable-features=Translate"] } : {}) });
       observation.browserVersion = browser.version();
-      const context = await browser.newContext({ viewport: { width: item.width, height: PROBE.height }, reducedMotion: "reduce" });
+      const context = await browser.newContext({ viewport: { width: item.width, height: PROBE.height }, reducedMotion: "reduce", locale: PROBE.locale });
       const page = await context.newPage();
       await page.goto(`${origin}/${item.id}`, { waitUntil: "load" });
       await page.bringToFront();
