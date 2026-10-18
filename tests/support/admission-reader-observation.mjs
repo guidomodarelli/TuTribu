@@ -18,7 +18,7 @@ export function hasNativeReaderSpeech(log, canary) {
   return log.split(ADMISSION_READER_PROBE.outputPatterns.lineSeparator).some((line) => line.includes(ADMISSION_READER_PROBE.speechMarker) && line.replace(ADMISSION_READER_PROBE.outputPatterns.markup, "").includes(canary));
 }
 
-/** @typedef {{textInsertionEntries:number,handledEntries:number,rejectedEntries:number,inactiveDocumentEntries:number,focusedAlertEntries:number,queuePresentationEntries:number,monitoringDisabledEntries:number,pageSwitchInsertionEntries:number}} NativeLiveRegionPipeline */
+/** @typedef {{textInsertionEntries:number,handledEntries:number,rejectedEntries:number,inactiveDocumentEntries:number,focusedAlertEntries:number,presenterDisabledEntries:number,queuePresentationEntries:number,monitoringDisabledEntries:number,pageSwitchInsertionEntries:number}} NativeLiveRegionPipeline */
 
 /**
  * Counts entries from Orca's pinned web event pipeline without retaining labels or accepting them as speech.
@@ -29,14 +29,18 @@ export function hasNativeReaderSpeech(log, canary) {
 export function diagnoseNativeLiveRegionPipeline(log) {
   const lines = log.split(ADMISSION_READER_PROBE.outputPatterns.lineSeparator);
   const markers = ADMISSION_READER_PROBE.liveRegionMarkers;
-  /** @param {string} marker - Fixed provider debug marker. @returns {number} Matching log entries in this phase. */
-  const countEntries = (marker) => lines.filter((line) => line.includes(marker)).length;
+  /** @param {string|ReadonlyArray<string>} marker - Closed historical/current provider markers. @returns {number} Matching log entries counted once per line. */
+  const countEntries = (marker) => {
+    const alternatives = typeof marker === "string" ? [marker] : marker;
+    return lines.filter((line) => alternatives.some((alternative) => line.includes(alternative))).length;
+  };
   return {
     textInsertionEntries: countEntries(markers.textInsertion),
     handledEntries: countEntries(markers.handled),
     rejectedEntries: countEntries(markers.rejected),
     inactiveDocumentEntries: countEntries(markers.inactiveDocument),
     focusedAlertEntries: countEntries(markers.focusedAlert),
+    presenterDisabledEntries: countEntries(markers.presenterDisabled),
     queuePresentationEntries: countEntries(markers.queuePresentation),
     monitoringDisabledEntries: countEntries(markers.monitoringDisabled),
     pageSwitchInsertionEntries: countEntries(markers.pageSwitchInsertion),

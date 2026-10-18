@@ -5,7 +5,7 @@ import { diagnoseNativeLiveRegionPipeline, diagnoseNativeReaderSpeech, hasNative
 
 const emptyLiveRegionPipeline = {
   textInsertionEntries: 0, handledEntries: 0, rejectedEntries: 0, inactiveDocumentEntries: 0,
-  focusedAlertEntries: 0, queuePresentationEntries: 0, monitoringDisabledEntries: 0, pageSwitchInsertionEntries: 0,
+  focusedAlertEntries: 0, presenterDisabledEntries: 0, queuePresentationEntries: 0, monitoringDisabledEntries: 0, pageSwitchInsertionEntries: 0,
 };
 
 describe("native reader observation boundary", () => {
@@ -116,6 +116,24 @@ describe("native reader observation boundary", () => {
 
   it("should report an empty pipeline for absent native events", () => {
     expect(diagnoseNativeLiveRegionPipeline("")).toEqual(emptyLiveRegionPipeline);
+  });
+
+  it("should recognize the current pinned Orca presenter messages without turning them into speech", () => {
+    const log = [
+      "WEB: Event is from live region",
+      "LIVE REGION PRESENTER: Event from private-document but active document is another-private-document",
+      "LIVE REGION PRESENTER: Event is not from a live region.",
+      "LIVE REGION PRESENTER: Focused source will be presented as part of alert",
+      "LIVE REGION PRESENTER: Live region presenter is not enabled.",
+      "vvvvv PRESENT LIVE REGION MESSAGE vvvvv",
+    ].join("\n");
+    expect(diagnoseNativeLiveRegionPipeline(log)).toEqual({ ...emptyLiveRegionPipeline, handledEntries: 1, rejectedEntries: 1, inactiveDocumentEntries: 1, focusedAlertEntries: 1, presenterDisabledEntries: 1, queuePresentationEntries: 1 });
+    expect(hasNativeReaderSpeech(log, "private-document")).toBe(false);
+  });
+
+  it("should count each diagnostic line once even when it contains both historical and current markers", () => {
+    const log = "WEB: Event to be handled as live region WEB: Event is from live region\nWEB: Event is from live region";
+    expect(diagnoseNativeLiveRegionPipeline(log).handledEntries).toBe(2);
   });
 
   it("should require the visible enabled expected control to hold native focus", () => {
