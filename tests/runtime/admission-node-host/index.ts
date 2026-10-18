@@ -46,11 +46,14 @@ async function run(): Promise<AdmissionNodeStatus> {
     const fixture = await seedAdmissionPerformanceFixture(database());
     await database().withContext(owner, (transaction) => transaction.execute(sql`update native_test_support.admission_node_runs set fixture_tribe_id=${fixture.fixture.tribeId} where id=${configuration.operationId} and state=${ADMISSION_NODE_RUN_STATE.running}`));
     const setupDurationMs = performance.now() - started;
-    const cpuProfiler = process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue ? await startAdmissionCpuProfile() : undefined;
+    let cpuProfiler: Awaited<ReturnType<typeof startAdmissionCpuProfile>> | undefined;
     let cpuProfile: AdmissionCpuObservation | undefined;
     const measured = await (async () => {
-      try { return await runAdmissionPerformanceWorkload(database(), fixture.fixture, fixture.participants); }
-      finally { cpuProfile = await cpuProfiler?.stop(); }
+      try { return await runAdmissionPerformanceWorkload(database(), fixture.fixture, fixture.participants, process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue ? {
+        beforeMeasurement: async () => { cpuProfiler = await startAdmissionCpuProfile(); },
+        afterMeasurement: async () => { cpuProfile = await cpuProfiler?.stop(); cpuProfiler = undefined; },
+      } : undefined); }
+      finally { if (cpuProfiler) cpuProfile = await cpuProfiler.stop(); }
     })();
     const measurement = admissionNodeMeasurementSchema.parse({ ...measured, ...(cpuProfile ? { cpuProfile } : {}), setupDurationMs, nodeVersion: process.versions.node, sourceCommit: configuration.sourceCommit, bundleSha256: configuration.bundleSha256 });
     await database().withContext(owner, (transaction) => transaction.execute(sql`update native_test_support.admission_node_runs set state=${ADMISSION_NODE_RUN_STATE.completed},measurement=${JSON.stringify(measurement)}::jsonb,completed_at=clock_timestamp() where id=${configuration.operationId} and state=${ADMISSION_NODE_RUN_STATE.running}`));

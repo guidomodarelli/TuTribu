@@ -1,0 +1,876 @@
+{
+  "source": {
+    "commit": "0b7d9e73fee3aacbfaec579b0dfc6c262ba48112",
+    "worktreeChanges": false,
+    "bundleSha256": "3a39b6c68ddaba798cc4499511dbeb366bc0671d562c2ddea2c85d25d5feff38"
+  },
+  "compute": {
+    "minimum": 8,
+    "maximum": 8,
+    "region": "aws-us-east-1"
+  },
+  "databaseStatistics": {
+    "trackingMode": "top",
+    "planningEnabled": false,
+    "serverVersionNum": 170011
+  },
+  "measurement": {
+    "warmupDurationMs": 3472.9750439999625,
+    "setupDurationMs": 2636.632439000532,
+    "networkQueryP95Ms": 2.9490809999406338,
+    "networkSamples": 20,
+    "participants": 100,
+    "admitted": 50,
+    "pending": 50,
+    "failures": [],
+    "p95Ms": 5750.144423999824,
+    "targetMs": 3000,
+    "peakInFlight": 100,
+    "pool": {
+      "maximum": 100,
+      "acquisitions": 300,
+      "releases": 300,
+      "errorReleases": 0,
+      "peakWaitingCount": 0,
+      "peakTotalCount": 100,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    },
+    "eventLoopP95Ms": 103.284735,
+    "facts": {
+      "entries": 10000,
+      "requests": 100,
+      "basic_members": 50,
+      "deliveries": 0
+    },
+    "realMessages": 0,
+    "nodeVersion": "24.16.0",
+    "sourceCommit": "0b7d9e73fee3aacbfaec579b0dfc6c262ba48112",
+    "bundleSha256": "3a39b6c68ddaba798cc4499511dbeb366bc0671d562c2ddea2c85d25d5feff38",
+    "cpuProfile": {
+      "status": "available",
+      "scope": "warmup_and_workload",
+      "durationMs": 9446.758,
+      "sampledMs": 9445.751000000042,
+      "sampleCount": 2234,
+      "idleMs": 3567.6260000000048,
+      "garbageCollectionMs": 877.6040000000004,
+      "unattributedMs": 0,
+      "topSelf": [
+        {
+          "name": "(idle)",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 3567.6260000000048,
+          "inclusiveMs": 3567.6260000000048,
+          "samples": 1496
+        },
+        {
+          "name": "(garbage collector)",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 877.6040000000004,
+          "inclusiveMs": 877.6040000000004,
+          "samples": 49
+        },
+        {
+          "name": "run",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 359.789,
+          "inclusiveMs": 359.789,
+          "samples": 7
+        },
+        {
+          "name": "run",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 352.487,
+          "inclusiveMs": 352.487,
+          "samples": 8
+        },
+        {
+          "name": "writev",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 308.568,
+          "inclusiveMs": 308.568,
+          "samples": 41
+        },
+        {
+          "name": "addFields",
+          "source": "application_bundle",
+          "lineNumber": 1975,
+          "columnNumber": 15,
+          "selfMs": 217.62699999999995,
+          "inclusiveMs": 219.67199999999997,
+          "samples": 30
+        },
+        {
+          "name": "post",
+          "source": "node_runtime",
+          "lineNumber": 114,
+          "columnNumber": 6,
+          "selfMs": 202.25,
+          "inclusiveMs": 202.25,
+          "samples": 1
+        },
+        {
+          "name": "getPeerCertificate",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 200.82699999999997,
+          "inclusiveMs": 200.82699999999997,
+          "samples": 24
+        },
+        {
+          "name": "run",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 179.877,
+          "inclusiveMs": 179.877,
+          "samples": 4
+        },
+        {
+          "name": "(program)",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 118.28300000000004,
+          "inclusiveMs": 118.28300000000004,
+          "samples": 30
+        },
+        {
+          "name": "nextTick",
+          "source": "node_runtime",
+          "lineNumber": 112,
+          "columnNumber": 17,
+          "selfMs": 111.692,
+          "inclusiveMs": 111.692,
+          "samples": 14
+        },
+        {
+          "name": "connect",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 101.976,
+          "inclusiveMs": 101.976,
+          "samples": 3
+        },
+        {
+          "name": "anonymous",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 100.078,
+          "inclusiveMs": 100.078,
+          "samples": 3
+        },
+        {
+          "name": "start",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 98.82099999999997,
+          "inclusiveMs": 98.82099999999997,
+          "samples": 11
+        },
+        {
+          "name": "writev",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 97.332,
+          "inclusiveMs": 97.332,
+          "samples": 1
+        },
+        {
+          "name": "processTicksAndRejections",
+          "source": "node_runtime",
+          "lineNumber": 71,
+          "columnNumber": 34,
+          "selfMs": 95.53900000000002,
+          "inclusiveMs": 2172.216999999999,
+          "samples": 6
+        },
+        {
+          "name": "run",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 93.63900000000001,
+          "inclusiveMs": 93.63900000000001,
+          "samples": 13
+        },
+        {
+          "name": "anonymous",
+          "source": "node_runtime",
+          "lineNumber": 255,
+          "columnNumber": 17,
+          "selfMs": 93.205,
+          "inclusiveMs": 93.205,
+          "samples": 1
+        },
+        {
+          "name": "remove",
+          "source": "node_runtime",
+          "lineNumber": 15,
+          "columnNumber": 15,
+          "selfMs": 92.61,
+          "inclusiveMs": 92.61,
+          "samples": 1
+        },
+        {
+          "name": "handlePacket",
+          "source": "application_bundle",
+          "lineNumber": 2792,
+          "columnNumber": 18,
+          "selfMs": 91.569,
+          "inclusiveMs": 105.81500000000001,
+          "samples": 3
+        },
+        {
+          "name": "writeBuffer",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 91.265,
+          "inclusiveMs": 91.265,
+          "samples": 3
+        },
+        {
+          "name": "anonymous",
+          "source": "application_bundle",
+          "lineNumber": 4138,
+          "columnNumber": 40,
+          "selfMs": 89.474,
+          "inclusiveMs": 89.474,
+          "samples": 3
+        },
+        {
+          "name": "importKey",
+          "source": "node_runtime",
+          "lineNumber": 857,
+          "columnNumber": 24,
+          "selfMs": 89.159,
+          "inclusiveMs": 192.80800000000002,
+          "samples": 1
+        },
+        {
+          "name": "anonymous",
+          "source": "application_bundle",
+          "lineNumber": 3040,
+          "columnNumber": 24,
+          "selfMs": 88.94500000000001,
+          "inclusiveMs": 393.2390000000001,
+          "samples": 2
+        },
+        {
+          "name": "bindBaseAdmissionContact",
+          "source": "application_bundle",
+          "lineNumber": 31163,
+          "columnNumber": 39,
+          "selfMs": 88.337,
+          "inclusiveMs": 190.47900000000007,
+          "samples": 2
+        }
+      ],
+      "topInclusive": [
+        {
+          "name": "(idle)",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 3567.6260000000048,
+          "inclusiveMs": 3567.6260000000048,
+          "samples": 1496
+        },
+        {
+          "name": "processTicksAndRejections",
+          "source": "node_runtime",
+          "lineNumber": 71,
+          "columnNumber": 34,
+          "selfMs": 95.53900000000002,
+          "inclusiveMs": 2172.216999999999,
+          "samples": 6
+        },
+        {
+          "name": "runMicrotasks",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 15.906,
+          "inclusiveMs": 1768.5860000000002,
+          "samples": 15
+        },
+        {
+          "name": "onStreamRead",
+          "source": "node_runtime",
+          "lineNumber": 165,
+          "columnNumber": 21,
+          "selfMs": 7.463000000000001,
+          "inclusiveMs": 1174.583,
+          "samples": 7
+        },
+        {
+          "name": "(garbage collector)",
+          "source": "other",
+          "lineNumber": -1,
+          "columnNumber": -1,
+          "selfMs": 877.6040000000004,
+          "inclusiveMs": 877.6040000000004,
+          "samples": 49
+        },
+        {
+          "name": "anonymous",
+          "source": "node_runtime",
+          "lineNumber": 388,
+          "columnNumber": 34,
+          "selfMs": 0.013,
+          "inclusiveMs": 612.3320000000001,
+          "samples": 1
+        },
+        {
+          "name": "readableAddChunkPushByteMode",
+          "source": "node_runtime",
+          "lineNumber": 464,
+          "columnNumber": 37,
+          "selfMs": 0,
+          "inclusiveMs": 612.3190000000001,
+          "samples": 0
+        },
+        {
+          "name": "addChunk",
+          "source": "node_runtime",
+          "lineNumber": 551,
+          "columnNumber": 17,
+          "selfMs": 0.008,
+          "inclusiveMs": 612.3190000000001,
+          "samples": 1
+        },
+        {
+          "name": "then",
+          "source": "application_bundle",
+          "lineNumber": 6446,
+          "columnNumber": 6,
+          "selfMs": 2.1390000000000002,
+          "inclusiveMs": 610.0840000000004,
+          "samples": 2
+        },
+        {
+          "name": "anonymous",
+          "source": "application_bundle",
+          "lineNumber": 10761,
+          "columnNumber": 6,
+          "selfMs": 0,
+          "inclusiveMs": 607.9450000000004,
+          "samples": 0
+        },
+        {
+          "name": "execute",
+          "source": "application_bundle",
+          "lineNumber": 11050,
+          "columnNumber": 15,
+          "selfMs": 0,
+          "inclusiveMs": 607.9450000000004,
+          "samples": 0
+        },
+        {
+          "name": "emit",
+          "source": "node_runtime",
+          "lineNumber": 455,
+          "columnNumber": 43,
+          "selfMs": 2.002,
+          "inclusiveMs": 607.5390000000002,
+          "samples": 1
+        },
+        {
+          "name": "anonymous",
+          "source": "application_bundle",
+          "lineNumber": 11051,
+          "columnNumber": 53,
+          "selfMs": 4.305999999999999,
+          "inclusiveMs": 594.6560000000004,
+          "samples": 3
+        },
+        {
+          "name": "anonymous",
+          "source": "application_bundle",
+          "lineNumber": 11056,
+          "columnNumber": 64,
+          "selfMs": 1.089,
+          "inclusiveMs": 583.8280000000004,
+          "samples": 1
+        },
+        {
+          "name": "queryWithCache",
+          "source": "application_bundle",
+          "lineNumber": 10829,
+          "columnNumber": 22,
+          "selfMs": 1.052,
+          "inclusiveMs": 582.7390000000004,
+          "samples": 1
+        },
+        {
+          "name": "anonymous",
+          "source": "application_bundle",
+          "lineNumber": 11062,
+          "columnNumber": 60,
+          "selfMs": 2.115,
+          "inclusiveMs": 581.6870000000004,
+          "samples": 2
+        },
+        {
+          "name": "query",
+          "source": "application_bundle",
+          "lineNumber": 4120,
+          "columnNumber": 11,
+          "selfMs": 3.1839999999999997,
+          "inclusiveMs": 579.5720000000003,
+          "samples": 3
+        },
+        {
+          "name": "readableAddChunkPushByteMode",
+          "source": "node_runtime",
+          "lineNumber": 464,
+          "columnNumber": 37,
+          "selfMs": 1.052,
+          "inclusiveMs": 554.7719999999997,
+          "samples": 1
+        },
+        {
+          "name": "addChunk",
+          "source": "node_runtime",
+          "lineNumber": 551,
+          "columnNumber": 17,
+          "selfMs": 2.117,
+          "inclusiveMs": 553.7199999999997,
+          "samples": 2
+        },
+        {
+          "name": "_pulseQueryQueue",
+          "source": "application_bundle",
+          "lineNumber": 4099,
+          "columnNumber": 22,
+          "selfMs": 1.056,
+          "inclusiveMs": 484.5629999999999,
+          "samples": 1
+        },
+        {
+          "name": "submit",
+          "source": "application_bundle",
+          "lineNumber": 2117,
+          "columnNumber": 12,
+          "selfMs": 0,
+          "inclusiveMs": 483.5069999999999,
+          "samples": 0
+        },
+        {
+          "name": "assertMessagingAuthenticatedMacKeyMaterials",
+          "source": "application_bundle",
+          "lineNumber": 12031,
+          "columnNumber": 58,
+          "selfMs": 87.57900000000001,
+          "inclusiveMs": 449.62299999999993,
+          "samples": 2
+        },
+        {
+          "name": "emit",
+          "source": "node_runtime",
+          "lineNumber": 455,
+          "columnNumber": 43,
+          "selfMs": 1.056,
+          "inclusiveMs": 439.91099999999994,
+          "samples": 1
+        },
+        {
+          "name": "anonymous",
+          "source": "application_bundle",
+          "lineNumber": 3040,
+          "columnNumber": 24,
+          "selfMs": 0,
+          "inclusiveMs": 438.8549999999999,
+          "samples": 0
+        },
+        {
+          "name": "parse",
+          "source": "application_bundle",
+          "lineNumber": 2740,
+          "columnNumber": 11,
+          "selfMs": 3.1830000000000003,
+          "inclusiveMs": 438.8549999999999,
+          "samples": 2
+        }
+      ]
+    },
+    "diagnostics": {
+      "wallDurationMs": 5751.717452000827,
+      "cpuUserMs": 3060.584,
+      "cpuSystemMs": 710.14,
+      "eventLoopActiveMs": 4322.302067999728,
+      "eventLoopIdleMs": 1429.4208370000124,
+      "eventLoopUtilization": 0.7514795374169582,
+      "accountTransactions": 100,
+      "commandTransactions": 200,
+      "accountTransactionP95Ms": 321.51110599935055,
+      "commandTransactionP95Ms": 4114.065345999785,
+      "admittedP95Ms": 5750.554487999529,
+      "pendingP95Ms": 5720.308670000173
+    }
+  },
+  "databaseProfile": {
+    "status": "available",
+    "source": "neon_inspect_db_outliers",
+    "scope": "owned_compute_since_start",
+    "limit": 25,
+    "statements": [
+      {
+        "position": 1,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "stage_admission_notification_obligation"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 1254.5900000000001,
+        "meanExecutionMs": 12.545900000000001,
+        "sharePercent": 18.8
+      },
+      {
+        "position": 2,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_allowlist_entries"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 581.038,
+        "meanExecutionMs": 5.81038,
+        "sharePercent": 8.7
+      },
+      {
+        "position": 3,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "read_own_admission_request_eligibility"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 574.619,
+        "meanExecutionMs": 11.49238,
+        "sharePercent": 8.6
+      },
+      {
+        "position": 4,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "current_app_user_id",
+          "read_admission_reviewer_context"
+        ],
+        "calls": 500,
+        "totalExecutionMs": 419.234,
+        "meanExecutionMs": 0.838468,
+        "sharePercent": 6.3
+      },
+      {
+        "position": 5,
+        "operation": "update",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_requests",
+          "clock_timestamp"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 260.809,
+        "meanExecutionMs": 2.6080900000000002,
+        "sharePercent": 3.9
+      },
+      {
+        "position": 6,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "assert_authorized_messaging_key_material_proof"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 260.399,
+        "meanExecutionMs": 0.6509975,
+        "sharePercent": 3.9
+      },
+      {
+        "position": 7,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_requests"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 214.57399999999998,
+        "meanExecutionMs": 2.14574,
+        "sharePercent": 3.2
+      },
+      {
+        "position": 8,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "tribe_members"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 178.968,
+        "meanExecutionMs": 3.57936,
+        "sharePercent": 2.7
+      },
+      {
+        "position": 9,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_audit_events"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 155.585,
+        "meanExecutionMs": 1.5558500000000002,
+        "sharePercent": 2.3
+      },
+      {
+        "position": 10,
+        "operation": "update",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_operations",
+          "clock_timestamp"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 152.307,
+        "meanExecutionMs": 1.52307,
+        "sharePercent": 2.3
+      },
+      {
+        "position": 11,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "current_app_user_id",
+          "pg_advisory_xact_lock",
+          "tribes"
+        ],
+        "calls": 550,
+        "totalExecutionMs": 110.079,
+        "meanExecutionMs": 0.20014363636363636,
+        "sharePercent": 1.6
+      },
+      {
+        "position": 12,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 109.03699999999999,
+        "meanExecutionMs": 2.1807399999999997,
+        "sharePercent": 1.6
+      },
+      {
+        "position": 13,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_contact_bindings"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 104.241,
+        "meanExecutionMs": 1.04241,
+        "sharePercent": 1.6
+      },
+      {
+        "position": 14,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_membership_effects"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 95.805,
+        "meanExecutionMs": 1.9161000000000001,
+        "sharePercent": 1.4
+      },
+      {
+        "position": 15,
+        "operation": "create",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account",
+          "global_identity_evidence",
+          "user"
+        ],
+        "calls": 1,
+        "totalExecutionMs": 94.41199999999999,
+        "meanExecutionMs": 94.41199999999999,
+        "sharePercent": 1.4
+      },
+      {
+        "position": 16,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_operations",
+          "clock_timestamp"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 81.876,
+        "meanExecutionMs": 0.81876,
+        "sharePercent": 1.2
+      },
+      {
+        "position": 17,
+        "operation": "other",
+        "scalarProjection": false,
+        "mentionedObjects": [],
+        "calls": 1,
+        "totalExecutionMs": 78.746,
+        "meanExecutionMs": 78.746,
+        "sharePercent": 1.2
+      },
+      {
+        "position": 18,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "messaging_key_material_context_is_current"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 77.973,
+        "meanExecutionMs": 0.1949325,
+        "sharePercent": 1.2
+      },
+      {
+        "position": 19,
+        "operation": "other",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account"
+        ],
+        "calls": 1,
+        "totalExecutionMs": 77.724,
+        "meanExecutionMs": 77.724,
+        "sharePercent": 1.2
+      },
+      {
+        "position": 20,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "read_own_admission_request_summary"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 73.923,
+        "meanExecutionMs": 1.47846,
+        "sharePercent": 1.1
+      },
+      {
+        "position": 21,
+        "operation": "create",
+        "scalarProjection": false,
+        "mentionedObjects": [],
+        "calls": 1,
+        "totalExecutionMs": 72.478,
+        "meanExecutionMs": 72.478,
+        "sharePercent": 1.1
+      },
+      {
+        "position": 22,
+        "operation": "update",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_requests",
+          "clock_timestamp"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 67.49,
+        "meanExecutionMs": 1.3497999999999999,
+        "sharePercent": 1
+      },
+      {
+        "position": 23,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account",
+          "clock_timestamp",
+          "current_app_user_id",
+          "global_identity_evidence",
+          "global_session_identity_bindings",
+          "recent_authentication_evidence",
+          "session",
+          "user"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 65.871,
+        "meanExecutionMs": 0.16467749999999998,
+        "sharePercent": 1
+      },
+      {
+        "position": 24,
+        "operation": "create",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account",
+          "clock_timestamp",
+          "session",
+          "tribes",
+          "user"
+        ],
+        "calls": 1,
+        "totalExecutionMs": 54.778,
+        "meanExecutionMs": 54.778,
+        "sharePercent": 0.8
+      },
+      {
+        "position": 25,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions",
+          "academy_admission_policies",
+          "academy_admission_requests",
+          "clock_timestamp",
+          "current_app_user_id",
+          "tribe_academy_settings",
+          "tribe_members",
+          "tribes"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 28.247,
+        "meanExecutionMs": 0.56494,
+        "sharePercent": 0.4
+      }
+    ]
+  },
+  "nativeTest": {
+    "passed": 0,
+    "failed": 1,
+    "exitCode": 1,
+    "failure": "AssertionError: expected 5750.144423999824 to be less than 3000"
+  },
+  "cleanup": {
+    "remainingBranchIds": [
+      "br-shiny-paper-ankn86x2",
+      "br-aged-morning-an5ejge1",
+      "br-wispy-sun-anwpxm2x"
+    ],
+    "protectedBranchesPreserved": true,
+    "ownedBranchAbsent": true
+  },
+  "status": "instrumented_latency_not_passed"
+}

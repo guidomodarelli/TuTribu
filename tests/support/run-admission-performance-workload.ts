@@ -20,6 +20,8 @@ export type AdmissionPerformanceDatabase = Pick<AcademyAdmissionTestDatabase, "w
 export type AdmissionPerformanceFixture = { tribeId: string; own: { userId: string; email: string | null }; config: MessagingSecurityConfig };
 /** Describes the persisted effects counted after all original commands settle. */
 export type AdmissionPerformanceFacts = { entries: number; requests: number; basic_members: number; deliveries: number };
+/** Optional own observation boundary; default workloads retain their original protocol. */
+export type AdmissionPerformanceObserver = { beforeMeasurement: () => Promise<void>; afterMeasurement: () => Promise<void> };
 
 /** @param durations - All original observations, including failed calls. @returns The fixed nearest-rank percentile, or null for no observations. */
 export function admissionConfirmationPercentile(durations: readonly number[]): number | null {
@@ -34,7 +36,7 @@ export function admissionConfirmationPercentile(durations: readonly number[]): n
  * @param participants - The actual seeded identities; the fixed cohort is validated by its caller.
  * @returns Only numeric measurements, safe failure diagnostics and persisted-effect counts.
  */
-export async function runAdmissionPerformanceWorkload(database: AdmissionPerformanceDatabase, fixture: AdmissionPerformanceFixture, participants: readonly AdmissionPerformanceParticipant[]) {
+export async function runAdmissionPerformanceWorkload(database: AdmissionPerformanceDatabase, fixture: AdmissionPerformanceFixture, participants: readonly AdmissionPerformanceParticipant[], observer?: AdmissionPerformanceObserver) {
   const transactionDurations = { account: [] as number[], command: [] as number[] };
   /** @param kind - Own execution boundary, never an SDK hook. @param context - Actual server identity. @param run - Original application statements. @returns The unchanged native outcome with only wall time observed. */
   async function transact<Result>(kind: "account" | "command", context: RequestDatabaseContext, run: (transaction: RequestDatabase) => Promise<Result>): Promise<Result> {
@@ -62,6 +64,7 @@ export async function runAdmissionPerformanceWorkload(database: AdmissionPerform
     return samples;
   });
   const warmupDurationMs = performance.now() - warmupStartedAt;
+  await observer?.beforeMeasurement();
   const before = database.readPoolMetrics();
   transactionDurations.account.length = 0; transactionDurations.command.length = 0;
   const cpuBefore = process.cpuUsage(), utilizationBefore = performance.eventLoopUtilization(), measurementStarted = performance.now();
@@ -87,6 +90,7 @@ export async function runAdmissionPerformanceWorkload(database: AdmissionPerform
   const after = database.readPoolMetrics(), p95Ms = admissionConfirmationPercentile(observed.map((result) => result.durationMs));
   const failures = observed.filter((result) => result.failure !== null || result.outcome !== ADMISSION_OUTCOME.admitted && result.outcome !== ADMISSION_OUTCOME.pending).map((result) => ({ index: result.index, code: result.failure ?? ADMISSION_PERFORMANCE_FAILURE.unexpectedOutcome, ...readPostgresTestDiagnostics(result.cause) }));
   const admitted = observed.filter((result) => result.outcome === ADMISSION_OUTCOME.admitted).length, pending = observed.filter((result) => result.outcome === ADMISSION_OUTCOME.pending).length;
+  await observer?.afterMeasurement();
   const facts = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<AdmissionPerformanceFacts>(sql`select
     (select count(*)::integer from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}) as entries,
     (select count(*)::integer from public.academy_admission_requests where tribe_id=${fixture.tribeId}) as requests,
