@@ -73,6 +73,8 @@ try {
       await page.goto(`${origin}/${item.id}`, { waitUntil: "load" });
       await page.bringToFront();
       await until(async () => { try { assertActiveWindow(item.title); return true; } catch { return false; } }, PROBE.failures.window);
+      nativeKey(item.title, PROBE.nativeKeys.interrupt);
+      observation.initialInterruptSent = true;
       await quiet();
       let speechOffset = (await readerLog()).length, audioOffset = await audioSize();
       const button = page.getByRole("button", { name: item.focus, exact: true });

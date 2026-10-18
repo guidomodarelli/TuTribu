@@ -21,7 +21,7 @@ export const ADMISSION_READER_PROBE = {
   focusPrefix: "Control de lectura",
   statusPrefix: "Aviso de lectura",
   speechMarker: "SPEECH DISPATCHER: Speaking",
-  nativeKeys: { next: "Tab", invoke: "space" },
+  nativeKeys: { interrupt: "Control_L", next: "Tab", invoke: "space" },
   failures: {
     window: "native_window_not_active",
     focus: "native_focus_unavailable",
