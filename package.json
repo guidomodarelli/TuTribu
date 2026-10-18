@@ -2,7 +2,7 @@
   "name": "tutribu",
   "version": "1.8.1",
   "private": true,
-  "packageManager": "pnpm@12.6.0",
+  "packageManager": "pnpm@12.14.0",
   "engines": {
     "pnpm": ">=12 <13",
     "node": ">=24 <25"
