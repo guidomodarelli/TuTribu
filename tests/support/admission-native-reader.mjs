@@ -5,7 +5,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { ADMISSION_READER_PROBE as SETTINGS } from "./constants/admission-reader-probe.mjs";
 import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
 
-/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
+/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number,nativeAccessibility:unknown})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
 export function createAdmissionNativeReader({ onFailure } = {}) {
   if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY) throw new Error("AdmissionNativeReader.start failed: disposable_linux_display_required");
   const debugPath = process.env.ORCA_DEBUG_LOG, audioPath = process.env.ORCA_AUDIO_FILE;
@@ -41,6 +41,16 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
     assertWindow(await page.title());
     execFileSync("xdotool", ["key", "--clearmodifiers", key], { timeout: SETTINGS.windowCommandTimeoutMs });
   }
+  /** @param {string} expected - Own controlled label, never emitted by the inspector. @returns {unknown} Native roles/state flags only, or an explicit unavailable observation. */
+  function inspectNativeFocus(expected) {
+    try {
+      return JSON.parse(execFileSync("/usr/bin/python3", ["tests/support/admission-reader-atspi.py", expected, String(SETTINGS.maximumAccessibilityNodes), String(SETTINGS.maximumAccessibilityDepth), String(SETTINGS.accessibilityTimeoutMs), "focus"], { encoding: "utf8", timeout: SETTINGS.windowCommandTimeoutMs, stdio: ["ignore", "pipe", "pipe"] }));
+    } catch { return { unavailable: true }; }
+  }
+  /** @param {import('@playwright/test').Page} page - Owned application document. @returns {Promise<void>} Before activation/typing is delivered to page content. */
+  async function assertDocumentFocus(page) {
+    if (!await page.evaluate(() => document.hasFocus())) throw new Error(SETTINGS.failures.focus);
+  }
   /** @param {string} expected - Own safe UI message. @param {{logOffset:number,audioOffset:number}} mark - Capture before the action. @returns {Promise<{speechObserved:boolean,audioPeak:number}>} Verified native speech and audio. */
   async function hear(expected, mark) {
     try {
@@ -48,7 +58,7 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
       await until(async () => await peak(mark.audioOffset) > SETTINGS.audiblePeak, SETTINGS.failures.audio);
       return { speechObserved: true, audioPeak: await peak(mark.audioOffset) };
     } catch (error) {
-      await onFailure?.({ ...diagnoseNativeReaderSpeech((await log()).slice(mark.logOffset), expected), audioPeak: await peak(mark.audioOffset) });
+      if (onFailure) await onFailure({ ...diagnoseNativeReaderSpeech((await log()).slice(mark.logOffset), expected), audioPeak: await peak(mark.audioOffset), nativeAccessibility: inspectNativeFocus(expected) });
       throw error;
     }
   }
@@ -69,14 +79,15 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
       for (let index = 0; index < SETTINGS.maximumProductTabs; index += 1) {
         await key(page, SETTINGS.nativeKeys.next);
         await delay(SETTINGS.pollMs);
-        if (await target.evaluate((element) => element === document.activeElement)) return hear(label, start);
+        if (await target.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement)) return hear(label, start);
       }
       throw new Error(SETTINGS.failures.focus);
     },
     /** @param {import('@playwright/test').Page} page - Owned product page. @returns {Promise<void>} After a real Space press. */
-    async activate(page) { await key(page, SETTINGS.nativeKeys.invoke); },
+    async activate(page) { await assertDocumentFocus(page); await key(page, SETTINGS.nativeKeys.invoke); },
     /** @param {import('@playwright/test').Page} page - Owned product page. @param {string} value - Synthetic operator input, never logged. @returns {Promise<void>} After real typing. */
     async type(page, value) {
+      await assertDocumentFocus(page);
       assertWindow(await page.title());
       execFileSync("xdotool", ["type", "--clearmodifiers", "--delay", "1", value], { timeout: SETTINGS.windowCommandTimeoutMs });
       await key(page, SETTINGS.nativeKeys.interrupt);
@@ -84,6 +95,7 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
     /** @param {import('@playwright/test').Page} page - Owned page with its actual initiating control focused. @param {string} expected - Actual safe product feedback. @returns {Promise<{speechObserved:boolean,audioPeak:number}>} Its original native announcement, without forced reading or focus changes. */
     async activateAndHear(page, expected) {
       await quiet();
+      await assertDocumentFocus(page);
       const start = await mark();
       await key(page, SETTINGS.nativeKeys.invoke);
       return hear(expected, start);

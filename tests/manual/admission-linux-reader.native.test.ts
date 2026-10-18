@@ -118,6 +118,7 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
               ownedCancellationMessages: await page.getByRole("region", { name: "Estado de tu solicitud", exact: true }).getByText(ADMISSION_UI_COPY.cancelled, { exact: true }).count(),
               approvalMessages: await page.getByRole("main").getByRole("status").filter({ hasText: ADMISSION_REVIEW_UI_COPY.complete }).count(),
               busyMainRegions: await page.locator('main[aria-busy="true"]').count(),
+              documentFocused: await page.evaluate(() => document.hasFocus()),
             }))).catch(() => null);
             failures.push({ ...latestMilestone, code, interfaces, interfaceObservationUnavailable: interfaces === null });
             await writeFile(join(root, "failures.json"), JSON.stringify(failures, null, 2) + "\n");
