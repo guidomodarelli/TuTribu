@@ -17,3 +17,11 @@ Una confirmación propia posterior permitió ejecutar la comprobación real de l
 La comprobación de la credencial y las preparaciones de recursos conservan su autorización y resultado propios. El piloto conserva el máximo autorizado de diez mensajes en total y USD 20, sólo para correo, SMS y WhatsApp preparados y los destinos ya autorizados. Hasta este checkpoint se enviaron **cero mensajes**.
 
 El inventario independiente conserva cuatro ramas: las tres anteriores y el piloto nuevo persistente. La rama nueva tiene custodia y finalidad explícitas; no es un residuo de las pruebas efímeras. Esta preparación local no acredita los ensayos de restauración y control externo en Node/Workers ni cierra OG-01 a OG-06.
+
+## Preparación del proveedor
+
+La [consulta real con SDK 0.57.0](admission-pilot-provider-preparation.json) confirmó credencial productiva, saldo positivo y un único recurso con WhatsApp habilitado; correo y SMS no estaban habilitados. La lectura por detalle confirmó la cuenta Business asociada. El proveedor informó `setupStatus=NOT_STARTED`, `methodStatus=NONE` y `canSendTemplates=false`; la presencia de saldo en Zavu no se convirtió en una autorización de plantillas de Meta.
+
+El catálogo de plantillas estaba vacío. Se creó **`tutribu_admission_otp_es`**, categoría Authentication e idioma español, con un parámetro de código, botón para copiarlo, recomendación de seguridad y vencimiento indicado de diez minutos. Se solicitó su aprobación con el SDK real y sin reintentos automáticos; la respuesta inicial fue pendiente. El panel de Zavu mostró después **Rechazado**, sin un motivo visible. No se volvió a enviar la solicitud ni se infirió que el rechazo se deba al pago: son condiciones observadas por separado.
+
+El enlace de administración de Meta requirió iniciar sesión. Se dejó preparado para que el usuario complete ese acceso; no se dispone de sus credenciales. La plantilla queda conservada para revisar y corregir la causa, sin duplicarla. No se contrató un plan ni se añadió un medio de pago. La consulta/preparación directa del proveedor no se cuenta como recorrido de diagnóstico, recepción de código, activación o aislamiento entre tribus. El total de mensajes reales continúa en cero y T106/T204/T205 permanecen pendientes.
