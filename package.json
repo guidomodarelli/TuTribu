@@ -33,6 +33,7 @@
     "test:ui": "pnpm build && node scripts/e2e/run-ui-tests.mjs",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:beezping": "playwright test --config playwright.beezping.config.ts",
+    "e2e:cleanup": "node scripts/e2e/clean-orphan-webkit-processes.mjs",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
