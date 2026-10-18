@@ -25,8 +25,7 @@ function executionMilliseconds(value: string): number {
 
 /** @param query - Private provider SQL retained only during projection. @returns Closed, deduplicated object hints, with no arbitrary identifier or literal. */
 function mentionedObjects(query: string): string[] {
-  const candidates = [...query.matchAll(ADMISSION_STATEMENT_PROFILE.publicObjectPattern)].map((matched) => (matched[1] ?? matched[2]).toLowerCase());
-  candidates.push(...[...query.matchAll(ADMISSION_STATEMENT_PROFILE.builtinPattern)].map((matched) => matched[1].toLowerCase()));
+  const candidates = (query.match(ADMISSION_STATEMENT_PROFILE.identifierPattern) ?? []).map((word) => word.toLowerCase());
   return ADMISSION_STATEMENT_OBJECTS.filter((name) => candidates.includes(name)).sort();
 }
 

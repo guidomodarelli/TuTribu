@@ -9,8 +9,8 @@ export const ADMISSION_STATEMENT_PROFILE = {
   intervalPattern: /^(?:(\d+) days? )?(\d+):([0-5]\d):([0-5]\d(?:\.\d+)?)$/,
   percentagePattern: /^\d+(?:\.\d+)?%$/,
   operationPattern: /^\s*([a-z]+)/i,
-  publicObjectPattern: /\bpublic\.(?:"([a-z_][a-z0-9_]*)"|([a-z_][a-z0-9_]*))/gi,
-  builtinPattern: /\b(set_config|pg_advisory_xact_lock|clock_timestamp)\s*\(/gi,
+  identifierPattern: /[a-z_][a-z0-9_]*/gi,
+  trackingSetting: "pg_stat_statements.track", planningSetting: "pg_stat_statements.track_planning", versionSetting: "server_version_num",
   unavailable: "native_statement_inspector_failed",
 } as const;
 /** Output hints are selected from this closed list; unmatched SQL identifiers are discarded. */

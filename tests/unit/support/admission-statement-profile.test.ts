@@ -31,6 +31,12 @@ describe("admission statement diagnostics projection", () => {
   it("should retain counters without inventing an operation when the provider hides the SQL text", () => {
     expect(projectAdmissionStatementProfile([{ total_exec_time: "00:00:01", prop_exec_time: "100.0%", ncalls: 2, query: null }]).statements[0]).toMatchObject({ operation: "other", mentionedObjects: [], totalExecutionMs: 1000, calls: 2 });
   });
+  it("should recognize approved names in unqualified nested statements without retaining other identifiers", () => {
+    const privateObject = `private_${randomUUID().replaceAll("-", "")}`;
+    const projected = projectAdmissionStatementProfile([{ total_exec_time: "00:00:01", prop_exec_time: "100.0%", ncalls: 10, query: `SELECT * FROM academy_admission_requests request JOIN ${privateObject} private_data ON true` }]);
+    expect(projected.statements[0].mentionedObjects).toEqual(["academy_admission_requests"]);
+    expect(JSON.stringify(projected)).not.toContain(privateObject);
+  });
   it.each([
     { total_exec_time: "invalid", prop_exec_time: "50.0%", ncalls: 1, query: "select 1" },
     { total_exec_time: "00:00:01", prop_exec_time: "invalid", ncalls: 1, query: "select 1" },
