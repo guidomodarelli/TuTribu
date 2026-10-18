@@ -22,7 +22,7 @@ import type { AdmissionActorFacts, AdmissionSubmissionFacts, AdmissionMembership
 import { evaluateAdmissionSubmission } from "@/src/modules/academy-admissions/domain/policies/admission-eligibility";
 import { createPendingAdmissionRequest, proposeAdmissionCancellation, getAdmissionRetryAllowedAt } from "@/src/modules/academy-admissions/domain/entities/admission-request";
 import { proposeAdmissionDecision } from "@/src/modules/academy-admissions/domain/entities/admission-decision";
-import { PostgresAdmissionAuthorizationReader } from "./postgres-admission-authorization-reader";
+import { PostgresAdmissionAuthorizationReader, type AdmissionSubmissionActorContext } from "./postgres-admission-authorization-reader";
 import { readLockedAdmissionFacts } from "./postgres-locked-admission-facts";
 import { PostgresAdmissionOperationRepository } from "./postgres-admission-operation-repository";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
@@ -76,7 +76,7 @@ import { admissionRequestSchema } from "../../application/results/admission-flow
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Related owners are composed onto the same original transaction, with no provider work. */
-type AdmissionTransactionCollaborators = { memberships: AcademyApprovedMembershipWriter; notifications: AdmissionNotificationObligationWriter; lockSubmissionScope: (scope: AdmissionCommandScope) => Promise<boolean>; legacyInvitations?: LegacyAdmissionInvitationReader };
+type AdmissionTransactionCollaborators = { memberships: AcademyApprovedMembershipWriter; notifications: AdmissionNotificationObligationWriter; lockSubmissionScope: (scope: AdmissionCommandScope) => Promise<boolean>; readSubmissionActor?: (scope: AdmissionCommandScope) => Promise<AdmissionSubmissionActorContext>; legacyInvitations?: LegacyAdmissionInvitationReader };
 /** Batch facts remain local to one transaction holding their actual scope/account/member locks. */
 type AdmissionBatchFacts = { actor: AdmissionActorFacts; byApplicant: Map<string, AdmissionSubmissionFacts> };
 /** Immutable events are flushed once before the same business transaction completes. */
@@ -126,13 +126,19 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
    */
   private async authorize(database: RequestDatabase, scope: AdmissionCommandScope, operation: string, requestId?: string, registrationOnly = false): Promise<boolean> {
     const scopeLock = registrationOnly ? ADMISSION_OPERATION_TRIBE_LOCK_SQL.registration : ADMISSION_OPERATION_TRIBE_LOCK_SQL.execution;
-    const locked = operation === ADMISSION_OPERATION_TYPE.submit
-      ? await this.compose(database).lockSubmissionScope(scope)
-      : Boolean((await database.execute(sql`select id from public.tribes where id=${scope.tribeId} ${sql.raw(scopeLock)}`)).rows[0]);
-    if (!locked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-    // The account SHARE fence precedes current native session/member facts in the same query.
-    // Rich Google identity and recency remain with their owning fact readers below.
-    const actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithLockedAccount(scope.tribeId, scope.userId);
+    const collaborators = operation === ADMISSION_OPERATION_TYPE.submit ? this.compose(database) : null;
+    let actor: AdmissionActorFacts | null;
+    if (collaborators?.readSubmissionActor) {
+      const current = await collaborators.readSubmissionActor(scope);
+      if (!current.scopeLocked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      actor = current.actor;
+    } else {
+      const locked = collaborators
+        ? await collaborators.lockSubmissionScope(scope)
+        : Boolean((await database.execute(sql`select id from public.tribes where id=${scope.tribeId} ${sql.raw(scopeLock)}`)).rows[0]);
+      if (!locked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithLockedAccount(scope.tribeId, scope.userId);
+    }
     if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     if (!requestId) return true;
     const request = (await database.execute<{ user_id: string }>(sql`select user_id from public.academy_admission_requests where id=${requestId} and tribe_id=${scope.tribeId}`)).rows[0];

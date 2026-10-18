@@ -8,9 +8,12 @@ import { ADMISSION_DECISION_ACTIONS, ADMISSION_OWN_REQUEST_ACTIONS, ADMISSION_RE
 import { ADMISSION_ACTION } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
+import { ACADEMY_ADMISSION_APPLICANT_LOCK_DOMAIN } from "@/src/modules/tribes/constants/academy-membership";
 
 /** Consumes only current owned actor fields; the fixed tribe remains with the caller. */
 type CurrentActorRow = { actor: Pick<AdmissionActorFacts, "userId" | "role" | "status"> | null };
+/** Distinguishes absent scope from unavailable current authentication without granting permission. */
+export type AdmissionSubmissionActorContext = { scopeLocked: boolean; actor: AdmissionActorFacts | null };
 
 /** A caller binds the actual server session and fixed action, never a browser role. */
 export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizationReader {
@@ -44,6 +47,18 @@ export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizat
    */
   async getCurrentActorWithLockedAccount(tribeId: string, userId: string): Promise<AdmissionActorFacts | null> {
     return this.readCurrentActor(tribeId, userId, true);
+  }
+
+  /**
+   * Retains the original tenant/applicant fence before account and current session/member facts.
+   * @param tribeId - Fixed submission academy selected by the server.
+   * @param userId - Expected native applicant, still checked independently by the ledger.
+   * @returns Scope availability and the current actor after all ordered waits, in one round trip.
+   */
+  async getCurrentActorWithSubmissionScope(tribeId: string, userId: string): Promise<AdmissionSubmissionActorContext> {
+    const current = (await this.database.execute<CurrentActorRow & { scope_locked: boolean }>(sql`select scope_locked,actor from public.read_locked_admission_submission_actor(${tribeId},${userId},${this.sessionId},${ACADEMY_ADMISSION_APPLICANT_LOCK_DOMAIN})`)).rows[0];
+    const actor = current?.actor;
+    return { scopeLocked: current?.scope_locked ?? false, actor: actor?.userId === userId ? { userId: actor.userId, tribeId, role: actor.role, status: actor.status } : null };
   }
 
   /**

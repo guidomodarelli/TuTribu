@@ -1331,6 +1331,13 @@
       "when": 1792329725000,
       "tag": "20261018132205_batch_base_admission_binding",
       "breakpoints": true
+    },
+    {
+      "idx": 190,
+      "version": "7",
+      "when": 1792331266000,
+      "tag": "20261018134746_read_submission_actor_with_scope",
+      "breakpoints": true
     }
   ]
 }

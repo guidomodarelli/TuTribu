@@ -304,7 +304,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
         return dependencies.execute(account, run);
       };
-      const writer = new PostgresAdmissionRequestRepository(executeRequest, options.readSecurityConfig, (database) => ({ memberships: createAcademyApprovedMembershipWriter(database), notifications: createPostgresAdmissionNotificationObligationWriter(database), lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(database, scope.tribeId, scope.userId), legacyInvitations: new PostgresLegacyAdmissionInvitationReader(database) }));
+      const writer = new PostgresAdmissionRequestRepository(executeRequest, options.readSecurityConfig, (database) => ({ memberships: createAcademyApprovedMembershipWriter(database), notifications: createPostgresAdmissionNotificationObligationWriter(database), lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(database, scope.tribeId, scope.userId), readSubmissionActor: (scope) => new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithSubmissionScope(scope.tribeId, scope.userId), legacyInvitations: new PostgresLegacyAdmissionInvitationReader(database) }));
       return {
         runtime: new ReadAdmissionRuntimeUseCase(writer),
         useCases: {

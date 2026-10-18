@@ -11,11 +11,15 @@ import { ADMISSION_ACTION } from "@/src/modules/academy-admissions/constants/adm
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 import { readPostgresTestDiagnostics } from "@/tests/support/postgres-test-diagnostics";
+import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope";
+import { ACADEMY_ADMISSION_APPLICANT_LOCK_DOMAIN } from "@/src/modules/tribes/constants/academy-membership";
+import { createAdmissionStatementObserver, observeAdmissionDatabase } from "@/tests/support/admission-database-observation";
 
 /** Seeds real synthetic sessions and a preadmission request without granting membership to its applicant. */
 async function prepareAuthorization(database: AcademyAdmissionTestDatabase) {
   for (const migration of ["20261005090000_create_admission_identity_evidence.sql", "20261005091000_create_academy_admission_core.sql"]) await database.applyMigration(migration);
   for (const migration of ["20261005091500_guard_admission_evidence_transitions.sql", "20261005092000_create_tenant_messaging.sql", "20261005093000_guard_academy_membership_sources.sql", "20261007005000_read_admission_reviews.sql"]) await database.applyMigration(migration);
+  await database.applyMigration("20261018134746_read_submission_actor_with_scope.sql");
   const leaderId = randomUUID(), applicantId = randomUUID(), guardianId = randomUUID(), tribeId = randomUUID(), foreignTribeId = randomUUID(), requestId = randomUUID();
   const sessions = { leader: randomUUID(), applicant: randomUUID(), guardian: randomUUID() };
   await database.withContext({ userId: leaderId, email: null }, async (transaction) => {
@@ -52,6 +56,61 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native actor guard
           expect(await reader.getCurrentActorWithLockedAccount(fixture.tribeId, fixture.leaderId)).toBeNull();
         }, "non_bypass");
       });
+    }, { concurrentTransactions: ADMISSION_AUTHORIZATION_TEST.concurrentTransactions });
+  }, ADMISSION_AUTHORIZATION_TEST.timeoutMs);
+});
+
+describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("submission-scoped admission authority", () => {
+  it("should preserve ordered scope/account authority in one round trip after native waits", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareAuthorization(database);
+      const context = { userId: fixture.applicantId, email: null };
+      const expected = { userId: fixture.applicantId, tribeId: fixture.tribeId, role: null, status: null };
+      const reference = await database.withContext(context, async (transaction) => {
+        const observer = createAdmissionStatementObserver(), observed = observeAdmissionDatabase(transaction, observer);
+        const scopeLocked = await lockAcademyAdmissionMembershipScope(observed, fixture.tribeId, fixture.applicantId);
+        const actor = await new PostgresAdmissionAuthorizationReader(observed, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithLockedAccount(fixture.tribeId, fixture.applicantId);
+        return { value: { scopeLocked, actor }, observation: observer.snapshot() };
+      });
+      const grouped = await database.withContext(context, async (transaction) => {
+        const observer = createAdmissionStatementObserver(), observed = observeAdmissionDatabase(transaction, observer);
+        const value = await new PostgresAdmissionAuthorizationReader(observed, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithSubmissionScope(fixture.tribeId, fixture.applicantId);
+        return { value, observation: observer.snapshot() };
+      });
+      expect(reference.value).toEqual({ scopeLocked: true, actor: expected });
+      expect(grouped.value).toEqual(reference.value);
+      expect(reference.observation.statementCount).toBe(ADMISSION_AUTHORIZATION_TEST.scopeActorReferenceStatements);
+      expect(grouped.observation.statementCount).toBeLessThanOrEqual(ADMISSION_AUTHORIZATION_TEST.scopeActorMaximumStatements);
+      expect(grouped.observation.pendingStatements).toBe(0);
+      expect(await database.withContext({ userId: null, email: null }, (transaction) => new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithSubmissionScope(fixture.tribeId, fixture.applicantId))).toEqual({ scopeLocked: false, actor: null });
+      expect(await database.withContext(context, (transaction) => new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithSubmissionScope(randomUUID(), fixture.applicantId))).toEqual({ scopeLocked: false, actor: null });
+      expect(await database.withContext(context, (transaction) => new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.leader, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithSubmissionScope(fixture.tribeId, fixture.applicantId))).toEqual({ scopeLocked: true, actor: null });
+      const denied = await database.withContext(context, (transaction) => new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithSubmissionScope(fixture.tribeId, fixture.applicantId), "non_bypass").then(() => [], (error: unknown) => readPostgresTestDiagnostics(error).sqlStates);
+      expect(denied).toContain(ADMISSION_AUTHORIZATION_TEST.insufficientPrivilegeSqlState);
+      const metadata = await database.withContext(context, async (transaction) => (await transaction.execute<{ invoker: boolean; volatility: string }>(sql`select not prosecdef as invoker,provolatile as volatility from pg_proc where oid in ('public.lock_academy_admission_membership_scope(uuid,text,text)'::regprocedure,'public.read_locked_admission_submission_actor(uuid,text,text,text)'::regprocedure)`)).rows);
+      expect(metadata).toHaveLength(ADMISSION_AUTHORIZATION_TEST.scopeActorNativeFunctions);
+      expect(metadata.every((routine) => routine.invoker && routine.volatility === "v")).toBe(true);
+
+      const advisory = await withAdmissionTransitionContention(database, context, async (transaction) => {
+        await transaction.execute(sql`select pg_advisory_xact_lock(hashtextextended(jsonb_build_array(${ACADEMY_ADMISSION_APPLICANT_LOCK_DOMAIN}::text,${fixture.tribeId}::uuid,${fixture.applicantId}::text)::text,0))`);
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${fixture.tribeId},${fixture.applicantId},${TRIBE_MEMBER_ROLE.tribemate},${TRIBE_MEMBERSHIP_STATUS.active})`);
+      }, () => database.withContext(context, (transaction) => new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithSubmissionScope(fixture.tribeId, fixture.applicantId)));
+      expect(advisory).toEqual({ status: "fulfilled", value: { scopeLocked: true, actor: { ...expected, role: TRIBE_MEMBER_ROLE.tribemate, status: TRIBE_MEMBERSHIP_STATUS.active } } });
+
+      const membership = await withAdmissionTransitionContention(database, context, async (transaction) => {
+        await transaction.execute(sql`update public."user" set name=name where id=${fixture.applicantId}`);
+      }, () => database.withContext(context, (transaction) => new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithSubmissionScope(fixture.tribeId, fixture.applicantId)), () => database.withContext({ userId: fixture.leaderId, email: null }, async (transaction) => {
+        await transaction.execute(sql`update public.tribe_members set role=${TRIBE_MEMBER_ROLE.guardian} where tribe_id=${fixture.tribeId} and user_id=${fixture.applicantId}`);
+      }));
+      expect(membership).toEqual({ status: "fulfilled", value: { scopeLocked: true, actor: { ...expected, role: TRIBE_MEMBER_ROLE.guardian, status: TRIBE_MEMBERSHIP_STATUS.active } } });
+
+      await database.withContext(context, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+${ADMISSION_AUTHORIZATION_TEST.sessionExpiryDelaySeconds}*interval '1 second' where id=${fixture.sessions.applicant}`));
+      const expired = await withAdmissionTransitionContention(database, context, async (transaction) => {
+        await transaction.execute(sql`update public."user" set name=name where id=${fixture.applicantId}`);
+      }, () => database.withContext(context, (transaction) => new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithSubmissionScope(fixture.tribeId, fixture.applicantId)), () => database.withContext(context, async (transaction) => {
+        await transaction.execute(sql`select pg_sleep(greatest(extract(epoch from "expiresAt"-clock_timestamp()),0)+${ADMISSION_AUTHORIZATION_TEST.sessionExpiryGraceSeconds}) from public.session where id=${fixture.sessions.applicant}`);
+      }));
+      expect(expired).toEqual({ status: "fulfilled", value: { scopeLocked: true, actor: null } });
     }, { concurrentTransactions: ADMISSION_AUTHORIZATION_TEST.concurrentTransactions });
   }, ADMISSION_AUTHORIZATION_TEST.timeoutMs);
 });
