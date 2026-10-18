@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-18",
+  "kind": "user_authorized_email_dns_and_sender_activation",
+  "domain": "notify.tutribu.app",
+  "domainResourceId": "ms7axfpqwfsp5avxk8mv739rss8ghyd8",
+  "senderResourceId": "kd7cs2ag94d2ps6h4zsg8c00fs8ggxjb",
+  "senderName": "TuTribu",
+  "senderAddress": "admissions@notify.tutribu.app",
+  "dns": {
+    "provider": "Cloudflare",
+    "recordsAdded": 6,
+    "dkimCnameVerified": 3,
+    "spfTxtVerified": 2,
+    "mailFromMxVerified": 1,
+    "cnameProxyEnabled": false,
+    "existingRecordsPreserved": 4,
+    "finalZoneRecordCount": 10,
+    "coreSendingDomainVerified": true,
+    "detailedDnsOverallState": "partial",
+    "dmarcReportingDelegated": false,
+    "inboundMxAdded": false,
+    "inboundReceivingEnabled": false
+  },
+  "activation": {
+    "explicitlyAuthorized": true,
+    "observedActive": true,
+    "currency": "USD",
+    "immediateCharge": 3,
+    "emailMonthly": 3,
+    "baseMonthlyTotalAuthorized": 30,
+    "automaticRenewal": true,
+    "observedRemainingBalance": 17,
+    "paymentDataIncluded": false
+  },
+  "readOnlySdkCheck": {
+    "sdkVersion": "0.57.0",
+    "completedAt": "2026-10-18T23:10:26.131Z",
+    "productionCredential": true,
+    "tutribuSenderChannels": ["whatsapp", "email"],
+    "existingSenderChannels": ["whatsapp", "sms"],
+    "approvedAuthenticationTemplates": 0,
+    "whatsappTemplatesEnabled": false
+  },
+  "whatsapp": {
+    "templateName": "tutribu_access_code_es",
+    "zavuObservedStatus": "rejected",
+    "nativeMetaCreationAttempted": true,
+    "nativeCategory": "AUTHENTICATION",
+    "nativeLanguage": "es_AR",
+    "nativeCopyCode": true,
+    "expirationMinutes": 10,
+    "nativeMetaFailure": "account_lacks_template_creation_permission",
+    "nativeTemplateCreated": false,
+    "unreportedCauseInferred": false
+  },
+  "productConnectionDiagnosticPassed": false,
+  "realPilotMessages": 0,
+  "pilotMessageLimit": 10,
+  "pilotUsageLimitUsd": 20,
+  "privateMaterialIncluded": false,
+  "operationalGatesClosed": []
+}
