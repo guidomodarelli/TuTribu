@@ -57,3 +57,17 @@ Chromium a 390 px superó la lectura de casilla y botón, y el anuncio nativo de
 La comprobación visual global de cancelación era ambigua: el estado propio y el feedback presentan el mismo texto, y puede sumarse el toast. El arnés se ajusta para observar el estado dentro de «Estado de tu solicitud» y el aviso administrativo dentro del `main`. Conserva la comprobación nativa independiente de voz/audio. Los siguientes fallos guardarán también conteos de esos elementos y de `main` ocupados, sin contenido de página; la indisponibilidad del navegador queda señalada explícitamente. Estos ajustes de selección requieren una nueva ejecución Native.
 
 El owner retiró clave temporal, secreto y ambas variables, sin fallos y con su fuente estable. Una consulta independiente confirmó exactamente las tres ramas originales y la ausencia de la rama prevista. Los workflows Quality gate de push y pull request de `28b53357` aprobaron. T198/T208 continúan pendientes.
+
+## Repetición de la comprobación del estado propio
+
+El [run 39122840780](https://github.com/guidomodarelli/TuTribu/actions/runs/39122840780), sobre `5e8c9d88d3f56d219c134de27bfb390c2b5e2570`, guardó por primera vez la observación y captura de la superficie pública de Chromium a 390 px después de comprobar el estado propio. La lectura nativa y el PCM pasaron en esa cancelación. El ensayo llegó luego al campo de motivo administrativo y falló esperando su anuncio. Chromium a 1280 px falló al leer la casilla, y WebKit a 390 px al leer el botón de cancelación.
+
+En WebKit a 1280 px, el fallo de anuncio ocurrió con **dos coincidencias del resultado en el DOM y una en el estado propio**, con cero `main` ocupados al muestrear el fallo. Las demás superficies fallidas tampoco tenían un `main` ocupado en ese muestreo. Esto confirma un resultado presente que no llegó a observarse en la salida de voz; no se atribuye a una respuesta de API todavía pendiente. El [reporte saneado](linux-reader-product-owned-status.json) conserva conteos, observación pública, fallos y diagnósticos. Ninguna pareja terminó su comprobación SQL completa y el resultado agregado sigue fallido.
+
+La configuración de lector sigue sin dejar la marca de supresión de SayAll, así que su aplicación permanece sin confirmar. Ambos Quality gate del commit aprobaron. El owner confirmó la revocación de la clave, retiro del secreto y ambas variables, y ausencia de la rama. La comprobación independiente de inventario conservó exactamente las tres ramas originales.
+
+## Actualización oficial del lector de CI
+
+El preflight y la matriz preparan ahora **Orca 48.9**, tag `48.9`, commit `4b964097f586446b3c74a98d0d309fb4b87ceb70`. Las [notas oficiales](https://github.com/GNOME/orca/blob/4b964097f586446b3c74a98d0d309fb4b87ceb70/NEWS) documentan una corrección de interrupción del elemento recién enfocado en 48.9, de reactivación del script predeterminado al iniciar en 48.8 y de información obsoleta en etiquetas y descripciones en 48.7. Coinciden con el patrón observado y motivan el ensayo; no establecen todavía su causa en TuTribu.
+
+Las dependencias declaradas conservan Python ≥3.10 y AT-SPI/atk-bridge ≥2.50. Se verifica el commit antes de compilar y la versión del binario antes del ensayo. `runtime.json` conserva sólo versión informada y commit del lector; se agrega a la proyección saneada. La actualización requiere compilar y ejecutar la matriz real, manteniendo exactamente los criterios de voz, PCM, UI y SQL.

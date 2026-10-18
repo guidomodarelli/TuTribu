@@ -24,6 +24,7 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
     const root = process.env[VALIDATION.artifactVariable], authorization = process.env[VALIDATION.authorizationVariable], ownershipNonce = process.env[VALIDATION.nonceVariable];
     if (!root || !authorization || !ownershipNonce) throw new Error("AdmissionReaderJourneys.prepare failed: explicit_owned_capability_required");
     await mkdir(root, { recursive: true });
+    await writeFile(join(root, "runtime.json"), JSON.stringify({ orcaVersion: process.env.ORCA_BINARY_VERSION ?? null, orcaSourceCommit: process.env.ORCA_SOURCE_COMMIT ?? null }) + "\n");
     const observations: unknown[] = [];
     const diagnostics: unknown[] = [], failures: unknown[] = [];
     let latestMilestone: { stage: string; engine: string | null; width: number | null } | null = null;

@@ -63,13 +63,13 @@ jobs:
       - name: Preparar la publicación oficial del lector
         if: steps.capability.outputs.enabled == 'true'
         run: |
-          git -c advice.detachedHead=false clone --depth 1 --branch ORCA_47_2 https://github.com/GNOME/orca.git "$RUNNER_TEMP/admission-orca-source"
-          test "$(git -C "$RUNNER_TEMP/admission-orca-source" rev-parse HEAD)" = "7da13d868338c4c75751155258b51a82ab273583"
+          git -c advice.detachedHead=false clone --depth 1 --branch 48.9 https://github.com/GNOME/orca.git "$RUNNER_TEMP/admission-orca-source"
+          test "$(git -C "$RUNNER_TEMP/admission-orca-source" rev-parse HEAD)" = "4b964097f586446b3c74a98d0d309fb4b87ceb70"
           PATH="/usr/bin:$PATH" meson setup "$RUNNER_TEMP/admission-orca-build" "$RUNNER_TEMP/admission-orca-source" --prefix="$RUNNER_TEMP/admission-orca-install"
           meson compile -C "$RUNNER_TEMP/admission-orca-build"
           meson install -C "$RUNNER_TEMP/admission-orca-build"
           printf '%s\n' "ORCA_BINARY_PATH=$RUNNER_TEMP/admission-orca-install/bin/orca" >> "$GITHUB_ENV"
-          printf '%s\n' 'ORCA_SOURCE_COMMIT=7da13d868338c4c75751155258b51a82ab273583' 'ORCA_EXPECTED_VERSION=47.2' >> "$GITHUB_ENV"
+          printf '%s\n' 'ORCA_SOURCE_COMMIT=4b964097f586446b3c74a98d0d309fb4b87ceb70' 'ORCA_EXPECTED_VERSION=48.9' >> "$GITHUB_ENV"
 
       - name: Compilar la aplicación real
         if: steps.capability.outputs.enabled == 'true'
@@ -102,7 +102,8 @@ jobs:
           const collectedCodes = Array.isArray(collected) ? collected.flatMap(failure => codes.includes(failure?.code) ? [failure.code] : []) : [];
           const failures = [...new Set(collectedCodes.length ? collectedCodes : results?.testResults.flatMap(suite => suite.assertionResults.filter(test => test.status === 'failed').map(test => codes.find(code => test.failureMessages.some(message => message.includes(code))) ?? ADMISSION_READER_PROBE.failures.journey)) ?? [])];
           const nativeLog = await readFile(join(process.env.RUNNER_TEMP, 'admission-reader-native.out'), 'utf8').catch(() => '');
-          await writeFile(join(directory, 'result.json'), JSON.stringify({commit:process.env.GITHUB_SHA,productJourneysValidated:results?.success === true,passed:results?.numPassedTests ?? null,failed:results?.numFailedTests ?? null,skipped:results?.numPendingTests ?? null,failureCodes:failures,sayAllOnLoadDisabledObserved:nativeLog.includes(ADMISSION_READER_PROBE.automaticReadingDisabledMarker),realMessages:0},null,2)+'\n');
+          const readerRuntime = await readFile(join(directory, 'runtime.json'), 'utf8').then(JSON.parse, () => null);
+          await writeFile(join(directory, 'result.json'), JSON.stringify({commit:process.env.GITHUB_SHA,productJourneysValidated:results?.success === true,passed:results?.numPassedTests ?? null,failed:results?.numFailedTests ?? null,skipped:results?.numPendingTests ?? null,failureCodes:failures,readerRuntime,sayAllOnLoadDisabledObserved:nativeLog.includes(ADMISSION_READER_PROBE.automaticReadingDisabledMarker),realMessages:0},null,2)+'\n');
           await rm(join(process.env.RUNNER_TEMP, 'admission-reader-results.json'), {force:true});
           NODE
 

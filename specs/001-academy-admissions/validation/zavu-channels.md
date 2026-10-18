@@ -2,6 +2,12 @@
 
 Fuente de producto:4c3ec071a2b5f51427f3d62102d86b110159dee0. Los cambios posteriores df4315be son documentales y no alteran el código compilado. Este informe conserva el alcance de T094 y no acredita los gates OG-01, OG-02 ni OG-03, Google externo, BYOK de un líder real, destino/pagador, mensajes reales o hosting desplegado.
 
+## Disponibilidad del piloto local, 18 de octubre de 2026
+
+La consulta de `https://dev-tutribu.app/test/academia/admissions/messaging/connections` terminó en `ERR_CONNECTION_REFUSED`. El nombre resolvió a loopback y no había un listener local en el puerto 443. La inspección de procesos no encontró un comando Next o portless en ejecución. No pudo consultarse desde la interfaz la conexión que el usuario había guardado.
+
+La configuración del checkout principal conserva autenticación y cliente Google, con origen `https://dev-tutribu.app`, pero no define keyrings, época, entorno ni recovery lock de mensajería. La inspección registró únicamente presencia de variables y origen; nunca valores de credenciales. El starter actual del repositorio usa `https://dev.tutribu.app`, que difiere del origen configurado del piloto anterior. Recuperar ese servidor requiere resolver el origen y su configuración externa de claves antes de reutilizar la conexión cifrada. Esta comprobación no inicia envíos ni altera las tres ramas protegidas; T106/T204/T205 conservan su pendiente.
+
 ## SDK, SQL y recorrido de preparación
 
 El SDK0.57.0 real con transporte propio cerrado tiene cobertura de email/SMS/WhatsApp, sender explícito, plantilla Authentication y Template.language, páginas vacías/continuación/fallo tardío, headers/credenciales aislados y clasificación segura de fallos. La suite local actual de sender pasó13 casos en1,06s. Los baselines de inspección, recursos, configuración, credencial y dispatch conservan sus matrices completas y los errores previos; no se cuenta un test omitido como ejecutado.

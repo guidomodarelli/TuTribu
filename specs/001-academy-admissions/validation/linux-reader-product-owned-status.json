@@ -1,0 +1,156 @@
+{
+  "commit": "5e8c9d88d3f56d219c134de27bfb390c2b5e2570",
+  "productJourneysValidated": false,
+  "passed": 0,
+  "failed": 1,
+  "skipped": 0,
+  "failureCodes": [
+    "native_reader_speech_missing"
+  ],
+  "sayAllOnLoadDisabledObserved": false,
+  "realMessages": 0,
+  "runId": 39122840780,
+  "runConclusion": "failure",
+  "fullyValidatedPairs": 0,
+  "observations": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "surface": "public",
+      "speechObserved": true,
+      "audioPeak": 32768
+    }
+  ],
+  "combinationFailures": [
+    {
+      "stage": "administrative_reason_focus",
+      "engine": "chromium",
+      "width": 390,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 0,
+          "ownedCancellationMessages": 0,
+          "approvalMessages": 0,
+          "busyMainRegions": 0
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "chromium",
+      "width": 1280,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 0,
+          "ownedCancellationMessages": 0,
+          "approvalMessages": 0,
+          "busyMainRegions": 0
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_focus",
+      "engine": "webkit",
+      "width": 390,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 0,
+          "ownedCancellationMessages": 0,
+          "approvalMessages": 0,
+          "busyMainRegions": 0
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 1280,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 2,
+          "ownedCancellationMessages": 1,
+          "approvalMessages": 0,
+          "busyMainRegions": 0
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    }
+  ],
+  "diagnostics": [
+    {
+      "stage": "administrative_reason_focus",
+      "engine": "chromium",
+      "width": 390,
+      "backendLogEntries": 64,
+      "fallbackOutputs": 27,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 2,
+      "observedWords": 0,
+      "audioPeak": 32768
+    },
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "chromium",
+      "width": 1280,
+      "backendLogEntries": 6,
+      "fallbackOutputs": 3,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 6,
+      "observedWords": 0,
+      "audioPeak": 32768
+    },
+    {
+      "stage": "public_cancel_focus",
+      "engine": "webkit",
+      "width": 390,
+      "backendLogEntries": 3,
+      "fallbackOutputs": 1,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 2,
+      "observedWords": 0,
+      "audioPeak": 32768
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 1280,
+      "backendLogEntries": 3,
+      "fallbackOutputs": 1,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 4,
+      "observedWords": 0,
+      "audioPeak": 32767
+    }
+  ],
+  "cleanup": {
+    "keyRevoked": true,
+    "secretRemoved": true,
+    "variablesRemoved": 2,
+    "ownedBranchAbsent": true,
+    "originalBranchesPreserved": true,
+    "remainingBranches": 3,
+    "independentInventoryConfirmed": true,
+    "ownerSourceStable": true
+  },
+  "qualityGate": {
+    "pushRunId": 39122786878,
+    "pushConclusion": "success",
+    "pullRequestRunId": 39122789288,
+    "pullRequestConclusion": "success"
+  }
+}

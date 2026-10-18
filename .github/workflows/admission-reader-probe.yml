@@ -47,14 +47,14 @@ jobs:
 
       - name: Preparar Orca con soporte web de WebKitGTK
         run: |
-          git -c advice.detachedHead=false clone --depth 1 --branch ORCA_47_2 https://github.com/GNOME/orca.git "$RUNNER_TEMP/admission-orca-source"
-          test "$(git -C "$RUNNER_TEMP/admission-orca-source" rev-parse HEAD)" = "7da13d868338c4c75751155258b51a82ab273583"
+          git -c advice.detachedHead=false clone --depth 1 --branch 48.9 https://github.com/GNOME/orca.git "$RUNNER_TEMP/admission-orca-source"
+          test "$(git -C "$RUNNER_TEMP/admission-orca-source" rev-parse HEAD)" = "4b964097f586446b3c74a98d0d309fb4b87ceb70"
           PATH="/usr/bin:$PATH" meson setup "$RUNNER_TEMP/admission-orca-build" "$RUNNER_TEMP/admission-orca-source" --prefix="$RUNNER_TEMP/admission-orca-install"
           meson compile -C "$RUNNER_TEMP/admission-orca-build"
           meson install -C "$RUNNER_TEMP/admission-orca-build"
           printf '%s\n' "ORCA_BINARY_PATH=$RUNNER_TEMP/admission-orca-install/bin/orca" >> "$GITHUB_ENV"
-          printf '%s\n' 'ORCA_SOURCE_COMMIT=7da13d868338c4c75751155258b51a82ab273583' >> "$GITHUB_ENV"
-          printf '%s\n' 'ORCA_EXPECTED_VERSION=47.2' >> "$GITHUB_ENV"
+          printf '%s\n' 'ORCA_SOURCE_COMMIT=4b964097f586446b3c74a98d0d309fb4b87ceb70' >> "$GITHUB_ENV"
+          printf '%s\n' 'ORCA_EXPECTED_VERSION=48.9' >> "$GITHUB_ENV"
 
       - name: Probar teclado, voz y audio reales
         run: dbus-run-session -- xvfb-run -a --server-args="-screen 0 1600x1200x24" bash scripts/ci/run-admission-reader-probe.sh
