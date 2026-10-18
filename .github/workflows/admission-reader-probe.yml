@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/admission-reader-probe.yml"
       - "scripts/ci/run-admission-reader-probe.*"
+      - "scripts/ci/run-admission-reader-session.sh"
       - "tests/support/admission-reader-observation.*"
       - "tests/support/admission-reader-atspi.py"
       - "tests/support/constants/admission-reader-probe.mjs"

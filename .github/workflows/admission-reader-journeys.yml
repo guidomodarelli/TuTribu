@@ -1,0 +1,112 @@
+name: Recorridos reales con lector
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/admission-reader-journeys.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admission-reader-journeys-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HUSKY: "0"
+  NEXT_TELEMETRY_DISABLED: "1"
+  SITEPING_ENABLED: "false"
+
+jobs:
+  reader-journeys:
+    name: Lectura nativa de admisiones
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Verificar la capacidad temporal exacta
+        id: capability
+        env:
+          NEON_ADMISSION_READER_TEST_API_KEY: ${{ secrets.NEON_ADMISSION_READER_TEST_API_KEY }}
+          ADMISSION_READER_BRANCH_NONCE: ${{ vars.ADMISSION_READER_BRANCH_NONCE }}
+          ADMISSION_READER_EXPECTED_COMMIT: ${{ vars.ADMISSION_READER_EXPECTED_COMMIT }}
+        run: |
+          if [ -n "$NEON_ADMISSION_READER_TEST_API_KEY" ] && [ -n "$ADMISSION_READER_BRANCH_NONCE" ] && [ "$ADMISSION_READER_EXPECTED_COMMIT" = "$GITHUB_SHA" ]; then
+            printf 'enabled=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'enabled=false\n' >> "$GITHUB_OUTPUT"
+            printf 'Pendiente: falta la capacidad efímera vinculada a este commit.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Obtener las fuentes
+        if: steps.capability.outputs.enabled == 'true'
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preparar herramientas aisladas
+        if: steps.capability.outputs.enabled == 'true'
+        uses: ./.github/actions/setup-quality-gate
+
+      - name: Compartir la caché de navegadores del runner
+        if: steps.capability.outputs.enabled == 'true'
+        run: printf '%s\n' "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/admission-reader-browsers" >> "$GITHUB_ENV"
+
+      - name: Instalar la infraestructura nativa
+        if: steps.capability.outputs.enabled == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y orca dbus-x11 at-spi2-core gsettings-desktop-schemas openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng meson ninja-build pkg-config libatspi2.0-dev libatk-bridge2.0-dev python-gi-dev gettext itstool yelp-tools
+          pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Preparar la publicación oficial del lector
+        if: steps.capability.outputs.enabled == 'true'
+        run: |
+          git -c advice.detachedHead=false clone --depth 1 --branch ORCA_47_2 https://github.com/GNOME/orca.git "$RUNNER_TEMP/admission-orca-source"
+          test "$(git -C "$RUNNER_TEMP/admission-orca-source" rev-parse HEAD)" = "7da13d868338c4c75751155258b51a82ab273583"
+          PATH="/usr/bin:$PATH" meson setup "$RUNNER_TEMP/admission-orca-build" "$RUNNER_TEMP/admission-orca-source" --prefix="$RUNNER_TEMP/admission-orca-install"
+          meson compile -C "$RUNNER_TEMP/admission-orca-build"
+          meson install -C "$RUNNER_TEMP/admission-orca-build"
+          printf '%s\n' "ORCA_BINARY_PATH=$RUNNER_TEMP/admission-orca-install/bin/orca" >> "$GITHUB_ENV"
+          printf '%s\n' 'ORCA_SOURCE_COMMIT=7da13d868338c4c75751155258b51a82ab273583' 'ORCA_EXPECTED_VERSION=47.2' >> "$GITHUB_ENV"
+
+      - name: Compilar la aplicación real
+        if: steps.capability.outputs.enabled == 'true'
+        run: pnpm run build
+
+      - name: Ejecutar los recorridos reales con lector
+        id: native
+        if: steps.capability.outputs.enabled == 'true'
+        env:
+          RUN_ADMISSION_SQL_TESTS: "1"
+          RUN_ADMISSION_READER_JOURNEYS: "1"
+          NEON_ADMISSION_READER_TEST_API_KEY: ${{ secrets.NEON_ADMISSION_READER_TEST_API_KEY }}
+          ADMISSION_READER_BRANCH_NONCE: ${{ vars.ADMISSION_READER_BRANCH_NONCE }}
+        run: |
+          export ADMISSION_READER_ARTIFACT_ROOT="$RUNNER_TEMP/admission-reader-journeys"
+          dbus-run-session -- xvfb-run -a --server-args="-screen 0 1600x1200x24" bash scripts/ci/run-admission-reader-session.sh pnpm exec vitest run tests/manual/admission-linux-reader.native.test.ts --no-file-parallelism --reporter=json --outputFile="$RUNNER_TEMP/admission-reader-results.json"
+
+      - name: Proyectar el resultado sin datos privados
+        if: always() && steps.capability.outputs.enabled == 'true'
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile, mkdir, writeFile, rm } from 'node:fs/promises';
+          import { join } from 'node:path';
+          import { ADMISSION_READER_PROBE } from './tests/support/constants/admission-reader-probe.mjs';
+          const directory = join(process.env.RUNNER_TEMP, 'admission-reader-journeys');
+          await mkdir(directory, {recursive:true});
+          const results = await readFile(join(process.env.RUNNER_TEMP, 'admission-reader-results.json'), 'utf8').then(JSON.parse, () => null);
+          const codes = Object.values(ADMISSION_READER_PROBE.failures);
+          const failures = results?.testResults.flatMap(suite => suite.assertionResults.filter(test => test.status === 'failed').map(test => codes.find(code => test.failureMessages.some(message => message.includes(code))) ?? 'native_journey_failed')) ?? [];
+          await writeFile(join(directory, 'result.json'), JSON.stringify({commit:process.env.GITHUB_SHA,productJourneysValidated:results?.success === true,passed:results?.numPassedTests ?? null,failed:results?.numFailedTests ?? null,skipped:results?.numPendingTests ?? null,failureCodes:failures,realMessages:0},null,2)+'\n');
+          await rm(join(process.env.RUNNER_TEMP, 'admission-reader-results.json'), {force:true});
+          NODE
+
+      - name: Conservar la evidencia saneada
+        if: always() && steps.capability.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: admission-reader-journeys
+          path: ${{ runner.temp }}/admission-reader-journeys/
+          if-no-files-found: error
+          retention-days: 7

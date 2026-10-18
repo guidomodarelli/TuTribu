@@ -8,6 +8,7 @@ export const ADMISSION_READER_PROBE = {
   observationTimeoutMs: 30_000,
   windowCommandTimeoutMs: 5_000,
   maximumTabs: 12,
+  maximumProductTabs: 80,
   sampleRate: 22_050,
   bytesPerSample: 2,
   millisecondsPerSecond: 1000,
