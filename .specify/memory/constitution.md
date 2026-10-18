@@ -220,7 +220,7 @@ sin crear agrupaciones genéricas de valores no relacionados.
   separar un backend DEBE responder a una decisión documentada en
   [backend-separation.htm](../../docs/architecture/backend-separation.htm).
 - El runtime y package manager DEBEN respetar `.nvmrc`, `packageManager` y `engines` de
-  [package.json](../../package.json). La base vigente es Node.js 24, pnpm 12.6.0,
+  [package.json](../../package.json). La base vigente es Node.js 24, pnpm 12.14.0,
   TypeScript 7, Next.js 16 y React 19. Sus pins y lockfile DEBEN actualizarse coordinadamente.
 - Las dependencias DEBEN instalarse con `pnpm install --frozen-lockfile`.
   `package.json` y `pnpm-lock.yaml` DEBEN permanecer sincronizados. `beez-ui` se consume
