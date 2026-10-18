@@ -2,6 +2,8 @@
 
 T200 y T209 permanecen abiertas. La carga Native inicial no cumple el criterio de confirmación p95 inferior a tres segundos. No se cambió ese límite ni se excluyeron los fallos del cálculo.
 
+La lectura agrupada de hechos se validó funcionalmente y se midió sobre `08ca022f`: cien resultados correctos, 50 ingresos/50 pendientes, pool 300/300 y p95 **6.327,19 ms**, todavía fallido. El [detalle de snapshots, locks y cohorte](admission-locked-facts.md) conserva el nuevo resultado y su alcance; reducir viajes no acredita por sí solo el objetivo.
+
 ## Alcance y fuente
 
 La ejecución usa Node 24.21.0, `pg` y PostgreSQL de Neon reales, con 10.000 entradas vigentes y 100 cuentas/sesiones sintéticas. Cincuenta contactos están habilitados; los otros cincuenta presentan una excepción. Invoca los comandos de aplicación y sus owners SQL; no mide la ruta HTTP completa, entrega externa, diez participantes humanos ni un scheduler operativo.

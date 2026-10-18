@@ -27,3 +27,13 @@ La regresión seleccionada de decisiones y cancelaciones pasó dos casos Native,
 ## Rendimiento pendiente
 
 La cohorte completa debe usar el checkpoint guardado, 10.000 entradas y cien solicitantes simultáneos, con la capacidad y límites previos. Debe conservar cincuenta ingresos/cincuenta pendientes, stock, replay, pool balanceado y cero entregas, además del p95 inferior a tres segundos. El número menor de viajes no sustituye esa medición ni los criterios de visibilidad y aceptación del scheduler.
+
+## Cohorte Native sobre 08ca022f
+
+La [ejecución sin instrumentación de sentencias](admission-locked-facts-node.json) usó `08ca022fa7af487faf2960e444e5f8d95c874033`, Node 24.16.0 y el endpoint de base de 2 CU en `aws-us-east-1`. El bundle compilado fue `9e1d36ec07cf61ddbc80a8c764732d494cae08e392e998ca404d38d650d47a85`. Conservó cien resultados, cincuenta ingresos/cincuenta pendientes, cero fallos funcionales, stock y replay correctos y pool 300/300, sin espera ni conexiones retenidas al terminar. Hubo cero entregas.
+
+El p95 fue **6.327,19 ms** y volvió a fallar frente a 3.000 ms. Este resultado no demuestra una mejora de latencia por el agrupamiento. La preparación y el warm-up quedaron separados; el SELECT de control tuvo p95 4,51 ms. La medición de Node registró 1.537,55 ms de CPU acumulada y utilización del event loop de 20,89%; esos datos no aíslan el costo de cada consulta o lock.
+
+`pg_stat_statements` conserva un perfil acumulado del compute, que también incluye preparación y warm-up. Sus primeras familias fueron staging de avisos y elegibilidad de la solicitud propia. Ese perfil no se usa como duración exclusiva de la cohorte ni se suman sus percentiles con los del cliente. La próxima mejora necesita distinguir las esperas de los backends durante la carga; no se repite la misma cohorte para atribuirle por azar una aceptación.
+
+Los inputs y el runner conservaron sus hashes. El cleanup del helper comprobó el retiro de su función y el cierre de la rama; el inventario independiente confirmó las tres ramas originales. Registros privados `.git/admission-locked-facts-colocated-node{.json,-measurement.json,-receipt.json,.log}`. T200/T209 conservan sus criterios completos.
