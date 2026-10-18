@@ -1,6 +1,10 @@
 /** Bounds passive diagnostics on the owned Linux display; it never changes reader acceptance. */
 export const ADMISSION_READER_EVENTS = {
-  application: "MiniBrowser",
+  browserApplication: "MiniBrowser",
+  readerApplications: ["orca"],
+  applicationGroups: { browser: "browser", reader: "reader", other: "other", missing: "missing" },
+  protocolVersion: 2,
+  scope: "owned_ci_display",
   engine: "webkit",
   eventTypes: ["object:text-changed:insert", "object:announcement", "object:children-changed:add", "object:property-change:accessible-name", "object:state-changed:busy"],
   toolkitFamilies: ["gtk", "webkit", "other"],

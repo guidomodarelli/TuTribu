@@ -22,12 +22,19 @@ loop = GLib.MainLoop()
 
 
 def observe(event):
-    """Keep only enums, flags and bounded lengths for the owned MiniBrowser."""
+    """Keep only enums, flags and bounded lengths on the owned CI display."""
     global observed_events, read_failures, dropped_events
     try:
         application = event.source.get_application()
-        if application is None or application.get_name() != configuration["application"]:
-            return
+        application_name = application.get_name() if application is not None else None
+        application_group = configuration["applicationGroups"]["missing"]
+        if isinstance(application_name, str) and application_name:
+            if application_name.casefold() == configuration["browserApplication"].casefold():
+                application_group = configuration["applicationGroups"]["browser"]
+            elif any(application_name.casefold() == name.casefold() for name in configuration["readerApplications"]):
+                application_group = configuration["applicationGroups"]["reader"]
+            else:
+                application_group = configuration["applicationGroups"]["other"]
         event_type = next((registered for registered in configuration["eventTypes"] if event.type.startswith(registered)), None)
         if event_type is None:
             return
@@ -39,13 +46,13 @@ def observe(event):
         payload_is_text = isinstance(event.any_data, str)
         expected_text = payload_is_text and expected in event.any_data
         data_length = min(len(event.any_data), configuration["maximumDataLength"]) if payload_is_text else 0
-        identity = (event_type, toolkit, role_id, live_region, payload_is_text, expected_text)
+        identity = (event_type, application_group, toolkit, role_id, live_region, payload_is_text, expected_text)
         observed_events += 1
         if identity not in groups:
             if len(groups) >= configuration["maximumGroups"]:
                 dropped_events += 1
                 return
-            groups[identity] = {"eventType": event_type, "toolkit": toolkit, "roleId": role_id, "liveRegion": live_region, "payloadIsText": payload_is_text, "expectedTextInPayload": expected_text, "maximumDataLength": 0, "count": 0}
+            groups[identity] = {"eventType": event_type, "application": application_group, "toolkit": toolkit, "roleId": role_id, "liveRegion": live_region, "payloadIsText": payload_is_text, "expectedTextInPayload": expected_text, "maximumDataLength": 0, "count": 0}
         group = groups[identity]
         group["count"] += 1
         group["maximumDataLength"] = max(group["maximumDataLength"], data_length)
@@ -76,5 +83,5 @@ finally:
     for event_type in registered_events:
         listener.deregister(event_type)
 
-observation = {"registeredEvents": registered_events, "completion": completion, "observedEvents": observed_events, "readFailures": read_failures, "droppedEvents": dropped_events, "groups": list(groups.values())}
+observation = {"protocolVersion": configuration["protocolVersion"], "scope": configuration["scope"], "registeredEvents": registered_events, "completion": completion, "observedEvents": observed_events, "readFailures": read_failures, "droppedEvents": dropped_events, "groups": list(groups.values())}
 print(json.dumps({"phase": configuration["phases"]["completed"], "observation": observation}), flush=True)
