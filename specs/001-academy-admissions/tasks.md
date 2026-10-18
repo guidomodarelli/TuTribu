@@ -1582,7 +1582,9 @@ Cierre de T199: [reconciliación y reapertura aprobadas](validation/messaging-re
 
 <a id="t207"></a>
 
-- [ ] T207 Coordinar solo participantes de prueba ya autorizados: diez personas con cuentas/canales preparados, al menos nueve completan solicitar/ingresar <2 min excluyendo entrega externa; registrar SC-014 y accesibilidad, sin enviar invitaciones/contactar terceros por iniciativa propia. Archivos: `specs/001-academy-admissions/validation/usability.md`. Dependencias: `T198`, `T197`. Trazabilidad: `FR-133`, `SC-014`, `SC-018`.
+- [ ] T207 Preparar y ejecutar un ensayo funcional automatizado con diez cuentas ficticias independientes y sesiones reales: al menos nueve completan solicitar/ingresar <2 min desde el enlace, con cuentas/canales preparados y excluyendo sólo la demora externa de entrega; registrar SC-014 sin atribuir usabilidad humana ni verificación real de Google/proveedor. Usar el acceso de desarrollo sin habilitar registro público o métodos nuevos en producción; conservar los controles de recencia para acciones sensibles. Archivos: `tests/e2e/admission-entry-sample.spec.ts`, `specs/001-academy-admissions/validation/admission-entry-sample.md`. Dependencias: `T198`, `T197`. Trazabilidad: `FR-133`, `SC-014`, `SC-018`.
+
+Revisión de alcance de T207: el usuario eligió cuentas ficticias y automatización en lugar del ensayo con diez personas. Se conserva el ID y el umbral de SC-014; cambia explícitamente el método y se retira cualquier atribución de usabilidad humana. Las referencias históricas al método anterior conservan su fecha y alcance. T207 sigue pendiente hasta ejecutar la cohorte nueva; SC-018 y los gates externos mantienen sus criterios propios.
 
 ### Validación
 

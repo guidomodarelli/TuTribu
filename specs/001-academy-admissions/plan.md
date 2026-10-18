@@ -32,7 +32,7 @@ Módulos verticales `academy-admissions` y `messaging` con puertos propios, exte
 
 **Project Type**: Aplicación web SSR/BFF y procesos de mantenimiento bounded, dentro del monolito hexagonal vigente. No backend separado ni broker contratado.
 
-**Performance Goals**: 10.000 filas de lista, cien solicitantes concurrentes, confirmación p95 <3 s con exclusiones del spec; nueve de diez personas completan <2 min; avisos internos p95 <30 s y correo agrupado dentro del objetivo desde cierre de ventana. Medir infraestructura sana, warm-up/external delivery por separado; no garantías comerciales de Zavu.
+**Performance Goals**: 10.000 filas de lista, cien solicitantes concurrentes, confirmación p95 <3 s con exclusiones del spec; nueve de diez cuentas ficticias independientes completan el recorrido automatizado <2 min, sin certificar usabilidad humana; avisos internos p95 <30 s y correo agrupado dentro del objetivo desde cierre de ventana. Medir infraestructura sana, warm-up/external delivery por separado; no garantías comerciales de Zavu.
 
 **Constraints**: 146 FR (142 originales y cuatro de WhatsApp), 71 escenarios originales más WA-01–WA-05, 45 EC, 21 SC, 24 decisiones y 27 TC íntegros. Código/tiempos/cupos/retención exactamente según spec. Secretos server-only, ningún bypass gratuito, contacto declarado sin autoridad, aislamiento por cuenta/tribu/propósito/época/versión. Timeout inicial externo 15 s, lease 90 s, dos envíos concurrentes/presupuesto 45 s son knobs técnicos medibles, no límites del proveedor.
 
