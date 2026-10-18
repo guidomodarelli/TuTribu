@@ -27,3 +27,13 @@ La [corrida de c30e78fc](admission-notification-stage-load.json) conservó 50 in
 Una función diagnóstica independiente, autenticada y fijada a otra rama propia, informó Node 24.16.0 y dos procesadores disponibles. Los archivos de cuota cgroup no eran legibles: la cuota y el período permanecen desconocidos, no se interpretan como cero ni como capacidad ilimitada. El probe rechazó al anónimo y sólo devolvió esos números; no leyó credenciales ni filas de la aplicación. Funciones y ramas de ambos ensayos se eliminaron, y se confirmaron las tres ramas preexistentes. El artefacto conserva las huellas de los scripts privados usados para el diagnóstico.
 
 El arnés permite seleccionar explícitamente la capacidad de su endpoint efímero mediante `ADMISSION_NODE_COMPUTE_UNITS`; el default continúa en 2 CU y el deploy exige el mínimo/máximo realmente seleccionado antes de ejecutar. La configuración productiva, el pool, el workload y el umbral no cambian. El siguiente ensayo de capacidad se registrará separado de esta corrida para comprobar el efecto del recurso sin atribuirlo al código.
+
+## Contraste de capacidad del endpoint
+
+El [ensayo de 7e8918bd con 8 CU](admission-notification-eight-cu.json) verificó mínimo y máximo de 8 CU en `aws-us-east-1`, con el mismo protocolo de aplicación. La selección experimental sólo afecta el endpoint de la rama propia; el default del arnés sigue en 2 CU. No se cambia ningún endpoint productivo o preexistente.
+
+Se conservaron los 50 ingresos/50 pendientes, cero fallos, diez mil entradas, cien solicitudes, cincuenta miembros básicos, cero entregas y 300 adquisiciones/liberaciones sin esperas ni retención. El p95 fue **5.341,00 ms y siguió fallando** frente a tres segundos. La preparación y calentamiento separados fueron 2.518,20 y 2.998,59 ms; la sonda mínima dio 3,02 ms y el event loop, 102,69 ms. Los p95 de transacciones de cuenta/comando fueron 230,46/3.815,33 ms.
+
+La ventana medida duró 5.435,35 ms y registró 3.335,58 ms de CPU user, 1.052,50 ms system, 3.763,37 ms de event loop activo y 1.671,98 ms idle. La utilización fue 0,692, frente a 0,315 en la corrida de 2 CU. Estos datos justifican atribuir el trabajo del cliente antes de seguir cambiando capacidad; no acreditan una cuota de CPU ni una causa única. La función y rama de 8 CU se eliminaron, y se confirmaron sólo las tres ramas anteriores. El gate y las catorce tareas abiertas permanecen pendientes.
+
+La CI ordinaria del código de coordinación pasó en [push](https://github.com/guidomodarelli/TuTribu/actions/runs/39108438339) y [PR](https://github.com/guidomodarelli/TuTribu/actions/runs/39108442471); las dos cargas opt-in mantienen su aserción de latencia fallida por separado.
