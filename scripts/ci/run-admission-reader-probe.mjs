@@ -106,6 +106,10 @@ try {
       observation.speechSettings = observedLog.split(/\r?\n/u).filter((line) => /^(?:ORCA|SD) rate/u.test(line)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters));
       observation.audioBytes = await audioSize();
       observation.latestAudioPeak = await audioPeak(Math.max(0, observation.audioBytes - Math.ceil(PROBE.sampleRate * PROBE.bytesPerSample * PROBE.silenceWindowMs / PROBE.millisecondsPerSecond)));
+      try {
+        const metadata = execFileSync("/usr/bin/python3", ["tests/support/admission-reader-atspi.py", item.status, String(PROBE.maximumAccessibilityNodes), String(PROBE.maximumAccessibilityDepth), String(PROBE.accessibilityTimeoutMs)], { encoding: "utf8", timeout: PROBE.windowCommandTimeoutMs, stdio: ["ignore", "pipe", "pipe"] });
+        observation.nativeAccessibility = JSON.parse(metadata);
+      } catch (inspectionError) { observation.nativeAccessibility = { unavailable: true, failureName: inspectionError instanceof Error ? inspectionError.name : "unknown" }; }
       observation.focusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.focus);
       observation.statusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.status);
       process.exitCode = 1;
