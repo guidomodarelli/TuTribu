@@ -33,7 +33,7 @@
     "test:ui": "pnpm build && node scripts/e2e/run-ui-tests.mjs",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:beezping": "playwright test --config playwright.beezping.config.ts",
-    "e2e:cleanup": "node scripts/e2e/clean-orphan-webkit-processes.mjs",
+    "e2e:cleanup": "cleaner playwright",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
@@ -61,6 +61,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@astra-kit/cleaner": "^0.2.0",
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
     "@opennextjs/cloudflare": "^1.20.6",
