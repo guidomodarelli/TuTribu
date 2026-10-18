@@ -18,7 +18,7 @@ const cases = PROBE.engines.flatMap((engine) => PROBE.widths.map((width) => {
   const id = randomUUID().replaceAll("-", "").slice(0, 8);
   return { id, engine, width, title: `${PROBE.titlePrefix} ${id}`, focus: `${PROBE.focusPrefix} ${id}`, status: `${PROBE.statusPrefix} ${id}` };
 }));
-const report = { commit: process.env.GITHUB_SHA, kind: "platform_preflight", productJourneysValidated: false, realMessages: 0, orcaVersion: process.env.ORCA_BINARY_VERSION ?? null, speechDispatcherVersion: process.env.SPEECH_DISPATCHER_VERSION ?? null, cases: [] };
+const report = { commit: process.env.GITHUB_SHA, kind: "platform_preflight", productJourneysValidated: false, realMessages: 0, orcaVersion: process.env.ORCA_BINARY_VERSION ?? null, orcaSourceCommit: process.env.ORCA_SOURCE_COMMIT ?? null, speechDispatcherVersion: process.env.SPEECH_DISPATCHER_VERSION ?? null, cases: [] };
 const server = createServer((request, response) => {
   const item = cases.find((candidate) => new URL(request.url, "http://127.0.0.1").pathname === `/${candidate.id}`);
   if (!item) { response.writeHead(404); response.end(); return; }
