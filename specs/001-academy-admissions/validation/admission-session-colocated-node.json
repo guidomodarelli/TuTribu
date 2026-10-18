@@ -1,0 +1,77 @@
+{
+  "source": {
+    "commit": "a4540ec1b3e5584b01d9e635c0b176a1247e4fa0",
+    "worktreeChanges": false,
+    "bundleSha256": "0b801e8999b3b009e4201a6a9508d6c76df41c61a0a4360d4a11431e704ed8c9"
+  },
+  "compute": {
+    "minimum": 2,
+    "maximum": 2,
+    "region": "aws-us-east-1"
+  },
+  "measurement": {
+    "warmupDurationMs": 4009.754013000056,
+    "setupDurationMs": 2971.008218999952,
+    "networkQueryP95Ms": 3.4383450001478195,
+    "networkSamples": 20,
+    "participants": 100,
+    "admitted": 50,
+    "pending": 50,
+    "failures": [],
+    "p95Ms": 7165.895729999989,
+    "targetMs": 3000,
+    "peakInFlight": 100,
+    "pool": {
+      "maximum": 100,
+      "acquisitions": 300,
+      "releases": 300,
+      "errorReleases": 0,
+      "peakWaitingCount": 0,
+      "peakTotalCount": 100,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    },
+    "eventLoopP95Ms": 101.777407,
+    "facts": {
+      "entries": 10000,
+      "requests": 100,
+      "basic_members": 50,
+      "deliveries": 0
+    },
+    "realMessages": 0,
+    "nodeVersion": "24.16.0",
+    "sourceCommit": "a4540ec1b3e5584b01d9e635c0b176a1247e4fa0",
+    "bundleSha256": "0b801e8999b3b009e4201a6a9508d6c76df41c61a0a4360d4a11431e704ed8c9",
+    "diagnostics": {
+      "wallDurationMs": 7173.529490999877,
+      "cpuUserMs": 1949.605,
+      "cpuSystemMs": 404.82,
+      "eventLoopActiveMs": 2343.3379889996722,
+      "eventLoopIdleMs": 4830.198902999982,
+      "eventLoopUtilization": 0.3266642416815475,
+      "accountTransactions": 100,
+      "commandTransactions": 200,
+      "accountTransactionP95Ms": 452.14724300056696,
+      "commandTransactionP95Ms": 5197.699493000284,
+      "admittedP95Ms": 7166.146155999973,
+      "pendingP95Ms": 7164.162922999822
+    }
+  },
+  "nativeTest": {
+    "passed": 0,
+    "failed": 1,
+    "exitCode": 1,
+    "failure": "AssertionError: expected 7165.895729999989 to be less than 3000"
+  },
+  "cleanup": {
+    "remainingBranchIds": [
+      "br-shiny-paper-ankn86x2",
+      "br-aged-morning-an5ejge1",
+      "br-wispy-sun-anwpxm2x"
+    ],
+    "protectedBranchesPreserved": true,
+    "ownedBranchAbsent": true
+  },
+  "realMessages": 0,
+  "status": "latency_not_passed"
+}

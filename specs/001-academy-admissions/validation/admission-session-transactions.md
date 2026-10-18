@@ -16,4 +16,14 @@ La reproducción previa corregida falló con `expected 5 to be 3`, en `.git/admi
 
 Los 719 casos ordinarios seleccionados pasaron, con cuatro casos nativos omitidos en ese comando. Por separado pasaron cuatro regresiones SQL reales: rol y estado después de esperar una pertenencia modificada, sesión vencida durante ese lock, revocación de sesión dentro del mismo request y presentación manual telefónica OFF desde la composición real. El mismo comando repitió la prueba ordinaria de coalescencia de identidad, dando cinco casos aprobados y veintiséis fuera del filtro; no se cuentan los omitidos como ejecutados. Ambos tipos y lint pasaron.
 
-El [reporte saneado](admission-session-transactions.json) conserva base e inputs con huella, la reproducción roja y las ejecuciones verdes. El build real de Next pasó, con registro privado en `.git/admission-session-build.log`. La carga completa se repetirá sobre el commit publicado; el gate de latencia conserva su validación independiente y este avance no cierra T200/T209.
+El [reporte saneado](admission-session-transactions.json) conserva base e inputs con huella, la reproducción roja y las ejecuciones verdes. El build real de Next pasó, con registro privado en `.git/admission-session-build.log`.
+
+## Cien cuentas en el Node cercano
+
+La carga completa sobre `a4540ec1b3e5584b01d9e635c0b176a1247e4fa0`, sin cambios de árbol, conservó las cien llamadas originales y las diez mil entradas. El [resultado saneado](admission-session-colocated-node.json) identifica el SHA256 del bundle, Node 24.16.0 y endpoint `aws-us-east-1` con mínimo/máximo de 2 CU verificados.
+
+Se confirmaron cincuenta ingresos y cincuenta pendientes, cero fallos, cien solicitudes, cincuenta miembros básicos y cero entregas. Las adquisiciones y liberaciones bajaron de 500 a 300, con cien transacciones de cuenta y doscientas de comando. El pool conservó máximo cien, pico de espera cero y ninguna conexión retenida. La preparación duró 2.971,01 ms y el warm-up 4.009,75 ms, ambos fuera de la medición original conforme al protocolo existente.
+
+El p95 fue 7.165,90 ms y **no cumplió** el objetivo estricto inferior a 3.000 ms. La sonda mínima dio 3,44 ms; el p95 de las transacciones de cuenta fue 452,15 ms y el de comandos 5.197,70 ms. Las cohortes de ingresos y pendientes tuvieron p95 de 7.166,15 y 7.164,16 ms. El event loop dio p95 de 101,78 ms. La reducción comprobada de transacciones no acredita el gate ni identifica por sí sola la causa de la latencia restante; corresponde profundizar el diagnóstico de las fases de comando.
+
+El caso nativo falló únicamente en la aserción de latencia después de verificar efectos y replay del original. Su `finally` retiró la función y la rama propias; una consulta independiente confirmó que sólo permanecían las tres ramas preexistentes, conservadas. Registros privados: `.git/admission-node-host-session-measurement.json`, `.git/admission-node-host-session-vitest.json` y `.git/admission-node-host-session-cleanup.json`. T200/T209 siguen pendientes; los otros criterios y las catorce tareas abiertas conservan su alcance.

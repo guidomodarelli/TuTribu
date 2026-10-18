@@ -132,3 +132,5 @@ El abandono pasó con guard de 30.000 ms, SQLSTATE `25P03`, recuperación en 30.
 ## Identidad nativa y transacciones de confirmación
 
 La [validación de transacciones de sesión](admission-session-transactions.md) reproduce cinco adquisiciones del pool real por solicitud y verifica su reducción a tres, manteniendo la lectura inicial de cuenta y las comprobaciones SQL actuales dentro de claim y efecto. El cambio de usuario/sesión y la revocación entre commits siguen impidiendo efectos. Esta reducción no acredita el p95 de la cohorte completa ni cierra T200/T209.
+
+La [carga completa sobre a4540ec1](admission-session-colocated-node.json), en el mismo Node cercano con 2 CU verificadas, confirmó 50 ingresos/50 pendientes, cero fallos y 300 adquisiciones/liberaciones, sin esperas ni fugas. Su p95 de 7.165,90 ms conserva el fallo frente a 3.000 ms; la sonda mínima fue 3,44 ms. El diagnóstico distinguió cien transacciones de cuenta y doscientas de comando, cuyos p95 fueron 452,15 y 5.197,70 ms. La función y rama propias fueron eliminadas y las tres ramas anteriores quedaron preservadas.
