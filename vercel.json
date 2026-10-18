@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "node .beez-rp/vercel-ignore-build.mjs",
+  "ignoreCommand": "node .astra-rp/vercel-ignore-build.mjs",
   "crons": [
     {
       "path": "/api/maintenance/image-cleanup",

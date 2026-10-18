@@ -2,21 +2,21 @@
  * Gates Git deployments while an exact release is owned by CI.
  *
  * A commit cannot contain its own SHA, so the release commit is identified as the one that
- * changes `.beez-rp/release.json` against its first parent; later commits keep the metadata
+ * changes `.astra-rp/release.json` against its first parent; later commits keep the metadata
  * untouched and fall through to the original gate. Without a readable parent (shallow clone or
- * first commit) the release commit is recognized by its own `Beez-Rp-Execution: ci` trailer,
+ * first commit) the release commit is recognized by its own `Astra-Rp-Execution: ci` trailer,
  * which later commits never carry, so the gate stays closed until the release workflow deploys.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
-const RELEASE_METADATA_FILE = '.beez-rp/release.json';
+const RELEASE_METADATA_FILE = '.astra-rp/release.json';
 /** Revision compared against the deployed commit; absent in shallow clones and on the first commit. */
 const PARENT_REVISION = 'HEAD^';
 /** `git diff --quiet` status reporting that the path changed between both commits. */
 const GIT_DIFF_CHANGED_STATUS = 1;
-/** Trailer that `beez-rp create-version` writes in the release commit (mirrors `RELEASE_EXECUTION_TRAILER`). */
-const RELEASE_EXECUTION_TRAILER = 'Beez-Rp-Execution';
+/** Trailer that `astra-rp create-version` writes in the release commit (mirrors `RELEASE_EXECUTION_TRAILER`). */
+const RELEASE_EXECUTION_TRAILER = 'Astra-Rp-Execution';
 /** Trailer value of a release whose deployment is delegated to CI. */
 const CI_RELEASE_EXECUTION = 'ci';
 
@@ -29,7 +29,7 @@ function runGit(gitArguments) {
   return spawnSync('git', gitArguments, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
 }
 
-/** @returns {boolean} Whether the deployed commit carries exactly one `Beez-Rp-Execution: ci` trailer value. */
+/** @returns {boolean} Whether the deployed commit carries exactly one `Astra-Rp-Execution: ci` trailer value. */
 function hasCiReleaseTrailer() {
   const trailers = runGit(['log', '-1', `--format=%(trailers:key=${RELEASE_EXECUTION_TRAILER},valueonly=true)`, 'HEAD']);
   if (trailers.status !== 0) return false;
