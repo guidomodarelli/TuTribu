@@ -32,17 +32,10 @@ export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizat
   async getCurrentActor(tribeId: string, userId: string): Promise<AdmissionActorFacts | null> {
     const actor = (await this.database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
     if (!actor || actor !== userId) return null;
-    if (this.action === ADMISSION_ACTION.readInbox || this.action === ADMISSION_ACTION.readReviewHistory || this.action === ADMISSION_ACTION.readAudit || this.action === ADMISSION_ACTION.decideRequest || this.action === ADMISSION_ACTION.rejectRequest) {
-      const current = (await this.database.execute<{ user_id: string; role: AdmissionActorFacts["role"]; status: AdmissionActorFacts["status"] }>(sql`select user_id,role,status from public.read_admission_reviewer_context(${tribeId},${this.sessionId})`)).rows[0];
-      return current ? { userId: current.user_id, tribeId, role: current.role, status: current.status } : null;
-    }
-    const tribe = (await this.database.execute(sql`select id from public.tribes where id=${tribeId} for share`)).rows[0];
-    if (!tribe) return null;
-    const session = (await this.database.execute(sql`select id from public.session where id=${this.sessionId} and "userId"=${userId} for share`)).rows[0];
-    if (!session) return null;
-    const member = (await this.database.execute<{ role: AdmissionActorFacts["role"]; status: AdmissionActorFacts["status"] }>(sql`select role,status from public.tribe_members where tribe_id=${tribeId} and user_id=${userId} for share`)).rows[0];
-    if (!await this.sessionRemainsLive(userId)) return null;
-    return { userId, tribeId, role: member?.role ?? null, status: member?.status ?? null };
+    // The existing projection returns facts for authenticated nonmembers too; action policy stays in domain.
+    // Its VOLATILE PL/pgSQL statements preserve fresh snapshots and final expiry after ordered lock waits.
+    const current = (await this.database.execute<{ user_id: string; role: AdmissionActorFacts["role"]; status: AdmissionActorFacts["status"] }>(sql`select user_id,role,status from public.read_admission_reviewer_context(${tribeId},${this.sessionId})`)).rows[0];
+    return current ? { userId: current.user_id, tribeId, role: current.role, status: current.status } : null;
   }
 
   /**

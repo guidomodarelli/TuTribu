@@ -1,0 +1,274 @@
+{
+  "kind": "sequential_diagnostic",
+  "fullLoadAcceptance": false,
+  "setup": {
+    "allowlistEntries": 10000,
+    "syntheticAccounts": 100
+  },
+  "measuredCallsPerRun": 2,
+  "realMessages": 0,
+  "baseCommit": "6404061497f91597d34fdacf166be46445a03415",
+  "optimizedSourceInputs": [
+    {
+      "sha256": "06c738fefdcbb07fe64780b034e67120bb9a1018ff14031a0a5e12cc412af370",
+      "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader.ts"
+    },
+    {
+      "sha256": "11cb7aa7a1642c14cb7bed8bcec9633a81eacc96b0936e09f051820235725e80",
+      "path": "tests/unit/modules/academy-admissions/infrastructure/admission-authorization-reader.test.ts"
+    },
+    {
+      "sha256": "ac23a7d848265514d4dcbe5bb1fe6798c2251df2ab19809860f414ffd53135fd",
+      "path": "tests/support/constants/admission-authorization.ts"
+    }
+  ],
+  "optimizedSourceInputsStable": true,
+  "baseline": {
+    "kind": "diagnostic_only",
+    "fullLoadAcceptance": false,
+    "realMessages": 0,
+    "cases": [
+      {
+        "case": "allowlisted",
+        "durationMs": 20978.205199999997,
+        "confirmed": true,
+        "outcome": "admitted",
+        "failure": null,
+        "transactions": [
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 967.0672999999952,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 971.8469000000041,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 4730.881999999983,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 963.0515000000014,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 13332.641200000013,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "case": "manual_exception",
+        "durationMs": 20774.93849999999,
+        "confirmed": true,
+        "outcome": "pending",
+        "failure": null,
+        "transactions": [
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 961.2779000000155,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 961.9533999999985,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 4692.045400000003,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 967.0027000000118,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 13188.725199999986,
+            "failed": false
+          }
+        ]
+      }
+    ],
+    "predefinedInspection": {
+      "completed": false,
+      "rawDiagnosticsExported": false
+    },
+    "setupDurationMs": 171556.896,
+    "queryStatisticsInstalled": false,
+    "finalPool": {
+      "maximum": 10,
+      "totalCount": 1,
+      "idleCount": 1,
+      "waitingCount": 0,
+      "acquisitions": 135,
+      "releases": 135,
+      "errorReleases": 0,
+      "removals": 3,
+      "lastErrorRelease": null
+    },
+    "cleanupConfirmed": true
+  },
+  "optimized": {
+    "kind": "diagnostic_only",
+    "fullLoadAcceptance": false,
+    "realMessages": 0,
+    "cases": [
+      {
+        "case": "allowlisted",
+        "durationMs": 18855.117499999993,
+        "confirmed": true,
+        "outcome": "admitted",
+        "failure": null,
+        "transactions": [
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 990.9069999999774,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 979.8119999999763,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 3757.0977999999886,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 969.8929000000062,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 12113.565400000021,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "case": "manual_exception",
+        "durationMs": 18354.723700000002,
+        "confirmed": true,
+        "outcome": "pending",
+        "failure": null,
+        "transactions": [
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 963.3718000000226,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 973.2105999999912,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 3747.213599999988,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 967.0883999999787,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 11699.135200000019,
+            "failed": false
+          }
+        ]
+      }
+    ],
+    "predefinedInspection": {
+      "completed": false,
+      "rawDiagnosticsExported": false
+    },
+    "setupDurationMs": 176605.2907,
+    "queryStatisticsInstalled": false,
+    "finalPool": {
+      "maximum": 10,
+      "totalCount": 1,
+      "idleCount": 1,
+      "waitingCount": 0,
+      "acquisitions": 135,
+      "releases": 135,
+      "errorReleases": 0,
+      "removals": 3,
+      "lastErrorRelease": null
+    },
+    "cleanupConfirmed": true
+  },
+  "authorityTests": {
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "title": "should resolve canonical leadership instead of the historical creator and retain a nonmember applicant",
+        "status": "passed",
+        "durationMs": 29256.232900000003
+      },
+      {
+        "title": "should observe a membership inserted after the actor query begins waiting on the tribe",
+        "status": "passed",
+        "durationMs": 24029.6674
+      },
+      {
+        "title": "should return the current role and status after waiting on a changed membership",
+        "status": "passed",
+        "durationMs": 22929.899300000005
+      },
+      {
+        "title": "should reject a session that expires while waiting for the membership lock",
+        "status": "passed",
+        "durationMs": 30337.338499999998
+      },
+      {
+        "title": "should restrict current reviewer resources to the exact tribe and close after session revocation",
+        "status": "passed",
+        "durationMs": 23448.232799999983
+      },
+      {
+        "title": "should not disclose another account request or allow a guardian to inspect a leader resource",
+        "status": "passed",
+        "durationMs": 25941.669399999984
+      },
+      {
+        "title": "should retain retired connection metadata for current authorized readers while closing sensitive use",
+        "status": "passed",
+        "durationMs": 32710.488400000002
+      }
+    ]
+  }
+}

@@ -5,6 +5,11 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 import { PostgresAdmissionAuthorizationReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-authorization-reader";
+import { withAdmissionTransitionContention } from "@/tests/support/admission-transition-contention";
+import { ADMISSION_AUTHORIZATION_TEST } from "@/tests/support/constants/admission-authorization";
+import { ADMISSION_ACTION } from "@/src/modules/academy-admissions/constants/admission-eligibility";
+import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
+import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 
 /** Seeds real synthetic sessions and a preadmission request without granting membership to its applicant. */
 async function prepareAuthorization(database: AcademyAdmissionTestDatabase) {
@@ -33,14 +38,76 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission current 
         const reader = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.leader, "read_inbox");
         expect(await reader.getCurrentActor(fixture.tribeId, fixture.leaderId)).toEqual({ userId: fixture.leaderId, tribeId: fixture.tribeId, role: "leader", status: "active" });
         expect(await reader.getCurrentActor(fixture.tribeId, fixture.applicantId)).toBeNull();
+        const commandReader = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.leader, ADMISSION_ACTION.manageAllowlist);
+        expect(await commandReader.getCurrentActor(fixture.tribeId, fixture.leaderId)).toEqual({ userId: fixture.leaderId, tribeId: fixture.tribeId, role: TRIBE_MEMBER_ROLE.leader, status: TRIBE_MEMBERSHIP_STATUS.active });
       });
       await database.withContext({ userId: fixture.applicantId, email: null }, async (transaction) => {
         const reader = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, "read_own_request");
         expect(await reader.getCurrentActor(fixture.tribeId, fixture.applicantId)).toEqual({ userId: fixture.applicantId, tribeId: fixture.tribeId, role: null, status: null });
         expect(await reader.getResource(fixture.tribeId, { kind: "admission_request", id: fixture.requestId })).toEqual({ id: fixture.requestId, tribeId: fixture.tribeId, applicantUserId: fixture.applicantId });
       });
+      expect(database.nonBypassRole).toMatchObject({ bypassesRls: false, isSuperuser: false });
+      await database.withContext({ userId: fixture.applicantId, email: null }, async (transaction) => {
+        const reader = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest);
+        expect(await reader.getCurrentActor(fixture.tribeId, fixture.applicantId)).toEqual({ userId: fixture.applicantId, tribeId: fixture.tribeId, role: null, status: null });
+        expect(await reader.getCurrentActor(randomUUID(), fixture.applicantId)).toBeNull();
+        expect(await reader.getCurrentActor(fixture.tribeId, fixture.leaderId)).toBeNull();
+        const foreignSession = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.leader, ADMISSION_ACTION.readOwnRequest);
+        expect(await foreignSession.getCurrentActor(fixture.tribeId, fixture.applicantId)).toBeNull();
+        const missingSession = new PostgresAdmissionAuthorizationReader(transaction, randomUUID(), ADMISSION_ACTION.readOwnRequest);
+        expect(await missingSession.getCurrentActor(fixture.tribeId, fixture.applicantId)).toBeNull();
+      }, "non_bypass");
+      await database.withContext({ userId: null, email: null }, async (transaction) => {
+        const reader = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest);
+        expect(await reader.getCurrentActor(fixture.tribeId, fixture.applicantId)).toBeNull();
+      }, "non_bypass");
     });
   }, 120_000);
+
+  it("should observe a membership inserted after the actor query begins waiting on the tribe", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareAuthorization(database);
+      const result = await withAdmissionTransitionContention(database, { userId: fixture.leaderId, email: null }, async (transaction) => {
+        await transaction.execute(sql`select id from public.tribes where id=${fixture.tribeId} for update`);
+        await transaction.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${fixture.tribeId},${fixture.applicantId},${TRIBE_MEMBER_ROLE.guardian},${TRIBE_MEMBERSHIP_STATUS.active})`);
+      }, () => database.withContext({ userId: fixture.applicantId, email: null }, async (transaction) => {
+        const reader = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest);
+        return reader.getCurrentActor(fixture.tribeId, fixture.applicantId);
+      }, "non_bypass"));
+      expect(result).toEqual({ status: "fulfilled", value: { userId: fixture.applicantId, tribeId: fixture.tribeId, role: TRIBE_MEMBER_ROLE.guardian, status: TRIBE_MEMBERSHIP_STATUS.active } });
+    }, { concurrentTransactions: ADMISSION_AUTHORIZATION_TEST.concurrentTransactions });
+  }, ADMISSION_AUTHORIZATION_TEST.timeoutMs);
+
+  it("should return the current role and status after waiting on a changed membership", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareAuthorization(database);
+      const result = await withAdmissionTransitionContention(database, { userId: fixture.leaderId, email: null }, async (transaction) => {
+        await transaction.execute(sql`update public.tribe_members set role=${TRIBE_MEMBER_ROLE.tribemate},status=${TRIBE_MEMBERSHIP_STATUS.blocked} where tribe_id=${fixture.tribeId} and user_id=${fixture.guardianId}`);
+      }, () => database.withContext({ userId: fixture.guardianId, email: null }, async (transaction) => {
+        const reader = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.guardian, ADMISSION_ACTION.readConnectionAlert);
+        return reader.getCurrentActor(fixture.tribeId, fixture.guardianId);
+      }, "non_bypass"));
+      expect(result).toEqual({ status: "fulfilled", value: { userId: fixture.guardianId, tribeId: fixture.tribeId, role: TRIBE_MEMBER_ROLE.tribemate, status: TRIBE_MEMBERSHIP_STATUS.blocked } });
+    }, { concurrentTransactions: ADMISSION_AUTHORIZATION_TEST.concurrentTransactions });
+  }, ADMISSION_AUTHORIZATION_TEST.timeoutMs);
+
+  it("should reject a session that expires while waiting for the membership lock", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareAuthorization(database);
+      await database.withContext({ userId: fixture.guardianId, email: null }, (transaction) => transaction.execute(sql`update public.session set "expiresAt"=clock_timestamp()+${ADMISSION_AUTHORIZATION_TEST.sessionExpiryDelaySeconds}*interval '1 second' where id=${fixture.sessions.guardian}`));
+      const result = await withAdmissionTransitionContention(database, { userId: fixture.leaderId, email: null }, async (transaction) => {
+        await transaction.execute(sql`select id from public.tribe_members where tribe_id=${fixture.tribeId} and user_id=${fixture.guardianId} for update`);
+      }, () => database.withContext({ userId: fixture.guardianId, email: null }, async (transaction) => {
+        const reader = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.guardian, ADMISSION_ACTION.readConnectionAlert);
+        return reader.getCurrentActor(fixture.tribeId, fixture.guardianId);
+      }, "non_bypass"), () => database.withContext({ userId: fixture.leaderId, email: null }, async (transaction) => {
+        const session = (await transaction.execute<{ live: boolean }>(sql`select "expiresAt">clock_timestamp() as live from public.session where id=${fixture.sessions.guardian}`)).rows[0];
+        expect(session.live).toBe(true);
+        await transaction.execute(sql`select pg_sleep(greatest(extract(epoch from "expiresAt"-clock_timestamp()),0)+${ADMISSION_AUTHORIZATION_TEST.sessionExpiryGraceSeconds}) from public.session where id=${fixture.sessions.guardian}`);
+      }));
+      expect(result).toEqual({ status: "fulfilled", value: null });
+    }, { concurrentTransactions: ADMISSION_AUTHORIZATION_TEST.concurrentTransactions });
+  }, ADMISSION_AUTHORIZATION_TEST.timeoutMs);
 
   it("should restrict current reviewer resources to the exact tribe and close after session revocation", async () => {
     await withAcademyAdmissionDatabase(async (database) => {

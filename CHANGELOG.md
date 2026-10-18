@@ -90,6 +90,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- Se agiliza la comprobación de permisos al solicitar acceso a una academia, conservando los cambios recientes de membresía y el vencimiento de la sesión.
 - Los formularios de admisión y mensajería adoptan los selectores y botones del diseño actual del sitio.
 
 - Al retomar una presentación con el mismo contacto, la pantalla reconoce su código propio, muestra su canal actual y diferencia la validación de un código vigente del reenvío explícito que reemplaza uno ya utilizado.
