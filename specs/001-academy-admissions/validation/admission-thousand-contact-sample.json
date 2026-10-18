@@ -1,0 +1,142 @@
+{
+  "source": {
+    "commit": "fc074d9a29f22c202b7a178792d3ed843ffafc64",
+    "worktreeChanges": false,
+    "bundleSha256": "f8ce356979831ae76b750dfcc14c51b0f3709655fbe754b8e55cbd864225d6ea"
+  },
+  "compute": {
+    "minimum": 2,
+    "maximum": 2,
+    "region": "aws-us-east-1"
+  },
+  "sample": {
+    "kind": "deterministic_sample",
+    "participants": 1000,
+    "enabledContacts": 800,
+    "unlistedContacts": 200,
+    "admitted": 800,
+    "pending": 200,
+    "batchSize": 100,
+    "batchCount": 10,
+    "prepared": {
+      "accounts": 1000,
+      "validEvidence": 1000,
+      "enabledContacts": 800,
+      "unlistedContacts": 200,
+      "existingMembers": 0
+    },
+    "failures": [],
+    "batches": [
+      {
+        "participants": 100,
+        "admitted": 100,
+        "pending": 0,
+        "failures": 0
+      },
+      {
+        "participants": 100,
+        "admitted": 100,
+        "pending": 0,
+        "failures": 0
+      },
+      {
+        "participants": 100,
+        "admitted": 100,
+        "pending": 0,
+        "failures": 0
+      },
+      {
+        "participants": 100,
+        "admitted": 100,
+        "pending": 0,
+        "failures": 0
+      },
+      {
+        "participants": 100,
+        "admitted": 100,
+        "pending": 0,
+        "failures": 0
+      },
+      {
+        "participants": 100,
+        "admitted": 100,
+        "pending": 0,
+        "failures": 0
+      },
+      {
+        "participants": 100,
+        "admitted": 100,
+        "pending": 0,
+        "failures": 0
+      },
+      {
+        "participants": 100,
+        "admitted": 100,
+        "pending": 0,
+        "failures": 0
+      },
+      {
+        "participants": 100,
+        "admitted": 0,
+        "pending": 100,
+        "failures": 0
+      },
+      {
+        "participants": 100,
+        "admitted": 0,
+        "pending": 100,
+        "failures": 0
+      }
+    ],
+    "facts": {
+      "entries": 10000,
+      "requests": 1000,
+      "basic_members": 800,
+      "deliveries": 0
+    },
+    "pool": {
+      "acquisitions": 3000,
+      "releases": 3000,
+      "errorReleases": 0,
+      "peakWaitingCount": 0,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    },
+    "setupDurationMs": 2878.1463990006596,
+    "executionDurationMs": 77614.61082999967,
+    "realMessages": 0,
+    "nodeVersion": "24.16.0",
+    "sourceCommit": "fc074d9a29f22c202b7a178792d3ed843ffafc64",
+    "bundleSha256": "f8ce356979831ae76b750dfcc14c51b0f3709655fbe754b8e55cbd864225d6ea"
+  },
+  "nativeTest": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0
+  },
+  "independentSqlAfterReplay": {
+    "requests": 1000,
+    "distinctApplicants": 1000,
+    "activeBasicMembers": 800,
+    "automaticApprovedDecisions": 800,
+    "pendingRequests": 200,
+    "deliveries": 0
+  },
+  "before": {
+    "failed": 1,
+    "passed": 0,
+    "observation": "sample_result_absent_in_previous_hundred_account_runtime"
+  },
+  "cleanup": {
+    "remainingBranchIds": [
+      "br-shiny-paper-ankn86x2",
+      "br-aged-morning-an5ejge1",
+      "br-wispy-sun-anwpxm2x"
+    ],
+    "protectedBranchesPreserved": true,
+    "ownedBranchAbsent": true
+  },
+  "status": "sc021_current_code_regression_passed",
+  "latencyAcceptance": "not_measured_by_this_functional_sample"
+}
