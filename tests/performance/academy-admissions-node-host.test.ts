@@ -17,6 +17,7 @@ import { ADMISSION_STATEMENT_PROFILE } from "@/tests/support/constants/admission
 describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated native admission workload", () => {
   it("should retain the full hundred-account workload, its original result and the unchanged latency gate", async () => {
     let observed: unknown;
+    const computeUnits = Number(process.env[ADMISSION_NODE_HOST.computeUnitsVariable] ?? ADMISSION_NODE_HOST.computeUnits);
     await withAcademyAdmissionDatabase(async (database) => {
       await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
       const operationId = randomUUID(), token = randomBytes(ADMISSION_NODE_HOST.tokenBytes).toString("base64url");
@@ -28,7 +29,7 @@ describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated na
       const databaseStatistics = await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<{ trackingMode: string; planningEnabled: boolean; serverVersionNum: number }>(sql`select current_setting(${ADMISSION_STATEMENT_PROFILE.trackingSetting}) as "trackingMode",current_setting(${ADMISSION_STATEMENT_PROFILE.planningSetting})='on' as "planningEnabled",current_setting(${ADMISSION_STATEMENT_PROFILE.versionSetting})::integer as "serverVersionNum"`)).rows[0]);
       let deployment: AdmissionNodeDeployment | undefined;
       try {
-        deployment = await deployAdmissionNodeHost(database.branch, operationId, createHash("sha256").update(token).digest("hex"));
+        deployment = await deployAdmissionNodeHost(database.branch, operationId, createHash("sha256").update(token).digest("hex"), computeUnits);
         const url = (path: string) => new URL(path, deployment!.url);
         const denied = await fetch(url(ADMISSION_NODE_HOST.runPath), { method: "POST", redirect: "manual", signal: AbortSignal.timeout(ADMISSION_NODE_HOST.requestTimeoutMs) });
         expect(denied.status).toBe(HTTP_STATUS.unauthorized);
@@ -61,7 +62,7 @@ describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated na
         expect(stock.requests).toBe(ADMISSION_PERFORMANCE.participantCount);
         expect(measured.p95Ms).not.toBeNull(); expect(measured.p95Ms!).toBeLessThan(ADMISSION_PERFORMANCE.confirmationBudgetMs);
       } finally { await deployment?.remove(); }
-    }, { computeUnits: ADMISSION_NODE_HOST.computeUnits });
+    }, { computeUnits });
     if (process.env.ADMISSION_NODE_REPORT_FILE && observed) await writeFile(process.env.ADMISSION_NODE_REPORT_FILE, JSON.stringify({ ...(observed as Record<string, unknown>), resourcesRemoved: true }, null, 2));
   }, ADMISSION_NODE_HOST.nativeCaseTimeoutMs);
 });

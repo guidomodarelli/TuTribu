@@ -10,6 +10,7 @@ export const ADMISSION_NODE_HOST = {
   bundleDigestVariable: "ADMISSION_NODE_BUNDLE_SHA256", branchIdentityVariable: "NEON_BRANCH", directDatabaseVariable: "DATABASE_URL_UNPOOLED", databaseVariable: "DATABASE_URL",
   operation: "native_admission_node_workload", bundleDirectoryPrefix: "admission-node-bundle-", functionSlugPrefix: "admload",
   computeUnits: 2,
+  computeUnitsVariable: "ADMISSION_NODE_COMPUTE_UNITS",
 } as const;
 const nonnegative = z.number().finite().nonnegative();
 const integer = z.number().int().nonnegative();

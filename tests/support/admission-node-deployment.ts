@@ -20,9 +20,10 @@ export type AdmissionNodeDeployment = { url: URL; slug: string; bundleSha256: st
  * @param branch - Capability returned by the disposable-branch owner.
  * @param operationId - Fixed prepared durable invocation.
  * @param tokenSha256 - Hash of the random capability; the private token never reaches CLI arguments or source.
+ * @param expectedComputeUnits - Capacity selected for this owned experimental endpoint only.
  * @returns Public invocation identity and exact resource cleanup.
  */
-export async function deployAdmissionNodeHost(branch: AcademyAdmissionTestDatabase["branch"], operationId: string, tokenSha256: string): Promise<AdmissionNodeDeployment> {
+export async function deployAdmissionNodeHost(branch: AcademyAdmissionTestDatabase["branch"], operationId: string, tokenSha256: string, expectedComputeUnits: number = ADMISSION_NODE_HOST.computeUnits): Promise<AdmissionNodeDeployment> {
   const cli = process.env.NEON_CLI_PATH;
   if (!cli) throw new Error("AdmissionNodeDeployment.prepare failed: explicit_cli_path_required");
   const workspace = process.cwd();
@@ -44,7 +45,7 @@ export async function deployAdmissionNodeHost(branch: AcademyAdmissionTestDataba
   if (branch.isDefault !== false || identity.branch.id !== branch.id || identity.branch.name !== branch.name || identity.branch.parent_id !== branch.parentId || identity.branch.default !== false) throw new Error("AdmissionNodeDeployment.prepare failed: branch_ownership_unproven");
   const endpoints = JSON.parse((await execute(process.execPath, [cli, "api", `/projects/${ADMISSION_NEON_PROJECT_ID}/endpoints`, "--profile", "DEFAULT", "--output", "json", "--method", "GET"], { windowsHide: true, timeout: ADMISSION_NODE_HOST.deploymentTimeoutMs })).stdout) as { endpoints: { branch_id: string; autoscaling_limit_min_cu: number; autoscaling_limit_max_cu: number; region_id: string }[] };
   const endpoint = endpoints.endpoints.find((item) => item.branch_id === branch.id);
-  if (!endpoint || endpoint.autoscaling_limit_min_cu !== ADMISSION_NODE_HOST.computeUnits || endpoint.autoscaling_limit_max_cu !== ADMISSION_NODE_HOST.computeUnits) throw new Error("AdmissionNodeDeployment.prepare failed: native_compute_capacity_unproven");
+  if (!endpoint || endpoint.autoscaling_limit_min_cu !== expectedComputeUnits || endpoint.autoscaling_limit_max_cu !== expectedComputeUnits) throw new Error("AdmissionNodeDeployment.prepare failed: native_compute_capacity_unproven");
   const compute = { minimum: endpoint.autoscaling_limit_min_cu, maximum: endpoint.autoscaling_limit_max_cu, region: endpoint.region_id };
   const compiler = createRequire(cli)("esbuild") as { version: string; build: (options: Record<string, unknown>) => Promise<{ metafile: unknown }> };
   const built = await compiler.build({
