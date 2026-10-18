@@ -14,4 +14,6 @@ export const ADMISSION_TERMINAL_FOCUS = {
   internalReason: "Solicitud del grupo de prueba revisada",
   databaseName: "neondb",
   roleName: "neondb_owner",
+  stages: { publicCancellation: "public_cancellation", administrativeApproval: "administrative_approval", sqlEffects: "sql_effects" },
+  failureCodes: { timeout: "native_surface_timeout", assertion: "native_surface_assertion_failed", unexpected: "native_surface_failed" },
 } as const;
