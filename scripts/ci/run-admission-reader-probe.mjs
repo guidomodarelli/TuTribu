@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium, webkit } from "@playwright/test";
 import { ADMISSION_READER_PROBE as PROBE } from "../../tests/support/constants/admission-reader-probe.mjs";
-import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak } from "../../tests/support/admission-reader-observation.mjs";
+import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, hasNativeReaderTargetFocus, measureNativeAudioPeak } from "../../tests/support/admission-reader-observation.mjs";
 import { configureAdmissionBrowserNativeFocus } from "../../tests/support/admission-browser-native-focus.mjs";
 
 if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY || !process.env.RUNNER_TEMP) throw new Error("AdmissionReaderProbe.start failed: disposable_linux_display_required");
@@ -61,6 +61,11 @@ function assertActiveWindow(title) {
 }
 /** @param {string} title - Owned visible window. @param {string} key - Fixed native key. @returns After genuine X11 input, without browser event synthesis. */
 function nativeKey(title, key) { assertActiveWindow(title); execFileSync("xdotool", ["key", "--clearmodifiers", key], { timeout: PROBE.windowCommandTimeoutMs }); }
+/** @param {string} expected - Own synthetic control label. @returns {unknown} Native state flags without names or typed values. */
+function nativeFocus(expected) {
+  try { return JSON.parse(execFileSync("/usr/bin/python3", ["tests/support/admission-reader-atspi.py", expected, String(PROBE.maximumAccessibilityNodes), String(PROBE.maximumAccessibilityDepth), String(PROBE.accessibilityTimeoutMs), "focus"], { encoding: "utf8", timeout: PROBE.windowCommandTimeoutMs, stdio: ["ignore", "pipe", "pipe"] })); }
+  catch (error) { return { unavailable: true, failureName: error instanceof Error ? error.name : "unknown" }; }
+}
 try {
   for (const item of cases) {
     const observation = { caseId: item.id, engine: item.engine, width: item.width, height: PROBE.height, passed: false };
@@ -69,7 +74,7 @@ try {
     observation.speechPhase = PROBE.speechPhases.setup;
     let browser;
     try {
-      browser = await ({ chromium, webkit })[item.engine].launch({ headless: false, ...(item.engine === "chromium" ? { args: ["--force-renderer-accessibility", "--disable-features=Translate"] } : {}) });
+      browser = await ({ chromium, webkit })[item.engine].launch({ headless: false, ...(item.engine === "chromium" ? { args: PROBE.chromiumLaunchArguments } : {}) });
       observation.browserVersion = browser.version();
       const context = await browser.newContext({ viewport: { width: item.width, height: PROBE.height }, reducedMotion: "reduce", locale: PROBE.locale });
       const page = await context.newPage();
@@ -86,13 +91,19 @@ try {
       const button = page.getByRole("button", { name: item.focus, exact: true });
       for (let tabIndex = 0; tabIndex < PROBE.maximumTabs; tabIndex += 1) {
         nativeKey(item.title, PROBE.nativeKeys.next);
-        if (await button.evaluate((element) => element === document.activeElement)) break;
+        await delay(PROBE.pollMs);
+        if (await button.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement)) {
+          observation.nativeControlFocus = nativeFocus(item.focus);
+          if (hasNativeReaderTargetFocus(observation.nativeControlFocus)) break;
+        }
       }
-      if (!await button.evaluate((element) => element === document.activeElement)) throw new Error(PROBE.failures.focus);
+      if (!await button.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement) || !hasNativeReaderTargetFocus(observation.nativeControlFocus)) throw new Error(PROBE.failures.focus);
       await until(async () => hasNativeReaderSpeech((await readerLog()).slice(speechOffset), item.focus), PROBE.failures.speech);
       await until(async () => await audioPeak(audioOffset) > PROBE.audiblePeak, PROBE.failures.audio);
       observation.focusSpeechObserved = true; observation.focusAudioPeak = await audioPeak(audioOffset);
       await quiet();
+      observation.nativeFocusBeforeLive = nativeFocus(item.focus);
+      if (!await button.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement) || !hasNativeReaderTargetFocus(observation.nativeFocusBeforeLive)) throw new Error(PROBE.failures.focus);
       speechOffset = (await readerLog()).length; audioOffset = await audioSize();
       speechPhaseOffset = speechOffset; expectedSpeech = item.status;
       observation.speechPhase = PROBE.speechPhases.live;

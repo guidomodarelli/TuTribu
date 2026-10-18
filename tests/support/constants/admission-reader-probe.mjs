@@ -4,6 +4,7 @@ export const ADMISSION_READER_PROBE = {
   widths: [390, 1280],
   height: 900,
   locale: "es-AR",
+  chromiumLaunchArguments: ["--force-renderer-accessibility", "--disable-features=Translate", "--lang=es-419", "--accept-lang=es-AR,es"],
   pollMs: 100,
   observationTimeoutMs: 30_000,
   windowCommandTimeoutMs: 5_000,

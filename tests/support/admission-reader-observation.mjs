@@ -44,6 +44,24 @@ export function diagnoseNativeLiveRegionPipeline(log) {
 }
 
 /**
+ * Requires a current native target and rejects concurrent editable browser chrome focus.
+ * @param {unknown} observation - Own inspector projection, never a DOM focus result.
+ * @returns {boolean} Whether native focus permits activating the expected control.
+ */
+export function hasNativeReaderTargetFocus(observation) {
+  if (!observation || typeof observation !== "object" || !("expectedNodes" in observation) || !("focusedNodes" in observation)) return false;
+  if ("unavailable" in observation && observation.unavailable === true) return false;
+  const { expectedNodes, focusedNodes } = observation;
+  if (!Array.isArray(expectedNodes) || !Array.isArray(focusedNodes)) return false;
+  /** @param {{focused?:boolean,visible?:boolean,showing?:boolean,enabled?:boolean}|null} node - Own native state flags. @returns {boolean} Current visible and enabled native focus. */
+  const currentFocus = (node) => node?.focused === true && node.visible === true && node.showing === true && node.enabled === true;
+  /** @param {{focused?:boolean,visible?:boolean,showing?:boolean,enabled?:boolean,editable?:boolean,nameMatchesExpected?:boolean}|null} node - Own projected native control. @returns {boolean} Fully reported target focus. */
+  const expectedFocus = (node) => currentFocus(node) && node.nameMatchesExpected === true && typeof node.editable === "boolean";
+  return expectedNodes.some(expectedFocus) && focusedNodes.some(expectedFocus)
+    && !focusedNodes.some((node) => currentFocus(node) && (typeof node.editable !== "boolean" || (node.editable && node.nameMatchesExpected !== true)));
+}
+
+/**
  * Projects native output into counters and flags without retaining a transcript or changing acceptance.
  * @param {string} log - Private output captured after the native action began.
  * @param {string} expected - Controlled product label expected during this phase.

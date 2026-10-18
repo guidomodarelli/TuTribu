@@ -37,6 +37,7 @@ while pending and len(seen) < maximum_nodes:
                 "showing": states.contains(Atspi.StateType.SHOWING),
                 "visible": states.contains(Atspi.StateType.VISIBLE),
                 "enabled": states.contains(Atspi.StateType.ENABLED),
+                "editable": states.contains(Atspi.StateType.EDITABLE),
                 "nameMatchesExpected": bool(target) and target in name,
             }
             if facts["focused"]:

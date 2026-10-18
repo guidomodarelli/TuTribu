@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 /** Distinguishes native speech backend observations from DOM/debug fallback and actual audio silence. */
 import { describe, expect, it } from "vitest";
-import { diagnoseNativeLiveRegionPipeline, diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak, parseNativeReaderVersion } from "./admission-reader-observation.mjs";
+import { diagnoseNativeLiveRegionPipeline, diagnoseNativeReaderSpeech, hasNativeReaderSpeech, hasNativeReaderTargetFocus, measureNativeAudioPeak, parseNativeReaderVersion } from "./admission-reader-observation.mjs";
 
 const emptyLiveRegionPipeline = {
   textInsertionEntries: 0, handledEntries: 0, rejectedEntries: 0, inactiveDocumentEntries: 0,
@@ -116,6 +116,38 @@ describe("native reader observation boundary", () => {
 
   it("should report an empty pipeline for absent native events", () => {
     expect(diagnoseNativeLiveRegionPipeline("")).toEqual(emptyLiveRegionPipeline);
+  });
+
+  it("should require the visible enabled expected control to hold native focus", () => {
+    const target = { focused: true, visible: true, showing: true, enabled: true, editable: false, nameMatchesExpected: true };
+    expect(hasNativeReaderTargetFocus({ expectedNodes: [target], focusedNodes: [target] })).toBe(true);
+    expect(hasNativeReaderTargetFocus({ expectedNodes: [target], focusedNodes: [] })).toBe(false);
+    expect(hasNativeReaderTargetFocus({ expectedNodes: [{ ...target, focused: false }], focusedNodes: [] })).toBe(false);
+    expect(hasNativeReaderTargetFocus({ expectedNodes: [{ ...target, showing: false }], focusedNodes: [] })).toBe(false);
+    expect(hasNativeReaderTargetFocus({ expectedNodes: [{ ...target, enabled: false }], focusedNodes: [] })).toBe(false);
+  });
+
+  it("should reject simultaneous editable browser chrome focus even if the expected web control reports focus", () => {
+    const target = { focused: true, visible: true, showing: true, enabled: true, editable: false, nameMatchesExpected: true };
+    const addressBar = { ...target, editable: true, nameMatchesExpected: false };
+    expect(hasNativeReaderTargetFocus({ expectedNodes: [target], focusedNodes: [target, addressBar] })).toBe(false);
+    expect(hasNativeReaderTargetFocus({ expectedNodes: [target], focusedNodes: [target, { ...addressBar, focused: false }] })).toBe(true);
+  });
+
+  it("should permit an expected editable control and a noneditable focused ancestor", () => {
+    const target = { focused: true, visible: true, showing: true, enabled: true, editable: true, nameMatchesExpected: true };
+    const nativeDocument = { ...target, editable: false, nameMatchesExpected: false };
+    expect(hasNativeReaderTargetFocus({ expectedNodes: [target], focusedNodes: [nativeDocument, target] })).toBe(true);
+  });
+
+  it("should close native focus when the inspector or its focus contract is unavailable", () => {
+    expect(hasNativeReaderTargetFocus(null)).toBe(false);
+    expect(hasNativeReaderTargetFocus({ unavailable: true })).toBe(false);
+    const target = { focused: true, visible: true, showing: true, enabled: true, editable: false, nameMatchesExpected: true };
+    expect(hasNativeReaderTargetFocus({ unavailable: true, expectedNodes: [target], focusedNodes: [target] })).toBe(false);
+    expect(hasNativeReaderTargetFocus({ expectedNodes: [], focusedNodes: [] })).toBe(false);
+    const incomplete = { focused: true, visible: true, showing: true, enabled: true, nameMatchesExpected: true };
+    expect(hasNativeReaderTargetFocus({ expectedNodes: [incomplete], focusedNodes: [incomplete] })).toBe(false);
   });
 
   it("should distinguish actual signed PCM output from silence", () => {
