@@ -1,0 +1,242 @@
+{
+  "commit": "0933c3aa6bde8a46232fe85275cdf5a4876fcfab",
+  "productJourneysValidated": false,
+  "passed": 0,
+  "failed": 1,
+  "skipped": 0,
+  "failureCodes": [
+    "native_reader_speech_missing"
+  ],
+  "readerRuntime": {
+    "orcaVersion": "48.9",
+    "orcaSourceCommit": "4b964097f586446b3c74a98d0d309fb4b87ceb70"
+  },
+  "sayAllOnLoadDisabledObserved": false,
+  "realMessages": 0,
+  "runId": 39125181687,
+  "runConclusion": "failure",
+  "fullyValidatedPairs": 0,
+  "combinationFailures": [
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "chromium",
+      "width": 390,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 0,
+          "ownedCancellationMessages": 0,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_focus",
+      "engine": "chromium",
+      "width": 1280,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 0,
+          "ownedCancellationMessages": 0,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 390,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 2,
+          "ownedCancellationMessages": 1,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 1280,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 2,
+          "ownedCancellationMessages": 1,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    }
+  ],
+  "diagnostics": [
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "chromium",
+      "width": 390,
+      "backendLogEntries": 6,
+      "fallbackOutputs": 2,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 6,
+      "observedWords": 0,
+      "audioPeak": 32768,
+      "nativeAccessibility": {
+        "scanned": 311,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "check box",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "check box",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "nameMatchesExpected": true
+          },
+          {
+            "role": "static",
+            "focused": false,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "nameMatchesExpected": true
+          }
+        ]
+      }
+    },
+    {
+      "stage": "public_cancel_focus",
+      "engine": "chromium",
+      "width": 1280,
+      "backendLogEntries": 3,
+      "fallbackOutputs": 1,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 2,
+      "observedWords": 0,
+      "audioPeak": 32763,
+      "nativeAccessibility": {
+        "scanned": 311,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "push button",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "nameMatchesExpected": true
+          }
+        ]
+      }
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 390,
+      "backendLogEntries": 3,
+      "fallbackOutputs": 1,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 4,
+      "observedWords": 0,
+      "audioPeak": 32767,
+      "nativeAccessibility": {
+        "scanned": 62,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": []
+      }
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 1280,
+      "backendLogEntries": 3,
+      "fallbackOutputs": 1,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 4,
+      "observedWords": 0,
+      "audioPeak": 32767,
+      "nativeAccessibility": {
+        "scanned": 62,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": []
+      }
+    }
+  ],
+  "cleanup": {
+    "keyRevoked": true,
+    "secretRemoved": true,
+    "variablesRemoved": 2,
+    "ownedBranchAbsent": true,
+    "originalBranchesPreserved": true,
+    "remainingBranches": 3,
+    "independentInventoryConfirmed": true,
+    "ownerSourceStable": true
+  }
+}

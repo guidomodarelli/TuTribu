@@ -4,12 +4,14 @@ import { readFile, stat, open } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { ADMISSION_READER_PROBE as SETTINGS } from "./constants/admission-reader-probe.mjs";
 import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
+import { configureAdmissionBrowserNativeFocus } from "./admission-browser-native-focus.mjs";
 
-/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number,nativeAccessibility:unknown})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
+/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number,nativeAccessibility:unknown,focusEmulationDisabled:boolean})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
 export function createAdmissionNativeReader({ onFailure } = {}) {
   if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY) throw new Error("AdmissionNativeReader.start failed: disposable_linux_display_required");
   const debugPath = process.env.ORCA_DEBUG_LOG, audioPath = process.env.ORCA_AUDIO_FILE;
   if (!debugPath || !audioPath) throw new Error("AdmissionNativeReader.start failed: capture_paths_required");
+  let focusEmulationDisabled = false;
   const log = () => readFile(debugPath, "utf8").catch((error) => { if (error.code === "ENOENT") return ""; throw error; });
   const size = async () => (await stat(audioPath).catch((error) => { if (error.code === "ENOENT") return null; throw error; }))?.size ?? 0;
   /** @param {number} offset - Beginning of this phase. @returns {Promise<number>} Actual PCM peak in the bounded phase interval. */
@@ -56,9 +58,9 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
     try {
       await until(async () => hasNativeReaderSpeech((await log()).slice(mark.logOffset), expected), SETTINGS.failures.speech);
       await until(async () => await peak(mark.audioOffset) > SETTINGS.audiblePeak, SETTINGS.failures.audio);
-      return { speechObserved: true, audioPeak: await peak(mark.audioOffset) };
+      return { speechObserved: true, audioPeak: await peak(mark.audioOffset), focusEmulationDisabled };
     } catch (error) {
-      if (onFailure) await onFailure({ ...diagnoseNativeReaderSpeech((await log()).slice(mark.logOffset), expected), audioPeak: await peak(mark.audioOffset), nativeAccessibility: inspectNativeFocus(expected) });
+      if (onFailure) await onFailure({ ...diagnoseNativeReaderSpeech((await log()).slice(mark.logOffset), expected), audioPeak: await peak(mark.audioOffset), nativeAccessibility: inspectNativeFocus(expected), focusEmulationDisabled });
       throw error;
     }
   }
@@ -67,6 +69,7 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
   return {
     /** @param {import('@playwright/test').Page} page - Genuine current product page. @returns {Promise<void>} Ready native input with the introductory utterance interrupted normally. */
     async ready(page) {
+      focusEmulationDisabled = await configureAdmissionBrowserNativeFocus(page);
       await page.bringToFront();
       await until(async () => { try { assertWindow(await page.title()); return true; } catch { return false; } }, SETTINGS.failures.window);
       await key(page, SETTINGS.nativeKeys.interrupt);

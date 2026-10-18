@@ -8,6 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { chromium, webkit } from "@playwright/test";
 import { ADMISSION_READER_PROBE as PROBE } from "../../tests/support/constants/admission-reader-probe.mjs";
 import { hasNativeReaderSpeech, measureNativeAudioPeak } from "../../tests/support/admission-reader-observation.mjs";
+import { configureAdmissionBrowserNativeFocus } from "../../tests/support/admission-browser-native-focus.mjs";
 
 if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY || !process.env.RUNNER_TEMP) throw new Error("AdmissionReaderProbe.start failed: disposable_linux_display_required");
 const directory = join(process.env.RUNNER_TEMP, "admission-reader-probe");
@@ -71,6 +72,7 @@ try {
       const context = await browser.newContext({ viewport: { width: item.width, height: PROBE.height }, reducedMotion: "reduce", locale: PROBE.locale });
       const page = await context.newPage();
       await page.goto(`${origin}/${item.id}`, { waitUntil: "load" });
+      observation.focusEmulationDisabled = await configureAdmissionBrowserNativeFocus(page);
       await page.bringToFront();
       await until(async () => { try { assertActiveWindow(item.title); return true; } catch { return false; } }, PROBE.failures.window);
       nativeKey(item.title, PROBE.nativeKeys.interrupt);
