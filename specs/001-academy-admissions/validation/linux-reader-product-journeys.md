@@ -12,6 +12,10 @@ El workflow `admission-reader-journeys.yml` exige un despacho manual, una API ke
 
 Los artefactos públicos se limitan a capturas sintéticas, observaciones de voz/audio y un resultado proyectado con conteos y códigos cerrados. Las URI, cookies, secretos, materiales de claves, logs brutos y el resultado crudo de Vitest no se suben. La ejecución real y sus resultados deben registrarse después de validar la capacidad; tipos o importación de la suite no cuentan como ocho recorridos aprobados.
 
+El diagnóstico de una lectura fallida registra cuántos comandos llegaron al backend, cuántas líneas de fallback hubo, cuántas palabras esperadas aparecieron, si el nombre estaba en el debug y si coincide completo o sólo al normalizar/unir fragmentos. Conserva únicamente contadores, banderas y amplitud de audio, asociados al hito seguro. La coincidencia normalizada es informativa: la aceptación sigue exigiendo el anuncio original exacto y PCM audible. Siete casos locales ejercen coincidencia real, salida sólo de debug, fragmentación, privacidad y PCM.
+
+Cada combinación de navegador y tamaño conserva su propio fallo y permite intentar las siguientes, cerrando antes su navegador. El resultado agregado falla si alguna combinación no completa sus anuncios y efectos SQL. `failures.json` conserva hitos y códigos cerrados; `reader-diagnostics.json` conserva los contadores. Un fallo durante la preparación general de base/servidor continúa interrumpiendo la suite con cleanup.
+
 El owner de capacidad deriva del ciclo ya ensayado de CI y prepara exactamente una rama, un secreto y dos variables. Sus diez contratos independientes aprobaron pérdida de respuesta, cleanup, preservación de cambios concurrentes y rechazo de un paso Native omitido/fallido. Usa el borde CLI propio, sin operaciones externas ni mocks de SDK. Sólo después de un checkpoint limpio puede emitir la capacidad limitada al proyecto. Registros privados `.git/codex-admission-reader-ci-owner*.mjs` y `.git/admission-reader-ci-owner-contracts.log`.
 
 ## Primera ejecución sobre la aplicación

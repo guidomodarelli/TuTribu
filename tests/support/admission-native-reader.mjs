@@ -3,10 +3,10 @@ import { execFileSync } from "node:child_process";
 import { readFile, stat, open } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { ADMISSION_READER_PROBE as SETTINGS } from "./constants/admission-reader-probe.mjs";
-import { hasNativeReaderSpeech, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
+import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
 
-/** @returns A reader bound to this disposable runner's native capture paths. */
-export function createAdmissionNativeReader() {
+/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
+export function createAdmissionNativeReader({ onFailure } = {}) {
   if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY) throw new Error("AdmissionNativeReader.start failed: disposable_linux_display_required");
   const debugPath = process.env.ORCA_DEBUG_LOG, audioPath = process.env.ORCA_AUDIO_FILE;
   if (!debugPath || !audioPath) throw new Error("AdmissionNativeReader.start failed: capture_paths_required");
@@ -43,9 +43,14 @@ export function createAdmissionNativeReader() {
   }
   /** @param {string} expected - Own safe UI message. @param {{logOffset:number,audioOffset:number}} mark - Capture before the action. @returns {Promise<{speechObserved:boolean,audioPeak:number}>} Verified native speech and audio. */
   async function hear(expected, mark) {
-    await until(async () => hasNativeReaderSpeech((await log()).slice(mark.logOffset), expected), SETTINGS.failures.speech);
-    await until(async () => await peak(mark.audioOffset) > SETTINGS.audiblePeak, SETTINGS.failures.audio);
-    return { speechObserved: true, audioPeak: await peak(mark.audioOffset) };
+    try {
+      await until(async () => hasNativeReaderSpeech((await log()).slice(mark.logOffset), expected), SETTINGS.failures.speech);
+      await until(async () => await peak(mark.audioOffset) > SETTINGS.audiblePeak, SETTINGS.failures.audio);
+      return { speechObserved: true, audioPeak: await peak(mark.audioOffset) };
+    } catch (error) {
+      await onFailure?.({ ...diagnoseNativeReaderSpeech((await log()).slice(mark.logOffset), expected), audioPeak: await peak(mark.audioOffset) });
+      throw error;
+    }
   }
   /** @returns {Promise<{logOffset:number,audioOffset:number}>} New private capture offsets, with no transcript content. */
   async function mark() { return { logOffset: (await log()).length, audioOffset: await size() }; }

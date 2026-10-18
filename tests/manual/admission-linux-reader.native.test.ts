@@ -25,13 +25,19 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
     if (!root || !authorization || !ownershipNonce) throw new Error("AdmissionReaderJourneys.prepare failed: explicit_owned_capability_required");
     await mkdir(root, { recursive: true });
     const observations: unknown[] = [];
+    const diagnostics: unknown[] = [], failures: unknown[] = [];
+    let latestMilestone: { stage: string; engine: string | null; width: number | null } | null = null;
     /** @param stage - Fixed safe execution milestone. @param engine - Current browser or preparation. @param width - Current viewport when applicable. @returns After safe progress is retained without private values. */
     const progress = async (stage: string, engine?: string, width?: number): Promise<void> => {
       const milestone = { stage, engine: engine ?? null, width: width ?? null };
+      latestMilestone = milestone;
       await writeFile(join(root, "progress.json"), JSON.stringify(milestone) + "\n");
       process.stdout.write(JSON.stringify({ phase: "reader_product_stage", ...milestone }) + "\n");
     };
-    const reader = createAdmissionNativeReader();
+    const reader = createAdmissionNativeReader({ onFailure: async (diagnostic) => {
+      diagnostics.push({ ...latestMilestone, ...diagnostic });
+      await writeFile(join(root, "reader-diagnostics.json"), JSON.stringify(diagnostics, null, 2) + "\n");
+    } });
     await progress("database_starting");
     await withAcademyAdmissionDatabase(async (database) => {
       await progress("database_ready");
@@ -44,6 +50,7 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
       await database.withServerEnvironment((environment) => withAdmissionNextServer(environment, fixture.slug, async (origin, secret) => {
         await progress("server_ready");
         for (const [scenarioIndex, { name, engine, width }] of scenarios.entries()) {
+          await progress("browser_starting", name, width);
           const current = { ...fixture, applicants: fixture.applicants.slice(scenarioIndex * VALIDATION.participantsPerScenario, (scenarioIndex + 1) * VALIDATION.participantsPerScenario) };
           const browser = await engine.launch({ headless: false, ...(name === "chromium" ? { args: ["--force-renderer-accessibility", "--disable-features=Translate"] } : {}) });
           try {
@@ -102,8 +109,13 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
             expect(facts).toEqual({ public_status: "cancelled", review_status: "approved", basic_members: 1, deliveries: 0 });
             await progress("effects_confirmed", name, width);
             await writeFile(join(root, "observations.json"), JSON.stringify({ observations, realMessages: 0 }, null, 2) + "\n");
+          } catch (error) {
+            const code = error instanceof Error && Object.values(ADMISSION_READER_PROBE.failures).includes(error.message) ? error.message : ADMISSION_READER_PROBE.failures.journey;
+            failures.push({ ...latestMilestone, code });
+            await writeFile(join(root, "failures.json"), JSON.stringify(failures, null, 2) + "\n");
           } finally { await browser.close(); }
         }
+        expect(failures).toEqual([]);
       }, { messagingSecurity }));
     }, { authorization, ownershipNonce, databaseSelection: { databaseName: VALIDATION.databaseName, roleName: VALIDATION.roleName } });
   }, VALIDATION.timeoutMs);

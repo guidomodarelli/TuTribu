@@ -1,11 +1,16 @@
 /** @vitest-environment node */
 /** Distinguishes native speech backend observations from DOM/debug fallback and actual audio silence. */
 import { describe, expect, it } from "vitest";
-import { hasNativeReaderSpeech, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
+import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
 
 describe("native reader observation boundary", () => {
   it("should accept a canary sent to the actual Speech Dispatcher backend", () => {
-    expect(hasNativeReaderSpeech("SPEECH DISPATCHER: Speaking '<speak>Control de lectura ab12</speak>'", "Control de lectura ab12")).toBe(true);
+    const log = "SPEECH DISPATCHER: Speaking '<speak>Control de lectura ab12</speak>'";
+    expect(hasNativeReaderSpeech(log, "Control de lectura ab12")).toBe(true);
+    expect(diagnoseNativeReaderSpeech(log, "Control de lectura ab12")).toEqual({
+      backendCommands: 1, fallbackOutputs: 0, labelInDebug: true, exactMatch: true,
+      normalizedMatch: true, expectedWords: 4, observedWords: 4,
+    });
   });
 
   it("should reject DOM event text and speech output without a backend", () => {
@@ -13,6 +18,31 @@ describe("native reader observation boundary", () => {
     expect(hasNativeReaderSpeech("SPEECH OUTPUT: 'Control de lectura ab12'", "Control de lectura ab12")).toBe(false);
     expect(hasNativeReaderSpeech("SPEECH DISPATCHER: Speaking 'Control de lectura cd34'", "Control de lectura ab12")).toBe(false);
     expect(hasNativeReaderSpeech("SPEECH DISPATCHER: Speaking ''", "")).toBe(false);
+  });
+
+  it("should distinguish a label in debug events from words actually sent to the backend", () => {
+    const log = "object:text-changed Confirmo cancelar solicitud\nSPEECH OUTPUT: 'Confirmo cancelar solicitud'\nSPEECH DISPATCHER: Speaking '<speak>Otro elemento</speak>'";
+    expect(diagnoseNativeReaderSpeech(log, "Confirmo cancelar solicitud")).toEqual({
+      backendCommands: 1, fallbackOutputs: 1, labelInDebug: true, exactMatch: false,
+      normalizedMatch: false, expectedWords: 3, observedWords: 0,
+    });
+  });
+
+  it("should diagnose fragmented backend speech without accepting it as an exact announcement", () => {
+    const log = "SPEECH DISPATCHER: Speaking '<speak>Confirmo que quiero</speak>'\nSPEECH DISPATCHER: Speaking '<speak>cancelar esta solicitud</speak>'";
+    expect(diagnoseNativeReaderSpeech(log, "Confirmo que quiero cancelar esta solicitud")).toEqual({
+      backendCommands: 2, fallbackOutputs: 0, labelInDebug: false, exactMatch: false,
+      normalizedMatch: true, expectedWords: 6, observedWords: 6,
+    });
+    expect(hasNativeReaderSpeech(log, "Confirmo que quiero cancelar esta solicitud")).toBe(false);
+  });
+
+  it("should expose only counters and flags when native output contains unrelated private values", () => {
+    const log = "SPEECH DISPATCHER: Speaking '<speak>private-contact@synthetic.test</speak>'";
+    expect(diagnoseNativeReaderSpeech(log, "Guardar conexión")).toEqual({
+      backendCommands: 1, fallbackOutputs: 0, labelInDebug: false, exactMatch: false,
+      normalizedMatch: false, expectedWords: 2, observedWords: 0,
+    });
   });
 
   it("should distinguish actual signed PCM output from silence", () => {

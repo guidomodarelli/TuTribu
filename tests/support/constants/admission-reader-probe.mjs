@@ -25,6 +25,14 @@ export const ADMISSION_READER_PROBE = {
   focusPrefix: "Control de lectura",
   statusPrefix: "Aviso de lectura",
   speechMarker: "SPEECH DISPATCHER: Speaking",
+  fallbackSpeechMarker: "SPEECH OUTPUT:",
+  outputPatterns: {
+    lineSeparator: /\r?\n/u,
+    markup: /<[^>]*>/gu,
+    speechEnvelope: /^[\s:'"]+|[\s'"]+$/gu,
+    wordSeparator: /\s+/u,
+    whitespace: /\s+/gu,
+  },
   nativeKeys: { interrupt: "Control_L", next: "Tab", invoke: "space" },
   failures: {
     window: "native_window_not_active",
@@ -34,5 +42,6 @@ export const ADMISSION_READER_PROBE = {
     silence: "native_audio_did_not_settle",
     status: "native_status_not_updated",
     runtime: "reader_probe_runtime_failed",
+    journey: "native_journey_failed",
   },
 };
