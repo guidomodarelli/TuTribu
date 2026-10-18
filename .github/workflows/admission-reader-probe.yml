@@ -16,6 +16,7 @@ concurrency:
 env:
   HUSKY: "0"
   NEXT_TELEMETRY_DISABLED: "1"
+  PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/admission-reader-browsers
 
 jobs:
   reader-probe:

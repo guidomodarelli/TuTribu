@@ -13,3 +13,7 @@ El job recibe sólo el entorno sintético del setup de CI, sin claves de aplicac
 ## Verificación
 
 Los contratos locales verifican la distinción entre el backend nativo y sus fallbacks y entre PCM real y silencio, incluidos samples negativos y un último byte incompleto. La ejecución Linux y cualquier reparación se registran por separado; no se cambian las casillas de T198/T208 por este preflight.
+
+El [primer run 39116424482](https://github.com/guidomodarelli/TuTribu/actions/runs/39116424482) instaló las dependencias y falló antes de abrir navegadores: cambiar `XDG_CACHE_HOME` durante la captura hizo que Playwright buscara sus binarios en una caché diferente de la usada al instalar. Las cuatro observaciones quedaron fallidas por ejecutable ausente; no acreditan un problema de la aplicación ni una limitación de Orca/WebKit. Se conserva el artefacto privado `.git/admission-reader-probe-first/report.json`.
+
+La reparación fija `PLAYWRIGHT_BROWSERS_PATH` en el entorno del job, compartido por instalación y ejecución. No cambia los binarios, el lector, el teclado ni los criterios de voz/audio. La repetición debe acreditar todavía la infraestructura y después los recorridos reales.
