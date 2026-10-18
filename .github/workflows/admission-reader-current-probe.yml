@@ -2,6 +2,12 @@ name: Contraste del lector actual en Linux
 
 on:
   workflow_dispatch:
+    inputs:
+      webkit_backend:
+        description: Configuración real de WebKit para el contraste del lector
+        type: choice
+        options: [playwright, webkitgtk]
+        default: playwright
   push:
     paths:
       - ".github/workflows/admission-reader-current-probe.yml"
@@ -13,6 +19,9 @@ on:
       - "tests/support/admission-reader-events.py"
       - "tests/support/constants/admission-reader-events.mjs"
       - "tests/support/admission-reader-probe-page.*"
+      - "tests/support/admission-reader-probe-browser.mjs"
+      - "tests/support/admission-reader-webdriver.mjs"
+      - "tests/support/constants/admission-reader-webdriver.mjs"
       - "tests/support/admission-browser-native-focus.mjs"
       - "tests/support/constants/admission-reader-probe.mjs"
 
@@ -26,6 +35,7 @@ concurrency:
 env:
   HUSKY: "0"
   NEXT_TELEMETRY_DISABLED: "1"
+  ADMISSION_READER_WEBKIT_BACKEND: ${{ inputs.webkit_backend || 'playwright' }}
 
 jobs:
   reader-current-probe:
@@ -49,6 +59,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y locales orca dbus-x11 at-spi2-core gsettings-desktop-schemas dconf-cli openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng meson ninja-build pkg-config libatspi2.0-dev libatk-bridge2.0-dev python-gi-dev python3-dasbus gettext itstool yelp-tools gobject-introspection libgirepository1.0-dev libdbus-1-dev libglib2.0-dev libxml2-dev libxi-dev libxtst-dev
           pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Preparar WebKitGTK oficial adicional
+        if: inputs.webkit_backend == 'webkitgtk'
+        run: |
+          sudo apt-get install -y webkit2gtk-driver
+          command -v WebKitWebDriver
+          mkdir -p "$RUNNER_TEMP/admission-reader-probe"
+          dpkg-query -W -f='${Package} ${Version}\n' webkit2gtk-driver libwebkit2gtk-4.1-0 | tee "$RUNNER_TEMP/admission-reader-probe/webkitgtk-packages.txt"
+          dpkg-query -L libwebkit2gtk-4.1-0 | rg '/MiniBrowser$'
+          WebKitWebDriver --help
 
       - name: Compilar AT-SPI oficial con sus overrides Python
         run: |
@@ -81,7 +101,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: admission-reader-current-probe
+          name: ${{ inputs.webkit_backend == 'webkitgtk' && 'admission-reader-webkitgtk-probe' || 'admission-reader-current-probe' }}
           path: ${{ runner.temp }}/admission-reader-probe/
           if-no-files-found: warn
           retention-days: 7

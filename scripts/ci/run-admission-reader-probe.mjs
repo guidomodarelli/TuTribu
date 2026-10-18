@@ -5,10 +5,9 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, stat, open, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { chromium, webkit } from "@playwright/test";
 import { ADMISSION_READER_PROBE as PROBE } from "../../tests/support/constants/admission-reader-probe.mjs";
 import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, hasNativeReaderTargetFocus, measureNativeAudioPeak } from "../../tests/support/admission-reader-observation.mjs";
-import { configureAdmissionBrowserNativeFocus } from "../../tests/support/admission-browser-native-focus.mjs";
+import { openAdmissionReaderProbeBrowser } from "../../tests/support/admission-reader-probe-browser.mjs";
 import { renderAdmissionReaderProbePage } from "../../tests/support/admission-reader-probe-page.mjs";
 import { startAdmissionNativeEventObservation } from "../../tests/support/admission-native-events.mjs";
 import { ADMISSION_READER_EVENTS } from "../../tests/support/constants/admission-reader-events.mjs";
@@ -89,13 +88,11 @@ try {
     observation.speechPhase = PROBE.speechPhases.setup;
     let browser;
     try {
-      browser = await ({ chromium, webkit })[item.engine].launch({ headless: false, env: { ...process.env, LANG: PROBE.nativeBrowserLocale, LC_ALL: PROBE.nativeBrowserLocale }, ...(item.engine === "chromium" ? { args: PROBE.chromiumLaunchArguments } : {}) });
-      observation.browserVersion = browser.version();
-      const context = await browser.newContext({ viewport: { width: item.width, height: PROBE.height }, reducedMotion: "reduce", locale: PROBE.locale });
-      const page = await context.newPage();
-      await page.goto(`${origin}/${item.id}`, { waitUntil: "load" });
-      observation.focusEmulationDisabled = await configureAdmissionBrowserNativeFocus(page);
-      await page.bringToFront();
+      browser = await openAdmissionReaderProbeBrowser({ engine: item.engine, width: item.width, height: PROBE.height, url: `${origin}/${item.id}` });
+      observation.browserVersion = browser.browserVersion;
+      observation.browserBackend = browser.backend;
+      observation.observedViewport = browser.viewport;
+      observation.focusEmulationDisabled = browser.focusEmulationDisabled;
       await until(async () => { try { assertActiveWindow(item.title); return true; } catch { return false; } }, PROBE.failures.window);
       nativeKey(item.title, PROBE.nativeKeys.interrupt);
       observation.initialInterruptSent = true;
@@ -104,22 +101,21 @@ try {
       let speechOffset = (await readerLog()).length, audioOffset = await audioSize();
       speechPhaseOffset = speechOffset;
       observation.speechPhase = PROBE.speechPhases.focus;
-      const button = page.getByRole("button", { name: item.focus, exact: true });
       for (let tabIndex = 0; tabIndex < PROBE.maximumTabs; tabIndex += 1) {
         nativeKey(item.title, PROBE.nativeKeys.next);
         await delay(PROBE.pollMs);
-        if (await button.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement)) {
+        if (await browser.controlHasFocus()) {
           observation.nativeControlFocus = nativeFocus(item.focus);
           if (hasNativeReaderTargetFocus(observation.nativeControlFocus)) break;
         }
       }
-      if (!await button.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement) || !hasNativeReaderTargetFocus(observation.nativeControlFocus)) throw new Error(PROBE.failures.focus);
+      if (!await browser.controlHasFocus() || !hasNativeReaderTargetFocus(observation.nativeControlFocus)) throw new Error(PROBE.failures.focus);
       await until(async () => hasNativeReaderSpeech((await readerLog()).slice(speechOffset), item.focus), PROBE.failures.speech);
       await until(async () => await audioPeak(audioOffset) > PROBE.audiblePeak, PROBE.failures.audio);
       observation.focusSpeechObserved = true; observation.focusAudioPeak = await audioPeak(audioOffset);
       await quiet();
       observation.nativeFocusBeforeLive = nativeFocus(item.focus);
-      if (!await button.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement) || !hasNativeReaderTargetFocus(observation.nativeFocusBeforeLive)) throw new Error(PROBE.failures.focus);
+      if (!await browser.controlHasFocus() || !hasNativeReaderTargetFocus(observation.nativeFocusBeforeLive)) throw new Error(PROBE.failures.focus);
       let nativeEventObserver;
       if (item.engine === ADMISSION_READER_EVENTS.engine) {
         try { nativeEventObserver = await startAdmissionNativeEventObservation(item.status); }
@@ -133,7 +129,7 @@ try {
       observation.speechPhase = PROBE.speechPhases.live;
       try {
         nativeKey(item.title, PROBE.nativeKeys.invoke);
-        await until(async () => await page.locator("#status").textContent() === item.status, PROBE.failures.status);
+        await until(async () => await browser.statusText() === item.status, PROBE.failures.status);
         await until(async () => hasNativeReaderSpeech((await readerLog()).slice(speechOffset), item.status), PROBE.failures.speech);
         await until(async () => await audioPeak(audioOffset) > PROBE.audiblePeak, PROBE.failures.audio);
       } finally {
@@ -148,7 +144,7 @@ try {
       observation.liveSpeechObserved = true; observation.liveAudioPeak = await audioPeak(audioOffset);
       observation.passed = true;
       observation.nativeAccessibility = nativeStatus(item.status);
-      await page.screenshot({ path: join(directory, `${item.engine}-${item.width}-${item.markupVariant}.png`) });
+      await browser.screenshot(join(directory, `${item.engine}-${item.width}-${item.markupVariant}.png`));
     } catch (error) {
       observation.failureCode = error instanceof Error && Object.values(PROBE.failures).includes(error.message) ? error.message : PROBE.failures.runtime;
       observation.failureName = error instanceof Error ? error.name : "unknown";
