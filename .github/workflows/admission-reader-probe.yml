@@ -1,0 +1,50 @@
+name: Preflight del lector en Linux
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/admission-reader-probe.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admission-reader-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HUSKY: "0"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  reader-probe:
+    name: Comprobar voz nativa con Orca
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Obtener las fuentes
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preparar herramientas aisladas
+        uses: ./.github/actions/setup-quality-gate
+
+      - name: Instalar el lector y su infraestructura nativa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y orca dbus-x11 at-spi2-core gsettings-desktop-schemas openbox xvfb xauth xdotool pulseaudio pulseaudio-utils speech-dispatcher speech-dispatcher-espeak-ng
+          pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Probar teclado, voz y audio reales
+        run: dbus-run-session -- xvfb-run -a --server-args="-screen 0 1600x1200x24" bash scripts/ci/run-admission-reader-probe.sh
+
+      - name: Conservar sólo el resultado y las capturas sintéticas
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: admission-reader-probe
+          path: ${{ runner.temp }}/admission-reader-probe/
+          if-no-files-found: warn
+          retention-days: 7
