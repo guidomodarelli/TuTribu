@@ -94,7 +94,7 @@ export async function runAdmissionDistributedPerformance(options: { computeUnits
         for (const host of deployment.hosts) {
           assert.equal((await request(host, ADMISSION_NODE_HOST.runPath, "POST", "anonymous", false)).status, HTTP_STATUS.unauthorized);
           const before = await request(host, ADMISSION_NODE_HOST.statusPath, "GET", "prepared");
-          assert.equal(before.status, HTTP_STATUS.ok);
+          assert.equal(before.status, HTTP_STATUS.accepted);
           assert.deepEqual(admissionNodeStatusSchema.parse(await before.json()), { operationId: report.operationId, state: ADMISSION_NODE_RUN_STATE.prepared, measurement: null });
         }
         report.hostPreflightDurationMs = performance.now() - preflightStarted;
@@ -146,13 +146,18 @@ export async function runAdmissionDistributedPerformance(options: { computeUnits
         const stock = await database.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<{ requests: number }>(sql`select count(*)::integer as requests from public.academy_admission_requests where tribe_id=${fixture.tribeId}`)).rows[0]);
         assert.equal(stock.requests, ADMISSION_PERFORMANCE.participantCount);
         report.stockAndReplayPreserved = true;
-        await deployment.assertInputsUnchanged(); report.inputsStable = true;
-        await deployment.assertPrivateMaterialAbsent(); report.privateMaterialAbsentFromOwnFiles = true;
         report.correctnessPassed = true;
         await persist();
         assert.ok(measured.p95Ms !== null && measured.p95Ms < ADMISSION_PERFORMANCE.confirmationBudgetMs, "Original global confirmation p95 must remain below three seconds");
       } catch (error) { workFailure = error; }
       finally {
+        if (deployment) {
+          const ownedDeployment = deployment;
+          for (const verify of [async () => { await ownedDeployment.assertInputsUnchanged(); report.inputsStable = true; }, async () => { await ownedDeployment.assertPrivateMaterialAbsent(); report.privateMaterialAbsentFromOwnFiles = true; }]) {
+            try { await verify(); }
+            catch (verificationError) { workFailure = workFailure ? new AggregateError([workFailure, verificationError], "AdmissionDistributedPerformance.verify failed: evidence_integrity_unconfirmed", { cause: workFailure }) : verificationError; }
+          }
+        }
         try { if (deployment) { await deployment.remove(); report.functionsRemoved = true; } }
         catch (cleanupError) { workFailure = workFailure ? new AggregateError([workFailure, cleanupError], "AdmissionDistributedPerformance.run failed: function_cleanup_unconfirmed", { cause: workFailure }) : cleanupError; }
         await persist();

@@ -1,0 +1,591 @@
+{
+  "workflowRun": 39155209039,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39155209039",
+  "sourceCommit": "c5f6f63f552521c61a7becce1f9c4ba79809f807",
+  "productJourneysValidated": false,
+  "vitest": {
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0
+  },
+  "readerRuntime": {
+    "orcaVersion": "51.1",
+    "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d"
+  },
+  "platform": {
+    "atspiVersion": "2.58.6",
+    "atspiSourceCommit": "1e883ff1739ad584571d38d63735e1cc67a18b0b",
+    "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d",
+    "configuredProfileBackend": "gsettings"
+  },
+  "publicUiObservations": [
+    {
+      "engine": "chromium",
+      "width": 390,
+      "surface": "public",
+      "speechObserved": true,
+      "audioPeak": 32768,
+      "focusEmulationDisabled": true
+    },
+    {
+      "engine": "chromium",
+      "width": 1280,
+      "surface": "public",
+      "speechObserved": true,
+      "audioPeak": 32768,
+      "focusEmulationDisabled": true
+    }
+  ],
+  "failures": [
+    {
+      "stage": "administrative_reason_focus",
+      "engine": "chromium",
+      "width": 390,
+      "code": "native_focus_unavailable",
+      "interfaces": [
+        {
+          "cancellationMessages": 0,
+          "ownedCancellationMessages": 0,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "administrative_reason_focus",
+      "engine": "chromium",
+      "width": 1280,
+      "code": "native_focus_unavailable",
+      "interfaces": [
+        {
+          "cancellationMessages": 0,
+          "ownedCancellationMessages": 0,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": false
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 390,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 2,
+          "ownedCancellationMessages": 1,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 1280,
+      "code": "native_reader_speech_missing",
+      "interfaces": [
+        {
+          "cancellationMessages": 2,
+          "ownedCancellationMessages": 1,
+          "approvalMessages": 0,
+          "busyMainRegions": 0,
+          "documentFocused": true
+        }
+      ],
+      "interfaceObservationUnavailable": false
+    }
+  ],
+  "speechAndFocusDiagnostics": [
+    {
+      "stage": "administrative_reason_focus",
+      "engine": "chromium",
+      "width": 390,
+      "backendLogEntries": 564,
+      "fallbackOutputs": 285,
+      "labelInDebug": true,
+      "exactMatch": true,
+      "normalizedMatch": true,
+      "expectedWords": 2,
+      "observedWords": 2,
+      "actionKeyEchoOutputs": 0,
+      "liveRegionPipeline": {
+        "textInsertionEntries": 0,
+        "handledEntries": 0,
+        "rejectedEntries": 0,
+        "inactiveDocumentEntries": 0,
+        "focusedAlertEntries": 0,
+        "queuePresentationEntries": 0,
+        "monitoringDisabledEntries": 0,
+        "pageSwitchInsertionEntries": 0
+      },
+      "audioPeak": 32768,
+      "nativeAccessibility": {
+        "scanned": 301,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "entry",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "entry",
+            "focused": false,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": true
+          },
+          {
+            "role": "static",
+            "focused": false,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeControlFocusAtFailure": {
+        "scanned": 301,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "entry",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "entry",
+            "focused": false,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": true
+          },
+          {
+            "role": "static",
+            "focused": false,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "focusEmulationDisabled": true,
+      "targetState": {
+        "count": 1,
+        "tag": "textarea",
+        "tabIndex": 0,
+        "disabled": false,
+        "readOnly": false,
+        "autofocus": false,
+        "hidden": false,
+        "ariaDisabled": false,
+        "documentFocused": true,
+        "activeElementMatches": false,
+        "activeElementTag": "textarea"
+      },
+      "initialTargetState": {
+        "count": 1,
+        "tag": "textarea",
+        "tabIndex": 0,
+        "disabled": false,
+        "readOnly": false,
+        "autofocus": false,
+        "hidden": false,
+        "ariaDisabled": false,
+        "documentFocused": true,
+        "activeElementMatches": false,
+        "activeElementTag": "body"
+      },
+      "targetActiveCount": 6,
+      "nativeFocusWhenTargetActive": {
+        "scanned": 301,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "entry",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "entry",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": true
+          },
+          {
+            "role": "static",
+            "focused": false,
+            "active": false,
+            "showing": false,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      }
+    },
+    {
+      "stage": "administrative_reason_focus",
+      "engine": "chromium",
+      "width": 1280,
+      "backendLogEntries": 505,
+      "fallbackOutputs": 254,
+      "labelInDebug": true,
+      "exactMatch": true,
+      "normalizedMatch": true,
+      "expectedWords": 2,
+      "observedWords": 2,
+      "actionKeyEchoOutputs": 0,
+      "liveRegionPipeline": {
+        "textInsertionEntries": 0,
+        "handledEntries": 0,
+        "rejectedEntries": 0,
+        "inactiveDocumentEntries": 0,
+        "focusedAlertEntries": 0,
+        "queuePresentationEntries": 0,
+        "monitoringDisabledEntries": 0,
+        "pageSwitchInsertionEntries": 0
+      },
+      "audioPeak": 32768,
+      "nativeAccessibility": {
+        "scanned": 367,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "entry",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "entry",
+            "focused": false,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": true
+          },
+          {
+            "role": "static",
+            "focused": false,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "nativeControlFocusAtFailure": {
+        "scanned": 367,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "entry",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": false
+          },
+          {
+            "role": "document web",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "entry",
+            "focused": false,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": true
+          },
+          {
+            "role": "static",
+            "focused": false,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      },
+      "focusEmulationDisabled": true,
+      "targetState": {
+        "count": 1,
+        "tag": "textarea",
+        "tabIndex": 0,
+        "disabled": false,
+        "readOnly": false,
+        "autofocus": false,
+        "hidden": false,
+        "ariaDisabled": false,
+        "documentFocused": false,
+        "activeElementMatches": false,
+        "activeElementTag": "body"
+      },
+      "initialTargetState": {
+        "count": 1,
+        "tag": "textarea",
+        "tabIndex": 0,
+        "disabled": false,
+        "readOnly": false,
+        "autofocus": false,
+        "hidden": false,
+        "ariaDisabled": false,
+        "documentFocused": true,
+        "activeElementMatches": false,
+        "activeElementTag": "body"
+      },
+      "targetActiveCount": 3,
+      "nativeFocusWhenTargetActive": {
+        "scanned": 367,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "entry",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": true
+          }
+        ],
+        "expectedNodes": [
+          {
+            "role": "entry",
+            "focused": true,
+            "active": false,
+            "showing": false,
+            "visible": true,
+            "enabled": true,
+            "editable": true,
+            "nameMatchesExpected": true
+          },
+          {
+            "role": "static",
+            "focused": false,
+            "active": false,
+            "showing": false,
+            "visible": true,
+            "enabled": true,
+            "editable": false,
+            "nameMatchesExpected": true
+          }
+        ]
+      }
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 390,
+      "backendLogEntries": 0,
+      "fallbackOutputs": 0,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 4,
+      "observedWords": 0,
+      "actionKeyEchoOutputs": 0,
+      "liveRegionPipeline": {
+        "textInsertionEntries": 18,
+        "handledEntries": 0,
+        "rejectedEntries": 0,
+        "inactiveDocumentEntries": 0,
+        "focusedAlertEntries": 0,
+        "queuePresentationEntries": 0,
+        "monitoringDisabledEntries": 0,
+        "pageSwitchInsertionEntries": 0
+      },
+      "audioPeak": 0,
+      "nativeAccessibility": {
+        "scanned": 62,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": []
+      },
+      "nativeControlFocusAtFailure": {
+        "scanned": 62,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": []
+      },
+      "focusEmulationDisabled": false
+    },
+    {
+      "stage": "public_cancel_announcement",
+      "engine": "webkit",
+      "width": 1280,
+      "backendLogEntries": 0,
+      "fallbackOutputs": 0,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 4,
+      "observedWords": 0,
+      "actionKeyEchoOutputs": 0,
+      "liveRegionPipeline": {
+        "textInsertionEntries": 18,
+        "handledEntries": 0,
+        "rejectedEntries": 0,
+        "inactiveDocumentEntries": 0,
+        "focusedAlertEntries": 0,
+        "queuePresentationEntries": 0,
+        "monitoringDisabledEntries": 0,
+        "pageSwitchInsertionEntries": 0
+      },
+      "audioPeak": 0,
+      "nativeAccessibility": {
+        "scanned": 62,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": []
+      },
+      "nativeControlFocusAtFailure": {
+        "scanned": 62,
+        "unavailable": 0,
+        "focusedNodes": [
+          {
+            "role": "panel",
+            "focused": true,
+            "active": false,
+            "showing": true,
+            "visible": true,
+            "enabled": false,
+            "editable": false,
+            "nameMatchesExpected": false
+          }
+        ],
+        "expectedNodes": []
+      },
+      "focusEmulationDisabled": false
+    }
+  ],
+  "finalSqlVerificationReached": false,
+  "allEightSurfacesValidated": false,
+  "cleanup": {
+    "workflowRun": 39155209039,
+    "sourceCommit": "c5f6f63f552521c61a7becce1f9c4ba79809f807",
+    "temporaryKeyAbsent": true,
+    "secretAbsent": true,
+    "variablesAbsent": true,
+    "ownedBranchesAbsent": true,
+    "persistentBranchesPreserved": true,
+    "passed": true
+  },
+  "realMessages": 0,
+  "operationalGatesClosed": []
+}

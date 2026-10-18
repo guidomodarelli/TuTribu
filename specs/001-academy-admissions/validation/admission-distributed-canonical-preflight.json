@@ -1,0 +1,51 @@
+{
+  "kind": "canonical_distributed_node_preflight",
+  "sourceCommit": "e95d1555ca79b1a93d8fc0b4547bba249dba35e0",
+  "bundleSha256": "f06b97f7ce246a09258367c46dc9d914ffd197e4178cbd2a8b84f93a7ebc333c",
+  "compute": {
+    "minimum": 4,
+    "maximum": 4,
+    "region": "aws-us-east-1"
+  },
+  "vitest": {
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0
+  },
+  "workloadStarted": false,
+  "measurementAvailable": false,
+  "observedRequests": [
+    {
+      "nodeIndex": 0,
+      "phase": "anonymous",
+      "status": 401,
+      "durationMs": 754.200199999992
+    },
+    {
+      "nodeIndex": 0,
+      "phase": "prepared",
+      "status": 202,
+      "durationMs": 577.806899999996
+    }
+  ],
+  "failedAssertion": {
+    "operation": "prepared_status",
+    "expectedHttpStatus": 200,
+    "observedHttpStatus": 202,
+    "existingHandlerContractHttpStatus": 202
+  },
+  "excludedStages": {
+    "managementAndBranchPreparationDurationMs": 6696.4547999999995,
+    "fixtureAndMigrationsDurationMs": 141594.80620000002,
+    "deploymentAndMetadataDurationMs": 20494.562600000005
+  },
+  "cleanup": {
+    "functionsRemoved": true,
+    "branchRemoved": true,
+    "independentBranchAbsence": true,
+    "originalBranchesPreserved": true
+  },
+  "privateFileScanReached": false,
+  "realMessages": 0,
+  "operationalGatesClosed": []
+}

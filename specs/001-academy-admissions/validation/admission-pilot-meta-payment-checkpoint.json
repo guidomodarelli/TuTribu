@@ -42,7 +42,10 @@
     "completed": false,
     "eligibleToStart": true,
     "requiresBusinessInformationAndDocuments": true,
-    "identitySelection": "awaiting_user",
+    "identitySelection": "current_business_confirmed_by_user",
+    "selectedBusiness": "La Pampita - Olavarría",
+    "completionOwner": "user",
+    "submissionStatus": "awaiting_user",
     "submittedByAgent": false
   },
   "causality": {
