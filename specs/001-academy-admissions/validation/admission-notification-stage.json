@@ -1,0 +1,170 @@
+{
+  "source": {
+    "baseCommit": "7eb3513494c04e8c73fd5bbe05cad3a17c535a7a",
+    "worktreeChanges": true,
+    "inputs": [
+      {
+        "path": "database/migrations/20261018072423_stage_admission_notification_obligation.sql",
+        "sha256": "2f913998e19d765dff7d6a57b608a6cb0dac9e199e4e2a912789af1617ab36da"
+      },
+      {
+        "path": "database/migrations/meta/_journal.json",
+        "sha256": "bfe98ae69bed1fddd7a7cbe7456a8bc406bccb9c01a44656087f51c44166df95"
+      },
+      {
+        "path": "src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer.ts",
+        "sha256": "7950c573ff737ff2d6f39e5e10e8b630e920dc20756a43f3d3f66f44d47bcc6b"
+      },
+      {
+        "path": "tests/unit/modules/notifications/infrastructure/admission-notification-obligation-writer.test.ts",
+        "sha256": "de05e970022f4b0d3910c190be2dd1ff976358c4f65c29f74ace0e9d884fc6a2"
+      },
+      {
+        "path": "tests/support/constants/admission-notification-validation.ts",
+        "sha256": "82df409ae3cc9056a6bce00852c5a1d03b4e27a6109e31c1a147f5ee1d7d9a21"
+      },
+      {
+        "path": "tests/support/constants/admission-statement-profile.ts",
+        "sha256": "fd2a22ee0da877dcee7ba9d944fe404b2f128830774b4d6b5ac7352f33ea7938"
+      }
+    ]
+  },
+  "migration": {
+    "tag": "20261018072423_stage_admission_notification_obligation",
+    "idx": 187,
+    "when": 1792308263428,
+    "journalCount": 188
+  },
+  "before": {
+    "passed": 0,
+    "failed": 1,
+    "skipped": 3,
+    "cases": [
+      {
+        "name": "native admission notification obligation writer should stage both native audiences with the original audit and deny unprivileged, crossed and invalid calls",
+        "status": "failed",
+        "durationMs": 47819.935699999995
+      }
+    ]
+  },
+  "initialNative": {
+    "passed": 3,
+    "failed": 1,
+    "skipped": 0,
+    "cases": [
+      {
+        "name": "native admission notification obligation writer should stage both native audiences with the original audit and deny unprivileged, crossed and invalid calls",
+        "status": "failed",
+        "durationMs": 57626.0783
+      },
+      {
+        "name": "native admission notification obligation writer should select a newly committed reviewer after a proven request-row wait inside the staging call",
+        "status": "passed",
+        "durationMs": 51844.100600000005
+      },
+      {
+        "name": "native admission notification obligation writer should deliver a reminder only to current scoped reviewers and reselect reviewers for the next original event",
+        "status": "passed",
+        "durationMs": 50768.6321
+      },
+      {
+        "name": "native admission notification obligation writer should preserve mixed batch audiences and roll back observed obligations, notices and audit before an explicit retry",
+        "status": "passed",
+        "durationMs": 54956.4394
+      }
+    ]
+  },
+  "callerLockPermissions": {
+    "passed": 0,
+    "failed": 1,
+    "skipped": 3,
+    "cases": [
+      {
+        "name": "native admission notification obligation writer should stage both native audiences with the original audit and deny unprivileged, crossed and invalid calls",
+        "status": "failed",
+        "durationMs": 57456.4928
+      }
+    ]
+  },
+  "callerRlsAndReplay": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 3,
+    "cases": [
+      {
+        "name": "native admission notification obligation writer should stage both native audiences with the original audit and deny unprivileged, crossed and invalid calls",
+        "status": "passed",
+        "durationMs": 62271.067299999995
+      }
+    ]
+  },
+  "regressions": {
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "name": "native admission notification facts should preserve the real submit ledger for each current reviewer and avoid facts or samples on replay",
+        "status": "passed",
+        "durationMs": 96043.1688
+      },
+      {
+        "name": "admission notification storage should show and mark only the actual applicant notice through the inbox without membership or private request text",
+        "status": "passed",
+        "durationMs": 25116.9332
+      },
+      {
+        "name": "admission notification storage should remove reviewer notices and deny their mutation after the current role is revoked, including owner runtime",
+        "status": "passed",
+        "durationMs": 29594.404
+      },
+      {
+        "name": "admission notification storage should materialize one minimal notice per recipient and obligation under concurrent replay",
+        "status": "passed",
+        "durationMs": 19326.948300000004
+      },
+      {
+        "name": "admission notification storage should show only the applicant's own request notices without opening community content",
+        "status": "passed",
+        "durationMs": 22979.6379
+      },
+      {
+        "name": "admission notification storage should recheck the current reviewer role while preserving ordinary community notices",
+        "status": "passed",
+        "durationMs": 27469.069099999993
+      },
+      {
+        "name": "admission notification storage should roll back the obligation and its notice together and deny a recipient's private producer access",
+        "status": "passed",
+        "durationMs": 26133.792400000006
+      },
+      {
+        "name": "admission notification storage should reject crossed or rewritten sources and preserve a read notice when replayed",
+        "status": "passed",
+        "durationMs": 28446.47940000001
+      }
+    ]
+  },
+  "ordinary": {
+    "passed": 923,
+    "failed": 0,
+    "skipped": 3
+  },
+  "checks": {
+    "productTypes": "passed",
+    "testTypes": "passed",
+    "lint": "passed",
+    "nextBuild": "passed"
+  },
+  "cleanup": {
+    "remainingBranchIds": [
+      "br-shiny-paper-ankn86x2",
+      "br-aged-morning-an5ejge1",
+      "br-wispy-sun-anwpxm2x"
+    ],
+    "protectedBranchesPreserved": true,
+    "ownedBranchesAbsent": true
+  },
+  "realMessages": 0,
+  "latencyGate": "pending_full_measurement"
+}

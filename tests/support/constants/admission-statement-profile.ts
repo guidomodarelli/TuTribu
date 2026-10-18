@@ -20,7 +20,7 @@ export const ADMISSION_STATEMENT_OBJECTS = [
   "tribes", "tribe_members", "tribe_academy_settings", "academy_admission_policies", "academy_admission_requests", "academy_admission_operations",
   "academy_allowlist_entries", "academy_admission_contact_bindings", "academy_admission_decisions", "academy_admission_membership_effects", "academy_admission_verification_proofs",
   "academy_admission_audit_events", "academy_allowlist_import_rows", "academy_allowlist_import_selections", "academy_allowlist_imports", "academy_personal_invitations",
-  "close_academy_admission_scope", "close_unavailable_admission_request", "contact_verification_challenges", "create_admission_notification_obligation", "enqueue_admission_notification",
+  "close_academy_admission_scope", "close_unavailable_admission_request", "contact_verification_challenges", "create_admission_notification_obligation", "enqueue_admission_notification", "stage_admission_notification_obligation",
   "expire_academy_admission_requests", "lock_academy_admission_administrative_reader", "message_deliveries", "message_delivery_attempts",
   "messaging_connection_capabilities", "messaging_connection_diagnostics", "messaging_connection_versions", "messaging_contact_budget_subjects", "messaging_contact_fingerprint_aliases",
   "messaging_secret_envelopes", "messaging_usage_events", "messaging_usage_policies", "purge_admission_private_data", "purge_expired_allowlist_import_material",

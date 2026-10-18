@@ -5,10 +5,12 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withAcademyAdmissionDatabase, type AcademyAdmissionTestDatabase } from "@/tests/support/academy-admission-database";
 import { executeAdmissionMigrationCommand } from "@/tests/support/admission-migration-command";
-import { ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS } from "@/tests/support/constants/admission-notification-validation";
+import { ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS, ADMISSION_NOTIFICATION_STORAGE_TEST_CONCURRENT_TRANSACTIONS } from "@/tests/support/constants/admission-notification-validation";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import type { AdmissionNotificationObligation } from "@/src/modules/notifications/domain/entities/admission-notification";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
+import { withAdmissionTransitionContention } from "@/tests/support/admission-transition-contention";
+import { ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
 
 /**
  * Seeds current reviewers and pending facts without any external message configuration.
@@ -46,6 +48,76 @@ async function stageRejectedSource(transaction: RequestDatabase, fixture: Awaite
 }
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission notification obligation writer", () => {
+  it("should stage both native audiences with the original audit and deny unprivileged, crossed and invalid calls", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareWriter(database), pending = fixture.obligations[0], reminder = fixture.obligations[1], rejected = fixture.obligations[2];
+      await database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`select public.stage_admission_notification_obligation(${pending.id},${pending.tribeId},${pending.admissionRequestId},${pending.applicantUserId},${pending.event},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer},null::uuid)`);
+        await stageRejectedSource(transaction, fixture);
+        await transaction.execute(sql`select public.stage_admission_notification_obligation(${rejected.id},${rejected.tribeId},${rejected.admissionRequestId},${rejected.applicantUserId},${rejected.event},${ADMISSION_NOTIFICATION_AUDIENCE.applicant},null::uuid)`);
+      });
+      const notices = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select admission_obligation_id,recipient_user_id,admission_audience,payload from public.notifications where tribe_id=${fixture.tribeId} order by admission_obligation_id,recipient_user_id`)).rows);
+      const expected = [
+        ...[fixture.leaderId, fixture.guardianId].map((userId) => ({ admission_obligation_id: pending.id, recipient_user_id: userId, admission_audience: ADMISSION_NOTIFICATION_AUDIENCE.reviewer, payload: {} })),
+        { admission_obligation_id: rejected.id, recipient_user_id: rejected.applicantUserId, admission_audience: ADMISSION_NOTIFICATION_AUDIENCE.applicant, payload: {} },
+      ];
+      expected.sort((left, right) => left.admission_obligation_id.localeCompare(right.admission_obligation_id) || left.recipient_user_id.localeCompare(right.recipient_user_id));
+      expect(notices).toEqual(expected);
+      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ obligations: number; materialized: number }>(sql`select count(*) filter(where event_type='notification_obligation_created')::int as obligations,count(*) filter(where event_type='notification_materialized')::int as materialized from public.academy_admission_audit_events where tribe_id=${fixture.tribeId} and resource_type='admission_notification'`)).rows[0])).toEqual({ obligations: 2, materialized: 3 });
+      await expect(database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`select public.stage_admission_notification_obligation(${reminder.id},${reminder.tribeId},${reminder.admissionRequestId},${reminder.applicantUserId},${reminder.event},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer},null::uuid)`);
+      }, "non_bypass")).rejects.toMatchObject({ cause: { code: "42501" } });
+      await expect(database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`select public.stage_admission_notification_obligation(${reminder.id},${reminder.tribeId},${reminder.admissionRequestId},${reminder.applicantUserId},${reminder.event},'invalid',null::uuid)`);
+      })).rejects.toMatchObject({ cause: { code: "23514" } });
+      await expect(database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`select public.stage_admission_notification_obligation(${reminder.id},${fixture.otherTribeId},${reminder.admissionRequestId},${reminder.applicantUserId},${reminder.event},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer},null::uuid)`);
+      })).rejects.toMatchObject({ cause: { code: "23503" } });
+      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select id from public.academy_admission_notification_obligations where id=${reminder.id}`)).rows)).toEqual([]);
+      await database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`grant execute on function public.create_admission_notification_obligation(uuid,uuid,uuid,text,text,uuid,timestamptz),public.enqueue_admission_notification(uuid,text,text) to ${sql.identifier(database.nonBypassRole.name)}`);
+        // The original invoker SELECT FOR SHARE also requires UPDATE on at least one column.
+        await transaction.execute(sql`grant select,update(id) on public.tribe_members to ${sql.identifier(database.nonBypassRole.name)}`);
+      });
+      const visibleReviewers = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ user_id: string }>(sql`select user_id from public.tribe_members where tribe_id=${fixture.tribeId} and role in ('leader','guardian') and status='active' order by user_id for share`)).rows.map((row) => row.user_id), "non_bypass");
+      await database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`select public.stage_admission_notification_obligation(${reminder.id},${reminder.tribeId},${reminder.admissionRequestId},${reminder.applicantUserId},${reminder.event},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer},null::uuid)`);
+      }, "non_bypass");
+      expect(database.nonBypassRole).toMatchObject({ bypassesRls: false, isSuperuser: false });
+      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ recipient_user_id: string }>(sql`select recipient_user_id from public.notifications where admission_obligation_id=${reminder.id} order by recipient_user_id`)).rows.map((row) => row.recipient_user_id))).toEqual(visibleReviewers);
+      await expect(database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`insert into public.notifications(recipient_user_id,tribe_id,type,payload,dedupe_key,admission_obligation_id,admission_audience) values (${fixture.leaderId},${fixture.tribeId},'admission_reminder','{}'::jsonb,${`admission:${reminder.id}`},${reminder.id},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer})`);
+      }, "non_bypass")).rejects.toMatchObject({ cause: { code: "42501" } });
+      const beforeReplay = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select
+        (select count(*)::int from drizzle.__drizzle_migrations) as migrations,
+        (select count(*)::int from public.academy_admission_notification_obligations where tribe_id=${fixture.tribeId}) as obligations,
+        (select count(*)::int from public.notifications where tribe_id=${fixture.tribeId}) as notices,
+        (select count(*)::int from public.academy_admission_audit_events where tribe_id=${fixture.tribeId}) as audit`)).rows[0]);
+      await database.withServerEnvironment((environment) => executeAdmissionMigrationCommand({ ...environment, DATABASE_MIGRATION_URL: environment.DATABASE_URL }));
+      const afterReplay = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select
+        (select count(*)::int from drizzle.__drizzle_migrations) as migrations,
+        (select count(*)::int from public.academy_admission_notification_obligations where tribe_id=${fixture.tribeId}) as obligations,
+        (select count(*)::int from public.notifications where tribe_id=${fixture.tribeId}) as notices,
+        (select count(*)::int from public.academy_admission_audit_events where tribe_id=${fixture.tribeId}) as audit`)).rows[0]);
+      expect(afterReplay).toEqual(beforeReplay);
+    });
+  }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
+
+  it("should select a newly committed reviewer after a proven request-row wait inside the staging call", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareWriter(database), pending = fixture.obligations[0], newGuardianId = randomUUID();
+      await database.withContext(fixture.own, (transaction) => transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${newGuardianId},'Synthetic new reviewer',${`${newGuardianId}@example.invalid`},false,clock_timestamp(),clock_timestamp())`));
+      const result = await withAdmissionTransitionContention(database, fixture.own, async (holder) => {
+        await holder.execute(sql`select id from public.academy_admission_requests where id=${pending.admissionRequestId} for update`);
+        await holder.execute(sql`insert into public.tribe_members(tribe_id,user_id,role,status) values (${fixture.tribeId},${newGuardianId},'guardian','active')`);
+      }, () => database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`select public.stage_admission_notification_obligation(${pending.id},${pending.tribeId},${pending.admissionRequestId},${pending.applicantUserId},${pending.event},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer},null::uuid)`);
+      }));
+      expect(result).toEqual({ status: "fulfilled", value: undefined });
+      expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ recipient_user_id: string }>(sql`select recipient_user_id from public.notifications where admission_obligation_id=${pending.id} order by recipient_user_id`)).rows.map((row) => row.recipient_user_id))).toEqual([fixture.leaderId, fixture.guardianId, newGuardianId].sort());
+    }, { concurrentTransactions: ADMISSION_NOTIFICATION_STORAGE_TEST_CONCURRENT_TRANSACTIONS });
+  }, ADMISSION_NOTIFICATION_STORAGE_TEST_TIMEOUT_MS);
+
   it("should deliver a reminder only to current scoped reviewers and reselect reviewers for the next original event", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const fixture = await prepareWriter(database), reminder = fixture.obligations[1];

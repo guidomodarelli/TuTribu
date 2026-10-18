@@ -1310,6 +1310,13 @@
       "when": 1792281300000,
       "tag": "20261017235500_order_presence_admission_locks",
       "breakpoints": true
+    },
+    {
+      "idx": 187,
+      "version": "7",
+      "when": 1792308263428,
+      "tag": "20261018072423_stage_admission_notification_obligation",
+      "breakpoints": true
     }
   ]
 }

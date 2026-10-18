@@ -5,8 +5,6 @@ import type { RequestDatabase } from "@/src/modules/shared/infrastructure/databa
 import type { AdmissionNotificationObligationWriter } from "@/src/modules/academy-admissions/domain/repositories/admission-repositories";
 import { ADMISSION_NOTIFICATION_AUDIENCE } from "@/src/modules/notifications/constants/admission-notifications";
 import { resolveAdmissionNotificationAudience } from "../../domain/policies/admission-notification-audience";
-import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
-import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 
 /**
  * Composes only DB effects; the admission owner retains actor/request authorization and shared locks.
@@ -17,12 +15,8 @@ export function createPostgresAdmissionNotificationObligationWriter(database: Re
   const writer: AdmissionNotificationObligationWriter = {
     /** @param obligation - Original admission event/tenant/account identities, including a time-driven reminder. @returns After all current-audience notices are staged, before the caller commits. */
     async record(obligation) {
-      await database.execute(sql`select public.create_admission_notification_obligation(${obligation.id},${obligation.tribeId},${obligation.admissionRequestId},${obligation.applicantUserId},${obligation.event},${obligation.operationId ?? null})`);
       const audience = resolveAdmissionNotificationAudience(obligation.event);
-      if (audience === ADMISSION_NOTIFICATION_AUDIENCE.reviewer) {
-        const reviewers = (await database.execute<{ user_id: string }>(sql`select user_id from public.tribe_members where tribe_id=${obligation.tribeId} and role in (${TRIBE_MEMBER_ROLE.leader},${TRIBE_MEMBER_ROLE.guardian}) and status=${TRIBE_MEMBERSHIP_STATUS.active} order by user_id for share`)).rows;
-        for (const reviewer of reviewers) await database.execute(sql`select public.enqueue_admission_notification(${obligation.id},${reviewer.user_id},${ADMISSION_NOTIFICATION_AUDIENCE.reviewer})`);
-      } else await database.execute(sql`select public.enqueue_admission_notification(${obligation.id},${obligation.applicantUserId},${ADMISSION_NOTIFICATION_AUDIENCE.applicant})`);
+      await database.execute(sql`select public.stage_admission_notification_obligation(${obligation.id},${obligation.tribeId},${obligation.admissionRequestId},${obligation.applicantUserId},${obligation.event},${audience},${obligation.operationId ?? null})`);
     },
     /** @param obligations - Own facts staged by a single business transaction. @returns After current reviewer materialization and bulk applicant inserts are staged in this same transaction. */
     async recordMany(obligations) {
