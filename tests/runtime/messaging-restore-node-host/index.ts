@@ -7,6 +7,7 @@ import { createAdmissionNodeHostHandler } from "@/tests/support/admission-node-h
 import { createMessagingRestoreNodeDatabase } from "@/tests/support/messaging-restore-node-database";
 import { assertMessagingRestoreNodeProfile, runMessagingRestoreNodePhase } from "@/tests/support/run-messaging-restore-node-phase";
 import { readPostgresTestDiagnostics } from "@/tests/support/postgres-test-diagnostics";
+import { readMessagingNodePhaseFailureCode, summarizeMessagingNodeHostFailure } from "@/tests/support/messaging-node-host-failure";
 import { ADMISSION_NODE_HOST, ADMISSION_NODE_RUN_STATE, admissionNodeConfigurationSchema, type AdmissionNodeStatus, type AdmissionNodeRunState } from "@/tests/support/constants/admission-node-host";
 import { MESSAGING_RESTORE_NODE_HOST as HOST, messagingRestoreNodeInputSchema, type MessagingRestoreNodeInput } from "@/tests/support/constants/messaging-restore-node-host";
 import { OWNED_MESSAGING_NODE_DEPLOYMENT } from "@/tests/support/constants/owned-messaging-node-deployment";
@@ -63,7 +64,7 @@ async function run(): Promise<AdmissionNodeStatus> {
     return readStatus();
   } catch (error) {
     try {
-      await sqlCapability.withContext(backend, (transaction) => transaction.execute(sql`update native_test_support.messaging_restore_phases set state=${ADMISSION_NODE_RUN_STATE.failed},failure_code='native_phase_failed',completed_at=clock_timestamp() where id=${configuration.operationId} and cohort_id=${current.cohortId} and expected_branch=${configuration.branchName} and state=${ADMISSION_NODE_RUN_STATE.running}`));
+      await sqlCapability.withContext(backend, (transaction) => transaction.execute(sql`update native_test_support.messaging_restore_phases set state=${ADMISSION_NODE_RUN_STATE.failed},failure_code=${readMessagingNodePhaseFailureCode(error)},completed_at=clock_timestamp() where id=${configuration.operationId} and cohort_id=${current.cohortId} and expected_branch=${configuration.branchName} and state=${ADMISSION_NODE_RUN_STATE.running}`));
     } catch (recordingError) { throw new AggregateError([error, recordingError], "MessagingRestoreNode.record failed: phase_state_unconfirmed", { cause: error }); }
     throw error;
   }
@@ -72,13 +73,8 @@ async function run(): Promise<AdmissionNodeStatus> {
 export default createAdmissionNodeHostHandler(configuration, {
   currentBranchName: () => process.env[ADMISSION_NODE_HOST.branchIdentityVariable],
   readStatus, run,
-  failureCode: (error) => {
-    if (error instanceof Error && error.name === "ZodError") return "private_input_invalid";
-    const detail = error instanceof Error ? /^Messaging(?:RestoreNode(?:Phase)?|NativeActivation)\.[A-Za-z]+ failed: (?<detail>[A-Za-z_]+)$/.exec(error.message)?.groups?.detail : undefined;
-    return detail?.toLowerCase() ?? "native_phase_failed";
-  },
+  failureCode: readMessagingNodePhaseFailureCode,
   reportFailure: (error) => {
-    const diagnostic = error instanceof Error && /^Messaging(?:RestoreNode(?:Phase)?|NativeActivation)\.[A-Za-z]+ failed: [A-Za-z_]+$/.test(error.message) ? error.message : null;
-    logger.error({ message: "MessagingRestoreNode.request failed", metadata: { operationId: configuration.operationId, errorName: error instanceof Error ? error.name : "unknown", diagnostic, ...readPostgresTestDiagnostics(error) } });
+    logger.error({ message: "MessagingRestoreNode.request failed", metadata: { operationId: configuration.operationId, errorName: summarizeMessagingNodeHostFailure(error).name, diagnostic: readMessagingNodePhaseFailureCode(error), ...readPostgresTestDiagnostics(error) } });
   },
 });

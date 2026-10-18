@@ -42,6 +42,14 @@ El protocolo preparado conserva siete fases. La original prueba apertura con con
 
 El journal de prueba contiene únicamente referencias de operación, estado, conteos y procedencia. No almacena keyrings, época de control ni código. Tras restaurar se vuelven a registrar explícitamente sólo las fases restantes, manteniendo ausente la original desbloqueada. Un GET observado recupera la respuesta de un POST incierto; sólo se repite POST después de comprobar el resultado completado y se exige el mismo journal. Los valores privados llegan mediante aliases de entorno del gestor oficial, con verificación de código guardado, plan restringido, escaneo de archivos y argumentos y limpieza de las funciones propias. Ocho contratos locales de observación/DTO, tipos y lint aprobaron. La ejecución remota completa y su auditoría todavía deben registrarse; T201/T203 y OG-02 permanecen pendientes.
 
+## Primer ensayo en el host Node
+
+El [primer recibo remoto](messaging-node-host-restore-first.json), sobre `2254146c`, conserva un fallo real: un caso fallido, sin aprobados ni omitidos, en 948.022 ms. Tres fases completaron en Node 24.16.0. La original calibró un trabajo nativo de cifrado y comprobó invitación y admisión; el bloqueo posterior al restore y el bloqueo aislado con época/claves originales completaron con cero trabajos y cinco rechazos cada uno. El mismo control externo permaneció instalado después de restaurar PostgreSQL. No hubo peticiones al proveedor ni mensajes reales.
+
+La fase de época devolvió HTTP 500. El controlador anterior descartó el código seguro del POST y conservó sólo el wrapper exterior; por eso no se atribuye aún el fallo a una regla del producto. La corrección conserva el código acotado tanto en SQL como en HTTP y sigue las causas conocidas sin mensajes privados. Ocho casos nuevos de privacidad, SQLSTATE, causas y límites aprobaron; junto con boundary, DTO y cifrado suman 26 pruebas aprobadas. Tipos y lint aprobaron. Se requiere otro ensayo completo sobre el cambio guardado para identificar y corregir la causa exacta.
+
+Las funciones propias fueron retiradas y los inputs permanecieron estables, sin material privado en archivos/argumentos propios. La consulta independiente posterior confirmó ausentes el padre y la copia y conservadas las cuatro ramas persistentes. Tres fases no acreditan el protocolo de siete, la reapertura, Workers ni OG-02. T201/T203 conservan su alcance pendiente.
+
 ## Preflight de acceso
 
 La comprobación actual encontró Wrangler 4.128.0 instalado y `whoami --json` devolvió `loggedIn: false`. Chrome tiene el acceso de Cloudflare preparado; el ingreso muestra aceptación de términos y la nueva conexión requiere aprobación puntual de acceso persistente. La petición al usuario sigue pendiente. Los intentos OAuth no completados finalizaron sin acreditar una sesión, y no se crearon Workers, secretos ni bases para este ensayo.

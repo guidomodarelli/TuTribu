@@ -1,0 +1,187 @@
+{
+  "date": "2026-10-18",
+  "kind": "actual_node_host_restore_failed_first_trial",
+  "sourceCommit": "2254146c94b2e53bcbced18e0bca2f31b92aa9a4",
+  "passed": false,
+  "passedTests": 0,
+  "failedTests": 1,
+  "skippedTests": 0,
+  "durationMs": 948021.8835,
+  "completedPhases": [
+    {
+      "phase": "baseline",
+      "operationId": "c3e68bf6-371b-43f3-a9cd-d019cd01f468",
+      "slug": "msgrestore4ece87c60",
+      "sourceCommit": "2254146c94b2e53bcbced18e0bca2f31b92aa9a4",
+      "bundleSha256": "0cb1c989ab106d8d86191c69323aa28dae727a2049bf54ae681a28d087024095",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 1,
+        "checked_rejections": 1,
+        "provider_requests": 0,
+        "invitation_round_trip": true,
+        "runtime_version": "24.16.0",
+        "source_commit": "2254146c94b2e53bcbced18e0bca2f31b92aa9a4",
+        "bundle_sha256": "0cb1c989ab106d8d86191c69323aa28dae727a2049bf54ae681a28d087024095"
+      }
+    },
+    {
+      "phase": "locked",
+      "operationId": "59d5a5c6-4501-4211-ba8c-9d2571ad4bbe",
+      "slug": "msgrestorec3fd4fdf0",
+      "sourceCommit": "2254146c94b2e53bcbced18e0bca2f31b92aa9a4",
+      "bundleSha256": "0cb1c989ab106d8d86191c69323aa28dae727a2049bf54ae681a28d087024095",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 0,
+        "checked_rejections": 5,
+        "provider_requests": 0,
+        "invitation_round_trip": false,
+        "runtime_version": "24.16.0",
+        "source_commit": "2254146c94b2e53bcbced18e0bca2f31b92aa9a4",
+        "bundle_sha256": "0cb1c989ab106d8d86191c69323aa28dae727a2049bf54ae681a28d087024095"
+      }
+    },
+    {
+      "phase": "locked_original",
+      "operationId": "b3852718-9054-493f-ab53-8de169e2d05c",
+      "slug": "msgrestorea70696f50",
+      "sourceCommit": "2254146c94b2e53bcbced18e0bca2f31b92aa9a4",
+      "bundleSha256": "0cb1c989ab106d8d86191c69323aa28dae727a2049bf54ae681a28d087024095",
+      "observation": {
+        "state": "completed",
+        "work_runs": 1,
+        "cipher_operations": 0,
+        "checked_rejections": 5,
+        "provider_requests": 0,
+        "invitation_round_trip": false,
+        "runtime_version": "24.16.0",
+        "source_commit": "2254146c94b2e53bcbced18e0bca2f31b92aa9a4",
+        "bundle_sha256": "0cb1c989ab106d8d86191c69323aa28dae727a2049bf54ae681a28d087024095"
+      }
+    }
+  ],
+  "requests": [
+    {
+      "phase": "baseline",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "baseline",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "baseline",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "baseline",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "locked",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "locked",
+      "method": "GET",
+      "stage": "external_profile_after_restore",
+      "status": 202
+    },
+    {
+      "phase": "locked",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "locked",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "locked",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "locked_original",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "locked_original",
+      "method": "POST",
+      "stage": "run",
+      "status": 200
+    },
+    {
+      "phase": "locked_original",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 200
+    },
+    {
+      "phase": "locked_original",
+      "method": "POST",
+      "stage": "known_completed_replay",
+      "status": 200
+    },
+    {
+      "phase": "epoch",
+      "method": "GET",
+      "stage": "prepared",
+      "status": 202
+    },
+    {
+      "phase": "epoch",
+      "method": "POST",
+      "stage": "run",
+      "status": 500
+    },
+    {
+      "phase": "epoch",
+      "method": "GET",
+      "stage": "original_after_run",
+      "status": 500
+    }
+  ],
+  "profileOutsideSqlSurvivedRestore": true,
+  "failure": {
+    "stage": "run_epoch",
+    "name": "AcademyAdmissionRestoreError",
+    "code": "restore_copy_setup_failed"
+  },
+  "specificFailureCodeLost": true,
+  "diagnosisConfirmed": false,
+  "inputsStable": true,
+  "privateMaterialAbsent": true,
+  "cleanup": {
+    "functionsRemoved": true,
+    "ownTemporaryBranchesAbsent": true,
+    "originalBranches": 4,
+    "currentBranches": 4,
+    "originalBranchesPreserved": true,
+    "confirmationSource": "independent_neon_api_inventory_after_terminal_trial"
+  },
+  "completeRestoreAndReopeningScenarioPassed": false,
+  "hostedWorkersRestoreValidated": false,
+  "realMessages": 0,
+  "privateMaterialIncluded": false,
+  "operationalGatesClosed": []
+}

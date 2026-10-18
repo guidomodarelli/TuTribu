@@ -12,6 +12,7 @@ import { seedMessagingCandidateExpiration } from "./messaging-candidate-expirati
 import { seedMessagingRestoreManualPolicy } from "./messaging-restore-history-fixture";
 import { refreshMessagingActivationRecency } from "./messaging-activation-native";
 import { readMessagingRestoreFacts, readMessagingRestoreHistory, readRestoreAdmissionFacts } from "./messaging-restore-observations-native";
+import { MessagingNodeHostFailure, summarizeMessagingNodeHostFailure } from "./messaging-node-host-failure";
 import { deployOwnedMessagingNodes, type OwnedMessagingNodeDeployment } from "./owned-messaging-node-deployment";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { MESSAGING_HOSTING_ENV, MESSAGING_RECOVERY_LOCK_VALUE } from "@/src/modules/messaging/constants/messaging-hosting";
@@ -27,10 +28,10 @@ export type MessagingNodeHostRestoreObservation = {
   cohortId: string; startedAt: string; passed: boolean; realMessages: 0;
   phase?: string; branchId?: string; copyId?: string;
   phases: Array<{ phase: MessagingRestoreNodePhase; operationId: string; slug: string; sourceCommit: string; bundleSha256: string; observation: StoredPhase }>;
-  requests: Array<{ phase: MessagingRestoreNodePhase; method: string; stage: string; status: number }>;
+  requests: Array<{ phase: MessagingRestoreNodePhase; method: string; stage: string; status: number; code?: string }>;
   profileOutsideSqlSurvivedRestore?: boolean; originalRecordsPreserved?: boolean;
   inputsStable?: boolean; privateMaterialAbsent?: boolean; functionsRemoved?: boolean; branchesRemoved?: boolean;
-  failure?: { stage: string; name: string; code: string | null };
+  failure?: { stage: string; name: string; code: string | null; causes: Array<{ name: string; code: string | null }> };
 };
 
 /** @param context - Actual original internal scope. @returns Its own private transport shape without unrelated fixture fields. */
@@ -132,7 +133,7 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
           report.requests.push({ phase: active.phase, method: "GET", stage, status: response.status });
           assert.ok(response.status === 200 || response.status === 202 || response.status === 500);
           const body = await response.json() as Record<string, unknown>;
-          if (response.status === 500 && typeof body.code === "string" && ADMISSION_NODE_HOST.failureCodePattern.test(body.code)) throw Object.assign(new Error("MessagingNodeRestore.request failed: native_phase_rejected"), { code: body.code });
+          if (response.status === 500 && typeof body.code === "string" && ADMISSION_NODE_HOST.failureCodePattern.test(body.code)) throw new MessagingNodeHostFailure(body.code);
           const result = admissionNodeStatusSchema.parse(body);
           assert.equal(result.operationId, phaseIds[active.phase]);
           return result;
@@ -141,13 +142,23 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
           assert.ok(active);
           const current = active;
           await progress(`run_${current.phase}`);
+          let reportedFailureCode: string | undefined;
           try {
             const response = await fetch(new URL(ADMISSION_NODE_HOST.runPath, current.deployment.hosts[0].url), { method: "POST", headers: { authorization: `${ADMISSION_NODE_HOST.tokenPrefix}${current.token}` }, redirect: "error", signal: AbortSignal.timeout(ADMISSION_NODE_HOST.requestTimeoutMs) });
-            report.requests.push({ phase: current.phase, method: "POST", stage: "run", status: response.status });
+            if (response.status === 500) {
+              const body = await response.json() as Record<string, unknown>;
+              if (typeof body.code === "string" && ADMISSION_NODE_HOST.failureCodePattern.test(body.code)) reportedFailureCode = body.code;
+            }
+            report.requests.push({ phase: current.phase, method: "POST", stage: "run", status: response.status, ...(reportedFailureCode ? { code: reportedFailureCode } : {}) });
           } catch { report.requests.push({ phase: current.phase, method: "POST", stage: "uncertain_response", status: 0 }); }
           let observed = await status("original_after_run");
           const deadline = Date.now() + ADMISSION_NODE_HOST.requestTimeoutMs;
           while (observed.state === ADMISSION_NODE_RUN_STATE.running && Date.now() < deadline) { await delay(1000); observed = await status("original_wait"); }
+          if (observed.state === ADMISSION_NODE_RUN_STATE.failed) {
+            const failureRow = await copy.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<{ failure_code: string | null }>(sql`select failure_code from native_test_support.messaging_restore_phases where id=${phaseIds[current.phase]} and cohort_id=${report.cohortId} and expected_branch=${copy.branch.name}`)).rows[0]);
+            const code = reportedFailureCode ?? failureRow?.failure_code;
+            throw new MessagingNodeHostFailure(typeof code === "string" ? code : "native_phase_failed");
+          }
           assert.equal(observed.state, ADMISSION_NODE_RUN_STATE.completed);
           const row = await copy.withContext({ userId: null, email: null }, async (transaction) => (await transaction.execute<StoredPhase>(sql`select state,work_runs,cipher_operations,checked_rejections,provider_requests,invitation_round_trip,runtime_version,source_commit,bundle_sha256 from native_test_support.messaging_restore_phases where id=${phaseIds[current.phase]} and cohort_id=${report.cohortId} and expected_branch=${copy.branch.name}`)).rows[0]);
           assert.ok(row && row.work_runs === 1 && row.source_commit === current.deployment.sourceCommit && row.bundle_sha256 === current.deployment.bundleSha256);
@@ -221,7 +232,7 @@ export async function runMessagingNodeHostRestore(options: { reportFile?: string
     report.branchesRemoved = true;
     report.passed = true;
   } catch (error) { failure = error; }
-  if (failure) report.failure = { stage: report.phase ?? "starting", name: failure instanceof Error ? failure.name : "unknown", code: failure && typeof failure === "object" && "code" in failure && typeof failure.code === "string" ? failure.code : null };
+  if (failure) report.failure = { stage: report.phase ?? "starting", ...summarizeMessagingNodeHostFailure(failure) };
   await persist();
   return report;
 }
