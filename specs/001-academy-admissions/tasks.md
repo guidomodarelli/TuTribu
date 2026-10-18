@@ -1607,7 +1607,7 @@ Revisión de alcance de T207: el usuario eligió cuentas ficticias y automatizac
 
 <a id="t211"></a>
 
-- [ ] T211 Ejecutar lint/typecheck/typecheck:tests, suites relevantes, regresiones y build real de Next/target compatible; no mocks de bibliotecas, tests de textos/import-only ni desactivar lint/hook. Corregir fallos reales y conservar evidencia exacta; CI completo de publicación permanece en pre-push, sin commit/push/deploy por esta lista. Confirmar I1/U1 en suites reales de los tres recursos, conflictos y snapshots históricos/actuales; no dar por ejecutado un ensayo operativo ausente. Archivos: `package.json`, `specs/001-academy-admissions/quickstart.md`, `specs/001-academy-admissions/validation/quality-gate.md`. Dependencias: `T210`, `T209`. Trazabilidad: `FR-141`, `D-24`, `TC-026`.
+- [ ] T211 Ejecutar lint/typecheck/typecheck:tests, suites relevantes, regresiones y build real de Next/target compatible; no mocks de bibliotecas, tests de textos/import-only ni desactivar lint o el gate. Corregir fallos reales y conservar evidencia exacta; CI completo de publicación se ejecuta en GitHub Actions, con validaciones locales pertinentes y sin commit/push/deploy por esta lista. Confirmar I1/U1 en suites reales de los tres recursos, conflictos y snapshots históricos/actuales; no dar por ejecutado un ensayo operativo ausente. Archivos: `package.json`, `specs/001-academy-admissions/quickstart.md`, `specs/001-academy-admissions/validation/quality-gate.md`. Dependencias: `T210`, `T209`. Trazabilidad: `FR-141`, `D-24`, `TC-026`.
 
 <a id="t212"></a>
 

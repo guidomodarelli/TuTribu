@@ -12,6 +12,8 @@ El ensayo debe demostrar rechazo de secretos y envelopes retirados, cero dispatc
 
 Los recursos y capacidades del ensayo deben tener identidad única, duración acotada y limpieza confirmada por metadata independiente. No se conservan claves, tokens, URI, credenciales, nonces de OAuth ni payloads en los artefactos de validación. Una prueba de importación o un worker de muestra no sustituye el recorrido completo de restauración y reapertura.
 
+La [sonda de configuración Node](admission-node-environment-preflight.md) posterior acreditó únicamente que un valor de prueba no secreto llega al entorno de una función autenticada propia mediante la ruta oficial, sin argumentos con ese valor ni `env pull`. No instaló keyrings ni ensayó restore. No reemplaza las obligaciones de T201/T203 o el ensayo del segundo target y mantiene OG-02 pendiente.
+
 ## Preflight de acceso
 
 La comprobación actual encontró Wrangler 4.128.0 instalado y `whoami --json` devolvió `loggedIn: false`. Chrome tiene el acceso de Cloudflare preparado; el ingreso muestra aceptación de términos y la nueva conexión requiere aprobación puntual de acceso persistente. La petición al usuario sigue pendiente. Los intentos OAuth no completados finalizaron sin acreditar una sesión, y no se crearon Workers, secretos ni bases para este ensayo.

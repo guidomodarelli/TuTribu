@@ -28,7 +28,7 @@ pnpm run build
 
 Los paths de las suites nuevas son propuestos; su contenido/contratos están trazados, no creados por planificación. Usar tests reales de validators/SDK/Better Auth/beez-ui y dobles solamente en bordes propios. No escribir tests que inspeccionen texto de fuentes/SQL/config o solo imports/build artificiales.
 
-El hook pre-push ejecuta el gate completo al publicar; no duplicarlo aquí si ya hay evidencia exacta suficiente y no cambió código, ni saltarlo ante una falla. No hacer commit/push/deploy como parte de esta planificación.
+GitHub Actions ejecuta el gate completo al publicar cada rama y actualizar la PR; el repositorio no tiene hooks de calidad pre-commit/pre-push. Ejecutar localmente las validaciones relevantes del cambio y esperar el gate del commit correspondiente, sin desactivarlo ni atribuirle resultados de otro commit. No hacer commit/push/deploy por esta guía sin autorización del usuario.
 
 ## 3. Persistencia y rol efectivo
 
