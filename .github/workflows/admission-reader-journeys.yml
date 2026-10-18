@@ -27,11 +27,12 @@ jobs:
       - name: Verificar la capacidad temporal exacta
         id: capability
         env:
+          READER_EVENT_NAME: ${{ github.event_name }}
           NEON_ADMISSION_READER_TEST_API_KEY: ${{ secrets.NEON_ADMISSION_READER_TEST_API_KEY }}
           ADMISSION_READER_BRANCH_NONCE: ${{ vars.ADMISSION_READER_BRANCH_NONCE }}
           ADMISSION_READER_EXPECTED_COMMIT: ${{ vars.ADMISSION_READER_EXPECTED_COMMIT }}
         run: |
-          if [ -n "$NEON_ADMISSION_READER_TEST_API_KEY" ] && [ -n "$ADMISSION_READER_BRANCH_NONCE" ] && [ "$ADMISSION_READER_EXPECTED_COMMIT" = "$GITHUB_SHA" ]; then
+          if [ "$READER_EVENT_NAME" = 'workflow_dispatch' ] && [ -n "$NEON_ADMISSION_READER_TEST_API_KEY" ] && [ -n "$ADMISSION_READER_BRANCH_NONCE" ] && [ "$ADMISSION_READER_EXPECTED_COMMIT" = "$GITHUB_SHA" ]; then
             printf 'enabled=true\n' >> "$GITHUB_OUTPUT"
           else
             printf 'enabled=false\n' >> "$GITHUB_OUTPUT"

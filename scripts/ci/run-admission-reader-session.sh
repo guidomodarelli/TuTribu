@@ -12,12 +12,20 @@ mkdir -p "$XDG_RUNTIME_DIR" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 chmod 700 "$XDG_RUNTIME_DIR"
 
 cleanup() {
-  while read -r job_id; do kill "$job_id" 2>/dev/null || true; done < <(jobs -pr)
+  printf '%s\n' '{"phase":"reader_session_cleanup_started"}'
+  local reader_jobs=()
+  mapfile -t reader_jobs < <(jobs -pr)
+  for job_id in "${reader_jobs[@]}"; do kill "$job_id" 2>/dev/null || true; done
+  sleep 1
+  mapfile -t reader_jobs < <(jobs -pr)
+  for job_id in "${reader_jobs[@]}"; do kill -KILL "$job_id" 2>/dev/null || true; done
   wait || true
   pulseaudio --kill >/dev/null 2>&1 || true
+  printf '%s\n' '{"phase":"reader_session_cleanup_finished"}'
 }
 trap cleanup EXIT
 
+dbus-update-activation-environment DISPLAY XAUTHORITY XDG_RUNTIME_DIR XDG_CONFIG_HOME XDG_CACHE_HOME GTK_A11Y NO_AT_BRIDGE
 gsettings set org.gnome.desktop.interface toolkit-accessibility true
 gsettings set org.gnome.desktop.a11y.applications screen-reader-enabled true
 pulseaudio --start --exit-idle-time=-1
@@ -33,4 +41,7 @@ if [[ -n "${ORCA_EXPECTED_VERSION:-}" ]]; then test "$ORCA_BINARY_VERSION" = "$O
 export SPEECH_DISPATCHER_VERSION="$(speech-dispatcher --version | head -n 1)"
 "$reader_binary" --replace --enable=speech --disable=braille --debug --debug-file="$ORCA_DEBUG_LOG" > "$RUNNER_TEMP/admission-reader-service.log" 2>&1 &
 if [[ "$#" -eq 0 ]]; then exit 2; fi
-"$@"
+reader_command_status=0
+"$@" || reader_command_status=$?
+printf '{"phase":"reader_command_completed","exitCode":%d}\n' "$reader_command_status"
+exit "$reader_command_status"

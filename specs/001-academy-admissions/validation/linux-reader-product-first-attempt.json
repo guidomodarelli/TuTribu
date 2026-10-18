@@ -1,0 +1,21 @@
+{
+  "commit": "9fdcf0bcc44d6d37488eb11272d8ff9e89899121",
+  "runId": 39119835859,
+  "runConclusion": "cancelled",
+  "productJourneysValidated": false,
+  "passed": 0,
+  "failed": 1,
+  "skipped": 0,
+  "failureCodes": ["native_reader_speech_missing"],
+  "failureStage": null,
+  "cleanup": {
+    "keyRevoked": true,
+    "secretRemoved": true,
+    "variablesRemoved": 2,
+    "ownedBranchAbsent": true,
+    "originalBranchesPreserved": true,
+    "remainingBranches": 3,
+    "independentInventoryConfirmed": true
+  },
+  "realMessages": 0
+}
