@@ -1,6 +1,6 @@
 /** Exercises capability-specific selection with real shared UI and own controlled props. @module messaging-resource-selection-tests */
 import {randomUUID} from "node:crypto";
-import {render,screen} from "@testing-library/react";
+import {render,screen,waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {describe,expect,it,vi} from "vitest";
 import {MessagingConnectionResources} from "@/components/academy-admissions/messaging-connection-resources";
@@ -13,7 +13,7 @@ describe("connection resource selection",()=>{
     const props={...resourceFixture(),availableChannels:["email"]as const},user=userEvent.setup();
     render(<MessagingConnectionResources {...props} />);
     await user.click(screen.getByRole("combobox",{name:"Canal que querés preparar"}));
-    expect(screen.getByRole("option",{name:/Correo/})).toBeVisible();
+    await waitFor(()=>expect(screen.getByRole("option",{name:/Correo/})).toBeVisible());
     expect(screen.queryByRole("option",{name:"SMS"})).not.toBeInTheDocument();
     expect(screen.queryByRole("option",{name:"WhatsApp"})).not.toBeInTheDocument();
     expect(props.onReadSenders).not.toHaveBeenCalled();expect(props.onSave).not.toHaveBeenCalled();
