@@ -56,7 +56,7 @@ El [segundo recibo remoto](messaging-node-host-restore-second.json), sobre `247c
 
 El fallo pertenece a la aserción del arnés: el preflight informativo acredita inventario/evaluador/bloqueo, y la arquitectura distingue ese resultado de la disponibilidad del canal. Sin recovery lock puede devolver preparado aunque la conexión antigua ya no sea utilizable por su época; no concede una admisión ni autoriza secretos. El protocolo corregido comprueba esa distinción y refuerza el rechazo real de activación, además del secreto, en bloqueo, época antigua y clave retirada. Conserva cero cifrado, códigos/pruebas antiguos denegados, outbox cerrado y las siete fases completas pendientes de ejecutar; no cambia reglas del producto. El diagnóstico también reconoce los códigos acotados del owner de reapertura, sin mensajes privados.
 
-## Preflight de acceso
+## Tercer ensayo y sonda de despliegue
 
 La [sonda de transiciones](messaging-node-deployment-transitions.json) posterior, sobre `c33cc730`, aprobó un caso sin fallos ni omisiones en 68.303 ms. Desplegó y retiró dos veces el bundle completo de restauración en la misma rama propia, con perfiles externos distintos. Ambos rechazaron al anónimo con 401 y devolvieron el código seguro `private_input_invalid` al bearer válido con el DTO privado intencionalmente incompleto, antes de SQL. Los inputs y el bundle permanecieron iguales, no se persistió material privado y ambas funciones fueron retiradas. La consulta independiente confirmó ausencia de la rama y las cuatro persistentes conservadas. Esta sonda acota el fallo de despliegue anterior; no prueba el protocolo completo ni Workers.
 
@@ -64,7 +64,17 @@ El [tercer ensayo remoto](messaging-node-host-restore-third.json), sobre `ef12b1
 
 El boundary del gestor conserva ahora una clasificación propia de operación, salida numérica acotada, timeout, exceso de salida o JSON inválido, sin argumentos, stdout, stderr ni entorno privado. El owner también ejecuta los controles de inputs y material privado al fallar el deploy; el informe diferencia intentos y capacidades devueltas y omite las banderas globales cuando falta una capacidad. Pasaron 36 pruebas de diagnóstico, boundary HTTP, DTO y cifrado reales, además de tipos y lint. Se preparó una sonda menor con el runtime completo: dos transiciones reales de deploy/retirada y comprobaciones HTTP de anonimato y DTO privado inválido antes de SQL. Esa sonda no sustituye el restore, los siete perfiles ni Workers; sus resultados deben registrarse después de ejecutarla.
 
-La comprobación actual encontró Wrangler 4.128.0 instalado y `whoami --json` devolvió `loggedIn: false`. Chrome tiene el acceso de Cloudflare preparado; el ingreso muestra aceptación de términos y la nueva conexión requiere aprobación puntual de acceso persistente. La petición al usuario sigue pendiente. Los intentos OAuth no completados finalizaron sin acreditar una sesión, y no se crearon Workers, secretos ni bases para este ensayo.
+## Ensayo completo en Node
+
+El [recibo completo del host](messaging-node-host-restore-completed.json), sobre `8c8ef89c`, acredita un caso aprobado, sin fallos ni omisiones, en **1.105.400 ms**. Las siete fases completaron en Node 24.16.0: original utilizable, bloqueo posterior al restore real, bloqueo con época/material originales, época nueva, clave retirada, reconciliación y reapertura explícita. El control externo sobrevivió a PostgreSQL restaurado y el padre y los resultados históricos conservaron sus datos originales.
+
+La apertura original calibró un trabajo nativo de cifrado. Los cuatro perfiles de rechazo completaron con cero trabajos: cinco rechazos en cada bloqueo y en época, y dos con la clave retirada. La reconciliación conservó el cierre y la reapertura exigió conexión, diagnóstico, prueba y admisión nuevas. El SDK realizó cuatro peticiones mediante transporte HTTP cerrado en la reapertura; no hubo mensajes reales ni un ensayo externo de Zavu.
+
+Los siete intentos devolvieron capacidades auditadas: inputs de compilación estables, material privado ausente y funciones retiradas. La consulta independiente confirmó ausentes padre y copia y conservadas las cuatro ramas persistentes. La evidencia acredita el protocolo del host Node; Workers y el cierre conjunto de T201/T203 y OG-02 siguen pendientes.
+
+## Preflight de acceso
+
+La comprobación actual encontró Wrangler 4.128.0 instalado y `whoami --json` devolvió `loggedIn: false`. Chrome ya tiene una sesión de Cloudflare utilizada para los seis registros de correo autorizados. Ese acceso web y esos registros no conceden a Wrangler una capacidad persistente para administrar Workers. Los intentos OAuth no completados finalizaron sin acreditar una sesión, y no se crearon Workers, secretos ni bases para este ensayo.
 
 Se preparó un conjunto reducido de scopes: lectura de cuenta y perfil y administración de scripts de Workers. Wrangler agrega `offline_access` a su propio flujo; esta persistencia forma parte de la aprobación solicitada. Se descartó antes de autorizar el scope más amplio `workers:write`, que incluye zonas, KV y rutas ajenos a este objetivo. La aprobación no se interpreta como prueba de secretos instalados ni habilitación de producción.
 
