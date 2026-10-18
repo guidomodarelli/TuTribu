@@ -9,9 +9,12 @@ export GTK_A11Y=atspi
 export NO_AT_BRIDGE=0
 export ORCA_DEBUG_LOG="$RUNNER_TEMP/admission-reader-native.out"
 export ORCA_AUDIO_FILE="$RUNNER_TEMP/admission-reader-audio.raw"
-mkdir -p "$XDG_RUNTIME_DIR" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME/orca"
+mkdir -p "$XDG_RUNTIME_DIR" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME/orca/app-settings"
 chmod 700 "$XDG_RUNTIME_DIR"
 cp tests/support/config/admission-native-reader-settings.json "$XDG_DATA_HOME/orca/user-settings.conf"
+for reader_application in 'Google Chrome for Testing' 'MiniBrowser'; do
+  cp tests/support/config/admission-native-reader-application-settings.json "$XDG_DATA_HOME/orca/app-settings/$reader_application.conf"
+done
 
 cleanup() {
   printf '%s\n' '{"phase":"reader_session_cleanup_started"}'
@@ -47,7 +50,7 @@ if [[ -n "${ORCA_EXPECTED_VERSION:-}" && "$ORCA_BINARY_VERSION" != "$ORCA_EXPECT
   exit 1
 fi
 export SPEECH_DISPATCHER_VERSION="$(speech-dispatcher --version | head -n 1)"
-"$reader_binary" --replace --enable=speech --disable=braille --debug --debug-file="$ORCA_DEBUG_LOG" > "$RUNNER_TEMP/admission-reader-service.log" 2>&1 &
+"$reader_binary" --user-prefs="$XDG_DATA_HOME/orca" --replace --enable=speech --disable=braille --debug --debug-file="$ORCA_DEBUG_LOG" > "$RUNNER_TEMP/admission-reader-service.log" 2>&1 &
 if [[ "$#" -eq 0 ]]; then exit 2; fi
 reader_command_status=0
 "$@" || reader_command_status=$?

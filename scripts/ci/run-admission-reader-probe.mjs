@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium, webkit } from "@playwright/test";
 import { ADMISSION_READER_PROBE as PROBE } from "../../tests/support/constants/admission-reader-probe.mjs";
-import { hasNativeReaderSpeech, measureNativeAudioPeak } from "../../tests/support/admission-reader-observation.mjs";
+import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak } from "../../tests/support/admission-reader-observation.mjs";
 import { configureAdmissionBrowserNativeFocus } from "../../tests/support/admission-browser-native-focus.mjs";
 
 if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY || !process.env.RUNNER_TEMP) throw new Error("AdmissionReaderProbe.start failed: disposable_linux_display_required");
@@ -114,6 +114,7 @@ try {
       } catch (inspectionError) { observation.nativeAccessibility = { unavailable: true, failureName: inspectionError instanceof Error ? inspectionError.name : "unknown" }; }
       observation.focusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.focus);
       observation.statusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.status);
+      observation.speechDiagnostics = diagnoseNativeReaderSpeech(observedLog, item.focus);
       process.exitCode = 1;
     } finally { await browser?.close(); }
     report.cases.push(observation);

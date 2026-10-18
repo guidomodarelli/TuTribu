@@ -87,6 +87,7 @@ describe.skipIf(process.env[VALIDATION.enabledVariable] !== VALIDATION.enabledVa
             const reason = review.getByRole("textbox", { name: ADMISSION_REVIEW_UI_COPY.internalReason, exact: true });
             await reader.focus(review, reason, ADMISSION_REVIEW_UI_COPY.internalReason);
             await reader.type(review, VALIDATION.internalReason);
+            await expectBrowser(reason).toHaveValue(VALIDATION.internalReason);
             await progress("administrative_confirmation_focus", name, width);
             const confirmation = review.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm, exact: true });
             await reader.focus(review, confirmation, ADMISSION_REVIEW_UI_COPY.confirm);

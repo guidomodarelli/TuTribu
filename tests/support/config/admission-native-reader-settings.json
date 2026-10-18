@@ -1,13 +1,16 @@
 {
   "general": {
     "startingProfile": ["Default", "default"],
-    "sayAllOnLoad": false
+    "sayAllOnLoad": false,
+    "enableKeyEcho": false
   },
   "pronunciations": {},
   "keybindings": {},
   "profiles": {
     "default": {
-      "profile": ["Default", "default"]
+      "profile": ["Default", "default"],
+      "sayAllOnLoad": false,
+      "enableKeyEcho": false
     }
   }
 }

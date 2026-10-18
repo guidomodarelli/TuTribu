@@ -22,7 +22,7 @@ export function hasNativeReaderSpeech(log, canary) {
  * Projects native output into counters and flags without retaining a transcript or changing acceptance.
  * @param {string} log - Private output captured after the native action began.
  * @param {string} expected - Controlled product label expected during this phase.
- * @returns {{backendLogEntries:number,fallbackOutputs:number,labelInDebug:boolean,exactMatch:boolean,normalizedMatch:boolean,expectedWords:number,observedWords:number}} Safe diagnostic metadata only.
+ * @returns {{backendLogEntries:number,fallbackOutputs:number,labelInDebug:boolean,exactMatch:boolean,normalizedMatch:boolean,expectedWords:number,observedWords:number,actionKeyEchoOutputs:number}} Safe diagnostic metadata only.
  */
 export function diagnoseNativeReaderSpeech(log, expected) {
   const { outputPatterns, speechMarker, fallbackSpeechMarker } = ADMISSION_READER_PROBE;
@@ -40,6 +40,7 @@ export function diagnoseNativeReaderSpeech(log, expected) {
     normalizedMatch: Boolean(label) && normalized.includes(label),
     expectedWords: words.length,
     observedWords: words.filter((word) => spokenWords.has(word)).length,
+    actionKeyEchoOutputs: utterances.filter((utterance) => ADMISSION_READER_PROBE.actionKeyWords.includes(utterance.trim().toLowerCase())).length,
   };
 }
 

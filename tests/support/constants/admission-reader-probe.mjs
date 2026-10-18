@@ -27,6 +27,7 @@ export const ADMISSION_READER_PROBE = {
   speechMarker: "SPEECH DISPATCHER: Speaking",
   fallbackSpeechMarker: "SPEECH OUTPUT:",
   automaticReadingDisabledMarker: "WEB: Not doing SayAll due to sayAllOnLoad being False",
+  actionKeyWords: ["tab", "space"],
   outputPatterns: {
     versionLine: /^(?:(?<plainVersion>\d+\.\d+(?:\.\d+)?)\s*$|Orca version (?<detailedVersion>\d+\.\d+(?:\.\d+)?)(?=,|\s|$))/gmu,
     lineSeparator: /\r?\n/u,

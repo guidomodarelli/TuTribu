@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "default": {
+      "general": {
+        "sayAllOnLoad": false,
+        "enableKeyEcho": false
+      },
+      "pronunciations": {},
+      "keybindings": {}
+    }
+  }
+}

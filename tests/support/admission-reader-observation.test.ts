@@ -28,7 +28,7 @@ describe("native reader observation boundary", () => {
     expect(hasNativeReaderSpeech(log, "Control de lectura ab12")).toBe(true);
     expect(diagnoseNativeReaderSpeech(log, "Control de lectura ab12")).toEqual({
       backendLogEntries: 1, fallbackOutputs: 0, labelInDebug: true, exactMatch: true,
-      normalizedMatch: true, expectedWords: 4, observedWords: 4,
+      normalizedMatch: true, expectedWords: 4, observedWords: 4, actionKeyEchoOutputs: 0,
     });
   });
 
@@ -43,7 +43,7 @@ describe("native reader observation boundary", () => {
     const log = "object:text-changed Confirmo cancelar solicitud\nSPEECH OUTPUT: 'Confirmo cancelar solicitud'\nSPEECH DISPATCHER: Speaking '<speak>Otro elemento</speak>'";
     expect(diagnoseNativeReaderSpeech(log, "Confirmo cancelar solicitud")).toEqual({
       backendLogEntries: 1, fallbackOutputs: 1, labelInDebug: true, exactMatch: false,
-      normalizedMatch: false, expectedWords: 3, observedWords: 0,
+      normalizedMatch: false, expectedWords: 3, observedWords: 0, actionKeyEchoOutputs: 0,
     });
   });
 
@@ -51,7 +51,7 @@ describe("native reader observation boundary", () => {
     const log = "SPEECH DISPATCHER: Speaking '<speak>Confirmo que quiero</speak>'\nSPEECH DISPATCHER: Speaking '<speak>cancelar esta solicitud</speak>'";
     expect(diagnoseNativeReaderSpeech(log, "Confirmo que quiero cancelar esta solicitud")).toEqual({
       backendLogEntries: 2, fallbackOutputs: 0, labelInDebug: false, exactMatch: false,
-      normalizedMatch: true, expectedWords: 6, observedWords: 6,
+      normalizedMatch: true, expectedWords: 6, observedWords: 6, actionKeyEchoOutputs: 0,
     });
     expect(hasNativeReaderSpeech(log, "Confirmo que quiero cancelar esta solicitud")).toBe(false);
   });
@@ -60,8 +60,14 @@ describe("native reader observation boundary", () => {
     const log = "SPEECH DISPATCHER: Speaking '<speak>private-contact@synthetic.test</speak>'";
     expect(diagnoseNativeReaderSpeech(log, "Guardar conexión")).toEqual({
       backendLogEntries: 1, fallbackOutputs: 0, labelInDebug: false, exactMatch: false,
-      normalizedMatch: false, expectedWords: 2, observedWords: 0,
+      normalizedMatch: false, expectedWords: 2, observedWords: 0, actionKeyEchoOutputs: 0,
     });
+  });
+
+  it("should count only standalone action keys actually sent to the speech backend", () => {
+    const log = "SPEECH DISPATCHER: Speaking 'tab' as string\nSPEECH DISPATCHER: Speaking '<speak>tab</speak>' \nSPEECH OUTPUT: 'space'";
+    expect(diagnoseNativeReaderSpeech(log, "Cancelar solicitud").actionKeyEchoOutputs).toBe(1);
+    expect(diagnoseNativeReaderSpeech("SPEECH DISPATCHER: Speaking '<speak>New tab page</speak>'", "Cancelar solicitud").actionKeyEchoOutputs).toBe(0);
   });
 
   it("should distinguish actual signed PCM output from silence", () => {
