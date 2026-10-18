@@ -62,7 +62,8 @@ function assertActiveWindow(title) {
 function nativeKey(title, key) { assertActiveWindow(title); execFileSync("xdotool", ["key", "--clearmodifiers", key], { timeout: PROBE.windowCommandTimeoutMs }); }
 try {
   for (const item of cases) {
-    const observation = { engine: item.engine, width: item.width, height: PROBE.height, passed: false };
+    const observation = { caseId: item.id, engine: item.engine, width: item.width, height: PROBE.height, passed: false };
+    const caseLogOffset = (await readerLog()).length;
     let browser;
     try {
       browser = await ({ chromium, webkit })[item.engine].launch({ headless: false, ...(item.engine === "chromium" ? { args: ["--force-renderer-accessibility"] } : {}) });
@@ -96,6 +97,11 @@ try {
       observation.failureCode = error instanceof Error && Object.values(PROBE.failures).includes(error.message) ? error.message : PROBE.failures.runtime;
       observation.failureName = error instanceof Error ? error.name : "unknown";
       observation.failureHint = error instanceof Error ? error.message.split("\n")[0].slice(0, PROBE.maximumFailureHintCharacters) : "unknown";
+      const observedLog = (await readerLog()).slice(caseLogOffset);
+      observation.nativeSpeechTail = observedLog.split(/\r?\n/u).filter((line) => line.includes(PROBE.speechMarker)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.replace(/<[^>]*>/gu, "").slice(0, PROBE.maximumDiagnosticCharacters));
+      observation.scriptDiagnostics = [...new Set(observedLog.split(/\r?\n/u).filter((line) => /(?:SCRIPT|Script).*(?:WebKit|Chromium|chromium|webkit|MiniBrowser|default|gtk)/u.test(line)).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters)))].slice(-PROBE.maximumDiagnosticLines);
+      observation.focusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.focus);
+      observation.statusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.status);
       process.exitCode = 1;
     } finally { await browser?.close(); }
     report.cases.push(observation);

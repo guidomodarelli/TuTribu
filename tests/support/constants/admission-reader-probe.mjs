@@ -14,6 +14,8 @@ export const ADMISSION_READER_PROBE = {
   audiblePeak: 128,
   maximumAudioBytes: 4_194_304,
   maximumFailureHintCharacters: 160,
+  maximumDiagnosticLines: 16,
+  maximumDiagnosticCharacters: 240,
   titlePrefix: "Prueba nativa de lector",
   focusPrefix: "Control de lectura",
   statusPrefix: "Aviso de lectura",
