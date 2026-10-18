@@ -128,3 +128,7 @@ El [run 39100094760](https://github.com/guidomodarelli/TuTribu/actions/runs/3910
 El p95 de las cien llamadas fue 6.714,96 ms frente al objetivo estricto inferior a 3.000 ms. Veinte consultas mínimas dieron p95 de 56,50 ms; preparación y warm-up separados duraron 50.703,47 y 33.767,79 ms. La mejora frente al host local conserva la evidencia de latencia pendiente; no prueba por sí sola que toda la demora sea de red.
 
 El abandono pasó con guard de 30.000 ms, SQLSTATE `25P03`, recuperación en 30.951,65 ms y consulta sana posterior; sus adquisiciones y liberaciones quedaron equilibradas. El owner vinculó job/paso/resultado al SHA, registró `not_passed`, revocó la key temporal limitada al proyecto, eliminó su secreto y tres variables y confirmó ausentes sus dos ramas, conservando las tres originales. No hubo errores de cleanup ni cambios del helper. Registros privados: `.git/admission-native-ci-a1cecdc9/owner.json` y su artefacto. Los once contratos del owner pasaron antes de operar, sin credenciales reales. T200/T209 y los gates independientes permanecen pendientes.
+
+## Identidad nativa y transacciones de confirmación
+
+La [validación de transacciones de sesión](admission-session-transactions.md) reproduce cinco adquisiciones del pool real por solicitud y verifica su reducción a tres, manteniendo la lectura inicial de cuenta y las comprobaciones SQL actuales dentro de claim y efecto. El cambio de usuario/sesión y la revocación entre commits siguen impidiendo efectos. Esta reducción no acredita el p95 de la cohorte completa ni cierra T200/T209.

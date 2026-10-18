@@ -14,7 +14,7 @@ import type { z } from "zod";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { GetAdmissionPageUseCase } from "./application/use-cases/get-admission-page-use-case";
 import type { AuthenticatedFeatureDependencies } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
-import { createTransactionAccountProvider } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
+import { createTransactionAccountProvider, readCurrentFeatureSessionContext } from "@/src/modules/auth/infrastructure/composition/transaction-account-provider";
 import { ResolveAdmissionContextUseCase } from "./application/use-cases/resolve-admission-context-use-case";
 import { ResolveAdmissionOperationUseCase } from "./application/use-cases/resolve-admission-operation-use-case";
 import { PostgresAdmissionAuthorizationReader } from "./infrastructure/repositories/postgres-admission-authorization-reader";
@@ -300,7 +300,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
      */
     createManualRequestModule(options: { readSecurityConfig: () => Promise<MessagingSecurityConfig> }) {
       const executeRequest = async <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => {
-        const account = await dependencies.accounts.getAuthenticatedAccount();
+        const account = await readCurrentFeatureSessionContext(dependencies.accounts);
         if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
         return dependencies.execute(account, run);
       };

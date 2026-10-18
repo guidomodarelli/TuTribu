@@ -1,0 +1,87 @@
+{
+  "source": {
+    "baseCommit": "4ec997e0d6af9cf859cfbc36183c262cfc203c79",
+    "worktreeChanges": true,
+    "inputs": [
+      {
+        "path": "src/modules/auth/infrastructure/authenticated-account-provider.ts",
+        "sha256": "32d3ace4fa957b3ff0de563d8de9773c6b92bf27bad8b5c5018a220cf3e890bc"
+      },
+      {
+        "path": "src/modules/auth/infrastructure/composition/transaction-account-provider.ts",
+        "sha256": "febf726f02bba05ba516527eae9fcb32baf0fb028f235dfe47688c1a949eb021"
+      },
+      {
+        "path": "src/modules/academy-admissions/setup.ts",
+        "sha256": "b1cc5dc5e9da95c44fbcdd7bb8ee1abc624ccea150e1d1f5cd57e9a7fd70190a"
+      },
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/admission-request-session-transactions.test.ts",
+        "sha256": "e777892eacd92f117b8a381a066a385e7ff59819192f76acac2d0bf6bb28134e"
+      }
+    ]
+  },
+  "baseline": {
+    "passed": 0,
+    "failed": 1,
+    "observation": "AssertionError: expected 5 to be 3 // Object.is equality"
+  },
+  "nativeSession": {
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "name": "native admission session transaction scope should use three real checkouts and retain revocation and changed-cookie rejection between commits",
+        "durationMs": 99727.8512
+      }
+    ]
+  },
+  "nativeRegressions": {
+    "passed": 5,
+    "failed": 0,
+    "skipped": 26,
+    "cases": [
+      {
+        "name": "admission current authorization storage should return the current role and status after waiting on a changed membership",
+        "durationMs": 22126.9237
+      },
+      {
+        "name": "admission current authorization storage should reject a session that expires while waiting for the membership lock",
+        "durationMs": 30717.075899999996
+      },
+      {
+        "name": "manual admission decision atomicity should submit a phone manual OFF request through the real account/use-case root without a phone, binding or sender",
+        "durationMs": 65477.5538
+      },
+      {
+        "name": "request account identity isolation should coalesce concurrent identity reads and keep a failed lookup closed within its request",
+        "durationMs": 1.4178000000001703
+      },
+      {
+        "name": "native request account provider should read cookie identity once but recheck SQL and reject a revoked session in the same request",
+        "durationMs": 54211.7912
+      }
+    ]
+  },
+  "ordinary": {
+    "passed": 719,
+    "failed": 0,
+    "skipped": 4
+  },
+  "assertedEffects": {
+    "originalCheckouts": 3,
+    "originalReleases": 3,
+    "originalRequests": 1,
+    "participantMemberships": 0,
+    "deliveries": 0,
+    "replayDuplicates": 0,
+    "rejectedBetweenCommits": [
+      "revoked_session",
+      "changed_user",
+      "changed_session"
+    ]
+  },
+  "latencyGate": "not_measured_by_this_test",
+  "realMessages": 0
+}

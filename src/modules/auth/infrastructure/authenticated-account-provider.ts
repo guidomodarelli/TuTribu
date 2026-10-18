@@ -24,11 +24,21 @@ export class PostgresAuthenticatedAccountProvider implements AuthenticatedAccoun
   constructor(private readonly getSessionIdentity:()=>Promise<CurrentGlobalSessionIdentity|null>,private readonly executeWithDatabase:AccountDatabaseExecutor) {}
 
   /**
+   * Resolves only trusted request identifiers, without asserting SQL liveness or permission.
+   * @returns A detached identifier pair, or null when the native session source has no identity.
+   * @remarks Writers must revalidate current account, session and authority in their own transaction.
+   */
+  async getCurrentSessionIdentity():Promise<CurrentGlobalSessionIdentity|null> {
+    const identity=await this.getSessionIdentity();
+    return identity?{userId:identity.userId,sessionId:identity.sessionId}:null;
+  }
+
+  /**
    * Projects the actual current account, matching capture and operation-scoped recent evidence.
    * @returns Null for an expired/foreign session; missing identity remains insufficient.
    */
   async getAuthenticatedAccount():Promise<AuthenticatedAccount|null> {
-    const identity=await this.getSessionIdentity();
+    const identity=await this.getCurrentSessionIdentity();
     if(!identity) return null;
     return this.executeWithDatabase(identity,async(database)=>{
       const row=(await database.execute<AccountRow>(sql`
