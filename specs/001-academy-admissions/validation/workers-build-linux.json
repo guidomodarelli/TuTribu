@@ -1,0 +1,13 @@
+{
+  "commit": "6fb32c7c2caf18d87017e87ca2e292edcc484438",
+  "outcome": "success",
+  "nodeVersion": "24.21.0",
+  "nextVersion": "16.3.4",
+  "adapterVersion": "1.20.6",
+  "wranglerVersion": "4.128.0",
+  "workerFilePresent": true,
+  "workerBytes": 2278,
+  "deployed": false,
+  "productionCredentialsInstalled": false,
+  "runUrl": "https://github.com/guidomodarelli/TuTribu/actions/runs/39114956060"
+}
