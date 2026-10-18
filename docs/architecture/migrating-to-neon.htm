@@ -187,5 +187,10 @@ src/
   <li>ninguna ruta nueva debe depender de rutas OAuth custom fuera de <code>/api/auth/[...all]</code></li>
 </ul>
 </div>
+<section class="section" aria-labelledby="owned-pool-capacity">
+  <h2 id="owned-pool-capacity">Capacidad explícita del pool por owner</h2>
+  <p><code>createPostgresPool</code> acepta <code>maximumConnections</code> como capacidad explícita del owner. Si se omite, mantiene el default de cien; request, mantenimiento, Better Auth y los demás consumidores existentes no cambian su configuración. Rechaza valores no enteros o no positivos antes de leer la conexión o crear el pool. Los guards, SSL, tiempos de checkout/idle/lifetime, manejo de errores y liberación permanecen iguales.</p>
+  <p>El host Native puede seleccionar una capacidad experimental mediante <code>ADMISSION_NODE_POOL_MAX</code> sin modificar el target productivo. Todas las cien solicitudes comienzan juntas y su cronómetro incluye la espera del pool; no se dividen en cohortes más pequeñas. La capacidad observada y el máximo de espera se conservan en el resultado, y el objetivo p95 no se ajusta por usar menos conexiones. Ver <a href="../../specs/001-academy-admissions/validation/admission-pool-owner-capacity.md">el protocolo de contraste</a>.</p>
+</section>
 </body>
 </html>

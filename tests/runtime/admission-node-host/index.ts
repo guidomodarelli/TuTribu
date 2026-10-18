@@ -26,7 +26,8 @@ function database() {
     const connection = new URL(value);
     connection.searchParams.set("sslmode", "verify-full");
     connection.searchParams.set("application_name", configuration.operationId);
-    resources = createAdmissionPerformanceDatabase(createPostgresPool({ connectionString: connection.toString(), operation: ADMISSION_NODE_HOST.operation }));
+    const selectedMaximum = process.env[ADMISSION_NODE_HOST.poolMaximumVariable];
+    resources = createAdmissionPerformanceDatabase(createPostgresPool({ connectionString: connection.toString(), operation: ADMISSION_NODE_HOST.operation, ...(selectedMaximum !== undefined ? { maximumConnections: Number(selectedMaximum) } : {}) }));
   }
   return resources;
 }

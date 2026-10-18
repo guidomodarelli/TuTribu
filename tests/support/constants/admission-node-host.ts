@@ -12,6 +12,7 @@ export const ADMISSION_NODE_HOST = {
   operation: "native_admission_node_workload", bundleDirectoryPrefix: "admission-node-bundle-", functionSlugPrefix: "admload",
   computeUnits: 2,
   computeUnitsVariable: "ADMISSION_NODE_COMPUTE_UNITS",
+  poolMaximumVariable: "ADMISSION_NODE_POOL_MAX",
 } as const;
 const nonnegative = z.number().finite().nonnegative();
 const integer = z.number().int().nonnegative();

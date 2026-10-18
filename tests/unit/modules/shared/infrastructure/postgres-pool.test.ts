@@ -30,6 +30,17 @@ describe("Postgres pool factory", () => {
     return pool;
   }
 
+  it.each([0, -1, 1.5, Number.NaN])("rejects invalid owner capacity %s before inspecting connection credentials", (maximumConnections) => {
+    let inspectedConnection = false;
+    expect(() => createPostgresPool({
+      operation: "owned_capacity_validation", maximumConnections,
+      get connectionString() { inspectedConnection = true; return "unavailable_connection"; },
+    })).toThrow("PostgresPool.create failed: maximum_connections_must_be_a_positive_integer");
+    expect(inspectedConnection).toBe(false);
+    expect(errorOutput).not.toHaveBeenCalled();
+    expect(warningOutput).not.toHaveBeenCalled();
+  });
+
   it("logs idle client termination through the real logger without exposing client connection details", () => {
     const pool = createPool("runtime_database_pool_idle_error");
     expect(pool.options).toMatchObject({

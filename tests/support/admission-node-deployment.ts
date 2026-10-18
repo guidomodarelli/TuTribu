@@ -71,6 +71,7 @@ export async function deployAdmissionNodeHost(branch: AcademyAdmissionTestDataba
       [ADMISSION_NODE_HOST.branchVariable]: branch.name, [ADMISSION_NODE_HOST.operationVariable]: operationId, [ADMISSION_NODE_HOST.tokenDigestVariable]: tokenSha256,
       [ADMISSION_NODE_HOST.expiresVariable]: String(Date.now() + ADMISSION_NODE_HOST.capabilityLifetimeMs), [ADMISSION_NODE_HOST.sourceCommitVariable]: sourceCommit, [ADMISSION_NODE_HOST.bundleDigestVariable]: bundleSha256,
       ...(process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue ? { [ADMISSION_CPU_PROFILE.environmentVariable]: ADMISSION_CPU_PROFILE.enabledValue } : {}),
+      ...(process.env[ADMISSION_NODE_HOST.poolMaximumVariable] !== undefined ? { [ADMISSION_NODE_HOST.poolMaximumVariable]: process.env[ADMISSION_NODE_HOST.poolMaximumVariable]! } : {}),
     };
     await command(["deploy", slug, "--src", directory, "--no-bundle", "--runtime", "nodejs24", ...Object.entries(environment).flatMap(([name, value]) => ["--env", `${name}=${value}`])]);
     const response = await command(["get", slug]) as FunctionMetadata | { function: FunctionMetadata };

@@ -51,6 +51,8 @@ const POSTGRES_POOL_CONFIGURATION = {
 type CreatePostgresPoolInput = {
   connectionString: string;
   operation: string;
+  /** Optional owner-selected capacity; existing runtime pools retain their default. */
+  maximumConnections?: number;
 };
 
 type PostgresErrorLike = {
@@ -87,6 +89,10 @@ function getPostgresErrorMetadata(error: unknown) {
  * @returns Configured Postgres pool.
  */
 export function createPostgresPool(input: CreatePostgresPoolInput) {
+  const maximumConnections = input.maximumConnections ?? POSTGRES_POOL_CONFIGURATION.max;
+  if (!Number.isSafeInteger(maximumConnections) || maximumConnections < 1) {
+    throw new Error("PostgresPool.create failed: maximum_connections_must_be_a_positive_integer");
+  }
   const logger = createServerLogger({
     feature: "database",
     operation: input.operation,
@@ -94,6 +100,7 @@ export function createPostgresPool(input: CreatePostgresPoolInput) {
   });
   const pool = new Pool({
     ...POSTGRES_POOL_CONFIGURATION,
+    max: maximumConnections,
     connectionString: normalizePostgresSslMode(input.connectionString),
     onConnect: async (client) => {
       try {
