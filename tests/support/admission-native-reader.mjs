@@ -6,7 +6,7 @@ import { ADMISSION_READER_PROBE as SETTINGS } from "./constants/admission-reader
 import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, hasNativeReaderTargetFocus, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
 import { configureAdmissionBrowserNativeFocus } from "./admission-browser-native-focus.mjs";
 
-/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number,nativeAccessibility:unknown,nativeControlFocusAtFailure:unknown,focusEmulationDisabled:boolean})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
+/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number,nativeAccessibility:unknown,nativeControlFocusAtFailure:unknown,focusEmulationDisabled:boolean,targetState?:unknown,initialTargetState?:unknown,targetActiveCount?:number,nativeFocusWhenTargetActive?:unknown})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
 export function createAdmissionNativeReader({ onFailure } = {}) {
   if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY) throw new Error("AdmissionNativeReader.start failed: disposable_linux_display_required");
   const debugPath = process.env.ORCA_DEBUG_LOG, audioPath = process.env.ORCA_AUDIO_FILE;
@@ -61,6 +61,14 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
       return JSON.parse(execFileSync("/usr/bin/python3", ["tests/support/admission-reader-atspi.py", expected, String(SETTINGS.maximumAccessibilityNodes), String(SETTINGS.maximumAccessibilityDepth), String(SETTINGS.accessibilityTimeoutMs), "focus"], { encoding: "utf8", timeout: SETTINGS.windowCommandTimeoutMs, stdio: ["ignore", "pipe", "pipe"] }));
     } catch { return { unavailable: true }; }
   }
+  /** @param {import('@playwright/test').Locator} target - Fixed owned control. @returns Only focusability flags, never text, values, identifiers or attributes containing user input. */
+  async function inspectTargetState(target) {
+    const count = await target.count();
+    if (count !== 1) return { count };
+    try {
+      return await target.evaluate((element) => ({ count: 1, tag: element.tagName.toLowerCase(), tabIndex: element.tabIndex, disabled: element.matches(":disabled"), readOnly: "readOnly" in element && element.readOnly === true, autofocus: element.hasAttribute("autofocus"), hidden: element.hidden, ariaDisabled: element.getAttribute("aria-disabled") === "true", documentFocused: element.ownerDocument.hasFocus(), activeElementMatches: element.ownerDocument.activeElement === element, activeElementTag: element.ownerDocument.activeElement?.tagName.toLowerCase() ?? null }));
+    } catch (error) { return { count, unavailable: true, failureName: error instanceof Error ? error.name : "unknown" }; }
+  }
   /** @param {import('@playwright/test').Page} page - Owned application document. @returns {Promise<void>} Before activation/typing is delivered to page content. */
   async function assertDocumentFocus(page) {
     if (!await page.evaluate(() => document.hasFocus())) throw new Error(SETTINGS.failures.focus);
@@ -97,13 +105,22 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
     async focus(page, target, label) {
       await quiet();
       const start = await mark();
+      const initialTargetState = await inspectTargetState(target);
+      let targetActiveCount = 0, nativeFocusWhenTargetActive = null;
       for (let index = 0; index < SETTINGS.maximumProductTabs; index += 1) {
         await key(page, SETTINGS.nativeKeys.next);
         await delay(SETTINGS.pollMs);
-        if (await target.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement) && hasNativeReaderTargetFocus(inspectNativeFocus(label))) {
-          focusedPage = page; focusedTarget = target; focusedLabel = label;
-          return hear(label, start);
+        if (await target.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement)) {
+          targetActiveCount += 1; nativeFocusWhenTargetActive = inspectNativeFocus(label);
+          if (hasNativeReaderTargetFocus(nativeFocusWhenTargetActive)) {
+            focusedPage = page; focusedTarget = target; focusedLabel = label;
+            return hear(label, start);
+          }
         }
+      }
+      if (onFailure) {
+        const nativeFocus = inspectNativeFocus(label);
+        await onFailure({ ...diagnoseNativeReaderSpeech((await log()).slice(start.logOffset), label), audioPeak: await peak(start.audioOffset), nativeAccessibility: nativeFocus, nativeControlFocusAtFailure: nativeFocus, focusEmulationDisabled, targetState: await inspectTargetState(target), initialTargetState, targetActiveCount, nativeFocusWhenTargetActive });
       }
       throw new Error(SETTINGS.failures.focus);
     },
