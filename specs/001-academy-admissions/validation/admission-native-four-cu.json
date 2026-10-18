@@ -1,0 +1,88 @@
+{
+  "scope": "ordinary-hundred-account-workload-with-database-capacity-override",
+  "sourceCommit": "2137d6279722e3d32bc22dfb71c9495b88c8698f",
+  "bundleSha256": "76921bff9fa4cfd0b712074265f6ba78690c1600300b961e944c04d359c2e09b",
+  "compute": {
+    "minimum": 4,
+    "maximum": 4,
+    "region": "aws-us-east-1"
+  },
+  "measurement": {
+    "warmupDurationMs": 3705.644064000109,
+    "setupDurationMs": 2822.860164999962,
+    "networkQueryP95Ms": 2.6911919999402016,
+    "networkSamples": 20,
+    "participants": 100,
+    "admitted": 50,
+    "pending": 50,
+    "failures": [],
+    "p95Ms": 4644.744595000055,
+    "targetMs": 3000,
+    "peakInFlight": 100,
+    "pool": {
+      "maximum": 100,
+      "acquisitions": 300,
+      "releases": 300,
+      "errorReleases": 0,
+      "peakWaitingCount": 0,
+      "peakTotalCount": 100,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    },
+    "eventLoopP95Ms": 100.794367,
+    "facts": {
+      "entries": 10000,
+      "requests": 100,
+      "basic_members": 50,
+      "deliveries": 0
+    },
+    "realMessages": 0,
+    "nodeVersion": "24.16.0",
+    "sourceCommit": "2137d6279722e3d32bc22dfb71c9495b88c8698f",
+    "bundleSha256": "76921bff9fa4cfd0b712074265f6ba78690c1600300b961e944c04d359c2e09b",
+    "databaseConnection": {
+      "sourceVariable": "DATABASE_URL_UNPOOLED",
+      "hostnameHasPoolerMarker": false
+    },
+    "measurementWindow": {
+      "startedAt": "2026-10-18T14:57:30.860Z",
+      "finishedAt": "2026-10-18T14:57:35.509Z"
+    },
+    "diagnostics": {
+      "wallDurationMs": 4649.246584999841,
+      "cpuUserMs": 1323.615,
+      "cpuSystemMs": 265.576,
+      "eventLoopActiveMs": 1772.89640900027,
+      "eventLoopIdleMs": 2876.357122999849,
+      "eventLoopUtilization": 0.3813292600194178,
+      "accountTransactions": 100,
+      "commandTransactions": 200,
+      "accountTransactionP95Ms": 438.0824969999958,
+      "commandTransactionP95Ms": 3492.3231859998778,
+      "admittedP95Ms": 4645.370796999894,
+      "pendingP95Ms": 4632.658013999928
+    }
+  },
+  "assertion": {
+    "exit": 1,
+    "expectedP95StrictlyBelowMs": 3000,
+    "passed": false
+  },
+  "sourceInputsStable": true,
+  "toolingStable": true,
+  "computeOverride": true,
+  "requestedComputeUnits": 4,
+  "poolOverride": false,
+  "sampleEnabled": false,
+  "cpuProfilerEnabled": false,
+  "backendObserverEnabled": false,
+  "cleanup": {
+    "ownedBranchRemoved": true,
+    "ownedFunctionRemoved": true,
+    "independentBranchInventory": 4,
+    "originalBranchesPreserved": 3,
+    "authorizedPersistentFreshPilotPreserved": true
+  },
+  "productionSqlExecuted": false,
+  "realMessages": 0
+}

@@ -90,6 +90,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- El indicador de carga que se convierte en un check o una cruz y el balanceo de la campana cuando llegan notificaciones nuevas son un poco más rápidos.
+- Las animaciones de la aplicación son más sobrias: las etiquetas, filas de tablas y avatares aparecen sin animación de entrada, los enlaces ya no se mueven al pasar el puntero, y los menús y desplegables se abren creciendo desde el botón que los abre.
 - Se agiliza la preparación de las operaciones de ingreso y revisión.
 - Se amplía la capacidad para procesar solicitudes de ingreso simultáneas y se reduce el trabajo repetido al confirmarlas, consultar su estado y preparar sus avisos internos, manteniendo la comprobación de sesión y permisos en cada escritura.
 - Las solicitudes de acceso de distintas personas pueden avanzar en paralelo dentro de una academia, evitando membresías duplicadas al repetir la acción y conservando los permisos vigentes, el vencimiento de la sesión y el resultado original.

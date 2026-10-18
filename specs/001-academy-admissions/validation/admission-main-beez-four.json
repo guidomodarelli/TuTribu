@@ -1,0 +1,86 @@
+{
+  "featureParent": "2137d6279722e3d32bc22dfb71c9495b88c8698f",
+  "mainParent": "623a81debf0dc05a613b962b6fe7f11b2cf4292b",
+  "scope": "resolved-main-merge-worktree",
+  "versions": {
+    "node": "24.21.0",
+    "pnpm": "12.6.0",
+    "next": "16.3.4",
+    "vitest": "5.0.0",
+    "playwright": "1.60.0",
+    "beezUi": "4.0.1",
+    "zavuSdk": "0.57.0"
+  },
+  "unit": {
+    "exit": 0,
+    "success": true,
+    "passed": 6187,
+    "failed": 0,
+    "omitted": 924,
+    "total": 7111,
+    "reportedFiles": 916,
+    "inputsStable": true,
+    "toolingStable": true,
+    "sqlEnabled": false
+  },
+  "browser": {
+    "exit": 0,
+    "expected": 4,
+    "unexpected": 0,
+    "flaky": 0,
+    "skipped": 0,
+    "projects": [
+      "chromium-mobile",
+      "chromium-desktop",
+      "webkit-mobile",
+      "webkit-desktop"
+    ],
+    "inputsStable": true,
+    "toolingStable": true,
+    "realBetterAuth": true,
+    "realPostgres": true,
+    "realBeezUi": true,
+    "operatingSystemReader": false
+  },
+  "build": {
+    "exit": 0,
+    "staticPages": 56,
+    "command": "node node_modules/next/dist/bin/next build"
+  },
+  "typecheckPassed": true,
+  "testTypecheckPassed": true,
+  "lintPassed": true,
+  "productionSqlExecuted": false,
+  "realMessages": 0,
+  "sourceInputs": [
+    {
+      "path": "package.json",
+      "sha256": "41cbcda25762355f032a7d8cd64c4a0bec345c3fa30e7df59db5470e1a7dd02e"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "95bc433fffbc1d4063c1bc28a04b650fb9eb11dcab655a37c41994a5084402f4"
+    },
+    {
+      "path": "components/loaders/morph-loader/index.tsx",
+      "sha256": "ac28ec8a6b57fc7afea4fc4f3862bd4303f6dd1ea01ce5d22f16fb470d69bc25"
+    },
+    {
+      "path": "components/notifications/notification-bell/index.tsx",
+      "sha256": "f7961e2a19392e308ae337982c3415b0545cb4fe30dafd04b3469765f3670122"
+    },
+    {
+      "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts",
+      "sha256": "fec1b49d8ac53803ec601243895f1cd29ab6c1f790931b240eec56a73ca7fa89"
+    },
+    {
+      "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+      "sha256": "044678750c3d3cd57fe115cf82cee743c742a3fb45f782e234bef8f9f7e8faaa"
+    },
+    {
+      "path": "src/modules/academy-admissions/setup.ts",
+      "sha256": "34064453c814b35d1c56cd801c0a840e3ab6795157e5fa11342e86ada2dff82b"
+    }
+  ],
+  "pendingTasks": 14
+}

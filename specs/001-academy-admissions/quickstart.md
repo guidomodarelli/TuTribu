@@ -133,7 +133,7 @@ portless list
 pnpm run dev
 ```
 
-Si ya existe `https://dev-tutribu.app`, no iniciar otro servidor. Abrir ese hostname; no localhost:3000 para verificaciones manuales. Playwright usa su webServer documentado en la suite; ejecutar casos reales con el entorno aislado del producto, sin librerías UI mockeadas.
+Si ya existe `https://dev.tutribu.app`, no iniciar otro servidor. Abrir ese hostname; no localhost:3000 para verificaciones manuales. Playwright usa su webServer documentado en la suite; ejecutar casos reales con el entorno aislado del producto, sin librerías UI mockeadas. El [piloto local recuperable](validation/isolated-local-pilot.md) conserva su base propia y configuración privada; no se debe iniciar usando la conexión productiva de los dotenv como fallback.
 
 Recorrer manual común OFF sin Zavu, lista de correo base, teléfono lista inválido OFF, todos ON, excepción/nominativa, wrong-account/change-account, pending/proof nueva/terminal, form secreto/reauth/provider down/quota/stale, CSV mixed y decisiones mixed. Verificar foco/helper/alert, limpieza de feedback/draft/progreso, cero escrituras por lectura y cero full refresh salvo excepción documentada de seguridad. Capturas usan datos sintéticos.
 

@@ -1590,7 +1590,7 @@ Revisión de alcance de T207: el usuario eligió cuentas ficticias y automatizac
 
 <a id="t208"></a>
 
-- [ ] T208 Ejecutar journeys reales Chromium/WebKit móvil/escritorio vía portless `https://dev-tutribu.app` o webServer automatizado aprobado; confirmar foco/lectores/feedback, hydration/Suspense/loading y states/permissions sin desbordes/refresh ordinario. Bloqueo de un motor se reporta y queda pendiente. Archivos: `tests/e2e/academy-admissions.spec.ts`, `tests/unit/components/academy-admissions.test.tsx`, `specs/001-academy-admissions/validation/ui-and-accessibility.md`. Dependencias: `T198`, `T197`. Trazabilidad: `SC-018`.
+- [ ] T208 Ejecutar journeys reales Chromium/WebKit móvil/escritorio vía portless `https://dev.tutribu.app` o webServer automatizado aprobado; confirmar foco/lectores/feedback, hydration/Suspense/loading y states/permissions sin desbordes/refresh ordinario. Bloqueo de un motor se reporta y queda pendiente. Archivos: `tests/e2e/academy-admissions.spec.ts`, `tests/unit/components/academy-admissions.test.tsx`, `specs/001-academy-admissions/validation/ui-and-accessibility.md`. Dependencias: `T198`, `T197`. Trazabilidad: `SC-018`.
 
 <a id="t209"></a>
 
