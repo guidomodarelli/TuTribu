@@ -1,0 +1,79 @@
+name: Compilación de Workers
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/admission-workers-build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admission-workers-build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HUSKY: "0"
+  NEXT_TELEMETRY_DISABLED: "1"
+  WRANGLER_SEND_METRICS: "false"
+  SITEPING_ENABLED: "false"
+  MESSAGING_RECOVERY_LOCK: "true"
+  ADMISSION_MESSAGING_MAINTENANCE_ENABLED: "false"
+
+jobs:
+  workers-build:
+    name: Compilación de Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Obtener las fuentes
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preparar herramientas y entorno aislado
+        uses: ./.github/actions/setup-quality-gate
+
+      - name: Compilar el target real
+        id: build
+        run: pnpm run build:cloudflare
+
+      - name: Registrar el resultado sin secretos
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile, stat, writeFile } from 'node:fs/promises';
+          import { join } from 'node:path';
+          const version = async (packageName) => {
+            try { return JSON.parse(await readFile(join('node_modules', packageName, 'package.json'), 'utf8')).version; }
+            catch { return null; }
+          };
+          const worker = await stat('.open-next/worker.js').catch(() => null);
+          const report = {
+            commit: process.env.GITHUB_SHA,
+            outcome: process.env.BUILD_OUTCOME,
+            nodeVersion: process.versions.node,
+            nextVersion: await version('next'),
+            adapterVersion: await version('@opennextjs/cloudflare'),
+            wranglerVersion: await version('wrangler'),
+            workerFilePresent: worker?.isFile() ?? false,
+            workerBytes: worker?.size ?? 0,
+            deployed: false,
+            productionCredentialsInstalled: false,
+          };
+          await writeFile(join(process.env.RUNNER_TEMP, 'admission-workers-build.json'), JSON.stringify(report, null, 2) + '\n');
+          console.log(JSON.stringify(report));
+          if (report.outcome === 'success' && (!report.workerFilePresent || report.workerBytes === 0)) process.exitCode = 1;
+          NODE
+
+      - name: Conservar la evidencia saneada
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: admission-workers-build
+          path: ${{ runner.temp }}/admission-workers-build.json
+          if-no-files-found: error
+          retention-days: 7
