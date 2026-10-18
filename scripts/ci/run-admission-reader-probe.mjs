@@ -122,7 +122,7 @@ try {
       speechPhaseOffset = speechOffset; expectedSpeech = item.status;
       observation.speechPhase = PROBE.speechPhases.live;
       nativeKey(item.title, PROBE.nativeKeys.invoke);
-      await until(async () => await page.getByRole("status").textContent() === item.status, PROBE.failures.status);
+      await until(async () => await page.locator("#status").textContent() === item.status, PROBE.failures.status);
       await until(async () => hasNativeReaderSpeech((await readerLog()).slice(speechOffset), item.status), PROBE.failures.speech);
       await until(async () => await audioPeak(audioOffset) > PROBE.audiblePeak, PROBE.failures.audio);
       observation.liveSpeechObserved = true; observation.liveAudioPeak = await audioPeak(audioOffset);
@@ -134,6 +134,7 @@ try {
       observation.failureName = error instanceof Error ? error.name : "unknown";
       observation.failureHint = error instanceof Error ? error.message.split("\n")[0].slice(0, PROBE.maximumFailureHintCharacters) : "unknown";
       const recordedLog = await readerLog();
+      if (item.engine === "webkit") await writeFile(join(directory, `${item.engine}-${item.width}-${item.markupVariant}-native.log`), recordedLog.slice(speechPhaseOffset).slice(-PROBE.maximumNativeDiagnosticCharacters));
       const observedLog = recordedLog.slice(caseLogOffset);
       observation.nativeSpeechTail = observedLog.split(/\r?\n/u).filter((line) => line.includes(PROBE.speechMarker)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.replace(/<[^>]*>/gu, "").slice(0, PROBE.maximumDiagnosticCharacters));
       observation.scriptDiagnostics = [...new Set(observedLog.split(/\r?\n/u).filter((line) => /(?:SCRIPT|Script).*(?:WebKit|Chromium|chromium|webkit|MiniBrowser|default|gtk)/u.test(line)).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters)))].slice(-PROBE.maximumDiagnosticLines);

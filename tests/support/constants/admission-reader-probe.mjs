@@ -21,6 +21,7 @@ export const ADMISSION_READER_PROBE = {
   maximumDiagnosticLines: 16,
   maximumServiceDiagnosticLines: 64,
   maximumDiagnosticCharacters: 240,
+  maximumNativeDiagnosticCharacters: 65_536,
   maximumAccessibilityNodes: 2000,
   maximumAccessibilityDepth: 8,
   accessibilityTimeoutMs: 500,
