@@ -29,7 +29,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: admission-reader-current-probe-${{ github.ref }}
+  group: admission-reader-current-probe-${{ github.ref }}-${{ inputs.webkit_backend || 'playwright' }}
   cancel-in-progress: false
 
 env:
@@ -67,7 +67,7 @@ jobs:
           command -v WebKitWebDriver
           mkdir -p "$RUNNER_TEMP/admission-reader-probe"
           dpkg-query -W -f='${Package} ${Version}\n' webkit2gtk-driver libwebkit2gtk-4.1-0 | tee "$RUNNER_TEMP/admission-reader-probe/webkitgtk-packages.txt"
-          dpkg-query -L libwebkit2gtk-4.1-0 | rg '/MiniBrowser$'
+          dpkg-query -L libwebkit2gtk-4.1-0 | grep -E '/MiniBrowser$'
           WebKitWebDriver --help
 
       - name: Compilar AT-SPI oficial con sus overrides Python

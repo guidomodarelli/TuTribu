@@ -17,15 +17,30 @@
     "privateConfirmationMaterialInReceipt": false
   },
   "legalInformation": {
-    "state": "required_information_unavailable",
+    "state": "user_supplied_and_save_confirmed",
     "requiredFields": ["legalName", "country", "streetAddress", "city", "state", "postalCode", "businessPhone"],
     "websitePrepared": "https://www.tutribu.app",
-    "websiteSaved": false,
-    "saveDisabled": true,
-    "userInputRequestedInPrivateMetaForm": true
+    "websiteSaved": true,
+    "publicWebsite": "https://tutribu.app/",
+    "saveDisabled": false,
+    "userInputRequestedInPrivateMetaForm": true,
+    "userConfirmedPrivateInput": true,
+    "confirmationSource": "fresh_business_info_editor_and_changes_saved_notice",
+    "privateLegalDataInReceipt": false
   },
   "businessVerificationCompleted": false,
+  "businessVerificationUiState": "organization_verification_not_required_no_standard_start_action",
   "whatsAppAccountConfigured": false,
+  "whatsAppAccountPreparation": {
+    "state": "details_prepared_captcha_and_terms_pending",
+    "displayName": "TuTribu",
+    "category": "Educación",
+    "existingAccountsInNewPortfolio": 0,
+    "captchaRequired": true,
+    "specificTermsApprovalRequested": true,
+    "termsAccepted": false,
+    "phoneRegistrationStarted": false
+  },
   "existingWhatsAppAssociationChanged": false,
   "realPilotMessages": 0,
   "operationalGatesClosed": []
