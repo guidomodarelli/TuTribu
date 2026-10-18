@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-18",
+  "kind": "authorized_meta_account_inspection",
+  "userCompletedMetaSignIn": true,
+  "zavuTemplateStatus": "rejected",
+  "metaTemplateCatalogBeforeAttempt": 0,
+  "nativeTemplateAttempt": {
+    "name": "tutribu_admission_otp_es",
+    "language": "es",
+    "category": "AUTHENTICATION",
+    "deliveryMethod": "COPY_CODE",
+    "securityRecommendation": true,
+    "codeExpirationMinutes": 10,
+    "messageValidityMinutes": 10,
+    "result": "blocked",
+    "observedMessage": "Esta cuenta de WhatsApp Business no tiene permiso para crear una plantilla de mensaje"
+  },
+  "accountObservation": {
+    "accountStatus": "approved",
+    "businessVerification": "not_verified",
+    "paymentMethod": "missing",
+    "currency": "missing"
+  },
+  "additionalSecurityVerification": {
+    "type": "business_phone_sms",
+    "state": "requires_user",
+    "agentSentSms": false,
+    "codeReadOrStored": false
+  },
+  "causality": {
+    "paymentExplainsTemplatePermission": "not_established",
+    "businessVerificationExplainsTemplatePermission": "not_established"
+  },
+  "realPilotMessages": 0,
+  "paymentMethodAdded": false,
+  "businessVerificationSubmitted": false,
+  "operationalGatesClosed": []
+}
