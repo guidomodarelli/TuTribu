@@ -14,6 +14,7 @@ import { HTTP_STATUS } from "@/src/constants/http-status";
 import { inspectAdmissionDatabaseStatements } from "@/tests/support/admission-statement-inspection";
 import { ADMISSION_STATEMENT_PROFILE } from "@/tests/support/constants/admission-statement-profile";
 import { ADMISSION_CPU_PROFILE } from "@/tests/support/constants/admission-cpu-profile";
+import { ADMISSION_DATABASE_OBSERVATION } from "@/tests/support/constants/admission-database-observation";
 
 describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated native admission workload", () => {
   it("should retain the full hundred-account workload, its original result and the unchanged latency gate", async () => {
@@ -57,6 +58,20 @@ describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated na
         }
         expect(measured.sourceCommit).toBe(deployment.sourceCommit); expect(measured.bundleSha256).toBe(deployment.bundleSha256);
         expect(measured.nodeVersion).toMatch(ADMISSION_NODE_HOST.nodeVersionPattern);
+        if (process.env[ADMISSION_DATABASE_OBSERVATION.environmentVariable] === ADMISSION_DATABASE_OBSERVATION.enabledValue) {
+          const observations = measured.diagnostics.databaseObservations;
+          expect(observations?.account.transactions).toBe(measured.diagnostics.accountTransactions);
+          expect(observations?.command.transactions).toBe(measured.diagnostics.commandTransactions);
+          if (!observations) throw new Error("Admission database observation failed: native_measurement_unavailable");
+          for (const observation of [observations.account, observations.command]) {
+            expect(observation.transactions).toBeGreaterThan(0);
+            expect(observation.statementCount).toBeGreaterThanOrEqual(observation.transactions);
+            expect(observation.pendingStatements).toBe(0);
+            expect(observation.observedAwaitP95Ms).toBeGreaterThan(0);
+            expect(observation.observedAwaitP95Ms!).toBeLessThanOrEqual(observation.elapsedP95Ms!);
+            expect(observation.unobservedP95Ms!).toBeLessThanOrEqual(observation.elapsedP95Ms!);
+          }
+        } else expect(measured.diagnostics.databaseObservations).toBeUndefined();
         expect(measured.failures).toEqual([]);
         expect({ participants: measured.participants, admitted: measured.admitted, pending: measured.pending }).toEqual({ participants: ADMISSION_PERFORMANCE.participantCount, admitted: ADMISSION_PERFORMANCE.enabledParticipantCount, pending: ADMISSION_PERFORMANCE.participantCount - ADMISSION_PERFORMANCE.enabledParticipantCount });
         expect(measured.facts).toEqual({ entries: ADMISSION_PERFORMANCE.entryCount, requests: ADMISSION_PERFORMANCE.participantCount, basic_members: ADMISSION_PERFORMANCE.enabledParticipantCount, deliveries: 0 });

@@ -10,6 +10,7 @@ import { ADMISSION_NEON_PROJECT_ID } from "./constants/academy-admission-databas
 import { ADMISSION_NODE_HOST } from "./constants/admission-node-host";
 import { ADMISSION_CPU_PROFILE } from "./constants/admission-cpu-profile";
 import { ADMISSION_SAMPLE } from "./constants/admission-sample";
+import { ADMISSION_DATABASE_OBSERVATION } from "./constants/admission-database-observation";
 
 const execute = promisify(execFile);
 /** Provider fields consumed only after exact branch selection; no provider DTO schema validation. */
@@ -74,6 +75,7 @@ export async function deployAdmissionNodeHost(branch: AcademyAdmissionTestDataba
       ...(process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue ? { [ADMISSION_CPU_PROFILE.environmentVariable]: ADMISSION_CPU_PROFILE.enabledValue } : {}),
       ...(process.env[ADMISSION_NODE_HOST.poolMaximumVariable] !== undefined ? { [ADMISSION_NODE_HOST.poolMaximumVariable]: process.env[ADMISSION_NODE_HOST.poolMaximumVariable]! } : {}),
       ...(process.env[ADMISSION_SAMPLE.environmentVariable] === ADMISSION_SAMPLE.enabledValue ? { [ADMISSION_SAMPLE.environmentVariable]: ADMISSION_SAMPLE.enabledValue } : {}),
+      ...(process.env[ADMISSION_DATABASE_OBSERVATION.environmentVariable] === ADMISSION_DATABASE_OBSERVATION.enabledValue ? { [ADMISSION_DATABASE_OBSERVATION.environmentVariable]: ADMISSION_DATABASE_OBSERVATION.enabledValue } : {}),
     };
     await command(["deploy", slug, "--src", directory, "--no-bundle", "--runtime", "nodejs24", ...Object.entries(environment).flatMap(([name, value]) => ["--env", `${name}=${value}`])]);
     const response = await command(["get", slug]) as FunctionMetadata | { function: FunctionMetadata };

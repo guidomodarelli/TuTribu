@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { admissionCpuObservationSchema } from "../admission-cpu-profile";
 import { admissionNodeSampleSchema } from "./admission-sample";
+import { admissionDatabaseObservationsSchema } from "./admission-database-observation";
 export type AdmissionNodeRunState = "prepared" | "running" | "completed" | "failed";
 export const ADMISSION_NODE_RUN_STATE = { prepared: "prepared", running: "running", completed: "completed", failed: "failed" } as const satisfies Record<string, AdmissionNodeRunState>;
 export const ADMISSION_NODE_HOST = {
@@ -29,7 +30,7 @@ export const admissionNodeMeasurementSchema = z.object({
   realMessages: z.literal(0), nodeVersion: z.string().regex(ADMISSION_NODE_HOST.nodeVersionPattern),
   sourceCommit: z.string().regex(/^[a-f0-9]{40}$/), bundleSha256: z.string().regex(ADMISSION_NODE_HOST.tokenDigestPattern),
   cpuProfile: admissionCpuObservationSchema.optional(),
-  diagnostics: z.object({ wallDurationMs: nonnegative, cpuUserMs: nonnegative, cpuSystemMs: nonnegative, eventLoopActiveMs: nonnegative, eventLoopIdleMs: nonnegative, eventLoopUtilization: nonnegative.max(1), accountTransactions: integer, commandTransactions: integer, accountTransactionP95Ms: nonnegative.nullable(), commandTransactionP95Ms: nonnegative.nullable(), admittedP95Ms: nonnegative.nullable(), pendingP95Ms: nonnegative.nullable() }).strict(),
+  diagnostics: z.object({ wallDurationMs: nonnegative, cpuUserMs: nonnegative, cpuSystemMs: nonnegative, eventLoopActiveMs: nonnegative, eventLoopIdleMs: nonnegative, eventLoopUtilization: nonnegative.max(1), accountTransactions: integer, commandTransactions: integer, accountTransactionP95Ms: nonnegative.nullable(), commandTransactionP95Ms: nonnegative.nullable(), admittedP95Ms: nonnegative.nullable(), pendingP95Ms: nonnegative.nullable(), databaseObservations: admissionDatabaseObservationsSchema.optional() }).strict(),
 }).strict();
 export const admissionNodeStatusSchema = z.object({ operationId: z.uuid(), state: z.enum(["prepared", "running", "completed", "failed"]), measurement: admissionNodeMeasurementSchema.nullable(), sample: admissionNodeSampleSchema.nullable().optional() }).strict();
 export type AdmissionNodeStatus = z.infer<typeof admissionNodeStatusSchema>;

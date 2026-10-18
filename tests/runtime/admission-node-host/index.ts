@@ -14,6 +14,7 @@ import { ADMISSION_CPU_PROFILE } from "@/tests/support/constants/admission-cpu-p
 import { ADMISSION_SAMPLE, admissionNodeSampleSchema, type AdmissionNodeSample } from "@/tests/support/constants/admission-sample";
 import { ADMISSION_PERFORMANCE } from "@/tests/support/constants/admission-performance";
 import { runAdmissionSample } from "@/tests/support/run-admission-sample";
+import { ADMISSION_DATABASE_OBSERVATION } from "@/tests/support/constants/admission-database-observation";
 
 const configuration = admissionNodeConfigurationSchema.parse({
   branchName: process.env[ADMISSION_NODE_HOST.branchVariable], operationId: process.env[ADMISSION_NODE_HOST.operationVariable], tokenSha256: process.env[ADMISSION_NODE_HOST.tokenDigestVariable],
@@ -58,10 +59,13 @@ async function run(): Promise<AdmissionNodeStatus> {
     let cpuProfiler: Awaited<ReturnType<typeof startAdmissionCpuProfile>> | undefined;
     let cpuProfile: AdmissionCpuObservation | undefined;
     const measured = await (async () => {
-      try { return await runAdmissionPerformanceWorkload(database(), fixture.fixture, fixture.participants, process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue ? {
+      try { return await runAdmissionPerformanceWorkload(database(), fixture.fixture, fixture.participants, {
+        ...(process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue ? {
         beforeMeasurement: async () => { cpuProfiler = await startAdmissionCpuProfile(); },
         afterMeasurement: async () => { cpuProfile = await cpuProfiler?.stop(); cpuProfiler = undefined; },
-      } : undefined); }
+        } : {}),
+        ...(process.env[ADMISSION_DATABASE_OBSERVATION.environmentVariable] === ADMISSION_DATABASE_OBSERVATION.enabledValue ? { observeDatabaseStatements: true } : {}),
+      }); }
       finally { if (cpuProfiler) cpuProfile = await cpuProfiler.stop(); }
     })();
     measurement = admissionNodeMeasurementSchema.parse({ ...measured, ...(cpuProfile ? { cpuProfile } : {}), setupDurationMs, nodeVersion: process.versions.node, sourceCommit: configuration.sourceCommit, bundleSha256: configuration.bundleSha256 });
