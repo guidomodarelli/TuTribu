@@ -53,4 +53,17 @@ describe("native Node workload boundary", () => {
     const fixture = prepareHandler();
     expect(() => createAdmissionNodeHostHandler({ ...fixture.configuration, tokenSha256: "" }, fixture.dependencies)).toThrow();
   });
+  it("should expose only the explicitly mapped safe diagnostic after an authorized failure", async () => {
+    const fixture = prepareHandler(); fixture.dependencies.run.mockRejectedValue(new Error("private failure detail"));
+    const handler = createAdmissionNodeHostHandler(fixture.configuration, { ...fixture.dependencies, failureCode: () => "synthetic_probe_failed" });
+    const response = await handler.fetch(fixture.request());
+    expect(response.status).toBe(HTTP_STATUS.serverError);
+    expect(await response.json()).toEqual({ operationId: fixture.configuration.operationId, message: "No pudimos completar el ensayo.", code: "synthetic_probe_failed" });
+  });
+  it("should replace an unsafe diagnostic mapping without echoing its private text", async () => {
+    const fixture = prepareHandler(); fixture.dependencies.run.mockRejectedValue(new Error("private failure detail"));
+    const handler = createAdmissionNodeHostHandler(fixture.configuration, { ...fixture.dependencies, failureCode: () => "private failure detail" });
+    const response = await handler.fetch(fixture.request());
+    expect(await response.json()).toEqual({ operationId: fixture.configuration.operationId, message: "No pudimos completar el ensayo.", code: ADMISSION_NODE_HOST.unknownFailureCode });
+  });
 });

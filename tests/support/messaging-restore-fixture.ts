@@ -1,6 +1,5 @@
 /** Composes fresh native adapters against an owned restore copy without reusing the parent's SQL closures. @module messaging-restore-fixture */
 import { randomBytes, randomUUID } from "node:crypto";
-import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
 import { prepareMessagingConnectionActivation, refreshMessagingActivationRecency } from "./messaging-activation-fixture";
 import { composeMessagingRestoreOwnersForPrincipal, type MessagingRestoreSql } from "./messaging-restore-composition";
@@ -90,18 +89,4 @@ export async function createMessagingRestoreSecurity(previous: MessagingSecurity
   }
 }
 
-/**
- * Reads only safe resource and original delivery metadata from the specified capability.
- * @param database - Exact owned parent or copy.
- * @param context - Current synthetic leader and immutable original resource identity.
- * @returns Observable state and byte availability, with no credential, payload or recipient bytes.
- */
-export function readMessagingRestoreFacts(database: MessagingRestoreSql, context: { actorUserId: string; tribeId: string; connectionId: string }) {
-  return database.withContext({ userId: context.actorUserId, email: null }, async (transaction) => ({
-    connection: (await transaction.execute(sql`select id,state,version,is_selected,selected_version,retired_at from public.tenant_messaging_connections where id=${context.connectionId} and tribe_id=${context.tribeId}`)).rows[0],
-    versions: (await transaction.execute(sql`select version,retired_at,purge_after from public.messaging_connection_versions where connection_id=${context.connectionId} and tribe_id=${context.tribeId} order by version`)).rows,
-    secret: (await transaction.execute(sql`select connection_version,retired_at,purge_after,purged_at,octet_length(ciphertext)>0 as has_bytes from public.messaging_secret_envelopes where connection_id=${context.connectionId} and tribe_id=${context.tribeId} order by connection_version`)).rows,
-    deliveries: (await transaction.execute(sql`select id,state,connection_id,connection_version from public.message_deliveries where connection_id=${context.connectionId} and tribe_id=${context.tribeId} order by id`)).rows,
-    attempts: (await transaction.execute(sql`select attempt.id,attempt.delivery_id,attempt.state,attempt.connection_id,attempt.connection_version from public.message_delivery_attempts attempt where attempt.connection_id=${context.connectionId} and attempt.tribe_id=${context.tribeId} order by attempt.id`)).rows,
-  }));
-}
+export { readMessagingRestoreFacts } from "./messaging-restore-observations-native";

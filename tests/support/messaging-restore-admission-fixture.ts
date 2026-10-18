@@ -122,22 +122,4 @@ export async function prepareRestoreAdmissionCheckpoint(database: AcademyAdmissi
   return { owners, policy: activated, applied: { ...appliedProof, requestId: submitted.result.admissionRequestId, requestVersion: submitted.result.committedRequestVersion }, available: availableProof, queued: queuedIssuance, queuedVerificationCode, uncertain: uncertainIssuance };
 }
 
-/**
- * Reads original proof/outbox/accounting facts without plaintext contacts, code material or credentials.
- * @param database - Exact owned checkpoint or restored copy.
- * @param tribeId - Canonical synthetic academy.
- * @param applicants - Only the synthetic accounts created by this scenario.
- * @returns Safe observable resource history and counts, never authority for a later mutation.
- */
-export function readRestoreAdmissionFacts(database: MessagingRestoreSql, tribeId: string, applicants: readonly string[]) {
-  return database.withContext({ userId: null, email: null }, async (transaction) => ({
-    policy: (await transaction.execute(sql`select version,verification_epoch,is_open,requires_additional_verification,messaging_connection_id,messaging_connection_version,activated_at from public.academy_admission_policies where tribe_id=${tribeId}`)).rows[0],
-    requests: (await transaction.execute(sql`select id,user_id,status,version,proof_id,submitted_at,expires_at from public.academy_admission_requests where tribe_id=${tribeId} order by id`)).rows,
-    proofs: (await transaction.execute(sql`select id,status,verification_epoch,security_epoch,applied_request_id,apply_before,invalidated_at,invalidation_reason from public.academy_admission_verification_proofs where tribe_id=${tribeId} order by id`)).rows,
-    challenges: (await transaction.execute(sql`select id,user_id,state,is_current,verification_epoch,security_epoch,expires_at,delivery_id,invalidated_at from public.contact_verification_challenges where tribe_id=${tribeId} order by id`)).rows,
-    deliveries: (await transaction.execute(sql`select id,source_resource_id,state,connection_id,connection_version,security_epoch from public.message_deliveries where tribe_id=${tribeId} order by id`)).rows,
-    attempts: (await transaction.execute(sql`select id,delivery_id,state,reservation_id,connection_id,connection_version from public.message_delivery_attempts where tribe_id=${tribeId} order by id`)).rows,
-    reservations: (await transaction.execute(sql`select id,delivery_id,attempt_id,state,reserved_at,released_at from public.messaging_usage_reservations where tribe_id=${tribeId} order by id`)).rows,
-    memberships: (await transaction.execute(sql`select user_id,role,status from public.tribe_members where tribe_id=${tribeId} and user_id=any(${sql.param(applicants)}::text[]) order by user_id`)).rows,
-  }));
-}
+export { readRestoreAdmissionFacts } from "./messaging-restore-observations-native";

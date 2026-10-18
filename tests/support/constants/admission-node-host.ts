@@ -16,6 +16,8 @@ export const ADMISSION_NODE_HOST = {
   computeUnitsVariable: "ADMISSION_NODE_COMPUTE_UNITS",
   poolMaximumVariable: "ADMISSION_NODE_POOL_MAX",
   poolerHostnameMarker: "-pooler",
+  failureCodePattern: /^[a-z][a-z_0-9]{0,127}$/,
+  unknownFailureCode: "native_operation_failed",
 } as const;
 /** Reports only which binding was selected and a hostname marker, never a connection string. */
 export type AdmissionNodeConnectionMetadata = { sourceVariable: "DATABASE_URL_UNPOOLED" | "DATABASE_URL"; hostnameHasPoolerMarker: boolean };

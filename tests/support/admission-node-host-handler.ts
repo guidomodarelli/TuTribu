@@ -9,6 +9,7 @@ export type AdmissionNodeHostDependencies = {
   readStatus: () => Promise<AdmissionNodeStatus>;
   run: () => Promise<AdmissionNodeStatus>;
   reportFailure: (error: unknown) => void;
+  failureCode?: (error: unknown) => string;
 };
 
 /**
@@ -40,7 +41,9 @@ export function createAdmissionNodeHostHandler(input: AdmissionNodeConfiguration
         return Response.json(result, { status });
       } catch (error) {
         dependencies.reportFailure(error);
-        return Response.json({ operationId: configuration.operationId, message: "No pudimos completar el ensayo." }, { status: HTTP_STATUS.serverError });
+        const mappedCode = dependencies.failureCode?.(error);
+        const code = dependencies.failureCode ? typeof mappedCode === "string" && ADMISSION_NODE_HOST.failureCodePattern.test(mappedCode) ? mappedCode : ADMISSION_NODE_HOST.unknownFailureCode : undefined;
+        return Response.json({ operationId: configuration.operationId, message: "No pudimos completar el ensayo.", ...(code ? { code } : {}) }, { status: HTTP_STATUS.serverError });
       }
     },
   };

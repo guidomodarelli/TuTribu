@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-18",
+  "kind": "native_current_activation_configuration",
+  "sourceCommit": "ac73a2d4d322a62a87058cba15822e8c7fffe6ab",
+  "testFile": "tests/unit/modules/messaging/infrastructure/messaging-native-activation-config.test.ts",
+  "runtime": "local_node",
+  "nodeVersion": "24.21.0",
+  "passedTests": 1,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "durationMs": 745900.1713,
+  "requestedComputeUnits": 4,
+  "originalSelectionPreservedWhileLocked": true,
+  "originalSelectionPreservedAcrossEpochChange": true,
+  "explicitActivationAndReplayPassed": true,
+  "sourceAudit": {
+    "sourceCommit": "ac73a2d4d322a62a87058cba15822e8c7fffe6ab",
+    "inputs": 3229,
+    "inputsStable": true,
+    "changedPaths": []
+  },
+  "cleanup": {
+    "originalBranches": 4,
+    "currentBranches": 4,
+    "originalBranchesPreserved": true,
+    "ownTemporaryBranchAbsent": true
+  },
+  "providerTransport": "real_sdk_closed_http",
+  "hostedNodeValidated": false,
+  "hostedWorkersValidated": false,
+  "realMessages": 0,
+  "privateMaterialIncluded": false,
+  "operationalGatesClosed": []
+}
