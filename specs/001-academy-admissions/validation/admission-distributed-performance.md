@@ -19,3 +19,13 @@ La comprobación de archivos propios no encontró el bearer ni el JSON de keyrin
 ## Continuación
 
 Una cohorte no atribuye por sí sola una causa ni justifica cambiar los defaults del producto. El siguiente contraste conserva el bundle, los cuatro hosts, la misma cohorte, pool, barrera, cómputo global y criterios; cambia únicamente la base efímera a 4 CU. Su resultado debe registrarse por separado. T200/T209 y el rendimiento de avisos siguen pendientes.
+
+## Contraste completo con 4 CU
+
+El [segundo recibo](admission-distributed-node-four-cu.json) conserva exactamente el mismo bundle y diseño de cohorte: cuatro funciones Node 24.16.0, pool veinticinco por función, diez mil entradas y cien confirmaciones originales en una sola academia. Se generó un dataset independiente del mismo diseño y cambió sólo la capacidad seleccionada de la base efímera a 4 CU, con mínimo y máximo comprobados por metadata.
+
+El p95 de las cien duraciones fue **2.198,40 ms**, inferior a 3.000 ms. Hubo cincuenta ingresos/cincuenta pendientes y cero fallos de comandos, con cien solicitudes, cincuenta miembros, cero entregas y stock/replay correctos. Las cien llamadas se solaparon al menos **1.575,44 ms**, incluyendo la incertidumbre de anclaje; el mayor intervalo de reloj fue **24,32 ms**. El pool agregado terminó 300/300, sin errores o conexiones retenidas en ninguno de los cuatro hosts.
+
+La medición acredita el criterio de confirmación de esta cohorte y configuración Node aislada. No acredita las latencias de bandeja/avisos, la aceptación de correo agrupado, restauración, otros targets o una configuración productiva. Una cohorte por capacidad no establece por sí sola una mejora causal. Los límites del producto no cambiaron, y T200/T209 conservan sus requisitos de SC-015 y los demás cierres pendientes.
+
+Se eliminaron las cuatro funciones y su rama y se verificaron de nuevo las cuatro ramas persistentes anteriores. Los inputs permanecieron estables y el escaneo propio no encontró bearer o JSON de keyrings en sus archivos. No hubo mensajes reales ni cierre de gates operativos.
