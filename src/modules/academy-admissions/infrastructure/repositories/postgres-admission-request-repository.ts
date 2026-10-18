@@ -106,8 +106,8 @@ function requestEvidence(row: RequestRow): AdmissionRequestEvidence {
 
 /** Manual common/OFF writer; personal redemption and local verification are extended in their owning stories. */
 export class PostgresAdmissionRequestRepository implements AdmissionCommandWriter<AdmissionSubmissionResult>, AdmissionBatchDecisionWriter, AdmissionRetryWriter, AdmissionExecutionCapabilitiesReader, AdmissionWhatsappNumberWriter {
-  /** @param execute - Guarded actual actor executor. @param readSecurityConfig - Live local platform keyrings/recovery state. @param compose - Explicit DB-only membership and notification owners. */
-  constructor(private readonly execute: AdmissionDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly compose: (database: RequestDatabase) => AdmissionTransactionCollaborators) {}
+  /** @param execute - Guarded actual actor executor. @param readSecurityConfig - Live local platform keyrings/recovery state. @param compose - Explicit DB-only membership and notification owners. @param options - Trusted server composition capabilities, never request flags. */
+  constructor(private readonly execute: AdmissionDatabaseExecutor, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly compose: (database: RequestDatabase) => AdmissionTransactionCollaborators, private readonly options: { batchNativeSubmissionAuthorization?: boolean } = {}) {}
 
   /** @returns Actual common, personal and historical coverage consumed by submission and activation guards. */
   getCapabilities(): AdmissionExecutionCapabilities {
@@ -121,23 +121,29 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
    * @param operation - Owner-selected action whose current permission is checked.
    * @param requestId - Existing own request when the action targets one.
    * @param registrationOnly - Whether only an intent claim is registered; administrative effects retain the exclusive tribe lock.
+   * @param submissionActor - Same-statement native projection just checked by the ledger; never reused between guards or phases.
    * @returns Whether the current actor can perform the exact action.
    * @throws AdmissionOperationError when scope, native session or required recency is unavailable.
    */
-  private async authorize(database: RequestDatabase, scope: AdmissionCommandScope, operation: string, requestId?: string, registrationOnly = false): Promise<boolean> {
+  private async authorize(database: RequestDatabase, scope: AdmissionCommandScope, operation: string, requestId?: string, registrationOnly = false, submissionActor?: AdmissionSubmissionActorContext): Promise<boolean> {
     const scopeLock = registrationOnly ? ADMISSION_OPERATION_TRIBE_LOCK_SQL.registration : ADMISSION_OPERATION_TRIBE_LOCK_SQL.execution;
-    const collaborators = operation === ADMISSION_OPERATION_TYPE.submit ? this.compose(database) : null;
     let actor: AdmissionActorFacts | null;
-    if (collaborators?.readSubmissionActor) {
-      const current = await collaborators.readSubmissionActor(scope);
-      if (!current.scopeLocked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      actor = current.actor;
+    if (operation === ADMISSION_OPERATION_TYPE.submit && submissionActor) {
+      if (!submissionActor.scopeLocked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      actor = submissionActor.actor;
     } else {
-      const locked = collaborators
-        ? await collaborators.lockSubmissionScope(scope)
-        : Boolean((await database.execute(sql`select id from public.tribes where id=${scope.tribeId} ${sql.raw(scopeLock)}`)).rows[0]);
-      if (!locked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-      actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithLockedAccount(scope.tribeId, scope.userId);
+      const collaborators = operation === ADMISSION_OPERATION_TYPE.submit ? this.compose(database) : null;
+      if (collaborators?.readSubmissionActor) {
+        const current = await collaborators.readSubmissionActor(scope);
+        if (!current.scopeLocked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+        actor = current.actor;
+      } else {
+        const locked = collaborators
+          ? await collaborators.lockSubmissionScope(scope)
+          : Boolean((await database.execute(sql`select id from public.tribes where id=${scope.tribeId} ${sql.raw(scopeLock)}`)).rows[0]);
+        if (!locked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+        actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readOwnRequest).getCurrentActorWithLockedAccount(scope.tribeId, scope.userId);
+      }
     }
     if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     if (!requestId) return true;
@@ -187,7 +193,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
 
   /** Recovers an original committed result after possible COMMIT response loss without repeating the write. */
   private async run<Result>(scope: AdmissionCommandScope, command: AdmissionOperationCommand, schema: z.ZodType<Result>, mutate: (database: RequestDatabase, ledgerId: string) => Promise<Result>, requestId?: string): Promise<AdmissionOperationResult<Result>> {
-    const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(scope, work), (database) => this.authorize(database, scope, command.operationType, requestId), this.readSecurityConfig, (database) => this.authorize(database, scope, command.operationType, requestId, true));
+    const ledger = new PostgresAdmissionOperationRepository((work) => this.execute(scope, work), (database, _command, actor) => this.authorize(database, scope, command.operationType, requestId, false, actor), this.readSecurityConfig, (database, _command, actor) => this.authorize(database, scope, command.operationType, requestId, true, actor), this.options.batchNativeSubmissionAuthorization ? scope : undefined);
     const snapshotSchema = createAdmissionCommandSnapshotSchema(schema);
     let original;
     let originalDenialCause: unknown;

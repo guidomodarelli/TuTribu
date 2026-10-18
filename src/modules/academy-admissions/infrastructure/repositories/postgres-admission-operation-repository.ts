@@ -16,10 +16,22 @@ import { createAdmissionOperationFingerprint } from "@/src/modules/academy-admis
 import {readAdmissionOperationVerificationPurpose} from "@/src/modules/academy-admissions/infrastructure/verification/admission-operation-purpose";
 import { assertMessagingAuthenticatedMacKeyMaterials } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
+import { ADMISSION_OPERATION_TYPE } from "../../constants/admission-request";
+import { ACADEMY_ADMISSION_APPLICANT_LOCK_DOMAIN } from "@/src/modules/tribes/constants/academy-membership";
+import type { AdmissionCommandScope } from "../../domain/repositories/admission-repositories";
+import type { AdmissionActorFacts } from "../../domain/policies/admission-eligibility";
+import type { AdmissionSubmissionActorContext } from "./postgres-admission-authorization-reader";
 
 type DatabaseExecutor = <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Resolves current actor/resource authority inside the exact transaction holding its required locks. */
-type OperationAuthorizer = (database: RequestDatabase, command: AdmissionOperationCommand) => Promise<boolean>;
+type OperationAuthorizer = (database: RequestDatabase, command: AdmissionOperationCommand, submissionActor?: AdmissionSubmissionActorContext) => Promise<boolean>;
+/** The owner supplies only its trusted immutable session identifiers, never browser authority. */
+type NativeSubmissionScope = Pick<AdmissionCommandScope, "userId" | "sessionId" | "tribeId">;
+/** Native JSON contains only the same actor projection consumed by the owner. */
+type NativeSubmissionAuthorizationRow = {
+  actor: string | null;
+  submission: { scopeLocked: boolean; actor: Pick<AdmissionActorFacts, "userId" | "role" | "status"> | null } | null;
+};
 type OperationRow = { id: string; state: "started" | "completed"; version: number; lease_owner: string | null; lease_until: string | null; fingerprint_key_id: string; intent_fingerprint: Uint8Array; public_result: unknown };
 type OperationClaim<Result> = AdmissionOperationResult<Result> | { state: "claimed"; ledgerId: string; owner: string; version: number };
 
@@ -101,8 +113,9 @@ export class PostgresAdmissionOperationRepository {
    * @param authorize - Mandatory transaction-bound current permission/resource check, including necessary locks.
    * @param readSecurityConfig - Explicit local hosting-secret snapshot; no outbound work inside a transaction.
    * @param authorizeRegistration - Optional current authority guard for registry-only claims; business effects always use authorize.
+   * @param nativeSubmissionScope - Explicit server composition for a guarded native submission projection; other operations retain their original path.
    */
-  constructor(private readonly executeWithDatabase: DatabaseExecutor, private readonly authorize: OperationAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly authorizeRegistration?: OperationAuthorizer) {}
+  constructor(private readonly executeWithDatabase: DatabaseExecutor, private readonly authorize: OperationAuthorizer, private readonly readSecurityConfig: () => Promise<MessagingSecurityConfig>, private readonly authorizeRegistration?: OperationAuthorizer, private readonly nativeSubmissionScope?: NativeSubmissionScope) {}
 
   /**
    * Re-resolves current actor and owner authority before replay or fingerprint comparison.
@@ -113,6 +126,23 @@ export class PostgresAdmissionOperationRepository {
    * @throws AdmissionOperationError when either current authority check denies access.
    */
   private async assertAuthorized(database: RequestDatabase, command: AdmissionOperationCommand, authorize: OperationAuthorizer = this.authorize): Promise<void> {
+    const scope = this.nativeSubmissionScope;
+    if (scope && command.operationType === ADMISSION_OPERATION_TYPE.submit) {
+      if (scope.userId !== command.actorUserId || scope.tribeId !== command.tribeId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      // CASE evaluates the native principal before the VOLATILE locking function.
+      // The owner callback still runs only after the ledger independently checks that principal.
+      const current = (await database.execute<NativeSubmissionAuthorizationRow>(sql`select public.current_app_user_id() as actor,
+        case when public.current_app_user_id()=${command.actorUserId} then (
+          select jsonb_build_object('scopeLocked',current_scope.scope_locked,'actor',current_scope.actor)
+          from public.read_locked_admission_submission_actor(${scope.tribeId},${scope.userId},${scope.sessionId},${ACADEMY_ADMISSION_APPLICANT_LOCK_DOMAIN}) current_scope
+        ) else null end as submission`)).rows[0];
+      if (current?.actor !== command.actorUserId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      if (!current.submission) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+      const nativeActor = current.submission.actor;
+      const context: AdmissionSubmissionActorContext = { scopeLocked: current.submission.scopeLocked, actor: nativeActor?.userId === scope.userId ? { userId: nativeActor.userId, tribeId: scope.tribeId, role: nativeActor.role, status: nativeActor.status } : null };
+      if (!await authorize(database, command, context)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
+      return;
+    }
     const actor = (await database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
     if (actor !== command.actorUserId || !await authorize(database, command)) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
   }

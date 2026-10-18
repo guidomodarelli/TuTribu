@@ -1,0 +1,85 @@
+{
+  "source": {
+    "baseCommit": "7b610959e95265a513c20269f7d540f387026a6a",
+    "worktreeChanges": true,
+    "productInputsStableBetweenCohorts": true,
+    "inputsStable": true,
+    "toolingStable": true,
+    "files": [
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts",
+        "sha256": "fec1b49d8ac53803ec601243895f1cd29ab6c1f790931b240eec56a73ca7fa89"
+      },
+      {
+        "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository.ts",
+        "sha256": "044678750c3d3cd57fe115cf82cee743c742a3fb45f782e234bef8f9f7e8faaa"
+      },
+      {
+        "path": "src/modules/academy-admissions/setup.ts",
+        "sha256": "34064453c814b35d1c56cd801c0a840e3ab6795157e5fa11342e86ada2dff82b"
+      },
+      {
+        "path": "tests/support/constants/admission-native-ledger-guard.ts",
+        "sha256": "1a123612e561204c926b90bcc9656f649dba221bc3a6cd19bd7efc1150c9ab4e"
+      },
+      {
+        "path": "tests/unit/modules/academy-admissions/infrastructure/admission-native-ledger-guard.test.ts",
+        "sha256": "f8fb0a769fbe9a3fc625eff24a931e33533954c878b655431091d6efa1deead3"
+      }
+    ]
+  },
+  "native": {
+    "applicableDistinctCases": 4,
+    "cohorts": [
+      {
+        "passed": 2,
+        "failed": 2,
+        "fixtureErrors": [
+          "42846: record cast to text[] in the stock query",
+          "failure response asserted under the wrong property"
+        ],
+        "passedCases": [
+          "should use three real checkouts and retain revocation, account deletion and changed-cookie rejection between commits",
+          "should atomically bind a trusted exact contact and approve once as system without editing the entry or notifying reviewers of a pending request"
+        ]
+      },
+      {
+        "passed": 2,
+        "failed": 0,
+        "cases": [
+          "should save one round trip per guard while preserving pending effects and original replay",
+          "should reject a foreign native actor before the held tribe fence or any security-config read"
+        ]
+      }
+    ],
+    "savedStatementsPerSubmission": 5,
+    "checks": [
+      "public pending results and original replay preserved",
+      "stock confirmed by SQL",
+      "foreign native principal denied before a held tribe fence",
+      "one-second statement bound would expose an accidental lock wait",
+      "zero security-config reads for rejected native principal",
+      "no claim or request registered for rejected native principal",
+      "session revocation, account deletion and changed cookie still deny effects",
+      "automatic approval, basic membership, audit and notice remain atomic"
+    ]
+  },
+  "quality": {
+    "typesPassed": true,
+    "testTypesPassed": true,
+    "lintPassed": true,
+    "nextBuild": {
+      "version": "16.3.4",
+      "exitCode": 0,
+      "staticPages": 56
+    }
+  },
+  "cleanup": {
+    "remainingBranches": 3,
+    "originalBranchesPreserved": true,
+    "nonOriginalBranches": 0
+  },
+  "performanceAccepted": false,
+  "productionSqlExecuted": false,
+  "realMessages": 0
+}
