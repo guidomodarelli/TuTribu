@@ -7,12 +7,10 @@ import { UI_TEST_ORIGIN, UI_TEST_PORT } from "./scripts/e2e/ui-test-environment.
 /** Workers load this config too, so WebKit's leftover processes on Windows cannot hang their shutdown. */
 installExitedBrowserStdioRelease({ executablePaths: [webkit.executablePath()] });
 
-/** Closes WebKit processes left behind by aborted runs on Windows; see the script header. */
-const ORPHAN_WEBKIT_CLEANUP_PATH = "./scripts/e2e/clean-orphan-webkit-processes.mjs";
-
 export default defineConfig({
-  globalSetup: ORPHAN_WEBKIT_CLEANUP_PATH,
-  globalTeardown: ORPHAN_WEBKIT_CLEANUP_PATH,
+  // Closes WebKit processes left behind by aborted runs on Windows (see @astra-kit/cleaner).
+  globalSetup: "@astra-kit/cleaner/playwright/global-setup",
+  globalTeardown: "@astra-kit/cleaner/playwright/global-teardown",
   testDir: "./tests/e2e",
   testMatch: [
     "theme-provider.spec.ts",

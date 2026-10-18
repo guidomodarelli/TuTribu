@@ -233,6 +233,9 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
+      '@astra-kit/cleaner':
+        specifier: ^0.1.0
+        version: 0.1.0
       '@commitlint/cli':
         specifier: ^21.0.2
         version: 21.0.2(@types/node@24.13.4)(conventional-commits-parser@6.4.0)(typescript@7.0.2)
@@ -393,6 +396,11 @@ packages:
   '@ast-grep/napi@0.40.5':
     resolution: {integrity: sha512-hJA62OeBKUQT68DD2gDyhOqJxZxycqg8wLxbqjgqSzYttCMSDL9tiAQ9abgekBYNHudbJosm9sWOEbmCDfpX2A==}
     engines: {node: '>= 10'}
+
+  '@astra-kit/cleaner@0.1.0':
+    resolution: {integrity: sha512-DI/vaHd1bXEM9U6iPa9PNz7AH6V/UOaRIEgMkfFKQLXaLg6z4NjLmvqQawKGo0xx0axZW6cA8Tb/x+E9ejb6vQ==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@aws-crypto/crc32@5.2.0':
     resolution: {integrity: sha512-nLbCWqQNgUiwwtFsen1AdzAtvuLRsQS8rYgMuxCrdKf9kOssamGLuPwyTY9wyYblNr9+1XM8v6zoDTPPSIeANg==}
@@ -6138,6 +6146,8 @@ snapshots:
       '@ast-grep/napi-win32-arm64-msvc': 0.40.5
       '@ast-grep/napi-win32-ia32-msvc': 0.40.5
       '@ast-grep/napi-win32-x64-msvc': 0.40.5
+
+  '@astra-kit/cleaner@0.1.0': {}
 
   '@aws-crypto/crc32@5.2.0':
     dependencies:
