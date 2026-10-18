@@ -210,6 +210,16 @@ describe("visible reviewer inbox refresh", () => {
 });
 
 describe("native reviewer container", () => {
+  it("should focus the confirmed result when an individual decision removes its focused action", async () => {
+    const data = fixture(); render(data.node, { wrapper: Providers });
+    await confirmDecision();
+    const approval = screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve });
+    act(() => approval.focus()); expect(approval).toHaveFocus(); fireEvent.click(approval);
+    await waitFor(() => expect(screen.queryByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).not.toBeInTheDocument());
+    expect(screen.getByText(ADMISSION_REVIEW_UI_COPY.complete, { exact: true })).toHaveFocus();
+    expect(data.client.decide).toHaveBeenCalledOnce(); expect(router.refresh).not.toHaveBeenCalled();
+  });
+
   it.each([ADMISSION_DECISION.approve, ADMISSION_DECISION.reject])("should retain the initial live region when the %s decision completes without refreshing the route", async (decision) => {
     const data = fixture();
     data.client.decide.mockResolvedValueOnce({ status: "ready", value: { admissionRequestId: requestId, status: decision === ADMISSION_DECISION.approve ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected, version: 2 } });

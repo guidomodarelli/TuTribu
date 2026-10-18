@@ -30,6 +30,7 @@ import { buildAdmissionReviewHistoryRoute } from "@/lib/academy-admissions/admis
 import { applyAdmissionReviewTransition, matchesAdmissionReviewTransitionSelection } from "@/src/modules/academy-admissions/application/results/admission-review-transition";
 import { useAdmissionNotificationRefresh } from "@/hooks/use-admission-notification-refresh";
 import { useAdmissionViewFeedback } from "@/hooks/use-admission-view-feedback";
+import { useReplacedActionFocus } from "@/hooks/use-replaced-action-focus";
 import { useAdmissionReviewBatchSelection } from "@/hooks/use-admission-review-batch-selection";
 import { invalidateAdmissionNotificationRefresh } from "@/lib/notifications/admission-notification-refresh-store";
 import { readVisibleAdmissionReviewSnapshot } from "@/lib/academy-admissions/admission-review-refresh-client";
@@ -55,6 +56,11 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   const [internalReason, setInternalReason] = useState(""), [externalMessage, setExternalMessage] = useState("");
   const { errorMessage, setErrorMessage, setReadErrorMessage, clearReadError } = useAdmissionViewFeedback();
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const { resultRef: decisionStatusRef, captureActionFocus, finishActionFocus } = useReplacedActionFocus({
+    scopeKey: ready ? `${ready.viewerId}:${ready.slug}` : "",
+    resultKey: `${selected?.id ?? ""}:${selected?.status ?? ""}`,
+    enabled: Boolean(ready && privateVisible && phase !== ADMISSION_REVIEW_PHASE.changedViewer),
+  });
   const { selection: batchSelection, confirmed: batchConfirmed, actions: batchActions } = useAdmissionReviewBatchSelection();
   const [batchManifest, setBatchManifest] = useState<AdmissionBatchReviewSelection[]>([]), [batchPending, setBatchPending] = useState(false);
   const [batchResult, setBatchResult] = useState<AdmissionBatchResultDto | null>(null);
@@ -239,6 +245,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   /** Persists the immutable original intention before sending; uncertain/aborted writes reconcile before any retry. */
   const send = async (intent: AdmissionStoredReviewIntent) => {
     if (!ready || busy.current) return;
+    if (!isAdmissionBatchReviewIntent(intent)) captureActionFocus();
     busy.current = true; visibleReadRevision.current += 1; readController.current?.abort();
     const controller = new AbortController(); writeController.current = controller;
     setPhase(ADMISSION_REVIEW_PHASE.writing); setFresh(false); setErrorMessage(null); setStatusMessage(null); setConfirmed(false);
@@ -276,7 +283,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
       applyTransitions([result.value]); setStatusMessage(ADMISSION_REVIEW_UI_COPY.complete); invalidateAdmissionNotificationRefresh();
     } catch { if (!controller.signal.aborted) setErrorMessage(ADMISSION_REVIEW_UI_COPY.storageFailed); }
     finally {
-      if (writeController.current === controller) busy.current = false;
+      if (writeController.current === controller) { busy.current = false; if (!controller.signal.aborted) finishActionFocus(); }
       if (!controller.signal.aborted) { setPhase((current) => current === ADMISSION_REVIEW_PHASE.changedViewer ? current : pending.current ? ADMISSION_REVIEW_PHASE.uncertain : ADMISSION_REVIEW_PHASE.idle); setCanRetry(false); }
     }
   };
@@ -309,7 +316,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   const formDisabled = !fresh || phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating;
   const batchContext = batchPending || batchSelection.length > 0 || batchResult !== null;
   const reviewError = errorMessage ?? (reviewRefreshUnavailable ? ADMISSION_REVIEW_UI_COPY.readFailed : null);
-  return <AdmissionReview filters={privateVisible ? <AdmissionReviewFilters draft={filterDraft} disabled={formDisabled || uncertain} errorMessage={filterError} onChange={(field, value) => { if (field === "submittedFrom" || field === "submittedUntil") editedDateFilters.current.add(field); setFilterDraft((current) => ({ ...current, [field]: value })); setFilterError(null); }} onApply={() => { const parsed = parseAdmissionReviewFilterDraft(ready.slug, filterDraft, appliedFilters.limit, { original: appliedFilters, editedDates: editedDateFilters.current }); if (!parsed.ok) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.invalid); return; } navigateFilters(parsed.filters); }} onReset={() => navigateFilters(DEFAULT_ADMISSION_REVIEW_SELECTION, true)} /> : undefined}
+  return <AdmissionReview statusRef={decisionStatusRef} filters={privateVisible ? <AdmissionReviewFilters draft={filterDraft} disabled={formDisabled || uncertain} errorMessage={filterError} onChange={(field, value) => { if (field === "submittedFrom" || field === "submittedUntil") editedDateFilters.current.add(field); setFilterDraft((current) => ({ ...current, [field]: value })); setFilterError(null); }} onApply={() => { const parsed = parseAdmissionReviewFilterDraft(ready.slug, filterDraft, appliedFilters.limit, { original: appliedFilters, editedDates: editedDateFilters.current }); if (!parsed.ok) { setFilterError(ADMISSION_REVIEW_FILTER_COPY.invalid); return; } navigateFilters(parsed.filters); }} onReset={() => navigateFilters(DEFAULT_ADMISSION_REVIEW_SELECTION, true)} /> : undefined}
     recovery={batchPending ? null : undefined}
     batchSelection={{ ids: new Set(batchSelection.map((item) => item.requestId)), disabled: formDisabled || uncertain, onToggle: (id, checked) => {
       if (formDisabled || uncertain || busy.current || pending.current || currentSelected.current) return;

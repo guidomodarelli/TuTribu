@@ -1,6 +1,6 @@
 /** Displays only owned request metadata and explicit cancellation callbacks. @module request-status */
 import { Button, Checkbox } from "beez-ui";
-import { useId } from "react";
+import { useId, type Ref } from "react";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionRequestDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
@@ -13,15 +13,15 @@ import styles from "./styles.module.scss";
 
 /** @param value - Own ISO timestamp. @returns Its visible Buenos Aires date/time without changing the stored instant. */
 const describeInstant = (value: string) => `${formatBuenosAiresShortDate(value)} · ${formatBuenosAiresTime(value)}`;
-export type RequestStatusProps = { request: AdmissionRequestDto; now: string; confirmed: boolean; disabled: boolean; busy: boolean; errorMessage: string | null; retryHref?: string; onConfirm: (confirmed: boolean) => void; onCancel: () => void };
+export type RequestStatusProps = { request: AdmissionRequestDto; statusRef?: Ref<HTMLParagraphElement>; now: string; confirmed: boolean; disabled: boolean; busy: boolean; errorMessage: string | null; retryHref?: string; onConfirm: (confirmed: boolean) => void; onCancel: () => void };
 /** @param props - Guarded own snapshot and route-owned callbacks. @returns Persistent state and safe Spanish external copy, with no private review fields. */
-export function RequestStatus({ request, now, confirmed, disabled, busy, errorMessage, retryHref, onConfirm, onCancel }: RequestStatusProps) {
+export function RequestStatus({ request, statusRef, now, confirmed, disabled, busy, errorMessage, retryHref, onConfirm, onCancel }: RequestStatusProps) {
   const confirmationId = useId();
   const expired = request.status === ADMISSION_REQUEST_STATUS.pending && Date.parse(now) >= Date.parse(request.expiresAt);
   const mayCancel = request.status === ADMISSION_REQUEST_STATUS.pending && !expired;
   const eligibilityMessage = mayCancel ? getOwnAdmissionRequestMessage(request) : null;
   return <section className={styles.RequestStatus} aria-label="Estado de tu solicitud">
-    <p role="status">{expired ? ADMISSION_UI_COPY.expired : ADMISSION_REQUEST_STATUS_COPY[request.status]}</p>
+    <p ref={statusRef} tabIndex={-1} role="status">{expired ? ADMISSION_UI_COPY.expired : ADMISSION_REQUEST_STATUS_COPY[request.status]}</p>
     <dl className={styles.RequestStatus__facts}>
       <div className={styles.RequestStatus__fact}><dt className={styles.RequestStatus__label}>{ADMISSION_UI_COPY.submitted}</dt><dd className={styles.RequestStatus__value}><time dateTime={request.submittedAt}>{describeInstant(request.submittedAt)}</time></dd></div>
       <div className={styles.RequestStatus__fact}><dt className={styles.RequestStatus__label}>{ADMISSION_UI_COPY.expires}</dt><dd className={styles.RequestStatus__value}><time dateTime={request.expiresAt}>{describeInstant(request.expiresAt)}</time></dd></div>

@@ -1,5 +1,5 @@
 /** Presents authorized review state and callbacks without importing auth or HTTP adapters. @module admission-review */
-import { useId, type ReactNode } from "react";
+import { useId, type ReactNode, type Ref } from "react";
 import { Button, Checkbox } from "beez-ui";
 import { AdmissionDecisionForm } from "@/components/academy-admissions/admission-decision-form";
 import { Link } from "@/components/navigation/link";
@@ -26,6 +26,7 @@ export type AdmissionReviewProps = {
   items: AdmissionReviewDto[]; selected: AdmissionReviewDto | null; hasMore: boolean;
   busy: boolean; disabled: boolean; confirmed: boolean; internalReason: string; externalMessage: string;
   errorMessage: string | null; statusMessage: string | null; uncertain: boolean; canRetry: boolean;
+  statusRef?: Ref<HTMLParagraphElement>;
   onSelect: (id: string) => void; onClose: () => void; onRead: () => void; onLoadMore: () => void;
   onConfirm: (confirmed: boolean) => void; onInternalReason: (value: string) => void; onExternalMessage: (value: string) => void;
   onDecision: (decision: "approve" | "reject") => void; onRetry: () => void;
@@ -35,7 +36,7 @@ export type AdmissionReviewProps = {
 function describeInstant(value: string): string { return `${formatBuenosAiresShortDate(value)} · ${formatBuenosAiresTime(value)}`; }
 
 /** @param props - Current allowlisted review data and route-owned state/callbacks. @returns A semantic inbox/detail with explicit confirmation and a live region registered before its feedback changes. */
-export function AdmissionReview(props: AdmissionReviewProps) {
+export function AdmissionReview({ statusRef, ...props }: AdmissionReviewProps) {
   const id = useId();
   const selected = props.selected;
   const eligibilityMessages = selected?.eligibilityReasons.flatMap((reason) => {
@@ -50,7 +51,7 @@ export function AdmissionReview(props: AdmissionReviewProps) {
     {!selected && props.filters}
     <div className={styles.AdmissionReview__actions}><Button variant="secondary" onClick={props.onRead} disabled={props.busy}>{props.busy ? ADMISSION_REVIEW_UI_COPY.reading : ADMISSION_REVIEW_UI_COPY.read}</Button>{selected && <Button variant="ghost" onClick={props.onClose} disabled={props.busy || props.uncertain}>{ADMISSION_REVIEW_UI_COPY.close}</Button>}</div>
     {props.errorMessage && <p className={styles.AdmissionReview__error} role="alert">{props.errorMessage}</p>}
-    <p className={styles.AdmissionReview__feedback} role="status" aria-live="polite" aria-atomic="true">{props.statusMessage ?? ""}</p>
+    <p ref={statusRef} tabIndex={-1} className={styles.AdmissionReview__feedback} role="status" aria-live="polite" aria-atomic="true">{props.statusMessage ?? ""}</p>
     {props.recovery !== undefined ? props.recovery : props.uncertain && <section className={styles.AdmissionReview__section} aria-label="Recuperación de la decisión"><p role="status">{ADMISSION_REVIEW_UI_COPY.uncertain}</p>{props.canRetry && <Button variant="secondary" disabled={props.busy || !props.confirmed} onClick={props.onRetry}>{ADMISSION_REVIEW_UI_COPY.retry}</Button>}</section>}
     {selected ? <section className={styles.AdmissionReview__section} aria-label="Detalle de la solicitud">
       <h2 className={styles.AdmissionReview__subtitle}>{selected.applicant.name}</h2>
