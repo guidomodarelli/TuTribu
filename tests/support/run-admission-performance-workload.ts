@@ -22,8 +22,12 @@ export type AdmissionPerformanceDatabase = Pick<AcademyAdmissionTestDatabase, "w
 export type AdmissionPerformanceFixture = { tribeId: string; own: { userId: string; email: string | null }; config: MessagingSecurityConfig };
 /** Describes the persisted effects counted after all original commands settle. */
 export type AdmissionPerformanceFacts = { entries: number; requests: number; basic_members: number; deliveries: number };
+/** Includes only the identity fields consumed privately by the actual account adapter. */
+export type AdmissionPerformanceActor = Pick<AdmissionPerformanceParticipant, "index" | "userId" | "sessionId" | "email">;
+/** Projects every original completion without session material or private error causes. */
+export type AdmissionPerformanceConfirmation = { index: number; durationMs: number; startedOffsetMs: number; outcome: string | null; failure: string | null };
 /** Optional own observation boundary; default workloads retain their original protocol. */
-export type AdmissionPerformanceObserver = { beforeMeasurement?: () => Promise<void>; afterMeasurement?: () => Promise<void>; observeDatabaseStatements?: boolean };
+export type AdmissionPerformanceObserver = { beforeMeasurement?: () => Promise<void>; afterMeasurement?: () => Promise<void>; observeDatabaseStatements?: boolean; observeConfirmations?: (confirmations: readonly AdmissionPerformanceConfirmation[], measurementStartedAtMonotonicMs: number) => void | Promise<void> };
 
 /** @param durations - All original observations, including failed calls. @returns The fixed nearest-rank percentile, or null for no observations. */
 export function admissionConfirmationPercentile(durations: readonly number[]): number | null {
@@ -53,7 +57,7 @@ function summarizeDatabaseObservations(observations: readonly AdmissionTransacti
  * @param enabledParticipantCount - Global dataset boundary; the default keeps the latency cohort unchanged.
  * @returns Only numeric measurements, safe failure diagnostics and persisted-effect counts.
  */
-export async function runAdmissionPerformanceWorkload(database: AdmissionPerformanceDatabase, fixture: AdmissionPerformanceFixture, participants: readonly AdmissionPerformanceParticipant[], observer?: AdmissionPerformanceObserver, enabledParticipantCount: number = ADMISSION_PERFORMANCE.enabledParticipantCount) {
+export async function runAdmissionPerformanceWorkload(database: AdmissionPerformanceDatabase, fixture: AdmissionPerformanceFixture, participants: readonly AdmissionPerformanceActor[], observer?: AdmissionPerformanceObserver, enabledParticipantCount: number = ADMISSION_PERFORMANCE.enabledParticipantCount) {
   const transactionDurations = { account: [] as number[], command: [] as number[] };
   const databaseObservations = { account: [] as AdmissionTransactionObservation[], command: [] as AdmissionTransactionObservation[] };
   let measurementActive = false;
@@ -96,14 +100,14 @@ export async function runAdmissionPerformanceWorkload(database: AdmissionPerform
   const eventLoop = monitorEventLoopDelay({ resolution: ADMISSION_PERFORMANCE.eventLoopResolutionMs });
   eventLoop.enable();
   const sampling = setInterval(() => { const observed = database.readPoolMetrics(); peakWaitingCount = Math.max(peakWaitingCount, observed.waitingCount); peakTotalCount = Math.max(peakTotalCount, observed.totalCount); }, ADMISSION_PERFORMANCE.poolSampleIntervalMs);
-  const observed: { index: number; durationMs: number; outcome: string | null; failure: string | null; cause?: unknown }[] = [];
+  const observed: (AdmissionPerformanceConfirmation & { cause?: unknown })[] = [];
   try {
     await Promise.all(workloads.map(async ({ participant, commands }) => {
       const startedAt = performance.now(); inFlight += 1; peakInFlight = Math.max(peakInFlight, inFlight);
       try {
         const result = await commands.submit.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedPolicyVersion: ADMISSION_PERFORMANCE.expectedPolicyVersion, confirmed: true, ...(participant.index >= enabledParticipantCount ? { message: ADMISSION_PERFORMANCE.exceptionReason } : {}) });
-        observed.push({ index: participant.index, durationMs: performance.now() - startedAt, outcome: result.ok && result.value.state === "completed" ? result.value.result.outcome : null, failure: !result.ok ? result.failure.code : result.value.state !== "completed" ? ADMISSION_PERFORMANCE_FAILURE.unconfirmed : null, ...(!result.ok ? { cause: result.failure.cause } : {}) });
-      } catch (error) { observed.push({ index: participant.index, durationMs: performance.now() - startedAt, outcome: null, failure: ADMISSION_PERFORMANCE_FAILURE.unexpectedException, cause: error }); }
+        observed.push({ index: participant.index, durationMs: performance.now() - startedAt, startedOffsetMs: startedAt - measurementStarted, outcome: result.ok && result.value.state === "completed" ? result.value.result.outcome : null, failure: !result.ok ? result.failure.code : result.value.state !== "completed" ? ADMISSION_PERFORMANCE_FAILURE.unconfirmed : null, ...(!result.ok ? { cause: result.failure.cause } : {}) });
+      } catch (error) { observed.push({ index: participant.index, durationMs: performance.now() - startedAt, startedOffsetMs: startedAt - measurementStarted, outcome: null, failure: ADMISSION_PERFORMANCE_FAILURE.unexpectedException, cause: error }); }
       finally { inFlight -= 1; }
     }));
   } finally { measurementActive = false; clearInterval(sampling); eventLoop.disable(); }
@@ -116,6 +120,7 @@ export async function runAdmissionPerformanceWorkload(database: AdmissionPerform
   const failures = observed.filter((result) => result.failure !== null || result.outcome !== ADMISSION_OUTCOME.admitted && result.outcome !== ADMISSION_OUTCOME.pending).map((result) => ({ index: result.index, code: result.failure ?? ADMISSION_PERFORMANCE_FAILURE.unexpectedOutcome, ...readPostgresTestDiagnostics(result.cause) }));
   const admitted = observed.filter((result) => result.outcome === ADMISSION_OUTCOME.admitted).length, pending = observed.filter((result) => result.outcome === ADMISSION_OUTCOME.pending).length;
   await observer?.afterMeasurement?.();
+  await observer?.observeConfirmations?.(observed.map(({ index, durationMs, startedOffsetMs, outcome, failure }) => ({ index, durationMs, startedOffsetMs, outcome, failure })), measurementStarted);
   const facts = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<AdmissionPerformanceFacts>(sql`select
     (select count(*)::integer from public.academy_allowlist_entries where tribe_id=${fixture.tribeId}) as entries,
     (select count(*)::integer from public.academy_admission_requests where tribe_id=${fixture.tribeId}) as requests,

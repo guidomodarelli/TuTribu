@@ -12,6 +12,7 @@ import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissi
 import { GOOGLE_EMAIL_AUTHORITY, GOOGLE_IDENTITY_PROVIDER } from "@/src/modules/auth/constants/google-identity-evidence";
 import { ALLOWLIST_DATABASE_ORIGIN } from "@/src/modules/academy-admissions/constants/allowlist-management";
 import { ADMISSION_CONTACT_TYPE } from "@/src/modules/academy-admissions/constants/admission-contact";
+import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
 /** Keeps generated native identity and session material solely inside the test process. */
 export type AdmissionPerformanceParticipant = {
@@ -30,16 +31,18 @@ export type AdmissionPerformanceParticipant = {
  * Prepares one current list academy and a deterministic mixed workload without a provider call.
  * @param database - Exact disposable branch capability supplied by the native owner.
  * @param onPhase - Optional safe stage names, excluding contacts and private identity material.
+ * @param shape - Fixed server-selected dataset, retaining the original acceptance cohort by default.
+ * @param securityConfig - Optional original external configuration shared only by owned test hosts.
  * @returns The actual native owner, generated participants and fixed policy version; no admission has been submitted.
  */
-export async function prepareAdmissionPerformanceFixture(database: AcademyAdmissionTestDatabase, onPhase?: (phase: string) => void) {
-  const { fixture } = await prepareAllowlistAdmission(database);
-  return seedAdmissionPerformanceParticipants(database, fixture, onPhase);
+export async function prepareAdmissionPerformanceFixture(database: AcademyAdmissionTestDatabase, onPhase?: (phase: string) => void, shape: AdmissionFixtureShape = ADMISSION_PERFORMANCE, securityConfig?: MessagingSecurityConfig) {
+  const { fixture } = await prepareAllowlistAdmission(database, securityConfig);
+  return seedAdmissionPerformanceParticipants(database, fixture, onPhase, shape);
 }
 
-/** @param database - Real executor whose owner already applied the exact SQL journal. @param onPhase - Optional safe progress names. @param shape - Fixed server-selected dataset; defaults to the unchanged latency cohort. @returns Native fixture using host-generated private keys, without a CLI or filesystem dependency at runtime. */
-export async function seedAdmissionPerformanceFixture(database: Pick<AcademyAdmissionTestDatabase, "withContext">, onPhase?: (phase: string) => void, shape: AdmissionFixtureShape = ADMISSION_PERFORMANCE) {
-  const account = await seedContactVerificationDatabase(database);
+/** @param database - Real executor whose owner already applied the exact SQL journal. @param onPhase - Optional safe progress names. @param shape - Fixed server-selected dataset; defaults to the unchanged latency cohort. @param securityConfig - Optional original external configuration for owned hosts; default fixtures generate independent keys. @returns Native fixture without a CLI or filesystem dependency at runtime. */
+export async function seedAdmissionPerformanceFixture(database: Pick<AcademyAdmissionTestDatabase, "withContext">, onPhase?: (phase: string) => void, shape: AdmissionFixtureShape = ADMISSION_PERFORMANCE, securityConfig?: MessagingSecurityConfig) {
+  const account = await seedContactVerificationDatabase(database, securityConfig);
   await database.withContext({ userId: null, email: null }, async (transaction) => {
     await registerMessagingPrivateMacKeyMaterial(transaction, account.config, MESSAGING_KEY_PURPOSE.operationPayload);
     await registerMessagingPrivateMacKeyMaterial(transaction, account.config, MESSAGING_KEY_PURPOSE.contactFingerprint);

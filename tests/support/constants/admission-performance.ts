@@ -36,3 +36,11 @@ export const ADMISSION_PERFORMANCE_FAILURE = {
   unconfirmed: "original_unconfirmed",
   unexpectedOutcome: "unexpected_outcome",
 } as const;
+
+/** Keeps the native key-sharing contract small; this is not the hundred-applicant acceptance load. */
+export const ADMISSION_SHARED_HOST_FIXTURE = {
+  participantCount: 4,
+  enabledParticipantCount: 2,
+  entryCount: 20,
+  securityEnvironment: "synthetic-shared-host-performance",
+} as const;
