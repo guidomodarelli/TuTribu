@@ -1,28 +1,31 @@
 /** Verifies persisted themes and client navigation through the real application provider. */
 import { expect, test } from "@playwright/test";
-import { SIDEBAR_SHORTCUT_SEQUENCE, SIDEBAR_TOGGLE_SELECTOR } from "@/tests/constants/sidebar-validation";
+import { APP_RAIL_TOGGLE_SELECTOR, APP_RAIL_SHORTCUT_KEY, APP_RAIL_MOBILE_TOGGLE_LABEL, APP_RAIL_HYDRATION_ATTEMPT_MS, APP_RAIL_HYDRATION_TIMEOUT_MS } from "@/tests/constants/app-rail-validation";
 import { ROUTES } from "@/src/constants/routes";
+import { UI_TEST_ORIGIN, UI_TEST_SESSION_COOKIE_NAME, UI_TEST_SESSION_ENV } from "../../scripts/e2e/ui-test-environment.mjs";
+import { runPrivateBrowserRequest } from "@/tests/support/private-browser-request";
 
-test("should ignore keyless events and preserve native sidebar shortcuts in the production application", async ({ page }) => {
+test("should ignore keyless events and preserve the current application rail shortcut", async ({ page, context }) => {
+  const sessionCookie = process.env[UI_TEST_SESSION_ENV.sessionCookie] ?? "", tribeSlug = process.env[UI_TEST_SESSION_ENV.tribeSlug] ?? "";
+  test.skip(!sessionCookie || !tribeSlug, "Necesita la sesión aislada que prepara pnpm test:ui.");
+  await runPrivateBrowserRequest("bind_app_rail_validation_cookie", () => context.addCookies([{ httpOnly: true, name: UI_TEST_SESSION_COOKIE_NAME, sameSite: "Lax", url: UI_TEST_ORIGIN, value: sessionCookie }]));
   const runtimeErrors: string[] = [];
   page.on("pageerror", (error) => runtimeErrors.push(error.name));
 
-  // Arrange: the public home uses the same provider as the connection flow.
-  await page.goto(ROUTES.home);
-  // Server-rendered controls become visible before their browser listeners mount.
-  // A real shared menu interaction establishes readiness without a fixed sleep.
-  await page.getByRole("button", { name: "Cambiar tema" }).click();
-  await page.getByRole("menuitemradio", { name: "Claro", exact: true }).click();
-  await expect(page.getByRole("menuitemradio", { name: "Claro", exact: true })).toBeHidden();
-  const toggle = page.locator(SIDEBAR_TOGGLE_SELECTOR);
+  await page.goto(ROUTES.tribes.bySlug(tribeSlug));
+  const toggle = page.locator(APP_RAIL_TOGGLE_SELECTOR);
   await expect(toggle).toBeVisible();
   const originalExpanded = await toggle.getAttribute("aria-expanded");
   expect(originalExpanded).toMatch(/^(?:true|false)$/u);
+  const mobile = await toggle.getAttribute("aria-label") === APP_RAIL_MOBILE_TOGGLE_LABEL;
 
-  // Act and assert: real key presses prove the listener is mounted in each engine.
-  await page.keyboard.press(SIDEBAR_SHORTCUT_SEQUENCE[0]);
-  await expect(toggle).toHaveAttribute("aria-expanded", String(originalExpanded !== "true"));
-  await page.keyboard.press(SIDEBAR_SHORTCUT_SEQUENCE[1]);
+  // A real shortcut must work before the malformed event can count as an ignored event.
+  await expect(async () => {
+    await page.keyboard.press(APP_RAIL_SHORTCUT_KEY);
+    await expect(toggle).toHaveAttribute("aria-expanded", String(originalExpanded !== "true"), { timeout: APP_RAIL_HYDRATION_ATTEMPT_MS });
+  }).toPass({ timeout: APP_RAIL_HYDRATION_TIMEOUT_MS });
+  // The mobile dialog owns its keyboard while open; Escape restores the navigation trigger.
+  await page.keyboard.press(mobile ? "Escape" : APP_RAIL_SHORTCUT_KEY);
   await expect(toggle).toHaveAttribute("aria-expanded", originalExpanded!);
 
   await page.evaluate(() => window.dispatchEvent(new Event("keydown")));

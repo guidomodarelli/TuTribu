@@ -177,17 +177,18 @@ const rise: Variants = {
  * text entry, menus and dialogs, and not already handled by someone else.
  */
 function isRailShortcut(event: KeyboardEvent): boolean {
-  // Layouts that type `[` with AltGr (reported as Ctrl+Alt) or Option still produce the key itself;
-  // only Command and a bare Ctrl turn it into another shortcut.
-  const typedWithAltGraph = event.getModifierState(ALT_GRAPH_MODIFIER) || (event.ctrlKey && event.altKey);
   if (
     event.key !== RAIL_SHORTCUT_KEY ||
     event.metaKey ||
-    (event.ctrlKey && !typedWithAltGraph) ||
     event.defaultPrevented
   ) {
     return false;
   }
+
+  // Keyless events are discarded before using KeyboardEvent-only modifier APIs.
+  // Layouts that type `[` with AltGr (reported as Ctrl+Alt) or Option still produce the key itself.
+  const typedWithAltGraph = event.getModifierState(ALT_GRAPH_MODIFIER) || (event.ctrlKey && event.altKey);
+  if (event.ctrlKey && !typedWithAltGraph) return false;
 
   const target = event.target instanceof HTMLElement ? event.target : null;
 
