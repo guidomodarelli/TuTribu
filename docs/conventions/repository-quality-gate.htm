@@ -72,5 +72,12 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p>El job no recibe credenciales de Cloudflare ni de la aplicación. Conserva recovery bloqueado y mantenimiento deshabilitado, produce el target real con sus comprobaciones de versión y registra SHA, versiones y presencia/tamaño de <code>.open-next/worker.js</code>. Sólo se conserva el recibo saneado durante siete días; no se publica el bundle. Un build aprobado exige que termine el comando y exista el entrypoint producido.</p>
   <p>Este check complementa <code>Quality gate</code> y no modifica la protección de ramas. Tampoco despliega, instala secretos, habilita crons ni acredita el control de claves, el restore o el comportamiento operativo de Workers. El historial de validación y el fallo local de preparación se conservan en <a href="../../specs/001-academy-admissions/validation/workers-build-preflight.md">la evidencia del target</a>.</p>
 </div>
+<div class="section" id="native-reader-preflight">
+  <div class="section-num">06</div>
+  <h2 class="section-title">Preflight del lector en Linux</h2>
+  <p><code>.github/workflows/admission-reader-probe.yml</code> prepara Ubuntu 24.04, navegadores con ventana, Orca, Speech Dispatcher y un monitor de audio. La publicación oficial de Orca se fija por commit y su ejecutable debe informar la versión esperada. La instalación y la prueba comparten una ruta explícita de binarios de Playwright; no dependen de una caché implícita que cambie con el entorno de captura.</p>
+  <p>El fixture sólo contiene canarios sintéticos de plataforma, sin credenciales ni conexión a Neon. El teclado se envía a la ventana propia comprobada. Cada criterio exige un mensaje del backend real de voz y PCM no silencioso; un evento de DOM, un árbol accesible o una línea de fallback no los sustituyen. Los diagnósticos de AT-SPI son sólo de lectura y no generan anuncios.</p>
+  <p>Los artefactos identifican expresamente que todavía no certifican recorridos de producto. Un resultado parcial o fallido no cierra accesibilidad; después deben ejecutarse las solicitudes y decisiones reales con sus efectos SQL. La configuración y los fallos conservados están en <a href="../../specs/001-academy-admissions/validation/linux-reader-preflight.md">la evidencia del lector</a>. El workflow se activa al cambiar sus fuentes de CI y por despacho manual; no despliega ni habilita mensajería.</p>
+</div>
 </body>
 </html>
