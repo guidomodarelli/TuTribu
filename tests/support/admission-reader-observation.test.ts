@@ -8,7 +8,7 @@ describe("native reader observation boundary", () => {
     const log = "SPEECH DISPATCHER: Speaking '<speak>Control de lectura ab12</speak>'";
     expect(hasNativeReaderSpeech(log, "Control de lectura ab12")).toBe(true);
     expect(diagnoseNativeReaderSpeech(log, "Control de lectura ab12")).toEqual({
-      backendCommands: 1, fallbackOutputs: 0, labelInDebug: true, exactMatch: true,
+      backendLogEntries: 1, fallbackOutputs: 0, labelInDebug: true, exactMatch: true,
       normalizedMatch: true, expectedWords: 4, observedWords: 4,
     });
   });
@@ -23,7 +23,7 @@ describe("native reader observation boundary", () => {
   it("should distinguish a label in debug events from words actually sent to the backend", () => {
     const log = "object:text-changed Confirmo cancelar solicitud\nSPEECH OUTPUT: 'Confirmo cancelar solicitud'\nSPEECH DISPATCHER: Speaking '<speak>Otro elemento</speak>'";
     expect(diagnoseNativeReaderSpeech(log, "Confirmo cancelar solicitud")).toEqual({
-      backendCommands: 1, fallbackOutputs: 1, labelInDebug: true, exactMatch: false,
+      backendLogEntries: 1, fallbackOutputs: 1, labelInDebug: true, exactMatch: false,
       normalizedMatch: false, expectedWords: 3, observedWords: 0,
     });
   });
@@ -31,7 +31,7 @@ describe("native reader observation boundary", () => {
   it("should diagnose fragmented backend speech without accepting it as an exact announcement", () => {
     const log = "SPEECH DISPATCHER: Speaking '<speak>Confirmo que quiero</speak>'\nSPEECH DISPATCHER: Speaking '<speak>cancelar esta solicitud</speak>'";
     expect(diagnoseNativeReaderSpeech(log, "Confirmo que quiero cancelar esta solicitud")).toEqual({
-      backendCommands: 2, fallbackOutputs: 0, labelInDebug: false, exactMatch: false,
+      backendLogEntries: 2, fallbackOutputs: 0, labelInDebug: false, exactMatch: false,
       normalizedMatch: true, expectedWords: 6, observedWords: 6,
     });
     expect(hasNativeReaderSpeech(log, "Confirmo que quiero cancelar esta solicitud")).toBe(false);
@@ -40,7 +40,7 @@ describe("native reader observation boundary", () => {
   it("should expose only counters and flags when native output contains unrelated private values", () => {
     const log = "SPEECH DISPATCHER: Speaking '<speak>private-contact@synthetic.test</speak>'";
     expect(diagnoseNativeReaderSpeech(log, "Guardar conexión")).toEqual({
-      backendCommands: 1, fallbackOutputs: 0, labelInDebug: false, exactMatch: false,
+      backendLogEntries: 1, fallbackOutputs: 0, labelInDebug: false, exactMatch: false,
       normalizedMatch: false, expectedWords: 2, observedWords: 0,
     });
   });

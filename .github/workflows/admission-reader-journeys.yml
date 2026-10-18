@@ -98,8 +98,11 @@ jobs:
           await mkdir(directory, {recursive:true});
           const results = await readFile(join(process.env.RUNNER_TEMP, 'admission-reader-results.json'), 'utf8').then(JSON.parse, () => null);
           const codes = Object.values(ADMISSION_READER_PROBE.failures);
-          const failures = results?.testResults.flatMap(suite => suite.assertionResults.filter(test => test.status === 'failed').map(test => codes.find(code => test.failureMessages.some(message => message.includes(code))) ?? 'native_journey_failed')) ?? [];
-          await writeFile(join(directory, 'result.json'), JSON.stringify({commit:process.env.GITHUB_SHA,productJourneysValidated:results?.success === true,passed:results?.numPassedTests ?? null,failed:results?.numFailedTests ?? null,skipped:results?.numPendingTests ?? null,failureCodes:failures,realMessages:0},null,2)+'\n');
+          const collected = await readFile(join(directory, 'failures.json'), 'utf8').then(JSON.parse, () => []);
+          const collectedCodes = Array.isArray(collected) ? collected.flatMap(failure => codes.includes(failure?.code) ? [failure.code] : []) : [];
+          const failures = [...new Set(collectedCodes.length ? collectedCodes : results?.testResults.flatMap(suite => suite.assertionResults.filter(test => test.status === 'failed').map(test => codes.find(code => test.failureMessages.some(message => message.includes(code))) ?? ADMISSION_READER_PROBE.failures.journey)) ?? [])];
+          const nativeLog = await readFile(join(process.env.RUNNER_TEMP, 'admission-reader-native.out'), 'utf8').catch(() => '');
+          await writeFile(join(directory, 'result.json'), JSON.stringify({commit:process.env.GITHUB_SHA,productJourneysValidated:results?.success === true,passed:results?.numPassedTests ?? null,failed:results?.numFailedTests ?? null,skipped:results?.numPendingTests ?? null,failureCodes:failures,sayAllOnLoadDisabledObserved:nativeLog.includes(ADMISSION_READER_PROBE.automaticReadingDisabledMarker),realMessages:0},null,2)+'\n');
           await rm(join(process.env.RUNNER_TEMP, 'admission-reader-results.json'), {force:true});
           NODE
 

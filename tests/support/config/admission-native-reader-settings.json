@@ -1,0 +1,13 @@
+{
+  "general": {
+    "startingProfile": ["Default", "default"],
+    "sayAllOnLoad": false
+  },
+  "pronunciations": {},
+  "keybindings": {},
+  "profiles": {
+    "default": {
+      "profile": ["Default", "default"]
+    }
+  }
+}

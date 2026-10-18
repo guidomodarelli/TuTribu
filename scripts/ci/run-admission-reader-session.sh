@@ -4,12 +4,14 @@ set -euo pipefail
 export XDG_RUNTIME_DIR="$RUNNER_TEMP/admission-reader-runtime"
 export XDG_CONFIG_HOME="$RUNNER_TEMP/admission-reader-config"
 export XDG_CACHE_HOME="$RUNNER_TEMP/admission-reader-cache"
+export XDG_DATA_HOME="$RUNNER_TEMP/admission-reader-data"
 export GTK_A11Y=atspi
 export NO_AT_BRIDGE=0
 export ORCA_DEBUG_LOG="$RUNNER_TEMP/admission-reader-native.out"
 export ORCA_AUDIO_FILE="$RUNNER_TEMP/admission-reader-audio.raw"
-mkdir -p "$XDG_RUNTIME_DIR" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
+mkdir -p "$XDG_RUNTIME_DIR" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME/orca"
 chmod 700 "$XDG_RUNTIME_DIR"
+cp tests/support/config/admission-native-reader-settings.json "$XDG_DATA_HOME/orca/user-settings.conf"
 
 cleanup() {
   printf '%s\n' '{"phase":"reader_session_cleanup_started"}'
@@ -25,7 +27,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-dbus-update-activation-environment DISPLAY XAUTHORITY XDG_RUNTIME_DIR XDG_CONFIG_HOME XDG_CACHE_HOME GTK_A11Y NO_AT_BRIDGE
+dbus-update-activation-environment DISPLAY XAUTHORITY XDG_RUNTIME_DIR XDG_CONFIG_HOME XDG_CACHE_HOME XDG_DATA_HOME GTK_A11Y NO_AT_BRIDGE
 gsettings set org.gnome.desktop.interface toolkit-accessibility true
 gsettings set org.gnome.desktop.a11y.applications screen-reader-enabled true
 pulseaudio --start --exit-idle-time=-1

@@ -1,0 +1,105 @@
+{
+  "commit": "dcd424894f311094930f3103cf378d9dec694f39",
+  "productJourneysValidated": false,
+  "passed": 0,
+  "failed": 1,
+  "skipped": 0,
+  "failureCodes": [
+    "native_journey_failed"
+  ],
+  "realMessages": 0,
+  "runId": 39121523582,
+  "runConclusion": "failure",
+  "combinationsAttempted": 4,
+  "diagnosticCounterMeaning": "native_backend_debug_log_entries",
+  "diagnostics": [
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "chromium",
+      "width": 390,
+      "backendCommands": 9,
+      "fallbackOutputs": 5,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 6,
+      "observedWords": 1,
+      "audioPeak": 32768
+    },
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "chromium",
+      "width": 1280,
+      "backendCommands": 6,
+      "fallbackOutputs": 3,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 6,
+      "observedWords": 0,
+      "audioPeak": 32768
+    },
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "webkit",
+      "width": 390,
+      "backendCommands": 11,
+      "fallbackOutputs": 5,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 6,
+      "observedWords": 1,
+      "audioPeak": 32768
+    },
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "webkit",
+      "width": 1280,
+      "backendCommands": 14,
+      "fallbackOutputs": 6,
+      "labelInDebug": true,
+      "exactMatch": false,
+      "normalizedMatch": false,
+      "expectedWords": 6,
+      "observedWords": 1,
+      "audioPeak": 32768
+    }
+  ],
+  "combinationFailures": [
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "chromium",
+      "width": 390,
+      "code": "native_reader_speech_missing"
+    },
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "chromium",
+      "width": 1280,
+      "code": "native_reader_speech_missing"
+    },
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "webkit",
+      "width": 390,
+      "code": "native_reader_speech_missing"
+    },
+    {
+      "stage": "public_confirmation_focus",
+      "engine": "webkit",
+      "width": 1280,
+      "code": "native_reader_speech_missing"
+    }
+  ],
+  "cleanup": {
+    "keyRevoked": true,
+    "secretRemoved": true,
+    "variablesRemoved": 2,
+    "ownedBranchAbsent": true,
+    "originalBranchesPreserved": true,
+    "remainingBranches": 3,
+    "independentInventoryConfirmed": true,
+    "ownerSourceStable": true
+  }
+}

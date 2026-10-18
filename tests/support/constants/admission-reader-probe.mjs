@@ -26,6 +26,7 @@ export const ADMISSION_READER_PROBE = {
   statusPrefix: "Aviso de lectura",
   speechMarker: "SPEECH DISPATCHER: Speaking",
   fallbackSpeechMarker: "SPEECH OUTPUT:",
+  automaticReadingDisabledMarker: "WEB: Not doing SayAll due to sayAllOnLoad being False",
   outputPatterns: {
     lineSeparator: /\r?\n/u,
     markup: /<[^>]*>/gu,
