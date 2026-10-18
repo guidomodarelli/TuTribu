@@ -1303,6 +1303,13 @@
       "when": 1792264200000,
       "tag": "20261017191000_preserve_declared_whatsapp_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1792281300000,
+      "tag": "20261017235500_order_presence_admission_locks",
+      "breakpoints": true
     }
   ]
 }
