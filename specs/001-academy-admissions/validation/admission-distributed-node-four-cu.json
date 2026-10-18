@@ -1309,6 +1309,7 @@
   },
   "realMessages": 0,
   "notificationLatencyMeasured": false,
+  "separateStartupTimingMeasured": false,
   "productionConfigurationChanged": false,
   "operationalGatesClosed": []
 }
