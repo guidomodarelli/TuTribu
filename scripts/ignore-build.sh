@@ -2,8 +2,8 @@
 
 # Vercel ignoreCommand: exit 0 skips the build, exit 1 builds.
 # Dependencies are not installed yet at this step, so `npx` downloads the
-# dependency-free beez-rp at the range declared in package.json and runs
-# `beez-rp ignore-build`: only the next stable patch, minor or major version
+# dependency-free @astra-kit/rp at the range declared in package.json and runs
+# `astra-rp ignore-build`: only the next stable patch, minor or major version
 # of package.json is built. Anything that prevents a BUILD decision (no
 # Node.js, npx or network failure, gate error) skips the build.
 
@@ -16,14 +16,14 @@ if [ -z "$NODE_BINARY" ]; then
   exit 0
 fi
 
-BEEZ_RP_RANGE=$("$NODE_BINARY" -p "require('./package.json').devDependencies['beez-rp'] ?? ''" 2>/dev/null || true)
+ASTRA_RP_RANGE=$("$NODE_BINARY" -p "require('./package.json').devDependencies['@astra-kit/rp'] ?? ''" 2>/dev/null || true)
 
-if [ -z "$BEEZ_RP_RANGE" ]; then
-  echo "beez-rp is not declared in devDependencies; the version cannot be verified. Skipping build."
+if [ -z "$ASTRA_RP_RANGE" ]; then
+  echo "@astra-kit/rp is not declared in devDependencies; the version cannot be verified. Skipping build."
   exit 0
 fi
 
-GATE_OUTPUT=$(npx --yes "beez-rp@$BEEZ_RP_RANGE" ignore-build)
+GATE_OUTPUT=$(npx --yes --package "@astra-kit/rp@$ASTRA_RP_RANGE" astra-rp ignore-build)
 GATE_EXIT_CODE=$?
 echo "$GATE_OUTPUT"
 
