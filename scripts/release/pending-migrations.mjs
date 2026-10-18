@@ -9,14 +9,14 @@
  * `@next/env`), so the check always targets the database that
  * `pnpm run db:migrate` would change. Only the host is ever shown.
  *
- * `beez-rp.config.mjs` uses it as the `migrations.check` adapter of
- * `beez-rp create-version`, so every result follows the `MigrationCheck`
- * contract of beez-rp (`status`, `pending`, `target`, `reason`).
+ * `astra-rp.config.mjs` uses it as the `migrations.check` adapter of
+ * `astra-rp create-version`, so every result follows the `MigrationCheck`
+ * contract of astra-rp (`status`, `pending`, `target`, `reason`).
  *
  * @module pending-migrations
  */
 
-/** Result of checking the database, as `beez-rp create-version` expects it. */
+/** Result of checking the database, as `astra-rp create-version` expects it. */
 export const MIGRATION_STATUS = Object.freeze({
   upToDate: "up-to-date",
   pending: "pending",

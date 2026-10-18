@@ -122,6 +122,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Al cancelar una solicitud o resolver una revisión individual con teclado, el resultado recibe el foco si desaparece la acción; si lo moviste a otro control, se conserva allí.
+
 - La barra lateral ignora eventos de teclado sin tecla y mantiene operativo su atajo de navegación.
 
 - El cierre de academia y la eliminación de una tribu conservan el registro privado de sus mensajes cancelados y de los resultados que llegan para envíos ya iniciados, sin duplicarlos ni devolver su consumo.

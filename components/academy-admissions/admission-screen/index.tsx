@@ -10,13 +10,14 @@ import { ADMISSION_OVERVIEW_STATE, ADMISSION_NEXT_ACTION } from "@/src/modules/a
 import { ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ROUTES } from "@/src/constants/routes";
 import { buildOwnAdmissionRequestRoute } from "@/lib/academy-admissions/admission-routes";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import styles from "./styles.module.scss";
 
 export type AdmissionScreenProps = {
   state: AdmissionPageState | { kind: "loading" }; draft?: AdmissionDraft; confirmed?: boolean; cancelConfirmed?: boolean; phase?: typeof ADMISSION_UI_PHASE[keyof typeof ADMISSION_UI_PHASE]; now?: string;
   errorMessage?: string | null; feedback?: string | null; accountChanged?: boolean; formReady?: boolean; retryOriginal?: boolean; signInHref?: string; retryHref?: string;
   requestPage?: boolean;
+  requestStatusRef?: Ref<HTMLParagraphElement>;
   whatsappErrorMessage?: string | null;
   whatsappEditor?: ReactNode;
   verification?: ReactNode; canSubmitWithProof?: boolean; contactLocked?: boolean;
@@ -24,7 +25,7 @@ export type AdmissionScreenProps = {
 };
 
 /** @param props - Validated owned state and container actions. @returns A restrained responsive page with persistent accessible feedback. */
-export function AdmissionScreen({ state, draft = { phone: "", country: "", message: "" }, confirmed = false, cancelConfirmed = false, phase = ADMISSION_UI_PHASE.idle, now, errorMessage, feedback, accountChanged = false, formReady = false, retryOriginal = false, signInHref = ROUTES.auth.signIn, retryHref, requestPage = false, verification, canSubmitWithProof = false, contactLocked = false, whatsappErrorMessage, whatsappEditor, onChange, onConfirm, onCancelConfirm, onSubmit, onCancel, onRead, onRetryOriginal, onReloadAccount }: AdmissionScreenProps) {
+export function AdmissionScreen({ state, draft = { phone: "", country: "", message: "" }, confirmed = false, cancelConfirmed = false, phase = ADMISSION_UI_PHASE.idle, now, errorMessage, feedback, accountChanged = false, formReady = false, retryOriginal = false, signInHref = ROUTES.auth.signIn, retryHref, requestPage = false, requestStatusRef, verification, canSubmitWithProof = false, contactLocked = false, whatsappErrorMessage, whatsappEditor, onChange, onConfirm, onCancelConfirm, onSubmit, onCancel, onRead, onRetryOriginal, onReloadAccount }: AdmissionScreenProps) {
   const ready = state.kind === "ready", loading = state.kind === "loading";
   const busy = phase === ADMISSION_UI_PHASE.writing || phase === ADMISSION_UI_PHASE.checking;
   const blocked = busy || phase === ADMISSION_UI_PHASE.uncertain || accountChanged || !formReady;
@@ -39,7 +40,7 @@ export function AdmissionScreen({ state, draft = { phone: "", country: "", messa
     <section className={styles.AdmissionScreen__content} aria-label="Admisión a la academia">
       {loading ? <p role="status" className={styles.AdmissionScreen__loading}>{ADMISSION_UI_COPY.reading}</p> : state.kind === "unavailable" ? <p role="alert">{state.message}</p> : accountChanged ? null : <>
         {!stalePendingOverview && <p role="status">{state.overview.safeMessage}</p>}
-        {state.request && <RequestStatus request={state.request} now={now ?? state.renderedAt} confirmed={cancelConfirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={null} retryHref={readyToRetry ? retryHref : undefined} onConfirm={(value) => onCancelConfirm?.(value)} onCancel={() => onCancel?.()} />}
+        {state.request && <RequestStatus request={state.request} statusRef={requestStatusRef} now={now ?? state.renderedAt} confirmed={cancelConfirmed} disabled={blocked} busy={phase === ADMISSION_UI_PHASE.writing} errorMessage={null} retryHref={readyToRetry ? retryHref : undefined} onConfirm={(value) => onCancelConfirm?.(value)} onCancel={() => onCancel?.()} />}
         {whatsappEditor}
         {!requestPage && state.request && <Link href={buildOwnAdmissionRequestRoute(state.overview.tribe.slug, state.request.id)}>Ver solicitud</Link>}
         {verification}

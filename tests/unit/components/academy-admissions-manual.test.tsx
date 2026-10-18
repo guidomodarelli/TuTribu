@@ -1,5 +1,5 @@
 /** Exercises real React, beez-ui, Motion and hydration with only owned transport ports replaced. @module academy-admissions-manual-tests */
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";
 import { Activity, type ReactNode } from "react";
@@ -511,10 +511,32 @@ describe("manual admission screen", () => {
     await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirmCancel })).toBeEnabled());
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirmCancel }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Cancelar solicitud" })).toBeEnabled());
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar solicitud" }));
+    const cancellationButton = screen.getByRole("button", { name: "Cancelar solicitud" });
+    act(() => cancellationButton.focus());
+    expect(cancellationButton).toHaveFocus();
+    fireEvent.click(cancellationButton);
     await waitFor(() => expect(screen.queryByRole("button", { name: "Cancelar solicitud" })).not.toBeInTheDocument());
     expect(data.client.cancel).toHaveBeenCalledWith("synthetic-academy", REQUEST_ID, expect.objectContaining({ expectedVersion: 1, confirmed: true }), expect.any(AbortSignal));
     expect(router.refresh).not.toHaveBeenCalled();
+    expect(within(screen.getByRole("region", { name: "Estado de tu solicitud" })).getByText(ADMISSION_UI_COPY.cancelled, { exact: true })).toHaveFocus();
+  });
+
+  it("should preserve a different focused control when cancellation completes asynchronously", async () => {
+    const data = fixture(); data.state.request = data.request; data.state.overview.state = "pending";
+    const response = Promise.withResolvers<Awaited<ReturnType<AdmissionBrowserClient["cancel"]>>>();
+    vi.mocked(data.client.cancel).mockImplementation(() => response.promise);
+    vi.mocked(data.client.own).mockResolvedValue({ status: "ready", value: { ...data.request, status: "cancelled", version: 2 } });
+    render(<AdmissionContainer initialState={data.state} requestPage client={data.client} />, { wrapper: Providers });
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirmCancel })).toBeEnabled());
+    fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_UI_COPY.confirmCancel }));
+    const cancellationButton = screen.getByRole("button", { name: ADMISSION_UI_COPY.cancel });
+    act(() => cancellationButton.focus()); fireEvent.click(cancellationButton);
+    await waitFor(() => expect(data.client.cancel).toHaveBeenCalledOnce());
+    const home = screen.getByRole("link", { name: ADMISSION_UI_COPY.home });
+    act(() => home.focus());
+    await act(async () => response.resolve({ status: "ready", value: { admissionRequestId: REQUEST_ID, version: 2, status: "cancelled" } }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: ADMISSION_UI_COPY.cancel })).not.toBeInTheDocument());
+    expect(home).toHaveFocus(); expect(router.refresh).not.toHaveBeenCalled();
   });
 
   it("should abort on unmount and preserve the original write for later reconciliation", async () => {
