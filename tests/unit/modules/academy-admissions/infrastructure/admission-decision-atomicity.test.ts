@@ -595,7 +595,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
       let securityReads = 0;
       let delayAccountDelivery = false;
       let delayedActualAccount = false;
-      let accountsReadAfterDeadline = 0;
       // The own executor decorates delivery of an actual pg result; no SDK, SQL or auth result is mocked.
       const expiringWriter = new PostgresAdmissionRequestRepository((scope, run) => database.withContext({ userId: scope.userId, email: null }, async (transaction) => {
         currentTransaction = transaction;
@@ -605,12 +604,11 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
             const response = await transaction.execute(...argumentsList);
             const accountRow = response.rows[0];
             if (delayAccountDelivery && accountRow && accountRow.session_id === fixture.leaderSessionId && typeof accountRow.expires_at === "string") {
-              accountsReadAfterDeadline += 1;
-              if (accountsReadAfterDeadline === 2) {
-                delayAccountDelivery = false;
-                delayedActualAccount = true;
-                await transaction.execute(sql`select pg_sleep(greatest(0,extract(epoch from ${accountRow.expires_at}::timestamptz-clock_timestamp()))+0.2)`);
-              }
+              // Delay the real current-account response, independent of how many earlier presence reads exist.
+              // Every SQL call and row remains native; this narrow observer introduces only a real server wait.
+              delayAccountDelivery = false;
+              delayedActualAccount = true;
+              await transaction.execute(sql`select pg_sleep(greatest(0,extract(epoch from ${accountRow.expires_at}::timestamptz-clock_timestamp()))+0.2)`);
             }
             return response;
           };
@@ -628,7 +626,6 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
       const expiredIntent = { ...retry, operationId: randomUUID(), expectedVersion: 4 };
       await expect(expiringWriter.allowRetry(expiredIntent)).rejects.toMatchObject({ code: "authentication_required" });
       expect(delayedActualAccount).toBe(true);
-      expect(accountsReadAfterDeadline).toBe(2);
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select version,retry_allowed_at from public.academy_admission_requests where id=${requestId}`)).rows)).toEqual(expiryBaseline);
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select state,public_result from public.academy_admission_operations where idempotency_key=${expiredIntent.operationId}`)).rows)).toEqual([{ state: "started", public_result: null }]);
       expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as retry_audit from public.academy_admission_audit_events where resource_id=${requestId} and event_type='retry_allowed'`)).rows)).toEqual([{ retry_audit: 1 }]);

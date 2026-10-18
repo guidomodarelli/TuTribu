@@ -9,6 +9,9 @@ import { ADMISSION_ACTION } from "@/src/modules/academy-admissions/constants/adm
 import { TRIBE_MEMBER_ROLE } from "@/src/modules/tribes/constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "@/src/modules/tribes/constants/tribe-page-access";
 
+/** Consumes only current owned actor fields; the fixed tribe remains with the caller. */
+type CurrentActorRow = { actor: Pick<AdmissionActorFacts, "userId" | "role" | "status"> | null };
+
 /** A caller binds the actual server session and fixed action, never a browser role. */
 export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizationReader {
   /**
@@ -30,12 +33,13 @@ export class PostgresAdmissionAuthorizationReader implements AdmissionAuthorizat
    * @returns Current membership or null fields for an authenticated nonmember; null for unavailable scope/session.
    */
   async getCurrentActor(tribeId: string, userId: string): Promise<AdmissionActorFacts | null> {
-    const actor = (await this.database.execute<{ actor: string | null }>(sql`select public.current_app_user_id() as actor`)).rows[0]?.actor;
-    if (!actor || actor !== userId) return null;
-    // The existing projection returns facts for authenticated nonmembers too; action policy stays in domain.
-    // Its VOLATILE PL/pgSQL statements preserve fresh snapshots and final expiry after ordered lock waits.
-    const current = (await this.database.execute<{ user_id: string; role: AdmissionActorFacts["role"]; status: AdmissionActorFacts["status"] }>(sql`select user_id,role,status from public.read_admission_reviewer_context(${tribeId},${this.sessionId})`)).rows[0];
-    return current ? { userId: current.user_id, tribeId, role: current.role, status: current.status } : null;
+    // CASE rejects a foreign/missing native actor before invoking the locking projection.
+    // The existing VOLATILE helper retains fresh snapshots and final expiry after ordered waits.
+    const current = (await this.database.execute<CurrentActorRow>(sql`select case when public.current_app_user_id()=${userId} then (
+      select jsonb_build_object('userId',current_actor.user_id,'role',current_actor.role,'status',current_actor.status)
+      from public.read_admission_reviewer_context(${tribeId},${this.sessionId}) current_actor
+    ) else null end as actor`)).rows[0]?.actor;
+    return current?.userId === userId ? { userId: current.userId, tribeId, role: current.role, status: current.status } : null;
   }
 
   /**

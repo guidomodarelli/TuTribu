@@ -129,9 +129,10 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
       ? await this.compose(database).lockSubmissionScope(scope)
       : Boolean((await database.execute(sql`select id from public.tribes where id=${scope.tribeId} ${sql.raw(scopeLock)}`)).rows[0]);
     if (!locked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
-    await database.execute(sql`select id from public."user" where id=${scope.userId} for share`);
-    const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: scope.userId, sessionId: scope.sessionId }), (_identity, run) => run(database));
-    if (!await accounts.getAuthenticatedAccount()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    const account = (await database.execute<{ id: string }>(sql`select id from public."user" where id=${scope.userId} for share`)).rows[0];
+    if (!account) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
+    // Current native session/actor facts provide the same presence gate under their ordered locks.
+    // Rich Google identity and recency are read below only where those facts are required.
     const actor = await new PostgresAdmissionAuthorizationReader(database, scope.sessionId, ADMISSION_ACTION.readOwnRequest).getCurrentActor(scope.tribeId, scope.userId);
     if (!actor) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
     if (!requestId) return true;
@@ -143,6 +144,7 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     if (operation === ADMISSION_OPERATION_TYPE.allowRetry) {
       if (actor.role !== TRIBE_MEMBER_ROLE.leader || actor.status !== TRIBE_MEMBERSHIP_STATUS.active) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.permissionDenied);
       await database.execute(sql`select intent_id from public.recent_authentication_evidence where user_id=${scope.userId} and session_id=${scope.sessionId} and tribe_id=${scope.tribeId} and operation=${REAUTHENTICATION_OPERATION.advanceAdmissionRetry} and resource_id=${requestId} for share`);
+      const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: scope.userId, sessionId: scope.sessionId }), (_identity, run) => run(database));
       const current = await accounts.getAuthenticatedAccount();
       if (!current) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
       if (!current?.googleAccount) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.reauthenticationRequired);

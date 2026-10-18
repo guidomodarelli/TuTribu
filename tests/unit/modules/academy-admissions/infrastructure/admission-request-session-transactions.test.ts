@@ -12,7 +12,7 @@ import { ADMISSION_OUTCOME } from "@/src/modules/academy-admissions/constants/ad
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission session transaction scope", () => {
-  it("should use three real checkouts and retain revocation and changed-cookie rejection between commits", async () => {
+  it("should use three real checkouts and retain revocation, account deletion and changed-cookie rejection between commits", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
       const { fixture, applicant } = await prepareAllowlistAdmission(database);
       /** @param participant - Native account/session seeded on the owned branch. @param afterClaim - Own commit boundary, never a driver hook. @returns Real product use cases and a controllable trusted identity source. */
@@ -53,10 +53,15 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native admission s
       const renewed = await applicant();
       const renewedCommands = commands(renewed, async () => { renewedCommands.changeIdentity({ userId: renewed.userId, sessionId: randomUUID() }); });
       expect(await renewedCommands.useCases.submit.execute({ ...renewed.input, message: input.message })).toMatchObject({ ok: false, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired } });
+      const removed = await applicant();
+      const removedCommands = commands(removed, () => database.withContext(fixture.own, async (transaction) => {
+        await transaction.execute(sql`delete from public."user" where id=${removed.userId}`);
+      }));
+      expect(await removedCommands.useCases.submit.execute({ ...removed.input, message: input.message })).toMatchObject({ ok: false, failure: { code: ADMISSION_ERROR_CODE.authenticationRequired } });
 
       const facts = await database.withContext(fixture.own, async (transaction) => (await transaction.execute<{ requests: number; members: number; deliveries: number }>(sql`select
         (select count(*)::int from public.academy_admission_requests where tribe_id=${fixture.tribeId}) as requests,
-        (select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and user_id in (${first.userId},${revoked.userId},${changed.userId},${renewed.userId})) as members,
+        (select count(*)::int from public.tribe_members where tribe_id=${fixture.tribeId} and user_id in (${first.userId},${revoked.userId},${changed.userId},${renewed.userId},${removed.userId})) as members,
         (select count(*)::int from public.message_deliveries where tribe_id=${fixture.tribeId}) as deliveries`)).rows[0]);
       expect(facts).toEqual({ requests: 1, members: 0, deliveries: 0 });
       expect(database.readPoolMetrics().waitingCount).toBe(0);

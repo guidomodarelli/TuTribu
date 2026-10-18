@@ -30,6 +30,22 @@ async function prepareAuthorization(database: AcademyAdmissionTestDatabase) {
   return { leaderId, applicantId, guardianId, tribeId, foreignTribeId, requestId, sessions };
 }
 
+describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native actor guard before scope locks", () => {
+  it("should reject a missing or mismatched SQL actor without touching a locked tribe", async () => {
+    await withAcademyAdmissionDatabase(async (database) => {
+      const fixture = await prepareAuthorization(database);
+      await database.withContext({ userId: fixture.leaderId, email: null }, async (holder) => {
+        await holder.execute(sql`select id from public.tribes where id=${fixture.tribeId} for update`);
+        for (const userId of [fixture.applicantId, null]) await database.withContext({ userId, email: null }, async (transaction) => {
+          await transaction.execute(sql`select set_config(${ADMISSION_AUTHORIZATION_TEST.statementTimeoutSetting},${String(ADMISSION_AUTHORIZATION_TEST.mismatchStatementTimeoutMs)},true)`);
+          const reader = new PostgresAdmissionAuthorizationReader(transaction, fixture.sessions.applicant, ADMISSION_ACTION.readOwnRequest);
+          expect(await reader.getCurrentActor(fixture.tribeId, fixture.leaderId)).toBeNull();
+        }, "non_bypass");
+      });
+    }, { concurrentTransactions: ADMISSION_AUTHORIZATION_TEST.concurrentTransactions });
+  }, ADMISSION_AUTHORIZATION_TEST.timeoutMs);
+});
+
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("admission current authorization storage", () => {
   it("should resolve canonical leadership instead of the historical creator and retain a nonmember applicant", async () => {
     await withAcademyAdmissionDatabase(async (database) => {
