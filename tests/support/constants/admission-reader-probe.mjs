@@ -27,6 +27,17 @@ export const ADMISSION_READER_PROBE = {
   speechMarker: "SPEECH DISPATCHER: Speaking",
   fallbackSpeechMarker: "SPEECH OUTPUT:",
   automaticReadingDisabledMarker: "WEB: Not doing SayAll due to sayAllOnLoad being False",
+  speechPhases: { setup: "setup", focus: "focus", live: "live" },
+  liveRegionMarkers: {
+    textInsertion: "object:text-changed:insert",
+    handled: "WEB: Event to be handled as live region",
+    rejected: "WEB: Ignoring because live region event not to be handled.",
+    inactiveDocument: "WEB: Live region source is not in active tab.",
+    focusedAlert: "WEB: Focused source will be presented as part of alert",
+    queuePresentation: "vvvvv PRESENT LIVE REGION MESSAGE vvvvv",
+    monitoringDisabled: "INFO: Not presenting message because monitoring is off",
+    pageSwitchInsertion: "WEB: Insertion is believed to be due to page switch",
+  },
   actionKeyWords: ["tab", "space"],
   outputPatterns: {
     versionLine: /^(?:(?<plainVersion>\d+\.\d+(?:\.\d+)?)\s*$|Orca version (?<detailedVersion>\d+\.\d+(?:\.\d+)?)(?=,|\s|$))/gmu,

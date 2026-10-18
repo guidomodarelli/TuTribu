@@ -1,0 +1,47 @@
+{
+  "scope": "reader-diagnostic-and-resource-selector-contracts",
+  "baseCommit": "1c6501cc905747f39be3de344fcdec433c8f513d",
+  "environment": {
+    "node": "24.21.0",
+    "platform": "win32",
+    "nativeReaderExecutedLocally": false
+  },
+  "checks": {
+    "tests": {
+      "passed": 20,
+      "failed": 0,
+      "omitted": 0,
+      "files": 2
+    },
+    "testTypecheckPassed": true,
+    "lintPassed": true
+  },
+  "sourceHashFormat": "sha256:utf8:lf",
+  "sourceSnapshotAfterTests": [
+    {
+      "path": "scripts/ci/run-admission-reader-probe.mjs",
+      "sha256": "d2a8c441bfb86114d006c1f06b48465155059a200acfddf3aa197e3385aa20ba"
+    },
+    {
+      "path": "tests/support/admission-reader-observation.mjs",
+      "sha256": "a516af4084a5d829ea9a7d9aca433db9c91e5ccc8fa4ff9d6f7cd6efeeabaec9"
+    },
+    {
+      "path": "tests/support/constants/admission-reader-probe.mjs",
+      "sha256": "a5b16f1e5293471b19dcb279c56cabd55d8e69b16042fceaa227542a47ef6e77"
+    },
+    {
+      "path": "tests/support/admission-reader-observation.test.ts",
+      "sha256": "ad1ece36946e2275ea9ab4e5afe859742fa007bc3c35adbd3f909ffca4ed2fdf"
+    },
+    {
+      "path": "tests/unit/components/academy-admissions-messaging-resources.test.tsx",
+      "sha256": "8dfb624d6301b5df7a27a7220f5e9a88fd2192c3dd2887a72b0cbee62d680ff9"
+    }
+  ],
+  "acceptanceChanged": false,
+  "productRuntimeChanged": false,
+  "productionSqlExecuted": false,
+  "realMessages": 0,
+  "pendingTasks": 14
+}

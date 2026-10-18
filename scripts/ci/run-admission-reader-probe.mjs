@@ -65,6 +65,8 @@ try {
   for (const item of cases) {
     const observation = { caseId: item.id, engine: item.engine, width: item.width, height: PROBE.height, passed: false };
     const caseLogOffset = (await readerLog()).length;
+    let speechPhaseOffset = caseLogOffset, expectedSpeech = item.focus;
+    observation.speechPhase = PROBE.speechPhases.setup;
     let browser;
     try {
       browser = await ({ chromium, webkit })[item.engine].launch({ headless: false, ...(item.engine === "chromium" ? { args: ["--force-renderer-accessibility", "--disable-features=Translate"] } : {}) });
@@ -79,6 +81,8 @@ try {
       observation.initialInterruptSent = true;
       await quiet();
       let speechOffset = (await readerLog()).length, audioOffset = await audioSize();
+      speechPhaseOffset = speechOffset;
+      observation.speechPhase = PROBE.speechPhases.focus;
       const button = page.getByRole("button", { name: item.focus, exact: true });
       for (let tabIndex = 0; tabIndex < PROBE.maximumTabs; tabIndex += 1) {
         nativeKey(item.title, PROBE.nativeKeys.next);
@@ -90,6 +94,8 @@ try {
       observation.focusSpeechObserved = true; observation.focusAudioPeak = await audioPeak(audioOffset);
       await quiet();
       speechOffset = (await readerLog()).length; audioOffset = await audioSize();
+      speechPhaseOffset = speechOffset; expectedSpeech = item.status;
+      observation.speechPhase = PROBE.speechPhases.live;
       nativeKey(item.title, PROBE.nativeKeys.invoke);
       await until(async () => await page.getByRole("status").textContent() === item.status, PROBE.failures.status);
       await until(async () => hasNativeReaderSpeech((await readerLog()).slice(speechOffset), item.status), PROBE.failures.speech);
@@ -101,7 +107,8 @@ try {
       observation.failureCode = error instanceof Error && Object.values(PROBE.failures).includes(error.message) ? error.message : PROBE.failures.runtime;
       observation.failureName = error instanceof Error ? error.name : "unknown";
       observation.failureHint = error instanceof Error ? error.message.split("\n")[0].slice(0, PROBE.maximumFailureHintCharacters) : "unknown";
-      const observedLog = (await readerLog()).slice(caseLogOffset);
+      const recordedLog = await readerLog();
+      const observedLog = recordedLog.slice(caseLogOffset);
       observation.nativeSpeechTail = observedLog.split(/\r?\n/u).filter((line) => line.includes(PROBE.speechMarker)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.replace(/<[^>]*>/gu, "").slice(0, PROBE.maximumDiagnosticCharacters));
       observation.scriptDiagnostics = [...new Set(observedLog.split(/\r?\n/u).filter((line) => /(?:SCRIPT|Script).*(?:WebKit|Chromium|chromium|webkit|MiniBrowser|default|gtk)/u.test(line)).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters)))].slice(-PROBE.maximumDiagnosticLines);
       observation.nativeEventTail = observedLog.split(/\r?\n/u).filter((line) => line.includes(item.status) || /(?:LiveRegion|live region|object:text-changed)/u.test(line)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters));
@@ -114,7 +121,7 @@ try {
       } catch (inspectionError) { observation.nativeAccessibility = { unavailable: true, failureName: inspectionError instanceof Error ? inspectionError.name : "unknown" }; }
       observation.focusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.focus);
       observation.statusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.status);
-      observation.speechDiagnostics = diagnoseNativeReaderSpeech(observedLog, item.focus);
+      observation.speechDiagnostics = diagnoseNativeReaderSpeech(recordedLog.slice(speechPhaseOffset), expectedSpeech);
       process.exitCode = 1;
     } finally { await browser?.close(); }
     report.cases.push(observation);

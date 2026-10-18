@@ -18,11 +18,36 @@ export function hasNativeReaderSpeech(log, canary) {
   return log.split(ADMISSION_READER_PROBE.outputPatterns.lineSeparator).some((line) => line.includes(ADMISSION_READER_PROBE.speechMarker) && line.replace(ADMISSION_READER_PROBE.outputPatterns.markup, "").includes(canary));
 }
 
+/** @typedef {{textInsertionEntries:number,handledEntries:number,rejectedEntries:number,inactiveDocumentEntries:number,focusedAlertEntries:number,queuePresentationEntries:number,monitoringDisabledEntries:number,pageSwitchInsertionEntries:number}} NativeLiveRegionPipeline */
+
+/**
+ * Counts entries from Orca's pinned web event pipeline without retaining labels or accepting them as speech.
+ * A queue marker precedes presentation and does not prove audible output; counts are log entries, not distinct events.
+ * @param {string} log - Private native debug output from the bounded observation phase.
+ * @returns {NativeLiveRegionPipeline} Only fixed numeric counters, with no event content or object identity.
+ */
+export function diagnoseNativeLiveRegionPipeline(log) {
+  const lines = log.split(ADMISSION_READER_PROBE.outputPatterns.lineSeparator);
+  const markers = ADMISSION_READER_PROBE.liveRegionMarkers;
+  /** @param {string} marker - Fixed provider debug marker. @returns {number} Matching log entries in this phase. */
+  const countEntries = (marker) => lines.filter((line) => line.includes(marker)).length;
+  return {
+    textInsertionEntries: countEntries(markers.textInsertion),
+    handledEntries: countEntries(markers.handled),
+    rejectedEntries: countEntries(markers.rejected),
+    inactiveDocumentEntries: countEntries(markers.inactiveDocument),
+    focusedAlertEntries: countEntries(markers.focusedAlert),
+    queuePresentationEntries: countEntries(markers.queuePresentation),
+    monitoringDisabledEntries: countEntries(markers.monitoringDisabled),
+    pageSwitchInsertionEntries: countEntries(markers.pageSwitchInsertion),
+  };
+}
+
 /**
  * Projects native output into counters and flags without retaining a transcript or changing acceptance.
  * @param {string} log - Private output captured after the native action began.
  * @param {string} expected - Controlled product label expected during this phase.
- * @returns {{backendLogEntries:number,fallbackOutputs:number,labelInDebug:boolean,exactMatch:boolean,normalizedMatch:boolean,expectedWords:number,observedWords:number,actionKeyEchoOutputs:number}} Safe diagnostic metadata only.
+ * @returns {{backendLogEntries:number,fallbackOutputs:number,labelInDebug:boolean,exactMatch:boolean,normalizedMatch:boolean,expectedWords:number,observedWords:number,actionKeyEchoOutputs:number,liveRegionPipeline:NativeLiveRegionPipeline}} Safe diagnostic metadata only.
  */
 export function diagnoseNativeReaderSpeech(log, expected) {
   const { outputPatterns, speechMarker, fallbackSpeechMarker } = ADMISSION_READER_PROBE;
@@ -41,6 +66,7 @@ export function diagnoseNativeReaderSpeech(log, expected) {
     expectedWords: words.length,
     observedWords: words.filter((word) => spokenWords.has(word)).length,
     actionKeyEchoOutputs: utterances.filter((utterance) => ADMISSION_READER_PROBE.actionKeyWords.includes(utterance.trim().toLowerCase())).length,
+    liveRegionPipeline: diagnoseNativeLiveRegionPipeline(log),
   };
 }
 

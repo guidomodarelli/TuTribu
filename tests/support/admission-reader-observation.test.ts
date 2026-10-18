@@ -1,7 +1,12 @@
 /** @vitest-environment node */
 /** Distinguishes native speech backend observations from DOM/debug fallback and actual audio silence. */
 import { describe, expect, it } from "vitest";
-import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak, parseNativeReaderVersion } from "./admission-reader-observation.mjs";
+import { diagnoseNativeLiveRegionPipeline, diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak, parseNativeReaderVersion } from "./admission-reader-observation.mjs";
+
+const emptyLiveRegionPipeline = {
+  textInsertionEntries: 0, handledEntries: 0, rejectedEntries: 0, inactiveDocumentEntries: 0,
+  focusedAlertEntries: 0, queuePresentationEntries: 0, monitoringDisabledEntries: 0, pageSwitchInsertionEntries: 0,
+};
 
 describe("native reader observation boundary", () => {
   it("should read the bare version reported by older Orca releases", () => {
@@ -29,6 +34,7 @@ describe("native reader observation boundary", () => {
     expect(diagnoseNativeReaderSpeech(log, "Control de lectura ab12")).toEqual({
       backendLogEntries: 1, fallbackOutputs: 0, labelInDebug: true, exactMatch: true,
       normalizedMatch: true, expectedWords: 4, observedWords: 4, actionKeyEchoOutputs: 0,
+      liveRegionPipeline: emptyLiveRegionPipeline,
     });
   });
 
@@ -44,6 +50,7 @@ describe("native reader observation boundary", () => {
     expect(diagnoseNativeReaderSpeech(log, "Confirmo cancelar solicitud")).toEqual({
       backendLogEntries: 1, fallbackOutputs: 1, labelInDebug: true, exactMatch: false,
       normalizedMatch: false, expectedWords: 3, observedWords: 0, actionKeyEchoOutputs: 0,
+      liveRegionPipeline: emptyLiveRegionPipeline,
     });
   });
 
@@ -52,6 +59,7 @@ describe("native reader observation boundary", () => {
     expect(diagnoseNativeReaderSpeech(log, "Confirmo que quiero cancelar esta solicitud")).toEqual({
       backendLogEntries: 2, fallbackOutputs: 0, labelInDebug: false, exactMatch: false,
       normalizedMatch: true, expectedWords: 6, observedWords: 6, actionKeyEchoOutputs: 0,
+      liveRegionPipeline: emptyLiveRegionPipeline,
     });
     expect(hasNativeReaderSpeech(log, "Confirmo que quiero cancelar esta solicitud")).toBe(false);
   });
@@ -61,6 +69,7 @@ describe("native reader observation boundary", () => {
     expect(diagnoseNativeReaderSpeech(log, "Guardar conexión")).toEqual({
       backendLogEntries: 1, fallbackOutputs: 0, labelInDebug: false, exactMatch: false,
       normalizedMatch: false, expectedWords: 2, observedWords: 0, actionKeyEchoOutputs: 0,
+      liveRegionPipeline: emptyLiveRegionPipeline,
     });
   });
 
@@ -68,6 +77,45 @@ describe("native reader observation boundary", () => {
     const log = "SPEECH DISPATCHER: Speaking 'tab' as string\nSPEECH DISPATCHER: Speaking '<speak>tab</speak>' \nSPEECH OUTPUT: 'space'";
     expect(diagnoseNativeReaderSpeech(log, "Cancelar solicitud").actionKeyEchoOutputs).toBe(1);
     expect(diagnoseNativeReaderSpeech("SPEECH DISPATCHER: Speaking '<speak>New tab page</speak>'", "Cancelar solicitud").actionKeyEchoOutputs).toBe(0);
+  });
+
+  it("should distinguish inactive-document rejection from handling and queue presentation without accepting debug text as speech", () => {
+    const log = [
+      "OBJECT EVENT: object:text-changed:insert private-contact@synthetic.test",
+      "WEB: Live region source is not in active tab.",
+      "WEB: Ignoring because live region event not to be handled.",
+      "OBJECT EVENT: object:text-changed:insert Aviso esperado",
+      "WEB: Event to be handled as live region",
+      "vvvvv PRESENT LIVE REGION MESSAGE vvvvv",
+      "^^^^^ PRESENT LIVE REGION MESSAGE ^^^^^",
+    ].join("\n");
+    const expectedPipeline = {
+      ...emptyLiveRegionPipeline, textInsertionEntries: 2, handledEntries: 1,
+      rejectedEntries: 1, inactiveDocumentEntries: 1, queuePresentationEntries: 1,
+    };
+    expect(diagnoseNativeLiveRegionPipeline(log)).toEqual(expectedPipeline);
+    const diagnostic = diagnoseNativeReaderSpeech(log, "Aviso esperado");
+    expect(diagnostic.exactMatch).toBe(false);
+    expect(diagnostic.backendLogEntries).toBe(0);
+    expect(diagnostic.liveRegionPipeline).toEqual(expectedPipeline);
+  });
+
+  it("should count focused alerts, disabled monitoring and page-switch filters without copying their private values", () => {
+    const log = [
+      "WEB: Focused source will be presented as part of alert private-contact@synthetic.test",
+      "INFO: Not presenting message because monitoring is off",
+      "WEB: Insertion is believed to be due to page switch",
+      "^^^^^ PRESENT LIVE REGION MESSAGE ^^^^^",
+    ].join("\r\n");
+    expect(diagnoseNativeLiveRegionPipeline(log)).toEqual({
+      ...emptyLiveRegionPipeline, focusedAlertEntries: 1,
+      monitoringDisabledEntries: 1, pageSwitchInsertionEntries: 1,
+    });
+    expect(hasNativeReaderSpeech(log, "private-contact@synthetic.test")).toBe(false);
+  });
+
+  it("should report an empty pipeline for absent native events", () => {
+    expect(diagnoseNativeLiveRegionPipeline("")).toEqual(emptyLiveRegionPipeline);
   });
 
   it("should distinguish actual signed PCM output from silence", () => {
