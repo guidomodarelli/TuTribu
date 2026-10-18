@@ -8,6 +8,7 @@ on:
       - "scripts/ci/run-admission-reader-probe.*"
       - "scripts/ci/run-admission-reader-session.sh"
       - "tests/support/admission-reader-observation.*"
+      - "tests/support/admission-reader-probe-page.*"
       - "tests/support/admission-reader-atspi.py"
       - "tests/support/admission-browser-native-focus.mjs"
       - "tests/support/config/admission-native-reader-*.json"

@@ -3,15 +3,20 @@ import { execFileSync } from "node:child_process";
 import { readFile, stat, open } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { ADMISSION_READER_PROBE as SETTINGS } from "./constants/admission-reader-probe.mjs";
-import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
+import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, hasNativeReaderTargetFocus, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
 import { configureAdmissionBrowserNativeFocus } from "./admission-browser-native-focus.mjs";
 
-/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number,nativeAccessibility:unknown,focusEmulationDisabled:boolean})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
+/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number,nativeAccessibility:unknown,nativeControlFocusAtFailure:unknown,focusEmulationDisabled:boolean})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
 export function createAdmissionNativeReader({ onFailure } = {}) {
   if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY) throw new Error("AdmissionNativeReader.start failed: disposable_linux_display_required");
   const debugPath = process.env.ORCA_DEBUG_LOG, audioPath = process.env.ORCA_AUDIO_FILE;
   if (!debugPath || !audioPath) throw new Error("AdmissionNativeReader.start failed: capture_paths_required");
   let focusEmulationDisabled = false;
+  /** @type {import('@playwright/test').Page|undefined} */
+  let focusedPage;
+  /** @type {import('@playwright/test').Locator|undefined} */
+  let focusedTarget;
+  let focusedLabel = "";
   const log = () => readFile(debugPath, "utf8").catch((error) => { if (error.code === "ENOENT") return ""; throw error; });
   const size = async () => (await stat(audioPath).catch((error) => { if (error.code === "ENOENT") return null; throw error; }))?.size ?? 0;
   /** @param {number} offset - Beginning of this phase. @returns {Promise<number>} Actual PCM peak in the bounded phase interval. */
@@ -60,6 +65,11 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
   async function assertDocumentFocus(page) {
     if (!await page.evaluate(() => document.hasFocus())) throw new Error(SETTINGS.failures.focus);
   }
+  /** @param {import('@playwright/test').Page} page - Owned page and the last explicitly located control. @returns {Promise<void>} Current DOM and OS focus before input. */
+  async function assertControlFocus(page) {
+    await assertDocumentFocus(page);
+    if (focusedPage !== page || !focusedTarget || !await focusedTarget.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement) || !hasNativeReaderTargetFocus(inspectNativeFocus(focusedLabel))) throw new Error(SETTINGS.failures.focus);
+  }
   /** @param {string} expected - Own safe UI message. @param {{logOffset:number,audioOffset:number}} mark - Capture before the action. @returns {Promise<{speechObserved:boolean,audioPeak:number}>} Verified native speech and audio. */
   async function hear(expected, mark) {
     try {
@@ -67,7 +77,7 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
       await until(async () => await peak(mark.audioOffset) > SETTINGS.audiblePeak, SETTINGS.failures.audio);
       return { speechObserved: true, audioPeak: await peak(mark.audioOffset), focusEmulationDisabled };
     } catch (error) {
-      if (onFailure) await onFailure({ ...diagnoseNativeReaderSpeech((await log()).slice(mark.logOffset), expected), audioPeak: await peak(mark.audioOffset), nativeAccessibility: inspectNativeFocus(expected), focusEmulationDisabled });
+      if (onFailure) await onFailure({ ...diagnoseNativeReaderSpeech((await log()).slice(mark.logOffset), expected), audioPeak: await peak(mark.audioOffset), nativeAccessibility: inspectNativeFocus(expected), nativeControlFocusAtFailure: focusedLabel ? inspectNativeFocus(focusedLabel) : null, focusEmulationDisabled });
       throw error;
     }
   }
@@ -76,6 +86,7 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
   return {
     /** @param {import('@playwright/test').Page} page - Genuine current product page. @returns {Promise<void>} Ready native input with the introductory utterance interrupted normally. */
     async ready(page) {
+      focusedPage = undefined; focusedTarget = undefined; focusedLabel = "";
       focusEmulationDisabled = await configureAdmissionBrowserNativeFocus(page);
       await page.bringToFront();
       await until(async () => { try { assertWindow(await page.title()); return true; } catch { return false; } }, SETTINGS.failures.window);
@@ -89,15 +100,18 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
       for (let index = 0; index < SETTINGS.maximumProductTabs; index += 1) {
         await key(page, SETTINGS.nativeKeys.next);
         await delay(SETTINGS.pollMs);
-        if (await target.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement)) return hear(label, start);
+        if (await target.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement) && hasNativeReaderTargetFocus(inspectNativeFocus(label))) {
+          focusedPage = page; focusedTarget = target; focusedLabel = label;
+          return hear(label, start);
+        }
       }
       throw new Error(SETTINGS.failures.focus);
     },
     /** @param {import('@playwright/test').Page} page - Owned product page. @returns {Promise<void>} After a real Space press. */
-    async activate(page) { await assertDocumentFocus(page); await key(page, SETTINGS.nativeKeys.invoke); },
+    async activate(page) { await assertControlFocus(page); await key(page, SETTINGS.nativeKeys.invoke); },
     /** @param {import('@playwright/test').Page} page - Owned product page. @param {string} value - Synthetic operator input, never logged. @returns {Promise<void>} After real typing. */
     async type(page, value) {
-      await assertDocumentFocus(page);
+      await assertControlFocus(page);
       assertWindow(await page.title());
       execFileSync("xdotool", ["type", "--clearmodifiers", "--delay", "1", value], { timeout: SETTINGS.windowCommandTimeoutMs });
       await key(page, SETTINGS.nativeKeys.interrupt);
@@ -105,7 +119,7 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
     /** @param {import('@playwright/test').Page} page - Owned page with its actual initiating control focused. @param {string} expected - Actual safe product feedback. @returns {Promise<{speechObserved:boolean,audioPeak:number}>} Its original native announcement, without forced reading or focus changes. */
     async activateAndHear(page, expected) {
       await quiet();
-      await assertDocumentFocus(page);
+      await assertControlFocus(page);
       const start = await mark();
       await key(page, SETTINGS.nativeKeys.invoke);
       return hear(expected, start);

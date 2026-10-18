@@ -103,3 +103,11 @@ El canario del mismo código, [39125943134](https://github.com/guidomodarelli/Tu
 El contraste empieza en el canario sin Neon ni mensajería. Su resultado debe conservarse y después debe repetirse el producto; desactivar el eco de teclas no elimina ningún anuncio de control o resultado exigido, ni acredita por sí solo un gate. T198/T208 siguen pendientes.
 
 El [canario 39126934367](https://github.com/guidomodarelli/TuTribu/actions/runs/39126934367), sobre `1ecdb009`, registró cero ecos independientes de Tab/Espacio en las cuatro variantes y siguió fallido. Chromium/390 no alcanzó silencio de preparación; Chromium/1280 no observó el nombre esperado. WebKit observó nombre y PCM de foco en ambos tamaños, pero no el aviso dinámico posterior. El [reporte del perfil](linux-reader-key-echo-profile.json) conserva los cuatro resultados; el ajuste no resolvió la infraestructura. No se repite producto para atribuirle por ese resultado un defecto nuevo de UI ni se cierran T198/T208.
+
+## Repetición con preparación y foco nativos acreditados
+
+El [canario de ac590b83](linux-reader-locale-native.json) acreditó foco, mensaje dinámico y PCM en ambos tamaños de Chromium. La captura anterior acreditó también el foco AT-SPI real de WebKit, cuyo aviso en el fixture vacío sigue pendiente. El nuevo contraste conserva esa diferencia y compara nodos de texto; no se usa para certificar el producto.
+
+La repetición de aplicación mantiene las ocho superficies y sus efectos SQL. El driver común prepara el locale real de Linux, cancela sólo introducciones tardías antes de medir, y vuelve a comprobar página, control y foco nativo antes de escribir o activar. Esto permite comprobar los componentes reales y sus avisos propios, conservando cualquier fallo de WebKit, sin sustituirlo por los casos del fixture.
+
+El owner efímero conserva ahora toda la lista de ramas presente antes de crear recursos, incluido el nuevo piloto persistente. Once contratos de su boundary propio pasaron, incluido preservar una rama protegida adicional al limpiar la rama exacta de la prueba. Sigue exigiendo el SHA y nonce previstos, ejecución manual acreditada, revocación de su key, retiro de su secreto/variables y verificación del inventario. Los recursos y el resultado del nuevo ensayo deben registrarse antes de cerrar T198/T208.

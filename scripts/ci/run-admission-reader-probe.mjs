@@ -9,22 +9,23 @@ import { chromium, webkit } from "@playwright/test";
 import { ADMISSION_READER_PROBE as PROBE } from "../../tests/support/constants/admission-reader-probe.mjs";
 import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, hasNativeReaderTargetFocus, measureNativeAudioPeak } from "../../tests/support/admission-reader-observation.mjs";
 import { configureAdmissionBrowserNativeFocus } from "../../tests/support/admission-browser-native-focus.mjs";
+import { renderAdmissionReaderProbePage } from "../../tests/support/admission-reader-probe-page.mjs";
 
 if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY || !process.env.RUNNER_TEMP) throw new Error("AdmissionReaderProbe.start failed: disposable_linux_display_required");
 const directory = join(process.env.RUNNER_TEMP, "admission-reader-probe");
 await mkdir(directory, { recursive: true });
 const debugPath = process.env.ORCA_DEBUG_LOG, audioPath = process.env.ORCA_AUDIO_FILE;
 if (!debugPath || !audioPath) throw new Error("AdmissionReaderProbe.start failed: native_capture_paths_required");
-const cases = PROBE.engines.flatMap((engine) => PROBE.widths.map((width) => {
+const cases = PROBE.engines.flatMap((engine) => PROBE.widths.flatMap((width) => Object.values(PROBE.markupVariants).map((markupVariant) => {
   const id = randomUUID().replaceAll("-", "").slice(0, 8);
-  return { id, engine, width, title: `${PROBE.titlePrefix} ${id}`, focus: `${PROBE.focusPrefix} ${id}`, status: `${PROBE.statusPrefix} ${id}` };
-}));
+  return { id, engine, width, markupVariant, title: `${PROBE.titlePrefix} ${id}`, focus: `${PROBE.focusPrefix} ${id}`, status: `${PROBE.statusPrefix} ${id}` };
+})));
 const report = { commit: process.env.GITHUB_SHA, kind: "platform_preflight", productJourneysValidated: false, realMessages: 0, orcaVersion: process.env.ORCA_BINARY_VERSION ?? null, orcaSourceCommit: process.env.ORCA_SOURCE_COMMIT ?? null, speechDispatcherVersion: process.env.SPEECH_DISPATCHER_VERSION ?? null, cases: [] };
 const server = createServer((request, response) => {
   const item = cases.find((candidate) => new URL(request.url, "http://127.0.0.1").pathname === `/${candidate.id}`);
   if (!item) { response.writeHead(404); response.end(); return; }
   response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-  response.end(`<!doctype html><html lang="es"><meta charset="utf-8"><title>${item.title}</title><body><h1>Prueba de lector</h1><button id="control">${item.focus}</button><p id="status" role="status" aria-live="polite" aria-atomic="true"></p><p>Fin</p><script>document.getElementById("control").addEventListener("click",()=>{document.getElementById("status").textContent=${JSON.stringify(item.status)}})</script></body></html>`);
+  response.end(renderAdmissionReaderProbePage(item));
 });
 await new Promise((fulfill) => server.listen(0, "127.0.0.1", fulfill));
 const address = server.address();
@@ -75,7 +76,7 @@ function nativeFocus(expected) {
 }
 try {
   for (const item of cases) {
-    const observation = { caseId: item.id, engine: item.engine, width: item.width, height: PROBE.height, passed: false };
+    const observation = { caseId: item.id, engine: item.engine, width: item.width, markupVariant: item.markupVariant, height: PROBE.height, passed: false };
     const caseLogOffset = (await readerLog()).length;
     let speechPhaseOffset = caseLogOffset, expectedSpeech = item.focus;
     observation.speechPhase = PROBE.speechPhases.setup;
@@ -121,7 +122,7 @@ try {
       await until(async () => await audioPeak(audioOffset) > PROBE.audiblePeak, PROBE.failures.audio);
       observation.liveSpeechObserved = true; observation.liveAudioPeak = await audioPeak(audioOffset);
       observation.passed = true;
-      await page.screenshot({ path: join(directory, `${item.engine}-${item.width}.png`) });
+      await page.screenshot({ path: join(directory, `${item.engine}-${item.width}-${item.markupVariant}.png`) });
     } catch (error) {
       observation.failureCode = error instanceof Error && Object.values(PROBE.failures).includes(error.message) ? error.message : PROBE.failures.runtime;
       observation.failureName = error instanceof Error ? error.name : "unknown";
