@@ -50,8 +50,10 @@
     "subsequentUserRequest": {
       "businessName": "TuTribu",
       "action": "create_separate_business_portfolio",
-      "state": "form_prepared_awaiting_commercial_terms_confirmation",
-      "created": false,
+      "state": "created_contact_email_confirmed_legal_information_required",
+      "created": true,
+      "portfolioId": "1769606750793942",
+      "contactEmailConfirmed": true,
       "existingWhatsAppAssociationChanged": false
     },
     "submittedByAgent": false
@@ -61,6 +63,7 @@
     "providerPaymentDiscrepancyExplained": false
   },
   "agentEnteredPaymentInformation": false,
+  "subsequentBusinessSetupReceipt": "admission-pilot-meta-tutribu-created.json",
   "paymentInformationPersistedByAgent": false,
   "realPilotMessages": 0,
   "operationalGatesClosed": []

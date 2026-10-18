@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-18",
+  "kind": "user_authorized_separate_meta_business_portfolio",
+  "businessName": "TuTribu",
+  "portfolioId": "1769606750793942",
+  "url": "https://business.facebook.com/latest/settings/business_info?business_id=1769606750793942",
+  "commercialTermsExplicitlyAuthorized": true,
+  "created": true,
+  "ownerFullControlReviewed": true,
+  "otherPeopleInvited": 0,
+  "existingAssetsClaimed": 0,
+  "contactEmail": {
+    "confirmed": true,
+    "confirmationSource": "matching_meta_email_and_fresh_business_info",
+    "emailSectionPresent": true,
+    "pendingConfirmationNotice": false,
+    "privateConfirmationMaterialInReceipt": false
+  },
+  "legalInformation": {
+    "state": "required_information_unavailable",
+    "requiredFields": ["legalName", "country", "streetAddress", "city", "state", "postalCode", "businessPhone"],
+    "websitePrepared": "https://www.tutribu.app",
+    "websiteSaved": false,
+    "saveDisabled": true,
+    "userInputRequestedInPrivateMetaForm": true
+  },
+  "businessVerificationCompleted": false,
+  "whatsAppAccountConfigured": false,
+  "existingWhatsAppAssociationChanged": false,
+  "realPilotMessages": 0,
+  "operationalGatesClosed": []
+}
