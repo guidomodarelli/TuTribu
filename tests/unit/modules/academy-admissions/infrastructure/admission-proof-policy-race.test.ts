@@ -21,6 +21,7 @@ import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admission
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
+import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 
 /**
@@ -56,7 +57,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native proof appli
         }
       });
       for (const migration of ["20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007005000_read_admission_reviews.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009083000_read_current_admission_review_evidence.sql"]) await database.applyMigration(migration);
-      const requests = new PostgresAdmissionRequestRepository((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), async () => fixture.fixture.config, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: createPostgresAdmissionNotificationObligationWriter(transaction) }));
+      const requests = new PostgresAdmissionRequestRepository((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), async () => fixture.fixture.config, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: createPostgresAdmissionNotificationObligationWriter(transaction), lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(transaction, scope.tribeId, scope.userId) }));
       const submitted = await requests.submit({ ...fixture.context, operationId: randomUUID(), type: "submit_admission", confirmed: true, expectedPolicyVersion: 1, source: { kind: "common" }, contact: fixture.input.contact, proofId: null, message: null });
       if (submitted.state !== "completed" || !submitted.result.admissionRequestId) throw new Error("New epoch fixture did not produce the original OFF request");
       const requestId = submitted.result.admissionRequestId;

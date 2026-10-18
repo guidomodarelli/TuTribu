@@ -75,7 +75,7 @@ import { admissionRequestSchema } from "../../application/results/admission-flow
 /** Every checkout reuses the trusted request actor; a client cannot select the database principal. */
 type AdmissionDatabaseExecutor = <Result>(scope: AdmissionCommandScope, run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
 /** Related owners are composed onto the same original transaction, with no provider work. */
-type AdmissionTransactionCollaborators = { memberships: AcademyApprovedMembershipWriter; notifications: AdmissionNotificationObligationWriter; legacyInvitations?: LegacyAdmissionInvitationReader };
+type AdmissionTransactionCollaborators = { memberships: AcademyApprovedMembershipWriter; notifications: AdmissionNotificationObligationWriter; lockSubmissionScope: (scope: AdmissionCommandScope) => Promise<boolean>; legacyInvitations?: LegacyAdmissionInvitationReader };
 /** Batch facts remain local to one transaction holding their actual scope/account/member locks. */
 type AdmissionBatchFacts = { actor: AdmissionActorFacts; byApplicant: Map<string, AdmissionSubmissionFacts> };
 /** Immutable events are flushed once before the same business transaction completes. */
@@ -119,13 +119,16 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
    * @param scope - Native actor/session/tribe, never browser-selected authority.
    * @param operation - Owner-selected action whose current permission is checked.
    * @param requestId - Existing own request when the action targets one.
-   * @param registrationOnly - Whether only an intent claim is registered; effects retain the exclusive tribe lock.
+   * @param registrationOnly - Whether only an intent claim is registered; administrative effects retain the exclusive tribe lock.
    * @returns Whether the current actor can perform the exact action.
    * @throws AdmissionOperationError when scope, native session or required recency is unavailable.
    */
   private async authorize(database: RequestDatabase, scope: AdmissionCommandScope, operation: string, requestId?: string, registrationOnly = false): Promise<boolean> {
     const scopeLock = registrationOnly ? ADMISSION_OPERATION_TRIBE_LOCK_SQL.registration : ADMISSION_OPERATION_TRIBE_LOCK_SQL.execution;
-    if (!(await database.execute(sql`select id from public.tribes where id=${scope.tribeId} ${sql.raw(scopeLock)}`)).rows[0]) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
+    const locked = operation === ADMISSION_OPERATION_TYPE.submit
+      ? await this.compose(database).lockSubmissionScope(scope)
+      : Boolean((await database.execute(sql`select id from public.tribes where id=${scope.tribeId} ${sql.raw(scopeLock)}`)).rows[0]);
+    if (!locked) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable);
     await database.execute(sql`select id from public."user" where id=${scope.userId} for share`);
     const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: scope.userId, sessionId: scope.sessionId }), (_identity, run) => run(database));
     if (!await accounts.getAuthenticatedAccount()) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);

@@ -1,4 +1,4 @@
-/** Reads the membership owner's current locked facts with one PostgreSQL round trip. @module read-approved-academy-membership-context */
+/** Reads current membership facts after the native admission scope fence. @module read-approved-academy-membership-context */
 import { sql } from "drizzle-orm";
 import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 import type { ApplyApprovedAcademyMembershipCommand } from "../../domain/repositories/academy-approved-membership-writer";
@@ -6,6 +6,7 @@ import type { AcademyMembershipFacts } from "../../domain/value-objects/academy-
 import { ACADEMY_MEMBERSHIP_DECISION } from "../../constants/academy-membership";
 import { TRIBE_MEMBER_ROLE } from "../../constants/tribe-member-role";
 import { TRIBE_MEMBERSHIP_STATUS } from "../../constants/tribe-page-access";
+import { lockAcademyAdmissionMembershipScope } from "./lock-academy-admission-membership-scope";
 
 /** Fields already owned by membership storage, without provider or public DTO validation. */
 export type ApprovedAcademyMembershipMemberRow = { id: string; user_id: string; role: AcademyMembershipFacts["role"]; status: AcademyMembershipFacts["status"]; status_reason: string; commercial_recovery_status: "active" | "muted" | null; created_at: string };
@@ -20,15 +21,16 @@ type ApprovedMembershipContext = {
 };
 
 /**
- * Preserves tribe → policy → sorted members → request/decision → settings lock order.
+ * Preserves tenant/applicant scope → policy → sorted members → request/decision → settings lock order.
  * @param database - Existing authoritative admission transaction, never another checkout.
  * @param command - Own scoped decision and beneficiary identities.
  * @returns Current facts or genuine tribe absence; the clock is evaluated after every lock dependency.
  */
 export async function readApprovedAcademyMembershipContext(database: RequestDatabase, command: ApplyApprovedAcademyMembershipCommand): Promise<ApprovedMembershipContext | null> {
+  if (!await lockAcademyAdmissionMembershipScope(database, command.tribeId, command.userId)) return null;
   const result = await database.execute<ApprovedMembershipContext>(sql`
     with locked_tribe as materialized (
-      select tribe.id,tribe.admissions_control_activated_at from public.tribes tribe where tribe.id=${command.tribeId} for update
+      select tribe.id,tribe.admissions_control_activated_at from public.tribes tribe where tribe.id=${command.tribeId} for share
     ), locked_policy as materialized (
       select policy.version,policy.verification_epoch,policy.is_open,policy.activated_at
       from public.academy_admission_policies policy inner join locked_tribe tribe on tribe.id=policy.tribe_id for share of policy

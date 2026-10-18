@@ -8,6 +8,7 @@ import { createMessagingSecurityConfig } from "@/src/modules/messaging/infrastru
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
+import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import type { AdmissionSubmissionIntent, AdmissionDecisionIntent } from "@/src/modules/academy-admissions/domain/repositories/admission-repositories";
 import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
@@ -76,7 +77,7 @@ async function prepareManualAdmission(database: AcademyAdmissionTestDatabase, co
     return result;
   }, async () => config, (transaction) => {
     const notifications = createPostgresAdmissionNotificationObligationWriter(transaction);
-    return { memberships: createAcademyApprovedMembershipWriter(transaction), notifications: { record: async (obligation) => { if (obligation.event === omittedNoticeEvent) return; await notifications.record(obligation); }, recordMany: async (obligations) => { await notifications.recordMany(obligations.filter((obligation) => obligation.event !== omittedNoticeEvent)); } } };
+    return { memberships: createAcademyApprovedMembershipWriter(transaction), lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(transaction, scope.tribeId, scope.userId), notifications: { record: async (obligation) => { if (obligation.event === omittedNoticeEvent) return; await notifications.record(obligation); }, recordMany: async (obligations) => { await notifications.recordMany(obligations.filter((obligation) => obligation.event !== omittedNoticeEvent)); } } };
   });
   const submission: AdmissionSubmissionIntent = { tribeId, userId: applicantId, sessionId: applicantSessionId, requestId: randomUUID(), operationId: randomUUID(), type: "submit_admission", confirmed: true, expectedPolicyVersion: 1, source: { kind: "common" }, contact: { type: "email", value: `${applicantId}@example.test` }, proofId: null, message: null };
   return { repository, config, submission, tribeId, leaderId, leaderSessionId, otherId, otherSessionId, own, writerPids, observeWriter: () => { observeWriter = true; }, loseNextReply: () => { loseCommittedReply = true; }, omitNextApprovalNotice: () => { omittedNoticeEvent = "approved"; }, omitNextNotice: (event: "cancelled" | "expired") => { omittedNoticeEvent = event; } };
@@ -623,7 +624,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("manual admission d
           delayAccountDelivery = true;
         }
         return fixture.config;
-      }, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: createPostgresAdmissionNotificationObligationWriter(transaction) }));
+      }, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: createPostgresAdmissionNotificationObligationWriter(transaction), lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(transaction, scope.tribeId, scope.userId) }));
       const expiredIntent = { ...retry, operationId: randomUUID(), expectedVersion: 4 };
       await expect(expiringWriter.allowRetry(expiredIntent)).rejects.toMatchObject({ code: "authentication_required" });
       expect(delayedActualAccount).toBe(true);

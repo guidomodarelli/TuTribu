@@ -29,6 +29,7 @@ import { captureAdmissionReview } from "@/tests/support/admission-review-capture
 import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository";
 import { PostgresOwnAdmissionRequestReader } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-own-admission-request-reader";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
+import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import { join } from "node:path";
 import { MEMBERSHIP_LIFECYCLE_VALIDATION_TIMEOUT_MS } from "@/tests/support/constants/membership-lifecycle-validation";
@@ -223,7 +224,7 @@ describe.skipIf(process.env.ACADEMY_ADMISSION_SQL_TESTS !== "1")("native admissi
         await transaction.execute(sql`insert into public."user"(id,name,email,"emailVerified","createdAt","updatedAt") values (${applicantId},'Synthetic policy-transition applicant',${`${applicantId}@example.test`},false,clock_timestamp(),clock_timestamp())`);
         await transaction.execute(sql`insert into public.session(id,"userId",token,"expiresAt","createdAt","updatedAt") values (${applicantSessionId},${applicantId},${randomUUID()},clock_timestamp()+interval '1 hour',clock_timestamp(),clock_timestamp())`);
       });
-      const requests = new PostgresAdmissionRequestRepository((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), async () => data.fixture.config, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: createPostgresAdmissionNotificationObligationWriter(transaction) }));
+      const requests = new PostgresAdmissionRequestRepository((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), async () => data.fixture.config, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: createPostgresAdmissionNotificationObligationWriter(transaction), lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(transaction, scope.tribeId, scope.userId) }));
       const submitted = await requests.submit({ userId: applicantId, sessionId: applicantSessionId, tribeId: data.tribeId, requestId: randomUUID(), operationId: randomUUID(), type: "submit_admission", confirmed: true, expectedPolicyVersion: 3, source: { kind: "common" }, contact: { type: "email", value: `${applicantId}@example.test` }, proofId: null, message: null });
       if (submitted.state !== "completed" || !submitted.result.admissionRequestId) throw new Error("Native policy transition did not produce the expected pending request");
       const requestId = submitted.result.admissionRequestId;

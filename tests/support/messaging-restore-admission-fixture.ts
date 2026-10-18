@@ -13,6 +13,7 @@ import { PostgresAdmissionContactVerificationOperations } from "@/src/modules/ac
 import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
+import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import { createVerificationCodeEnvelope } from "@/src/modules/messaging/infrastructure/encryption/verification-code-envelope";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
@@ -52,7 +53,7 @@ export function composeRestoreAdmissionOwners(database: MessagingRestoreSql, sou
     policy: admissions.createPolicyModule({ readSecurityConfig, composePreflight: (transaction, context) => new PostgresAdmissionActivationRepository(transaction, context, runtime, readRecoveryLock) }).useCases,
     preflight: admissions.createPreflightModule({ runtime, readRecoveryLock }).useCases,
     verification: new PostgresAdmissionContactVerificationOperations((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), readSecurityConfig),
-    requests: new PostgresAdmissionRequestRepository((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), readSecurityConfig, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: createPostgresAdmissionNotificationObligationWriter(transaction) })),
+    requests: new PostgresAdmissionRequestRepository((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), readSecurityConfig, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: createPostgresAdmissionNotificationObligationWriter(transaction), lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(transaction, scope.tribeId, scope.userId) })),
   };
 }
 

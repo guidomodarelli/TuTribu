@@ -10,6 +10,7 @@ import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admiss
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { SubmitAdmissionUseCase } from "@/src/modules/academy-admissions/application/use-cases/submit-admission-use-case";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
+import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
 
 describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal admission rollback", () => {
@@ -25,7 +26,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native personal ad
       const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: applicant.userId, sessionId: applicant.sessionId }), (_identity, run) => database.withContext(own, run));
       // Only the project's own notification port is replaced. SQL, native auth,
       // cryptography, binding and membership collaborators remain real.
-      const writer = new PostgresAdmissionRequestRepository((_scope, run) => database.withContext(own, run), async () => fixture.config, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: { record: async () => {}, recordMany: async () => {} } }));
+      const writer = new PostgresAdmissionRequestRepository((_scope, run) => database.withContext(own, run), async () => fixture.config, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: { record: async () => {}, recordMany: async () => {} }, lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(transaction, scope.tribeId, scope.userId) }));
       const useCase = new SubmitAdmissionUseCase(accounts, writer, () => new Date());
       const input = { ...applicant.input, invitationToken: created.initialToken };
       expect(await useCase.execute(input)).toMatchObject({ ok: false, failure: { code: "operation_unresolved", operation: { operationId: input.operationId, state: "started" }, cause: { cause: { code: "23514" } } } });

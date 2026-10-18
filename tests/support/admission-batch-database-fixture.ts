@@ -5,6 +5,7 @@ import type { AcademyAdmissionTestDatabase } from "./academy-admission-database"
 import { prepareAllowlistManagement } from "./allowlist-management-database-fixture";
 import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
+import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 
@@ -33,6 +34,7 @@ export async function prepareAdmissionBatch(database: AcademyAdmissionTestDataba
     return result;
   }, async () => fixture.config, (transaction) => ({
     memberships: createAcademyApprovedMembershipWriter(transaction),
+    lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(transaction, scope.tribeId, scope.userId),
     notifications: createPostgresAdmissionNotificationObligationWriter(transaction),
   }));
 

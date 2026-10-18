@@ -39,6 +39,7 @@ import { DecideAdmissionRequestsBatchUseCase } from "./application/use-cases/dec
 import { CancelAdmissionRequestUseCase } from "./application/use-cases/cancel-admission-request-use-case";
 import { PostgresAdmissionRequestRepository } from "./infrastructure/repositories/postgres-admission-request-repository";
 import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
+import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope";
 import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import { ADMISSION_ACTION } from "./constants/admission-eligibility";
 import { GetOwnAdmissionUseCases } from "./application/use-cases/get-own-admission-use-cases";
@@ -303,7 +304,7 @@ export function buildAcademyAdmissionsModule(dependencies: AuthenticatedFeatureD
         if (!account || account.userId !== scope.userId || account.session.id !== scope.sessionId) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.authenticationRequired);
         return dependencies.execute(account, run);
       };
-      const writer = new PostgresAdmissionRequestRepository(executeRequest, options.readSecurityConfig, (database) => ({ memberships: createAcademyApprovedMembershipWriter(database), notifications: createPostgresAdmissionNotificationObligationWriter(database), legacyInvitations: new PostgresLegacyAdmissionInvitationReader(database) }));
+      const writer = new PostgresAdmissionRequestRepository(executeRequest, options.readSecurityConfig, (database) => ({ memberships: createAcademyApprovedMembershipWriter(database), notifications: createPostgresAdmissionNotificationObligationWriter(database), lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(database, scope.tribeId, scope.userId), legacyInvitations: new PostgresLegacyAdmissionInvitationReader(database) }));
       return {
         runtime: new ReadAdmissionRuntimeUseCase(writer),
         useCases: {

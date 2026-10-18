@@ -9,5 +9,5 @@ export const ADMISSION_OPERATION_FINGERPRINT_DOMAIN = "tutribu.admission.operati
 export const ADMISSION_OPERATION_MAC_KEY_PURPOSES = [MESSAGING_KEY_PURPOSE.operationPayload, MESSAGING_KEY_PURPOSE.contactFingerprint] as const satisfies readonly MessagingMacKeyPurpose[];
 /** Identifies an original ledger intent that still needs its retained payload key. */
 export const ADMISSION_OPERATION_STARTED_STATE = "started";
-/** Registers concurrent intents under shared scope locks; business effects retain exclusive serialization. */
+/** Registers concurrent intents under shared scope locks; administrative effects retain exclusive tenant serialization. */
 export const ADMISSION_OPERATION_TRIBE_LOCK_SQL = { registration: "for share", execution: "for update" } as const;

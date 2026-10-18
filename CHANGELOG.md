@@ -90,7 +90,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
-- Se agilizan las solicitudes de acceso a una academia, conservando los permisos vigentes, el vencimiento de la sesión y el resultado original al reintentar.
+- Las solicitudes de acceso de distintas personas pueden avanzar en paralelo dentro de una academia, evitando membresías duplicadas al repetir la acción y conservando los permisos vigentes, el vencimiento de la sesión y el resultado original.
 - Los formularios de admisión y mensajería adoptan los selectores y botones del diseño actual del sitio.
 
 - Al retomar una presentación con el mismo contacto, la pantalla reconoce su código propio, muestra su canal actual y diferencia la validación de un código vigente del reenvío explícito que reemplaza uno ya utilizado.
