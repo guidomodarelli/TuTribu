@@ -3,7 +3,7 @@
  */
 "use client";
 
-import { MOTION_EASE, MOTION_TIMING } from "beez-ui";
+import { MOTION_EASE, MOTION_EASE_STANDARD, MOTION_TIMING } from "beez-ui";
 import {
   animate,
   motion,
@@ -52,9 +52,9 @@ const SPRING_PERIOD_SCALE = 1.2;
 const CRITICAL_DAMPING_FACTOR = 2;
 const SPRING_REST_DELTA = 0.001;
 const SPRING_REST_SPEED = 0.01;
-const MORPH_SPRING = { visualDuration: MOTION_TIMING.surfaceClip, bounce: 0.12 };
+const MORPH_SPRING = { visualDuration: MOTION_TIMING.standard, bounce: 0.12 };
 const SETTLE_SPRING = { visualDuration: MOTION_TIMING.checkDraw, bounce: 0.28 };
-const TURN_SPRING = { visualDuration: MOTION_TIMING.surfaceClip, bounce: 0.1 };
+const TURN_SPRING = { visualDuration: MOTION_TIMING.standard, bounce: 0.1 };
 
 const POP_PEAK_SCALE = 1.14;
 const POP_PEAK_AT = 0.35;
@@ -208,8 +208,8 @@ export function MorphLoader({
     }
     controls.push(
       animate(loopAmount, settling ? 0 : 1, {
-        duration: settling ? MOTION_TIMING.exit : MOTION_TIMING.panel,
-        ease: MOTION_EASE,
+        duration: settling ? MOTION_TIMING.exit : MOTION_TIMING.standard,
+        ease: MOTION_EASE_STANDARD,
       }),
     );
     if (settling) {
@@ -218,7 +218,7 @@ export function MorphLoader({
       turning.current = animate(rotate, nextUprightAngle(rotate.get()), TURN_TRANSITION);
       controls.push(
         animate(pop, [1, POP_PEAK_SCALE, 1], {
-          duration: MOTION_TIMING.pop,
+          duration: MOTION_TIMING.standard,
           times: [0, POP_PEAK_AT, 1],
           ease: ["easeOut", "easeInOut"],
         }),
