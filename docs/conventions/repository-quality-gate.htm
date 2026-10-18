@@ -87,5 +87,11 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <p>El foco real exige también que el documento conserve el foco; su último elemento activo puede persistir mientras se opera la interfaz del navegador. La inspección nativa de un fallo conserva únicamente roles, banderas de estado y coincidencias booleanas con el nombre esperado, con plazo acotado y una marca explícita de indisponibilidad. Esa inspección no genera voz ni sustituye los anuncios exigidos.</p>
   <p>El preflight y la suite contrastan el foco forzado de Playwright desactivándolo en Chromium con la API real CDP y conservando la configuración de WebKit por separado. El resultado identifica <code>focusEmulationDisabled</code>; ese dato no acredita un recorrido. Los criterios de voz, PCM, teclado, estado propio y efectos SQL permanecen completos.</p>
 </div>
+<div class="section" id="native-backend-observation">
+  <h2 class="section-title">Esperas de PostgreSQL en la carga Native</h2>
+  <p><code>ADMISSION_NODE_OBSERVE_BACKENDS=1</code> activa un controlador independiente que consulta sólo cantidades, estados y tipos de espera en la rama propia. Las muestras se filtran por el marcador de la invocación y cuentan por separado otros clientes de esa rama. No conservan SQL, usuarios, direcciones, PID ni credenciales. El sampler está acotado y espera su consulta actual al cerrarse.</p>
+  <p>El resultado del host declara qué binding seleccionó y la presencia del marcador de pooler en su hostname, sin publicar la conexión. Adjunta también una ventana de pared del tramo medido; las muestras usan el reloj PostgreSQL y el p95 sigue usando el reloj monotónico de cada solicitud. El scope completo incluye preparación y warm-up. La observación agrega carga y no sustituye la aceptación del benchmark sin ella.</p>
+  <p>El protocolo y su prueba con locks reales se mantienen en <a href="../../specs/001-academy-admissions/validation/admission-backend-observation.md">la validación de backends</a>. Se conserva el criterio p95, el dataset completo, stock, replay y pool balanceado.</p>
+</div>
 </body>
 </html>

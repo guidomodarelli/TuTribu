@@ -15,6 +15,8 @@ import { inspectAdmissionDatabaseStatements } from "@/tests/support/admission-st
 import { ADMISSION_STATEMENT_PROFILE } from "@/tests/support/constants/admission-statement-profile";
 import { ADMISSION_CPU_PROFILE } from "@/tests/support/constants/admission-cpu-profile";
 import { ADMISSION_DATABASE_OBSERVATION } from "@/tests/support/constants/admission-database-observation";
+import { startAdmissionBackendObservation, type AdmissionBackendObservation } from "@/tests/support/admission-backend-observation";
+import { ADMISSION_BACKEND_OBSERVATION } from "@/tests/support/constants/admission-backend-observation";
 
 describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated native admission workload", () => {
   it("should retain the full hundred-account workload, its original result and the unchanged latency gate", async () => {
@@ -38,10 +40,16 @@ describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated na
         const headers = { authorization: `${ADMISSION_NODE_HOST.tokenPrefix}${token}` };
         const before = await fetch(url(ADMISSION_NODE_HOST.statusPath), { headers, redirect: "manual", signal: AbortSignal.timeout(ADMISSION_NODE_HOST.requestTimeoutMs) });
         expect(admissionNodeStatusSchema.parse(await before.json()).state).toBe(ADMISSION_NODE_RUN_STATE.prepared);
-        const response = await fetch(url(ADMISSION_NODE_HOST.runPath), { method: "POST", headers, redirect: "manual", signal: AbortSignal.timeout(ADMISSION_NODE_HOST.requestTimeoutMs) });
+        const backendObserver = process.env[ADMISSION_BACKEND_OBSERVATION.environmentVariable] === ADMISSION_BACKEND_OBSERVATION.enabledValue ? startAdmissionBackendObservation(database, operationId) : undefined;
+        let backendObservations: AdmissionBackendObservation | undefined, response: Response;
+        try { response = await fetch(url(ADMISSION_NODE_HOST.runPath), { method: "POST", headers, redirect: "manual", signal: AbortSignal.timeout(ADMISSION_NODE_HOST.requestTimeoutMs) }); }
+        finally {
+          backendObservations = await backendObserver?.stop();
+          if (backendObservations && process.env.ADMISSION_NODE_REPORT_FILE) await writeFile(process.env.ADMISSION_NODE_REPORT_FILE + ADMISSION_BACKEND_OBSERVATION.reportSuffix, JSON.stringify(backendObservations, null, 2));
+        }
         expect(response.status).toBe(HTTP_STATUS.ok);
         const result = admissionNodeStatusSchema.parse(await response.json());
-        observed = { operationId, sourceCommit: deployment.sourceCommit, bundleSha256: deployment.bundleSha256, compute: deployment.compute, databaseStatistics, result };
+        observed = { operationId, sourceCommit: deployment.sourceCommit, bundleSha256: deployment.bundleSha256, compute: deployment.compute, databaseStatistics, ...(backendObservations ? { backendObservations } : {}), result };
         if (process.env.ADMISSION_NODE_REPORT_FILE) await writeFile(process.env.ADMISSION_NODE_REPORT_FILE, JSON.stringify(observed, null, 2));
         const databaseProfile = await inspectAdmissionDatabaseStatements(database);
         observed = { ...(observed as Record<string, unknown>), databaseProfile };
@@ -52,6 +60,13 @@ describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated na
         const measured = result.measurement;
         expect(measured).not.toBeNull();
         if (!measured) throw new Error("AdmissionNodeHost.test failed: measurement_unavailable");
+        expect(measured.databaseConnection).toBeDefined();
+        expect(measured.measurementWindow).toBeDefined();
+        if (backendObservations) {
+          expect(backendObservations.errors).toEqual([]);
+          expect(backendObservations.samples.length).toBeGreaterThan(0);
+          expect(backendObservations.samples.some((sample) => sample.backends > 0)).toBe(true);
+        }
         if (process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue) {
           expect(measured.cpuProfile?.status).toBe("available");
           if (measured.cpuProfile?.status === "available") { expect(measured.cpuProfile.sampleCount).toBeGreaterThan(0); expect(measured.cpuProfile.topSelf.length).toBeGreaterThan(0); }

@@ -15,7 +15,11 @@ export const ADMISSION_NODE_HOST = {
   computeUnits: 2,
   computeUnitsVariable: "ADMISSION_NODE_COMPUTE_UNITS",
   poolMaximumVariable: "ADMISSION_NODE_POOL_MAX",
+  poolerHostnameMarker: "-pooler",
 } as const;
+/** Reports only which binding was selected and a hostname marker, never a connection string. */
+export type AdmissionNodeConnectionMetadata = { sourceVariable: "DATABASE_URL_UNPOOLED" | "DATABASE_URL"; hostnameHasPoolerMarker: boolean };
+const admissionNodeConnectionMetadataSchema = z.object({ sourceVariable: z.enum([ADMISSION_NODE_HOST.directDatabaseVariable, ADMISSION_NODE_HOST.databaseVariable]), hostnameHasPoolerMarker: z.boolean() }).strict() satisfies z.ZodType<AdmissionNodeConnectionMetadata>;
 const nonnegative = z.number().finite().nonnegative();
 const integer = z.number().int().nonnegative();
 export const admissionNodeMeasurementSchema = z.object({
@@ -30,6 +34,8 @@ export const admissionNodeMeasurementSchema = z.object({
   realMessages: z.literal(0), nodeVersion: z.string().regex(ADMISSION_NODE_HOST.nodeVersionPattern),
   sourceCommit: z.string().regex(/^[a-f0-9]{40}$/), bundleSha256: z.string().regex(ADMISSION_NODE_HOST.tokenDigestPattern),
   cpuProfile: admissionCpuObservationSchema.optional(),
+  databaseConnection: admissionNodeConnectionMetadataSchema.optional(),
+  measurementWindow: z.object({ startedAt: z.iso.datetime(), finishedAt: z.iso.datetime() }).strict().optional(),
   diagnostics: z.object({ wallDurationMs: nonnegative, cpuUserMs: nonnegative, cpuSystemMs: nonnegative, eventLoopActiveMs: nonnegative, eventLoopIdleMs: nonnegative, eventLoopUtilization: nonnegative.max(1), accountTransactions: integer, commandTransactions: integer, accountTransactionP95Ms: nonnegative.nullable(), commandTransactionP95Ms: nonnegative.nullable(), admittedP95Ms: nonnegative.nullable(), pendingP95Ms: nonnegative.nullable(), databaseObservations: admissionDatabaseObservationsSchema.optional() }).strict(),
 }).strict();
 export const admissionNodeStatusSchema = z.object({ operationId: z.uuid(), state: z.enum(["prepared", "running", "completed", "failed"]), measurement: admissionNodeMeasurementSchema.nullable(), sample: admissionNodeSampleSchema.nullable().optional() }).strict();

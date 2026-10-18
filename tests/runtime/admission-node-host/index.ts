@@ -8,7 +8,7 @@ import { seedAdmissionPerformanceFixture } from "@/tests/support/admission-perfo
 import { runAdmissionPerformanceWorkload } from "@/tests/support/run-admission-performance-workload";
 import { createAdmissionNodeHostHandler } from "@/tests/support/admission-node-host-handler";
 import { readPostgresTestDiagnostics } from "@/tests/support/postgres-test-diagnostics";
-import { ADMISSION_NODE_HOST, ADMISSION_NODE_RUN_STATE, admissionNodeConfigurationSchema, admissionNodeMeasurementSchema, type AdmissionNodeRunState, type AdmissionNodeMeasurement, type AdmissionNodeStatus } from "@/tests/support/constants/admission-node-host";
+import { ADMISSION_NODE_HOST, ADMISSION_NODE_RUN_STATE, admissionNodeConfigurationSchema, admissionNodeMeasurementSchema, type AdmissionNodeRunState, type AdmissionNodeMeasurement, type AdmissionNodeStatus, type AdmissionNodeConnectionMetadata } from "@/tests/support/constants/admission-node-host";
 import { startAdmissionCpuProfile, type AdmissionCpuObservation } from "@/tests/support/admission-cpu-profile";
 import { ADMISSION_CPU_PROFILE } from "@/tests/support/constants/admission-cpu-profile";
 import { ADMISSION_SAMPLE, admissionNodeSampleSchema, type AdmissionNodeSample } from "@/tests/support/constants/admission-sample";
@@ -22,12 +22,14 @@ const configuration = admissionNodeConfigurationSchema.parse({
 });
 const logger = createServerLogger({ feature: ADMISSION_NODE_HOST.operation, operation: ADMISSION_NODE_HOST.operation, requestId: configuration.operationId });
 let resources: ReturnType<typeof createAdmissionPerformanceDatabase> | undefined;
+let databaseConnection: AdmissionNodeConnectionMetadata | undefined;
 /** @returns A lazy adapter; configuration and authentication precede its first use. */
 function database() {
   if (!resources) {
     const value = process.env[ADMISSION_NODE_HOST.directDatabaseVariable] ?? process.env[ADMISSION_NODE_HOST.databaseVariable];
     if (!value) throw new Error("AdmissionNodeHost.database failed: injected_connection_unavailable");
     const connection = new URL(value);
+    databaseConnection = { sourceVariable: process.env[ADMISSION_NODE_HOST.directDatabaseVariable] !== undefined ? ADMISSION_NODE_HOST.directDatabaseVariable : ADMISSION_NODE_HOST.databaseVariable, hostnameHasPoolerMarker: connection.hostname.includes(ADMISSION_NODE_HOST.poolerHostnameMarker) };
     connection.searchParams.set("sslmode", "verify-full");
     connection.searchParams.set("application_name", configuration.operationId);
     const selectedMaximum = process.env[ADMISSION_NODE_HOST.poolMaximumVariable];
@@ -58,17 +60,23 @@ async function run(): Promise<AdmissionNodeStatus> {
     } else {
     let cpuProfiler: Awaited<ReturnType<typeof startAdmissionCpuProfile>> | undefined;
     let cpuProfile: AdmissionCpuObservation | undefined;
+    let measurementStartedAt: string | undefined, measurementFinishedAt: string | undefined;
     const measured = await (async () => {
       try { return await runAdmissionPerformanceWorkload(database(), fixture.fixture, fixture.participants, {
-        ...(process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue ? {
-        beforeMeasurement: async () => { cpuProfiler = await startAdmissionCpuProfile(); },
-        afterMeasurement: async () => { cpuProfile = await cpuProfiler?.stop(); cpuProfiler = undefined; },
-        } : {}),
+        beforeMeasurement: async () => {
+          if (process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue) cpuProfiler = await startAdmissionCpuProfile();
+          measurementStartedAt = new Date().toISOString();
+        },
+        afterMeasurement: async () => {
+          measurementFinishedAt = new Date().toISOString();
+          if (cpuProfiler) cpuProfile = await cpuProfiler.stop();
+          cpuProfiler = undefined;
+        },
         ...(process.env[ADMISSION_DATABASE_OBSERVATION.environmentVariable] === ADMISSION_DATABASE_OBSERVATION.enabledValue ? { observeDatabaseStatements: true } : {}),
       }); }
       finally { if (cpuProfiler) cpuProfile = await cpuProfiler.stop(); }
     })();
-    measurement = admissionNodeMeasurementSchema.parse({ ...measured, ...(cpuProfile ? { cpuProfile } : {}), setupDurationMs, nodeVersion: process.versions.node, sourceCommit: configuration.sourceCommit, bundleSha256: configuration.bundleSha256 });
+    measurement = admissionNodeMeasurementSchema.parse({ ...measured, ...(cpuProfile ? { cpuProfile } : {}), databaseConnection, measurementWindow: { startedAt: measurementStartedAt, finishedAt: measurementFinishedAt }, setupDurationMs, nodeVersion: process.versions.node, sourceCommit: configuration.sourceCommit, bundleSha256: configuration.bundleSha256 });
     }
     await database().withContext(owner, (transaction) => transaction.execute(sql`update native_test_support.admission_node_runs set state=${ADMISSION_NODE_RUN_STATE.completed},measurement=${JSON.stringify(measurement)}::jsonb,completed_at=clock_timestamp() where id=${configuration.operationId} and state=${ADMISSION_NODE_RUN_STATE.running}`));
     return readStatus();

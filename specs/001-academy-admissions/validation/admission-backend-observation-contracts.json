@@ -1,0 +1,30 @@
+{
+  "native": {
+    "passed": 1,
+    "failed": 0,
+    "realPg": true,
+    "ownBackendsObserved": 2,
+    "advisoryWaitObserved": 1,
+    "unrelatedClientExcluded": true,
+    "samplerDrained": true
+  },
+  "localContracts": {
+    "passed": 15,
+    "failed": 0
+  },
+  "testTypesPassed": true,
+  "lintPassed": true,
+  "nodeHostBuild": {
+    "compiled": true,
+    "inputs": 635
+  },
+  "cleanup": {
+    "remainingBranches": 3,
+    "originalBranchesPreserved": true,
+    "nonOriginalBranches": 0
+  },
+  "fullCohortObserved": false,
+  "performanceAccepted": false,
+  "productionSqlExecuted": false,
+  "realMessages": 0
+}
