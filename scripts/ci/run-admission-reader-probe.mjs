@@ -100,6 +100,10 @@ try {
       const observedLog = (await readerLog()).slice(caseLogOffset);
       observation.nativeSpeechTail = observedLog.split(/\r?\n/u).filter((line) => line.includes(PROBE.speechMarker)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.replace(/<[^>]*>/gu, "").slice(0, PROBE.maximumDiagnosticCharacters));
       observation.scriptDiagnostics = [...new Set(observedLog.split(/\r?\n/u).filter((line) => /(?:SCRIPT|Script).*(?:WebKit|Chromium|chromium|webkit|MiniBrowser|default|gtk)/u.test(line)).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters)))].slice(-PROBE.maximumDiagnosticLines);
+      observation.nativeEventTail = observedLog.split(/\r?\n/u).filter((line) => line.includes(item.status) || /(?:LiveRegion|live region|object:text-changed)/u.test(line)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters));
+      observation.speechSettings = observedLog.split(/\r?\n/u).filter((line) => /^(?:ORCA|SD) rate/u.test(line)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters));
+      observation.audioBytes = await audioSize();
+      observation.latestAudioPeak = await audioPeak(Math.max(0, observation.audioBytes - Math.ceil(PROBE.sampleRate * PROBE.bytesPerSample * PROBE.silenceWindowMs / PROBE.millisecondsPerSecond)));
       observation.focusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.focus);
       observation.statusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.status);
       process.exitCode = 1;
