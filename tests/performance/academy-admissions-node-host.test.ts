@@ -13,6 +13,7 @@ import { ADMISSION_PERFORMANCE } from "@/tests/support/constants/admission-perfo
 import { HTTP_STATUS } from "@/src/constants/http-status";
 import { inspectAdmissionDatabaseStatements } from "@/tests/support/admission-statement-inspection";
 import { ADMISSION_STATEMENT_PROFILE } from "@/tests/support/constants/admission-statement-profile";
+import { ADMISSION_CPU_PROFILE } from "@/tests/support/constants/admission-cpu-profile";
 
 describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated native admission workload", () => {
   it("should retain the full hundred-account workload, its original result and the unchanged latency gate", async () => {
@@ -50,6 +51,10 @@ describe.skipIf(process.env.RUN_ADMISSION_NODE_HOST_TESTS !== "1")("colocated na
         const measured = result.measurement;
         expect(measured).not.toBeNull();
         if (!measured) throw new Error("AdmissionNodeHost.test failed: measurement_unavailable");
+        if (process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue) {
+          expect(measured.cpuProfile?.status).toBe("available");
+          if (measured.cpuProfile?.status === "available") { expect(measured.cpuProfile.sampleCount).toBeGreaterThan(0); expect(measured.cpuProfile.topSelf.length).toBeGreaterThan(0); }
+        }
         expect(measured.sourceCommit).toBe(deployment.sourceCommit); expect(measured.bundleSha256).toBe(deployment.bundleSha256);
         expect(measured.nodeVersion).toMatch(ADMISSION_NODE_HOST.nodeVersionPattern);
         expect(measured.failures).toEqual([]);

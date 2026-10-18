@@ -9,6 +9,8 @@ import { runAdmissionPerformanceWorkload } from "@/tests/support/run-admission-p
 import { createAdmissionNodeHostHandler } from "@/tests/support/admission-node-host-handler";
 import { readPostgresTestDiagnostics } from "@/tests/support/postgres-test-diagnostics";
 import { ADMISSION_NODE_HOST, ADMISSION_NODE_RUN_STATE, admissionNodeConfigurationSchema, admissionNodeMeasurementSchema, type AdmissionNodeRunState, type AdmissionNodeMeasurement, type AdmissionNodeStatus } from "@/tests/support/constants/admission-node-host";
+import { startAdmissionCpuProfile, type AdmissionCpuObservation } from "@/tests/support/admission-cpu-profile";
+import { ADMISSION_CPU_PROFILE } from "@/tests/support/constants/admission-cpu-profile";
 
 const configuration = admissionNodeConfigurationSchema.parse({
   branchName: process.env[ADMISSION_NODE_HOST.branchVariable], operationId: process.env[ADMISSION_NODE_HOST.operationVariable], tokenSha256: process.env[ADMISSION_NODE_HOST.tokenDigestVariable],
@@ -44,8 +46,13 @@ async function run(): Promise<AdmissionNodeStatus> {
     const fixture = await seedAdmissionPerformanceFixture(database());
     await database().withContext(owner, (transaction) => transaction.execute(sql`update native_test_support.admission_node_runs set fixture_tribe_id=${fixture.fixture.tribeId} where id=${configuration.operationId} and state=${ADMISSION_NODE_RUN_STATE.running}`));
     const setupDurationMs = performance.now() - started;
-    const measured = await runAdmissionPerformanceWorkload(database(), fixture.fixture, fixture.participants);
-    const measurement = admissionNodeMeasurementSchema.parse({ ...measured, setupDurationMs, nodeVersion: process.versions.node, sourceCommit: configuration.sourceCommit, bundleSha256: configuration.bundleSha256 });
+    const cpuProfiler = process.env[ADMISSION_CPU_PROFILE.environmentVariable] === ADMISSION_CPU_PROFILE.enabledValue ? await startAdmissionCpuProfile() : undefined;
+    let cpuProfile: AdmissionCpuObservation | undefined;
+    const measured = await (async () => {
+      try { return await runAdmissionPerformanceWorkload(database(), fixture.fixture, fixture.participants); }
+      finally { cpuProfile = await cpuProfiler?.stop(); }
+    })();
+    const measurement = admissionNodeMeasurementSchema.parse({ ...measured, ...(cpuProfile ? { cpuProfile } : {}), setupDurationMs, nodeVersion: process.versions.node, sourceCommit: configuration.sourceCommit, bundleSha256: configuration.bundleSha256 });
     await database().withContext(owner, (transaction) => transaction.execute(sql`update native_test_support.admission_node_runs set state=${ADMISSION_NODE_RUN_STATE.completed},measurement=${JSON.stringify(measurement)}::jsonb,completed_at=clock_timestamp() where id=${configuration.operationId} and state=${ADMISSION_NODE_RUN_STATE.running}`));
     return readStatus();
   } catch (error) {

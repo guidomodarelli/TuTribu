@@ -1,5 +1,6 @@
 /** Bounds and names the authenticated ephemeral Node workload contract. */
 import { z } from "zod";
+import { admissionCpuObservationSchema } from "../admission-cpu-profile";
 export type AdmissionNodeRunState = "prepared" | "running" | "completed" | "failed";
 export const ADMISSION_NODE_RUN_STATE = { prepared: "prepared", running: "running", completed: "completed", failed: "failed" } as const satisfies Record<string, AdmissionNodeRunState>;
 export const ADMISSION_NODE_HOST = {
@@ -25,6 +26,7 @@ export const admissionNodeMeasurementSchema = z.object({
   facts: z.object({ entries: integer, requests: integer, basic_members: integer, deliveries: integer }).strict(),
   realMessages: z.literal(0), nodeVersion: z.string().regex(ADMISSION_NODE_HOST.nodeVersionPattern),
   sourceCommit: z.string().regex(/^[a-f0-9]{40}$/), bundleSha256: z.string().regex(ADMISSION_NODE_HOST.tokenDigestPattern),
+  cpuProfile: admissionCpuObservationSchema.optional(),
   diagnostics: z.object({ wallDurationMs: nonnegative, cpuUserMs: nonnegative, cpuSystemMs: nonnegative, eventLoopActiveMs: nonnegative, eventLoopIdleMs: nonnegative, eventLoopUtilization: nonnegative.max(1), accountTransactions: integer, commandTransactions: integer, accountTransactionP95Ms: nonnegative.nullable(), commandTransactionP95Ms: nonnegative.nullable(), admittedP95Ms: nonnegative.nullable(), pendingP95Ms: nonnegative.nullable() }).strict(),
 }).strict();
 export const admissionNodeStatusSchema = z.object({ operationId: z.uuid(), state: z.enum(["prepared", "running", "completed", "failed"]), measurement: admissionNodeMeasurementSchema.nullable() }).strict();
