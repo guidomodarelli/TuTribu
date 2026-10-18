@@ -20,3 +20,13 @@ Se ejecutaron seis casos Native completos con `pg`, sesiones, transacciones y lo
 - La aprobación automática conservó vínculo y membresía únicos, auditoría, obligación de aviso, lista intacta y replay del original.
 
 Pasaron tipos de producto y tests, lint y el build real de Next 16.3.4 con 56 páginas estáticas. El inventario independiente posterior confirmó sólo las tres ramas anteriores. No hubo SQL productivo ni mensajes reales. La reducción de viajes de este tramo no acredita por sí sola el p95 del flujo completo, los otros criterios de T200/T209 ni los gates operativos.
+
+## Cohorte ordinaria sobre `ab59ae0e`
+
+La [medición completa](admission-submission-actor-node.json), sin profiler ni observadores adicionales, conservó Node 24.16.0, conexión directa, 2 CU y pool máximo cien. Las cien solicitudes terminaron con cincuenta ingresos/cincuenta pendientes y cero fallos de comandos. SQL confirmó diez mil entradas, cien solicitudes, cincuenta miembros básicos y cero entregas; stock y replay pasaron antes del gate de latencia. El pool quedó en 300 adquisiciones/300 liberaciones, cero errores, cero cola y cero conexiones retenidas.
+
+El único fallo fue el p95 **5.063,22 ms** frente al mismo límite estricto inferior a 3.000 ms. La sonda mínima dio 2,26 ms; preparación y warm-up excluidos duraron 2.837,86 y 3.223,15 ms. El proceso registró 1.333,63 ms de CPU user, 328,09 ms de system y utilización del event loop 0,315. Los p95 de transacciones de cuenta y comando fueron 549,70 y 3.699,87 ms. Esos percentiles y acumulados no se suman para explicar una solicitud ni prueban una causa única de la demora.
+
+Fuente y runner conservaron sus huellas. Se retiraron despliegue Node y rama propios; un inventario independiente confirmó las tres ramas anteriores. No se cambiaron participantes, capacidad, timeouts, exclusiones o umbral. La aceptación de latencia y las catorce tareas abiertas siguen pendientes.
+
+Los dos controles completos de CI del código `ab59ae0e` terminaron aprobados: [run 39134204048](https://github.com/guidomodarelli/TuTribu/actions/runs/39134204048) y [run 39134208120](https://github.com/guidomodarelli/TuTribu/actions/runs/39134208120). Complementan los seis casos Native seleccionados; no sustituyen el benchmark fallido ni los gates operativos.
