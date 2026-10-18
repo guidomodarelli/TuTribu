@@ -23,6 +23,7 @@ import { evaluateAdmissionSubmission } from "@/src/modules/academy-admissions/do
 import { createPendingAdmissionRequest, proposeAdmissionCancellation, getAdmissionRetryAllowedAt } from "@/src/modules/academy-admissions/domain/entities/admission-request";
 import { proposeAdmissionDecision } from "@/src/modules/academy-admissions/domain/entities/admission-decision";
 import { PostgresAdmissionAuthorizationReader } from "./postgres-admission-authorization-reader";
+import { readLockedAdmissionFacts } from "./postgres-locked-admission-facts";
 import { PostgresAdmissionOperationRepository } from "./postgres-admission-operation-repository";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
@@ -160,11 +161,6 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
     return readAdmissionPolicy(database, tribeId, false);
   }
 
-  /** Current membership facts retain role, moderation and the actual known commercial snapshot. */
-  private async membership(database: RequestDatabase, tribeId: string, userId: string): Promise<AdmissionMembershipFacts | null> {
-    return (await database.execute<AdmissionMembershipFacts>(sql`select tribe_id as "tribeId",user_id as "userId",role,status,status_reason as "statusReason",commercial_recovery_status as "commercialRecoveryStatus" from public.tribe_members where tribe_id=${tribeId} and user_id=${userId} for share`)).rows[0] ?? null;
-  }
-
   /** Reads original provenance for every terminal action; approval authority remains a separate current evaluation. */
   private async request(database: RequestDatabase, tribeId: string, requestId?: string, userId?: string): Promise<AdmissionRequest | null> {
     const row = (await database.execute<RequestRow>(sql`select request.id,request.tribe_id,request.user_id,request.source,request.invitation_id,request.legacy_invitation_id,request.contact_type,request.normalized_contact,request.evidence_source,request.proof_id,request.binding_id,request.requires_allowlist,request.original_policy_snapshot,request.applicant_message,request.whatsapp_number,request.status,request.submitted_at,request.expires_at,request.version,request.decision_id,request.cancel_reason,request.retry_allowed_at,request.global_identity_evidence_id,(select decided_at from public.academy_admission_decisions where id=request.decision_id) as resolved_at,case when request.evidence_source=${ADMISSION_EVIDENCE_KIND.local} then (select verified_at from public.academy_admission_verification_proofs where id=request.proof_id) when request.evidence_source=${ADMISSION_EVIDENCE_KIND.base} then (select verified_at from public.global_identity_evidence where id=request.global_identity_evidence_id) end as evidence_verified_at from public.academy_admission_requests request where request.tribe_id=${tribeId} ${requestId ? sql`and request.id=${requestId}` : sql`and request.user_id=${userId} order by request.submitted_at desc,request.id desc limit 1`} for update of request`)).rows[0];
@@ -176,11 +172,9 @@ export class PostgresAdmissionRequestRepository implements AdmissionCommandWrite
 
   /** Own current facts are resolved after locks; no sender or external key can participate. */
   private async facts(database: RequestDatabase, scope: AdmissionCommandScope, contact: AdmissionSubmissionFacts["contact"], applicantId = scope.userId): Promise<AdmissionSubmissionFacts> {
-    const tribe = (await database.execute<{ activated_at: string | null; access_model: string; admission_enabled: boolean }>(sql`select tribe.admissions_control_activated_at as activated_at,settings.access_model,settings.admission_enabled from public.tribes tribe inner join public.tribe_academy_settings settings on settings.tribe_id=tribe.id where tribe.id=${scope.tribeId} for share of settings`)).rows[0];
-    const policy = await this.policy(database, scope.tribeId), membership = await this.membership(database, scope.tribeId, applicantId);
-    const account = (await database.execute<{ email: string }>(sql`select email from public."user" where id=${applicantId} for share`)).rows[0];
+    const { tribe, policy, membership, account } = await readLockedAdmissionFacts(database, scope.tribeId, applicantId);
     const config = await this.readSecurityConfig(), now = await databaseNow(database);
-    return { now, tribe: { id: scope.tribeId, isAcademy: tribe?.access_model === TRIBE_ACCESS_MODEL.academy, controlActivated: Boolean(tribe?.activated_at), evaluatorEnabled: Boolean(tribe?.admission_enabled), recoveryLocked: config.recoveryLocked }, policy,
+    return { now, tribe: { id: scope.tribeId, isAcademy: tribe?.accessModel === TRIBE_ACCESS_MODEL.academy, controlActivated: Boolean(tribe?.activatedAt), evaluatorEnabled: Boolean(tribe?.admissionEnabled), recoveryLocked: config.recoveryLocked }, policy,
       account: account ? { userId: applicantId, normalizedEmail: account.email.trim().toLowerCase(), googleAccount: null } : null,
       contact, source: { kind: ADMISSION_REQUEST_SOURCE.common }, membership, baseEvidence: null, localProof: null, currentConnection: null, contactBinding: null, allowlistEntry: null };
   }
