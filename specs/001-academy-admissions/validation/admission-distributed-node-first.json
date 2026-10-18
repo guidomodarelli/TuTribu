@@ -1,0 +1,1312 @@
+{
+  "kind": "four_owned_node_function_workload",
+  "sourceCommit": "e6bd6a31cd2e6f696f9ce3d7f876801275a2cb8e",
+  "bundleSha256": "911c96442b25d4286c975c4e341aee5da4a0cdd6457c0a0004a16828c44461c7",
+  "inputsSha256": "a478cc9dbf9eeda4238a8d4e885fa2b998d47163ca58cb81e31380f1231a03e2",
+  "compute": {
+    "minimum": 2,
+    "maximum": 2,
+    "region": "aws-us-east-1"
+  },
+  "functionCount": 4,
+  "perFunctionPoolMaximum": 25,
+  "passed": false,
+  "correctnessPassed": true,
+  "stockAndReplayPreserved": true,
+  "privateMaterialAbsentFromOwnFiles": true,
+  "measurement": {
+    "nodes": [
+      {
+        "nodeIndex": 0,
+        "nodeVersion": "24.16.0",
+        "participants": 25,
+        "admitted": 13,
+        "pending": 12,
+        "p95Ms": 4152.298304000869,
+        "peakInFlight": 25,
+        "pool": {
+          "maximum": 25,
+          "acquisitions": 75,
+          "releases": 75,
+          "errorReleases": 0,
+          "peakWaitingCount": 0,
+          "peakTotalCount": 25,
+          "waitingAfter": 0,
+          "checkedOutAfter": 0
+        },
+        "confirmations": [
+          {
+            "index": 44,
+            "durationMs": 3658.5424910001457,
+            "startedOffsetMs": 0.6475710012018681,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.555,
+            "startedUpperMs": 1792346434901.6333,
+            "finishedLowerMs": 1792346438547.0974,
+            "finishedUpperMs": 1792346438560.1758
+          },
+          {
+            "index": 28,
+            "durationMs": 3661.8849689997733,
+            "startedOffsetMs": 0.6317330002784729,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.539,
+            "startedUpperMs": 1792346434901.6174,
+            "finishedLowerMs": 1792346438550.424,
+            "finishedUpperMs": 1792346438563.5024
+          },
+          {
+            "index": 20,
+            "durationMs": 3671.529205000028,
+            "startedOffsetMs": 0.6204320006072521,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5278,
+            "startedUpperMs": 1792346434901.6062,
+            "finishedLowerMs": 1792346438560.0571,
+            "finishedUpperMs": 1792346438573.1355
+          },
+          {
+            "index": 32,
+            "durationMs": 3732.875008000061,
+            "startedOffsetMs": 0.6353840008378029,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5427,
+            "startedUpperMs": 1792346434901.621,
+            "finishedLowerMs": 1792346438621.4177,
+            "finishedUpperMs": 1792346438634.496
+          },
+          {
+            "index": 4,
+            "durationMs": 3743.1023810002953,
+            "startedOffsetMs": 0.4748679995536804,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.3823,
+            "startedUpperMs": 1792346434901.4607,
+            "finishedLowerMs": 1792346438631.4846,
+            "finishedUpperMs": 1792346438644.563
+          },
+          {
+            "index": 52,
+            "durationMs": 3780.768404999748,
+            "startedOffsetMs": 0.6558900009840727,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5632,
+            "startedUpperMs": 1792346434901.6416,
+            "finishedLowerMs": 1792346438669.3315,
+            "finishedUpperMs": 1792346438682.41
+          },
+          {
+            "index": 56,
+            "durationMs": 3799.4507059995085,
+            "startedOffsetMs": 0.6628850009292364,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5703,
+            "startedUpperMs": 1792346434901.6487,
+            "finishedLowerMs": 1792346438688.021,
+            "finishedUpperMs": 1792346438701.0994
+          },
+          {
+            "index": 88,
+            "durationMs": 3823.807050000876,
+            "startedOffsetMs": 0.6980450004339218,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.6055,
+            "startedUpperMs": 1792346434901.6838,
+            "finishedLowerMs": 1792346438712.4126,
+            "finishedUpperMs": 1792346438725.491
+          },
+          {
+            "index": 72,
+            "durationMs": 3836.176404999569,
+            "startedOffsetMs": 0.6798960007727146,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5872,
+            "startedUpperMs": 1792346434901.6655,
+            "finishedLowerMs": 1792346438724.7637,
+            "finishedUpperMs": 1792346438737.842
+          },
+          {
+            "index": 36,
+            "durationMs": 3856.206629000604,
+            "startedOffsetMs": 0.6394239999353886,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5469,
+            "startedUpperMs": 1792346434901.6252,
+            "finishedLowerMs": 1792346438744.7534,
+            "finishedUpperMs": 1792346438757.8318
+          },
+          {
+            "index": 64,
+            "durationMs": 3894.596217000857,
+            "startedOffsetMs": 0.671416999772191,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5789,
+            "startedUpperMs": 1792346434901.6572,
+            "finishedLowerMs": 1792346438783.175,
+            "finishedUpperMs": 1792346438796.2534
+          },
+          {
+            "index": 92,
+            "durationMs": 3977.360677000135,
+            "startedOffsetMs": 0.7022750005126,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.6096,
+            "startedUpperMs": 1792346434901.688,
+            "finishedLowerMs": 1792346438865.9702,
+            "finishedUpperMs": 1792346438879.0486
+          },
+          {
+            "index": 8,
+            "durationMs": 3977.690098999068,
+            "startedOffsetMs": 0.483279000967741,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.3906,
+            "startedUpperMs": 1792346434901.469,
+            "finishedLowerMs": 1792346438866.0808,
+            "finishedUpperMs": 1792346438879.1592
+          },
+          {
+            "index": 16,
+            "durationMs": 4006.214165998623,
+            "startedOffsetMs": 0.4928160011768341,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.4001,
+            "startedUpperMs": 1792346434901.4785,
+            "finishedLowerMs": 1792346438894.6143,
+            "finishedUpperMs": 1792346438907.6926
+          },
+          {
+            "index": 24,
+            "durationMs": 4021.115826001391,
+            "startedOffsetMs": 0.6273229997605085,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5347,
+            "startedUpperMs": 1792346434901.613,
+            "finishedLowerMs": 1792346438909.6504,
+            "finishedUpperMs": 1792346438922.7288
+          },
+          {
+            "index": 68,
+            "durationMs": 4032.6079260017723,
+            "startedOffsetMs": 0.6755449995398521,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.583,
+            "startedUpperMs": 1792346434901.6614,
+            "finishedLowerMs": 1792346438921.191,
+            "finishedUpperMs": 1792346438934.2693
+          },
+          {
+            "index": 80,
+            "durationMs": 4037.6360630001873,
+            "startedOffsetMs": 0.6884880010038614,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.596,
+            "startedUpperMs": 1792346434901.6743,
+            "finishedLowerMs": 1792346438926.232,
+            "finishedUpperMs": 1792346438939.3103
+          },
+          {
+            "index": 76,
+            "durationMs": 4040.6806949991733,
+            "startedOffsetMs": 0.6842190008610487,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5916,
+            "startedUpperMs": 1792346434901.67,
+            "finishedLowerMs": 1792346438929.2722,
+            "finishedUpperMs": 1792346438942.3506
+          },
+          {
+            "index": 0,
+            "durationMs": 4044.4677900001407,
+            "startedOffsetMs": 0.24385100044310093,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.1511,
+            "startedUpperMs": 1792346434901.2295,
+            "finishedLowerMs": 1792346438932.619,
+            "finishedUpperMs": 1792346438945.6973
+          },
+          {
+            "index": 12,
+            "durationMs": 4044.3621950000525,
+            "startedOffsetMs": 0.48821300081908703,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.3955,
+            "startedUpperMs": 1792346434901.4739,
+            "finishedLowerMs": 1792346438932.7578,
+            "finishedUpperMs": 1792346438945.8362
+          },
+          {
+            "index": 84,
+            "durationMs": 4120.018184999004,
+            "startedOffsetMs": 0.6928350012749434,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.6,
+            "startedUpperMs": 1792346434901.6785,
+            "finishedLowerMs": 1792346439008.6182,
+            "finishedUpperMs": 1792346439021.6965
+          },
+          {
+            "index": 48,
+            "durationMs": 4145.304299000651,
+            "startedOffsetMs": 0.6518670003861189,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5593,
+            "startedUpperMs": 1792346434901.6377,
+            "finishedLowerMs": 1792346439033.8635,
+            "finishedUpperMs": 1792346439046.942
+          },
+          {
+            "index": 40,
+            "durationMs": 4145.39883999899,
+            "startedOffsetMs": 0.643520001322031,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434888.5508,
+            "startedUpperMs": 1792346434901.6292,
+            "finishedLowerMs": 1792346439033.9497,
+            "finishedUpperMs": 1792346439047.028
+          },
+          {
+            "index": 60,
+            "durationMs": 4152.298304000869,
+            "startedOffsetMs": 0.6676380001008511,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.575,
+            "startedUpperMs": 1792346434901.6533,
+            "finishedLowerMs": 1792346439040.8733,
+            "finishedUpperMs": 1792346439053.9517
+          },
+          {
+            "index": 96,
+            "durationMs": 4181.90190500021,
+            "startedOffsetMs": 0.705570001155138,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434888.613,
+            "startedUpperMs": 1792346434901.6914,
+            "finishedLowerMs": 1792346439070.515,
+            "finishedUpperMs": 1792346439083.5933
+          }
+        ],
+        "clockBracketMs": 13.078428998589516,
+        "wallDurationMs": 4182.696135999635,
+        "eventLoopP95Ms": 20.807679,
+        "realMessages": 0
+      },
+      {
+        "nodeIndex": 1,
+        "nodeVersion": "24.16.0",
+        "participants": 25,
+        "admitted": 13,
+        "pending": 12,
+        "p95Ms": 4087.450982999988,
+        "peakInFlight": 25,
+        "pool": {
+          "maximum": 25,
+          "acquisitions": 75,
+          "releases": 75,
+          "errorReleases": 0,
+          "peakWaitingCount": 0,
+          "peakTotalCount": 25,
+          "waitingAfter": 0,
+          "checkedOutAfter": 0
+        },
+        "confirmations": [
+          {
+            "index": 5,
+            "durationMs": 3582.3893449995667,
+            "startedOffsetMs": 0.44675200060009956,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.5667,
+            "startedUpperMs": 1792346434998.5508,
+            "finishedLowerMs": 1792346438539.956,
+            "finishedUpperMs": 1792346438580.9402
+          },
+          {
+            "index": 25,
+            "durationMs": 3659.4433269994333,
+            "startedOffsetMs": 0.5725620007142425,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.6924,
+            "startedUpperMs": 1792346434998.6765,
+            "finishedLowerMs": 1792346438617.1357,
+            "finishedUpperMs": 1792346438658.1199
+          },
+          {
+            "index": 29,
+            "durationMs": 3707.4771159999073,
+            "startedOffsetMs": 0.5765390004962683,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.6963,
+            "startedUpperMs": 1792346434998.6804,
+            "finishedLowerMs": 1792346438665.1733,
+            "finishedUpperMs": 1792346438706.1575
+          },
+          {
+            "index": 93,
+            "durationMs": 3709.4771779999137,
+            "startedOffsetMs": 0.6387800006195903,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7585,
+            "startedUpperMs": 1792346434998.7427,
+            "finishedLowerMs": 1792346438667.2358,
+            "finishedUpperMs": 1792346438708.22
+          },
+          {
+            "index": 73,
+            "durationMs": 3728.9492319999263,
+            "startedOffsetMs": 0.6200480004772544,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.74,
+            "startedUpperMs": 1792346434998.724,
+            "finishedLowerMs": 1792346438686.6892,
+            "finishedUpperMs": 1792346438727.6733
+          },
+          {
+            "index": 61,
+            "durationMs": 3765.2051790002733,
+            "startedOffsetMs": 0.6087429998442531,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7285,
+            "startedUpperMs": 1792346434998.7126,
+            "finishedLowerMs": 1792346438722.9336,
+            "finishedUpperMs": 1792346438763.9177
+          },
+          {
+            "index": 37,
+            "durationMs": 3782.8355980003253,
+            "startedOffsetMs": 0.5845039999112487,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7043,
+            "startedUpperMs": 1792346434998.6885,
+            "finishedLowerMs": 1792346438740.54,
+            "finishedUpperMs": 1792346438781.5242
+          },
+          {
+            "index": 69,
+            "durationMs": 3797.6749719996005,
+            "startedOffsetMs": 0.616368000395596,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.736,
+            "startedUpperMs": 1792346434998.7202,
+            "finishedLowerMs": 1792346438755.4111,
+            "finishedUpperMs": 1792346438796.3953
+          },
+          {
+            "index": 17,
+            "durationMs": 3801.7610199991614,
+            "startedOffsetMs": 0.46241600066423416,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.5823,
+            "startedUpperMs": 1792346434998.5664,
+            "finishedLowerMs": 1792346438759.3433,
+            "finishedUpperMs": 1792346438800.3274
+          },
+          {
+            "index": 85,
+            "durationMs": 3803.71430300083,
+            "startedOffsetMs": 0.6311229998245835,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.751,
+            "startedUpperMs": 1792346434998.735,
+            "finishedLowerMs": 1792346438761.4653,
+            "finishedUpperMs": 1792346438802.4495
+          },
+          {
+            "index": 77,
+            "durationMs": 3814.854339000769,
+            "startedOffsetMs": 0.6236399998888373,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7434,
+            "startedUpperMs": 1792346434998.7275,
+            "finishedLowerMs": 1792346438772.5977,
+            "finishedUpperMs": 1792346438813.5818
+          },
+          {
+            "index": 1,
+            "durationMs": 3845.0625629993156,
+            "startedOffsetMs": 0.22599900048226118,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.346,
+            "startedUpperMs": 1792346434998.33,
+            "finishedLowerMs": 1792346438802.4084,
+            "finishedUpperMs": 1792346438843.3926
+          },
+          {
+            "index": 49,
+            "durationMs": 3845.428175000474,
+            "startedOffsetMs": 0.594820000231266,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7146,
+            "startedUpperMs": 1792346434998.6987,
+            "finishedLowerMs": 1792346438803.1428,
+            "finishedUpperMs": 1792346438844.127
+          },
+          {
+            "index": 45,
+            "durationMs": 3854.612425000407,
+            "startedOffsetMs": 0.5914920000359416,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7114,
+            "startedUpperMs": 1792346434998.6956,
+            "finishedLowerMs": 1792346438812.3237,
+            "finishedUpperMs": 1792346438853.3079
+          },
+          {
+            "index": 9,
+            "durationMs": 3868.907518999651,
+            "startedOffsetMs": 0.45405600033700466,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.574,
+            "startedUpperMs": 1792346434998.558,
+            "finishedLowerMs": 1792346438826.4814,
+            "finishedUpperMs": 1792346438867.4656
+          },
+          {
+            "index": 41,
+            "durationMs": 3875.8565540006384,
+            "startedOffsetMs": 0.5880100000649691,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7078,
+            "startedUpperMs": 1792346434998.692,
+            "finishedLowerMs": 1792346438833.5642,
+            "finishedUpperMs": 1792346438874.5483
+          },
+          {
+            "index": 89,
+            "durationMs": 3906.1873190002516,
+            "startedOffsetMs": 0.6347110001370311,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7546,
+            "startedUpperMs": 1792346434998.7388,
+            "finishedLowerMs": 1792346438863.942,
+            "finishedUpperMs": 1792346438904.926
+          },
+          {
+            "index": 53,
+            "durationMs": 3906.5044450005516,
+            "startedOffsetMs": 0.5979559998959303,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7178,
+            "startedUpperMs": 1792346434998.702,
+            "finishedLowerMs": 1792346438864.2222,
+            "finishedUpperMs": 1792346438905.2063
+          },
+          {
+            "index": 13,
+            "durationMs": 3921.6297220000997,
+            "startedOffsetMs": 0.4584739999845624,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.5784,
+            "startedUpperMs": 1792346434998.5625,
+            "finishedLowerMs": 1792346438879.208,
+            "finishedUpperMs": 1792346438920.1921
+          },
+          {
+            "index": 81,
+            "durationMs": 3926.008539999835,
+            "startedOffsetMs": 0.6274260003119707,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7473,
+            "startedUpperMs": 1792346434998.7314,
+            "finishedLowerMs": 1792346438883.7559,
+            "finishedUpperMs": 1792346438924.74
+          },
+          {
+            "index": 97,
+            "durationMs": 3944.165864000097,
+            "startedOffsetMs": 0.6424820004031062,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7622,
+            "startedUpperMs": 1792346434998.7463,
+            "finishedLowerMs": 1792346438901.928,
+            "finishedUpperMs": 1792346438942.912
+          },
+          {
+            "index": 65,
+            "durationMs": 4076.849097999744,
+            "startedOffsetMs": 0.6128080002963543,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7327,
+            "startedUpperMs": 1792346434998.7168,
+            "finishedLowerMs": 1792346439034.5818,
+            "finishedUpperMs": 1792346439075.566
+          },
+          {
+            "index": 33,
+            "durationMs": 4087.1889140000567,
+            "startedOffsetMs": 0.5804960001260042,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7004,
+            "startedUpperMs": 1792346434998.6846,
+            "finishedLowerMs": 1792346439044.8894,
+            "finishedUpperMs": 1792346439085.8735
+          },
+          {
+            "index": 57,
+            "durationMs": 4087.450982999988,
+            "startedOffsetMs": 0.6048779999837279,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434957.7246,
+            "startedUpperMs": 1792346434998.7087,
+            "finishedLowerMs": 1792346439045.1755,
+            "finishedUpperMs": 1792346439086.1597
+          },
+          {
+            "index": 21,
+            "durationMs": 4090.5878450004384,
+            "startedOffsetMs": 0.5670830002054572,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434957.687,
+            "startedUpperMs": 1792346434998.6711,
+            "finishedLowerMs": 1792346439048.275,
+            "finishedUpperMs": 1792346439089.259
+          }
+        ],
+        "clockBracketMs": 40.983955999836326,
+        "wallDurationMs": 4091.268335000612,
+        "eventLoopP95Ms": 20.709375,
+        "realMessages": 0
+      },
+      {
+        "nodeIndex": 2,
+        "nodeVersion": "24.16.0",
+        "participants": 25,
+        "admitted": 12,
+        "pending": 13,
+        "p95Ms": 4137.496868000366,
+        "peakInFlight": 25,
+        "pool": {
+          "maximum": 25,
+          "acquisitions": 75,
+          "releases": 75,
+          "errorReleases": 0,
+          "peakWaitingCount": 0,
+          "peakTotalCount": 25,
+          "waitingAfter": 0,
+          "checkedOutAfter": 0
+        },
+        "confirmations": [
+          {
+            "index": 46,
+            "durationMs": 3689.0514740003273,
+            "startedOffsetMs": 0.5236200001090765,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.9478,
+            "startedUpperMs": 1792346434916.863,
+            "finishedLowerMs": 1792346438588.9993,
+            "finishedUpperMs": 1792346438605.9146
+          },
+          {
+            "index": 26,
+            "durationMs": 3689.42660399992,
+            "startedOffsetMs": 0.49976000003516674,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.9238,
+            "startedUpperMs": 1792346434916.839,
+            "finishedLowerMs": 1792346438589.3503,
+            "finishedUpperMs": 1792346438606.2656
+          },
+          {
+            "index": 18,
+            "durationMs": 3689.666716000065,
+            "startedOffsetMs": 0.4818569999188185,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.906,
+            "startedUpperMs": 1792346434916.8213,
+            "finishedLowerMs": 1792346438589.5728,
+            "finishedUpperMs": 1792346438606.488
+          },
+          {
+            "index": 2,
+            "durationMs": 3713.7550969999284,
+            "startedOffsetMs": 0.2318989997729659,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.656,
+            "startedUpperMs": 1792346434916.5713,
+            "finishedLowerMs": 1792346438613.4111,
+            "finishedUpperMs": 1792346438630.3264
+          },
+          {
+            "index": 42,
+            "durationMs": 3768.540253999643,
+            "startedOffsetMs": 0.5198050001636147,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.9438,
+            "startedUpperMs": 1792346434916.8591,
+            "finishedLowerMs": 1792346438668.4841,
+            "finishedUpperMs": 1792346438685.3994
+          },
+          {
+            "index": 66,
+            "durationMs": 3869.065863000229,
+            "startedOffsetMs": 0.5458749998360872,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.97,
+            "startedUpperMs": 1792346434916.8853,
+            "finishedLowerMs": 1792346438769.036,
+            "finishedUpperMs": 1792346438785.9512
+          },
+          {
+            "index": 34,
+            "durationMs": 3927.477195999585,
+            "startedOffsetMs": 0.5071830004453659,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.9312,
+            "startedUpperMs": 1792346434916.8464,
+            "finishedLowerMs": 1792346438827.4084,
+            "finishedUpperMs": 1792346438844.3237
+          },
+          {
+            "index": 70,
+            "durationMs": 3960.794269999489,
+            "startedOffsetMs": 0.5500450003892183,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.974,
+            "startedUpperMs": 1792346434916.8894,
+            "finishedLowerMs": 1792346438860.7683,
+            "finishedUpperMs": 1792346438877.6836
+          },
+          {
+            "index": 6,
+            "durationMs": 3961.2704079998657,
+            "startedOffsetMs": 0.4660609997808933,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.8901,
+            "startedUpperMs": 1792346434916.8054,
+            "finishedLowerMs": 1792346438861.1606,
+            "finishedUpperMs": 1792346438878.076
+          },
+          {
+            "index": 90,
+            "durationMs": 3974.891719000414,
+            "startedOffsetMs": 0.5701299998909235,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.9941,
+            "startedUpperMs": 1792346434916.9094,
+            "finishedLowerMs": 1792346438874.8857,
+            "finishedUpperMs": 1792346438891.801
+          },
+          {
+            "index": 38,
+            "durationMs": 3988.753907999955,
+            "startedOffsetMs": 0.5148790003731847,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.939,
+            "startedUpperMs": 1792346434916.8542,
+            "finishedLowerMs": 1792346438888.6929,
+            "finishedUpperMs": 1792346438905.6082
+          },
+          {
+            "index": 94,
+            "durationMs": 4018.6378910001367,
+            "startedOffsetMs": 0.5740679996088147,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.998,
+            "startedUpperMs": 1792346434916.9133,
+            "finishedLowerMs": 1792346438918.636,
+            "finishedUpperMs": 1792346438935.5513
+          },
+          {
+            "index": 54,
+            "durationMs": 4021.2793999994174,
+            "startedOffsetMs": 0.5334710003808141,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.9575,
+            "startedUpperMs": 1792346434916.8728,
+            "finishedLowerMs": 1792346438921.2368,
+            "finishedUpperMs": 1792346438938.152
+          },
+          {
+            "index": 58,
+            "durationMs": 4022.4223950002342,
+            "startedOffsetMs": 0.5376720000058413,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.9617,
+            "startedUpperMs": 1792346434916.877,
+            "finishedLowerMs": 1792346438922.384,
+            "finishedUpperMs": 1792346438939.2993
+          },
+          {
+            "index": 30,
+            "durationMs": 4026.886407999322,
+            "startedOffsetMs": 0.5035840002819896,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.9277,
+            "startedUpperMs": 1792346434916.843,
+            "finishedLowerMs": 1792346438926.8142,
+            "finishedUpperMs": 1792346438943.7295
+          },
+          {
+            "index": 82,
+            "durationMs": 4036.6452689999714,
+            "startedOffsetMs": 0.5620980001986027,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.986,
+            "startedUpperMs": 1792346434916.9014,
+            "finishedLowerMs": 1792346438936.6313,
+            "finishedUpperMs": 1792346438953.5466
+          },
+          {
+            "index": 22,
+            "durationMs": 4041.6317869992927,
+            "startedOffsetMs": 0.49488900043070316,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.919,
+            "startedUpperMs": 1792346434916.8342,
+            "finishedLowerMs": 1792346438941.5508,
+            "finishedUpperMs": 1792346438958.466
+          },
+          {
+            "index": 10,
+            "durationMs": 4057.0440940000117,
+            "startedOffsetMs": 0.473513999953866,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.8975,
+            "startedUpperMs": 1792346434916.8127,
+            "finishedLowerMs": 1792346438956.9417,
+            "finishedUpperMs": 1792346438973.857
+          },
+          {
+            "index": 86,
+            "durationMs": 4096.44850499928,
+            "startedOffsetMs": 0.5662390002980828,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.9902,
+            "startedUpperMs": 1792346434916.9055,
+            "finishedLowerMs": 1792346438996.4387,
+            "finishedUpperMs": 1792346439013.354
+          },
+          {
+            "index": 14,
+            "durationMs": 4109.223170000128,
+            "startedOffsetMs": 0.47802599985152483,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346434899.902,
+            "startedUpperMs": 1792346434916.8174,
+            "finishedLowerMs": 1792346439009.1252,
+            "finishedUpperMs": 1792346439026.0405
+          },
+          {
+            "index": 78,
+            "durationMs": 4117.37182299979,
+            "startedOffsetMs": 0.5579070001840591,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.982,
+            "startedUpperMs": 1792346434916.8972,
+            "finishedLowerMs": 1792346439017.3538,
+            "finishedUpperMs": 1792346439034.269
+          },
+          {
+            "index": 74,
+            "durationMs": 4132.9036380006,
+            "startedOffsetMs": 0.5539199998602271,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.978,
+            "startedUpperMs": 1792346434916.8933,
+            "finishedLowerMs": 1792346439032.8816,
+            "finishedUpperMs": 1792346439049.7969
+          },
+          {
+            "index": 62,
+            "durationMs": 4136.236448000185,
+            "startedOffsetMs": 0.5419709999114275,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.966,
+            "startedUpperMs": 1792346434916.8813,
+            "finishedLowerMs": 1792346439036.2024,
+            "finishedUpperMs": 1792346439053.1177
+          },
+          {
+            "index": 98,
+            "durationMs": 4137.496868000366,
+            "startedOffsetMs": 0.5776949999853969,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434900.0017,
+            "startedUpperMs": 1792346434916.917,
+            "finishedLowerMs": 1792346439037.4985,
+            "finishedUpperMs": 1792346439054.4138
+          },
+          {
+            "index": 50,
+            "durationMs": 4138.914386999793,
+            "startedOffsetMs": 0.5272460002452135,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346434899.9514,
+            "startedUpperMs": 1792346434916.8667,
+            "finishedLowerMs": 1792346439038.8657,
+            "finishedUpperMs": 1792346439055.781
+          }
+        ],
+        "clockBracketMs": 16.915223999880254,
+        "wallDurationMs": 4139.553318999708,
+        "eventLoopP95Ms": 20.840447,
+        "realMessages": 0
+      },
+      {
+        "nodeIndex": 3,
+        "nodeVersion": "24.16.0",
+        "participants": 25,
+        "admitted": 12,
+        "pending": 13,
+        "p95Ms": 4022.9207210000604,
+        "peakInFlight": 25,
+        "pool": {
+          "maximum": 25,
+          "acquisitions": 75,
+          "releases": 75,
+          "errorReleases": 0,
+          "peakWaitingCount": 0,
+          "peakTotalCount": 25,
+          "waitingAfter": 0,
+          "checkedOutAfter": 0
+        },
+        "confirmations": [
+          {
+            "index": 43,
+            "durationMs": 3521.1056650001556,
+            "startedOffsetMs": 0.6468250006437302,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5012,
+            "startedUpperMs": 1792346435045.3364,
+            "finishedLowerMs": 1792346438546.607,
+            "finishedUpperMs": 1792346438566.4421
+          },
+          {
+            "index": 11,
+            "durationMs": 3551.0459529999644,
+            "startedOffsetMs": 0.47616099938750267,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.3306,
+            "startedUpperMs": 1792346435045.1658,
+            "finishedLowerMs": 1792346438576.3765,
+            "finishedUpperMs": 1792346438596.2117
+          },
+          {
+            "index": 7,
+            "durationMs": 3586.183368999511,
+            "startedOffsetMs": 0.4667930006980896,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.3213,
+            "startedUpperMs": 1792346435045.1565,
+            "finishedLowerMs": 1792346438611.5046,
+            "finishedUpperMs": 1792346438631.3398
+          },
+          {
+            "index": 91,
+            "durationMs": 3696.0679010003805,
+            "startedOffsetMs": 0.7018929999321699,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5564,
+            "startedUpperMs": 1792346435045.3916,
+            "finishedLowerMs": 1792346438721.6243,
+            "finishedUpperMs": 1792346438741.4595
+          },
+          {
+            "index": 47,
+            "durationMs": 3698.5081459991634,
+            "startedOffsetMs": 0.650823000818491,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5054,
+            "startedUpperMs": 1792346435045.3406,
+            "finishedLowerMs": 1792346438724.0134,
+            "finishedUpperMs": 1792346438743.8486
+          },
+          {
+            "index": 71,
+            "durationMs": 3725.8245369996876,
+            "startedOffsetMs": 0.6809620000422001,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5354,
+            "startedUpperMs": 1792346435045.3706,
+            "finishedLowerMs": 1792346438751.3599,
+            "finishedUpperMs": 1792346438771.195
+          },
+          {
+            "index": 35,
+            "durationMs": 3748.2603500001132,
+            "startedOffsetMs": 0.6385469995439053,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.493,
+            "startedUpperMs": 1792346435045.3281,
+            "finishedLowerMs": 1792346438773.7532,
+            "finishedUpperMs": 1792346438793.5884
+          },
+          {
+            "index": 3,
+            "durationMs": 3803.948736000806,
+            "startedOffsetMs": 0.23840299993753433,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.0928,
+            "startedUpperMs": 1792346435044.928,
+            "finishedLowerMs": 1792346438829.0415,
+            "finishedUpperMs": 1792346438848.8767
+          },
+          {
+            "index": 55,
+            "durationMs": 3840.230469001457,
+            "startedOffsetMs": 0.6622509993612766,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5166,
+            "startedUpperMs": 1792346435045.3518,
+            "finishedLowerMs": 1792346438865.747,
+            "finishedUpperMs": 1792346438885.5823
+          },
+          {
+            "index": 27,
+            "durationMs": 3840.9914989992976,
+            "startedOffsetMs": 0.6291600000113249,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.4836,
+            "startedUpperMs": 1792346435045.3188,
+            "finishedLowerMs": 1792346438866.475,
+            "finishedUpperMs": 1792346438886.3103
+          },
+          {
+            "index": 31,
+            "durationMs": 3848.5010180007666,
+            "startedOffsetMs": 0.6336499992758036,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.488,
+            "startedUpperMs": 1792346435045.3232,
+            "finishedLowerMs": 1792346438873.989,
+            "finishedUpperMs": 1792346438893.8242
+          },
+          {
+            "index": 59,
+            "durationMs": 3854.111267000437,
+            "startedOffsetMs": 0.6664220001548529,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5208,
+            "startedUpperMs": 1792346435045.356,
+            "finishedLowerMs": 1792346438879.632,
+            "finishedUpperMs": 1792346438899.4673
+          },
+          {
+            "index": 67,
+            "durationMs": 3854.868754999712,
+            "startedOffsetMs": 0.675373999401927,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5298,
+            "startedUpperMs": 1792346435045.365,
+            "finishedLowerMs": 1792346438880.3984,
+            "finishedUpperMs": 1792346438900.2336
+          },
+          {
+            "index": 15,
+            "durationMs": 3855.644198000431,
+            "startedOffsetMs": 0.48251499980688095,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.337,
+            "startedUpperMs": 1792346435045.172,
+            "finishedLowerMs": 1792346438880.9812,
+            "finishedUpperMs": 1792346438900.8164
+          },
+          {
+            "index": 39,
+            "durationMs": 3859.8305830005556,
+            "startedOffsetMs": 0.6428069993853569,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.4973,
+            "startedUpperMs": 1792346435045.3325,
+            "finishedLowerMs": 1792346438885.328,
+            "finishedUpperMs": 1792346438905.163
+          },
+          {
+            "index": 75,
+            "durationMs": 3879.6840850003064,
+            "startedOffsetMs": 0.6853849999606609,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5398,
+            "startedUpperMs": 1792346435045.375,
+            "finishedLowerMs": 1792346438905.2239,
+            "finishedUpperMs": 1792346438925.059
+          },
+          {
+            "index": 51,
+            "durationMs": 3900.28944600001,
+            "startedOffsetMs": 0.6547960005700588,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5093,
+            "startedUpperMs": 1792346435045.3445,
+            "finishedLowerMs": 1792346438925.7988,
+            "finishedUpperMs": 1792346438945.634
+          },
+          {
+            "index": 87,
+            "durationMs": 3901.4712859988213,
+            "startedOffsetMs": 0.6980520002543926,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5525,
+            "startedUpperMs": 1792346435045.3877,
+            "finishedLowerMs": 1792346438927.0237,
+            "finishedUpperMs": 1792346438946.859
+          },
+          {
+            "index": 23,
+            "durationMs": 3915.60426799953,
+            "startedOffsetMs": 0.6215930003672838,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.476,
+            "startedUpperMs": 1792346435045.3113,
+            "finishedLowerMs": 1792346438941.0803,
+            "finishedUpperMs": 1792346438960.9155
+          },
+          {
+            "index": 83,
+            "durationMs": 3986.5674290005118,
+            "startedOffsetMs": 0.6940449997782707,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5486,
+            "startedUpperMs": 1792346435045.3838,
+            "finishedLowerMs": 1792346439012.116,
+            "finishedUpperMs": 1792346439031.9512
+          },
+          {
+            "index": 19,
+            "durationMs": 3996.8124500010163,
+            "startedOffsetMs": 0.4894159995019436,
+            "outcome": "admitted",
+            "failure": null,
+            "startedLowerMs": 1792346435025.3438,
+            "startedUpperMs": 1792346435045.179,
+            "finishedLowerMs": 1792346439022.1562,
+            "finishedUpperMs": 1792346439041.9915
+          },
+          {
+            "index": 79,
+            "durationMs": 4012.4820269998163,
+            "startedOffsetMs": 0.6897449996322393,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5442,
+            "startedUpperMs": 1792346435045.3794,
+            "finishedLowerMs": 1792346439038.0261,
+            "finishedUpperMs": 1792346439057.8613
+          },
+          {
+            "index": 63,
+            "durationMs": 4014.122921999544,
+            "startedOffsetMs": 0.6709529999643564,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5254,
+            "startedUpperMs": 1792346435045.3606,
+            "finishedLowerMs": 1792346439039.6482,
+            "finishedUpperMs": 1792346439059.4834
+          },
+          {
+            "index": 99,
+            "durationMs": 4022.9207210000604,
+            "startedOffsetMs": 0.710699999704957,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5652,
+            "startedUpperMs": 1792346435045.4004,
+            "finishedLowerMs": 1792346439048.4858,
+            "finishedUpperMs": 1792346439068.321
+          },
+          {
+            "index": 95,
+            "durationMs": 4046.8032130002975,
+            "startedOffsetMs": 0.7062829993665218,
+            "outcome": "pending",
+            "failure": null,
+            "startedLowerMs": 1792346435025.5608,
+            "startedUpperMs": 1792346435045.396,
+            "finishedLowerMs": 1792346439072.364,
+            "finishedUpperMs": 1792346439092.1992
+          }
+        ],
+        "clockBracketMs": 19.835110999643803,
+        "wallDurationMs": 4047.598558999598,
+        "eventLoopP95Ms": 20.725759,
+        "realMessages": 0
+      }
+    ],
+    "participants": 100,
+    "entries": 10000,
+    "failures": [],
+    "admitted": 50,
+    "pending": 50,
+    "p95Ms": 4137.496868000366,
+    "targetMs": 3000,
+    "guaranteedHundredOverlap": true,
+    "guaranteedOverlapDurationMs": 3494.5556640625,
+    "maximumClockBracketMs": 40.983955999836326,
+    "poolAcquisitions": 300,
+    "poolReleases": 300,
+    "facts": {
+      "entries": 10000,
+      "requests": 100,
+      "basic_members": 50,
+      "deliveries": 0
+    },
+    "realMessages": 0
+  },
+  "hostRequests": [
+    {
+      "nodeIndex": 0,
+      "phase": "anonymous",
+      "status": 401
+    },
+    {
+      "nodeIndex": 0,
+      "phase": "prepared",
+      "status": 202
+    },
+    {
+      "nodeIndex": 1,
+      "phase": "anonymous",
+      "status": 401
+    },
+    {
+      "nodeIndex": 1,
+      "phase": "prepared",
+      "status": 202
+    },
+    {
+      "nodeIndex": 2,
+      "phase": "anonymous",
+      "status": 401
+    },
+    {
+      "nodeIndex": 2,
+      "phase": "prepared",
+      "status": 202
+    },
+    {
+      "nodeIndex": 3,
+      "phase": "anonymous",
+      "status": 401
+    },
+    {
+      "nodeIndex": 3,
+      "phase": "prepared",
+      "status": 202
+    },
+    {
+      "nodeIndex": 2,
+      "phase": "workload",
+      "status": 200
+    },
+    {
+      "nodeIndex": 1,
+      "phase": "workload",
+      "status": 200
+    },
+    {
+      "nodeIndex": 0,
+      "phase": "workload",
+      "status": 200
+    },
+    {
+      "nodeIndex": 3,
+      "phase": "workload",
+      "status": 200
+    }
+  ],
+  "functionsRemoved": true,
+  "branchRemoved": true,
+  "originalBranchesPreserved": true,
+  "inputsStable": true,
+  "supportSql": {
+    "path": "tests/support/sql/20261018174500_create_admission_distributed_probe.sql",
+    "sha256": "25a95c94a174ed464968eb00fb260b9c79f21af3e454c2b55e2cae3e96df7790"
+  },
+  "realMessages": 0,
+  "operationalGatesClosed": []
+}

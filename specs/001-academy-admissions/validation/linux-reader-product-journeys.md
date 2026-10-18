@@ -117,3 +117,9 @@ El [run 39144027611](https://github.com/guidomodarelli/TuTribu/actions/runs/3914
 Ninguna pareja alcanzó la comprobación SQL final ni el recorrido administrativo. El conteo agregado de Vitest es una prueba fallida que contiene esos cuatro intentos; no son ocho superficies aprobadas. Los dos Quality gate del mismo commit aprobaron, sin sustituir el resultado Native.
 
 El owner terminó el 18 de octubre de 2026 a las 16:20:11 UTC con sus fuentes estables y sin fallos de cleanup. Revocó la clave efímera, retiró el secreto y las dos variables, y confirmó la ausencia de la rama prevista. La comprobación independiente conservó las cuatro ramas persistentes, incluido el nuevo piloto; cero mensajes reales. T198/T208 permanecen abiertas.
+
+## Preparación del contraste de aplicación con Orca 51.1
+
+La comparación de plataforma con Orca 51.1, AT-SPI 2.58.6 y GSettings acreditó las ocho combinaciones Chromium del canario de cuatro variantes en `39150315097`; las ocho WebKit siguieron sin voz del aviso. Se prepara ahora la misma pila oficial fijada para el workflow de aplicación real, conservando las ocho superficies, efectos SQL, teclado, foco, voz y PCM exigidos. El cambio de rol del canario no se traslada al producto y no se interpreta como una corrección de WebKit.
+
+El workflow compila las mismas fuentes oficiales del preflight, conserva el prefijo privado de Orca y verifica el override Python de AT-SPI antes de la aplicación. Registra también el manifiesto nativo sin datos privados. La ejecución sigue requiriendo capacidad efímera propia, SHA/nonce exactos y disparo manual: el checkpoint sin esa capacidad no acredita un recorrido Native. La siguiente ejecución real debe registrarse y retirar sus recursos antes de acreditar algún avance del producto. T198/T208 siguen pendientes.
