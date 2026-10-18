@@ -38,4 +38,12 @@ Se registraron aparte **10,12 s** de preparación del controlador/rama, **137,91
 
 El escaneo posterior comprobó el bearer, el JSON completo y cada una de las seis claves base64 en los argumentos y archivos del directorio propio, sin encontrarlos. Se retiraron funciones/rama, se conservaron las cuatro ramas persistentes y los inputs permanecieron estables.
 
-Esta cohorte acredita la medición de SC-013 en la configuración Node aislada, con sus etapas excluidas registradas. El arnés distribuido aún es un experimento temporal: falta integrarlo al comando versionado de carga para cerrar su reproducibilidad. SC-015 y los demás alcances de T200/T209 siguen pendientes; ningún gate operativo o configuración productiva se modifica por este resultado.
+Esta cohorte acredita la medición de SC-013 en la configuración Node aislada, con sus etapas excluidas registradas. Se obtuvo con el arnés temporal previo a la integración versionada siguiente. SC-015 y los demás alcances de T200/T209 siguen pendientes; ningún gate operativo o configuración productiva se modifica por este resultado.
+
+## Integración del comando versionado
+
+`tests/performance/academy-admissions-distributed-node-host.test.ts` y `tests/support/run-admission-distributed-performance.ts` incorporan el escenario completo al repositorio. El nuevo host reutiliza el boundary autenticado canónico y conserva las mediciones únicamente en las filas privadas de la rama propia. El coordinador lee esas filas como resultados SQL tipados, valida sólo los DTO HTTP y compara los samples persistidos antes/después del replay. Los comandos de preparación y retiro se limitan al hijo original y a cuatro slugs nuevos; ninguna respuesta incierta provoca un rePOST automático.
+
+Las pruebas de cálculo cubren percentil global, fallos incluidos, ausencia de solapamiento global, actores duplicados, host faltante y límites de reloj contradictorios. El nuevo caso de reloj falló antes de reforzar la comprobación y después pasó. Junto a los contratos reales del handler pasaron catorce tests; el caso Native quedó omitido sin los dos opt-in. Tipos y lint pasaron. Estos resultados locales acreditan los contratos, no una nueva medición externa. La ejecución Native del comando versionado debe conservar su propio commit, bundle, observaciones, etapas excluidas y cleanup.
+
+El [manual de testing](../../../docs/conventions/admission-testing.htm#distributed-node-performance) contiene el comando y sus requisitos. SC-015, Workers y los demás alcances de T200/T209 mantienen sus criterios y estado pendiente.
