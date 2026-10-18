@@ -1,0 +1,23 @@
+{
+  "workflowRun": 39146664173,
+  "url": "https://github.com/guidomodarelli/TuTribu/actions/runs/39146664173",
+  "sourceCommit": "aa6193ee8e2a71af6fffdfb64d4021e29ac830cd",
+  "kind": "platform_preflight_initialization",
+  "conclusion": "failure",
+  "atspiSourceCommit": "1e883ff1739ad584571d38d63735e1cc67a18b0b",
+  "orcaSourceCommit": "244bdadd98f07fe9bfda9326fab621d686c70d2d",
+  "atspiCompilationPassed": true,
+  "atspiInstallationPassed": true,
+  "atspiVersionCheckPassed": true,
+  "atspiPythonOverrideCheckPassed": true,
+  "orcaCompilationPassed": true,
+  "orcaInstallationPassed": false,
+  "failure": {
+    "stage": "orca_installation",
+    "type": "FileNotFoundError",
+    "target": "/usr/share/help/bg/orca/commands_braille.page"
+  },
+  "nativeCasesAttempted": 0,
+  "productJourneysValidated": false,
+  "realMessages": 0
+}

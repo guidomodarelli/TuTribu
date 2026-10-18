@@ -55,10 +55,11 @@ jobs:
         run: |
           git -c advice.detachedHead=false clone --depth 1 --branch 51.1 https://github.com/GNOME/orca.git "$RUNNER_TEMP/admission-current-orca-source"
           test "$(git -C "$RUNNER_TEMP/admission-current-orca-source" rev-parse HEAD)" = "244bdadd98f07fe9bfda9326fab621d686c70d2d"
-          PATH="/usr/bin:$PATH" meson setup "$RUNNER_TEMP/admission-current-orca-build" "$RUNNER_TEMP/admission-current-orca-source" --prefix=/usr -Dmathcat=false
+          PATH="/usr/bin:$PATH" meson setup "$RUNNER_TEMP/admission-current-orca-build" "$RUNNER_TEMP/admission-current-orca-source" --prefix="$RUNNER_TEMP/admission-current-orca-install" -Dmathcat=false
           meson compile -C "$RUNNER_TEMP/admission-current-orca-build"
-          sudo meson install -C "$RUNNER_TEMP/admission-current-orca-build"
-          printf '%s\n' 'ORCA_BINARY_PATH=/usr/bin/orca' 'ORCA_SOURCE_COMMIT=244bdadd98f07fe9bfda9326fab621d686c70d2d' 'ORCA_EXPECTED_VERSION=51.1' 'ORCA_SETTINGS_FORMAT=gsettings' >> "$GITHUB_ENV"
+          meson install -C "$RUNNER_TEMP/admission-current-orca-build"
+          glib-compile-schemas "$RUNNER_TEMP/admission-current-orca-install/share/glib-2.0/schemas"
+          printf '%s\n' "ORCA_BINARY_PATH=$RUNNER_TEMP/admission-current-orca-install/bin/orca" "GSETTINGS_SCHEMA_DIR=$RUNNER_TEMP/admission-current-orca-install/share/glib-2.0/schemas" 'ORCA_SOURCE_COMMIT=244bdadd98f07fe9bfda9326fab621d686c70d2d' 'ORCA_EXPECTED_VERSION=51.1' 'ORCA_SETTINGS_FORMAT=gsettings' >> "$GITHUB_ENV"
 
       - name: Probar los mismos doce casos con teclado, voz y audio reales
         run: |
