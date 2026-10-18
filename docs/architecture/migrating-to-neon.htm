@@ -111,6 +111,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <li>pools con limites explicitos de conexiones, timeout y lifetime para runtime serverless</li>
   <li>listener de errores de clientes idle para registrar cierres transitorios de Neon sin tumbar el proceso Node.js</li>
 </ul>
+<p><code>createPostgresPool</code> limita cada pool de runtime a cien clientes para atender operaciones concurrentes. Las conexiones se abren bajo demanda; se conservan <code>connectionTimeoutMillis=10000</code>, <code>idleTimeoutMillis=5000</code> y <code>maxLifetimeSeconds=60</code>. El mismo factory sirve request, mantenimiento, Better Auth, refresco de imagen de perfil y backfill de miniaturas, con pools separados por responsabilidad. El checkout propio pasa por <code>runWithGuardedTransaction</code>, conserva su liberación idempotente y el guard local de abandono de treinta segundos. El guard de <code>onConnect</code> cubre además las transacciones que abre un adapter de biblioteca. La capacidad configurada se valida con el workload real y la metadata del target; no modifica los plazos o cupos de producto.</p>
 </div>
 
 <div class="section">

@@ -114,3 +114,9 @@ La preparación duró 170.882,93 ms y el warm-up 106.598,44 ms, separados de la 
 El caso independiente de abandono pasó: guard original de 30.000 ms, SQLSTATE `25P03`, recuperación en 32.936,55 ms y consulta sana posterior. Sus dos adquisiciones tuvieron sus liberaciones, sin conexiones retenidas. Ambos casos ejecutaron PostgreSQL real y finalizaron; el fallo de carga se conserva. Registros privados: `.git/admission-submission-scope-performance-vitest.json`, `.git/admission-submission-scope-performance.log` y `.git/admission-submission-capacity-probe.json`.
 
 La siguiente corrección debe atender la capacidad del pool y volver a medir el workload completo. Esta ejecución no acredita T200/T209, SC-013/SC-015/SC-021, la ruta HTTP ni un scheduler. No hubo envíos reales.
+
+## Repetición con capacidad para cien operaciones
+
+La [validación de capacidad](admission-pool-capacity.md) y su [reporte saneado](admission-pool-capacity.json) conservan la repetición real sobre `6d89c40d` más el cambio de máximo del factory a cien. Completó cincuenta admisiones y cincuenta pendientes sobre diez mil entradas, sin fallos ni timeouts de checkout. Hubo 500 adquisiciones y 500 liberaciones, cero espera máxima y ninguna conexión retenida al finalizar. SQL confirmó cien solicitudes, cincuenta miembros básicos y cero entregas.
+
+El p95 de las cien llamadas originales fue 18.954,82 ms: el caso sigue fallido por el límite inferior a 3.000 ms. Preparación de 154.655,27 ms y warm-up de 104.454,14 ms permanecen separados; la sonda mínima dio p95 de 169,47 ms y el event loop 29,52 ms. El guard original de abandono pasó con SQLSTATE `25P03`, recuperación en 32.995,21 ms y liberaciones completas. El checkout principal recibió exactamente los bytes probados y sus documentos, conservando la base y las huellas. T200/T209 y los gates operativos permanecen pendientes; no se rebaja el objetivo ni se presenta esta distribución correcta como aprobación de latencia.
