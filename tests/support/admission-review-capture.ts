@@ -22,7 +22,7 @@ export async function captureAdmissionReview(page: Page, name: string, forbidden
         const keyframes = node.getAnimations().flatMap((animation) => animation.effect instanceof KeyframeEffect ? animation.effect.getKeyframes() : []);
         if (!keyframes.length) return;
         const style = getComputedStyle(node);
-        for (const property of ["opacity", "transform"]) if (keyframes.some((keyframe) => property in keyframe)) target.style.setProperty(property, style.getPropertyValue(property));
+        for (const property of ["opacity", "transform", "filter"]) if (keyframes.some((keyframe) => property in keyframe)) target.style.setProperty(property, style.getPropertyValue(property));
       });
       if (omit) clone.querySelectorAll(omit).forEach((element) => element.remove());
       // Keep real labels while preventing a captured navigation target from retaining private route material.
