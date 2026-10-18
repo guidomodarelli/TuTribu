@@ -34,6 +34,11 @@ describe("messaging native host failure diagnostics", () => {
     expect(readMessagingNodePhaseFailureCode(new Error("MessagingRestoreNodePhase.verify failed: PREFLIGHT_ACCEPTED private context"))).toBe(FAILURE.phaseFailed);
   });
 
+  it("preserves the reopening owner's bounded failure without serializing private context", () => {
+    expect(readMessagingNodePhaseFailureCode(new Error("Messaging restore reopening failed: fresh_dispatch_unconfirmed"))).toBe("fresh_dispatch_unconfirmed");
+    expect(readMessagingNodePhaseFailureCode(new Error("Messaging restore reopening failed: fresh_dispatch_unconfirmed private context"))).toBe(FAILURE.phaseFailed);
+  });
+
   it("preserves only SQLSTATE metadata through nested native errors", () => {
     const postgresError = Object.assign(new Error("private relation and parameters"), { code: "42501" });
     expect(readMessagingNodePhaseFailureCode(new Error("private wrapper", { cause: postgresError }))).toBe("postgres_42501");

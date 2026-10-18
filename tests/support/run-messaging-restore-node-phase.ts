@@ -108,16 +108,18 @@ export async function runMessagingRestoreNodePhase(database: MessagingRestoreNod
     const observed = await observeMessagingNativeCipher(async () => {
       await requireDenied(messaging.secrets.loadAuthorizedSecret(context), "connection_incomplete");
       result.checkedRejections += 1;
+      await requireDenied(messaging.activation.activate(source.activationContext, { operationId: randomUUID(), expectedVersion: source.activatedVersion, confirmed: true }), "connection_incomplete");
+      result.checkedRejections += 1;
       if (input.phase === PHASE.retiredKey) return;
       requireCondition(Date.now() < source.available.applyBefore.getTime() && Date.now() < source.queued.expiresAt.getTime(), "original_live_proof_or_code_expired");
       const preflight = await admission.preflight.execute({ tribeId: context.tribeId, requestId: randomUUID() });
-      requireCondition(preflight.ok && !preflight.value.prepared, "restored_policy_not_closed");
+      // This inventory preview does not evaluate transport readiness or the connection's epoch.
+      requireCondition(preflight.ok && preflight.value.prepared === !config.recoveryLocked, "restored_inventory_lock_contract_failed");
       if (input.phase === PHASE.locked || input.phase === PHASE.lockedOriginal) {
-        await requireDenied(messaging.activation.activate(source.activationContext, { operationId: randomUUID(), expectedVersion: source.activatedVersion, confirmed: true }), "connection_incomplete");
         await requireDenied(admission.requests.decide(originalApproval(input)), "resource_unavailable");
         await requireDenied(admission.requests.submit(originalSubmission(input)), "resource_unavailable");
         await requireDenied(admission.verification.verify({ ...source.queued.context, operationId: randomUUID(), challengeId: source.queued.original.challengeId, verificationCode: source.queued.code }), "resource_unavailable");
-        result.checkedRejections += 4;
+        result.checkedRejections += 3;
       } else {
         const verified = await admission.verification.verify({ ...source.queued.context, operationId: randomUUID(), challengeId: source.queued.original.challengeId, verificationCode: source.queued.code });
         requireCondition(verified.state === "completed" && verified.result.result === "denied" && verified.result.code === "challenge_invalidated", "old_code_not_invalidated_by_epoch");

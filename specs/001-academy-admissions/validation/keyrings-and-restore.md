@@ -50,6 +50,12 @@ La fase de época devolvió HTTP 500. El controlador anterior descartó el códi
 
 Las funciones propias fueron retiradas y los inputs permanecieron estables, sin material privado en archivos/argumentos propios. La consulta independiente posterior confirmó ausentes el padre y la copia y conservadas las cuatro ramas persistentes. Tres fases no acreditan el protocolo de siete, la reapertura, Workers ni OG-02. T201/T203 conservan su alcance pendiente.
 
+## Diagnóstico del segundo ensayo remoto
+
+El [segundo recibo remoto](messaging-node-host-restore-second.json), sobre `247cb4f8`, conserva un caso fallido, sin aprobados ni omitidos, en 968.293 ms. Las tres fases iniciales completaron de nuevo. La captura corregida conservó `restored_policy_not_closed` desde el POST de época, el journal y las causas exteriores; las funciones propias fueron retiradas. La consulta independiente confirmó ausentes padre/copia y preservadas las cuatro ramas persistentes.
+
+El fallo pertenece a la aserción del arnés: el preflight informativo acredita inventario/evaluador/bloqueo, y la arquitectura distingue ese resultado de la disponibilidad del canal. Sin recovery lock puede devolver preparado aunque la conexión antigua ya no sea utilizable por su época; no concede una admisión ni autoriza secretos. El protocolo corregido comprueba esa distinción y refuerza el rechazo real de activación, además del secreto, en bloqueo, época antigua y clave retirada. Conserva cero cifrado, códigos/pruebas antiguos denegados, outbox cerrado y las siete fases completas pendientes de ejecutar; no cambia reglas del producto. El diagnóstico también reconoce los códigos acotados del owner de reapertura, sin mensajes privados.
+
 ## Preflight de acceso
 
 La comprobación actual encontró Wrangler 4.128.0 instalado y `whoami --json` devolvió `loggedIn: false`. Chrome tiene el acceso de Cloudflare preparado; el ingreso muestra aceptación de términos y la nueva conexión requiere aprobación puntual de acceso persistente. La petición al usuario sigue pendiente. Los intentos OAuth no completados finalizaron sin acreditar una sesión, y no se crearon Workers, secretos ni bases para este ensayo.
