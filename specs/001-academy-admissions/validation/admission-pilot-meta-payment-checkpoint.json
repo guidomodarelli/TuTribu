@@ -46,6 +46,13 @@
     "selectedBusiness": "La Pampita - Olavarría",
     "completionOwner": "user",
     "submissionStatus": "awaiting_user",
+    "subsequentUserRequest": {
+      "businessName": "TuTribu",
+      "action": "create_separate_business_portfolio",
+      "state": "form_prepared_awaiting_commercial_terms_confirmation",
+      "created": false,
+      "existingWhatsAppAssociationChanged": false
+    },
     "submittedByAgent": false
   },
   "causality": {
