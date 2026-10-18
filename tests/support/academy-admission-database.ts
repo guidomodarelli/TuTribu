@@ -14,6 +14,7 @@ import { sql } from "drizzle-orm";
 import { createPostgresPool } from "@/src/modules/shared/infrastructure/database/postgres-pool";
 import {
   runWithGuardedTransaction,
+  prepareRequestDatabaseContext,
   type RequestDatabase,
   type RequestDatabaseContext,
 } from "@/src/modules/shared/infrastructure/database/server-database-client";
@@ -51,6 +52,8 @@ export type AcademyAdmissionDatabaseOptions = {
   fetch?: typeof globalThis.fetch;
   /** Bounds only this owned branch's real pool for SQL concurrency scenarios. */
   concurrentTransactions?: number;
+  /** Fixed compute size for this owned validation endpoint; default leaves the project profile unchanged. */
+  computeUnits?: number;
   /** Caller-generated unpredictable UUID used by a separate CI cleanup owner; existing names are always refused. */
   ownershipNonce?: string;
 };
@@ -133,6 +136,7 @@ export async function withAcademyAdmissionDatabase<Result>(
   options: AcademyAdmissionDatabaseOptions = {},
 ): Promise<Result> {
   const ownershipNonce = options.ownershipNonce ?? randomUUID();
+  if (options.computeUnits !== undefined && (!Number.isFinite(options.computeUnits) || options.computeUnits <= 0)) throw new Error("AcademyAdmissionDatabase.configure failed: invalid_compute_capacity");
   if (normalizeUuid(ownershipNonce) !== ownershipNonce) throw new Error(ADMISSION_DATABASE_OWNERSHIP_FAILURE.invalidNonce);
   const name = `${ADMISSION_BRANCH_NAME_PREFIX}${ownershipNonce}`;
   let selection = options.databaseSelection;
@@ -203,7 +207,7 @@ export async function withAcademyAdmissionDatabase<Result>(
     try {
       const created = await adminRequest<{ branch: NeonBranch }>(`${projectPath}/branches`, {
         method: "POST",
-        body: JSON.stringify({ branch: { name, parent_id: parent.id, init_source: "parent-data" }, endpoints: [{ type: "read_write" }] }),
+        body: JSON.stringify({ branch: { name, parent_id: parent.id, init_source: "parent-data" }, endpoints: [{ type: "read_write", ...(options.computeUnits !== undefined ? { autoscaling_limit_min_cu: options.computeUnits, autoscaling_limit_max_cu: options.computeUnits } : {}) }] }),
       });
       assertOwnedBranch(created.branch, name, parent.id);
       ownedBranch = created.branch;
@@ -287,8 +291,7 @@ export async function withAcademyAdmissionDatabase<Result>(
       withContext(context, statements, role = "runtime") {
         return runWithGuardedTransaction(branchPool, statements, async (transaction) => {
           if (role === "non_bypass") await transaction.execute(sql.raw(`set local role "${nonBypassName}"`));
-          await transaction.execute(sql`select set_config('app.current_user_id', ${context.userId ?? ""}, true)`);
-          await transaction.execute(sql`select set_config('app.current_user_email', ${context.email ?? ""}, true)`);
+          await prepareRequestDatabaseContext(transaction, context);
         });
       },
       /**

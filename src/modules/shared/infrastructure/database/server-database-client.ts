@@ -165,24 +165,35 @@ export async function runWithGuardedTransaction<T>(
 export async function createServerDatabaseClient(
   usage: DatabaseConnectionUsage = DATABASE_CONNECTION_USAGE.request
 ) {
-  const pool = getDatabasePool(usage);
+  return createPostgresDatabaseClient(getDatabasePool(usage));
+}
 
+/**
+ * Applies the standard request context and guarded checkout to an explicitly owned real pool.
+ * @param pool - Runtime pool whose lifecycle remains with its composition root.
+ * @returns The same request-scoped executor used by the cached server client.
+ */
+export function createPostgresDatabaseClient(pool: Pool) {
   return {
     async withRequestContext<T>(
       context: RequestDatabaseContext,
       callback: (database: RequestDatabase) => Promise<T>
     ): Promise<T> {
-      return runWithGuardedTransaction(pool, callback, async (database) => {
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserId}, ${context.userId ?? ""}, true)`
-        );
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? ""}, true)`
-        );
-        await database.execute(
-          sql`select set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : ""}, true)`
-        );
-      });
+      return runWithGuardedTransaction(pool, callback, (database) => prepareRequestDatabaseContext(database, context));
     },
   };
+}
+
+/**
+ * Sets independent request-local settings in one round trip before any application statement.
+ * @param database - Existing guarded transaction, after any trusted role selection.
+ * @param context - Server-derived identity and explicit webhook authority.
+ * @returns After all settings are visible to the next SQL statement; commit and rollback reset them together.
+ */
+export async function prepareRequestDatabaseContext(database: RequestDatabase, context: RequestDatabaseContext): Promise<void> {
+  await database.execute(sql`select
+    set_config(${DATABASE_CONTEXT_SETTING.currentUserId}, ${context.userId ?? ""}, true),
+    set_config(${DATABASE_CONTEXT_SETTING.currentUserEmail}, ${context.email ?? ""}, true),
+    set_config(${DATABASE_CONTEXT_SETTING.mercadoPagoWebhookVerified}, ${context.mercadoPagoWebhookVerified ? DATABASE_TRANSACTION.verifiedSettingValue : ""}, true)
+  `);
 }

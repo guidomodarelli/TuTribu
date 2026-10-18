@@ -2,7 +2,11 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { prepareAllowlistAdmission } from "./allowlist-admission-database-fixture";
+import { prepareAllowlistAdmission, seedAllowlistAdmission } from "./allowlist-admission-database-fixture";
+import { seedAllowlistManagement } from "./allowlist-management-database-fixture";
+import { seedContactVerificationDatabase } from "./contact-verification-database-fixture";
+import { registerMessagingPrivateMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
+import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { ADMISSION_PERFORMANCE, ADMISSION_PERFORMANCE_PHASE } from "./constants/admission-performance";
 import { createAdmissionContactFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-contact-fingerprint";
 import { GOOGLE_EMAIL_AUTHORITY, GOOGLE_IDENTITY_PROVIDER } from "@/src/modules/auth/constants/google-identity-evidence";
@@ -30,6 +34,23 @@ export type AdmissionPerformanceParticipant = {
  */
 export async function prepareAdmissionPerformanceFixture(database: AcademyAdmissionTestDatabase, onPhase?: (phase: string) => void) {
   const { fixture } = await prepareAllowlistAdmission(database);
+  return seedAdmissionPerformanceParticipants(database, fixture, onPhase);
+}
+
+/** @param database - Real executor whose owner already applied the exact SQL journal. @param onPhase - Optional safe progress names. @returns The identical native fixture using host-generated private keys, without a CLI or filesystem dependency at runtime. */
+export async function seedAdmissionPerformanceFixture(database: Pick<AcademyAdmissionTestDatabase, "withContext">, onPhase?: (phase: string) => void) {
+  const account = await seedContactVerificationDatabase(database);
+  await database.withContext({ userId: null, email: null }, async (transaction) => {
+    await registerMessagingPrivateMacKeyMaterial(transaction, account.config, MESSAGING_KEY_PURPOSE.operationPayload);
+    await registerMessagingPrivateMacKeyMaterial(transaction, account.config, MESSAGING_KEY_PURPOSE.contactFingerprint);
+  });
+  const management = await seedAllowlistManagement(database, account);
+  const { fixture } = await seedAllowlistAdmission(database, management);
+  return seedAdmissionPerformanceParticipants(database, fixture, onPhase);
+}
+
+/** @param database - Actual branch-scoped transaction executor. @param fixture - Shared activated academy and host keys. @param onPhase - Safe progress callback. @returns The fixed hundred-account/ten-thousand-entry dataset; no presentation has run. */
+async function seedAdmissionPerformanceParticipants(database: Pick<AcademyAdmissionTestDatabase, "withContext">, fixture: Awaited<ReturnType<typeof seedAllowlistManagement>>, onPhase?: (phase: string) => void) {
   const runId = randomUUID();
   const participants: AdmissionPerformanceParticipant[] = Array.from({ length: ADMISSION_PERFORMANCE.participantCount }, (_, index) => ({ index, userId: randomUUID(), sessionId: randomUUID(), sessionToken: randomUUID(), accountId: randomUUID(), subject: randomUUID(), evidenceId: randomUUID(), entryId: randomUUID(), email: `performance-${runId}-${index}@${ADMISSION_PERFORMANCE.fixtureDomain}` }));
   onPhase?.(ADMISSION_PERFORMANCE_PHASE.identities);

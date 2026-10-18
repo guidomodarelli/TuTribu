@@ -31,7 +31,7 @@ export async function prepareContactVerificationDatabase(database: AcademyAdmiss
 }
 
 /** @param database - Owned branch migrated through the required genuine journal stage. @param securityConfig - Optional original synthetic hosting material. @returns A native account/configuration without applying or disabling schema artifacts. */
-export async function seedContactVerificationDatabase(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
+export async function seedContactVerificationDatabase(database: Pick<AcademyAdmissionTestDatabase, "withContext">, securityConfig?: MessagingSecurityConfig) {
   const userId: string = randomUUID();
   const own = { userId, email: `${userId}@example.test` };
   const keyring = (purpose: MessagingKeyPurpose): MessagingKeyringInput => { const id = `${purpose}-${randomUUID()}`; return { activeKeyId: id, keys: [{ id, material: randomBytes(32) }] }; };

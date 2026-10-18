@@ -15,6 +15,7 @@ export const ADMISSION_PERFORMANCE = {
   poolSampleIntervalMs: 20,
   eventLoopResolutionMs: 20,
   nanosecondsPerMillisecond: 1_000_000,
+  microsecondsPerMillisecond: 1_000,
   percentageScale: 100,
   nativeCaseTimeoutMs: 3_600_000,
   abandonmentObservationMs: 90_000,

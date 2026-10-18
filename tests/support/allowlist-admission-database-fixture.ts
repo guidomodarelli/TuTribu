@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { prepareAllowlistManagement } from "./allowlist-management-database-fixture";
+import { prepareAllowlistManagement, seedAllowlistManagement } from "./allowlist-management-database-fixture";
 import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
 import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
@@ -11,6 +11,11 @@ import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastruc
 export async function prepareAllowlistAdmission(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig, historicalMemberStatus?: "active" | "muted", historicalMemberRole: "tribemate" | "guardian" = "tribemate", beforeActivation?: (tribeId: string) => Promise<void>) {
   const fixture = await prepareAllowlistManagement(database, securityConfig);
   for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261011024000_read_current_own_admission_eligibility.sql", "20261007005000_read_admission_reviews.sql", "20261007030000_capture_admission_decision_evidence.sql", "20261009082000_capture_automatic_allowlist_authorization.sql", "20261009083000_read_current_admission_review_evidence.sql"]) await database.applyMigration(migration);
+  return seedAllowlistAdmission(database, fixture, historicalMemberStatus, historicalMemberRole, beforeActivation);
+}
+
+/** @param database - Real executor on an owned branch with its full journal applied. @param fixture - Shared native management fixture. @param historicalMemberStatus - Optional legitimate pre-cutover membership. @param historicalMemberRole - Its original role. @param beforeActivation - Optional historical resources created before cutover. @returns The same protected academy and actual command factory on every Node host. */
+export async function seedAllowlistAdmission(database: Pick<AcademyAdmissionTestDatabase, "withContext">, fixture: Awaited<ReturnType<typeof seedAllowlistManagement>>, historicalMemberStatus?: "active" | "muted", historicalMemberRole: "tribemate" | "guardian" = "tribemate", beforeActivation?: (tribeId: string) => Promise<void>) {
   /** @param userId - Exact synthetic account. @param sessionId - Its real persisted session. @returns Native current commands bound to actual actor context on every transaction. */
   const commands = (userId: string, sessionId: string) => {
     const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId, sessionId }), (_identity, run) => database.withContext({ userId, email: null }, run));

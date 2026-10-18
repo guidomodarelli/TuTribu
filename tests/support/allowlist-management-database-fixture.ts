@@ -2,7 +2,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
-import { prepareContactVerificationDatabase } from "./contact-verification-database-fixture";
+import { prepareContactVerificationDatabase, seedContactVerificationDatabase } from "./contact-verification-database-fixture";
 import { RECENT_AUTHENTICATION_WINDOW_MS } from "@/src/modules/auth/constants/recent-authentication";
 import type { ReauthenticationOperation } from "@/src/modules/auth/constants/reauthentication-resources";
 import type { AuthorizedAdmissionContext } from "@/src/modules/academy-admissions/domain/repositories/admission-authorization-reader";
@@ -13,6 +13,11 @@ import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastruc
 export async function prepareAllowlistManagement(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
   const fixture = await prepareContactVerificationDatabase(database, securityConfig);
   for (const migration of ["20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql"]) await database.applyMigration(migration);
+  return seedAllowlistManagement(database, fixture);
+}
+
+/** @param database - Real transaction adapter on an already migrated owned branch. @param fixture - Native account and private host keys. @returns The same leader, academy resources and real management owners used by local fixtures. */
+export async function seedAllowlistManagement(database: Pick<AcademyAdmissionTestDatabase, "withContext">, fixture: Awaited<ReturnType<typeof seedContactVerificationDatabase>>) {
   const tribeId = randomUUID(), accountId = randomUUID(), sessionId = randomUUID(), subject = randomUUID(), sessionToken = randomUUID();
   await database.withContext(fixture.own, async (transaction) => {
     const now = new Date((await transaction.execute<{ now: string }>(sql`select clock_timestamp() as now`)).rows[0].now);

@@ -90,6 +90,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- Se agiliza la preparación de las operaciones de ingreso y revisión.
 - Se amplía la capacidad para procesar solicitudes de ingreso simultáneas.
 - Las solicitudes de acceso de distintas personas pueden avanzar en paralelo dentro de una academia, evitando membresías duplicadas al repetir la acción y conservando los permisos vigentes, el vencimiento de la sesión y el resultado original.
 - Los formularios de admisión y mensajería adoptan los selectores y botones del diseño actual del sitio.

@@ -1,4 +1,9 @@
 /** @vitest-environment node */
+/**
+ * Existing pg/Drizzle fault doubles keep socket-death and rollback failure cases
+ * deterministic without network handles. Native context and abandonment suites
+ * exercise the real adapters, request settings and cleanup against PostgreSQL.
+ */
 
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { EventEmitter } from "node:events";
@@ -21,7 +26,7 @@ describe("createServerDatabaseClient", () => {
     process.env = { ...originalEnvironment };
   });
 
-  it("runs request context settings sequentially on the transaction client", async () => {
+  it("finishes the batched request context before invoking application work on the transaction client", async () => {
     let activeQueryCount = 0;
     let detectedOverlappingQuery = false;
     const executedStatements: string[] = [];
@@ -76,8 +81,8 @@ describe("createServerDatabaseClient", () => {
     );
 
     expect(detectedOverlappingQuery).toBe(false);
-    // BEGIN + idle-in-transaction guard + 3 request-context settings + COMMIT.
-    expect(query).toHaveBeenCalledTimes(6);
+    // BEGIN + idle-in-transaction guard + one request-context statement + COMMIT.
+    expect(query).toHaveBeenCalledTimes(4);
     expect(executedStatements[0]).toBe("BEGIN");
     expect(executedStatements[executedStatements.length - 1]).toBe("COMMIT");
     expect(release).toHaveBeenCalledTimes(1);
