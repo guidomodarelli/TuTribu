@@ -5,8 +5,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import { ADMISSION_READER_PROBE as SETTINGS } from "./constants/admission-reader-probe.mjs";
 import { diagnoseNativeReaderSpeech, hasNativeReaderSpeech, hasNativeReaderTargetFocus, measureNativeAudioPeak } from "./admission-reader-observation.mjs";
 import { configureAdmissionBrowserNativeFocus } from "./admission-browser-native-focus.mjs";
+import { waitForAdmissionNativeTargetFocus } from "./wait-admission-reader-native-focus.mjs";
 
-/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number,nativeAccessibility:unknown,nativeControlFocusAtFailure:unknown,focusEmulationDisabled:boolean,targetState?:unknown,initialTargetState?:unknown,targetActiveCount?:number,nativeFocusWhenTargetActive?:unknown})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
+/** @param {{onFailure?:(diagnostic:ReturnType<typeof diagnoseNativeReaderSpeech> & {audioPeak:number,nativeAccessibility:unknown,nativeControlFocusAtFailure:unknown,focusEmulationDisabled:boolean,targetState?:unknown,initialTargetState?:unknown,targetActiveCount?:number,nativeFocusWhenTargetActive?:unknown,targetStateBeforeSettling?:unknown,targetStateAfterSettling?:unknown,focusSettling?:unknown})=>Promise<void>}} [options] - Optional safe failure projection owned by the test. @returns A reader bound to this disposable runner's native capture paths. */
 export function createAdmissionNativeReader({ onFailure } = {}) {
   if (process.platform !== "linux" || process.env.GITHUB_ACTIONS !== "true" || !process.env.DISPLAY) throw new Error("AdmissionNativeReader.start failed: disposable_linux_display_required");
   const debugPath = process.env.ORCA_DEBUG_LOG, audioPath = process.env.ORCA_AUDIO_FILE;
@@ -66,7 +67,13 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
     const count = await target.count();
     if (count !== 1) return { count };
     try {
-      return await target.evaluate((element) => ({ count: 1, tag: element.tagName.toLowerCase(), tabIndex: element.tabIndex, disabled: element.matches(":disabled"), readOnly: "readOnly" in element && element.readOnly === true, autofocus: element.hasAttribute("autofocus"), hidden: element.hidden, ariaDisabled: element.getAttribute("aria-disabled") === "true", documentFocused: element.ownerDocument.hasFocus(), activeElementMatches: element.ownerDocument.activeElement === element, activeElementTag: element.ownerDocument.activeElement?.tagName.toLowerCase() ?? null }));
+      return await target.evaluate((element) => {
+        const rectangle = element.getBoundingClientRect(), viewport = element.ownerDocument.defaultView;
+        const centerX = rectangle.left + rectangle.width / 2, centerY = rectangle.top + rectangle.height / 2;
+        const hit = element.ownerDocument.elementFromPoint(centerX, centerY);
+        return { count: 1, tag: element.tagName.toLowerCase(), tabIndex: element.tabIndex, disabled: element.matches(":disabled"), readOnly: "readOnly" in element && element.readOnly === true, autofocus: element.hasAttribute("autofocus"), hidden: element.hidden, ariaDisabled: element.getAttribute("aria-disabled") === "true", documentFocused: element.ownerDocument.hasFocus(), activeElementMatches: element.ownerDocument.activeElement === element, activeElementTag: element.ownerDocument.activeElement?.tagName.toLowerCase() ?? null,
+          geometry: { left: rectangle.left, top: rectangle.top, width: rectangle.width, height: rectangle.height, viewportWidth: viewport?.innerWidth ?? null, viewportHeight: viewport?.innerHeight ?? null, scrollX: viewport?.scrollX ?? null, scrollY: viewport?.scrollY ?? null, intersectsViewport: Boolean(viewport && rectangle.width > 0 && rectangle.height > 0 && rectangle.right > 0 && rectangle.bottom > 0 && rectangle.left < viewport.innerWidth && rectangle.top < viewport.innerHeight), centerHitsTarget: hit !== null && (hit === element || element.contains(hit)) } };
+      });
     } catch (error) { return { count, unavailable: true, failureName: error instanceof Error ? error.name : "unknown" }; }
   }
   /** @param {import('@playwright/test').Page} page - Owned application document. @returns {Promise<void>} Before activation/typing is delivered to page content. */
@@ -107,12 +114,18 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
       const start = await mark();
       const initialTargetState = await inspectTargetState(target);
       let targetActiveCount = 0, nativeFocusWhenTargetActive = null;
+      let targetStateBeforeSettling = null, targetStateAfterSettling = null, focusSettling = null;
       for (let index = 0; index < SETTINGS.maximumProductTabs; index += 1) {
         await key(page, SETTINGS.nativeKeys.next);
         await delay(SETTINGS.pollMs);
         if (await target.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement)) {
-          targetActiveCount += 1; nativeFocusWhenTargetActive = inspectNativeFocus(label);
-          if (hasNativeReaderTargetFocus(nativeFocusWhenTargetActive)) {
+          targetActiveCount += 1;
+          targetStateBeforeSettling = await inspectTargetState(target);
+          const settled = await waitForAdmissionNativeTargetFocus({ readDomFocus: () => target.evaluate((element) => element.ownerDocument.hasFocus() && element === element.ownerDocument.activeElement), inspectFocus: () => inspectNativeFocus(label), nowMs: () => performance.now(), pause: () => delay(SETTINGS.pollMs) });
+          nativeFocusWhenTargetActive = settled.observation;
+          focusSettling = { samples: settled.samples, elapsedMs: settled.elapsedMs, domFocusRetained: settled.domFocusRetained };
+          targetStateAfterSettling = await inspectTargetState(target);
+          if (settled.focused) {
             focusedPage = page; focusedTarget = target; focusedLabel = label;
             return hear(label, start);
           }
@@ -120,7 +133,7 @@ export function createAdmissionNativeReader({ onFailure } = {}) {
       }
       if (onFailure) {
         const nativeFocus = inspectNativeFocus(label);
-        await onFailure({ ...diagnoseNativeReaderSpeech((await log()).slice(start.logOffset), label), audioPeak: await peak(start.audioOffset), nativeAccessibility: nativeFocus, nativeControlFocusAtFailure: nativeFocus, focusEmulationDisabled, targetState: await inspectTargetState(target), initialTargetState, targetActiveCount, nativeFocusWhenTargetActive });
+        await onFailure({ ...diagnoseNativeReaderSpeech((await log()).slice(start.logOffset), label), audioPeak: await peak(start.audioOffset), nativeAccessibility: nativeFocus, nativeControlFocusAtFailure: nativeFocus, focusEmulationDisabled, targetState: await inspectTargetState(target), initialTargetState, targetActiveCount, nativeFocusWhenTargetActive, targetStateBeforeSettling, targetStateAfterSettling, focusSettling });
       }
       throw new Error(SETTINGS.failures.focus);
     },

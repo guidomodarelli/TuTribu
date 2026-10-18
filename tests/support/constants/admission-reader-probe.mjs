@@ -7,6 +7,7 @@ export const ADMISSION_READER_PROBE = {
   nativeBrowserLocale: "es_AR.UTF-8",
   chromiumLaunchArguments: ["--force-renderer-accessibility", "--disable-features=Translate", "--accept-lang=es-AR,es"],
   pollMs: 100,
+  focusSettleTimeoutMs: 1_000,
   observationTimeoutMs: 30_000,
   windowCommandTimeoutMs: 5_000,
   maximumTabs: 12,
