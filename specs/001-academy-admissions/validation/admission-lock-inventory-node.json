@@ -1,0 +1,669 @@
+{
+  "sourceCommit": "3c7c25a0d8e818a71bf629871610f64320f09ab0",
+  "bundleSha256": "5b5e9b10c1a62cab33b594d1b5a6d71740e50fc0fd14075c60e27925d6717a69",
+  "compute": {
+    "minimum": 2,
+    "maximum": 2,
+    "region": "aws-us-east-1"
+  },
+  "databaseStatistics": {
+    "trackingMode": "top",
+    "planningEnabled": false,
+    "serverVersionNum": 170011
+  },
+  "measurement": {
+    "warmupDurationMs": 3160.4154819995165,
+    "setupDurationMs": 2611.6675629997626,
+    "networkQueryP95Ms": 2.968246000818908,
+    "networkSamples": 20,
+    "participants": 100,
+    "admitted": 50,
+    "pending": 50,
+    "failures": [],
+    "p95Ms": 5528.53800399974,
+    "targetMs": 3000,
+    "peakInFlight": 100,
+    "pool": {
+      "maximum": 100,
+      "acquisitions": 300,
+      "releases": 300,
+      "errorReleases": 0,
+      "peakWaitingCount": 0,
+      "peakTotalCount": 100,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    },
+    "eventLoopP95Ms": 100.925439,
+    "facts": {
+      "entries": 10000,
+      "requests": 100,
+      "basic_members": 50,
+      "deliveries": 0
+    },
+    "realMessages": 0,
+    "nodeVersion": "24.16.0",
+    "sourceCommit": "3c7c25a0d8e818a71bf629871610f64320f09ab0",
+    "bundleSha256": "5b5e9b10c1a62cab33b594d1b5a6d71740e50fc0fd14075c60e27925d6717a69",
+    "databaseConnection": {
+      "sourceVariable": "DATABASE_URL_UNPOOLED",
+      "hostnameHasPoolerMarker": false
+    },
+    "measurementWindow": {
+      "startedAt": "2026-10-18T13:41:35.809Z",
+      "finishedAt": "2026-10-18T13:41:41.354Z"
+    },
+    "diagnostics": {
+      "wallDurationMs": 5545.116171000525,
+      "cpuUserMs": 1143.059,
+      "cpuSystemMs": 384.91,
+      "eventLoopActiveMs": 1367.7378670005128,
+      "eventLoopIdleMs": 4177.391387999989,
+      "eventLoopUtilization": 0.24665572326688515,
+      "accountTransactions": 100,
+      "commandTransactions": 200,
+      "accountTransactionP95Ms": 527.7957960003987,
+      "commandTransactionP95Ms": 3997.6468439996243,
+      "admittedP95Ms": 5535.418511999771,
+      "pendingP95Ms": 5527.808320000768
+    }
+  },
+  "backendObservations": {
+    "scope": "native_invocation_including_setup_warmup_measurement",
+    "lockInventoryEnabled": true,
+    "samples": [
+      {
+        "observedAt": "2026-10-18 13:41:31.694387+00",
+        "unmatchedBackends": 4,
+        "backends": 1,
+        "states": {
+          "idle in transaction": 1
+        },
+        "waitClasses": {
+          "Client": 1
+        },
+        "waitEvents": {
+          "ClientRead": 1
+        },
+        "locks": {
+          "lockTypes": {
+            "relation": 3,
+            "virtualxid": 1,
+            "transactionid": 1
+          },
+          "waitingLocks": 0,
+          "relationModes": {
+            "RowShareLock": 2,
+            "RowExclusiveLock": 1
+          },
+          "fastPathRelationLocks": 3,
+          "mainTableRelationLocks": 0,
+          "backendsWithRelationLocks": 1,
+          "maximumRelationsPerBackend": 3
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:41:33.02396+00",
+        "unmatchedBackends": 4,
+        "backends": 1,
+        "states": {
+          "idle": 1
+        },
+        "waitClasses": {
+          "Client": 1
+        },
+        "waitEvents": {
+          "ClientRead": 1
+        },
+        "locks": {
+          "lockTypes": {},
+          "waitingLocks": 0,
+          "relationModes": {},
+          "fastPathRelationLocks": 0,
+          "mainTableRelationLocks": 0,
+          "backendsWithRelationLocks": 0,
+          "maximumRelationsPerBackend": 0
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:41:34.354082+00",
+        "unmatchedBackends": 4,
+        "backends": 34,
+        "states": {
+          "idle": 28,
+          "idle in transaction": 6
+        },
+        "waitClasses": {
+          "Client": 34
+        },
+        "waitEvents": {
+          "ClientRead": 34
+        },
+        "locks": {
+          "lockTypes": {
+            "virtualxid": 6
+          },
+          "waitingLocks": 0,
+          "relationModes": {},
+          "fastPathRelationLocks": 0,
+          "mainTableRelationLocks": 0,
+          "backendsWithRelationLocks": 0,
+          "maximumRelationsPerBackend": 0
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:41:35.684768+00",
+        "unmatchedBackends": 4,
+        "backends": 100,
+        "states": {
+          "idle": 96,
+          "idle in transaction": 4
+        },
+        "waitClasses": {
+          "Client": 100
+        },
+        "waitEvents": {
+          "ClientRead": 100
+        },
+        "locks": {
+          "lockTypes": {
+            "virtualxid": 4
+          },
+          "waitingLocks": 0,
+          "relationModes": {},
+          "fastPathRelationLocks": 0,
+          "mainTableRelationLocks": 0,
+          "backendsWithRelationLocks": 0,
+          "maximumRelationsPerBackend": 0
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:41:37.071193+00",
+        "unmatchedBackends": 4,
+        "backends": 100,
+        "states": {
+          "idle": 11,
+          "idle in transaction": 89
+        },
+        "waitClasses": {
+          "Client": 100
+        },
+        "waitEvents": {
+          "ClientRead": 100
+        },
+        "locks": {
+          "lockTypes": {
+            "advisory": 84,
+            "relation": 3172,
+            "virtualxid": 89,
+            "transactionid": 84
+          },
+          "waitingLocks": 0,
+          "relationModes": {
+            "RowShareLock": 1932,
+            "AccessShareLock": 840,
+            "RowExclusiveLock": 400
+          },
+          "fastPathRelationLocks": 1344,
+          "mainTableRelationLocks": 1828,
+          "backendsWithRelationLocks": 84,
+          "maximumRelationsPerBackend": 25
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:41:38.436673+00",
+        "unmatchedBackends": 4,
+        "backends": 100,
+        "states": {
+          "idle in transaction": 100
+        },
+        "waitClasses": {
+          "Client": 100
+        },
+        "waitEvents": {
+          "ClientRead": 100
+        },
+        "locks": {
+          "lockTypes": {
+            "advisory": 100,
+            "relation": 4839,
+            "virtualxid": 100,
+            "transactionid": 181
+          },
+          "waitingLocks": 0,
+          "relationModes": {
+            "RowShareLock": 2913,
+            "AccessShareLock": 1926
+          },
+          "fastPathRelationLocks": 1600,
+          "mainTableRelationLocks": 3239,
+          "backendsWithRelationLocks": 100,
+          "maximumRelationsPerBackend": 69
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:41:39.887077+00",
+        "unmatchedBackends": 3,
+        "backends": 100,
+        "states": {
+          "active": 15,
+          "idle in transaction": 85
+        },
+        "waitClasses": {
+          "Extension": 1,
+          "LWLock": 2,
+          "Client": 85,
+          "none": 12
+        },
+        "waitEvents": {
+          "Neon/RelExists": 1,
+          "BufferContent": 2,
+          "ClientRead": 85,
+          "none": 12
+        },
+        "locks": {
+          "lockTypes": {
+            "advisory": 198,
+            "relation": 12014,
+            "virtualxid": 100,
+            "transactionid": 200
+          },
+          "waitingLocks": 0,
+          "relationModes": {
+            "RowShareLock": 5762,
+            "AccessShareLock": 5265,
+            "RowExclusiveLock": 987
+          },
+          "fastPathRelationLocks": 1600,
+          "mainTableRelationLocks": 10414,
+          "backendsWithRelationLocks": 100,
+          "maximumRelationsPerBackend": 100
+        }
+      },
+      {
+        "observedAt": "2026-10-18 13:41:41.285288+00",
+        "unmatchedBackends": 3,
+        "backends": 100,
+        "states": {
+          "active": 9,
+          "idle in transaction": 4,
+          "idle": 87
+        },
+        "waitClasses": {
+          "IPC": 6,
+          "Client": 91,
+          "none": 3
+        },
+        "waitEvents": {
+          "SyncRep": 6,
+          "ClientRead": 91,
+          "none": 3
+        },
+        "locks": {
+          "lockTypes": {
+            "advisory": 26,
+            "relation": 2317,
+            "virtualxid": 13,
+            "transactionid": 13
+          },
+          "waitingLocks": 0,
+          "relationModes": {
+            "RowShareLock": 925,
+            "AccessShareLock": 1068,
+            "RowExclusiveLock": 324
+          },
+          "fastPathRelationLocks": 208,
+          "mainTableRelationLocks": 2109,
+          "backendsWithRelationLocks": 13,
+          "maximumRelationsPerBackend": 100
+        }
+      }
+    ],
+    "errors": [],
+    "sampleLimitReached": false
+  },
+  "databaseProfile": {
+    "status": "available",
+    "source": "neon_inspect_db_outliers",
+    "scope": "owned_compute_since_start",
+    "limit": 25,
+    "statements": [
+      {
+        "position": 1,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "stage_admission_notification_obligation"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 4683.703,
+        "meanExecutionMs": 46.837030000000006,
+        "sharePercent": 19.5
+      },
+      {
+        "position": 2,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "read_own_admission_request_eligibility"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 2755.599,
+        "meanExecutionMs": 55.11198,
+        "sharePercent": 11.5
+      },
+      {
+        "position": 3,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "current_app_user_id",
+          "read_admission_reviewer_context",
+          "user"
+        ],
+        "calls": 500,
+        "totalExecutionMs": 2003.408,
+        "meanExecutionMs": 4.006816,
+        "sharePercent": 8.3
+      },
+      {
+        "position": 4,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "tribe_members"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 1652.767,
+        "meanExecutionMs": 33.05534,
+        "sharePercent": 6.9
+      },
+      {
+        "position": 5,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [],
+        "calls": 100,
+        "totalExecutionMs": 1591.434,
+        "meanExecutionMs": 15.91434,
+        "sharePercent": 6.6
+      },
+      {
+        "position": 6,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [],
+        "calls": 100,
+        "totalExecutionMs": 1319.587,
+        "meanExecutionMs": 13.19587,
+        "sharePercent": 5.5
+      },
+      {
+        "position": 7,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_audit_events"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 1305.0759999999998,
+        "meanExecutionMs": 13.050759999999999,
+        "sharePercent": 5.4
+      },
+      {
+        "position": 8,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_requests"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 966.369,
+        "meanExecutionMs": 9.66369,
+        "sharePercent": 4
+      },
+      {
+        "position": 9,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "current_app_user_id",
+          "pg_advisory_xact_lock",
+          "tribes"
+        ],
+        "calls": 550,
+        "totalExecutionMs": 870.231,
+        "meanExecutionMs": 1.5822381818181819,
+        "sharePercent": 3.6
+      },
+      {
+        "position": 10,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 609.785,
+        "meanExecutionMs": 12.195699999999999,
+        "sharePercent": 2.5
+      },
+      {
+        "position": 11,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_membership_effects"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 568.6179999999999,
+        "meanExecutionMs": 11.372359999999999,
+        "sharePercent": 2.4
+      },
+      {
+        "position": 12,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_allowlist_entries"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 500.56100000000004,
+        "meanExecutionMs": 5.005610000000001,
+        "sharePercent": 2.1
+      },
+      {
+        "position": 13,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions",
+          "academy_admission_policies",
+          "academy_admission_requests",
+          "clock_timestamp",
+          "current_app_user_id",
+          "tribe_academy_settings",
+          "tribe_members",
+          "tribes"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 441.716,
+        "meanExecutionMs": 8.83432,
+        "sharePercent": 1.8
+      },
+      {
+        "position": 14,
+        "operation": "update",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_operations",
+          "clock_timestamp"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 434.75,
+        "meanExecutionMs": 4.3475,
+        "sharePercent": 1.8
+      },
+      {
+        "position": 15,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "read_own_admission_request_summary"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 425.03400000000005,
+        "meanExecutionMs": 8.500680000000001,
+        "sharePercent": 1.8
+      },
+      {
+        "position": 16,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "assert_authorized_messaging_key_material_proof"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 388.87899999999996,
+        "meanExecutionMs": 0.9721974999999999,
+        "sharePercent": 1.6
+      },
+      {
+        "position": 17,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account",
+          "clock_timestamp",
+          "current_app_user_id",
+          "global_identity_evidence",
+          "global_session_identity_bindings",
+          "recent_authentication_evidence",
+          "session",
+          "user"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 349.116,
+        "meanExecutionMs": 0.87279,
+        "sharePercent": 1.5
+      },
+      {
+        "position": 18,
+        "operation": "insert",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_operations",
+          "clock_timestamp"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 344.13500000000005,
+        "meanExecutionMs": 3.4413500000000004,
+        "sharePercent": 1.4
+      },
+      {
+        "position": 19,
+        "operation": "update",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_requests",
+          "clock_timestamp"
+        ],
+        "calls": 50,
+        "totalExecutionMs": 297.057,
+        "meanExecutionMs": 5.941140000000001,
+        "sharePercent": 1.2
+      },
+      {
+        "position": 20,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "messaging_key_material_context_is_current"
+        ],
+        "calls": 400,
+        "totalExecutionMs": 193.542,
+        "meanExecutionMs": 0.483855,
+        "sharePercent": 0.8
+      },
+      {
+        "position": 21,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [],
+        "calls": 100,
+        "totalExecutionMs": 188.572,
+        "meanExecutionMs": 1.88572,
+        "sharePercent": 0.8
+      },
+      {
+        "position": 22,
+        "operation": "with",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "clock_timestamp"
+        ],
+        "calls": 8,
+        "totalExecutionMs": 127.15199999999999,
+        "meanExecutionMs": 15.893999999999998,
+        "sharePercent": 0.5
+      },
+      {
+        "position": 23,
+        "operation": "create",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "account",
+          "global_identity_evidence",
+          "user"
+        ],
+        "calls": 1,
+        "totalExecutionMs": 90.489,
+        "meanExecutionMs": 90.489,
+        "sharePercent": 0.4
+      },
+      {
+        "position": 24,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "academy_admission_decisions",
+          "academy_admission_requests",
+          "academy_admission_verification_proofs",
+          "global_identity_evidence"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 84.728,
+        "meanExecutionMs": 0.8472799999999999,
+        "sharePercent": 0.4
+      },
+      {
+        "position": 25,
+        "operation": "select",
+        "scalarProjection": false,
+        "mentionedObjects": [
+          "global_identity_evidence"
+        ],
+        "calls": 100,
+        "totalExecutionMs": 79.69999999999999,
+        "meanExecutionMs": 0.7969999999999999,
+        "sharePercent": 0.3
+      }
+    ]
+  },
+  "acceptance": {
+    "exitCode": 1,
+    "passed": false,
+    "failedAssertions": [
+      "p95Ms < 3000"
+    ],
+    "inputsStable": true,
+    "toolingStable": true,
+    "lockInventoryEnabled": true
+  },
+  "cleanup": {
+    "remainingBranches": 3,
+    "originalBranchesPreserved": true,
+    "nonOriginalBranches": 0
+  },
+  "productionSqlExecuted": false,
+  "realMessages": 0
+}
