@@ -10,12 +10,11 @@ import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastruc
 import type { AdmissionOperationCommand, AdmissionOperationResult } from "@/src/modules/academy-admissions/domain/entities/admission-operation";
 import { AdmissionOperationError } from "@/src/modules/academy-admissions/domain/errors/admission-operation-error";
 import { ADMISSION_ERROR_CODE } from "@/src/modules/academy-admissions/constants/admission-errors";
-import { ADMISSION_OPERATION_LEASE_MS } from "@/src/modules/academy-admissions/constants/admission-operation";
+import { ADMISSION_OPERATION_LEASE_MS, ADMISSION_OPERATION_MAC_KEY_PURPOSES } from "@/src/modules/academy-admissions/constants/admission-operation";
 import { OPERATION_STATE } from "@/src/constants/operation-state";
 import { createAdmissionOperationFingerprint } from "@/src/modules/academy-admissions/infrastructure/verification/admission-operation-fingerprint";
 import {readAdmissionOperationVerificationPurpose} from "@/src/modules/academy-admissions/infrastructure/verification/admission-operation-purpose";
-import { assertMessagingAuthenticatedMacKeyMaterial } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
-import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { assertMessagingAuthenticatedMacKeyMaterials } from "@/src/modules/messaging/infrastructure/repositories/assert-messaging-key-material";
 import { MessagingCryptographyError } from "@/src/modules/messaging/infrastructure/encryption/messaging-cryptography-error";
 
 type DatabaseExecutor = <Result>(run: (database: RequestDatabase) => Promise<Result>) => Promise<Result>;
@@ -122,8 +121,7 @@ export class PostgresAdmissionOperationRepository {
   private async readFingerprint(database: RequestDatabase) {
     const config = await this.readSecurityConfig();
     try {
-      await assertMessagingAuthenticatedMacKeyMaterial(database, config, MESSAGING_KEY_PURPOSE.operationPayload);
-      await assertMessagingAuthenticatedMacKeyMaterial(database, config, MESSAGING_KEY_PURPOSE.contactFingerprint);
+      await assertMessagingAuthenticatedMacKeyMaterials(database, config, ADMISSION_OPERATION_MAC_KEY_PURPOSES);
     } catch (error) {
       if (error instanceof MessagingCryptographyError) throw new AdmissionOperationError(ADMISSION_ERROR_CODE.resourceUnavailable, { cause: error });
       throw error;

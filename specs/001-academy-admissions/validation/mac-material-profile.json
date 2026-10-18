@@ -1,0 +1,263 @@
+{
+  "kind": "sequential_diagnostic",
+  "fullLoadAcceptance": false,
+  "setup": {
+    "allowlistEntries": 10000,
+    "syntheticAccounts": 100
+  },
+  "measuredCallsPerRun": 2,
+  "realMessages": 0,
+  "baseCommit": "675a8541cef41592dcef51b02f93213956f5f15e",
+  "optimizedSourceInputs": [
+    {
+      "sha256": "af80473f7deb379f2969db402025db770662867846fb4212ea0954559ad88bfa",
+      "path": "src/modules/messaging/infrastructure/repositories/assert-messaging-key-material.ts"
+    },
+    {
+      "sha256": "456650c576a34daa747e60007996ba2603692ab0caf691e3732a3b4753f55a4c",
+      "path": "src/modules/academy-admissions/constants/admission-operation.ts"
+    },
+    {
+      "sha256": "ffab3fe20bfc983f7d1f126b473aedf989557191ab603dae9247a65b4af49e2b",
+      "path": "src/modules/academy-admissions/infrastructure/repositories/postgres-admission-operation-repository.ts"
+    },
+    {
+      "sha256": "70bd79b2b1cc3a583e1c887a15f6d0ac44191654c4f65a96ac40f96aa276daed",
+      "path": "tests/unit/modules/messaging/infrastructure/messaging-key-material-batch.test.ts"
+    }
+  ],
+  "optimizedSourceInputsStable": true,
+  "baseline": {
+    "kind": "diagnostic_only",
+    "fullLoadAcceptance": false,
+    "realMessages": 0,
+    "cases": [
+      {
+        "case": "allowlisted",
+        "durationMs": 18855.117499999993,
+        "confirmed": true,
+        "outcome": "admitted",
+        "failure": null,
+        "transactions": [
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 990.9069999999774,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 979.8119999999763,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 3757.0977999999886,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 969.8929000000062,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 12113.565400000021,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "case": "manual_exception",
+        "durationMs": 18354.723700000002,
+        "confirmed": true,
+        "outcome": "pending",
+        "failure": null,
+        "transactions": [
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 963.3718000000226,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 973.2105999999912,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 3747.213599999988,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 967.0883999999787,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 11699.135200000019,
+            "failed": false
+          }
+        ]
+      }
+    ],
+    "predefinedInspection": {
+      "completed": false,
+      "rawDiagnosticsExported": false
+    },
+    "setupDurationMs": 176605.2907,
+    "queryStatisticsInstalled": false,
+    "finalPool": {
+      "maximum": 10,
+      "totalCount": 1,
+      "idleCount": 1,
+      "waitingCount": 0,
+      "acquisitions": 135,
+      "releases": 135,
+      "errorReleases": 0,
+      "removals": 3,
+      "lastErrorRelease": null
+    },
+    "cleanupConfirmed": true
+  },
+  "optimized": {
+    "kind": "diagnostic_only",
+    "fullLoadAcceptance": false,
+    "realMessages": 0,
+    "cases": [
+      {
+        "case": "allowlisted",
+        "durationMs": 17735.75760000001,
+        "confirmed": true,
+        "outcome": "admitted",
+        "failure": null,
+        "transactions": [
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 974.8781999999774,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 980.5339999999851,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 3464.2666000000027,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 984.4049000000232,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 11323.189400000003,
+            "failed": false
+          }
+        ]
+      },
+      {
+        "case": "manual_exception",
+        "durationMs": 17528.151200000022,
+        "confirmed": true,
+        "outcome": "pending",
+        "failure": null,
+        "transactions": [
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 976.56700000001,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "application_context",
+            "durationMs": 960.7768999999971,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 3440.202799999999,
+            "failed": false
+          },
+          {
+            "layer": "account",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 980.1478000000061,
+            "failed": false
+          },
+          {
+            "layer": "command",
+            "owner": "PostgresAdmissionOperationRepository.run",
+            "durationMs": 11166.72219999999,
+            "failed": false
+          }
+        ]
+      }
+    ],
+    "predefinedInspection": {
+      "completed": false,
+      "rawDiagnosticsExported": false
+    },
+    "setupDurationMs": 182894.40089999998,
+    "queryStatisticsInstalled": false,
+    "finalPool": {
+      "maximum": 10,
+      "totalCount": 0,
+      "idleCount": 0,
+      "waitingCount": 0,
+      "acquisitions": 135,
+      "releases": 135,
+      "errorReleases": 0,
+      "removals": 3,
+      "lastErrorRelease": null
+    },
+    "cleanupConfirmed": true
+  },
+  "nativeSqlTests": {
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "cases": [
+      {
+        "title": "should check every purpose and retained key without enrollment or opening keys for an absent actor",
+        "status": "passed",
+        "durationMs": 68900.8469
+      },
+      {
+        "title": "should reject changed contact material under the same id without allocating another subject or changing existing consumption",
+        "status": "passed",
+        "durationMs": 65451.069299999996
+      },
+      {
+        "title": "should reject changed payload material before replay or a new claim can alter the original operation",
+        "status": "passed",
+        "durationMs": 81132.5731
+      },
+      {
+        "title": "should keep a historical unattested identity closed until explicit private reconciliation confirms its original material",
+        "status": "passed",
+        "durationMs": 56309.82840000003
+      }
+    ]
+  }
+}
