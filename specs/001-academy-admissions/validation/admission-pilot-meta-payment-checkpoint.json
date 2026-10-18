@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-18",
+  "kind": "inspection_after_user_completed_meta_payment_setup",
+  "metaBilling": {
+    "configuredBy": "user",
+    "paymentSummaryVisible": true,
+    "missingMethodNotice": false,
+    "currency": "ARS",
+    "privateBillingDetailsInReceipt": false
+  },
+  "freshMetaOverview": {
+    "pageReloadedAfterSetup": true,
+    "missingPaymentAlert": false,
+    "messagesSent": 0
+  },
+  "resourceAssociation": {
+    "sameMetaAccount": true,
+    "verifiedBy": "zavu_rendered_meta_business_manager_link"
+  },
+  "templateAttemptAfterUserPaymentSetup": {
+    "catalogBeforeAttempt": 0,
+    "name": "tutribu_admission_otp_es",
+    "category": "AUTHENTICATION",
+    "language": "es",
+    "deliveryMethod": "COPY_CODE",
+    "codeExpirationMinutes": 10,
+    "messageValidityMinutes": 10,
+    "result": "blocked",
+    "observedMessage": "Esta cuenta de WhatsApp Business no tiene permiso para crear una plantilla de mensaje"
+  },
+  "providerRead": {
+    "readAt": "2026-10-18T17:44:07.600Z",
+    "channels": ["whatsapp"],
+    "payment": {
+      "canSendTemplates": false,
+      "setupStatus": "NOT_STARTED",
+      "methodStatus": "NONE"
+    },
+    "originalTemplateStatus": "rejected"
+  },
+  "businessVerification": {
+    "completed": false,
+    "eligibleToStart": true,
+    "requiresBusinessInformationAndDocuments": true,
+    "identitySelection": "awaiting_user",
+    "submittedByAgent": false
+  },
+  "causality": {
+    "businessVerificationExplainsTemplatePermission": "not_established",
+    "providerPaymentDiscrepancyExplained": false
+  },
+  "agentEnteredPaymentInformation": false,
+  "paymentInformationPersistedByAgent": false,
+  "realPilotMessages": 0,
+  "operationalGatesClosed": []
+}

@@ -45,7 +45,7 @@
     "businessVerificationExplainsTemplatePermission": "not_established"
   },
   "realPilotMessages": 0,
-  "paymentMethodAdded": false,
+  "paymentMethodAddedByAgent": false,
   "businessVerificationSubmitted": false,
   "operationalGatesClosed": []
 }
