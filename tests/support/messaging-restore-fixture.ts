@@ -3,23 +3,14 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
 import { prepareMessagingConnectionActivation, refreshMessagingActivationRecency } from "./messaging-activation-fixture";
-import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
+import { composeMessagingRestoreOwnersForPrincipal, type MessagingRestoreSql } from "./messaging-restore-composition";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
-import { PostgresMessagingConnectionActivation } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-activation";
-import { PostgresMessagingConnectionDisconnection } from "@/src/modules/messaging/infrastructure/repositories/postgres-messaging-connection-disconnection";
-import { PostgresEncryptedSecretStore } from "@/src/modules/messaging/infrastructure/repositories/postgres-encrypted-secret-store";
-import { PostgresMessagingLifecycleDependencies } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-messaging-lifecycle-dependencies";
-import { PostgresMessagingSelectionDependencies } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-messaging-selection-dependencies";
-import { readAdmissionEmailLifecycleDependency } from "@/src/modules/notifications/infrastructure/repositories/admission-email-lifecycle-reader";
-import { buildMessagingModule } from "@/src/modules/messaging/setup";
 import { createMessagingSecurityConfig, type MessagingSecurityConfig, type MessagingKeyPurpose, type MessagingKeyringInput } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
-import { MESSAGING_AUTHORIZATION_PURPOSE, MESSAGING_RESOURCE_SELECTION } from "@/src/modules/messaging/constants/messaging-connection";
 import type { MessagingConnectionLifecycleContext } from "@/src/modules/messaging/domain/repositories/messaging-connection-lifecycle";
-import type { RequestDatabase } from "@/src/modules/shared/infrastructure/database/server-database-client";
 
 /** Exposes only guarded transactions; a copied database cannot migrate or seed the parent. */
-export type MessagingRestoreSql = Pick<AcademyAdmissionTestDatabase, "withContext">;
+export type { MessagingRestoreSql } from "./messaging-restore-composition";
 /** Keeps one native principal and protected resource while each composition receives its own database capability. */
 type ActivationFixture = Awaited<ReturnType<typeof prepareMessagingConnectionActivation>>;
 
@@ -31,29 +22,17 @@ type ActivationFixture = Awaited<ReturnType<typeof prepareMessagingConnectionAct
  * @returns Fresh adapters whose every SQL operation uses this database capability.
  */
 export function composeMessagingRestoreOwners(database: MessagingRestoreSql, fixture: ActivationFixture, readSecurityConfig: () => Promise<MessagingSecurityConfig>) {
-  const principal = fixture.fixture.context;
-  const execute = <Result>(context: { actorUserId: string }, run: (transaction: RequestDatabase) => Promise<Result>) => database.withContext({ userId: context.actorUserId, email: null }, run);
-  const accounts = new PostgresAuthenticatedAccountProvider(
-    async () => ({ userId: principal.actorUserId, sessionId: principal.sessionId }),
-    (_identity, run) => execute(principal, run),
-  );
-  const request = buildMessagingModule({ accounts, clock: () => new Date(), execute: (_account, run) => execute(principal, run) })
-    .createRequestModule({ selection: MESSAGING_RESOURCE_SELECTION.management, readSecurityConfig });
-  return {
-    accounts, request,
-    activation: new PostgresMessagingConnectionActivation(execute, readSecurityConfig, (transaction) => new PostgresMessagingSelectionDependencies(transaction, readAdmissionEmailLifecycleDependency)),
-    disconnection: new PostgresMessagingConnectionDisconnection(execute, readSecurityConfig, (transaction) => new PostgresMessagingLifecycleDependencies(transaction, readAdmissionEmailLifecycleDependency)),
-    secrets: new PostgresEncryptedSecretStore((actorUserId, run) => database.withContext({ userId: actorUserId, email: null }, run), accounts, readSecurityConfig, MESSAGING_AUTHORIZATION_PURPOSE.sensitiveLeader),
-  };
+  return composeMessagingRestoreOwnersForPrincipal(database, fixture.fixture.context, readSecurityConfig);
 }
 
 /**
  * Creates a genuinely prepared selection before freezing the restore checkpoint.
  * @param database - Live owned parent, used only before its copy callback begins.
+ * @param securityConfig - Optional original external host configuration, retained outside the SQL checkpoint.
  * @returns Actual activation, scoped native credential access and local retirement authority.
  */
-export async function prepareMessagingRestoreSource(database: AcademyAdmissionTestDatabase) {
-  const fixture = await prepareMessagingConnectionActivation(database);
+export async function prepareMessagingRestoreSource(database: AcademyAdmissionTestDatabase, securityConfig?: MessagingSecurityConfig) {
+  const fixture = await prepareMessagingConnectionActivation(database, undefined, undefined, securityConfig);
   const activated = await fixture.owner.activate(fixture.context, fixture.input);
   if (activated.state !== "completed") throw new Error("Messaging restore fixture failed: original_activation_unconfirmed");
   const connectionId = fixture.context.connectionId;

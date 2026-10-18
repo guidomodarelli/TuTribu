@@ -16,6 +16,12 @@ La [sonda de configuración Node](admission-node-environment-preflight.md) poste
 
 La [carga canónica posterior](admission-distributed-performance.md#ejecución-completa-del-comando-versionado), sobre `09bf76b8`, instaló después la configuración sintética externa original en cuatro funciones Node reales. Cada función importó los seis keyrings y la misma época fuera de PostgreSQL; la cohorte confirmó los HMAC necesarios para cien admisiones concurrentes. El escaneo del despliegue no encontró material privado persistido y sus recursos se retiraron. Esto acredita esa precondición de configuración de Node; no prueba el uso criptográfico completo de los seis propósitos, el bloqueo/retiro/restore/reapertura ni Workers. El arnés SQL existente de restauración conserva sus resultados y debe llevarse al recorrido de ambos hosts sin reducir sus condiciones. T201/T203 y OG-02 siguen pendientes.
 
+## Separación de la composición del ensayo
+
+Los owners reales de identidad, credenciales, activación, política, preflight, verificación y solicitud se componen ahora desde `tests/support/messaging-restore-composition.ts`. Su entrada es una capacidad de transacciones guardadas, la sesión original y la lectura de configuración externa. No reciben facultades de migración, creación de ramas o conexión del padre. Los wrappers del ensayo anterior conservan sus firmas y delegan a esa composición; no se crea otro algoritmo de recuperación ni un sustituto de los adaptadores de producto.
+
+La preparación acepta además la configuración sintética original generada fuera de SQL y la conserva desde la creación hasta la activación. El caso completo existente se actualiza para usar el lector real de la configuración de hosting y comprobar esa identidad antes del checkpoint. Tipos y lint aprobaron esta preparación; la repetición Native debe conservar el bloqueo, la retirada, la restauración real, la reconciliación y la admisión nueva ya exigidos. La extracción por sí sola no acredita instalación en un host, Workers u OG-02.
+
 ## Preflight de acceso
 
 La comprobación actual encontró Wrangler 4.128.0 instalado y `whoami --json` devolvió `loggedIn: false`. Chrome tiene el acceso de Cloudflare preparado; el ingreso muestra aceptación de términos y la nueva conexión requiere aprobación puntual de acceso persistente. La petición al usuario sigue pendiente. Los intentos OAuth no completados finalizaron sin acreditar una sesión, y no se crearon Workers, secretos ni bases para este ensayo.

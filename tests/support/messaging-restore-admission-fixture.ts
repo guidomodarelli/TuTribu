@@ -3,18 +3,11 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { AcademyAdmissionTestDatabase } from "./academy-admission-database";
 import type { MessagingRestoreSql, prepareMessagingRestoreSource } from "./messaging-restore-fixture";
+import { composeAdmissionRestoreOwnersForPrincipal } from "./messaging-restore-composition";
 import { refreshMessagingActivationRecency } from "./messaging-activation-fixture";
 import { createAdmissionProviderTransport } from "./admission-provider-transport";
 import { composeRestoreAdmissionDispatch } from "./messaging-restore-dispatch-fixture";
 import { MESSAGING_RESTORE_APPLICANT_SESSION_LIFETIME_MS } from "./constants/messaging-restore-safety";
-import { buildAcademyAdmissionsModule } from "@/src/modules/academy-admissions/setup";
-import { PostgresAdmissionActivationRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-activation-repository";
-import { PostgresAdmissionContactVerificationOperations } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-contact-verification-operations";
-import { PostgresAdmissionRequestRepository } from "@/src/modules/academy-admissions/infrastructure/repositories/postgres-admission-request-repository";
-import { PostgresAuthenticatedAccountProvider } from "@/src/modules/auth/infrastructure/authenticated-account-provider";
-import { createAcademyApprovedMembershipWriter } from "@/src/modules/tribes/infrastructure/repositories/apply-approved-academy-membership";
-import { lockAcademyAdmissionMembershipScope } from "@/src/modules/tribes/infrastructure/repositories/lock-academy-admission-membership-scope";
-import { createPostgresAdmissionNotificationObligationWriter } from "@/src/modules/notifications/infrastructure/repositories/admission-notification-obligation-writer";
 import { createVerificationCodeEnvelope } from "@/src/modules/messaging/infrastructure/encryption/verification-code-envelope";
 import type { MessagingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-security-config";
 import { REAUTHENTICATION_OPERATION } from "@/src/modules/auth/constants/reauthentication-resources";
@@ -44,17 +37,7 @@ function completed<Result>(response: { ok: false; failure: { code: string } } | 
  * @returns Actual installed runtime, preflight, policy, request and verification owners.
  */
 export function composeRestoreAdmissionOwners(database: MessagingRestoreSql, source: RestoreSource, readSecurityConfig: () => Promise<MessagingSecurityConfig>) {
-  const principal = source.fixture.fixture.context;
-  const accounts = new PostgresAuthenticatedAccountProvider(async () => ({ userId: principal.actorUserId, sessionId: principal.sessionId }), (_identity, run) => database.withContext({ userId: principal.actorUserId, email: null }, run));
-  const admissions = buildAcademyAdmissionsModule({ accounts, clock: () => new Date(), execute: (_account, run) => database.withContext({ userId: principal.actorUserId, email: null }, run) });
-  const runtime = admissions.createManualRequestModule({ readSecurityConfig }).runtime;
-  const readRecoveryLock = async () => (await readSecurityConfig()).recoveryLocked;
-  return {
-    policy: admissions.createPolicyModule({ readSecurityConfig, composePreflight: (transaction, context) => new PostgresAdmissionActivationRepository(transaction, context, runtime, readRecoveryLock) }).useCases,
-    preflight: admissions.createPreflightModule({ runtime, readRecoveryLock }).useCases,
-    verification: new PostgresAdmissionContactVerificationOperations((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), readSecurityConfig),
-    requests: new PostgresAdmissionRequestRepository((scope, run) => database.withContext({ userId: scope.userId, email: null }, run), readSecurityConfig, (transaction) => ({ memberships: createAcademyApprovedMembershipWriter(transaction), notifications: createPostgresAdmissionNotificationObligationWriter(transaction), lockSubmissionScope: (scope) => lockAcademyAdmissionMembershipScope(transaction, scope.tribeId, scope.userId) })),
-  };
+  return composeAdmissionRestoreOwnersForPrincipal(database, source.fixture.fixture.context, readSecurityConfig);
 }
 
 /**

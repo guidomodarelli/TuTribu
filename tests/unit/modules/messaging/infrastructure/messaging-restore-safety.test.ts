@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-database";
+import { createAdmissionSyntheticHostingEnvironment } from "@/tests/support/admission-synthetic-hosting-environment";
+import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 import { composeMessagingRestoreOwners, createMessagingRestoreSecurity, prepareMessagingRestoreSource, readMessagingRestoreFacts, refreshMessagingRestoreCheckpointAuthority } from "@/tests/support/messaging-restore-fixture";
 import { composeRestoreAdmissionOwners, prepareRestoreAdmissionCheckpoint, readRestoreAdmissionFacts } from "@/tests/support/messaging-restore-admission-fixture";
 import { composeRestoreAdmissionDispatch } from "@/tests/support/messaging-restore-dispatch-fixture";
@@ -44,9 +46,10 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native messaging r
     await withAcademyAdmissionDatabase(async (parent) => {
       // Arrange: every challenge/proof and the open ON policy come from their actual native owners.
       reportPhase(MESSAGING_RESTORE_SAFETY_PHASE.initializing);
-      let source = await prepareMessagingRestoreSource(parent);
+      const originalConfig = await readMessagingHostingSecurityConfig(createAdmissionSyntheticHostingEnvironment());
+      let source = await prepareMessagingRestoreSource(parent, originalConfig);
+      expect(source.fixture.fixture.fixture.config === originalConfig).toBe(true);
       reportPhase(MESSAGING_RESTORE_SAFETY_PHASE.sourcePrepared);
-      const originalConfig = source.fixture.fixture.fixture.config;
       const prepared = await prepareRestoreAdmissionCheckpoint(parent, source);
       const historical = await seedMessagingCandidateExpiration(parent, source.fixture.fixture.fixture);
       const manualScope = historical.cases.find((candidate) => candidate.name === "selected")!;
