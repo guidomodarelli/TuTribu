@@ -14,7 +14,7 @@ export function renderAdmissionReaderProbePage(item) {
     : `status.firstChild.nodeValue=${JSON.stringify(item.status)};`;
   return `<!doctype html><html lang="es"><meta charset="utf-8"><title>${item.title}</title>
 <style>.ReaderProbe__status--idle{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}</style>
-<body class="ReaderProbe"><h1>Prueba de lector</h1><button id="control">${item.focus}</button>
+<body class="ReaderProbe"><h1>${PROBE.headingText}</h1><button id="control">${item.focus}</button>
 <p id="status"${seededMarker ? ' class="ReaderProbe__status--idle"' : ""} role="status" aria-live="polite" aria-atomic="true">${initialStatus}</p><p>Fin</p>
 <script>document.getElementById("control").addEventListener("click",()=>{
   const status=document.getElementById("status");

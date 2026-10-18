@@ -13,6 +13,7 @@ describe("native reader comparison page", () => {
       const page = new JSDOM(renderAdmissionReaderProbePage(item), { runScripts: "dangerously" });
       try {
         const content = within(page.window.document.body), region = content.getByRole("status"), originalText = region.firstChild;
+        expect(content.getByRole("heading", { name: PROBE.headingText }).textContent).toBe(PROBE.headingText);
         expect(region.getAttribute("aria-live")).toBe("polite");
         expect(region.getAttribute("aria-atomic")).toBe("true");
         expect(region.textContent).not.toBe(item.status);

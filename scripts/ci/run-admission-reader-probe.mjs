@@ -74,6 +74,11 @@ function nativeFocus(expected) {
   try { return JSON.parse(execFileSync("/usr/bin/python3", ["tests/support/admission-reader-atspi.py", expected, String(PROBE.maximumAccessibilityNodes), String(PROBE.maximumAccessibilityDepth), String(PROBE.accessibilityTimeoutMs), "focus"], { encoding: "utf8", timeout: PROBE.windowCommandTimeoutMs, stdio: ["ignore", "pipe", "pipe"] })); }
   catch (error) { return { unavailable: true, failureName: error instanceof Error ? error.name : "unknown" }; }
 }
+/** @param {string} expected - Own synthetic status, inspected only after voice/audio observation. @returns {unknown} Native text matches and SDK-call counters without content. */
+function nativeStatus(expected) {
+  try { return JSON.parse(execFileSync("/usr/bin/python3", ["tests/support/admission-reader-atspi.py", expected, String(PROBE.maximumAccessibilityNodes), String(PROBE.maximumAccessibilityDepth), String(PROBE.accessibilityTimeoutMs), "status", PROBE.headingText], { encoding: "utf8", timeout: PROBE.windowCommandTimeoutMs, stdio: ["ignore", "pipe", "pipe"] })); }
+  catch (error) { return { unavailable: true, failureName: error instanceof Error ? error.name : "unknown" }; }
+}
 try {
   for (const item of cases) {
     const observation = { caseId: item.id, engine: item.engine, width: item.width, markupVariant: item.markupVariant, height: PROBE.height, passed: false };
@@ -122,6 +127,7 @@ try {
       await until(async () => await audioPeak(audioOffset) > PROBE.audiblePeak, PROBE.failures.audio);
       observation.liveSpeechObserved = true; observation.liveAudioPeak = await audioPeak(audioOffset);
       observation.passed = true;
+      observation.nativeAccessibility = nativeStatus(item.status);
       await page.screenshot({ path: join(directory, `${item.engine}-${item.width}-${item.markupVariant}.png`) });
     } catch (error) {
       observation.failureCode = error instanceof Error && Object.values(PROBE.failures).includes(error.message) ? error.message : PROBE.failures.runtime;
@@ -135,22 +141,22 @@ try {
       observation.speechSettings = observedLog.split(/\r?\n/u).filter((line) => /^(?:ORCA|SD) rate/u.test(line)).slice(-PROBE.maximumDiagnosticLines).map((line) => line.slice(0, PROBE.maximumDiagnosticCharacters));
       observation.audioBytes = await audioSize();
       observation.latestAudioPeak = await audioPeak(Math.max(0, observation.audioBytes - Math.ceil(PROBE.sampleRate * PROBE.bytesPerSample * PROBE.silenceWindowMs / PROBE.millisecondsPerSecond)));
-      try {
-        const metadata = execFileSync("/usr/bin/python3", ["tests/support/admission-reader-atspi.py", item.status, String(PROBE.maximumAccessibilityNodes), String(PROBE.maximumAccessibilityDepth), String(PROBE.accessibilityTimeoutMs)], { encoding: "utf8", timeout: PROBE.windowCommandTimeoutMs, stdio: ["ignore", "pipe", "pipe"] });
-        observation.nativeAccessibility = JSON.parse(metadata);
-      } catch (inspectionError) { observation.nativeAccessibility = { unavailable: true, failureName: inspectionError instanceof Error ? inspectionError.name : "unknown" }; }
+      observation.nativeAccessibility = nativeStatus(item.status);
       observation.focusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.focus);
       observation.statusSpokenSincePageLoad = hasNativeReaderSpeech(observedLog, item.status);
       observation.speechDiagnostics = diagnoseNativeReaderSpeech(recordedLog.slice(speechPhaseOffset), expectedSpeech);
       process.exitCode = 1;
     } finally { await browser?.close(); }
+    observation.nativeTextInspectionValidated = (observation.nativeAccessibility?.textObservation?.controlTextMatches ?? 0) > 0;
     observation.automaticReadingDisabledObserved = (await readerLog()).slice(caseLogOffset).includes(PROBE.automaticReadingDisabledMarker);
     report.cases.push(observation);
     console.log(JSON.stringify({ phase: "reader_capability_observed", ...observation }));
   }
 } finally {
   await new Promise((fulfill) => server.close(fulfill));
-  report.passed = report.cases.length === cases.length && report.cases.every((item) => item.passed);
+  report.nativeTextInspectionValidated = report.cases.length === cases.length && report.cases.every((item) => item.nativeTextInspectionValidated);
+  report.passed = report.cases.length === cases.length && report.cases.every((item) => item.passed) && report.nativeTextInspectionValidated;
+  if (!report.nativeTextInspectionValidated) process.exitCode = 1;
   // This service observes only the loopback synthetic fixture, never the product or private pilot.
   if (!report.passed && process.env.ORCA_SERVICE_LOG) {
     const serviceLog = await readFile(process.env.ORCA_SERVICE_LOG, "utf8").catch((error) => { if (error.code === "ENOENT") return ""; throw error; });

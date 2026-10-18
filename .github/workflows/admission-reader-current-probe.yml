@@ -5,6 +5,13 @@ on:
   push:
     paths:
       - ".github/workflows/admission-reader-current-probe.yml"
+      - "scripts/ci/run-admission-reader-probe.*"
+      - "scripts/ci/run-admission-reader-session.sh"
+      - "tests/support/admission-reader-atspi.py"
+      - "tests/support/admission-reader-observation.*"
+      - "tests/support/admission-reader-probe-page.*"
+      - "tests/support/admission-browser-native-focus.mjs"
+      - "tests/support/constants/admission-reader-probe.mjs"
 
 permissions:
   contents: read
