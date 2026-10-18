@@ -1,0 +1,195 @@
+{
+  "codeCommit": "a24f78717838688d156ed800b3e8b639f1ed23ec",
+  "build": {
+    "code": 0,
+    "sourceStable": true,
+    "inputs": 3216
+  },
+  "native": {
+    "tests": 2,
+    "passed": 2,
+    "failed": 0,
+    "pending": 0,
+    "sourceStable": true,
+    "toolsStable": true,
+    "sourceSha256": "bae5549b7682055f594411419617419579686f8ac5f99e7c958f12a9dba58479",
+    "profiles": [
+      {
+        "engine": "chromium",
+        "width": 390,
+        "surfaces": [
+          "leader",
+          "common",
+          "own",
+          "review",
+          "personal"
+        ],
+        "confirmedOriginalStatus": 201,
+        "operationCorrelated": true,
+        "unresolvedReplyRecovered": true,
+        "submissionPosts": 2,
+        "correctionPosts": 1,
+        "effects": [
+          {
+            "deliveries": 0,
+            "memberships": 0
+          }
+        ],
+        "errorVerdict": {
+          "blocking": [],
+          "nativeRetirementDiagnostics": 0,
+          "windowExceptions": 0,
+          "unhandledRejections": 0
+        }
+      },
+      {
+        "engine": "chromium",
+        "width": 1280,
+        "surfaces": [
+          "leader",
+          "common",
+          "own",
+          "review",
+          "personal"
+        ],
+        "confirmedOriginalStatus": 201,
+        "operationCorrelated": true,
+        "unresolvedReplyRecovered": true,
+        "submissionPosts": 2,
+        "correctionPosts": 1,
+        "effects": [
+          {
+            "deliveries": 0,
+            "memberships": 0
+          }
+        ],
+        "errorVerdict": {
+          "blocking": [],
+          "nativeRetirementDiagnostics": 0,
+          "windowExceptions": 0,
+          "unhandledRejections": 0
+        }
+      },
+      {
+        "engine": "webkit",
+        "width": 390,
+        "surfaces": [
+          "leader",
+          "common",
+          "own",
+          "review",
+          "personal"
+        ],
+        "confirmedOriginalStatus": 201,
+        "operationCorrelated": true,
+        "unresolvedReplyRecovered": true,
+        "submissionPosts": 2,
+        "correctionPosts": 1,
+        "effects": [
+          {
+            "deliveries": 0,
+            "memberships": 0
+          }
+        ],
+        "errorVerdict": {
+          "blocking": [],
+          "nativeRetirementDiagnostics": 1,
+          "windowExceptions": 0,
+          "unhandledRejections": 0
+        }
+      },
+      {
+        "engine": "webkit",
+        "width": 1280,
+        "surfaces": [
+          "leader",
+          "common",
+          "own",
+          "review",
+          "personal"
+        ],
+        "confirmedOriginalStatus": 201,
+        "operationCorrelated": true,
+        "unresolvedReplyRecovered": true,
+        "submissionPosts": 2,
+        "correctionPosts": 1,
+        "effects": [
+          {
+            "deliveries": 0,
+            "memberships": 0
+          }
+        ],
+        "errorVerdict": {
+          "blocking": [],
+          "nativeRetirementDiagnostics": 1,
+          "windowExceptions": 0,
+          "unhandledRejections": 0
+        }
+      }
+    ]
+  },
+  "currentUiUnit": {
+    "files": 5,
+    "tests": 121,
+    "passed": 121,
+    "failed": 0,
+    "pending": 0
+  },
+  "exportRegression": {
+    "realEngines": 2,
+    "redFailed": 2,
+    "greenPassed": 2,
+    "liveInlineStylesPreserved": true
+  },
+  "manuals": {
+    "views": 20,
+    "captureChecks": 20,
+    "navigationChecks": 4,
+    "frames": 76,
+    "preservedOriginals": 71,
+    "currentCaptures": 5,
+    "sourceStable": true,
+    "visualReviewApproved": true,
+    "validationErrors": 0,
+    "expectedWarnings": [
+      "local_menu_without_share_url",
+      "no_central_translation_catalog"
+    ],
+    "licenseReferenceHosts": [
+      "scripts.sil.org",
+      "www.github.com",
+      "tailwindcss.com"
+    ]
+  },
+  "rootParity": {
+    "files": 3216,
+    "differences": 0,
+    "lineEndingOnly": 186
+  },
+  "cleanup": {
+    "checkedAt": "2026-10-18T03:19:11.463Z",
+    "originalBranches": 3,
+    "temporaryBranches": 0
+  },
+  "ci": {
+    "runId": 39091642355,
+    "headSha": "a24f78717838688d156ed800b3e8b639f1ed23ec",
+    "conclusion": "success"
+  },
+  "scope": {
+    "requirements": [
+      "FR-143",
+      "FR-144",
+      "FR-145",
+      "FR-146",
+      "WA-01",
+      "WA-02",
+      "WA-03",
+      "WA-04",
+      "WA-05"
+    ],
+    "identityFixture": "synthetic_google_account_and_native_session",
+    "realMessages": 0,
+    "fullFeatureAndExternalGatesRemainPending": true
+  }
+}

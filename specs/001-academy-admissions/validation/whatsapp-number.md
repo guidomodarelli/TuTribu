@@ -1,6 +1,6 @@
 # WhatsApp declarado para revisión humana
 
-FR-143–FR-146 y WA-01–WA-05 amplían el contrato. T213–T216 están completas; T217 conserva el cierre de recorridos reales y manuales pendientes. Las 71 aprobaciones originales no certifican esta ampliación.
+FR-143–FR-146 y WA-01–WA-05 amplían el contrato. T213–T217 están completas para esta ampliación. El cierre vigente se registra al final; los apartados anteriores conservan su alcance histórico. Las 71 aprobaciones originales no certifican esta ampliación.
 
 ## Contrato y decisiones implementadas
 
@@ -193,3 +193,17 @@ La inspección visual posterior detectó una etiqueta de botón invisible en el 
 La comprobación visual encontró que un filtro de desenfoque inicial podía persistir en la exportación aunque WAAPI mostrara el texto nítido. El control real ampliado reprodujo el fallo en Chromium y WebKit: el elemento compuesto tenía `blur(0px)` y el clon conservaba `blur(6px)`. Se agregó `filter` a las propiedades animadas que se copian únicamente al clon.
 
 La repetición pasó dos casos, cero fallidos y cero omitidos, comprobando opacidad, transformación, filtro renderizado y conservación de los estilos inline del elemento vivo. Tipos de tests y lint pasaron. Este control corrige la fidelidad de la exportación; T217 conserva pendientes la captura de los recorridos con el código integrado en main y la revisión visual final de los manuales.
+
+## Cierre vigente de T217 con main integrado
+
+El código `a24f78717838688d156ed800b3e8b639f1ed23ec` pasó la compilación real y la cohorte actual: **dos casos completos, cero fallidos y cero omitidos**, cuatro perfiles Chromium/WebKit a 390/1280 y veinte capturas. Los **3.216 inputs** y las tres herramientas observadas conservaron sus hashes durante build y recorrido. La copia principal coincide con esos inputs; 186 diferencias de CRLF/LF se normalizaron sólo al comparar y no cambian código. El [reporte sanitizado](whatsapp-browser-summary.json) conserva cada perfil y sus resultados.
+
+Cada perfil confirmó su original 201 válido y correlacionado antes de simular el 202 incierto, recuperó ese resultado con dos POST de presentación en total y corrigió el número con un único POST. Se comprobaron la política obligatoria/opcional, presentación común y personal, corrección propia, recuperación de cuenta y revisión con nombre y número. SQL mantuvo contacto, evidencia, plazos y época, con cero entregas y membresías nuevas. Los diagnósticos nativos de retiro de WebKit siguen contados por separado; no se afirma cobertura universal de promesas en documentos retirados. Las identidades y la evidencia Google fueron fixtures del entorno aislado.
+
+La selección actual de interfaz pasó **121 tests en cinco archivos, cero fallidos y cero omitidos** con beez-ui 3. Los dos controles reales de exportación también pasaron después de reproducir el desenfoque en ambos motores. Los tipos, lint y el [Quality gate completo del código](https://github.com/guidomodarelli/TuTribu/actions/runs/39091642355) están aprobados. El backend y las migraciones de la ampliación conservan la evidencia real de T214/T215: el rebase no modificó sus reglas ni su almacenamiento.
+
+Se reemplazaron las cinco capturas de WhatsApp y se conservaron exactamente los 71 templates anteriores, sin cambiar su fecha ni atribuirles una nueva captura. Las veinte exportaciones DOM quedaron preservadas. La revisión de los cinco estados renderizados confirmó etiquetas legibles y puntos alineados. La comprobación documental pasó **veinte vistas, veinte controles de capturas y cuatro recorridos de navegación**, con hashes estables y geometría correcta de los 76 frames. Los manuales e índices registran el código actual y sus fuentes; arquitectura y manual propietario .htm también pasaron las vistas de ambos motores.
+
+El chequeo canónico de los manuales terminó sin errores. Conserva dos advertencias por documento: menú local sin URL pública y ausencia de catálogo central de traducciones. Los hosts adicionales permitidos son referencias de licencia de SIL, DM Mono y Tailwind conservadas en el HTML, no recursos externos de las capturas. Un primer controlador documental quedó sin resultado final al cerrar WebKit; sus imágenes y estado se preservaron, y la repetición completa usó el manejo de cierre del repositorio sin cambiar los controles de legibilidad o geometría.
+
+La consulta independiente final de Neon confirmó sólo las tres ramas originales. **T217 queda completa: 203 tareas completas, 14 pendientes, 217 totales.** Las 71 aprobaciones previas conservan su significado. T198/T208, el lector real y los gates de Google, proveedor y hosting permanecen abiertos.
