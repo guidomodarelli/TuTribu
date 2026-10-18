@@ -140,7 +140,7 @@ export function NotificationPanel({
       {panelView === NOTIFICATION_PANEL_VIEW.list && (refreshUnavailable || listStatus === NOTIFICATION_PANEL_STATUS.error) ? (
         <div className={styles.NotificationPanel__state} role="alert">
           <p className={styles.NotificationPanel__message}>No pudimos actualizar tus avisos. Mostramos la última información disponible.</p>
-          <Button onClick={onRetry} size="sm" type="button" variant="outline">Reintentar</Button>
+          <Button onClick={onRetry} size="sm" type="button" variant="secondary">Reintentar</Button>
         </div>
       ) : null}
 

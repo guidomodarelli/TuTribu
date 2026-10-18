@@ -59,9 +59,9 @@ export function PersonalInvitation(props: PersonalInvitationProps) {
       {props.errorMessage && <p ref={feedback} tabIndex={-1} role="alert" className={styles.PersonalInvitation__error}>{props.errorMessage}</p>}
       <div className={styles.PersonalInvitation__actions}>
         {!props.accountChanged && preview?.state === PERSONAL_INVITATION_OVERVIEW_STATE.signInRequired && <Link href={props.signInHref}>Iniciar sesión</Link>}
-        {props.accountChanged && <Button type="button" variant="outline" onClick={props.onReloadAccount}>{PERSONAL_INVITATION_UI_COPY.reloadAccount}</Button>}
-        {!props.accountChanged && props.state.kind === "ready" && props.state.viewerId && <Button type="button" variant="outline" disabled={busy || !props.ready} onClick={props.onChangeAccount}>{props.phase === PERSONAL_INVITATION_UI_PHASE.changingAccount ? PERSONAL_INVITATION_UI_COPY.changingAccount : PERSONAL_INVITATION_UI_COPY.changeAccount}</Button>}
-        <Button type="button" variant="outline" disabled={busy || props.accountChanged} onClick={props.onRead}>{props.hasPending ? PERSONAL_INVITATION_UI_COPY.original : PERSONAL_INVITATION_UI_COPY.read}</Button>
+        {props.accountChanged && <Button type="button" variant="secondary" onClick={props.onReloadAccount}>{PERSONAL_INVITATION_UI_COPY.reloadAccount}</Button>}
+        {!props.accountChanged && props.state.kind === "ready" && props.state.viewerId && <Button type="button" variant="secondary" disabled={busy || !props.ready} onClick={props.onChangeAccount}>{props.phase === PERSONAL_INVITATION_UI_PHASE.changingAccount ? PERSONAL_INVITATION_UI_COPY.changingAccount : PERSONAL_INVITATION_UI_COPY.changeAccount}</Button>}
+        <Button type="button" variant="secondary" disabled={busy || props.accountChanged} onClick={props.onRead}>{props.hasPending ? PERSONAL_INVITATION_UI_COPY.original : PERSONAL_INVITATION_UI_COPY.read}</Button>
         <Link href={ROUTES.home}>Ir al inicio</Link>
       </div>
       {!props.accountChanged && props.commonHref && <section className={styles.PersonalInvitation__alternative} aria-labelledby={`${fieldId}-alternative`}>

@@ -4,7 +4,7 @@ import { Activity, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SidebarInset, SidebarProvider } from "@guidomodarelli/beez-ui";
+import { SidebarInset, SidebarProvider } from "beez-ui";
 import { AdmissionReviewHistoryContainer } from "@/app/(platform)/[slug]/academia/admissions/history/[requestId]/history-container";
 import AdmissionReviewHistoryError from "@/app/(platform)/[slug]/academia/admissions/history/[requestId]/error";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";

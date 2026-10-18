@@ -1,6 +1,6 @@
 /** Exercises the actual early usage container and shared controls through owned browser ports. @module messaging-usage-container-tests */
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { SidebarInset, SidebarProvider } from "@guidomodarelli/beez-ui";
+import { SidebarInset, SidebarProvider } from "beez-ui";
 import { Activity, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";

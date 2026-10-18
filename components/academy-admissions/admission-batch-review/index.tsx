@@ -1,5 +1,5 @@
 /** Presents explicit named batch confirmation and original recovery controls. @module admission-batch-review */
-import { AnimatedCollapse, Button } from "@guidomodarelli/beez-ui";
+import { AnimatedCollapse, Button } from "beez-ui";
 import { AdmissionDecisionForm, type AdmissionDecisionFormProps } from "@/components/academy-admissions/admission-decision-form";
 import { AdmissionBatchResults } from "@/components/academy-admissions/admission-batch-results";
 import type { AdmissionBatchResultDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
@@ -31,7 +31,7 @@ export function AdmissionBatchReview(props: AdmissionBatchReviewProps) {
       {!props.pending && selection.length === ADMISSION_LIMIT.batchRequestCount && <p>{COPY.limitReached}</p>}
       {waiting && <p role="status">{props.result ? COPY.started : COPY.uncertain}</p>}
       <AdmissionDecisionForm {...props} disabled={props.disabled || props.pending && !props.canRetry} locked={props.pending} allowApprove={!props.pending && props.allowApprove} allowReject={!props.pending && props.allowReject} confirmationLabel={COPY.confirmation} approveLabel={COPY.approve} rejectLabel={COPY.reject} writingLabel={COPY.writing} />
-      {waiting && props.canRetry && <Button type="button" variant="outline" disabled={props.disabled || !props.confirmed} onClick={props.onRetry}>{COPY.retry}</Button>}
+      {waiting && props.canRetry && <Button type="button" variant="secondary" disabled={props.disabled || !props.confirmed} onClick={props.onRetry}>{COPY.retry}</Button>}
       {!props.pending && <Button type="button" variant="ghost" disabled={props.busy} onClick={props.onClear}>{COPY.clear}</Button>}
     </section></AnimatedCollapse>}
     {props.result && <AdmissionBatchResults result={props.result} selection={props.manifest} dismissible={!props.pending && !props.busy} onDismiss={props.onClear} />}

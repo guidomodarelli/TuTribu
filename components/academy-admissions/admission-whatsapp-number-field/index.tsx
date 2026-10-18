@@ -1,6 +1,6 @@
 /** Presents one declared group number without account, storage, validation or transport dependencies. @module admission-whatsapp-number-field */
 import { useId } from "react";
-import { Input } from "@guidomodarelli/beez-ui";
+import { Input } from "beez-ui";
 import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
 import styles from "./styles.module.scss";
 

@@ -1,5 +1,5 @@
 /** Presents only safe retained history facts and route-owned recovery/navigation callbacks. @module admission-review-history */
-import { Button } from "@guidomodarelli/beez-ui";
+import { Button } from "beez-ui";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionReviewHistoryItemDto } from "@/src/modules/academy-admissions/application/results/admission-review-history-result";
 import { ADMISSION_REVIEW_HISTORY_ACTOR_LABEL, ADMISSION_REVIEW_HISTORY_COPY, ADMISSION_REVIEW_HISTORY_EVENT_LABEL } from "@/src/modules/academy-admissions/constants/admission-review-history-page";
@@ -14,7 +14,7 @@ export type AdmissionReviewHistoryProps = { items: readonly AdmissionReviewHisto
 export function AdmissionReviewHistory({ items, checking, refreshDisabled, errorMessage, backHref, olderHref, newestHref, onRefresh }: AdmissionReviewHistoryProps) {
   return <section className={styles.AdmissionReviewHistory} aria-label={ADMISSION_REVIEW_HISTORY_COPY.title}>
     <header className={styles.AdmissionReviewHistory__header}><h1 className={styles.AdmissionReviewHistory__title}>{ADMISSION_REVIEW_HISTORY_COPY.title}</h1><p className={styles.AdmissionReviewHistory__help}>{ADMISSION_REVIEW_HISTORY_COPY.description}</p></header>
-    <nav className={styles.AdmissionReviewHistory__actions} aria-label="Navegación del historial"><Link href={backHref}>{ADMISSION_REVIEW_HISTORY_COPY.back}</Link><Button type="button" variant="outline" disabled={checking || refreshDisabled} onClick={onRefresh}>{ADMISSION_REVIEW_HISTORY_COPY.refresh}</Button></nav>
+    <nav className={styles.AdmissionReviewHistory__actions} aria-label="Navegación del historial"><Link href={backHref}>{ADMISSION_REVIEW_HISTORY_COPY.back}</Link><Button type="button" variant="secondary" disabled={checking || refreshDisabled} onClick={onRefresh}>{ADMISSION_REVIEW_HISTORY_COPY.refresh}</Button></nav>
     {checking && <p className={styles.AdmissionReviewHistory__help} role="status">{ADMISSION_REVIEW_HISTORY_COPY.checking}</p>}
     {errorMessage && <p className={styles.AdmissionReviewHistory__error} role="alert">{errorMessage}</p>}
     {!checking && !errorMessage && <>

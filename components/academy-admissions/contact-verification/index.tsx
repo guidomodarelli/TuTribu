@@ -1,7 +1,7 @@
 "use client";
 /** Presents controlled applicant verification without owning identity, HTTP, deadlines or operation recovery. @module contact-verification */
 import { useId } from "react";
-import { Button, Checkbox, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "beez-ui";
+import { Button, Checkbox, Input, Label, Select } from "beez-ui";
 import type { AdmissionChallengeSnapshot } from "@/src/modules/academy-admissions/domain/repositories/admission-contact-verification";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
 import { ADMISSION_PUBLIC_CODE_PATTERN } from "@/src/modules/academy-admissions/constants/admission-public-contract";
@@ -47,11 +47,7 @@ export function ContactVerification(props: ContactVerificationProps) {
           <p id={`${fieldId}-phone-feedback`} className={props.fieldErrors.phone ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.phone ?? (props.contactLocked ? "El contacto de esta solicitud ya está fijado." : "Usá el prefijo internacional o elegí el país del teléfono.")}</p>
         </div>
         <div className={styles.ContactVerification__field}>
-          <Label htmlFor={`${fieldId}-country`}>País del teléfono</Label>
-          <Select value={props.country || undefined} disabled={controlsBlocked || props.contactLocked || noCountries} onValueChange={props.onCountryChange}>
-            <SelectTrigger id={`${fieldId}-country`} aria-invalid={Boolean(props.fieldErrors.country)} aria-describedby={`${fieldId}-country-feedback`}><SelectValue placeholder="Elegí un país habilitado" /></SelectTrigger>
-            <SelectContent>{props.allowedCountries.map((country) => <SelectItem key={country} value={country}>{country}</SelectItem>)}</SelectContent>
-          </Select>
+          <Select value={props.country || undefined} disabled={controlsBlocked || props.contactLocked || noCountries} onValueChange={props.onCountryChange} id={`${fieldId}-country`} aria-invalid={Boolean(props.fieldErrors.country)} aria-describedby={`${fieldId}-country-feedback`} label="País del teléfono" options={props.allowedCountries.map((country) => ({ value: country, label: country }))} placeholder="Elegí un país habilitado" />
           <p id={`${fieldId}-country-feedback`} className={props.fieldErrors.country || noCountries ? styles.ContactVerification__error : styles.ContactVerification__description}>{props.fieldErrors.country ?? (noCountries ? "La academia todavía no tiene países habilitados para este teléfono. Consultá a sus responsables." : "Se muestran los países configurados por la academia.")}</p>
         </div>
       </div> : <p className={styles.ContactVerification__description}>El código se envía al correo actual de tu cuenta.</p>}
@@ -79,8 +75,8 @@ export function ContactVerification(props: ContactVerificationProps) {
         {props.expiresInSeconds !== null && !expired && <p className={styles.ContactVerification__description}>Vence en {props.expiresInSeconds} segundos.</p>}
         <div className={styles.ContactVerification__actions}>
           <Button type="submit" disabled={verifyBlocked}>{props.busy ? "Comprobando código…" : "Comprobar código"}</Button>
-          <Button type="button" variant="outline" disabled={resendBlocked} onClick={() => { if (!resendBlocked) props.onResend(); }}>Reenviar código</Button>
-          {props.canUseSmsAlternative && props.challenge.channel === MESSAGING_PUBLIC_CHANNEL.whatsapp && <Button type="button" variant="outline" disabled={smsBlocked} onClick={() => { if (!smsBlocked) props.onUseSmsAlternative(); }}>Usar SMS para el mismo teléfono</Button>}
+          <Button type="button" variant="secondary" disabled={resendBlocked} onClick={() => { if (!resendBlocked) props.onResend(); }}>Reenviar código</Button>
+          {props.canUseSmsAlternative && props.challenge.channel === MESSAGING_PUBLIC_CHANNEL.whatsapp && <Button type="button" variant="secondary" disabled={smsBlocked} onClick={() => { if (!smsBlocked) props.onUseSmsAlternative(); }}>Usar SMS para el mismo teléfono</Button>}
         </div>
         {props.resendInSeconds !== null && props.resendInSeconds > 0 && <p className={styles.ContactVerification__description}>Podés reenviar en {props.resendInSeconds} segundos.</p>}
       </form>}

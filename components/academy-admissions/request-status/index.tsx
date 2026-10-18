@@ -30,7 +30,7 @@ export function RequestStatus({ request, now, confirmed, disabled, busy, errorMe
     {request.contact && <p className={styles.RequestStatus__help}>{request.contact.maskedValue} · {request.contact.evidenceKind === ADMISSION_EVIDENCE_KIND.declared ? ADMISSION_UI_COPY.declared : ADMISSION_UI_COPY.verified}</p>}
     {request.externalMessage && <p className={styles.RequestStatus__message}>{request.externalMessage}</p>}
     {eligibilityMessage && <p role="status" className={styles.RequestStatus__help}>{eligibilityMessage}</p>}
-    {mayCancel && <><div className={styles.RequestStatus__confirmation}><Checkbox id={confirmationId} checked={confirmed} disabled={disabled} onCheckedChange={(checked) => onConfirm(checked === true)} /><label htmlFor={confirmationId}>{ADMISSION_UI_COPY.confirmCancel}</label></div><div className={styles.RequestStatus__actions}><Button type="button" variant="outline" disabled={disabled || !confirmed} onClick={onCancel}>{busy ? ADMISSION_UI_COPY.cancelling : ADMISSION_UI_COPY.cancel}</Button></div></>}
+    {mayCancel && <><div className={styles.RequestStatus__confirmation}><Checkbox id={confirmationId} checked={confirmed} disabled={disabled} onCheckedChange={(checked) => onConfirm(checked === true)} /><label htmlFor={confirmationId}>{ADMISSION_UI_COPY.confirmCancel}</label></div><div className={styles.RequestStatus__actions}><Button type="button" variant="secondary" disabled={disabled || !confirmed} onClick={onCancel}>{busy ? ADMISSION_UI_COPY.cancelling : ADMISSION_UI_COPY.cancel}</Button></div></>}
     {retryHref && <Link href={retryHref} tabIndex={0}>{ADMISSION_UI_COPY.retry}</Link>}
     {errorMessage && <p role="alert" className={styles.RequestStatus__error}>{errorMessage}</p>}
   </section>;

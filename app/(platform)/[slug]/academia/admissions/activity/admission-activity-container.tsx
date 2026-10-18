@@ -1,7 +1,7 @@
 "use client";
 /** Owns native viewer checks and cancellable private reads while presenters remain callback-only. @module admission-activity-container */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@guidomodarelli/beez-ui";
+import { Button } from "beez-ui";
 import { AdmissionMetrics } from "@/components/academy-admissions/admission-metrics";
 import { AdmissionActivity } from "@/components/academy-admissions/admission-activity";
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
@@ -91,7 +91,7 @@ export function AdmissionActivityContainer({ initialState, client = admissionAct
     launchRead(parsed.value);
   };
   return <div className={styles.AdmissionActivityContainer} aria-busy={busy}>
-    <Button type="button" variant="outline" disabled={busy} onClick={reload}>Actualizar consumo e historial</Button>
+    <Button type="button" variant="secondary" disabled={busy} onClick={reload}>Actualizar consumo e historial</Button>
     <AdmissionMetrics metrics={snapshot.metrics} currentUsage={snapshot.currentUsage} usageHref={`/${encodeURIComponent(ready.slug)}/${MESSAGING_USAGE_SETTINGS_SEGMENT}`} />
     <AdmissionActivity page={snapshot.activity} selection={snapshot.selection} draft={draft} busy={busy} validationMessage={validationMessage}
       onChange={(next) => { setDraft(next); setValidationMessage(null); setErrorMessage(null); }} onApply={applyFilters}

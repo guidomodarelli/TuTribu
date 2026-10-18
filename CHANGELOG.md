@@ -6,7 +6,6 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
-- La política de privacidad puede consultarse sin iniciar sesión desde la página principal e incluye el contacto del responsable del servicio.
 - Las conexiones candidatas abandonadas pueden retirarse mediante el proceso interno después de siete días sin actividad, conservando la conexión seleccionada y el consumo original; la programación de esa limpieza sigue pendiente.
 - Los datos temporales del CSV y su reporte pueden eliminarse por lotes al vencer las veinticuatro horas, conservando la lista y los resultados ya confirmados; la ejecución programada sigue pendiente.
 - La revisión de requisitos de activación muestra los bloqueos actuales y las membresías con historial desconocido o roles de líder y guardián que requieren revisión autorizada; descarta el resultado anterior al editar o volver a consultar. Los manuales distinguen ese control del cambio a academia, los beneficios y las vías de ingreso y pago, y explican qué conserva el silenciamiento y cuándo un cierre impide volver a entrar.
@@ -91,10 +90,11 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- Los formularios de admisión y mensajería adoptan los selectores y botones del diseño actual del sitio.
+
 - Al retomar una presentación con el mismo contacto, la pantalla reconoce su código propio, muestra su canal actual y diferencia la validación de un código vigente del reenvío explícito que reemplaza uno ya utilizado.
 - El paso de comprobación de contacto aclara que los códigos usan el servicio conectado por el líder y que comprobar el contacto no acredita identidad civil ni pertenencia a un grupo de WhatsApp.
 - La auditoría de la lista de habilitados conserva los estados y versiones anteriores, la operación original y el momento del cambio, sin incluir contactos ni nombres.
-- El acceso con Google muestra la marca TuTribu verificada y permite comprobar la fecha de autenticación; guardar una conexión de mensajería sigue exigiendo una autenticación de Google de los últimos diez minutos.
 - La auditoría de la lista de habilitados, sus importaciones y las invitaciones personales conserva los estados y versiones anteriores, la operación original y el momento del cambio o retiro de autorización, sin incluir contactos, nombres ni tokens.
 - La auditoría de solicitudes, lista de habilitados, importaciones e invitaciones personales conserva los estados y versiones anteriores, las decisiones, la operación original y el momento del cambio; los permisos para reintentar mantienen su motivo privado y sus fechas, sin incluir contactos, nombres ni tokens.
 - La auditoría de solicitudes, lista, importaciones, invitaciones, cupos y conexiones conserva estados, versiones, decisiones, operación original y momento del cambio; los reintentos mantienen su motivo privado y fechas, y la comprobación de credenciales registra su resultado y tipo de cuenta, sin incluir contactos, nombres ni claves.

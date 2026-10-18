@@ -1,6 +1,6 @@
 /** Presents only the leader-authorized history and emits explicit filter/pagination reads. @module admission-activity */
 import { useId } from "react";
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@guidomodarelli/beez-ui";
+import { Button, Input, Select } from "beez-ui";
 import type { AdmissionActivityPage } from "@/src/modules/academy-admissions/application/results/admission-activity-result";
 import type { AdmissionActivityPageSelection } from "@/src/modules/academy-admissions/application/results/admission-activity-page-state";
 import type { AdmissionActivityFilterDraft } from "@/src/modules/academy-admissions/application/commands/admission-activity-filter-draft";
@@ -26,7 +26,7 @@ export function AdmissionActivity(props: AdmissionActivityProps) {
     <form className={styles.AdmissionActivity__form} onSubmit={(event) => { event.preventDefault(); if (!props.busy) props.onApply(); }}>
       <fieldset className={styles.AdmissionActivity__filters} disabled={props.busy}>
         <legend className={styles.AdmissionActivity__legend}>Filtrar historial</legend>
-        <div className={styles.AdmissionActivity__field}><label htmlFor={typeId}>Tipo de recurso</label><Select value={props.draft.resourceType} disabled={props.busy} onValueChange={(value) => props.onChange({ ...props.draft, resourceType: value })}><SelectTrigger id={typeId}><SelectValue /></SelectTrigger><SelectContent><SelectItem value={ADMISSION_ACTIVITY_FILTER_ALL}>Todos los recursos</SelectItem>{Object.entries(ADMISSION_ACTIVITY_RESOURCE_LABELS).map(([resourceType, label]) => <SelectItem value={resourceType} key={resourceType}>{label}</SelectItem>)}</SelectContent></Select></div>
+        <div className={styles.AdmissionActivity__field}><Select value={props.draft.resourceType} disabled={props.busy} onValueChange={(value) => props.onChange({ ...props.draft, resourceType: value })} id={typeId} label="Tipo de recurso" options={[{ value: ADMISSION_ACTIVITY_FILTER_ALL, label: "Todos los recursos" }, ...Object.entries(ADMISSION_ACTIVITY_RESOURCE_LABELS).map(([resourceType, label]) => ({ value: resourceType, label }))]} /></div>
         <div className={styles.AdmissionActivity__field}><label htmlFor={referenceId}>Referencia del recurso (opcional)</label><Input id={referenceId} value={props.draft.resourceId} disabled={props.busy} aria-invalid={Boolean(props.validationMessage)} aria-describedby={props.validationMessage ? validationId : undefined} onChange={(event) => props.onChange({ ...props.draft, resourceId: event.target.value })} /><p className={styles.AdmissionActivity__help}>Usá la referencia que figura en un hecho del historial. El filtro no concede acceso a otro recurso.</p></div>
       </fieldset>
       {props.validationMessage && <p id={validationId} role="alert" className={styles.AdmissionActivity__error}>{props.validationMessage}</p>}
@@ -49,6 +49,6 @@ export function AdmissionActivity(props: AdmissionActivityProps) {
       ];
       return <li key={event.id} className={styles.AdmissionActivity__item}><details className={styles.AdmissionActivity__details}><summary className={styles.AdmissionActivity__summary}><span className={styles.AdmissionActivity__event}>{ADMISSION_ACTIVITY_EVENT_LABELS[event.eventType]}</span><time className={styles.AdmissionActivity__time} dateTime={event.createdAt}>{formatAdmissionObservationTime(event.createdAt)}</time></summary><dl className={styles.AdmissionActivity__facts}>{details.map((row, index) => <div className={styles.AdmissionActivity__fact} key={`${row.label}:${index}`}><dt className={styles.AdmissionActivity__term}>{row.label}</dt><dd className={styles.AdmissionActivity__value}>{row.value}</dd></div>)}</dl></details></li>;
     })}</ol> : <p role="status">No hay eventos para los filtros aplicados.</p>}
-    {props.page.nextCursor && <Button type="button" variant="outline" disabled={props.busy} onClick={props.onOlder}>Ver actividad anterior</Button>}
+    {props.page.nextCursor && <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onOlder}>Ver actividad anterior</Button>}
   </section>;
 }

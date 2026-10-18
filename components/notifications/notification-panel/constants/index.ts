@@ -1,5 +1,5 @@
 /** Owns notification panel regions and shared-library motion settings. @module notification-panel-constants */
-import { MOTION_TIMING, MOTION_EASE } from "@guidomodarelli/beez-ui";
+import { MOTION_TIMING, MOTION_EASE } from "beez-ui";
 
 /** Separates cached rows from loading/error/empty body regions. */
 export const NOTIFICATION_PANEL_VIEW = { empty: "empty", error: "error", idle: "idle", list: "list", loading: "loading" } as const;
