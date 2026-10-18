@@ -236,6 +236,9 @@ importers:
       '@astra-kit/cleaner':
         specifier: ^0.2.0
         version: 0.2.0
+      '@astra-kit/rp':
+        specifier: ^1.0.0
+        version: 1.0.0
       '@commitlint/cli':
         specifier: ^21.0.2
         version: 21.0.2(@types/node@24.13.4)(conventional-commits-parser@6.4.0)(typescript@7.0.2)
@@ -275,9 +278,6 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.1.1
         version: 6.1.1(oxc-transform-react@0.145.0)(vite@8.2.2(@types/node@24.13.4)(esbuild@0.28.1)(jiti@2.6.1)(sass@1.100.0)(terser@5.16.9)(tsx@4.21.0)(yaml@2.9.0))
-      beez-rp:
-        specifier: ^0.10.0
-        version: 0.10.0
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
@@ -400,6 +400,11 @@ packages:
   '@astra-kit/cleaner@0.2.0':
     resolution: {integrity: sha512-5DvspC6K+xegMxARRGyxmkFyp8l/ejKene8xkzAfsgzcTziwu+YBnjqMolAKOgR8RQHvA8x+uTtQ1gOv1vO0Og==}
     engines: {node: '>=20'}
+    hasBin: true
+
+  '@astra-kit/rp@1.0.0':
+    resolution: {integrity: sha512-26qDqVM/A36NImOa844Ia2X2kL79pp6D/1dKX/+58T/d6q9iwvpkq8IeovOrxMx8RW3FavFkpoNfmp3RBXeu1g==}
+    engines: {node: '>=22'}
     hasBin: true
 
   '@aws-crypto/crc32@5.2.0':
@@ -3945,11 +3950,6 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  beez-rp@0.10.0:
-    resolution: {integrity: sha512-RXXS63jCQVNnckFB55aFGRiKKWFFuUYeCEwFwMNREvlNVUjRV1UMU2I5/7kmS3M/R7oabXuHTtW5IEDUyOwzeQ==}
-    engines: {node: '>=22'}
-    hasBin: true
-
   beez-ui@4.0.1:
     resolution: {integrity: sha512-nWvywx5Ms+HV2p8e+k51iTvkk2L8/VOPTtHXnO7JJQxJULkGiPWKE1NsFFI2b/jT4+sOxqHjy4zJ4huEawNpnQ==}
     engines: {node: '>=22', pnpm: '>=12 <13'}
@@ -6148,6 +6148,8 @@ snapshots:
       '@ast-grep/napi-win32-x64-msvc': 0.40.5
 
   '@astra-kit/cleaner@0.2.0': {}
+
+  '@astra-kit/rp@1.0.0': {}
 
   '@aws-crypto/crc32@5.2.0':
     dependencies:
@@ -9425,8 +9427,6 @@ snapshots:
   base64-arraybuffer@1.0.2: {}
 
   baseline-browser-mapping@2.10.10: {}
-
-  beez-rp@0.10.0: {}
 
   beez-ui@4.0.1(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     dependencies:
