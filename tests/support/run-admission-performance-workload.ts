@@ -34,9 +34,11 @@ export function admissionConfirmationPercentile(durations: readonly number[]): n
  * @param database - Real branch-scoped database adapter, never a provider or UI mock.
  * @param fixture - Prepared academy and synthetic host keys.
  * @param participants - The actual seeded identities; the fixed cohort is validated by its caller.
+ * @param observer - Optional diagnostic boundary outside the fixed request timers.
+ * @param enabledParticipantCount - Global dataset boundary; the default keeps the latency cohort unchanged.
  * @returns Only numeric measurements, safe failure diagnostics and persisted-effect counts.
  */
-export async function runAdmissionPerformanceWorkload(database: AdmissionPerformanceDatabase, fixture: AdmissionPerformanceFixture, participants: readonly AdmissionPerformanceParticipant[], observer?: AdmissionPerformanceObserver) {
+export async function runAdmissionPerformanceWorkload(database: AdmissionPerformanceDatabase, fixture: AdmissionPerformanceFixture, participants: readonly AdmissionPerformanceParticipant[], observer?: AdmissionPerformanceObserver, enabledParticipantCount: number = ADMISSION_PERFORMANCE.enabledParticipantCount) {
   const transactionDurations = { account: [] as number[], command: [] as number[] };
   /** @param kind - Own execution boundary, never an SDK hook. @param context - Actual server identity. @param run - Original application statements. @returns The unchanged native outcome with only wall time observed. */
   async function transact<Result>(kind: "account" | "command", context: RequestDatabaseContext, run: (transaction: RequestDatabase) => Promise<Result>): Promise<Result> {
@@ -77,7 +79,7 @@ export async function runAdmissionPerformanceWorkload(database: AdmissionPerform
     await Promise.all(workloads.map(async ({ participant, commands }) => {
       const startedAt = performance.now(); inFlight += 1; peakInFlight = Math.max(peakInFlight, inFlight);
       try {
-        const result = await commands.submit.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedPolicyVersion: ADMISSION_PERFORMANCE.expectedPolicyVersion, confirmed: true, ...(participant.index >= ADMISSION_PERFORMANCE.enabledParticipantCount ? { message: ADMISSION_PERFORMANCE.exceptionReason } : {}) });
+        const result = await commands.submit.execute({ tribeId: fixture.tribeId, requestId: randomUUID(), operationId: randomUUID(), expectedPolicyVersion: ADMISSION_PERFORMANCE.expectedPolicyVersion, confirmed: true, ...(participant.index >= enabledParticipantCount ? { message: ADMISSION_PERFORMANCE.exceptionReason } : {}) });
         observed.push({ index: participant.index, durationMs: performance.now() - startedAt, outcome: result.ok && result.value.state === "completed" ? result.value.result.outcome : null, failure: !result.ok ? result.failure.code : result.value.state !== "completed" ? ADMISSION_PERFORMANCE_FAILURE.unconfirmed : null, ...(!result.ok ? { cause: result.failure.cause } : {}) });
       } catch (error) { observed.push({ index: participant.index, durationMs: performance.now() - startedAt, outcome: null, failure: ADMISSION_PERFORMANCE_FAILURE.unexpectedException, cause: error }); }
       finally { inFlight -= 1; }

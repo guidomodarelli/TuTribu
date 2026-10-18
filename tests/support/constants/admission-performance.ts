@@ -1,6 +1,7 @@
 /** Defines reproducible native workloads and measured acceptance criteria without changing production limits. @module admission-performance-constants */
 
 /** Keeps setup, warm-up, application latency and abandoned-transaction recovery independently observable. */
+export type AdmissionFixtureShape = { participantCount: number; enabledParticipantCount: number; entryCount: number };
 export const ADMISSION_PERFORMANCE = {
   participantCount: 100,
   enabledParticipantCount: 50,

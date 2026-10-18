@@ -11,6 +11,9 @@ import { readPostgresTestDiagnostics } from "@/tests/support/postgres-test-diagn
 import { ADMISSION_NODE_HOST, ADMISSION_NODE_RUN_STATE, admissionNodeConfigurationSchema, admissionNodeMeasurementSchema, type AdmissionNodeRunState, type AdmissionNodeMeasurement, type AdmissionNodeStatus } from "@/tests/support/constants/admission-node-host";
 import { startAdmissionCpuProfile, type AdmissionCpuObservation } from "@/tests/support/admission-cpu-profile";
 import { ADMISSION_CPU_PROFILE } from "@/tests/support/constants/admission-cpu-profile";
+import { ADMISSION_SAMPLE, admissionNodeSampleSchema, type AdmissionNodeSample } from "@/tests/support/constants/admission-sample";
+import { ADMISSION_PERFORMANCE } from "@/tests/support/constants/admission-performance";
+import { runAdmissionSample } from "@/tests/support/run-admission-sample";
 
 const configuration = admissionNodeConfigurationSchema.parse({
   branchName: process.env[ADMISSION_NODE_HOST.branchVariable], operationId: process.env[ADMISSION_NODE_HOST.operationVariable], tokenSha256: process.env[ADMISSION_NODE_HOST.tokenDigestVariable],
@@ -32,11 +35,12 @@ function database() {
   return resources;
 }
 const owner = { userId: null, email: null };
+const sampleMode = process.env[ADMISSION_SAMPLE.environmentVariable] === ADMISSION_SAMPLE.enabledValue;
 /** @returns Its durable own result; no caller can select another operation. */
 async function readStatus(): Promise<AdmissionNodeStatus> {
-  const row = await database().withContext(owner, async (transaction) => (await transaction.execute<{ id: string; state: AdmissionNodeRunState; measurement: AdmissionNodeMeasurement | null }>(sql`select id,state,measurement from native_test_support.admission_node_runs where id=${configuration.operationId} and expected_branch=${configuration.branchName}`)).rows[0]);
+  const row = await database().withContext(owner, async (transaction) => (await transaction.execute<{ id: string; state: AdmissionNodeRunState; measurement: AdmissionNodeMeasurement | AdmissionNodeSample | null }>(sql`select id,state,measurement from native_test_support.admission_node_runs where id=${configuration.operationId} and expected_branch=${configuration.branchName}`)).rows[0]);
   if (!row) throw new Error("AdmissionNodeHost.read failed: operation_unavailable");
-  return { operationId: row.id, state: row.state, measurement: row.measurement };
+  return sampleMode ? { operationId: row.id, state: row.state, measurement: null, sample: row.measurement as AdmissionNodeSample | null } : { operationId: row.id, state: row.state, measurement: row.measurement as AdmissionNodeMeasurement | null };
 }
 /** @returns The original persisted outcome; an already running invocation never starts another workload. */
 async function run(): Promise<AdmissionNodeStatus> {
@@ -44,9 +48,13 @@ async function run(): Promise<AdmissionNodeStatus> {
   if (!acquired) return readStatus();
   try {
     const started = performance.now();
-    const fixture = await seedAdmissionPerformanceFixture(database());
+    const fixture = await seedAdmissionPerformanceFixture(database(), undefined, sampleMode ? ADMISSION_SAMPLE : ADMISSION_PERFORMANCE);
     await database().withContext(owner, (transaction) => transaction.execute(sql`update native_test_support.admission_node_runs set fixture_tribe_id=${fixture.fixture.tribeId} where id=${configuration.operationId} and state=${ADMISSION_NODE_RUN_STATE.running}`));
     const setupDurationMs = performance.now() - started;
+    let measurement: AdmissionNodeMeasurement | AdmissionNodeSample;
+    if (sampleMode) {
+      measurement = admissionNodeSampleSchema.parse({ ...await runAdmissionSample(database(), fixture.fixture, fixture.participants), setupDurationMs, nodeVersion: process.versions.node, sourceCommit: configuration.sourceCommit, bundleSha256: configuration.bundleSha256 });
+    } else {
     let cpuProfiler: Awaited<ReturnType<typeof startAdmissionCpuProfile>> | undefined;
     let cpuProfile: AdmissionCpuObservation | undefined;
     const measured = await (async () => {
@@ -56,7 +64,8 @@ async function run(): Promise<AdmissionNodeStatus> {
       } : undefined); }
       finally { if (cpuProfiler) cpuProfile = await cpuProfiler.stop(); }
     })();
-    const measurement = admissionNodeMeasurementSchema.parse({ ...measured, ...(cpuProfile ? { cpuProfile } : {}), setupDurationMs, nodeVersion: process.versions.node, sourceCommit: configuration.sourceCommit, bundleSha256: configuration.bundleSha256 });
+    measurement = admissionNodeMeasurementSchema.parse({ ...measured, ...(cpuProfile ? { cpuProfile } : {}), setupDurationMs, nodeVersion: process.versions.node, sourceCommit: configuration.sourceCommit, bundleSha256: configuration.bundleSha256 });
+    }
     await database().withContext(owner, (transaction) => transaction.execute(sql`update native_test_support.admission_node_runs set state=${ADMISSION_NODE_RUN_STATE.completed},measurement=${JSON.stringify(measurement)}::jsonb,completed_at=clock_timestamp() where id=${configuration.operationId} and state=${ADMISSION_NODE_RUN_STATE.running}`));
     return readStatus();
   } catch (error) {
