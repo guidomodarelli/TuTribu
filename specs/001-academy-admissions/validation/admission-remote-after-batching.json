@@ -1,0 +1,53 @@
+{
+  "head": "36ff21fa49a9994dff761b48b7e4e7a994fc1832",
+  "runUrl": "https://github.com/guidomodarelli/TuTribu/actions/runs/39111434595",
+  "exitCode": 1,
+  "outputTruncated": false,
+  "cases": [
+    { "kind": "load", "status": "failed", "durationMs": 101301.370211 },
+    { "kind": "abandonment", "status": "passed", "durationMs": 34062.215091000005 }
+  ],
+  "load": {
+    "participants": 100,
+    "admitted": 50,
+    "pending": 50,
+    "failures": 0,
+    "poolCheckoutTimeouts": 0,
+    "p95Ms": 7357.399227000002,
+    "targetMs": 3000,
+    "networkQueryP95Ms": 69.82958799999324,
+    "networkSamples": 20,
+    "setupDurationMs": 54618.310707000004,
+    "warmupDurationMs": 35855.391089,
+    "eventLoopP95Ms": 21.053439,
+    "pool": {
+      "maximum": 100,
+      "acquisitions": 300,
+      "releases": 300,
+      "peakWaitingCount": 0,
+      "waitingAfter": 0,
+      "checkedOutAfter": 0
+    },
+    "facts": { "entries": 10000, "requests": 100, "basicMembers": 50, "deliveries": 0 }
+  },
+  "abandonment": {
+    "observedIdleTimeoutMs": 30000,
+    "observationDurationMs": 31095.906017,
+    "healthy": 1,
+    "idleGuardConfirmed": true,
+    "acquisitions": 2,
+    "releases": 2,
+    "waitingAfter": 0,
+    "checkedOutAfter": 0
+  },
+  "cleanup": {
+    "ownerFinished": true,
+    "ownerRevocationInitiallyFailed": true,
+    "keyAbsenceReconciled": true,
+    "secretRemoved": true,
+    "variablesRemoved": 3,
+    "plannedBranchesAbsent": 2,
+    "originalBranchesPreserved": 3,
+    "toolingStable": true
+  }
+}
