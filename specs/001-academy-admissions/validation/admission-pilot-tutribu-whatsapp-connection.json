@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-18",
+  "kind": "user_authorized_tutribu_whatsapp_connected_to_zavu",
+  "portfolioId": "1769606750793942",
+  "whatsAppBusinessAccountId": "1778568530117979",
+  "zavuConnectionId": "md7e4hgzb9n3r8eddx71gz8n0d8ghtef",
+  "businessName": "TuTribu",
+  "existingTutribuNumberSelected": true,
+  "newPersonalNumberRegistered": false,
+  "existingZavuAccountPreserved": true,
+  "existingZavuAccountActive": true,
+  "newZavuAccountActive": true,
+  "additionalTermsExplicitlyAuthorized": true,
+  "persistentAssetAccessExplicitlyAuthorized": true,
+  "assetScope": [
+    "TuTribu portfolio",
+    "TuTribu WhatsApp Business account"
+  ],
+  "grantedCapabilities": [
+    "manage_whatsapp_accounts",
+    "manage_and_access_whatsapp_conversations",
+    "register_and_send_whatsapp_business_events_to_meta"
+  ],
+  "metaConnectionConfirmed": true,
+  "zavuActivationConfirmed": true,
+  "pricing": {
+    "currency": "USD",
+    "proMonthly": 20,
+    "additionalWhatsAppAccountMonthly": 7,
+    "confirmedMonthlyTotal": 27,
+    "observedUsageBalance": 20,
+    "automaticTopUpConfigured": false,
+    "privatePaymentDataIncluded": false
+  },
+  "authenticationTemplate": {
+    "name": "tutribu_access_code_es",
+    "language": "es",
+    "category": "AUTHENTICATION",
+    "button": "Copiar código",
+    "otpExpirationMinutes": 10,
+    "submittedToNewTutribuAccountOnly": true,
+    "observedStatus": "pending",
+    "reviewDecisionConfirmed": false,
+    "editorEligibilityNoticeObserved": true,
+    "editorNoticeTreatedAsAuthoritativeAccountDecision": false,
+    "oldRejectedTemplateChanged": false
+  },
+  "productConnectionDiagnosticPassed": false,
+  "channelPreparedForRealPilot": false,
+  "realPilotMessages": 0,
+  "pilotMessageLimit": 10,
+  "pilotUsageLimitUsd": 20,
+  "subscriptionBudgetSeparate": true,
+  "privateMaterialIncluded": false,
+  "operationalGatesClosed": [],
+  "smsResource": {
+    "provisioned": true,
+    "numberCount": 1,
+    "country": "US",
+    "capabilities": [
+      "sms",
+      "voice"
+    ],
+    "includedInPro": true,
+    "freeLabelObserved": true,
+    "additionalSubscriptionCreated": false,
+    "privateRecipientNumberIncluded": false,
+    "internationalSendingValidated": false,
+    "productSenderSelected": false,
+    "productDiagnosticPassed": false,
+    "realSmsMessages": 0
+  }
+}
