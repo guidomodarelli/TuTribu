@@ -14,6 +14,8 @@ Los recursos y capacidades del ensayo deben tener identidad única, duración ac
 
 La [sonda de configuración Node](admission-node-environment-preflight.md) posterior acreditó únicamente que un valor de prueba no secreto llega al entorno de una función autenticada propia mediante la ruta oficial, sin argumentos con ese valor ni `env pull`. No instaló keyrings ni ensayó restore. No reemplaza las obligaciones de T201/T203 o el ensayo del segundo target y mantiene OG-02 pendiente.
 
+La [carga canónica posterior](admission-distributed-performance.md#ejecución-completa-del-comando-versionado), sobre `09bf76b8`, instaló después la configuración sintética externa original en cuatro funciones Node reales. Cada función importó los seis keyrings y la misma época fuera de PostgreSQL; la cohorte confirmó los HMAC necesarios para cien admisiones concurrentes. El escaneo del despliegue no encontró material privado persistido y sus recursos se retiraron. Esto acredita esa precondición de configuración de Node; no prueba el uso criptográfico completo de los seis propósitos, el bloqueo/retiro/restore/reapertura ni Workers. El arnés SQL existente de restauración conserva sus resultados y debe llevarse al recorrido de ambos hosts sin reducir sus condiciones. T201/T203 y OG-02 siguen pendientes.
+
 ## Preflight de acceso
 
 La comprobación actual encontró Wrangler 4.128.0 instalado y `whoami --json` devolvió `loggedIn: false`. Chrome tiene el acceso de Cloudflare preparado; el ingreso muestra aceptación de términos y la nueva conexión requiere aprobación puntual de acceso persistente. La petición al usuario sigue pendiente. Los intentos OAuth no completados finalizaron sin acreditar una sesión, y no se crearon Workers, secretos ni bases para este ensayo.

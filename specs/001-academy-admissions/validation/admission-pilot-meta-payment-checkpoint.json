@@ -45,7 +45,8 @@
     "identitySelection": "current_business_confirmed_by_user",
     "selectedBusiness": "La Pampita - Olavarría",
     "completionOwner": "user",
-    "submissionStatus": "awaiting_user",
+    "submissionStatus": "pending_in_meta",
+    "observedStatusText": "Solicitud pendiente",
     "subsequentUserRequest": {
       "businessName": "TuTribu",
       "action": "create_separate_business_portfolio",
