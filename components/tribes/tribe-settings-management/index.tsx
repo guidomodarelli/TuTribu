@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import Image from "next/image";
 import { ImageIcon, ImageOffIcon, UploadIcon } from "lucide-react";
-import { toast, Button, Input, PresenceSwap, cn } from "@astra-kit/ui";
+import { toast, Button, Input, PresenceSwap, buttonClassName, cn } from "@astra-kit/ui";
 
 import type { TribeIdentityResult } from "@/src/modules/tribes/application/results/tribe-identity-result";
 import styles from "./styles.module.scss";
@@ -279,7 +279,7 @@ type ImageUploadButtonProps = {
  */
 function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonProps) {
   return (
-    <label className={styles.TribeSettingsManagement__uploadButton} aria-busy={isUploading || undefined} data-disabled={isUploading ? true : undefined}>
+    <label className={buttonClassName({ variant: "secondary", className: styles.TribeSettingsManagement__uploadButton })} aria-busy={isUploading || undefined} data-disabled={isUploading ? true : undefined}>
         <UploadIcon />
         {isUploading
           ? TRIBE_SETTINGS_COPY.uploadingButton

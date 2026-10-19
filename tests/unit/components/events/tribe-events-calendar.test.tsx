@@ -806,6 +806,8 @@ describe("TribeEventsCalendar", () => {
       "rel",
       "noreferrer"
     );
+    // Vitest resolves CSS Modules non-scoped, so the BEM class carrying the entrance motion is visible.
+    expect(within(nextEvent).getByRole("link", { name: "Unirme" })).toHaveClass("TribeNextEvent__join");
 
     await user.click(screen.getByRole("button", { name: "Ver lista" }));
 

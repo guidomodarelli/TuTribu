@@ -1,5 +1,4 @@
 @use "../../../src/styles/motion";
-@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
@@ -143,9 +142,4 @@
     transform: scale(2.6);
     opacity: 0;
   }
-}
-
-// Navigation styled as an Arc primary button.
-.TribeNextEvent__join {
-  @include action-link.action-link(primary, sm);
 }

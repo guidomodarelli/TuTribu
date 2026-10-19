@@ -103,11 +103,16 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
   `type="button"`; pass `type="submit"` to submit a form.
 - Icon-only buttons use `size="sm"` and need an `aria-label` or visually hidden
   text.
-- `Button` has no `asChild`. A navigation that should look like a button stays a
-  `Link` (or `<a>`, or a `<label>` wrapping a file input) and takes the Arc look
-  in its SCSS Module through the shared mixin:
-  `@use "…/src/styles/action-link";` and
-  `@include action-link.action-link(secondary, sm);`.
+- `Button` has no `asChild`. An in-app navigation that should look like a
+  button is a `ButtonLink` from `@/components/navigation/link`, with the same
+  `variant` and `size`: `<ButtonLink href={ROUTES.home} variant="secondary">`.
+  It is the shared `Link`, so it keeps the provider's routing and `prefetch`
+  default.
+- An external `<a>`, a download or a `<label>` wrapping a file input takes the
+  same classes with `buttonClassName({ variant, size, className })` from
+  @astra-kit/ui; it also runs in Server Components. The BEM class passed as
+  `className` keeps only layout (margins, width, flex).
+- Neither includes the press scale or the loading spinner of `Button`.
 - Radix triggers still compose with `asChild` on the trigger:
   `<DialogTrigger asChild><Button>…</Button></DialogTrigger>`.
 - Validation feedback must be visible near the affected input or action.

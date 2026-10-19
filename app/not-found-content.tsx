@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 
-import { Link } from "@/components/navigation/link";
+import { ButtonLink } from "@/components/navigation/link";
 import { siteConfig } from "@/lib/site-config";
 import { ROUTES } from "@/src/constants/routes";
 import { createRequestAuthModule } from "@/src/modules/auth/setup";
@@ -35,9 +35,9 @@ async function resolveAuthenticatedMemberForNotFoundPage(
 
 export function NotFoundSignInAction() {
   return (
-    <Link className={styles.NotFoundPage__signInLink} href={ROUTES.auth.signIn}>
-        Iniciar sesión
-      </Link>
+    <ButtonLink href={ROUTES.auth.signIn} size="lg" variant="secondary">
+      Iniciar sesión
+    </ButtonLink>
   );
 }
 
@@ -76,9 +76,9 @@ export function NotFoundView({
         de {siteConfig.name}.
       </p>
       <div className={styles.NotFoundPage__actions}>
-        <Link className={styles.NotFoundPage__homeLink} href={ROUTES.home}>
-            Volver al inicio
-          </Link>
+        <ButtonLink href={ROUTES.home} size="lg">
+          Volver al inicio
+        </ButtonLink>
         {sessionAction}
       </div>
     </main>

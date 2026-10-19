@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ArrowUpRightIcon } from "lucide-react";
 
-import { Link } from "@/components/navigation/link";
+import { ButtonLink } from "@/components/navigation/link";
 import { RichMarkdownContent } from "@astra-kit/ui";
 import { TribeStoryGallery } from "@/components/tribes/tribe-story-gallery";
 import { FreeJoinSubmitButton } from "@/components/tribes/tribe-story-about/free-join-submit-button";
@@ -292,9 +292,9 @@ export function TribeStoryAbout({
             </form>
           ) : joinHref ? (
             <div className={styles.TribeStoryAbout__joinAction}>
-              <Link className={styles.TribeStoryAbout__joinButton} href={joinHref}>
-                  {TRIBE_STORY_ABOUT_COPY.joinButton}
-                </Link>
+              <ButtonLink className={styles.TribeStoryAbout__joinButton} href={joinHref}>
+                {TRIBE_STORY_ABOUT_COPY.joinButton}
+              </ButtonLink>
             </div>
           ) : null}
         </aside>

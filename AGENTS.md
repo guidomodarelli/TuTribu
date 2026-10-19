@@ -149,7 +149,7 @@ npx create-next-app@latest . --ts --eslint --tailwind --app --import-alias "@/*"
 - Do not reintroduce `components/ui` source copies or a local `components.json`.
 - Prefer composition of existing shared primitives before custom product components.
 - Import browser-ready `@astra-kit/ui/styles.css` once from the global stylesheet; do not add Tailwind compilation or `@source` in the consumer. It provides the Arc foundation (semantic color roles, concentric radii, control heights, shadows, keyboard-only focus outline, blue accent) in light and dark; product SCSS Modules use those tokens and explicit overrides stay here. Fonts come from `app/fonts` through `next/font/local`: Inter for text and controls, Geist for display headings; use only weights 400 and 500.
-- Use `Button` with Arc's API (`variant` `primary`, `secondary`, `ghost` or `danger`; `size` `sm`, `md` or `lg`; `loading`). It has no `asChild`: navigation that looks like a button stays a `Link`, `<a>` or `<label>` styled with the `action-link` mixin from `src/styles/_action-link.scss`. Icon-only buttons use `size="sm"` with an accessible name.
+- Use `Button` with Arc's API (`variant` `primary`, `secondary`, `ghost` or `danger`; `size` `sm`, `md` or `lg`; `loading`). It has no `asChild`: in-app navigation that looks like a button is a `ButtonLink` (same `variant` and `size`, plus every `Link` prop) from `@/components/navigation/link`; an external `<a>`, a download or a `<label>` wrapping a file input takes `className={buttonClassName({ variant, size, className: styles.Block__element })}` from `@astra-kit/ui`, with only layout (margins, width, flex) left in its BEM class. Neither includes the press scale or the spinner of `Button`. Icon-only buttons use `size="sm"` with an accessible name.
 - Use pnpm 12.14.0 and consume published `@astra-kit/ui` releases from the public npm registry with a caret range; no registry mapping or token is needed. Update package.json and pnpm-lock.yaml together; do not vendor local tarballs.
 - Follow `docs/architecture/shared-ui-library.htm` for package boundaries and distribution.
 
@@ -176,7 +176,7 @@ components/<scope>/<component>/
 
 - Always use the shared `Link` component from `@/components/navigation/link` for in-app navigation. Never import `Link` from `next/link` directly in product code (`app`, `components`, and `src`).
 - The shared `Link` uses the provider's Next.js adapter with `prefetch` set to `false` by default. It accepts string hrefs and native anchor attributes. Prefetch is opt-in: pass `prefetch` explicitly only on routes that benefit from it.
-- `components/navigation/link/index.tsx` reexports `Link` and `LinkProps` from `@astra-kit/ui`. Product code must not import `next/link` directly; shared pagination uses the same provider automatically.
+- `components/navigation/link/index.tsx` reexports `Link`, `LinkProps`, `ButtonLink` and `ButtonLinkProps` from `@astra-kit/ui`. `ButtonLink` renders that same `Link`, so it routes through the provider and keeps `prefetch` disabled by default; pass `prefetch` only where the shared `Link` would. Product code must not import `next/link` directly; shared pagination uses the same provider automatically.
 - For details and examples, see the navigation links convention guide at `docs/conventions/navigation-links.htm`.
 
 ### Product language policy

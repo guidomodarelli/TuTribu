@@ -1,5 +1,4 @@
 @use "../../../src/styles/motion";
-@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
@@ -512,9 +511,4 @@
       gap: 2.5rem;
     }
   }
-}
-
-// Navigation styled as an Arc secondary button.
-.TribeStoryManagement__uploadButton {
-  @include action-link.action-link(secondary, md);
 }

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-import { Button, DropdownMenu, WhatsappIcon, cn } from "@astra-kit/ui";
+import { Button, DropdownMenu, WhatsappIcon, buttonClassName, cn } from "@astra-kit/ui";
 
 import { ROUTES } from "@/src/constants/routes";
 import type { MemberTribeListItemResult } from "@/src/modules/tribes/application/results/member-tribe-list-item-result";
@@ -56,6 +56,13 @@ const SUPPORT_BUTTON_MEMBERSHIP_STATUS = {
 const SUPPORT_PHONE_NON_DIGIT_PATTERN = /\D/g;
 
 const SUPPORT_FETCH_TIMEOUT_MS = 15000;
+
+/** The member WhatsApp link is an external `<a>`, so it takes the same look as the leader `Button`. */
+const MEMBER_SUPPORT_LINK_CLASS_NAME = buttonClassName({
+  className: styles.TribeSupportButton,
+  size: SUPPORT_BUTTON_UI.buttonSize,
+  variant: SUPPORT_BUTTON_UI.buttonVariant,
+});
 
 /** Icon shown once the support settings resolve; it pops in after the loader. */
 const RESOLVED_ICON_CLASS_NAME = cn(
@@ -271,7 +278,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
     const linkHref = buildWhatsappUrl(settings);
 
     return (
-      <a className={styles.TribeSupportButton} aria-label={SUPPORT_BUTTON_COPY.triggerLabelMember}
+      <a className={MEMBER_SUPPORT_LINK_CLASS_NAME} aria-label={SUPPORT_BUTTON_COPY.triggerLabelMember}
           href={linkHref}
           rel={SUPPORT_BUTTON_LINK.newTabRel}
           target={SUPPORT_BUTTON_LINK.newTabTarget}

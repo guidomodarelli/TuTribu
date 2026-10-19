@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { TribeOpenJoin } from "@/components/subscriptions/tribe-open-join";
+import { TribeOpenJoin, TribeOpenJoinStatus } from "@/components/subscriptions/tribe-open-join";
 
 const OPEN_JOIN_OFFER = {
   amountCents: 1_250_000,
@@ -42,5 +42,33 @@ describe("TribeOpenJoin", () => {
     await user.click(pendingButton);
 
     expect(startAction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("TribeOpenJoinStatus", () => {
+  it("links the call to action to its destination", () => {
+    render(
+      <TribeOpenJoinStatus
+        cta={{ href: "/tribu-demo", label: "Ir a la tribu" }}
+        description="Ya tenés una suscripción activa."
+        title="Ya sos parte"
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Ir a la tribu" })).toHaveAttribute(
+      "href",
+      "/tribu-demo"
+    );
+  });
+
+  it("renders no link when the outcome has no call to action", () => {
+    render(
+      <TribeOpenJoinStatus
+        description="Esta tribu no acepta nuevas suscripciones."
+        title="Suscripción no disponible"
+      />
+    );
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });
