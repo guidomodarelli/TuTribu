@@ -160,6 +160,30 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
   that text, never next to an external `<label>` for the same trigger, which
   would announce the name twice.
 
+## Multi-step workspaces
+
+Use this pattern for a tool page where one record moves through several steps
+(for example the messaging connection: Connection, Channels, Tests, Activation).
+
+- Keep the page `h1` in the route; the workspace never repeats it.
+- Start with a compact status summary: the record name once, then one `Badge`
+  per independent fact (lifecycle, credential, account, each channel), each
+  with a tone that keeps "ready" visibly different from "active".
+- Highlight a single advisory next step under the summary with a button that
+  opens its tab. It guides; the server still checks every requirement.
+- Put each step in a `Tabs` panel with an `h2`. Show one `primary` action per
+  panel; secondary reads are `secondary` and optional confirmations (such as
+  confirming the account with Google) are `ghost` `sm` buttons grouped in one
+  quiet row.
+- Keep drafts in the container, not in the panel, so switching tabs never
+  loses input. Switching tabs must never save, send or activate anything.
+- Blocking states (a pending original, a continuation link) go above the tabs
+  so no tab hides them. A panel whose step is not available yet explains why
+  and offers the step that unblocks it instead of an empty form.
+- Show field errors only after the person edits that field or tries to submit.
+- When an action reaches a terminal success, replace its inputs, countdowns and
+  retries with the confirmed state, bound to the exact record it confirms.
+
 ## Notifications
 
 - Notifications use `toast` and `ThemedToaster` from beez-ui, mounted once in

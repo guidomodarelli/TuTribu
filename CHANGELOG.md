@@ -6,6 +6,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Gestionar academia ofrece al líder un acceso a Admisiones y mensajería: reglas de admisión, solicitudes, países y cupos, y conexión de mensajería.
 - El piloto de admisión incorpora una plantilla de códigos de WhatsApp en español; todavía no está disponible para enviar porque Meta rechaza su creación.
 - El piloto de WhatsApp cuenta con un negocio propio de TuTribu y su cuenta conectada y activa en Zavu, conservando la cuenta anterior; los códigos siguen pendientes porque Meta rechaza el permiso de creación de la plantilla.
 - El piloto incorpora el correo de TuTribu desde su dominio verificado, activado con el costo mensual autorizado; falta completar la prueba de recepción en la aplicación.
@@ -93,6 +94,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- La conexión de mensajería se organiza en pestañas Conexión, Canales, Pruebas, Activación y Seguridad, con un resumen del estado de cada conexión, el próximo paso destacado y una sola acción principal por paso; la confirmación con Google queda como opción secundaria y, al volver de Google, se reabre la misma pestaña. Cambiar de pestaña conserva lo escrito y no envía ni activa nada.
 - El indicador de carga que se convierte en un check o una cruz y el balanceo de la campana cuando llegan notificaciones nuevas son un poco más rápidos.
 - Las animaciones de la aplicación son más sobrias: las etiquetas, filas de tablas y avatares aparecen sin animación de entrada, los enlaces ya no se mueven al pasar el puntero, y los menús y desplegables se abren creciendo desde el botón que los abre.
 - Se agiliza la preparación de las operaciones de ingreso y revisión.
@@ -122,6 +124,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- Una prueba de canal con el código ya confirmado deja de mostrar el vencimiento, el campo de código y el reenvío; la confirmación sólo se aplica a la prueba que emitió ese código.
+- La conexión de mensajería ya no muestra errores en los campos antes de que el líder los complete.
 - La confirmación de acciones sensibles permite mantener abierta la sesión de Google y deja de exigir salir y volver a ingresar; la cuenta se comprueba para la acción concreta durante diez minutos.
 - Al cancelar una solicitud o resolver una revisión individual con teclado, el resultado recibe el foco si desaparece la acción; si lo moviste a otro control, se conserva allí.
 
