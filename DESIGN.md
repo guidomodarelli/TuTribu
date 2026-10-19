@@ -24,7 +24,7 @@ Do not use Cards unless the user explicitly asks for cards.
 
 This applies to:
 
-- beez-ui's `Card` (Arc's content card with `title`, `description`, `media`,
+- @astra-kit/ui's `Card` (Arc's content card with `title`, `description`, `media`,
   `footer` and quick look).
 - Custom card-like wrappers with borders, elevated backgrounds, shadows, or
   framed sections.
@@ -97,7 +97,7 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
 
 ## Buttons and action links
 
-- Use `Button` from beez-ui for actions. It follows Arc's API: `variant`
+- Use `Button` from @astra-kit/ui for actions. It follows Arc's API: `variant`
   `primary` (one per surface), `secondary`, `ghost` or `danger`; `size` `sm`,
   `md` (default) or `lg`; and `loading` for short async work. It defaults to
   `type="button"`; pass `type="submit"` to submit a form.
@@ -114,7 +114,7 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
 
 ## Form fields
 
-- Use `Input` and `Textarea` from beez-ui; they follow Arc's Input and
+- Use `Input` and `Textarea` from @astra-kit/ui; they follow Arc's Input and
   Textarea (44px controls, 110px textareas with vertical resize, border-only
   focus, `danger` border when invalid).
 - For a labelled field, pass `label`, plus `description` for helper copy and
@@ -162,9 +162,9 @@ spacing, tokens, interaction patterns and SCSS Module conventions.
 
 ## Notifications
 
-- Notifications use `toast` and `ThemedToaster` from beez-ui, mounted once in
+- Notifications use `toast` and `ThemedToaster` from @astra-kit/ui, mounted once in
   `components/providers/app-providers`. Do not mount the raw `Toaster` and do
-  not restyle toasts: their surface, icons and theme come from beez-ui, and
+  not restyle toasts: their surface, icons and theme come from @astra-kit/ui, and
   their buttons stay usable, also with the keyboard (Alt+T), while a dialog
   is open.
 

@@ -3,7 +3,7 @@
 
 
 /* Arc typography from the self-hosted next/font files: Inter for text and controls, Geist for display headings.
-   Page backgrounds stay plain, as beez-ui's Arc foundation defines them. */
+   Page backgrounds stay plain, as @astra-kit/ui's Arc foundation defines them. */
 :root {
   --font-sans: var(--font-inter);
   --font-body: var(--font-inter);

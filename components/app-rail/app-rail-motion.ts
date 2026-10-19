@@ -1,6 +1,6 @@
 /*
  * Motion values of Arc (https://uiarc.dev), MIT License, Copyright (c) 2026 Elia
- * Kuratli. They match the `--ease-*` and `--duration-*` variables that beez-ui
+ * Kuratli. They match the `--ease-*` and `--duration-*` variables that @astra-kit/ui
  * already exposes, so the app rail moves exactly like the Arc block it adapts.
  */
 import { MOTION_EASE } from "@astra-kit/ui";
@@ -21,7 +21,7 @@ export const APP_RAIL_MOTION = {
   /** Tween for small fades, in seconds. */
   durationStandard: 0.24,
   ease: {
-    // Arc `--ease-enter` is the same strong ease-out beez-ui exports.
+    // Arc `--ease-enter` is the same strong ease-out @astra-kit/ui exports.
     enter: [...MOTION_EASE] as CubicBezier,
     standard: [EASE_STANDARD_X1, 1, EASE_STANDARD_X2, 1] as CubicBezier,
   },

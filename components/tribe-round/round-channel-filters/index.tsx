@@ -23,7 +23,7 @@ const ALL_CHANNELS_FILTER_ID = "all";
 /** Attribute values and identifiers used by the chip strip markup. */
 const ROUND_CHANNEL_FILTERS_UI = {
   ariaCurrentPage: "page",
-  // A `data-slot` opts the chip out of the beez-ui link hover fade, whose
+  // A `data-slot` opts the chip out of the @astra-kit/ui link hover fade, whose
   // partial opacity would lift the gliding indicator above neighbor chips.
   chipSlot: "round-channel-filter-chip",
   indicatorLayoutId: "round-channel-filter-indicator",

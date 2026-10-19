@@ -16,8 +16,8 @@ TuTribu is a Next.js App Router application built around hexagonal architecture 
 - Next.js 16 (App Router) and React 19 with TypeScript 7
 - Better Auth with Google OAuth
 - Neon Postgres accessed through Drizzle ORM and `pg`
-- beez-ui shared components (customized shadcn/ui, Base UI and Radix UI)
-- SCSS Modules with BEM (Tailwind reserved for beez-ui base setup only)
+- @astra-kit/ui shared components (customized shadcn/ui, Base UI and Radix UI)
+- SCSS Modules with BEM (Tailwind reserved for @astra-kit/ui base setup only)
 - Sonner for toast notifications
 - Vitest + React Testing Library for unit/integration tests; Playwright for E2E
 
@@ -204,7 +204,7 @@ Notes:
   - `infrastructure/` — adapters for auth, persistence, HTTP clients, and provider SDKs. Owns external DTOs and their mappers.
 - `src/modules/shared/*` — cross-module shared code (e.g. `infrastructure/database/`).
 - `@astra-kit/ui` — shared UI implementation, maintained in the sibling repository. Import named components from the package root.
-- `@astra-kit/ui@^3.0.0` — shared UI package installed from the public npm registry, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
+- `@astra-kit/ui@^1.0.0` — shared UI package installed from the public npm registry, with its exact version and integrity pinned in `pnpm-lock.yaml`; see [the shared UI contract](docs/architecture/shared-ui-library.htm).
 - `components/<scope>/<component>/{index.tsx,styles.module.scss}` — custom presentational components.
 - `lib/*` — framework-safe helpers, UI utilities, and client-only adapters. Off-limits to `application` and `domain`.
 - `database/migrations/*` — versioned SQL migrations (source of truth for schema and RLS policies).

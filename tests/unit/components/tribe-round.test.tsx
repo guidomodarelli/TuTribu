@@ -26,7 +26,7 @@ const DEBOUNCE_FAKE_TIMERS = {
 
 import { ATTACHMENT_FILE } from "@/src/constants/attachment-files";
 
-/** Longer than beez-ui's 500ms hover card open delay, so a pending open would have fired. */
+/** Longer than @astra-kit/ui's 500ms hover card open delay, so a pending open would have fired. */
 const LIKES_HOVER_CARD_SETTLE_MS = 700;
 
 const refreshMock = vi.fn();
@@ -6700,7 +6700,7 @@ describe("TribeRound", () => {
       within(dialog).getByRole("button", { name: "Me gusta 2" })
     ).not.toHaveFocus();
 
-    // Outlast beez-ui's 500ms hover card open delay: a card opened by focus
+    // Outlast @astra-kit/ui's 500ms hover card open delay: a card opened by focus
     // would be showing by now.
     await act(async () => {
       await new Promise((resolve) => {
