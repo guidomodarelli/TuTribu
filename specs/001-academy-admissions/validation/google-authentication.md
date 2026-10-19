@@ -44,6 +44,16 @@ Después se recuperó el guardado original de países y cupos. La aplicación co
 
 Esta observación acredita el recorrido de la cuenta real de ese piloto. No completa la matriz Gmail/Workspace/external, Workers, preparación de canales, recepción de códigos ni otros gates; T202 y OG-01 siguen pendientes.
 
+## Cierre del incremento y documentación
+
+El código está guardado en `6d3b04de40044eb11164cc6634afbe2457735270`; el [Quality gate del mismo commit](https://github.com/guidomodarelli/TuTribu/actions/runs/39180912178) terminó aprobado. La fuente de ejecución del recibo coincide con ese código y el piloto usa su compilación desde el checkout principal. El worktree previo de foco quedó archivado de forma recuperable después de verificar que estaba limpio, integrado y sin consumidores de runtime; el piloto y el proxy compartido se conservaron.
+
+El manual de mensajería y ambos índices registran ese commit, con 129, 240 y 228 paths de código existentes, respectivamente. Se reemplazaron seis capturas de Google, se añadió la confirmación y se conservaron los hashes de las otras veintisiete. Las fuentes de las capturas se incorporaron desde los archivos reales del build, sin depender del servidor temporal que las produjo. Las fechas de los demás recorridos se mantuvieron.
+
+El checker del manual y el índice detallado terminó con **cero errores**; los avisos corresponden a documentos locales sin URL de visor y a una aplicación sin catálogo central de traducciones. El menú temático se validó por su contrato de navegación. La QA final de los tres HTML y cuatro páginas `.htm` aprobó **28 vistas, cuatro recorridos y 217 destinos locales**, en Chromium/WebKit a 390/1280, sin errores de JavaScript o desbordes y con inputs estables. Incluye el ancla de confirmación, recarga, Inicio, hoja móvil del índice, acordeones y regreso al menú. El primer intento del arnés esperaba una clase de enlace de otro manual; se corrigió para usar el enlace real «Volver al menú de manuales» y se repitió la matriz completa.
+
+Esta validación documental no equivale al cierre integral de T198/T208/T210/T211 ni de los gates operativos. No hubo nuevos envíos reales ni cambios productivos.
+
 ## Trazabilidad de lo inspeccionado
 
 - `src/modules/auth/constants/auth-evidence-capture.ts`: solicitud mínima de claims y nonce.
