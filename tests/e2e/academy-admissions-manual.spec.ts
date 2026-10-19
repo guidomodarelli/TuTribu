@@ -1,5 +1,5 @@
 /** Exercises actual preadmission, private-content denial and basic-only approval with native fixtures. @module academy-admissions-manual-e2e */
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { makeSignature } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
@@ -7,11 +7,19 @@ import { withAcademyAdmissionDatabase } from "@/tests/support/academy-admission-
 import { prepareContactVerificationDatabase } from "@/tests/support/contact-verification-database-fixture";
 import { withAdmissionNextServer } from "@/tests/support/admission-next-server";
 import { ADMISSION_UI_COPY } from "@/src/modules/academy-admissions/constants/admission-ui";
+import { MESSAGING_CRYPTO, MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
+import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 
 test("should keep manual pending outside membership and open only basic academy access after a real decision", async ({ page, context }) => {
   await withAcademyAdmissionDatabase(async (database) => {
     process.stdout.write(JSON.stringify({ phase: "owned_branch", branch: database.branch }) + "\n");
-    const fixture = await prepareContactVerificationDatabase(database);
+    const keyrings = Object.fromEntries(Object.values(MESSAGING_KEY_PURPOSE).map((purpose) => {
+      const id = randomUUID();
+      return [purpose, { activeKeyId: id, keys: [{ id, materialBase64: randomBytes(MESSAGING_CRYPTO.keyBytes).toString("base64") }] }];
+    }));
+    const messagingSecurity = { environment: "synthetic-manual-admission-e2e", securityEpoch: randomUUID(), keyringsJson: JSON.stringify(keyrings) };
+    const config = await readMessagingHostingSecurityConfig({ MESSAGING_SECURITY_ENVIRONMENT: messagingSecurity.environment, MESSAGING_SECURITY_EPOCH: messagingSecurity.securityEpoch, MESSAGING_RECOVERY_LOCK: "false", MESSAGING_KEYRINGS_JSON: messagingSecurity.keyringsJson });
+    const fixture = await prepareContactVerificationDatabase(database, config);
     for (const migration of ["20261005093000_guard_academy_membership_sources.sql", "20261005095000_guard_global_identity_context.sql", "20261005101000_guard_admission_operation_identity.sql", "20261006200000_scope_admission_audit_operations.sql", "20261006220000_extend_admission_notifications.sql", "20261006233000_index_admission_account_history.sql", "20261006234000_read_own_admission_summary.sql", "20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261007003000_read_admission_notification_subject.sql", "20261007004000_read_exact_own_admission_request.sql", "20261007005000_read_admission_reviews.sql", "20261007010000_read_academy_admission_entry.sql"]) await database.applyMigration(migration);
     for (const migration of ["20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql", "20261007030000_capture_admission_decision_evidence.sql"]) await database.applyMigration(migration);
     const tribeId = randomUUID(), slug = `manual-e2e-${tribeId}`, applicantId = randomUUID(), applicantSessionId = randomUUID(), applicantToken = randomUUID(), leaderSessionId = randomUUID(), leaderToken = randomUUID(), messageId = randomUUID(), assetId = randomUUID(), courseId = randomUUID(), channelId = randomUUID();
@@ -61,7 +69,7 @@ test("should keep manual pending outside membership and open only basic academy 
       await page.reload({ waitUntil: "commit" });
       await expect(page.getByRole("link", { name: ADMISSION_UI_COPY.openAcademy })).toBeVisible({ timeout: 90_000 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    }));
+    }, { messagingSecurity }));
     expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select (select count(*)::int from public.tribe_members where tribe_id=${tribeId} and user_id=${applicantId} and role='tribemate' and status='active') as basic,(select count(*)::int from public.message_deliveries where tribe_id=${tribeId}) as deliveries,(select count(*)::int from public.academy_admission_contact_bindings where tribe_id=${tribeId}) as bindings`)).rows)).toEqual([{ basic: 1, deliveries: 0, bindings: 0 }]);
     expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select evidence_snapshot from public.academy_admission_decisions where tribe_id=${tribeId} and user_id=${applicantId}`)).rows)).toEqual([{ evidence_snapshot: { kind: "declared", referenceId: null, verifiedAt: null } }]);
   });
