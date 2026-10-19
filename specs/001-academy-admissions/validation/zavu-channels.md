@@ -66,6 +66,16 @@ La confirmación de cuenta de las acciones anteriores se completó con Google co
 
 ### Pendiente antes del cierre
 
-Todavía hay **cero envíos de diagnóstico de TuTribu**, cero códigos recibidos y ningún canal certificado en este piloto. Faltan emisión/recepción/verificación explícitas por versión y canal, la preparación aprobada de WhatsApp, el contraste A/B y los restantes errores y condiciones de T204. Cualquier intento aceptado o incierto conservará su consumo y referencia; no se repetirá automáticamente.
+Al cerrar la preparación anterior todavía había **cero envíos de diagnóstico de TuTribu**, cero códigos recibidos y ningún canal certificado en este piloto. El resultado posterior se registra a continuación. Faltan la preparación aprobada de WhatsApp, el contraste A/B y los restantes errores y condiciones de T204. Cualquier intento aceptado o incierto conserva su consumo y referencia; no se repite automáticamente.
 
 La [consulta inicial del proveedor](admission-pilot-provider-preparation.json) y el [rechazo anterior de Meta](admission-pilot-meta-template-block.json) conservan su fecha y alcance históricos. No describen por sí solos el estado posterior de correo y SMS. Los ensayos con transporte cerrado se registran aparte y no se suman a recepción externa, gasto ni mensajes reales del piloto.
+
+### Emisión y confirmación posteriores
+
+El [checkpoint por canal](admission-pilot-channel-checkpoint.json) registra dos emisiones de diagnóstico mediante TuTribu en la configuración 3. El correo llegó a la casilla controlada y su código se ingresó en el formulario privado; la aplicación confirmó la prueba y la lectura autenticada devolvió `email:prepared` con `testedAt` de 2026-10-19T01:34:52.200Z. No se guardó el código en artefactos ni se activó la candidata.
+
+La segunda emisión fue SMS al teléfono controlado. Zavu aceptó el intento; su consulta focal por ID propio seguía devolviendo `queued` a las 2026-10-19T02:03:44.114Z, con costo informado cero. El usuario informó que no lo había recibido. Una observación posterior de la aplicación y PostgreSQL mostró el diagnóstico `verified` y el canal comprobado; eso acredita la confirmación local del código, pero **no acredita recepción externa del SMS** mientras el proveedor conserve `queued` y no exista otra evidencia de entrega. No se usa ese resultado para cerrar OG-03 ni activar producción.
+
+La consulta de recursos también confirmó un número propio SMS/voz activo, todavía sin asignar a ningún remitente; el remitente SMS utilizado es distinto. Esa observación no establece por sí sola la causa de la cola y queda pendiente resolver su configuración. No se cambió el remitente ni se emitió un tercer mensaje.
+
+El piloto conserva dos solicitudes consumidas de diez y la candidata sin seleccionar. El saldo observado después del correo fue USD 16,60 frente a USD 17 antes de emitirlo; la diferencia de USD 0,40 es una observación de saldo, no una tarifa por mensaje deducida. T204 y OG-03/OG-04 siguen pendientes; WhatsApp y el contraste A/B mantienen su alcance completo.
