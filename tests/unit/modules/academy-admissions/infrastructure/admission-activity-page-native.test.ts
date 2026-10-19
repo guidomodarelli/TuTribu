@@ -159,7 +159,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1")("native private act
                 await runPrivateBrowserRequest("guardian_connections", () => page.goto(`${origin}/${slug}/academia/admissions/messaging/connections`, { waitUntil: "commit" }));
                 await page.getByRole("region", { name: "Estado de mensajería" }).waitFor({ timeout: VALIDATION.browserTimeoutMs });
                 expect(await page.getByRole("textbox").count()).toBe(0);
-                expect(await page.getByRole("navigation", { name: "Secciones de admisión" }).count()).toBe(0);
+                // A guardian keeps only the review sections in the shared admissions layout; no leader section is offered.
+                expect(await page.getByRole("navigation", { name: "Secciones de admisión" }).getByRole("link").allInnerTexts()).toEqual(["Solicitudes", "Avisos"]);
                 expect(await page.getByRole("main").innerText()).not.toContain(fixture.userId);
               } finally { await guardianContext.close(); }
             } finally { await browser.close(); }
