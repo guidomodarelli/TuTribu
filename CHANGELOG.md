@@ -97,6 +97,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- Las pantallas de la plataforma usan todo el ancho disponible; los textos y formularios conservan un ancho cómodo de lectura.
 - Las páginas de admisión se rediseñaron con jerarquía más clara: la bandeja muestra estado y origen como insignias, el detalle agrupa los datos de la solicitud, las reglas empiezan por un resumen del estado actual, el historial se lee como línea de tiempo y los formularios separan datos, confirmación y acciones.
 - La conexión de mensajería se organiza en pestañas Conexión, Canales, Pruebas, Activación y Seguridad, con un resumen del estado de cada conexión, el próximo paso destacado y una sola acción principal por paso; la confirmación con Google queda como opción secundaria y, al volver de Google, se reabre la misma pestaña. Cambiar de pestaña conserva lo escrito y no envía ni activa nada.
 - En la conexión de mensajería, el resultado de cada acción y el enlace para continuar con Google aparecen junto a la acción que los produjo, también en pantallas angostas.

@@ -2,7 +2,7 @@
   display: grid;
   gap: 1.5rem;
   margin: 0 auto;
-  max-width: min(100%, 1080px);
+  max-width: none;
   // Only the block padding is owned here; the inline padding must keep coming
   // from the platform layout so the title stays aligned with the header on
   // phones instead of touching the screen edge.

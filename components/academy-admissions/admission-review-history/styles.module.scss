@@ -107,4 +107,11 @@
   &__page {
     @include action-link.action-link(secondary, sm);
   }
+
+  &__backIcon {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    stroke-width: 1.75;
+  }
 }

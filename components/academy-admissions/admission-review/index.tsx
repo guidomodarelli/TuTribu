@@ -1,4 +1,5 @@
 /** Presents authorized review state and callbacks without importing auth or HTTP adapters. @module admission-review */
+import { ArrowLeftIcon } from "lucide-react";
 import { useId, type ReactNode, type Ref } from "react";
 import { Badge, Button, Checkbox, type BadgeTone } from "@astra-kit/ui";
 import { AdmissionDecisionForm } from "@/components/academy-admissions/admission-decision-form";
@@ -61,7 +62,7 @@ export function AdmissionReview({ statusRef, ...props }: AdmissionReviewProps) {
   return <div className={styles.AdmissionReview}>
     {!selected && props.filters}
     <div className={styles.AdmissionReview__toolbar}>
-      {selected && <Button variant="ghost" size="sm" onClick={props.onClose} disabled={props.busy || props.uncertain}><span aria-hidden="true">←</span> {ADMISSION_REVIEW_UI_COPY.close}</Button>}
+      {selected && <Button variant="ghost" size="sm" onClick={props.onClose} disabled={props.busy || props.uncertain}><ArrowLeftIcon className={styles.AdmissionReview__backIcon} aria-hidden="true" />{ADMISSION_REVIEW_UI_COPY.close}</Button>}
       <Button variant="secondary" size="sm" onClick={props.onRead} disabled={props.busy}>{props.busy ? ADMISSION_REVIEW_UI_COPY.reading : ADMISSION_REVIEW_UI_COPY.read}</Button>
     </div>
     {props.errorMessage && <p className={`${styles.AdmissionReview__feedback} ${styles["AdmissionReview__feedback--alert"]}`} role="alert">{props.errorMessage}</p>}

@@ -79,4 +79,11 @@
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;
   }
+
+  &__backIcon {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    stroke-width: 1.75;
+  }
 }

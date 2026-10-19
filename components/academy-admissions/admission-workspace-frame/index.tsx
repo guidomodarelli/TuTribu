@@ -1,6 +1,7 @@
 "use client";
 
 /** Shared admission frame mounted by the admissions layout: it stays on screen across sibling navigations. @module admission-workspace-frame */
+import { ArrowLeftIcon } from "lucide-react";
 import { Suspense, useId, type ReactNode } from "react";
 import { useParams, usePathname } from "next/navigation";
 import { Link } from "@/components/navigation/link";
@@ -35,7 +36,7 @@ function AdmissionWorkspaceHeader({ titleId }: { titleId: string }) {
   if (!slug || !page) return null;
   const definition = ADMISSION_PAGES[page];
   return <header className={styles.AdmissionWorkspaceFrame__header}>
-    {tribe && <Link className={styles.AdmissionWorkspaceFrame__back} href={ADMISSION_WORKSPACE_RETURN.href(encodeURIComponent(slug))}><span aria-hidden="true">←</span> {ADMISSION_WORKSPACE_RETURN.label}</Link>}
+    {tribe && <Link className={styles.AdmissionWorkspaceFrame__back} href={ADMISSION_WORKSPACE_RETURN.href(encodeURIComponent(slug))}><ArrowLeftIcon className={styles.AdmissionWorkspaceFrame__backIcon} aria-hidden="true" />{ADMISSION_WORKSPACE_RETURN.label}</Link>}
     <div className={styles.AdmissionWorkspaceFrame__heading}>
       <p className={styles.AdmissionWorkspaceFrame__eyebrow}>{ADMISSION_WORKSPACE_COPY.eyebrow}</p>
       <h1 id={titleId} className={styles.AdmissionWorkspaceFrame__title}>{definition.title}</h1>

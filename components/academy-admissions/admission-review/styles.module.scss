@@ -158,4 +158,11 @@
   &__visuallyHidden {
     @include workspace-panel.visually-hidden;
   }
+
+  &__backIcon {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    stroke-width: 1.75;
+  }
 }

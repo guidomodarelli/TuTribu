@@ -1,4 +1,5 @@
 /** Presents only safe retained history facts and route-owned recovery/navigation callbacks. @module admission-review-history */
+import { ArrowLeftIcon } from "lucide-react";
 import { Button } from "@astra-kit/ui";
 import { Link } from "@/components/navigation/link";
 import { MorphBlock, SkeletonMorph } from "@/components/loaders/skeleton-morph";
@@ -18,7 +19,7 @@ export type AdmissionReviewHistoryProps = { items: readonly AdmissionReviewHisto
 /** @param props - Safe visible facts, allowlisted links and route-owned current-access recovery. @returns A plain semantic timeline without private notes, actor ids or provider diagnostics. */
 export function AdmissionReviewHistory({ items, checking, refreshDisabled, errorMessage, backHref, olderHref, newestHref, onRefresh }: AdmissionReviewHistoryProps) {
   return <div className={styles.AdmissionReviewHistory}>
-    <nav className={styles.AdmissionReviewHistory__toolbar} aria-label="Navegación del historial"><Link className={styles.AdmissionReviewHistory__back} href={backHref}><span aria-hidden="true">←</span> {ADMISSION_REVIEW_HISTORY_COPY.back}</Link><Button type="button" variant="secondary" size="sm" disabled={checking || refreshDisabled} onClick={onRefresh}>{ADMISSION_REVIEW_HISTORY_COPY.refresh}</Button></nav>
+    <nav className={styles.AdmissionReviewHistory__toolbar} aria-label="Navegación del historial"><Link className={styles.AdmissionReviewHistory__back} href={backHref}><ArrowLeftIcon className={styles.AdmissionReviewHistory__backIcon} aria-hidden="true" />{ADMISSION_REVIEW_HISTORY_COPY.back}</Link><Button type="button" variant="secondary" size="sm" disabled={checking || refreshDisabled} onClick={onRefresh}>{ADMISSION_REVIEW_HISTORY_COPY.refresh}</Button></nav>
     {errorMessage && <p className={styles.AdmissionReviewHistory__error} role="alert">{errorMessage}</p>}
     {!errorMessage && <>
       {!checking && !items.length && <p role="status">{ADMISSION_REVIEW_HISTORY_COPY.empty}</p>}
