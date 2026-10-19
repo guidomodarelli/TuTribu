@@ -11,7 +11,7 @@ async function MessagingContent({ params, searchParams }: { params: Promise<{ sl
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadMessagingUsagePageState({ params: route, query }, async () => (await createMessagingUsageRequestModule()).createPage());
   const key = state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code;
-  return <AdmissionSettingsPage><MessagingUsageContainer key={key} initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="usage"><MessagingUsageContainer key={key} initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework runtime inputs. @returns An own leaf skeleton and the single current server loader. */
 export default function AdmissionMessagingSettingsPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) { return <Suspense fallback={<Loading />}><MessagingContent {...props} /></Suspense>; }

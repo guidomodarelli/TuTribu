@@ -38,6 +38,10 @@
     border-radius: inherit;
     background: var(--surface);
     box-shadow: var(--shadow-resting);
+
+    &:not([data-current]) {
+      visibility: hidden;
+    }
   }
 
   &__label {

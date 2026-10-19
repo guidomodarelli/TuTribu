@@ -4,5 +4,5 @@ import { AdmissionSettingsPage } from "@/components/academy-admissions/admission
 import { AdmissionRouteError } from "@/components/academy-admissions/admission-route-error";
 /** @param props - Framework retry only; the original exception is never rendered. @returns One main landmark and explicit recovery. */
 export default function AdmissionActivityError({ reset }: { reset: () => void }) {
-  return <AdmissionSettingsPage><AdmissionRouteError embedded reset={reset} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="activity"><AdmissionRouteError embedded reset={reset} /></AdmissionSettingsPage>;
 }

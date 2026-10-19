@@ -9,7 +9,7 @@ import Loading from "./loading";
 /** @param props - Runtime route values resolved only below this segment's Suspense. @returns Current role-scoped metadata without SDK, keyrings, initialization or an initial browser configuration read. */
 async function ConnectionsContent({params,searchParams}:{params:Promise<{slug:string}>;searchParams:Promise<Record<string,string|string[]|undefined>>}){
   const[route,query]=await Promise.all([params,searchParams]),state=await loadMessagingConnectionsPageState({params:route,query},async()=>(await createMessagingConfigurationRequestModule()).createPage()),key=state.kind==="ready"?`${state.slug}:${state.viewerId}`:state.code;
-  return<AdmissionSettingsPage><MessagingConnectionsContainer key={key} initialState={state} /></AdmissionSettingsPage>;
+  return<AdmissionSettingsPage page="connections"><MessagingConnectionsContainer key={key} initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework runtime values. @returns An own leaf loading boundary and one current server metadata loader. */
 export default function MessagingConnectionsPage(props:{params:Promise<{slug:string}>;searchParams:Promise<Record<string,string|string[]|undefined>>}){return<Suspense fallback={<Loading />}><ConnectionsContent {...props} /></Suspense>;}

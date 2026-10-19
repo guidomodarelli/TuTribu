@@ -21,11 +21,15 @@ $admission-skeleton-row-step: 160ms;
   gap: 1.5rem;
   min-width: 0;
 
-  // Fast navigations resolve before the delay, so the skeleton never flashes.
-  @include motion.fade($admission-skeleton-reveal-delay);
 
   &__status {
     @include workspace-panel.visually-hidden;
+  }
+
+  // The heading shows at once; placeholders appear only if loading is not instant, so they never flash.
+  &__summary,
+  &__rows {
+    @include motion.fade($admission-skeleton-reveal-delay);
   }
 
   &__summary {

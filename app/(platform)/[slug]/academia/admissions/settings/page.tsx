@@ -11,7 +11,7 @@ async function PolicyContent({ params, searchParams }: { params: Promise<{ slug:
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAdmissionPolicyPageState({ params: route, query }, async () => (await createAdmissionRequestModules()).policyPage);
   const key = state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code;
-  return <AdmissionSettingsPage><AdmissionPolicyContainer key={key} initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="policy"><AdmissionPolicyContainer key={key} initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework runtime input. @returns Deterministic server skeleton and the current policy loader. */
 export default function AdmissionPolicySettingsPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

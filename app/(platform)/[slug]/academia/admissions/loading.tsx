@@ -1,8 +1,7 @@
-/** Content skeleton while this admission page reads; the shared layout keeps the heading and sections on screen. @module admission-review-loading */
+/** Page heading and content skeleton while this admission page reads; the shared layout keeps the section row on screen. @module admission-review-loading */
 import { AdmissionPageSkeleton } from "@/components/academy-admissions/admission-page-skeleton";
-import { ADMISSION_PAGES } from "@/src/modules/academy-admissions/constants/admission-sections";
 
-/** @returns Placeholders and one loading announcement, without session, storage or clock access. */
+/** @returns The page heading, placeholders and one loading announcement, without session, storage or clock access. */
 export default function AdmissionReviewLoading() {
-  return <AdmissionPageSkeleton label={ADMISSION_PAGES.review.loading} />;
+  return <AdmissionPageSkeleton page="review" />;
 }

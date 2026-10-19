@@ -12,7 +12,7 @@ async function NotificationSettingsContent({ params, searchParams }: { params: P
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAdmissionNotificationSettingsPageState({ params: route, query }, async () => (await createAdmissionNotificationSettingsRequestModule()).page);
   const key = state.kind === PAGE_KIND.ready ? `${state.slug}:${state.viewerId}` : state.code;
-  return <AdmissionSettingsPage><AdmissionNotificationSettingsContainer key={key} initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="notifications"><AdmissionNotificationSettingsContainer key={key} initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Native framework route input. @returns A deterministic leaf skeleton and the server data entrypoint. */
 export default function AdmissionNotificationSettingsPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

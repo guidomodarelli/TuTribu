@@ -57,7 +57,8 @@ export function AdmissionSectionNavigation({ label, slug, section, audience }: A
       <ul ref={list} className={styles.AdmissionSectionNavigation__list}>
         {items.map((item) => <li key={item.key} className={styles.AdmissionSectionNavigation__entry}>
           <Link className={styles.AdmissionSectionNavigation__item} href={item.href} aria-current={item.current ? "page" : undefined}>
-            {item.current && <motion.span layoutId={HIGHLIGHT_LAYOUT_ID} className={styles.AdmissionSectionNavigation__highlight} transition={reduce ? INSTANT : SPRING_LAYOUT} aria-hidden="true" />}
+            {/* Every link keeps the same elements whatever the URL, so a navigation before hydration only changes attributes. */}
+            <motion.span layoutId={item.current ? HIGHLIGHT_LAYOUT_ID : undefined} className={styles.AdmissionSectionNavigation__highlight} data-current={item.current || undefined} transition={reduce ? INSTANT : SPRING_LAYOUT} aria-hidden="true" />
             <span className={styles.AdmissionSectionNavigation__label}>{item.label}</span>
           </Link>
         </li>)}

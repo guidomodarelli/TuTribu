@@ -10,7 +10,7 @@ import { AdmissionSettingsPage } from "@/components/academy-admissions/admission
 async function ReviewContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAdmissionReviewPageState({ params: route, query }, async () => { const modules = await createAdmissionRequestModules(); return modules.reviews.createPage(modules.queries.resolveTribe); });
-  return <AdmissionSettingsPage><AdmissionReviewRouteContainer initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="review"><AdmissionReviewRouteContainer initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework runtime input. @returns A deterministic own leaf skeleton and server loader. */
 export default function AdmissionReviewPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

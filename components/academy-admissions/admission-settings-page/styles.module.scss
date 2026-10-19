@@ -7,6 +7,37 @@
   min-width: 0;
   gap: 2rem;
 
+  &__header {
+    display: grid;
+    min-width: 0;
+    gap: 0.5rem;
+  }
+
+  &__eyebrow {
+    margin: 0;
+    color: var(--text-secondary, var(--muted-foreground));
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+  }
+
+  &__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.625rem, 4.5vw, 2.25rem);
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  &__description {
+    margin: 0;
+    max-width: 60ch;
+    color: var(--text-secondary, var(--muted-foreground));
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
   &__related {
     display: flex;
     flex-wrap: wrap;

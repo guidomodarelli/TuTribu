@@ -10,7 +10,7 @@ import Loading from "./loading";
 async function InvitationContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadPersonalInvitationManagementPageState({ params: route, query }, async () => { const services = await createPersonalInvitationManagementRequestModule(); return { execute: services.page.execute.bind(services.page), publicOrigin: services.publicOrigin }; });
-  return <AdmissionSettingsPage><InvitationsContainer key={state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code} initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="invitations"><InvitationsContainer key={state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code} initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved native runtime input. @returns Deterministic loading and the single SSR data entrypoint. */
 export default function InvitationsPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) { return <Suspense fallback={<Loading />}><InvitationContent {...props} /></Suspense>; }

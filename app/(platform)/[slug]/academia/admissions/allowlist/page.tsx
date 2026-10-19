@@ -12,7 +12,7 @@ async function ListContent({ params, searchParams }: { params: Promise<{ slug: s
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAllowlistPageState({ params: route, query }, async () => (await createAllowlistRequestModule()).page);
   const links = state.kind === "ready" ? [{ href: `/${encodeURIComponent(state.slug)}/${ALLOWLIST_IMPORT_SETTINGS_SEGMENT}`, label: "Importar habilitados desde CSV" }] : [];
-  return <AdmissionSettingsPage links={links}><AllowlistContainer key={state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code} initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="allowlist" links={links}><AllowlistContainer key={state.kind === "ready" ? `${state.slug}:${state.viewerId}` : state.code} initialState={state} /></AdmissionSettingsPage>;
 }
 
 /** @param props - Unresolved framework params/search values. @returns Deterministic own loading and the current primary data entrypoint. */

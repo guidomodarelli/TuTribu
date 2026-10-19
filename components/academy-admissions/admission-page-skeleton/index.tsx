@@ -1,4 +1,6 @@
-/** Content skeleton of an admission page; the shared admissions layout keeps the heading and section row on screen. @module admission-page-skeleton */
+/** Loading skeleton of an admission page: its real heading, then placeholders shaped like its content. @module admission-page-skeleton */
+import { AdmissionPageHeader } from "@/components/academy-admissions/admission-settings-page";
+import { ADMISSION_PAGES, type AdmissionPage } from "@/src/modules/academy-admissions/constants/admission-sections";
 import styles from "./styles.module.scss";
 
 /** Placeholder counts that mirror a summary and a short list. */
@@ -10,12 +12,15 @@ function placeholderKeys(prefix: string, count: number): string[] {
 }
 
 /**
- * @param props - The loading announcement of the page.
- * @returns One busy status with placeholders shaped like a summary and its rows; it reads no session, storage or clock.
+ * @param props - The admission page that is loading.
+ * @returns A busy region named by the page heading, with one status and placeholders shaped like a summary and its rows;
+ * it reads no session, storage or clock.
  */
-export function AdmissionPageSkeleton({ label }: { label: string }) {
-  return <div className={styles.AdmissionPageSkeleton} aria-busy="true">
-    <p className={styles.AdmissionPageSkeleton__status} role="status">{label}</p>
+export function AdmissionPageSkeleton({ page }: { page: AdmissionPage }) {
+  const definition = ADMISSION_PAGES[page];
+  return <section className={styles.AdmissionPageSkeleton} aria-label={definition.title} aria-busy="true">
+    <AdmissionPageHeader page={page} />
+    <p className={styles.AdmissionPageSkeleton__status} role="status">{definition.loading}</p>
     <div className={styles.AdmissionPageSkeleton__summary} aria-hidden="true">
       {placeholderKeys("fact", ADMISSION_SKELETON_SHAPE.factCount).map((key) => <span key={key} className={styles.AdmissionPageSkeleton__fact}>
         <span className={`${styles.AdmissionPageSkeleton__block} ${styles["AdmissionPageSkeleton__block--term"]}`} />
@@ -31,5 +36,5 @@ export function AdmissionPageSkeleton({ label }: { label: string }) {
         <span className={`${styles.AdmissionPageSkeleton__block} ${styles["AdmissionPageSkeleton__block--action"]}`} />
       </span>)}
     </div>
-  </div>;
+  </section>;
 }

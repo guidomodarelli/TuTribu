@@ -130,7 +130,7 @@ describe("early usage route workflow", () => {
 
   it("should retain a single main landmark when a page-embedded account lookup fails", async () => {
     const data = fixture(); data.client.viewer.mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: "No pudimos confirmar la cuenta actual.", uncertain: false });
-    render(<AdmissionWorkspaceRoute pathname="/tribu/academia/admissions/messaging" slug="tribu"><AdmissionSettingsPage>{data.node}</AdmissionSettingsPage></AdmissionWorkspaceRoute>, { wrapper: Providers });
+    render(<AdmissionWorkspaceRoute pathname="/tribu/academia/admissions/messaging" slug="tribu"><AdmissionSettingsPage page="usage">{data.node}</AdmissionSettingsPage></AdmissionWorkspaceRoute>, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No pudimos confirmar la cuenta actual"));
     expect(screen.getAllByRole("main")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "Países y cupos de mensajería", level: 1 })).toBeInTheDocument();

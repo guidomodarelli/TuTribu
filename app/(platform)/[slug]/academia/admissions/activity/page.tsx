@@ -12,7 +12,7 @@ async function ActivityContent({ params, searchParams }: { params: Promise<{ slu
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAdmissionActivityPageState({ params: route, query }, async () => (await createAdmissionActivityRequestModule()).createPage());
   const key = state.kind === ADMISSION_ACTIVITY_PAGE_KIND.ready ? `${state.slug}:${state.viewerId}:${state.renderedAt}` : state.code;
-  return <AdmissionSettingsPage><AdmissionActivityContainer key={key} initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="activity"><AdmissionActivityContainer key={key} initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework routing. @returns An own leaf fallback and the single private SSR loader. */
 export default function AdmissionActivityPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

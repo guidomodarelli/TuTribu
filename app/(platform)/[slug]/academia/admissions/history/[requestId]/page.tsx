@@ -13,7 +13,7 @@ type HistoryPageProps = { params: Promise<{ slug: string; requestId: string }>; 
 async function HistoryContent({ params, searchParams }: HistoryPageProps) {
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAdmissionReviewHistoryPageState({ params: route, query }, async () => (await createAdmissionReviewHistoryRequestModule()).page);
-  return <AdmissionSettingsPage><AdmissionReviewHistoryContainer initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="history"><AdmissionReviewHistoryContainer initialState={state} /></AdmissionSettingsPage>;
 }
 
 /** @param props - Unresolved runtime input. @returns A deterministic own loading boundary around the current server read. */
