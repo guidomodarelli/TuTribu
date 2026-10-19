@@ -4,9 +4,16 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { ADMISSION_CONTACT_MASK } from "@/src/modules/academy-admissions/constants/admission-contact-presentation";
 
+/** Upper bound for finite animations to settle before a capture; looping indicators are ignored. */
+const CAPTURE_SETTLE_TIMEOUT_MS = 5_000;
+/** Lets presence components unmount their exited copies after the last frame. */
+const CAPTURE_SETTLE_DELAY_MS = 300;
 /** @param page - Actual owned browser page. @param name - Stable manual capture name. @param forbidden - Fixture identity/session/token/secret strings never allowed in the export. @param outputFile - Trusted test-owned export filename within the admission manual assets. @param options - Optional visible app fragment and descendants omitted from that fragment. @returns Nothing when capture tooling is not explicitly selected; otherwise an actual sanitized DOM capture. */
 export async function captureAdmissionReview(page: Page, name: string, forbidden: string[], outputFile = "review-captures.json", options: { selector?: string; omit?: string } = {}): Promise<void> {
   if (!process.env.ADMISSION_CAPTURE_SNIPPET) return;
+  // Exiting copies of a swapped label stay in the DOM until their animation ends; a capture taken mid-swap would show both.
+  await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== "running" || animation.effect?.getComputedTiming().iterations === Infinity), undefined, { timeout: CAPTURE_SETTLE_TIMEOUT_MS }).catch(() => undefined);
+  await page.waitForTimeout(CAPTURE_SETTLE_DELAY_MS);
   await page.evaluate(await readFile(process.env.ADMISSION_CAPTURE_SNIPPET, "utf8"));
   await page.evaluate(({ captureName, selector, omit, privateValues, contactMask }) => {
     const helpers = window as unknown as { __umCap: (name: string, element: Element, options?: { transform?: (clone: Element) => void }) => { blockedSheets: string[] } };
