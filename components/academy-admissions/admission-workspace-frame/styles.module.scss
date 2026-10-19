@@ -4,9 +4,9 @@
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 1.5rem;
-  width: min(100%, 60rem);
+  // Admission pages use the full content width; forms and paragraphs keep their own readable measures.
+  width: 100%;
   min-width: 0;
-  margin-inline: auto;
   padding: clamp(1rem, 3vw, 2rem);
   overflow-wrap: anywhere;
 
