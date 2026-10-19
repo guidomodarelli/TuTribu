@@ -59,6 +59,7 @@ const SUPPORT_FETCH_TIMEOUT_MS = 15000;
 
 /** The member WhatsApp link is an external `<a>`, so it takes the same look as the leader `Button`. */
 const MEMBER_SUPPORT_LINK_CLASS_NAME = buttonClassName({
+  className: styles.TribeSupportButton,
   size: SUPPORT_BUTTON_UI.buttonSize,
   variant: SUPPORT_BUTTON_UI.buttonVariant,
 });
@@ -252,6 +253,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
       <Button
         aria-busy
         aria-label={SUPPORT_BUTTON_COPY.loadingLabel}
+        className={styles.TribeSupportButton}
         disabled
         size={SUPPORT_BUTTON_UI.buttonSize}
         type={SUPPORT_BUTTON_UI.buttonType}
@@ -291,6 +293,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
       <>
         <Button
           aria-label={SUPPORT_BUTTON_COPY.triggerLabelLeader}
+          className={styles.TribeSupportButton}
           onClick={() => setIsDialogOpen(true)}
           size={SUPPORT_BUTTON_UI.buttonSize}
           type={SUPPORT_BUTTON_UI.buttonType}
@@ -331,6 +334,7 @@ export function TribeSupportButton({ memberTribes }: TribeSupportButtonProps) {
         trigger={
           <Button
             aria-label={SUPPORT_BUTTON_COPY.triggerLabelLeader}
+            className={styles.TribeSupportButton}
             size={SUPPORT_BUTTON_UI.buttonSize}
             type={SUPPORT_BUTTON_UI.buttonType}
             variant={SUPPORT_BUTTON_UI.buttonVariant}

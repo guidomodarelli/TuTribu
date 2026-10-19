@@ -3,6 +3,9 @@
 @include motion.define-keyframes;
 
 .TribeSupportButton {
+  // Root block on every rendered control; mirrors the button recipe's `shrink-0` so it adds no visual change.
+  flex-shrink: 0;
+
   // Same 1rem icon the button recipe gives every svg; this unlayered rule would otherwise win over it.
   &__icon {
     width: 1rem;
