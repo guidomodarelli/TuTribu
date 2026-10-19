@@ -37,3 +37,13 @@ El [ensayo real con Orca 51.1](linux-reader-product-journeys.md#resultado-del-co
 La [repetición sobre `1e32976d`](linux-reader-product-journeys.md#ocho-superficies-aprobadas-después-de-corregir-el-foco) aprobó su caso completo, sin fallos ni omisiones: ocho superficies de cancelación propia y aprobación individual en Chromium/WebKit, a 390/1280 px, con voz de Orca y PCM reales. Los cuatro pares confirmaron sus efectos SQL y cero entregas. El perfil GSettings se acredita mediante el log del job; el campo histórico de proyección falso se conserva y se explica por separado. Clave, secreto, variables y rama temporal retirados, cuatro ramas persistentes preservadas.
 
 Esta evidencia resuelve la falta de anuncios de esos recorridos en WebKit. No convierte los ensayos anteriores fallidos en aprobados ni acredita dispositivos móviles físicos. El código de producto, esquema y dependencias del ensayo coincide con el árbol integrado `e381b383`; la auditoría de los demás estados, permisos y recorridos exigidos por T198/T208 sigue pendiente.
+
+## Conexión de mensajería por pestañas
+
+El rediseño de `/[slug]/academia/admissions/messaging/connections` organiza el asistente en Conexión, Canales, Pruebas, Activación y Seguridad, con resumen de estado y próximo paso. Los commits `432c5986` a `64318da8` de la rama del PR conservan autoridad, consentimientos, versiones y recuperación en el container; cambiar de pestaña no envía, guarda ni activa nada.
+
+Los ocho recorridos nativos de mensajería (`tests/unit/modules/messaging/infrastructure/*-browser-ui.test.ts`) aprobaron los 32 casos en Chromium y WebKit a 390 y 1280 px, con Next, PostgreSQL de una rama propia y transporte de proveedor cerrado. Antes del rediseño fallaban también sobre `2846801a`: no registraban las claves MAC privadas que exige el ledger y el servidor de prueba usaba claves distintas a las del seed; la corrección de `40a8122c` comparte la configuración sintética y la registra. Las ramas propias de cada corrida quedaron retiradas.
+
+Las capturas sintéticas de los ocho estados principales no muestran desbordes ni errores de página en ambos motores y anchos; la de WebKit a 390 px detectó un desborde del panel corregido en `9923c810`. El manual de mensajería se recapturó con el diseño nuevo y su verificación renderizada aprobó 33 marcos sin puntos desubicados, recortes ni desbordes en Chromium/WebKit 390/1280.
+
+Esta evidencia no reemplaza la auditoría integral con lector de pantalla de T198/T208 ni la matriz canónica de admisión, que se registra por separado.
