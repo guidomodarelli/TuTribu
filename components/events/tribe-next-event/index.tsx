@@ -46,7 +46,10 @@ const BUTTON_ATTRIBUTE = {
   variantGhost: "ghost",
 } as const;
 /** The meeting URL is external, so the join action stays an `<a>` with the button look. */
-const JOIN_LINK_CLASS_NAME = buttonClassName({ size: BUTTON_ATTRIBUTE.sizeSmall });
+const JOIN_LINK_CLASS_NAME = buttonClassName({
+  className: styles.TribeNextEvent__join,
+  size: BUTTON_ATTRIBUTE.sizeSmall,
+});
 const LINK_ATTRIBUTE = {
   noreferrer: "noreferrer",
   targetBlank: "_blank",

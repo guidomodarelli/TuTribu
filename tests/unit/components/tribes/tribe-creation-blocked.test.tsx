@@ -18,6 +18,16 @@ describe("TribeCreationBlocked", () => {
     ).toHaveAttribute("href", "mailto:hola@tutribu.app");
   });
 
+  it("renders the mail link as a native anchor that keeps its layout block", () => {
+    render(<TribeCreationBlocked contactEmail="hola@tutribu.app" />);
+
+    const contactLink = screen.getByRole("link", { name: "Escribir a hola@tutribu.app" });
+
+    // The provider's routed links mark themselves with `data-slot`; the email client needs a plain browser anchor.
+    expect(contactLink).not.toHaveAttribute("data-slot");
+    expect(contactLink).toHaveClass("TribeCreationBlocked__contact");
+  });
+
   it("explains who to contact when there is no contact email configured", () => {
     render(<TribeCreationBlocked contactEmail={null} />);
 
