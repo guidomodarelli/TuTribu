@@ -41,6 +41,15 @@ describe("admission usage and historical presentation", () => {
     expect(state.currentUsage.policy?.version).toBe(6);
   });
 
+  it("should warn when the maintenance driver has not run for more than ten minutes and stay quiet while it is current", () => {
+    const state = createAdmissionActivityPageFixture(), asOf = new Date(state.metrics.asOf).getTime();
+    state.metrics.lastSuccessfulRun = { operation: "messaging_dispatch", at: new Date(asOf - 11 * 60_000).toISOString() };
+    const view = render(<AdmissionMetrics metrics={state.metrics} currentUsage={{ state: "not_configured", policy: null }} usageHref="/usage" />, { wrapper: Providers });
+    expect(screen.getByRole("alert")).toHaveTextContent(/El mantenimiento no se ejecuta desde hace/);
+
+    view.rerender(<AdmissionMetrics metrics={{ ...state.metrics, lastSuccessfulRun: { operation: "messaging_dispatch", at: new Date(asOf - 60_000).toISOString() } }} currentUsage={{ state: "not_configured", policy: null }} usageHref="/usage" />);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
   it("should explain absent worker observations and unconfigured usage without inventing zero historical consumption", () => {
     const state = createAdmissionActivityPageFixture();
     state.metrics.lastSuccessfulRun = null; state.metrics.durations = []; state.metrics.errors = [];

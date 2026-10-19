@@ -103,6 +103,11 @@
     text-align: left;
   }
 
+  &__stale {
+    @include workspace-panel.feedback;
+    @include workspace-panel.feedback-alert;
+  }
+
   &__errors {
     margin: 0;
     padding-left: 1.25rem;

@@ -6,6 +6,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Consumo e historial de admisión avisa cuando el mantenimiento lleva más de diez minutos sin ejecutarse, porque los avisos, vencimientos y reintentos pueden atrasarse.
 - Países y cupos muestra el consumo diario de códigos y avisos con un medidor de uso por cupo.
 - Las bandejas y listas vacías de admisión explican qué falta y cómo se completan.
 - La barra lateral de las academias incorpora el grupo Admisiones con sus subsecciones: el líder ve todas y los guardianes, Solicitudes y Avisos; el grupo se abre solo al entrar en una de sus páginas.
