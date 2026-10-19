@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence } from "motion/react";
-import { Avatar, Badge, AnimatedListItem, PresenceSwap } from "beez-ui";
+import { Avatar, Badge, AnimatedListItem, PresenceSwap } from "@astra-kit/ui";
 
 import { FreeInvitationAvatarFrame } from "@/components/tribes/free-invitation-avatar-frame";
 import type {

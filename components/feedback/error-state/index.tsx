@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/components/navigation/link";
-import { Button } from "beez-ui";
+import { Button } from "@astra-kit/ui";
 import { ROUTES } from "@/src/constants/routes";
 import styles from "./styles.module.scss";
 

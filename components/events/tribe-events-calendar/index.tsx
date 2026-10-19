@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { cn, toast, AnimatedCollapse, copyTextToClipboard } from "beez-ui";
-import { useIsMobile, useHorizontalSwipe, useIsHydrated, useViewerTimeZone, HORIZONTAL_SWIPE_DIRECTION } from "beez-ui/hooks";
+import { cn, toast, AnimatedCollapse, copyTextToClipboard } from "@astra-kit/ui";
+import { useIsMobile, useHorizontalSwipe, useIsHydrated, useViewerTimeZone, HORIZONTAL_SWIPE_DIRECTION } from "@astra-kit/ui/hooks";
 
 import { TribeEventAgendaItem } from "@/components/events/tribe-event-agenda-item";
 import { TribeEventCalendarFeedDialog } from "@/components/events/tribe-event-calendar-feed-dialog";

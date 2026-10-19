@@ -16,7 +16,7 @@ import {
   MOTION_DIALOG_EXIT_DISTANCE,
   MOTION_EXIT_SCALE,
   MOTION_SURFACE_SCALE,
-} from "beez-ui";
+} from "@astra-kit/ui";
 
 import {
   UI_TEST_ORIGIN,

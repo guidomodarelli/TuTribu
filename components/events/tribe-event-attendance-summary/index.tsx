@@ -1,6 +1,6 @@
 "use client";
 
-import { AvatarGroup, cn, PresenceSwap } from "beez-ui";
+import { AvatarGroup, cn, PresenceSwap } from "@astra-kit/ui";
 
 import {
   formatAttendanceCounts,

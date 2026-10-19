@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "beez-ui";
+import { toast } from "@astra-kit/ui";
 
 import {
   trackTribeEventConversationMutation,

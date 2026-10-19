@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Switch, AnimatedCollapse, AnimatedListItem, formatFileSize, cn, RichLinkEditor, useRichLinkEditor } from "beez-ui";
+import { toast, Button, Input, Switch, AnimatedCollapse, AnimatedListItem, formatFileSize, cn, RichLinkEditor, useRichLinkEditor } from "@astra-kit/ui";
 
 import { Link } from "@/components/navigation/link";
 import {

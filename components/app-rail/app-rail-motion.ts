@@ -3,7 +3,7 @@
  * Kuratli. They match the `--ease-*` and `--duration-*` variables that beez-ui
  * already exposes, so the app rail moves exactly like the Arc block it adapts.
  */
-import { MOTION_EASE } from "beez-ui";
+import { MOTION_EASE } from "@astra-kit/ui";
 import type { Transition } from "motion/react";
 
 /** Cubic-bezier control points, in the tuple shape motion expects. */

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { LoaderCircleIcon, Trash2Icon } from "lucide-react";
 
-import { Button, Dialog, DialogContent, Select, AnimatedCollapse, cn } from "beez-ui";
+import { Button, Dialog, DialogContent, Select, AnimatedCollapse, cn } from "@astra-kit/ui";
 
 import type { TribeInvitationListItemResult } from "@/src/modules/tribes/application/results/tribe-invitation-result";
 import styles from "./styles.module.scss";

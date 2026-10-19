@@ -4,7 +4,7 @@ import { type FormEvent, useState } from "react";
 import { Trash2Icon } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 
-import { Avatar, Button, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap, cn } from "beez-ui";
+import { Avatar, Button, Textarea, AnimatedCollapse, AnimatedListItem, PresenceSwap, cn } from "@astra-kit/ui";
 
 
 import {

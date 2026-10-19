@@ -14,7 +14,7 @@ import {
   Switch,
   Textarea,
   toast,
-} from "beez-ui";
+} from "@astra-kit/ui";
 
 import { Link } from "@/components/navigation/link";
 import {

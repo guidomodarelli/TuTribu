@@ -11,8 +11,8 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Badge, Button, Dialog, DialogContent, DropdownMenu, Input, Select, type SelectOption, AnimatedCount, AnimatedListItem, PresenceSwap, SplitButton, copyTextToClipboard, cn } from "beez-ui";
-import type { SplitButtonAction } from "beez-ui";
+import { toast, Badge, Button, Dialog, DialogContent, DropdownMenu, Input, Select, type SelectOption, AnimatedCount, AnimatedListItem, PresenceSwap, SplitButton, copyTextToClipboard, cn } from "@astra-kit/ui";
+import type { SplitButtonAction } from "@astra-kit/ui";
 
 import { BUENOS_AIRES_TIME_ZONE } from "@/src/constants/date-time";
 import {

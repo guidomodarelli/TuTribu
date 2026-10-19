@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "beez-ui";
+import { Button } from "@astra-kit/ui";
 
 import {
   SUBSCRIPTION_RETURN_POLLING_PHASE,
