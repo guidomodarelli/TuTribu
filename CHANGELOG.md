@@ -6,6 +6,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Added
 
+- Países y cupos muestra el consumo diario de códigos y avisos con un medidor de uso por cupo.
+- Las bandejas y listas vacías de admisión explican qué falta y cómo se completan.
 - La barra lateral de las academias incorpora el grupo Admisiones con sus subsecciones: el líder ve todas y los guardianes, Solicitudes y Avisos; el grupo se abre solo al entrar en una de sus páginas.
 - Todas las páginas de admisión comparten un encabezado con acceso de vuelta, descripción y una fila de secciones que marca la página actual, también en celulares; el encabezado queda fijo al cambiar de sección y el resaltado se desliza hasta la nueva.
 - Mientras una página de admisión carga se ve un esqueleto con la forma de su contenido, y el historial de una solicitud transforma sus esqueletos en los eventos al confirmar el acceso.
@@ -97,6 +99,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Changed
 
+- La conexión de mensajería guía el avance con un indicador de pasos: los pasos completados se pueden volver a abrir, los siguientes se habilitan al completar el actual y Seguridad y retiro queda como acción aparte.
 - Las pantallas de la plataforma usan todo el ancho disponible; los textos y formularios conservan un ancho cómodo de lectura.
 - Las páginas de admisión se rediseñaron con jerarquía más clara: la bandeja muestra estado y origen como insignias, el detalle agrupa los datos de la solicitud, las reglas empiezan por un resumen del estado actual, el historial se lee como línea de tiempo y los formularios separan datos, confirmación y acciones.
 - La conexión de mensajería se organiza en pestañas Conexión, Canales, Pruebas, Activación y Seguridad, con un resumen del estado de cada conexión, el próximo paso destacado y una sola acción principal por paso; la confirmación con Google queda como opción secundaria y, al volver de Google, se reabre la misma pestaña. Cambiar de pestaña conserva lo escrito y no envía ni activa nada.
@@ -131,6 +134,8 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- El próximo paso de la conexión de mensajería ya no se frena por un canal no disponible cuando otro canal se puede usar.
+- Las páginas de admisión ya no fallan al cambiar de sección mientras la página termina de cargar.
 - Una prueba de canal con el código ya confirmado deja de mostrar el vencimiento, el campo de código y el reenvío; la confirmación sólo se aplica a la prueba que emitió ese código.
 - La conexión de mensajería ya no muestra errores en los campos antes de que el líder los complete.
 - En Safari y otros navegadores WebKit para móviles, la conexión de mensajería ya no se desborda horizontalmente.

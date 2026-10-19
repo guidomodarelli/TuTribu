@@ -1,7 +1,7 @@
 "use client";
 /** Presents controlled list search and entry configuration without session, transport, clocks or storage. @module allowlist-management */
 import { useId } from "react";
-import { Button, Checkbox, Input, Label, Select } from "@astra-kit/ui";
+import { Button, Checkbox, EmptyState, Input, Label, Select } from "@astra-kit/ui";
 import type { AllowlistEntryResult } from "@/src/modules/academy-admissions/application/results/admission-resource-result";
 import type { AllowlistDraft } from "@/src/modules/academy-admissions/application/commands/allowlist-browser-intent";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
@@ -27,7 +27,7 @@ export function AllowlistManagement(props: AllowlistManagementProps) {
         <Button type="submit" disabled={disabled}>Buscar</Button>
       </form>
       <section className={styles.AllowlistManagement__entries} aria-labelledby={`${fieldId}-entries`}><h2 id={`${fieldId}-entries`}>Entradas de la lista</h2>
-        {props.items.length === 0 ? <p className={styles.AllowlistManagement__help}>No hay entradas con estos filtros.</p> : <ul className={styles.AllowlistManagement__list}>{props.items.map((entry) => <li className={styles.AllowlistManagement__row} key={entry.id}><div className={styles.AllowlistManagement__identity}><strong>{entry.identity}</strong>{entry.displayName && <span>{entry.displayName}</span>}<span className={styles.AllowlistManagement__help}>{ALLOWLIST_STATUS_LABEL[entry.status]} · {ALLOWLIST_SOURCE_LABEL[entry.source]} · Versión {entry.version}</span></div><Button type="button" variant="secondary" disabled={disabled} onClick={() => props.onSelect(entry)} aria-label={`Editar ${entry.identity}`}>Editar</Button></li>)}</ul>}
+        {props.items.length === 0 ? <EmptyState label="Lista de habilitados vacía" title="No hay entradas con estos filtros." description="Agregá una entrada o importá un CSV; también podés cambiar la búsqueda." /> : <ul className={styles.AllowlistManagement__list}>{props.items.map((entry) => <li className={styles.AllowlistManagement__row} key={entry.id}><div className={styles.AllowlistManagement__identity}><strong>{entry.identity}</strong>{entry.displayName && <span>{entry.displayName}</span>}<span className={styles.AllowlistManagement__help}>{ALLOWLIST_STATUS_LABEL[entry.status]} · {ALLOWLIST_SOURCE_LABEL[entry.source]} · Versión {entry.version}</span></div><Button type="button" variant="secondary" disabled={disabled} onClick={() => props.onSelect(entry)} aria-label={`Editar ${entry.identity}`}>Editar</Button></li>)}</ul>}
         <div className={styles.AllowlistManagement__actions}>{props.hasNext && <Button type="button" variant="secondary" disabled={disabled} onClick={props.onNext}>Ver más entradas</Button>}<Button type="button" variant="secondary" disabled={disabled} onClick={props.onNew}>Nueva entrada</Button></div>
       </section>
       <form className={styles.AllowlistManagement__form} noValidate onSubmit={(event) => { event.preventDefault(); if (!disabled && props.confirmed && props.contactType) props.onSave(); }}>

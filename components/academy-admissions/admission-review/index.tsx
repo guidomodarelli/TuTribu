@@ -1,7 +1,7 @@
 /** Presents authorized review state and callbacks without importing auth or HTTP adapters. @module admission-review */
 import { ArrowLeftIcon } from "lucide-react";
 import { useId, type ReactNode, type Ref } from "react";
-import { Badge, Button, Checkbox, type BadgeTone } from "@astra-kit/ui";
+import { Badge, Button, Checkbox, EmptyState, type BadgeTone } from "@astra-kit/ui";
 import { AdmissionDecisionForm } from "@/components/academy-admissions/admission-decision-form";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
@@ -97,7 +97,7 @@ export function AdmissionReview({ statusRef, ...props }: AdmissionReviewProps) {
         <AdmissionDecisionForm internalReason={props.internalReason} externalMessage={props.externalMessage} confirmed={props.confirmed} disabled={props.disabled} busy={props.busy} locked={props.uncertain} allowApprove={Boolean(canApprove)} allowReject={Boolean(canReject)} onInternalReason={props.onInternalReason} onExternalMessage={props.onExternalMessage} onConfirm={props.onConfirm} onDecision={props.onDecision} />
       </section>}
     </section> : <section className={styles.AdmissionReview__inbox} aria-label="Bandeja de solicitudes">
-      {!props.busy && !props.items.length && <p className={styles.AdmissionReview__empty}>{props.hasMore ? ADMISSION_REVIEW_FILTER_COPY.emptyPage : ADMISSION_REVIEW_UI_COPY.empty}</p>}
+      {!props.busy && !props.items.length && <EmptyState className={styles.AdmissionReview__empty} label="Bandeja de solicitudes vacía" title={props.hasMore ? ADMISSION_REVIEW_FILTER_COPY.emptyPage : ADMISSION_REVIEW_UI_COPY.empty} description="Las solicitudes nuevas aparecen acá apenas alguien pide ingresar." />}
       <ol className={styles.AdmissionReview__list}>{props.items.map((request) => <li className={styles.AdmissionReview__row} key={request.id}>
         {props.batchSelection && <div className={styles.AdmissionReview__rowSelection}><Checkbox id={`${id}-${request.id}`} aria-label={`${ADMISSION_BATCH_REVIEW_COPY.selectPrefix} ${request.applicant.name}`} checked={props.batchSelection.ids.has(request.id)} disabled={props.batchSelection.disabled || request.status !== ADMISSION_REQUEST_STATUS.pending || !request.eligibleActions.length || !props.batchSelection.ids.has(request.id) && props.batchSelection.ids.size >= ADMISSION_LIMIT.batchRequestCount} onCheckedChange={(checked) => props.batchSelection?.onToggle(request.id, checked === true)} /><label className={styles.AdmissionReview__visuallyHidden} htmlFor={`${id}-${request.id}`}>{ADMISSION_BATCH_REVIEW_COPY.select}</label></div>}
         <div className={styles.AdmissionReview__rowMain}>

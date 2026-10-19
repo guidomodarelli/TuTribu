@@ -38,6 +38,14 @@ describe("early messaging usage presenter", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("should show each daily quota as a usage meter and keep a zero quota as plain text", () => {
+    const props = fixture(); props.state = { state: "configured", policy: { version: 2, allowedCountries: ["AR"], verificationDailyLimit: 100, notificationDailyLimit: 0, platformMaximums: { verificationDailyLimit: 500, notificationDailyLimit: 2000 }, consumption: { verificationToday: 3, notificationToday: 0 } } };
+    render(<MessagingUsage {...props} />, { wrapper: Providers });
+    const codes = screen.getAllByRole("group", { name: /Códigos de hoy/ })[0];
+    expect(codes).toHaveTextContent("Códigos enviados");
+    expect(screen.queryByRole("group", { name: /Avisos de hoy/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Avisos de hoy: cupo en cero; no se envían.")).toBeInTheDocument();
+  });
   it("should display only saved countries as enabled while leaving the proposed countries in the draft", () => {
     const props = fixture(); props.state = { state: "configured", policy: { version: 4, allowedCountries: ["AR"], verificationDailyLimit: 100, notificationDailyLimit: 200, platformMaximums: { verificationDailyLimit: 500, notificationDailyLimit: 2000 }, consumption: { verificationToday: 3, notificationToday: 2 } } }; props.draft.allowedCountries = ["AR", "US"];
     render(<MessagingUsage {...props} />, { wrapper: Providers });

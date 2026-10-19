@@ -95,6 +95,17 @@
     }
   }
 
+  &__meters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    min-width: 0;
+    gap: 1rem;
+  }
+
+  &__meter {
+    min-width: 0;
+  }
+
   &__comparison {
     @include workspace-panel.facts;
 

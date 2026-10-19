@@ -1,6 +1,6 @@
 /** Presents only the leader-authorized history and emits explicit filter/pagination reads. @module admission-activity */
 import { useId } from "react";
-import { Button, Input, Select } from "@astra-kit/ui";
+import { Button, EmptyState, Input, Select } from "@astra-kit/ui";
 import type { AdmissionActivityPage } from "@/src/modules/academy-admissions/application/results/admission-activity-result";
 import type { AdmissionActivityPageSelection } from "@/src/modules/academy-admissions/application/results/admission-activity-page-state";
 import type { AdmissionActivityFilterDraft } from "@/src/modules/academy-admissions/application/commands/admission-activity-filter-draft";
@@ -48,7 +48,7 @@ export function AdmissionActivity(props: AdmissionActivityProps) {
         ...createAdmissionActivityDetailRows(event.changes),
       ];
       return <li key={event.id} className={styles.AdmissionActivity__item}><details className={styles.AdmissionActivity__details}><summary className={styles.AdmissionActivity__summary}><span className={styles.AdmissionActivity__event}>{ADMISSION_ACTIVITY_EVENT_LABELS[event.eventType]}</span><time className={styles.AdmissionActivity__time} dateTime={event.createdAt}>{formatAdmissionObservationTime(event.createdAt)}</time></summary><dl className={styles.AdmissionActivity__facts}>{details.map((row, index) => <div className={styles.AdmissionActivity__fact} key={`${row.label}:${index}`}><dt className={styles.AdmissionActivity__term}>{row.label}</dt><dd className={styles.AdmissionActivity__value}>{row.value}</dd></div>)}</dl></details></li>;
-    })}</ol> : <p role="status">No hay eventos para los filtros aplicados.</p>}
+    })}</ol> : <div role="status"><EmptyState label="Historial de actividad vacío" title="No hay eventos para los filtros aplicados." description="Probá con otro tipo de recurso o quitá la referencia." /></div>}
     {props.page.nextCursor && <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onOlder}>Ver actividad anterior</Button>}
   </section>;
 }

@@ -1,6 +1,6 @@
 /** Presents the single country/quota owner without auth, provider or HTTP dependencies. @module messaging-usage */
 import { useId } from "react";
-import { Button, Checkbox, Input, Select } from "@astra-kit/ui";
+import { Button, Checkbox, Input, Select, UsageMeter } from "@astra-kit/ui";
 import type { MessagingUsagePolicyStateDto } from "@/src/modules/messaging/application/results/messaging-public-result-schemas";
 import type { MessagingUsageDraft, MessagingUsageCountryChoice } from "@/src/modules/messaging/application/commands/messaging-usage-draft";
 import type { MessagingUsageChangeImpact } from "@/src/modules/messaging/application/results/messaging-usage-change-impact";
@@ -27,10 +27,11 @@ export function MessagingUsage(props: MessagingUsageProps) {
       <h2 id={`${instanceId}-title`} className={styles.MessagingUsage__title}>Uso actual</h2>
       {!policy && <p role="status">El uso todavía no está configurado. Los valores iniciales no se guardan al abrir esta pantalla.</p>}
       <p role="status">{policy?.allowedCountries.length ? `Países guardados: ${policy.allowedCountries.map(countryName).join(", ")}.` : "Los países vacíos no habilitan envíos telefónicos. El correo conserva sus reglas independientes."}</p>
-      {policy && <dl className={styles.MessagingUsage__comparison}>
-        <div><dt>Códigos consumidos hoy</dt><dd>{policy.consumption.verificationToday} de {policy.verificationDailyLimit}</dd></div>
-        <div><dt>Avisos consumidos hoy</dt><dd>{policy.consumption.notificationToday} de {policy.notificationDailyLimit}</dd></div>
-      </dl>}
+      {policy && <div className={styles.MessagingUsage__meters}>
+        {[{ id: "codes", label: "Códigos de hoy", segment: "Códigos enviados", used: policy.consumption.verificationToday, limit: policy.verificationDailyLimit }, { id: "notices", label: "Avisos de hoy", segment: "Avisos enviados", used: policy.consumption.notificationToday, limit: policy.notificationDailyLimit }].map((quota) => quota.limit > 0
+          ? <UsageMeter key={quota.id} className={styles.MessagingUsage__meter} label={quota.label} limit={quota.limit} decimals={0} freeLabel="Disponibles" overLabel="Excedente" segments={[{ id: quota.id, label: quota.segment, value: quota.used }]} />
+          : <p key={quota.id} className={styles.MessagingUsage__help}>{quota.label}: cupo en cero; no se envían.</p>)}
+      </div>}
       {policy && <p className={styles.MessagingUsage__help}>{policy.consumption.verificationToday} códigos y {policy.consumption.notificationToday} avisos consumidos hoy. Cambiar cupos o países no reinicia ese consumo.</p>}
       {policy && <p className={styles.MessagingUsage__help}>Configuración actual: versión {policy.version}. Máximos de la plataforma: {policy.platformMaximums.verificationDailyLimit} códigos y {policy.platformMaximums.notificationDailyLimit} avisos por día.</p>}
       <p className={styles.MessagingUsage__help}>El proveedor factura los envíos a la cuenta del líder. Los cupos de TuTribu no son una garantía monetaria exacta.</p>
