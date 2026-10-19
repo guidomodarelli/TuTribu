@@ -143,6 +143,15 @@ $academy-management-wide: 48rem;
     color: var(--foreground);
   }
 
+  &__shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
   &__inlineLink {
     color: var(--primary);
     font-weight: 500;

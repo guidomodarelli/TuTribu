@@ -18,8 +18,12 @@ describe("messaging connection first step",()=>{
     await user.click(screen.getByRole("button",{name:/Guardar conexión/i}));expect(props.onSave).toHaveBeenCalledTimes(1);
     view.rerender(<MessagingConnections {...props} name="Zavu de prueba" apiKey="" />);expect(screen.getByLabelText(/Clave de Zavu/i)).toHaveValue("");
   });
-  it("should expose field validation and pending feedback with accessible disabled actions",()=>{
-    const props=presenterFixture();render(<MessagingConnections {...props} busy fieldErrors={{apiKey:"Ingresá la clave antes de guardar."}} message={{kind:"status",text:"Consultando el resultado del guardado…"}} />);
-    expect(screen.getByText("Ingresá la clave antes de guardar.")).toBeVisible();expect(screen.getByRole("status")).toHaveTextContent("Consultando el resultado del guardado…");expect(screen.getByRole("button",{name:/Guardar conexión/i})).toBeDisabled();
+  it("should expose field validation next to its field with accessible disabled actions",()=>{
+    const props=presenterFixture();render(<MessagingConnections {...props} busy fieldErrors={{apiKey:"Ingresá la clave antes de guardar."}} />);
+    expect(screen.getByText("Ingresá la clave antes de guardar.")).toBeVisible();expect(screen.getByLabelText("Clave de Zavu")).toHaveAccessibleDescription(expect.stringContaining("Ingresá la clave antes de guardar."));expect(screen.getByRole("button",{name:/Guardar conexión/i})).toBeDisabled();
+  });
+  it("should show a single primary action per form and keep Google confirmation secondary",()=>{
+    const props=presenterFixture();render(<MessagingConnections {...props} />);
+    expect(screen.getByRole("heading",{level:2,name:"Conectar Zavu"})).toBeVisible();expect(screen.queryByRole("heading",{name:"Conexión de mensajería"})).not.toBeInTheDocument();expect(screen.queryByRole("alert")).not.toBeInTheDocument();expect(screen.getByRole("button",{name:"Confirmar con Google"})).toBeEnabled();expect(props.onReauthenticate).not.toHaveBeenCalled();expect(props.onSave).not.toHaveBeenCalled();
   });
 });

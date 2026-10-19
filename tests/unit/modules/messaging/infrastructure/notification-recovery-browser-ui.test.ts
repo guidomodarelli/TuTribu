@@ -38,7 +38,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
         page.on("request", (request) => { if (request.method() === "POST" && new URL(request.url()).pathname.endsWith(`/deliveries/${fixture.context.deliveryId}/recover`)) posts.push(request.postDataJSON()); });
         try {
           await context.addCookies([{ name: "better-auth.session_token", value: cookie, url: origin, httpOnly: true, sameSite: "Lax" }]);
-          await page.goto(`${origin}/${slug}/academia/admissions/messaging/connections`, { waitUntil: "networkidle", timeout: 120_000 });
+          await page.goto(`${origin}/${slug}/academia/admissions/messaging/connections`, { waitUntil: "networkidle", timeout: 120_000 }); await page.getByRole("tab", { name: "Seguridad", exact: true }).click();
           const recovery = page.getByRole("region", { name: "Recuperación de avisos", exact: true });
           const captureSelector = `section[aria-labelledby="${await recovery.getAttribute("aria-labelledby")}"]`;
           await recovery.getByRole("combobox", { name: "Aviso que querés recuperar" }).click({ timeout: 120_000 });
@@ -66,7 +66,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native notific
           await page.unroute(recoverPath);
           if (name === "chromium" && width === 1280) await captureAdmissionReview(page, "notification-recovery-response-lost", [fixture.creation.sessionToken, secret, fixture.own.email, fixture.context.actorUserId], "notification-recovery-captures.json", { selector: captureSelector });
           await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.recent_authentication_evidence set invalidated_at=clock_timestamp() where tribe_id=${tribeId} and invalidated_at is null`));
-          await page.reload({ waitUntil: "networkidle", timeout: 120_000 });
+          await page.reload({ waitUntil: "networkidle", timeout: 120_000 }); await page.getByRole("tab", { name: "Seguridad", exact: true }).click();
           const originalButton = recovery.getByRole("button", { name: "Consultar recuperación original", exact: true });
           await originalButton.waitFor({ timeout: 120_000 });
           expect(await consent.isChecked()).toBe(false);

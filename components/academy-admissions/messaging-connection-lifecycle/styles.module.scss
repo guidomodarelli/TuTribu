@@ -1,12 +1,15 @@
+@use "../../../src/styles/messaging-panel";
+
 .MessagingConnectionLifecycle {
-  display: grid;
-  gap: 1rem;
-  padding-block: 1.5rem;
-  min-width: 0;
-  &__title { margin: 0; font-size: 1.25rem; font-weight: 600; }
-  &__field { display: grid; gap: 0.5rem; min-width: 0; max-width: 38rem; }
-  &__help { margin: 0; line-height: 1.6; max-width: 65ch; overflow-wrap: anywhere; }
-  &__consent { display: flex; align-items: flex-start; gap: 0.75rem; }
-  &__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-  &__feedback { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+  @include messaging-panel.section;
+  max-width: 40rem;
+
+  &__title { @include messaging-panel.title; }
+  &__field { @include messaging-panel.field; }
+  &__help { @include messaging-panel.lead; }
+  &__note { @include messaging-panel.note; }
+  &__consent { @include messaging-panel.consent; }
+  &__actions { @include messaging-panel.actions; }
+  &__reauthentication { @include messaging-panel.reauthentication; }
+  &__feedback { @include messaging-panel.lead; }
 }

@@ -1,15 +1,26 @@
-.MessagingConnectionResources {
-  display: grid;
-  min-width: 0;
-  gap: 1rem;
+@use "../../../src/styles/messaging-panel";
 
-  &__title { margin: 0; font-size: 1rem; font-weight: 600; }
-  &__help { margin: 0; max-width: 65ch; color: var(--muted-foreground); }
-  &__form { display: grid; min-width: 0; max-width: 42rem; gap: 1rem; }
-  &__field { display: grid; min-width: 0; gap: 0.5rem; }
-  &__action { max-width: 100%; min-height: 2rem; height: auto; white-space: normal; overflow-wrap: anywhere; }
-  &__actions { min-width: 0; display: flex; flex-wrap: wrap; gap: 0.75rem; }
-  &__consent { display: flex; align-items: flex-start; gap: 0.75rem; }
-  &__error { margin: 0; color: var(--destructive); }
-  &__feedback { margin: 0; overflow-wrap: anywhere; }
+.MessagingConnectionResources {
+  @include messaging-panel.section;
+
+  &__title { @include messaging-panel.title; }
+  &__subtitle { @include messaging-panel.subtitle; padding: 0; }
+  &__lead { @include messaging-panel.lead; }
+  &__note { @include messaging-panel.note; }
+  &__form { @include messaging-panel.form; }
+  &__field { @include messaging-panel.field; }
+  &__group {
+    @include messaging-panel.form;
+    @include messaging-panel.divider;
+    margin: 0;
+    padding-inline: 0;
+    padding-block-end: 0;
+    border-inline: 0;
+    border-block-end: 0;
+  }
+  &__actions { @include messaging-panel.actions; }
+  &__action { @include messaging-panel.action; }
+  &__reauthentication { @include messaging-panel.reauthentication; }
+  &__error { @include messaging-panel.error; }
+  &__feedback { @include messaging-panel.lead; }
 }

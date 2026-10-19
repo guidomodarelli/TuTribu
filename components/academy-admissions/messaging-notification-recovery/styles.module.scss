@@ -1,13 +1,14 @@
-.MessagingNotificationRecovery {
-  display: grid;
-  gap: 1rem;
-  padding-block: 1.5rem;
-  min-width: 0;
+@use "../../../src/styles/messaging-panel";
 
-  &__title { margin: 0; font-size: 1.25rem; font-weight: 600; }
-  &__help { margin: 0; line-height: 1.6; max-width: 65ch; overflow-wrap: anywhere; }
-  &__field { display: grid; gap: 0.5rem; min-width: 0; max-width: 38rem; }
-  &__consent { display: flex; align-items: flex-start; gap: 0.75rem; }
-  &__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-  &__feedback { margin: 0; line-height: 1.5; max-width: 65ch; overflow-wrap: anywhere; }
+.MessagingNotificationRecovery {
+  @include messaging-panel.section;
+  @include messaging-panel.divider;
+  max-width: 40rem;
+
+  &__title { @include messaging-panel.title; }
+  &__help { @include messaging-panel.lead; }
+  &__field { @include messaging-panel.field; }
+  &__consent { @include messaging-panel.consent; }
+  &__actions { @include messaging-panel.actions; }
+  &__feedback { @include messaging-panel.lead; }
 }

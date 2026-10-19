@@ -39,6 +39,6 @@ describe("connection resource selection",()=>{
   });
   it("should retain validation feedback and require explicit consent before configuration without sending a diagnostic",()=>{
     const props=resourceFixture();render(<MessagingConnectionResources {...props} fieldErrors={{senderId:"Elegí un remitente o ingresá su identificador."}} message={{kind:"alert",text:"La lista no se pudo completar. Reintentá la consulta."}} busy />);
-    expect(screen.getByRole("alert")).toHaveTextContent("La lista no se pudo completar.");expect(screen.getByText("Elegí un remitente o ingresá su identificador.")).toBeVisible();expect(screen.getByRole("button",{name:"Guardar configuración del canal"})).toBeDisabled();expect(props.onSave).not.toHaveBeenCalled();
+    expect(screen.getByText("La lista no se pudo completar. Reintentá la consulta.")).toHaveAttribute("role","alert");expect(screen.getByText("Elegí un remitente o ingresá su identificador.")).toBeVisible();expect(screen.getByRole("button",{name:"Guardar configuración del canal"})).toBeDisabled();expect(props.onSave).not.toHaveBeenCalled();
   });
 });
