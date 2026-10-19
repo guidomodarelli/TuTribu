@@ -1534,7 +1534,9 @@ La [auditoría integral US12/SC-020](validation/provider-substitution-integral.m
 
 <a id="t198"></a>
 
-- [ ] T198 [P] Escribir primero E2E full feature en Chromium/WebKit 390/1280 con beez-ui real, teclado/foco/lector, SSR/hydration/loading/errores y todos los estados ON/OFF/wrong-account/partial/unknown; fixtures propias sin mensajes reales. Configurar proyectos Chromium/WebKit y viewports en config enfocado, verificando la configuración al ejecutar Playwright real. Archivos: `tests/e2e/academy-admissions.spec.ts`, `tests/unit/components/academy-admissions.test.tsx`, `playwright.admissions.config.ts`. Trazabilidad: `FR-121`, `FR-133`, `FR-141`, `SC-004`, `SC-018`, `D-24`, `TC-026`–`TC-027`.
+- [ ] T198 [P] Escribir primero E2E full feature en Chromium/WebKit 390/1280 con beez-ui real, teclado/foco, SSR/hydration/loading/errores y todos los estados ON/OFF/wrong-account/partial/unknown; fixtures propias sin mensajes reales. Configurar proyectos Chromium/WebKit y viewports en config enfocado, verificando la configuración al ejecutar Playwright real. Archivos: `tests/e2e/academy-admissions.spec.ts`, `tests/unit/components/academy-admissions.test.tsx`, `playwright.admissions.config.ts`. Trazabilidad: `FR-121`, `FR-133`, `FR-141`, `SC-004`, `SC-018`, `D-24`, `TC-026`–`TC-027`.
+
+Alcance actualizado el 2026-10-19 por decisión del usuario: la auditoría con lector de pantalla (Orca, VoiceOver, TalkBack) queda fuera de esta tarea; los recorridos conservan teclado, foco, nombres accesibles, SSR, hidratación, estados y permisos.
 
 Avance T198/T208: [teclado administrativo y recuperación del original](validation/admission-keyboard-review-baseline.md). El caso canónico nuevo pasa los cuatro proyectos reales Chromium/WebKit a 390/1280 con 3.626 inputs y dos helpers estables: selección por Tab/Space/Enter, lote mixto, respuesta perdida tras commit, recarga, GET original y lista fallida, sin duplicación ni refresh RSC adicional. SQL confirma efectos y cero entregas; el árbol accesible conserva resúmenes y nombres sin valores privados. No equivale a un lector de sistema operativo ni al cierre de toda la feature; ambos criterios y el inventario de tareas permanecen pendientes.
 
@@ -1600,7 +1602,9 @@ Revisión de alcance de T207: el usuario eligió cuentas ficticias y automatizac
 
 <a id="t208"></a>
 
-- [ ] T208 Ejecutar journeys reales Chromium/WebKit móvil/escritorio vía portless `https://dev.tutribu.app` o webServer automatizado aprobado; confirmar foco/lectores/feedback, hydration/Suspense/loading y states/permissions sin desbordes/refresh ordinario. Bloqueo de un motor se reporta y queda pendiente. Archivos: `tests/e2e/academy-admissions.spec.ts`, `tests/unit/components/academy-admissions.test.tsx`, `specs/001-academy-admissions/validation/ui-and-accessibility.md`. Dependencias: `T198`, `T197`. Trazabilidad: `SC-018`.
+- [ ] T208 Ejecutar journeys reales Chromium/WebKit móvil/escritorio vía portless `https://dev.tutribu.app` o webServer automatizado aprobado; confirmar foco/feedback, hydration/Suspense/loading y states/permissions sin desbordes/refresh ordinario. Bloqueo de un motor se reporta y queda pendiente. Archivos: `tests/e2e/academy-admissions.spec.ts`, `tests/unit/components/academy-admissions.test.tsx`, `specs/001-academy-admissions/validation/ui-and-accessibility.md`. Dependencias: `T198`, `T197`. Trazabilidad: `SC-018`.
+
+Alcance actualizado el 2026-10-19 por decisión del usuario: la auditoría con lector de pantalla (Orca, VoiceOver, TalkBack) queda fuera de esta tarea; los recorridos conservan teclado, foco, nombres accesibles, SSR, hidratación, estados y permisos.
 
 <a id="t209"></a>
 

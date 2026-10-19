@@ -1,5 +1,7 @@
 # Interfaz y accesibilidad de admisiones
 
+> Alcance actualizado el 2026-10-19: por decisión del usuario, la auditoría con lector de pantalla salió de T198/T208. Los ensayos con Orca de abajo quedan como evidencia histórica; los recorridos pendientes cubren teclado, foco, nombres accesibles, SSR, hidratación, estados y permisos.
+
 T198 y T208 conservan pendiente su auditoría integral. El último ensayo con Orca aprobó las ocho superficies de cancelación propia y aprobación individual descritas al final. Las comprobaciones de DOM, teclado y efectos SQL se mantienen separadas de la observación del lector de pantalla del sistema operativo.
 
 ## Ensayo con NVDA y defecto observado
