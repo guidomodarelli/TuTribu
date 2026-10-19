@@ -536,7 +536,7 @@ La gestión de una conexión no da permiso para enviar texto arbitrario a cualqu
 
 - **FR-031**: Cada tribu DEBE disponer de como máximo una conexión activa y una candidata. La conexión DEBE identificar proveedor, versión, estado, configuración no secreta y referencia protegida a su credencial.
 
-- **FR-032**: Solo el líder activo con autenticación reciente DEBE poder agregar, probar, reemplazar o retirar una credencial. El guardián revisor NO DEBE heredar esos permisos.
+- **FR-032**: Solo el líder activo con confirmación reciente de su cuenta DEBE poder agregar, probar, reemplazar o retirar una credencial. La confirmación DEBE obtener una respuesta OAuth nueva de Google, firmada y ligada mediante nonce a la cuenta, sesión, tribu, operación y recurso del intento actual; DEBE vencer a los diez minutos desde su comprobación en el servidor. NO DEBE exigir salir de Google ni una fecha reciente de ingreso a la cuenta de Google. Google puede conservar su sesión y decidir si solicita contraseña o huella. Una cookie renovada, un callback sin nonce o un código BYOK de una tribu NO DEBEN confirmar la acción. El guardián revisor NO DEBE heredar esos permisos.
 
 - **FR-033**: El asistente DEBE mostrar únicamente los campos necesarios para las capacidades elegidas y los requisitos pendientes. Datos opcionales de marca NO DEBEN convertirse en requisitos para conectar.
 

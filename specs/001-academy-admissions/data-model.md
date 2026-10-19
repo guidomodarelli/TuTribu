@@ -37,7 +37,7 @@ La migración de integridad `20261005095000_guard_global_identity_context.sql` p
 
 ### `RecentAuthenticationEvidence` → `recent_authentication_evidence`
 
-`id`, intención, usuario/account/sujeto, sesión efectiva tras callback, `authenticated_at`, `verified_at`, `valid_until`, scope de operación/recurso, `invalidated_at`. Ventana de diez minutos desde autenticación acreditada, no desde verificación, renovación o keep-alive. Las operaciones sensibles hacen comprobación vigente antes de leer secretos. Captura request-scoped; no estado mutable global. Los intents/evidencias vencidos se minimizan y purgan, conservando auditoría sin claims/tokens.
+`id`, intención, usuario/account/sujeto, sesión efectiva tras callback, `authenticated_at`, `verified_at`, `valid_until`, scope de operación/recurso, `invalidated_at`. Por decisión del 2026-10-18, `authenticated_at` conserva su nombre físico y representa la confirmación de cuenta en TuTribu después de verificar la respuesta Google nueva, el nonce de un uso y la autoridad actual; coincide con `verified_at` en las nuevas emisiones. No representa la fecha de ingreso a Google. La ventana inmutable vence diez minutos después de esa confirmación y no se renueva por lectura, cookie o keep-alive. El token debe haberse emitido durante el intento actual, considerando su precisión en segundos, y permanecer vigente. No cambia la estructura SQL, los grants, la inmutabilidad o el scope de las filas; las evidencias anteriores conservan su vencimiento original. Las operaciones sensibles hacen comprobación vigente antes de leer secretos. Captura request-scoped; no estado mutable global. Los intents/evidencias vencidos se minimizan y purgan, conservando auditoría sin claims/tokens.
 
 ## B. Política y lista
 

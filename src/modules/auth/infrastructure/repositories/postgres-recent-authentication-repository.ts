@@ -7,6 +7,7 @@ import type {GlobalReauthenticationIntent} from "@/src/modules/auth/domain/entit
 import type {RecentAuthenticationEvidence,RecentAuthenticationScope} from "@/src/modules/auth/domain/entities/recent-authentication-evidence";
 import type {CompleteGlobalReauthenticationCommand,CreateReauthenticationIntentCommand,IssueReauthenticationNonceCommand,ReadReauthenticationIntentCommand,ReauthenticationResourceAuthorizer,RecentAuthenticationRepository} from "@/src/modules/auth/domain/repositories/recent-authentication-repository";
 import {evaluateGlobalReauthenticationCallback,evaluateRecentAuthentication} from "@/src/modules/auth/domain/policies/recent-authentication";
+import {getGoogleAccountConfirmationTime} from "@/src/modules/auth/domain/policies/google-account-confirmation";
 import {issueGlobalReauthenticationNonce,matchesGlobalReauthenticationNonce} from "@/src/modules/auth/infrastructure/verification/global-reauthentication-nonce";
 import {TRIBE_MEMBER_ROLE} from "@/src/modules/tribes/constants/tribe-member-role";
 import {TRIBE_MEMBERSHIP_STATUS} from "@/src/modules/tribes/constants/tribe-page-access";
@@ -126,7 +127,7 @@ export class PostgresRecentAuthenticationRepository implements RecentAuthenticat
   }
 
   /**
-   * Consumes a legitimate callback once; signed auth_time determines emitted recency.
+   * Consumes a legitimate callback once and confirms the account from its fresh signed response.
    * @param command - Verified native completion and an opaque intent reference.
    * @returns Consumed outcome and optional recency, or a closed result without consumption.
    */
@@ -149,10 +150,12 @@ export class PostgresRecentAuthenticationRepository implements RecentAuthenticat
       const permitted=evaluateGlobalReauthenticationCallback({now,scope,intent:{...mapIntent(row),nonceVerified},sessionActive,currentLeaderUserId:scope.userId});
       if(!permitted.allowed) return {status:GLOBAL_REAUTHENTICATION_OUTCOME.intentUnusable};
       await database.execute(sql`update public.global_reauthentication_intents set state=${GLOBAL_REAUTHENTICATION_INTENT_STATE.consumed},consumed_at=${now},version=version+1 where id=${row.id} and version=${row.version}`);
-      const authenticatedAt=command.evidence.authenticatedAt;
-      const proposed:RecentAuthenticationEvidence={...scope,id:row.id,intentId:row.id,authenticatedAt,verifiedAt:now,validUntil:new Date((authenticatedAt?.getTime()??0)+RECENT_AUTHENTICATION_WINDOW_MS),invalidatedAt:null};
-      if(!evaluateRecentAuthentication({now,scope,evidence:proposed,sessionActive,currentLeaderUserId:scope.userId}).allowed) return {status:GLOBAL_REAUTHENTICATION_OUTCOME.consumed,evidence:null};
-      const evidence=(await database.execute<{id:string}>(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${row.id},${scope.userId},${scope.accountId},${scope.subject},${scope.sessionId},${scope.tribeId},${scope.operation},${scope.resourceId},${authenticatedAt},${now},${proposed.validUntil}) returning id`)).rows[0];
+      const confirmedNow=await readClock(database);
+      const stillPermitted=evaluateGlobalReauthenticationCallback({now:confirmedNow,scope,intent:{...mapIntent(row),nonceVerified},sessionActive:sessionsRemainLive(context,confirmedNow),currentLeaderUserId:scope.userId});
+      const confirmedAt=stillPermitted.allowed?getGoogleAccountConfirmationTime({now:confirmedNow,intentCreatedAt:new Date(row.created_at),tokenIssuedAt:command.evidence.tokenIssuedAt,tokenExpiresAt:command.evidence.tokenExpiresAt}):null;
+      const proposed:RecentAuthenticationEvidence={...scope,id:row.id,intentId:row.id,authenticatedAt:confirmedAt,verifiedAt:confirmedNow,validUntil:new Date((confirmedAt?.getTime()??0)+RECENT_AUTHENTICATION_WINDOW_MS),invalidatedAt:null};
+      if(!evaluateRecentAuthentication({now:confirmedNow,scope,evidence:proposed,sessionActive:sessionsRemainLive(context,confirmedNow),currentLeaderUserId:scope.userId}).allowed) return {status:GLOBAL_REAUTHENTICATION_OUTCOME.consumed,evidence:null};
+      const evidence=(await database.execute<{id:string}>(sql`insert into public.recent_authentication_evidence(intent_id,user_id,account_id,provider_subject,session_id,tribe_id,operation,resource_id,authenticated_at,verified_at,valid_until) values (${row.id},${scope.userId},${scope.accountId},${scope.subject},${scope.sessionId},${scope.tribeId},${scope.operation},${scope.resourceId},${confirmedAt},${confirmedNow},${proposed.validUntil}) returning id`)).rows[0];
       return {status:GLOBAL_REAUTHENTICATION_OUTCOME.consumed,evidence:{...proposed,id:evidence.id}};
     });
   }

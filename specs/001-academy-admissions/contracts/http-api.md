@@ -135,7 +135,7 @@ Selección manual de recurso existe cuando la enumeración no está permitida: i
 
 ## Auth y mantenimiento
 
-- `POST /api/auth/reauthentication/intents`: sesión/actor/recurso autorizado, retorno allowlisted; intención propia sin marcar éxito. Callback Google existente decorado acredita identidad/recencia; `GET .../[intentId]` devuelve solo resultado propio seguro. Los endpoints sensibles buscan la evidencia vinculada a la sesión: browser no suministra `auth_time` ni permiso.
+- `POST /api/auth/reauthentication/intents`: sesión/actor/recurso autorizado, retorno allowlisted; intención propia sin marcar éxito. Callback Google existente decorado acredita identidad/recencia; `GET .../[intentId]` devuelve solo resultado propio seguro. Los endpoints sensibles buscan la confirmación de cuenta vinculada al intento y sesión: browser no suministra fechas, nonce confiable ni permiso. La respuesta Google debe ser nueva y firmada; no exige cerrar su sesión ni un auth_time reciente.
 - `GET /api/maintenance/admission-messaging`: maintenance validado; pasos bounded de expiración/purga/recordatorios/outbox/reconciliación por ID propio, con outcome por paso y fallo visible si el driver/configuración falta. Un GET público ordinario no activa este mantenimiento.
 - Webhook de entrega, si se integra, recibe bytes originales/firma v2 y correlaciona solo trabajo registrado. No se exige ni configura uno externo para onboarding mínimo; nunca cambia identidad/admisión.
 

@@ -108,7 +108,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("authenticated 
             try {
                 const created = await intents.create({ userId, sessionId, accountId, subject, tribeId, operation: "update_admission_policy", resourceId: tribeId, returnPath: `/${slug}` });
                 if (created.status !== "created") throw new Error("Synthetic current leader intent could not be created");
-                const context = await browser.newContext(mobile ? devices[browserType === webkit ? "iPhone 13" : "Pixel 7"] : { viewport: { width: 1280, height: 800 } });
+                const context = await browser.newContext(mobile ? { ...devices[browserType === webkit ? "iPhone 13" : "Pixel 7"], viewport: { width: 390, height: 900 } } : { viewport: { width: 1280, height: 900 } });
                 try {
                   await context.addCookies([{ name: "better-auth.session_token", value: encodeURIComponent(`${sessionToken}.${await makeSignature(sessionToken, secret)}`), url: origin, httpOnly: true, sameSite: "Lax" }]);
                   const page = await context.newPage();
@@ -127,14 +127,15 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("authenticated 
                     oauthRequested = true;
                     const requested = new URL(route.request().url());
                     issuedNonce = requested.searchParams.get("nonce");
-                    safeOauthParameters = Boolean(requested.searchParams.get("state") && requested.searchParams.get("nonce") && requested.searchParams.get("code_challenge") && requested.searchParams.get("claims")?.includes("auth_time"));
+                    safeOauthParameters = Boolean(requested.searchParams.get("state") && requested.searchParams.get("nonce") && requested.searchParams.get("code_challenge") && !requested.searchParams.has("claims") && !requested.searchParams.has("max_age"));
                     await route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: "<!doctype html><html lang='es'><meta charset='utf-8'><title>Proveedor de prueba</title><body><h1>Confirmación externa de prueba</h1></body></html>" });
                   });
                   await page.goto(`${origin}/auth/reauthenticate?intentId=${created.intent.id}`);
-                  await page.getByRole("heading", { name: "Confirmá tu autenticación", exact: true }).waitFor({ state: "visible" });
+                  await page.getByRole("heading", { name: "Confirmá tu cuenta", exact: true }).waitFor({ state: "visible" });
+                  expect(await page.evaluate(()=>({width:innerWidth,height:innerHeight}))).toEqual({width:mobile?390:1280,height:900});
                   expect(oauthRequested).toBe(false);
                   expect(await page.getByRole("button", { name: "Confirmar con Google", exact: true }).count()).toBe(1);
-                  expect(await page.getByText("Esta acción requiere una autenticación de Google de los últimos diez minutos. La sesión de TuTribu puede seguir abierta.", { exact: true }).isVisible()).toBe(true);
+                  expect(await page.getByText("Para esta acción, confirmá tu cuenta con Google. Podés mantener abierta tu sesión de Google y la de TuTribu.", { exact: true }).isVisible()).toBe(true);
                   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
                   const beforeConfirmation = await database.withContext(own, async (transaction) => (await transaction.execute(sql`select state,nonce_hash is not null as has_nonce from public.global_reauthentication_intents where id=${created.intent.id}`)).rows[0]);
                   expect(beforeConfirmation).toEqual({ state: "created", has_nonce: false });
@@ -150,18 +151,36 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("authenticated 
                   const persisted = await database.withContext(own, async (transaction) => (await transaction.execute(sql`select state,nonce_hash is not null as has_nonce from public.global_reauthentication_intents where id=${created.intent.id}`)).rows[0]);
                   expect(persisted).toEqual({ state: "authorizing", has_nonce: true });
 
-                  // A new signed token can still carry an old Google authentication.
+                  // A new signed response confirms the current account without renewing Google's session.
                   const instant = Math.floor(Date.now() / 1000);
                   const token = await signer.sign({ iss: "https://accounts.google.com", aud: clientId, sub: subject, email: own.email, email_verified: true, iat: instant, exp: instant + 3600, nonce: issuedNonce, auth_time: instant - SECONDS_PER_DAY });
                   const capture = await withAdmissionProviderTransport(transport, () => verifyGoogleIdTokenEvidence(token, provider));
                   if (capture.status !== "verified") throw new Error("Synthetic old Google authentication did not verify");
                   const completed = await intents.complete({ intentId: created.intent.id, userId, accountId, sessionId, evidence: capture.evidence });
-                  expect(completed).toMatchObject({ status: "consumed", evidence: null });
+                  expect(completed).toMatchObject({ status: "consumed", evidence: { intentId: created.intent.id, sessionId } });
+
+                  await page.goto(`${origin}/auth/reauthenticate?intentId=${created.intent.id}`);
+                  await page.getByRole("heading", { name: "Cuenta confirmada", exact: true }).waitFor({ state: "visible" });
+                  expect(await page.getByRole("link", { name: "Continuar con la acción", exact: true }).getAttribute("href")).toBe(`/${slug}`);
+                  expect(await page.getByRole("button", { name: "Confirmar con Google", exact: true }).count()).toBe(0);
+                  expect((await context.cookies(origin)).some((cookie)=>cookie.name==="better-auth.session_token")).toBe(true);
+                  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+                  await captureSyntheticPage(page, `google-session-confirmed-${browserType.name()}-${mobile ? "mobile" : "desktop"}`, slug);
+
+                  // Even a signed response cannot confirm a different, newer request.
+                  const rejected = await intents.create({ userId, sessionId, accountId, subject, tribeId, operation: "update_admission_policy", resourceId: tribeId, returnPath: `/${slug}` });
+                  if(rejected.status!=="created")throw new Error("Synthetic rejected intent could not be created");
+                  const rejectedNonce=await intents.issueNonce({intentId:rejected.intent.id,userId,sessionId,accountId,subject,tribeId,operation:"update_admission_policy",resourceId:tribeId});
+                  if(rejectedNonce.status!=="authorizing")throw new Error("Synthetic rejected intent nonce was not issued");
+                  const oldResponse=await signer.sign({iss:"https://accounts.google.com",aud:clientId,sub:subject,email:own.email,email_verified:true,iat:Math.floor(rejected.intent.createdAt.getTime()/1000)-1,exp:instant+3600,nonce:rejectedNonce.nonce});
+                  const oldCapture=await withAdmissionProviderTransport(transport,()=>verifyGoogleIdTokenEvidence(oldResponse,provider));
+                  if(oldCapture.status!=="verified")throw new Error("Synthetic earlier Google response did not verify");
+                  expect(await intents.complete({intentId:rejected.intent.id,userId,accountId,sessionId,evidence:oldCapture.evidence})).toEqual({status:"consumed",evidence:null});
 
                   // The real Next page reads that closed SQL outcome and explains recovery.
-                  await page.goto(`${origin}/auth/reauthenticate?intentId=${created.intent.id}`);
-                  await page.getByText("No pudimos acreditar una autenticación reciente de Google para esta acción.", { exact: true }).waitFor({ state: "visible" });
-                  expect(await page.getByText("Salir de TuTribu no cierra la sesión de Google del navegador. Si Google mantiene una sesión anterior, cerrá sesión en Google y volvé a entrar allí; después volvé a la tribu para iniciar una nueva confirmación. Esta acción todavía no está autorizada.", { exact: true }).isVisible()).toBe(true);
+                  await page.goto(`${origin}/auth/reauthenticate?intentId=${rejected.intent.id}`);
+                  await page.getByText("No pudimos confirmar tu cuenta de Google para esta acción.", { exact: true }).waitFor({ state: "visible" });
+                  expect(await page.getByText("Este intento no pudo confirmar tu cuenta para la acción. Volvé a la tribu e iniciá una nueva confirmación. Podés mantener abierta tu sesión de Google.", { exact: true }).isVisible()).toBe(true);
                   expect(await page.getByRole("button", { name: "Confirmar con Google", exact: true }).count()).toBe(0);
                   expect(await page.getByRole("link", { name: "Continuar con la acción", exact: true }).count()).toBe(0);
                   expect(await page.getByRole("link", { name: "Volver a la tribu", exact: true }).getAttribute("href")).toBe(`/${slug}`);

@@ -13,6 +13,9 @@ import {PostgresRecentAuthenticationRepository} from "@/src/modules/auth/infrast
 import {PostgresReauthenticationResourceAuthorizer} from "@/src/modules/auth/infrastructure/repositories/postgres-reauthentication-resource-authorizer";
 import {REAUTHENTICATION_OPERATION} from "@/src/modules/auth/constants/reauthentication-resources";
 import {persistCompletedGlobalAuthentication} from "@/src/modules/auth/infrastructure/composition/complete-global-authentication";
+import {RECENT_AUTHENTICATION_WINDOW_MS} from "@/src/modules/auth/constants/recent-authentication";
+import {SECONDS_PER_MINUTE} from "@/src/constants/time";
+import {REAUTHENTICATION_CONNECTION_SETTINGS_SEGMENT} from "@/src/modules/auth/constants/reauthentication-navigation";
 
 /** Seeds real global sessions and canonical leadership without any external login. */
 async function prepareRecentAuthentication(database:AcademyAdmissionTestDatabase) {
@@ -30,10 +33,10 @@ async function prepareRecentAuthentication(database:AcademyAdmissionTestDatabase
   return {userId,accountId,subject,originalSessionId,sessionId,tribeId,email,own,returnPath,operation,repository,scope:{userId,accountId,subject,sessionId:originalSessionId,tribeId,operation,resourceId:tribeId}};
 }
 
-/** Uses the native verifier so nonce and auth_time originate in one real signed token. */
-async function signedCallback(fixture:Awaited<ReturnType<typeof prepareRecentAuthentication>>,nonce:string,authTime:number|undefined) {
+/** Uses the native verifier so nonce and token dates originate in one real signed token. */
+async function signedCallback(fixture:Awaited<ReturnType<typeof prepareRecentAuthentication>>,nonce:string,authTime:number|undefined,issuedAt?:number) {
   const signer=await createAdmissionGoogleTokenFixture();const clientId=randomUUID();const instant=Math.floor(Date.now()/1000);
-  const token=await signer.sign({iss:"https://accounts.google.com",aud:clientId,sub:fixture.subject,iat:instant,exp:instant+3600,email:fixture.email,email_verified:true,nonce,auth_time:authTime});
+  const token=await signer.sign({iss:"https://accounts.google.com",aud:clientId,sub:fixture.subject,iat:issuedAt??instant,exp:instant+3600,email:fixture.email,email_verified:true,nonce,auth_time:authTime});
   const transport=createAdmissionProviderTransport([{origin:"https://www.googleapis.com",pathname:"/oauth2/v3/certs",method:"GET",respond:()=>Response.json(signer.jwks)}]);
   const result=await withAdmissionProviderTransport(transport,()=>verifyGoogleIdTokenEvidence(token,google({clientId,clientSecret:randomUUID()})));
   if(result.status!=="verified") throw new Error("Synthetic recent token verification failed");
@@ -108,18 +111,20 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("recent authenticatio
         await transaction.execute(sql`insert into public.academy_personal_invitations(id,tribe_id,contact_type,normalized_contact,contact_fingerprint,fingerprint_key_id,token_hash,token_key_id) values (${invitationId},${fixture.tribeId},'email',${fixture.email},${Buffer.alloc(32)},'synthetic',${Buffer.alloc(32)},'synthetic')`);
         await transaction.execute(sql`insert into public.academy_admission_requests(id,tribe_id,user_id,source,expires_at) values (${requestId},${fixture.tribeId},${fixture.userId},'common',clock_timestamp()+interval '29 days')`);
       });
-      for(const resource of [
-        {operation:REAUTHENTICATION_OPERATION.saveMessagingCredentials,resourceId:fixture.tribeId},
-        {operation:REAUTHENTICATION_OPERATION.validateMessagingConnection,resourceId:connectionId},
-        {operation:REAUTHENTICATION_OPERATION.updateAllowlistEntry,resourceId:entryId},
-        {operation:REAUTHENTICATION_OPERATION.confirmAllowlistImport,resourceId:importId},
-        {operation:REAUTHENTICATION_OPERATION.renamePersonalInvitation,resourceId:invitationId},
-        {operation:REAUTHENTICATION_OPERATION.advanceAdmissionRetry,resourceId:requestId},
+      const connectionReturns=[fixture.returnPath,`${fixture.returnPath}/${REAUTHENTICATION_CONNECTION_SETTINGS_SEGMENT}`];
+      for(const {operation,resourceId,expectedReturns} of [
+        {operation:REAUTHENTICATION_OPERATION.saveMessagingCredentials,resourceId:fixture.tribeId,expectedReturns:connectionReturns},
+        {operation:REAUTHENTICATION_OPERATION.validateMessagingConnection,resourceId:connectionId,expectedReturns:connectionReturns},
+        {operation:REAUTHENTICATION_OPERATION.updateAllowlistEntry,resourceId:entryId,expectedReturns:[fixture.returnPath]},
+        {operation:REAUTHENTICATION_OPERATION.confirmAllowlistImport,resourceId:importId,expectedReturns:[fixture.returnPath]},
+        {operation:REAUTHENTICATION_OPERATION.renamePersonalInvitation,resourceId:invitationId,expectedReturns:[fixture.returnPath]},
+        {operation:REAUTHENTICATION_OPERATION.advanceAdmissionRetry,resourceId:requestId,expectedReturns:[fixture.returnPath]},
       ]) {
         const resolve=(scope:typeof fixture.scope)=>database.withContext(fixture.own,async(transaction)=>new PostgresReauthenticationResourceAuthorizer(transaction).resolve(scope));
-        expect(await resolve({...fixture.scope,...resource})).toEqual({allowedReturnPaths:[fixture.returnPath]});
-        expect(await resolve({...fixture.scope,...resource,tribeId:randomUUID()})).toBeNull();
-        expect(await resolve({...fixture.scope,...resource,operation:"unknown_action"})).toBeNull();
+        const scope={...fixture.scope,operation,resourceId};
+        expect(await resolve(scope)).toEqual({allowedReturnPaths:expectedReturns});
+        expect(await resolve({...scope,tribeId:randomUUID()})).toBeNull();
+        expect(await resolve({...scope,operation:"unknown_action"})).toBeNull();
       }
       await database.withContext(fixture.own,async(transaction)=>transaction.execute(sql`update public.tenant_messaging_connections set retired_at=clock_timestamp() where id=${connectionId}`));
       expect(await database.withContext(fixture.own,async(transaction)=>new PostgresReauthenticationResourceAuthorizer(transaction).resolve({...fixture.scope,operation:REAUTHENTICATION_OPERATION.validateMessagingConnection,resourceId:connectionId}))).toBeNull();
@@ -178,7 +183,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("recent authenticatio
     });
   },120_000);
 
-  it("should consume a legitimate callback without minting recency from missing or stale auth_time",async()=>{
+  it("should confirm a new nonce-bound Google response even when Google's original login is old or has no auth_time",async()=>{
     await withAcademyAdmissionDatabase(async(database)=>{
       const fixture=await prepareRecentAuthentication(database);
       for(const authTime of [undefined,Math.floor(Date.now()/1000)-601]) {
@@ -187,10 +192,29 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS!=="1")("recent authenticatio
         const issued=await fixture.repository.issueNonce({...fixture.scope,intentId:created.intent.id});
         if(issued.status!=="authorizing") throw new Error("Synthetic nonce issuance failed");
         const callback=await signedCallback(fixture,issued.nonce,authTime);
-        expect(await fixture.repository.complete({...callback,intentId:created.intent.id})).toEqual({status:"consumed",evidence:null});
+        const completed=await fixture.repository.complete({...callback,intentId:created.intent.id});
+        expect(completed).toMatchObject({status:"consumed",evidence:{intentId:created.intent.id,userId:fixture.userId,accountId:fixture.accountId,sessionId:fixture.sessionId,operation:fixture.operation,resourceId:fixture.tribeId}});
+        if(completed.status!=="consumed"||!completed.evidence)throw new Error("Google account confirmation was not persisted");
+        expect(completed.evidence.authenticatedAt).toEqual(completed.evidence.verifiedAt);
+        expect(completed.evidence.validUntil.getTime()-completed.evidence.verifiedAt.getTime()).toBe(RECENT_AUTHENTICATION_WINDOW_MS);
         expect(await fixture.repository.complete({...callback,intentId:created.intent.id})).toEqual({status:"intent_unusable"});
       }
-      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id from public.recent_authentication_evidence where user_id=${fixture.userId}`)).rows)).toEqual([]);
+      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id from public.recent_authentication_evidence where user_id=${fixture.userId}`)).rows)).toHaveLength(2);
+    });
+  },120_000);
+
+  it("should consume but not confirm a signed response issued before its current intent even with a recent Google login",async()=>{
+    await withAcademyAdmissionDatabase(async(database)=>{
+      const fixture=await prepareRecentAuthentication(database);
+      const issuedBeforeIntent=Math.floor(Date.now()/1000)-SECONDS_PER_MINUTE;
+      const created=await fixture.repository.create({...fixture.scope,returnPath:fixture.returnPath});
+      if(created.status!=="created")throw new Error("Synthetic intent creation failed");
+      const issued=await fixture.repository.issueNonce({...fixture.scope,intentId:created.intent.id});
+      if(issued.status!=="authorizing")throw new Error("Synthetic nonce issuance failed");
+      const callback=await signedCallback(fixture,issued.nonce,Math.floor(Date.now()/1000),issuedBeforeIntent);
+      expect(await fixture.repository.complete({...callback,intentId:created.intent.id})).toEqual({status:"consumed",evidence:null});
+      expect(await fixture.repository.complete({...callback,intentId:created.intent.id})).toEqual({status:"intent_unusable"});
+      expect(await database.withContext(fixture.own,async(transaction)=>(await transaction.execute(sql`select id from public.recent_authentication_evidence where intent_id=${created.intent.id}`)).rows)).toEqual([]);
     });
   },120_000);
 });

@@ -122,6 +122,7 @@ Todos los cambios relevantes de TuTribu se documentan en este archivo con el for
 
 ### Fixed
 
+- La confirmación de acciones sensibles permite mantener abierta la sesión de Google y deja de exigir salir y volver a ingresar; la cuenta se comprueba para la acción concreta durante diez minutos.
 - Al cancelar una solicitud o resolver una revisión individual con teclado, el resultado recibe el foco si desaparece la acción; si lo moviste a otro control, se conserva allí.
 
 - La barra lateral ignora eventos de teclado sin tecla y mantiene operativo su atajo de navegación.

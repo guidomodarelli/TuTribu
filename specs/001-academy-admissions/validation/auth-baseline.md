@@ -1,5 +1,7 @@
 # Base de evidencia global de autenticación
 
+El [contrato vigente de confirmación de cuenta](google-authentication.md) cambió por decisión expresa del usuario el 2026-10-18: respuesta Google nueva y firmada, nonce e intento actuales y vigencia de diez minutos desde la comprobación del servidor, conservando la sesión de Google. La evidencia que sigue conserva sus fechas y el contrato anterior; no se reinterpreta como validación del nuevo recorrido.
+
 **Feature**: `001-academy-admissions`. **Base publicada**: `7f766c5a98385efeb19192ed5cd58f033f018abe`.
 
 ## Alcance implementado

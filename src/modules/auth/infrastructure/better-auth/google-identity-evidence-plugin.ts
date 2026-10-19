@@ -3,7 +3,7 @@ import "server-only";
 import type {BetterAuthPlugin} from "better-auth";
 import {APIError,createAuthMiddleware,getOAuthState} from "better-auth/api";
 import {GOOGLE_EVIDENCE_PLUGIN_ID,GOOGLE_IDENTITY_PROVIDER} from "@/src/modules/auth/constants/google-identity-evidence";
-import {AUTH_EVIDENCE_CAPTURE_FAILURE,AUTH_EVIDENCE_CAPTURE_PATH,AUTH_EVIDENCE_FAILURE_KIND,AUTH_EVIDENCE_INTENT_STATE_KEY,GLOBAL_REAUTHENTICATION_OAUTH_PARAMETER,GLOBAL_REAUTHENTICATION_CLAIMS_REQUEST} from "@/src/modules/auth/constants/auth-evidence-capture";
+import {AUTH_EVIDENCE_CAPTURE_FAILURE,AUTH_EVIDENCE_CAPTURE_PATH,AUTH_EVIDENCE_FAILURE_KIND,AUTH_EVIDENCE_INTENT_STATE_KEY,GLOBAL_REAUTHENTICATION_OAUTH_PARAMETER} from "@/src/modules/auth/constants/auth-evidence-capture";
 import {REAUTHENTICATION_ERROR_CODE,REAUTHENTICATION_ERROR_MESSAGE} from "@/src/modules/auth/constants/reauthentication-intents";
 import {reauthenticationIntentParamsSchema} from "@/src/modules/auth/infrastructure/api/reauthentication-request-schemas";
 import {getAuthEvidenceContext} from "./auth-evidence-context";
@@ -36,7 +36,6 @@ export function googleIdentityEvidencePlugin(options:{authorizeIntent?:(intentId
             if(!issued.allowed) throw new APIError("FORBIDDEN",{code:REAUTHENTICATION_ERROR_CODE.required,message:REAUTHENTICATION_ERROR_MESSAGE[REAUTHENTICATION_ERROR_CODE.required]});
             const url=await originalCreateAuthorizationURL(data);
             url.searchParams.set(GLOBAL_REAUTHENTICATION_OAUTH_PARAMETER.nonce,issued.nonce);
-            url.searchParams.set(GLOBAL_REAUTHENTICATION_OAUTH_PARAMETER.claims,JSON.stringify(GLOBAL_REAUTHENTICATION_CLAIMS_REQUEST));
             return url;
           },
           async getUserInfo(tokens) {

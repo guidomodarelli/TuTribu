@@ -4,9 +4,9 @@ export const REAUTHENTICATION_ROUTES = { page: "/auth/reauthenticate", intents: 
 export const REAUTHENTICATION_UI_PHASE = { idle: "idle", checking: "checking", redirecting: "redirecting" } as const;
 /** Uses fixed Spanish feedback; upstream error text is never a rendering source. */
 export const REAUTHENTICATION_UI_COPY = {
-  title: "Confirmá tu autenticación",
-  description: "Esta acción requiere una autenticación de Google de los últimos diez minutos. La sesión de TuTribu puede seguir abierta.",
-  verifiedTitle: "Autenticación confirmada",
+  title: "Confirmá tu cuenta",
+  description: "Para esta acción, confirmá tu cuenta con Google. Podés mantener abierta tu sesión de Google y la de TuTribu.",
+  verifiedTitle: "Cuenta confirmada",
   unavailableTitle: "No podemos confirmar esta acción",
   loading: "Consultando tu solicitud de autenticación…",
   start: "Confirmar con Google",
@@ -20,8 +20,8 @@ export const REAUTHENTICATION_UI_COPY = {
   home: "Ir al inicio",
   signIn: "Iniciar sesión",
   authorizing: "La confirmación ya comenzó. Consultá su resultado; si no podés completarla, volvé a la tribu para iniciar una nueva.",
-  required: "Salir de TuTribu no cierra la sesión de Google del navegador. Si Google mantiene una sesión anterior, cerrá sesión en Google y volvé a entrar allí; después volvé a la tribu para iniciar una nueva confirmación. Esta acción todavía no está autorizada.",
-  verified: "La acción volverá a comprobar tu sesión, tus permisos y la vigencia de la autenticación al continuar.",
+  required: "Este intento no pudo confirmar tu cuenta para la acción. Volvé a la tribu e iniciá una nueva confirmación. Podés mantener abierta tu sesión de Google.",
+  verified: "Esta confirmación vale durante diez minutos para esta acción. Al continuar, se volverán a comprobar tu sesión, tus permisos y su vigencia.",
   oauthFailed: "Google no completó la confirmación. Consultá el estado antes de iniciar otra solicitud.",
   startFailed: "No pudimos iniciar la confirmación. Consultá el estado antes de volver a intentarlo.",
   readFailed: "No pudimos consultar el resultado. Consultá el estado nuevamente.",

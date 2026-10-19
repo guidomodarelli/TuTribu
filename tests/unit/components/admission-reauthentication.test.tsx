@@ -7,7 +7,7 @@ import { ReauthenticationContainer } from "@/app/auth/reauthenticate/reauthentic
 import type { ReauthenticationBrowserClient } from "@/src/modules/auth/application/ports/reauthentication-browser-client";
 import type { ReauthenticationIntentResult } from "@/src/modules/auth/application/results/reauthentication-intent-result";
 
-const intent: ReauthenticationIntentResult = { intentId: "20ca5bf6-8517-4e0d-a7d7-24144fcb0ea8", state: "created", outcome: "pending", safeMessage: "Confirmá tu autenticación con Google para continuar.", returnPath: "/synthetic-tribe" };
+const intent: ReauthenticationIntentResult = { intentId: "20ca5bf6-8517-4e0d-a7d7-24144fcb0ea8", state: "created", outcome: "pending", safeMessage: "Confirmá tu cuenta con Google para continuar.", returnPath: "/synthetic-tribe" };
 
 /** Replaces only the application's own transport boundary, never React or the SDK. */
 function createClient(): ReauthenticationBrowserClient {
@@ -30,8 +30,8 @@ describe("global reauthentication screen", () => {
   it("should preserve an existing session and await explicit Google confirmation", async () => {
     const client = createClient();
     render(<ReauthenticationContainer initialState={{ kind: "ready", intent, oauthFailed: false }} client={client} />);
-    expect(screen.getByRole("heading", { name: "Confirmá tu autenticación" })).toBeVisible();
-    expect(screen.getByText("Esta acción requiere una autenticación de Google de los últimos diez minutos. La sesión de TuTribu puede seguir abierta.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Confirmá tu cuenta" })).toBeVisible();
+    expect(screen.getByText("Para esta acción, confirmá tu cuenta con Google. Podés mantener abierta tu sesión de Google y la de TuTribu.")).toBeVisible();
     expect(client.start).not.toHaveBeenCalled();
     expect(client.read).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Confirmar con Google" }));
@@ -45,7 +45,7 @@ describe("global reauthentication screen", () => {
     const client = createClient();
     let resolveStart!: (value: { status: "started" }) => void;
     vi.mocked(client.start).mockImplementation(() => new Promise((resolve) => { resolveStart = resolve; }));
-    vi.mocked(client.read).mockResolvedValue({ status: "ready", intent: { ...intent, state: "consumed", outcome: "verified", validUntil: new Date(Date.now() + 60_000).toISOString(), safeMessage: "Tu autenticación reciente está confirmada para esta acción." } });
+    vi.mocked(client.read).mockResolvedValue({ status: "ready", intent: { ...intent, state: "consumed", outcome: "verified", validUntil: new Date(Date.now() + 60_000).toISOString(), safeMessage: "Tu cuenta de Google está confirmada para esta acción." } });
     render(<ReauthenticationContainer initialState={{ kind: "ready", intent, oauthFailed: false }} client={client} />);
     fireEvent.click(screen.getByRole("button", { name: "Confirmar con Google" }));
     fireEvent.click(screen.getByRole("button", { name: "Redirigiendo a Google…" }));
@@ -87,17 +87,17 @@ describe("global reauthentication screen", () => {
     expect(client.start).not.toHaveBeenCalled();
   });
 
-  it("should explain the separate Google session when a consumed intent lacks recent authentication", () => {
+  it("should recover an unconfirmed consumed intent without asking the user to leave Google", () => {
     // Arrange: a completed Google callback still has no usable recency for this action.
     const client = createClient();
-    const requiredIntent: ReauthenticationIntentResult = { ...intent, state: "consumed", outcome: "reauthentication_required", safeMessage: "No pudimos acreditar una autenticación reciente de Google para esta acción." };
+    const requiredIntent: ReauthenticationIntentResult = { ...intent, state: "consumed", outcome: "reauthentication_required", safeMessage: "No pudimos confirmar tu cuenta de Google para esta acción." };
 
     // Act: render the same real route container and shared components.
     render(<ReauthenticationContainer initialState={{ kind: "ready", intent: requiredIntent, oauthFailed: false }} client={client} />);
 
-    // Assert: the recovery explains Google sign-out without retrying or granting the action.
-    expect(screen.getByRole("status")).toHaveTextContent("No pudimos acreditar una autenticación reciente de Google para esta acción.");
-    expect(screen.getByText("Salir de TuTribu no cierra la sesión de Google del navegador. Si Google mantiene una sesión anterior, cerrá sesión en Google y volvé a entrar allí; después volvé a la tribu para iniciar una nueva confirmación. Esta acción todavía no está autorizada.")).toBeVisible();
+    // Assert: recovery preserves the Google session without retrying or granting the action.
+    expect(screen.getByRole("status")).toHaveTextContent("No pudimos confirmar tu cuenta de Google para esta acción.");
+    expect(screen.getByText("Este intento no pudo confirmar tu cuenta para la acción. Volvé a la tribu e iniciá una nueva confirmación. Podés mantener abierta tu sesión de Google.")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Confirmar con Google" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Continuar con la acción" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Volver a la tribu" })).toHaveAttribute("href", intent.returnPath);
@@ -161,14 +161,14 @@ describe("global reauthentication screen", () => {
   it("should withdraw an expired confirmation and reconcile without another OAuth start", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false });
     const client = createClient();
-    const verifiedIntent: ReauthenticationIntentResult = { ...intent, state: "consumed", outcome: "verified", validUntil: new Date(Date.now() + 1_000).toISOString(), safeMessage: "Tu autenticación reciente está confirmada para esta acción." };
+    const verifiedIntent: ReauthenticationIntentResult = { ...intent, state: "consumed", outcome: "verified", validUntil: new Date(Date.now() + 1_000).toISOString(), safeMessage: "Tu cuenta de Google está confirmada para esta acción." };
     vi.mocked(client.read).mockResolvedValue({ status: "ready", intent: { ...verifiedIntent, outcome: "reauthentication_required", safeMessage: "No pudimos acreditar una autenticación reciente. Volvé a intentarlo." } });
     render(<ReauthenticationContainer initialState={{ kind: "ready", intent: verifiedIntent, oauthFailed: false }} client={client} />);
     expect(screen.getByRole("link", { name: "Continuar con la acción" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Consultar estado" })).toBeEnabled();
     await act(async () => vi.advanceTimersByTimeAsync(1_000));
     expect(screen.queryByRole("link", { name: "Continuar con la acción" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Confirmá tu autenticación" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Confirmá tu cuenta" })).toBeVisible();
     expect(client.read).toHaveBeenCalledOnce();
     expect(client.start).not.toHaveBeenCalled();
   });
@@ -176,12 +176,12 @@ describe("global reauthentication screen", () => {
   it("should not revive an expired confirmation from a late read result", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: false });
     const client = createClient();
-    const verifiedIntent: ReauthenticationIntentResult = { ...intent, state: "consumed", outcome: "verified", validUntil: new Date(Date.now() + 1_000).toISOString(), safeMessage: "Tu autenticación reciente está confirmada para esta acción." };
+    const verifiedIntent: ReauthenticationIntentResult = { ...intent, state: "consumed", outcome: "verified", validUntil: new Date(Date.now() + 1_000).toISOString(), safeMessage: "Tu cuenta de Google está confirmada para esta acción." };
     vi.mocked(client.read).mockResolvedValue({ status: "ready", intent: verifiedIntent });
     render(<ReauthenticationContainer initialState={{ kind: "ready", intent: verifiedIntent, oauthFailed: false }} client={client} />);
     await act(async () => vi.advanceTimersByTimeAsync(1_000));
     expect(screen.queryByRole("link", { name: "Continuar con la acción" })).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("No pudimos acreditar una autenticación reciente");
+    expect(screen.getByRole("status")).toHaveTextContent("No pudimos confirmar tu cuenta de Google");
     await act(async () => vi.advanceTimersByTimeAsync(1_000));
     expect(client.read).toHaveBeenCalledOnce();
     expect(client.start).not.toHaveBeenCalled();
@@ -197,7 +197,7 @@ describe("global reauthentication screen", () => {
     let root!: ReturnType<typeof hydrateRoot>;
     await act(async () => { root = hydrateRoot(host, tree, { onRecoverableError: (error) => errors.push(error) }); });
     expect(errors).toEqual([]);
-    expect(host.querySelector("h1")).toHaveTextContent("Confirmá tu autenticación");
+    expect(host.querySelector("h1")).toHaveTextContent("Confirmá tu cuenta");
     expect(client.read).not.toHaveBeenCalled();
     await act(async () => root.unmount());
     host.remove();

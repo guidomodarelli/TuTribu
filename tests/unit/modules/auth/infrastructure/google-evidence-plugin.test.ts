@@ -65,7 +65,7 @@ describe("Google evidence plugin",()=>{
     expect(JSON.stringify(persisted)).not.toContain(token);expect(getAuthEvidenceContext()).toBeUndefined();
   });
 
-  it("should add only an owned nonce and auth_time request while preserving native OAuth state and PKCE",async()=>{
+  it("should bind an owned nonce without requiring Google session age claims while preserving native OAuth state and PKCE",async()=>{
     const intentId=randomUUID();const nonce=randomUUID();const requested:string[]=[];
     const auth=createTestAuth(randomUUID(),undefined,async(opaqueId)=>{requested.push(opaqueId);return {allowed:true,nonce};});
     const transport=createAdmissionProviderTransport([]);
@@ -74,7 +74,8 @@ describe("Google evidence plugin",()=>{
     const body=await response.json() as {url:string};const url=new URL(body.url);
     expect(requested).toEqual([intentId]);
     expect(url.searchParams.get("nonce")).toBe(nonce);
-    expect(JSON.parse(url.searchParams.get("claims")??"null")).toEqual({id_token:{auth_time:{essential:true}}});
+    expect(url.searchParams.has("claims")).toBe(false);
+    expect(url.searchParams.has("max_age")).toBe(false);
     expect(url.searchParams.get("state")).toBeTruthy();expect(url.searchParams.get("code_challenge")).toBeTruthy();
     expect(transport.receipts).toEqual([]);
   });

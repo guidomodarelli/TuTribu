@@ -1,5 +1,5 @@
 /**
- * Evaluates signed global recency and exact scope before a sensitive credential operation.
+ * Evaluates recent account confirmation and exact scope before a sensitive credential operation.
  *
  * @module recent-authentication
  */
@@ -43,10 +43,11 @@ export function evaluateGlobalReauthenticationCallback(input: {
 }
 
 /**
- * Authorizes issued evidence using signed authentication time and the current scope.
+ * Authorizes issued evidence using the server's account-confirmation time and current scope.
  *
- * `verifiedAt`, session renewal, profile flags, and tribe-local OTP are never used
- * as substitutes for `authenticatedAt`. The callback already consumed the intent;
+ * Only the nonce-bound confirmation writer establishes `authenticatedAt`.
+ * Ordinary session renewal, profile flags and tribe-local OTP cannot establish it.
+ * The callback already consumed the intent;
  * application rechecks role/session under its authoritative writer before reading
  * a secret and obtains evidence only from the trusted issuer/repository.
  *
