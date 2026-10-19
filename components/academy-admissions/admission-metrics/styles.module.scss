@@ -5,17 +5,17 @@
   min-width: 0;
 
   &__section { display: grid; gap: 1rem; min-width: 0; }
-  &__title { font-size: 1.25rem; font-weight: 600; line-height: 1.4; }
-  &__subtitle { font-size: 1rem; font-weight: 600; line-height: 1.5; }
+  &__title { font-size: 1.25rem; font-weight: 500; line-height: 1.4; }
+  &__subtitle { font-size: 1rem; font-weight: 500; line-height: 1.5; }
   &__help { color: var(--muted-foreground); font-size: 0.875rem; line-height: 1.6; }
   &__counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: 1rem; margin: 0; }
   &__count { display: grid; align-content: start; gap: 0.25rem; min-width: 0; }
   &__label { color: var(--muted-foreground); font-size: 0.875rem; line-height: 1.5; }
-  &__value { margin: 0; font-size: 1.125rem; font-weight: 600; overflow-wrap: anywhere; }
+  &__value { margin: 0; font-size: 1.125rem; font-weight: 500; overflow-wrap: anywhere; }
   &__scroll { min-width: 0; max-width: 100%; overflow-x: auto; }
   &__table { width: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; }
   &__caption { text-align: left; padding-bottom: 0.75rem; color: var(--muted-foreground); font-size: 0.875rem; }
   &__table :is(th, td) { padding: 0.75rem 1rem 0.75rem 0; border-bottom: 1px solid var(--border); vertical-align: top; }
-  &__table :is(th) { font-weight: 600; }
+  &__table :is(th) { font-weight: 500; }
   &__errors { margin: 0; padding-left: 1.25rem; line-height: 1.6; }
 }

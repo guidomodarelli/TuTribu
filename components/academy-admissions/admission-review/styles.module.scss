@@ -11,7 +11,7 @@
   &__header, &__section { display: grid; gap: 0.75rem; min-width: 0; }
   &__section { gap: 1.25rem; }
   &__title { font-family: var(--font-display); font-size: clamp(1.75rem, 4vw, 2.5rem); line-height: 1.2; }
-  &__subtitle { font-size: 1.125rem; font-weight: 600; }
+  &__subtitle { font-size: 1.125rem; font-weight: 500; }
   &__label { font-weight: 500; }
   &__help, &__feedback { color: var(--muted-foreground); line-height: 1.6; }
   &__feedback:empty {
@@ -23,7 +23,7 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  &__ageHighlight { color: var(--foreground); font-weight: 600; line-height: 1.5; padding-inline-start: 0.75rem; border-inline-start: 0.2rem solid var(--primary); }
+  &__ageHighlight { color: var(--foreground); font-weight: 500; line-height: 1.5; padding-inline-start: 0.75rem; border-inline-start: 0.2rem solid var(--primary); }
   &__error { color: var(--destructive); line-height: 1.5; }
   &__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
   &__rowSelection { display: flex; align-items: center; gap: 0.75rem; }

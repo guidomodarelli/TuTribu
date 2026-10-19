@@ -6,7 +6,7 @@
   min-width: 0;
 
   &__heading { display: grid; gap: 0.5rem; }
-  &__title { font-size: 1.125rem; font-weight: 600; }
+  &__title { font-size: 1.125rem; font-weight: 500; }
   &__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; min-width: 0; }
   &__field { display: grid; align-content: start; gap: 0.5rem; min-width: 0; font-weight: 500; }
   &__control { width: 100%; min-width: 0; }
