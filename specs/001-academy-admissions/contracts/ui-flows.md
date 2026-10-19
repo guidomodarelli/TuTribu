@@ -10,7 +10,7 @@
 | `.../admissions/invitations/[token]/page.tsx` | Invitación nominativa nueva | Leer no consume/envía; mensaje genérico para cuenta incorrecta/recurso no disponible; no divulgar destinatario |
 | `.../admissions/requests/[requestId]/page.tsx` | Cuenta autenticada sobre su request | Estado persistente, prueba requerida/fechas/mensaje externo/cancelación propia; sin contenido de tribu |
 | `app/(platform)/[slug]/academia/admissions/...` | Líder para configuración/lista/invitaciones/conexiones; líder/guardián activos para bandeja | Permisos y estado actuales, no botones como autoridad; sin secretos para guardianes |
-| `app/auth/reauthenticate/page.tsx` | Intención global propia para acción sensible | Evitar redirect convencional que impide reauth con sesión; no prometer desafío Google forzable |
+| `app/auth/reauthenticate/page.tsx` | *Retirada el 2026-10-19* | La página se eliminó: las acciones sensibles usan la sesión activa y la confirmación explícita de su propia pantalla, sin desvío a Google |
 
 Son paths propuestos y se integran con el menú real. El `AcademyHome` actual cambia su CTA por el recorrido correspondiente y recibe callbacks desde container. Canjes históricos de academia llevan a política común sin dispensa; legacy conserva su experiencia. No presentar UI general de gestión/recuperación de roles como existente.
 

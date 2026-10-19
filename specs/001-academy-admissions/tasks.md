@@ -45,6 +45,17 @@ description: "Tareas de implementación de admisiones a academias y mensajería 
 
 Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan sus IDs; se agregan cinco tareas de contratos/puerto/configuración temprana. [traceability.md](traceability.md) conserva la equivalencia anterior→actual, todos los casos normativos y referencias nuevas; ninguna casilla está marcada.
 
+<a id="decision-2026-10-19"></a>
+
+## Decisión 2026-10-19: sin confirmación con Google en operaciones sensibles
+
+El dueño del producto eliminó el pedido de volver a autenticarse con Google en todas las operaciones sensibles (admisiones, mensajería y ciclo de vida de tribu/academia). El modelo vigente es sesión activa del líder (o del guardián donde ese rol ya aplica), autorización vigente y la confirmación explícita que cada acción ya tiene en la UI; las operaciones con credenciales de mensajería exigen además el vínculo de sesión Google creado al iniciar sesión (`authentication_required` si falta). Cada ruta sensible conserva el chequeo de origen (CSRF). Detalle, verificación CSRF y riesgo aceptado en [spec.md](spec.md), "Decisión 2026-10-19".
+
+- T011, T031, T032 y T202 quedan **retiradas en su alcance de recencia**: no se borran y conservan su registro de cierre como historia, pero ya no describen un requisito vigente. Se eliminaron la página `/auth/reauthenticate`, la API `/api/auth/reauthentication/intents` y el flujo de intents/nonce.
+- OG-01 queda solo como evidencia de identidad base capturada al iniciar sesión con Google.
+- T018, T019 y T033 conservan el modelo de evidencia base; las tablas `recent_authentication_evidence` y `global_reauthentication_intents` que crearon quedan sin uso (borrado en una fase posterior, sin migración en esta fase).
+- Las menciones a recencia, reautenticación, confirmación con Google, intenciones o nonce de confirmación en tareas y notas de avance cerradas son registro histórico; ninguna tarea abierta vuelve a exigirlas. `reauthentication_required` y `REAUTHENTICATION_OPERATION` se conservan solo por compatibilidad de auditoría.
+
 <a id="phase-01"></a>
 
 ## Fase 1: Preparación e infraestructura compartida
@@ -122,6 +133,8 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 - [X] T011 [P] Cubrir confirmación de cuenta de diez minutos, respuesta Google nueva con auth_time antiguo/ausente, token anterior al intento/futuro/vencido, nonce/intento repetido/cruzado/expirado, sesión renovada/revocada, cuenta distinta y líder que pierde rol; SDK false sin causa inventada, state/PKCE conservados y ningún BYOK global. Archivos: `tests/unit/modules/auth/application/recent-authentication.test.ts`, `tests/e2e/admission-reauthentication.spec.ts`, `tests/unit/components/admission-reauthentication.test.tsx`. Trazabilidad: `FR-032`, `TC-013`, `RG-05`, `OG-01`.
 
   Cierre de T011 sobre `dc9479db`: políticas, SDK nativo, nonce/recencia SQL, UI y recorridos reales de Next. La prueba autenticada adicional es `tests/unit/modules/auth/infrastructure/reauthentication-browser-flow.test.ts`, con ambos motores y viewports en una rama propia; conserva también los E2E previstos. Google real/Workers/OG-01 no quedan acreditados. Ver `validation/auth-baseline.md`.
+
+  **Alcance retirado el 2026-10-19**: la confirmación de cuenta con Google, su ventana de diez minutos y los casos de intento/nonce dejaron de ser requisito ([decisión](#decision-2026-10-19)); FR-032 se reemplazó por sesión activa del líder y confirmación explícita. Este registro queda como historia.
 
 <a id="t012"></a>
 
@@ -231,6 +244,8 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
 
   Cierre de T031 sobre `dc9479db`: intención/nonce/consumo/recencia propios y sesión inicial/final revalidados, sin cambiar Google. Siete SQL+14locales verdes (216,98 s), 71 de regresión auth, build/tipos/lint y review de siete archivos sin hallazgos. Se reprodujo metadata de intención tras vencer sesión durante resource lookup y se corrigió con contexto/clock finales. Manuales/navegación en Chromium/WebKit 390/1280 verdes. T030/T011/T028 satisfechas; Google/Workers/OG-01 conservan gates. Ver `validation/auth-baseline.md`.
 
+  **Alcance retirado el 2026-10-19**: la intención de un uso, el nonce, la confirmación OAuth nueva y la API `/api/auth/reauthentication/intents` se eliminaron ([decisión](#decision-2026-10-19)). Las tablas `global_reauthentication_intents` y `recent_authentication_evidence` quedan sin uso hasta una fase posterior; este registro queda como historia.
+
 <a id="t032"></a>
 
 - [X] T032 Crear recorrido global de reautenticación con sesión existente/intención/retorno seguros, estados reales y feedback español; SSR determinista, loading propio y container/presenter. El éxito de browser no acredita recencia. Archivos: `app/auth/reauthenticate/page.tsx`, `app/auth/reauthenticate/loading.tsx`, `app/auth/reauthenticate/reauthentication-container.tsx`, `components/auth/reauthentication-status/index.tsx`, `components/auth/reauthentication-status/styles.module.scss`. Dependencias: `T031`. Trazabilidad: `FR-032`.
@@ -238,6 +253,8 @@ Las 207 tareas anteriores se conservan por identidad de trabajo y se recalculan 
   Avance parcial sobre `58837e13`: página/content/loading, container/presenter, puerto y adapter de browser con SDK real, boundary SSR y props propias. Treinta y tres casos verdes de UI/SSR/cliente y ocho E2E de ruta real sin sesión/input inválido en Chromium/WebKit, desktop/móvil; build normal y revisión nativa sin hallazgos finales. El comienzo ambiguo exige lectura antes de repetir OAuth; la restauración por historial y el unmount revalidan/cancelan sin route refresh. Vencer validUntil retira la confirmación y reconsulta sin revivir resultados tardíos. La dependencia T031, integración desde las acciones sensibles y cobertura operativa no quedan acreditadas por esta pantalla. Ver `validation/auth-baseline.md`.
 
   Cierre de T032 sobre `dc9479db`: ruta global SSR/loading propios, presenter/container y transporte nativo. Se reprodujo inicio repetible tras pageshow+read fallido; start permanece bloqueado hasta read ready autorizado.34UI/page/client verdes, browser real Next/PG/SDK en Chromium/WebKit desktop/móvil (108,05 s), build/tipos/lint/manuales verdes. Re-review P2 cerrado sin hallazgos, hashes estables. T031 satisfecha; entrada desde acciones futuras y OG-01 conservan historias/gates. Ver `validation/auth-baseline.md`.
+
+  **Alcance retirado el 2026-10-19**: la página `/auth/reauthenticate` y su recorrido se eliminaron; las acciones sensibles usan la sesión activa y la confirmación explícita de su propia pantalla ([decisión](#decision-2026-10-19)). Este registro queda como historia.
 
 <a id="t033"></a>
 
@@ -550,7 +567,7 @@ Cierre de T072/T073: documentación de las ocho configuraciones y sus límites a
 
 **Objetivo**: Conectar/inspeccionar recursos y probar cada capacidad/version de Zavu con key del líder, sin activar policy o avisos por conectarse. Países/cupos se inicializan y configuran en este recorrido antes de diagnósticos telefónicos.
 
-**Prueba independiente**: Con líder actual/recencia acreditada y cuentas A/B autorizadas, validar clave sin mensaje, paginar recursos seguros, seleccionar sender/canal/template/idioma y completar código de diagnóstico explícito. Key válida ≠ canal probado; sandbox/otra versión no activa producción. Casos US-06-AC-01 a US-06-AC-07. La configuración de países se completa en esta fase antes del primer diagnóstico telefónico, mediante política de uso disponible sin conexión; [] impide teléfono sin bloquear correo/manual OFF.
+**Prueba independiente**: Con líder actual con sesión activa (sin recencia desde la [decisión 2026-10-19](#decision-2026-10-19)) y cuentas A/B autorizadas, validar clave sin mensaje, paginar recursos seguros, seleccionar sender/canal/template/idioma y completar código de diagnóstico explícito. Key válida ≠ canal probado; sandbox/otra versión no activa producción. Casos US-06-AC-01 a US-06-AC-07. La configuración de países se completa en esta fase antes del primer diagnóstico telefónico, mediante política de uso disponible sin conexión; [] impide teléfono sin bloquear correo/manual OFF.
 
 **Dependencias de fase**: US2.
 
@@ -1574,6 +1591,8 @@ Avance de T201/T203: la [composición separada de seeders y Vitest](validation/k
 
 El [análisis del recorrido Google](validation/google-authentication.md) registra el límite documentado del proveedor: no permite forzar una nueva autenticación de la cuenta y `prompt:consent` puede conservar `auth_time` anterior. El usuario eligió confirmar nuevamente la cuenta por OAuth sin cerrar la sesión de Google. FR-032 y el contrato se actualizan con esa decisión; el incremento exige firma, nonce de un uso, respuesta del intento actual y autoridad vigente, sin añadir un factor. Sus pruebas y el recorrido real deben acreditarse antes de cerrar T202 u OG-01.
 
+  **Alcance retirado el 2026-10-19**: la parte de T202 sobre confirmación OAuth nueva, `auth_time`, nonce, intención y fechas del token ya no es requisito ([decisión](#decision-2026-10-19)). T202 conserva solo la captura firmada de identidad base (Gmail sobre Node) que acredita OG-01; el análisis anterior queda como historia.
+
 <a id="t203"></a>
 
 - [x] T203 Ensayar keyrings separados/crypto/retirada/rotación y restore en copia efímera de ambos targets con control externo seguro; demostrar secret/outbox retirados inutilizables y admisión protegida cerrada. Registrar OG-02; recursos/keys hosting reales requieren autorización y jamás se escriben en artefactos. Archivos: `specs/001-academy-admissions/validation/keyrings-and-restore.md`. Dependencias: `T201`, `T197`. Trazabilidad: `FR-132`, `TC-012`, `TC-014`, `RG-07`, `OG-02`. Alcance: el 2026-10-19 el usuario retiró expresamente el target Workers de esta validación; la tarea se acredita con el host Node, que completó las siete fases de restore y control externo ([recibo](validation/messaging-node-host-restore-completed.json)).
@@ -1594,7 +1613,7 @@ Cerrada el 2026-10-19 con el [ensayo de idempotencia](validation/zavu-idempotenc
 
 <a id="t207"></a>
 
-- [x] T207 Preparar y ejecutar un ensayo funcional automatizado con diez cuentas ficticias independientes y sesiones reales: al menos nueve completan solicitar/ingresar <2 min desde el enlace, con cuentas/canales preparados y excluyendo sólo la demora externa de entrega; registrar SC-014 sin atribuir usabilidad humana ni verificación real de Google/proveedor. Usar el acceso de desarrollo sin habilitar registro público o métodos nuevos en producción; conservar los controles de recencia para acciones sensibles. Archivos: `tests/e2e/admission-entry-sample.spec.ts`, `specs/001-academy-admissions/validation/admission-entry-sample.md`. Dependencias: `T198`, `T197`. Trazabilidad: `FR-133`, `SC-014`, `SC-018`.
+- [x] T207 Preparar y ejecutar un ensayo funcional automatizado con diez cuentas ficticias independientes y sesiones reales: al menos nueve completan solicitar/ingresar <2 min desde el enlace, con cuentas/canales preparados y excluyendo sólo la demora externa de entrega; registrar SC-014 sin atribuir usabilidad humana ni verificación real de Google/proveedor. Usar el acceso de desarrollo sin habilitar registro público o métodos nuevos en producción; conservar los controles de las acciones sensibles (los de recencia se retiraron el 2026-10-19). Archivos: `tests/e2e/admission-entry-sample.spec.ts`, `specs/001-academy-admissions/validation/admission-entry-sample.md`. Dependencias: `T198`, `T197`. Trazabilidad: `FR-133`, `SC-014`, `SC-018`.
 
 Revisión de alcance de T207: el usuario eligió cuentas ficticias y automatización en lugar del ensayo con diez personas. Se conserva el ID y el umbral de SC-014; cambia explícitamente el método y se retira cualquier atribución de usabilidad humana. Las referencias históricas al método anterior conservan su fecha y alcance. La cohorte nueva pasó con diez de diez solicitudes confirmadas en 33.099–39.214 ms, diez sesiones independientes y replay sin duplicados; T207 queda completada. [Resultado y alcance](validation/admission-entry-sample.md), [reporte sanitizado](validation/admission-entry-sample-summary.json). T198/T208, SC-018 y los gates externos mantienen sus criterios propios.
 
@@ -1667,7 +1686,7 @@ El grafo muestra integración además de las dependencias de fase/por línea. Lo
 | --- | --- | --- |
 | US1 | Fase 2 | Con academia manual/OFF y sin conexión, cuenta autenticada presenta una sola pendiente; contacto declarado no crea vínculo; líder/guardián activo aprueba solo base; estado/aviso propios visibles y acceso privado denegado. Repetir doble clic/respuesta perdida sin efectos nuevos. Casos US-01-AC-01 a US-01-AC-05; fixture válido y cerrado a vías antiguas. |
 | US2 | US1 | Ejercer las ocho filas de configuración, seis de ingreso, once de revisión y toda la matriz de permisos. Base Google con OFF no llama Zavu; ON exige prueba incluso Gmail; phone/list/OFF denegado; stale edit no pisa versión. Casos US-02-AC-01 a US-02-AC-06. |
-| US6 | US2 | Con líder actual/recencia acreditada y cuentas A/B autorizadas, validar clave sin mensaje, paginar recursos seguros, seleccionar sender/canal/template/idioma y completar código de diagnóstico explícito. Key válida ≠ canal probado; sandbox/otra versión no activa producción. Casos US-06-AC-01 a US-06-AC-07. La configuración de países se completa en esta fase antes del primer diagnóstico telefónico, mediante política de uso disponible sin conexión; [] impide teléfono sin bloquear correo/manual OFF. |
+| US6 | US2 | Con líder actual con sesión activa (sin recencia desde la [decisión 2026-10-19](#decision-2026-10-19)) y cuentas A/B autorizadas, validar clave sin mensaje, paginar recursos seguros, seleccionar sender/canal/template/idioma y completar código de diagnóstico explícito. Key válida ≠ canal probado; sandbox/otra versión no activa producción. Casos US-06-AC-01 a US-06-AC-07. La configuración de países se completa en esta fase antes del primer diagnóstico telefónico, mediante política de uso disponible sin conexión; [] impide teléfono sin bloquear correo/manual OFF. |
 | US5 | US1, US2, US6 | Completar código por email/SMS/WhatsApp sobre capacidad autorizada; rechazar otra cuenta/tribu/purpose/época, vencido/cinco fallos y contacto ya ligado. Alternativa SMS explícita invalida anterior sin reset de cuota; aceptación/entrega no es proof. Casos US-05-AC-01 a US-05-AC-07. |
 | US3 | US1, US2, US5 | Con evidencia requerida válida, entrada enabled exacta admite; disabled/declarado/ajeno no. Excepción requiere motivo y check vigente, solo si se permite; agregar contacto no aprueba pendientes. Preview/reimport de 10.000 filas/5 MiB produce outcomes correctos y conserva lista. Casos US-03-AC-01 a US-03-AC-06; muestra SC-021 800/200. |
 | US4 | US1, US2, US3, US5 | Cubrir con/sin lista, manual/allowlist, expiry opcional y evidencia aplicable; cuenta incorrecta/preview/login/OTP no consume ni revela destinatario. Pending/existing devuelve estado sin adjuntar nuevo token; revocación pendiente cancela, terminal no recicla. Casos US-04-AC-01 a US-04-AC-07. |
@@ -1690,7 +1709,7 @@ El grafo muestra integración además de las dependencias de fase/por línea. Lo
 
 | Gate | Tareas principales | Capacidad cerrada mientras falta evidencia |
 | --- | --- | --- |
-| OG-01 | [T029](#t029), [T030](#t030), [T031](#t031), [T010](#t010), [T011](#t011), [T202](#t202) | Operaciones sensibles sin recencia global acreditada; login existente disponible. |
+| OG-01 | [T029](#t029), [T030](#t030), [T031](#t031), [T010](#t010), [T011](#t011), [T202](#t202) | Evidencia de identidad base no acreditada para el contacto; login existente disponible. Desde el 2026-10-19 OG-01 no cubre recencia ([decisión](#decision-2026-10-19)). |
 | OG-02 | [T034](#t034), [T035](#t035), [T201](#t201), [T012](#t012), [T199](#t199), [T203](#t203) | Guardar/activar credenciales operativas y despachar sin keys/restore preparados. |
 | OG-03 | [T082](#t082), [T083](#t083), [T089](#t089), [T087](#t087), [T088](#t088), [T204](#t204), [T079](#t079), [T080](#t080) | Cada canal/versión sin producción/recurso/código probado; países configurados no equivalen a canal probado. |
 | OG-04 | [T042](#t042), [T139](#t139), [T205](#t205) | RePOST automático de entrega incierta; unknown/cupo y consulta solo por ID propio. |
@@ -1731,7 +1750,7 @@ US6 dispone además del lote independiente de configuración temprana `T079`/`T0
 1. Preparación T001–T006 y base T007–T048.
 2. US1 T049–T064 con policy manual/OFF válida en entorno aislado, sin Zavu y con avisos propios.
 3. Validar solicitud → pending → decisión → base/aviso, acceso privado denegado y reintento idempotente.
-4. Configuración operable requiere US2; activar realmente además exige US10, OG-06 y recencia global OG-01. El hito con fixtures no declara la entrega completa.
+4. Configuración operable requiere US2; activar realmente además exige US10, OG-06 y la identidad base de OG-01 (sin recencia desde el 2026-10-19). El hito con fixtures no declara la entrega completa.
 
 ### Entrega incremental completa
 

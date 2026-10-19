@@ -22,7 +22,7 @@ Error público: `code`, `message` de catálogo español, `requestId`, `fields?` 
 | `challenge_expired`, `challenge_invalidated`, `proof_unavailable` | 409 | Pedir nuevo desafío solo por acción y cupos; no reset de pendientes |
 | `verification_attempts_exceeded`, `usage_limit_reached` | 429 | Espera segura sin consumo ajeno; código vigente puede validarse cuando solo agotó envío |
 | `verification_code_incorrect` | 422 | Fallo contado autoritativamente; no mensaje del proveedor |
-| `reauthentication_required` | 401 | Recorrido global específico; claims ausentes/antiguos no se sustituyen por BYOK |
+| `reauthentication_required` | 401 | *Retirado el 2026-10-19*: ningún servidor lo emite; se conserva en uniones, esquemas, mapas HTTP y CHECK de auditoría solo por compatibilidad. Texto visible: "Tu sesión cambió. Recargá la página e intentá de nuevo."; si llega de un servidor viejo, la UI lo muestra como error genérico conservando el original. Sesión o vínculo de sesión Google ausentes responden `authentication_required` |
 | `admissions_paused`, `admission_ineligible` | 403/409 según operación | Consulta/rechazo/cancelación compatibles; no pérdida de solicitud |
 | `membership_recovery_required` | 409 | Snapshot desconocido/rol privilegiado requiere resolución de membresía autorizada; no estado inventado |
 | `connection_incomplete`, `missing_capability`, `invalid_credentials` | 409 | Líder corrige conexión; solicitante recibe mensaje mínimo de capacidad no preparada |

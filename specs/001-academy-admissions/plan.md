@@ -96,10 +96,10 @@ app/
   (admission)/admissions/invitations/[token]/...
   (admission)/admissions/requests/[requestId]/...
   (platform)/[slug]/academia/admissions/...
-  auth/reauthenticate/...
+  auth/reauthenticate/...          # retirado el 2026-10-19 (sin confirmación con Google)
   api/tribes/[slug]/admissions/...
   api/tribes/[slug]/messaging/...
-  api/auth/reauthentication/...
+  api/auth/reauthentication/...    # retirado el 2026-10-19 (sin intents ni nonce)
   api/maintenance/admission-messaging/route.ts
 src/modules/
   academy-admissions/
@@ -162,7 +162,7 @@ flowchart LR
 
 Política, lista, excepcionalidad, nominativas y cambios de época siguen cada fila del spec. Tipo de contacto fijado, predeterminados manual/OFF/cerrado, prueba local ON aun Google, evidencia base OFF, manual común sin mensajería y estados terminales independientes de membership. Prueba aplicada no caduca por las visitas/días de revisión, pero se recomprueba por nueva época/compromiso. Rejection/cancel/expiry no libera token; presentación pendiente no crea acceso.
 
-Auth decora/verifica el proveedor instalado y captura mediante AsyncLocalStorage run/getStore. Por decisión expresa del usuario del 2026-10-18, las operaciones sensibles requieren confirmar nuevamente la cuenta mediante una respuesta OAuth firmada y un nonce del intento actual, sin cerrar la sesión de Google. La fecha de emisión debe pertenecer al intento y el token seguir vigente; el servidor fija la confirmación después de revalidar cuenta, ambas sesiones, liderazgo y recurso, y emite una ventana inmutable de diez minutos. `auth_time` antiguo o ausente no bloquea esta confirmación y no se solicita Security Bundle para obtenerlo. No se promete una nueva contraseña o huella; tampoco se autoriza con `iat` aislado, perfil, cookie renovada o OTP BYOK. Correo externo o ausencia de hd/autoridad conserva login normal y evidencia insuficiente para acreditar el contacto, de forma independiente. [auth-evidence.md](contracts/auth-evidence.md) concreta ese contrato.
+Auth decora/verifica el proveedor instalado y captura mediante AsyncLocalStorage run/getStore la identidad base al iniciar sesión con Google. Por la decisión del 2026-10-19 (ver [spec.md](spec.md), "Decisión 2026-10-19"), las operaciones sensibles se autorizan con la sesión activa del líder (o del guardián donde ese rol ya aplica), su rol y estado actuales sobre el recurso y la confirmación explícita de cada acción en la UI; las operaciones con credenciales de mensajería exigen además el vínculo de sesión Google creado al iniciar sesión (`authentication_required` si falta). Perfil, cookie renovada u OTP BYOK no conceden autoridad. Cada ruta sensible conserva el chequeo de origen (CSRF) de `has-allowed-request-origin.ts`. Riesgo aceptado: una sesión robada del líder podría operar secretos y acciones sensibles con solo la confirmación de la UI; lo mitigan la vigencia e invalidación de la sesión, la cookie httpOnly/secure, el chequeo de origen, el bloqueo por líder canónico y la auditoría. Correo externo o ausencia de hd/autoridad conserva login normal y evidencia insuficiente para acreditar el contacto, de forma independiente. [auth-evidence.md](contracts/auth-evidence.md) concreta ese contrato. *Reemplazado el 2026-10-19: la decisión del 2026-10-18 exigía confirmar nuevamente la cuenta con una respuesta OAuth firmada y un nonce del intento, con ventana de diez minutos; se retiró junto con la página y la API de intents.*
 
 ### Países y versiones de recursos (revisión I1/U1)
 
@@ -203,7 +203,7 @@ V-01 a V-12 de [quickstart.md](quickstart.md) y las tablas individuales de [trac
 
 ## Activación, operación y recuperación
 
-- OG-01 evidencia/recencia global; OG-02 keyrings/epoch/restore; OG-03 cada canal/version/producción; OG-04 dedup comprobada para retries ambiguos; OG-05 driver y latencia; OG-06 SQL/roles/inventario/históricos.
+- OG-01 evidencia de identidad base capturada al iniciar sesión con Google (su alcance de recencia se retiró el 2026-10-19); OG-02 keyrings/epoch/restore; OG-03 cada canal/version/producción; OG-04 dedup comprobada para retries ambiguos; OG-05 driver y latencia; OG-06 SQL/roles/inventario/históricos.
 - Un gate ausente no se oculta con éxito o proveedor fake. Manual OFF y avisos internos funcionan en su configuración válida; capacidades dependientes se cierran selectivamente.
 - Activar requiere actor/impacto/versión e inventario. Rollback después de activar cierra nuevas altas/recuperaciones, mantiene miembros y obliga estado/política válidos para reabrir. Restore usa recovery lock/época externa y ensayo antes de habilitar.
 - Métricas/outcomes: admisiones/revisiones/proofs/attempts/transporte/old pending/consumo, queue age/leases/unknown y last successful driver. Metadata segura y límites por owner; no series por PII/ID/throw.

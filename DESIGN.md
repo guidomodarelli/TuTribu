@@ -182,7 +182,7 @@ messaging, notices and activity).
 - Lists use hairline rows: a medium-weight title, status badges and one quiet
   meta line, with the row action on the trailing edge.
 - Group consent and actions at the end of the block they confirm, primary
-  first; recovery and reauthentication go in a callout with a colored rule.
+  first; recovery goes in a callout with a colored rule.
 - Share rhythm through `src/styles/_workspace-panel.scss` instead of local copies.
 
 ## Multi-step workspaces
@@ -197,9 +197,10 @@ Use this pattern for a tool page where one record moves through several steps
 - Highlight a single advisory next step under the summary with a button that
   opens its tab. It guides; the server still checks every requirement.
 - Put each step in a `Tabs` panel with an `h2`. Show one `primary` action per
-  panel; secondary reads are `secondary` and optional confirmations (such as
-  confirming the account with Google) are `ghost` `sm` buttons grouped in one
-  quiet row.
+  panel; secondary reads are `secondary` and optional actions are `ghost` `sm`
+  buttons grouped in one quiet row. Sensitive actions rely on the active
+  session and their explicit confirmation; never add a step that asks to sign
+  in with Google again.
 - Keep drafts in the container, not in the panel, so switching tabs never
   loses input. Switching tabs must never save, send or activate anything.
 - Blocking states (a pending original, a continuation link) go above the tabs

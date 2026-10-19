@@ -9,7 +9,7 @@
 1. Completar/revisar las tareas que genere `$speckit-tasks`, con TDD y artefactos SQL reales. No usar esta guía como migración o implementación en sí misma.
 2. Node de `.nvmrc` (24.21.0), pnpm 12.6.0, lockfile consistente, SDK Zavu fijado/real y runtimes del plan. Claves de pruebas sintéticas en memoria/entorno aislado, nunca secretos/usuarios productivos en fixtures/logs.
 3. Crear rama efímera Neon con esquema real, fixtures sintéticos de A/B y rol de runtime más un rol no-bypass de privilegios mínimos. Nunca probar escrituras en default/producción. La autorización permanente de estas ramas propias no autoriza migración productiva.
-4. Preparar solo cuando corresponda cuentas Google de prueba y proyecto con evidencia/recencia disponibles. Entrega real Zavu exige cuentas/recursos/destinos preparados y consentimiento explícito de quien paga. Sandbox también puede enviar realmente.
+4. Preparar solo cuando corresponda cuentas Google de prueba y proyecto con evidencia de identidad base disponible. Entrega real Zavu exige cuentas/recursos/destinos preparados y consentimiento explícito de quien paga. Sandbox también puede enviar realmente.
 5. Keyrings/época/dispatcher de ambos targets se validan sin publicar ni contratar recursos por esta guía. Para producción se exige decisión/autorización separada; ausencias mantienen capacidades cerradas y evidencia pendiente.
 
 ## 2. Comandos del repositorio
@@ -45,8 +45,8 @@ En la rama efímera:
 | Grupo | Ejercicio real requerido | Resultado esperado |
 | --- | --- | --- |
 | V-01 Política | Todas las filas de configuración/admisión/revisión y permisos; stale edit; tipo fijado; flag/ausencia | Misma matriz del spec, sin apertura implícita ni autoaprobación |
-| V-02 Identidad | Google firmado Gmail/Workspace/external, hd ausente, header/issuer/aud/sub/nonce/exp incorrectos; callbacks A/B | Base solo acreditada, global login separado, datos browser sin autoridad |
-| V-03 Confirmación de cuenta | Respuesta Google nueva con auth_time antiguo/ausente, token anterior al intento/futuro/vencido, nonce cruzado, cookie renovada, cuenta distinta, intento repetido y liderazgo perdido | Confirmación ligada al intento actual por diez minutos, sin salir de Google; los demás casos cierran la acción sensible y ningún OTP BYOK concede autoridad global |
+| V-02 Identidad | Google firmado Gmail/Workspace/external, hd ausente, header/issuer/aud/sub/exp incorrectos; callbacks A/B | Base solo acreditada, global login separado, datos browser sin autoridad |
+| V-03 Autorización sensible | Sesión activa/revocada, vínculo de sesión Google ausente, origen no permitido, acción sin confirmación explícita o sin `sensitiveOperation`, cuenta distinta y liderazgo perdido | Solo el líder vigente con sesión activa, origen permitido y confirmación explícita ejecuta la acción; sin vínculo de sesión responde `authentication_required`, sin operación declarada `invalid_input`, y ningún OTP BYOK concede autoridad global. *Reemplazado el 2026-10-19: antes validaba la confirmación con Google ligada a un intento por diez minutos* |
 | V-04 Contacto/código | Correo/SMS/WhatsApp, ON/OFF, cinco fallos, ventanas globales, resend/SMS alternativo, cuota agotada | Uso único/contexto/época correctos; anteriores inválidos; código vigente validable sin nuevo envío |
 | V-05 Lista/CSV | 10.000 filas, cinco MiB, datos/formato inválidos, HTML/fórmulas, duplicados/deshabilitados/reimport/concurrencia y version de entrada/no-op/stale | Preview sin efectos, outcomes por fila, sin reasignar/reactivar/eliminar, CAS 409 sin overwrite, reporte seguro/purga |
 | V-06 Invitación | Personal/common/historical, lista obligatoria/dispensa, expiry opcional, wrong-account/preview, perdido/revocado/canjeado y versiones/canje-revoke concurrentes | Un canje válido máximo, CAS interno/admin 409 y metadata versionada; token una vez; no vía común silenciosa ni reciclar terminal |
@@ -135,7 +135,7 @@ pnpm run dev
 
 Si ya existe `https://dev.tutribu.app`, no iniciar otro servidor. Abrir ese hostname; no localhost:3000 para verificaciones manuales. Playwright usa su webServer documentado en la suite; ejecutar casos reales con el entorno aislado del producto, sin librerías UI mockeadas. El [piloto local recuperable](validation/isolated-local-pilot.md) conserva su base propia y configuración privada; no se debe iniciar usando la conexión productiva de los dotenv como fallback.
 
-Recorrer manual común OFF sin Zavu, lista de correo base, teléfono lista inválido OFF, todos ON, excepción/nominativa, wrong-account/change-account, pending/proof nueva/terminal, form secreto/reauth/provider down/quota/stale, CSV mixed y decisiones mixed. Verificar foco/helper/alert, limpieza de feedback/draft/progreso, cero escrituras por lectura y cero full refresh salvo excepción documentada de seguridad. Capturas usan datos sintéticos.
+Recorrer manual común OFF sin Zavu, lista de correo base, teléfono lista inválido OFF, todos ON, excepción/nominativa, wrong-account/change-account, pending/proof nueva/terminal, form secreto/sesión cambiada/provider down/quota/stale, CSV mixed y decisiones mixed. Verificar foco/helper/alert, limpieza de feedback/draft/progreso, cero escrituras por lectura y cero full refresh salvo excepción documentada de seguridad. Capturas usan datos sintéticos.
 
 ## 8. Ensayos Zavu autorizados
 

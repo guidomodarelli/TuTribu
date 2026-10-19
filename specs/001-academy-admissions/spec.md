@@ -170,7 +170,7 @@ Como líder quiero un asistente que me pida solo los datos necesarios y me diga 
 
 **Acceptance Scenarios**:
 
-1. **US-06-AC-01** — **Given** un líder activo con autenticación reciente, **When** agrega su clave, **Then** se almacena protegida y después solo se muestra una máscara, nunca la clave completa.
+1. **US-06-AC-01** — **Given** un líder activo con sesión activa que confirma explícitamente la acción, **When** agrega su clave, **Then** se almacena protegida y después solo se muestra una máscara, nunca la clave completa. *Reemplazado el 2026-10-19: la condición anterior de autenticación reciente se retiró; ver "Decisión 2026-10-19".*
 
 2. **US-06-AC-02** — **Given** credencial con acceso a varios remitentes, **When** carga las opciones, **Then** solo ve recursos de esa conexión y debe seleccionar explícitamente el remitente que se usará.
 
@@ -390,6 +390,21 @@ Como responsable de TuTribu quiero implementar Zavu ahora y poder incorporar otr
 | D-22 | El cierre por errores es selectivo: impide nuevos envíos requeridos, no destruye solicitudes, no revierte miembros y no invalida una prueba ya válida por una caída transitoria. |
 | D-23 | Se conserva acceso básico/comercial por separado y la distinción entre restricciones comerciales recuperables y bloqueos no recuperables. |
 | D-24 | Las duraciones, cuotas y objetivos de rendimiento son decisiones propuestas verificables, no tarifas ni garantías del proveedor. |
+| D-25 | Las operaciones sensibles se autorizan con la sesión activa del líder (o del guardián donde ese rol ya aplica), la autorización vigente y la confirmación explícita de la acción en la UI. No se pide volver a autenticarse con Google (decisión 2026-10-19). |
+
+### Decisión 2026-10-19: sesión activa y confirmación explícita para operaciones sensibles
+
+Decisión del dueño del producto. Reemplaza la decisión del 2026-10-18 (respuesta OAuth nueva de Google ligada a un intento con nonce y ventana de diez minutos) y la regla anterior de autenticación reciente; ambas quedan solo como antecedente histórico.
+
+- **Alcance**: ninguna operación sensible pide volver a autenticarse con Google. Incluye admisiones (preparar, guardar, activar y pausar reglas; avisos por correo; lista de habilitados; importación CSV; invitaciones personales; reintento anticipado), mensajería (guardar, comprobar, rotar y retirar la clave de Zavu; canales; diagnóstico; activar, suspender y desconectar; países y cupos; recuperación de avisos; conciliación) y ciclo de vida de tribu/academia (salir del modo academia, borrar la tribu).
+- **Modelo vigente**: alcanza con la sesión activa del líder (o del guardián donde ese rol ya estaba autorizado), su rol y estado actuales sobre la tribu/recurso y la confirmación explícita que cada acción ya tiene en la UI (casilla o diálogo de consentimiento, motivo, etc.). El servidor no exige evidencia reciente y la UI no ofrece ni pide confirmar la cuenta. Locks, CAS, idempotencia, consentimiento, auditoría y recuperación de respuestas perdidas no cambian.
+- **Credenciales de mensajería**: además debe existir el vínculo de sesión Google (`global_session_identity_bindings`), creado al iniciar sesión; si falta, la respuesta es `authentication_required` (no es una exigencia de recencia).
+- **Retirado**: la página `/auth/reauthenticate`, la API `/api/auth/reauthentication/intents` y todo el flujo de intents/nonce. OG-01 queda solo como evidencia de identidad base, capturada al iniciar sesión con Google.
+- **Compatibilidad**: `reauthentication_required` se conserva en uniones, esquemas, mapas HTTP y CHECK de auditoría de migraciones, pero ningún servidor lo emite; si la UI lo recibe de un servidor viejo lo muestra como error genérico ("Tu sesión cambió. Recargá la página e intentá de nuevo."). `REAUTHENTICATION_OPERATION`/`ReauthenticationOperation` no se renombran porque se persisten en auditorías: nombran el tipo de operación sensible que cada acción declara (`sensitiveOperation`); una acción que debe declararla y no lo hace recibe `invalid_input`.
+- **Datos**: `recent_authentication_evidence` y `global_reauthentication_intents` quedan sin uso; su borrado es una fase posterior y esta fase no tiene migración. Ninguna tabla de operaciones, ledger o auditoría guarda IDs de evidencia o intents.
+- **Verificación CSRF**: cada ruta sensible sigue aplicando `src/modules/shared/infrastructure/http/has-allowed-request-origin.ts`, directo o mediante `hasAllowedAdmissionOrigin`: política, lista de habilitados, importación, invitaciones personales, mutaciones de admisión (incluido el reintento), ajustes de avisos por correo, todos los handlers de mensajería (conexiones, configuración, validación de credenciales, diagnóstico, activación, ciclo de vida, uso, recuperación de avisos) y ciclo de vida de tribu. La conciliación de entregas (`ReconcileMessageDeliveryUseCase`) no tiene ruta HTTP pública. El guard acepta pedidos sin cabecera `Origin` (clientes que no son navegador); la autenticación sigue siendo obligatoria aparte.
+- **Riesgo aceptado**: una sesión robada del líder podría operar secretos y acciones sensibles (guardar o rotar la clave de Zavu, activar canales, borrar la tribu) sin otra barrera que la confirmación explícita de la UI. La mitigación queda en la vigencia e invalidación de la sesión, la cookie httpOnly/secure, el chequeo de origen (CSRF), el bloqueo por líder canónico y la auditoría.
+- **Elementos reemplazados**: FR-032, US-06-AC-01, la fila de autenticación reciente de "Valores predeterminados y límites" y la celda de credenciales de la matriz de permisos. T011, T031, T032 y T202 quedan retiradas en su alcance de recencia.
 
 ### Matriz de configuración y evidencia
 
@@ -454,7 +469,7 @@ Todas las facultades administrativas requieren rol y estado actuales. Una sesió
 | Configurar modalidad, check, canal, excepciones y apertura | Sí | No | No |
 | Gestionar lista completa e importaciones | Sí | No | No |
 | Emitir/revocar invitaciones | Sí | No | No |
-| Crear, probar, rotar, suspender o borrar credenciales | Sí, con autenticación reciente | No | No |
+| Crear, probar, rotar, suspender o borrar credenciales | Sí, con sesión activa y confirmación explícita de la acción (decisión 2026-10-19) | No | No |
 | Consultar metadatos de conexión y consumo | Sí, sin secreto | Solo alerta operativa mínima necesaria | No |
 | Consultar secreto completo después de guardarlo | No | No | No |
 | Ver bandeja y resolver solicitudes elegibles | Sí | Sí | Solo estado propio, no decisiones |
@@ -536,7 +551,7 @@ La gestión de una conexión no da permiso para enviar texto arbitrario a cualqu
 
 - **FR-031**: Cada tribu DEBE disponer de como máximo una conexión activa y una candidata. La conexión DEBE identificar proveedor, versión, estado, configuración no secreta y referencia protegida a su credencial.
 
-- **FR-032**: Solo el líder activo con confirmación reciente de su cuenta DEBE poder agregar, probar, reemplazar o retirar una credencial. La confirmación DEBE obtener una respuesta OAuth nueva de Google, firmada y ligada mediante nonce a la cuenta, sesión, tribu, operación y recurso del intento actual; DEBE vencer a los diez minutos desde su comprobación en el servidor. NO DEBE exigir salir de Google ni una fecha reciente de ingreso a la cuenta de Google. Google puede conservar su sesión y decidir si solicita contraseña o huella. Una cookie renovada, un callback sin nonce o un código BYOK de una tribu NO DEBEN confirmar la acción. El guardián revisor NO DEBE heredar esos permisos.
+- **FR-032**: Solo el líder activo, con sesión activa y vínculo de sesión Google creado al iniciar sesión, DEBE poder agregar, probar, reemplazar o retirar una credencial, y cada acción DEBE contar con la confirmación explícita que ofrece la UI (casilla o diálogo de consentimiento, motivo cuando corresponda). Si falta la sesión o su vínculo, la respuesta DEBE ser `authentication_required`. Un código BYOK de una tribu NO DEBE conceder autoridad. El guardián revisor NO DEBE heredar esos permisos. *Reemplazado el 2026-10-19: la versión anterior exigía una confirmación reciente de la cuenta con una respuesta OAuth nueva de Google ligada a un intento con nonce y vigente por diez minutos; ese requisito se retiró (ver "Decisión 2026-10-19").*
 
 - **FR-033**: El asistente DEBE mostrar únicamente los campos necesarios para las capacidades elegidas y los requisitos pendientes. Datos opcionales de marca NO DEBEN convertirse en requisitos para conectar.
 
@@ -874,7 +889,7 @@ Los límites siguientes son decisiones funcionales iniciales; no describen tarif
 | Validaciones de credenciales | Diez por hora por tribu; no deben generar mensajes facturables. |
 | Países de teléfono | Deben elegirse expresamente antes de activar teléfono. Lista inicial vacía; no envíos mundiales implícitos. |
 | Períodos de cuota diaria | Día UTC, explicado en pantalla; ventanas horarias móviles. No se reinician al editar configuración. |
-| Autenticación reciente para secretos/configuración sensible | Reautenticación global en los últimos diez minutos. No se sustituye por un código enviado con las credenciales del líder. |
+| Autorización para secretos/configuración sensible | Sesión activa del líder, autorización vigente y confirmación explícita de la acción. No se sustituye por un código enviado con las credenciales del líder. *Reemplazado el 2026-10-19: la ventana de diez minutos de autenticación reciente se retiró.* |
 | Prueba de conexión para activarla | Exitosa dentro de las últimas veinticuatro horas y ligada a la versión exacta de clave, remitente, canal y plantilla. |
 | Borrador/candidata sin activar | Expira después de siete días sin actividad; eliminar secreto temporal dentro de las veinticuatro horas siguientes. |
 | Correo de solicitudes, al habilitarlo | Líder agrupado cada cinco minutos; guardianes omitido. Preferencias individual/agrupado/diario/omitido. |

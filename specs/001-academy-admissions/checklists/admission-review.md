@@ -29,7 +29,7 @@ Marcar una casilla acredita revisión del requisito, no implementación ni ejecu
 
 ## Conexión y asistente de Zavu
 
-- [X] Solo líder activo con autenticación reciente puede gestionar credenciales y pruebas. [FR-032]
+- [X] Solo líder activo con sesión activa y confirmación explícita de la acción puede gestionar credenciales y pruebas. [FR-032] *(Reemplazado el 2026-10-19: antes exigía autenticación reciente.)*
 - [X] La API key se valida realmente; formato correcto no equivale a credencial operativa. [FR-034]
 - [X] El remitente es explícito por canal; las listas paginadas no omiten recursos y no devuelven DTOs con secretos. [FR-035, FR-036, FR-136]
 - [X] Correo exige preparación de dominio/remitente; WhatsApp, plantilla de autenticación/idioma; SMS, capacidad/destinos permitidos. [FR-036, FR-070]

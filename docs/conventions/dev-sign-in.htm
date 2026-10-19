@@ -45,7 +45,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">01</div>
   <div class="section-title">Overview</div>
 <p>Google OAuth es una redirección del navegador hacia Google y de vuelta al callback de Better Auth: no se puede simular con MSW como los proveedores server-side (los mocks de <code>MOCK_EXTERNAL_APIS</code>). Para trabajar en local sin cuenta de Google, sin red hacia Google o con la base de una branch sandbox de Neon, el servidor de desarrollo puede registrar el método email y contraseña de Better Auth para un único usuario de prueba.</p>
-<p>La sesión que crea es una sesión real de Better Auth: usa la misma tabla <code>session</code>, cookie y renovación. La aplicación la consulta con el mismo contrato de sesión. Las acciones sensibles de admisión siguen comprobando por separado la cuenta y la autenticación reciente de Google; una credencial de desarrollo no acredita esas pruebas.</p>
+<p>La sesión que crea es una sesión real de Better Auth: usa la misma tabla <code>session</code>, cookie y renovación. La aplicación la consulta con el mismo contrato de sesión. Desde la decisión del 2026-10-19, las acciones sensibles de admisión, mensajería y ciclo de vida de la tribu no piden volver a autenticarse: exigen la sesión activa, la autorización vigente y la confirmación explícita de cada acción. Las operaciones con credenciales de mensajería requieren además la cuenta Google y el vínculo de sesión (<code>global_session_identity_bindings</code>) que se crea al iniciar sesión con Google; una sesión de la credencial de desarrollo no lo tiene, por lo que esas operaciones responden <code>authentication_required</code>.</p>
 </div>
 
 <div class="section">
