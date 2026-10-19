@@ -1,5 +1,4 @@
 @use "../src/styles/motion";
-@use "../src/styles/action-link";
 
 @include motion.define-keyframes;
 
@@ -102,14 +101,4 @@
       width: 100%;
     }
   }
-}
-
-// Navigation styled as an Arc secondary button.
-.NotFoundPage__signInLink {
-  @include action-link.action-link(secondary, lg);
-}
-
-// Navigation styled as an Arc primary button.
-.NotFoundPage__homeLink {
-  @include action-link.action-link(primary, lg);
 }

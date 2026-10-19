@@ -1,5 +1,4 @@
 @use "../../../src/styles/motion";
-@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
@@ -57,9 +56,4 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-}
-
-// Navigation styled as an Arc primary button.
-.TribeCreationBlocked__contact {
-  @include action-link.action-link(primary, md);
 }

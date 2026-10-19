@@ -24,7 +24,7 @@ import {
   VideoIcon,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { toast, Button, Input, Select, type SelectOption, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, cn } from "@astra-kit/ui";
+import { toast, Button, Input, Select, type SelectOption, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, AnimatedCount, AnimatedListItem, buttonClassName, cn } from "@astra-kit/ui";
 
 
 
@@ -494,7 +494,7 @@ type ImageUploadButtonProps = {
  */
 function ImageUploadButton({ isUploading, onFileSelected }: ImageUploadButtonProps) {
   return (
-    <label className={styles.TribeStoryManagement__uploadButton} data-disabled={isUploading ? true : undefined}>
+    <label className={buttonClassName({ variant: "secondary", className: styles.TribeStoryManagement__uploadButton })} data-disabled={isUploading ? true : undefined}>
         <UploadIcon />
         {isUploading
           ? TRIBE_STORY_MANAGEMENT_COPY.uploadingButton

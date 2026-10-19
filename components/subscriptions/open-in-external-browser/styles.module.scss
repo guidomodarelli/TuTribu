@@ -1,5 +1,4 @@
 @use "../../../src/styles/motion";
-@use "../../../src/styles/action-link";
 
 // The handoff renders inside the platform layout, below its sticky header and
 // inside the main padding, so a full `100svh` here overshoots the viewport and
@@ -136,9 +135,4 @@ $open-in-external-browser-layout-padding: clamp(1rem, 3vw, 2rem);
       outline-offset: 2px;
     }
   }
-}
-
-// Navigation styled as an Arc primary button.
-.OpenInExternalBrowser__primaryAction {
-  @include action-link.action-link(primary, lg);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, PresenceSwap } from "@astra-kit/ui";
+import { Button, PresenceSwap, buttonClassName } from "@astra-kit/ui";
 
 import { TribeEventAttendanceOptions } from "@/components/events/tribe-event-attendance-options";
 import { TribeEventAttendanceSummary } from "@/components/events/tribe-event-attendance-summary";
@@ -45,6 +45,8 @@ const BUTTON_ATTRIBUTE = {
   typeButton: "button",
   variantGhost: "ghost",
 } as const;
+/** The meeting URL is external, so the join action stays an `<a>` with the button look. */
+const JOIN_LINK_CLASS_NAME = buttonClassName({ size: BUTTON_ATTRIBUTE.sizeSmall });
 const LINK_ATTRIBUTE = {
   noreferrer: "noreferrer",
   targetBlank: "_blank",
@@ -137,7 +139,7 @@ export function TribeNextEvent({
       </div>
       <div className={styles.TribeNextEvent__actions}>
         {joinUrl ? (
-          <a className={styles.TribeNextEvent__join} href={joinUrl} rel={LINK_ATTRIBUTE.noreferrer} target={LINK_ATTRIBUTE.targetBlank}>
+          <a className={JOIN_LINK_CLASS_NAME} href={joinUrl} rel={LINK_ATTRIBUTE.noreferrer} target={LINK_ATTRIBUTE.targetBlank}>
               {COPY.join}
             </a>
         ) : null}

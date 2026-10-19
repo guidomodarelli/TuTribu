@@ -1,4 +1,4 @@
-import { Link } from "@/components/navigation/link";
+import { ButtonLink } from "@/components/navigation/link";
 import { siteConfig } from "@/lib/site-config";
 import styles from "./styles.module.scss";
 
@@ -32,11 +32,11 @@ export function TribeCreationBlocked({
         </p>
 
         {contactEmail ? (
-          <Link className={styles.TribeCreationBlocked__contact} href={MAILTO_PROTOCOL + contactEmail}>
-              <span className={styles.TribeCreationBlocked__contactLabel}>
-                Escribir a {contactEmail}
-              </span>
-            </Link>
+          <ButtonLink className={styles.TribeCreationBlocked__contact} href={MAILTO_PROTOCOL + contactEmail}>
+            <span className={styles.TribeCreationBlocked__contactLabel}>
+              Escribir a {contactEmail}
+            </span>
+          </ButtonLink>
         ) : (
           <p className={styles.TribeCreationBlocked__note}>
             Contacta al equipo de {siteConfig.name} para pedir habilitación.

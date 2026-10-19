@@ -1,5 +1,4 @@
 @use "../../../src/styles/motion";
-@use "../../../src/styles/action-link";
 
 @include motion.define-keyframes;
 
@@ -227,9 +226,4 @@ $tribe-story-about-fact-count: 6;
     white-space: nowrap;
     width: 1px;
   }
-}
-
-// Navigation styled as an Arc primary button.
-.TribeStoryAbout__joinButton {
-  @include action-link.action-link(primary, md);
 }

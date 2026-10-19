@@ -80,7 +80,7 @@ code{font-family:'DM Mono',monospace;background:#f0ede6;padding:1px 5px;border-r
   <div class="section-num">05</div>
   <div class="section-title">Notes</div>
 <ul>
-  <li>Reenvía la <code>ref</code> al ancla, así que funciona dentro de componentes que necesitan un elemento enfocable (por ejemplo, el <code>trigger</code> de <code>DropdownMenu</code>). <code>Button</code> de @astra-kit/ui no tiene <code>asChild</code>: un enlace con aspecto de botón sigue siendo <code>Link</code>, con el mixin <code>action-link</code> de <code>src/styles/_action-link.scss</code>.</li>
+  <li>Reenvía la <code>ref</code> al ancla, así que funciona dentro de componentes que necesitan un elemento enfocable (por ejemplo, el <code>trigger</code> de <code>DropdownMenu</code>). <code>Button</code> de @astra-kit/ui no tiene <code>asChild</code>: un enlace interno con aspecto de botón es <code>ButtonLink</code>, que el wrapper reexporta junto a <code>Link</code>. Renderiza el mismo <code>Link</code> del provider, así que conserva el adaptador de Next y <code>prefetch</code> desactivado por defecto; acepta <code>variant</code>, <code>size</code> y todas las props de <code>Link</code>, incluida <code>prefetch</code>. Un <code>&lt;a&gt;</code> externo o una descarga usa <code>buttonClassName({ variant, size, className })</code> de @astra-kit/ui.</li>
   <li>El cambio de comportamiento (prefetch por defecto) vive en un solo lugar, así que ajustarlo a futuro no requiere tocar cada uso.</li>
 </ul>
 </div>

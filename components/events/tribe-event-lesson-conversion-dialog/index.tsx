@@ -4,7 +4,7 @@ import { type FormEvent, useState } from "react";
 
 import { Button, Dialog, DialogContent, Input, Select, Textarea, AnimatedCollapse, PresenceSwap } from "@astra-kit/ui";
 
-import { Link } from "@/components/navigation/link";
+import { ButtonLink } from "@/components/navigation/link";
 import {
   TRIBE_EVENT_POST_EVENT_LOAD_STATUS,
   type TribeEventOnDemandLoadState,
@@ -224,7 +224,7 @@ export function TribeEventLessonConversionDialog({
             <Button type={BUTTON_ATTRIBUTE.typeButton} variant={BUTTON_ATTRIBUTE.variantGhost} onClick={onClose}>
               {COPY.closeButton}
             </Button>
-            <Link className={styles.TribeEventLessonConversionDialog__actionLink} href={convertedLesson.lesson.href}>{COPY.openLesson}</Link>
+            <ButtonLink href={convertedLesson.lesson.href}>{COPY.openLesson}</ButtonLink>
           </div>
         </div>
       );

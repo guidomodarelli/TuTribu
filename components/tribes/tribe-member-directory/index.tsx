@@ -3,7 +3,7 @@
 import { DownloadIcon } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
-import { Link } from "@/components/navigation/link";
+import { ButtonLink } from "@/components/navigation/link";
 import {
   TribeMemberList,
   type TribeMemberSelectionBadge,
@@ -292,9 +292,9 @@ export function TribeMemberDirectory({
             />
           ) : null}
           {canInviteMembers ? (
-            <Link className={styles.TribeMemberDirectory__inviteCta} href={invitationsHref}>
+            <ButtonLink className={styles.TribeMemberDirectory__inviteCta} href={invitationsHref} size="sm">
               {TRIBE_MEMBER_DIRECTORY_COPY.inviteCtaLabel}
-            </Link>
+            </ButtonLink>
           ) : null}
         </div>
       </header>
