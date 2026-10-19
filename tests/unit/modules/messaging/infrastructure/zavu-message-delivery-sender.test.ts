@@ -104,6 +104,26 @@ describe("real SDK message sender", () => {
     expect(transport.receipts).toHaveLength(1);
   });
 
+  it("should recover the original receipt from a 409 that returns this exact intent's message, without another request", async () => {
+    const fixture = preparedFixture(), providerMessageId = randomUUID(), intent = fixture.prepared.intent;
+    const transport = createAdmissionProviderTransport([{ origin: "https://api.zavu.dev", pathname: "/v1/messages", method: "POST", respond: () => Response.json({ message: { id: providerMessageId, direction: "outbound", channel: intent.channel, senderId: intent.senderId, to: intent.recipient.toUpperCase(), status: "delivered" } }, { status: 409 }) }]);
+    const sender = new ZavuMessageDeliverySender({ prepare: async () => fixture.prepared }, transport.fetch);
+    await expect(sender.send(fixture.context, new AbortController().signal)).resolves.toMatchObject({ outcome: "delivered", providerMessageId, reason: "provider_delivered" });
+    expect(transport.receipts).toHaveLength(1);
+  });
+
+  it.each([
+    { name: "another sender", patch: { senderId: "other-sender" } },
+    { name: "another recipient", patch: { to: "otra-persona@example.test" } },
+    { name: "an inbound message", patch: { direction: "inbound" } },
+  ])("should keep a 409 unknown when its message belongs to $name", async ({ patch }) => {
+    const fixture = preparedFixture(), intent = fixture.prepared.intent;
+    const transport = createAdmissionProviderTransport([{ origin: "https://api.zavu.dev", pathname: "/v1/messages", method: "POST", respond: () => Response.json({ message: { id: randomUUID(), direction: "outbound", channel: intent.channel, senderId: intent.senderId, to: intent.recipient, status: "delivered", ...patch } }, { status: 409 }) }]);
+    const sender = new ZavuMessageDeliverySender({ prepare: async () => fixture.prepared }, transport.fetch);
+    await expect(sender.send(fixture.context, new AbortController().signal)).resolves.toMatchObject({ outcome: "unknown", reason: "delivery_unknown", providerMessageId: null });
+    expect(transport.receipts).toHaveLength(1);
+  });
+
   it("should keep two interleaved keys/senders isolated even when a global SDK header override exists", async () => {
     const first = preparedFixture(), second = preparedFixture();
     const previousHeaders = process.env.ZAVUDEV_CUSTOM_HEADERS;
