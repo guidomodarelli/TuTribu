@@ -167,8 +167,8 @@ importers:
   .:
     dependencies:
       '@astra-kit/ui':
-        specifier: ^1.1.0
-        version: 1.1.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^1.2.1
+        version: 1.2.1(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@aws-sdk/client-s3':
         specifier: ^3.1063.0
         version: 3.1063.0
@@ -413,8 +413,8 @@ packages:
     engines: {node: '>=22'}
     hasBin: true
 
-  '@astra-kit/ui@1.1.0':
-    resolution: {integrity: sha512-YTcTTGHwyLVtzseD+b5K/+3Kw/NTy476t8oeTfJat8AhvmT2bxNKqy2oQ9rjAzV7uwwGMKf/WDvwF6/H1jOcoQ==}
+  '@astra-kit/ui@1.2.1':
+    resolution: {integrity: sha512-GtL/sN9SNGCaEzR9R6OpiLcmu168sw9ScFlrbYRXzjHxg9SOx6/r1xACtd1xnk+878hzTepnH+tKuNvCVmVoog==}
     engines: {node: '>=22', pnpm: '>=12 <13'}
     peerDependencies:
       '@tanstack/react-router': ^1.170.33
@@ -6166,7 +6166,7 @@ snapshots:
 
   '@astra-kit/rp@1.0.0': {}
 
-  '@astra-kit/ui@1.1.0(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@astra-kit/ui@1.2.1(@date-fns/tz@1.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(date-fns@4.4.0)(lucide-react@1.16.0(react@19.3.0))(next@16.3.4(@babel/core@7.29.0(supports-color@10.2.2))(@playwright/test@1.60.0)(@types/node@24.13.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(sass@1.100.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@base-ui/react': 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-table': 8.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

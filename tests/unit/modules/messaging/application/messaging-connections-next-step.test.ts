@@ -17,12 +17,16 @@ describe("messaging connections next step",()=>{
     expect(resolveMessagingConnectionsNextStep({selected:null,candidate:connection({credentialState:"not_validated",capabilities:[]})})).toBe("validateCredential");
     expect(resolveMessagingConnectionsNextStep({selected:null,candidate:connection({credentialState:"invalid"})})).toBe("validateCredential");
   });
-  it("should send to Channels when nothing is prepared or a channel became unavailable",()=>{
+  it("should send to Channels when no channel is usable",()=>{
     expect(resolveMessagingConnectionsNextStep({selected:null,candidate:connection({capabilities:[]})})).toBe("prepareChannel");
     expect(resolveMessagingConnectionsNextStep({selected:null,candidate:connection({capabilities:[{channel:"sms",state:"unavailable",checkedAt:now,testedAt:null}]})})).toBe("prepareChannel");
   });
   it("should send to Tests while a configured channel has no confirmed code",()=>{
     expect(resolveMessagingConnectionsNextStep({selected:null,candidate:connection({capabilities:[{channel:"email",state:"prepared",checkedAt:now,testedAt:now},{channel:"sms",state:"unprepared",checkedAt:now,testedAt:null}]})})).toBe("testChannel");
+  });
+  it("should not hold usable channels back because another channel became unavailable",()=>{
+    expect(resolveMessagingConnectionsNextStep({selected:null,candidate:connection({capabilities:[{channel:"email",state:"unprepared",checkedAt:now,testedAt:null},{channel:"sms",state:"unavailable",checkedAt:now,testedAt:null}]})})).toBe("testChannel");
+    expect(resolveMessagingConnectionsNextStep({selected:null,candidate:connection({capabilities:[{channel:"email",state:"prepared",checkedAt:now,testedAt:now},{channel:"sms",state:"unavailable",checkedAt:now,testedAt:null}]})})).toBe("activate");
   });
   it("should propose activation only for a tested candidate that is not already the exact selection",()=>{
     const candidate=connection();

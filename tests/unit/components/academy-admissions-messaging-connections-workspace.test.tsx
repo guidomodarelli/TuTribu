@@ -1,4 +1,4 @@
-/** Exercises the connection workspace summary, next step and tabs with real shared UI and controlled props. @module messaging-connections-workspace-tests */
+/** Exercises the connection workspace summary, next step and stepper with real shared UI and controlled props. @module messaging-connections-workspace-tests */
 import {render,screen,waitFor,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {describe,expect,it,vi} from "vitest";
@@ -22,17 +22,23 @@ describe("messaging connections workspace",()=>{
     expect(screen.getByText("Enviá una prueba y confirmá el código recibido.")).toBeVisible();
     await user.click(screen.getByRole("button",{name:"Ir a Pruebas"}));expect(props.onTabChange).toHaveBeenCalledWith("tests");
   });
-  it("should offer the four workflow tabs plus security and render only the active step",async()=>{
+  it("should show progress in a stepper, open completed steps from it and keep Security as a separate action",async()=>{
     const props=workspaceProps(),user=userEvent.setup();render(<MessagingConnectionsWorkspace {...props} />);
-    expect(screen.getAllByRole("tab").map((tab)=>tab.textContent)).toEqual(["Conexión","Canales","Pruebas","Activación","Seguridad"]);
-    expect(screen.getByText("Panel de conexión")).toBeVisible();expect(screen.queryByText("Panel de pruebas")).not.toBeInTheDocument();expect(screen.getByText("Panel de seguridad")).not.toBeVisible();
-    await user.click(screen.getByRole("tab",{name:"Activación"}));expect(props.onTabChange).toHaveBeenCalledWith("activation");expect(props.onReadCurrent).not.toHaveBeenCalled();
+    const stepper=screen.getByRole("navigation",{name:"Pasos de la conexión"});
+    const steps=within(stepper).getAllByRole("button");
+    expect(steps.map((step)=>step.textContent?.match(/Conexión|Canales|Pruebas|Activación/)?.[0])).toEqual(["Conexión","Canales","Pruebas","Activación"]);
+    expect(within(stepper).getByRole("button",{name:/^Pruebas/})).toHaveAttribute("aria-current","step");
+    expect(within(stepper).getByRole("button",{name:/^Activación/})).toHaveAttribute("aria-disabled","true");
+    expect(screen.getByRole("region",{name:"Conexión"})).toBeVisible();expect(screen.queryByRole("region",{name:"Pruebas"})).not.toBeInTheDocument();expect(screen.getByText("Panel de seguridad")).not.toBeVisible();
+    await user.click(within(stepper).getByRole("button",{name:/^Canales/}));expect(props.onTabChange).toHaveBeenCalledWith("channels");
+    await user.click(within(stepper).getByRole("button",{name:/^Activación/}));expect(props.onTabChange).not.toHaveBeenCalledWith("activation");
+    await user.click(screen.getByRole("button",{name:"Seguridad y retiro"}));expect(props.onTabChange).toHaveBeenCalledWith("security");expect(props.onReadCurrent).not.toHaveBeenCalled();
   });
   it("should explain a step that needs a candidate instead of showing an empty form",async()=>{
     const props=workspaceProps(),user=userEvent.setup();render(<MessagingConnectionsWorkspace {...props} candidate={null} nextStep="saveCandidate" activeTab="channels" panels={{...props.panels,channels:null}} />);
     expect(screen.getByText("Todavía no hay conexiones guardadas.")).toBeVisible();
     await waitFor(()=>expect(screen.getByText(/Este paso necesita una conexión candidata/)).toBeVisible(),{timeout:5000});
-    await user.click(within(screen.getByRole("tabpanel",{name:"Canales"})).getByRole("button",{name:"Ir a Conexión"}));expect(props.onTabChange).toHaveBeenCalledWith("connection");
+    await user.click(within(screen.getByRole("region",{name:"Canales"})).getByRole("button",{name:"Ir a Conexión"}));expect(props.onTabChange).toHaveBeenCalledWith("connection");
   });
   it("should announce feedback by severity and keep pending recovery above the tabs",()=>{
     const props=workspaceProps(),view=render(<MessagingConnectionsWorkspace {...props} message={{kind:"alert",text:"No pudimos confirmar la prueba."}} attention={<button type="button">Consultar guardado</button>} />);
@@ -41,7 +47,7 @@ describe("messaging connections workspace",()=>{
   });
   it("should place the result and the Google continuation inside the active step, next to the action that produced them",()=>{
     const props=workspaceProps();render(<MessagingConnectionsWorkspace {...props} activeTab="tests" message={{kind:"status",text:"La confirmación está preparada. Continuá con Google."}} messageAction={<Link href="/auth/reauthenticate">Continuar con Google</Link>} />);
-    const panel=screen.getByRole("tabpanel",{name:"Pruebas"});
+    const panel=screen.getByRole("region",{name:"Pruebas"});
     expect(within(panel).getByRole("status")).toHaveTextContent("La confirmación está preparada.");expect(within(panel).getByRole("link",{name:"Continuar con Google"})).toBeVisible();expect(screen.getAllByRole("link",{name:"Continuar con Google"})).toHaveLength(1);
   });
   it("should show a calm completed state when the candidate is already the selection",()=>{

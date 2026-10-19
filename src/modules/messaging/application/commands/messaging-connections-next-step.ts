@@ -11,7 +11,8 @@ export function resolveMessagingConnectionsNextStep(connections:{selected:Messag
   const{candidate,selected}=connections;
   if(!candidate)return MESSAGING_CONNECTIONS_NEXT_STEP.saveCandidate;
   if(candidate.credentialState!==MESSAGING_CREDENTIAL_PUBLIC_STATE.valid)return MESSAGING_CONNECTIONS_NEXT_STEP.validateCredential;
-  if(candidate.capabilities.length===0||candidate.capabilities.some((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.unavailable))return MESSAGING_CONNECTIONS_NEXT_STEP.prepareChannel;
-  if(candidate.capabilities.some((capability)=>capability.state!==MESSAGING_CAPABILITY_PUBLIC_STATE.prepared))return MESSAGING_CONNECTIONS_NEXT_STEP.testChannel;
+  // At least one usable channel moves the candidate on, as the copy says; an unavailable extra channel does not hold the others back.
+  if(candidate.capabilities.every((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.unavailable))return MESSAGING_CONNECTIONS_NEXT_STEP.prepareChannel;
+  if(candidate.capabilities.some((capability)=>capability.state===MESSAGING_CAPABILITY_PUBLIC_STATE.unprepared))return MESSAGING_CONNECTIONS_NEXT_STEP.testChannel;
   return selected?.id===candidate.id&&selected.configurationVersion===candidate.configurationVersion?MESSAGING_CONNECTIONS_NEXT_STEP.active:MESSAGING_CONNECTIONS_NEXT_STEP.activate;
 }
