@@ -1,6 +1,6 @@
 # Interfaz y accesibilidad de admisiones
 
-T198 y T208 siguen pendientes. Las comprobaciones de DOM, teclado y efectos SQL no sustituyen la observación de un lector de pantalla del sistema operativo.
+T198 y T208 conservan pendiente su auditoría integral. El último ensayo con Orca aprobó las ocho superficies de cancelación propia y aprobación individual descritas al final. Las comprobaciones de DOM, teclado y efectos SQL se mantienen separadas de la observación del lector de pantalla del sistema operativo.
 
 ## Ensayo con NVDA y defecto observado
 
@@ -31,3 +31,9 @@ T198/T208 permanecen abiertas: cuatro superficies de Chromium observadas no comp
 ## Contraste posterior en Linux
 
 El [ensayo real con Orca 51.1](linux-reader-product-journeys.md#resultado-del-contraste-de-transición), sobre `cfc3a631`, completó también las superficies pública y administrativa de Chromium a 390/1280, con voz/PCM y los dos hitos de efectos SQL confirmados. La espera acotada conservó los criterios de foco y permitió completar la revisión administrativa. WebKit siguió sin el anuncio dinámico en ambos tamaños; el caso agregado terminó fallido, sin omisiones y con retiro de sus recursos confirmado. Las cuatro superficies de Chromium y las ocho variantes del canario tienen recibos separados; ninguna se presenta como la matriz completa de producto. T198/T208 siguen abiertas.
+
+## Matriz completa del lector después de corregir el foco
+
+La [repetición sobre `1e32976d`](linux-reader-product-journeys.md#ocho-superficies-aprobadas-después-de-corregir-el-foco) aprobó su caso completo, sin fallos ni omisiones: ocho superficies de cancelación propia y aprobación individual en Chromium/WebKit, a 390/1280 px, con voz de Orca y PCM reales. Los cuatro pares confirmaron sus efectos SQL y cero entregas. El perfil GSettings se acredita mediante el log del job; el campo histórico de proyección falso se conserva y se explica por separado. Clave, secreto, variables y rama temporal retirados, cuatro ramas persistentes preservadas.
+
+Esta evidencia resuelve la falta de anuncios de esos recorridos en WebKit. No convierte los ensayos anteriores fallidos en aprobados ni acredita dispositivos móviles físicos. El código de producto, esquema y dependencias del ensayo coincide con el árbol integrado `e381b383`; la auditoría de los demás estados, permisos y recorridos exigidos por T198/T208 sigue pendiente.

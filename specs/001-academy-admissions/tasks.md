@@ -1538,6 +1538,8 @@ La [auditoría integral US12/SC-020](validation/provider-substitution-integral.m
 
 Avance T198/T208: [teclado administrativo y recuperación del original](validation/admission-keyboard-review-baseline.md). El caso canónico nuevo pasa los cuatro proyectos reales Chromium/WebKit a 390/1280 con 3.626 inputs y dos helpers estables: selección por Tab/Space/Enter, lote mixto, respuesta perdida tras commit, recarga, GET original y lista fallida, sin duplicación ni refresh RSC adicional. SQL confirma efectos y cero entregas; el árbol accesible conserva resúmenes y nombres sin valores privados. No equivale a un lector de sistema operativo ni al cierre de toda la feature; ambos criterios y el inventario de tareas permanecen pendientes.
 
+Avance posterior T198/T208: el [lector real con el foco corregido](validation/linux-reader-product-journeys.md#ocho-superficies-aprobadas-después-de-corregir-el-foco) aprobó un caso completo, sin fallos ni omisiones, con ocho superficies Chromium/WebKit a 390/1280. Orca anunció cancelación y aprobación con PCM real; los cuatro pares confirmaron efectos SQL y cero entregas. Se retiraron los recursos temporales y se conservaron las cuatro ramas persistentes. Se acredita esa matriz de lector; la auditoría de los demás estados y recorridos de la feature conserva ambas tareas pendientes.
+
 <a id="t199"></a>
 
 - [x] T199 [P] Reproducir restore de copia aislada con keys/época fuera de snapshot, todos los drivers cerrados/recovery lock, secret retirado y outbox/pruebas antiguos; cero decrypt/dispatch/admisión abierta hasta reconexión/policy válida. Web Crypto/DB reales. Archivos: `tests/unit/modules/messaging/infrastructure/messaging-restore-safety.test.ts`. Trazabilidad: `FR-053`, `FR-056`, `FR-132`, `US-10-AC-06`, `TC-014`, `RG-04`, `RG-07`, `OG-02`.
@@ -1567,6 +1569,8 @@ Avance de T201/T203: la [composición separada de seeders y Vitest](validation/k
 <a id="t202"></a>
 
 - [ ] T202 Comprobar con cuentas/proyecto Google preparados la captura firmada Gmail/Workspace/external y auth_time reciente/missing/stale, nonce/session/scope y Node/Workers reales; registrar OG-01 sin cambiar OAuth/contratar/preparar proyecto sin autorización. Si falta claim/cliente, cerrar solo operaciones sensibles y conservar login; no agregar factor por inferencia. Archivos: `specs/001-academy-admissions/validation/google-authentication.md`. Dependencias: `T032`, `T033`, `T197`. Trazabilidad: `TC-008`, `OG-01`.
+
+El [análisis del recorrido Google](validation/google-authentication.md) registra el límite documentado del proveedor: no permite forzar una nueva autenticación de la cuenta y `prompt:consent` puede conservar `auth_time` anterior. Se planteó al usuario cambiar a una confirmación OAuth sin cerrar sesión o definir un autenticador propio. La decisión sigue pendiente; no se debilita la regla actual ni se añade un factor. La salida global de Google deja de usarse como workaround del agente, aunque la interfaz y el manual aún requieren conciliarse con el flujo elegido.
 
 <a id="t203"></a>
 
