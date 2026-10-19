@@ -624,7 +624,7 @@ Países/cupos backend T087 y formulario T088 preceden al diagnóstico T089 de US
 | <a id="t198"></a>[T198](tasks.md#t198) | E2E / UI | `tests/e2e/academy-admissions.spec.ts`; `tests/unit/components/academy-admissions.test.tsx`; `playwright.admissions.config.ts` | Pendiente de ejecución |
 | <a id="t199"></a>[T199](tasks.md#t199) | integración SQL / crypto / recovery | `tests/unit/modules/messaging/infrastructure/messaging-restore-safety.test.ts` | Pendiente de ejecución |
 | <a id="t200"></a>[T200](tasks.md#t200) | carga funcional / SQL | `tests/performance/academy-admissions.performance.test.ts` | Pendiente de ejecución |
-| <a id="t202"></a>[T202](tasks.md#t202) | ensayo global auth autorizado | `specs/001-academy-admissions/validation/google-authentication.md` | Pendiente de ejecución |
+| <a id="t202"></a>[T202](tasks.md#t202) | ensayo global auth autorizado | `specs/001-academy-admissions/validation/google-authentication.md` | Completa con Gmail sobre Node; Workspace, externa y Workers fuera de alcance (2026-10-19) |
 | <a id="t203"></a>[T203](tasks.md#t203) | ensayo restore / runtime | `specs/001-academy-admissions/validation/keyrings-and-restore.md` | Completa en Node; Workers retirado del alcance por el usuario (2026-10-19) |
 | <a id="t204"></a>[T204](tasks.md#t204) | ensayo externo autorizado | `specs/001-academy-admissions/validation/zavu-channels.md` | Pendiente de ejecución |
 | <a id="t205"></a>[T205](tasks.md#t205) | ensayo externo idempotencia | `specs/001-academy-admissions/validation/zavu-idempotency.md` | Pendiente de ejecución |
@@ -639,7 +639,7 @@ Países/cupos backend T087 y formulario T088 preceden al diagnóstico T089 de US
 
 | ID | Construcción | Pruebas / ensayo | Estado |
 | --- | --- | --- | --- |
-| OG-01 | [T029](tasks.md#t029), [T030](tasks.md#t030), [T031](tasks.md#t031) | [T010](#t010), [T011](#t011), [T202](#t202) | Pendiente; no acredita recursos/autorización |
+| OG-01 | [T029](tasks.md#t029), [T030](tasks.md#t030), [T031](tasks.md#t031) | [T010](#t010), [T011](#t011), [T202](#t202) | Acreditado con Gmail sobre Node; Workspace, externa y Workers fuera de alcance (2026-10-19) |
 | OG-02 | [T034](tasks.md#t034), [T035](tasks.md#t035), [T201](tasks.md#t201) | [T012](#t012), [T199](#t199), [T203](#t203) | Acreditado en Node; Workers retirado del alcance por el usuario (2026-10-19) |
 | OG-03 | [T082](tasks.md#t082), [T083](tasks.md#t083), [T089](tasks.md#t089), [T087](tasks.md#t087), [T088](tasks.md#t088) | [T204](#t204), [T079](#t079), [T080](#t080) | Pendiente; no acredita recursos/autorización |
 | OG-04 | [T042](tasks.md#t042), [T139](tasks.md#t139) | [T205](#t205) | Pendiente; no acredita recursos/autorización |

@@ -44,6 +44,10 @@ Después se recuperó el guardado original de países y cupos. La aplicación co
 
 Esta observación acredita el recorrido de la cuenta real de ese piloto. No completa la matriz Gmail/Workspace/external, Workers, preparación de canales, recepción de códigos ni otros gates; T202 y OG-01 siguen pendientes.
 
+## Alcance final
+
+El 2026-10-19 el usuario retiró de esta validación las cuentas Workspace y externa, y el target Workers. Con ese alcance, la cuenta Gmail del piloto real sobre Node y las suites que cubren `auth_time` antiguo o ausente, nonce de un uso, sesión, ámbito, fechas e intención acreditan T202 y OG-01. Workspace, cuentas externas y Workers no quedan validados por esta decisión.
+
 ## Cierre del incremento y documentación
 
 El código está guardado en `6d3b04de40044eb11164cc6634afbe2457735270`; el [Quality gate del mismo commit](https://github.com/guidomodarelli/TuTribu/actions/runs/39180912178) terminó aprobado. La fuente de ejecución del recibo coincide con ese código y el piloto usa su compilación desde el checkout principal. El worktree previo de foco quedó archivado de forma recuperable después de verificar que estaba limpio, integrado y sin consumidores de runtime; el piloto y el proxy compartido se conservaron.
