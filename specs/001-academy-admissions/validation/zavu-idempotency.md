@@ -27,9 +27,13 @@ Conclusiones verificadas:
 
 `ZavuMessageDeliveryTransport` clasificaba cualquier 409 como `unknown` sin ID. Ahora, si el 409 trae el mensaje original de este mismo intento (salida, canal, remitente y destinatario; el correo se compara sin distinguir mayúsculas), conserva su ID y clasifica su estado igual que una respuesta exitosa. Un 409 sin mensaje correlacionable sigue `unknown`. El producto sigue sin reenviar automáticamente: el 409 sólo aparece en una continuación explícita del mismo intento original. Tres casos con el SDK real sobre transporte HTTP cerrado cubren la recuperación y los rechazos por otro remitente, otro destinatario y mensaje entrante.
 
-## Ventana y alcance
+## Ventana
 
-La repetición de la segunda clave a los 30 minutos se registra en la sección siguiente. No se midió el límite superior de la ventana ni el alcance entre credenciales o proyectos: el usuario decidió no crear una segunda conexión de Zavu. Hasta medirlo, una clave no se considera válida por un tiempo fijo y el producto no inventa un TTL.
+La segunda clave se envió a las 12:09 UTC del 2026-10-19 y se repitió a las 12:40:21 UTC, unos 31 minutos después, con el mismo payload y con el payload distinto. Las dos repeticiones respondieron 409 con el mensaje original completo (mismo hash de ID, estado `delivered`) y no hubo envío nuevo: la deduplicación se sostiene al menos 31 minutos.
+
+## Alcance no medido
+
+No se midió el límite superior de la ventana ni el alcance entre credenciales o proyectos: el usuario decidió no crear una segunda conexión de Zavu. Por eso el producto no asume un TTL: un 409 sólo se reconoce cuando trae el mensaje correlacionado del mismo intento, y fuera de ese caso la entrega sigue `unknown` sin rePOST automático.
 
 ## Consumo
 

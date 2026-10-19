@@ -1582,7 +1582,9 @@ El [análisis del recorrido Google](validation/google-authentication.md) registr
 
 <a id="t205"></a>
 
-- [ ] T205 Ensayar solo con pagador autorizado ventana/scope/mismo payload/payload distinto/409 original y consulta por ID propio; registrar versión y límites comprobados para OG-04. Hasta probarlos seguir unknown sin rePOST automático, sin TTL inventado ni listar historial completo. Archivos: `specs/001-academy-admissions/validation/zavu-idempotency.md`. Dependencias: `T197`, `T139`, `T094`. Trazabilidad: `FR-063`, `EC-27`, `TC-021`, `OG-04`.
+- [x] T205 Ensayar solo con pagador autorizado ventana/scope/mismo payload/payload distinto/409 original y consulta por ID propio; registrar versión y límites comprobados para OG-04. Hasta probarlos seguir unknown sin rePOST automático, sin TTL inventado ni listar historial completo. Archivos: `specs/001-academy-admissions/validation/zavu-idempotency.md`. Dependencias: `T197`, `T139`, `T094`. Trazabilidad: `FR-063`, `EC-27`, `TC-021`, `OG-04`.
+
+Cerrada el 2026-10-19 con el [ensayo de idempotencia](validation/zavu-idempotency.md): misma clave con payload igual o distinto responde 409 con el mensaje original y no reenvía, también a los 31 minutos; la consulta por ID propio confirma `delivered` y el transporte correlaciona ese 409 con el intento exacto. Alcance entre credenciales fuera de alcance por decisión del usuario (sin segunda conexión de Zavu) y límite superior de la ventana no medido: el producto no inventa un TTL.
 
 <a id="t206"></a>
 
