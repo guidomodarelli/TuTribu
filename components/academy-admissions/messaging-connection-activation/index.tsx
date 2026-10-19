@@ -5,8 +5,8 @@ import {Button,Checkbox} from "@golfo/ui";
 import type {MessagingConfigurationConnection} from "@/src/modules/messaging/application/results/messaging-configuration-result";
 import styles from "./styles.module.scss";
 
-/** The route owns current authority, requirements, consent and original-operation coordination. */
-export type MessagingConnectionActivationProps={candidate:MessagingConfigurationConnection;selected:MessagingConfigurationConnection|null;confirmed:boolean;busy:boolean;canActivate:boolean;requirements:readonly string[];onConfirm:(confirmed:boolean)=>void;onActivate:()=>void};
+/** The route owns current authority, requirements, consent and original-operation coordination. `activating` marks only the pressed activation. */
+export type MessagingConnectionActivationProps={candidate:MessagingConfigurationConnection;selected:MessagingConfigurationConnection|null;confirmed:boolean;busy:boolean;activating?:boolean;canActivate:boolean;requirements:readonly string[];onConfirm:(confirmed:boolean)=>void;onActivate:()=>void};
 
 /** @param props - Current own candidate/selection facts and explicit callbacks. @returns Requirements first, then a controlled confirmation; rendering never selects or sends. */
 export function MessagingConnectionActivation(props:MessagingConnectionActivationProps){
@@ -22,7 +22,7 @@ export function MessagingConnectionActivation(props:MessagingConnectionActivatio
     </div>
     <form className={styles.MessagingConnectionActivation__form} aria-busy={props.busy} onSubmit={(event)=>{event.preventDefault();props.onActivate();}}>
       <Checkbox id={`${fieldId}-consent`} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onConfirm(checked===true)} label="Confirmo que quiero usar esta candidata y reemplazar la conexión seleccionada cuando corresponda." />
-      <div className={styles.MessagingConnectionActivation__actions}><Button className={styles.MessagingConnectionActivation__button} type="submit" variant="primary" disabled={props.busy||!props.canActivate}>{props.selected?"Reemplazar conexión seleccionada":"Activar candidata"}</Button></div>
+      <div className={styles.MessagingConnectionActivation__actions}><Button className={styles.MessagingConnectionActivation__button} type="submit" variant="primary" loading={props.activating} disabled={!props.activating&&(props.busy||!props.canActivate)}>{props.selected?"Reemplazar conexión seleccionada":"Activar candidata"}</Button></div>
     </form>
   </section>;
 }

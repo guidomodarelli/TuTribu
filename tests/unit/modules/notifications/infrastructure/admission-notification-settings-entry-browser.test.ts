@@ -46,7 +46,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await navigation.getByRole("link", { name: "Avisos", exact: true }).click();
               await page.waitForURL(`${origin}/${slug}/academia/admissions/notifications`);
               await page.getByRole("heading", { name: "Avisos de admisión", exact: true }).waitFor();
-              await page.getByRole("form", { name: "Mi preferencia de correo", exact: true }).waitFor();
+              await page.getByRole("form", { name: "Configurar avisos de admisión", exact: true }).waitFor();
             }
             expect(errors).toEqual([]); expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: false, version: 0 });
             const effects = await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select count(*)::int as deliveries from public.message_deliveries where tribe_id=${tribeId}`)).rows[0]);

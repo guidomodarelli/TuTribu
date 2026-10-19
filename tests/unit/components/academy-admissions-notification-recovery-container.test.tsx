@@ -1,12 +1,13 @@
 /** Exercises real recovery orchestration and shared UI through own current-viewer, transport and storage ports. @module notification-recovery-container-tests */
 import { randomUUID } from "node:crypto";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { NotificationRecoveryContainer, type NotificationRecoveryContainerProps } from "@/app/(platform)/[slug]/academia/admissions/messaging/connections/notification-recovery-container";
 import type { NotificationRecoverySnapshot } from "@/src/modules/messaging/application/ports/notification-recovery-intent-store";
 import type { NotificationRecoveryBrowserClient } from "@/src/modules/messaging/application/ports/notification-recovery-browser-client";
 import { NOTIFICATION_RECOVERY_HISTORY_LIMIT } from "@/src/modules/messaging/constants/notification-recovery-intent";
+import { NOTIFICATION_RECOVERY_UI_COPY } from "@/src/modules/messaging/constants/notification-recovery-ui";
 
 /** @returns Own metadata and controlled boundary ports; libraries and UI remain real. */
 function prepareContainer() {
@@ -76,6 +77,58 @@ describe("notification recovery container", () => {
     expect(fixture.snapshot.reference).toMatchObject({ deliveryId: fixture.item.id, expectedVersion: 2, targetConnectionId: fixture.target.id, expectedTargetVersion: 8 });
     expect(screen.getByRole("checkbox")).not.toBeChecked();
     expect(fixture.props.onBusyChange).toHaveBeenLastCalledWith(false);
+  });
+  it("should keep the pressed registration busy and announce it while the recovery write is pending", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup(); let resolveRecover!: (value: Awaited<ReturnType<NotificationRecoveryBrowserClient["recover"]>>) => void;
+    vi.mocked(fixture.props.client!.recover).mockImplementationOnce(async () => new Promise((resolve) => { resolveRecover = resolve; }));
+    render(<NotificationRecoveryContainer {...fixture.props} />);
+    await waitFor(() => expect(screen.getByRole("checkbox")).toBeEnabled()); await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Registrar recuperación" }));
+    await waitFor(() => expect(fixture.props.client!.recover).toHaveBeenCalledTimes(1));
+    // The preserved original does not swap the pressed control for the reference controls until the write ends.
+    expect(screen.getByRole("button", { name: "Registrar recuperación" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Registrar recuperación" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Registrar recuperación" })).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Reanudar intento original" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actualizar avisos" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent(NOTIFICATION_RECOVERY_UI_COPY.registering);
+    const input = vi.mocked(fixture.props.client!.recover).mock.calls[0][1];
+    await act(async () => resolveRecover({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: false, result: fixture.result } }));
+    expect(await screen.findByText(NOTIFICATION_RECOVERY_UI_COPY.completed)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Registrar recuperación" })).not.toBeInTheDocument();
+  });
+  it("should not mark a recovery write as busy while only the notification catalog is read", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup(); let resolveCatalog!: (value: Awaited<ReturnType<NotificationRecoveryBrowserClient["catalog"]>>) => void;
+    vi.mocked(fixture.props.client!.catalog).mockImplementationOnce(async () => new Promise((resolve) => { resolveCatalog = resolve; }));
+    render(<NotificationRecoveryContainer {...fixture.props} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Actualizar avisos" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Actualizar avisos" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(NOTIFICATION_RECOVERY_UI_COPY.reading));
+    expect(screen.getByRole("button", { name: "Registrar recuperación" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Registrar recuperación" })).not.toHaveAttribute("aria-busy");
+    await act(async () => resolveCatalog({ status: "ready", value: { items: [fixture.item], nextCursor: null } }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Actualizar avisos" })).toBeEnabled());
+  });
+  it("should keep the pressed resumption busy while the preserved original is sent again", async () => {
+    const fixture = prepareContainer(), user = userEvent.setup();
+    vi.mocked(fixture.props.client!.recover).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message: "Resultado incierto", uncertain: true });
+    vi.mocked(fixture.props.client!.operation).mockImplementationOnce(async (query) => ({ status: "ready", value: { type: "recover_notification_delivery", state: "started", operationId: query.operationId, replayed: true } }));
+    render(<NotificationRecoveryContainer {...fixture.props} />);
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Revisé el aviso/ })).toBeEnabled()); await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ }));
+    await user.click(screen.getByRole("button", { name: "Registrar recuperación" })); await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Consultar recuperación original" })); await screen.findByText(NOTIFICATION_RECOVERY_UI_COPY.originalStarted);
+    await user.click(screen.getByRole("checkbox", { name: /Revisé el aviso/ }));
+    let resolveResume!: (value: Awaited<ReturnType<NotificationRecoveryBrowserClient["recover"]>>) => void;
+    vi.mocked(fixture.props.client!.recover).mockImplementationOnce(async () => new Promise((resolve) => { resolveResume = resolve; }));
+    await user.click(screen.getByRole("button", { name: "Reanudar intento original" }));
+    await waitFor(() => expect(fixture.props.client!.recover).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Reanudar intento original" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Consultar recuperación original" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Conservar intento y liberar formulario" })).toBeDisabled();
+    const input = vi.mocked(fixture.props.client!.recover).mock.calls[1][1];
+    expect(input.operationId).toBe(vi.mocked(fixture.props.client!.recover).mock.calls[0][1].operationId);
+    await act(async () => resolveResume({ status: "ready", value: { state: "completed", operationId: input.operationId, replayed: true, result: fixture.result } }));
+    expect(await screen.findByText(NOTIFICATION_RECOVERY_UI_COPY.completed)).toBeVisible();
   });
   it("should recover a lost reply through GET after reload without another POST or restored consent", async () => {
     const fixture = prepareContainer(), user = userEvent.setup();

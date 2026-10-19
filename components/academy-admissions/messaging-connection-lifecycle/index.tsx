@@ -10,8 +10,8 @@ import styles from "./styles.module.scss";
 
 /** Own current view facts contain no credential, provider IDs or recipient information. */
 export type MessagingLifecycleConnectionView={id:string;name:string;version:number;state:keyof typeof MESSAGING_CONNECTION_LABEL;selected:boolean;candidate:boolean};
-/** The route container supplies current resource state, renewed confirmation and every action callback. */
-export type MessagingConnectionLifecycleProps={connections:readonly MessagingLifecycleConnectionView[];targetId:string;retiring:boolean;reason:MessagingConnectionSuspensionInput["reason"];confirmed:boolean;busy:boolean;canAct:boolean;onTarget:(id:string)=>void;onRetiring:(retiring:boolean)=>void;onReason:(reason:MessagingConnectionSuspensionInput["reason"])=>void;onConfirm:(confirmed:boolean)=>void;onAct:()=>void;message?:{kind:"status"|"alert";text:string}|null};
+/** The route container supplies current resource state, renewed confirmation and every action callback. `acting` marks only the pressed suspension or disconnection. */
+export type MessagingConnectionLifecycleProps={connections:readonly MessagingLifecycleConnectionView[];targetId:string;retiring:boolean;reason:MessagingConnectionSuspensionInput["reason"];confirmed:boolean;busy:boolean;acting?:boolean;canAct:boolean;onTarget:(id:string)=>void;onRetiring:(retiring:boolean)=>void;onReason:(reason:MessagingConnectionSuspensionInput["reason"])=>void;onConfirm:(confirmed:boolean)=>void;onAct:()=>void;message?:{kind:"status"|"alert";text:string}|null};
 
 /** @param props - Guarded current metadata and callbacks only. @returns Accessible local safety/retirement confirmation and explicit impact. */
 export function MessagingConnectionLifecycle(props:MessagingConnectionLifecycleProps){
@@ -25,7 +25,7 @@ export function MessagingConnectionLifecycle(props:MessagingConnectionLifecycleP
       <p className={styles.MessagingConnectionLifecycle__help}>{props.retiring?"El servidor comprueba las dependencias vigentes. Para retirar la seleccionada, resolvé la verificación requerida o pausá admisiones y desactivá los avisos externos dependientes. Las pruebas ya aplicadas conservan su procedencia.":props.reason===MESSAGING_CONNECTION_SECURITY_REASON.suspectedCompromise?"Se detienen los nuevos envíos y las pruebas afectadas de solicitudes pendientes requieren recomprobación. Los miembros admitidos y las invitaciones permanecen.":"Se detienen los nuevos envíos sin depender del proveedor. La selección y los ajustes de admisión permanecen; no se dispensa una verificación requerida."}</p>
       <p className={styles.MessagingConnectionLifecycle__note}>Los mensajes ya aceptados o inciertos pueden continuar y conservan su consumo. Revocar la clave en Zavu es una acción separada.</p>
       <div className={styles.MessagingConnectionLifecycle__consent}><Checkbox id={confirmationId} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onConfirm(checked===true)} /><Label htmlFor={confirmationId}>Revisé la conexión, la acción y su impacto y quiero confirmar.</Label></div>
-      <div className={styles.MessagingConnectionLifecycle__actions}><Button type="button" variant={props.retiring?"danger":"primary"} disabled={props.busy||!props.canAct||!props.confirmed} onClick={props.onAct}>{props.retiring?"Desconectar conexión":"Suspender conexión"}</Button></div>
+      <div className={styles.MessagingConnectionLifecycle__actions}><Button type="button" variant={props.retiring?"danger":"primary"} loading={props.acting} disabled={!props.acting&&(props.busy||!props.canAct||!props.confirmed)} onClick={props.onAct}>{props.retiring?"Desconectar conexión":"Suspender conexión"}</Button></div>
     </>}
     {props.message&&<p className={styles.MessagingConnectionLifecycle__feedback} role={props.message.kind} aria-live={props.message.kind==="alert"?"assertive":"polite"}>{props.message.text}</p>}
   </section>;

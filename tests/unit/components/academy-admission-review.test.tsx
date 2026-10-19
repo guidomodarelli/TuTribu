@@ -533,6 +533,39 @@ describe("native reviewer container", () => {
     expect(readAdmissionReviewIntent(viewerId, slug)).toBeNull();
   });
 
+  it.each([ADMISSION_DECISION.approve, ADMISSION_DECISION.reject])("should keep the pressed %s decision busy and focused while its write is pending and disable the other decision", async (decision) => {
+    const data = fixture(); let resolveWrite!: (value: Awaited<ReturnType<AdmissionReviewBrowserClient["decide"]>>) => void;
+    data.client.decide.mockImplementationOnce(async () => new Promise((resolve) => { resolveWrite = resolve; }));
+    render(data.node, { wrapper: Providers }); await confirmDecision();
+    const pressedName = decision === ADMISSION_DECISION.approve ? ADMISSION_REVIEW_UI_COPY.approve : ADMISSION_REVIEW_UI_COPY.reject;
+    const otherName = decision === ADMISSION_DECISION.approve ? ADMISSION_REVIEW_UI_COPY.reject : ADMISSION_REVIEW_UI_COPY.approve;
+    const pressed = screen.getByRole("button", { name: pressedName });
+    act(() => pressed.focus()); fireEvent.click(pressed);
+    await waitFor(() => expect(data.client.decide).toHaveBeenCalledTimes(1));
+    // The pressed control keeps its own label, focus and progress; reading copy never replaces a decision label.
+    expect(screen.getByRole("button", { name: pressedName })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: pressedName })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: pressedName })).toHaveFocus();
+    expect(screen.getByRole("button", { name: otherName })).toBeDisabled();
+    expect(screen.getByRole("button", { name: otherName })).not.toHaveAttribute("aria-busy");
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read })).toBeDisabled();
+    await act(async () => resolveWrite({ status: "ready", value: { admissionRequestId: requestId, status: decision === ADMISSION_DECISION.approve ? ADMISSION_REQUEST_STATUS.approved : ADMISSION_REQUEST_STATUS.rejected, version: 2 } }));
+    expect(await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete)).toBeVisible();
+    expect(screen.queryByRole("button", { name: pressedName })).not.toBeInTheDocument();
+  });
+
+  it("should show a reading label only while the current request is read, not while a decision is written", async () => {
+    const data = fixture(); let resolveDetail!: (value: Awaited<ReturnType<AdmissionReviewBrowserClient["reviewDetail"]>>) => void;
+    render(data.node, { wrapper: Providers }); await confirmDecision();
+    data.client.reviewDetail.mockImplementationOnce(async () => new Promise((resolve) => { resolveDetail = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read }));
+    expect(await screen.findByRole("button", { name: ADMISSION_REVIEW_UI_COPY.reading })).toBeDisabled();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).not.toHaveAttribute("aria-busy");
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeDisabled();
+    await act(async () => resolveDetail({ status: "ready", value: data.request }));
+    expect(await screen.findByRole("button", { name: ADMISSION_REVIEW_UI_COPY.read })).toBeEnabled();
+  });
+
   it("should disable a decision without a reason and explicit confirmation before calling the writer", async () => {
     const data = fixture(); render(data.node, { wrapper: Providers });
     await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled());
@@ -569,7 +602,15 @@ describe("native reviewer container", () => {
     await waitFor(() => expect(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm })).toBeEnabled());
     expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.retry })).toBeDisabled();
     fireEvent.click(screen.getByRole("checkbox", { name: ADMISSION_REVIEW_UI_COPY.confirm }));
+    let resolveRetry!: (value: Awaited<ReturnType<AdmissionReviewBrowserClient["decide"]>>) => void;
+    data.client.decide.mockImplementationOnce(async () => new Promise((resolve) => { resolveRetry = resolve; }));
     fireEvent.click(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.retry }));
+    await waitFor(() => expect(data.client.decide).toHaveBeenCalledTimes(2));
+    // The retry stays mounted and busy while it runs; the locked original decision does not show progress.
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.retry })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).toBeDisabled();
+    expect(screen.getByRole("button", { name: ADMISSION_REVIEW_UI_COPY.approve })).not.toHaveAttribute("aria-busy");
+    await act(async () => resolveRetry({ status: "ready", value: { admissionRequestId: requestId, status: "approved", version: 2 } }));
     await screen.findByText(ADMISSION_REVIEW_UI_COPY.complete);
     expect(data.client.decide).toHaveBeenCalledTimes(2);
     expect(data.client.decide.mock.calls[1][2]).toEqual(data.client.decide.mock.calls[0][2]);

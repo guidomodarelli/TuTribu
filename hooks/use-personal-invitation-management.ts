@@ -86,7 +86,7 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
     if (!denial.success && (!success.success || reference.invitationId !== null && (success.data.invitationId !== reference.invitationId || success.data.created || success.data.version !== reference.expectedVersion! + (success.data.changed ? 1 : 0)))) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); return; }
     pendingRef.current = null; setPending(null); setConfirmed(false); setNeedsCurrent(true);
     const stored = persist(null);
-    if (denial.success) { setConflict(denial.data.code === ADMISSION_ERROR_CODE.invitationConflict); setErrorMessage(ADMISSION_ERROR_MESSAGE[denial.data.code]); if (stored) setNeedsCurrent(false); return; }
+    if (denial.success) { setConflict(denial.data.code === ADMISSION_ERROR_CODE.invitationConflict); setErrorMessage(ADMISSION_ERROR_MESSAGE[denial.data.code]); toast.error(ADMISSION_ERROR_MESSAGE[denial.data.code]); if (stored) setNeedsCurrent(false); return; }
     setInvitationUrl(outcome.invitationUrl ?? null); setStatusMessage(reference.type === REAUTHENTICATION_OPERATION.createPersonalInvitation && !outcome.invitationUrl ? COPY.lostUrl : COPY.saved); toast.success(COPY.saved);
     if (!stored) return;
     if (!await refresh(stateRef.current!.query, signal, scope) && live(signal, scope) && !closed.current) { setErrorMessage(COPY.freshFailed); return; }
@@ -119,7 +119,7 @@ export function usePersonalInvitationManagement(options: { initialState: Persona
       const result = await client.write(initial!.slug, intent, signal);
       if (!live(signal, scope) || !await authorize(signal, scope)) return;
       if (result.status === "ready") { if (result.value.viewerId !== initial!.viewerId) { close(); return; } await consume(reference, result.value.outcome, signal, scope); }
-      else if (result.status === "failed" && !result.uncertain) { pendingRef.current = null; setPending(null); if (!persist(null)) { setNeedsCurrent(true); return; } setConfirmed(false); if (report(result)) return; setConflict(result.code === ADMISSION_ERROR_CODE.invitationConflict); }
+      else if (result.status === "failed" && !result.uncertain) { pendingRef.current = null; setPending(null); if (!persist(null)) { setNeedsCurrent(true); return; } setConfirmed(false); if (report(result)) return; setConflict(result.code === ADMISSION_ERROR_CODE.invitationConflict); toast.error(result.message); }
       else setErrorMessage(COPY.uncertain);
     }, true);
   }, [authorize, client, close, confirmed, conflict, consume, initial, needsCurrent, observeReference, persist, ready, report, run]);

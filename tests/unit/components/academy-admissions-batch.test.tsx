@@ -118,6 +118,24 @@ describe("explicit reviewer batch decisions", () => {
     expect(router.refresh).not.toHaveBeenCalled();
   });
 
+  it("should keep the pressed batch decision busy while its write is pending and disable every other write", async () => {
+    const data = fixture(); let resolveWrite!: (value: AdmissionBrowserResult<AdmissionBatchResultDto>) => void;
+    data.client.decideBatch.mockImplementationOnce(async () => new Promise((resolve) => { resolveWrite = resolve; }));
+    await act(async () => { render(data.node, { wrapper: Providers }); });
+    await confirmBatch();
+    fireEvent.click(screen.getByRole("button", { name: "Aprobar seleccionadas" }));
+    await waitFor(() => expect(data.client.decideBatch).toHaveBeenCalledTimes(1));
+    // The pressed decision keeps its label and announces progress; the alternative decision and the current read stay disabled.
+    expect(screen.getByRole("button", { name: "Aprobar seleccionadas" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Rechazar seleccionadas" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Consultar estado actual" })).toBeDisabled();
+    expect(screen.queryByText("El resultado del lote no está confirmado. Consultá la operación original antes de volver a intentar.")).not.toBeInTheDocument();
+    const input = data.client.decideBatch.mock.calls[0][1];
+    await act(async () => resolveWrite({ status: "ready", value: { operationId: input.operationId, state: "completed", result: "all_succeeded", completedCount: input.items.length, failedCount: 0, unresolvedCount: 0, items: input.items.map((item) => ({ requestId: item.requestId, status: "approved", version: item.expectedVersion + 1, safeMessage: "Solicitud aprobada." })) } }));
+    expect(screen.getByRole("region", { name: "Resultados del lote" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Aprobar seleccionadas" })).not.toBeInTheDocument();
+  });
+
   it("should retain confirmed mixed row outcomes when a later list read fails", async () => {
     // Given an approved row and a confirmed conflict in the same original.
     const data = fixture();
@@ -228,7 +246,14 @@ describe("explicit reviewer batch decisions", () => {
     const form = screen.getByRole("region", { name: "Decidir solicitudes seleccionadas" });
     expect(within(form).getByLabelText("Motivo interno")).toBeDisabled();
     fireEvent.click(within(form).getByRole("checkbox", { name: "Confirmo esta decisión sobre todas las solicitudes enumeradas" }));
-    await act(async () => fireEvent.click(retry));
+    let resolveRetry!: (value: AdmissionBrowserResult<AdmissionBatchResultDto>) => void;
+    data.client.decideBatch.mockImplementationOnce(async () => new Promise((resolve) => { resolveRetry = resolve; }));
+    fireEvent.click(retry);
+    await waitFor(() => expect(data.client.decideBatch).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Reintentar el mismo lote" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Consultar estado actual" })).toBeDisabled();
+    const replayed = data.client.decideBatch.mock.calls[1][1];
+    await act(async () => resolveRetry({ status: "ready", value: { operationId: replayed.operationId, state: "completed", result: "all_succeeded", completedCount: replayed.items.length, failedCount: 0, unresolvedCount: 0, items: replayed.items.map((item) => ({ requestId: item.requestId, status: "approved", version: item.expectedVersion + 1, safeMessage: "Solicitud aprobada." })) } }));
     expect(data.client.decideBatch).toHaveBeenCalledTimes(2);
     expect(data.client.decideBatch.mock.calls[1][1]).toEqual(original);
     expect(readAdmissionReviewIntent(viewerId, slug)).toBeNull();

@@ -29,13 +29,17 @@ export const ADMISSION_REVIEW_ELIGIBILITY_COPY: Readonly<Record<string, string |
 };
 /** Local phases never imply that unconfirmed work was accepted by the server. */
 export const ADMISSION_REVIEW_PHASE = { idle: "idle", reading: "reading", writing: "writing", uncertain: "uncertain", changedViewer: "changed_viewer" } as const;
+/** The review write a reviewer pressed: only that control shows progress while the others stay disabled. */
+export type AdmissionReviewPendingAction = "approve" | "reject" | "retry";
+/** Decisions reuse the public decision names; a retry replays the immutable original under its own action. */
+export const ADMISSION_REVIEW_PENDING_ACTION = { approve: "approve", reject: "reject", retry: "retry" } as const satisfies Record<AdmissionReviewPendingAction, AdmissionReviewPendingAction>;
 /** Labels distinguish an original local intention from confirmed server work. */
 export const ADMISSION_REVIEW_UI_COPY = {
   title: "Solicitudes de ingreso", description: "Revisá las solicitudes más antiguas primero. Aprobar concede la membresía básica de la academia.",
   empty: "No hay solicitudes para estos filtros.", read: "Consultar estado actual", loadMore: "Ver más solicitudes", detail: "Revisar solicitud", close: "Volver a la bandeja",
   internalReason: "Motivo interno", externalMessage: "Mensaje para el solicitante (opcional)", internalHelp: "Este motivo sólo lo ven quienes revisan las solicitudes.",
   externalHelp: "El solicitante podrá ver este mensaje. No incluyas datos privados.", confirm: "Confirmo esta decisión sobre la solicitud seleccionada",
-  approve: "Aprobar ingreso", reject: "Rechazar solicitud", writing: "Guardando decisión…", reading: "Consultando…",
+  approve: "Aprobar ingreso", reject: "Rechazar solicitud", reading: "Consultando…",
   invalid: "Escribí un motivo interno y confirmá la decisión. Respetá los límites indicados.",
   uncertain: "La decisión no está confirmada. Consultá la operación original antes de volver a intentar.", retry: "Reintentar la misma decisión", recovered: "Se confirmó la decisión original.",
   complete: "La decisión quedó guardada.", readFailed: "No pudimos consultar la revisión actual. Volvé a consultar antes de decidir.",

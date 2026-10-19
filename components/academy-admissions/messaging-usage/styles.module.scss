@@ -6,7 +6,7 @@
   min-width: 0;
   gap: 2rem;
 
-  &__header {
+  &__summary {
     @include workspace-panel.summary;
 
     gap: 0.75rem;
@@ -16,34 +16,66 @@
     @include workspace-panel.title;
   }
 
+  &__lead {
+    @include workspace-panel.lead;
+  }
+
   &__help {
     @include workspace-panel.note;
   }
 
-  &__form {
-    @include workspace-panel.block;
+  &__facts {
+    @include workspace-panel.facts;
   }
 
-  &__fields {
+  &__fact {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    min-inline-size: 0;
-    max-width: 40rem;
-    margin: 0;
-    padding: 0;
-    gap: 1.25rem;
-    border: 0;
+    min-width: 0;
+    gap: 0.25rem;
   }
 
-  &__legend {
-    @include workspace-panel.title;
-
-    padding: 0;
-    margin-block-end: 1.25rem;
+  &__term {
+    @include workspace-panel.fact-term;
   }
 
-  &__field {
-    @include workspace-panel.field;
+  &__value {
+    @include workspace-panel.fact-value;
+  }
+
+  &__meters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    min-width: 0;
+    gap: 1rem;
+  }
+
+  &__meter {
+    min-width: 0;
+  }
+
+  // A consequence the leader should notice (an empty country list, a zero or very low quota).
+  &__warning {
+    @include workspace-panel.feedback;
+
+    border-inline-start-color: var(--warning, var(--border-strong));
+    font-size: 0.875rem;
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
+
+  &__editor {
+    @include workspace-panel.section;
+  }
+
+  &__editorHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+    gap: 0.75rem;
   }
 
   &__countries {
@@ -66,12 +98,22 @@
     font-size: 0.875rem;
   }
 
-  &__confirmation {
-    @include workspace-panel.consent;
+  &__suggestion {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    min-width: 0;
+    gap: 0.5rem 0.75rem;
   }
 
-  &__actions {
-    @include workspace-panel.actions;
+  &__progress {
+    @include workspace-panel.note;
+  }
+
+  &__success {
+    @include workspace-panel.feedback;
+
+    border-inline-start-color: var(--success, var(--border-strong));
   }
 
   &__error {
@@ -79,42 +121,17 @@
 
     border-inline-start-color: var(--danger, var(--destructive));
     color: var(--danger, var(--destructive));
-
-    & > p {
-      margin: 0;
-    }
   }
 
-  &__impact {
+  &__errorText {
+    margin: 0;
+  }
+
+  &__recovery {
     @include workspace-panel.callout;
-
-    max-width: 40rem;
-
-    & > p {
-      margin: 0;
-    }
   }
 
-  &__meters {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-    min-width: 0;
-    gap: 1rem;
-  }
-
-  &__meter {
-    min-width: 0;
-  }
-
-  &__comparison {
-    @include workspace-panel.facts;
-
-    & dt {
-      @include workspace-panel.fact-term;
-    }
-
-    & dd {
-      @include workspace-panel.fact-value;
-    }
+  &__recoveryText {
+    margin: 0;
   }
 }

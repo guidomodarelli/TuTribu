@@ -5,6 +5,10 @@ export const ALLOWLIST_IMPORT_FILE_NAME_CHARACTERS = 255;
 export const ALLOWLIST_IMPORT_DOWNLOAD_RETENTION_MS = 30_000;
 export const ALLOWLIST_IMPORT_VISIBLE_ROW_COUNT = 50;
 export const ALLOWLIST_IMPORT_FILE_ACCEPT = ".csv,text/csv";
+/** The import write the leader pressed: only that control shows progress while the other writes stay disabled. */
+export type AllowlistImportWriteAction = "preview" | "confirm" | "resume" | "reconcile";
+/** Resuming pending rows and reconciling earlier confirmations replay a preserved original, unlike a fresh confirmation. */
+export const ALLOWLIST_IMPORT_WRITE_ACTION = { preview: "preview", confirm: "confirm", resume: "resume", reconcile: "reconcile" } as const satisfies Record<AllowlistImportWriteAction, AllowlistImportWriteAction>;
 export const ALLOWLIST_IMPORT_FILE_NAME = { template: "allowlist-import-template.csv", report: "allowlist-import-report.csv" } as const;
 export const ALLOWLIST_IMPORT_BROWSER_PATH = { imports: "allowlist/imports", template: "template", report: "report", confirm: "confirm", policy: "policy" } as const;
 export const ALLOWLIST_IMPORT_BROWSER_COPY = {

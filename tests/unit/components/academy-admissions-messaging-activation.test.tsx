@@ -14,6 +14,13 @@ describe("candidate activation presentation",()=>{
   it("should show missing requirements and preserve the current selection until an explicit replacement",()=>{
     const props=activationFixture(),selected={...props.candidate,id:"00000000-0000-4000-8000-000000000002",name:"Conexión seleccionada anterior",configurationVersion:1,state:"active" as const};render(<MessagingConnectionActivation {...props} selected={selected} requirements={["Comprobá el código del canal antes de activar."]} />);expect(screen.getByText(/Conexión seleccionada anterior/)).toBeVisible();expect(screen.getByText("Comprobá el código del canal antes de activar.")).toBeVisible();expect(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"})).toBeDisabled();expect(props.onActivate).not.toHaveBeenCalled();
   });
+  it("should keep the pressed replacement busy with its own label and focus while the activation is pending",async()=>{
+    const props=activationFixture(),user=userEvent.setup(),selected={...props.candidate,id:"00000000-0000-4000-8000-000000000003",name:"Conexión vigente",state:"active" as const};const view=render(<MessagingConnectionActivation {...props} selected={selected} confirmed canActivate />);
+    const replace=screen.getByRole("button",{name:"Reemplazar conexión seleccionada"});await user.click(replace);expect(props.onActivate).toHaveBeenCalledTimes(1);
+    view.rerender(<MessagingConnectionActivation {...props} selected={selected} confirmed={false} busy activating canActivate={false} />);
+    expect(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"})).toHaveAttribute("aria-busy","true");expect(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"})).not.toBeDisabled();expect(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"})).toHaveFocus();
+    await user.click(screen.getByRole("button",{name:"Reemplazar conexión seleccionada"}));expect(props.onActivate).toHaveBeenCalledTimes(1);
+  });
   it("should activate with the current session only, without any Google confirmation control",async()=>{
     const props=activationFixture(),user=userEvent.setup();render(<MessagingConnectionActivation {...props} confirmed canActivate />);expect(screen.queryByRole("button",{name:/Google/})).not.toBeInTheDocument();expect(props.onActivate).not.toHaveBeenCalled();await user.click(screen.getByRole("button",{name:"Activar candidata"}));expect(props.onActivate).toHaveBeenCalledTimes(1);
   });

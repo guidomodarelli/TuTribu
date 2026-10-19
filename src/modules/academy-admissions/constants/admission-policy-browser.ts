@@ -10,21 +10,33 @@ export const ADMISSION_POLICY_SETTINGS_SEGMENT = "academia/admissions/settings";
 
 /** Browser lifecycle cannot certify server authorization or complete runtime preparation. */
 export const ADMISSION_POLICY_BROWSER_PHASE = { checking: "checking", idle: "idle", reading: "reading", writing: "writing", uncertain: "uncertain", changedViewer: "changed_viewer" } as const;
-/** Fixed safe copy remains independent of raw HTTP/provider diagnostics. */
+/** Fixed safe copy remains independent of raw HTTP/provider diagnostics; each confirmed action has its own message. */
 export const ADMISSION_POLICY_BROWSER_COPY = {
-  saved: "La configuración quedó guardada.",
+  activatedOpen: "Listo: las admisiones quedaron activadas y abiertas. Ya se pueden recibir solicitudes.",
+  activatedPaused: "Las admisiones quedaron activadas, pero pausadas: nadie puede postularse hasta que las reanudes.",
+  paused: "Las admisiones quedaron pausadas. Nadie puede postularse hasta que las reanudes.",
+  resumed: "Las admisiones se reanudaron. Ya se pueden recibir solicitudes.",
+  rulesSaved: "Los cambios en las reglas quedaron guardados.",
   recovered: "El resultado original quedó confirmado. Revisá la configuración actual antes de continuar.",
   changedViewer: "La cuenta cambió. Volvé a abrir la configuración con tu cuenta actual.",
   storageFailed: "No pudimos conservar o recuperar esta acción. Consultá su resultado antes de volver a confirmar.",
   uncertain: "Todavía no podemos confirmar el resultado. Consultá la operación original antes de volver a guardar.",
-  reading: "Consultando la configuración actual…",
-  notPrepared: "La admisión completa todavía no está disponible. Podés preparar un borrador.",
-  prepared: "Las protecciones de admisión consultadas están preparadas. La activación volverá a comprobarlas al confirmar.",
-  draftChanged: "Guardá el borrador y volvé a revisar los requisitos antes de activar.",
+  reading: "Consultando la cuenta y la configuración actual…",
+  changedMeanwhile: "La configuración cambió mientras tanto. Revisá el resumen y volvé a confirmar.",
+  activationIneligible: "Todavía falta un requisito para activar las admisiones.",
+  resumeIneligible: "Todavía falta un requisito para reanudar las admisiones.",
+  rulesKept: "Las reglas ya quedaron guardadas como borrador. Al reintentar seguimos desde el paso que falló.",
+  activationBlockedNote: "Tus reglas quedaron guardadas como borrador. Cuando lo resuelvas, volvé a tocar «Guardar y activar admisiones».",
+  resumeBlockedNote: "Las admisiones siguen pausadas. Cuando lo resuelvas, volvé a tocar «Reanudar admisiones».",
+  permissionDenied: "La configuración sólo está disponible para el líder activo de esta academia.",
+  unavailable: "La configuración requiere revisión antes de continuar. La protección existente se conserva.",
+  originalPending: "Antes de continuar, consultá el resultado de la operación anterior.",
+  confirmRequired: "Marcá la confirmación para continuar.",
   invalid: "Revisá las reglas y confirmá la acción antes de continuar.",
   retry: "La operación original aún no está registrada. Podés confirmar un reintento con los mismos datos.",
   contactLocked: "El tipo de contacto quedó fijado al activar el control.",
   phoneAllowlist: "La lista por teléfono requiere comprobar el contacto con un código.",
+  phoneChannelRequired: "Elegí el canal para enviar el código por teléfono.",
   smsAlternative: "La alternativa SMS requiere teléfono, códigos activados y el canal WhatsApp.",
 } as const;
 

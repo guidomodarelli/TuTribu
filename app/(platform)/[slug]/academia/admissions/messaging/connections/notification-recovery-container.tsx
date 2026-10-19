@@ -11,7 +11,7 @@ import type { NotificationDeliveryRecoveryResult } from "@/src/modules/messaging
 import { notificationRecoveryBrowserClient } from "@/lib/messaging/notification-recovery-api-client";
 import { notificationRecoveryIntentStore } from "@/lib/messaging/notification-recovery-intent-store";
 import { newAdmissionOperationId } from "@/lib/academy-admissions/admission-draft";
-import { NOTIFICATION_RECOVERY_UI_COPY as COPY } from "@/src/modules/messaging/constants/notification-recovery-ui";
+import { NOTIFICATION_RECOVERY_UI_COPY as COPY, NOTIFICATION_RECOVERY_WRITE_ACTION as WRITE_ACTION, type NotificationRecoveryWriteAction } from "@/src/modules/messaging/constants/notification-recovery-ui";
 import { NOTIFICATION_DELIVERY_RECOVERY_AUDIT } from "@/src/modules/messaging/constants/notification-delivery-recovery";
 import { MESSAGING_ERROR_CODE, MESSAGING_ERROR_MESSAGE } from "@/src/modules/messaging/constants/messaging-errors";
 import { MESSAGING_CONNECTION_STATE } from "@/src/modules/messaging/constants/messaging-connection";
@@ -47,6 +47,8 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
   const [confirmation, setConfirmation] = useState<{ checked: boolean; scope: string } | null>(null), [storageAvailable, setStorageAvailable] = useState(true);
   const [viewerAvailable, setViewerAvailable] = useState(true);
   const [busy, setBusy] = useState(false), [mayResume, setMayResume] = useState(false), [originalCompleted, setOriginalCompleted] = useState(false);
+  /** `busy` covers reads and writes; this names only the pressed write, and only while that observation lasts. */
+  const [writeAction, setWriteAction] = useState<NotificationRecoveryWriteAction | null>(null);
   const [canArchive, setCanArchive] = useState(false), [archiveConsent, setArchiveConsent] = useState<{ checked: boolean; operationId: string } | null>(null);
   const archiveConfirmed = Boolean(reference && archiveConsent?.checked && archiveConsent.operationId === reference.operationId);
   const [notice, setNotice] = useState<{ kind: "status" | "alert"; text: string; scope: string } | null>(props.initialCatalogError ? { kind: "alert", text: props.initialCatalogError, scope: `:${props.target?.id}:${props.target?.version}` } : null);
@@ -76,15 +78,15 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
     if (!saved) { setStorageAvailable(false); setMessage({ kind: "alert", text: COPY.storageUnavailable }); }
     return saved;
   }
-  /** @param work - One explicit observation using its own abort lifetime. @returns Nothing after current-viewer checks and safe feedback; no retry or inferred rollback. */
-  async function observe(work: (signal: AbortSignal) => Promise<void>): Promise<void> {
+  /** @param work - One explicit observation using its own abort lifetime. @param write - The pressed write, when this observation records or moves an original. @returns Nothing after current-viewer checks and safe feedback; no retry or inferred rollback. */
+  async function observe(work: (signal: AbortSignal) => Promise<void>, write: NotificationRecoveryWriteAction | null = null): Promise<void> {
     if (!canRead || observation.current) return;
-    const controller = new AbortController(); originalReference.current = reference; observation.current = controller; setBusy(true); props.onBusyChange(true); setMessage(null);
+    const controller = new AbortController(); originalReference.current = reference; observation.current = controller; setBusy(true); setWriteAction(write); props.onBusyChange(true); setMessage(write === WRITE_ACTION.register || write === WRITE_ACTION.resume ? { kind: "status", text: COPY.registering } : null);
     try {
       if (!await current(controller.signal)) return;
       await work(controller.signal);
     } catch { if (!controller.signal.aborted && mounted.current) setMessage({ kind: "alert", text: originalReference.current ? COPY.pending : MESSAGING_ERROR_MESSAGE[MESSAGING_ERROR_CODE.unexpectedFailure] }); }
-    finally { if (observation.current === controller) { observation.current = null; if (mounted.current) { setBusy(false); props.onBusyChange(false); } } }
+    finally { if (observation.current === controller) { observation.current = null; if (mounted.current) { setBusy(false); setWriteAction(null); props.onBusyChange(false); } } }
   }
   /** @param signal - Current observation. @returns Whether the current account still owns this result after awaited I/O. */
   async function current(signal: AbortSignal): Promise<boolean> {
@@ -121,7 +123,7 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
       const original = resume ? reference : selected && props.target ? { operationId: newAdmissionOperationId(), deliveryId: selected.id, expectedVersion: selected.version, targetConnectionId: props.target.id, expectedTargetVersion: props.target.version } : null;
       if (!original || !preserve(original)) return;
       originalReference.current = original; setReference(original); setOriginalCompleted(false); setMayResume(false); await submit(original, signal);
-    });
+    }, resume ? WRITE_ACTION.resume : WRITE_ACTION.register);
   }
   /** @returns Nothing after original GET only, without another mutation. */
   async function readOriginal(): Promise<void> {
@@ -139,7 +141,7 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
     });
   }
   /** @returns Nothing after stopping observation only; a preserved original remains consultable. */
-  function stopObserving(): void { observation.current?.abort(); observation.current = null; setBusy(false); props.onBusyChange(false); setConfirmed(false); setMayResume(false); setMessage({ kind: "status", text: COPY.stopped }); }
+  function stopObserving(): void { observation.current?.abort(); observation.current = null; setBusy(false); setWriteAction(null); props.onBusyChange(false); setConfirmed(false); setMayResume(false); setMessage({ kind: "status", text: COPY.stopped }); }
   /** @returns Nothing after explicitly preserving a consulted original in history; the backend is never cancelled or assumed rolled back. */
   async function archiveOriginal(): Promise<void> {
     if (!reference || !canArchive || !archiveConfirmed || originalCompleted) return;
@@ -149,7 +151,7 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
       const next = [...history, original];
       if (!preserve(null, "", next)) return;
       originalReference.current = null; setHistory(next); setReference(null); setSelectedDeliveryId(""); setOriginalCompleted(false); setCanArchive(false); setMayResume(false); setConfirmed(false); setArchiveConsent(null); setMessage({ kind: "status", text: COPY.archived });
-    });
+    }, WRITE_ACTION.archive);
   }
   /** @param index - Explicitly selected own historical original. @returns Nothing after moving its preserved identity back for GET-first consultation, without another POST. */
   async function restoreHistory(index: number): Promise<void> {
@@ -161,6 +163,6 @@ export function NotificationRecoveryContainer({ client = notificationRecoveryBro
       originalReference.current = original; setHistory(next); setReference(original); setSelectedDeliveryId(original.deliveryId); setOriginalCompleted(false); setCanArchive(false); setMayResume(false); setConfirmed(false); setArchiveConsent(null); setMessage({ kind: "status", text: COPY.pending });
     });
   }
-  return <MessagingNotificationRecovery items={catalog?.items ?? []} selectedDeliveryId={selectedDeliveryId} targetName={props.target?.name ?? null} catalogAvailable={catalog !== null} hasMore={Boolean(catalog?.nextCursor)} busy={busy} canRead={canRead} canRecover={canRead && !reference && !historyFull && eligible(new Date(props.renderedAt))} confirmed={confirmed} hasReference={reference !== null} originalCompleted={originalCompleted} mayResume={canRead && mayResume} canArchive={canArchive} archiveConfirmed={archiveConfirmed} historyCount={history.length} historyFull={historyFull} message={message} onArchiveConfirm={(value) => { setArchiveConsent(reference ? { checked: value, operationId: reference.operationId } : null); setMessage(null); }} onArchive={() => { void archiveOriginal(); }} onRestoreHistory={(index) => { void restoreHistory(index); }}
+  return <MessagingNotificationRecovery items={catalog?.items ?? []} selectedDeliveryId={selectedDeliveryId} targetName={props.target?.name ?? null} catalogAvailable={catalog !== null} hasMore={Boolean(catalog?.nextCursor)} busy={busy} writeAction={busy ? writeAction : null} canRead={canRead} canRecover={canRead && !reference && !historyFull && eligible(new Date(props.renderedAt))} confirmed={confirmed} hasReference={reference !== null} originalCompleted={originalCompleted} mayResume={canRead && mayResume} canArchive={canArchive} archiveConfirmed={archiveConfirmed} historyCount={history.length} historyFull={historyFull} message={message} onArchiveConfirm={(value) => { setArchiveConsent(reference ? { checked: value, operationId: reference.operationId } : null); setMessage(null); }} onArchive={() => { void archiveOriginal(); }} onRestoreHistory={(index) => { void restoreHistory(index); }}
     onSelect={(deliveryId) => { if (!canRead || reference || busy) return; setConfirmed(false); setSelectedDeliveryId(deliveryId); setMessage(null); preserve(null, deliveryId); }} onConfirm={(value) => { setConfirmed(value); setMessage(null); }} onRefresh={() => { void readCatalog(); }} onMore={() => { void readCatalog(true); }} onRecover={() => { void recover(); }} onReadOriginal={() => { void readOriginal(); }} onResumeOriginal={() => { void recover(true); }} onClearCompleted={() => { if (!originalCompleted || busy || !canRead || !preserve(null)) return; originalReference.current = null; setReference(null); setOriginalCompleted(false); setMayResume(false); setConfirmed(false); setMessage(null); }} onStopObserving={stopObserving} />;
 }

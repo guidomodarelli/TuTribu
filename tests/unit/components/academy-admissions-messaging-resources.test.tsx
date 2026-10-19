@@ -18,6 +18,11 @@ describe("connection resource selection",()=>{
     expect(screen.queryByRole("option",{name:"WhatsApp"})).not.toBeInTheDocument();
     expect(props.onReadSenders).not.toHaveBeenCalled();expect(props.onSave).not.toHaveBeenCalled();
   });
+  it("should keep only the pressed configuration save busy while its write is pending",()=>{
+    const props={...resourceFixture(),busy:true,saving:true};render(<MessagingConnectionResources {...props} />);
+    expect(screen.getByRole("button",{name:"Guardar configuración del canal"})).toHaveAttribute("aria-busy","true");expect(screen.getByRole("button",{name:"Guardar configuración del canal"})).not.toBeDisabled();
+    expect(screen.getByRole("button",{name:"Consultar remitentes"})).toBeDisabled();expect(screen.getByRole("button",{name:"Consultar remitentes"})).not.toHaveAttribute("aria-busy");
+  });
   it("should hide unsupported template fields and block an unsupported channel even if caller readiness is true",()=>{
     const props={...resourceFixture(),availableChannels:["email"]as const,channel:"whatsapp"as const,confirmed:true,canSave:true};
     const view=render(<MessagingConnectionResources {...props} />);

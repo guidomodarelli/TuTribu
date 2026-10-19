@@ -6,6 +6,7 @@ import { useAllowlistWorkflow } from "@/hooks/use-allowlist-workflow";
 import type { AllowlistBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import type { AllowlistPageState } from "@/src/modules/academy-admissions/application/results/allowlist-page-state";
 import { writeAllowlistWorkflow } from "@/lib/academy-admissions/allowlist-intent";
+import { ALLOWLIST_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 
 afterEach(() => window.sessionStorage.clear());
 
@@ -67,7 +68,18 @@ describe("list workflow ownership", () => {
     vi.mocked(data.client.operation).mockResolvedValue({ status: "ready", value: { type: "update_allowlist_entry", operationId: original.input.operationId, state: "completed", replayed: true, result: { entryId: data.entry.id, version: 2, created: false, changed: true } } });
     await act(async () => result.current.readOriginal());
     expect(result.current.page.items[0]).toMatchObject({ version: 4, displayName: "Actual" }); expect(result.current.pending).toBeNull();
+    expect(result.current.statusMessage).toBe(ALLOWLIST_BROWSER_COPY.recovered);
     expect(data.client.write).toHaveBeenCalledOnce(); expect(data.client.operation).toHaveBeenCalledOnce();
+  });
+
+  it("should confirm an ordinary save as saved rather than as a recovered original", async () => {
+    const data = fixture(), { result } = renderHook(() => useAllowlistWorkflow(data));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    act(() => result.current.select(data.entry));
+    act(() => { result.current.changeDraft({ ...result.current.draft, displayName: "Nombre nuevo" }); result.current.setConfirmed(true); });
+    await act(async () => result.current.save());
+    expect(result.current.statusMessage).toBe(ALLOWLIST_BROWSER_COPY.saved);
+    expect(result.current.pending).toBeNull(); expect(data.client.operation).not.toHaveBeenCalled();
   });
 
   it("should hide prior contacts when an entry read detects lost permission for the same account", async () => {

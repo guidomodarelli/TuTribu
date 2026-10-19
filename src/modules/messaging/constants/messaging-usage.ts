@@ -20,12 +20,25 @@ export type MessagingUsageBrowserPhase = "checking" | "idle" | "reading" | "writ
 export const MESSAGING_USAGE_BROWSER_PHASE = { checking: "checking", idle: "idle", reading: "reading", writing: "writing", uncertain: "uncertain", changedViewer: "changed_viewer" } as const satisfies Record<string, MessagingUsageBrowserPhase>;
 /** A legacy session-change answer alone does not revoke read access; actual authority/resource denial does. */
 export const MESSAGING_USAGE_PRIVATE_AUTHORITY_FAILURES: readonly MessagingErrorCode[] = [MESSAGING_ERROR_CODE.authenticationRequired, MESSAGING_ERROR_CODE.permissionDenied, MESSAGING_ERROR_CODE.resourceUnavailable];
+/** Ordered decisions of the guided usage flow; the review step is always last. */
+export type MessagingUsageStepId = "countries" | "verification" | "notification" | "review";
+export const MESSAGING_USAGE_STEP = { countries: "countries", verification: "verification", notification: "notification", review: "review" } as const satisfies Record<string, MessagingUsageStepId>;
+export const MESSAGING_USAGE_STEP_ORDER: readonly MessagingUsageStepId[] = [MESSAGING_USAGE_STEP.countries, MESSAGING_USAGE_STEP.verification, MESSAGING_USAGE_STEP.notification, MESSAGING_USAGE_STEP.review];
+/** Sub-step of the final save: creating the first configuration, then saving the chosen values. */
+export type MessagingUsageWriteStep = "creating" | "saving";
+export const MESSAGING_USAGE_WRITE_STEP = { creating: "creating", saving: "saving" } as const satisfies Record<string, MessagingUsageWriteStep>;
+/** Daily notice quotas below this value are explained as very low: an ordinary admissions day can exhaust them. */
+export const MESSAGING_USAGE_LOW_NOTIFICATION_DAILY_LIMIT = 20;
 /** Safe browser feedback never renders database or provider messages. */
 export const MESSAGING_USAGE_UI_COPY = {
   invalid: "Revisá los países y los límites diarios antes de confirmar.",
   quotaInvalid: "Revisá los límites diarios; deben ser enteros desde cero y respetar los máximos actuales.",
   countryInvalid: "Revisá los países; no pueden repetirse ni usar códigos desconocidos.",
   saved: "Los países y cupos quedaron guardados.",
+  creating: "Creando la configuración…",
+  saving: "Guardando tus países y cupos…",
+  initializedOnly: "La configuración se creó con los valores iniciales, pero todavía falta guardar lo que elegiste.",
+  initialized: "La configuración se creó con los valores iniciales. Revisá los pasos y guardá lo que elegiste.",
   recovered: "El resultado original quedó confirmado. Revisá el uso actual antes de continuar.",
   uncertain: "Todavía no podemos confirmar el guardado. Consultá la operación original antes de repetir.",
   changedViewer: "La cuenta cambió. Volvé a abrir la configuración de uso con tu cuenta actual.",

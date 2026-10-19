@@ -4,7 +4,7 @@ import { Button, Checkbox, Label, Select } from "@golfo/ui";
 import type { NotificationDeliveryCatalogItem } from "@/src/modules/messaging/application/results/notification-delivery-catalog-result";
 import { MESSAGING_DELIVERY_STATE_LABEL } from "@/src/modules/messaging/constants/messaging-diagnostic-browser";
 import { MESSAGE_DELIVERY_STATE } from "@/src/modules/messaging/constants/message-delivery";
-import { NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS } from "@/src/modules/messaging/constants/notification-recovery-ui";
+import { NOTIFICATION_RECOVERY_DATE_LABEL_CHARACTERS, NOTIFICATION_RECOVERY_WRITE_ACTION, type NotificationRecoveryWriteAction } from "@/src/modules/messaging/constants/notification-recovery-ui";
 import styles from "./styles.module.scss";
 
 /** The container supplies guarded current facts, renewed consent and bound original observation state. */
@@ -14,7 +14,10 @@ export type MessagingNotificationRecoveryProps = {
   targetName: string | null;
   catalogAvailable: boolean;
   hasMore: boolean;
+  /** Covers every read and write of this panel. */
   busy: boolean;
+  /** The pressed write: it keeps its label and focus while it shows progress. */
+  writeAction?: NotificationRecoveryWriteAction | null;
   canRead: boolean;
   canRecover: boolean;
   confirmed: boolean;
@@ -45,6 +48,9 @@ export function MessagingNotificationRecovery(props: MessagingNotificationRecove
   const instanceId = useId(), deliveryControlId = `${instanceId}-delivery`, consentControlId = `${instanceId}-consent`, archiveControlId = `${instanceId}-archive`;
   const selected = props.items.find((item) => item.id === props.selectedDeliveryId);
   const unresolved = selected?.state === MESSAGE_DELIVERY_STATE.unknown || selected?.state === MESSAGE_DELIVERY_STATE.accepted;
+  // Registering preserves the new original before sending it; the pressed control stays until the write ends.
+  const registering = props.writeAction === NOTIFICATION_RECOVERY_WRITE_ACTION.register, resuming = props.writeAction === NOTIFICATION_RECOVERY_WRITE_ACTION.resume, archiving = props.writeAction === NOTIFICATION_RECOVERY_WRITE_ACTION.archive;
+  const showsReference = props.hasReference && !registering;
   return <section className={styles.MessagingNotificationRecovery} aria-labelledby={`${instanceId}-heading`}>
     <h2 id={`${instanceId}-heading`} className={styles.MessagingNotificationRecovery__title}>Recuperación de avisos</h2>
     <p className={styles.MessagingNotificationRecovery__help}>Consultá el estado del aviso antes de recuperar su entrega con otra conexión de esta tribu. La recuperación conserva su plazo y los consumos anteriores.</p>
@@ -67,10 +73,10 @@ export function MessagingNotificationRecovery(props: MessagingNotificationRecove
       <Label htmlFor={consentControlId}>Revisé el aviso, la conexión y el impacto; quiero registrar esta recuperación.</Label>
     </div>
     <div className={styles.MessagingNotificationRecovery__actions}>
-      {!props.hasReference && <Button type="button" disabled={props.busy || !props.canRecover || !props.confirmed} onClick={props.onRecover}>Registrar recuperación</Button>}
-      {props.hasReference && <>
+      {!showsReference && <Button type="button" loading={registering} disabled={!registering && (props.busy || !props.canRecover || !props.confirmed)} onClick={props.onRecover}>Registrar recuperación</Button>}
+      {showsReference && <>
         <Button type="button" variant="secondary" disabled={props.busy || !props.canRead} onClick={props.onReadOriginal}>Consultar recuperación original</Button>
-        {!props.originalCompleted && <Button type="button" disabled={props.busy || !props.mayResume || !props.confirmed} onClick={props.onResumeOriginal}>Reanudar intento original</Button>}
+        {!props.originalCompleted && <Button type="button" loading={resuming} disabled={!resuming && (props.busy || !props.mayResume || !props.confirmed)} onClick={props.onResumeOriginal}>Reanudar intento original</Button>}
         {props.originalCompleted && <Button type="button" variant="secondary" disabled={props.busy || !props.canRead} onClick={props.onClearCompleted}>Preparar otra recuperación</Button>}
       </>}
     </div></>}
@@ -78,7 +84,7 @@ export function MessagingNotificationRecovery(props: MessagingNotificationRecove
     {props.hasReference && props.canArchive && !props.originalCompleted && <>
       <p className={styles.MessagingNotificationRecovery__help}>Podés conservar esta referencia en el historial y liberar el formulario. Esto no cancela ni revierte la operación del servidor; puede completar después.</p>
       <div className={styles.MessagingNotificationRecovery__consent}><Checkbox id={archiveControlId} checked={props.archiveConfirmed} disabled={props.busy || !props.canRead} onCheckedChange={(checked) => props.onArchiveConfirm(checked === true)} /><Label htmlFor={archiveControlId}>Revisé que el intento puede continuar y quiero conservar su referencia en el historial.</Label></div>
-      <div className={styles.MessagingNotificationRecovery__actions}><Button type="button" variant="secondary" disabled={props.busy || !props.canRead || !props.archiveConfirmed} onClick={props.onArchive}>Conservar intento y liberar formulario</Button></div>
+      <div className={styles.MessagingNotificationRecovery__actions}><Button type="button" variant="secondary" loading={archiving} disabled={!archiving && (props.busy || !props.canRead || !props.archiveConfirmed)} onClick={props.onArchive}>Conservar intento y liberar formulario</Button></div>
     </>}
     {props.historyCount > 0 && <div className={styles.MessagingNotificationRecovery__actions}>{Array.from({ length: props.historyCount }, (_, index) => <Button key={index} type="button" variant="secondary" disabled={props.busy || !props.canRead || props.hasReference} onClick={() => props.onRestoreHistory(index)}>Consultar intento conservado {index + 1}</Button>)}</div>}
     {props.hasReference && <p className={styles.MessagingNotificationRecovery__help}>La referencia del intento original está conservada en esta pestaña. Consultarla no registra otra recuperación. Dejar de observar no cancela ni revierte el trabajo del servidor.</p>}

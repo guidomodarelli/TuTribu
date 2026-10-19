@@ -1,0 +1,25 @@
+@use "../../../../src/styles/workspace-panel";
+
+.PolicyStatusPanel {
+  @include workspace-panel.section;
+
+  &__heading {
+    @include workspace-panel.heading;
+  }
+
+  &__title {
+    @include workspace-panel.title;
+  }
+
+  &__lead {
+    @include workspace-panel.lead;
+  }
+
+  &__pause {
+    @include workspace-panel.form;
+  }
+
+  &__actions {
+    @include workspace-panel.actions;
+  }
+}

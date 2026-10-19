@@ -17,7 +17,7 @@ import { isAdmissionBatchReviewIntent } from "@/src/modules/academy-admissions/a
 import { createAdmissionBatchDecisionInput, getAdmissionBatchReviewTransitions, projectAdmissionBatchReviewRecovery } from "@/src/modules/academy-admissions/application/results/admission-batch-browser-result";
 import { ADMISSION_BATCH_REVIEW_COPY } from "@/src/modules/academy-admissions/constants/admission-batch-review-ui";
 import { ADMISSION_BATCH_DECISION_OPERATION } from "@/src/modules/academy-admissions/constants/admission-batch-decision";
-import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_PHASE } from "@/src/modules/academy-admissions/constants/admission-review-ui";
+import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_PHASE, ADMISSION_REVIEW_PENDING_ACTION, type AdmissionReviewPendingAction } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { ADMISSION_ERROR_CODE, ADMISSION_ERROR_MESSAGE } from "@/src/modules/academy-admissions/constants/admission-errors";
 import { ADMISSION_OPERATION_TYPE, ADMISSION_REQUEST_STATUS } from "@/src/modules/academy-admissions/constants/admission-request";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
@@ -51,6 +51,8 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   const [items, setItems] = useState<AdmissionReviewDto[]>(ready?.page.items ?? []), [cursor, setCursor] = useState(ready?.page.nextCursor ?? null);
   const [selected, setSelected] = useState<AdmissionReviewDto | null>(ready?.selected ?? null);
   const [phase, setPhase] = useState<"idle" | "reading" | "writing" | "uncertain" | "changed_viewer">(ADMISSION_REVIEW_PHASE.idle);
+  /** The write the reviewer pressed; it only counts while the writing phase lasts. */
+  const [writingAction, setWritingAction] = useState<AdmissionReviewPendingAction | null>(null);
   const [fresh, setFresh] = useState(false), [confirmed, setConfirmed] = useState(false), [canRetry, setCanRetry] = useState(false);
   const [privateVisible, setPrivateVisible] = useState(true);
   const [internalReason, setInternalReason] = useState(""), [externalMessage, setExternalMessage] = useState("");
@@ -242,13 +244,17 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
     return () => { controller.abort(); readController.current?.abort(); writeController.current?.abort(); loaded.current = false; busy.current = false; window.removeEventListener("pageshow", restored); };
   }, [readCurrent, launchRead, ready]);
 
-  /** Persists the immutable original intention before sending; uncertain/aborted writes reconcile before any retry. */
-  const send = async (intent: AdmissionStoredReviewIntent) => {
+  /**
+   * Persists the immutable original intention before sending; uncertain/aborted writes reconcile before any retry.
+   * @param intent - Exact individual or batch original.
+   * @param action - Control the reviewer pressed, shown as in progress while the write lasts.
+   */
+  const send = async (intent: AdmissionStoredReviewIntent, action: AdmissionReviewPendingAction) => {
     if (!ready || busy.current) return;
     if (!isAdmissionBatchReviewIntent(intent)) captureActionFocus();
     busy.current = true; visibleReadRevision.current += 1; readController.current?.abort();
     const controller = new AbortController(); writeController.current = controller;
-    setPhase(ADMISSION_REVIEW_PHASE.writing); setFresh(false); setErrorMessage(null); setStatusMessage(null); setConfirmed(false);
+    setWritingAction(action); setPhase(ADMISSION_REVIEW_PHASE.writing); setFresh(false); setErrorMessage(null); setStatusMessage(null); setConfirmed(false);
     batchActions.resetConfirmation();
     try {
       if (!await checkViewer(controller.signal)) return;
@@ -303,7 +309,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
 
   /** Discards only local, resolved selection feedback; an unresolved original must remain recoverable. */
   const clearBatch = () => { if (pending.current || busy.current) return; batchActions.clear(); setBatchManifest([]); setBatchResult(null); setConfirmed(false); setInternalReason(""); setExternalMessage(""); setErrorMessage(null); setStatusMessage(null); };
-  const retryOriginal = () => { const original = pending.current; if (original && canRetry && fresh && (isAdmissionBatchReviewIntent(original) ? batchActions.isConfirmedFor(original.selection) : confirmed)) void send(original); };
+  const retryOriginal = () => { const original = pending.current; if (original && canRetry && fresh && (isAdmissionBatchReviewIntent(original) ? batchActions.isConfirmedFor(original.selection) : confirmed)) void send(original, ADMISSION_REVIEW_PENDING_ACTION.retry); };
   const batchAvailability = useMemo(() => {
     const visible = new Map(items.map((item) => [item.id, item]));
     return { approve: batchSelection.some((selected) => visible.get(selected.requestId)?.eligibleActions.includes(ADMISSION_DECISION.approve)), reject: batchSelection.some((selected) => visible.get(selected.requestId)?.eligibleActions.includes(ADMISSION_DECISION.reject)) };
@@ -313,6 +319,7 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
   if (phase === ADMISSION_REVIEW_PHASE.changedViewer) return <AdmissionRouteError message={ADMISSION_REVIEW_UI_COPY.changedViewer} reset={() => window.location.reload()} />;
   if (!privateVisible && phase !== ADMISSION_REVIEW_PHASE.reading) return <AdmissionRouteError message={errorMessage ?? ADMISSION_REVIEW_UI_COPY.readFailed} reset={() => launchRead(currentSelected.current?.id)} />;
   const uncertain = phase === ADMISSION_REVIEW_PHASE.uncertain;
+  const pendingAction = phase === ADMISSION_REVIEW_PHASE.writing ? writingAction : null;
   const formDisabled = !fresh || phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating;
   const batchContext = batchPending || batchSelection.length > 0 || batchResult !== null;
   const reviewError = errorMessage ?? (reviewRefreshUnavailable ? ADMISSION_REVIEW_UI_COPY.readFailed : null);
@@ -325,15 +332,15 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
       if (!batchActions.toggle(item, checked)) { setErrorMessage(ADMISSION_BATCH_REVIEW_COPY.limitReached); return; }
       setBatchResult(null); setBatchManifest([]); setConfirmed(false); setErrorMessage(null); setStatusMessage(null);
     } }}
-    batch={privateVisible && batchContext ? <AdmissionBatchReview selection={batchSelection} manifest={batchManifest} result={batchResult} pending={batchPending} canRetry={canRetry} disabled={formDisabled} busy={phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating} internalReason={internalReason} externalMessage={externalMessage} confirmed={batchConfirmed} errorMessage={reviewError} allowApprove={batchAvailability.approve} allowReject={batchAvailability.reject} onInternalReason={(value) => { if (pending.current || busy.current) return; setInternalReason(value); setErrorMessage(null); }} onExternalMessage={(value) => { if (pending.current || busy.current) return; setExternalMessage(value); setErrorMessage(null); }} onConfirm={(value) => { const original = pending.current; batchActions.confirm(value, original && isAdmissionBatchReviewIntent(original) ? original.selection : undefined); setErrorMessage(null); }} onClear={clearBatch} onRetry={retryOriginal} onDecision={(decision) => {
+    batch={privateVisible && batchContext ? <AdmissionBatchReview selection={batchSelection} manifest={batchManifest} result={batchResult} pending={batchPending} pendingAction={pendingAction} canRetry={canRetry} disabled={formDisabled} busy={phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating} internalReason={internalReason} externalMessage={externalMessage} confirmed={batchConfirmed} errorMessage={reviewError} allowApprove={batchAvailability.approve} allowReject={batchAvailability.reject} onInternalReason={(value) => { if (pending.current || busy.current) return; setInternalReason(value); setErrorMessage(null); }} onExternalMessage={(value) => { if (pending.current || busy.current) return; setExternalMessage(value); setErrorMessage(null); }} onConfirm={(value) => { const original = pending.current; batchActions.confirm(value, original && isAdmissionBatchReviewIntent(original) ? original.selection : undefined); setErrorMessage(null); }} onClear={clearBatch} onRetry={retryOriginal} onDecision={(decision) => {
       const selection = batchActions.getSelection();
       if (formDisabled || !batchActions.isConfirmedFor(selection) || pending.current || busy.current || !selection.length || !selection.some((selected) => currentItems.current.some((item) => item.id === selected.requestId && item.eligibleActions.includes(decision))) || selection.some((selected) => !currentItems.current.some((item) => item.id === selected.requestId && item.version === selected.expectedVersion && item.status === ADMISSION_REQUEST_STATUS.pending))) { setErrorMessage(ADMISSION_BATCH_REVIEW_COPY.invalid); return; }
       const parsed = admissionBatchReviewIntentSchema.safeParse({ kind: ADMISSION_BATCH_DECISION_OPERATION, selection, input: { operationId: newAdmissionOperationId(), confirmed: true, decision, internalReason, externalMessage } });
       if (!parsed.success) { setErrorMessage(ADMISSION_BATCH_REVIEW_COPY.invalid); return; }
-      void send(parsed.data);
+      void send(parsed.data, decision);
     }} /> : undefined}
     historyHref={privateVisible && selected ? buildAdmissionReviewHistoryRoute(ready.slug, selected.id, appliedFilters) : undefined}
-    items={privateVisible ? items : []} selected={privateVisible ? selected : null} hasMore={privateVisible && cursor !== null} busy={phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating} disabled={formDisabled} confirmed={confirmed} internalReason={internalReason} externalMessage={externalMessage} errorMessage={batchContext ? null : reviewError} statusMessage={privateVisible ? statusMessage : ADMISSION_REVIEW_UI_COPY.reading} uncertain={uncertain} canRetry={canRetry}
+    items={privateVisible ? items : []} selected={privateVisible ? selected : null} hasMore={privateVisible && cursor !== null} busy={phase === ADMISSION_REVIEW_PHASE.reading || phase === ADMISSION_REVIEW_PHASE.writing || navigating} pendingAction={pendingAction} disabled={formDisabled} confirmed={confirmed} internalReason={internalReason} externalMessage={externalMessage} errorMessage={batchContext ? null : reviewError} statusMessage={privateVisible ? statusMessage : ADMISSION_REVIEW_UI_COPY.reading} uncertain={uncertain} canRetry={canRetry}
     onSelect={(id) => { if (pending.current || busy.current) return; clearBatch(); setInternalReason(""); setExternalMessage(""); launchRead(id); }} onClose={() => { if (pending.current || busy.current) return; currentSelected.current = null; setSelected(null); setConfirmed(false); setInternalReason(""); setExternalMessage(""); setStatusMessage(null); }}
     onRead={() => launchRead(currentSelected.current?.id)} onLoadMore={() => launchRead(undefined, true, cursor)} onConfirm={(value) => { setConfirmed(value); setErrorMessage(null); }}
     onInternalReason={(value) => { setInternalReason(value); setErrorMessage(null); }} onExternalMessage={(value) => { setExternalMessage(value); setErrorMessage(null); }}
@@ -341,6 +348,6 @@ export function AdmissionReviewContainer({ initialState, client = admissionApiCl
       if (!selected || formDisabled || !confirmed || pending.current || !selected.eligibleActions.includes(decision)) { setErrorMessage(ADMISSION_REVIEW_UI_COPY.invalid); return; }
       const parsed = admissionReviewIntentSchema.safeParse({ requestId: selected.id, input: { operationId: newAdmissionOperationId(), confirmed: true, expectedVersion: selected.version, decision, internalReason, externalMessage } });
       if (!parsed.success) { setErrorMessage(ADMISSION_REVIEW_UI_COPY.invalid); return; }
-      void send(parsed.data);
+      void send(parsed.data, decision);
     }} onRetry={retryOriginal} />;
 }

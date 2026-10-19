@@ -22,6 +22,11 @@ describe("messaging connection first step",()=>{
     const props=presenterFixture();render(<MessagingConnections {...props} busy fieldErrors={{apiKey:"Ingresá la clave antes de guardar."}} />);
     expect(screen.getByText("Ingresá la clave antes de guardar.")).toBeVisible();expect(screen.getByLabelText("Clave de Zavu")).toHaveAccessibleDescription(expect.stringContaining("Ingresá la clave antes de guardar."));expect(screen.getByRole("button",{name:/Guardar conexión/i})).toBeDisabled();
   });
+  it("should keep the pressed credential check busy with its own label while the check is pending",()=>{
+    const props=presenterFixture(),candidate={id:randomUUID(),name:"Candidata",version:1,configurationVersion:1,state:"draft" as const,credentialState:"not_validated" as const,credentialMode:"unknown" as const,maskedCredential:"••••••••" as const,capabilities:[]};
+    render(<MessagingConnections {...props} configuration={{...props.configuration,candidate}} busy validating />);
+    expect(screen.getByRole("button",{name:"Comprobar credencial"})).toHaveAttribute("aria-busy","true");expect(screen.getByRole("button",{name:"Comprobar credencial"})).not.toBeDisabled();expect(screen.getByRole("checkbox",{name:/Confirmo que quiero comprobar/})).toBeDisabled();
+  });
   it("should show a single primary action per form and no Google confirmation control",()=>{
     const props=presenterFixture();render(<MessagingConnections {...props} />);
     expect(screen.getByRole("heading",{level:2,name:"Conectar Zavu"})).toBeVisible();expect(screen.queryByRole("heading",{name:"Conexión de mensajería"})).not.toBeInTheDocument();expect(screen.queryByRole("alert")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:/Google/})).not.toBeInTheDocument();expect(props.onSave).not.toHaveBeenCalled();

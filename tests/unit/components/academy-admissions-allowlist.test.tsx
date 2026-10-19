@@ -1,13 +1,14 @@
 /** Exercises list validation, conflict recovery and incremental UI with real shared controls. @module academy-admissions-allowlist-tests */
 import { randomUUID } from "node:crypto";
 import type { ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AllowlistContainer } from "@/app/(platform)/[slug]/academia/admissions/allowlist/allowlist-container";
 import { AppUIProvider } from "@/components/providers/app-providers/app-ui-provider";
 import type { AllowlistBrowserClient } from "@/src/modules/academy-admissions/application/ports/allowlist-browser-client";
 import type { AllowlistPageState } from "@/src/modules/academy-admissions/application/results/allowlist-page-state";
+import { ALLOWLIST_BROWSER_COPY } from "@/src/modules/academy-admissions/constants/allowlist-browser";
 
 const router = { back: vi.fn(), bfcacheId: "allowlist-tests", forward: vi.fn(), prefetch: vi.fn(), push: vi.fn(), refresh: vi.fn(), replace: vi.fn() } satisfies AppRouterInstance;
 /** @param props - Actual UI/router children. @returns Native framework context and unmocked shared components. */
@@ -54,6 +55,33 @@ describe("allowlist route controls", () => {
     expect(data.client.write).toHaveBeenCalledWith("synthetic-academy", expect.objectContaining({ input: expect.objectContaining({ expectedVersion: 1 }) }), expect.any(AbortSignal));
     expect(router.refresh).not.toHaveBeenCalled();
     expect(screen.getByText(/No expulsa miembros ni libera un contacto vinculado/)).toBeVisible();
+  });
+
+  it("should keep the pressed save busy while its write is pending and then confirm the save itself, not a recovered original", async () => {
+    const data = fixture(); let resolveWrite!: (value: Awaited<ReturnType<AllowlistBrowserClient["write"]>>) => void;
+    vi.mocked(data.client.write).mockImplementationOnce(async () => new Promise((resolve) => { resolveWrite = resolve; }));
+    render(<AllowlistContainer initialState={data.state} client={data.client} />, { wrapper: Providers });
+    const edit = screen.getByRole("button", { name: `Editar ${data.entry.identity}` });
+    await waitFor(() => expect(edit).not.toBeDisabled()); fireEvent.click(edit);
+    fireEvent.change(screen.getByLabelText("Nombre orientativo (opcional)"), { target: { value: "Nombre nuevo" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Confirmo el cambio de esta entrada de lista" }));
+    const save = screen.getByRole("button", { name: "Guardar entrada" });
+    act(() => save.focus()); fireEvent.click(save);
+    await waitFor(() => expect(data.client.write).toHaveBeenCalledOnce());
+    // The pressed save keeps its label and focus while it shows progress; every other list write stays disabled.
+    expect(screen.getByRole("button", { name: "Guardar entrada" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Guardar entrada" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Guardar entrada" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Nueva entrada" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: `Editar ${data.entry.identity}` })).toBeDisabled();
+    expect(screen.getByText(ALLOWLIST_BROWSER_COPY.saving)).toBeVisible();
+    const intent = vi.mocked(data.client.write).mock.calls[0][1];
+    await act(async () => resolveWrite({ status: "ready", value: { state: "completed", operationId: intent.input.operationId, replayed: false, result: { entryId: data.entry.id, version: 2, created: false, changed: true } } }));
+    const section = screen.getByRole("region", { name: "Gestión de lista de habilitados" });
+    expect(await within(section).findByText(ALLOWLIST_BROWSER_COPY.saved)).toBeVisible();
+    expect(screen.queryByText(ALLOWLIST_BROWSER_COPY.recovered)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar entrada" })).not.toHaveAttribute("aria-busy");
+    expect(data.client.operation).not.toHaveBeenCalled();
   });
 
   it("should apply explicit search incrementally and hide contact controls after current authority is lost", async () => {

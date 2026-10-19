@@ -1,16 +1,28 @@
 /** Uses one current reviewer loader behind this leaf's runtime Suspense boundary. @module admission-review-page */
 import { Suspense } from "react";
-import { createAdmissionRequestModules } from "@/src/modules/setup";
+import { createAdmissionNotificationSettingsRequestModule, createAdmissionRequestModules, createMessagingConfigurationRequestModule } from "@/src/modules/setup";
 import { loadAdmissionReviewPageState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-review-page";
 import { AdmissionReviewRouteContainer } from "./admission-review-route-container";
 import Loading from "./loading";
 import { AdmissionSettingsPage } from "@/components/academy-admissions/admission-settings-page";
+import { AdmissionSetupGuide } from "@/components/academy-admissions/admission-setup-guide";
+import { loadAdmissionSetupGuideState } from "@/src/modules/academy-admissions/infrastructure/composition/admission-setup-guide-page";
+
+/** @param props - Route slug only; each settings loader repeats its own leader check. @returns The leader's setup checklist, or nothing for other viewers or a finished setup. */
+async function SetupGuideContent({ route }: { route: { slug: string } }) {
+  const state = await loadAdmissionSetupGuideState({ params: route, query: {} }, {
+    policy: async () => (await createAdmissionRequestModules()).policyPage,
+    notifications: async () => (await createAdmissionNotificationSettingsRequestModule()).page,
+    messaging: async () => (await createMessagingConfigurationRequestModule()).createPage(),
+  });
+  return state ? <AdmissionSetupGuide slug={state.slug} progress={state.progress} /> : null;
+}
 
 /** @param props - Runtime route selection resolved inside the leaf boundary. @returns Only safe current authorized reviewer props. */
 async function ReviewContent({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [route, query] = await Promise.all([params, searchParams]);
   const state = await loadAdmissionReviewPageState({ params: route, query }, async () => { const modules = await createAdmissionRequestModules(); return modules.reviews.createPage(modules.queries.resolveTribe); });
-  return <AdmissionSettingsPage page="review"><AdmissionReviewRouteContainer initialState={state} /></AdmissionSettingsPage>;
+  return <AdmissionSettingsPage page="review"><Suspense fallback={null}><SetupGuideContent route={route} /></Suspense><AdmissionReviewRouteContainer initialState={state} /></AdmissionSettingsPage>;
 }
 /** @param props - Unresolved framework runtime input. @returns A deterministic own leaf skeleton and server loader. */
 export default function AdmissionReviewPage(props: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

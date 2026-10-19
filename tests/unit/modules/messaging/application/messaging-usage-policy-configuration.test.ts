@@ -219,11 +219,14 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
               const page = await context.newPage();
               process.stdout.write(JSON.stringify({ phase: "usage_early_navigation_begin", engine }) + "\n");
               await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
+              /** The rules flow offers countries and quotas in its contact step once phone contact is chosen; choosing it writes nothing. */
+              await page.getByRole("button", { name: "Continuar", exact: true }).click({ timeout: 90_000 });
+              await page.getByRole("radio", { name: "Teléfono", exact: true }).click();
               await page.getByRole("link", { name: "Configurar países y cupos de mensajería" }).click({ timeout: 90_000 });
-              await page.getByRole("button", { name: "Iniciar configuración de uso" }).waitFor({ timeout: 90_000 });
-              expect(await page.getByText(/todavía no está configurado/).count()).toBe(1);
+              await page.getByRole("navigation", { name: "Paso 1 de 4" }).waitFor({ timeout: 90_000 });
+              expect(await page.getByText(/Todavía no hay países ni cupos guardados/).count()).toBe(1);
               await page.getByRole("navigation", { name: "Secciones de admisión" }).getByRole("link", { name: "Reglas", exact: true }).click();
-              await page.getByRole("button", { name: "Preparar configuración" }).waitFor({ timeout: 90_000 });
+              await page.getByRole("radio", { name: "Revisión manual", exact: true }).waitFor({ timeout: 90_000 });
               expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
               process.stdout.write(JSON.stringify({ phase: "usage_early_navigation_verified", engine }) + "\n");
             } finally { process.stdout.write(JSON.stringify({ phase: "usage_context_close_begin", engine, connected: browser.isConnected() }) + "\n"); await context.close(); process.stdout.write(JSON.stringify({ phase: "usage_context_closed", engine }) + "\n"); }
@@ -262,20 +265,20 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
                   await page.getByRole("link", { name: "Configurar países y cupos de mensajería" }).click({ timeout: 90_000 });
                 } else await page.goto(`${origin}/${slug}/academia/admissions/messaging`, { waitUntil: "commit" });
                 const confirmation = page.getByRole("checkbox", { name: /Revisé los países/ });
-                await confirmation.waitFor({ timeout: 90_000 }); await confirmation.check({ timeout: 90_000 });
-                const initial = page.getByRole("button", { name: "Iniciar configuración de uso" });
-                if (await initial.count()) {
-                  stage = "initialize_usage";
-                  await initial.click();
-                  await page.getByRole("button", { name: "Guardar países y cupos" }).waitFor({ timeout: 90_000 });
-                  expect(await confirmation.isChecked()).toBe(false);
-                }
+                const firstStep = page.getByRole("navigation", { name: "Paso 1 de 4" }), changeUsage = page.getByRole("button", { name: "Cambiar países y cupos" });
+                const continueStep = page.getByRole("button", { name: "Continuar", exact: true }), previousStep = page.getByRole("button", { name: "Atrás", exact: true });
+                await firstStep.or(changeUsage).waitFor({ timeout: 90_000 });
+                if (await changeUsage.count()) { stage = "open_saved_usage"; await changeUsage.click({ timeout: 90_000 }); await firstStep.waitFor(); }
                 stage = "prepare_country";
-                const removeArgentina = page.getByRole("button", { name: "Quitar Argentina del borrador" });
-                if (!await removeArgentina.count()) { await page.getByRole("combobox", { name: "Agregar país al borrador" }).click(); await page.getByRole("option", { name: "Argentina", exact: true }).click(); }
+                const removeArgentina = page.getByRole("button", { name: "Quitar Argentina" });
+                if (!await removeArgentina.count()) { await page.getByRole("combobox", { name: "Agregar un país" }).click(); await page.getByRole("option", { name: "Argentina", exact: true }).click(); }
+                await continueStep.click();
                 const verificationInput = page.getByRole("spinbutton", { name: "Códigos por día" });
-                if (await verificationInput.inputValue() === "0") await verificationInput.fill("1");
-                await verificationInput.fill("0");
+                /** The review blocks unchanged saves, so each pass toggles the saved daily codes. */
+                const nextVerification = await verificationInput.inputValue() === "0" ? "1" : "0";
+                await verificationInput.fill(nextVerification);
+                await continueStep.click(); await continueStep.click();
+                await confirmation.waitFor({ timeout: 90_000 });
                 expect(await confirmation.isChecked()).toBe(false);
                 if (width === 1280) await captureAdmissionReview(page, "messaging-usage-draft", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: 'section[class*="MessagingUsage"]' });
                 stage = "save_country";
@@ -288,15 +291,21 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native early u
                 process.stdout.write(JSON.stringify({ phase: "usage_save_response", engine, width, status: savedStatus }) + "\n");
                 expect(savedStatus).toBe(200);
                 await page.getByText("Los países y cupos quedaron guardados.", { exact: true }).first().waitFor({ timeout: 90_000 });
-                await page.getByText("Países guardados: Argentina.", { exact: true }).waitFor();
-                expect(await page.getByRole("spinbutton", { name: "Códigos por día" }).inputValue()).toBe("0");
+                await changeUsage.waitFor();
+                expect(await page.getByRole("definition").filter({ hasText: /^Argentina$/ }).count()).toBe(1);
+                expect(await page.getByRole("definition").filter({ hasText: new RegExp(`^${nextVerification}$`) }).count()).toBeGreaterThan(0);
                 if (width === 1280) await captureAdmissionReview(page, "messaging-usage-saved", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: 'section[class*="MessagingUsage"]' });
                 stage = "concurrent_conflict";
+                await changeUsage.click(); await continueStep.click(); await continueStep.click();
                 await page.getByRole("spinbutton", { name: "Avisos por día" }).fill("0");
+                await page.getByText("Con 0 no se envía ningún aviso por correo o SMS.", { exact: true }).first().waitFor();
+                await continueStep.click();
                 await database.withContext(fixture.own, (transaction) => transaction.execute(sql`update public.messaging_usage_policies set notification_daily_limit=notification_daily_limit+1,version=version+1 where tribe_id=${fixture.tribeId}`));
                 await confirmation.check(); await page.getByRole("button", { name: "Guardar países y cupos" }).click();
                 await page.getByRole("button", { name: "Consultar uso actual" }).waitFor({ timeout: 90_000 });
+                await previousStep.click();
                 expect(await page.getByRole("spinbutton", { name: "Avisos por día" }).inputValue()).toBe("0");
+                await continueStep.click();
                 if (width === 1280) await captureAdmissionReview(page, "messaging-usage-conflict", [fixture.userId, fixture.contexts.read.sessionId, fixture.sessionToken, secret], "usage-captures.json", { selector: 'section[class*="MessagingUsage"]' });
                 stage = "read_current_and_save";
                 await page.getByRole("button", { name: "Consultar uso actual" }).click(); await confirmation.check({ timeout: 90_000 });

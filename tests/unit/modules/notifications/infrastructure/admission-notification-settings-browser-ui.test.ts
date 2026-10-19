@@ -78,8 +78,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                 });
                 await page.goto(route, { waitUntil: "domcontentloaded" });
                 await page.getByRole("heading", { name: "Avisos de admisión", exact: true }).waitFor();
-                await page.getByRole("button", { name: "Guardar mi preferencia", exact: true }).waitFor();
-                await page.waitForFunction(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Guardar mi preferencia" && !button.disabled));
+                await page.getByRole("button", { name: "Continuar", exact: true }).waitFor();
+                await page.waitForFunction(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Consultar estado actual" && !button.disabled));
                 expect(preferenceReads).toBe(0); expect(emailReads).toBe(0);
                 expect(await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).isChecked()).toBe(false);
                 const surface = page.getByRole("region", { name: "Avisos de admisión", exact: true });
@@ -89,11 +89,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
 
                 stage = `${scenario.name}_${scenario.width}_own_preference`;
                 mutationsStarted = true;
-                const frequency = page.getByRole("combobox", { name: "Frecuencia", exact: true });
-                const daily = !(await frequency.textContent())?.includes("Resumen diario");
-                await frequency.click(); await page.getByRole("option", { name: daily ? "Resumen diario" : "Agrupar cada cinco minutos", exact: true }).click();
-                await page.getByRole("button", { name: "Guardar mi preferencia", exact: true }).click();
-                await page.getByRole("form", { name: "Mi preferencia de correo", exact: true }).getByText("Tu preferencia quedó guardada.", { exact: true }).waitFor();
+                // The guided flow leaves the tribe email untouched and saves only the personal frequency.
+                await page.getByRole("button", { name: "Continuar", exact: true }).click();
+                const daily = !(await page.getByRole("radio", { name: /^Resumen diario/ }).isChecked());
+                await page.getByRole("radio", { name: daily ? /^Resumen diario/ : /^Agrupar cada cinco minutos/ }).click();
+                await page.getByRole("button", { name: "Continuar", exact: true }).click();
+                await page.getByRole("checkbox", { name: "Revisé el resumen y quiero guardar estos avisos.", exact: true }).check();
+                await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
+                await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
                 expect(preferenceWrites).toBe(1); expect(emailWrites).toBe(0);
                 expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select mode from public.admission_notification_preferences where tribe_id=${tribeId} and recipient_user_id=${fixture.own.userId}`)).rows[0])).toEqual({ mode: daily ? "daily" : "grouped" });
                 if (scenario.name === "chromium" && scenario.width === 1280) await capture(page, "notification-settings-preference-saved");
@@ -111,28 +114,32 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                   try { await request.fulfill({ status: 502, contentType: "application/json", body: "{}" }); }
                   catch { forwardingFailed = true; await request.abort().catch(() => { /* The page may already have closed; forwardingFailed retains this diagnostic. */ }); }
                 });
+                /** Walks the remaining guided steps to the review and runs the final save with a fresh confirmation. */
+                const reviewAndSave = async () => {
+                  while (await page.getByRole("button", { name: "Continuar", exact: true }).count()) await page.getByRole("button", { name: "Continuar", exact: true }).click();
+                  await page.getByRole("checkbox", { name: "Revisé el resumen y quiero guardar estos avisos.", exact: true }).check();
+                  await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
+                };
                 stage = `${scenario.name}_${scenario.width}_email_enable_control`;
+                await page.getByRole("button", { name: "Cambiar avisos", exact: true }).click();
                 await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).check();
                 stage = `${scenario.name}_${scenario.width}_email_timezone`;
                 await page.getByLabel("Zona horaria de la tribu", { exact: true }).fill("Asia/Kolkata");
-                stage = `${scenario.name}_${scenario.width}_email_confirmation_control`;
-                await page.getByRole("checkbox", { name: /Confirmo la habilitación/ }).check();
                 stage = `${scenario.name}_${scenario.width}_email_submit_control`;
-                await page.getByRole("button", { name: "Guardar correo de admisión", exact: true }).click();
-                const emailForm = page.getByRole("form", { name: "Correo de la tribu", exact: true });
+                await reviewAndSave();
                 if (lossScenario) {
                   stage = "wait_for_confirmed_commit_and_lost_reply";
                   await runPrivateBrowserRequest("wait_for_native_lost_settings_reply", () => lostReply!);
                   await page.waitForFunction(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Consultar estado actual" && !button.disabled));
-                  await emailForm.getByText(/Conservamos el cambio original/).waitFor(); expect(forwardingFailed).toBe(false); expect(completionObserved).toBe(true);
+                  await page.getByText(/Conservamos el cambio original/).waitFor(); expect(forwardingFailed).toBe(false); expect(completionObserved).toBe(true);
                   await capture(page, "notification-settings-response-lost");
                   const original = await fixture.repository.get(fixture.read); originalVersion = original.version;
                   expect(original).toMatchObject({ enabled: true, timeZone: "Asia/Kolkata" });
                   expect(await fixture.repository.change(fixture.change, fixture.command(original.version, false, "UTC"))).toMatchObject({ state: "completed" });
                   stage = "recover_original";
                   await page.getByRole("button", { name: "Consultar estado actual", exact: true }).click();
-                  await emailForm.getByText("Recuperamos el resultado del cambio original. Los ajustes actuales se consultaron por separado.", { exact: true }).waitFor();
-                  expect(await page.getByLabel("Zona horaria de la tribu", { exact: true }).inputValue()).toBe("UTC");
+                  await page.getByText("Recuperamos el resultado del cambio original. Los ajustes actuales se consultaron por separado.", { exact: true }).waitFor();
+                  await page.getByRole("button", { name: "Atrás", exact: true }).click(); await page.getByRole("button", { name: "Atrás", exact: true }).click();
                   expect(await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).isChecked()).toBe(false);
                   recoveredVersion = (await fixture.repository.get(fixture.read)).version;
                   expect(recoveredVersion).toBe(original.version + 1); expect(emailWrites).toBe(1);
@@ -140,15 +147,15 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
 
                   stage = "new_write_with_session_only";
                   await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).check();
-                  await page.getByRole("checkbox", { name: /Confirmo la habilitación/ }).check();
-                  await page.getByRole("button", { name: "Guardar correo de admisión", exact: true }).click();
-                  await emailForm.getByText("La configuración del correo quedó guardada.", { exact: true }).waitFor();
+                  expect(await page.getByLabel("Zona horaria de la tribu", { exact: true }).inputValue()).toBe("UTC");
+                  await reviewAndSave();
+                  await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
                   expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: true, version: recoveredVersion + 1 });
                   expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0);
                   expect(emailWrites).toBe(2); await capture(page, "notification-settings-saved-after-recovery");
                 } else {
                   stage = `${scenario.name}_${scenario.width}_email_confirmed_result`;
-                  await emailForm.getByText("La configuración del correo quedó guardada.", { exact: true }).waitFor();
+                  await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
                   stage = `${scenario.name}_${scenario.width}_verify_native_email_settings`;
                   expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: true, timeZone: "Asia/Kolkata" }); expect(emailWrites).toBe(1);
                 }
@@ -196,14 +203,14 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               page.on("response", (response) => { if (new URL(response.url()).pathname.endsWith("/admissions/notification-preferences") && response.request().method() === "GET") preferenceReads.push(response.status()); });
               try {
               await page.goto(route, { waitUntil: "domcontentloaded" });
-              await page.waitForFunction(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Guardar mi preferencia" && !button.disabled));
-              expect(await page.getByRole("form", { name: "Correo de la tribu", exact: true }).count()).toBe(0);
+              await page.waitForFunction(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Guardar avisos" && !button.disabled));
+              expect(await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).count()).toBe(0);
               expect(privilegedGuardianReads).toBe(0); expect(await page.evaluate((key) => sessionStorage.getItem(key), staleKey)).toBe(staleIntent);
               await capture(page, "notification-settings-guardian", "guardian");
               stage = "guardian_save_personal_preference";
-              await page.getByRole("combobox", { name: "Frecuencia", exact: true }).click(); await page.getByRole("option", { name: "Resumen diario", exact: true }).click();
-              await page.getByRole("button", { name: "Guardar mi preferencia", exact: true }).click();
-              await page.getByRole("form", { name: "Mi preferencia de correo", exact: true }).getByText("Tu preferencia quedó guardada.", { exact: true }).waitFor();
+              await page.getByRole("radio", { name: /^Resumen diario/ }).click();
+              await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
+              await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor();
               expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select mode from public.admission_notification_preferences where tribe_id=${tribeId} and recipient_user_id=${guardianId}`)).rows[0])).toEqual({ mode: "daily" });
               stage = "guardian_preserve_inaccessible_original_after_save";
               expect(await page.evaluate((key) => sessionStorage.getItem(key), staleKey)).toBe(staleIntent); expect(privilegedGuardianReads).toBe(0);
@@ -217,8 +224,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               expect((await denied).status()).toBe(403);
               stage = "guardian_hide_private_settings_after_denial";
               await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByRole("alert").waitFor();
-              await page.getByRole("button", { name: "Guardar mi preferencia", exact: true }).waitFor({ state: "detached" });
-              expect(await page.getByRole("button", { name: "Guardar mi preferencia", exact: true }).count()).toBe(0);
+              await page.getByRole("button", { name: "Cambiar avisos", exact: true }).waitFor({ state: "detached" });
+              expect(await page.getByRole("button", { name: "Cambiar avisos", exact: true }).count()).toBe(0);
               expect(await page.evaluate((key) => sessionStorage.getItem(key), staleKey)).toBe(staleIntent); expect(privilegedGuardianReads).toBe(0);
               await capture(page, "notification-settings-role-lost", "guardian");
               } finally {

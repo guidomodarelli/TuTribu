@@ -1,0 +1,55 @@
+@use "../../../../src/styles/workspace-panel";
+
+// The block only groups its rows: each one takes the spacing of the flow or panel that hosts it.
+.PolicyActionFeedback {
+  display: contents;
+
+  &__progress {
+    @include workspace-panel.note;
+
+    // Stays in the accessibility tree while empty, out of the layout flow.
+    &:empty {
+      @include workspace-panel.visually-hidden;
+    }
+  }
+
+  &__block {
+    @include workspace-panel.callout;
+
+    border-inline-start-color: var(--warning, var(--accent));
+  }
+
+  &__title {
+    @include workspace-panel.subtitle;
+  }
+
+  &__reasons {
+    display: grid;
+    margin: 0;
+    padding-inline-start: 1.25rem;
+    gap: 0.5rem;
+    line-height: 1.55;
+  }
+
+  &__reasonText {
+    margin-inline-end: 0.5rem;
+  }
+
+  &__link {
+    font-size: 0.875rem;
+  }
+
+  &__note {
+    @include workspace-panel.note;
+  }
+
+  &__recovery {
+    @include workspace-panel.callout;
+
+    border-inline-start-color: var(--danger, var(--destructive));
+  }
+
+  &__error {
+    @include workspace-panel.error;
+  }
+}

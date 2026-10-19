@@ -38,7 +38,7 @@ export function AllowlistManagement(props: AllowlistManagementProps) {
         <p className={styles.AllowlistManagement__help}>Deshabilitar afecta nuevos ingresos que dependan de esta entrada. No expulsa miembros ni libera un contacto vinculado; la gestión de membresía es una acción separada.</p>
         {props.fieldError && <p role="alert" className={styles.AllowlistManagement__error}>{props.fieldError}</p>}
         <div className={styles.AllowlistManagement__confirmation}><Checkbox id={`${fieldId}-confirmed`} checked={props.confirmed} disabled={disabled || !props.contactType} onCheckedChange={(value) => props.onConfirm(value === true)} /><Label htmlFor={`${fieldId}-confirmed`}>Confirmo el cambio de esta entrada de lista</Label></div>
-        <div className={styles.AllowlistManagement__actions}><Button type="submit" disabled={disabled || !props.confirmed || !props.contactType || props.conflict}>{props.writing ? "Guardando…" : "Guardar entrada"}</Button>{props.conflict && <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadCurrentEntry}>Consultar versión actual</Button>}</div>
+        <div className={styles.AllowlistManagement__actions}><Button type="submit" loading={props.writing} disabled={!props.writing && (disabled || !props.confirmed || !props.contactType || props.conflict)}>Guardar entrada</Button>{props.conflict && <Button type="button" variant="secondary" disabled={props.busy} onClick={props.onReadCurrentEntry}>Consultar versión actual</Button>}</div>
       </form>
     </>}
     {props.errorMessage && <p role="alert" className={styles.AllowlistManagement__error}>{props.errorMessage}</p>}

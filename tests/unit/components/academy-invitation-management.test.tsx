@@ -1,13 +1,14 @@
 /** Exercises real shared controls and viewer-scoped workflow with doubles only at own application ports. @module academy-invitation-management-tests */
 import { randomBytes, randomUUID } from "node:crypto";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ThemedToaster } from "@golfo/ui";
 import { InvitationsContainer } from "@/app/(platform)/[slug]/academia/admissions/invitations/invitations-container";
 import type { PersonalInvitationManagementPageState } from "@/src/modules/academy-admissions/application/results/personal-invitation-management-page-state";
 import type { PersonalInvitationManagementBrowserClient } from "@/src/modules/academy-admissions/application/ports/personal-invitation-management-browser-client";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
-import { PERSONAL_INVITATION_MANAGEMENT_DATE } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
+import { PERSONAL_INVITATION_MANAGEMENT_COPY, PERSONAL_INVITATION_MANAGEMENT_DATE } from "@/src/modules/academy-admissions/constants/personal-invitation-management-browser";
 
 /** @returns Safe initial props and own ports, with real storage, hooks, controls and validation. */
 function fixture(phone = false) {
@@ -239,5 +240,62 @@ describe("personal invitation management controls", () => {
     await waitFor(() => expect(data.client.viewer).toHaveBeenCalled());
     expect(data.client.write).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Consultar operación original" })).toBeInTheDocument();
+  });
+});
+
+describe("personal invitation save feedback", () => {
+  // Sonner schedules a removal timer after a toast closes; fake timers (advancing with real time in vitest.config)
+  // keep the waits intact and restoring real timers discards it before jsdom is torn down.
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+  /** @param data - Own fixture. @returns The real container next to the real shared toaster, after its native viewer observation. */
+  async function mountWithToaster(data: ReturnType<typeof fixture>) {
+    render(<><InvitationsContainer initialState={data.initial} client={data.client} /><ThemedToaster /></>);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Nueva invitación" })).toBeEnabled());
+  }
+
+  it("should keep the pressed save busy and focused with its own label while the write is pending, then confirm it", async () => {
+    const data = fixture(), user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let resolveWrite!: (value: Awaited<ReturnType<PersonalInvitationManagementBrowserClient["write"]>>) => void;
+    vi.mocked(data.client.write).mockImplementationOnce(async () => new Promise((resolve) => { resolveWrite = resolve; }));
+    await mountWithToaster(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Guardar acción" }));
+    await waitFor(() => expect(data.client.write).toHaveBeenCalledOnce());
+    const save = screen.getByRole("button", { name: "Guardar acción" });
+    expect(save).toHaveAttribute("aria-busy", "true");
+    expect(save).not.toBeDisabled();
+    expect(save).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Nueva invitación" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Consultar estado actual" })).toBeDisabled();
+    const intent = vi.mocked(data.client.write).mock.calls[0][1];
+    await act(async () => resolveWrite({ status: "ready", value: { viewerId: data.initial.viewerId, outcome: { state: "completed", operationId: intent.input.operationId, replayed: false, result: { invitationId: data.metadata.id, version: 1, changed: true, created: true }, invitationUrl: data.invitationUrl } } }));
+    const management = screen.getByRole("region", { name: "Gestión de invitaciones personales" });
+    expect(await within(management).findByText(PERSONAL_INVITATION_MANAGEMENT_COPY.saved)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Guardar acción" })).not.toHaveAttribute("aria-busy");
+  });
+
+  it("should keep the save label unchanged and not busy while only the current state is read", async () => {
+    const data = fixture();
+    let resolvePage!: (value: Awaited<ReturnType<PersonalInvitationManagementBrowserClient["page"]>>) => void;
+    vi.mocked(data.client.page).mockImplementationOnce(async () => new Promise((resolve) => { resolvePage = resolve; }));
+    await mountWithToaster(data);
+    fireEvent.click(screen.getByRole("button", { name: "Consultar estado actual" }));
+    await waitFor(() => expect(data.client.page).toHaveBeenCalledOnce());
+    expect(screen.getByText(PERSONAL_INVITATION_MANAGEMENT_COPY.reading)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Guardar acción" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Guardar acción" })).not.toHaveAttribute("aria-busy");
+    await act(async () => resolvePage({ status: "ready", value: { ...data.initial, page: { items: [], nextCursor: null } } }));
+    expect(await screen.findByText(PERSONAL_INVITATION_MANAGEMENT_COPY.current)).toBeVisible();
+  });
+
+  it("should announce a definitive save failure both inline and in a toast", async () => {
+    const data = fixture(), user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime }), message = "No pudimos guardar la invitación. Revisá los datos.";
+    vi.mocked(data.client.write).mockResolvedValueOnce({ status: "failed", code: "dependency_unavailable", message, uncertain: false });
+    await mountWithToaster(data); await emailProposal(user);
+    await user.click(screen.getByRole("button", { name: "Guardar acción" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    await waitFor(() => expect(document.querySelector("[data-sonner-toaster]")).toHaveTextContent(message));
+    expect(data.client.write).toHaveBeenCalledOnce();
   });
 });

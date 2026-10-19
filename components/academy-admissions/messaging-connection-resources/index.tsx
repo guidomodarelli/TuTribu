@@ -11,7 +11,8 @@ import styles from "./styles.module.scss";
 
 /** Own references are proposals; the server confirms detail before committing any effective version. */
 export type MessagingConnectionResourcesProps={
-  channel:MessagingProviderChannel;availableChannels:readonly MessagingProviderChannel[];senderId:string;templateId:string;templateLanguage:string;confirmed:boolean;busy:boolean;canSave:boolean;
+  /** `busy` covers every read and write; `saving` marks only the pressed configuration save. */
+  channel:MessagingProviderChannel;availableChannels:readonly MessagingProviderChannel[];senderId:string;templateId:string;templateLanguage:string;confirmed:boolean;busy:boolean;saving?:boolean;canSave:boolean;
   senders:Pick<MessagingResourcePageResult,"items"|"nextCursor">;templates:Pick<MessagingResourcePageResult,"items"|"nextCursor">;
   fieldErrors:Partial<Record<"senderId"|"templateId"|"templateLanguage",string>>;message:{kind:"status"|"alert";text:string}|null;
   onChannelChange:(channel:MessagingConnectionResourcesProps["channel"])=>void;onSenderChange:(value:string)=>void;onTemplateChange:(value:string)=>void;onTemplateLanguageChange:(value:string)=>void;onConfirmationChange:(confirmed:boolean)=>void;
@@ -43,7 +44,7 @@ export function MessagingConnectionResources(props:MessagingConnectionResourcesP
       </fieldset>}
       {props.message&&<p className={styles.MessagingConnectionResources__feedback} role={props.message.kind}>{props.message.text}</p>}
       <Checkbox id={`${fieldId}-confirmation`} checked={props.confirmed} disabled={props.busy} onCheckedChange={(checked)=>props.onConfirmationChange(checked===true)} label="Revisé el canal y sus recursos y quiero guardar esta configuración." />
-      <div className={styles.MessagingConnectionResources__actions}><Button className={styles.MessagingConnectionResources__action} type="submit" variant="primary" disabled={props.busy||!props.canSave||!channelAvailable}>Guardar configuración del canal</Button></div>
+      <div className={styles.MessagingConnectionResources__actions}><Button className={styles.MessagingConnectionResources__action} type="submit" variant="primary" loading={props.saving} disabled={!props.saving&&(props.busy||!props.canSave||!channelAvailable)}>Guardar configuración del canal</Button></div>
     </form>
   </section>;
 }

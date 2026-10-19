@@ -62,8 +62,13 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
             page.on("request", (request) => { if (new URL(request.url()).pathname.endsWith("/admissions/email-settings") && request.method() === "POST") emailWrites++; });
             /** Waits for current native identity and the end of the single request slot. */
             const ready = () => page.waitForFunction(() => [...document.querySelectorAll("button")].some((button) => button.textContent === "Consultar estado actual" && !button.disabled));
-            /** Uses the actual checkbox; returning or restoring an original never supplies consent. */
-            const confirm = () => page.getByRole("checkbox", { name: "Confirmo la habilitación y la zona elegidas para el correo de esta tribu.", exact: true }).check();
+            /** Uses the actual review checkbox; returning or restoring an original never supplies consent. */
+            const confirm = () => page.getByRole("checkbox", { name: "Revisé el resumen y quiero guardar estos avisos.", exact: true }).check();
+            /** Walks the remaining guided steps to the review and runs the final save with a fresh confirmation. */
+            const reviewAndSave = async () => {
+              while (await page.getByRole("button", { name: "Continuar", exact: true }).count()) await page.getByRole("button", { name: "Continuar", exact: true }).click();
+              await confirm(); await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
+            };
             /** Waits for the actual same-origin read before testing its final rendered state. */
             const readCurrent = async () => {
               const response = page.waitForResponse((reply) => new URL(reply.url()).pathname.endsWith("/admissions/notification-preferences") && reply.request().method() === "GET");
@@ -81,8 +86,8 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               });
               const observedAuthentication = page.waitForRequest((request) => new URL(request.url()).pathname.endsWith("/api/auth/get-session"));
               await page.goto(route, { waitUntil: "domcontentloaded" }); await observedAuthentication;
-              await page.getByText("Procesando los ajustes de admisión…", { exact: true }).waitFor();
-              expect(await page.getByRole("button", { name: "Guardar mi preferencia", exact: true }).isDisabled()).toBe(true);
+              await page.getByText("Consultando los ajustes actuales…", { exact: true }).waitFor();
+              expect(await page.getByRole("button", { name: "Continuar", exact: true }).isDisabled()).toBe(true);
               await capture("notification-settings-loading");
               holdAuthentication = false; releaseAuthentication(); await ready();
 
@@ -92,25 +97,29 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
                 expect(response.status()).toBe(200); return response.json();
               });
               expect(changed).toMatchObject({ status: "changed", preference: { mode: "individual", version: 1 } });
-              await page.getByRole("combobox", { name: "Frecuencia", exact: true }).click(); await page.getByRole("option", { name: "Resumen diario", exact: true }).click();
-              await page.getByRole("button", { name: "Guardar mi preferencia", exact: true }).click();
+              await page.getByRole("button", { name: "Continuar", exact: true }).click();
+              await page.getByRole("radio", { name: /^Resumen diario/ }).click();
+              await reviewAndSave();
               await page.getByRole("alert").filter({ hasText: "Tu preferencia cambió en otra ventana." }).waitFor(); await ready();
-              expect(await page.getByRole("button", { name: "Guardar mi preferencia", exact: true }).isDisabled()).toBe(true);
+              expect(await page.getByRole("button", { name: "Guardar avisos", exact: true }).isDisabled()).toBe(true);
               await capture("notification-settings-preference-conflict");
               await readCurrent();
-              expect(await page.getByRole("combobox", { name: "Frecuencia", exact: true }).textContent()).toContain("Resumen diario");
+              await page.getByRole("button", { name: "Atrás", exact: true }).click();
+              expect(await page.getByRole("radio", { name: /^Resumen diario/ }).isChecked()).toBe(true);
 
-              await mark("blank_timezone_clears_consent");
-              await confirm(); await page.getByRole("textbox", { name: "Zona horaria de la tribu", exact: true }).fill("");
-              expect(await page.getByRole("checkbox", { name: "Confirmo la habilitación y la zona elegidas para el correo de esta tribu.", exact: true }).isChecked()).toBe(false);
-              expect(await page.getByRole("button", { name: "Guardar correo de admisión", exact: true }).isDisabled()).toBe(true);
+              await mark("blank_timezone_blocks_first_step");
+              await page.getByRole("button", { name: "Atrás", exact: true }).click();
+              await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).check();
+              await page.getByRole("textbox", { name: "Zona horaria de la tribu", exact: true }).fill("");
+              await page.getByText("Indicá una zona horaria para continuar.", { exact: true }).waitFor();
+              expect(await page.getByRole("button", { name: "Continuar", exact: true }).isDisabled()).toBe(true);
               await capture("notification-settings-invalid-zone");
               await page.getByRole("textbox", { name: "Zona horaria de la tribu", exact: true }).fill("Asia/Kolkata");
 
               await mark("native_unprepared_email_capability");
-              await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).check(); await confirm();
-              await page.getByRole("button", { name: "Guardar correo de admisión", exact: true }).click();
+              await reviewAndSave();
               await page.getByRole("alert").filter({ hasText: "Falta un correo preparado" }).waitFor(); await ready();
+              await page.getByText("Tu preferencia todavía no se guardó.", { exact: true }).waitFor();
               expect(await fixture.repository.get(fixture.read)).toMatchObject({ enabled: false, version: 0 });
               expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBeNull();
               await capture("notification-settings-capability-rejected");
@@ -118,7 +127,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
 
               await mark("genuine_email_cas_conflict");
               expect(await fixture.repository.change(fixture.change, fixture.command(0, false, "UTC"))).toMatchObject({ state: "completed", result: { status: "changed", settings: { version: 1 } } });
-              await confirm(); await page.getByRole("button", { name: "Guardar correo de admisión", exact: true }).click();
+              await confirm(); await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
               await page.getByRole("alert").filter({ hasText: "La configuración cambió en otra ventana." }).waitFor(); await ready();
               await capture("notification-settings-email-conflict");
               } else {
@@ -137,21 +146,22 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.reload({ waitUntil: "domcontentloaded" }); await ready();
               await mark("observe_genuine_started_public_state");
               await page.getByRole("alert").filter({ hasText: "El cambio sigue pendiente." }).waitFor();
-              expect(await page.getByRole("button", { name: "Reintentar el cambio original", exact: true }).isDisabled()).toBe(true);
+              await page.getByText("Se reintenta el cambio pendiente", { exact: true }).waitFor();
+              expect(await page.getByRole("button", { name: "Guardar avisos", exact: true }).isDisabled()).toBe(true);
               expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`select version,lease_owner::text,lease_until::text from public.academy_admission_operations where tribe_id=${tribeId} and idempotency_key=${original.operationId}`)).rows[0])).toEqual(beforeRead);
               await capture("notification-settings-started");
               const writesBeforeResume = emailWrites;
               await mark("retry_active_original_without_effect");
               const activeReply = page.waitForResponse((reply) => new URL(reply.url()).pathname.endsWith("/admissions/email-settings") && reply.request().method() === "POST");
-              await confirm(); await page.getByRole("button", { name: "Reintentar el cambio original", exact: true }).click();
+              await confirm(); await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
               expect(await (await activeReply).json()).toEqual({ state: "started", operationId: original.operationId }); await ready();
               expect(emailWrites).toBe(writesBeforeResume + 1); expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 1 });
               expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBe(originalBody);
               await mark("resume_expired_original_once");
               expect(await database.withContext(fixture.own, async (transaction) => (await transaction.execute(sql`update public.academy_admission_operations set lease_until=clock_timestamp()-interval '1 second',version=version+1 where tribe_id=${tribeId} and idempotency_key=${original.operationId} and state='started' returning state`)).rows)).toEqual([{ state: "started" }]);
               await readCurrent(); await confirm();
-              await page.getByRole("button", { name: "Reintentar el cambio original", exact: true }).click();
-              await page.getByRole("form", { name: "Correo de la tribu", exact: true }).getByText("La configuración del correo quedó guardada.", { exact: true }).waitFor(); await ready();
+              await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
+              await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor(); await ready();
               expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 2, enabled: false, timeZone: "Asia/Kolkata" });
               expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBeNull(); await capture("notification-settings-resumed");
 
@@ -160,9 +170,9 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               await page.evaluate(({ key, value }) => sessionStorage.setItem(key, value), { key: storedKey, value: JSON.stringify({ viewerId: fixture.own.userId, slug, input: absent }) });
               await page.reload({ waitUntil: "domcontentloaded" }); await ready();
               await page.getByRole("alert").filter({ hasText: "El cambio original todavía no aparece registrado." }).waitFor();
-              expect(await page.getByRole("button", { name: "Reintentar el cambio original", exact: true }).isDisabled()).toBe(true); await capture("notification-settings-original-absent");
-              await confirm(); await page.getByRole("button", { name: "Reintentar el cambio original", exact: true }).click();
-              await page.getByRole("form", { name: "Correo de la tribu", exact: true }).getByText("La configuración del correo quedó guardada.", { exact: true }).waitFor(); await ready();
+              expect(await page.getByRole("button", { name: "Guardar avisos", exact: true }).isDisabled()).toBe(true); await capture("notification-settings-original-absent");
+              await confirm(); await page.getByRole("button", { name: "Guardar avisos", exact: true }).click();
+              await page.getByText("Tus avisos quedaron guardados.", { exact: true }).waitFor(); await ready();
               expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 3, timeZone: "UTC" });
 
               await mark("owned_read_failure_and_explicit_retry");
@@ -171,22 +181,26 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               }, { times: 1 });
               await page.getByRole("button", { name: "Consultar estado actual", exact: true }).click();
               await page.getByRole("region", { name: "Avisos de admisión", exact: true }).getByRole("alert").waitFor();
-              expect(await page.getByRole("form", { name: "Mi preferencia de correo", exact: true }).count()).toBe(0); await capture("notification-settings-read-failed");
+              expect(await page.getByRole("button", { name: "Cambiar avisos", exact: true }).count()).toBe(0); await capture("notification-settings-read-failed");
               const writesBeforeRecovery = emailWrites;
               await page.getByRole("button", { name: "Reintentar", exact: true }).click(); await ready();
-              expect(await page.getByRole("form", { name: "Mi preferencia de correo", exact: true }).count()).toBe(1); expect(emailWrites).toBe(writesBeforeRecovery);
+              expect(await page.getByRole("button", { name: "Cambiar avisos", exact: true }).count()).toBe(1); expect(emailWrites).toBe(writesBeforeRecovery);
               await capture("notification-settings-read-recovered");
 
-              await mark("native_unchanged_email_result");
-              await confirm(); await page.getByRole("button", { name: "Guardar correo de admisión", exact: true }).click();
-              await page.getByRole("form", { name: "Correo de la tribu", exact: true }).getByText("La configuración del correo ya estaba guardada.", { exact: true }).waitFor(); await ready();
+              await mark("review_without_changes_writes_nothing");
+              await page.getByRole("button", { name: "Cambiar avisos", exact: true }).click();
+              while (await page.getByRole("button", { name: "Continuar", exact: true }).count()) await page.getByRole("button", { name: "Continuar", exact: true }).click();
+              await page.getByText("No hay cambios para guardar.", { exact: true }).waitFor();
+              expect(await page.getByRole("button", { name: "Guardar avisos", exact: true }).isDisabled()).toBe(true); expect(emailWrites).toBe(writesBeforeRecovery);
               expect(await fixture.repository.get(fixture.read)).toMatchObject({ version: 3, timeZone: "UTC" }); await capture("notification-settings-email-unchanged");
 
               await mark("lost_write_keeps_original_without_google");
-              await page.getByRole("textbox", { name: "Zona horaria de la tribu", exact: true }).fill("Asia/Kolkata"); await confirm();
+              await page.getByRole("button", { name: "Atrás", exact: true }).click(); await page.getByRole("button", { name: "Atrás", exact: true }).click();
+              await page.getByRole("checkbox", { name: "Habilitar correo de admisión", exact: true }).check();
+              await page.getByRole("textbox", { name: "Zona horaria de la tribu", exact: true }).fill("Asia/Kolkata");
               await page.route("**/admissions/email-settings", (route) => route.request().method() === "POST" ? route.abort("failed") : route.fallback(), { times: 1 });
-              await page.getByRole("button", { name: "Guardar correo de admisión", exact: true }).click();
-              await page.getByRole("form", { name: "Correo de la tribu", exact: true }).getByRole("button", { name: "Reintentar el cambio original", exact: true }).waitFor(); await ready();
+              await reviewAndSave();
+              await page.getByText(/Conservamos el cambio original/).waitFor(); await ready();
               expect(await page.getByRole("button", { name: /Google/ }).count() + await page.getByRole("link", { name: /Google/ }).count()).toBe(0);
               const pending = await page.evaluate((key) => sessionStorage.getItem(key), storedKey); expect(pending).not.toBeNull();
               forbidden.push(JSON.parse(pending!).input.operationId); await capture("notification-settings-lost-write-kept");
@@ -198,7 +212,7 @@ describe.skipIf(process.env.RUN_ADMISSION_SQL_TESTS !== "1" || process.env.RUN_A
               });
               await page.getByRole("button", { name: "Consultar estado actual", exact: true }).click();
               await page.getByRole("alert").filter({ hasText: "La cuenta cambió. Volvé a cargar la página antes de continuar." }).waitFor();
-              expect(await page.getByRole("form", { name: "Correo de la tribu", exact: true }).count()).toBe(0);
+              expect(await page.getByRole("form", { name: "Configurar avisos de admisión", exact: true }).count()).toBe(0);
               expect(await page.evaluate((key) => sessionStorage.getItem(key), storedKey)).toBe(pending); await capture("notification-settings-account-changed");
               }
               expect(errors).toEqual([]);

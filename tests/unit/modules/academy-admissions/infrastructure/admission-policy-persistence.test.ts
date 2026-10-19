@@ -514,7 +514,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
 });
 
 describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy settings browser", () => {
-  it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should show actual unresolved membership preflight and clear its impact after an edit in $engine", async ({ engine, browserType }) => {
+  it.each([{ engine: "chromium", browserType: chromium }, { engine: "webkit", browserType: webkit }])("should stop the chained activation on actual unresolved membership preflight and clear it after an edit in $engine", async ({ engine, browserType }) => {
     await withAcademyAdmissionDatabase(async (database) => {
       const data = await preparePolicy(database), slug = `policy-${data.tribeId}`;
       for (const migration of ["20261007001000_read_public_admission_overview.sql", "20261007002000_read_own_admission_operations.sql", "20261006180000_guard_subscription_membership_sources.sql", "20261007020000_resolve_paid_admission_requests.sql", "20261007023000_close_unavailable_admission_requests.sql"]) await database.applyMigration(migration);
@@ -535,23 +535,29 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
               page.on("pageerror", () => runtimeErrors.push("page_error"));
               page.on("console", (message) => { if (message.type() === "error" && /hydration|did not match/i.test(message.text())) runtimeErrors.push("hydration_error"); });
               await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
-              const check = page.getByRole("button", { name: "Revisar requisitos de activación" });
-              await check.waitFor({ timeout: 90_000 });
+              const next = page.getByRole("button", { name: "Continuar", exact: true });
+              await next.waitFor({ timeout: 90_000 });
+              while (await next.count()) await next.click();
+              await page.getByRole("checkbox", { name: /Revisé las reglas/ }).check({ timeout: 90_000 });
+              let activationRequests = 0;
+              page.on("request", (request) => { if (request.method() === "POST" && request.url().endsWith(`/api/tribes/${slug}/admissions/policy/activate`)) activationRequests += 1; });
               const response = page.waitForResponse((result) => result.url().endsWith(`/api/tribes/${slug}/admissions/policy/preflight`));
-              await check.click();
+              await page.getByRole("button", { name: "Guardar y activar admisiones", exact: true }).click();
               expect(await (await response).json()).toEqual({ prepared: false, reasons: ["preflight_unknown_commercial_history", "preflight_privileged_commercial_membership"], impact: { unknownCommercialMemberCount: 1, privilegedCommercialMemberCount: 1 } });
-              const impact = page.getByRole("region", { name: "Resultado de los requisitos de activación" });
+              const impact = page.getByRole("region", { name: "Lo que falta resolver" });
               await impact.waitFor();
               expect(await impact.textContent()).toContain("Membresías con historial comercial desconocido: 1.");
               expect(await impact.textContent()).toContain("Membresías comerciales restringidas con rol de líder o guardián: 1.");
-              expect(await page.getByRole("button", { name: "Activar control de admisión" }).isDisabled()).toBe(true);
+              expect(activationRequests).toBe(0);
               expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
               expect(runtimeErrors).toEqual([]);
               await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-preflight.png`), fullPage: true });
               if (width === 1280) await captureAdmissionReview(page, "admission-policy-preflight", [data.fixture.userId, data.sessionId, data.sessionToken, secret], "preflight-captures.json", { selector: "form" });
+              await page.getByRole("button", { name: "Atrás", exact: true }).click();
+              await page.getByRole("button", { name: "Atrás", exact: true }).click();
               await page.getByRole("checkbox", { name: "Comprobar el contacto con un código" }).check();
               await impact.waitFor({ state: "detached" });
-              expect(await page.getByRole("button", { name: "Activar control de admisión" }).isDisabled()).toBe(true);
+              expect(activationRequests).toBe(0);
             } finally { await context.close(); }
           }
         } finally { await browser.close(); }
@@ -577,39 +583,38 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native policy 
                 page.on("pageerror", () => runtimeErrors.push("page_error"));
                 page.on("console", (message) => { if (message.type() === "error" && /hydration|did not match/i.test(message.text())) runtimeErrors.push("hydration_error"); });
                 await page.goto(`${origin}/${slug}/academia/admissions/settings`, { waitUntil: "commit" });
-                const confirmation = page.getByRole("checkbox", { name: /Revisé las reglas/ });
-                await confirmation.waitFor({ timeout: 90_000 });
-                await confirmation.check({ timeout: 90_000 });
-                expect(await page.getByRole("button", { name: "Activar control de admisión" }).isDisabled()).toBe(true);
+                const next = page.getByRole("button", { name: "Continuar", exact: true });
+                await next.waitFor({ timeout: 90_000 });
+                await next.click();
                 const verification = page.getByRole("checkbox", { name: "Comprobar el contacto con un código" });
                 await verification.setChecked(!(await verification.isChecked()));
-                expect(await confirmation.isChecked()).toBe(false);
-                expect(await page.getByRole("button", { name: "Guardar borrador" }).isDisabled()).toBe(true);
+                while (await next.count()) await next.click();
+                const confirmation = page.getByRole("checkbox", { name: /Revisé las reglas/ });
+                const final = page.getByRole("button", { name: "Guardar y activar admisiones", exact: true });
+                expect(await final.isDisabled()).toBe(true);
+                await confirmation.check({ timeout: 90_000 });
                 expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
                 await page.screenshot({ path: join(process.cwd(), "user-guides/assets/academy-admissions", `${engine}-${width}-policy-settings.png`), fullPage: true });
                 if (width === 1280) await captureAdmissionReview(page, "admission-policy-settings", [data.fixture.userId, data.sessionId, data.sessionToken, secret], "policy-captures.json", { selector: "form" });
                 stage = "create_concurrent_conflict";
                 await database.withContext(data.fixture.own, (transaction) => transaction.execute(sql`update public.academy_admission_policies set allow_common_exceptions=not allow_common_exceptions,version=version+1 where tribe_id=${data.tribeId}`));
-                await confirmation.check();
                 const save = page.waitForResponse((response) => response.url().endsWith(`/api/tribes/${slug}/admissions/policy`) && response.request().method() === "PUT");
-                await page.getByRole("button", { name: "Guardar borrador" }).click();
+                await final.click();
                 expect((await save).status()).toBe(409);
-                await page.getByText("La configuración cambió. Revisala y volvé a confirmar.", { exact: true }).waitFor({ timeout: 90_000 });
-                const retainedVerification = await verification.isChecked();
+                await page.getByRole("alert").filter({ hasText: "No pudimos guardar las reglas. La configuración cambió. Revisala y volvé a confirmar." }).waitFor({ timeout: 90_000 });
                 if (width === 1280) await captureAdmissionReview(page, "admission-policy-conflict", [data.fixture.userId, data.sessionId, data.sessionToken, secret], "policy-captures.json", { selector: "form" });
-                stage = "reload_current_without_erasing_draft";
-                await page.getByRole("button", { name: "Consultar configuración actual" }).click();
-                await confirmation.check({ timeout: 90_000 });
-                expect(await verification.isChecked()).toBe(retainedVerification);
-                const saved = page.waitForResponse((response) => response.url().endsWith(`/api/tribes/${slug}/admissions/policy`) && response.request().method() === "PUT");
-                await page.getByRole("button", { name: "Guardar borrador" }).click();
-                expect((await saved).status()).toBe(200);
-                await page.getByText("La configuración quedó guardada.", { exact: true }).waitFor({ timeout: 90_000 });
+                stage = "retry_reads_current_without_erasing_draft";
+                await page.getByRole("button", { name: "Reintentar", exact: true }).click();
+                await page.getByText("La configuración cambió mientras tanto. Revisá el resumen y volvé a confirmar.", { exact: true }).waitFor({ timeout: 90_000 });
                 expect(await confirmation.isChecked()).toBe(false);
-                stage = "read_actual_preflight";
-                await page.getByRole("button", { name: "Revisar requisitos de activación" }).click();
-                await page.getByText("Las protecciones de admisión consultadas están preparadas. La activación volverá a comprobarlas al confirmar.", { exact: true }).waitFor({ timeout: 90_000 });
-                expect(await page.getByRole("button", { name: "Activar control de admisión" }).isDisabled()).toBe(true);
+                expect(await page.getByText("Código de comprobación", { exact: true }).locator("xpath=following-sibling::dd").textContent()).toBe("Sí");
+                await confirmation.check({ timeout: 90_000 });
+                stage = "save_then_attempt_activation";
+                const saved = page.waitForResponse((response) => response.url().endsWith(`/api/tribes/${slug}/admissions/policy`) && response.request().method() === "PUT");
+                await final.click();
+                expect((await saved).status()).toBe(200);
+                await page.getByRole("region", { name: "Lo que falta resolver" }).waitFor({ timeout: 90_000 });
+                expect(await page.getByText("Tus reglas quedaron guardadas como borrador.", { exact: false }).count()).toBeGreaterThan(0);
                 expect(runtimeErrors).toEqual([]);
                 if (width === 1280) await captureAdmissionReview(page, "admission-policy-saved", [data.fixture.userId, data.sessionId, data.sessionToken, secret], "policy-captures.json", { selector: "form" });
                 process.stdout.write(JSON.stringify({ phase: "policy_browser_verified", engine, width }) + "\n");

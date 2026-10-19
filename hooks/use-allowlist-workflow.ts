@@ -75,8 +75,11 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
     });
   }, [query]);
 
-  /** A terminal original is reconciled through current own metadata, without another POST or route refresh. */
-  const consume = useCallback(async (intent: AllowlistBrowserIntent, value: { state: "started" | "completed"; operationId: string; result?: unknown }, signal: AbortSignal, scope: number) => {
+  /**
+   * A terminal original is reconciled through current own metadata, without another POST or route refresh.
+   * @param confirmation - Visible success copy: the save itself, or the recovery of an earlier original.
+   */
+  const consume = useCallback(async (intent: AllowlistBrowserIntent, value: { state: "started" | "completed"; operationId: string; result?: unknown }, signal: AbortSignal, scope: number, confirmation: string) => {
     if (value.operationId !== intent.input.operationId) { setErrorMessage(ADMISSION_ERROR_MESSAGE.public_contract_unusable); setPhase(PHASE.uncertain); return; }
     if (value.state === OPERATION_STATE.started) { setErrorMessage(COPY.started); setPhase(PHASE.uncertain); return; }
     const denial = allowlistMutationDenialSchema.safeParse(value.result);
@@ -93,7 +96,7 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
       setPage(refreshed.value);
     } else mergeEntry(current.value);
     if (!persist(emptyDraft(), null)) return;
-    setConfirmed(false); setConflict(false); setStatusMessage(COPY.recovered); setPhase(PHASE.idle); toast.success(COPY.saved);
+    setConfirmed(false); setConflict(false); setStatusMessage(confirmation); setPhase(PHASE.idle); toast.success(COPY.saved);
   }, [authorize, client, initial, mergeEntry, page.items, persist, query, reportFailure]);
 
   /** Each interactive read owns one cancellable slot and cannot replace an unfinished mutation. */
@@ -116,7 +119,7 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
     if (!intent) return;
     const original = await client.operation(initial!.slug, intent.input.operationId, signal);
     if (!live(signal, scope) || !await authorize(signal, scope)) return;
-    if (original.status === "ready" && original.value.type === intent.type) await consume(intent, original.value, signal, scope);
+    if (original.status === "ready" && original.value.type === intent.type) await consume(intent, original.value, signal, scope, COPY.recovered);
     else { if (original.status === "failed" && reportFailure(original)) return; setErrorMessage(original.status === "failed" && original.code === ADMISSION_ERROR_CODE.resourceUnavailable ? COPY.absent : original.status === "failed" ? original.message : COPY.uncertain); setPhase(PHASE.uncertain); }
   }), [authorize, client, consume, initial, reportFailure, run]);
 
@@ -156,7 +159,7 @@ export function useAllowlistWorkflow(options: { initialState: AllowlistPageState
       if (!persist(proposal, intent)) return;
       const result = await client.write(initial.slug, intent, signal);
       if (!live(signal, scope) || !await authorize(signal, scope)) return;
-      if (result.status === "ready") await consume(intent, result.value, signal, scope);
+      if (result.status === "ready") await consume(intent, result.value, signal, scope, COPY.saved);
       else if (result.status === "failed" && !result.uncertain) { if (!persist(proposal, null)) return; setConfirmed(false); if (reportFailure(result)) return; const staleEdit = result.code === ADMISSION_ERROR_CODE.allowlistConflict && intent.type === REAUTHENTICATION_OPERATION.updateAllowlistEntry; setErrorMessage(result.code === ADMISSION_ERROR_CODE.allowlistConflict ? staleEdit ? COPY.conflict : COPY.duplicate : result.message); setConflict(staleEdit); toast.error(result.message); }
       else { setErrorMessage(COPY.uncertain); setPhase(PHASE.uncertain); }
     }, true);

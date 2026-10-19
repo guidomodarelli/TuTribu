@@ -5,7 +5,7 @@ import { Badge, Button, Checkbox, EmptyState, type BadgeTone } from "@golfo/ui";
 import { AdmissionDecisionForm } from "@/components/academy-admissions/admission-decision-form";
 import { Link } from "@/components/navigation/link";
 import type { AdmissionReviewDto } from "@/src/modules/academy-admissions/application/results/admission-flow-result-schemas";
-import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_ELIGIBILITY_COPY, ADMISSION_REVIEW_STATUS_LABEL, ADMISSION_REVIEW_SOURCE_LABEL } from "@/src/modules/academy-admissions/constants/admission-review-ui";
+import { ADMISSION_REVIEW_UI_COPY, ADMISSION_REVIEW_ELIGIBILITY_COPY, ADMISSION_REVIEW_STATUS_LABEL, ADMISSION_REVIEW_SOURCE_LABEL, ADMISSION_REVIEW_PENDING_ACTION, type AdmissionReviewPendingAction } from "@/src/modules/academy-admissions/constants/admission-review-ui";
 import { ADMISSION_DECISION } from "@/src/modules/academy-admissions/constants/admission-public-contract";
 import { ADMISSION_EVIDENCE_KIND, ADMISSION_DENIAL_REASON } from "@/src/modules/academy-admissions/constants/admission-eligibility";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
@@ -28,7 +28,8 @@ export type AdmissionReviewProps = {
   batchSelection?: { ids: ReadonlySet<string>; disabled: boolean; onToggle: (id: string, checked: boolean) => void };
   historyHref?: string;
   items: AdmissionReviewDto[]; selected: AdmissionReviewDto | null; hasMore: boolean;
-  busy: boolean; disabled: boolean; confirmed: boolean; internalReason: string; externalMessage: string;
+  /** `busy` covers reads, writes and navigation; `pendingAction` names only the write the reviewer pressed. */
+  busy: boolean; pendingAction?: AdmissionReviewPendingAction | null; disabled: boolean; confirmed: boolean; internalReason: string; externalMessage: string;
   errorMessage: string | null; statusMessage: string | null; uncertain: boolean; canRetry: boolean;
   statusRef?: Ref<HTMLParagraphElement>;
   onSelect: (id: string) => void; onClose: () => void; onRead: () => void; onLoadMore: () => void;
@@ -59,15 +60,17 @@ export function AdmissionReview({ statusRef, ...props }: AdmissionReviewProps) {
   const proofReasonVisible = eligibilityMessages.some(({ reason }) => reason === ADMISSION_DENIAL_REASON.proofRequired || reason === ADMISSION_DENIAL_REASON.evidenceRevoked);
   const evidenceCopy = selected?.evidence.kind === ADMISSION_EVIDENCE_KIND.base ? ADMISSION_REVIEW_UI_COPY.base : selected?.evidence.kind === ADMISSION_EVIDENCE_KIND.local ? ADMISSION_REVIEW_UI_COPY.local : selected?.evidence.kind === ADMISSION_EVIDENCE_KIND.declared ? ADMISSION_REVIEW_UI_COPY.declared : ADMISSION_REVIEW_UI_COPY.none;
   const canApprove = selected?.eligibleActions.includes(ADMISSION_DECISION.approve), canReject = selected?.eligibleActions.includes(ADMISSION_DECISION.reject);
+  // A retry keeps its recovery controls mounted so the pressed retry shows progress instead of disappearing.
+  const retrying = props.pendingAction === ADMISSION_REVIEW_PENDING_ACTION.retry, recovering = props.uncertain || retrying, reading = props.busy && !props.pendingAction;
   return <div className={styles.AdmissionReview}>
     {!selected && props.filters}
     <div className={styles.AdmissionReview__toolbar}>
       {selected && <Button variant="ghost" size="sm" onClick={props.onClose} disabled={props.busy || props.uncertain}><ArrowLeftIcon className={styles.AdmissionReview__backIcon} aria-hidden="true" />{ADMISSION_REVIEW_UI_COPY.close}</Button>}
-      <Button variant="secondary" size="sm" onClick={props.onRead} disabled={props.busy}>{props.busy ? ADMISSION_REVIEW_UI_COPY.reading : ADMISSION_REVIEW_UI_COPY.read}</Button>
+      <Button variant="secondary" size="sm" onClick={props.onRead} disabled={props.busy}>{reading ? ADMISSION_REVIEW_UI_COPY.reading : ADMISSION_REVIEW_UI_COPY.read}</Button>
     </div>
     {props.errorMessage && <p className={`${styles.AdmissionReview__feedback} ${styles["AdmissionReview__feedback--alert"]}`} role="alert">{props.errorMessage}</p>}
     <p ref={statusRef} tabIndex={-1} className={styles.AdmissionReview__feedback} role="status" aria-live="polite" aria-atomic="true">{props.statusMessage ?? ""}</p>
-    {props.recovery !== undefined ? props.recovery : props.uncertain && <section className={styles.AdmissionReview__callout} aria-label="Recuperación de la decisión"><p role="status">{ADMISSION_REVIEW_UI_COPY.uncertain}</p>{props.canRetry && <Button variant="secondary" disabled={props.busy || !props.confirmed} onClick={props.onRetry}>{ADMISSION_REVIEW_UI_COPY.retry}</Button>}</section>}
+    {props.recovery !== undefined ? props.recovery : recovering && <section className={styles.AdmissionReview__callout} aria-label="Recuperación de la decisión"><p role="status">{ADMISSION_REVIEW_UI_COPY.uncertain}</p>{props.canRetry && <Button variant="secondary" loading={retrying} disabled={!retrying && (props.busy || !props.confirmed)} onClick={props.onRetry}>{ADMISSION_REVIEW_UI_COPY.retry}</Button>}</section>}
     {selected ? <section className={styles.AdmissionReview__detail} aria-label="Detalle de la solicitud">
       <header className={styles.AdmissionReview__detailHeader}>
         <h2 className={styles.AdmissionReview__name}>{selected.applicant.name}</h2>
@@ -92,9 +95,9 @@ export function AdmissionReview({ statusRef, ...props }: AdmissionReviewProps) {
         {eligibilityMessages.map(({ reason, message }) => <p key={reason} role="status" className={styles.AdmissionReview__note}>{message}</p>)}
         {!canApprove && <p className={styles.AdmissionReview__note}>La aprobación no está disponible para el estado y las condiciones actuales de esta solicitud.</p>}
       </div>}
-      {(canApprove || canReject || props.uncertain) && <section className={styles.AdmissionReview__decision} aria-labelledby={`${id}-decision`}>
+      {(canApprove || canReject || recovering) && <section className={styles.AdmissionReview__decision} aria-labelledby={`${id}-decision`}>
         <h3 id={`${id}-decision`} className={styles.AdmissionReview__sectionTitle}>Decisión</h3>
-        <AdmissionDecisionForm internalReason={props.internalReason} externalMessage={props.externalMessage} confirmed={props.confirmed} disabled={props.disabled} busy={props.busy} locked={props.uncertain} allowApprove={Boolean(canApprove)} allowReject={Boolean(canReject)} onInternalReason={props.onInternalReason} onExternalMessage={props.onExternalMessage} onConfirm={props.onConfirm} onDecision={props.onDecision} />
+        <AdmissionDecisionForm internalReason={props.internalReason} externalMessage={props.externalMessage} confirmed={props.confirmed} disabled={props.disabled} locked={recovering} pendingAction={props.pendingAction} allowApprove={Boolean(canApprove)} allowReject={Boolean(canReject)} onInternalReason={props.onInternalReason} onExternalMessage={props.onExternalMessage} onConfirm={props.onConfirm} onDecision={props.onDecision} />
       </section>}
     </section> : <section className={styles.AdmissionReview__inbox} aria-label="Bandeja de solicitudes">
       {!props.busy && !props.items.length && <EmptyState className={styles.AdmissionReview__empty} label="Bandeja de solicitudes vacía" title={props.hasMore ? ADMISSION_REVIEW_FILTER_COPY.emptyPage : ADMISSION_REVIEW_UI_COPY.empty} description="Las solicitudes nuevas aparecen acá apenas alguien pide ingresar." />}

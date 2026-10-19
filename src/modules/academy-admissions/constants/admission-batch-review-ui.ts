@@ -3,7 +3,7 @@ import type { AdmissionBatchResultDto } from "../application/results/admission-f
 export const ADMISSION_BATCH_REVIEW_COPY = {
   title: "Decidir solicitudes seleccionadas", select: "Seleccionar", selectPrefix: "Seleccionar solicitud de",
   selected: "Solicitudes seleccionadas", limit: "Máximo por lote", confirmation: "Confirmo esta decisión sobre todas las solicitudes enumeradas",
-  approve: "Aprobar seleccionadas", reject: "Rechazar seleccionadas", writing: "Guardando lote…",
+  approve: "Aprobar seleccionadas", reject: "Rechazar seleccionadas",
   limitReached: "Llegaste al máximo de solicitudes por lote. Quitá una para elegir otra.",
   selectionChanged: "Cambió una solicitud seleccionada. Revisá la selección y confirmá de nuevo.",
   invalid: "Seleccioná solicitudes visibles, escribí el motivo interno y confirmá la lista antes de decidir.",

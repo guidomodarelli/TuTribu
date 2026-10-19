@@ -9,6 +9,7 @@ import type { AllowlistImportPageState } from "@/src/modules/academy-admissions/
 import type { AllowlistImportDto } from "@/src/modules/academy-admissions/application/results/admission-management-result-schemas";
 import { createAllowlistImportDraftStoreFixture } from "@/tests/support/allowlist-import-draft-store-fixture";
 import { ADMISSION_LIMIT } from "@/src/modules/academy-admissions/constants/admission-limits";
+import { ALLOWLIST_IMPORT_WRITE_ACTION } from "@/src/modules/academy-admissions/constants/allowlist-import-browser";
 
 afterEach(() => window.sessionStorage.clear());
 /** @returns Own current scope and a saved preview with one valid and one invalid record. */
@@ -40,6 +41,28 @@ describe("explicit import workflow", () => {
     act(() => { result.current.selectRow(2, true); result.current.setConfirmed(true); });
     await act(async () => result.current.confirm());
     expect(result.current.fieldError).toBeTruthy(); expect(data.client.write).toHaveBeenCalledOnce();
+  });
+  it("should name only the pending server write, never a read, as the action in progress", async () => {
+    const data = fixture(); let resolveWrite!: (value: Awaited<ReturnType<AllowlistImportBrowserClient["write"]>>) => void;
+    vi.mocked(data.client.write).mockImplementationOnce(async () => new Promise((resolve) => { resolveWrite = resolve; }));
+    const { result } = renderHook(() => useAllowlistImportWorkflow(data));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    await act(async () => result.current.changeDraft(data.draft));
+    expect(result.current.writeAction).toBeNull();
+    act(() => result.current.setConfirmed(true));
+    let preview!: Promise<void>; act(() => { preview = result.current.preview(); });
+    await waitFor(() => expect(data.client.write).toHaveBeenCalledOnce());
+    expect(result.current.busy).toBe(true); expect(result.current.writeAction).toBe(ALLOWLIST_IMPORT_WRITE_ACTION.preview);
+    const intent = vi.mocked(data.client.write).mock.calls[0][1];
+    await act(async () => { resolveWrite({ status: "ready", value: { state: "completed", operationId: intent.operationId, replayed: false, result: { importId: data.importId, sourceVersion: 1, expiresAt: data.snapshot.expiresAt } } }); await preview; });
+    expect(result.current.busy).toBe(false); expect(result.current.writeAction).toBeNull();
+    let resolveRead!: (value: Awaited<ReturnType<AllowlistImportBrowserClient["read"]>>) => void;
+    vi.mocked(data.client.read).mockImplementationOnce(async () => new Promise((resolve) => { resolveRead = resolve; }));
+    let read!: Promise<void>; act(() => { read = result.current.readCurrent(); });
+    await waitFor(() => expect(result.current.busy).toBe(true));
+    expect(result.current.writeAction).toBeNull();
+    await act(async () => { resolveRead({ status: "ready", value: data.snapshot }); await read; });
+    expect(data.client.write).toHaveBeenCalledOnce();
   });
   it("should recover a lost preview reply by GET and retain its exact original without redispatch", async () => {
     const data = fixture(); vi.mocked(data.client.write).mockResolvedValue({ status: "failed", code: "dependency_unavailable", message: "Respuesta perdida.", uncertain: true });

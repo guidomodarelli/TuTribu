@@ -14,7 +14,7 @@ import { setVisibleCheckboxChecked } from "@/tests/support/set-visible-checkbox"
 import { ADMISSION_WHATSAPP_POLICY_OBSERVATION as OBSERVATION } from "@/tests/support/constants/admission-whatsapp-policy-observation";
 import { ADMISSION_WHATSAPP_BROWSER_VALIDATION as VALIDATION } from "@/tests/support/constants/admission-whatsapp-number";
 import { ADMISSION_WHATSAPP_COPY } from "@/src/modules/academy-admissions/constants/admission-whatsapp-number";
-import { ADMISSION_POLICY_BROWSER_COPY, ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
+import { ADMISSION_POLICY_SETTINGS_SEGMENT } from "@/src/modules/academy-admissions/constants/admission-policy-browser";
 import { MESSAGING_KEY_PURPOSE } from "@/src/modules/messaging/constants/messaging-cryptography";
 import { readMessagingHostingSecurityConfig } from "@/src/modules/messaging/infrastructure/config/messaging-hosting-security";
 
@@ -72,6 +72,11 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
           if (motionPreference !== null) await page.emulateMedia({ reducedMotion: motionPreference });
           for (let loadIndex = 0; loadIndex < OBSERVATION.loads; loadIndex += 1) {
             await page.goto(url);
+            /** The declared number is a contact decision: an activated control opens it from "Editar reglas", then the second step. */
+            const edit = page.getByRole("button", { name: "Editar reglas", exact: true }), next = page.getByRole("button", { name: "Continuar", exact: true });
+            await edit.or(next).first().waitFor();
+            if (await edit.count()) await edit.click();
+            await next.click();
             const checkbox = page.getByRole("checkbox", { name: ADMISSION_WHATSAPP_COPY.policyLabel });
             await checkbox.waitFor();
             const trials = [];
@@ -82,7 +87,7 @@ describe.skipIf(process.env.RUN_ADMISSION_BROWSER_TESTS !== "1")("native declare
               const immediate = await checkbox.isChecked();
               await page.waitForTimeout(OBSERVATION.settleObservationMs);
               const settled = await checkbox.isChecked();
-              const trial = { motionPreference, loadIndex, trialIndex, before, wanted, immediate, settled, actionError, draftNoticeVisible: await page.locator("main:visible").getByText(ADMISSION_POLICY_BROWSER_COPY.draftChanged, { exact: true }).first().isVisible() };
+              const trial = { motionPreference, loadIndex, trialIndex, before, wanted, immediate, settled, actionError };
               trials.push(trial); if (settled !== wanted) { lost.push(trial); break; }
             }
             observations.push({ motionPreference, loadIndex, trials, events: await page.evaluate(() => (window as unknown as { declaredWhatsappPolicyEvents: object[] }).declaredWhatsappPolicyEvents) });

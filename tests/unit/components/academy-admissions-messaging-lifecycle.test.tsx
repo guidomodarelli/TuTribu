@@ -20,6 +20,11 @@ describe("local connection lifecycle presenter",()=>{
   it("should show ordinary retirement dependencies and block actions during pending work",()=>{
     const props=lifecycleProps();render(<MessagingConnectionLifecycle {...props} retiring busy confirmed />);expect(screen.getByRole("button",{name:"Desconectar conexión"})).toBeDisabled();expect(screen.queryByRole("combobox",{name:"Motivo de suspensión"})).not.toBeInTheDocument();expect(screen.getByText(/resolvé la verificación requerida o pausá admisiones/)).toBeVisible();expect(screen.queryByRole("button",{name:/Google/})).not.toBeInTheDocument();
   });
+  it("should keep only the pressed disconnection busy while the lifecycle write is pending",async()=>{
+    const props=lifecycleProps(),user=userEvent.setup();render(<MessagingConnectionLifecycle {...props} retiring busy acting confirmed={false} canAct={false} />);
+    const disconnect=screen.getByRole("button",{name:"Desconectar conexión"});expect(disconnect).toHaveAttribute("aria-busy","true");expect(disconnect).not.toBeDisabled();
+    expect(screen.getByRole("checkbox",{name:/Revisé la conexión/})).toBeDisabled();await user.click(disconnect);expect(props.onAct).not.toHaveBeenCalled();
+  });
   it("should render a safe empty state without inventing a resource or a mutation",()=>{
     const props=lifecycleProps();render(<MessagingConnectionLifecycle {...props} connections={[]} targetId="" />);expect(screen.getByText("No hay conexiones vigentes para gestionar.")).toBeVisible();expect(screen.queryByRole("button",{name:"Suspender conexión"})).not.toBeInTheDocument();expect(props.onAct).not.toHaveBeenCalled();
   });

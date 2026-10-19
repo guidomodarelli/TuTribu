@@ -1,52 +1,206 @@
-/** Presents personal frequency and leader-only email controls without session, transport or recovery storage dependencies. @module admission-notification-settings */
+/** Presents admission notices as a summary or as small guided steps, without session, transport or recovery storage dependencies. @module admission-notification-settings */
 import { useId } from "react";
-import { Button, Checkbox, Input, Select } from "@golfo/ui";
+import { Alert, Badge, Button, Checkbox, Input, RadioGroup, type BadgeTone } from "@golfo/ui";
 import { Link } from "@/components/navigation/link";
+import { GuidedSteps, type GuidedStep } from "@/components/forms/guided-steps";
 import type { AdmissionNotificationPreferenceMode } from "@/src/modules/notifications/domain/entities/admission-notification-preference";
 import type { AdmissionNotificationPreferenceView, AdmissionNotificationEmailSettingsView } from "@/src/modules/notifications/application/results/admission-notification-settings-result";
 import type { AdmissionNotificationEmailSettingsDraft } from "@/src/modules/notifications/application/commands/admission-notification-email-settings-draft";
-import { ADMISSION_NOTIFICATION_PREFERENCE_MODE as MODE, ADMISSION_NOTIFICATION_PREFERENCE_SOURCE } from "@/src/modules/notifications/constants/admission-notification-preference";
+import { ADMISSION_NOTIFICATION_PREFERENCE_MODE as MODE } from "@/src/modules/notifications/constants/admission-notification-preference";
 import { ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH } from "@/src/modules/notifications/constants/admission-notification-settings-http";
-import { ADMISSION_NOTIFICATION_PREFERENCE_OPTIONS } from "@/src/modules/notifications/constants/admission-notification-settings-options";
+import { ADMISSION_NOTIFICATION_PREFERENCE_OPTIONS as OPTIONS, ADMISSION_NOTIFICATION_PREFERENCE_SUMMARY as SUMMARY, ADMISSION_NOTIFICATION_EMAIL_PLAN_LABEL, ADMISSION_NOTIFICATION_PREFERENCE_PLAN_LABEL } from "@/src/modules/notifications/constants/admission-notification-settings-options";
+import { ADMISSION_NOTIFICATION_SETTINGS_COPY as COPY, ADMISSION_NOTIFICATION_SETTINGS_EMAIL_PLAN as EMAIL_PLAN, ADMISSION_NOTIFICATION_SETTINGS_GUIDED_STEP as GUIDED_STEP, ADMISSION_NOTIFICATION_SETTINGS_SAVE_STEP as SAVE_STEP, type AdmissionNotificationSettingsEmailPlan, type AdmissionNotificationSettingsSaveStep } from "@/src/modules/notifications/constants/admission-notification-settings-browser";
 import styles from "./styles.module.scss";
+
+/** What the final save writes: the tribe email outcome and whether the personal preference changes. */
+export type AdmissionNotificationSettingsPlan = { email: AdmissionNotificationSettingsEmailPlan; preference: boolean };
 
 /** All private state and side effects remain owned by the route container. */
 export type AdmissionNotificationSettingsProps = {
-  preference: AdmissionNotificationPreferenceView; mode: AdmissionNotificationPreferenceMode; email: AdmissionNotificationEmailSettingsView | null;
-  draft: AdmissionNotificationEmailSettingsDraft; busy: boolean; disabled: boolean; confirmed: boolean; pending: boolean; canRetry: boolean;
-  preferenceError: string | null; preferenceStatus: string | null; emailError: string | null; emailStatus: string | null;
+  /** Saved personal preference. */
+  preference: AdmissionNotificationPreferenceView;
+  /** Chosen frequency, saved or not. */
+  mode: AdmissionNotificationPreferenceMode;
+  /** Saved tribe email; null when the viewer is not the tribe leader. */
+  email: AdmissionNotificationEmailSettingsView | null;
+  /** Edited tribe email fields. */
+  draft: AdmissionNotificationEmailSettingsDraft;
+  /** Whether the tribe sends admission email, or null when this viewer cannot know it. */
+  tribeEmailEnabled: boolean | null;
+  plan: AdmissionNotificationSettingsPlan;
+  /** True shows the steps (or the member form); false shows the saved summary. */
+  editing: boolean;
+  /** Zero-based active guided step of the leader. */
+  step: number;
+  busy: boolean;
+  /** True until the current state is read again after an uncertain or rejected write. */
+  disabled: boolean;
+  confirmed: boolean;
+  /** An original tribe email command is retained for recovery. */
+  pending: boolean;
+  /** The write in flight inside the chained save. */
+  saving: AdmissionNotificationSettingsSaveStep | null;
+  error: string | null;
+  status: string | null;
+  /** What remained saved or pending after a partial save. */
+  progress: string | null;
+  /** Whether there is a saved state to go back to without saving. */
+  canCancel: boolean;
   messagingHref: string;
-  onMode: (mode: AdmissionNotificationPreferenceMode) => void; onSavePreference: () => void; onDraft: (draft: AdmissionNotificationEmailSettingsDraft) => void;
-  onConfirm: (confirmed: boolean) => void; onSaveEmail: () => void; onRead: () => void; onRetryOriginal: () => void;
+  onMode: (mode: AdmissionNotificationPreferenceMode) => void;
+  onDraft: (draft: AdmissionNotificationEmailSettingsDraft) => void;
+  onConfirm: (confirmed: boolean) => void;
+  onStep: (index: number) => void;
+  onEdit: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+  onRead: () => void;
 };
-/** @param props - Guarded current state, retained draft and explicit callbacks. @returns Two accessible forms with adjacent validation, status and original recovery controls. */
+
+/** Tone of the tribe email marker: a new write informs, a retained original warns. */
+const EMAIL_PLAN_TONE = { unchanged: "neutral", save: "info", retry: "warning", blocked: "warning" } satisfies Record<AdmissionNotificationSettingsEmailPlan, BadgeTone>;
+
+/** @param mode - A known frequency. @returns Its visible option label. */
+function modeLabel(mode: AdmissionNotificationPreferenceMode): string {
+  return OPTIONS.find((option) => option.value === mode)?.label ?? mode;
+}
+
+/** @param value - Value reported by the radio group. @returns The matching frequency, or null for an unknown value. */
+function toMode(value: string): AdmissionNotificationPreferenceMode | null {
+  return OPTIONS.find((option) => option.value === value)?.value ?? null;
+}
+
+/** @param plan - Current save plan. @returns Whether the final save writes anything. */
+function hasPlannedWrite(plan: AdmissionNotificationSettingsPlan): boolean {
+  return plan.preference || plan.email === EMAIL_PLAN.save || plan.email === EMAIL_PLAN.retry;
+}
+
+/** @param props - Current state. @param needsConsent - Whether the save requires the review confirmation. @returns Why the save cannot run yet, or undefined while it can (or while another request is in flight). */
+function saveBlockedReason(props: AdmissionNotificationSettingsProps, needsConsent: boolean): string | undefined {
+  if (props.busy) return undefined;
+  if (props.disabled) return COPY.staleRead;
+  if (!hasPlannedWrite(props.plan)) return props.plan.email === EMAIL_PLAN.blocked ? COPY.emailOriginalBlocked : COPY.noChanges;
+  return needsConsent && !props.confirmed ? COPY.confirmRequired : undefined;
+}
+
+/** @param props - Save step and feedback. @returns The announced save progress, error, partial result and success lines. */
+function Feedback({ saving, error, progress, status }: Pick<AdmissionNotificationSettingsProps, "saving" | "error" | "progress" | "status">) {
+  const savingText = saving === SAVE_STEP.email ? COPY.savingEmail : saving === SAVE_STEP.preference ? COPY.savingPreference : "";
+  return <>
+    <p role="status" className={saving ? styles.AdmissionNotificationSettings__note : styles.AdmissionNotificationSettings__hidden}>{savingText}</p>
+    {error && <p role="alert" className={styles.AdmissionNotificationSettings__error}>{error}</p>}
+    {progress && <p role="status" className={styles.AdmissionNotificationSettings__note}>{progress}</p>}
+    {status && <p role="status" className={styles.AdmissionNotificationSettings__success}>{status}</p>}
+  </>;
+}
+
+/** @param props - Chosen frequency and busy state. @returns The frequency choice with the omitted warning. */
+function FrequencyField({ mode, busy, onMode }: Pick<AdmissionNotificationSettingsProps, "mode" | "busy" | "onMode">) {
+  return <div className={styles.AdmissionNotificationSettings__fields}>
+    <RadioGroup label="Frecuencia" value={mode} options={OPTIONS.map((option) => ({ ...option, disabled: busy }))} onValueChange={(value) => { const next = toMode(value); if (next) onMode(next); }} />
+    {mode === MODE.omitted && <Alert tone="warning" title="No vas a recibir correos de revisión">Vas a ver los avisos sólo dentro de TuTribu. Elegí otra frecuencia si querés recibirlos por correo.</Alert>}
+  </div>;
+}
+
+/** @param props - Whether the tribe sends admission email, when known. @returns The member notice that their email depends on the tribe. */
+function MemberTribeNotice({ tribeEmailEnabled }: Pick<AdmissionNotificationSettingsProps, "tribeEmailEnabled">) {
+  if (tribeEmailEnabled === true) return null;
+  return tribeEmailEnabled === false
+    ? <Alert tone="info" title="La tribu todavía no habilitó el correo de admisión">No vas a recibir correos hasta que lo haga.</Alert>
+    : <Alert tone="info" title="El correo de admisión lo habilita el líder de la tribu">Si todavía no lo habilitó, no vas a recibir correos hasta que lo haga.</Alert>;
+}
+
+/** @param props - Edited email fields and recovery state. @returns The tribe email switch, its zone and the messaging requirement. */
+function TribeEmailFields({ draft, pending, messagingHref, onDraft }: Pick<AdmissionNotificationSettingsProps, "draft" | "pending" | "messagingHref" | "onDraft">) {
+  return <div className={styles.AdmissionNotificationSettings__fields}>
+    <Checkbox label="Habilitar correo de admisión" description="Se aplica a las solicitudes nuevas y respeta la frecuencia que elija cada responsable." checked={draft.enabled} disabled={pending} onCheckedChange={(checked) => onDraft({ ...draft, enabled: checked === true })} />
+    {draft.enabled && <Input label="Zona horaria de la tribu" description="Se usa para el resumen diario de las 09:00. Por ejemplo, America/Argentina/Buenos_Aires." error={undefined} value={draft.timeZone} disabled={pending} maxLength={ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH} aria-invalid={!draft.timeZone.trim() || undefined} onChange={(event) => onDraft({ ...draft, timeZone: event.target.value })} />}
+    <p className={styles.AdmissionNotificationSettings__note}>Para enviar correos, la tribu necesita un correo preparado en mensajería. <Link href={messagingHref}>Revisar mensajería</Link></p>
+    {pending && <p className={styles.AdmissionNotificationSettings__note}>Este cambio quedó pendiente. Lo vas a poder reintentar en el último paso, con la misma referencia.</p>}
+  </div>;
+}
+
+/** @param props - Drafts, plan and consent. @returns A readable summary of what will be saved and the single confirmation. */
+function ReviewSummary({ draft, mode, plan, confirmed, onConfirm }: Pick<AdmissionNotificationSettingsProps, "draft" | "mode" | "plan" | "confirmed" | "onConfirm">) {
+  const outcome = mode === MODE.omitted ? SUMMARY[MODE.omitted] : draft.enabled ? SUMMARY[mode] : "Con el correo de la tribu deshabilitado no vas a recibir correos de revisión.";
+  return <div className={styles.AdmissionNotificationSettings__fields}>
+    <dl className={styles.AdmissionNotificationSettings__facts}>
+      <div className={styles.AdmissionNotificationSettings__fact}>
+        <dt className={styles.AdmissionNotificationSettings__term}>Correo de la tribu</dt>
+        <dd className={styles.AdmissionNotificationSettings__value}>{draft.enabled ? `Habilitado, zona ${draft.timeZone.trim()}` : "Deshabilitado"}<Badge size="sm" tone={EMAIL_PLAN_TONE[plan.email]}>{ADMISSION_NOTIFICATION_EMAIL_PLAN_LABEL[plan.email]}</Badge></dd>
+      </div>
+      <div className={styles.AdmissionNotificationSettings__fact}>
+        <dt className={styles.AdmissionNotificationSettings__term}>Tus avisos</dt>
+        <dd className={styles.AdmissionNotificationSettings__value}>{modeLabel(mode)}<Badge size="sm" tone={plan.preference ? "info" : "neutral"}>{plan.preference ? ADMISSION_NOTIFICATION_PREFERENCE_PLAN_LABEL.changed : ADMISSION_NOTIFICATION_PREFERENCE_PLAN_LABEL.unchanged}</Badge></dd>
+      </div>
+    </dl>
+    <p className={styles.AdmissionNotificationSettings__note}>{outcome}</p>
+    <Checkbox label="Revisé el resumen y quiero guardar estos avisos." checked={confirmed} onCheckedChange={(checked) => onConfirm(checked === true)} />
+  </div>;
+}
+
+/** @param props - Saved state. @returns The summary shown once everything is saved, with the action that opens the steps. */
+function SettingsSummary(props: AdmissionNotificationSettingsProps) {
+  const titleId = useId(), { email, preference } = props;
+  const sentence = props.tribeEmailEnabled === false && preference.mode !== MODE.omitted ? "El correo de la tribu está deshabilitado, así que no recibís correos de revisión." : SUMMARY[preference.mode];
+  return <section className={styles.AdmissionNotificationSettings__section} aria-labelledby={titleId}>
+    <h2 id={titleId} className={styles.AdmissionNotificationSettings__subtitle}>Tus avisos</h2>
+    <dl className={styles.AdmissionNotificationSettings__facts}>
+      {email && <div className={styles.AdmissionNotificationSettings__fact}><dt className={styles.AdmissionNotificationSettings__term}>Correo de la tribu</dt><dd className={styles.AdmissionNotificationSettings__value}>{email.enabled ? "Habilitado" : "Deshabilitado"}</dd></div>}
+      {email?.enabled && <div className={styles.AdmissionNotificationSettings__fact}><dt className={styles.AdmissionNotificationSettings__term}>Zona horaria</dt><dd className={styles.AdmissionNotificationSettings__value}>{email.timeZone}</dd></div>}
+      <div className={styles.AdmissionNotificationSettings__fact}><dt className={styles.AdmissionNotificationSettings__term}>Frecuencia</dt><dd className={styles.AdmissionNotificationSettings__value}>{modeLabel(preference.mode)}</dd></div>
+    </dl>
+    <p className={styles.AdmissionNotificationSettings__lead}>{sentence}</p>
+    {!email && preference.mode !== MODE.omitted && <MemberTribeNotice tribeEmailEnabled={props.tribeEmailEnabled} />}
+    <div className={styles.AdmissionNotificationSettings__actions}><Button variant="primary" onClick={props.onEdit} disabled={props.busy}>Cambiar avisos</Button></div>
+    <Feedback saving={props.saving} error={props.error} progress={props.progress} status={props.status} />
+  </section>;
+}
+
+/** @param props - Current state of a reviewer who is not the leader. @returns One frequency choice saved directly. */
+function MemberForm(props: AdmissionNotificationSettingsProps) {
+  const titleId = useId(), reason = saveBlockedReason(props, false);
+  return <form className={styles.AdmissionNotificationSettings__section} aria-labelledby={titleId} onSubmit={(event) => { event.preventDefault(); if (!reason && !props.busy) props.onSave(); }}>
+    <h2 id={titleId} className={styles.AdmissionNotificationSettings__subtitle}>Cómo querés recibir los avisos</h2>
+    <p className={styles.AdmissionNotificationSettings__note}>Esta elección es sólo tuya; no cambia la de otros responsables.</p>
+    <FrequencyField mode={props.mode} busy={props.busy} onMode={props.onMode} />
+    {props.mode !== MODE.omitted && <MemberTribeNotice tribeEmailEnabled={props.tribeEmailEnabled} />}
+    <div className={styles.AdmissionNotificationSettings__actions}><Button type="submit" variant="primary" loading={props.saving !== null} disabled={Boolean(reason) || props.busy && props.saving === null}>Guardar avisos</Button></div>
+    {reason && <p className={styles.AdmissionNotificationSettings__note}>{reason}</p>}
+    <Feedback saving={props.saving} error={props.error} progress={props.progress} status={props.status} />
+  </form>;
+}
+
+/** @param props - Current state of the tribe leader. @returns Three small steps: tribe email, personal frequency, and review with one save. */
+function LeaderSteps(props: AdmissionNotificationSettingsProps) {
+  const zoneMissing = props.draft.enabled && !props.draft.timeZone.trim() && !props.pending;
+  const steps: GuidedStep[] = [
+    { id: GUIDED_STEP.tribeEmail, title: "Correo de la tribu", description: "Habilitalo para que TuTribu envíe por correo los avisos de solicitudes de admisión a quienes las revisan.", content: <TribeEmailFields draft={props.draft} pending={props.pending} messagingHref={props.messagingHref} onDraft={props.onDraft} />, blockedReason: zoneMissing ? COPY.zoneRequired : undefined },
+    { id: GUIDED_STEP.frequency, title: "Cómo querés recibir los avisos", description: "Elegí la frecuencia de tus correos. Esta elección es sólo tuya.", content: <>
+      <FrequencyField mode={props.mode} busy={props.busy} onMode={props.onMode} />
+      {!props.draft.enabled && props.mode !== MODE.omitted && <Alert tone="info" title="El correo de la tribu va a quedar deshabilitado">Mientras esté deshabilitado nadie recibe correos de revisión. Podés habilitarlo en el paso anterior.</Alert>}
+    </> },
+    { id: GUIDED_STEP.review, title: "Revisá y guardá", description: "Guardamos sólo lo que cambió.", content: <ReviewSummary draft={props.draft} mode={props.mode} plan={props.plan} confirmed={props.confirmed} onConfirm={props.onConfirm} />, blockedReason: saveBlockedReason(props, true) },
+  ];
+  return <GuidedSteps label="Configurar avisos de admisión" steps={steps} current={props.step} onCurrentChange={props.onStep} busy={props.busy}
+    finalAction={{ label: "Guardar avisos", loading: props.saving !== null, onRun: props.onSave }}
+    footer={<Feedback saving={props.saving} error={props.error} progress={props.progress} status={props.status} />} />;
+}
+
+/** @param props - Guarded current state, drafts and explicit callbacks. @returns The saved summary, or the guided steps (leader) or the single frequency form (member). */
 export function AdmissionNotificationSettings(props: AdmissionNotificationSettingsProps) {
-  const id = useId(), modeId = `${id}-mode`, enabledId = `${id}-enabled`, zoneId = `${id}-zone`, confirmId = `${id}-confirm`;
-  const fieldsDisabled = props.busy || props.pending, editDisabled = props.disabled || fieldsDisabled, personalDisabled = props.disabled || props.busy, zoneInvalid = !props.draft.timeZone.trim();
+  const unsaved = props.editing && hasPlannedWrite(props.plan);
   return <div className={styles.AdmissionNotificationSettings} aria-busy={props.busy}>
-    <p className={styles.AdmissionNotificationSettings__help}>Elegí cómo recibir los nuevos avisos de revisión. La preferencia es personal; el líder habilita el correo de la tribu por separado. Los avisos dentro de TuTribu se conservan.</p>
-    <div className={styles.AdmissionNotificationSettings__actions}><Button variant="secondary" onClick={props.onRead} disabled={props.busy}>Consultar estado actual</Button></div>
-    {props.busy && <p role="status" className={styles.AdmissionNotificationSettings__help}>Procesando los ajustes de admisión…</p>}
-    {props.disabled && !props.busy && <p role="status" className={styles.AdmissionNotificationSettings__help}>Consultá el estado actual antes de guardar otro cambio.</p>}
-    <form className={styles.AdmissionNotificationSettings__section} onSubmit={(event) => { event.preventDefault(); if (!personalDisabled) props.onSavePreference(); }} aria-labelledby={`${modeId}-title`}>
-      <h2 id={`${modeId}-title`} className={styles.AdmissionNotificationSettings__subtitle}>Mi preferencia de correo</h2>
-      <p className={styles.AdmissionNotificationSettings__help}>{props.preference.source === ADMISSION_NOTIFICATION_PREFERENCE_SOURCE.implicit ? "Todavía usás la elección predeterminada de tu rol." : "Tenés una elección personal guardada."} Guardar no envía avisos anteriores ni activa los códigos de contacto.</p>
-      <div className={styles.AdmissionNotificationSettings__field}><Select value={props.mode} disabled={props.busy} onValueChange={(value) => { if (value === MODE.grouped || value === MODE.individual || value === MODE.daily || value === MODE.omitted) props.onMode(value); }} id={modeId} aria-describedby={`${modeId}-help`} label="Frecuencia" options={ADMISSION_NOTIFICATION_PREFERENCE_OPTIONS} /><p id={`${modeId}-help`} className={styles.AdmissionNotificationSettings__help}>El resumen diario usa las 09:00 y la zona horaria de la tribu. Esta elección no cambia la de otros responsables.</p></div>
-      {props.preferenceError && <p role="alert" className={styles.AdmissionNotificationSettings__error}>{props.preferenceError}</p>}
-      {props.preferenceStatus && <p role="status" className={styles.AdmissionNotificationSettings__help}>{props.preferenceStatus}</p>}
-      <div className={styles.AdmissionNotificationSettings__actions}><Button type="submit" disabled={personalDisabled}>Guardar mi preferencia</Button></div>
-    </form>
-    {props.email && <form className={styles.AdmissionNotificationSettings__section} aria-labelledby={`${enabledId}-title`} onSubmit={(event) => { event.preventDefault(); if (!editDisabled && props.confirmed && !zoneInvalid) props.onSaveEmail(); }}>
-      <h2 id={`${enabledId}-title`} className={styles.AdmissionNotificationSettings__subtitle}>Correo de la tribu</h2>
-      <p role="status" className={styles.AdmissionNotificationSettings__help}>{props.email.enabled ? "El correo de admisión está habilitado." : "El correo de admisión está deshabilitado."} Sólo el líder activo puede cambiarlo.</p>
-      <div className={styles.AdmissionNotificationSettings__check}><Checkbox id={enabledId} checked={props.draft.enabled} disabled={fieldsDisabled} onCheckedChange={(checked) => props.onDraft({ ...props.draft, enabled: checked === true })} /><label htmlFor={enabledId}>Habilitar correo de admisión</label></div>
-      <p className={styles.AdmissionNotificationSettings__help}>Se requiere un correo preparado en mensajería. Habilitarlo se aplica a hechos nuevos, respeta cada preferencia personal y no habilita OTP.</p>
-      <div className={styles.AdmissionNotificationSettings__field}><label htmlFor={zoneId}>Zona horaria de la tribu</label><Input id={zoneId} value={props.draft.timeZone} disabled={fieldsDisabled} maxLength={ADMISSION_NOTIFICATION_SETTINGS_TIME_ZONE_MAX_LENGTH} aria-invalid={zoneInvalid || undefined} aria-describedby={`${zoneId}-help`} onChange={(event) => props.onDraft({ ...props.draft, timeZone: event.target.value })} /><p id={`${zoneId}-help`} className={styles.AdmissionNotificationSettings__help}>{zoneInvalid ? "Indicá una zona horaria antes de guardar." : "Usá un nombre de zona, por ejemplo America/Argentina/Buenos_Aires. Se aplica al resumen diario de la tribu."}</p></div>
-      {props.pending && <p role="status" className={styles.AdmissionNotificationSettings__help}>Conservamos el cambio original. Consultá su estado antes de empezar otro; los ajustes actuales pueden tener una versión posterior.</p>}
-      {props.emailError && <p role="alert" className={styles.AdmissionNotificationSettings__error}>{props.emailError}</p>}
-      {props.emailStatus && <p role="status" className={styles.AdmissionNotificationSettings__help}>{props.emailStatus}</p>}
-      <div className={styles.AdmissionNotificationSettings__check}><Checkbox id={confirmId} checked={props.confirmed} disabled={props.busy || props.disabled || props.pending && !props.canRetry} onCheckedChange={(checked) => props.onConfirm(checked === true)} /><label htmlFor={confirmId}>Confirmo la habilitación y la zona elegidas para el correo de esta tribu.</label></div>
-      <div className={styles.AdmissionNotificationSettings__actions}>{props.pending ? <Button type="button" onClick={props.onRetryOriginal} disabled={props.busy || props.disabled || !props.canRetry || !props.confirmed}>Reintentar el cambio original</Button> : <Button type="submit" disabled={editDisabled || !props.confirmed || zoneInvalid}>Guardar correo de admisión</Button>}<Link href={props.messagingHref}>Revisar mensajería</Link></div>
-    </form>}
+    <p className={styles.AdmissionNotificationSettings__lead}>Elegí cómo te avisamos por correo cuando hay solicitudes de admisión para revisar. Los avisos dentro de TuTribu se mantienen siempre.</p>
+    <div className={styles.AdmissionNotificationSettings__toolbar}>
+      {unsaved && <Badge tone="warning" size="sm">Cambios sin guardar</Badge>}
+      <div className={styles.AdmissionNotificationSettings__toolbarActions}>
+        {props.editing && props.canCancel && <Button variant="ghost" size="sm" onClick={props.onCancel} disabled={props.busy}>Cancelar</Button>}
+        <Button variant="ghost" size="sm" onClick={props.onRead} disabled={props.busy}>Consultar estado actual</Button>
+      </div>
+    </div>
+    {props.busy && props.saving === null && <p role="status" className={styles.AdmissionNotificationSettings__note}>Consultando los ajustes actuales…</p>}
+    {props.pending && <p role="status" className={styles.AdmissionNotificationSettings__callout}>Conservamos el cambio original del correo de la tribu. Consultá su estado antes de empezar otro; los ajustes actuales pueden tener una versión posterior.</p>}
+    {!props.editing ? <SettingsSummary {...props} /> : props.email ? <LeaderSteps {...props} /> : <MemberForm {...props} />}
   </div>;
 }
